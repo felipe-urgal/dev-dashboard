@@ -9,14 +9,14 @@
   border: 1px solid rgb(255 255 255 / 7%);
   border-radius: 7px;
   background: rgb(255 255 255 / 2.5%);
-  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  transition: border-color 140ms ease, background 140ms ease
 }
 
 .project-log-raw-lines .enhanced-log-request-error {
   border-color: rgb(248 113 113 / 58%);
   border-left: 4px solid #f87171;
   background: linear-gradient(90deg, rgb(127 29 29 / 34%), rgb(127 29 29 / 8%));
-  box-shadow: 0 0 0 1px rgb(248 113 113 / 8%), 0 8px 24px rgb(127 29 29 / 12%);
+  ;
 }
 
 .enhanced-log-method,
@@ -41,7 +41,7 @@
 .enhanced-log-path { min-width: 0; overflow: hidden; color: #dce5f4; text-overflow: ellipsis; white-space: nowrap; }
 .enhanced-log-http { min-width: 38px; padding: 3px 6px; color: #a4e6b7; background: rgb(39 167 78 / 18%); }
 .enhanced-log-http-4xx { color: #ffe0a3; background: rgb(211 132 26 / 26%); }
-.enhanced-log-http-5xx { color: #fff; background: rgb(220 38 38 / 72%); box-shadow: 0 0 12px rgb(220 38 38 / 32%); }
+.enhanced-log-http-5xx { color: #fff; background: rgb(220 38 38 / 72%); }
 .enhanced-log-duration { justify-self: end; color: #92a0b4; font-variant-numeric: tabular-nums; }
 .enhanced-log-slow { color: #ffbf69 !important; font-weight: 700; }
 .enhanced-log-boot { color: #94a8c5 !important; }
@@ -61,7 +61,7 @@
   border-radius: 7px;
   color: #fecaca !important;
   background: linear-gradient(90deg, rgb(127 29 29 / 38%), rgb(127 29 29 / 10%));
-  box-shadow: 0 8px 24px rgb(127 29 29 / 14%);
+  
   white-space: pre-wrap;
 }
 
@@ -88,7 +88,7 @@
   gap: 7px;
   padding: 10px 11px !important;
   border-bottom: 1px solid rgb(255 255 255 / 6%);
-  transition: background 140ms ease, box-shadow 140ms ease;
+  transition: background 140ms ease
 }
 
 .enhanced-sql-header { display: flex; align-items: center; gap: 8px; }
@@ -162,7 +162,7 @@
   border-color: rgb(248 113 113 / 62%) !important;
   border-left: 5px solid #ef4444 !important;
   background: linear-gradient(100deg, rgb(127 29 29 / 25%), rgb(15 23 42 / 18%)) !important;
-  box-shadow: 0 0 0 1px rgb(248 113 113 / 9%), 0 14px 35px rgb(127 29 29 / 16%);
+  
 }
 
 .rails-request-card.enhanced-request-error-card::before {
@@ -175,7 +175,7 @@
   border-radius: 999px;
   color: #fff;
   background: #dc2626;
-  box-shadow: 0 0 14px rgb(220 38 38 / 38%);
+  
   font-size: 9px;
   font-weight: 900;
   letter-spacing: .08em;
@@ -197,7 +197,7 @@
   border-radius: 3px;
   color: #111827;
   background: #fde047;
-  box-shadow: 0 0 0 1px rgb(250 204 21 / 45%), 0 0 12px rgb(250 204 21 / 24%);
+  
   font: inherit;
 }
 
@@ -206,18 +206,6 @@
   outline: 1px solid rgb(250 204 21 / 58%);
   outline-offset: -1px;
   background-color: rgb(250 204 21 / 5%) !important;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .enhanced-log-request-error,
-  .rails-request-card.enhanced-request-error-card {
-    animation: log-error-attention 420ms ease-out 1;
-  }
-}
-
-@keyframes log-error-attention {
-  from { box-shadow: 0 0 0 3px rgb(248 113 113 / 32%); }
-  to { box-shadow: 0 0 0 1px rgb(248 113 113 / 8%), 0 14px 35px rgb(127 29 29 / 16%); }
 }
 
 @media (max-width: 800px) {

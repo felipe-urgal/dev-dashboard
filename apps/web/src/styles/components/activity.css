@@ -359,11 +359,11 @@
   left: 20px;
   top: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 3px var(--surface-1);
+  
 }
 
 .activity-item:hover .activity-timeline-dot {
-  box-shadow: 0 0 0 3px var(--surface-2);
+  
 }
 
 .activity-item-title {

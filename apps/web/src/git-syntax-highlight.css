@@ -110,12 +110,12 @@
 }
 
 .git-syntax-patch-line.is-addition {
-  box-shadow: inset 3px 0 0 var(--success-text);
+  
   background: color-mix(in srgb, var(--success-surface) 78%, var(--surface-1));
 }
 
 .git-syntax-patch-line.is-deletion {
-  box-shadow: inset 3px 0 0 var(--danger-text);
+  
   background: color-mix(in srgb, var(--danger-surface) 78%, var(--surface-1));
 }
 

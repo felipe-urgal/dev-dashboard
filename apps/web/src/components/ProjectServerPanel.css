@@ -159,7 +159,7 @@
 
 .server-config-control:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  
 }
 
 .server-config-control:disabled {
@@ -366,7 +366,7 @@
   height: 7px;
   border-radius: 999px;
   background: var(--success-text);
-  box-shadow: 0 0 0 3px var(--success-surface);
+  
   content: '';
 }
 

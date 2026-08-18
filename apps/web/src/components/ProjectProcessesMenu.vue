@@ -380,7 +380,6 @@ async function toggleItem(item: ProcessItem): Promise<void> {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
-  box-shadow: 0 16px 34px rgb(0 0 0 / 18%);
 }
 
 .processes-menu-error {
@@ -419,7 +418,6 @@ async function toggleItem(item: ProcessItem): Promise<void> {
 
 .processes-menu-dot-on {
   background: var(--success-text);
-  box-shadow: 0 0 0 3px var(--success-surface);
 }
 
 .processes-menu-item-text {

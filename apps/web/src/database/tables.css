@@ -34,7 +34,7 @@
   letter-spacing: 0.035em;
   text-align: left;
   text-transform: uppercase;
-  box-shadow: 0 1px 0 var(--border);
+  
 }
 
 .database-data-table td {
@@ -57,7 +57,7 @@
 }
 
 .database-data-table tbody tr.active td:first-child {
-  box-shadow: inset 3px 0 0 var(--accent);
+  
 }
 
 .database-data-table td button:not(.database-row-action) {

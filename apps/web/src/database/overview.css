@@ -211,12 +211,12 @@
 
 .database-preview-dot.is-up {
   background: var(--success-text);
-  box-shadow: 0 0 0 3px var(--success-surface);
+  
 }
 
 .database-preview-dot.is-down {
   background: var(--warning-text);
-  box-shadow: 0 0 0 3px var(--warning-surface);
+  
 }
 
 .database-tip {
@@ -358,7 +358,7 @@
 .database-sidebar-list > button.active {
   border-color: color-mix(in srgb, var(--accent) 64%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface-1));
-  box-shadow: inset 3px 0 0 var(--accent);
+  
 }
 
 .database-sidebar-item-icon,

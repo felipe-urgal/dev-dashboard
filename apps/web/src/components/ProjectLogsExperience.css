@@ -395,7 +395,7 @@
 }
 
 .server-diagnostic-list > button.active {
-  box-shadow: inset 3px 0 0 var(--accent);
+  
 }
 
 .server-diagnostic-kind {

@@ -1,4 +1,3 @@
-import { isTestLogErrorLine, isTestLogWarningLine } from './classify';
 import { enhanceRow } from './row';
 
 function tabButton(
@@ -44,7 +43,6 @@ export function enhanceShell(shell: HTMLElement): void {
   const rows = Array.from(
     shell.querySelectorAll<HTMLElement>('.tests-log-lines > li'),
   );
-  rows.forEach(enhanceRow);
 
   const activeButton = shell.querySelector<HTMLButtonElement>(
     '.tests-log-tabs button.active',
@@ -52,16 +50,19 @@ export function enhanceShell(shell: HTMLElement): void {
   const activeLabel =
     activeButton?.textContent?.trim().toLocaleLowerCase('pt-BR') ?? 'log';
   const onRawLog = activeLabel.startsWith('log');
+  const lastRowText = rows.at(-1)?.textContent ?? '';
+  const rowsSignature = `${rows.length}:${lastRowText}`;
+  const rowsChanged = shell.dataset.testLogRowsSignature !== rowsSignature;
+  const semanticTones = rowsChanged ? rows.map(enhanceRow) : [];
 
-  if (onRawLog) {
-    const errorCount = rows.filter((row) =>
-      isTestLogErrorLine(row.querySelector('code')?.textContent ?? ''),
-    ).length;
-    const warningCount = rows.filter((row) =>
-      isTestLogWarningLine(row.querySelector('code')?.textContent ?? ''),
+  if (onRawLog && rowsChanged) {
+    const errorCount = semanticTones.filter((tone) => tone === 'error').length;
+    const warningCount = semanticTones.filter(
+      (tone) => tone === 'warning',
     ).length;
     shell.dataset.testLogSemanticErrorCount = String(errorCount);
     shell.dataset.testLogSemanticWarningCount = String(warningCount);
+    shell.dataset.testLogRowsSignature = rowsSignature;
   }
 
   const errorCount = Number(shell.dataset.testLogSemanticErrorCount ?? '0');
@@ -71,9 +72,7 @@ export function enhanceShell(shell: HTMLElement): void {
 
   if (activeLabel.startsWith('erros')) {
     rows.forEach((row) => {
-      const shouldHide = !isTestLogErrorLine(
-        row.querySelector('code')?.textContent ?? '',
-      );
+      const shouldHide = row.dataset.testLogSemanticTone !== 'error';
       if (row.hidden !== shouldHide) row.hidden = shouldHide;
     });
     if (errorCount === 0) renderSemanticEmptyInspector(shell);

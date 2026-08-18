@@ -41,12 +41,12 @@
   background: var(--surface-0);
   font: inherit;
   font-size: var(--font-sm);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 150ms ease;
 }
 
 .test-log-explorer-search input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  
 }
 
 .test-log-explorer-controls {

@@ -70,14 +70,14 @@
   min-height: 24px;
   border-bottom-color: var(--git-diff-row-border);
   background: var(--git-diff-context-bg);
-  box-shadow: inset 4px 0 0 transparent;
+  
 }
 
 .git-diff-page .git-diff-side-cell {
   grid-template-columns: 48px 24px minmax(0, 1fr);
   min-height: 24px;
   background: var(--git-diff-context-bg);
-  box-shadow: inset 4px 0 0 transparent;
+  
 }
 
 .git-diff-page .git-diff-unified-row code,
@@ -101,7 +101,7 @@
 .git-diff-page .git-diff-unified-row.is-addition,
 .git-diff-page .git-diff-side-cell.is-addition {
   background: var(--git-diff-addition-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+  
 }
 
 .git-diff-page .git-diff-unified-row.is-addition .git-diff-line-number,
@@ -119,7 +119,7 @@
 .git-diff-page .git-diff-unified-row.is-deletion,
 .git-diff-page .git-diff-side-cell.is-deletion {
   background: var(--git-diff-deletion-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+  
 }
 
 .git-diff-page .git-diff-unified-row.is-deletion .git-diff-line-number,
@@ -180,7 +180,7 @@
 .git-inline-file-diff .git-inline-diff-line,
 .git-inline-file-diff .git-inline-diff-side {
   background: var(--git-diff-context-bg);
-  box-shadow: inset 4px 0 0 transparent;
+  
 }
 
 .git-inline-file-diff .git-inline-diff-line-number {
@@ -190,7 +190,7 @@
 .git-inline-file-diff .git-inline-diff-line.is-addition,
 .git-inline-file-diff .git-inline-diff-side.is-addition {
   background: var(--git-diff-addition-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+  
 }
 
 .git-inline-file-diff .git-inline-diff-line.is-addition .git-inline-diff-line-number,
@@ -207,7 +207,7 @@
 .git-inline-file-diff .git-inline-diff-line.is-deletion,
 .git-inline-file-diff .git-inline-diff-side.is-deletion {
   background: var(--git-diff-deletion-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+  
 }
 
 .git-inline-file-diff .git-inline-diff-line.is-deletion .git-inline-diff-line-number,
@@ -274,7 +274,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
-  box-shadow: inset 4px 0 0 transparent;
+  
 }
 
 :is(
@@ -284,7 +284,7 @@
   .git-history-page-diff pre
 ) > span.is-addition {
   background: var(--git-diff-addition-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+  
 }
 
 :is(
@@ -294,7 +294,7 @@
   .git-history-page-diff pre
 ) > span.is-deletion {
   background: var(--git-diff-deletion-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+  
 }
 
 :is(
@@ -305,7 +305,7 @@
 ) > span.is-hunk {
   background: var(--git-diff-hunk-bg);
   color: var(--git-diff-hunk-text);
-  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--git-diff-hunk-text) 72%, transparent);
+  
 }
 
 :is(

@@ -275,7 +275,7 @@ a.secondary-button {
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   background: var(--surface-1);
-  box-shadow: 0 28px 90px rgb(0 0 0 / 45%);
+  
 }
 
 .modal-backdrop-center {

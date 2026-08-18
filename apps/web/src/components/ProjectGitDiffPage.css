@@ -163,7 +163,7 @@
 .git-diff-view-switch button.active {
   background: var(--surface-1);
   color: var(--text);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .git-diff-collapse-all {

@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
   max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
   max-height: calc(100vh - 180px);
   background: #10131c;
-  box-shadow: var(--shadow-1);
+
   overflow: hidden;
   resize: both;
   position: relative;
@@ -510,7 +510,6 @@ onBeforeUnmount(() => {
   border-radius: 0;
   resize: none;
   z-index: 50;
-  box-shadow: var(--shadow-2);
 }
 
 @media (max-height: 640px) {

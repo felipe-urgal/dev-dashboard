@@ -207,7 +207,7 @@
 .scripts-catalog-toolbar select:focus {
   border-color: var(--accent);
   outline: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  
 }
 
 .scripts-pagination {

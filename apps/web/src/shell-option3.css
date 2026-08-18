@@ -11,7 +11,6 @@
   padding: 22px 16px 18px;
   border-right-color: var(--border);
   background: var(--surface-1);
-  box-shadow: 12px 0 40px rgb(0 0 0 / 13%);
 }
 
 .brand {
@@ -29,7 +28,7 @@
   border-radius: 12px;
   color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: 0 0 28px rgb(0 211 237 / 13%);
+  
 }
 
 .brand-mark svg {
@@ -113,12 +112,12 @@
 .navigation-item-active {
   color: var(--text);
   background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px rgb(50 214 238 / 18%);
+  
 }
 
 .navigation-item-active::before {
   background: var(--accent);
-  box-shadow: 0 0 14px var(--accent);
+  
 }
 
 .navigation-icon {
@@ -223,7 +222,7 @@
 .project-details-sticky-header {
   border-bottom: 1px solid var(--border);
   background: var(--surface-1);
-  box-shadow: 0 12px 30px rgb(0 0 0 / 16%);
+  
 }
 
 .project-details-hero {
@@ -297,7 +296,7 @@
 
 .project-details-tab-active::after {
   background: var(--accent);
-  box-shadow: 0 0 12px rgb(50 214 238 / 55%);
+  
 }
 
 /*.processes-page {
@@ -309,7 +308,7 @@
   border: 1px solid var(--border);
   border-radius: 14px 14px 0 0;
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
 }*/
 
 .processes-summary > div {
@@ -331,7 +330,7 @@
 }
 
 .processes-summary-dot {
-  box-shadow: 0 0 0 3px var(--surface-2);
+  
 }
 
 /*.processes-filters {
@@ -399,7 +398,7 @@
   border-top: 0;
   border-radius: 0 0 14px 14px;
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
   overflow-x: auto;
 }*/
 
@@ -530,7 +529,7 @@
 
 .git-subtabs button.active::after {
   background: var(--accent);
-  box-shadow: 0 0 12px rgb(50 214 238 / 55%);
+  
 }
 
 .git-modern-messages {
@@ -559,7 +558,7 @@
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .git-sync-card {
@@ -608,7 +607,7 @@
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .git-status-grid article {
@@ -742,7 +741,7 @@
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .project-logs-topbar,
@@ -773,7 +772,7 @@
   border-color: var(--border);
   border-radius: 10px;
   background: #020b14;
-  box-shadow: 0 18px 42px rgb(0 0 0 / 24%);
+  
 }
 
 .terminal-window-dots span {
@@ -923,7 +922,7 @@
   border-color: var(--border);
   border-radius: 10px;
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .dependencies-table th,
