@@ -129,7 +129,7 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(false);
-    expect(wrapper.find('.server-logs').exists()).toBe(false);
+      expect(wrapper.find('.server-logs').exists()).toBe(false);
     expect(wrapper.text()).toContain('Iniciar servidor');
     expect(wrapper.text()).not.toContain('Atividade recente');
     expect(wrapper.text()).not.toContain('Health check');
@@ -137,33 +137,36 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('exibe configuração e informações operacionais quando o servidor está rodando', async () => {
-    fetchProjectProcess.mockResolvedValueOnce({
-      id: 'proc-running',
+  it(
+    'exibe configuração e informações operacionais quando o servidor está rodando',
+    async () => {
+      fetchProjectProcess.mockResolvedValueOnce({
+        id: 'proc-running',
       projectId: project.id,
       kind: 'server',
       status: 'running',
       port: 3_000,
       host: '192.168.1.10',
-      url: 'http://localhost:3000',
-    });
+        url: 'http://localhost:3000',
+      });
 
-    const wrapper = mountServerPanel();
+      const wrapper = mountServerPanel();
     await flushPromises();
 
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
-    expect(wrapper.find('.server-running-card').exists()).toBe(true);
+      expect(wrapper.find('.server-running-card').exists()).toBe(true);
     expect(wrapper.find('.server-logs').exists()).toBe(false);
-    expect(wrapper.find('.project-log-terminal').exists()).toBe(false);
-    expect(wrapper.find('.server-log-button').exists()).toBe(true);
-    expect(wrapper.text()).toContain('http://localhost:3000');
-    expect(wrapper.text()).toContain('http://192.168.1.10:3000');
-    expect(wrapper.text()).not.toContain('Configuração do processo');
-    expect(wrapper.text()).not.toContain('Abrir no navegador do sistema');
-    expect(wrapper.text()).not.toContain('Health check');
+      expect(wrapper.find('.project-log-terminal').exists()).toBe(false);
+      expect(wrapper.find('.server-log-button').exists()).toBe(true);
+      expect(wrapper.text()).toContain('http://localhost:3000');
+      expect(wrapper.text()).toContain('http://192.168.1.10:3000');
+      expect(wrapper.text()).not.toContain('Configuração do processo');
+      expect(wrapper.text()).not.toContain('Abrir no navegador do sistema');
+      expect(wrapper.text()).not.toContain('Health check');
 
-    wrapper.unmount();
-  });
+      wrapper.unmount();
+    },
+  );
 
   it('renderiza o painel Git com sua navegação própria', async () => {
     const wrapper = mount(ProjectGitPanel, { props: { project } });
