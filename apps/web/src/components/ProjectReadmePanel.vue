@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue';
 
 import {
-  ArrowPathIcon,
   CheckIcon,
   ClipboardDocumentIcon,
   DocumentTextIcon,
@@ -11,6 +10,7 @@ import {
 import type { Project, ProjectFileEntry } from '@dev-dashboard/contracts';
 
 import { fetchProjectFileContent, fetchProjectMarkdownFiles } from '../api';
+import ProjectReadmeFileList from './ProjectReadmeFileList.vue';
 
 type TableAlignment = 'left' | 'center' | 'right' | null;
 
@@ -444,36 +444,13 @@ watch(
 
 <template>
   <section class="readme-panel" aria-labelledby="project-readme-title">
-    <nav class="readme-file-list">
-      <div
-        v-if="files.length > 1"
-        class="readme-file-list-item"
-        aria-label="Arquivos Markdown do projeto"
-      >
-        <button
-          v-for="file in files"
-          :key="file.path"
-          type="button"
-          class="readme-file-item"
-          :class="{ 'readme-file-item-active': file.path === selectedPath }"
-          :aria-current="file.path === selectedPath ? 'true' : undefined"
-          :disabled="loading && file.path === selectedPath"
-          @click="selectFile(file.path)"
-        >
-          {{ file.path }}
-        </button>
-      </div>
-
-      <button
-        type="button"
-        class="readme-refresh-button"
-        :disabled="loading"
-        @click="loadFiles"
-      >
-        <ArrowPathIcon aria-hidden="true" />
-        {{ loading ? 'Atualizando...' : 'Atualizar' }}
-      </button>
-    </nav>
+    <ProjectReadmeFileList
+      :files="files"
+      :selected-path="selectedPath"
+      :loading="loading"
+      @select="selectFile"
+      @refresh="loadFiles"
+    />
 
     <p v-if="filesTruncated" class="readme-truncated-warning" role="status">
       A lista foi limitada aos primeiros arquivos Markdown encontrados.
