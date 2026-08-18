@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
 import Card from '../components/Card.vue';
@@ -13,11 +12,6 @@ const {
   loadingProjects,
   scanningWorkspace,
   lastScannedPath,
-  warningCount,
-  processSummary,
-  loadingProcessSummary,
-  processSummaryError,
-  loadProcessSummary,
   enabledUpdatingIds,
   rescanSelectedWorkspace,
   toggleProjectEnabled,
@@ -25,48 +19,7 @@ const {
 
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
-const overviewMetrics = computed(() => [
-  {
-    key: 'projects',
-    label: 'Projetos',
-    value: projects.value.length,
-    detail: 'detectados',
-  },
-  {
-    key: 'active',
-    label: 'Ativos',
-    value: projects.value.filter((project) => project.enabled).length,
-    detail: 'disponíveis',
-  },
-  {
-    key: 'git',
-    label: 'Git',
-    value: projects.value.filter((project) =>
-      project.capabilities.includes('git'),
-    ).length,
-    detail: 'com integração',
-  },
-  {
-    key: 'servers',
-    label: 'Servidores',
-    value: projects.value.filter((project) =>
-      project.capabilities.includes('server'),
-    ).length,
-    detail: 'com suporte',
-  },
-  {
-    key: 'running',
-    label: 'Em execução',
-    value: processSummary.value.active,
-    detail: 'processos ativos',
-  },
-  {
-    key: 'failed',
-    label: 'Falhas',
-    value: processSummary.value.failed,
-    detail: 'processos com erro',
-  },
-]);
+
 </script>
 
 <template>
@@ -76,86 +29,6 @@ const overviewMetrics = computed(() => [
     :aria-busy="loadingProjects"
     aria-labelledby="overview-title"
   >
-    <Card
-      class="overview-summary-card"
-      aria-labelledby="overview-summary-title"
-    >
-      <template #header>
-        <div class="overview-summary-heading">
-          <h2 id="overview-summary-title" class="section-kicker">
-            Resumo do workspace
-          </h2>
-          <code v-if="lastScannedPath" class="overview-summary-path">
-            {{ lastScannedPath }}
-          </code>
-          <span
-            v-if="loadingProcessSummary"
-            class="overview-summary-status"
-            role="status"
-          >
-            Atualizando processos…
-          </span>
-          <span
-            v-else-if="processSummaryError"
-            class="overview-summary-status overview-summary-status-error"
-            role="status"
-          >
-            {{ processSummaryError }}
-          </span>
-        </div>
-      </template>
-
-      <template #actions>
-        <RouterLink
-          class="overview-summary-action"
-          :to="
-            processSummary.failed > 0
-              ? { name: 'processes', query: { status: 'failed' } }
-              : processSummary.active > 0
-                ? { name: 'processes', query: { status: 'active' } }
-                : { name: 'processes' }
-          "
-          :aria-label="
-            processSummary.failed > 0
-              ? 'Ver processos com falha'
-              : processSummary.active > 0
-                ? 'Ver processos ativos'
-                : 'Abrir monitoramento operacional'
-          "
-        >
-          {{
-            processSummary.failed > 0
-              ? 'Ver falhas'
-              : processSummary.active > 0
-                ? 'Ver ativos'
-                : 'Acompanhar execução'
-          }}
-        </RouterLink>
-      </template>
-
-      <div class="overview-summary-grid">
-        <div
-          v-for="metric in overviewMetrics"
-          :key="metric.key"
-          :data-key="metric.key"
-          class="overview-summary-metric"
-        >
-          <span>{{ metric.label }}</span>
-          <strong>{{ metric.value }}</strong>
-          <small>{{ metric.detail }}</small>
-        </div>
-        <div
-          v-if="warningCount > 0"
-          data-key="warnings"
-          class="overview-summary-metric overview-summary-metric-warning"
-        >
-          <span>Atenções</span>
-          <strong>{{ warningCount }}</strong>
-          <small>encontradas no último scan</small>
-        </div>
-      </div>
-    </Card>
-
     <Card id="repositories" class="repositories-section">
       <template #header>
         <h2 id="overview-title" class="section-kicker">Repositórios</h2>
@@ -217,88 +90,6 @@ const overviewMetrics = computed(() => [
 </template>
 
 <style scoped>
-.overview-summary-card {
-  margin-bottom: 14px;
-}
-
-.overview-summary-heading {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.overview-summary-path {
-  overflow: hidden;
-  max-width: 100%;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.overview-summary-action {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.overview-summary-action:hover {
-  text-decoration: underline;
-}
-
-.overview-summary-action:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-.overview-summary-status {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.overview-summary-status-error {
-  color: var(--danger-text);
-}
-
-.overview-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.overview-summary-metric {
-  display: grid;
-  min-height: 86px;
-  align-content: center;
-  gap: 4px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 13px 14px;
-  background: var(--surface-2);
-}
-
-.overview-summary-metric span,
-.overview-summary-metric small {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.overview-summary-metric strong {
-  color: var(--text);
-  font-size: 24px;
-  line-height: 1;
-}
-
-.overview-summary-metric-warning {
-  border-color: color-mix(in srgb, var(--warning-text) 45%, var(--border));
-  background: var(--warning-surface);
-}
-
 .compact-actions {
   display: flex;
   align-items: center;
