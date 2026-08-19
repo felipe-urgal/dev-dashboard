@@ -147,6 +147,8 @@ const {
           <option value="">Todos</option>
           <option value="server">Servidor</option>
           <option value="test">Testes</option>
+          <option value="worker">Sidekiq</option>
+          <option value="webpack">Webpack</option>
           <option value="compose-build">Docker build</option>
         </select>
       </label>

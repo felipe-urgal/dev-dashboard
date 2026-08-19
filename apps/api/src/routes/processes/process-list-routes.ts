@@ -179,7 +179,10 @@ export function registerProcessListRoutes(
           properties: {
             workspaceId: { type: 'string', minLength: 1, maxLength: 200 },
             projectId: { type: 'string', minLength: 1, maxLength: 200 },
-            kind: { type: 'string', enum: ['server', 'test'] },
+            kind: {
+              type: 'string',
+              enum: ['server', 'test', 'worker', 'webpack'],
+            },
           },
         },
         response: {
@@ -202,7 +205,7 @@ export function registerProcessListRoutes(
       const query = request.query as {
         workspaceId?: string;
         projectId?: string;
-        kind?: 'server' | 'test';
+        kind?: 'server' | 'test' | 'worker' | 'webpack';
       };
       const projects = projectStore.listProjects();
       const projectsById = new Map(
@@ -210,7 +213,13 @@ export function registerProcessListRoutes(
       );
       const managed = await processManager.listProcesses();
       const processes = managed.filter((process) => {
-        if (process.kind !== 'server' && process.kind !== 'test') return false;
+        if (
+          process.kind !== 'server' &&
+          process.kind !== 'test' &&
+          process.kind !== 'worker' &&
+          process.kind !== 'webpack'
+        )
+          return false;
         if (query.kind && process.kind !== query.kind) return false;
         if (query.projectId && process.projectId !== query.projectId)
           return false;

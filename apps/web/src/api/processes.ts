@@ -164,7 +164,7 @@ export async function clearProjectProcessLog(
 export interface ProcessesQuery {
   workspaceId?: string;
   projectId?: string;
-  kind?: 'server' | 'test' | 'compose-build';
+  kind?: 'server' | 'test' | 'worker' | 'webpack' | 'compose-build';
   signal?: AbortSignal;
 }
 

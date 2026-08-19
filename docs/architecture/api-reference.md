@@ -7021,7 +7021,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
       "type": "string",
       "enum": [
         "server",
-        "test"
+        "test",
+        "worker",
+        "webpack"
       ]
     }
   }

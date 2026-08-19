@@ -12,7 +12,7 @@ interface ProcessesResponse {
   processes: ManagedProcess[];
 }
 
-test('GET /api/processes lists managed server and test processes for known projects', async (context) => {
+test('GET /api/processes lists managed processes for known projects', async (context) => {
   const fixtureRoot = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-processes-route-'),
   );
@@ -82,6 +82,14 @@ test('GET /api/processes lists managed server and test processes for known proje
       startedAt: '2026-07-26T07:00:00Z',
     },
     {
+      id: 'worker-p2',
+      projectId: 'p2',
+      kind: 'worker',
+      status: 'running',
+      pid: 1001,
+      startedAt: '2026-07-26T07:30:00Z',
+    },
+    {
       id: 'ghost',
       projectId: 'p-missing',
       kind: 'server',
@@ -113,7 +121,7 @@ test('GET /api/processes lists managed server and test processes for known proje
   const headers = { 'x-dev-dashboard-token': TOKEN };
 
   await context.test(
-    'returns only server and test processes owned by known projects',
+    'returns managed processes owned by known projects',
     async () => {
       const response = await app.inject({
         method: 'GET',
@@ -123,7 +131,7 @@ test('GET /api/processes lists managed server and test processes for known proje
       assert.equal(response.statusCode, 200);
       const body = response.json<ProcessesResponse>();
       const ids = body.processes.map((process) => process.id).sort();
-      assert.deepEqual(ids, ['srv-p1', 'srv-p2', 'tst-p1']);
+      assert.deepEqual(ids, ['srv-p1', 'srv-p2', 'tst-p1', 'worker-p2']);
     },
   );
 
@@ -152,6 +160,20 @@ test('GET /api/processes lists managed server and test processes for known proje
     assert.deepEqual(
       body.processes.map((process) => process.id),
       ['tst-p1'],
+    );
+  });
+
+  await context.test('filters worker processes by kind', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/processes?kind=worker',
+      headers,
+    });
+    assert.equal(response.statusCode, 200);
+    const body = response.json<ProcessesResponse>();
+    assert.deepEqual(
+      body.processes.map((process) => process.id),
+      ['worker-p2'],
     );
   });
 

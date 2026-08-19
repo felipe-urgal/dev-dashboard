@@ -27,6 +27,54 @@ export class ApiRequestError extends Error {
 
 const inFlightGetRequests = new Map<string, Promise<unknown>>();
 
+export interface ApiRequestMetric {
+  key: string;
+  method: string;
+  url: string;
+  calls: number;
+  deduplicated: number;
+  failures: number;
+  lastStatus?: number;
+  lastDurationMs?: number;
+}
+
+const apiRequestMetrics = new Map<string, ApiRequestMetric>();
+
+function metricKey(input: RequestInfo | URL, init?: RequestInit): string {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+  return `${method} ${url}`;
+}
+
+function metricFor(key: string): ApiRequestMetric {
+  const existing = apiRequestMetrics.get(key);
+  if (existing) return existing;
+  const [method, ...urlParts] = key.split(' ');
+  const metric: ApiRequestMetric = {
+    key,
+    method: method ?? 'GET',
+    url: urlParts.join(' '),
+    calls: 0,
+    deduplicated: 0,
+    failures: 0,
+  };
+  apiRequestMetrics.set(key, metric);
+  return metric;
+}
+
+export function getApiRequestMetrics(): ApiRequestMetric[] {
+  return [...apiRequestMetrics.values()].map((metric) => ({ ...metric }));
+}
+
+export function clearApiRequestMetrics(): void {
+  apiRequestMetrics.clear();
+}
+
 function getRequestKey(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -56,9 +104,25 @@ export async function requestJson<T>(
   if (!key) return requestJsonAttempt<T>(input, init, true);
 
   const existing = inFlightGetRequests.get(key);
-  if (existing) return existing as Promise<T>;
+  if (existing) {
+    metricFor(metricKey(input, init)).deduplicated += 1;
+    return existing as Promise<T>;
+  }
 
+  const metric = metricFor(metricKey(input, init));
+  metric.calls += 1;
+  const startedAt = performance.now();
   const pending = requestJsonAttempt<T>(input, init, true);
+  pending.then(
+    () => {
+      metric.lastDurationMs = Math.round(performance.now() - startedAt);
+    },
+    (error: unknown) => {
+      metric.failures += 1;
+      metric.lastDurationMs = Math.round(performance.now() - startedAt);
+      if (error instanceof ApiRequestError) metric.lastStatus = error.status;
+    },
+  );
   inFlightGetRequests.set(key, pending);
   pending.then(
     () => {
