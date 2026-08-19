@@ -14,9 +14,7 @@ import { RouterLink, useRoute } from 'vue-router';
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import {
-  fetchProjectDatabase,
   fetchProjectGit,
-  fetchProjectRailsWorker,
 } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
@@ -121,30 +119,10 @@ async function loadProjectData(requestedProjectId: string): Promise<void> {
     const gitPromise = loadedProject.capabilities.includes('git')
       ? fetchProjectGit(loadedProject.id).catch(() => null)
       : Promise.resolve(null);
-    const databasePromise = fetchProjectDatabase(loadedProject.id).catch(
-      () => null,
-    );
-    const sidekiqPromise =
-      loadedProject.type === 'rails' && !isRailsSidekiqRoute.value
-        ? fetchProjectRailsWorker(loadedProject.id, 'sidekiq').catch(() => null)
-        : Promise.resolve(null);
-    const webpackPromise =
-      loadedProject.type === 'rails' && !isRailsWebpackRoute.value
-        ? fetchProjectRailsWorker(loadedProject.id, 'webpack').catch(() => null)
-        : Promise.resolve(null);
-
-    const [git, database, sidekiq, webpack] = await Promise.all([
-      gitPromise,
-      databasePromise,
-      sidekiqPromise,
-      webpackPromise,
-    ]);
+    const [git] = await Promise.all([gitPromise]);
 
     if (projectId.value !== requestedProjectId) return;
     if (git) updateGitOverview(git);
-    if (database) databaseSupported.value = database.supported;
-    if (sidekiq) sidekiqDetected.value = sidekiq.detected;
-    if (webpack) webpackDetected.value = webpack.detected;
   } catch (error) {
     if (projectId.value === requestedProjectId) {
       errorMessage.value =
@@ -237,7 +215,16 @@ watch(
 
           <div class="project-details-actions">
             <div v-if="project.enabled" class="project-details-actions-row">
-              <ProjectProcessesMenu :project="project" />
+              <ProjectProcessesMenu
+                :project="project"
+                @database-supported="databaseSupported = $event"
+                @worker-detected="
+                  (workerId, detected) => {
+                    if (workerId === 'sidekiq') sidekiqDetected = detected;
+                    if (workerId === 'webpack') webpackDetected = detected;
+                  }
+                "
+              />
             </div>
             <ProjectPullRequestSummary
               v-if="project.enabled && gitOverview"

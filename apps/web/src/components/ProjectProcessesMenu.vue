@@ -19,6 +19,10 @@ import { useProjectProcessStatus } from '../composables/useProjectProcessStatus'
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
 const props = defineProps<{ project: Project }>();
+const emit = defineEmits<{
+  'database-supported': [supported: boolean];
+  'worker-detected': [workerId: RailsWorkerId, detected: boolean];
+}>();
 
 const serverBusy = ref<'start' | 'stop' | null>(null);
 const errorMessage = ref('');
@@ -36,6 +40,7 @@ async function loadDatabaseEnvironment(): Promise<void> {
   try {
     const overview = await fetchProjectDatabase(props.project.id, 1);
     if (current !== databaseGeneration) return;
+    emit('database-supported', overview.supported);
     databaseEnvironment.value =
       overview.supported && overview.environments[0]?.serviceAvailable
         ? overview.environments[0]
@@ -46,6 +51,16 @@ async function loadDatabaseEnvironment(): Promise<void> {
 }
 
 watch(() => props.project.id, loadDatabaseEnvironment, { immediate: true });
+watch(
+  () => sidekiq.detected.value,
+  (detected) => emit('worker-detected', 'sidekiq', detected),
+  { immediate: true },
+);
+watch(
+  () => webpack.detected.value,
+  (detected) => emit('worker-detected', 'webpack', detected),
+  { immediate: true },
+);
 
 async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
   const environment = databaseEnvironment.value;
