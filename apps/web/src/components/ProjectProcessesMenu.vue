@@ -65,7 +65,13 @@ async function loadDatabaseEnvironment(force = false): Promise<void> {
   }
 }
 
-watch(() => props.project.id, loadDatabaseEnvironment, { immediate: true });
+watch(
+  () => props.project.id,
+  () => {
+    void loadDatabaseEnvironment();
+  },
+  { immediate: true },
+);
 watch(
   () => sidekiq.detected.value,
   (detected) => emit('worker-detected', 'sidekiq', detected),
