@@ -13,9 +13,7 @@ import { RouterLink, useRoute } from 'vue-router';
 
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
-import {
-  fetchProjectGit,
-} from '../api';
+import { fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDetailsMoreTools from '../components/ProjectDetailsMoreTools.vue';

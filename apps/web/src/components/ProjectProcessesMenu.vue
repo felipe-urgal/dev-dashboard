@@ -34,19 +34,34 @@ const webpack = useProjectRailsWorker(() => props.project, 'webpack', false);
 const databaseEnvironment = ref<ProjectDatabaseEnvironment | null>(null);
 const databaseBusy = ref<DatabaseServiceAction | null>(null);
 let databaseGeneration = 0;
+let databaseLoadedProjectId = '';
+let databaseLoadPromise: Promise<void> | undefined;
 
-async function loadDatabaseEnvironment(): Promise<void> {
+async function loadDatabaseEnvironment(force = false): Promise<void> {
+  if (!force && databaseLoadedProjectId === props.project.id) return;
+  if (!force && databaseLoadPromise) return databaseLoadPromise;
+
   const current = ++databaseGeneration;
+  const projectId = props.project.id;
+  const pending = (async () => {
+    try {
+      const overview = await fetchProjectDatabase(projectId, 1);
+      if (current !== databaseGeneration) return;
+      emit('database-supported', overview.supported);
+      databaseEnvironment.value =
+        overview.supported && overview.environments[0]?.serviceAvailable
+          ? overview.environments[0]
+          : null;
+      databaseLoadedProjectId = projectId;
+    } catch {
+      if (current === databaseGeneration) databaseEnvironment.value = null;
+    }
+  })();
+  databaseLoadPromise = pending;
   try {
-    const overview = await fetchProjectDatabase(props.project.id, 1);
-    if (current !== databaseGeneration) return;
-    emit('database-supported', overview.supported);
-    databaseEnvironment.value =
-      overview.supported && overview.environments[0]?.serviceAvailable
-        ? overview.environments[0]
-        : null;
-  } catch {
-    if (current === databaseGeneration) databaseEnvironment.value = null;
+    await pending;
+  } finally {
+    if (databaseLoadPromise === pending) databaseLoadPromise = undefined;
   }
 }
 
@@ -73,7 +88,7 @@ async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
       environment.id,
       action,
     );
-    await loadDatabaseEnvironment();
+    await loadDatabaseEnvironment(true);
   } catch (error) {
     errorMessage.value =
       error instanceof Error
