@@ -8,6 +8,7 @@ import {
   kindLabel,
   processDetailPath,
   processDurationReference,
+  processLogPath,
   processStatusLabel,
 } from '../src/utils/process-format.js';
 import { processToneFor } from '../src/utils/status-tones.js';
@@ -43,6 +44,31 @@ test('processDetailPath aponta test para /tests e demais kinds para a raiz do pr
   assert.equal(
     processDetailPath({ ...base, kind: 'server' }),
     '/projects/p%20one',
+  );
+});
+
+test('processLogPath direciona cada processo para a ferramenta que exibe seus logs', () => {
+  const base = {
+    id: 'x',
+    projectId: 'p one',
+    status: 'running' as const,
+  };
+
+  assert.equal(
+    processLogPath({ ...base, kind: 'server' }),
+    '/projects/p%20one/server',
+  );
+  assert.equal(
+    processLogPath({ ...base, kind: 'test' }),
+    '/projects/p%20one/tests',
+  );
+  assert.equal(
+    processLogPath({ ...base, kind: 'worker' }),
+    '/projects/p%20one/sidekiq',
+  );
+  assert.equal(
+    processLogPath({ ...base, kind: 'webpack' }),
+    '/projects/p%20one/webpack',
   );
 });
 

@@ -13,6 +13,7 @@ import {
   kindLabel,
   processDetailPath,
   processDurationReference,
+  processLogPath,
   processStatusLabel,
 } from '../utils/process-format';
 import { processToneFor } from '../utils/status-tones';
@@ -29,7 +30,19 @@ const {
   terminalCount,
   projectNameById,
   workspaceNameFor,
+  workspaces,
   loadProcesses,
+  reloadView,
+  clearFilters,
+  workspaceFilter,
+  projectFilter,
+  kindFilter,
+  statusFilter,
+  eligibleProjects,
+  hasActiveFilters,
+  activeCount,
+  stoppedCount,
+  failedCount,
   runCleanup,
 } = useProcessesView();
 </script>
@@ -66,11 +79,107 @@ const {
       </button>
     </div>
 
+    <dl class="processes-summary" aria-label="Resumo dos processos">
+      <div>
+        <dt>
+          <span
+            class="processes-summary-dot processes-summary-dot-active"
+          />Ativos
+        </dt>
+        <dd>{{ activeCount }}</dd>
+      </div>
+      <div>
+        <dt>
+          <span
+            class="processes-summary-dot processes-summary-dot-stopped"
+          />Finalizados
+        </dt>
+        <dd>{{ stoppedCount }}</dd>
+      </div>
+      <div>
+        <dt>
+          <span
+            class="processes-summary-dot processes-summary-dot-failed"
+          />Falhos
+        </dt>
+        <dd>{{ failedCount }}</dd>
+      </div>
+      <div>
+        <dt><span class="processes-summary-dot" />Exibidos</dt>
+        <dd>{{ visibleItems.length }}</dd>
+      </div>
+    </dl>
+
+    <div class="processes-filters" aria-label="Filtros de processos">
+      <label>
+        Workspace
+        <select v-model="workspaceFilter">
+          <option value="">Todos</option>
+          <option
+            v-for="workspace in workspaces"
+            :key="workspace.id"
+            :value="workspace.id"
+          >
+            {{ workspace.name }}
+          </option>
+        </select>
+      </label>
+      <label>
+        Projeto
+        <select v-model="projectFilter">
+          <option value="">Todos</option>
+          <option
+            v-for="project in eligibleProjects"
+            :key="project.id"
+            :value="project.id"
+          >
+            {{ project.name }}
+          </option>
+        </select>
+      </label>
+      <label>
+        Tipo
+        <select v-model="kindFilter">
+          <option value="">Todos</option>
+          <option value="server">Servidor</option>
+          <option value="test">Testes</option>
+          <option value="compose-build">Docker build</option>
+        </select>
+      </label>
+      <label>
+        Estado
+        <select v-model="statusFilter">
+          <option value="">Todos</option>
+          <option value="active">Ativos</option>
+          <option value="stopped">Finalizados</option>
+          <option value="failed">Falhos</option>
+        </select>
+      </label>
+      <button
+        v-if="hasActiveFilters"
+        type="button"
+        class="processes-clear-button"
+        @click="clearFilters"
+      >
+        Limpar filtros
+      </button>
+    </div>
+
     <p v-if="referenceErrorMessage" class="activity-error" role="alert">
       {{ referenceErrorMessage }}
+      <button type="button" class="processes-retry-button" @click="reloadView">
+        Tentar novamente
+      </button>
     </p>
     <p v-if="processesErrorMessage" class="activity-error" role="alert">
       {{ processesErrorMessage }}
+      <button
+        type="button"
+        class="processes-retry-button"
+        @click="loadProcesses"
+      >
+        Tentar novamente
+      </button>
     </p>
 
     <p
@@ -170,9 +279,12 @@ const {
             </td>
             <td class="processes-table-action" data-label="Ações">
               <RouterLink
-                :to="processDetailPath(process)"
+                :to="processLogPath(process)"
                 class="processes-open-button"
-                :aria-label="`Abrir detalhes de ${
+                :aria-label="`Abrir logs de ${
+                  projectNameById.get(process.projectId) ?? process.projectId
+                }`"
+                :title="`Abrir logs de ${
                   projectNameById.get(process.projectId) ?? process.projectId
                 }`"
               >
@@ -206,5 +318,15 @@ const {
 .processes-empty-action:hover,
 .processes-empty-action:focus-visible {
   text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .processes-actions {
+    flex-direction: column;
+  }
+
+  .processes-actions button {
+    width: 100%;
+  }
 }
 </style>

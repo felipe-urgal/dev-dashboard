@@ -14,6 +14,8 @@ const {
   scanningWorkspace,
   lastScannedPath,
   enabledUpdatingIds,
+  errorMessage,
+  ensureDashboardLoaded,
   rescanSelectedWorkspace,
   toggleProjectEnabled,
 } = dashboardStore;
@@ -61,10 +63,27 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
       </template>
 
       <LoadingSkeleton
-        v-if="loadingProjects"
+        v-if="loadingProjects && !errorMessage"
         label="Carregando projetos…"
         :rows="3"
       />
+
+      <div
+        v-else-if="errorMessage"
+        class="empty-state dashboard-error-state"
+        role="alert"
+      >
+        <div class="empty-icon">!</div>
+        <h3>Não foi possível carregar os projetos</h3>
+        <p>{{ errorMessage }}</p>
+        <button
+          type="button"
+          class="dashboard-retry-button"
+          @click="ensureDashboardLoaded"
+        >
+          Tentar novamente
+        </button>
+      </div>
 
       <div v-else-if="sortedProjects.length === 0" class="empty-state">
         <div class="empty-icon">◇</div>
@@ -146,6 +165,27 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
 .compact-action-button-busy svg {
   animation: compact-action-spin 800ms linear infinite;
+}
+
+.dashboard-error-state p {
+  max-width: 56ch;
+}
+
+.dashboard-retry-button {
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dashboard-retry-button:hover,
+.dashboard-retry-button:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 @keyframes compact-action-spin {

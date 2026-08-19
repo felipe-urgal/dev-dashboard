@@ -45,6 +45,23 @@ export function processDetailPath(process: ManagedProcess): string {
   return base;
 }
 
+export function processLogPath(process: ManagedProcess): string {
+  const base = `/projects/${encodeURIComponent(process.projectId)}`;
+
+  switch (process.kind) {
+    case 'test':
+      return `${base}/tests`;
+    case 'server':
+      return `${base}/server`;
+    case 'worker':
+      return `${base}/sidekiq`;
+    case 'webpack':
+      return `${base}/webpack`;
+    default:
+      return base;
+  }
+}
+
 function isTerminalStatus(status: ManagedProcessStatus | undefined): boolean {
   return status !== undefined && TERMINAL_STATUSES.includes(status);
 }

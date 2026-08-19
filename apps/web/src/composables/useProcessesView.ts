@@ -281,6 +281,10 @@ export function useProcessesView() {
     }
   }
 
+  async function reloadView(): Promise<void> {
+    await Promise.all([loadReferenceData(), loadProcesses()]);
+  }
+
   function clearFilters(): void {
     workspaceFilter.value = '';
     projectFilter.value = '';
@@ -383,6 +387,8 @@ export function useProcessesView() {
     projectNameById,
     workspaceNameFor,
     loadProcesses,
+    loadReferenceData,
+    reloadView,
     clearFilters,
     runCleanup,
   };
