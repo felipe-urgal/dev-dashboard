@@ -89,7 +89,10 @@ async function removeWorkspace(workspaceId: string): Promise<void> {
           :key="workspace.id"
           class="settings-row workspace-existing-row"
         >
-          <span v-if="editingWorkspaceId !== workspace.id" class="settings-row-copy">
+          <span
+            v-if="editingWorkspaceId !== workspace.id"
+            class="settings-row-copy"
+          >
             <strong
               :id="`workspace-existing-recursive-scan-label-${workspace.id}`"
               >{{ workspace.name }}</strong
@@ -106,7 +109,11 @@ async function removeWorkspace(workspaceId: string): Promise<void> {
               @keyup.enter="saveRename(workspace.id)"
               @keyup.esc="cancelRename"
             />
-            <NButton size="small" type="primary" @click="saveRename(workspace.id)">
+            <NButton
+              size="small"
+              type="primary"
+              @click="saveRename(workspace.id)"
+            >
               Salvar
             </NButton>
             <NButton size="small" secondary @click="cancelRename">
@@ -125,7 +132,10 @@ async function removeWorkspace(workspaceId: string): Promise<void> {
               workspace.recursiveScan ? 'Ativado' : 'Desativado'
             }}</span>
           </span>
-          <span v-if="editingWorkspaceId !== workspace.id" class="workspace-row-actions">
+          <span
+            v-if="editingWorkspaceId !== workspace.id"
+            class="workspace-row-actions"
+          >
             <NButton size="small" secondary @click="beginRename(workspace)">
               Renomear
             </NButton>
