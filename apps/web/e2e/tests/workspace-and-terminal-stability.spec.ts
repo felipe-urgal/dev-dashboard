@@ -28,10 +28,9 @@ test.describe('estabilidade do shell e dos terminais', () => {
       page.getByText('Workspace "Workspace extra" cadastrado.'),
     ).toBeVisible();
     await expect(
-      page.getByRole('comboxx', { name: 'Trocar workspace ativo' }),
+      page.getByRole('combobox', { name: 'Trocar workspace ativo' }),
     ).toHaveValue(/.+/);
   });
-
 
   test('inicia uma sessão de terminal com scrollback visual limitado', async ({
     page,
