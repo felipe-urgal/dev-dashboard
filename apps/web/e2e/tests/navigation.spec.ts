@@ -71,6 +71,14 @@ test.describe('navegação principal', () => {
       page.getByRole('heading', { level: 2, name: 'sample-node-app' }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
+    await expect(
+      page.getByRole('link', { name: 'Servidor', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+
+    await page.getByRole('link', { name: 'Git', exact: true }).click();
+    await expect(
+      page.getByRole('link', { name: 'Git', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
   });
 
   test('não repete as detecções ao abrir um projeto Rails', async ({

@@ -1,42 +1,37 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-import DashboardView from '../views/DashboardView.vue';
-import NotFoundView from '../views/NotFoundView.vue';
-import ProcessesView from '../views/ProcessesView.vue';
-import ProjectDetailsView from '../views/ProjectDetailsView.vue';
-
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       path: '/',
       name: 'dashboard',
-      component: DashboardView,
+      component: () => import('../views/DashboardView.vue'),
     },
     {
       path: '/processes',
       name: 'processes',
-      component: ProcessesView,
+      component: () => import('../views/ProcessesView.vue'),
     },
     {
       path: '/projects/:projectId',
       name: 'project-details',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/readme',
       name: 'project-readme',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/doctor',
       name: 'project-doctor',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/server',
       name: 'project-server',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/logs',
@@ -45,52 +40,52 @@ export const router = createRouter({
     {
       path: '/projects/:projectId/git',
       name: 'project-git',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/tests',
       name: 'project-tests',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/database',
       name: 'project-database',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/dependencies',
       name: 'project-dependencies',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/sidekiq',
       name: 'project-rails-sidekiq',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/webpack',
       name: 'project-rails-webpack',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/terminal',
       name: 'project-terminal',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/console',
       name: 'project-console',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/projects/:projectId/environment',
       name: 'project-environment',
-      component: ProjectDetailsView,
+      component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: NotFoundView,
+      component: () => import('../views/NotFoundView.vue'),
     },
   ],
   scrollBehavior(to) {
