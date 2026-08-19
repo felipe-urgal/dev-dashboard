@@ -37,7 +37,6 @@ function handleShowUpdate(show: boolean): void {
 
 <template>
   <NModal
-    v-if="open"
     :show="open"
     preset="card"
     class="workspace-manager-dialog"
