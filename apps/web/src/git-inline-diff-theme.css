@@ -1,9 +1,20 @@
 .git-inline-file-diff {
   --git-inline-row-border: color-mix(in srgb, var(--border) 62%, transparent);
-  --git-inline-addition-bg: color-mix(in srgb, var(--success-surface) 82%, var(--surface-1));
-  --git-inline-deletion-bg: color-mix(in srgb, var(--danger-surface) 82%, var(--surface-1));
-  --git-inline-hunk-bg: color-mix(in srgb, var(--info-surface) 84%, var(--surface-1));
-  
+  --git-inline-addition-bg: color-mix(
+    in srgb,
+    var(--success-surface) 82%,
+    var(--surface-1)
+  );
+  --git-inline-deletion-bg: color-mix(
+    in srgb,
+    var(--danger-surface) 82%,
+    var(--surface-1)
+  );
+  --git-inline-hunk-bg: color-mix(
+    in srgb,
+    var(--info-surface) 84%,
+    var(--surface-1)
+  );
 }
 
 .git-inline-file-diff > header {
@@ -19,7 +30,6 @@
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   background: var(--surface-1);
   color: var(--accent);
-  
 }
 
 .git-inline-diff-body {
@@ -98,6 +108,17 @@
   word-break: break-word;
 }
 
+/* O cabeçalho do hunk é uma única instrução (`@@ ... @@`). Quebrá-lo por
+   caractere transforma os limites do diff em linhas soltas e dificulta a
+   leitura no histórico, especialmente no modo lado a lado. */
+.git-inline-file-diff .git-inline-diff-line.is-hunk code,
+.git-inline-file-diff .git-inline-diff-split-meta.is-hunk,
+.git-inline-file-diff .git-inline-diff-split-meta.is-hunk code {
+  white-space: pre !important;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .git-inline-diff-line code,
 .git-inline-diff-side code {
   padding: 2px 12px 2px 5px;
@@ -120,7 +141,6 @@
 
 .git-inline-diff-line.is-addition,
 .git-inline-diff-side.is-addition {
-  
   background: var(--git-inline-addition-bg);
   color: var(--text);
 }
@@ -143,7 +163,6 @@
 
 .git-inline-diff-line.is-deletion,
 .git-inline-diff-side.is-deletion {
-  
   background: var(--git-inline-deletion-bg);
   color: var(--text);
 }
@@ -191,14 +210,13 @@
 }
 
 .git-inline-diff-side.is-empty {
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      var(--surface-2),
-      var(--surface-2) 6px,
-      color-mix(in srgb, var(--surface-1) 76%, var(--surface-2)) 6px,
-      color-mix(in srgb, var(--surface-1) 76%, var(--surface-2)) 12px
-    );
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-2),
+    var(--surface-2) 6px,
+    color-mix(in srgb, var(--surface-1) 76%, var(--surface-2)) 6px,
+    color-mix(in srgb, var(--surface-1) 76%, var(--surface-2)) 12px
+  );
 }
 
 .git-inline-diff-line:hover,
