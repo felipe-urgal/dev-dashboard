@@ -58,7 +58,7 @@ jobs:
   e2e:
     name: Smoke E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -75,6 +75,12 @@ jobs:
 
       - name: Rebuild native terminal dependency
         run: npm rebuild node-pty
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-1.61.0
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
