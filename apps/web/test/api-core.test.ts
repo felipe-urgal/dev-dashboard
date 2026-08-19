@@ -197,4 +197,76 @@ describe('requestJson', () => {
     expect(metrics).toHaveLength(100);
     expect(metrics[0]?.url).toBe('/api/metric-5');
   });
+
+  it('repete GETs transitórios e recupera sem inflar a métrica lógica', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'temporário' }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ value: 'recuperado' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+    await expect(requestJson('/api/retryable')).resolves.toEqual({
+      value: 'recuperado',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'GET /api/retryable',
+        calls: 1,
+        successes: 1,
+        failures: 0,
+        lastStatus: 200,
+      }),
+    ]);
+  });
+
+  it('não repete 404 e apresenta uma mensagem específica', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 404 }));
+
+    await expect(requestJson('/api/missing')).rejects.toMatchObject({
+      status: 404,
+      message: 'O recurso solicitado não foi encontrado.',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('repete falhas de rede e informa quando a conexão não recupera', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(requestJson('/api/offline')).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+      message:
+        'Não foi possível conectar à API. Verifique sua conexão e tente novamente.',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('repete timeout HTTP e preserva a mensagem de recuperação', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 408 }));
+
+    await expect(requestJson('/api/slow')).rejects.toMatchObject({
+      status: 408,
+      message: 'A API demorou para responder. Tente novamente.',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });

@@ -269,6 +269,7 @@ test('congela a duração de processos terminais em stoppedAt na renderização'
 });
 
 test('mostra a mensagem de erro quando o carregamento falha', async () => {
+  vi.useFakeTimers();
   const { wrapper, restore } = await mountView({
     processes: async () => {
       throw new ApiRequestError({ status: 500, message: 'API indisponível.' });
@@ -276,6 +277,7 @@ test('mostra a mensagem de erro quando o carregamento falha', async () => {
   });
   cleanup = restore;
   await flushPromises();
+  await vi.advanceTimersByTimeAsync(1_000);
   await flushPromises();
 
   assert.match(wrapper.text(), /API indisponível/);
