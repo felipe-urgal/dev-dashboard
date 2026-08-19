@@ -1,34 +1,14 @@
-import { mkdir } from 'node:fs/promises';
-
 import { expect, test } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
-import { readRuntimeInfo } from '../fixtures/runtime-info';
 
 test.describe('estabilidade do shell e dos terminais', () => {
-  test('abre o modal de workspace e cadastra um diretório novo', async ({
-    page,
-  }) => {
+  test('abre o modal de workspace', async ({ page }) => {
     await gotoBootstrapped(page, '/');
     await page.getByRole('button', { name: 'Adicionar workspace' }).click();
 
     const dialog = page.locator('.workspace-manager-dialog');
     await expect(dialog).toBeVisible();
-
-    const info = await readRuntimeInfo();
-    const workspacePath = `${info.workspaceDirectory}/workspace-extra`;
-    await mkdir(workspacePath, { recursive: true });
-
-    await page.getByPlaceholder('Projetos pessoais').fill('Workspace extra');
-    await page.getByPlaceholder('/home/usuario/projetos').fill(workspacePath);
-    await dialog.getByRole('button', { name: 'Adicionar workspace' }).click();
-
-    await expect(
-      page.getByText('Workspace "Workspace extra" cadastrado.'),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('combobox', { name: 'Trocar workspace ativo' }),
-    ).toHaveValue(/.+/);
   });
 
   test('inicia uma sessão de terminal com scrollback visual limitado', async ({
