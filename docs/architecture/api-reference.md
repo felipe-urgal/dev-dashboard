@@ -160,6 +160,10 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 
 _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
+### `POST /api/database/:serviceId/install`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
 ### `POST /api/database/:serviceId/restart`
 
 _Rota sem schema declarado (ex. upgrade de WebSocket)._

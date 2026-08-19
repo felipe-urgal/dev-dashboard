@@ -28,6 +28,11 @@ type CommandRunner = (
   options: { cwd: string },
 ) => Promise<void>;
 
+type SystemCommandRunner = (
+  command: string,
+  args: string[],
+) => Promise<{ stdout?: string }>;
+
 export type DatabaseServiceAction = 'start' | 'stop' | 'restart';
 export type DatabaseServiceActionFailureReason =
   | 'systemctl-unavailable'
@@ -55,6 +60,42 @@ export class DatabaseServiceActionError extends Error {
   }
 }
 
+export class DatabaseServiceInstallError extends Error {
+  public constructor(
+    public readonly reason: DatabaseServiceActionFailureReason,
+    options?: ErrorOptions,
+  ) {
+    super('Falha ao instalar o serviço de banco de dados.', options);
+    this.name = 'DatabaseServiceInstallError';
+  }
+}
+
+export function databaseServiceActionErrorMessage(
+  error: DatabaseServiceActionError,
+): string {
+  const action = serviceActionVerbs[error.action];
+  const messages: Record<DatabaseServiceActionFailureReason, string> = {
+    'systemctl-unavailable': `O systemctl não está instalado ou disponível para ${action} o serviço local.`,
+    'authorization-unavailable':
+      'Não foi possível solicitar autorização nesta sessão. Verifique se há um agente polkit ativo e tente novamente.',
+    'permission-denied': `A autorização para ${action} o serviço local de banco foi negada.`,
+    'command-failed': `O systemctl não conseguiu ${action} o serviço local de banco de dados. Consulte o log da API.`,
+  };
+  return messages[error.reason];
+}
+
+export function databaseServiceInstallErrorMessage(
+  error: DatabaseServiceInstallError,
+): string {
+  if (error.reason === 'systemctl-unavailable')
+    return 'O gerenciador de pacotes não está disponível nesta máquina.';
+  if (error.reason === 'authorization-unavailable')
+    return 'Não foi possível solicitar autorização nesta sessão. Verifique se há um agente polkit ativo e tente novamente.';
+  if (error.reason === 'permission-denied')
+    return 'A autorização para instalar o banco de dados foi negada.';
+  return 'Não foi possível instalar o banco de dados. Consulte o log da API.';
+}
+
 const execFileAsync = promisify(execFile);
 const defaultCommandRunner: CommandRunner = async (command, args, options) => {
   await execFileAsync(command, args, {
@@ -64,6 +105,18 @@ const defaultCommandRunner: CommandRunner = async (command, args, options) => {
     timeout: 30_000,
     windowsHide: true,
   });
+};
+const defaultSystemCommandRunner: SystemCommandRunner = async (
+  command,
+  args,
+) => {
+  const result = await execFileAsync(command, args, {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+    timeout: 30_000,
+    windowsHide: true,
+  });
+  return { stdout: result.stdout };
 };
 
 function commandFailureText(error: unknown): string {
@@ -94,7 +147,9 @@ function serviceActionFailureReason(
     return 'authorization-unavailable';
   if (
     text.includes('authentication agent') ||
-    text.includes('authentication dialog was dismissed')
+    text.includes('authentication dialog was dismissed') ||
+    text.includes('interactive authentication required') ||
+    text.includes('authentication is required')
   )
     return 'authorization-unavailable';
   if (
@@ -129,6 +184,14 @@ const systemdServices: Record<string, string> = {
   postgres: 'postgresql.service',
   postgresql: 'postgresql.service',
   redis: 'redis-server.service',
+};
+
+const aptPackages: Record<string, string> = {
+  mysql: 'mysql-server',
+  mariadb: 'mariadb-server',
+  postgresql: 'postgresql',
+  redis: 'redis-server',
+  mongodb: 'mongodb',
 };
 
 function localSystemdService(item: DetectedDatabase): string | null {
@@ -432,6 +495,7 @@ async function checkReachability(
 export class DatabaseDetectionService {
   public constructor(
     private readonly runCommand: CommandRunner = defaultCommandRunner,
+    private readonly runSystemCommand: SystemCommandRunner = defaultSystemCommandRunner,
   ) {}
 
   public async getMachineServices(): Promise<MachineDatabaseService[]> {
@@ -468,15 +532,14 @@ export class DatabaseDetectionService {
     return Promise.all(
       candidates.map(async (candidate) => {
         try {
-          const result = await execFileAsync(
-            'systemctl',
-            ['is-active', candidate.unit],
-            { encoding: 'utf8', timeout: 5_000, windowsHide: true },
-          );
+          const result = await this.runSystemCommand('systemctl', [
+            'is-active',
+            candidate.unit,
+          ]);
           return {
             ...candidate,
             installed: true,
-            active: result.stdout.trim() === 'active',
+            active: result.stdout?.trim() === 'active',
           };
         } catch (error) {
           const failure = error as { code?: unknown; stdout?: unknown };
@@ -503,17 +566,40 @@ export class DatabaseDetectionService {
     );
     if (!service?.installed) return;
     try {
-      await execFileAsync(
-        'pkexec',
-        ['--disable-internal-agent', 'systemctl', action, service.unit],
-        { encoding: 'utf8', timeout: 30_000, windowsHide: true },
-      );
+      await this.runSystemCommand('pkexec', [
+        '--disable-internal-agent',
+        'systemctl',
+        action,
+        service.unit,
+      ]);
     } catch (error) {
       throw new DatabaseServiceActionError(
         action,
         serviceActionFailureReason(error),
         { cause: error },
       );
+    }
+  }
+
+  public async installMachineService(serviceId: string): Promise<void> {
+    const service = (await this.getMachineServices()).find(
+      (item) => item.id === serviceId,
+    );
+    if (!service || service.installed) return;
+    const packageName = aptPackages[service.id];
+    if (!packageName) return;
+    try {
+      await this.runSystemCommand('pkexec', [
+        '--disable-internal-agent',
+        'apt-get',
+        'install',
+        '-y',
+        packageName,
+      ]);
+    } catch (error) {
+      throw new DatabaseServiceInstallError(serviceActionFailureReason(error), {
+        cause: error,
+      });
     }
   }
 

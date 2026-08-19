@@ -59,6 +59,16 @@ export async function runMachineDatabaseServiceAction(
   );
 }
 
+export async function installMachineDatabaseService(
+  serviceId: string,
+): Promise<void> {
+  await requestJson(`/api/database/${encodeURIComponent(serviceId)}/install`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+}
+
 export async function fetchProjectDatabase(
   projectId: string,
   page = 1,

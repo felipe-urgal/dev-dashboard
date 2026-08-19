@@ -246,3 +246,105 @@ test('informa quando a autorização polkit é negada', async () => {
     reason: 'permission-denied',
   });
 });
+
+test('detecta serviços globais instalados, ativos e ausentes', async () => {
+  const calls: string[] = [];
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      calls.push(`${command} ${args.join(' ')}`);
+      if (args[1] === 'mysql.service') return { stdout: 'active\n' };
+      if (args[1] === 'mariadb.service') {
+        throw Object.assign(new Error('inactive'), {
+          code: 3,
+          stdout: 'inactive\n',
+        });
+      }
+      throw Object.assign(new Error('unit not found'), { code: 4, stdout: '' });
+    },
+  );
+
+  const services = await service.getMachineServices();
+  assert.deepEqual(
+    services.slice(0, 2).map(({ id, installed, active }) => ({
+      id,
+      installed,
+      active,
+    })),
+    [
+      { id: 'mysql', installed: true, active: true },
+      { id: 'mariadb', installed: true, active: false },
+    ],
+  );
+  assert.equal(services.filter((item) => !item.installed).length, 3);
+  assert.equal(calls.length, 5);
+});
+
+test('executa ação global no serviço systemd correspondente', async () => {
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      calls.push({ command, args });
+      if (command === 'systemctl') return { stdout: 'active\n' };
+      return {};
+    },
+  );
+
+  await service.runMachineServiceAction('postgresql', 'restart');
+  assert.deepEqual(calls.at(-1), {
+    command: 'pkexec',
+    args: [
+      '--disable-internal-agent',
+      'systemctl',
+      'restart',
+      'postgresql.service',
+    ],
+  });
+});
+
+test('classifica autenticação interativa indisponível no serviço global', async () => {
+  const service = new DatabaseDetectionService(undefined, async (command) => {
+    if (command === 'systemctl') return { stdout: 'active\n' };
+    throw Object.assign(new Error('Interactive authentication required'), {
+      stderr: 'Interactive authentication required',
+    });
+  });
+
+  await assert.rejects(
+    () => service.runMachineServiceAction('postgresql', 'stop'),
+    (error: unknown) =>
+      error instanceof Error &&
+      'reason' in error &&
+      error.reason === 'authorization-unavailable',
+  );
+});
+
+test('instala um serviço global ausente pelo gerenciador do sistema', async () => {
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      calls.push({ command, args });
+      if (command === 'systemctl') {
+        throw Object.assign(new Error('unit not found'), {
+          code: 4,
+          stdout: '',
+        });
+      }
+      return {};
+    },
+  );
+
+  await service.installMachineService('postgresql');
+  assert.deepEqual(calls.at(-1), {
+    command: 'pkexec',
+    args: [
+      '--disable-internal-agent',
+      'apt-get',
+      'install',
+      '-y',
+      'postgresql',
+    ],
+  });
+});
