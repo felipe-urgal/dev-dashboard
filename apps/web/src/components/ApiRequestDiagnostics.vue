@@ -31,6 +31,10 @@ const averageDuration = computed(() => {
   )} ms`;
 });
 
+const flaggedMetrics = computed(() =>
+  metrics.value.filter((metric) => metricTone(metric) !== 'normal'),
+);
+
 const sortedMetrics = computed(() =>
   [...metrics.value].sort((left, right) => {
     if (right.deduplicated !== left.deduplicated) {
@@ -51,6 +55,24 @@ function clear(): void {
 
 function formatMetricUrl(metric: ApiRequestMetric): string {
   return metric.url.replace(/^\/api\//, '');
+}
+
+function metricTone(metric: ApiRequestMetric): 'normal' | 'warning' | 'danger' {
+  if (metric.failures > 0 || (metric.lastDurationMs ?? 0) >= 1500) {
+    return 'danger';
+  }
+  if (metric.deduplicated > 0 || (metric.lastDurationMs ?? 0) >= 500) {
+    return 'warning';
+  }
+  return 'normal';
+}
+
+function metricAlertLabel(metric: ApiRequestMetric): string {
+  if (metric.failures > 0) return `${metric.failures} falha(s)`;
+  if ((metric.lastDurationMs ?? 0) >= 1500) return 'resposta lenta';
+  if (metric.deduplicated > 0) return `${metric.deduplicated} deduplicada(s)`;
+  if ((metric.lastDurationMs ?? 0) >= 500) return 'atenção: resposta lenta';
+  return '';
 }
 
 onMounted(() => {
@@ -121,6 +143,16 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
+      <p
+        v-if="flaggedMetrics.length"
+        class="api-request-diagnostics-alert"
+        role="status"
+      >
+        {{ flaggedMetrics.length }} endpoint(s) precisam de atenção. Falhas e
+        respostas acima de 1,5 s são críticas; duplicações e respostas acima de
+        500 ms ficam em alerta.
+      </p>
+
       <div
         v-if="sortedMetrics.length"
         class="api-request-diagnostics-table-wrap"
@@ -139,9 +171,19 @@ onBeforeUnmount(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="metric in sortedMetrics" :key="metric.key">
+            <tr
+              v-for="metric in sortedMetrics"
+              :key="metric.key"
+              :class="`is-${metricTone(metric)}`"
+            >
               <td>
                 <code>{{ metric.method }} {{ formatMetricUrl(metric) }}</code>
+                <span
+                  v-if="metricAlertLabel(metric)"
+                  class="api-request-diagnostics-badge"
+                >
+                  {{ metricAlertLabel(metric) }}
+                </span>
               </td>
               <td>{{ metric.calls }}</td>
               <td>{{ metric.deduplicated }}</td>
@@ -266,6 +308,17 @@ onBeforeUnmount(() => {
   padding: 12px 16px 16px;
 }
 
+.api-request-diagnostics-alert {
+  margin: 0 0 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+  padding: 8px 10px;
+}
+
 .api-request-diagnostics-actions {
   margin-bottom: 10px;
   color: var(--muted);
@@ -308,6 +361,43 @@ onBeforeUnmount(() => {
 
 .api-request-diagnostics-table td {
   color: var(--text);
+}
+
+.api-request-diagnostics-table tbody tr.is-warning {
+  background: color-mix(in srgb, var(--warning) 5%, transparent);
+}
+
+.api-request-diagnostics-table tbody tr.is-danger {
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
+}
+
+.api-request-diagnostics-table tbody tr.is-warning td:first-child,
+.api-request-diagnostics-table tbody tr.is-danger td:first-child {
+  border-left: 3px solid var(--warning);
+}
+
+.api-request-diagnostics-table tbody tr.is-danger td:first-child {
+  border-left-color: var(--danger);
+}
+
+.api-request-diagnostics-badge {
+  display: inline-flex;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+
+.api-request-diagnostics-table
+  tbody
+  tr.is-danger
+  .api-request-diagnostics-badge {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
 }
 
 .api-request-diagnostics-table code {
