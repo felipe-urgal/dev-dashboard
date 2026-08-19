@@ -14,7 +14,11 @@ test.describe('diagnóstico de chamadas da API', () => {
     await expect(diagnostics).toBeVisible();
     await diagnostics.getByRole('button', { name: 'Ver métricas' }).click();
 
-    await expect(diagnostics.getByText('Chamadas')).toBeVisible();
+    await expect(
+      diagnostics
+        .locator('.api-request-diagnostics-summary span')
+        .filter({ hasText: /^Chamadas$/ }),
+    ).toBeVisible();
     const historyFilter = diagnostics.getByLabel('Histórico');
     await expect(historyFilter).toHaveValue('all');
     await expect(historyFilter.locator('option')).toHaveText([
