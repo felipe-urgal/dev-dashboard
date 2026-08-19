@@ -81,7 +81,7 @@ test.describe('navegação principal', () => {
       if (request.method() !== 'GET') return;
       const pathname = new URL(request.url()).pathname;
       if (
-        /\/api\/projects\/[^/]+\/(database|rails\/sidekiq|rails\/webpack)$/.test(
+        /\/api\/projects\/[^/]+\/(database|rails\/workers\/(sidekiq|webpack))$/.test(
           pathname,
         )
       ) {
@@ -104,10 +104,10 @@ test.describe('navegação principal', () => {
       railsRequests.filter((path) => path.endsWith('/database')),
     ).toHaveLength(1);
     expect(
-      railsRequests.filter((path) => path.endsWith('/rails/sidekiq')),
+      railsRequests.filter((path) => path.endsWith('/rails/workers/sidekiq')),
     ).toHaveLength(1);
     expect(
-      railsRequests.filter((path) => path.endsWith('/rails/webpack')),
+      railsRequests.filter((path) => path.endsWith('/rails/workers/webpack')),
     ).toHaveLength(1);
   });
 
