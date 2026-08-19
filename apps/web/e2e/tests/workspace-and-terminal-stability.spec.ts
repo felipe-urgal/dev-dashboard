@@ -12,7 +12,7 @@ test.describe('estabilidade do shell e dos terminais', () => {
     await gotoBootstrapped(page, '/');
     await page.getByRole('button', { name: 'Adicionar workspace' }).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Adicionar workspace' });
+    const dialog = page.locator('.workspace-manager-dialog');
     await expect(dialog).toBeVisible();
 
     const info = await readRuntimeInfo();
@@ -39,8 +39,6 @@ test.describe('estabilidade do shell e dos terminais', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
     await page.getByRole('link', { name: 'Terminal', exact: true }).click();
-    await page.getByRole('button', { name: 'Iniciar sessão' }).click();
-
     const terminal = page.locator('.terminal-window');
     await expect(terminal).toBeVisible();
     await expect(terminal.locator('.xterm')).toBeVisible();
