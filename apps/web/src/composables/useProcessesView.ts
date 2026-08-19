@@ -30,7 +30,7 @@ type ProcessStatusFilter = '' | 'active' | 'stopped' | 'failed';
 type FilterState = {
   workspace: string;
   project: string;
-  kind: '' | 'server' | 'test' | 'compose-build';
+  kind: '' | 'server' | 'test' | 'worker' | 'webpack' | 'compose-build';
   status: ProcessStatusFilter;
 };
 
@@ -64,7 +64,11 @@ export function useProcessesView() {
       workspace: params.get('workspace') ?? '',
       project: params.get('project') ?? '',
       kind:
-        kind === 'server' || kind === 'test' || kind === 'compose-build'
+        kind === 'server' ||
+        kind === 'test' ||
+        kind === 'worker' ||
+        kind === 'webpack' ||
+        kind === 'compose-build'
           ? kind
           : '',
       status:
@@ -76,9 +80,9 @@ export function useProcessesView() {
 
   const workspaceFilter = ref(initialFilters.workspace);
   const projectFilter = ref(initialFilters.project);
-  const kindFilter = ref<'' | 'server' | 'test' | 'compose-build'>(
-    initialFilters.kind,
-  );
+  const kindFilter = ref<
+    '' | 'server' | 'test' | 'worker' | 'webpack' | 'compose-build'
+  >(initialFilters.kind);
   const statusFilter = ref<ProcessStatusFilter>(initialFilters.status);
 
   function syncFiltersToUrl(): void {

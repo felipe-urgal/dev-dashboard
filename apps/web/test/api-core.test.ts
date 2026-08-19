@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { requestJson } from '../src/api/core';
+import {
+  clearApiRequestMetrics,
+  getApiRequestMetrics,
+  requestJson,
+} from '../src/api/core';
 
 describe('requestJson', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    clearApiRequestMetrics();
   });
 
   it('deduplica GETs idênticos enquanto a primeira resposta está pendente', async () => {
@@ -31,6 +36,15 @@ describe('requestJson', () => {
     await expect(Promise.all([first, second])).resolves.toEqual([
       { value: 'ok' },
       { value: 'ok' },
+    ]);
+
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'GET /api/project',
+        calls: 1,
+        deduplicated: 1,
+        failures: 0,
+      }),
     ]);
   });
 

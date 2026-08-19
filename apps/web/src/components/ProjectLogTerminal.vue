@@ -22,6 +22,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ clear: [] }>();
+const copyMessage = ref('');
 
 function boundedContent(content: string): string {
   let bounded = content;
@@ -44,6 +45,17 @@ function handleClear(): void {
   if (!props.clearable || props.clearing) return;
   terminal?.clear();
   emit('clear');
+}
+
+async function copyContent(): Promise<void> {
+  if (!props.content || !navigator.clipboard) return;
+  try {
+    await navigator.clipboard.writeText(props.content);
+    copyMessage.value = 'Copiado';
+    window.setTimeout(() => (copyMessage.value = ''), 1_500);
+  } catch {
+    copyMessage.value = 'Falha ao copiar';
+  }
 }
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
@@ -125,6 +137,14 @@ onBeforeUnmount(() => {
       </span>
       <button
         type="button"
+        class="project-log-terminal-copy"
+        :disabled="!content"
+        @click="copyContent"
+      >
+        {{ copyMessage || 'Copiar' }}
+      </button>
+      <button
+        type="button"
         class="project-log-terminal-clear"
         :disabled="!clearable || clearing"
         @click="handleClear"
@@ -181,6 +201,26 @@ onBeforeUnmount(() => {
   background: transparent;
   font: inherit;
   cursor: pointer;
+}
+
+.project-log-terminal-copy {
+  border: 1px solid #3b4560;
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  color: #b9c2df;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project-log-terminal-copy:hover:not(:disabled) {
+  border-color: #7d84a3;
+  color: #ffffff;
+}
+
+.project-log-terminal-copy:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .project-log-terminal-clear:hover:not(:disabled) {
