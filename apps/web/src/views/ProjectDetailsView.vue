@@ -72,6 +72,10 @@ const isRailsWebpackRoute = computed(
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
+
+let activeProjectLoad:
+  { projectId: string; promise: Promise<void> } | undefined;
+
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
   gitOverview.value = git;
@@ -79,6 +83,24 @@ function updateGitOverview(git: ProjectGitOverview): void {
 
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
+  if (activeProjectLoad?.projectId === requestedProjectId) {
+    await activeProjectLoad.promise;
+    return;
+  }
+
+  const promise = loadProjectData(requestedProjectId);
+  activeProjectLoad = { projectId: requestedProjectId, promise };
+
+  try {
+    await promise;
+  } finally {
+    if (activeProjectLoad?.promise === promise) {
+      activeProjectLoad = undefined;
+    }
+  }
+}
+
+async function loadProjectData(requestedProjectId: string): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
   project.value = null;
@@ -96,49 +118,33 @@ async function loadProject(): Promise<void> {
     project.value = loadedProject;
     void recordProjectVisit(loadedProject.id);
 
-    if (loadedProject.capabilities.includes('git')) {
-      try {
-        const git = await fetchProjectGit(loadedProject.id);
-        if (projectId.value === requestedProjectId) {
-          updateGitOverview(git);
-        }
-      } catch {
-        gitBranch.value = '';
-        gitOverview.value = null;
-      }
-    }
+    const gitPromise = loadedProject.capabilities.includes('git')
+      ? fetchProjectGit(loadedProject.id).catch(() => null)
+      : Promise.resolve(null);
+    const databasePromise = fetchProjectDatabase(loadedProject.id).catch(
+      () => null,
+    );
+    const sidekiqPromise =
+      loadedProject.type === 'rails'
+        ? fetchProjectRailsWorker(loadedProject.id, 'sidekiq').catch(() => null)
+        : Promise.resolve(null);
+    const webpackPromise =
+      loadedProject.type === 'rails'
+        ? fetchProjectRailsWorker(loadedProject.id, 'webpack').catch(() => null)
+        : Promise.resolve(null);
 
-    try {
-      const database = await fetchProjectDatabase(loadedProject.id);
-      if (projectId.value === requestedProjectId)
-        databaseSupported.value = database.supported;
-    } catch {
-      // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
-    }
+    const [git, database, sidekiq, webpack] = await Promise.all([
+      gitPromise,
+      databasePromise,
+      sidekiqPromise,
+      webpackPromise,
+    ]);
 
-    if (loadedProject.type === 'rails') {
-      try {
-        const sidekiq = await fetchProjectRailsWorker(
-          loadedProject.id,
-          'sidekiq',
-        );
-        if (projectId.value === requestedProjectId)
-          sidekiqDetected.value = sidekiq.detected;
-      } catch {
-        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
-      }
-
-      try {
-        const webpack = await fetchProjectRailsWorker(
-          loadedProject.id,
-          'webpack',
-        );
-        if (projectId.value === requestedProjectId)
-          webpackDetected.value = webpack.detected;
-      } catch {
-        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
-      }
-    }
+    if (projectId.value !== requestedProjectId) return;
+    if (git) updateGitOverview(git);
+    if (database) databaseSupported.value = database.supported;
+    if (sidekiq) sidekiqDetected.value = sidekiq.detected;
+    if (webpack) webpackDetected.value = webpack.detected;
   } catch (error) {
     if (projectId.value === requestedProjectId) {
       errorMessage.value =

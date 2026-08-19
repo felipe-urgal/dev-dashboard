@@ -25,11 +25,55 @@ export class ApiRequestError extends Error {
   }
 }
 
+const inFlightGetRequests = new Map<string, Promise<unknown>>();
+
+function getRequestKey(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): string | undefined {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' || init?.signal) return undefined;
+
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+  const headers = [...new Headers(init?.headers).entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}:${value}`)
+    .join('|');
+
+  return `${method} ${url} ${headers}`;
+}
+
 export async function requestJson<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<T> {
-  return requestJsonAttempt<T>(input, init, true);
+  const key = getRequestKey(input, init);
+  if (!key) return requestJsonAttempt<T>(input, init, true);
+
+  const existing = inFlightGetRequests.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const pending = requestJsonAttempt<T>(input, init, true);
+  inFlightGetRequests.set(key, pending);
+  pending.then(
+    () => {
+      if (inFlightGetRequests.get(key) === pending) {
+        inFlightGetRequests.delete(key);
+      }
+    },
+    () => {
+      if (inFlightGetRequests.get(key) === pending) {
+        inFlightGetRequests.delete(key);
+      }
+    },
+  );
+
+  return pending;
 }
 
 let bootstrapPromise: Promise<void> | undefined;

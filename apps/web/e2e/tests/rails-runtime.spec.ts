@@ -34,6 +34,16 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
       sidekiqPanel.getByRole('button', { name: 'Parar' }),
     ).toBeVisible();
 
+    await gotoBootstrapped(page, '/processes');
+    const processLogLink = page.getByRole('link', {
+      name: 'Abrir logs de sample-rails-app',
+    });
+    await expect(processLogLink).toBeVisible();
+    await processLogLink.click();
+    await expect(page).toHaveURL(
+      /\/projects\/sample-rails-app-[a-f0-9]{8}\/sidekiq$/,
+    );
+
     await sidekiqPanel.getByRole('button', { name: 'Parar' }).click();
     await expect(
       sidekiqPanel.getByText('Parado', { exact: true }).first(),

@@ -59,7 +59,7 @@ describe('ProjectEnvironmentPanel', () => {
     await flushPromises();
 
     expect(wrapper.find('.project-tool-header').exists()).toBe(false);
-    expect(wrapper.find('.dd-status-badge').exists()).toBe(false);
+    expect(wrapper.find('.dd-status-badge').exists()).toBe(true);
     expect(wrapper.text()).toContain('.env');
     expect(wrapper.text()).toContain('API_URL');
     expect(wrapper.text()).toContain('https://example.com');

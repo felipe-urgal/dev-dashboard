@@ -58,12 +58,12 @@
 }
 
 .git-subtabs button {
-  display: inline-flex;
+  display: flex;
   box-sizing: border-box;
   height: 48px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 5px;
   flex: 0 0 auto;
   border: 1px solid transparent;
   background: transparent;

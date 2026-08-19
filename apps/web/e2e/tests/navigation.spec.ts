@@ -73,6 +73,41 @@ test.describe('navegação principal', () => {
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
   });
 
+  test('não repete as detecções ao abrir um projeto Rails', async ({
+    page,
+  }) => {
+    const projectRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() !== 'GET') return;
+      const pathname = new URL(request.url()).pathname;
+      if (
+        /\/api\/projects\/[^/]+\/(database|rails\/sidekiq|rails\/webpack)$/.test(
+          pathname,
+        )
+      ) {
+        projectRequests.push(pathname);
+      }
+    });
+
+    await gotoBootstrapped(page, '/');
+    await page
+      .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
+      .click();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
+    ).toBeVisible();
+
+    expect(
+      projectRequests.filter((path) => path.endsWith('/database')),
+    ).toHaveLength(1);
+    expect(
+      projectRequests.filter((path) => path.endsWith('/rails/sidekiq')),
+    ).toHaveLength(1);
+    expect(
+      projectRequests.filter((path) => path.endsWith('/rails/webpack')),
+    ).toHaveLength(1);
+  });
+
   test('rota desconhecida cai na página de não encontrado', async ({
     page,
   }) => {
