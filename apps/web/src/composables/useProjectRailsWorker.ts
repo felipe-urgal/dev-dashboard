@@ -29,6 +29,7 @@ export function useProjectRailsWorker(
   getProject: () => Project,
   workerId: RailsWorkerId,
   supportsRestart: boolean,
+  autoInitialize = true,
 ) {
   const detected = ref(false);
   const managedProcess = ref<ManagedProcess | null>(null);
@@ -348,9 +349,10 @@ export function useProjectRailsWorker(
   watch(
     () => getProject().id,
     () => {
+      if (!autoInitialize) return;
       void initialize();
     },
-    { immediate: true },
+    { immediate: autoInitialize },
   );
 
   onBeforeUnmount(() => {
@@ -382,5 +384,6 @@ export function useProjectRailsWorker(
     start,
     stop,
     restart,
+    initialize,
   };
 }
