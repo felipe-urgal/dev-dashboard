@@ -32,7 +32,6 @@ describe('requestJson', () => {
       { value: 'ok' },
       { value: 'ok' },
     ]);
-
   });
 
   it('não compartilha GETs que possuem AbortSignal próprio', async () => {
