@@ -19,17 +19,19 @@ test.describe('estabilidade do shell e dos terminais', () => {
     const workspacePath = `${info.workspaceDirectory}/workspace-extra`;
     await mkdir(workspacePath, { recursive: true });
 
-    await dialog.getByPlaceholder('Projetos pessoais').fill('Workspace extra');
-    await dialog.getByPlaceholder('/home/usuario/projetos').fill(workspacePath);
+    const workspaceInputs = dialog.locator('.workspace-create-form input');
+    await workspaceInputs.nth(0).fill('Workspace extra');
+    await workspaceInputs.nth(1).fill(workspacePath);
     await dialog.getByRole('button', { name: 'Adicionar workspace' }).click();
 
     await expect(
       page.getByText('Workspace "Workspace extra" cadastrado.'),
     ).toBeVisible();
     await expect(
-      page.getByRole('combobox', { name: 'Trocar workspace ativo' }),
+      page.getByRole('comboxx', { name: 'Trocar workspace ativo' }),
     ).toHaveValue(/.+/);
   });
+
 
   test('inicia uma sessão de terminal com scrollback visual limitado', async ({
     page,
