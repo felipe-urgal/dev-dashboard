@@ -16,6 +16,7 @@ const expanded = ref(false);
 const metrics = ref<ApiRequestMetric[]>([]);
 const alertHistory = ref<AlertHistoryItem[]>([]);
 const historyFilter = ref<HistoryFilter>('all');
+const MAX_ALERT_HISTORY = 20;
 const previousTones = new Map<string, MetricTone>();
 let refreshTimer: number | undefined;
 let historySequence = 0;
@@ -88,7 +89,7 @@ function refresh(): void {
         message: metricAlertLabel(metric),
         occurredAt: new Date().toISOString(),
       });
-      alertHistory.value = alertHistory.value.slice(0, 20);
+      alertHistory.value = alertHistory.value.slice(0, MAX_ALERT_HISTORY);
     }
     previousTones.set(metric.key, tone);
   }

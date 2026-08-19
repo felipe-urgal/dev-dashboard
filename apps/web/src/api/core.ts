@@ -26,6 +26,7 @@ export class ApiRequestError extends Error {
 }
 
 const inFlightGetRequests = new Map<string, Promise<unknown>>();
+const MAX_API_REQUEST_METRICS = 100;
 
 export interface ApiRequestMetric {
   key: string;
@@ -56,6 +57,11 @@ function metricKey(input: RequestInfo | URL, init?: RequestInit): string {
 function metricFor(key: string): ApiRequestMetric {
   const existing = apiRequestMetrics.get(key);
   if (existing) return existing;
+  if (apiRequestMetrics.size >= MAX_API_REQUEST_METRICS) {
+    const oldestKey = apiRequestMetrics.keys().next().value as
+      string | undefined;
+    if (oldestKey) apiRequestMetrics.delete(oldestKey);
+  }
   const [method, ...urlParts] = key.split(' ');
   const metric: ApiRequestMetric = {
     key,
