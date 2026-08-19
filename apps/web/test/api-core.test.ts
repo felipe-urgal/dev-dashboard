@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   clearApiRequestMetrics,
+  followEventStream,
   getApiRequestMetrics,
   requestJson,
 } from '../src/api/core';
@@ -118,5 +119,82 @@ describe('requestJson', () => {
         cancelled: 1,
       }),
     ]);
+  });
+
+  it('registra streams SSE concluídos e eventos recebidos', async () => {
+    const events: unknown[] = [];
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode('data: {"status":"done"}\n\n'),
+        );
+        controller.close();
+      },
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      }),
+    );
+
+    const stream = followEventStream('/api/process-stream', (event) => {
+      events.push(event);
+    });
+    await stream.done;
+
+    expect(events).toEqual([{ status: 'done' }]);
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'GET /api/process-stream',
+        calls: 1,
+        successes: 1,
+        failures: 0,
+        cancelled: 0,
+        lastStatus: 200,
+      }),
+    ]);
+  });
+
+  it('registra o encerramento de um stream como cancelamento', async () => {
+    const abortError = Object.assign(new Error('The operation was aborted.'), {
+      name: 'AbortError',
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(abortError));
+        }),
+    );
+
+    const stream = followEventStream('/api/long-process', () => undefined);
+    stream.close();
+    await stream.done;
+
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'GET /api/long-process',
+        calls: 1,
+        successes: 0,
+        failures: 0,
+        cancelled: 1,
+      }),
+    ]);
+  });
+
+  it('limita a quantidade de endpoints mantidos em memória', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(null, { status: 204 }),
+    );
+
+    await Promise.all(
+      Array.from({ length: 105 }, (_, index) =>
+        requestJson(`/api/metric-${index}`),
+      ),
+    );
+
+    const metrics = getApiRequestMetrics();
+    expect(metrics).toHaveLength(100);
+    expect(metrics[0]?.url).toBe('/api/metric-5');
   });
 });
