@@ -125,11 +125,11 @@ async function loadProjectData(requestedProjectId: string): Promise<void> {
       () => null,
     );
     const sidekiqPromise =
-      loadedProject.type === 'rails'
+      loadedProject.type === 'rails' && !isRailsSidekiqRoute.value
         ? fetchProjectRailsWorker(loadedProject.id, 'sidekiq').catch(() => null)
         : Promise.resolve(null);
     const webpackPromise =
-      loadedProject.type === 'rails'
+      loadedProject.type === 'rails' && !isRailsWebpackRoute.value
         ? fetchProjectRailsWorker(loadedProject.id, 'webpack').catch(() => null)
         : Promise.resolve(null);
 

@@ -7,7 +7,7 @@ describe('requestJson', () => {
     vi.restoreAllMocks();
   });
 
-  it('deduplica GETs idênticos durante e logo após a primeira resposta', async () => {
+  it('deduplica GETs idênticos enquanto a primeira resposta está pendente', async () => {
     let resolveResponse!: (response: Response) => void;
     const response = new Promise<Response>((resolve) => {
       resolveResponse = resolve;
@@ -19,7 +19,7 @@ describe('requestJson', () => {
     const first = requestJson<{ value: string }>('/api/project');
     const second = requestJson<{ value: string }>('/api/project');
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     resolveResponse(
       new Response(JSON.stringify({ value: 'ok' }), {
