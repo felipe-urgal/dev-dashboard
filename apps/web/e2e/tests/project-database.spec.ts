@@ -32,7 +32,9 @@ test.describe('Banco de dados da máquina', () => {
     ).toBeVisible();
 
     await expect(
-      page.getByRole('link', { name: 'Banco de dados' }),
+      page
+        .locator('.project-details-tabs')
+        .getByRole('link', { name: 'Banco de dados' }),
     ).toHaveCount(0);
   });
 });
