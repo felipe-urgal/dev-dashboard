@@ -19,7 +19,7 @@ describe('requestJson', () => {
     const first = requestJson<{ value: string }>('/api/project');
     const second = requestJson<{ value: string }>('/api/project');
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     resolveResponse(
       new Response(JSON.stringify({ value: 'ok' }), {
