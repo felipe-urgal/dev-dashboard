@@ -22,6 +22,9 @@ Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) tem as seguintes abas
 | Sidekiq/webpack | Acompanha e controla os processos de Sidekiq e webpack watcher de projetos Rails. | — |
 | Variáveis de ambiente | Mostra (sem editar) as variáveis de ambiente configuradas, ocultando valores sensíveis. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
 
+Antes de abrir um projeto, o seletor de workspace permite cadastrar, renomear, remover e trocar a
+pasta ativa. A seleção e o escaneamento inicial são automáticos; veja o [guia de workspaces](workspaces.md).
+
 As abas **Banco de dados** (projetos sem suporte a banco detectado), **Dependências** (só Rails/Node),
 **Console** e **Sidekiq/webpack** (só projetos Rails) aparecem condicionalmente, conforme o tipo e as
 capacidades do projeto aberto.

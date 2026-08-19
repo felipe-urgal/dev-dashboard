@@ -287,6 +287,69 @@ a.secondary-button {
   overflow-y: auto;
 }
 
+.workspace-existing-row {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.workspace-existing-row .settings-row-copy {
+  min-width: 180px;
+  flex: 1 1 220px;
+}
+
+.workspace-rename-control,
+.workspace-row-actions {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-rename-control .n-input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.workspace-row-actions {
+  justify-content: flex-end;
+}
+
+.workspace-form-message {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: var(--font-sm);
+}
+
+.workspace-form-error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.workspace-form-success {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+@media (max-width: 620px) {
+  .workspace-manager-dialog {
+    width: calc(100vw - 24px);
+  }
+
+  .workspace-existing-row .settings-switch-control {
+    margin-left: auto;
+  }
+
+  .workspace-row-actions {
+    justify-content: stretch;
+  }
+
+  .workspace-row-actions .n-button {
+    flex: 1 1 0;
+  }
+}
+
 .workspace-existing-list {
   display: grid;
   gap: 8px;
@@ -409,4 +472,3 @@ a.secondary-button {
     justify-content: space-between;
   }
 }
-

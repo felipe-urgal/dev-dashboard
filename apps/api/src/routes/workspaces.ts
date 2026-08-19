@@ -41,7 +41,8 @@ interface CreateWorkspaceBody {
 }
 
 interface UpdateWorkspaceBody {
-  recursiveScan: boolean;
+  name?: string;
+  recursiveScan?: boolean;
 }
 
 interface WorkspaceParams {
@@ -208,8 +209,13 @@ export const workspaceRoutes: FastifyPluginAsync<
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['recursiveScan'],
+          minProperties: 1,
           properties: {
+            name: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 100,
+            },
             recursiveScan: {
               type: 'boolean',
             },
@@ -223,9 +229,9 @@ export const workspaceRoutes: FastifyPluginAsync<
     },
     async (request) => {
       try {
-        return await workspaceRepository.setRecursiveScan(
+        return await workspaceRepository.update(
           request.params.workspaceId,
-          request.body.recursiveScan,
+          request.body,
         );
       } catch (error) {
         if (error instanceof WorkspaceRepositoryError) {

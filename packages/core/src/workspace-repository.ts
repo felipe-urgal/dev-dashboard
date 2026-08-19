@@ -32,6 +32,11 @@ export interface CreateWorkspaceInput {
   recursiveScan?: boolean;
 }
 
+export interface UpdateWorkspaceInput {
+  name?: string;
+  recursiveScan?: boolean;
+}
+
 export type WorkspaceRepositoryErrorCode =
   'INVALID_WORKSPACE' | 'WORKSPACE_ALREADY_EXISTS' | 'WORKSPACE_NOT_FOUND';
 
@@ -220,6 +225,13 @@ export class WorkspaceRepository {
     workspaceId: string,
     recursiveScan: boolean,
   ): Promise<Workspace> {
+    return this.update(workspaceId, { recursiveScan });
+  }
+
+  public async update(
+    workspaceId: string,
+    input: UpdateWorkspaceInput,
+  ): Promise<Workspace> {
     return this.enqueue(async () => {
       const config = await this.readConfig();
 
@@ -234,9 +246,21 @@ export class WorkspaceRepository {
         );
       }
 
+      const name = input.name?.trim();
+
+      if (input.name !== undefined && !name) {
+        throw new WorkspaceRepositoryError(
+          'INVALID_WORKSPACE',
+          'Informe um nome para o workspace.',
+        );
+      }
+
       const updatedWorkspace: Workspace = {
         ...existingWorkspace,
-        recursiveScan,
+        ...(name === undefined ? {} : { name }),
+        ...(input.recursiveScan === undefined
+          ? {}
+          : { recursiveScan: input.recursiveScan }),
       };
 
       await this.writeConfig({

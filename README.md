@@ -199,9 +199,14 @@ XDG_CONFIG_HOME
 A interface permite:
 
 - cadastrar workspaces;
-- selecionar o workspace ativo;
+- renomear ou remover workspaces com confirmação, sem apagar os arquivos locais;
+- selecionar o workspace ativo, que fica lembrado neste navegador;
+- escolher se o scanner deve procurar subdiretórios (útil para monorepos);
 - escanear novamente uma pasta;
-- remover um workspace do dashboard.
+
+Ao abrir o dashboard, o workspace selecionado é carregado e escaneado automaticamente. Se o
+workspace salvo não existir mais, o primeiro workspace disponível é usado. Para o passo a passo,
+consulte o [guia de workspaces](docs/guia/workspaces.md).
 
 Remover um workspace não apaga seus arquivos locais.
 

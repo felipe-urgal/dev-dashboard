@@ -65,6 +65,11 @@ function createApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
       id: workspaceId,
       recursiveScan,
     }),
+    updateWorkspace: async (workspaceId, input) => ({
+      ...workspace,
+      id: workspaceId,
+      ...input,
+    }),
     ...overrides,
   };
 }
@@ -146,6 +151,24 @@ test('dashboard store alterna recursiveScan de um workspace e persiste a altera�
 
   assert.equal(store.workspaces.value[0]?.recursiveScan, true);
   assert.deepEqual(store.recursiveScanUpdatingIds.value, []);
+});
+
+test('dashboard store renomeia workspace e mantém a seleção persistida', async () => {
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace],
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+  await store.handleRenameWorkspace(workspace.id, 'Projetos Renomeados');
+
+  assert.equal(store.workspaces.value[0]?.name, 'Projetos Renomeados');
+  assert.equal(store.selectedWorkspaceId.value, workspace.id);
+  assert.equal(
+    store.successMessage.value,
+    'Workspace renomeado para "Projetos Renomeados".',
+  );
 });
 
 test('dashboard store desfaz a alteração otimista de recursiveScan quando a API falha', async () => {
