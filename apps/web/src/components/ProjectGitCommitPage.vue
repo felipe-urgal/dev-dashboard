@@ -55,15 +55,10 @@ function updateMessage(event: Event): void {
   <form class="git-commit-card" @submit.prevent="emit('submit')">
     <header class="git-commit-heading">
       <div>
-        <span>Histórico local</span>
         <h2>
           {{ mode === 'create' ? 'Criar commit' : 'Alterar último commit' }}
         </h2>
-        <p>
-          Registre as alterações atuais com uma mensagem clara e rastreável.
-        </p>
       </div>
-      <CheckCircleIcon aria-hidden="true" />
     </header>
 
     <div

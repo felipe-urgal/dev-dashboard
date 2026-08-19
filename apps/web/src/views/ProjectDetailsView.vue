@@ -165,7 +165,12 @@ watch(
 </script>
 
 <template>
-  <section class="content project-details-page">
+  <section
+    class="content project-details-page"
+    :class="{
+      'project-details-page-terminal': isTerminalRoute || isConsoleRoute,
+    }"
+  >
     <div v-if="loading" class="empty-state page-empty-state">
       <div class="empty-icon">•••</div>
       <h3>Carregando projeto</h3>

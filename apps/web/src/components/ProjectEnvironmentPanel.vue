@@ -8,7 +8,6 @@ import { useProjectEnvironmentVariables } from '../composables/useProjectEnviron
 import LoadingSkeleton from './LoadingSkeleton.vue';
 import Card from './Card.vue';
 import ProjectToolHeader from './ProjectToolHeader.vue';
-import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
@@ -37,16 +36,6 @@ watch(environment.errorMessage, (value) => {
         title="Variáveis de ambiente"
         description="Consulte configurações detectadas sem expor segredos por padrão."
       >
-        <template #meta>
-          <StatusBadge tone="info">
-            {{ environment.overview.value.files.length }}
-            {{
-              environment.overview.value.files.length === 1
-                ? 'arquivo'
-                : 'arquivos'
-            }}
-          </StatusBadge>
-        </template>
       </ProjectToolHeader>
 
       <p

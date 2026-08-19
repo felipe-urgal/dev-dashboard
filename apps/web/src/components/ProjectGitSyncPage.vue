@@ -207,17 +207,8 @@ function statusIcon(tone: string) {
   <section class="git-sync-page">
     <header class="git-sync-heading">
       <div>
-        <span class="git-sync-eyebrow">Estado do repositório</span>
         <h2>Sincronização</h2>
-        <p>
-          Compare suas branches locais e remotas e mantenha o projeto
-          atualizado.
-        </p>
       </div>
-      <span class="git-sync-heading-badge">
-        <CheckCircleIcon aria-hidden="true" />
-        Git conectado
-      </span>
     </header>
     <div
       v-if="showCurrentBranchSync"

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { CodeBracketIcon } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
@@ -454,14 +453,8 @@ async function mergePullRequest(): Promise<void> {
   <section class="git-pr-card">
     <header class="git-pr-heading">
       <div>
-        <span>Pull Request</span>
         <h3>Preparar Pull Request</h3>
-        <p>
-          Envie a sua branch para o origin e escolha se a Pull Request será
-          aberta no origin ou no upstream.
-        </p>
       </div>
-      <CodeBracketIcon aria-hidden="true" />
     </header>
 
     <p v-if="errorMessage" class="project-error" role="alert">

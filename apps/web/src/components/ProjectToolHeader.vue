@@ -1,17 +1,15 @@
 <script setup lang="ts">
 defineProps<{
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
 }>();
 </script>
 
 <template>
   <header class="project-tool-header">
     <div class="project-tool-header-copy">
-      <span class="project-tool-header-eyebrow">{{ eyebrow }}</span>
       <h2>{{ title }}</h2>
-      <p>{{ description }}</p>
     </div>
     <div
       v-if="$slots.actions || $slots.meta"
@@ -29,8 +27,8 @@ defineProps<{
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 82px;
-  padding: 14px 22px 12px;
+  min-height: 58px;
+  padding: 10px 22px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -40,14 +38,6 @@ defineProps<{
   gap: 4px;
 }
 
-.project-tool-header-eyebrow {
-  color: var(--accent);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .project-tool-header h2 {
   margin: 0;
   color: var(--text);
@@ -55,14 +45,6 @@ defineProps<{
   font-weight: 750;
   letter-spacing: -0.035em;
   line-height: 1.15;
-}
-
-.project-tool-header p {
-  max-width: 72ch;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  line-height: 1.45;
 }
 
 .project-tool-header-actions {
