@@ -16,7 +16,7 @@ import { nativeNotificationStore } from './stores/native-notifications';
 import { useDashboardToastBridge } from './composables/useDashboardToastBridge';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
-import { naiveThemeOverrides } from './utils/naive-theme';
+import { createNaiveThemeOverrides } from './utils/naive-theme';
 import {
   currentTheme,
   loadVisualPreferences,
@@ -28,6 +28,9 @@ import {
 
 const naiveTheme = computed(() =>
   currentTheme.value === 'dark' ? darkTheme : null,
+);
+const naiveThemeOverrides = computed(() =>
+  createNaiveThemeOverrides(currentTheme.value),
 );
 
 loadVisualPreferences();

@@ -103,7 +103,7 @@ describe('ProjectDoctorPanel', () => {
     expect(wrapper.html()).not.toContain('super-secret');
   });
 
-  it('solicita atualização explícita ao verificar novamente', async () => {
+  it('mantém a tela enxuta sem cabeçalho redundante', async () => {
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },
       global: {
@@ -112,11 +112,9 @@ describe('ProjectDoctorPanel', () => {
     });
 
     await flushPromises();
-    await wrapper.get('.project-doctor-header button').trigger('click');
-    await flushPromises();
 
-    expect(fetchProjectDoctor).toHaveBeenNthCalledWith(1, 'p1', false);
-    expect(fetchProjectDoctor).toHaveBeenNthCalledWith(2, 'p1', true);
+    expect(wrapper.find('.project-doctor-header').exists()).toBe(false);
+    expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false);
   });
 
   it('descarta o relatório anterior ao trocar de projeto', async () => {

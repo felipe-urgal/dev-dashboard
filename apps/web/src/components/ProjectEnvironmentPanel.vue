@@ -7,7 +7,6 @@ import type { Project } from '@dev-dashboard/contracts';
 import { useProjectEnvironmentVariables } from '../composables/useProjectEnvironmentVariables';
 import LoadingSkeleton from './LoadingSkeleton.vue';
 import Card from './Card.vue';
-import ProjectToolHeader from './ProjectToolHeader.vue';
 
 const props = defineProps<{ project: Project }>();
 
@@ -31,13 +30,6 @@ watch(environment.errorMessage, (value) => {
     />
 
     <template v-else-if="environment.overview.value">
-      <ProjectToolHeader
-        eyebrow="Ferramenta do projeto"
-        title="Variáveis de ambiente"
-        description="Consulte configurações detectadas sem expor segredos por padrão."
-      >
-      </ProjectToolHeader>
-
       <p
         v-if="environment.overview.value.files.length === 0"
         class="project-environment-empty"

@@ -101,6 +101,7 @@ describe('ambiente do servidor Node', () => {
       props: { project },
     });
     await flushPromises();
+    await wrapper.get('.server-settings-toggle').trigger('click');
 
     const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
     expect(select.element.value).toBe('staging');

@@ -55,15 +55,15 @@
   overflow: visible;
 }
 
-/* Terminal e Console são superfícies contínuas: a saída deve rolar dentro do
-   xterm, nunca aumentar a altura da página e empurrar o restante da aplicação. */
-.project-details-page-terminal {
+/* Testes, Terminal e Console são superfícies contínuas: a saída deve rolar
+   dentro do xterm, nunca aumentar a altura da página e empurrar o restante. */
+.project-details-page-pty {
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
 }
 
-.project-details-page-terminal > :last-child {
+.project-details-page-pty > :last-child {
   display: flex;
   flex: 1 1 0;
   height: auto;
@@ -71,7 +71,11 @@
   overflow: hidden;
 }
 
-.project-details-page-terminal :deep(.terminal-panel) {
+.project-details-page-pty :deep(.terminal-panel),
+.project-details-page-pty :deep(.tests-pty-panel),
+.project-details-page-pty :deep(.rails-runtime-panel),
+.project-details-page-pty :deep(.rails-worker-panel),
+.project-details-page-pty :deep(.rails-worker-card) {
   flex: 1 1 0;
   height: 100%;
   min-height: 0;
@@ -79,7 +83,8 @@
   overflow: hidden;
 }
 
-.project-details-page-terminal :deep(.terminal-window) {
+.project-details-page-pty :deep(.terminal-window),
+.project-details-page-pty :deep(.tests-pty-terminal) {
   flex: 1 1 0;
   height: auto;
   min-height: 0;
@@ -88,13 +93,6 @@
 
 :deep(.git-navigation-bar) {
   top: 0;
-}
-
-:deep(.tests-pty-panel .tests-pty-terminal) {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 0;
-  max-height: none;
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */

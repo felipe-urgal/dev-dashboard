@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  ArrowPathIcon,
   Bars3BottomLeftIcon,
   DocumentTextIcon,
   FunnelIcon,
@@ -44,7 +43,6 @@ const {
   canExpandBelow,
   expandContext,
   registerCard,
-  refresh,
   toggleCollapsed,
   toggleAll,
   toggleViewed,

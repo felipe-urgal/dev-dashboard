@@ -21,12 +21,6 @@
 
       <div class="server-layout" :class="{ 'server-layout-settings-hidden': !settingsOpen }">
         <section v-if="settingsOpen" class="server-config-card">
-          <header class="server-card-heading">
-            <span>Configuração</span>
-            <h2>Preparar servidor</h2>
-            <p>Defina os parâmetros antes de iniciar o processo local.</p>
-          </header>
-
           <div class="server-config-list">
             <label class="server-config-row">
               <span class="server-config-icon"><ServerStackIcon aria-hidden="true" /></span>
@@ -95,12 +89,6 @@
         </section>
 
         <section v-if="!canStop" class="server-runtime-card server-runtime-card-stopped">
-          <header class="server-card-heading">
-            <span>Estado atual</span>
-            <h2>Servidor parado</h2>
-            <p>{{ statusDescription }}</p>
-          </header>
-
           <div class="server-runtime-empty">
             <span class="server-runtime-icon"><PlayIcon aria-hidden="true" /></span>
             <div>

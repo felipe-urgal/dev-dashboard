@@ -451,12 +451,6 @@ async function mergePullRequest(): Promise<void> {
 
 <template>
   <section class="git-pr-card">
-    <header class="git-pr-heading">
-      <div>
-        <h3>Preparar Pull Request</h3>
-      </div>
-    </header>
-
     <p v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
     </p>

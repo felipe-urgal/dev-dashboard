@@ -53,14 +53,6 @@ function updateMessage(event: Event): void {
 
 <template>
   <form class="git-commit-card" @submit.prevent="emit('submit')">
-    <header class="git-commit-heading">
-      <div>
-        <h2>
-          {{ mode === 'create' ? 'Criar commit' : 'Alterar último commit' }}
-        </h2>
-      </div>
-    </header>
-
     <div
       class="git-commit-mode"
       role="radiogroup"

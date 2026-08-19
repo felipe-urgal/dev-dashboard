@@ -3,18 +3,6 @@
   aria-labelledby="database-explorer-title"
   @keydown="handleDatabaseExplorerKeydown"
 >
-  <ProjectToolHeader
-    eyebrow="Ferramenta do projeto"
-    title="Banco de dados"
-    description="Explore conexões detectadas e gerencie serviços locais."
-  >
-    <template #actions>
-      <button type="button" :disabled="loading" @click="loadDatabase(1)">
-        <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
-        {{ loading ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-    </template>
-  </ProjectToolHeader>
   <div class="database-split-layout database-environments-layout">
     <aside class="database-sidebar-panel">
       <header>
