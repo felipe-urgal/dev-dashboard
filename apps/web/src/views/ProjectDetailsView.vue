@@ -255,7 +255,6 @@ watch(
               <ProjectProcessesMenu
                 :project="project"
                 @database-supported="databaseSupported = $event"
-                :eager="false"
                 @worker-detected="
                   (workerId, detected) => {
                     if (workerId === 'sidekiq') sidekiqDetected = detected;
