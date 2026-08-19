@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   ArrowPathIcon,
   CircleStackIcon,
@@ -13,16 +13,24 @@ import type {
 
 import {
   fetchMachineDatabaseServices,
+  installMachineDatabaseService,
   runMachineDatabaseServiceAction,
 } from '../api/rails';
+import { confirmDialog } from '../stores/app-dialog';
 
 const services = ref<MachineDatabaseService[]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
 const pending = ref<{
   serviceId: string;
-  action: DatabaseServiceAction;
+  action: DatabaseServiceAction | 'install';
 } | null>(null);
+const installedServices = computed(() =>
+  services.value.filter((service) => service.installed),
+);
+const uninstalledServices = computed(() =>
+  services.value.filter((service) => !service.installed),
+);
 
 async function loadServices(): Promise<void> {
   loading.value = true;
@@ -44,6 +52,16 @@ async function runAction(
   action: DatabaseServiceAction,
 ): Promise<void> {
   if (!service.installed || pending.value) return;
+  if (action === 'stop' || action === 'restart') {
+    const actionLabel = action === 'stop' ? 'parar' : 'reiniciar';
+    const confirmed = await confirmDialog({
+      title: `${action === 'stop' ? 'Parar' : 'Reiniciar'} ${service.label}?`,
+      message: `O serviço ${service.label} será ${actionLabel}. Aplicações que dependem dele podem ficar indisponíveis durante a operação.`,
+      confirmLabel: action === 'stop' ? 'Parar serviço' : 'Reiniciar serviço',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
+  }
   pending.value = { serviceId: service.id, action };
   errorMessage.value = '';
   try {
@@ -61,11 +79,35 @@ async function runAction(
 
 function isPending(
   service: MachineDatabaseService,
-  action: DatabaseServiceAction,
+  action: DatabaseServiceAction | 'install',
 ) {
   return (
     pending.value?.serviceId === service.id && pending.value?.action === action
   );
+}
+
+async function installService(service: MachineDatabaseService): Promise<void> {
+  if (service.installed || pending.value) return;
+  const confirmed = await confirmDialog({
+    title: `Instalar ${service.label}?`,
+    message: `A instalação de ${service.label} altera os pacotes do sistema e pode solicitar sua senha.`,
+    confirmLabel: 'Instalar serviço',
+    tone: 'warning',
+  });
+  if (!confirmed) return;
+  pending.value = { serviceId: service.id, action: 'install' };
+  errorMessage.value = '';
+  try {
+    await installMachineDatabaseService(service.id);
+    await loadServices();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível instalar o serviço do sistema.';
+  } finally {
+    pending.value = null;
+  }
 }
 
 onMounted(() => void loadServices());
@@ -106,64 +148,109 @@ onMounted(() => void loadServices());
     >
       Consultando os serviços do sistema…
     </div>
-    <div v-else class="database-machine-list">
-      <article
-        v-for="service in services"
-        :key="service.id"
-        class="database-machine-card"
+    <template v-else>
+      <h2
+        v-if="installedServices.length"
+        class="database-machine-section-title"
       >
-        <div class="database-machine-card-icon">
-          <CircleStackIcon aria-hidden="true" />
-        </div>
-        <div class="database-machine-card-copy">
-          <h2>{{ service.label }}</h2>
-          <p>
-            <code>{{ service.unit }}</code>
-          </p>
-          <span
-            :class="['database-machine-status', { active: service.active }]"
-          >
-            {{
-              !service.installed
-                ? 'Não instalado'
-                : service.active
-                  ? 'Em execução'
-                  : 'Parado'
-            }}
-          </span>
-        </div>
-        <div v-if="service.installed" class="database-machine-actions">
-          <button
-            v-if="!service.active"
-            type="button"
-            :disabled="pending !== null"
-            @click="runAction(service, 'start')"
-          >
-            <PlayIcon aria-hidden="true" />
-            {{ isPending(service, 'start') ? 'Iniciando…' : 'Iniciar' }}
-          </button>
-          <template v-else>
+        Instalados
+      </h2>
+      <div v-if="installedServices.length" class="database-machine-list">
+        <article
+          v-for="service in installedServices"
+          :key="service.id"
+          class="database-machine-card"
+        >
+          <div class="database-machine-card-icon">
+            <CircleStackIcon aria-hidden="true" />
+          </div>
+          <div class="database-machine-card-copy">
+            <h2>{{ service.label }}</h2>
+            <p>
+              <code>{{ service.unit }}</code>
+            </p>
+            <span
+              :class="['database-machine-status', { active: service.active }]"
+            >
+              {{
+                !service.installed
+                  ? 'Não instalado'
+                  : service.active
+                    ? 'Em execução'
+                    : 'Parado'
+              }}
+            </span>
+          </div>
+          <div v-if="service.installed" class="database-machine-actions">
+            <button
+              v-if="!service.active"
+              type="button"
+              :disabled="pending !== null"
+              @click="runAction(service, 'start')"
+            >
+              <PlayIcon aria-hidden="true" />
+              {{ isPending(service, 'start') ? 'Iniciando…' : 'Iniciar' }}
+            </button>
+            <template v-else>
+              <button
+                type="button"
+                :disabled="pending !== null"
+                @click="runAction(service, 'restart')"
+              >
+                <ArrowPathIcon aria-hidden="true" />
+                {{
+                  isPending(service, 'restart') ? 'Reiniciando…' : 'Reiniciar'
+                }}
+              </button>
+              <button
+                type="button"
+                class="danger"
+                :disabled="pending !== null"
+                @click="runAction(service, 'stop')"
+              >
+                <PauseIcon aria-hidden="true" />
+                {{ isPending(service, 'stop') ? 'Parando…' : 'Parar' }}
+              </button>
+            </template>
+          </div>
+        </article>
+      </div>
+
+      <h2
+        v-if="uninstalledServices.length"
+        class="database-machine-section-title"
+      >
+        Não instalados
+      </h2>
+      <div v-if="uninstalledServices.length" class="database-machine-list">
+        <article
+          v-for="service in uninstalledServices"
+          :key="service.id"
+          class="database-machine-card database-machine-card-uninstalled"
+        >
+          <div class="database-machine-card-icon">
+            <CircleStackIcon aria-hidden="true" />
+          </div>
+          <div class="database-machine-card-copy">
+            <h2>{{ service.label }}</h2>
+            <p>
+              <code>{{ service.unit }}</code>
+            </p>
+            <span class="database-machine-status">Não instalado</span>
+          </div>
+          <div class="database-machine-actions">
             <button
               type="button"
               :disabled="pending !== null"
-              @click="runAction(service, 'restart')"
+              @click="installService(service)"
             >
-              <ArrowPathIcon aria-hidden="true" />
-              {{ isPending(service, 'restart') ? 'Reiniciando…' : 'Reiniciar' }}
+              <PlayIcon aria-hidden="true" />
+              {{ isPending(service, 'install') ? 'Instalando…' : 'Instalar' }}
             </button>
-            <button
-              type="button"
-              class="danger"
-              :disabled="pending !== null"
-              @click="runAction(service, 'stop')"
-            >
-              <PauseIcon aria-hidden="true" />
-              {{ isPending(service, 'stop') ? 'Parando…' : 'Parar' }}
-            </button>
-          </template>
-        </div>
-      </article>
-    </div>
+          </div>
+        </article>
+      </div>
+    </template>
   </section>
 </template>
 
@@ -210,6 +297,14 @@ onMounted(() => void loadServices());
   display: grid;
   gap: 12px;
   max-width: 900px;
+}
+.database-machine-section-title {
+  max-width: 900px;
+  margin: 20px 0 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 .database-machine-card {
   display: flex;

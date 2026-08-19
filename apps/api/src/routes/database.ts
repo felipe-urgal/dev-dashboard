@@ -10,8 +10,10 @@ import {
 } from '../http/response-schemas.js';
 import {
   DatabaseServiceActionError,
+  databaseServiceActionErrorMessage,
+  DatabaseServiceInstallError,
+  databaseServiceInstallErrorMessage,
   type DatabaseDetectionService,
-  type DatabaseServiceAction,
 } from '../services/database-detection-service.js';
 import {
   DatabaseSnapshotError,
@@ -82,13 +84,35 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
           );
           const message =
             error instanceof DatabaseServiceActionError
-              ? error.message
+              ? databaseServiceActionErrorMessage(error)
               : 'Não foi possível alterar o serviço de banco de dados.';
           return reply.code(500).send({ message });
         }
       },
     );
   }
+
+  app.post<{ Params: { serviceId: string } }>(
+    '/database/:serviceId/install',
+    async (request, reply) => {
+      try {
+        await options.databaseDetectionService.installMachineService(
+          request.params.serviceId,
+        );
+        return { installed: true };
+      } catch (error) {
+        request.log.warn(
+          { error, serviceId: request.params.serviceId },
+          'Machine database service installation failed',
+        );
+        const message =
+          error instanceof DatabaseServiceInstallError
+            ? databaseServiceInstallErrorMessage(error)
+            : 'Não foi possível instalar o serviço de banco de dados.';
+        return reply.code(500).send({ message });
+      }
+    },
+  );
 
   app.get<{ Params: Params; Querystring: Query }>(
     '/projects/:projectId/database',
@@ -176,12 +200,6 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
     },
   );
 
-  const serviceActionVerbs: Record<DatabaseServiceAction, string> = {
-    start: 'iniciar',
-    stop: 'parar',
-    restart: 'reiniciar',
-  };
-
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post<{ Params: SecretParams }>(
       `/projects/:projectId/database/:environmentId/${action}`,
@@ -257,20 +275,13 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
             },
             'Database service action failed',
           );
-          const messages = {
-            'systemctl-unavailable': `O systemctl não está instalado ou disponível para ${serviceActionVerbs[action]} o serviço local.`,
-            'authorization-unavailable':
-              'Não há um agente de autenticação polkit disponível na sessão. Inicie um agente polkit e tente novamente.',
-            'permission-denied': `A autorização para ${serviceActionVerbs[action]} o serviço local de banco foi negada.`,
-            'command-failed': `O systemctl não conseguiu ${serviceActionVerbs[action]} o serviço local de banco de dados. Consulte o log da API.`,
-          } as const;
           throw new ApiError({
             statusCode: 500,
             code: 'DATABASE_SERVICE_ACTION_FAILED',
             message:
               error instanceof DatabaseServiceActionError
-                ? messages[error.reason]
-                : messages['command-failed'],
+                ? databaseServiceActionErrorMessage(error)
+                : 'O systemctl não conseguiu alterar o serviço local de banco de dados. Consulte o log da API.',
           });
         }
       },
