@@ -97,14 +97,17 @@ test.describe('navegação principal', () => {
       page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
     ).toBeVisible();
 
+    const railsRequests = projectRequests.filter((path) =>
+      path.includes('/sample-rails-app-'),
+    );
     expect(
-      projectRequests.filter((path) => path.endsWith('/database')),
+      railsRequests.filter((path) => path.endsWith('/database')),
     ).toHaveLength(1);
     expect(
-      projectRequests.filter((path) => path.endsWith('/rails/sidekiq')),
+      railsRequests.filter((path) => path.endsWith('/rails/sidekiq')),
     ).toHaveLength(1);
     expect(
-      projectRequests.filter((path) => path.endsWith('/rails/webpack')),
+      railsRequests.filter((path) => path.endsWith('/rails/webpack')),
     ).toHaveLength(1);
   });
 

@@ -7,7 +7,7 @@ describe('requestJson', () => {
     vi.restoreAllMocks();
   });
 
-  it('deduplica GETs idênticos enquanto a primeira resposta está pendente', async () => {
+  it('deduplica GETs idênticos durante e logo após a primeira resposta', async () => {
     let resolveResponse!: (response: Response) => void;
     const response = new Promise<Response>((resolve) => {
       resolveResponse = resolve;
@@ -34,7 +34,7 @@ describe('requestJson', () => {
     ]);
 
     await requestJson<{ value: string }>('/api/project');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('não compartilha GETs que possuem AbortSignal próprio', async () => {

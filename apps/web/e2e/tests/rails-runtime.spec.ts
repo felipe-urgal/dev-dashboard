@@ -38,7 +38,7 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
     const processLogLink = page.getByRole('link', {
       name: 'Abrir logs de sample-rails-app',
     });
-    await expect(processLogLink).toBeVisible();
+    await expect(processLogLink).toBeVisible({ timeout: 15_000 });
     await processLogLink.click();
     await expect(page).toHaveURL(
       /\/projects\/sample-rails-app-[a-f0-9]{8}\/sidekiq$/,

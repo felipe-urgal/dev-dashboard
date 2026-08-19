@@ -25,7 +25,11 @@ export class ApiRequestError extends Error {
   }
 }
 
-const inFlightGetRequests = new Map<string, Promise<unknown>>();
+const RECENT_GET_CACHE_TTL_MS = 1_000;
+const recentGetRequests = new Map<
+  string,
+  { promise: Promise<unknown>; expiresAt: number }
+>();
 
 function getRequestKey(
   input: RequestInfo | URL,
@@ -55,20 +59,27 @@ export async function requestJson<T>(
   const key = getRequestKey(input, init);
   if (!key) return requestJsonAttempt<T>(input, init, true);
 
-  const existing = inFlightGetRequests.get(key);
-  if (existing) return existing as Promise<T>;
+  const existing = recentGetRequests.get(key);
+  if (
+    existing &&
+    (existing.expiresAt === 0 || existing.expiresAt > Date.now())
+  ) {
+    return existing.promise as Promise<T>;
+  }
+  if (existing) recentGetRequests.delete(key);
 
   const pending = requestJsonAttempt<T>(input, init, true);
-  inFlightGetRequests.set(key, pending);
+  const entry = { promise: pending, expiresAt: 0 };
+  recentGetRequests.set(key, entry);
   pending.then(
     () => {
-      if (inFlightGetRequests.get(key) === pending) {
-        inFlightGetRequests.delete(key);
+      if (recentGetRequests.get(key) === entry) {
+        entry.expiresAt = Date.now() + RECENT_GET_CACHE_TTL_MS;
       }
     },
     () => {
-      if (inFlightGetRequests.get(key) === pending) {
-        inFlightGetRequests.delete(key);
+      if (recentGetRequests.get(key) === entry) {
+        recentGetRequests.delete(key);
       }
     },
   );
