@@ -83,7 +83,7 @@ jobs:
           key: playwright-${{ runner.os }}-1.61.0
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
         working-directory: apps/web
 
       - name: Smoke E2E
