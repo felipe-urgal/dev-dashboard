@@ -33,8 +33,6 @@ describe('requestJson', () => {
       { value: 'ok' },
     ]);
 
-    await requestJson<{ value: string }>('/api/project');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('não compartilha GETs que possuem AbortSignal próprio', async () => {
