@@ -176,6 +176,10 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
 _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
+### `POST /api/database/:serviceId/uninstall`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
 ### `GET /api/projects/:projectId/database`
 
 **Parâmetros de rota (`params`)**

@@ -69,6 +69,19 @@ export async function installMachineDatabaseService(
   });
 }
 
+export async function uninstallMachineDatabaseService(
+  serviceId: string,
+): Promise<void> {
+  await requestJson(
+    `/api/database/${encodeURIComponent(serviceId)}/uninstall`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
 export async function fetchProjectDatabase(
   projectId: string,
   page = 1,

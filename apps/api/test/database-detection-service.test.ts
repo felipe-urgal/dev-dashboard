@@ -348,3 +348,104 @@ test('instala um serviço global ausente pelo gerenciador do sistema', async () 
     ],
   });
 });
+
+test('instala MongoDB usando o pacote oficial', async () => {
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      calls.push({ command, args });
+      if (command === 'systemctl') {
+        throw Object.assign(new Error('unit not found'), {
+          code: 4,
+          stdout: '',
+        });
+      }
+      return {};
+    },
+  );
+
+  await service.installMachineService('mongodb');
+  assert.deepEqual(calls.at(-1), {
+    command: 'pkexec',
+    args: [
+      '--disable-internal-agent',
+      'apt-get',
+      'install',
+      '-y',
+      'mongodb-org',
+    ],
+  });
+});
+
+test('classifica pacote ausente na instalação global', async () => {
+  const service = new DatabaseDetectionService(undefined, async (command) => {
+    if (command === 'systemctl') {
+      throw Object.assign(new Error('unit not found'), {
+        code: 4,
+        stdout: '',
+      });
+    }
+    throw Object.assign(new Error('apt-get failed'), {
+      stderr: 'E: Unable to locate package mongodb-org',
+    });
+  });
+
+  await assert.rejects(
+    () => service.installMachineService('mongodb'),
+    (error: unknown) =>
+      error instanceof Error &&
+      'reason' in error &&
+      error.reason === 'package-unavailable',
+  );
+});
+
+test('não inicia MySQL enquanto MariaDB estiver ativo', async () => {
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      if (command === 'systemctl' && args[1] === 'mariadb.service') {
+        return { stdout: 'active\n' };
+      }
+      if (command === 'systemctl') {
+        throw Object.assign(new Error('inactive'), {
+          code: 3,
+          stdout: 'inactive\n',
+        });
+      }
+      throw new Error('não deveria executar o pkexec');
+    },
+  );
+
+  await assert.rejects(
+    () => service.runMachineServiceAction('mysql', 'start'),
+    (error: unknown) =>
+      error instanceof Error &&
+      'reason' in error &&
+      error.reason === 'conflicting-service-active',
+  );
+});
+
+test('desinstala um serviço global pelo gerenciador do sistema', async () => {
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      calls.push({ command, args });
+      if (command === 'systemctl') return { stdout: 'inactive\n' };
+      return {};
+    },
+  );
+
+  await service.uninstallMachineService('mysql');
+  assert.deepEqual(calls.at(-1), {
+    command: 'pkexec',
+    args: [
+      '--disable-internal-agent',
+      'apt-get',
+      'remove',
+      '-y',
+      'mysql-server',
+    ],
+  });
+});
