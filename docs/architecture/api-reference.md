@@ -16996,10 +16996,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "recursiveScan"
-  ],
+  "minProperties": 1,
   "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
     "recursiveScan": {
       "type": "boolean"
     }
