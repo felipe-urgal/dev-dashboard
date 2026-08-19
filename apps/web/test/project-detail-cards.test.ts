@@ -125,6 +125,7 @@ describe('cards dos painéis de detalhe', () => {
 
     const wrapper = mountServerPanel();
     await flushPromises();
+    await wrapper.get('.server-settings-toggle').trigger('click');
 
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
@@ -150,6 +151,7 @@ describe('cards dos painéis de detalhe', () => {
 
     const wrapper = mountServerPanel();
     await flushPromises();
+    await wrapper.get('.server-settings-toggle').trigger('click');
 
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(true);

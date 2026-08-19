@@ -19,7 +19,6 @@ import type {
 
 import { useProjectDatabaseOverview } from '../composables/useProjectDatabaseOverview';
 import { dbReachabilityToneFor } from '../utils/status-tones';
-import ProjectToolHeader from './ProjectToolHeader.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();

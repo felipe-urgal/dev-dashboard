@@ -15,7 +15,6 @@ import type { Project, ProjectScriptCatalog } from '@dev-dashboard/contracts';
 import { fetchProjectScripts } from '../api';
 import { useProjectDependenciesPty } from '../composables/useProjectDependenciesPty';
 import { projectScriptDestination } from '../utils/project-script-visibility';
-import ProjectToolHeader from './ProjectToolHeader.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -113,22 +112,6 @@ watch(
     aria-labelledby="dependencies-title"
     :aria-busy="loading"
   >
-    <ProjectToolHeader
-      eyebrow="Projeto / Dependências"
-      title="Dependências e build"
-      description="Atualize o ambiente e gere o build usando apenas comandos detectados no projeto."
-    >
-      <template #actions>
-        <button type="button" :disabled="loading" @click="load">
-          <ArrowPathIcon
-            aria-hidden="true"
-            :class="{ 'is-spinning': loading }"
-          />
-          {{ loading ? 'Atualizando…' : 'Atualizar' }}
-        </button>
-      </template>
-    </ProjectToolHeader>
-
     <div v-if="errorMessage" class="dependencies-alert" role="alert">
       {{ errorMessage }}
     </div>

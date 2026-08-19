@@ -1,7 +1,7 @@
 import { computed } from 'vue';
 import { createDiscreteApi, darkTheme } from 'naive-ui';
 
-import { naiveThemeOverrides } from '../utils/naive-theme';
+import { createNaiveThemeOverrides } from '../utils/naive-theme';
 import { currentTheme } from '../utils/visual-preferences';
 
 export type AppDialogTone = 'info' | 'warning' | 'danger';
@@ -20,7 +20,7 @@ function isTestEnvironment(): boolean {
 
 const configProviderProps = computed(() => ({
   theme: currentTheme.value === 'dark' ? darkTheme : null,
-  themeOverrides: naiveThemeOverrides,
+  themeOverrides: createNaiveThemeOverrides(currentTheme.value),
 }));
 
 let discreteDialog:

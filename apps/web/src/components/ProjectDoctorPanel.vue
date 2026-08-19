@@ -21,7 +21,6 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { fetchProjectDoctor } from '../api';
-import ProjectToolHeader from './ProjectToolHeader.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -199,23 +198,6 @@ watch(
     :aria-busy="loading"
   >
     <article class="project-doctor-card">
-      <ProjectToolHeader
-        class="project-doctor-header"
-        eyebrow="Ferramenta do projeto"
-        title="Project Doctor"
-        description="Análise rápida da saúde do projeto"
-      >
-        <template #actions>
-          <button type="button" :disabled="loading" @click="load(true)">
-            <ArrowPathIcon
-              aria-hidden="true"
-              :class="{ 'is-spinning': loading }"
-            />
-            {{ loading ? 'Analisando…' : 'Executar nova análise' }}
-          </button>
-        </template>
-      </ProjectToolHeader>
-
       <div v-if="errorMessage" class="project-doctor-alert" role="alert">
         <div>
           <strong>Não foi possível concluir o diagnóstico</strong>

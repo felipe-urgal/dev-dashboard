@@ -320,7 +320,6 @@ export function useProjectGitPanel(
           fetchProjectGitRemote(props.project.id, remote),
         ),
       );
-      mutationMessage.value = 'Branches remotas atualizadas.';
       await reloadGitData();
     } catch (error) {
       mutationErrorMessage.value =

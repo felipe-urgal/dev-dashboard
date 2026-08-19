@@ -205,11 +205,6 @@ function statusIcon(tone: string) {
 
 <template>
   <section class="git-sync-page">
-    <header class="git-sync-heading">
-      <div>
-        <h2>Sincronização</h2>
-      </div>
-    </header>
     <div
       v-if="showCurrentBranchSync"
       class="git-sync-card git-sync-current-card"

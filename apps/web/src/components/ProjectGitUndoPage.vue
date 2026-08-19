@@ -146,12 +146,6 @@ async function undoFile(filePath: string): Promise<void> {
 
 <template>
   <section class="git-undo-card">
-    <header class="git-undo-heading">
-      <div>
-        <h3>Voltar alterações com segurança</h3>
-      </div>
-    </header>
-
     <p v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
     </p>

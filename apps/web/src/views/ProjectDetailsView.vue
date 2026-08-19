@@ -168,7 +168,12 @@ watch(
   <section
     class="content project-details-page"
     :class="{
-      'project-details-page-terminal': isTerminalRoute || isConsoleRoute,
+      'project-details-page-pty':
+        isTestsRoute ||
+        isTerminalRoute ||
+        isConsoleRoute ||
+        isRailsSidekiqRoute ||
+        isRailsWebpackRoute,
     }"
   >
     <div v-if="loading" class="empty-state page-empty-state">
