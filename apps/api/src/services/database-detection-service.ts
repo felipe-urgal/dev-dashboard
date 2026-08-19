@@ -38,6 +38,7 @@ export type DatabaseServiceActionFailureReason =
   | 'systemctl-unavailable'
   | 'authorization-unavailable'
   | 'permission-denied'
+  | 'package-unavailable'
   | 'command-failed';
 
 const serviceActionVerbs: Record<DatabaseServiceAction, string> = {
@@ -79,6 +80,8 @@ export function databaseServiceActionErrorMessage(
     'authorization-unavailable':
       'Não foi possível solicitar autorização nesta sessão. Verifique se há um agente polkit ativo e tente novamente.',
     'permission-denied': `A autorização para ${action} o serviço local de banco foi negada.`,
+    'package-unavailable':
+      'O pacote do serviço de banco não está disponível nesta máquina.',
     'command-failed': `O systemctl não conseguiu ${action} o serviço local de banco de dados. Consulte o log da API.`,
   };
   return messages[error.reason];
@@ -93,6 +96,8 @@ export function databaseServiceInstallErrorMessage(
     return 'Não foi possível solicitar autorização nesta sessão. Verifique se há um agente polkit ativo e tente novamente.';
   if (error.reason === 'permission-denied')
     return 'A autorização para instalar o banco de dados foi negada.';
+  if (error.reason === 'package-unavailable')
+    return 'O pacote deste banco não está disponível nos repositórios APT configurados. Para MongoDB, configure o repositório oficial e tente novamente.';
   return 'Não foi possível instalar o banco de dados. Consulte o log da API.';
 }
 
@@ -140,6 +145,12 @@ function serviceActionFailureReason(
   error: unknown,
 ): DatabaseServiceActionFailureReason {
   const text = commandFailureText(error);
+  if (
+    text.includes('unable to locate package') ||
+    text.includes('has no installation candidate') ||
+    text.includes('no installation candidate')
+  )
+    return 'package-unavailable';
   if (
     text.includes('spawn pkexec enoent') ||
     text.includes('pkexec: command not found')
@@ -191,7 +202,9 @@ const aptPackages: Record<string, string> = {
   mariadb: 'mariadb-server',
   postgresql: 'postgresql',
   redis: 'redis-server',
-  mongodb: 'mongodb',
+  // O pacote `mongodb` foi removido do Ubuntu; o pacote mantido pelo projeto
+  // MongoDB é `mongodb-org`, disponibilizado pelo repositório oficial.
+  mongodb: 'mongodb-org',
 };
 
 function localSystemdService(item: DetectedDatabase): string | null {
