@@ -39,6 +39,7 @@ function handleShowUpdate(show: boolean): void {
   <NModal
     :show="open"
     preset="card"
+    to="body"
     class="workspace-manager-dialog"
     title="Adicionar workspace"
     :bordered="false"

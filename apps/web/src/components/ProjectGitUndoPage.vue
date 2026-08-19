@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  ArrowUturnLeftIcon,
-  DocumentTextIcon,
-} from '@heroicons/vue/24/outline';
+import { DocumentTextIcon } from '@heroicons/vue/24/outline';
 import { computed, ref } from 'vue';
 
 import type {
@@ -151,14 +148,8 @@ async function undoFile(filePath: string): Promise<void> {
   <section class="git-undo-card">
     <header class="git-undo-heading">
       <div>
-        <span>Desfazer</span>
         <h3>Voltar alterações com segurança</h3>
-        <p>
-          Commits locais voltam para edição. Commits já publicados são
-          revertidos sem reescrever o histórico.
-        </p>
       </div>
-      <ArrowUturnLeftIcon aria-hidden="true" />
     </header>
 
     <p v-if="errorMessage" class="project-error" role="alert">
