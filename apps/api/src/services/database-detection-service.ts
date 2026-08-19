@@ -39,7 +39,10 @@ export type DatabaseServiceActionFailureReason =
   | 'authorization-unavailable'
   | 'permission-denied'
   | 'package-unavailable'
+  | 'conflicting-service-active'
   | 'command-failed';
+
+export type DatabaseServicePackageOperation = 'install' | 'uninstall';
 
 const serviceActionVerbs: Record<DatabaseServiceAction, string> = {
   start: 'iniciar',
@@ -61,13 +64,14 @@ export class DatabaseServiceActionError extends Error {
   }
 }
 
-export class DatabaseServiceInstallError extends Error {
+export class DatabaseServicePackageError extends Error {
   public constructor(
+    public readonly operation: DatabaseServicePackageOperation,
     public readonly reason: DatabaseServiceActionFailureReason,
     options?: ErrorOptions,
   ) {
-    super('Falha ao instalar o serviço de banco de dados.', options);
-    this.name = 'DatabaseServiceInstallError';
+    super('Falha ao alterar o pacote do serviço de banco de dados.', options);
+    this.name = 'DatabaseServicePackageError';
   }
 }
 
@@ -82,23 +86,26 @@ export function databaseServiceActionErrorMessage(
     'permission-denied': `A autorização para ${action} o serviço local de banco foi negada.`,
     'package-unavailable':
       'O pacote do serviço de banco não está disponível nesta máquina.',
+    'conflicting-service-active':
+      'Não é possível iniciar este serviço enquanto o MySQL ou MariaDB conflitante estiver em execução.',
     'command-failed': `O systemctl não conseguiu ${action} o serviço local de banco de dados. Consulte o log da API.`,
   };
   return messages[error.reason];
 }
 
-export function databaseServiceInstallErrorMessage(
-  error: DatabaseServiceInstallError,
+export function databaseServicePackageErrorMessage(
+  error: DatabaseServicePackageError,
 ): string {
+  const operation = error.operation === 'install' ? 'instalar' : 'desinstalar';
   if (error.reason === 'systemctl-unavailable')
-    return 'O gerenciador de pacotes não está disponível nesta máquina.';
+    return `O gerenciador de pacotes não está disponível para ${operation} o banco nesta máquina.`;
   if (error.reason === 'authorization-unavailable')
     return 'Não foi possível solicitar autorização nesta sessão. Verifique se há um agente polkit ativo e tente novamente.';
   if (error.reason === 'permission-denied')
-    return 'A autorização para instalar o banco de dados foi negada.';
+    return `A autorização para ${operation} o banco de dados foi negada.`;
   if (error.reason === 'package-unavailable')
     return 'O pacote deste banco não está disponível nos repositórios APT configurados. Para MongoDB, configure o repositório oficial e tente novamente.';
-  return 'Não foi possível instalar o banco de dados. Consulte o log da API.';
+  return `Não foi possível ${operation} o banco de dados. Consulte o log da API.`;
 }
 
 const execFileAsync = promisify(execFile);
@@ -205,6 +212,11 @@ const aptPackages: Record<string, string> = {
   // O pacote `mongodb` foi removido do Ubuntu; o pacote mantido pelo projeto
   // MongoDB é `mongodb-org`, disponibilizado pelo repositório oficial.
   mongodb: 'mongodb-org',
+};
+
+const conflictingService: Record<string, string> = {
+  mysql: 'mariadb',
+  mariadb: 'mysql',
 };
 
 function localSystemdService(item: DetectedDatabase): string | null {
@@ -574,10 +586,21 @@ export class DatabaseDetectionService {
     serviceId: string,
     action: DatabaseServiceAction,
   ): Promise<void> {
-    const service = (await this.getMachineServices()).find(
-      (item) => item.id === serviceId,
-    );
+    const services = await this.getMachineServices();
+    const service = services.find((item) => item.id === serviceId);
     if (!service?.installed) return;
+    if (action === 'start') {
+      const conflictingId = conflictingService[service.id];
+      const conflicting = services.find(
+        (item) => item.id === conflictingId && item.active,
+      );
+      if (conflicting) {
+        throw new DatabaseServiceActionError(
+          action,
+          'conflicting-service-active',
+        );
+      }
+    }
     try {
       await this.runSystemCommand('pkexec', [
         '--disable-internal-agent',
@@ -610,9 +633,39 @@ export class DatabaseDetectionService {
         packageName,
       ]);
     } catch (error) {
-      throw new DatabaseServiceInstallError(serviceActionFailureReason(error), {
-        cause: error,
-      });
+      throw new DatabaseServicePackageError(
+        'install',
+        serviceActionFailureReason(error),
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  public async uninstallMachineService(serviceId: string): Promise<void> {
+    const service = (await this.getMachineServices()).find(
+      (item) => item.id === serviceId,
+    );
+    if (!service?.installed) return;
+    const packageName = aptPackages[service.id];
+    if (!packageName) return;
+    try {
+      await this.runSystemCommand('pkexec', [
+        '--disable-internal-agent',
+        'apt-get',
+        'remove',
+        '-y',
+        packageName,
+      ]);
+    } catch (error) {
+      throw new DatabaseServicePackageError(
+        'uninstall',
+        serviceActionFailureReason(error),
+        {
+          cause: error,
+        },
+      );
     }
   }
 

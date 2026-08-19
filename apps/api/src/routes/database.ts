@@ -11,8 +11,8 @@ import {
 import {
   DatabaseServiceActionError,
   databaseServiceActionErrorMessage,
-  DatabaseServiceInstallError,
-  databaseServiceInstallErrorMessage,
+  DatabaseServicePackageError,
+  databaseServicePackageErrorMessage,
   type DatabaseDetectionService,
 } from '../services/database-detection-service.js';
 import {
@@ -86,33 +86,48 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
             error instanceof DatabaseServiceActionError
               ? databaseServiceActionErrorMessage(error)
               : 'Não foi possível alterar o serviço de banco de dados.';
-          return reply.code(500).send({ message });
+          const statusCode =
+            error instanceof DatabaseServiceActionError &&
+            error.reason === 'conflicting-service-active'
+              ? 409
+              : 500;
+          return reply.code(statusCode).send({ message });
         }
       },
     );
   }
 
-  app.post<{ Params: { serviceId: string } }>(
-    '/database/:serviceId/install',
-    async (request, reply) => {
-      try {
-        await options.databaseDetectionService.installMachineService(
-          request.params.serviceId,
-        );
-        return { installed: true };
-      } catch (error) {
-        request.log.warn(
-          { error, serviceId: request.params.serviceId },
-          'Machine database service installation failed',
-        );
-        const message =
-          error instanceof DatabaseServiceInstallError
-            ? databaseServiceInstallErrorMessage(error)
-            : 'Não foi possível instalar o serviço de banco de dados.';
-        return reply.code(500).send({ message });
-      }
-    },
-  );
+  for (const operation of ['install', 'uninstall'] as const) {
+    app.post<{ Params: { serviceId: string } }>(
+      `/database/:serviceId/${operation}`,
+      async (request, reply) => {
+        try {
+          if (operation === 'install') {
+            await options.databaseDetectionService.installMachineService(
+              request.params.serviceId,
+            );
+          } else {
+            await options.databaseDetectionService.uninstallMachineService(
+              request.params.serviceId,
+            );
+          }
+          return {
+            [operation === 'install' ? 'installed' : 'uninstalled']: true,
+          };
+        } catch (error) {
+          request.log.warn(
+            { error, serviceId: request.params.serviceId, operation },
+            `Machine database service ${operation} failed`,
+          );
+          const message =
+            error instanceof DatabaseServicePackageError
+              ? databaseServicePackageErrorMessage(error)
+              : `Não foi possível ${operation === 'install' ? 'instalar' : 'desinstalar'} o serviço de banco de dados.`;
+          return reply.code(500).send({ message });
+        }
+      },
+    );
+  }
 
   app.get<{ Params: Params; Querystring: Query }>(
     '/projects/:projectId/database',

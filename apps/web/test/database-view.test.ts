@@ -5,6 +5,7 @@ const api = vi.hoisted(() => ({
   fetchMachineDatabaseServices: vi.fn(),
   installMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
   runMachineDatabaseServiceAction: vi.fn().mockResolvedValue(undefined),
+  uninstallMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
 }));
 const confirmDialog = vi.hoisted(() => vi.fn());
 
@@ -115,5 +116,33 @@ describe('DatabaseView', () => {
       expect.objectContaining({ title: 'Instalar MongoDB?' }),
     );
     expect(api.installMachineDatabaseService).toHaveBeenCalledWith('mongodb');
+  });
+
+  it('exige confirmação antes de desinstalar um serviço', async () => {
+    api.fetchMachineDatabaseServices.mockResolvedValue([
+      {
+        id: 'mysql',
+        driver: 'mysql',
+        label: 'MySQL',
+        unit: 'mysql.service',
+        installed: true,
+        active: false,
+      },
+    ]);
+    confirmDialog.mockResolvedValue(true);
+    const wrapper = mount(DatabaseView);
+    wrappers.push(wrapper);
+    await flushPromises();
+
+    const uninstallButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Desinstalar'))!;
+    await uninstallButton.trigger('click');
+    await flushPromises();
+
+    expect(confirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Desinstalar MySQL?' }),
+    );
+    expect(api.uninstallMachineDatabaseService).toHaveBeenCalledWith('mysql');
   });
 });

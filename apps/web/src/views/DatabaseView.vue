@@ -5,6 +5,7 @@ import {
   CircleStackIcon,
   PauseIcon,
   PlayIcon,
+  TrashIcon,
 } from '@heroicons/vue/24/outline';
 import type {
   DatabaseServiceAction,
@@ -15,6 +16,7 @@ import {
   fetchMachineDatabaseServices,
   installMachineDatabaseService,
   runMachineDatabaseServiceAction,
+  uninstallMachineDatabaseService,
 } from '../api/rails';
 import { confirmDialog } from '../stores/app-dialog';
 
@@ -23,7 +25,7 @@ const loading = ref(true);
 const errorMessage = ref('');
 const pending = ref<{
   serviceId: string;
-  action: DatabaseServiceAction | 'install';
+  action: DatabaseServiceAction | 'install' | 'uninstall';
 } | null>(null);
 const installedServices = computed(() =>
   services.value.filter((service) => service.installed),
@@ -79,7 +81,7 @@ async function runAction(
 
 function isPending(
   service: MachineDatabaseService,
-  action: DatabaseServiceAction | 'install',
+  action: DatabaseServiceAction | 'install' | 'uninstall',
 ) {
   return (
     pending.value?.serviceId === service.id && pending.value?.action === action
@@ -105,6 +107,32 @@ async function installService(service: MachineDatabaseService): Promise<void> {
       error instanceof Error
         ? error.message
         : 'Não foi possível instalar o serviço do sistema.';
+  } finally {
+    pending.value = null;
+  }
+}
+
+async function uninstallService(
+  service: MachineDatabaseService,
+): Promise<void> {
+  if (!service.installed || pending.value) return;
+  const confirmed = await confirmDialog({
+    title: `Desinstalar ${service.label}?`,
+    message: `O pacote de ${service.label} será removido do sistema. Os dados do banco podem permanecer no disco e o serviço ficará indisponível.`,
+    confirmLabel: 'Desinstalar serviço',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+  pending.value = { serviceId: service.id, action: 'uninstall' };
+  errorMessage.value = '';
+  try {
+    await uninstallMachineDatabaseService(service.id);
+    await loadServices();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível desinstalar o serviço do sistema.';
   } finally {
     pending.value = null;
   }
@@ -212,6 +240,19 @@ onMounted(() => void loadServices());
                 {{ isPending(service, 'stop') ? 'Parando…' : 'Parar' }}
               </button>
             </template>
+            <button
+              type="button"
+              class="danger"
+              :disabled="pending !== null"
+              @click="uninstallService(service)"
+            >
+              <TrashIcon aria-hidden="true" />
+              {{
+                isPending(service, 'uninstall')
+                  ? 'Desinstalando…'
+                  : 'Desinstalar'
+              }}
+            </button>
           </div>
         </article>
       </div>
