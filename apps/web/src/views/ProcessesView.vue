@@ -6,6 +6,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
+import ApiRequestDiagnostics from '../components/ApiRequestDiagnostics.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import { useProcessesView } from '../composables/useProcessesView';
 import {
@@ -306,6 +307,8 @@ const {
         </tbody>
       </table>
     </div>
+
+    <ApiRequestDiagnostics />
   </section>
 </template>
 
