@@ -33,6 +33,9 @@ const installedServices = computed(() =>
 const uninstalledServices = computed(() =>
   services.value.filter((service) => !service.installed),
 );
+const activeServices = computed(() =>
+  installedServices.value.filter((service) => service.active),
+);
 
 async function loadServices(): Promise<void> {
   loading.value = true;
@@ -177,12 +180,32 @@ onMounted(() => void loadServices());
       Consultando os serviços do sistema…
     </div>
     <template v-else>
-      <h2
-        v-if="installedServices.length"
-        class="database-machine-section-title"
-      >
-        Instalados
-      </h2>
+      <div class="database-machine-overview" aria-label="Resumo dos serviços">
+        <div class="database-machine-overview-item">
+          <span>Instalados</span>
+          <strong>{{ installedServices.length }}</strong>
+        </div>
+        <div class="database-machine-overview-item">
+          <span>Em execução</span>
+          <strong class="is-success">{{ activeServices.length }}</strong>
+        </div>
+        <div class="database-machine-overview-item">
+          <span>Disponíveis</span>
+          <strong>{{ uninstalledServices.length }}</strong>
+        </div>
+      </div>
+
+      <div v-if="installedServices.length" class="database-machine-section">
+        <div class="database-machine-section-heading">
+          <div>
+            <h2>Serviços instalados</h2>
+            <p>Gerencie os serviços disponíveis nesta máquina.</p>
+          </div>
+          <span class="database-machine-count"
+            >{{ installedServices.length }} serviços</span
+          >
+        </div>
+      </div>
       <div v-if="installedServices.length" class="database-machine-list">
         <article
           v-for="service in installedServices"
@@ -193,21 +216,18 @@ onMounted(() => void loadServices());
             <CircleStackIcon aria-hidden="true" />
           </div>
           <div class="database-machine-card-copy">
-            <h2>{{ service.label }}</h2>
-            <p>
+            <div class="database-machine-title-line">
+              <h2>{{ service.label }}</h2>
+              <span
+                :class="['database-machine-status', { active: service.active }]"
+              >
+                {{ service.active ? 'Em execução' : 'Parado' }}
+              </span>
+            </div>
+            <div class="database-machine-meta">
               <code>{{ service.unit }}</code>
-            </p>
-            <span
-              :class="['database-machine-status', { active: service.active }]"
-            >
-              {{
-                !service.installed
-                  ? 'Não instalado'
-                  : service.active
-                    ? 'Em execução'
-                    : 'Parado'
-              }}
-            </span>
+              <span>systemd</span>
+            </div>
           </div>
           <div v-if="service.installed" class="database-machine-actions">
             <button
@@ -257,12 +277,20 @@ onMounted(() => void loadServices());
         </article>
       </div>
 
-      <h2
+      <div
         v-if="uninstalledServices.length"
-        class="database-machine-section-title"
+        class="database-machine-section database-machine-section-available"
       >
-        Não instalados
-      </h2>
+        <div class="database-machine-section-heading">
+          <div>
+            <h2>Disponíveis para instalar</h2>
+            <p>Instale um serviço quando precisar dele nesta máquina.</p>
+          </div>
+          <span class="database-machine-count"
+            >{{ uninstalledServices.length }} disponíveis</span
+          >
+        </div>
+      </div>
       <div v-if="uninstalledServices.length" class="database-machine-list">
         <article
           v-for="service in uninstalledServices"
@@ -274,10 +302,10 @@ onMounted(() => void loadServices());
           </div>
           <div class="database-machine-card-copy">
             <h2>{{ service.label }}</h2>
-            <p>
+            <div class="database-machine-meta">
               <code>{{ service.unit }}</code>
-            </p>
-            <span class="database-machine-status">Não instalado</span>
+              <span>Não instalado</span>
+            </div>
           </div>
           <div class="database-machine-actions">
             <button
@@ -337,24 +365,82 @@ onMounted(() => void loadServices());
 .database-machine-list {
   display: grid;
   gap: 12px;
-  max-width: 900px;
+  max-width: 1120px;
 }
-.database-machine-section-title {
-  max-width: 900px;
-  margin: 20px 0 10px;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
+.database-machine-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 1120px;
+  margin: 28px 0 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.database-machine-overview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-right: 1px solid var(--border-color);
+}
+.database-machine-overview-item:last-child {
+  border-right: 0;
+}
+.database-machine-overview-item span {
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.database-machine-overview-item strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+}
+.database-machine-overview-item strong.is-success {
+  color: var(--success-text);
+}
+.database-machine-section {
+  max-width: 1120px;
+  margin-bottom: 10px;
+}
+.database-machine-section-available {
+  margin-top: 34px;
+}
+.database-machine-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.database-machine-section-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+.database-machine-section-heading p {
+  margin: 4px 0 0;
+  color: var(--muted-text);
+  font-size: 12px;
+}
+.database-machine-count {
+  flex: 0 0 auto;
+  color: var(--muted-text);
+  font-size: 12px;
 }
 .database-machine-card {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 18px;
+  min-height: 78px;
+  padding: 14px 16px;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--card-bg);
+}
+.database-machine-card-uninstalled {
+  background: color-mix(in srgb, var(--card-bg) 72%, var(--accent-soft));
 }
 .database-machine-card-icon {
   display: grid;
@@ -374,13 +460,27 @@ onMounted(() => void loadServices());
   flex: 1;
 }
 .database-machine-card-copy h2 {
-  margin: 0 0 3px;
-  font-size: 17px;
+  margin: 0;
+  font-size: 15px;
 }
-.database-machine-card-copy p {
-  margin: 0 0 7px;
+.database-machine-title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.database-machine-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
   color: var(--muted-text);
   font-size: 12px;
+}
+.database-machine-meta span {
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color);
 }
 .database-machine-status {
   color: var(--muted-text);
@@ -400,6 +500,17 @@ onMounted(() => void loadServices());
 }
 .database-machine-status.active::before {
   background: var(--success-text);
+}
+.database-machine-title-line .database-machine-status {
+  padding: 3px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+}
+.database-machine-title-line .database-machine-status::before {
+  width: 6px;
+  height: 6px;
 }
 .database-machine-actions {
   display: flex;
@@ -423,6 +534,21 @@ onMounted(() => void loadServices());
   }
   .database-machine-actions {
     justify-content: flex-start;
+  }
+  .database-machine-overview {
+    grid-template-columns: 1fr;
+  }
+  .database-machine-overview-item {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .database-machine-overview-item:last-child {
+    border-bottom: 0;
+  }
+  .database-machine-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
   }
 }
 </style>

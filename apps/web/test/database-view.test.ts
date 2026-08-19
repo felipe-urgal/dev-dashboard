@@ -105,7 +105,7 @@ describe('DatabaseView', () => {
     wrappers.push(wrapper);
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Não instalados');
+    expect(wrapper.text()).toContain('Disponíveis para instalar');
     const installButton = wrapper
       .findAll('button')
       .find((button) => button.text().includes('Instalar'))!;
