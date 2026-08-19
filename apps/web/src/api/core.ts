@@ -33,7 +33,9 @@ export interface ApiRequestMetric {
   url: string;
   calls: number;
   deduplicated: number;
+  successes: number;
   failures: number;
+  cancelled: number;
   lastStatus?: number;
   lastDurationMs?: number;
 }
@@ -61,7 +63,9 @@ function metricFor(key: string): ApiRequestMetric {
     url: urlParts.join(' '),
     calls: 0,
     deduplicated: 0,
+    successes: 0,
     failures: 0,
+    cancelled: 0,
   };
   apiRequestMetrics.set(key, metric);
   return metric;
@@ -73,6 +77,10 @@ export function getApiRequestMetrics(): ApiRequestMetric[] {
 
 export function clearApiRequestMetrics(): void {
   apiRequestMetrics.clear();
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
 }
 
 function getRequestKey(
@@ -101,41 +109,48 @@ export async function requestJson<T>(
   init?: RequestInit,
 ): Promise<T> {
   const key = getRequestKey(input, init);
-  if (!key) return requestJsonAttempt<T>(input, init, true);
-
-  const existing = inFlightGetRequests.get(key);
-  if (existing) {
-    metricFor(metricKey(input, init)).deduplicated += 1;
-    return existing as Promise<T>;
+  const metric = metricFor(metricKey(input, init));
+  if (key) {
+    const existing = inFlightGetRequests.get(key);
+    if (existing) {
+      metric.deduplicated += 1;
+      return existing as Promise<T>;
+    }
   }
 
-  const metric = metricFor(metricKey(input, init));
   metric.calls += 1;
   const startedAt = performance.now();
-  const pending = requestJsonAttempt<T>(input, init, true);
+  const pending = requestJsonAttempt<T>(input, init, true, metric);
   pending.then(
     () => {
+      metric.successes += 1;
       metric.lastDurationMs = Math.round(performance.now() - startedAt);
     },
     (error: unknown) => {
-      metric.failures += 1;
       metric.lastDurationMs = Math.round(performance.now() - startedAt);
-      if (error instanceof ApiRequestError) metric.lastStatus = error.status;
-    },
-  );
-  inFlightGetRequests.set(key, pending);
-  pending.then(
-    () => {
-      if (inFlightGetRequests.get(key) === pending) {
-        inFlightGetRequests.delete(key);
-      }
-    },
-    () => {
-      if (inFlightGetRequests.get(key) === pending) {
-        inFlightGetRequests.delete(key);
+      if (isAbortError(error)) {
+        metric.cancelled += 1;
+      } else {
+        metric.failures += 1;
+        if (error instanceof ApiRequestError) metric.lastStatus = error.status;
       }
     },
   );
+  if (key) {
+    inFlightGetRequests.set(key, pending);
+    pending.then(
+      () => {
+        if (inFlightGetRequests.get(key) === pending) {
+          inFlightGetRequests.delete(key);
+        }
+      },
+      () => {
+        if (inFlightGetRequests.get(key) === pending) {
+          inFlightGetRequests.delete(key);
+        }
+      },
+    );
+  }
 
   return pending;
 }
@@ -163,7 +178,11 @@ function readBrowserBootstrap(): string | null {
 
 export async function bootstrapBrowserSession(): Promise<void> {
   const bootstrap = readBrowserBootstrap();
-  bootstrapPromise ??= fetch('/api/auth/browser-session', {
+  if (bootstrapPromise) return bootstrapPromise;
+  const metric = metricFor('POST /api/auth/browser-session');
+  metric.calls += 1;
+  const startedAt = performance.now();
+  bootstrapPromise = fetch('/api/auth/browser-session', {
     method: 'POST',
     credentials: 'same-origin',
     headers: {
@@ -173,12 +192,21 @@ export async function bootstrapBrowserSession(): Promise<void> {
     body: '{}',
   })
     .then((response) => {
+      metric.lastStatus = response.status;
       if (!response.ok)
         throw new Error(
           'Não foi possível iniciar a sessão segura do navegador.',
         );
+      metric.successes += 1;
+    })
+    .catch((error: unknown) => {
+      metric.lastDurationMs = Math.round(performance.now() - startedAt);
+      if (isAbortError(error)) metric.cancelled += 1;
+      else metric.failures += 1;
+      throw error;
     })
     .finally(() => {
+      metric.lastDurationMs ??= Math.round(performance.now() - startedAt);
       bootstrapPromise = undefined;
     });
   return bootstrapPromise;
@@ -188,11 +216,14 @@ async function requestJsonAttempt<T>(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
   mayRenew: boolean,
+  metric?: ApiRequestMetric,
 ): Promise<T> {
   let response = await fetch(input, { ...init, credentials: 'same-origin' });
+  if (metric) metric.lastStatus = response.status;
   if (response.status === 401 && mayRenew) {
     await bootstrapBrowserSession();
     response = await fetch(input, { ...init, credentials: 'same-origin' });
+    if (metric) metric.lastStatus = response.status;
   }
 
   const payload: unknown =
@@ -231,11 +262,16 @@ export function followEventStream<T>(
     signal: controller.signal,
     headers: { Accept: 'text/event-stream', ...init?.headers },
   };
+  const metric = metricFor(metricKey(url, requestInit));
+  metric.calls += 1;
+  const startedAt = performance.now();
   const done = (async () => {
     let response = await fetch(url, requestInit);
+    metric.lastStatus = response.status;
     if (response.status === 401) {
       await bootstrapBrowserSession();
       response = await fetch(url, requestInit);
+      metric.lastStatus = response.status;
     }
     if (!response.ok || !response.body)
       throw new Error(
@@ -258,8 +294,20 @@ export function followEventStream<T>(
         if (data) onEvent(JSON.parse(data) as T);
       }
     }
-  })().catch((error: unknown) => {
-    if (!controller.signal.aborted) throw error;
-  });
+  })().then(
+    () => {
+      metric.successes += 1;
+      metric.lastDurationMs = Math.round(performance.now() - startedAt);
+    },
+    (error: unknown) => {
+      metric.lastDurationMs = Math.round(performance.now() - startedAt);
+      if (controller.signal.aborted || isAbortError(error)) {
+        metric.cancelled += 1;
+        return;
+      }
+      metric.failures += 1;
+      throw error;
+    },
+  );
   return { close: () => controller.abort(), done };
 }

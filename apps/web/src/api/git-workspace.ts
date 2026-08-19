@@ -8,12 +8,7 @@ import type {
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
-import { ApiRequestError } from '../api';
-
-interface ErrorResponse {
-  error?: string;
-  message?: string;
-}
+import { requestJson as requestApiJson } from './core';
 
 interface GitWorkspaceResponse {
   workspace: ProjectGitWorkspace;
@@ -33,27 +28,7 @@ async function requestJson<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(input, {
-    ...init,
-    credentials: 'same-origin',
-  });
-
-  const payload: unknown = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const error =
-      payload && typeof payload === 'object'
-        ? (payload as ErrorResponse)
-        : null;
-
-    throw new ApiRequestError({
-      status: response.status,
-      ...(error?.error ? { code: error.error } : {}),
-      message: error?.message ?? `A API respondeu com HTTP ${response.status}`,
-    });
-  }
-
-  return payload as T;
+  return requestApiJson<T>(input, init);
 }
 
 export async function fetchProjectGitWorkspace(

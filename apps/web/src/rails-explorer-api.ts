@@ -3,31 +3,10 @@ import type {
   RailsModelsOverview,
 } from '@dev-dashboard/contracts';
 
-import { ApiRequestError } from './api';
-
-interface ErrorResponse {
-  error?: string;
-  message?: string;
-}
+import { requestJson } from './api';
 
 async function requestRailsJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { credentials: 'same-origin' });
-  const payload: unknown = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const errorPayload =
-      payload && typeof payload === 'object'
-        ? (payload as ErrorResponse)
-        : null;
-    throw new ApiRequestError({
-      status: response.status,
-      ...(errorPayload?.error ? { code: errorPayload.error } : {}),
-      message:
-        errorPayload?.message ?? `A API respondeu com HTTP ${response.status}`,
-    });
-  }
-
-  return payload as T;
+  return requestJson<T>(url);
 }
 
 export async function fetchProjectRailsMigrationDetail(
