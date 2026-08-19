@@ -10,7 +10,22 @@ import {
 
 const expanded = ref(false);
 const metrics = ref<ApiRequestMetric[]>([]);
+const alertHistory = ref<AlertHistoryItem[]>([]);
+const previousTones = new Map<string, MetricTone>();
 let refreshTimer: number | undefined;
+let historySequence = 0;
+
+type MetricTone = 'normal' | 'warning' | 'danger';
+
+interface AlertHistoryItem {
+  id: number;
+  key: string;
+  method: string;
+  url: string;
+  tone: Exclude<MetricTone, 'normal'>;
+  message: string;
+  occurredAt: string;
+}
 
 const totals = computed(() => ({
   calls: metrics.value.reduce((sum, metric) => sum + metric.calls, 0),
@@ -45,19 +60,39 @@ const sortedMetrics = computed(() =>
 );
 
 function refresh(): void {
-  metrics.value = getApiRequestMetrics();
+  const nextMetrics = getApiRequestMetrics();
+  for (const metric of nextMetrics) {
+    const tone = metricTone(metric);
+    const previousTone = previousTones.get(metric.key);
+    if (tone !== 'normal' && tone !== previousTone) {
+      alertHistory.value.unshift({
+        id: historySequence++,
+        key: metric.key,
+        method: metric.method,
+        url: metric.url,
+        tone,
+        message: metricAlertLabel(metric),
+        occurredAt: new Date().toISOString(),
+      });
+      alertHistory.value = alertHistory.value.slice(0, 20);
+    }
+    previousTones.set(metric.key, tone);
+  }
+  metrics.value = nextMetrics;
 }
 
 function clear(): void {
   clearApiRequestMetrics();
+  alertHistory.value = [];
+  previousTones.clear();
   refresh();
 }
 
-function formatMetricUrl(metric: ApiRequestMetric): string {
+function formatMetricUrl(metric: Pick<ApiRequestMetric, 'url'>): string {
   return metric.url.replace(/^\/api\//, '');
 }
 
-function metricTone(metric: ApiRequestMetric): 'normal' | 'warning' | 'danger' {
+function metricTone(metric: ApiRequestMetric): MetricTone {
   if (metric.failures > 0 || (metric.lastDurationMs ?? 0) >= 1500) {
     return 'danger';
   }
@@ -73,6 +108,10 @@ function metricAlertLabel(metric: ApiRequestMetric): string {
   if (metric.deduplicated > 0) return `${metric.deduplicated} deduplicada(s)`;
   if ((metric.lastDurationMs ?? 0) >= 500) return 'atenção: resposta lenta';
   return '';
+}
+
+function historyTime(item: AlertHistoryItem): string {
+  return new Date(item.occurredAt).toLocaleTimeString('pt-BR');
 }
 
 onMounted(() => {
@@ -152,6 +191,28 @@ onBeforeUnmount(() => {
         respostas acima de 1,5 s são críticas; duplicações e respostas acima de
         500 ms ficam em alerta.
       </p>
+
+      <section
+        v-if="alertHistory.length"
+        class="api-request-diagnostics-history"
+        aria-labelledby="api-diagnostics-history-title"
+      >
+        <div class="api-request-diagnostics-history-heading">
+          <span id="api-diagnostics-history-title">Histórico recente</span>
+          <small>Últimos {{ alertHistory.length }} eventos</small>
+        </div>
+        <ol class="api-request-diagnostics-history-list">
+          <li
+            v-for="item in alertHistory"
+            :key="item.id"
+            :class="`is-${item.tone}`"
+          >
+            <time :datetime="item.occurredAt">{{ historyTime(item) }}</time>
+            <code>{{ item.method }} {{ formatMetricUrl(item) }}</code>
+            <span>{{ item.message }}</span>
+          </li>
+        </ol>
+      </section>
 
       <div
         v-if="sortedMetrics.length"
@@ -319,6 +380,82 @@ onBeforeUnmount(() => {
   padding: 8px 10px;
 }
 
+.api-request-diagnostics-history {
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--normal-bg) 35%, transparent);
+}
+
+.api-request-diagnostics-history-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding: 9px 10px;
+}
+
+.api-request-diagnostics-history-heading span {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.api-request-diagnostics-history-heading small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.api-request-diagnostics-history-list {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.api-request-diagnostics-history-list li {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-left: 3px solid var(--warning);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px 8px 8px;
+  font-size: 10px;
+}
+
+.api-request-diagnostics-history-list li:last-child {
+  border-bottom: 0;
+}
+
+.api-request-diagnostics-history-list li.is-danger {
+  border-left-color: var(--danger);
+}
+
+.api-request-diagnostics-history-list time,
+.api-request-diagnostics-history-list span {
+  color: var(--muted);
+}
+
+.api-request-diagnostics-history-list code {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-request-diagnostics-history-list li.is-warning span {
+  color: var(--warning);
+}
+
+.api-request-diagnostics-history-list li.is-danger span {
+  color: var(--danger);
+}
+
 .api-request-diagnostics-actions {
   margin-bottom: 10px;
   color: var(--muted);
@@ -422,6 +559,14 @@ onBeforeUnmount(() => {
 
   .api-request-diagnostics-summary div:nth-child(2) {
     border-right: 0;
+  }
+
+  .api-request-diagnostics-history-list li {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .api-request-diagnostics-history-list li span {
+    grid-column: 2;
   }
 }
 </style>
