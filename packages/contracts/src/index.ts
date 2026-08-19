@@ -183,6 +183,8 @@ export type {
   DatabaseReachability,
   DatabaseRestoreResult,
   DatabaseServiceAction,
+  MachineDatabaseDriver,
+  MachineDatabaseService,
   DatabaseSnapshot,
   DatabaseSnapshotConfirmation,
   DatabaseSnapshotDriver,

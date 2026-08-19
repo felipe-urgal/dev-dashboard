@@ -14,6 +14,11 @@ export const router = createRouter({
       component: () => import('../views/ProcessesView.vue'),
     },
     {
+      path: '/database',
+      name: 'database',
+      component: () => import('../views/DatabaseView.vue'),
+    },
+    {
       path: '/projects/:projectId',
       name: 'project-details',
       component: () => import('../views/ProjectDetailsView.vue'),
@@ -49,8 +54,7 @@ export const router = createRouter({
     },
     {
       path: '/projects/:projectId/database',
-      name: 'project-database',
-      component: () => import('../views/ProjectDetailsView.vue'),
+      redirect: { name: 'database' },
     },
     {
       path: '/projects/:projectId/dependencies',

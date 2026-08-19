@@ -156,6 +156,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 
 ## Database
 
+### `GET /api/database`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
+### `POST /api/database/:serviceId/restart`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
+### `POST /api/database/:serviceId/start`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
+### `POST /api/database/:serviceId/stop`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
 ### `GET /api/projects/:projectId/database`
 
 **Parâmetros de rota (`params`)**

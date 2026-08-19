@@ -89,7 +89,7 @@ test.describe('navegação principal', () => {
       if (request.method() !== 'GET') return;
       const pathname = new URL(request.url()).pathname;
       if (
-        /\/api\/projects\/[^/]+\/(database|rails\/workers\/(sidekiq|webpack))$/.test(
+        /\/api\/projects\/[^/]+\/rails\/workers\/(sidekiq|webpack)$/.test(
           pathname,
         )
       ) {
@@ -108,9 +108,6 @@ test.describe('navegação principal', () => {
     const railsRequests = projectRequests.filter((path) =>
       path.includes('/sample-rails-app-'),
     );
-    expect(
-      railsRequests.filter((path) => path.endsWith('/database')),
-    ).toHaveLength(1);
     expect(
       railsRequests.filter((path) => path.endsWith('/rails/workers/sidekiq')),
     ).toHaveLength(1);

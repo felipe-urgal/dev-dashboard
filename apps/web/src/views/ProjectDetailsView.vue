@@ -38,9 +38,6 @@ function lazyTool(loader: () => Promise<{ default: Component }>): Component {
   });
 }
 
-const ProjectDatabasePanel = lazyTool(
-  () => import('../components/ProjectDatabasePanel.vue'),
-);
 const ProjectDependenciesPanel = lazyTool(
   () => import('../components/ProjectDependenciesPanel.vue'),
 );
@@ -76,8 +73,6 @@ const loading = ref(true);
 const errorMessage = ref('');
 const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
-/** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
-const databaseSupported = ref(true);
 /** Otimista, mesmo motivo do banco: evita a aba do worker piscar antes da detecção confirmar. */
 const sidekiqDetected = ref(true);
 const webpackDetected = ref(true);
@@ -94,7 +89,6 @@ const isServerRoute = computed(
 );
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
-const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
 );
@@ -141,7 +135,6 @@ async function loadProjectData(requestedProjectId: string): Promise<void> {
   project.value = null;
   gitBranch.value = '';
   gitOverview.value = null;
-  databaseSupported.value = true;
   sidekiqDetected.value = true;
   webpackDetected.value = true;
 
@@ -254,7 +247,6 @@ watch(
             <div v-if="project.enabled" class="project-details-actions-row">
               <ProjectProcessesMenu
                 :project="project"
-                @database-supported="databaseSupported = $event"
                 @worker-detected="
                   (workerId, detected) => {
                     if (workerId === 'sidekiq') sidekiqDetected = detected;
@@ -322,7 +314,6 @@ watch(
 
           <ProjectDetailsMoreTools
             :project="project"
-            :database-supported="databaseSupported"
             :sidekiq-detected="sidekiqDetected"
             :webpack-detected="webpackDetected"
           />
@@ -357,12 +348,6 @@ watch(
       <ProjectTestsPanel
         v-else-if="isTestsRoute"
         :key="`tests-${project.id}`"
-        :project="project"
-      />
-
-      <ProjectDatabasePanel
-        v-else-if="isDatabaseRoute"
-        :key="`database-${project.id}`"
         :project="project"
       />
 

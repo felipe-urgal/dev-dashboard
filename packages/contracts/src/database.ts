@@ -35,6 +35,18 @@ export interface ProjectDatabaseSecret {
 
 export type DatabaseServiceAction = 'start' | 'stop' | 'restart';
 
+export type MachineDatabaseDriver =
+  'mysql' | 'mariadb' | 'postgresql' | 'redis' | 'mongodb';
+
+export interface MachineDatabaseService {
+  id: string;
+  driver: MachineDatabaseDriver;
+  label: string;
+  unit: string;
+  installed: boolean;
+  active: boolean;
+}
+
 export interface ProjectDatabaseServiceActionResult {
   environmentId: string;
   action: DatabaseServiceAction;

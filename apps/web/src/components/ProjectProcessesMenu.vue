@@ -3,18 +3,9 @@ import { computed, ref, watch } from 'vue';
 import { NPopover } from 'naive-ui';
 import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 
-import type {
-  DatabaseServiceAction,
-  Project,
-  ProjectDatabaseEnvironment,
-  RailsWorkerId,
-} from '@dev-dashboard/contracts';
+import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
 import { startProjectProcess, stopProjectProcess } from '../api';
-import {
-  fetchProjectDatabase,
-  runProjectDatabaseServiceAction,
-} from '../api/rails';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
@@ -23,7 +14,6 @@ const props = withDefaults(
   { eager: true },
 );
 const emit = defineEmits<{
-  'database-supported': [supported: boolean];
   'worker-detected': [workerId: RailsWorkerId, detected: boolean];
 }>();
 
@@ -44,47 +34,6 @@ const webpack = useProjectRailsWorker(
   props.eager,
 );
 
-const databaseEnvironment = ref<ProjectDatabaseEnvironment | null>(null);
-const databaseBusy = ref<DatabaseServiceAction | null>(null);
-let databaseGeneration = 0;
-let databaseLoadedProjectId = '';
-let databaseLoadPromise: Promise<void> | undefined;
-
-async function loadDatabaseEnvironment(force = false): Promise<void> {
-  if (!force && databaseLoadedProjectId === props.project.id) return;
-  if (!force && databaseLoadPromise) return databaseLoadPromise;
-
-  const current = ++databaseGeneration;
-  const projectId = props.project.id;
-  const pending = (async () => {
-    try {
-      const overview = await fetchProjectDatabase(projectId, 1);
-      if (current !== databaseGeneration) return;
-      emit('database-supported', overview.supported);
-      databaseEnvironment.value =
-        overview.supported && overview.environments[0]?.serviceAvailable
-          ? overview.environments[0]
-          : null;
-      databaseLoadedProjectId = projectId;
-    } catch {
-      if (current === databaseGeneration) databaseEnvironment.value = null;
-    }
-  })();
-  databaseLoadPromise = pending;
-  try {
-    await pending;
-  } finally {
-    if (databaseLoadPromise === pending) databaseLoadPromise = undefined;
-  }
-}
-
-watch(
-  () => props.project.id,
-  () => void loadDatabaseEnvironment(),
-  {
-    immediate: props.eager,
-  },
-);
 watch(
   () => sidekiq.detected.value,
   (detected) => emit('worker-detected', 'sidekiq', detected),
@@ -96,47 +45,10 @@ watch(
   { immediate: true },
 );
 
-async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
-  const environment = databaseEnvironment.value;
-  if (!environment) return;
-  databaseBusy.value = action;
-  errorMessage.value = '';
-  try {
-    await runProjectDatabaseServiceAction(
-      props.project.id,
-      environment.id,
-      action,
-    );
-    await loadDatabaseEnvironment(true);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : `Não foi possível ${action === 'start' ? 'iniciar' : 'parar'} o banco.`;
-  } finally {
-    databaseBusy.value = null;
-  }
-}
-
 function ensureMenuLoaded(): void {
   if (props.eager) return;
-  void Promise.all([
-    sidekiq.initialize(),
-    webpack.initialize(),
-    loadDatabaseEnvironment(),
-  ]);
+  void Promise.all([sidekiq.initialize(), webpack.initialize()]);
 }
-
-const databaseStatusLabel = computed(() => {
-  switch (databaseEnvironment.value?.reachability) {
-    case 'reachable':
-      return 'Em execução';
-    case 'unreachable':
-      return 'Parado';
-    default:
-      return 'Desconhecido';
-  }
-});
 
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
@@ -232,18 +144,6 @@ const items = computed<ProcessItem[]>(() => {
       statusLabel: webpack.statusLabel.value,
       start: webpack.start,
       stop: webpack.stop,
-    });
-  }
-
-  if (databaseEnvironment.value) {
-    list.push({
-      key: 'database',
-      label: 'Banco de dados',
-      running: databaseEnvironment.value.reachability === 'reachable',
-      busy: databaseBusy.value !== null,
-      statusLabel: databaseStatusLabel.value,
-      start: () => runDatabaseAction('start'),
-      stop: () => runDatabaseAction('stop'),
     });
   }
 

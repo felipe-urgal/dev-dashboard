@@ -18,8 +18,7 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
       page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
     ).toBeVisible();
 
-    await page.getByRole('button', { name: 'Mais ferramentas' }).click();
-    await page.getByRole('menuitem', { name: 'Sidekiq', exact: true }).click();
+    await page.getByRole('link', { name: 'Sidekiq', exact: true }).click();
 
     const sidekiqPanel = page.locator('[data-worker-id="sidekiq"]');
     await expect(

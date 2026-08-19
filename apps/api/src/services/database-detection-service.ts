@@ -8,6 +8,7 @@ import path from 'node:path';
 
 import type {
   DatabaseReachability,
+  MachineDatabaseService,
   Project,
   ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
@@ -432,6 +433,89 @@ export class DatabaseDetectionService {
   public constructor(
     private readonly runCommand: CommandRunner = defaultCommandRunner,
   ) {}
+
+  public async getMachineServices(): Promise<MachineDatabaseService[]> {
+    const candidates: Array<
+      Omit<MachineDatabaseService, 'installed' | 'active'>
+    > = [
+      { id: 'mysql', driver: 'mysql', label: 'MySQL', unit: 'mysql.service' },
+      {
+        id: 'mariadb',
+        driver: 'mariadb',
+        label: 'MariaDB',
+        unit: 'mariadb.service',
+      },
+      {
+        id: 'postgresql',
+        driver: 'postgresql',
+        label: 'PostgreSQL',
+        unit: 'postgresql.service',
+      },
+      {
+        id: 'redis',
+        driver: 'redis',
+        label: 'Redis',
+        unit: 'redis-server.service',
+      },
+      {
+        id: 'mongodb',
+        driver: 'mongodb',
+        label: 'MongoDB',
+        unit: 'mongod.service',
+      },
+    ];
+
+    return Promise.all(
+      candidates.map(async (candidate) => {
+        try {
+          const result = await execFileAsync(
+            'systemctl',
+            ['is-active', candidate.unit],
+            { encoding: 'utf8', timeout: 5_000, windowsHide: true },
+          );
+          return {
+            ...candidate,
+            installed: true,
+            active: result.stdout.trim() === 'active',
+          };
+        } catch (error) {
+          const failure = error as { code?: unknown; stdout?: unknown };
+          const output =
+            typeof failure.stdout === 'string' ? failure.stdout.trim() : '';
+          const missing =
+            failure.code === 5 || failure.code === 4 || output === '';
+          return {
+            ...candidate,
+            installed: !missing,
+            active: output === 'active',
+          };
+        }
+      }),
+    );
+  }
+
+  public async runMachineServiceAction(
+    serviceId: string,
+    action: DatabaseServiceAction,
+  ): Promise<void> {
+    const service = (await this.getMachineServices()).find(
+      (item) => item.id === serviceId,
+    );
+    if (!service?.installed) return;
+    try {
+      await execFileAsync(
+        'pkexec',
+        ['--disable-internal-agent', 'systemctl', action, service.unit],
+        { encoding: 'utf8', timeout: 30_000, windowsHide: true },
+      );
+    } catch (error) {
+      throw new DatabaseServiceActionError(
+        action,
+        serviceActionFailureReason(error),
+        { cause: error },
+      );
+    }
+  }
 
   public async detect(project: Project): Promise<DetectedDatabase[]> {
     const dotenvFiles = [

@@ -200,8 +200,13 @@
           </div>
 
           <template v-else-if="detail">
-            <pre v-if="commitBody" class="git-history-commit-body">
-{{ commitBody }}</pre>
+            <details
+              v-if="commitBody"
+              class="git-history-commit-description"
+            >
+              <summary>Exibir descrição</summary>
+              <pre class="git-history-commit-body">{{ commitBody }}</pre>
+            </details>
 
             <div v-if="detail.masked" class="git-history-notice">
               {{ detail.redactionCount }} possível(is) segredo(s) foram

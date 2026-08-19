@@ -52,8 +52,8 @@ const ACTION_BY_CATEGORY: Record<
   database: {
     label: 'Abrir Banco de dados',
     description:
-      'Há migrations novas; abra Banco de dados para revisar e aplicá-las.',
-    routeName: 'project-database',
+      'Há migrations novas; abra a área global de Banco de dados para consultar os serviços da máquina.',
+    routeName: 'database',
     priority: 2,
   },
   environment: {
