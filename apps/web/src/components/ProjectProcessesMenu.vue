@@ -18,34 +18,83 @@ import {
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
-const props = defineProps<{ project: Project }>();
+const props = withDefaults(
+  defineProps<{ project: Project; eager?: boolean }>(),
+  { eager: true },
+);
+const emit = defineEmits<{
+  'database-supported': [supported: boolean];
+  'worker-detected': [workerId: RailsWorkerId, detected: boolean];
+}>();
 
 const serverBusy = ref<'start' | 'stop' | null>(null);
 const errorMessage = ref('');
 
 const server = useProjectProcessStatus(() => props.project);
-const sidekiq = useProjectRailsWorker(() => props.project, 'sidekiq', true);
-const webpack = useProjectRailsWorker(() => props.project, 'webpack', false);
+const sidekiq = useProjectRailsWorker(
+  () => props.project,
+  'sidekiq',
+  true,
+  props.eager,
+);
+const webpack = useProjectRailsWorker(
+  () => props.project,
+  'webpack',
+  false,
+  props.eager,
+);
 
 const databaseEnvironment = ref<ProjectDatabaseEnvironment | null>(null);
 const databaseBusy = ref<DatabaseServiceAction | null>(null);
 let databaseGeneration = 0;
+let databaseLoadedProjectId = '';
+let databaseLoadPromise: Promise<void> | undefined;
 
-async function loadDatabaseEnvironment(): Promise<void> {
+async function loadDatabaseEnvironment(force = false): Promise<void> {
+  if (!force && databaseLoadedProjectId === props.project.id) return;
+  if (!force && databaseLoadPromise) return databaseLoadPromise;
+
   const current = ++databaseGeneration;
+  const projectId = props.project.id;
+  const pending = (async () => {
+    try {
+      const overview = await fetchProjectDatabase(projectId, 1);
+      if (current !== databaseGeneration) return;
+      emit('database-supported', overview.supported);
+      databaseEnvironment.value =
+        overview.supported && overview.environments[0]?.serviceAvailable
+          ? overview.environments[0]
+          : null;
+      databaseLoadedProjectId = projectId;
+    } catch {
+      if (current === databaseGeneration) databaseEnvironment.value = null;
+    }
+  })();
+  databaseLoadPromise = pending;
   try {
-    const overview = await fetchProjectDatabase(props.project.id, 1);
-    if (current !== databaseGeneration) return;
-    databaseEnvironment.value =
-      overview.supported && overview.environments[0]?.serviceAvailable
-        ? overview.environments[0]
-        : null;
-  } catch {
-    if (current === databaseGeneration) databaseEnvironment.value = null;
+    await pending;
+  } finally {
+    if (databaseLoadPromise === pending) databaseLoadPromise = undefined;
   }
 }
 
-watch(() => props.project.id, loadDatabaseEnvironment, { immediate: true });
+watch(
+  () => props.project.id,
+  () => void loadDatabaseEnvironment(),
+  {
+    immediate: props.eager,
+  },
+);
+watch(
+  () => sidekiq.detected.value,
+  (detected) => emit('worker-detected', 'sidekiq', detected),
+  { immediate: true },
+);
+watch(
+  () => webpack.detected.value,
+  (detected) => emit('worker-detected', 'webpack', detected),
+  { immediate: true },
+);
 
 async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
   const environment = databaseEnvironment.value;
@@ -58,7 +107,7 @@ async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
       environment.id,
       action,
     );
-    await loadDatabaseEnvironment();
+    await loadDatabaseEnvironment(true);
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -67,6 +116,15 @@ async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
   } finally {
     databaseBusy.value = null;
   }
+}
+
+function ensureMenuLoaded(): void {
+  if (props.eager) return;
+  void Promise.all([
+    sidekiq.initialize(),
+    webpack.initialize(),
+    loadDatabaseEnvironment(),
+  ]);
 }
 
 const databaseStatusLabel = computed(() => {
@@ -249,7 +307,7 @@ async function toggleItem(item: ProcessItem): Promise<void> {
 
 <template>
   <NPopover
-    v-if="items.length > 0"
+    v-if="items.length > 0 || !props.eager"
     trigger="click"
     placement="bottom-end"
     raw
@@ -262,6 +320,7 @@ async function toggleItem(item: ProcessItem): Promise<void> {
         class="processes-menu-trigger"
         aria-haspopup="true"
         aria-label="Processos do projeto"
+        @click="ensureMenuLoaded"
       >
         <EllipsisVerticalIcon aria-hidden="true" />
         <span v-if="runningCount > 0" class="processes-menu-count">

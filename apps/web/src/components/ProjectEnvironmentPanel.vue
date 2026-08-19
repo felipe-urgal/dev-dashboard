@@ -7,6 +7,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import { useProjectEnvironmentVariables } from '../composables/useProjectEnvironmentVariables';
 import LoadingSkeleton from './LoadingSkeleton.vue';
 import Card from './Card.vue';
+import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 

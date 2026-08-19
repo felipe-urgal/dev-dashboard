@@ -484,6 +484,7 @@
 }
 
 .git-subtabs button {
+  display: flex;
   position: relative;
   box-sizing: border-box;
   height: 48px;
@@ -492,6 +493,7 @@
   border: 0;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   color: var(--text-muted);
   background: transparent;
   font-size: 10px;

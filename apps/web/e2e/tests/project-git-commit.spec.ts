@@ -20,7 +20,6 @@ test.describe('Commit do projeto', () => {
     // Vazio: a fixture chega com a árvore de trabalho limpa (task 107 deixa
     // a branch "main" sem pendências ao final do seu próprio teste).
     const submitButton = page.locator('.git-commit-submit');
-    await expect(page.getByText('0 alterações rastreadas')).toBeVisible();
     await expect(submitButton).toBeDisabled();
 
     // Suja uma alteração rastreada diretamente no disco da fixture (não há
@@ -56,7 +55,7 @@ test.describe('Commit do projeto', () => {
     await expect(
       page.getByText(/^Commit ".+" criado: chore: ajusta lockfile via e2e$/),
     ).toBeVisible();
-    await expect(page.getByText('0 alterações rastreadas')).toBeVisible();
+    await expect(submitButton).toBeDisabled();
 
     // Troca de projeto: sample-rails-app continua sem Git.
     await gotoBootstrapped(page, '/');

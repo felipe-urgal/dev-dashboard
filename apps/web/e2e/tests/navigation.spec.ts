@@ -73,6 +73,44 @@ test.describe('navegação principal', () => {
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
   });
 
+  test('não repete as detecções ao abrir um projeto Rails', async ({
+    page,
+  }) => {
+    const projectRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() !== 'GET') return;
+      const pathname = new URL(request.url()).pathname;
+      if (
+        /\/api\/projects\/[^/]+\/(database|rails\/workers\/(sidekiq|webpack))$/.test(
+          pathname,
+        )
+      ) {
+        projectRequests.push(pathname);
+      }
+    });
+
+    await gotoBootstrapped(page, '/');
+    await page
+      .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
+      .click();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
+    ).toBeVisible();
+
+    const railsRequests = projectRequests.filter((path) =>
+      path.includes('/sample-rails-app-'),
+    );
+    expect(
+      railsRequests.filter((path) => path.endsWith('/database')),
+    ).toHaveLength(1);
+    expect(
+      railsRequests.filter((path) => path.endsWith('/rails/workers/sidekiq')),
+    ).toHaveLength(1);
+    expect(
+      railsRequests.filter((path) => path.endsWith('/rails/workers/webpack')),
+    ).toHaveLength(1);
+  });
+
   test('rota desconhecida cai na página de não encontrado', async ({
     page,
   }) => {

@@ -116,6 +116,29 @@ export function useProcessesView() {
   let controller: AbortController | undefined;
   let clockInterval: ReturnType<typeof setInterval> | undefined;
 
+  function stopClock(): void {
+    if (!clockInterval) return;
+    clearInterval(clockInterval);
+    clockInterval = undefined;
+  }
+
+  function syncClock(): void {
+    const hasActiveProcesses = items.value.some((process) =>
+      isActiveStatus(process.status),
+    );
+
+    if (!hasActiveProcesses) {
+      stopClock();
+      return;
+    }
+
+    if (!clockInterval) {
+      clockInterval = setInterval(() => {
+        now.value = Date.now();
+      }, 1000);
+    }
+  }
+
   function isActiveStatus(status: ManagedProcessStatus): boolean {
     return ACTIVE_STATUSES.has(status);
   }
@@ -266,6 +289,7 @@ export function useProcessesView() {
       const result = await fetchManagedProcesses(query);
       if (!generation.isCurrent(token)) return;
       items.value = result;
+      syncClock();
     } catch (error) {
       if (controller?.signal.aborted) return;
       if (!generation.isCurrent(token)) return;
@@ -341,26 +365,22 @@ export function useProcessesView() {
     }
   });
 
-  watch(
-    [workspaceFilter, projectFilter, kindFilter, statusFilter],
-    () => {
-      syncFiltersToUrl();
-      void loadProcesses();
-    },
-    { flush: 'post' },
-  );
+  watch([workspaceFilter, projectFilter, kindFilter], () => {
+    syncFiltersToUrl();
+    void loadProcesses();
+  });
+
+  watch(statusFilter, () => {
+    syncFiltersToUrl();
+  });
 
   onMounted(async () => {
-    await loadReferenceData();
-    await loadProcesses();
-    clockInterval = setInterval(() => {
-      now.value = Date.now();
-    }, 1000);
+    await Promise.all([loadReferenceData(), loadProcesses()]);
   });
 
   onBeforeUnmount(() => {
     controller?.abort();
-    if (clockInterval) clearInterval(clockInterval);
+    stopClock();
   });
 
   return {

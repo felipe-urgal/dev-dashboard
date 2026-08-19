@@ -394,3 +394,44 @@ test('aplica o filtro de falhas vindo da query da rota', async () => {
     cleanup = undefined;
   }
 });
+
+test('aplica o filtro de status localmente sem refazer a consulta à API', async () => {
+  let calls = 0;
+  const { wrapper, restore } = await mountView({
+    processes: async () => {
+      calls += 1;
+      return [
+        {
+          id: 'srv-running',
+          projectId: 'p1',
+          workspaceId: 'w1',
+          kind: 'server',
+          status: 'running',
+          startedAt: '2026-07-26T09:00:00Z',
+        },
+        {
+          id: 'srv-failed',
+          projectId: 'p1',
+          workspaceId: 'w1',
+          kind: 'server',
+          status: 'failed',
+          startedAt: '2026-07-26T08:00:00Z',
+          stoppedAt: '2026-07-26T08:01:00Z',
+        },
+      ];
+    },
+  });
+  cleanup = restore;
+
+  await flushPromises();
+  await flushPromises();
+  assert.equal(calls, 1);
+
+  await wrapper.get('#process-filter-status').setValue('failed');
+  await flushPromises();
+
+  assert.equal(calls, 1);
+  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
+  assert.match(wrapper.text(), /srv-failed/);
+  assert.doesNotMatch(wrapper.text(), /srv-running/);
+});

@@ -110,10 +110,14 @@ const {
       </div>
     </dl>
 
-    <div class="processes-filters" aria-label="Filtros de processos">
+    <div
+      class="processes-filters"
+      role="group"
+      aria-label="Filtros de processos"
+    >
       <label>
         Workspace
-        <select v-model="workspaceFilter">
+        <select id="process-filter-workspace" v-model="workspaceFilter">
           <option value="">Todos</option>
           <option
             v-for="workspace in workspaces"
@@ -126,7 +130,7 @@ const {
       </label>
       <label>
         Projeto
-        <select v-model="projectFilter">
+        <select id="process-filter-project" v-model="projectFilter">
           <option value="">Todos</option>
           <option
             v-for="project in eligibleProjects"
@@ -139,7 +143,7 @@ const {
       </label>
       <label>
         Tipo
-        <select v-model="kindFilter">
+        <select id="process-filter-kind" v-model="kindFilter">
           <option value="">Todos</option>
           <option value="server">Servidor</option>
           <option value="test">Testes</option>
@@ -148,7 +152,7 @@ const {
       </label>
       <label>
         Estado
-        <select v-model="statusFilter">
+        <select id="process-filter-status" v-model="statusFilter">
           <option value="">Todos</option>
           <option value="active">Ativos</option>
           <option value="stopped">Finalizados</option>
@@ -164,6 +168,11 @@ const {
         Limpar filtros
       </button>
     </div>
+
+    <p id="processes-cleanup-help" class="sr-only">
+      Remove apenas processos finalizados e seus logs. Processos em execução
+      serão preservados.
+    </p>
 
     <p v-if="referenceErrorMessage" class="activity-error" role="alert">
       {{ referenceErrorMessage }}

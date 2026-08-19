@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue';
 
 import type {
-  ManagedProcess,
   ManagedProcessStatus,
   Project,
   Workspace,
@@ -75,6 +74,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const scannedWorkspaceIds = new Set<string>();
   let initialLoadPromise: Promise<void> | undefined;
   const activeWorkspaceStorageKey = 'dev-dashboard:active-workspace';
+  const activeProcessStatuses = new Set<ManagedProcessStatus>([
+    'starting',
+    'running',
+    'stopping',
+  ]);
 
   function readStoredWorkspaceId(): string {
     if (typeof localStorage === 'undefined') return '';
@@ -271,22 +275,17 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
     try {
       const processes = await fetchManagedProcesses();
-      const activeStatuses = new Set<ManagedProcessStatus>([
-        'starting',
-        'running',
-        'stopping',
-      ]);
-      const countByStatus = (status: ManagedProcessStatus): number =>
-        processes.filter((process) => process.status === status).length;
+      const counts = processes.reduce(
+        (summary, process) => {
+          if (activeProcessStatuses.has(process.status)) summary.active += 1;
+          if (process.status === 'stopped') summary.stopped += 1;
+          if (process.status === 'failed') summary.failed += 1;
+          return summary;
+        },
+        { active: 0, stopped: 0, failed: 0 },
+      );
 
-      processSummary.value = {
-        total: processes.length,
-        active: processes.filter((process: ManagedProcess) =>
-          activeStatuses.has(process.status),
-        ).length,
-        stopped: countByStatus('stopped'),
-        failed: countByStatus('failed'),
-      };
+      processSummary.value = { total: processes.length, ...counts };
     } catch (error) {
       processSummaryError.value =
         error instanceof Error
@@ -395,10 +394,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     clearMessages();
 
     try {
-      const health = await fetchHealth();
+      const [health, storedWorkspaces] = await Promise.all([
+        fetchHealth(),
+        fetchWorkspaces(),
+      ]);
       apiConnected.value = health.status === 'ok';
-
-      const storedWorkspaces = await fetchWorkspaces();
       workspaces.value = storedWorkspaces;
 
       const preferredWorkspaceId = readStoredWorkspaceId();

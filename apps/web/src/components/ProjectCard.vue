@@ -111,7 +111,11 @@ const localUrl = computed(() =>
         }}</code>
       </RouterLink>
 
-      <ProjectProcessesMenu v-if="project.enabled" :project="project" />
+      <ProjectProcessesMenu
+        v-if="project.enabled"
+        :project="project"
+        :eager="false"
+      />
     </div>
 
     <div class="project-card-meta">
