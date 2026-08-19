@@ -35,7 +35,8 @@ Jobs e logs
 > variável de ambiente (ver `docs/architecture/security.md`), e perfis de
 > ambiente seguem editáveis por projeto. **Jobs e logs** segue aspiracional
 > — não existe uma página dedicada, mapeado em
-> [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md).
+> O estado atual e os próximos ajustes são acompanhados nas issues e pull
+> requests do GitHub; esta página descreve a arquitetura vigente.
 >
 > A reforma do vocabulário visual (cores, tipografia, densidade,
 > componentes de card/badge/formulário) foi concluída: os tokens vivem em

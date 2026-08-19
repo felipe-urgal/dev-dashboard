@@ -281,7 +281,7 @@ declarativa compartilhada fazer sentido ali. Uma eventual extração mais
 profunda — ex. o CLI bash chamando um binário Node compartilhado — quebraria
 o princípio explícito do CLI de não exigir build step/compilador e precisa de
 decisão arquitetural e modelo de ameaça próprios (ver
-`tasks/132-cli-web-shared-rules-strategy.md`), não um mecanismo genérico.
+as decisões históricas do Git), não um mecanismo genérico.
 
 ## Process Manager
 
@@ -334,8 +334,8 @@ Conteúdo atual:
 
 ```json
 {
-        "version": 1,
-        "workspaces": []
+  "version": 1,
+  "workspaces": []
 }
 ```
 

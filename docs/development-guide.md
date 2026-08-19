@@ -19,19 +19,19 @@ API health:    http://127.0.0.1:4343/api/health
 
 ## Scripts da raiz
 
-| Script | Uso |
-|---|---|
-| `npm run dev` | Inicia API e web. |
-| `npm run dev:api` | Inicia somente a API com watch. |
-| `npm run dev:web` | Inicia somente Vite. |
-| `npm run dev-web` | Compila e inicia a distribuição local. |
-| `npm run doctor` | Diagnostica ferramentas e portas. |
-| `npm run docs:api` | Regenera a referência HTTP. |
-| `npm run docs:api:check` | Verifica divergência da referência. |
-| `npm run typecheck` | Valida TypeScript. |
-| `npm run build` | Compila pacotes e aplicações. |
-| `npm test` | Executa testes de scripts e workspaces. |
-| `npm run test:e2e` | Executa smoke E2E da web. |
+| Script                   | Uso                                     |
+| ------------------------ | --------------------------------------- |
+| `npm run dev`            | Inicia API e web.                       |
+| `npm run dev:api`        | Inicia somente a API com watch.         |
+| `npm run dev:web`        | Inicia somente Vite.                    |
+| `npm run dev-web`        | Compila e inicia a distribuição local.  |
+| `npm run doctor`         | Diagnostica ferramentas e portas.       |
+| `npm run docs:api`       | Regenera a referência HTTP.             |
+| `npm run docs:api:check` | Verifica divergência da referência.     |
+| `npm run typecheck`      | Valida TypeScript.                      |
+| `npm run build`          | Compila pacotes e aplicações.           |
+| `npm test`               | Executa testes de scripts e workspaces. |
+| `npm run test:e2e`       | Executa smoke E2E da web.               |
 
 ## Ordem de validação
 
@@ -130,14 +130,14 @@ Não use mensagens internas da API como identificador de lógica. Prefira códig
 
 ### 6. Teste a regra, a integração e a interface
 
-| Camada | Tipo de teste |
-|---|---|
-| Pacote | unidade com filesystem/processo isolado quando necessário |
-| Serviço API | unidade e integração com fixtures |
-| Rota | injeção Fastify, schemas, auth e tradução de erros |
-| Web | Vitest + Vue Test Utils |
-| Fluxo crítico | Playwright E2E |
-| Script raiz | `node:test` em `scripts/*.test.mjs` |
+| Camada        | Tipo de teste                                             |
+| ------------- | --------------------------------------------------------- |
+| Pacote        | unidade com filesystem/processo isolado quando necessário |
+| Serviço API   | unidade e integração com fixtures                         |
+| Rota          | injeção Fastify, schemas, auth e tradução de erros        |
+| Web           | Vitest + Vue Test Utils                                   |
+| Fluxo crítico | Playwright E2E                                            |
+| Script raiz   | `node:test` em `scripts/*.test.mjs`                       |
 
 Testes que iniciam processos devem possuir cleanup mesmo em falha.
 
@@ -150,7 +150,7 @@ Atualize:
 - guia de operação se novas variáveis, arquivos ou portas surgiram;
 - README se o primeiro uso mudou;
 - `CONTRIBUTING.md` se o processo mudou;
-- `tasks/PENDENCIAS.md` quando houver impacto de planejamento.
+- issues e pull requests quando houver impacto de planejamento.
 
 ## Padrões de TypeScript
 

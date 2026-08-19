@@ -12,6 +12,7 @@ import {
   prepareProjectTerminalConfirmation,
   projectTerminalWebSocketUrl,
 } from '../api';
+import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
 import Card from './Card.vue';
 import ProjectTerminalWindowBar from './ProjectTerminalWindowBar.vue';
 
@@ -92,6 +93,7 @@ function mountTerminal(): void {
   if (!terminalContainer.value) return;
   terminal = new Terminal({
     convertEol: true,
+    scrollback: MAX_TERMINAL_SCROLLBACK_LINES,
     fontSize: terminalFontSize.value,
     fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
     theme: { background: '#10131c', foreground: '#dbe0f2' },

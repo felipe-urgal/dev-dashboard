@@ -6,40 +6,40 @@ Este guia reúne portas, variáveis, persistência, observabilidade e procedimen
 
 Esta matriz descreve o que é validado hoje (CI, código com tratamento
 explícito por SO) — não é uma promessa de suporte, e evolui junto com o
-código. Validar e ampliar essa cobertura (macOS, Windows) é trabalho em
-aberto, listado em `tasks/PENDENCIAS.md`.
+código. Validar e ampliar essa cobertura (macOS, Windows) continua sendo
+trabalho futuro, acompanhado neste guia e no histórico de mudanças do Git.
 
-| Sistema operacional | Dashboard web (`apps/`, `packages/`) | CLI bash (`lib/`) |
-|---|---|---|
-| Linux | Suportado e testado em CI (`ubuntu-latest`, Node 24). Identidade de processo validada via `/proc/<pid>/cwd` (ver `docs/architecture/security.md`). | Suportado; caminho principal de desenvolvimento. |
-| macOS | Não validado em CI (a matriz de CI só roda em `ubuntu-latest`). Identidade de processo via `lsof -d cwd` implementada (task 133, equivalente ao `/proc/<pid>/cwd` do Linux) e coberta por testes unitários com saída de `lsof` simulada — mas nunca executada contra um `lsof` real de macOS. | `_dev_os` (`lib/core/checks.sh`) distingue `mac`/`linux` para abrir navegador e iniciar/parar banco local; os ramos `mac`/`other` agora têm cobertura dedicada (`tests/cli/cases/01-core-checks.sh`, via um `uname` falso no `PATH`), mas o comportamento de cada branch (`open`, `brew services`) segue não validado num Mac real. |
-| Windows (nativo, fora de WSL) | Não suportado. | Não suportado — o CLI depende de Bash; WSL não é testado nem documentado oficialmente. |
+| Sistema operacional           | Dashboard web (`apps/`, `packages/`)                                                                                                                                                                                                                                                          | CLI bash (`lib/`)                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux                         | Suportado e testado em CI (`ubuntu-latest`, Node 24). Identidade de processo validada via `/proc/<pid>/cwd` (ver `docs/architecture/security.md`).                                                                                                                                            | Suportado; caminho principal de desenvolvimento.                                                                                                                                                                                                                                                                                    |
+| macOS                         | Não validado em CI (a matriz de CI só roda em `ubuntu-latest`). Identidade de processo via `lsof -d cwd` implementada (task 133, equivalente ao `/proc/<pid>/cwd` do Linux) e coberta por testes unitários com saída de `lsof` simulada — mas nunca executada contra um `lsof` real de macOS. | `_dev_os` (`lib/core/checks.sh`) distingue `mac`/`linux` para abrir navegador e iniciar/parar banco local; os ramos `mac`/`other` agora têm cobertura dedicada (`tests/cli/cases/01-core-checks.sh`, via um `uname` falso no `PATH`), mas o comportamento de cada branch (`open`, `brew services`) segue não validado num Mac real. |
+| Windows (nativo, fora de WSL) | Não suportado.                                                                                                                                                                                                                                                                                | Não suportado — o CLI depende de Bash; WSL não é testado nem documentado oficialmente.                                                                                                                                                                                                                                              |
 
 Requisitos de runtime:
 
-| Dependência | Onde é exigida | Obrigatória? |
-|---|---|---|
-| Node.js `^20.19.0 \|\| >=22.12.0` (`package.json` raiz, `engines`) | Dashboard web | Sim, para `apps/`/`packages/`. |
-| Bash >= 4.0 | CLI bash | Sim, para `lib/`/`init.sh`. |
-| `git` | Ambos | Sim. |
-| `gum` ([charmbracelet/gum](https://github.com/charmbracelet/gum)) | CLI bash | Não — fallback em texto puro quando ausente (ver `dev-doctor`). |
-| `lsof` | CLI bash | Sim (liberação de porta em `dev-stop`). |
-| `lsof` | Dashboard web, só no macOS | Não — usado por `verifyProcessDirectory` para identidade de processo no macOS (task 133); ausente/falho degrada para "não verificado", não bloqueia. Sem efeito no Linux (usa `/proc`). |
-| `ruby`, `bundle` | CLI bash, projetos Rails | Só para projetos Rails. |
-| `mysql` (cliente) | CLI bash, projetos com MySQL | Só se o projeto usar MySQL. |
-| `mysqldump`/`pg_dump` | CLI bash, `db:snapshot`/`db:restore` | Só para essas ações. |
-| `gh` (GitHub CLI) | CLI bash, `git-pr`/detecção de PR em `git-publish` | Não — aviso em `dev-doctor` se ausente. |
+| Dependência                                                        | Onde é exigida                                     | Obrigatória?                                                                                                                                                                            |
+| ------------------------------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js `^20.19.0 \|\| >=22.12.0` (`package.json` raiz, `engines`) | Dashboard web                                      | Sim, para `apps/`/`packages/`.                                                                                                                                                          |
+| Bash >= 4.0                                                        | CLI bash                                           | Sim, para `lib/`/`init.sh`.                                                                                                                                                             |
+| `git`                                                              | Ambos                                              | Sim.                                                                                                                                                                                    |
+| `gum` ([charmbracelet/gum](https://github.com/charmbracelet/gum))  | CLI bash                                           | Não — fallback em texto puro quando ausente (ver `dev-doctor`).                                                                                                                         |
+| `lsof`                                                             | CLI bash                                           | Sim (liberação de porta em `dev-stop`).                                                                                                                                                 |
+| `lsof`                                                             | Dashboard web, só no macOS                         | Não — usado por `verifyProcessDirectory` para identidade de processo no macOS (task 133); ausente/falho degrada para "não verificado", não bloqueia. Sem efeito no Linux (usa `/proc`). |
+| `ruby`, `bundle`                                                   | CLI bash, projetos Rails                           | Só para projetos Rails.                                                                                                                                                                 |
+| `mysql` (cliente)                                                  | CLI bash, projetos com MySQL                       | Só se o projeto usar MySQL.                                                                                                                                                             |
+| `mysqldump`/`pg_dump`                                              | CLI bash, `db:snapshot`/`db:restore`               | Só para essas ações.                                                                                                                                                                    |
+| `gh` (GitHub CLI)                                                  | CLI bash, `git-pr`/detecção de PR em `git-publish` | Não — aviso em `dev-doctor` se ausente.                                                                                                                                                 |
 
 Rode `npm run doctor` (dashboard web) ou `dev-doctor` (CLI bash) para
 verificar o ambiente atual contra essa lista.
 
 ## Mapa de serviços
 
-| Serviço | Porta padrão | Processo | Escopo |
-|---|---:|---|---|
-| API | 4343 | `tsx watch src/server.ts` | Produto e integrações locais |
-| Web | 5173 | `vite` | Interface de desenvolvimento |
-| Preview web | 4173 | `vite preview` | Validação do build web |
+| Serviço     | Porta padrão | Processo                  | Escopo                       |
+| ----------- | -----------: | ------------------------- | ---------------------------- |
+| API         |         4343 | `tsx watch src/server.ts` | Produto e integrações locais |
+| Web         |         5173 | `vite`                    | Interface de desenvolvimento |
+| Preview web |         4173 | `vite preview`            | Validação do build web       |
 
 Todos os listeners devem permanecer em `127.0.0.1`.
 
@@ -47,24 +47,38 @@ Todos os listeners devem permanecer em `127.0.0.1`.
 
 ### API e distribuição
 
-| Variável | Finalidade |
-|---|---|
-| `DEV_DASHBOARD_API_PORT` | Porta da API; padrão `4343`. |
-| `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` | Ativa frontend estático servido pela API. |
-| `DEV_DASHBOARD_WEB_DIST` | Diretório canônico do build web. |
-| `DEV_DASHBOARD_BROWSER_BOOTSTRAP` | Capacidade efêmera do bootstrap do navegador. |
-| `LOG_LEVEL` | Nível do logger Fastify. |
+| Variável                             | Finalidade                                    |
+| ------------------------------------ | --------------------------------------------- |
+| `DEV_DASHBOARD_API_PORT`             | Porta da API; padrão `4343`.                  |
+| `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` | Ativa frontend estático servido pela API.     |
+| `DEV_DASHBOARD_WEB_DIST`             | Diretório canônico do build web.              |
+| `DEV_DASHBOARD_BROWSER_BOOTSTRAP`    | Capacidade efêmera do bootstrap do navegador. |
+| `LOG_LEVEL`                          | Nível do logger Fastify.                      |
 
 ### Configuração e estado
 
-| Variável | Finalidade |
-|---|---|
-| `DEV_DASHBOARD_CONFIG_DIR` | Diretório de configuração da aplicação. |
-| `XDG_CONFIG_HOME` | Base XDG alternativa para configuração. |
-| `DEV_DASHBOARD_STATE_DIR` | Diretório de processos, logs e históricos. |
-| `XDG_STATE_HOME` | Base XDG alternativa para estado. |
-| `DEV_DASHBOARD_LOG_RETENTION_DAYS` | Janela padrão de retenção de logs terminais. |
-| `DEV_DASHBOARD_BACKUP_DIR` | Diretório onde `dev-backup` grava os arquivos `.tar.gz`; padrão `~/.dev-dashboard-backups`. |
+| Variável                           | Finalidade                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| `DEV_DASHBOARD_CONFIG_DIR`         | Diretório de configuração da aplicação.                                                     |
+| `XDG_CONFIG_HOME`                  | Base XDG alternativa para configuração.                                                     |
+| `DEV_DASHBOARD_STATE_DIR`          | Diretório de processos, logs e históricos.                                                  |
+| `XDG_STATE_HOME`                   | Base XDG alternativa para estado.                                                           |
+| `DEV_DASHBOARD_LOG_RETENTION_DAYS` | Janela padrão de retenção de logs terminais.                                                |
+| `DEV_DASHBOARD_BACKUP_DIR`         | Diretório onde `dev-backup` grava os arquivos `.tar.gz`; padrão `~/.dev-dashboard-backups`. |
+
+### Limites de logs e terminais
+
+Os terminais do navegador mantêm apenas uma janela recente de saída para que
+uma execução longa não faça a aba crescer indefinidamente. O backend mantém um
+buffer limitado para reconexões destacáveis, e a leitura de logs persistidos
+também retorna somente o trecho final dentro do limite do contrato. Use
+`Limpar` no painel quando quiser iniciar uma nova janela de observação.
+
+Para reproduzir os fluxos principais com o servidor de fixtures:
+
+```bash
+npm run test:e2e --workspace=@dev-dashboard/web
+```
 
 ## Arquivos locais
 
@@ -361,7 +375,6 @@ Verifique:
 - snapshot e environmentId ainda válidos.
 
 A senha não aparece na linha de comando; ela é transmitida ao cliente por variável específica.
-
 
 ## Build da web falha
 

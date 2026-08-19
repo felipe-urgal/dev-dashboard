@@ -2,13 +2,13 @@
 
 > Parte do [Guia passo a passo do dashboard web](README.md).
 
-**Estado atual (PoC da task 234, item 1):** a aba roda a suíte completa de testes do projeto num
+**Estado atual:** a aba roda a suíte completa de testes do projeto num
 terminal de verdade (PTY via `node-pty`, saída em `xterm.js`) — o mesmo mecanismo do
 [Terminal/Console](terminal.md), com a diferença de que a execução é **destacável**: fechar a aba,
 recarregar a página ou navegar para outro lugar do dashboard não mata o processo, e reconectar
-mostra o buffer acumulado mais o que vier depois. Ver
-[`tasks/234-unificar-execucoes-em-terminal.md`](../../tasks/234-unificar-execucoes-em-terminal.md)
-para o desenho completo e o histórico da decisão.
+mostra o buffer acumulado mais o que vier depois. O buffer do backend e o
+scrollback visual do navegador possuem limites para evitar crescimento
+indefinido durante execuções longas.
 
 ## O que está disponível hoje
 
@@ -22,10 +22,10 @@ para o desenho completo e o histórico da decisão.
 4. Reconectar à aba (reload, trocar de projeto e voltar) reanexa à execução em andamento — nada se
    perde.
 
-## O que temporariamente saiu do ar
+## Escopo atual
 
-Escopo reduzido de propósito para este PoC — nada foi removido do código, só não está mais
-acessível pela aba Testes enquanto o modelo novo não é expandido:
+O fluxo atual prioriza execução destacável e saída em terminal. Ainda não fazem
+parte desta aba:
 
 - **Executar um arquivo específico** ou um **caso/padrão de nome** dentro de um arquivo.
 - **"Testes relacionados"** às alterações da branch atual (via `git diff`).
@@ -34,11 +34,9 @@ acessível pela aba Testes enquanto o modelo novo não é expandido:
   Detalhes) — a saída agora é o terminal cru; classificação sobre esse texto ainda não foi
   reconstruída.
 
-A implementação anterior (`ProjectTestsGuidedPanel.vue` + `useProjectTestsPanel.ts` +
-`useProjectTestProcess.ts`, rodando sobre `processManager` kind `'test'` + SSE) não estava mais
-conectada a nenhuma rota desde esta migração e foi removida do código como órfã; para consultá-la,
-veja o histórico do Git antes dessa remoção. Repor esses recursos sobre o modelo novo é trabalho
-futuro, registrado na task 234.
+O histórico de mudanças desse fluxo permanece disponível no Git; novas
+capacidades devem reutilizar o mesmo contrato de PTY destacável e os limites
+de saída descritos acima.
 
 ## Como o dashboard detecta o comando de teste
 

@@ -4,6 +4,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { onBeforeUnmount, ref } from 'vue';
 
+import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
+
 /**
  * Conexão WebSocket + terminal (xterm.js) compartilhada pelos painéis que
  * rodam um comando de execução única num PTY destacável (Testes, Migrations
@@ -48,9 +50,9 @@ export function usePtyTerminalSocket<
       fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
       lineHeight: 1.35,
       theme: { background: '#10131c', foreground: '#dbe0f2' },
-      // Saídas de teste/build longas (milhares de specs) estouram o padrão
-      // de 1000 linhas rapidinho, descartando o início do buffer.
-      scrollback: 50_000,
+      // Mantém uma janela recente no navegador. O buffer destacável completo
+      // continua limitado e persistido no backend para reconexão.
+      scrollback: MAX_TERMINAL_SCROLLBACK_LINES,
     });
     fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);

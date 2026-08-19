@@ -127,7 +127,7 @@ onMounted(() => {
               class="sidebar-workspace-add-icon"
               aria-label="Adicionar workspace"
               aria-haspopup="dialog"
-              @click.prevent.stop="openWorkspaceManager"
+              @click.stop="openWorkspaceManager"
             >
               <PlusIcon aria-hidden="true" />
             </button>

@@ -12,7 +12,7 @@
 > compleção inline, catálogo de ferramentas, `propose_workspace_edit`) também
 > foi removido — junto com a aba própria **Assistente IA** e toda a
 > infraestrutura de seleção de provider/consentimento cloud — na remoção do
-> Assistente IA (ver `tasks/238-remover-assistente-ia.md`). A task 238 manteve
+> Assistente IA (ver o histórico do Git/PR 238). A mudança manteve
 > deliberadamente uma Code review simplificada (Ollama fixo, sem seleção de
 > provider); essa Code review foi removida também, num commit posterior sem
 > task numerada correspondente — o produto não tem hoje nenhuma capacidade de
@@ -253,11 +253,7 @@ O `LanguageServerManager` mantém no máximo uma instância por projeto e tipo:
 
 ```ts
 type LanguageServerStatus =
-  | 'starting'
-  | 'indexing'
-  | 'ready'
-  | 'failed'
-  | 'stopped';
+  'starting' | 'indexing' | 'ready' | 'failed' | 'stopped';
 ```
 
 Política inicial:

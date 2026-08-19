@@ -6,7 +6,7 @@
 > IA completo (chat, compleção inline, catálogo de ferramentas, edição de
 > workspace). Essa camada — Assistente IA, `AiProviderResolver`,
 > `OpenAiProvider`, seleção de provider/modo por projeto e consentimento
-> cloud — foi removida pela task 238 (ver `tasks/238-remover-assistente-ia.md`),
+> cloud — foi removida conforme o histórico do Git/PR 238,
 > que manteve deliberadamente a **Code review** (aba Git) rodando sobre um
 > Ollama local fixo.
 >

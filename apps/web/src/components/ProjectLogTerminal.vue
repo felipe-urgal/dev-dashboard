@@ -5,6 +5,11 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+import {
+  MAX_TERMINAL_RENDERED_BYTES,
+  MAX_TERMINAL_SCROLLBACK_LINES,
+} from '../utils/terminal-limits';
+
 const props = withDefaults(
   defineProps<{
     content: string;
@@ -18,21 +23,18 @@ const props = withDefaults(
 
 const emit = defineEmits<{ clear: [] }>();
 
-const MAX_RENDERED_LOG_LINES = 1200;
-const MAX_RENDERED_LOG_BYTES = 240_000;
-
 function boundedContent(content: string): string {
   let bounded = content;
 
-  if (bounded.length > MAX_RENDERED_LOG_BYTES) {
-    bounded = bounded.slice(-MAX_RENDERED_LOG_BYTES);
+  if (bounded.length > MAX_TERMINAL_RENDERED_BYTES) {
+    bounded = bounded.slice(-MAX_TERMINAL_RENDERED_BYTES);
     const firstLineBreak = bounded.indexOf('\n');
     if (firstLineBreak >= 0) bounded = bounded.slice(firstLineBreak + 1);
   }
 
   const lines = bounded.split(/\r?\n/);
-  if (lines.length > MAX_RENDERED_LOG_LINES) {
-    bounded = lines.slice(-MAX_RENDERED_LOG_LINES).join('\n');
+  if (lines.length > MAX_TERMINAL_SCROLLBACK_LINES) {
+    bounded = lines.slice(-MAX_TERMINAL_SCROLLBACK_LINES).join('\n');
   }
 
   return bounded;
@@ -69,7 +71,7 @@ async function mountTerminal(): Promise<void> {
     disableStdin: true,
     cursorBlink: false,
     cursorStyle: 'bar',
-    scrollback: MAX_RENDERED_LOG_LINES,
+    scrollback: MAX_TERMINAL_SCROLLBACK_LINES,
     fontSize: 13,
     fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
     theme: {
