@@ -52,18 +52,18 @@ Referência rápida do que cada workspace npm aceita rodar isoladamente. `build`
 `process-manager`, nessa ordem) — os apps importam a saída compilada em
 `dist/` desses pacotes, não os fontes TS diretamente.
 
-| Módulo | Dev | Build | Typecheck | Teste |
-|---|---|---|---|---|
-| raiz (todos) | `npm run dev` | `npm run build` | `npm run typecheck` | `npm test` |
-| `apps/api` | `npm run dev:api` | `npm run build --workspace=@dev-dashboard/api` | `npm run typecheck --workspace=@dev-dashboard/api` | `node --import=tsx --test apps/api/test/<arquivo>.test.ts` |
-| `apps/web` | `npm run dev:web` | `npm run build --workspace=@dev-dashboard/web` | `npm run typecheck --workspace=@dev-dashboard/web` | `npm run test --workspace=@dev-dashboard/web -- run <caminho>.spec.ts` (Vitest) |
-| `apps/web` (E2E) | — | — | — | `npx playwright test --config=e2e/playwright.config.ts <caminho>.spec.ts` (a partir de `apps/web/`) |
-| `packages/contracts` | — | `npm run build --workspace=@dev-dashboard/contracts` | `npm run typecheck --workspace=@dev-dashboard/contracts` | sem testes próprios (só tipos) |
-| `packages/core` | — | `npm run build --workspace=@dev-dashboard/core` | `npm run typecheck --workspace=@dev-dashboard/core` | `node --import=tsx --test packages/core/test/<arquivo>.test.ts` |
-| `packages/project-discovery` | — | `npm run build --workspace=@dev-dashboard/project-discovery` | `npm run typecheck --workspace=@dev-dashboard/project-discovery` | `node --import=tsx --test packages/project-discovery/test/<arquivo>.test.ts` |
-| `packages/process-manager` | — | `npm run build --workspace=@dev-dashboard/process-manager` | `npm run typecheck --workspace=@dev-dashboard/process-manager` | `node --import=tsx --test packages/process-manager/test/<arquivo>.test.ts` |
-| `scripts` (automação raiz) | — | — | — | `node --test scripts/<arquivo>.test.mjs` |
-| CLI Bash (`lib/`, `init.sh`) | `source ~/.dev-dashboard/init.sh` | — | — | `tests/cli/run.sh` |
+| Módulo                       | Dev                               | Build                                                        | Typecheck                                                        | Teste                                                                                               |
+| ---------------------------- | --------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| raiz (todos)                 | `npm run dev`                     | `npm run build`                                              | `npm run typecheck`                                              | `npm test`                                                                                          |
+| `apps/api`                   | `npm run dev:api`                 | `npm run build --workspace=@dev-dashboard/api`               | `npm run typecheck --workspace=@dev-dashboard/api`               | `node --import=tsx --test apps/api/test/<arquivo>.test.ts`                                          |
+| `apps/web`                   | `npm run dev:web`                 | `npm run build --workspace=@dev-dashboard/web`               | `npm run typecheck --workspace=@dev-dashboard/web`               | `npm run test --workspace=@dev-dashboard/web -- run <caminho>.spec.ts` (Vitest)                     |
+| `apps/web` (E2E)             | —                                 | —                                                            | —                                                                | `npx playwright test --config=e2e/playwright.config.ts <caminho>.spec.ts` (a partir de `apps/web/`) |
+| `packages/contracts`         | —                                 | `npm run build --workspace=@dev-dashboard/contracts`         | `npm run typecheck --workspace=@dev-dashboard/contracts`         | sem testes próprios (só tipos)                                                                      |
+| `packages/core`              | —                                 | `npm run build --workspace=@dev-dashboard/core`              | `npm run typecheck --workspace=@dev-dashboard/core`              | `node --import=tsx --test packages/core/test/<arquivo>.test.ts`                                     |
+| `packages/project-discovery` | —                                 | `npm run build --workspace=@dev-dashboard/project-discovery` | `npm run typecheck --workspace=@dev-dashboard/project-discovery` | `node --import=tsx --test packages/project-discovery/test/<arquivo>.test.ts`                        |
+| `packages/process-manager`   | —                                 | `npm run build --workspace=@dev-dashboard/process-manager`   | `npm run typecheck --workspace=@dev-dashboard/process-manager`   | `node --import=tsx --test packages/process-manager/test/<arquivo>.test.ts`                          |
+| `scripts` (automação raiz)   | —                                 | —                                                            | —                                                                | `node --test scripts/<arquivo>.test.mjs`                                                            |
+| CLI Bash (`lib/`, `init.sh`) | `source ~/.dev-dashboard/init.sh` | —                                                            | —                                                                | `tests/cli/run.sh`                                                                                  |
 
 Workspaces sob `packages/*`/`apps/*` usam o runner nativo do Node
 (`node --test`) com `tsx` para carregar `.ts`, exceto `apps/web`, que usa
@@ -86,12 +86,12 @@ Aplicação Node.js, TypeScript e Fastify.
 
 ### Pontos de entrada
 
-| Arquivo | Função |
-|---|---|
-| `src/server.ts` | Lê configuração, cria a aplicação e inicia o listener. |
-| `src/app.ts` | Monta o Fastify, segurança, rotas e frontend estático. |
-| `src/app-context.ts` | Constrói repositórios, stores e serviços compartilhados. |
-| `src/server-config.ts` | Resolve porta, origem e modo de distribuição. |
+| Arquivo                | Função                                                   |
+| ---------------------- | -------------------------------------------------------- |
+| `src/server.ts`        | Lê configuração, cria a aplicação e inicia o listener.   |
+| `src/app.ts`           | Monta o Fastify, segurança, rotas e frontend estático.   |
+| `src/app-context.ts`   | Constrói repositórios, stores e serviços compartilhados. |
+| `src/server-config.ts` | Resolve porta, origem e modo de distribuição.            |
 
 ### Organização interna
 
@@ -261,21 +261,22 @@ O pacote não deve aceitar uma linha de comando livre enviada pelo navegador.
 
 Automação de desenvolvimento e manutenção do repositório.
 
-| Script | Responsabilidade |
-|---|---|
-| `dev.mjs` | Orquestra API e web. |
-| `dev-web.mjs` | Diagnostica, compila e inicia a distribuição local. |
-| `doctor.mjs` | Verifica ferramentas, dependências e portas. |
-| `generate-api-docs.mjs` | Gera a referência HTTP a partir dos schemas das rotas. |
-| `generate-changelog.mjs` | Gera changelog conforme a estratégia do projeto. |
-| `*.test.mjs` | Testes unitários da automação raiz. |
+| Script                   | Responsabilidade                                       |
+| ------------------------ | ------------------------------------------------------ |
+| `dev.mjs`                | Orquestra API e web.                                   |
+| `dev-web.mjs`            | Diagnostica, compila e inicia a distribuição local.    |
+| `doctor.mjs`             | Verifica ferramentas, dependências e portas.           |
+| `generate-api-docs.mjs`  | Gera a referência HTTP a partir dos schemas das rotas. |
+| `generate-changelog.mjs` | Gera changelog conforme a estratégia do projeto.       |
+| `*.test.mjs`             | Testes unitários da automação raiz.                    |
 
 Scripts devem funcionar a partir da raiz, evitar shell desnecessário e possuir testes quando contêm regras.
 
 ## `docs`
 
-Documentação versionada — só documentação de produto/arquitetura. Planejamento e histórico de
-entregas vivem em `tasks/` (fora de `docs/`, ver "Documentação de tasks" em `CLAUDE.md`).
+Documentação versionada — documentação de produto, arquitetura, operação e
+desenvolvimento. Planejamento e histórico de entregas vivem nas issues e pull
+requests do GitHub.
 
 ```text
 docs/
@@ -299,17 +300,17 @@ A estratégia é extrair comportamentos reutilizáveis para operações não int
 
 ## Onde colocar código novo
 
-| Necessidade | Local recomendado |
-|---|---|
-| Novo tipo compartilhado | `packages/contracts` |
-| Persistência/configuração genérica | `packages/core` |
-| Detecção de projeto/capacidade | `packages/project-discovery` |
-| Processo e estado operacional | `packages/process-manager` |
-| Caso de uso local específico | `apps/api/src/services` |
-| Endpoint HTTP | `apps/api/src/routes` |
-| Experiência visual | `apps/web/src` |
-| Automação do monorepo | `scripts` |
-| Decisão ou guia | `docs` |
+| Necessidade                        | Local recomendado            |
+| ---------------------------------- | ---------------------------- |
+| Novo tipo compartilhado            | `packages/contracts`         |
+| Persistência/configuração genérica | `packages/core`              |
+| Detecção de projeto/capacidade     | `packages/project-discovery` |
+| Processo e estado operacional      | `packages/process-manager`   |
+| Caso de uso local específico       | `apps/api/src/services`      |
+| Endpoint HTTP                      | `apps/api/src/routes`        |
+| Experiência visual                 | `apps/web/src`               |
+| Automação do monorepo              | `scripts`                    |
+| Decisão ou guia                    | `docs`                       |
 
 ## Critérios para um módulo novo
 

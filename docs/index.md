@@ -6,12 +6,12 @@ Esta documentação descreve o produto, a arquitetura, a organização do reposi
 
 ## Para quem esta documentação existe
 
-| Público | O que encontrará aqui |
-|---|---|
-| Pessoa usuária | Instalação, inicialização, recursos disponíveis e resolução de problemas. |
-| Pessoa desenvolvedora | Arquitetura, responsabilidades dos módulos, padrões de implementação e testes. |
-| Pessoa revisora | Limites de segurança, contratos, fluxos mutáveis e critérios de qualidade. |
-| Pessoa mantenedora | Operação, persistência, evolução, documentação da API e organização do monorepo. |
+| Público               | O que encontrará aqui                                                            |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Pessoa usuária        | Instalação, inicialização, recursos disponíveis e resolução de problemas.        |
+| Pessoa desenvolvedora | Arquitetura, responsabilidades dos módulos, padrões de implementação e testes.   |
+| Pessoa revisora       | Limites de segurança, contratos, fluxos mutáveis e critérios de qualidade.       |
+| Pessoa mantenedora    | Operação, persistência, evolução, documentação da API e organização do monorepo. |
 
 ## Visão do produto
 
@@ -132,10 +132,10 @@ npm run dev
 
 O comando inicia e encerra em conjunto:
 
-| Serviço | Endereço | Responsabilidade |
-|---|---|---|
-| API | `http://127.0.0.1:4343` | Regras, persistência, processos e integrações locais. |
-| Web | `http://127.0.0.1:5173` | Interface Vue para uso do dashboard. |
+| Serviço | Endereço                | Responsabilidade                                      |
+| ------- | ----------------------- | ----------------------------------------------------- |
+| API     | `http://127.0.0.1:4343` | Regras, persistência, processos e integrações locais. |
+| Web     | `http://127.0.0.1:5173` | Interface Vue para uso do dashboard.                  |
 
 Use `Ctrl+C` para encerrar o grupo de processos.
 
@@ -169,25 +169,25 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 
 ### Planejamento
 
-- [Roadmap histórico da IA multi-provider](../tasks/AI-MULTI-PROVIDER.md): sequência de PRs que criou a arquitetura.
-- [Checklist de fechamento da IA multi-provider](../tasks/AI-MULTI-PROVIDER-FINALIZATION.md): P0/P1/P2 e estado atual do hardening.
-- [Pendências](../tasks/PENDENCIAS.md): inventário consolidado do que falta implementar.
-- [Próxima tarefa](../tasks/NEXT.md): próximo trabalho priorizado.
+O planejamento operacional é mantido nas issues e pull requests do GitHub.
+Decisões permanentes e procedimentos ficam nesta documentação, especialmente
+no [guia de desenvolvimento](development-guide.md) e no
+[guia de operação](operations-and-troubleshooting.md).
 
 ## Glossário essencial
 
-| Termo | Significado no projeto |
-|---|---|
-| Workspace | Diretório cadastrado que contém projetos imediatamente abaixo dele. |
-| Projeto | Aplicação Rails ou Node detectada e mantida no `ProjectStore`. |
-| Capacidade | Recurso reconhecido, como Git, testes, banco, scripts, Sidekiq ou Bundler. |
-| Processo gerenciado | Processo iniciado e acompanhado pelo Process Manager. |
-| Catálogo | Lista fechada de comandos ou ações detectadas pelo backend. |
-| Confirmação | Token temporário vinculado a uma operação mutável específica. |
-| Distribuição local | Modo compilado em que a API também serve o frontend estático. |
-| Contrato | Tipo e formato de dados compartilhado entre camadas. |
-| Snapshot | Cópia controlada de banco armazenada no diretório privado de estado. |
-| SSE | Canal de eventos do servidor usado para acompanhar execuções em tempo real. |
+| Termo               | Significado no projeto                                                      |
+| ------------------- | --------------------------------------------------------------------------- |
+| Workspace           | Diretório cadastrado que contém projetos imediatamente abaixo dele.         |
+| Projeto             | Aplicação Rails ou Node detectada e mantida no `ProjectStore`.              |
+| Capacidade          | Recurso reconhecido, como Git, testes, banco, scripts, Sidekiq ou Bundler.  |
+| Processo gerenciado | Processo iniciado e acompanhado pelo Process Manager.                       |
+| Catálogo            | Lista fechada de comandos ou ações detectadas pelo backend.                 |
+| Confirmação         | Token temporário vinculado a uma operação mutável específica.               |
+| Distribuição local  | Modo compilado em que a API também serve o frontend estático.               |
+| Contrato            | Tipo e formato de dados compartilhado entre camadas.                        |
+| Snapshot            | Cópia controlada de banco armazenada no diretório privado de estado.        |
+| SSE                 | Canal de eventos do servidor usado para acompanhar execuções em tempo real. |
 
 ## Critério de documentação completa
 

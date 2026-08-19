@@ -379,24 +379,24 @@ começam com `pre` são encadeados automaticamente pelo npm antes do comando
 correspondente — ex. `predev` roda `build:packages` antes de `dev` — e não
 precisam ser chamados à mão).
 
-| Comando | O que faz |
-|---|---|
-| `npm run dev` | Sobe API (`:4343`) e web (`:5173`) juntos, com watch. |
-| `npm run dev:api` | Só a API, com watch. |
-| `npm run dev:web` | Só o frontend Vite, com watch. |
-| `npm run dev-web` | Builda e serve API + frontend estático numa porta só (distribuição local, ver acima). |
-| `npm run doctor` | Verifica Node, npm, Git, dependências e portas sem iniciar nada. |
-| `npm run docs:api` | Regenera `docs/architecture/api-reference.md` a partir dos schemas Fastify. |
-| `npm run docs:api:check` | Confere se a referência da API está atualizada, sem regravar (usado no CI). |
-| `npm run release -- <patch\|minor\|major>` | Faz bump de versão, regenera o changelog e cria a tag de release. |
-| `npm run typecheck` | `tsc --build`/`vue-tsc` em todos os workspaces. |
-| `npm run build` | Builda `packages/*` e depois `apps/*`, nessa ordem. |
-| `npm test` | Roda a suíte de cada workspace (`node --test` ou Vitest, conforme o pacote). |
-| `npm run test:e2e` | Builda e roda o smoke E2E (Playwright) de `apps/web`. |
-| `npm run lint` | ESLint em `apps/`, `packages/` e `scripts/`. |
-| `npm run lint:fix` | Igual, aplicando as correções automáticas possíveis. |
-| `npm run format` | Formata `apps/`, `packages/` e `scripts/` com Prettier. |
-| `npm run format:check` | Confere formatação sem regravar (usado no CI). |
+| Comando                                    | O que faz                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `npm run dev`                              | Sobe API (`:4343`) e web (`:5173`) juntos, com watch.                                 |
+| `npm run dev:api`                          | Só a API, com watch.                                                                  |
+| `npm run dev:web`                          | Só o frontend Vite, com watch.                                                        |
+| `npm run dev-web`                          | Builda e serve API + frontend estático numa porta só (distribuição local, ver acima). |
+| `npm run doctor`                           | Verifica Node, npm, Git, dependências e portas sem iniciar nada.                      |
+| `npm run docs:api`                         | Regenera `docs/architecture/api-reference.md` a partir dos schemas Fastify.           |
+| `npm run docs:api:check`                   | Confere se a referência da API está atualizada, sem regravar (usado no CI).           |
+| `npm run release -- <patch\|minor\|major>` | Faz bump de versão, regenera o changelog e cria a tag de release.                     |
+| `npm run typecheck`                        | `tsc --build`/`vue-tsc` em todos os workspaces.                                       |
+| `npm run build`                            | Builda `packages/*` e depois `apps/*`, nessa ordem.                                   |
+| `npm test`                                 | Roda a suíte de cada workspace (`node --test` ou Vitest, conforme o pacote).          |
+| `npm run test:e2e`                         | Builda e roda o smoke E2E (Playwright) de `apps/web`.                                 |
+| `npm run lint`                             | ESLint em `apps/`, `packages/` e `scripts/`.                                          |
+| `npm run lint:fix`                         | Igual, aplicando as correções automáticas possíveis.                                  |
+| `npm run format`                           | Formata `apps/`, `packages/` e `scripts/` com Prettier.                               |
+| `npm run format:check`                     | Confere formatação sem regravar (usado no CI).                                        |
 
 ## API atual
 
@@ -446,10 +446,10 @@ smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-Consulte [`tasks/NEXT.md`](tasks/NEXT.md) para a próxima entrega e
-[`tasks/PENDENCIAS.md`](tasks/PENDENCIAS.md) para o inventário do que falta
-implementar. O histórico de entregas já registradas vive nos arquivos
-`tasks/NNN-*.md`.
+Consulte [`docs/index.md`](docs/index.md) e o histórico do Git para conhecer a
+documentação atual e as próximas decisões de evolução. As regras de operação,
+limites de logs e comandos de validação estão em
+[`docs/operations-and-troubleshooting.md`](docs/operations-and-troubleshooting.md).
 
 ## Licença
 

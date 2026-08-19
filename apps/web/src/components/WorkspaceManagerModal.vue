@@ -108,7 +108,11 @@ function handleShowUpdate(show: boolean): void {
             placeholder="/home/usuario/projetos"
           />
 
-          <NButton secondary @click="directoryPickerOpen = true">
+          <NButton
+            attr-type="button"
+            secondary
+            @click="directoryPickerOpen = true"
+          >
             Escolher pasta
           </NButton>
         </div>
