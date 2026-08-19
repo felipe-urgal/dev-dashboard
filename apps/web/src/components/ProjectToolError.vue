@@ -1,7 +1,14 @@
+<script setup lang="ts">
+function retry(): void {
+  window.location.reload();
+}
+</script>
+
 <template>
   <div class="project-tool-state project-tool-state-error" role="alert">
     <strong>Não foi possível carregar esta ferramenta.</strong>
-    <p>Recarregue a página e tente novamente.</p>
+    <p>O servidor não respondeu. Tente recarregar a ferramenta.</p>
+    <button type="button" @click="retry">Tentar novamente</button>
   </div>
 </template>
 
@@ -21,5 +28,20 @@
 
 .project-tool-state p {
   margin: 0;
+}
+
+.project-tool-state button {
+  border: 1px solid currentColor;
+  border-radius: 7px;
+  padding: 7px 10px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.project-tool-state button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 </style>

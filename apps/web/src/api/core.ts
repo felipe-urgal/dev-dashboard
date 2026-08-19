@@ -27,6 +27,9 @@ export class ApiRequestError extends Error {
 
 const inFlightGetRequests = new Map<string, Promise<unknown>>();
 const MAX_API_REQUEST_METRICS = 100;
+const MAX_GET_RETRIES = 2;
+const GET_RETRY_DELAY_MS = 150;
+const GET_TIMEOUT_MS = 10_000;
 
 export interface ApiRequestMetric {
   key: string;
@@ -89,6 +92,43 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
+function isGetRequest(init?: RequestInit): boolean {
+  return (init?.method ?? 'GET').toUpperCase() === 'GET';
+}
+
+function isRetryableGetError(error: unknown): boolean {
+  if (isAbortError(error)) return false;
+  if (error instanceof ApiRequestError) {
+    return (
+      error.code === 'NETWORK_ERROR' ||
+      error.code === 'TIMEOUT' ||
+      error.status === 408 ||
+      error.status === 429 ||
+      error.status >= 500
+    );
+  }
+  return error instanceof TypeError;
+}
+
+function retryDelay(attempt: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, GET_RETRY_DELAY_MS * 2 ** attempt);
+  });
+}
+
+function networkError(error: unknown): ApiRequestError | unknown {
+  if (isAbortError(error) || error instanceof ApiRequestError) return error;
+  if (error instanceof TypeError) {
+    return new ApiRequestError({
+      status: 0,
+      code: 'NETWORK_ERROR',
+      message:
+        'Não foi possível conectar à API. Verifique sua conexão e tente novamente.',
+    });
+  }
+  return error;
+}
+
 function getRequestKey(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -126,7 +166,24 @@ export async function requestJson<T>(
 
   metric.calls += 1;
   const startedAt = performance.now();
-  const pending = requestJsonAttempt<T>(input, init, true, metric);
+  const pending = (async () => {
+    let attempt = 0;
+    while (true) {
+      try {
+        return await requestJsonAttempt<T>(input, init, true, metric);
+      } catch (error) {
+        if (
+          !isGetRequest(init) ||
+          attempt >= MAX_GET_RETRIES ||
+          !isRetryableGetError(error)
+        ) {
+          throw error;
+        }
+        await retryDelay(attempt);
+        attempt += 1;
+      }
+    }
+  })();
   pending.then(
     () => {
       metric.successes += 1;
@@ -224,11 +281,17 @@ async function requestJsonAttempt<T>(
   mayRenew: boolean,
   metric?: ApiRequestMetric,
 ): Promise<T> {
-  let response = await fetch(input, { ...init, credentials: 'same-origin' });
+  let response = await fetchWithTimeout(input, {
+    ...init,
+    credentials: 'same-origin',
+  });
   if (metric) metric.lastStatus = response.status;
   if (response.status === 401 && mayRenew) {
     await bootstrapBrowserSession();
-    response = await fetch(input, { ...init, credentials: 'same-origin' });
+    response = await fetchWithTimeout(input, {
+      ...init,
+      credentials: 'same-origin',
+    });
     if (metric) metric.lastStatus = response.status;
   }
 
@@ -244,12 +307,55 @@ async function requestJsonAttempt<T>(
     throw new ApiRequestError({
       status: response.status,
       ...(errorPayload?.error ? { code: errorPayload.error } : {}),
-      message:
-        errorPayload?.message ?? `A API respondeu com HTTP ${response.status}`,
+      message: errorPayload?.message ?? apiStatusMessage(response.status),
     });
   }
 
   return payload as T;
+}
+
+function apiStatusMessage(status: number): string {
+  if (status === 404) return 'O recurso solicitado não foi encontrado.';
+  if (status === 408) return 'A API demorou para responder. Tente novamente.';
+  if (status === 429)
+    return 'Muitas solicitações foram feitas. Aguarde um momento e tente novamente.';
+  if (status >= 500)
+    return 'A API está temporariamente indisponível. Tente novamente em instantes.';
+  return `A API respondeu com HTTP ${status}`;
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  const abortFromCaller = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener('abort', abortFromCaller, {
+        once: true,
+      });
+    }
+  }
+  const timeoutId = window.setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted && !externalSignal?.aborted) {
+      throw new ApiRequestError({
+        status: 408,
+        code: 'TIMEOUT',
+        message: 'A API demorou para responder. Tente novamente.',
+      });
+    }
+    throw networkError(error);
+  } finally {
+    window.clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort', abortFromCaller);
+  }
 }
 
 export function fetchHealth(): Promise<HealthResponse> {
