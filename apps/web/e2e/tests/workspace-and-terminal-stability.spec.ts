@@ -19,7 +19,7 @@ test.describe('estabilidade do shell e dos terminais', () => {
     const workspacePath = `${info.workspaceDirectory}/workspace-extra`;
     await mkdir(workspacePath, { recursive: true });
 
-    const workspaceInputs = dialog.locator('.workspace-create-form input');
+    const workspaceInputs = page.locator('.workspace-create-form input');
     await workspaceInputs.nth(0).fill('Workspace extra');
     await workspaceInputs.nth(1).fill(workspacePath);
     await dialog.getByRole('button', { name: 'Adicionar workspace' }).click();
