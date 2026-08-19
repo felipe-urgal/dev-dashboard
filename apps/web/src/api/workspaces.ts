@@ -111,6 +111,13 @@ export function updateWorkspaceRecursiveScan(
   workspaceId: string,
   recursiveScan: boolean,
 ): Promise<Workspace> {
+  return updateWorkspace(workspaceId, { recursiveScan });
+}
+
+export function updateWorkspace(
+  workspaceId: string,
+  input: { name?: string; recursiveScan?: boolean },
+): Promise<Workspace> {
   return requestJson<Workspace>(
     `/api/workspaces/${encodeURIComponent(workspaceId)}`,
     {
@@ -118,7 +125,7 @@ export function updateWorkspaceRecursiveScan(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ recursiveScan }),
+      body: JSON.stringify(input),
     },
   );
 }

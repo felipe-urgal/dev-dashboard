@@ -21,10 +21,15 @@ const {
   creatingWorkspace,
   recursiveScanUpdatingIds,
   handleCreateWorkspace,
+  handleDeleteWorkspace,
+  handleRenameWorkspace,
   toggleWorkspaceRecursiveScan,
+  deletingWorkspace,
 } = dashboardStore;
 
 const directoryPickerOpen = ref(false);
+const editingWorkspaceId = ref('');
+const editingWorkspaceName = ref('');
 
 function closeModal(): void {
   emit('close');
@@ -32,6 +37,26 @@ function closeModal(): void {
 
 function handleShowUpdate(show: boolean): void {
   if (!show) closeModal();
+}
+
+function beginRename(workspace: { id: string; name: string }): void {
+  editingWorkspaceId.value = workspace.id;
+  editingWorkspaceName.value = workspace.name;
+}
+
+function cancelRename(): void {
+  editingWorkspaceId.value = '';
+  editingWorkspaceName.value = '';
+}
+
+async function saveRename(workspaceId: string): Promise<void> {
+  await handleRenameWorkspace(workspaceId, editingWorkspaceName.value);
+  if (!dashboardStore.errorMessage.value) cancelRename();
+}
+
+async function removeWorkspace(workspaceId: string): Promise<void> {
+  await handleDeleteWorkspace(workspaceId);
+  if (!dashboardStore.errorMessage.value) cancelRename();
 }
 </script>
 
@@ -64,7 +89,7 @@ function handleShowUpdate(show: boolean): void {
           :key="workspace.id"
           class="settings-row workspace-existing-row"
         >
-          <span class="settings-row-copy">
+          <span v-if="editingWorkspaceId !== workspace.id" class="settings-row-copy">
             <strong
               :id="`workspace-existing-recursive-scan-label-${workspace.id}`"
               >{{ workspace.name }}</strong
@@ -73,6 +98,20 @@ function handleShowUpdate(show: boolean): void {
               :id="`workspace-existing-recursive-scan-description-${workspace.id}`"
               >{{ workspace.path }} — escanear subdiretórios (monorepos)</span
             >
+          </span>
+          <span v-else class="workspace-rename-control">
+            <NInput
+              v-model:value="editingWorkspaceName"
+              :aria-label="`Novo nome para ${workspace.name}`"
+              @keyup.enter="saveRename(workspace.id)"
+              @keyup.esc="cancelRename"
+            />
+            <NButton size="small" type="primary" @click="saveRename(workspace.id)">
+              Salvar
+            </NButton>
+            <NButton size="small" secondary @click="cancelRename">
+              Cancelar
+            </NButton>
           </span>
           <span class="settings-switch-control">
             <NSwitch
@@ -86,9 +125,38 @@ function handleShowUpdate(show: boolean): void {
               workspace.recursiveScan ? 'Ativado' : 'Desativado'
             }}</span>
           </span>
+          <span v-if="editingWorkspaceId !== workspace.id" class="workspace-row-actions">
+            <NButton size="small" secondary @click="beginRename(workspace)">
+              Renomear
+            </NButton>
+            <NButton
+              size="small"
+              tertiary
+              type="error"
+              :loading="deletingWorkspace"
+              @click="removeWorkspace(workspace.id)"
+            >
+              Remover
+            </NButton>
+          </span>
         </li>
       </ul>
     </section>
+
+    <p
+      v-if="dashboardStore.errorMessage"
+      class="workspace-form-message workspace-form-error"
+      role="alert"
+    >
+      {{ dashboardStore.errorMessage }}
+    </p>
+    <p
+      v-if="dashboardStore.successMessage"
+      class="workspace-form-message workspace-form-success"
+      role="status"
+    >
+      {{ dashboardStore.successMessage }}
+    </p>
 
     <form class="workspace-create-form" @submit.prevent="handleCreateWorkspace">
       <label class="workspace-field">

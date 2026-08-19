@@ -59,6 +59,22 @@ try {
 
   assert.equal((await repository.find(workspace.id))?.recursiveScan, true);
 
+  const renamedWorkspace = await repository.update(workspace.id, {
+    name: 'Projetos Renomeados',
+  });
+
+  assert.equal(renamedWorkspace.name, 'Projetos Renomeados');
+  assert.equal(renamedWorkspace.recursiveScan, true);
+
+  await assert.rejects(
+    repository.update(workspace.id, { name: '   ' }),
+    (error: unknown) => {
+      assert.ok(error instanceof WorkspaceRepositoryError);
+      assert.equal(error.code, 'INVALID_WORKSPACE');
+      return true;
+    },
+  );
+
   await assert.rejects(
     repository.setRecursiveScan('workspace-inexistente', true),
     (error: unknown) => {
@@ -74,12 +90,12 @@ try {
 
   const storedWorkspace = await repository.find(workspace.id);
 
-  assert.deepEqual(storedWorkspace, updatedWorkspace);
+  assert.deepEqual(storedWorkspace, renamedWorkspace);
 
   const workspaces = await repository.list();
 
   assert.equal(workspaces.length, 1);
-  assert.deepEqual(workspaces[0], updatedWorkspace);
+  assert.deepEqual(workspaces[0], renamedWorkspace);
 
   await assert.rejects(
     repository.create({

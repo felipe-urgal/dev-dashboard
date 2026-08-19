@@ -47,6 +47,16 @@
   display: none;
 }
 
+@media (max-width: 720px) {
+  .git-navigation-bar {
+    padding-inline: 6px;
+  }
+
+  .git-subtabs button {
+    padding-inline: 10px;
+  }
+}
+
 .git-subtabs button {
   display: inline-flex;
   box-sizing: border-box;

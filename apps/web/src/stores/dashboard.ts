@@ -21,6 +21,7 @@ export interface DashboardApi {
   fetchProjects: typeof dashboardApi.fetchProjects;
   fetchWorkspaces: typeof dashboardApi.fetchWorkspaces;
   scanWorkspace: typeof dashboardApi.scanWorkspace;
+  updateWorkspace: typeof dashboardApi.updateWorkspace;
   updateProjectEnabled: typeof dashboardApi.updateProjectEnabled;
   updateWorkspaceRecursiveScan: typeof dashboardApi.updateWorkspaceRecursiveScan;
 }
@@ -35,6 +36,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     fetchProjects,
     fetchWorkspaces,
     scanWorkspace,
+    updateWorkspace,
     updateProjectEnabled,
     updateWorkspaceRecursiveScan,
   } = api;
@@ -72,6 +74,21 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
   const scannedWorkspaceIds = new Set<string>();
   let initialLoadPromise: Promise<void> | undefined;
+  const activeWorkspaceStorageKey = 'dev-dashboard:active-workspace';
+
+  function readStoredWorkspaceId(): string {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(activeWorkspaceStorageKey) ?? '';
+  }
+
+  function persistWorkspaceId(workspaceId: string): void {
+    if (typeof localStorage === 'undefined') return;
+    if (workspaceId) {
+      localStorage.setItem(activeWorkspaceStorageKey, workspaceId);
+    } else {
+      localStorage.removeItem(activeWorkspaceStorageKey);
+    }
+  }
 
   const selectedWorkspace = computed(() =>
     workspaces.value.find(
@@ -242,6 +259,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     workspaceProjects?: Project[],
   ): void {
     selectedWorkspaceId.value = workspaceId;
+    persistWorkspaceId(workspaceId);
 
     projects.value =
       workspaceProjects ?? projectsByWorkspace.value[workspaceId] ?? [];
@@ -383,7 +401,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       const storedWorkspaces = await fetchWorkspaces();
       workspaces.value = storedWorkspaces;
 
-      const firstWorkspace = storedWorkspaces[0];
+      const preferredWorkspaceId = readStoredWorkspaceId();
+      const firstWorkspace =
+        storedWorkspaces.find(
+          (workspace) => workspace.id === preferredWorkspaceId,
+        ) ?? storedWorkspaces[0];
 
       if (firstWorkspace) {
         activateWorkspace(firstWorkspace.id);
@@ -524,8 +546,10 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
   }
 
-  async function handleDeleteWorkspace(): Promise<void> {
-    const workspace = selectedWorkspace.value;
+  async function handleDeleteWorkspace(workspaceId?: string): Promise<void> {
+    const workspace = workspaces.value.find(
+      (item) => item.id === (workspaceId ?? selectedWorkspaceId.value),
+    );
 
     if (!workspace) {
       return;
@@ -583,11 +607,12 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
       const nextWorkspace = workspaces.value[0];
 
-      if (nextWorkspace) {
+      if (workspace.id === selectedWorkspaceId.value && nextWorkspace) {
         activateWorkspace(nextWorkspace.id);
         await scanSelectedWorkspace();
-      } else {
+      } else if (workspace.id === selectedWorkspaceId.value) {
         selectedWorkspaceId.value = '';
+        persistWorkspaceId('');
         successMessage.value = `Workspace "${workspace.name}" removido.`;
       }
     } catch (error) {
@@ -597,6 +622,33 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
           : 'Não foi possível remover o workspace.';
     } finally {
       deletingWorkspace.value = false;
+    }
+  }
+
+  async function handleRenameWorkspace(
+    workspaceId: string,
+    name: string,
+  ): Promise<void> {
+    const workspace = workspaces.value.find((item) => item.id === workspaceId);
+    const nextName = name.trim();
+
+    if (!workspace || !nextName || workspace.name === nextName) return;
+
+    clearMessages();
+
+    try {
+      const updatedWorkspace = await updateWorkspace(workspaceId, {
+        name: nextName,
+      });
+      workspaces.value = workspaces.value
+        .map((item) => (item.id === workspaceId ? updatedWorkspace : item))
+        .sort((left, right) => left.name.localeCompare(right.name));
+      successMessage.value = `Workspace renomeado para "${updatedWorkspace.name}".`;
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível renomear o workspace.';
     }
   }
 
@@ -634,6 +686,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     switchWorkspace,
     handleCreateWorkspace,
     handleDeleteWorkspace,
+    handleRenameWorkspace,
     toggleProjectEnabled,
     toggleWorkspaceRecursiveScan,
   };

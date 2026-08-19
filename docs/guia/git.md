@@ -9,6 +9,11 @@ A aba Git nunca chama `git` diretamente a partir do navegador. Toda ação passa
 `execFile`/`spawn` **sem shell** (`shell: false`) — ou seja, o navegador nunca monta uma string
 de comando, apenas escolhe entre ações de um catálogo fechado.
 
+Os dados de leitura são carregados automaticamente ao entrar na aba Git. Ao abrir a sub-aba
+**Sincronização**, o dashboard também atualiza as referências remotas antes de exibir o estado.
+Não é necessário manter um botão de atualização em cada tela: trocar de projeto ou voltar à aba
+Git dispara uma nova leitura.
+
 ## Como funciona a confirmação antes de qualquer mutação
 
 Toda ação que muda alguma coisa (criar branch, commit, pull, sincronizar, etc. — tudo que não é
@@ -131,6 +136,9 @@ arquivos alterados, total de linhas adicionadas/removidas, busca por nome de arq
 conteúdo, alternância entre visão Unificada e Lado-a-lado, "Recolher/Expandir tudo" e uma barra de
 progresso "N de M revisados" (esse "revisado" existe só no navegador, não é salvo em lugar
 nenhum).
+
+Como o Diff é somente leitura, não há ação de atualização manual nessa tela. A entrada na página
+é o gatilho de atualização; as mensagens de erro explicam quando o repositório não pode ser lido.
 
 - A lista geral vem de `git status --porcelain=v2 -z` combinado com `git diff --numstat -z`.
 - O diff de um arquivo específico roda `git diff -- <arquivo>` (o resultado é cortado em 262.144
