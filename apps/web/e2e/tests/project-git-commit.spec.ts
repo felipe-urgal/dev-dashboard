@@ -55,7 +55,7 @@ test.describe('Commit do projeto', () => {
     await expect(
       page.getByText(/^Commit ".+" criado: chore: ajusta lockfile via e2e$/),
     ).toBeVisible();
-    await expect(page.getByText('0 alterações rastreadas')).toBeVisible();
+    await expect(submitButton).toBeDisabled();
 
     // Troca de projeto: sample-rails-app continua sem Git.
     await gotoBootstrapped(page, '/');
