@@ -59,6 +59,7 @@ const {
       <button
         type="button"
         class="processes-refresh-button"
+        title="Atualizar processos"
         :disabled="loading"
         @click="loadProcesses"
       >
@@ -73,6 +74,7 @@ const {
         class="processes-cleanup-button"
         :disabled="cleanupRunning || terminalCount === 0"
         aria-describedby="processes-cleanup-help"
+        title="Limpar processos finalizados"
         @click="runCleanup"
       >
         <TrashIcon aria-hidden="true" />

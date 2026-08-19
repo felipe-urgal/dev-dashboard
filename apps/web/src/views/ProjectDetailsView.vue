@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  ref,
+  watch,
+  type Component,
+} from 'vue';
 
 import {
   BeakerIcon,
@@ -14,21 +20,54 @@ import { RouterLink, useRoute } from 'vue-router';
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
-import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
-import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDetailsMoreTools from '../components/ProjectDetailsMoreTools.vue';
-import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
-import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
-import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
-import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
-import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
-import ProjectServerPanel from '../components/ProjectServerPanel.vue';
-import ProjectTerminalPanel from '../components/ProjectTerminalPanel.vue';
-import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
+import ProjectToolError from '../components/ProjectToolError.vue';
+import ProjectToolLoading from '../components/ProjectToolLoading.vue';
 import { dashboardStore } from '../stores/dashboard';
 import { recordProjectVisit } from '../stores/project-recents';
+
+function lazyTool(loader: () => Promise<{ default: Component }>): Component {
+  return defineAsyncComponent({
+    loader,
+    loadingComponent: ProjectToolLoading,
+    errorComponent: ProjectToolError,
+    delay: 120,
+    timeout: 15_000,
+  });
+}
+
+const ProjectDatabasePanel = lazyTool(
+  () => import('../components/ProjectDatabasePanel.vue'),
+);
+const ProjectDependenciesPanel = lazyTool(
+  () => import('../components/ProjectDependenciesPanel.vue'),
+);
+const ProjectDoctorPanel = lazyTool(
+  () => import('../components/ProjectDoctorPanel.vue'),
+);
+const ProjectGitPanel = lazyTool(
+  () => import('../components/ProjectGitPanel.vue'),
+);
+const ProjectRailsRuntimePanel = lazyTool(
+  () => import('../components/ProjectRailsRuntimePanel.vue'),
+);
+const ProjectEnvironmentPanel = lazyTool(
+  () => import('../components/ProjectEnvironmentPanel.vue'),
+);
+const ProjectReadmePanel = lazyTool(
+  () => import('../components/ProjectReadmePanel.vue'),
+);
+const ProjectServerPanel = lazyTool(
+  () => import('../components/ProjectServerPanel.vue'),
+);
+const ProjectTerminalPanel = lazyTool(
+  () => import('../components/ProjectTerminalPanel.vue'),
+);
+const ProjectTestsPanel = lazyTool(
+  () => import('../components/ProjectTestsPanel.vue'),
+);
 
 const route = useRoute();
 
@@ -216,6 +255,7 @@ watch(
               <ProjectProcessesMenu
                 :project="project"
                 @database-supported="databaseSupported = $event"
+                :eager="false"
                 @worker-detected="
                   (workerId, detected) => {
                     if (workerId === 'sidekiq') sidekiqDetected = detected;
@@ -237,6 +277,7 @@ watch(
             <RouterLink
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isServerRoute }"
+              :aria-current="isServerRoute ? 'page' : undefined"
               :to="{
                 name: 'project-server',
                 params: { projectId: project.id },
@@ -249,6 +290,7 @@ watch(
             <RouterLink
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isGitRoute }"
+              :aria-current="isGitRoute ? 'page' : undefined"
               :to="{ name: 'project-git', params: { projectId: project.id } }"
             >
               <CodeBracketIcon aria-hidden="true" />
@@ -258,6 +300,7 @@ watch(
             <RouterLink
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isTestsRoute }"
+              :aria-current="isTestsRoute ? 'page' : undefined"
               :to="{ name: 'project-tests', params: { projectId: project.id } }"
             >
               <BeakerIcon aria-hidden="true" />
@@ -267,6 +310,7 @@ watch(
             <RouterLink
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isTerminalRoute }"
+              :aria-current="isTerminalRoute ? 'page' : undefined"
               :to="{
                 name: 'project-terminal',
                 params: { projectId: project.id },
