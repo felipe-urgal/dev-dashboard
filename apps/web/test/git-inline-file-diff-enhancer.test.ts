@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'vitest';
 
 import { scanDetails } from '../src/git-inline-file-diff-enhancer';
+import {
+  splitView,
+  unifiedView,
+} from '../src/git-inline-file-diff/diff-render';
 
 let cleanup: (() => void) | undefined;
 
@@ -120,5 +124,29 @@ test('mantém o patch combinado oculto apenas como fonte dos diffs individuais',
   assert.match(
     host.querySelector('.git-inline-file-diff')?.textContent ?? '',
     /Scope/,
+  );
+});
+
+test('mantém o cabeçalho do hunk como uma única linha nos dois modos do histórico', () => {
+  const patch = ['@@ -14,6 +14,1 @@', '-antes', '+depois'].join('\n');
+
+  const unified = unifiedView(patch);
+  const unifiedHunk = unified.querySelector(
+    '.git-inline-diff-line.is-hunk code',
+  );
+  assert.equal(unifiedHunk?.textContent, '@@ -14,6 +14,1 @@');
+  assert.equal(
+    unified.querySelectorAll('.git-inline-diff-line.is-hunk').length,
+    1,
+  );
+
+  const split = splitView(patch);
+  const splitHunk = split.querySelector(
+    '.git-inline-diff-split-meta.is-hunk code',
+  );
+  assert.equal(splitHunk?.textContent, '@@ -14,6 +14,1 @@');
+  assert.equal(
+    split.querySelectorAll('.git-inline-diff-split-meta.is-hunk').length,
+    1,
   );
 });
