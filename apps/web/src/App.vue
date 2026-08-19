@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   CodeBracketIcon,
+  CircleStackIcon,
   HomeIcon,
   PlayCircleIcon,
   PlusIcon,
@@ -160,6 +161,17 @@ onMounted(() => {
           >
             <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Processos</span>
+          </RouterLink>
+
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'database' }"
+            :to="{ name: 'database' }"
+            :aria-label="sidebarCollapsed ? 'Banco de dados' : undefined"
+            :title="sidebarCollapsed ? 'Banco de dados' : undefined"
+          >
+            <CircleStackIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Banco de dados</span>
           </RouterLink>
         </nav>
 

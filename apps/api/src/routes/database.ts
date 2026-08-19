@@ -61,6 +61,35 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
+  app.get('/database', async () => ({
+    services: await options.databaseDetectionService.getMachineServices(),
+  }));
+
+  for (const action of ['start', 'stop', 'restart'] as const) {
+    app.post<{ Params: { serviceId: string } }>(
+      `/database/:serviceId/${action}`,
+      async (request, reply) => {
+        try {
+          await options.databaseDetectionService.runMachineServiceAction(
+            request.params.serviceId,
+            action,
+          );
+          return { action, succeeded: true };
+        } catch (error) {
+          request.log.warn(
+            { error, serviceId: request.params.serviceId, action },
+            'Machine database service action failed',
+          );
+          const message =
+            error instanceof DatabaseServiceActionError
+              ? error.message
+              : 'Não foi possível alterar o serviço de banco de dados.';
+          return reply.code(500).send({ message });
+        }
+      },
+    );
+  }
+
   app.get<{ Params: Params; Querystring: Query }>(
     '/projects/:projectId/database',
     {

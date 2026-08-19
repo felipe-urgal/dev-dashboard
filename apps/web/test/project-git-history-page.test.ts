@@ -227,6 +227,26 @@ test('abre o commit em modal com os arquivos alterados', async () => {
   assert.ok(modal!.textContent?.includes('+24'));
 });
 
+test('mantém a descrição do commit fechada e permite exibi-la', async () => {
+  const { wrapper } = await mountPage();
+
+  await wrapper.findAll('.git-history-row')[0]!.trigger('click');
+  await settle('Carregando detalhes');
+
+  const description = document.querySelector<HTMLElement>(
+    '.git-history-commit-description',
+  );
+  assert.ok(description);
+  assert.equal(description!.hasAttribute('open'), false);
+  assert.ok(description!.querySelector('.git-history-commit-body'));
+
+  description!
+    .querySelector('summary')
+    ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  assert.equal(description!.hasAttribute('open'), true);
+  assert.ok(description!.textContent?.includes('Inclui o aceite obrigatório.'));
+});
+
 test('carrega o diff do arquivo com destaque de trecho alterado', async () => {
   const { wrapper, requests } = await mountPage();
 

@@ -180,15 +180,6 @@ export function useCommandPaletteItems(options: UseCommandPaletteItemsOptions) {
         'page',
       ),
       navigationItem(
-        `area-project-database-${project.id}`,
-        'Projeto atual',
-        'Banco de dados',
-        'Ambientes, snapshots e migrations',
-        { name: 'project-database', params },
-        CircleStackIcon,
-        'page',
-      ),
-      navigationItem(
         `area-project-scripts-${project.id}`,
         'Projeto atual',
         'Scripts',
@@ -271,36 +262,6 @@ export function useCommandPaletteItems(options: UseCommandPaletteItemsOptions) {
               'Suítes e histórico de execução',
               { name: 'project-tests', params },
               BeakerIcon,
-              'action',
-              undefined,
-              'Abrir',
-            ),
-          ]
-        : []),
-      ...(project.capabilities.includes('database')
-        ? [
-            navigationItem(
-              `command-database-${project.id}`,
-              'Comandos do projeto',
-              'Abrir banco de dados',
-              'Ambientes e ferramentas do banco',
-              { name: 'project-database', params },
-              CircleStackIcon,
-              'action',
-              undefined,
-              'Abrir',
-            ),
-            navigationItem(
-              `command-database-snapshot-${project.id}`,
-              'Comandos do projeto',
-              'Criar snapshot',
-              'Abrir snapshots do banco de dados',
-              {
-                name: 'project-database',
-                params,
-                query: { section: 'snapshots' },
-              },
-              CircleStackIcon,
               'action',
               undefined,
               'Abrir',
@@ -442,6 +403,15 @@ export function useCommandPaletteItems(options: UseCommandPaletteItemsOptions) {
         'Processos gerenciados',
         { name: 'processes' },
         PlayCircleIcon,
+        'page',
+      ),
+      navigationItem(
+        'pagina-banco-de-dados',
+        'Páginas',
+        'Banco de dados',
+        'Serviços de banco da máquina',
+        { name: 'database' },
+        CircleStackIcon,
         'page',
       ),
     ];

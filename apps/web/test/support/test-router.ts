@@ -14,6 +14,7 @@ export function createTestRouter(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'dashboard', component: stub },
+      { path: '/database', name: 'database', component: stub },
       {
         path: '/projects/:projectId',
         name: 'project-details',

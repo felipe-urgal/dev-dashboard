@@ -95,6 +95,11 @@ async function mountPalette(
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
       {
+        path: '/database',
+        name: 'database',
+        component: { template: '<div />' },
+      },
+      {
         path: '/processes',
         name: 'processes',
         component: { template: '<div />' },
@@ -331,24 +336,23 @@ describe('paleta de navegação', () => {
     );
   });
 
-  it('abre ferramentas na seção correta e registra o comando recente', async () => {
+  it('abre a área global de banco de dados e registra o comando recente', async () => {
     const { wrapper, router } = await mountPalette('/projects/p1');
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
 
-    const snapshot = [
+    const database = [
       ...document.querySelectorAll<HTMLButtonElement>('.command-palette-item'),
-    ].find((button) => button.textContent?.includes('Criar snapshot'))!;
-    snapshot.click();
+    ].find((button) => button.textContent?.includes('Banco de dados'))!;
+    database.click();
     await flushPromises();
-    expect(router.currentRoute.value.name).toBe('project-database');
-    expect(router.currentRoute.value.query.section).toBe('snapshots');
+    expect(router.currentRoute.value.name).toBe('database');
 
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
     const recentGroup = document.querySelector('.command-palette-group');
     expect(recentGroup?.textContent).toContain('Recentes');
-    expect(recentGroup?.textContent).toContain('Criar snapshot');
+    expect(recentGroup?.textContent).toContain('Banco de dados');
   });
 
   it('autocompleta projeto e executa uma ação no contexto selecionado', async () => {

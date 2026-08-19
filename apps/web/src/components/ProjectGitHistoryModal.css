@@ -105,6 +105,28 @@
   white-space: pre-wrap;
 }
 
+.git-history-commit-description {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.git-history-commit-description summary {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.git-history-commit-description[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.git-history-commit-description .git-history-commit-body {
+  background: transparent;
+}
+
 .git-history-files-head {
   display: flex;
   flex-wrap: wrap;

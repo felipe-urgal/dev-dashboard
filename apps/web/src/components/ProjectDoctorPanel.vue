@@ -140,10 +140,7 @@ function actionDestination(
     };
   }
   if (target === 'database') {
-    return {
-      name: 'project-database',
-      params: { projectId: props.project.id },
-    };
+    return { name: 'database' };
   }
   return {
     name: 'project-dependencies',

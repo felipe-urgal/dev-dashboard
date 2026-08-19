@@ -70,3 +70,13 @@ test('usa o mesmo comportamento responsivo e semantico da pagina de diff nos dif
   assert.match(css, /is-deletion[\s\S]*var\(--git-inline-deletion-bg\)/);
   assert.match(css, /repeating-linear-gradient/);
 });
+
+test('não força display grid no cabeçalho de hunk da página de diff', async () => {
+  const css = await readFile(
+    sourceFile('components/ProjectGitDiffPage.css'),
+    'utf8',
+  );
+  const hunkRule = css.match(/\.git-diff-hunk-head\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.doesNotMatch(hunkRule, /display:\s*grid/);
+});

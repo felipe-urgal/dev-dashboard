@@ -580,7 +580,6 @@
 /* ── Cabeçalho de hunk com expansão de contexto ────────────────── */
 
 .git-diff-hunk-head {
-  display: grid;
   grid-template-columns: 48px 48px minmax(0, 1fr);
   align-items: center;
   border-top: 1px solid var(--git-diff-row-border);
