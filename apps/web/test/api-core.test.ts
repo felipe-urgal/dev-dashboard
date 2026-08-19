@@ -43,7 +43,10 @@ describe('requestJson', () => {
         key: 'GET /api/project',
         calls: 1,
         deduplicated: 1,
+        successes: 1,
         failures: 0,
+        cancelled: 0,
+        lastStatus: 200,
       }),
     ]);
   });
@@ -62,5 +65,58 @@ describe('requestJson', () => {
     ]);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'GET /api/processes',
+        calls: 2,
+        successes: 2,
+        failures: 0,
+        cancelled: 0,
+        lastStatus: 200,
+      }),
+    ]);
+  });
+
+  it('rastreia chamadas não deduplicáveis e registra status de sucesso', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'created' }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await requestJson('/api/projects', { method: 'POST', body: '{}' });
+
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'POST /api/projects',
+        calls: 1,
+        successes: 1,
+        failures: 0,
+        cancelled: 0,
+        lastStatus: 201,
+      }),
+    ]);
+  });
+
+  it('registra cancelamentos separadamente de falhas', async () => {
+    const abortError = Object.assign(new Error('The operation was aborted.'), {
+      name: 'AbortError',
+    });
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(abortError);
+
+    await expect(
+      requestJson('/api/processes', { signal: new AbortController().signal }),
+    ).rejects.toThrow();
+
+    expect(getApiRequestMetrics()).toEqual([
+      expect.objectContaining({
+        key: 'GET /api/processes',
+        calls: 1,
+        successes: 0,
+        failures: 0,
+        cancelled: 1,
+      }),
+    ]);
   });
 });

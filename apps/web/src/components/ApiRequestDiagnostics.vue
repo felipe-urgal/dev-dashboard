@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { ChartBarSquareIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import {
+  ArrowDownTrayIcon,
+  ChartBarSquareIcon,
+  TrashIcon,
+} from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import {
@@ -11,11 +15,13 @@ import {
 const expanded = ref(false);
 const metrics = ref<ApiRequestMetric[]>([]);
 const alertHistory = ref<AlertHistoryItem[]>([]);
+const historyFilter = ref<HistoryFilter>('all');
 const previousTones = new Map<string, MetricTone>();
 let refreshTimer: number | undefined;
 let historySequence = 0;
 
 type MetricTone = 'normal' | 'warning' | 'danger';
+type HistoryFilter = 'all' | 'warning' | 'danger';
 
 interface AlertHistoryItem {
   id: number;
@@ -29,12 +35,20 @@ interface AlertHistoryItem {
 
 const totals = computed(() => ({
   calls: metrics.value.reduce((sum, metric) => sum + metric.calls, 0),
+  successes: metrics.value.reduce((sum, metric) => sum + metric.successes, 0),
   deduplicated: metrics.value.reduce(
     (sum, metric) => sum + metric.deduplicated,
     0,
   ),
   failures: metrics.value.reduce((sum, metric) => sum + metric.failures, 0),
+  cancelled: metrics.value.reduce((sum, metric) => sum + metric.cancelled, 0),
 }));
+
+const filteredHistory = computed(() =>
+  historyFilter.value === 'all'
+    ? alertHistory.value
+    : alertHistory.value.filter((item) => item.tone === historyFilter.value),
+);
 
 const averageDuration = computed(() => {
   const durations = metrics.value
@@ -86,6 +100,27 @@ function clear(): void {
   alertHistory.value = [];
   previousTones.clear();
   refresh();
+}
+
+function exportDiagnostics(): void {
+  const generatedAt = new Date().toISOString();
+  const payload = {
+    generatedAt,
+    historyFilter: historyFilter.value,
+    metrics: metrics.value,
+    history: alertHistory.value,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `api-diagnostics-${generatedAt.replace(/[:.]/g, '-')}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatMetricUrl(metric: Pick<ApiRequestMetric, 'url'>): string {
@@ -154,6 +189,10 @@ onBeforeUnmount(() => {
         <strong>{{ totals.calls }}</strong>
       </div>
       <div>
+        <span>Sucesso</span>
+        <strong>{{ totals.successes }}</strong>
+      </div>
+      <div>
         <span>Deduplicadas</span>
         <strong>{{ totals.deduplicated }}</strong>
       </div>
@@ -162,6 +201,10 @@ onBeforeUnmount(() => {
         <strong :class="{ 'is-danger': totals.failures > 0 }">
           {{ totals.failures }}
         </strong>
+      </div>
+      <div>
+        <span>Canceladas</span>
+        <strong>{{ totals.cancelled }}</strong>
       </div>
       <div>
         <span>Duração média</span>
@@ -176,10 +219,24 @@ onBeforeUnmount(() => {
     >
       <div class="api-request-diagnostics-actions">
         <span>{{ metrics.length }} endpoint(s) observado(s)</span>
-        <button type="button" @click="clear">
-          <TrashIcon aria-hidden="true" />
-          Limpar métricas
-        </button>
+        <div class="api-request-diagnostics-action-buttons">
+          <label>
+            Histórico
+            <select v-model="historyFilter">
+              <option value="all">Todos</option>
+              <option value="warning">Atenção</option>
+              <option value="danger">Críticos</option>
+            </select>
+          </label>
+          <button type="button" @click="exportDiagnostics">
+            <ArrowDownTrayIcon aria-hidden="true" />
+            Exportar JSON
+          </button>
+          <button type="button" @click="clear">
+            <TrashIcon aria-hidden="true" />
+            Limpar métricas
+          </button>
+        </div>
       </div>
 
       <p
@@ -199,11 +256,13 @@ onBeforeUnmount(() => {
       >
         <div class="api-request-diagnostics-history-heading">
           <span id="api-diagnostics-history-title">Histórico recente</span>
-          <small>Últimos {{ alertHistory.length }} eventos</small>
+          <small>
+            {{ filteredHistory.length }} de {{ alertHistory.length }} eventos
+          </small>
         </div>
         <ol class="api-request-diagnostics-history-list">
           <li
-            v-for="item in alertHistory"
+            v-for="item in filteredHistory"
             :key="item.id"
             :class="`is-${item.tone}`"
           >
@@ -212,6 +271,9 @@ onBeforeUnmount(() => {
             <span>{{ item.message }}</span>
           </li>
         </ol>
+        <p v-if="!filteredHistory.length" class="api-request-diagnostics-empty">
+          Nenhum evento corresponde a este filtro.
+        </p>
       </section>
 
       <div
@@ -225,9 +287,12 @@ onBeforeUnmount(() => {
           <thead>
             <tr>
               <th scope="col">Endpoint</th>
+              <th scope="col">Status</th>
               <th scope="col">Chamadas</th>
+              <th scope="col">Sucesso</th>
               <th scope="col">Deduplicadas</th>
               <th scope="col">Falhas</th>
+              <th scope="col">Canceladas</th>
               <th scope="col">Última duração</th>
             </tr>
           </thead>
@@ -246,11 +311,14 @@ onBeforeUnmount(() => {
                   {{ metricAlertLabel(metric) }}
                 </span>
               </td>
+              <td>{{ metric.lastStatus ?? '—' }}</td>
               <td>{{ metric.calls }}</td>
+              <td>{{ metric.successes }}</td>
               <td>{{ metric.deduplicated }}</td>
               <td :class="{ 'is-danger': metric.failures > 0 }">
                 {{ metric.failures }}
               </td>
+              <td>{{ metric.cancelled }}</td>
               <td>
                 {{ metric.lastDurationMs ?? '—'
                 }}{{ metric.lastDurationMs !== undefined ? ' ms' : '' }}
@@ -330,9 +398,35 @@ onBeforeUnmount(() => {
   border-color: var(--accent);
 }
 
+.api-request-diagnostics-action-buttons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.api-request-diagnostics-action-buttons label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.api-request-diagnostics-action-buttons select {
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
 .api-request-diagnostics-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   border-top: 1px solid var(--border);
 }
 
@@ -557,8 +651,17 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .api-request-diagnostics-summary div:nth-child(2) {
+  .api-request-diagnostics-summary div:nth-child(even) {
     border-right: 0;
+  }
+
+  .api-request-diagnostics-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .api-request-diagnostics-action-buttons {
+    justify-content: flex-start;
   }
 
   .api-request-diagnostics-history-list li {

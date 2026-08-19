@@ -1,5 +1,7 @@
 import { h, render } from 'vue';
 
+import { requestJson as requestApiJson } from '../api/core';
+
 export function projectIdFromLocation(): string {
   const match = window.location.pathname.match(/\/projects\/([^/]+)/);
   return match?.[1] ? decodeURIComponent(match[1]) : '';
@@ -21,23 +23,7 @@ export async function requestJson<T>(
   url: string,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    ...(signal ? { signal } : {}),
-  });
-  const payload = (await response.json().catch(() => null)) as
-    T | { message?: string } | null;
-  if (!response.ok) {
-    throw new Error(
-      payload &&
-        typeof payload === 'object' &&
-        'message' in payload &&
-        payload.message
-        ? payload.message
-        : `A API respondeu com HTTP ${response.status}.`,
-    );
-  }
-  return payload as T;
+  return requestApiJson<T>(url, signal ? { signal } : undefined);
 }
 
 export function currentBranchFromSection(section: HTMLElement): string {
