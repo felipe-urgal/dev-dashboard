@@ -196,7 +196,14 @@ export class DatabaseReadonlyService {
             '-c',
             sql,
           ]
-        : ['--column-names', '--batch', '--raw', '--execute', sql];
+        : [
+            '--no-defaults',
+            '--column-names',
+            '--batch',
+            '--raw',
+            '--execute',
+            sql,
+          ];
     try {
       return parseTabular(await this.commandRunner(command, args, env));
     } catch (error) {

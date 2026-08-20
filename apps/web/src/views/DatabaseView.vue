@@ -6,6 +6,8 @@ import {
   ChevronUpIcon,
   CircleStackIcon,
   InformationCircleIcon,
+  LinkIcon,
+  MagnifyingGlassIcon,
   PauseIcon,
   PlayIcon,
   TrashIcon,
@@ -444,7 +446,7 @@ onMounted(() => void loadServices());
       <div v-if="installedServices.length" class="database-machine-section">
         <div class="database-machine-section-heading">
           <div>
-            <h2>Serviços instalados</h2>
+            <h2>Serviços da máquina</h2>
             <p>Gerencie os serviços disponíveis nesta máquina.</p>
           </div>
           <span class="database-machine-count"
@@ -671,7 +673,7 @@ onMounted(() => void loadServices());
           </div>
         </div>
         <div class="database-connection-bar">
-          <CircleStackIcon aria-hidden="true" />
+          <LinkIcon aria-hidden="true" />
           <div>
             <strong>Conexão</strong>
             <span>{{
@@ -682,7 +684,7 @@ onMounted(() => void loadServices());
           </div>
           <button
             type="button"
-            class="database-primary-button"
+            class="database-primary-button database-connection-button"
             @click="openExplorerConnection"
           >
             {{ explorerConnection ? 'Trocar conexão' : 'Conectar' }}
@@ -703,6 +705,7 @@ onMounted(() => void loadServices());
           </div>
           <div class="database-explorer-empty-art" aria-hidden="true">
             <CircleStackIcon />
+            <MagnifyingGlassIcon />
           </div>
           <div
             class="database-explorer-empty-copy database-explorer-empty-copy-right"
@@ -1092,9 +1095,88 @@ onMounted(() => void loadServices());
 }
 .database-explorer {
   max-width: none;
-  margin-top: 48px;
-  border-top: 1px solid var(--border-color);
-  padding-top: 26px;
+  margin-top: 34px;
+  padding-top: 0;
+  border-top: 0;
+}
+.database-machine-page {
+  max-width: none;
+  margin: 0;
+  padding: 32px 28px 56px;
+}
+.database-machine-header {
+  margin-bottom: 34px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.database-machine-overview {
+  display: none;
+}
+.database-machine-section-heading {
+  margin: 0 0 16px;
+}
+.database-machine-section-heading h2 {
+  margin-bottom: 5px;
+}
+.database-machine-section-heading .database-machine-count {
+  align-self: center;
+}
+.database-machine-section-available {
+  margin-top: 34px;
+}
+.database-machine-card {
+  min-height: 76px;
+}
+.database-machine-actions button {
+  border-radius: 4px;
+}
+.database-connection-button {
+  color: var(--text);
+  border-color: var(--border-color);
+  background: var(--card-bg);
+}
+.database-explorer-empty {
+  min-height: 382px;
+  border-radius: 0;
+  background: var(--card-bg);
+}
+.database-explorer-empty-copy {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 100%;
+  padding: 28px;
+  text-align: center;
+}
+.database-explorer-empty-copy-right {
+  border-left: 1px solid var(--border-color);
+}
+.database-explorer-empty-art {
+  position: relative;
+  width: 86px;
+  height: 86px;
+}
+.database-explorer-empty-art svg {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+}
+.database-explorer-empty-art svg:last-child {
+  right: 4px;
+  bottom: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 50%;
+  color: var(--accent-strong);
+  background: var(--card-bg);
+}
+.database-connection-bar {
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+.database-connection-bar > svg {
+  color: var(--text-muted);
 }
 .database-connection-bar {
   display: flex;
@@ -1770,6 +1852,91 @@ onMounted(() => void loadServices());
   .database-machine-actions,
   .database-machine-details {
     grid-column: 1 / -1;
+  }
+}
+/* Prototype 2 visual alignment. */
+.database-machine-page {
+  max-width: none;
+  margin: 0;
+  padding: 32px 28px 56px;
+}
+.database-machine-header {
+  margin-bottom: 34px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.database-machine-overview {
+  display: none;
+}
+.database-machine-section-heading {
+  margin: 0 0 16px;
+}
+.database-machine-section-available {
+  margin-top: 34px;
+}
+.database-machine-card {
+  min-height: 76px;
+}
+.database-machine-actions button {
+  border-radius: 4px;
+}
+.database-explorer {
+  max-width: none;
+  margin-top: 34px;
+  padding-top: 0;
+  border-top: 0;
+}
+.database-connection-button {
+  color: var(--text);
+  border-color: var(--border-color);
+  background: var(--card-bg);
+}
+.database-connection-bar {
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+.database-connection-bar > svg {
+  color: var(--text-muted);
+}
+.database-explorer-empty {
+  min-height: 382px;
+  border-radius: 0;
+  background: var(--card-bg);
+}
+.database-explorer-empty-copy {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 100%;
+  padding: 28px;
+  text-align: center;
+}
+.database-explorer-empty-copy-right {
+  border-left: 1px solid var(--border-color);
+}
+.database-explorer-empty-art {
+  position: relative;
+  width: 86px;
+  height: 86px;
+}
+.database-explorer-empty-art svg {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+}
+.database-explorer-empty-art svg:last-child {
+  right: 4px;
+  bottom: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 50%;
+  color: var(--accent-strong);
+  background: var(--card-bg);
+}
+@media (max-width: 680px) {
+  .database-machine-page {
+    padding: 22px 16px 40px;
   }
 }
 </style>
