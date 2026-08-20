@@ -77,6 +77,7 @@ type SavedDatabaseConnection = Omit<MachineDatabaseConnection, 'password'> & {
 };
 const SAVED_CONNECTIONS_KEY = 'dev-dashboard.database-connections';
 const savedConnections = ref<SavedDatabaseConnection[]>([]);
+const selectedSavedConnectionId = ref('');
 const explorerTestMessage = ref('');
 const explorerTableSearch = ref('');
 const explorerTablePage = ref(1);
@@ -187,6 +188,7 @@ function saveExplorerConnection(): void {
 
 function applySavedConnection(event: Event): void {
   const id = (event.target as HTMLSelectElement).value;
+  selectedSavedConnectionId.value = id;
   const saved = savedConnections.value.find((item) => item.id === id);
   if (!saved) return;
   explorerDraft.value = {
@@ -203,6 +205,9 @@ function removeSavedConnection(id: string): void {
   savedConnections.value = savedConnections.value.filter(
     (item) => item.id !== id,
   );
+  if (selectedSavedConnectionId.value === id) {
+    selectedSavedConnectionId.value = '';
+  }
   persistSavedConnections();
 }
 
@@ -1190,8 +1195,13 @@ onUnmounted(() => {
       </div>
       <div class="database-connection-form">
         <div v-if="savedConnections.length" class="database-saved-connections">
-          <label
-            >Conexão salva<select @change="applySavedConnection">
+          <label for="database-saved-connection">Conexão salva</label>
+          <div class="database-saved-connection-control">
+            <select
+              id="database-saved-connection"
+              v-model="selectedSavedConnectionId"
+              @change="applySavedConnection"
+            >
               <option value="">Selecione uma conexão</option>
               <option
                 v-for="saved in savedConnections"
@@ -1200,18 +1210,16 @@ onUnmounted(() => {
               >
                 {{ saved.label }}
               </option>
-            </select></label
-          >
-          <button
-            v-for="saved in savedConnections"
-            :key="`remove-${saved.id}`"
-            type="button"
-            class="database-saved-remove"
-            :aria-label="`Remover conexão salva ${saved.label}`"
-            @click="removeSavedConnection(saved.id)"
-          >
-            ×
-          </button>
+            </select>
+            <button
+              v-if="selectedSavedConnectionId"
+              type="button"
+              class="database-saved-remove"
+              @click="removeSavedConnection(selectedSavedConnectionId)"
+            >
+              Remover
+            </button>
+          </div>
         </div>
         <label
           >Banco<select
@@ -1800,84 +1808,145 @@ onUnmounted(() => {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 20px;
-  background: rgb(0 0 0 / 45%);
-  --card-bg: var(--surface-1);
-  --border-color: var(--border);
-  --muted-text: var(--text-muted);
+  overflow-y: auto;
+  padding: 24px;
+  background: rgb(0 0 0 / 62%);
 }
 .database-connection-modal {
-  width: min(620px, 100%);
-  padding: 24px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: 0 18px 45px rgb(0 0 0 / 20%);
+  box-shadow: var(--shadow-2);
 }
 .database-modal-heading {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 22px;
 }
 .database-modal-heading h2 {
-  margin: 5px 0;
+  margin: 8px 0 6px;
+  color: var(--text);
+  font-size: 22px;
+  letter-spacing: -0.02em;
 }
 .database-modal-heading p {
   margin: 0;
-  color: var(--muted-text);
-  font-size: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.45;
 }
 .database-modal-heading > button {
-  align-self: start;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin: -4px -4px 0 0;
   border: 0;
-  color: var(--muted-text);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
   background: transparent;
-  font-size: 22px;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+.database-modal-heading > button:hover,
+.database-modal-heading > button:focus-visible {
+  color: var(--text);
+  background: var(--surface-2);
 }
 .database-connection-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 .database-saved-connections {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 8px;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
 }
 .database-saved-connections label {
-  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+.database-saved-connection-control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.database-saved-connection-control select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .database-saved-remove {
-  align-self: start;
-  margin-top: -38px;
-  padding: 5px 9px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  color: var(--muted-text);
-  background: transparent;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  cursor: pointer;
 }
 .database-connection-form label {
   display: grid;
   gap: 6px;
-  color: var(--muted-text);
-  font-size: 11px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 .database-connection-form input,
 .database-connection-form select {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   color: var(--text);
   background: var(--surface-2);
   font: inherit;
 }
+.database-connection-form input:focus,
+.database-connection-form select:focus,
+.database-saved-remove:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 1px;
+}
+.database-machine-details-error,
+.database-machine-success {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  line-height: 1.45;
+}
+.database-machine-details-error {
+  border: 1px solid var(--danger-text);
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+.database-machine-success {
+  border: 1px solid var(--success-text);
+  color: var(--success-text);
+  background: var(--success-surface);
+}
 .database-modal-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 24px;
@@ -1911,6 +1980,20 @@ onUnmounted(() => {
   }
   .database-connection-form {
     grid-template-columns: 1fr;
+  }
+  .database-modal-backdrop {
+    align-items: start;
+    padding: 12px;
+  }
+  .database-connection-modal {
+    max-height: calc(100dvh - 24px);
+    padding: 20px;
+  }
+  .database-modal-actions {
+    justify-content: stretch;
+  }
+  .database-modal-actions button {
+    flex: 1 1 calc(50% - 8px);
   }
 }
 .database-machine-header {
