@@ -82,7 +82,7 @@ test.describe('Banco de dados da máquina', () => {
     await gotoBootstrapped(page, '/database');
     await page.getByRole('button', { name: 'Conectar a um serviço' }).click();
     const connectionDialog = page.getByRole('dialog');
-    await connectionDialog.getByLabel('Banco').selectOption('mysql');
+    await connectionDialog.locator('select').selectOption('mysql');
     await connectionDialog.getByLabel('Usuário').fill('root');
     await connectionDialog.getByLabel('Senha').fill('123456');
     await connectionDialog
@@ -90,7 +90,9 @@ test.describe('Banco de dados da máquina', () => {
       .click();
 
     await expect(page.getByText('mysql · 127.0.0.1:3306')).toBeVisible();
-    await page.getByLabel('Banco').selectOption('app_development');
+    await page
+      .locator('.database-explorer-sidebar select')
+      .selectOption('app_development');
     await expect(page.getByRole('button', { name: 'posts' })).toBeVisible();
     await page.getByRole('button', { name: 'posts' }).click();
 
