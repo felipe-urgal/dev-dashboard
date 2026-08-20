@@ -20,11 +20,16 @@ import {
   type DatabaseSnapshotService,
 } from '../services/database-snapshot-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import {
+  DatabaseReadonlyError,
+  type DatabaseReadonlyService,
+} from '../services/database-readonly-service.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   databaseDetectionService: DatabaseDetectionService;
   databaseSnapshotService: DatabaseSnapshotService;
+  databaseReadonlyService: DatabaseReadonlyService;
 }
 interface Params {
   projectId: string;
@@ -35,6 +40,42 @@ interface SecretParams extends Params {
 interface Query {
   page?: number;
   pageSize?: number;
+}
+interface ExplorerBody {
+  driver: 'mysql' | 'mariadb' | 'postgresql';
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+}
+interface ExplorerQueryBody extends ExplorerBody {
+  query: string;
+}
+interface ExplorerPreviewBody extends ExplorerBody {
+  schema?: string;
+  table: string;
+}
+
+function explorerErrorResponse(error: unknown): {
+  statusCode: number;
+  message: string;
+} {
+  if (!(error instanceof DatabaseReadonlyError)) {
+    return {
+      statusCode: 500,
+      message: 'Não foi possível consultar o banco de dados.',
+    };
+  }
+  return {
+    statusCode:
+      error.reason === 'client-unavailable'
+        ? 503
+        : error.reason === 'command-failed'
+          ? 502
+          : 400,
+    message: error.message,
+  };
 }
 
 const paramsSchema = {
@@ -74,6 +115,78 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
         request.params.serviceId,
       ),
     }),
+  );
+
+  app.post<{ Body: ExplorerBody }>(
+    '/database/explorer/catalog',
+    async (request, reply) => {
+      try {
+        return {
+          databases: await options.databaseReadonlyService.listDatabases(
+            request.body,
+          ),
+        };
+      } catch (error) {
+        const response = explorerErrorResponse(error);
+        return reply
+          .code(response.statusCode)
+          .send({ message: response.message });
+      }
+    },
+  );
+  app.post<{ Body: ExplorerBody }>(
+    '/database/explorer/tables',
+    async (request, reply) => {
+      try {
+        return {
+          tables: await options.databaseReadonlyService.listTables(
+            request.body,
+          ),
+        };
+      } catch (error) {
+        const response = explorerErrorResponse(error);
+        return reply
+          .code(response.statusCode)
+          .send({ message: response.message });
+      }
+    },
+  );
+  app.post<{ Body: ExplorerPreviewBody }>(
+    '/database/explorer/preview',
+    async (request, reply) => {
+      try {
+        return {
+          result: await options.databaseReadonlyService.preview(
+            request.body,
+            request.body.schema,
+            request.body.table,
+          ),
+        };
+      } catch (error) {
+        const response = explorerErrorResponse(error);
+        return reply
+          .code(response.statusCode)
+          .send({ message: response.message });
+      }
+    },
+  );
+  app.post<{ Body: ExplorerQueryBody }>(
+    '/database/explorer/query',
+    async (request, reply) => {
+      try {
+        return {
+          result: await options.databaseReadonlyService.query(
+            request.body,
+            request.body.query,
+          ),
+        };
+      } catch (error) {
+        const response = explorerErrorResponse(error);
+        return reply
+          .code(response.statusCode)
+          .send({ message: response.message });
+      }
+    },
   );
 
   for (const action of ['start', 'stop', 'restart'] as const) {

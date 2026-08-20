@@ -18,6 +18,7 @@ import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
 import { DatabaseSnapshotService } from './services/database-snapshot-service.js';
+import { DatabaseReadonlyService } from './services/database-readonly-service.js';
 import { RailsInspectionService } from './services/rails-inspection-service.js';
 import { RailsRuntimeService } from './services/rails-runtime-service.js';
 import { BundlerInspectionService } from './services/bundler-inspection-service.js';
@@ -57,6 +58,7 @@ export interface AppContext {
   projectCoverageHistoryService: ProjectCoverageHistoryService;
   databaseDetectionService: DatabaseDetectionService;
   databaseSnapshotService: DatabaseSnapshotService;
+  databaseReadonlyService: DatabaseReadonlyService;
   railsInspectionService: RailsInspectionService;
   railsMigrationPtyService: RailsMigrationPtyService;
   railsRuntimeService: RailsRuntimeService;
@@ -88,6 +90,7 @@ export function createAppContext(
     scriptDetectionService,
   );
   const databaseDetectionService = new DatabaseDetectionService();
+  const databaseReadonlyService = new DatabaseReadonlyService();
   const gitService = new DashboardGitService();
   const gitMutationHistoryService = new GitMutationHistoryService();
   const projectFileService = new ProjectFileService();
@@ -137,6 +140,7 @@ export function createAppContext(
       databaseDetectionService,
       processManager.stateDirectory,
     ),
+    databaseReadonlyService,
     railsInspectionService: new RailsInspectionService(),
     railsMigrationPtyService,
     railsRuntimeService: new RailsRuntimeService(processManager),

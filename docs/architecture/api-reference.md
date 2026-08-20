@@ -184,6 +184,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
 _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
+### `POST /api/database/explorer/catalog`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
+### `POST /api/database/explorer/preview`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
+### `POST /api/database/explorer/query`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
+### `POST /api/database/explorer/tables`
+
+_Rota sem schema declarado (ex. upgrade de WebSocket)._
+
 ### `GET /api/projects/:projectId/database`
 
 **Parâmetros de rota (`params`)**

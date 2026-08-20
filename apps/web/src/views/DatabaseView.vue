@@ -12,6 +12,9 @@ import {
 } from '@heroicons/vue/24/outline';
 import type {
   DatabaseServiceAction,
+  MachineDatabaseConnection,
+  MachineDatabaseQueryResult,
+  MachineDatabaseTable,
   MachineDatabaseService,
   MachineDatabaseServiceDetails,
 } from '@dev-dashboard/contracts';
@@ -19,6 +22,10 @@ import type {
 import {
   fetchMachineDatabaseServices,
   fetchMachineDatabaseServiceDetails,
+  fetchMachineDatabaseCatalog,
+  fetchMachineDatabaseTables,
+  previewMachineDatabaseTable,
+  queryMachineDatabase,
   installMachineDatabaseService,
   runMachineDatabaseServiceAction,
   uninstallMachineDatabaseService,
@@ -47,6 +54,87 @@ const uninstalledServices = computed(() =>
 const activeServices = computed(() =>
   installedServices.value.filter((service) => service.active),
 );
+const explorerOpen = ref(false);
+const explorerLoading = ref(false);
+const explorerError = ref('');
+const explorerConnection = ref<MachineDatabaseConnection>({
+  driver: 'postgresql',
+  host: '127.0.0.1',
+  port: 5432,
+});
+const explorerDatabases = ref<{ name: string }[]>([]);
+const explorerTables = ref<MachineDatabaseTable[]>([]);
+const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
+const explorerQuery = ref('SELECT * FROM ');
+const explorerTable = ref('');
+
+function syncExplorerPort(): void {
+  explorerConnection.value = {
+    ...explorerConnection.value,
+    port: explorerConnection.value.driver === 'postgresql' ? 5432 : 3306,
+  };
+}
+
+async function loadExplorerCatalog(): Promise<void> {
+  explorerLoading.value = true;
+  explorerError.value = '';
+  explorerResult.value = null;
+  try {
+    explorerDatabases.value = await fetchMachineDatabaseCatalog(
+      explorerConnection.value,
+    );
+    explorerTables.value = await fetchMachineDatabaseTables(
+      explorerConnection.value,
+    );
+  } catch (error) {
+    explorerError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível conectar ao banco.';
+  } finally {
+    explorerLoading.value = false;
+  }
+}
+
+async function previewExplorerTable(): Promise<void> {
+  const table = explorerTables.value.find(
+    (item) => item.name === explorerTable.value,
+  );
+  if (!table) return;
+  explorerLoading.value = true;
+  explorerError.value = '';
+  try {
+    explorerResult.value = await previewMachineDatabaseTable(
+      explorerConnection.value,
+      table,
+    );
+  } catch (error) {
+    explorerError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível consultar a tabela.';
+  } finally {
+    explorerLoading.value = false;
+  }
+}
+
+async function runExplorerQuery(): Promise<void> {
+  explorerLoading.value = true;
+  explorerError.value = '';
+  try {
+    explorerResult.value = await queryMachineDatabase(
+      explorerConnection.value,
+      explorerQuery.value,
+    );
+  } catch (error) {
+    explorerError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível executar a consulta.';
+  } finally {
+    explorerLoading.value = false;
+  }
+}
 
 async function loadServices(
   options: { clearSuccess?: boolean } = {},
@@ -522,6 +610,155 @@ onMounted(() => void loadServices());
           </div>
         </article>
       </div>
+      <section
+        class="database-explorer"
+        aria-labelledby="database-explorer-title"
+      >
+        <div class="database-machine-section-heading">
+          <div>
+            <h2 id="database-explorer-title">Explorar dados</h2>
+            <p>
+              Acesso local somente leitura. Credenciais ficam apenas nesta
+              sessão.
+            </p>
+          </div>
+          <button type="button" @click="explorerOpen = !explorerOpen">
+            {{ explorerOpen ? 'Ocultar' : 'Abrir explorador' }}
+          </button>
+        </div>
+        <div v-if="explorerOpen" class="database-explorer-panel">
+          <div class="database-explorer-form">
+            <label
+              >Banco
+              <select
+                v-model="explorerConnection.driver"
+                @change="syncExplorerPort"
+              >
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+                <option value="mariadb">MariaDB</option>
+              </select>
+            </label>
+            <label
+              >Host<input v-model="explorerConnection.host" autocomplete="off"
+            /></label>
+            <label
+              >Porta<input
+                v-model.number="explorerConnection.port"
+                type="number"
+                min="1"
+                max="65535"
+            /></label>
+            <label
+              >Usuário<input
+                v-model="explorerConnection.username"
+                autocomplete="off"
+            /></label>
+            <label
+              >Senha<input
+                v-model="explorerConnection.password"
+                type="password"
+                autocomplete="new-password"
+            /></label>
+            <label
+              >Banco (opcional)<input
+                v-model="explorerConnection.database"
+                autocomplete="off"
+            /></label>
+          </div>
+          <div class="database-explorer-toolbar">
+            <button
+              type="button"
+              :disabled="explorerLoading"
+              @click="loadExplorerCatalog"
+            >
+              {{ explorerLoading ? 'Conectando…' : 'Conectar e listar' }}
+            </button>
+          </div>
+          <p
+            v-if="explorerError"
+            class="database-machine-details-error"
+            role="alert"
+          >
+            {{ explorerError }}
+          </p>
+          <div
+            v-if="explorerDatabases.length || explorerTables.length"
+            class="database-explorer-grid"
+          >
+            <div>
+              <strong>Bancos encontrados</strong>
+              <ul>
+                <li v-for="database in explorerDatabases" :key="database.name">
+                  {{ database.name }}
+                </li>
+              </ul>
+            </div>
+            <div>
+              <strong>Tabelas</strong
+              ><select v-model="explorerTable">
+                <option value="">Selecione uma tabela</option>
+                <option
+                  v-for="table in explorerTables"
+                  :key="`${table.schema}.${table.name}`"
+                  :value="table.name"
+                >
+                  {{ table.schema ? `${table.schema}.` : '' }}{{ table.name }}
+                </option></select
+              ><button
+                type="button"
+                :disabled="explorerLoading || !explorerTable"
+                @click="previewExplorerTable"
+              >
+                Visualizar até 100 linhas
+              </button>
+            </div>
+          </div>
+          <label class="database-explorer-query"
+            >Consulta SELECT/WITH<textarea
+              v-model="explorerQuery"
+              maxlength="4000"
+              rows="4"
+              spellcheck="false"
+            />
+          </label>
+          <button
+            type="button"
+            :disabled="explorerLoading"
+            @click="runExplorerQuery"
+          >
+            {{ explorerLoading ? 'Consultando…' : 'Executar leitura' }}
+          </button>
+          <div v-if="explorerResult" class="database-explorer-result">
+            <span
+              >{{ explorerResult.rowCount }} linhas{{
+                explorerResult.truncated ? ' (resultado limitado a 100)' : ''
+              }}</span
+            >
+            <div class="database-explorer-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th v-for="column in explorerResult.columns" :key="column">
+                      {{ column }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(row, rowIndex) in explorerResult.rows"
+                    :key="rowIndex"
+                  >
+                    <td v-for="(value, columnIndex) in row" :key="columnIndex">
+                      {{ value ?? 'NULL' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
     </template>
   </section>
 </template>
@@ -529,6 +766,90 @@ onMounted(() => void loadServices());
 <style scoped>
 .database-machine-page {
   padding: 28px;
+}
+.database-explorer {
+  max-width: 1120px;
+  margin-top: 36px;
+}
+.database-explorer-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+.database-explorer-form,
+.database-explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.database-explorer-form label,
+.database-explorer-query {
+  display: grid;
+  gap: 5px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-explorer input,
+.database-explorer select,
+.database-explorer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+}
+.database-explorer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+.database-explorer-grid > div {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.database-explorer-grid ul {
+  max-height: 100px;
+  margin: 0;
+  overflow: auto;
+  padding-left: 18px;
+  color: var(--muted-text);
+  font-size: 12px;
+}
+.database-explorer-result {
+  display: grid;
+  gap: 8px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-explorer-table-wrap {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+}
+.database-explorer table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.database-explorer th,
+.database-explorer td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  white-space: nowrap;
+}
+@media (max-width: 680px) {
+  .database-explorer-form,
+  .database-explorer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .database-machine-header {
   display: flex;
