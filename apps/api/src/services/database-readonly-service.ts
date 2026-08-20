@@ -1,0 +1,247 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+import type {
+  MachineDatabaseCatalogItem,
+  MachineDatabaseConnection,
+  MachineDatabaseQueryResult,
+  MachineDatabaseTable,
+} from '@dev-dashboard/contracts';
+
+const execFileAsync = promisify(execFile);
+const MAX_QUERY_LENGTH = 4_000;
+const MAX_ROWS = 100;
+const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+
+type CommandRunner = (
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+) => Promise<string>;
+
+const defaultCommandRunner: CommandRunner = async (command, args, env) => {
+  const result = await execFileAsync(command, args, {
+    env,
+    encoding: 'utf8',
+    maxBuffer: 2 * 1024 * 1024,
+    timeout: 15_000,
+    windowsHide: true,
+  });
+  return result.stdout;
+};
+
+export class DatabaseReadonlyError extends Error {
+  public constructor(
+    public readonly reason:
+      | 'unsupported-driver'
+      | 'remote-host'
+      | 'invalid-query'
+      | 'client-unavailable'
+      | 'command-failed',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DatabaseReadonlyError';
+  }
+}
+
+function validateConnection(connection: MachineDatabaseConnection): void {
+  if (!['mysql', 'mariadb', 'postgresql'].includes(connection.driver)) {
+    throw new DatabaseReadonlyError(
+      'unsupported-driver',
+      'Este explorador suporta somente MySQL, MariaDB e PostgreSQL.',
+    );
+  }
+  const host = connection.host?.trim() || '127.0.0.1';
+  if (!localHosts.has(host)) {
+    throw new DatabaseReadonlyError(
+      'remote-host',
+      'Por segurança, o explorador aceita apenas bancos locais nesta versão.',
+    );
+  }
+  if (
+    connection.port !== undefined &&
+    (!Number.isInteger(connection.port) ||
+      connection.port < 1 ||
+      connection.port > 65535)
+  ) {
+    throw new DatabaseReadonlyError(
+      'command-failed',
+      'A porta informada é inválida.',
+    );
+  }
+}
+
+function safeIdentifier(value: string, label: string): string {
+  if (!/^[A-Za-z0-9_$-]+$/.test(value) || value.length > 128) {
+    throw new DatabaseReadonlyError('invalid-query', `${label} inválido.`);
+  }
+  return value;
+}
+
+function quoteIdentifier(
+  value: string,
+  driver: MachineDatabaseConnection['driver'],
+): string {
+  const identifier = safeIdentifier(value, 'Identificador');
+  return driver === 'postgresql' ? `"${identifier}"` : `\`${identifier}\``;
+}
+
+function readOnlyQuery(query: string): string {
+  const normalized = query.trim();
+  if (!normalized || normalized.length > MAX_QUERY_LENGTH) {
+    throw new DatabaseReadonlyError(
+      'invalid-query',
+      'Informe uma consulta de até 4.000 caracteres.',
+    );
+  }
+  if (!/^(select|with)\b/i.test(normalized) || /;|--|\/\*/.test(normalized)) {
+    throw new DatabaseReadonlyError(
+      'invalid-query',
+      'Somente uma consulta SELECT/WITH, sem comandos múltiplos, é permitida.',
+    );
+  }
+  if (
+    /\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|replace|call|execute|copy)\b/i.test(
+      normalized,
+    )
+  ) {
+    throw new DatabaseReadonlyError(
+      'invalid-query',
+      'A consulta contém uma operação de escrita ou administração bloqueada.',
+    );
+  }
+  return normalized;
+}
+
+function parseTabular(output: string): MachineDatabaseQueryResult {
+  const lines = output.replace(/\r/g, '').split('\n').filter(Boolean);
+  if (!lines.length)
+    return { columns: [], rows: [], rowCount: 0, truncated: false };
+  const split = (line: string) =>
+    line.split('\t').map((value) => (value === '\\N' ? null : value));
+  const columns = split(lines[0]!).map(String);
+  const rows = lines.slice(1, MAX_ROWS + 1).map(split);
+  return {
+    columns,
+    rows,
+    rowCount: lines.length - 1,
+    truncated: lines.length - 1 > MAX_ROWS,
+  };
+}
+
+export class DatabaseReadonlyService {
+  public constructor(
+    private readonly commandRunner: CommandRunner = defaultCommandRunner,
+  ) {}
+
+  private async run(
+    connection: MachineDatabaseConnection,
+    sql: string,
+  ): Promise<MachineDatabaseQueryResult> {
+    validateConnection(connection);
+    const host = connection.host?.trim() || '127.0.0.1';
+    const port =
+      connection.port ?? (connection.driver === 'postgresql' ? 5432 : 3306);
+    const env = { ...process.env };
+    const database = connection.database?.trim();
+    if (connection.driver === 'postgresql') {
+      Object.assign(env, {
+        PGHOST: host,
+        PGPORT: String(port),
+        ...(connection.username ? { PGUSER: connection.username } : {}),
+        ...(connection.password ? { PGPASSWORD: connection.password } : {}),
+        ...(database ? { PGDATABASE: database } : {}),
+      });
+    } else {
+      Object.assign(env, {
+        MYSQL_HOST: host,
+        MYSQL_TCP_PORT: String(port),
+        ...(connection.username ? { MYSQL_USER: connection.username } : {}),
+        ...(connection.password ? { MYSQL_PWD: connection.password } : {}),
+        ...(database ? { MYSQL_DATABASE: database } : {}),
+      });
+    }
+    const command = connection.driver === 'postgresql' ? 'psql' : 'mysql';
+    const args =
+      connection.driver === 'postgresql'
+        ? [
+            '-X',
+            '-A',
+            '-F',
+            '\t',
+            '-P',
+            'footer=off',
+            '-v',
+            'ON_ERROR_STOP=1',
+            '-c',
+            sql,
+          ]
+        : ['--column-names', '--batch', '--raw', '--execute', sql];
+    try {
+      return parseTabular(await this.commandRunner(command, args, env));
+    } catch (error) {
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String(error.code)
+          : '';
+      if (code === 'ENOENT')
+        throw new DatabaseReadonlyError(
+          'client-unavailable',
+          `O cliente ${command} não está instalado nesta máquina.`,
+        );
+      throw new DatabaseReadonlyError(
+        'command-failed',
+        'Não foi possível consultar o banco. Verifique o serviço, credenciais e banco selecionados.',
+      );
+    }
+  }
+
+  async listDatabases(
+    connection: MachineDatabaseConnection,
+  ): Promise<MachineDatabaseCatalogItem[]> {
+    const sql =
+      connection.driver === 'postgresql'
+        ? 'SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname'
+        : 'SELECT schema_name FROM information_schema.schemata ORDER BY schema_name';
+    const result = await this.run(connection, sql);
+    return result.rows
+      .map((row) => ({ name: String(row[0] ?? '') }))
+      .filter((item) => item.name);
+  }
+
+  async listTables(
+    connection: MachineDatabaseConnection,
+  ): Promise<MachineDatabaseTable[]> {
+    const sql =
+      connection.driver === 'postgresql'
+        ? "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY table_schema, table_name"
+        : "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' ORDER BY table_schema, table_name";
+    const result = await this.run(connection, sql);
+    return result.rows.map((row) => ({
+      schema: String(row[0] ?? ''),
+      name: String(row[1] ?? ''),
+    }));
+  }
+
+  async preview(
+    connection: MachineDatabaseConnection,
+    schema: string | undefined,
+    table: string,
+  ): Promise<MachineDatabaseQueryResult> {
+    const target = schema
+      ? `${quoteIdentifier(schema, connection.driver)}.${quoteIdentifier(table, connection.driver)}`
+      : quoteIdentifier(table, connection.driver);
+    return this.run(
+      connection,
+      `SELECT * FROM ${target} LIMIT ${MAX_ROWS + 1}`,
+    );
+  }
+
+  async query(
+    connection: MachineDatabaseConnection,
+    query: string,
+  ): Promise<MachineDatabaseQueryResult> {
+    return this.run(connection, readOnlyQuery(query));
+  }
+}

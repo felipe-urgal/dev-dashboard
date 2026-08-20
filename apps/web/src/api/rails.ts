@@ -7,6 +7,10 @@ import type {
   ManagedProcess,
   MachineDatabaseService,
   MachineDatabaseServiceDetails,
+  MachineDatabaseConnection,
+  MachineDatabaseCatalogItem,
+  MachineDatabaseTable,
+  MachineDatabaseQueryResult,
   ProcessLogSnapshot,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
@@ -39,6 +43,69 @@ interface MachineDatabaseServicesResponse {
 }
 interface MachineDatabaseServiceDetailsResponse {
   details: MachineDatabaseServiceDetails;
+}
+interface MachineDatabaseCatalogResponse {
+  databases: MachineDatabaseCatalogItem[];
+}
+interface MachineDatabaseTablesResponse {
+  tables: MachineDatabaseTable[];
+}
+interface MachineDatabaseQueryResponse {
+  result: MachineDatabaseQueryResult;
+}
+
+async function explorerRequest<T>(path: string, body: object): Promise<T> {
+  return requestJson<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function fetchMachineDatabaseCatalog(
+  connection: MachineDatabaseConnection,
+): Promise<MachineDatabaseCatalogItem[]> {
+  const response = await explorerRequest<MachineDatabaseCatalogResponse>(
+    '/api/database/explorer/catalog',
+    connection,
+  );
+  return response.databases;
+}
+
+export async function fetchMachineDatabaseTables(
+  connection: MachineDatabaseConnection,
+): Promise<MachineDatabaseTable[]> {
+  const response = await explorerRequest<MachineDatabaseTablesResponse>(
+    '/api/database/explorer/tables',
+    connection,
+  );
+  return response.tables;
+}
+
+export async function previewMachineDatabaseTable(
+  connection: MachineDatabaseConnection,
+  table: MachineDatabaseTable,
+): Promise<MachineDatabaseQueryResult> {
+  const response = await explorerRequest<MachineDatabaseQueryResponse>(
+    '/api/database/explorer/preview',
+    {
+      ...connection,
+      table: table.name,
+      ...(table.schema ? { schema: table.schema } : {}),
+    },
+  );
+  return response.result;
+}
+
+export async function queryMachineDatabase(
+  connection: MachineDatabaseConnection,
+  query: string,
+): Promise<MachineDatabaseQueryResult> {
+  const response = await explorerRequest<MachineDatabaseQueryResponse>(
+    '/api/database/explorer/query',
+    { ...connection, query },
+  );
+  return response.result;
 }
 
 export async function fetchMachineDatabaseServices(): Promise<

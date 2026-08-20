@@ -57,6 +57,33 @@ export interface MachineDatabaseServiceDetails {
   logs: string[];
 }
 
+export type MachineDatabaseExplorerDriver = 'mysql' | 'mariadb' | 'postgresql';
+
+export interface MachineDatabaseConnection {
+  driver: MachineDatabaseExplorerDriver;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+}
+
+export interface MachineDatabaseCatalogItem {
+  name: string;
+}
+
+export interface MachineDatabaseTable {
+  name: string;
+  schema?: string;
+}
+
+export interface MachineDatabaseQueryResult {
+  columns: string[];
+  rows: unknown[][];
+  rowCount: number;
+  truncated: boolean;
+}
+
 export interface ProjectDatabaseServiceActionResult {
   environmentId: string;
   action: DatabaseServiceAction;
