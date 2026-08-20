@@ -1946,7 +1946,8 @@ onMounted(() => void loadServices());
 /* Final visual pass: preserve the prototype hierarchy while keeping dense
    service data and long database names inside their own regions. */
 .database-machine-page {
-  max-width: 1440px;
+  width: 100%;
+  max-width: none;
   box-sizing: border-box;
   padding: 36px 40px 72px;
 }
