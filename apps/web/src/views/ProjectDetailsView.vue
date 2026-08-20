@@ -310,13 +310,12 @@ watch(
               <CommandLineIcon aria-hidden="true" />
               <span>Terminal</span>
             </RouterLink>
+            <ProjectDetailsMoreTools
+              :project="project"
+              :sidekiq-detected="sidekiqDetected"
+              :webpack-detected="webpackDetected"
+            />
           </div>
-
-          <ProjectDetailsMoreTools
-            :project="project"
-            :sidekiq-detected="sidekiqDetected"
-            :webpack-detected="webpackDetected"
-          />
         </nav>
       </div>
 
