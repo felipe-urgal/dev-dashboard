@@ -94,5 +94,4 @@ const route = useRoute();
       <DocumentTextIcon aria-hidden="true" />
       <span>README</span>
     </RouterLink>
-  </div>
 </template>
