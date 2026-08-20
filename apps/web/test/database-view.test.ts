@@ -87,6 +87,39 @@ describe('DatabaseView', () => {
       'mysql',
       'start',
     );
+    expect(api.fetchMachineDatabaseServices).toHaveBeenCalledTimes(2);
+    expect(wrapper.get('[role="status"]').text()).toContain(
+      'MySQL iniciado com sucesso.',
+    );
+  });
+
+  it('exibe a mensagem específica retornada pela API quando uma ação falha', async () => {
+    api.fetchMachineDatabaseServices.mockResolvedValue([
+      {
+        id: 'mysql',
+        driver: 'mysql',
+        label: 'MySQL',
+        unit: 'mysql.service',
+        installed: true,
+        active: false,
+      },
+    ]);
+    api.runMachineDatabaseServiceAction.mockRejectedValueOnce(
+      new Error('Não é possível iniciar enquanto MariaDB estiver em execução.'),
+    );
+    const wrapper = mount(DatabaseView);
+    wrappers.push(wrapper);
+    await flushPromises();
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Iniciar'))!
+      .trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Não é possível iniciar enquanto MariaDB estiver em execução.',
+    );
   });
 
   it('separa serviços não instalados e confirma a instalação', async () => {

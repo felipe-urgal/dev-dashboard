@@ -23,6 +23,8 @@ import { confirmDialog } from '../stores/app-dialog';
 const services = ref<MachineDatabaseService[]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
+const successMessage = ref('');
+const lastUpdatedAt = ref<Date | null>(null);
 const pending = ref<{
   serviceId: string;
   action: DatabaseServiceAction | 'install' | 'uninstall';
@@ -37,19 +39,39 @@ const activeServices = computed(() =>
   installedServices.value.filter((service) => service.active),
 );
 
-async function loadServices(): Promise<void> {
+async function loadServices(
+  options: { clearSuccess?: boolean } = {},
+): Promise<boolean> {
   loading.value = true;
   errorMessage.value = '';
+  if (options.clearSuccess) successMessage.value = '';
   try {
     services.value = await fetchMachineDatabaseServices();
+    lastUpdatedAt.value = new Date();
+    return true;
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
         : 'Não foi possível consultar os serviços do sistema.';
+    return false;
   } finally {
     loading.value = false;
   }
+}
+
+function refreshServices(): void {
+  void loadServices({ clearSuccess: true });
+}
+
+function actionLabel(action: DatabaseServiceAction | 'install' | 'uninstall') {
+  return {
+    start: 'iniciado',
+    stop: 'parado',
+    restart: 'reiniciado',
+    install: 'instalado',
+    uninstall: 'desinstalado',
+  }[action];
 }
 
 async function runAction(
@@ -69,9 +91,15 @@ async function runAction(
   }
   pending.value = { serviceId: service.id, action };
   errorMessage.value = '';
+  successMessage.value = '';
   try {
     await runMachineDatabaseServiceAction(service.id, action);
-    await loadServices();
+    const refreshed = await loadServices();
+    if (refreshed) {
+      successMessage.value = `${service.label} ${actionLabel(action)} com sucesso.`;
+    } else if (!errorMessage.value) {
+      errorMessage.value = `${service.label} foi ${actionLabel(action)}, mas não foi possível atualizar o status.`;
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -102,9 +130,15 @@ async function installService(service: MachineDatabaseService): Promise<void> {
   if (!confirmed) return;
   pending.value = { serviceId: service.id, action: 'install' };
   errorMessage.value = '';
+  successMessage.value = '';
   try {
     await installMachineDatabaseService(service.id);
-    await loadServices();
+    const refreshed = await loadServices();
+    if (refreshed) {
+      successMessage.value = `${service.label} instalado com sucesso.`;
+    } else if (!errorMessage.value) {
+      errorMessage.value = `${service.label} foi instalado, mas não foi possível atualizar o status.`;
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -128,9 +162,15 @@ async function uninstallService(
   if (!confirmed) return;
   pending.value = { serviceId: service.id, action: 'uninstall' };
   errorMessage.value = '';
+  successMessage.value = '';
   try {
     await uninstallMachineDatabaseService(service.id);
-    await loadServices();
+    const refreshed = await loadServices();
+    if (refreshed) {
+      successMessage.value = `${service.label} desinstalado com sucesso.`;
+    } else if (!errorMessage.value) {
+      errorMessage.value = `${service.label} foi desinstalado, mas não foi possível atualizar o status.`;
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -148,6 +188,7 @@ onMounted(() => void loadServices());
   <section
     class="content database-machine-page"
     aria-labelledby="database-page-title"
+    :aria-busy="loading"
   >
     <header class="database-machine-header">
       <div>
@@ -162,13 +203,25 @@ onMounted(() => void loadServices());
         type="button"
         class="database-machine-refresh"
         :disabled="loading"
-        @click="loadServices"
+        @click="refreshServices"
       >
         <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
-        Atualizar
+        {{ loading ? 'Atualizando…' : 'Atualizar' }}
       </button>
     </header>
 
+    <p v-if="successMessage" class="database-machine-success" role="status">
+      {{ successMessage }}
+      <span v-if="lastUpdatedAt">
+        Status atualizado às
+        {{
+          lastUpdatedAt.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        }}.
+      </span>
+    </p>
     <p v-if="errorMessage" class="activity-error" role="alert">
       {{ errorMessage }}
     </p>
@@ -361,6 +414,19 @@ onMounted(() => void loadServices());
 }
 .database-machine-refresh .is-spinning {
   animation: database-machine-spin 900ms linear infinite;
+}
+.database-machine-success {
+  margin: -6px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--success-text);
+  border-radius: 8px;
+  color: var(--success-text);
+  background: color-mix(in srgb, var(--success-text) 10%, transparent);
+  font-size: 11px;
+}
+.database-machine-success span {
+  margin-left: 6px;
+  color: var(--muted-text);
 }
 .database-machine-list {
   display: grid;
