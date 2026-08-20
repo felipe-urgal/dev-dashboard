@@ -1939,4 +1939,220 @@ onMounted(() => void loadServices());
     padding: 22px 16px 40px;
   }
 }
+
+/* Final visual pass: preserve the prototype hierarchy while keeping dense
+   service data and long database names inside their own regions. */
+.database-machine-page {
+  max-width: 1440px;
+  box-sizing: border-box;
+  padding: 36px 40px 72px;
+}
+.database-machine-header {
+  align-items: flex-start;
+  margin-bottom: 42px;
+}
+.database-machine-header h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(28px, 3vw, 38px);
+  letter-spacing: -0.025em;
+}
+.database-machine-header p {
+  max-width: 620px;
+  line-height: 1.55;
+}
+.database-machine-refresh {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-2);
+}
+.database-machine-section-heading {
+  margin-bottom: 18px;
+}
+.database-machine-section-heading h2 {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.database-machine-section-heading p {
+  line-height: 1.45;
+}
+.database-machine-count {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  background: var(--surface-1);
+  font-size: 10px;
+}
+.database-machine-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.database-machine-card {
+  min-width: 0;
+  min-height: 82px;
+  padding: 16px 18px;
+  transition: background 160ms ease;
+}
+.database-machine-card:hover {
+  background: var(--surface-2);
+}
+.database-machine-card + .database-machine-card {
+  border-top: 1px solid var(--border);
+}
+.database-machine-card-icon {
+  flex-basis: 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+.database-machine-card-copy {
+  overflow: hidden;
+}
+.database-machine-card-copy h2,
+.database-machine-meta code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.database-machine-actions {
+  max-width: 560px;
+}
+.database-machine-actions button {
+  min-height: 32px;
+  border-color: var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.database-machine-actions button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface-3);
+}
+.database-machine-section-available {
+  margin-top: 42px;
+}
+.database-machine-card-uninstalled {
+  background: color-mix(in srgb, var(--surface-1) 86%, var(--accent-soft));
+}
+.database-explorer {
+  margin-top: 42px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+.database-explorer > .database-machine-section-heading {
+  margin: 0 0 18px;
+}
+.database-connection-bar {
+  margin-top: 0;
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.database-explorer-workspace {
+  grid-template-columns: minmax(220px, 270px) minmax(0, 1fr);
+  min-height: 420px;
+  border-color: var(--border-strong);
+  background: var(--surface-0);
+}
+.database-explorer-sidebar {
+  min-width: 0;
+  max-height: 620px;
+  overflow: hidden auto;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.database-explorer-sidebar-heading {
+  position: sticky;
+  z-index: 1;
+  top: -18px;
+  margin: -18px -18px 18px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.database-explorer-table-list {
+  min-width: 0;
+  max-height: 470px;
+  overflow: auto;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.database-explorer-table-list button {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.database-explorer-main {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+.database-explorer-result-heading {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.database-explorer-result-heading h3 {
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.database-explorer-table-wrap {
+  max-width: 100%;
+  max-height: 380px;
+  overflow: auto;
+  border-color: var(--border-strong);
+  scrollbar-color: var(--border-strong) var(--surface-2);
+}
+.database-explorer table {
+  min-width: max-content;
+}
+.database-explorer th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+.database-explorer td {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.database-explorer-query-box {
+  padding-top: 4px;
+}
+.database-explorer-query-box textarea {
+  min-height: 86px;
+  resize: vertical;
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+@media (max-width: 820px) {
+  .database-machine-page {
+    padding: 24px 18px 48px;
+  }
+  .database-machine-header {
+    margin-bottom: 30px;
+  }
+  .database-machine-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .database-machine-actions {
+    max-width: none;
+  }
+  .database-explorer {
+    padding: 16px;
+  }
+  .database-explorer-sidebar-heading {
+    top: -16px;
+    margin: -16px -16px 16px;
+    padding: 16px 16px 12px;
+  }
+}
 </style>
