@@ -1175,10 +1175,6 @@ onMounted(() => void loadServices());
 .database-connection-bar > svg {
   color: var(--text-muted);
 }
-  margin-top: 48px;
-  border-top: 1px solid var(--border-color);
-  padding-top: 26px;
-}
 .database-connection-bar {
   display: flex;
   align-items: center;
