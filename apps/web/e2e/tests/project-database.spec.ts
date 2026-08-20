@@ -61,7 +61,14 @@ test.describe('Banco de dados da máquina', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ tables: [{ name: 'posts' }] }),
+          body: JSON.stringify({
+            tables: [
+              { name: 'posts' },
+              ...Array.from({ length: 44 }, (_, index) => ({
+                name: `table_${index + 1}`,
+              })),
+            ],
+          }),
         });
         return;
       }
@@ -86,6 +93,18 @@ test.describe('Banco de dados da máquina', () => {
     await connectionDialog.getByLabel('Usuário').fill('root');
     await connectionDialog.getByLabel('Senha').fill('123456');
     await connectionDialog
+      .getByRole('button', { name: 'Testar conexão' })
+      .click();
+    await expect(
+      connectionDialog.getByText('Conexão validada.', { exact: false }),
+    ).toBeVisible();
+    await connectionDialog
+      .getByRole('button', { name: 'Salvar sem senha' })
+      .click();
+    await expect(
+      connectionDialog.getByText('Conexão salva sem armazenar a senha.'),
+    ).toBeVisible();
+    await connectionDialog
       .getByRole('button', { name: 'Conectar e continuar' })
       .click();
 
@@ -93,6 +112,10 @@ test.describe('Banco de dados da máquina', () => {
     await page
       .locator('.database-explorer-sidebar select')
       .selectOption('app_development');
+    await expect(page.getByText('Página 1 de 2')).toBeVisible();
+    await page.getByRole('button', { name: 'Próxima' }).click();
+    await expect(page.getByText('Página 2 de 2')).toBeVisible();
+    await page.getByPlaceholder('Nome da tabela').fill('posts');
     await expect(page.getByRole('button', { name: 'posts' })).toBeVisible();
     await page.getByRole('button', { name: 'posts' }).click();
 
@@ -108,7 +131,15 @@ test.describe('Banco de dados da máquina', () => {
     await expect(page.getByText('Olá mundo')).toBeVisible();
     expect(requests.some(({ body }) => body.password === '123456')).toBe(true);
     await page.getByRole('button', { name: 'Trocar conexão' }).click();
+    await expect(
+      page.getByRole('dialog').getByRole('combobox').first(),
+    ).toContainText('mysql');
     await expect(page.getByRole('dialog').getByLabel('Senha')).toHaveValue('');
     await expect(page.locator('body')).not.toContainText('123456');
+    expect(
+      await page.evaluate(() =>
+        window.localStorage.getItem('dev-dashboard.database-connections'),
+      ),
+    ).not.toContain('password');
   });
 });

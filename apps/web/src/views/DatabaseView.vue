@@ -71,8 +71,140 @@ const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
 const explorerQuery = ref('SELECT * FROM ');
 const explorerTable = ref('');
 const explorerDatabase = ref('');
+type SavedDatabaseConnection = Omit<MachineDatabaseConnection, 'password'> & {
+  id: string;
+  label: string;
+};
+const SAVED_CONNECTIONS_KEY = 'dev-dashboard.database-connections';
+const savedConnections = ref<SavedDatabaseConnection[]>([]);
+const explorerTestMessage = ref('');
+const explorerTableSearch = ref('');
+const explorerTablePage = ref(1);
+const EXPLORER_TABLE_PAGE_SIZE = 40;
+const explorerQueryDurationMs = ref<number | null>(null);
 const EXPLORER_SESSION_TTL_MS = 15 * 60 * 1000;
 let explorerSessionTimer: ReturnType<typeof setTimeout> | null = null;
+
+const filteredExplorerTables = computed(() => {
+  const search = explorerTableSearch.value.trim().toLocaleLowerCase();
+  if (!search) return explorerTables.value;
+  return explorerTables.value.filter((table) =>
+    `${table.schema ? `${table.schema}.` : ''}${table.name}`
+      .toLocaleLowerCase()
+      .includes(search),
+  );
+});
+const explorerTablePageCount = computed(() =>
+  Math.max(
+    1,
+    Math.ceil(filteredExplorerTables.value.length / EXPLORER_TABLE_PAGE_SIZE),
+  ),
+);
+const visibleExplorerTables = computed(() => {
+  const start = (explorerTablePage.value - 1) * EXPLORER_TABLE_PAGE_SIZE;
+  return filteredExplorerTables.value.slice(
+    start,
+    start + EXPLORER_TABLE_PAGE_SIZE,
+  );
+});
+
+function formatExplorerError(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : '';
+  const normalized = message.toLocaleLowerCase();
+  if (normalized.includes('credenciais') || normalized.includes('password')) {
+    return 'Não foi possível conectar: confira o usuário e a senha informados.';
+  }
+  if (
+    normalized.includes('connection refused') ||
+    normalized.includes('não está em execução') ||
+    normalized.includes('could not connect')
+  ) {
+    return 'Não foi possível conectar: verifique se o serviço está instalado e em execução.';
+  }
+  if (normalized.includes('não está instalado')) {
+    return 'O cliente deste banco não está instalado nesta máquina.';
+  }
+  if (normalized.includes('apenas bancos locais')) {
+    return 'Por segurança, o explorador aceita somente bancos locais.';
+  }
+  return message || fallback;
+}
+
+function savedConnectionId(connection: MachineDatabaseConnection): string {
+  return [
+    connection.driver,
+    connection.host ?? '127.0.0.1',
+    connection.port ?? '',
+    connection.username ?? '',
+    connection.database ?? '',
+  ].join('|');
+}
+
+function savedConnectionLabel(connection: MachineDatabaseConnection): string {
+  const address = `${connection.host ?? '127.0.0.1'}:${connection.port ?? ''}`;
+  return `${connection.driver} · ${address}${connection.username ? ` · ${connection.username}` : ''}`;
+}
+
+function loadSavedConnections(): void {
+  try {
+    const raw = localStorage.getItem(SAVED_CONNECTIONS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    if (Array.isArray(parsed)) {
+      savedConnections.value = parsed.filter(
+        (item): item is SavedDatabaseConnection =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as SavedDatabaseConnection).id === 'string' &&
+          typeof (item as SavedDatabaseConnection).label === 'string',
+      );
+    }
+  } catch {
+    savedConnections.value = [];
+  }
+}
+
+function persistSavedConnections(): void {
+  localStorage.setItem(
+    SAVED_CONNECTIONS_KEY,
+    JSON.stringify(savedConnections.value),
+  );
+}
+
+function saveExplorerConnection(): void {
+  const connection = connectionDraftWithoutSecret(explorerDraft.value);
+  const saved: SavedDatabaseConnection = {
+    ...connection,
+    id: savedConnectionId(connection),
+    label: savedConnectionLabel(connection),
+  };
+  savedConnections.value = [
+    saved,
+    ...savedConnections.value.filter((item) => item.id !== saved.id),
+  ];
+  persistSavedConnections();
+  explorerTestMessage.value = 'Conexão salva sem armazenar a senha.';
+}
+
+function applySavedConnection(event: Event): void {
+  const id = (event.target as HTMLSelectElement).value;
+  const saved = savedConnections.value.find((item) => item.id === id);
+  if (!saved) return;
+  explorerDraft.value = {
+    driver: saved.driver,
+    ...(saved.host ? { host: saved.host } : {}),
+    ...(saved.port ? { port: saved.port } : {}),
+    ...(saved.username ? { username: saved.username } : {}),
+    ...(saved.database ? { database: saved.database } : {}),
+  };
+  explorerTestMessage.value = 'Informe a senha para testar ou conectar.';
+}
+
+function removeSavedConnection(id: string): void {
+  savedConnections.value = savedConnections.value.filter(
+    (item) => item.id !== id,
+  );
+  persistSavedConnections();
+}
 
 function resetExplorerQuery(): void {
   explorerQuery.value = 'SELECT * FROM ';
@@ -107,6 +239,10 @@ function clearExplorerSession(showExpiryMessage = false): void {
   explorerResult.value = null;
   explorerDatabase.value = '';
   explorerTable.value = '';
+  explorerTableSearch.value = '';
+  explorerTablePage.value = 1;
+  explorerQueryDurationMs.value = null;
+  explorerTestMessage.value = '';
   explorerDraft.value = {
     driver: explorerDraft.value.driver,
     ...(explorerDraft.value.host ? { host: explorerDraft.value.host } : {}),
@@ -142,6 +278,7 @@ function openExplorerConnection(): void {
   }
   explorerModalOpen.value = true;
   explorerError.value = '';
+  explorerTestMessage.value = '';
 }
 
 function closeExplorerConnection(): void {
@@ -151,6 +288,7 @@ function closeExplorerConnection(): void {
 async function connectExplorer(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
+  explorerTestMessage.value = '';
   explorerResult.value = null;
   try {
     const connection = { ...explorerDraft.value };
@@ -159,15 +297,18 @@ async function connectExplorer(): Promise<void> {
     explorerDatabase.value = '';
     explorerTable.value = '';
     explorerTables.value = [];
+    explorerTableSearch.value = '';
+    explorerTablePage.value = 1;
+    explorerQueryDurationMs.value = null;
     explorerDraft.value = connectionDraftWithoutSecret(connection);
     resetExplorerQuery();
     scheduleExplorerSessionExpiry();
     explorerModalOpen.value = false;
   } catch (error) {
-    explorerError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível conectar ao banco.';
+    explorerError.value = formatExplorerError(
+      error,
+      'Não foi possível conectar ao banco.',
+    );
   } finally {
     explorerLoading.value = false;
   }
@@ -177,7 +318,10 @@ async function selectExplorerDatabase(database: string): Promise<void> {
   if (!explorerConnection.value) return;
   explorerDatabase.value = database;
   explorerTable.value = '';
+  explorerTableSearch.value = '';
+  explorerTablePage.value = 1;
   explorerResult.value = null;
+  explorerQueryDurationMs.value = null;
   resetExplorerQuery();
   scheduleExplorerSessionExpiry();
   explorerLoading.value = true;
@@ -188,10 +332,10 @@ async function selectExplorerDatabase(database: string): Promise<void> {
       ...(database ? { database } : {}),
     });
   } catch (error) {
-    explorerError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível listar as tabelas.';
+    explorerError.value = formatExplorerError(
+      error,
+      'Não foi possível listar as tabelas.',
+    );
   } finally {
     explorerLoading.value = false;
   }
@@ -212,6 +356,7 @@ async function previewExplorerTable(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
   scheduleExplorerSessionExpiry();
+  const startedAt = performance.now();
   try {
     explorerResult.value = await previewMachineDatabaseTable(
       {
@@ -221,11 +366,12 @@ async function previewExplorerTable(): Promise<void> {
       table,
     );
   } catch (error) {
-    explorerError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível consultar a tabela.';
+    explorerError.value = formatExplorerError(
+      error,
+      'Não foi possível consultar a tabela.',
+    );
   } finally {
+    explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
     explorerLoading.value = false;
   }
 }
@@ -239,6 +385,7 @@ async function runExplorerQuery(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
   scheduleExplorerSessionExpiry();
+  const startedAt = performance.now();
   try {
     explorerResult.value = await queryMachineDatabase(
       {
@@ -248,13 +395,49 @@ async function runExplorerQuery(): Promise<void> {
       explorerQuery.value,
     );
   } catch (error) {
-    explorerError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível executar a consulta.';
+    explorerError.value = formatExplorerError(
+      error,
+      'Não foi possível executar a consulta.',
+    );
+  } finally {
+    explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+    explorerLoading.value = false;
+  }
+}
+
+async function testExplorerConnection(): Promise<void> {
+  explorerLoading.value = true;
+  explorerError.value = '';
+  explorerTestMessage.value = '';
+  try {
+    const databases = await fetchMachineDatabaseCatalog({
+      ...explorerDraft.value,
+    });
+    explorerTestMessage.value = `Conexão validada. ${databases.length} banco(s) encontrado(s).`;
+  } catch (error) {
+    explorerError.value = formatExplorerError(
+      error,
+      'Não foi possível testar a conexão.',
+    );
   } finally {
     explorerLoading.value = false;
   }
+}
+
+function onExplorerTableSearch(event: Event): void {
+  explorerTableSearch.value = (event.target as HTMLInputElement).value;
+  explorerTablePage.value = 1;
+}
+
+function previousExplorerTablePage(): void {
+  explorerTablePage.value = Math.max(1, explorerTablePage.value - 1);
+}
+
+function nextExplorerTablePage(): void {
+  explorerTablePage.value = Math.min(
+    explorerTablePageCount.value,
+    explorerTablePage.value + 1,
+  );
 }
 
 async function loadServices(
@@ -448,7 +631,10 @@ async function uninstallService(
   }
 }
 
-onMounted(() => void loadServices());
+onMounted(() => {
+  loadSavedConnections();
+  void loadServices();
+});
 onUnmounted(() => {
   if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
 });
@@ -819,6 +1005,18 @@ onUnmounted(() => {
                 aria-label="Carregando"
               />
             </div>
+            <label
+              v-if="explorerTables.length"
+              class="database-explorer-table-search"
+            >
+              <span>Buscar tabela</span>
+              <input
+                :value="explorerTableSearch"
+                type="search"
+                placeholder="Nome da tabela"
+                @input="onExplorerTableSearch"
+              />
+            </label>
             <label class="database-explorer-select-label"
               >Banco
               <select
@@ -838,7 +1036,7 @@ onUnmounted(() => {
             <div v-if="explorerDatabase" class="database-explorer-table-list">
               <span>Tabelas</span>
               <button
-                v-for="table in explorerTables"
+                v-for="table in visibleExplorerTables"
                 :key="`${table.schema}.${table.name}`"
                 type="button"
                 :class="{ active: explorerTable === table.name }"
@@ -850,9 +1048,32 @@ onUnmounted(() => {
               >
                 {{ table.schema ? `${table.schema}.` : '' }}{{ table.name }}
               </button>
-              <p v-if="!explorerTables.length && !explorerLoading">
-                Nenhuma tabela encontrada.
+              <p v-if="!filteredExplorerTables.length && !explorerLoading">
+                Nenhuma tabela encontrada para esta busca.
               </p>
+              <div
+                v-if="explorerTablePageCount > 1"
+                class="database-explorer-pagination"
+              >
+                <button
+                  type="button"
+                  :disabled="explorerTablePage === 1"
+                  @click="previousExplorerTablePage"
+                >
+                  Anterior
+                </button>
+                <span
+                  >Página {{ explorerTablePage }} de
+                  {{ explorerTablePageCount }}</span
+                >
+                <button
+                  type="button"
+                  :disabled="explorerTablePage === explorerTablePageCount"
+                  @click="nextExplorerTablePage"
+                >
+                  Próxima
+                </button>
+              </div>
             </div>
           </aside>
           <div class="database-explorer-main">
@@ -867,9 +1088,15 @@ onUnmounted(() => {
                   <span>Visualização</span>
                   <h3>{{ explorerTable }}</h3>
                 </div>
-                <span v-if="explorerResult"
-                  >{{ explorerResult.rowCount }} linhas</span
-                >
+                <span v-if="explorerResult">
+                  {{ explorerResult.rowCount }} linhas
+                  <template v-if="explorerQueryDurationMs !== null">
+                    · {{ explorerQueryDurationMs }} ms
+                  </template>
+                  <template v-if="explorerResult.truncated">
+                    · resultado limitado
+                  </template>
+                </span>
               </div>
               <div v-if="explorerResult" class="database-explorer-table-wrap">
                 <table>
@@ -962,6 +1189,30 @@ onUnmounted(() => {
         </button>
       </div>
       <div class="database-connection-form">
+        <div v-if="savedConnections.length" class="database-saved-connections">
+          <label
+            >Conexão salva<select @change="applySavedConnection">
+              <option value="">Selecione uma conexão</option>
+              <option
+                v-for="saved in savedConnections"
+                :key="saved.id"
+                :value="saved.id"
+              >
+                {{ saved.label }}
+              </option>
+            </select></label
+          >
+          <button
+            v-for="saved in savedConnections"
+            :key="`remove-${saved.id}`"
+            type="button"
+            class="database-saved-remove"
+            :aria-label="`Remover conexão salva ${saved.label}`"
+            @click="removeSavedConnection(saved.id)"
+          >
+            ×
+          </button>
+        </div>
         <label
           >Banco<select
             v-model="explorerDraft.driver"
@@ -1008,8 +1259,28 @@ onUnmounted(() => {
       >
         {{ explorerError }}
       </p>
+      <p
+        v-if="explorerTestMessage"
+        class="database-machine-success"
+        role="status"
+      >
+        {{ explorerTestMessage }}
+      </p>
       <div class="database-modal-actions">
-        <button type="button" @click="closeExplorerConnection">Cancelar</button
+        <button type="button" @click="closeExplorerConnection">Cancelar</button>
+        <button
+          type="button"
+          :disabled="explorerLoading"
+          @click="saveExplorerConnection"
+        >
+          Salvar sem senha
+        </button>
+        <button
+          type="button"
+          :disabled="explorerLoading"
+          @click="testExplorerConnection"
+        >
+          {{ explorerLoading ? 'Testando…' : 'Testar conexão' }}</button
         ><button
           type="button"
           class="database-primary-button"
@@ -1403,6 +1674,23 @@ onUnmounted(() => {
   gap: 4px;
   margin-top: 22px;
 }
+.database-explorer-table-search {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-explorer-table-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+}
 .database-explorer-table-list > span {
   margin-bottom: 5px;
   color: var(--muted-text);
@@ -1426,6 +1714,27 @@ onUnmounted(() => {
 .database-explorer-table-list p {
   color: var(--muted-text);
   font-size: 12px;
+}
+.database-explorer-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted-text);
+  font-size: 10px;
+}
+.database-explorer-pagination button {
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: 10px;
+}
+.database-explorer-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 .database-explorer-main {
   min-width: 0;
@@ -1530,6 +1839,25 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+.database-saved-connections {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.database-saved-connections label {
+  grid-column: 1 / -1;
+}
+.database-saved-remove {
+  align-self: start;
+  margin-top: -38px;
+  padding: 5px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  color: var(--muted-text);
+  background: transparent;
 }
 .database-connection-form label {
   display: grid;
