@@ -631,6 +631,8 @@ onMounted(() => void loadServices());
             <label
               >Banco
               <select
+                id="database-explorer-driver"
+                name="driver"
                 v-model="explorerConnection.driver"
                 @change="syncExplorerPort"
               >
@@ -640,10 +642,18 @@ onMounted(() => void loadServices());
               </select>
             </label>
             <label
-              >Host<input v-model="explorerConnection.host" autocomplete="off"
-            /></label>
+              >Host
+              <input
+                id="database-explorer-host"
+                name="host"
+                v-model="explorerConnection.host"
+                autocomplete="off"
+              />
+            </label>
             <label
               >Porta<input
+                id="database-explorer-port"
+                name="port"
                 v-model.number="explorerConnection.port"
                 type="number"
                 min="1"
@@ -651,17 +661,23 @@ onMounted(() => void loadServices());
             /></label>
             <label
               >Usuário<input
+                id="database-explorer-username"
+                name="username"
                 v-model="explorerConnection.username"
                 autocomplete="off"
             /></label>
             <label
               >Senha<input
+                id="database-explorer-password"
+                name="password"
                 v-model="explorerConnection.password"
                 type="password"
                 autocomplete="new-password"
             /></label>
             <label
               >Banco (opcional)<input
+                id="database-explorer-database"
+                name="database"
                 v-model="explorerConnection.database"
                 autocomplete="off"
             /></label>
@@ -696,7 +712,11 @@ onMounted(() => void loadServices());
             </div>
             <div>
               <strong>Tabelas</strong
-              ><select v-model="explorerTable">
+              ><select
+                id="database-explorer-table"
+                name="table"
+                v-model="explorerTable"
+              >
                 <option value="">Selecione uma tabela</option>
                 <option
                   v-for="table in explorerTables"
@@ -716,6 +736,8 @@ onMounted(() => void loadServices());
           </div>
           <label class="database-explorer-query"
             >Consulta SELECT/WITH<textarea
+              id="database-explorer-query"
+              name="query"
               v-model="explorerQuery"
               maxlength="4000"
               rows="4"
