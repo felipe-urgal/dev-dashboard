@@ -105,7 +105,7 @@ function quoteIdentifier(
 }
 
 function readOnlyQuery(query: string): string {
-  const normalized = query.trim();
+  const normalized = query.trim().replace(/;\s*$/, '');
   if (!normalized || normalized.length > MAX_QUERY_LENGTH) {
     throw new DatabaseReadonlyError(
       'invalid-query',

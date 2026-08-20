@@ -88,6 +88,20 @@ test('bloqueia consultas de escrita, múltiplas instruções e hosts remotos', a
   );
 });
 
+test('aceita ponto e vírgula único no fim de uma consulta de leitura', async () => {
+  let executedQuery = '';
+  const service = new DatabaseReadonlyService(async (_command, args) => {
+    executedQuery = args[args.indexOf('--execute') + 1] ?? '';
+    return 'id\n1';
+  });
+  const result = await service.query(
+    { driver: 'mysql' },
+    "SELECT title FROM posts WHERE title = 'Fórum';",
+  );
+  assert.equal(executedQuery, "SELECT title FROM posts WHERE title = 'Fórum'");
+  assert.deepEqual(result.rows, [['1']]);
+});
+
 test('limita o resultado da consulta a cem linhas', async () => {
   const output = [
     'id',
