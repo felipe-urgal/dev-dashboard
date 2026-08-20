@@ -30,6 +30,21 @@ test('lista bancos e tabelas sem expor a senha nos argumentos', async () => {
   ]);
 });
 
+test('ignora arquivos de configuração do cliente MySQL ao usar credenciais da sessão', async () => {
+  let args: string[] | undefined;
+  const service = new DatabaseReadonlyService(async (_command, commandArgs) => {
+    args = commandArgs;
+    return 'name\tother\napp\tpublic';
+  });
+  await service.listDatabases({
+    driver: 'mysql',
+    username: 'root',
+    password: '123456',
+  });
+  assert.equal(args?.[0], '--no-defaults');
+  assert.equal(args?.includes('123456'), false);
+});
+
 test('usa o banco postgres quando o PostgreSQL não recebe um banco padrão', async () => {
   let environment: NodeJS.ProcessEnv | undefined;
   const service = new DatabaseReadonlyService(async (_command, _args, env) => {
