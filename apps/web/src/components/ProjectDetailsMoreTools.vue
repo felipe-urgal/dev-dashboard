@@ -23,10 +23,10 @@ const route = useRoute();
 </script>
 
 <template>
-  <div class="project-details-more-menu" aria-label="Ferramentas do projeto">
+  <template>
     <RouterLink
       v-if="project.type === 'rails' || project.type === 'node'"
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{
         'project-details-tab-active': route.name === 'project-dependencies',
       }"
@@ -37,7 +37,7 @@ const route = useRoute();
     </RouterLink>
     <RouterLink
       v-if="project.type === 'rails'"
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{
         'project-details-tab-active': route.name === 'project-console',
       }"
@@ -48,7 +48,7 @@ const route = useRoute();
     </RouterLink>
     <RouterLink
       v-if="project.type === 'rails' && sidekiqDetected"
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{
         'project-details-tab-active': route.name === 'project-rails-sidekiq',
       }"
@@ -59,7 +59,7 @@ const route = useRoute();
     </RouterLink>
     <RouterLink
       v-if="project.type === 'rails' && webpackDetected"
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{
         'project-details-tab-active': route.name === 'project-rails-webpack',
       }"
@@ -69,7 +69,7 @@ const route = useRoute();
       <span>Webpack</span>
     </RouterLink>
     <RouterLink
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{
         'project-details-tab-active': route.name === 'project-environment',
       }"
@@ -79,7 +79,7 @@ const route = useRoute();
       <span>Variáveis de ambiente</span>
     </RouterLink>
     <RouterLink
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{ 'project-details-tab-active': route.name === 'project-doctor' }"
       :to="{ name: 'project-doctor', params: { projectId: project.id } }"
     >
@@ -87,7 +87,7 @@ const route = useRoute();
       <span>Diagnóstico</span>
     </RouterLink>
     <RouterLink
-      class="project-details-tab project-details-more-item"
+      class="project-details-tab"
       :class="{ 'project-details-tab-active': route.name === 'project-readme' }"
       :to="{ name: 'project-readme', params: { projectId: project.id } }"
     >
@@ -96,23 +96,3 @@ const route = useRoute();
     </RouterLink>
   </div>
 </template>
-
-<style>
-.project-details-more-menu {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.project-details-more-item {
-  flex: 0 1 auto;
-}
-
-.project-details-more-item svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-</style>
