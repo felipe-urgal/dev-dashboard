@@ -1381,13 +1381,16 @@ onMounted(() => void loadServices());
   place-items: center;
   padding: 20px;
   background: rgb(0 0 0 / 45%);
+  --card-bg: var(--surface-1);
+  --border-color: var(--border);
+  --muted-text: var(--text-muted);
 }
 .database-connection-modal {
   width: min(620px, 100%);
   padding: 24px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--card-bg);
+  background: var(--surface-1);
   box-shadow: 0 18px 45px rgb(0 0 0 / 20%);
 }
 .database-modal-heading {
@@ -1943,7 +1946,8 @@ onMounted(() => void loadServices());
 /* Final visual pass: preserve the prototype hierarchy while keeping dense
    service data and long database names inside their own regions. */
 .database-machine-page {
-  max-width: 1440px;
+  width: 100%;
+  max-width: none;
   box-sizing: border-box;
   padding: 36px 40px 72px;
 }
