@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   ArrowPathIcon,
   ChevronDownIcon,
@@ -71,6 +71,61 @@ const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
 const explorerQuery = ref('SELECT * FROM ');
 const explorerTable = ref('');
 const explorerDatabase = ref('');
+const EXPLORER_SESSION_TTL_MS = 15 * 60 * 1000;
+let explorerSessionTimer: ReturnType<typeof setTimeout> | null = null;
+
+function resetExplorerQuery(): void {
+  explorerQuery.value = 'SELECT * FROM ';
+}
+
+function connectionDraftWithoutSecret(
+  connection: MachineDatabaseConnection,
+): MachineDatabaseConnection {
+  return {
+    driver: connection.driver,
+    ...(connection.host ? { host: connection.host } : {}),
+    ...(connection.port ? { port: connection.port } : {}),
+    ...(connection.username ? { username: connection.username } : {}),
+    ...(connection.database ? { database: connection.database } : {}),
+  };
+}
+
+function buildExplorerTableQuery(table: MachineDatabaseTable): string {
+  const qualifiedName = table.schema
+    ? `${table.schema}.${table.name}`
+    : table.name;
+  return `SELECT * FROM ${qualifiedName}`;
+}
+
+function clearExplorerSession(showExpiryMessage = false): void {
+  if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
+  explorerSessionTimer = null;
+  const hadConnection = explorerConnection.value !== null;
+  explorerConnection.value = null;
+  explorerDatabases.value = [];
+  explorerTables.value = [];
+  explorerResult.value = null;
+  explorerDatabase.value = '';
+  explorerTable.value = '';
+  explorerDraft.value = {
+    driver: explorerDraft.value.driver,
+    ...(explorerDraft.value.host ? { host: explorerDraft.value.host } : {}),
+    ...(explorerDraft.value.port ? { port: explorerDraft.value.port } : {}),
+  };
+  resetExplorerQuery();
+  if (showExpiryMessage && hadConnection) {
+    explorerError.value =
+      'A conexão expirou por inatividade. Conecte-se novamente para continuar.';
+  }
+}
+
+function scheduleExplorerSessionExpiry(): void {
+  if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
+  explorerSessionTimer = setTimeout(
+    () => clearExplorerSession(true),
+    EXPLORER_SESSION_TTL_MS,
+  );
+}
 
 function syncExplorerPort(): void {
   explorerDraft.value = {
@@ -80,6 +135,11 @@ function syncExplorerPort(): void {
 }
 
 function openExplorerConnection(): void {
+  if (explorerConnection.value) {
+    explorerDraft.value = connectionDraftWithoutSecret(
+      explorerConnection.value,
+    );
+  }
   explorerModalOpen.value = true;
   explorerError.value = '';
 }
@@ -99,6 +159,9 @@ async function connectExplorer(): Promise<void> {
     explorerDatabase.value = '';
     explorerTable.value = '';
     explorerTables.value = [];
+    explorerDraft.value = connectionDraftWithoutSecret(connection);
+    resetExplorerQuery();
+    scheduleExplorerSessionExpiry();
     explorerModalOpen.value = false;
   } catch (error) {
     explorerError.value =
@@ -115,6 +178,8 @@ async function selectExplorerDatabase(database: string): Promise<void> {
   explorerDatabase.value = database;
   explorerTable.value = '';
   explorerResult.value = null;
+  resetExplorerQuery();
+  scheduleExplorerSessionExpiry();
   explorerLoading.value = true;
   explorerError.value = '';
   try {
@@ -143,8 +208,10 @@ async function previewExplorerTable(): Promise<void> {
     (item) => item.name === explorerTable.value,
   );
   if (!table) return;
+  explorerQuery.value = buildExplorerTableQuery(table);
   explorerLoading.value = true;
   explorerError.value = '';
+  scheduleExplorerSessionExpiry();
   try {
     explorerResult.value = await previewMachineDatabaseTable(
       {
@@ -165,8 +232,13 @@ async function previewExplorerTable(): Promise<void> {
 
 async function runExplorerQuery(): Promise<void> {
   if (!explorerConnection.value) return;
+  if (!explorerQuery.value.trim()) {
+    explorerError.value = 'Informe uma consulta SELECT ou WITH.';
+    return;
+  }
   explorerLoading.value = true;
   explorerError.value = '';
+  scheduleExplorerSessionExpiry();
   try {
     explorerResult.value = await queryMachineDatabase(
       {
@@ -377,6 +449,9 @@ async function uninstallService(
 }
 
 onMounted(() => void loadServices());
+onUnmounted(() => {
+  if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
+});
 </script>
 
 <template>
@@ -459,6 +534,8 @@ onMounted(() => void loadServices());
           v-for="service in installedServices"
           :key="service.id"
           class="database-machine-card"
+          :data-service-id="service.id"
+          :aria-busy="pending?.serviceId === service.id"
         >
           <div class="database-machine-card-icon">
             <CircleStackIcon aria-hidden="true" />
@@ -511,6 +588,9 @@ onMounted(() => void loadServices());
             <button
               type="button"
               class="database-machine-details-toggle"
+              :disabled="
+                detailsLoading !== null && detailsLoading !== service.id
+              "
               :aria-expanded="expandedServiceId === service.id"
               :aria-controls="`database-details-${service.id}`"
               @click="toggleDetails(service.id)"
@@ -636,6 +716,8 @@ onMounted(() => void loadServices());
           v-for="service in uninstalledServices"
           :key="service.id"
           class="database-machine-card database-machine-card-uninstalled"
+          :data-service-id="service.id"
+          :aria-busy="pending?.serviceId === service.id"
         >
           <div class="database-machine-card-icon">
             <CircleStackIcon aria-hidden="true" />
@@ -762,6 +844,7 @@ onMounted(() => void loadServices());
                 :class="{ active: explorerTable === table.name }"
                 @click="
                   explorerTable = table.name;
+                  explorerQuery = buildExplorerTableQuery(table);
                   void previewExplorerTable();
                 "
               >
@@ -816,22 +899,36 @@ onMounted(() => void loadServices());
                 </table>
               </div>
               <div class="database-explorer-query-box">
-                <label for="database-query">Consulta SELECT/WITH</label>
+                <div class="database-explorer-query-heading">
+                  <label for="database-query">Consulta SELECT/WITH</label>
+                  <span>Ctrl/Cmd + Enter para executar</span>
+                </div>
                 <textarea
                   id="database-query"
                   v-model="explorerQuery"
                   maxlength="4000"
                   rows="3"
                   spellcheck="false"
+                  @keydown.ctrl.enter.prevent="runExplorerQuery"
+                  @keydown.meta.enter.prevent="runExplorerQuery"
                 />
-                <button
-                  type="button"
-                  class="database-primary-button"
-                  :disabled="explorerLoading"
-                  @click="runExplorerQuery"
-                >
-                  {{ explorerLoading ? 'Consultando…' : 'Executar leitura' }}
-                </button>
+                <div class="database-explorer-query-actions">
+                  <button
+                    type="button"
+                    :disabled="explorerLoading"
+                    @click="resetExplorerQuery"
+                  >
+                    Limpar consulta
+                  </button>
+                  <button
+                    type="button"
+                    class="database-primary-button"
+                    :disabled="explorerLoading"
+                    @click="runExplorerQuery"
+                  >
+                    {{ explorerLoading ? 'Consultando…' : 'Executar leitura' }}
+                  </button>
+                </div>
               </div>
             </template>
           </div>
@@ -1370,8 +1467,23 @@ onMounted(() => void loadServices());
   gap: 8px;
   margin-top: 18px;
 }
+.database-explorer-query-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.database-explorer-query-heading span {
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-explorer-query-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .database-explorer-query-box button {
-  justify-self: end;
+  min-height: 32px;
 }
 .database-modal-backdrop {
   position: fixed;
