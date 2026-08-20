@@ -6,6 +6,7 @@ import type {
   DatabaseSnapshotList,
   ManagedProcess,
   MachineDatabaseService,
+  MachineDatabaseServiceDetails,
   ProcessLogSnapshot,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
@@ -36,6 +37,9 @@ interface ProjectDatabaseServiceActionResponse {
 interface MachineDatabaseServicesResponse {
   services: MachineDatabaseService[];
 }
+interface MachineDatabaseServiceDetailsResponse {
+  details: MachineDatabaseServiceDetails;
+}
 
 export async function fetchMachineDatabaseServices(): Promise<
   MachineDatabaseService[]
@@ -43,6 +47,15 @@ export async function fetchMachineDatabaseServices(): Promise<
   const response =
     await requestJson<MachineDatabaseServicesResponse>('/api/database');
   return response.services;
+}
+
+export async function fetchMachineDatabaseServiceDetails(
+  serviceId: string,
+): Promise<MachineDatabaseServiceDetails> {
+  const response = await requestJson<MachineDatabaseServiceDetailsResponse>(
+    `/api/database/${encodeURIComponent(serviceId)}/details`,
+  );
+  return response.details;
 }
 
 export async function runMachineDatabaseServiceAction(

@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 
 const api = vi.hoisted(() => ({
   fetchMachineDatabaseServices: vi.fn(),
+  fetchMachineDatabaseServiceDetails: vi.fn(),
   installMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
   runMachineDatabaseServiceAction: vi.fn().mockResolvedValue(undefined),
   uninstallMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
@@ -120,6 +121,51 @@ describe('DatabaseView', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain(
       'Não é possível iniciar enquanto MariaDB estiver em execução.',
     );
+  });
+
+  it('carrega detalhes, testa a conexão e mostra logs recentes', async () => {
+    api.fetchMachineDatabaseServices.mockResolvedValue([
+      {
+        id: 'postgresql',
+        driver: 'postgresql',
+        label: 'PostgreSQL',
+        unit: 'postgresql.service',
+        installed: true,
+        active: true,
+      },
+    ]);
+    api.fetchMachineDatabaseServiceDetails.mockResolvedValue({
+      serviceId: 'postgresql',
+      port: 5432,
+      version: 'psql (PostgreSQL) 16.4',
+      pid: 4242,
+      reachability: 'reachable',
+      logs: ['ready to accept connections'],
+    });
+    const wrapper = mount(DatabaseView);
+    wrappers.push(wrapper);
+    await flushPromises();
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Ver detalhes'))!
+      .trigger('click');
+    await flushPromises();
+
+    expect(api.fetchMachineDatabaseServiceDetails).toHaveBeenCalledWith(
+      'postgresql',
+    );
+    expect(wrapper.text()).toContain('5432');
+    expect(wrapper.text()).toContain('psql (PostgreSQL) 16.4');
+    expect(wrapper.text()).toContain('Porta acessível');
+    expect(wrapper.text()).toContain('ready to accept connections');
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Testar conexão'))!
+      .trigger('click');
+    await flushPromises();
+    expect(api.fetchMachineDatabaseServiceDetails).toHaveBeenCalledTimes(2);
   });
 
   it('separa serviços não instalados e confirma a instalação', async () => {

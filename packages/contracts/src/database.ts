@@ -47,6 +47,16 @@ export interface MachineDatabaseService {
   active: boolean;
 }
 
+export interface MachineDatabaseServiceDetails {
+  serviceId: string;
+  port?: number;
+  version?: string;
+  pid?: number;
+  startedAt?: string;
+  reachability: DatabaseReachability;
+  logs: string[];
+}
+
 export interface ProjectDatabaseServiceActionResult {
   environmentId: string;
   action: DatabaseServiceAction;
