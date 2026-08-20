@@ -13,6 +13,23 @@ const MAX_QUERY_LENGTH = 4_000;
 const MAX_ROWS = 100;
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
+function commandFailureText(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const failure = error as {
+    code?: unknown;
+    message?: unknown;
+    stderr?: unknown;
+    stdout?: unknown;
+  };
+  return [failure.code, failure.message, failure.stderr, failure.stdout]
+    .filter(
+      (value): value is string | number =>
+        typeof value === 'string' || typeof value === 'number',
+    )
+    .join(' ')
+    .toLowerCase();
+}
+
 type CommandRunner = (
   command: string,
   args: string[],
@@ -144,7 +161,9 @@ export class DatabaseReadonlyService {
     const port =
       connection.port ?? (connection.driver === 'postgresql' ? 5432 : 3306);
     const env = { ...process.env };
-    const database = connection.database?.trim();
+    const database =
+      connection.database?.trim() ||
+      (connection.driver === 'postgresql' ? 'postgres' : undefined);
     if (connection.driver === 'postgresql') {
       Object.assign(env, {
         PGHOST: host,
@@ -190,9 +209,40 @@ export class DatabaseReadonlyService {
           'client-unavailable',
           `O cliente ${command} não está instalado nesta máquina.`,
         );
+      const failureText = commandFailureText(error);
+      if (
+        failureText.includes('access denied') ||
+        failureText.includes('password authentication failed') ||
+        (failureText.includes('role') && failureText.includes('does not exist'))
+      ) {
+        throw new DatabaseReadonlyError(
+          'command-failed',
+          'Credenciais rejeitadas. Informe um usuário e senha válidos para este banco.',
+        );
+      }
+      if (
+        failureText.includes('connection refused') ||
+        failureText.includes("can't connect") ||
+        failureText.includes('could not connect')
+      ) {
+        throw new DatabaseReadonlyError(
+          'command-failed',
+          'Não foi possível conectar ao serviço. Verifique se ele está em execução e se a porta está correta.',
+        );
+      }
+      if (
+        failureText.includes('unknown database') ||
+        (failureText.includes('database') &&
+          failureText.includes('does not exist'))
+      ) {
+        throw new DatabaseReadonlyError(
+          'command-failed',
+          'O banco informado não existe ou o usuário não tem acesso a ele.',
+        );
+      }
       throw new DatabaseReadonlyError(
         'command-failed',
-        'Não foi possível consultar o banco. Verifique o serviço, credenciais e banco selecionados.',
+        'Não foi possível consultar o banco. Informe as credenciais do banco e verifique o serviço selecionado.',
       );
     }
   }

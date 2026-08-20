@@ -24,9 +24,20 @@ test('lista bancos e tabelas sem expor a senha nos argumentos', async () => {
   assert.equal(calls[0]?.command, 'psql');
   assert.equal(calls[0]?.args.includes('segredo'), false);
   assert.equal(calls[0]?.env.PGPASSWORD, 'segredo');
+  assert.equal(calls[0]?.env.PGDATABASE, 'app');
   assert.deepEqual(await service.listTables(connection), [
     { schema: 'app', name: 'public' },
   ]);
+});
+
+test('usa o banco postgres quando o PostgreSQL não recebe um banco padrão', async () => {
+  let environment: NodeJS.ProcessEnv | undefined;
+  const service = new DatabaseReadonlyService(async (_command, _args, env) => {
+    environment = env;
+    return 'name\npostgres';
+  });
+  await service.listDatabases({ driver: 'postgresql', username: 'felipe' });
+  assert.equal(environment?.PGDATABASE, 'postgres');
 });
 
 test('bloqueia consultas de escrita, múltiplas instruções e hosts remotos', async () => {

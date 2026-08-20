@@ -54,38 +54,50 @@ const uninstalledServices = computed(() =>
 const activeServices = computed(() =>
   installedServices.value.filter((service) => service.active),
 );
-const explorerOpen = ref(false);
+const explorerModalOpen = ref(false);
 const explorerLoading = ref(false);
 const explorerError = ref('');
-const explorerConnection = ref<MachineDatabaseConnection>({
+const explorerDraft = ref<MachineDatabaseConnection>({
   driver: 'postgresql',
   host: '127.0.0.1',
   port: 5432,
 });
+const explorerConnection = ref<MachineDatabaseConnection | null>(null);
 const explorerDatabases = ref<{ name: string }[]>([]);
 const explorerTables = ref<MachineDatabaseTable[]>([]);
 const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
 const explorerQuery = ref('SELECT * FROM ');
 const explorerTable = ref('');
+const explorerDatabase = ref('');
 
 function syncExplorerPort(): void {
-  explorerConnection.value = {
-    ...explorerConnection.value,
-    port: explorerConnection.value.driver === 'postgresql' ? 5432 : 3306,
+  explorerDraft.value = {
+    ...explorerDraft.value,
+    port: explorerDraft.value.driver === 'postgresql' ? 5432 : 3306,
   };
 }
 
-async function loadExplorerCatalog(): Promise<void> {
+function openExplorerConnection(): void {
+  explorerModalOpen.value = true;
+  explorerError.value = '';
+}
+
+function closeExplorerConnection(): void {
+  if (!explorerLoading.value) explorerModalOpen.value = false;
+}
+
+async function connectExplorer(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
   explorerResult.value = null;
   try {
-    explorerDatabases.value = await fetchMachineDatabaseCatalog(
-      explorerConnection.value,
-    );
-    explorerTables.value = await fetchMachineDatabaseTables(
-      explorerConnection.value,
-    );
+    const connection = { ...explorerDraft.value };
+    explorerDatabases.value = await fetchMachineDatabaseCatalog(connection);
+    explorerConnection.value = connection;
+    explorerDatabase.value = '';
+    explorerTable.value = '';
+    explorerTables.value = [];
+    explorerModalOpen.value = false;
   } catch (error) {
     explorerError.value =
       error instanceof Error
@@ -96,7 +108,35 @@ async function loadExplorerCatalog(): Promise<void> {
   }
 }
 
+async function selectExplorerDatabase(database: string): Promise<void> {
+  if (!explorerConnection.value) return;
+  explorerDatabase.value = database;
+  explorerTable.value = '';
+  explorerResult.value = null;
+  explorerLoading.value = true;
+  explorerError.value = '';
+  try {
+    explorerTables.value = await fetchMachineDatabaseTables({
+      ...explorerConnection.value,
+      ...(database ? { database } : {}),
+    });
+  } catch (error) {
+    explorerError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível listar as tabelas.';
+  } finally {
+    explorerLoading.value = false;
+  }
+}
+
+function onExplorerDatabaseChange(event: Event): void {
+  const target = event.target as HTMLSelectElement;
+  void selectExplorerDatabase(target.value);
+}
+
 async function previewExplorerTable(): Promise<void> {
+  if (!explorerConnection.value) return;
   const table = explorerTables.value.find(
     (item) => item.name === explorerTable.value,
   );
@@ -105,7 +145,10 @@ async function previewExplorerTable(): Promise<void> {
   explorerError.value = '';
   try {
     explorerResult.value = await previewMachineDatabaseTable(
-      explorerConnection.value,
+      {
+        ...explorerConnection.value,
+        ...(explorerDatabase.value ? { database: explorerDatabase.value } : {}),
+      },
       table,
     );
   } catch (error) {
@@ -119,11 +162,15 @@ async function previewExplorerTable(): Promise<void> {
 }
 
 async function runExplorerQuery(): Promise<void> {
+  if (!explorerConnection.value) return;
   explorerLoading.value = true;
   explorerError.value = '';
   try {
     explorerResult.value = await queryMachineDatabase(
-      explorerConnection.value,
+      {
+        ...explorerConnection.value,
+        ...(explorerDatabase.value ? { database: explorerDatabase.value } : {}),
+      },
       explorerQuery.value,
     );
   } catch (error) {
@@ -616,14 +663,30 @@ onMounted(() => void loadServices());
       >
         <div class="database-machine-section-heading">
           <div>
-            <h2 id="database-explorer-title">Explorar dados</h2>
+            <h2 id="database-explorer-title">Explorador de dados</h2>
             <p>
               Acesso local somente leitura. Credenciais ficam apenas nesta
               sessão.
             </p>
           </div>
-          <button type="button" @click="explorerOpen = !explorerOpen">
-            {{ explorerOpen ? 'Ocultar' : 'Abrir explorador' }}
+        </div>
+        <div class="database-connection-bar">
+          <CircleStackIcon aria-hidden="true" />
+          <div>
+            <strong>Conexão</strong>
+            <span>{{
+              explorerConnection
+                ? `${explorerConnection.driver} · ${explorerConnection.host}:${explorerConnection.port}`
+                : 'Nenhuma conexão ativa'
+            }}</span>
+          </div>
+          <button
+            type="button"
+            class="database-primary-button"
+            @click="openExplorerConnection"
+          >
+            {{ explorerConnection ? 'Trocar conexão' : 'Conectar' }}
+            <ChevronDownIcon aria-hidden="true" />
           </button>
         </div>
         <div v-if="explorerOpen" class="database-explorer-panel">
@@ -682,33 +745,38 @@ onMounted(() => void loadServices());
                 autocomplete="off"
             /></label>
           </div>
-          <div class="database-explorer-toolbar">
+          <div class="database-explorer-empty-art" aria-hidden="true">
+            <CircleStackIcon />
+          </div>
+          <div
+            class="database-explorer-empty-copy database-explorer-empty-copy-right"
+          >
+            <h3>Conecte-se para explorar seus bancos</h3>
+            <p>Use uma conexão local somente leitura para começar.</p>
             <button
               type="button"
-              :disabled="explorerLoading"
-              @click="loadExplorerCatalog"
+              class="database-primary-button"
+              @click="openExplorerConnection"
             >
-              {{ explorerLoading ? 'Conectando…' : 'Conectar e listar' }}
+              Conectar a um serviço
             </button>
           </div>
-          <p
-            v-if="explorerError"
-            class="database-machine-details-error"
-            role="alert"
+        </div>
+        <div v-else class="database-explorer-workspace">
+          <aside
+            class="database-explorer-sidebar"
+            aria-label="Bancos e tabelas"
           >
-            {{ explorerError }}
-          </p>
-          <div
-            v-if="explorerDatabases.length || explorerTables.length"
-            class="database-explorer-grid"
-          >
-            <div>
-              <strong>Bancos encontrados</strong>
-              <ul>
-                <li v-for="database in explorerDatabases" :key="database.name">
-                  {{ database.name }}
-                </li>
-              </ul>
+            <div class="database-explorer-sidebar-heading">
+              <div>
+                <strong>Bancos e tabelas</strong
+                ><span>{{ explorerDatabases.length }} bancos</span>
+              </div>
+              <ArrowPathIcon
+                v-if="explorerLoading"
+                class="is-spinning"
+                aria-label="Carregando"
+              />
             </div>
             <div>
               <strong>Tabelas</strong
@@ -719,19 +787,31 @@ onMounted(() => void loadServices());
               >
                 <option value="">Selecione uma tabela</option>
                 <option
-                  v-for="table in explorerTables"
-                  :key="`${table.schema}.${table.name}`"
-                  :value="table.name"
+                  v-for="database in explorerDatabases"
+                  :key="database.name"
+                  :value="database.name"
                 >
-                  {{ table.schema ? `${table.schema}.` : '' }}{{ table.name }}
-                </option></select
-              ><button
+                  {{ database.name }}
+                </option>
+              </select>
+            </label>
+            <div v-if="explorerDatabase" class="database-explorer-table-list">
+              <span>Tabelas</span>
+              <button
+                v-for="table in explorerTables"
+                :key="`${table.schema}.${table.name}`"
                 type="button"
-                :disabled="explorerLoading || !explorerTable"
-                @click="previewExplorerTable"
+                :class="{ active: explorerTable === table.name }"
+                @click="
+                  explorerTable = table.name;
+                  void previewExplorerTable();
+                "
               >
-                Visualizar até 100 linhas
+                {{ table.schema ? `${table.schema}.` : '' }}{{ table.name }}
               </button>
+              <p v-if="!explorerTables.length && !explorerLoading">
+                Nenhuma tabela encontrada.
+              </p>
             </div>
           </div>
           <label class="database-explorer-query"
@@ -778,11 +858,152 @@ onMounted(() => void loadServices());
                 </tbody>
               </table>
             </div>
+            <template v-else>
+              <div class="database-explorer-result-heading">
+                <div>
+                  <span>Visualização</span>
+                  <h3>{{ explorerTable }}</h3>
+                </div>
+                <span v-if="explorerResult"
+                  >{{ explorerResult.rowCount }} linhas</span
+                >
+              </div>
+              <div v-if="explorerResult" class="database-explorer-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th
+                        v-for="column in explorerResult.columns"
+                        :key="column"
+                      >
+                        {{ column }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(row, rowIndex) in explorerResult.rows"
+                      :key="rowIndex"
+                    >
+                      <td
+                        v-for="(value, columnIndex) in row"
+                        :key="columnIndex"
+                      >
+                        {{ value ?? 'NULL' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="database-explorer-query-box">
+                <label for="database-query">Consulta SELECT/WITH</label>
+                <textarea
+                  id="database-query"
+                  v-model="explorerQuery"
+                  maxlength="4000"
+                  rows="3"
+                  spellcheck="false"
+                />
+                <button
+                  type="button"
+                  class="database-primary-button"
+                  :disabled="explorerLoading"
+                  @click="runExplorerQuery"
+                >
+                  {{ explorerLoading ? 'Consultando…' : 'Executar leitura' }}
+                </button>
+              </div>
+            </template>
           </div>
         </div>
       </section>
     </template>
   </section>
+  <div
+    v-if="explorerModalOpen"
+    class="database-modal-backdrop"
+    @click.self="closeExplorerConnection"
+  >
+    <section
+      class="database-connection-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="database-connection-title"
+    >
+      <div class="database-modal-heading">
+        <div>
+          <span class="database-machine-eyebrow">Conexão local</span>
+          <h2 id="database-connection-title">Conectar a um serviço</h2>
+          <p>As credenciais são usadas somente nesta sessão.</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Fechar"
+          @click="closeExplorerConnection"
+        >
+          ×
+        </button>
+      </div>
+      <div class="database-connection-form">
+        <label
+          >Banco<select
+            v-model="explorerDraft.driver"
+            @change="syncExplorerPort"
+          >
+            <option value="postgresql">PostgreSQL</option>
+            <option value="mysql">MySQL</option>
+            <option value="mariadb">MariaDB</option>
+          </select></label
+        >
+        <label
+          >Host<input v-model="explorerDraft.host" autocomplete="off"
+        /></label>
+        <label
+          >Porta<input
+            v-model.number="explorerDraft.port"
+            type="number"
+            min="1"
+            max="65535"
+        /></label>
+        <label
+          >Usuário<input
+            v-model="explorerDraft.username"
+            placeholder="ex.: felipe, root ou postgres"
+            autocomplete="off"
+        /></label>
+        <label
+          >Senha<input
+            v-model="explorerDraft.password"
+            type="password"
+            autocomplete="new-password"
+        /></label>
+        <label
+          >Banco (opcional)<input
+            v-model="explorerDraft.database"
+            placeholder="Vazio lista todos"
+            autocomplete="off"
+        /></label>
+      </div>
+      <p
+        v-if="explorerError"
+        class="database-machine-details-error"
+        role="alert"
+      >
+        {{ explorerError }}
+      </p>
+      <div class="database-modal-actions">
+        <button type="button" @click="closeExplorerConnection">Cancelar</button
+        ><button
+          type="button"
+          class="database-primary-button"
+          :disabled="explorerLoading"
+          @click="connectExplorer"
+        >
+          {{ explorerLoading ? 'Conectando…' : 'Conectar e continuar' }}
+        </button>
+      </div>
+    </section>
+  </div>
 </template>
 
 <style scoped>
@@ -870,6 +1091,380 @@ onMounted(() => void loadServices());
 @media (max-width: 680px) {
   .database-explorer-form,
   .database-explorer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Database explorer v2: compact service rows and guided data exploration. */
+.database-machine-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 28px 56px;
+}
+.database-machine-header {
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--border-color);
+}
+.database-machine-header h1 {
+  font-size: clamp(26px, 3vw, 34px);
+}
+.database-machine-overview {
+  max-width: none;
+  margin: 26px 0 34px;
+  border-radius: 10px;
+}
+.database-machine-section-heading {
+  max-width: none;
+  margin-top: 26px;
+}
+.database-machine-section-heading h2 {
+  font-size: 17px;
+}
+.database-machine-section-heading p {
+  font-size: 12px;
+}
+.database-machine-list {
+  max-width: none;
+  gap: 0;
+  border-top: 1px solid var(--border-color);
+}
+.database-machine-card {
+  display: grid;
+  grid-template-columns: 44px minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 86px;
+  padding: 16px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
+}
+.database-machine-card-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--accent-soft);
+}
+.database-machine-card-copy h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.database-machine-title-line {
+  gap: 10px;
+}
+.database-machine-status {
+  font-size: 11px;
+}
+.database-machine-meta {
+  margin-top: 5px;
+}
+.database-machine-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.database-machine-details {
+  grid-column: 2 / -1;
+  width: auto;
+  margin: 0 0 4px;
+}
+.database-machine-section-available {
+  margin-top: 34px;
+}
+.database-explorer {
+  max-width: none;
+  margin-top: 48px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 26px;
+}
+.database-connection-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 13px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--card-bg);
+}
+.database-connection-bar > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent-strong);
+}
+.database-connection-bar > div {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+}
+.database-connection-bar span,
+.database-explorer-sidebar-heading span,
+.database-explorer-result-heading > span {
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-connection-bar button svg {
+  width: 14px;
+  height: 14px;
+}
+.database-primary-button {
+  color: var(--text-on-accent, #fff);
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+.database-explorer-empty {
+  display: grid;
+  grid-template-columns: 1fr 150px 1fr;
+  align-items: center;
+  min-height: 260px;
+  margin-top: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+}
+.database-explorer-empty-copy {
+  padding: 32px;
+}
+.database-explorer-empty-copy-right {
+  border-left: 1px solid var(--border-color);
+}
+.database-explorer-empty-copy h3,
+.database-explorer-main-empty h3 {
+  margin: 0 0 7px;
+  font-size: 16px;
+}
+.database-explorer-empty-copy p,
+.database-explorer-main-empty p {
+  margin: 0 0 16px;
+  color: var(--muted-text);
+  font-size: 12px;
+}
+.database-explorer-empty-art {
+  display: grid;
+  place-items: center;
+  width: 100px;
+  height: 100px;
+  justify-self: center;
+  border-radius: 50%;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.database-explorer-empty-art svg {
+  width: 44px;
+  height: 44px;
+}
+.database-explorer-workspace {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  min-height: 340px;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+}
+.database-explorer-sidebar {
+  padding: 18px;
+  border-right: 1px solid var(--border-color);
+}
+.database-explorer-sidebar-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.database-explorer-sidebar-heading div {
+  display: grid;
+  gap: 4px;
+}
+.database-explorer-sidebar-heading svg {
+  width: 15px;
+  height: 15px;
+}
+.database-explorer-select-label,
+.database-explorer-query-box label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-explorer-sidebar select,
+.database-explorer-query-box textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+}
+.database-explorer-table-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 22px;
+}
+.database-explorer-table-list > span {
+  margin-bottom: 5px;
+  color: var(--muted-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.database-explorer-table-list button {
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+}
+.database-explorer-table-list button:hover,
+.database-explorer-table-list button.active {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.database-explorer-table-list p {
+  color: var(--muted-text);
+  font-size: 12px;
+}
+.database-explorer-main {
+  min-width: 0;
+  padding: 20px;
+}
+.database-explorer-main-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 300px;
+  text-align: center;
+}
+.database-explorer-main-empty svg {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
+  color: var(--muted-text);
+}
+.database-explorer-result-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.database-explorer-result-heading div {
+  display: grid;
+  gap: 4px;
+}
+.database-explorer-result-heading div span {
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-explorer-result-heading h3 {
+  margin: 0;
+}
+.database-explorer-query-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.database-explorer-query-box button {
+  justify-self: end;
+}
+.database-modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 45%);
+}
+.database-connection-modal {
+  width: min(620px, 100%);
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 18px 45px rgb(0 0 0 / 20%);
+}
+.database-modal-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.database-modal-heading h2 {
+  margin: 5px 0;
+}
+.database-modal-heading p {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 12px;
+}
+.database-modal-heading > button {
+  align-self: start;
+  border: 0;
+  color: var(--muted-text);
+  background: transparent;
+  font-size: 22px;
+}
+.database-connection-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.database-connection-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-connection-form input,
+.database-connection-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+}
+.database-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+@media (max-width: 760px) {
+  .database-machine-page {
+    padding: 22px 16px 40px;
+  }
+  .database-machine-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .database-machine-actions,
+  .database-machine-details {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .database-explorer-empty,
+  .database-explorer-workspace {
+    grid-template-columns: 1fr;
+  }
+  .database-explorer-empty-art {
+    margin: 10px auto;
+  }
+  .database-explorer-empty-copy-right,
+  .database-explorer-sidebar {
+    border-top: 1px solid var(--border-color);
+    border-left: 0;
+  }
+  .database-explorer-main {
+    border-top: 1px solid var(--border-color);
+  }
+  .database-connection-form {
     grid-template-columns: 1fr;
   }
 }
@@ -1213,6 +1808,48 @@ onMounted(() => void loadServices());
     align-items: flex-start;
     flex-direction: column;
     gap: 6px;
+  }
+}
+
+/* Keep the v2 layout rules last so legacy card rules cannot override them. */
+.database-machine-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 28px 56px;
+}
+.database-machine-list {
+  max-width: none;
+  gap: 0;
+  border-top: 1px solid var(--border-color);
+}
+.database-machine-card {
+  display: grid;
+  grid-template-columns: 44px minmax(220px, 1fr) auto;
+  align-items: center;
+  min-height: 86px;
+  padding: 16px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
+}
+.database-machine-details {
+  grid-column: 2 / -1;
+  width: auto;
+  margin: 0 0 4px;
+}
+.database-explorer {
+  max-width: none;
+}
+@media (max-width: 680px) {
+  .database-machine-card {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+  }
+  .database-machine-actions,
+  .database-machine-details {
+    grid-column: 1 / -1;
   }
 }
 </style>
