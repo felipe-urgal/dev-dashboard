@@ -198,6 +198,12 @@ export class DatabaseReadonlyService {
           ]
         : [
             '--no-defaults',
+            '--protocol=tcp',
+            '--host',
+            host,
+            '--port',
+            String(port),
+            ...(connection.username ? ['--user', connection.username] : []),
             '--column-names',
             '--batch',
             '--raw',

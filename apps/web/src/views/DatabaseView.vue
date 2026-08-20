@@ -740,8 +740,6 @@ onMounted(() => void loadServices());
             <label class="database-explorer-select-label"
               >Banco
               <select
-                id="database-explorer-database"
-                name="database"
                 :value="explorerDatabase"
                 @change="onExplorerDatabaseChange"
               >
@@ -821,7 +819,6 @@ onMounted(() => void loadServices());
                 <label for="database-query">Consulta SELECT/WITH</label>
                 <textarea
                   id="database-query"
-                  name="query"
                   v-model="explorerQuery"
                   maxlength="4000"
                   rows="3"
@@ -932,6 +929,9 @@ onMounted(() => void loadServices());
 <style scoped>
 .database-machine-page {
   padding: 28px;
+  --card-bg: var(--surface-1);
+  --border-color: var(--border);
+  --muted-text: var(--text-muted);
 }
 .database-explorer {
   max-width: 1120px;
