@@ -248,9 +248,11 @@ describe('DatabaseView', () => {
     };
     api.previewMachineDatabaseTable.mockResolvedValue(result);
     api.queryMachineDatabase.mockResolvedValue(result);
-    const clipboard = vi
-      .spyOn(navigator.clipboard, 'writeText')
-      .mockResolvedValue(undefined);
+    const clipboard = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: clipboard },
+    });
     const createObjectURL = vi
       .spyOn(URL, 'createObjectURL')
       .mockReturnValue('blob:test');
