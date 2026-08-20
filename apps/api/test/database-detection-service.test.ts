@@ -280,6 +280,54 @@ test('detecta serviços globais instalados, ativos e ausentes', async () => {
   assert.equal(calls.length, 5);
 });
 
+test('consulta detalhes, versão e logs recentes de um serviço global', async () => {
+  const service = new DatabaseDetectionService(
+    undefined,
+    async (command, args) => {
+      if (command === 'systemctl' && args[0] === 'is-active') {
+        return {
+          stdout: args[1] === 'postgresql.service' ? 'active\n' : 'inactive\n',
+        };
+      }
+      if (command === 'systemctl' && args[0] === 'show') {
+        return { stdout: '4242\nWed 2026-08-20 09:00:00 BRT\n' };
+      }
+      if (command === 'psql') return { stdout: 'psql (PostgreSQL) 16.4\n' };
+      if (command === 'journalctl') {
+        return {
+          stdout:
+            '2026-08-20T09:00:00 service started\n2026-08-20T09:01:00 ready\n',
+        };
+      }
+      throw new Error('comando inesperado');
+    },
+  );
+
+  const details = await service.getMachineServiceDetails('postgresql');
+
+  assert.deepEqual(
+    {
+      port: details.port,
+      version: details.version,
+      pid: details.pid,
+      startedAt: details.startedAt,
+      reachability: details.reachability,
+      logs: details.logs,
+    },
+    {
+      port: 5432,
+      version: 'psql (PostgreSQL) 16.4',
+      pid: 4242,
+      startedAt: 'Wed 2026-08-20 09:00:00 BRT',
+      reachability: 'unreachable',
+      logs: [
+        '2026-08-20T09:00:00 service started',
+        '2026-08-20T09:01:00 ready',
+      ],
+    },
+  );
+});
+
 test('executa ação global no serviço systemd correspondente', async () => {
   const calls: Array<{ command: string; args: string[] }> = [];
   const service = new DatabaseDetectionService(

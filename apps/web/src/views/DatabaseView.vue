@@ -2,7 +2,10 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   ArrowPathIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   CircleStackIcon,
+  InformationCircleIcon,
   PauseIcon,
   PlayIcon,
   TrashIcon,
@@ -10,10 +13,12 @@ import {
 import type {
   DatabaseServiceAction,
   MachineDatabaseService,
+  MachineDatabaseServiceDetails,
 } from '@dev-dashboard/contracts';
 
 import {
   fetchMachineDatabaseServices,
+  fetchMachineDatabaseServiceDetails,
   installMachineDatabaseService,
   runMachineDatabaseServiceAction,
   uninstallMachineDatabaseService,
@@ -25,6 +30,10 @@ const loading = ref(true);
 const errorMessage = ref('');
 const successMessage = ref('');
 const lastUpdatedAt = ref<Date | null>(null);
+const expandedServiceId = ref<string | null>(null);
+const details = ref<Record<string, MachineDatabaseServiceDetails>>({});
+const detailsErrors = ref<Record<string, string>>({});
+const detailsLoading = ref<string | null>(null);
 const pending = ref<{
   serviceId: string;
   action: DatabaseServiceAction | 'install' | 'uninstall';
@@ -64,6 +73,52 @@ function refreshServices(): void {
   void loadServices({ clearSuccess: true });
 }
 
+function serviceDetails(
+  serviceId: string,
+): MachineDatabaseServiceDetails | undefined {
+  return details.value[serviceId];
+}
+
+function reachabilityLabel(
+  value: MachineDatabaseServiceDetails['reachability'],
+) {
+  return {
+    reachable: 'Porta acessível',
+    unreachable: 'Porta indisponível',
+    unknown: 'Não testada',
+  }[value];
+}
+
+async function loadDetails(serviceId: string): Promise<void> {
+  detailsLoading.value = serviceId;
+  detailsErrors.value = { ...detailsErrors.value, [serviceId]: '' };
+  try {
+    details.value = {
+      ...details.value,
+      [serviceId]: await fetchMachineDatabaseServiceDetails(serviceId),
+    };
+  } catch (error) {
+    detailsErrors.value = {
+      ...detailsErrors.value,
+      [serviceId]:
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível consultar os detalhes do serviço.',
+    };
+  } finally {
+    detailsLoading.value = null;
+  }
+}
+
+async function toggleDetails(serviceId: string): Promise<void> {
+  if (expandedServiceId.value === serviceId) {
+    expandedServiceId.value = null;
+    return;
+  }
+  expandedServiceId.value = serviceId;
+  if (!serviceDetails(serviceId)) await loadDetails(serviceId);
+}
+
 function actionLabel(action: DatabaseServiceAction | 'install' | 'uninstall') {
   return {
     start: 'iniciado',
@@ -97,6 +152,7 @@ async function runAction(
     const refreshed = await loadServices();
     if (refreshed) {
       successMessage.value = `${service.label} ${actionLabel(action)} com sucesso.`;
+      details.value = {};
     } else if (!errorMessage.value) {
       errorMessage.value = `${service.label} foi ${actionLabel(action)}, mas não foi possível atualizar o status.`;
     }
@@ -136,6 +192,7 @@ async function installService(service: MachineDatabaseService): Promise<void> {
     const refreshed = await loadServices();
     if (refreshed) {
       successMessage.value = `${service.label} instalado com sucesso.`;
+      details.value = {};
     } else if (!errorMessage.value) {
       errorMessage.value = `${service.label} foi instalado, mas não foi possível atualizar o status.`;
     }
@@ -168,6 +225,7 @@ async function uninstallService(
     const refreshed = await loadServices();
     if (refreshed) {
       successMessage.value = `${service.label} desinstalado com sucesso.`;
+      details.value = {};
     } else if (!errorMessage.value) {
       errorMessage.value = `${service.label} foi desinstalado, mas não foi possível atualizar o status.`;
     }
@@ -315,6 +373,25 @@ onMounted(() => void loadServices());
             </template>
             <button
               type="button"
+              class="database-machine-details-toggle"
+              :aria-expanded="expandedServiceId === service.id"
+              :aria-controls="`database-details-${service.id}`"
+              @click="toggleDetails(service.id)"
+            >
+              <InformationCircleIcon aria-hidden="true" />
+              {{
+                expandedServiceId === service.id
+                  ? 'Ocultar detalhes'
+                  : 'Ver detalhes'
+              }}
+              <ChevronUpIcon
+                v-if="expandedServiceId === service.id"
+                aria-hidden="true"
+              />
+              <ChevronDownIcon v-else aria-hidden="true" />
+            </button>
+            <button
+              type="button"
               class="danger"
               :disabled="pending !== null"
               @click="uninstallService(service)"
@@ -326,6 +403,79 @@ onMounted(() => void loadServices());
                   : 'Desinstalar'
               }}
             </button>
+          </div>
+          <div
+            v-if="expandedServiceId === service.id"
+            :id="`database-details-${service.id}`"
+            class="database-machine-details"
+          >
+            <div v-if="detailsLoading === service.id" role="status">
+              Consultando detalhes…
+            </div>
+            <template v-else-if="serviceDetails(service.id)">
+              <div class="database-machine-details-grid">
+                <div>
+                  <span>Porta</span>
+                  <strong>{{ serviceDetails(service.id)?.port ?? '—' }}</strong>
+                </div>
+                <div>
+                  <span>PID</span>
+                  <strong>{{ serviceDetails(service.id)?.pid ?? '—' }}</strong>
+                </div>
+                <div>
+                  <span>Versão</span>
+                  <strong>{{
+                    serviceDetails(service.id)?.version ?? '—'
+                  }}</strong>
+                </div>
+                <div>
+                  <span>Conexão</span>
+                  <strong
+                    :class="`database-machine-reachability-${serviceDetails(service.id)?.reachability}`"
+                  >
+                    {{
+                      reachabilityLabel(
+                        serviceDetails(service.id)?.reachability ?? 'unknown',
+                      )
+                    }}
+                  </strong>
+                </div>
+              </div>
+              <div class="database-machine-details-toolbar">
+                <span v-if="serviceDetails(service.id)?.startedAt">
+                  Iniciado em {{ serviceDetails(service.id)?.startedAt }}
+                </span>
+                <button
+                  type="button"
+                  :disabled="detailsLoading !== null"
+                  @click="loadDetails(service.id)"
+                >
+                  <ArrowPathIcon aria-hidden="true" />
+                  {{
+                    detailsLoading === service.id
+                      ? 'Testando…'
+                      : 'Testar conexão'
+                  }}
+                </button>
+              </div>
+              <p
+                v-if="detailsErrors[service.id]"
+                class="database-machine-details-error"
+                role="alert"
+              >
+                {{ detailsErrors[service.id] }}
+              </p>
+              <div class="database-machine-log">
+                <div class="database-machine-log-heading">
+                  <span>Logs recentes</span>
+                  <small>últimas 40 linhas</small>
+                </div>
+                <pre v-if="serviceDetails(service.id)?.logs.length">{{
+                  serviceDetails(service.id)?.logs.join('\n')
+                }}</pre>
+                <p v-else>Não há logs recentes disponíveis.</p>
+              </div>
+            </template>
           </div>
         </article>
       </div>
@@ -498,6 +648,7 @@ onMounted(() => void loadServices());
 .database-machine-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   min-height: 78px;
   padding: 14px 16px;
@@ -584,6 +735,104 @@ onMounted(() => void loadServices());
   justify-content: flex-end;
   gap: 8px;
 }
+.database-machine-details-toggle svg,
+.database-machine-details-toolbar svg {
+  width: 15px;
+  height: 15px;
+}
+.database-machine-details-toggle svg:last-child {
+  margin-left: -2px;
+}
+.database-machine-details {
+  flex: 0 0 100%;
+  margin: 2px 0 0 58px;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border-color);
+}
+.database-machine-details-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.database-machine-details-grid div {
+  display: grid;
+  gap: 4px;
+}
+.database-machine-details-grid span,
+.database-machine-log-heading small {
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-machine-details-grid strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.database-machine-reachability-reachable {
+  color: var(--success-text) !important;
+}
+.database-machine-reachability-unreachable {
+  color: var(--error-text) !important;
+}
+.database-machine-details-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+.database-machine-details-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.database-machine-details-error {
+  margin: 10px 0 0;
+  color: var(--error-text);
+  font-size: 11px;
+}
+.database-machine-log {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.database-machine-log-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.database-machine-log pre {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  color: var(--text-muted);
+  font:
+    11px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.database-machine-log > p {
+  margin: 0;
+  padding: 12px 10px;
+  color: var(--muted-text);
+  font-size: 11px;
+}
 .database-machine-actions .danger {
   color: var(--error-text);
 }
@@ -600,6 +849,12 @@ onMounted(() => void loadServices());
   }
   .database-machine-actions {
     justify-content: flex-start;
+  }
+  .database-machine-details {
+    margin-left: 0;
+  }
+  .database-machine-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .database-machine-overview {
     grid-template-columns: 1fr;

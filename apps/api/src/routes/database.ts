@@ -67,6 +67,15 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
     services: await options.databaseDetectionService.getMachineServices(),
   }));
 
+  app.get<{ Params: { serviceId: string } }>(
+    '/database/:serviceId/details',
+    async (request) => ({
+      details: await options.databaseDetectionService.getMachineServiceDetails(
+        request.params.serviceId,
+      ),
+    }),
+  );
+
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post<{ Params: { serviceId: string } }>(
       `/database/:serviceId/${action}`,

@@ -9,6 +9,7 @@ import path from 'node:path';
 import type {
   DatabaseReachability,
   MachineDatabaseService,
+  MachineDatabaseServiceDetails,
   Project,
   ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
@@ -202,6 +203,14 @@ const systemdServices: Record<string, string> = {
   postgres: 'postgresql.service',
   postgresql: 'postgresql.service',
   redis: 'redis-server.service',
+};
+
+const databaseVersions: Record<string, string[]> = {
+  mariadb: ['mariadb', '--version'],
+  mongodb: ['mongod', '--version'],
+  mysql: ['mysql', '--version'],
+  postgresql: ['psql', '--version'],
+  redis: ['redis-server', '--version'],
 };
 
 const aptPackages: Record<string, string> = {
@@ -580,6 +589,87 @@ export class DatabaseDetectionService {
         }
       }),
     );
+  }
+
+  public async getMachineServiceDetails(
+    serviceId: string,
+  ): Promise<MachineDatabaseServiceDetails> {
+    const service = (await this.getMachineServices()).find(
+      (item) => item.id === serviceId,
+    );
+    if (!service || !service.installed) {
+      return {
+        serviceId,
+        ...(defaultPorts[serviceId] ? { port: defaultPorts[serviceId] } : {}),
+        reachability: 'unknown',
+        logs: [],
+      };
+    }
+
+    let pid: number | undefined;
+    let startedAt: string | undefined;
+    try {
+      const result = await this.runSystemCommand('systemctl', [
+        'show',
+        service.unit,
+        '--property=MainPID,ExecMainStartTimestamp',
+        '--value',
+      ]);
+      const [rawPid, rawStartedAt] = (result.stdout ?? '').split(/\r?\n/);
+      const parsedPid = Number(rawPid?.trim());
+      if (Number.isInteger(parsedPid) && parsedPid > 0) pid = parsedPid;
+      if (rawStartedAt?.trim()) startedAt = rawStartedAt.trim();
+    } catch {
+      // Detalhes do systemd são auxiliares; a tela ainda mostra o serviço.
+    }
+
+    let version: string | undefined;
+    const versionCommand = databaseVersions[service.id];
+    if (versionCommand) {
+      try {
+        const result = await this.runSystemCommand(
+          versionCommand[0] ?? '',
+          versionCommand.slice(1),
+        );
+        const firstLine = result.stdout?.split(/\r?\n/)[0]?.trim();
+        if (firstLine) version = firstLine.slice(0, 160);
+      } catch {
+        // Alguns pacotes não expõem o binário no PATH da API.
+      }
+    }
+
+    let logs: string[] = [];
+    try {
+      const result = await this.runSystemCommand('journalctl', [
+        '-u',
+        service.unit,
+        '-n',
+        '40',
+        '--no-pager',
+        '-o',
+        'short-iso',
+      ]);
+      logs = (result.stdout ?? '')
+        .split(/\r?\n/)
+        .map((line) => line.trimEnd())
+        .filter(Boolean)
+        .slice(-40);
+    } catch {
+      // Journal indisponível não impede o teste de porta.
+    }
+
+    return {
+      serviceId,
+      ...(defaultPorts[service.id] ? { port: defaultPorts[service.id] } : {}),
+      ...(version ? { version } : {}),
+      ...(pid ? { pid } : {}),
+      ...(startedAt ? { startedAt } : {}),
+      reachability: await checkReachability(
+        '127.0.0.1',
+        defaultPorts[service.id],
+      ),
+      logs,
+    };
   }
 
   public async runMachineServiceAction(

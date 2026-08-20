@@ -185,6 +185,7 @@ export type {
   DatabaseServiceAction,
   MachineDatabaseDriver,
   MachineDatabaseService,
+  MachineDatabaseServiceDetails,
   DatabaseSnapshot,
   DatabaseSnapshotConfirmation,
   DatabaseSnapshotDriver,
