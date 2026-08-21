@@ -387,16 +387,6 @@ export class ProjectFileMutationService {
     try {
       if (input.kind === 'directory') {
         await mkdir(destination.target, { mode: 0o755 });
-        const placeholder = await open(
-          path.join(destination.target, '.gitkeep'),
-          'wx',
-          0o644,
-        );
-        try {
-          await placeholder.sync();
-        } finally {
-          await placeholder.close();
-        }
       } else {
         const handle = await open(destination.target, 'wx', 0o644);
         try {
