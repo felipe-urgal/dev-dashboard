@@ -4,7 +4,7 @@ import {
   commonErrorResponseSchemas,
   gitBranchMutationResponseSchema,
 } from '../../http/response-schemas.js';
-import { ApiError, type ApiErrorCode } from '../../http/api-error.js';
+import { ApiError } from '../../http/api-error.js';
 import {
   countSquashableBranchCommits,
   type GitBranchSquashService,
@@ -59,18 +59,6 @@ const squashConfirmationSchema = {
   },
 } as const;
 
-function apiCodeForSquashError(code: GitMutationError['code']): ApiErrorCode {
-  switch (code) {
-    case 'GIT_SQUASH_CURRENT_BRANCH_REQUIRED':
-    case 'GIT_SQUASH_NOT_AVAILABLE':
-      return 'CONFLICT';
-    case 'GIT_SQUASH_FAILED':
-      return 'GIT_COMMAND_FAILED';
-    default:
-      return code;
-  }
-}
-
 function translateSquashError(error: unknown): never {
   if (error instanceof GitMutationError) {
     const statusByCode: Record<string, number> = {
@@ -79,15 +67,15 @@ function translateSquashError(error: unknown): never {
       GIT_BRANCH_NOT_FOUND: 404,
       GIT_WORKING_TREE_DIRTY: 409,
       GIT_MUTATION_CONFIRMATION_REQUIRED: 409,
-      GIT_SQUASH_CURRENT_BRANCH_REQUIRED: 409,
+      GIT_FORCE_PUSH_CURRENT_BRANCH_REQUIRED: 409,
       GIT_PROTECTED_BRANCH: 409,
-      GIT_SQUASH_NOT_AVAILABLE: 409,
+      GIT_NOTHING_TO_COMMIT: 409,
       GIT_COMMIT_MESSAGE_INVALID: 400,
-      GIT_SQUASH_FAILED: 500,
+      GIT_COMMIT_FAILED: 500,
     };
     throw new ApiError({
       statusCode: statusByCode[error.code] ?? 400,
-      code: apiCodeForSquashError(error.code),
+      code: error.code,
       message: error.message,
     });
   }
