@@ -9,6 +9,11 @@ import {
   prepareProjectGitForcePushWithLease,
   publishProjectGitBranch,
 } from '../api/git-branch-publish';
+import {
+  fetchProjectGitBranchSquashStatus,
+  prepareProjectGitBranchSquash,
+  squashProjectGitBranch,
+} from '../api/git-branch-squash';
 import { confirmDialog } from '../stores/app-dialog';
 import { useProjectGitPanel } from './useProjectGitPanel';
 
@@ -19,6 +24,34 @@ export function useProjectGitPanelPolicy(
 ) {
   const panel = useProjectGitPanel(props, route, emit);
   const pendingPushBranch = ref<string | null>(null);
+  const squashCommitCount = ref(0);
+  let squashStatusGeneration = 0;
+
+  async function refreshSquashStatus(branch?: string): Promise<void> {
+    const requestGeneration = ++squashStatusGeneration;
+    const target = branch?.trim() ?? '';
+    if (!target || target === 'main' || target === 'master') {
+      squashCommitCount.value = 0;
+      return;
+    }
+
+    try {
+      const status = await fetchProjectGitBranchSquashStatus(
+        props.project.id,
+        target,
+      );
+      if (
+        requestGeneration === squashStatusGeneration &&
+        panel.overview.value?.branch === target
+      ) {
+        squashCommitCount.value = status.commitCount;
+      }
+    } catch {
+      if (requestGeneration === squashStatusGeneration) {
+        squashCommitCount.value = 0;
+      }
+    }
+  }
 
   async function runMutation(
     operation: 'create-branch' | 'switch-branch',
@@ -129,8 +162,63 @@ export function useProjectGitPanelPolicy(
     }
   }
 
-  async function runForcePushWithLease(): Promise<void> {
-    const branch = panel.amendedBranch.value;
+  async function runSquashBranch(
+    branch: string,
+    message: string,
+  ): Promise<void> {
+    if (panel.mutationRunning.value || panel.remoteRefreshRunning.value) return;
+    const trimmedBranch = branch.trim();
+    const trimmedMessage = message.trim();
+    if (!trimmedBranch || !trimmedMessage) return;
+
+    const alreadyPublished = (panel.workspace.value?.branches ?? []).some(
+      (candidate) =>
+        candidate.kind === 'remote' &&
+        candidate.remote === 'origin' &&
+        candidate.shortName === trimmedBranch,
+    );
+
+    panel.mutationRunning.value = true;
+    panel.mutationMessage.value = '';
+    panel.mutationErrorMessage.value = '';
+
+    try {
+      const confirmation = await prepareProjectGitBranchSquash(
+        props.project.id,
+        trimmedBranch,
+      );
+      const squashedBranch = await squashProjectGitBranch(
+        props.project.id,
+        trimmedBranch,
+        trimmedMessage,
+        confirmation.token,
+      );
+      squashCommitCount.value = 1;
+      if (alreadyPublished) {
+        panel.amendedBranch.value = squashedBranch;
+        panel.mutationMessage.value =
+          `Squash concluído em "${squashedBranch}". ` +
+          `Reenvie a branch para origin/${squashedBranch} com lease.`;
+      } else {
+        if (panel.amendedBranch.value === squashedBranch) {
+          panel.amendedBranch.value = null;
+        }
+        panel.mutationMessage.value = `Squash concluído: "${squashedBranch}" agora possui um único commit exclusivo.`;
+      }
+      pendingPushBranch.value = null;
+      await panel.reloadGitData();
+    } catch (error) {
+      panel.mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível fazer squash dos commits da branch.';
+    } finally {
+      panel.mutationRunning.value = false;
+    }
+  }
+
+  async function runForcePushWithLease(branchOverride?: string): Promise<void> {
+    const branch = branchOverride ?? panel.amendedBranch.value;
     if (!branch || panel.mutationRunning.value) return;
 
     const confirmed = await confirmDialog({
@@ -157,7 +245,9 @@ export function useProjectGitPanelPolicy(
         branch,
         confirmation.token,
       );
-      panel.amendedBranch.value = null;
+      if (panel.amendedBranch.value === pushedBranch) {
+        panel.amendedBranch.value = null;
+      }
       pendingPushBranch.value = null;
       panel.mutationMessage.value = `Branch "${pushedBranch}" atualizada em origin/${pushedBranch} com lease.`;
       await panel.reloadGitData();
@@ -202,11 +292,24 @@ export function useProjectGitPanelPolicy(
     },
   );
 
+  watch(
+    () => [
+      props.project.id,
+      panel.overview.value?.branch,
+      panel.overview.value?.latestCommit?.hash,
+    ] as const,
+    ([, branch]) => {
+      void refreshSquashStatus(branch);
+    },
+  );
+
   return {
     ...panel,
     pendingPushBranch,
+    squashCommitCount,
     runMutation,
     runPublishBranch,
+    runSquashBranch,
     runForcePushWithLease,
     runCommit,
   };
