@@ -7,7 +7,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
-  
 }
 
 .branch-table-toolbar {
@@ -43,27 +42,20 @@
   font-size: var(--font-sm);
 }
 
-.branch-create-button {
+.branch-create-button,
+.branch-refresh-button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 38px;
   align-items: center;
+  justify-content: center;
+}
+
+.branch-create-button {
   gap: 8px;
   margin-left: auto;
 }
 
 .branch-refresh-button {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: center;
-}
-
-.branch-refresh-button {
-  display: inline-flex;
-  height: 42px;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
   padding: 0 14px;
 }
 
@@ -80,11 +72,11 @@
 .branch-table-row {
   display: grid;
   grid-template-columns:
-    minmax(280px, 2.15fr)
-    minmax(90px, 0.8fr)
-    minmax(90px, 0.8fr)
-    minmax(145px, 1.05fr)
-    minmax(190px, 1.1fr);
+    minmax(250px, 1.7fr)
+    minmax(78px, 0.5fr)
+    minmax(78px, 0.5fr)
+    minmax(125px, 0.75fr)
+    minmax(430px, 2.3fr);
   align-items: center;
   gap: var(--space-3);
   padding: 0 16px;
@@ -104,7 +96,7 @@
 
 .branch-table-row {
   position: relative;
-  min-height: 64px;
+  min-height: 70px;
   border-top: 1px solid var(--border);
 }
 
@@ -114,15 +106,14 @@
 
 .branch-table-row.is-current {
   background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-1));
-  
 }
 
 .branch-name-cell,
 .branch-presence,
 .branch-state,
 .branch-row-actions,
-.branch-menu-popover button,
-.branch-modal-close {
+.branch-modal-close,
+.branch-inline-action {
   display: flex;
   align-items: center;
 }
@@ -215,64 +206,59 @@
 .branch-row-actions {
   position: relative;
   justify-content: flex-end;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 9px 0;
 }
 
-.branch-row-actions .secondary-button {
-  min-height: 34px;
-  padding: 7px 14px;
+.branch-row-actions .secondary-button,
+.branch-action-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  white-space: nowrap;
 }
 
-.branch-readonly {
-  margin-right: 8px;
-  color: var(--text-dim);
-  font-size: var(--font-xs);
-}
-
-.branch-menu-trigger {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 34px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text);
-}
-
-.branch-menu-trigger:hover,
-.branch-menu-trigger[aria-expanded='true'] {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.branch-menu-trigger svg {
-  width: 20px;
-  height: 20px;
-}
-
-.branch-menu-popover button {
-  gap: 9px;
-  border: 0;
+.branch-inline-action {
+  min-height: 32px;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text);
-  padding: 11px 13px;
+  color: var(--text-muted);
+  padding: 6px 8px;
   font: inherit;
-  font-size: var(--font-sm);
-  text-align: left;
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
 }
 
-.branch-menu-popover button:hover {
+.branch-inline-action:hover:not(:disabled),
+.branch-inline-action:focus-visible {
+  border-color: var(--border);
   background: var(--surface-2);
+  color: var(--text);
 }
 
-.branch-menu-popover button.is-danger {
+.branch-inline-action.is-danger {
   color: var(--danger-text);
 }
 
-.branch-menu-popover svg {
-  width: 18px;
-  height: 18px;
+.branch-inline-action.is-danger:hover:not(:disabled),
+.branch-inline-action.is-danger:focus-visible {
+  border-color: color-mix(in srgb, var(--danger-text) 35%, var(--border));
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+
+.branch-inline-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.branch-inline-action svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .branch-table-empty {
@@ -285,9 +271,13 @@
 }
 
 .branch-modal {
-  width: 100%;
+  width: min(560px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 48px));
   overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
 }
 
 .branch-modal > header {
@@ -295,19 +285,22 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 24px 28px 0;
+  padding: 22px 24px 0;
 }
 
 .branch-modal h2 {
   margin: 0;
   color: var(--text);
-  font-size: 22px;
+  font-size: 20px;
+  letter-spacing: -0.02em;
 }
 
 .branch-modal header p {
+  max-width: 470px;
   margin: 7px 0 0;
   color: var(--text-muted);
   font-size: var(--font-sm);
+  line-height: 1.55;
 }
 
 .branch-modal header p strong {
@@ -316,28 +309,31 @@
 
 .branch-modal-close {
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
 }
 
-.branch-modal-close:hover {
+.branch-modal-close:hover:not(:disabled),
+.branch-modal-close:focus-visible {
+  border-color: var(--border);
   background: var(--surface-2);
   color: var(--text);
 }
 
 .branch-modal-close svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .branch-modal-form {
   display: grid;
   gap: 18px;
-  padding: 22px 28px 26px;
+  padding: 20px 24px 24px;
 }
 
 .branch-modal-form label {
@@ -345,7 +341,9 @@
   gap: 7px;
 }
 
-.branch-modal-form label > span {
+.branch-modal-form label > span,
+.branch-prefix-fieldset legend,
+.branch-name-preview > span {
   color: var(--text);
   font-size: var(--font-sm);
   font-weight: var(--font-weight-strong);
@@ -368,48 +366,133 @@
   outline: 3px solid color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
-.branch-modal-form input[readonly] {
-  color: var(--accent);
-  font-weight: var(--font-weight-strong);
+.branch-prefix-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.branch-name-composer {
-  display: grid;
-  grid-template-columns: minmax(170px, 0.8fr) minmax(240px, 1.2fr);
-  gap: 14px;
+.branch-prefix-fieldset legend {
+  margin-bottom: 8px;
 }
 
 .branch-prefix-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
 }
 
 .branch-prefix-grid button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+  display: grid;
   min-width: 0;
+  gap: 3px;
   border: 1px solid var(--border);
-  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
   color: var(--text-muted);
-  padding: 10px 12px;
+  padding: 9px 10px;
   text-align: left;
 }
 
-.branch-prefix-grid button:hover,
+.branch-prefix-grid button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+}
+
 .branch-prefix-grid button.active {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .branch-prefix-grid strong {
+  overflow: hidden;
   color: var(--text);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
 }
 
-.branch-prefix-grid button.active strong,
-.branch-prefix-grid button.active span {
+.branch-prefix-grid span {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-prefix-grid button.active strong {
   color: var(--accent);
+}
+
+.branch-name-input {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.branch-name-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.branch-name-input code {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--accent);
+  padding: 0 11px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.branch-name-input input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.branch-name-input input:focus {
+  outline: 0;
+}
+
+.branch-name-preview {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  padding: 10px 12px;
+}
+
+.branch-name-preview > span {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.branch-name-preview code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .branch-modal-form footer {
@@ -417,8 +500,8 @@
   justify-content: flex-end;
   gap: 10px;
   border-top: 1px solid var(--border);
-  margin: 4px -28px -26px;
-  padding: 18px 28px;
+  margin: 2px -24px -24px;
+  padding: 16px 24px;
 }
 
 .danger-button {
@@ -445,14 +528,14 @@
   line-height: 1.5;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1120px) {
   .branch-table-scroll {
     overflow-x: auto;
   }
 
   .branch-table-header,
   .branch-table-row {
-    min-width: 870px;
+    min-width: 1080px;
   }
 }
 
@@ -473,12 +556,24 @@
   }
 
   .branch-modal {
-    max-height: calc(100vh - 24px);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    width: min(100vw - 16px, 560px);
+    max-height: calc(100vh - 16px);
   }
 
-  .branch-name-composer,
+  .branch-modal > header {
+    padding: 20px 18px 0;
+  }
+
+  .branch-modal-form {
+    padding: 18px 18px 20px;
+  }
+
   .branch-prefix-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .branch-modal-form footer {
+    margin: 2px -18px -20px;
+    padding: 14px 18px;
   }
 }
