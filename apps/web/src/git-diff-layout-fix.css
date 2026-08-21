@@ -8,18 +8,10 @@
 .git-diff-unified,
 .git-diff-split {
   width: 100%;
-  /* Só o eixo horizontal é contido. `overscroll-behavior: contain` nos dois
-     eixos travava a rolagem vertical da página inteira quando o ponteiro
-     estava sobre o diff: `overflow-x: hidden` abaixo transforma o elemento em
-     contêiner de rolagem, e um contêiner com `contain` interrompe o
-     encadeamento mesmo sem ter o que rolar no eixo vertical. */
+  /* Contém apenas o gesto horizontal sem recortar o conteúdo do split. */
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
-}
-
-.git-diff-split {
-  overflow-x: hidden !important;
 }
 
 .git-diff-split-row,
