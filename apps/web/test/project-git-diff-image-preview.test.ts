@@ -7,6 +7,7 @@ import type { GitFileStatus } from '@dev-dashboard/contracts';
 
 import ProjectGitDiffFileCard from '../src/components/ProjectGitDiffFileCard.vue';
 import type { GitDiffFileEntry } from '../src/composables/useProjectGitDiffPage';
+import type { GitUnifiedDiffLine } from '../src/utils/git-diff-view';
 
 const statusLabels: Record<GitFileStatus, string> = {
   added: 'Adicionado',
@@ -70,7 +71,7 @@ function mountCard(entry: GitDiffFileEntry) {
       directoryName: () => '',
       statBlocks: () => ['empty', 'empty', 'empty', 'empty', 'empty'],
       linePrefix: () => '',
-      highlighted: (line) => line.text,
+      highlighted: (line: GitUnifiedDiffLine) => line.text,
       hunkLines: () => [],
       splitRowsFor: () => [],
       canExpandAbove: () => false,
