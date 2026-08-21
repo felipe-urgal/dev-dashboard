@@ -85,6 +85,14 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
     requiresConfirmation: true,
   },
   {
+    id: 'branch-squash',
+    label: 'Squash da branch',
+    description:
+      'Condensa os commits exclusivos da branch atual em um único commit.',
+    risk: 'destructive',
+    requiresConfirmation: true,
+  },
+  {
     id: 'save',
     label: 'Salvar alterações',
     description:
