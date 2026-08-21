@@ -43,12 +43,7 @@ const emit = defineEmits<{
 }>();
 
 type BranchModal =
-  | 'create'
-  | 'rename'
-  | 'squash'
-  | 'delete'
-  | 'delete-remote'
-  | null;
+  'create' | 'rename' | 'squash' | 'delete' | 'delete-remote' | null;
 
 interface BranchRow {
   name: string;
