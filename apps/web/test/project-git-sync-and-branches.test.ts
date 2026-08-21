@@ -231,7 +231,7 @@ test('branch atual atrasada oferece atualização local por fast-forward', async
   assert.equal(wrapper.emitted('update-current-branch')?.length, 1);
 });
 
-test('branch divergente não permite atualização automática', () => {
+test('branch divergente permite atualização segura por rebase', async () => {
   const branchName = 'feature/colaborativa';
   const branchOverview: ProjectGitOverview = {
     ...overview,
@@ -269,6 +269,9 @@ test('branch divergente não permite atualização automática', () => {
   });
 
   const card = wrapper.find('.git-sync-current-card');
-  assert.match(card.text(), /divergiram/);
-  assert.ok(card.find('.git-sync-button').attributes('disabled') !== undefined);
+  assert.match(card.text(), /Commits locais e remotos pendentes/);
+  const update = card.find('.git-sync-button');
+  assert.equal(update.attributes('disabled'), undefined);
+  await update.trigger('click');
+  assert.equal(wrapper.emitted('update-current-branch')?.length, 1);
 });

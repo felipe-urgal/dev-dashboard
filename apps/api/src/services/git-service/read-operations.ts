@@ -22,6 +22,8 @@ import {
   ensurePathInsideProject,
   readImageDiffPreview,
   readIndexBlob,
+  readUntrackedDiff,
+  readUntrackedDiffStat,
   readWorkingTreeFile,
 } from './diff-helpers.js';
 import { GitDiffError } from './errors.js';
@@ -135,6 +137,12 @@ export async function getDiffSnapshot(
     ...gitDiffArgs(scope, base, ['--numstat', '-z']),
   ]);
   const files = parseNumstat(numstat, statusByPath);
+  if (scope !== 'index') {
+    for (const file of status.files) {
+      if (file.status !== 'untracked') continue;
+      files.push(await readUntrackedDiffStat(projectPath, file.path));
+    }
+  }
   return { repository: true, scope, files };
 }
 
@@ -166,9 +174,12 @@ export async function getFileDiff(
   let binary = false;
   const base = await resolveDiffBase(projectPath, scope);
   try {
-    raw = await runGit(projectPath, [
-      ...gitDiffArgs(scope, base, ['--', safePath]),
-    ]);
+    raw =
+      change?.status === 'untracked' && scope !== 'index'
+        ? await readUntrackedDiff(projectPath, safePath)
+        : await runGit(projectPath, [
+            ...gitDiffArgs(scope, base, ['--', safePath]),
+          ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/binary files? .* differ/i.test(message)) {

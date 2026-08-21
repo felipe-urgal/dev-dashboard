@@ -420,8 +420,8 @@ export function useProjectGitPanel(
     const confirmed = await confirmDialog({
       title: 'Atualizar branch local?',
       message:
-        `Os commits de "${upstream}" serão trazidos para "${branch}" ` +
-        'somente por fast-forward. Nenhum merge ou rebase será criado automaticamente.',
+        `Os commits de "${upstream}" serão trazidos para "${branch}". ` +
+        'Quando houver commits locais e remotos, os commits locais serão reaplicados por rebase. Se houver conflito, a atualização será abortada.',
       confirmLabel: 'Atualizar local',
       tone: 'warning',
     });
