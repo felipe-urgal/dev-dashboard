@@ -120,7 +120,7 @@ async function requireCurrentBranch(
   ).trim();
   if (current !== branch) {
     throw new GitMutationError(
-      'GIT_SQUASH_CURRENT_BRANCH_REQUIRED',
+      'GIT_FORCE_PUSH_CURRENT_BRANCH_REQUIRED',
       `Selecione a branch "${branch}" antes de fazer squash.`,
     );
   }
@@ -168,7 +168,7 @@ async function inspectSquashState(
   const base = await resolveSquashBase(projectPath, branch);
   if (!base) {
     throw new GitMutationError(
-      'GIT_SQUASH_NOT_AVAILABLE',
+      'GIT_NOTHING_TO_COMMIT',
       'Não foi possível identificar a branch principal usada como base para o squash.',
     );
   }
@@ -225,7 +225,7 @@ export class GitBranchSquashService {
     await assertWorkingTreeClean(projectPath);
     if (state.commitCount < 2) {
       throw new GitMutationError(
-        'GIT_SQUASH_NOT_AVAILABLE',
+        'GIT_NOTHING_TO_COMMIT',
         `A branch "${branch}" precisa ter pelo menos dois commits exclusivos para fazer squash.`,
       );
     }
@@ -252,7 +252,7 @@ export class GitBranchSquashService {
     await assertWorkingTreeClean(projectPath);
     if (state.commitCount < 2) {
       throw new GitMutationError(
-        'GIT_SQUASH_NOT_AVAILABLE',
+        'GIT_NOTHING_TO_COMMIT',
         `A branch "${branch}" precisa ter pelo menos dois commits exclusivos para fazer squash.`,
       );
     }
@@ -284,7 +284,7 @@ export class GitBranchSquashService {
         // Mantém o erro original; o usuário ainda recebe a falha do squash.
       }
       throw new GitMutationError(
-        'GIT_SQUASH_FAILED',
+        'GIT_COMMIT_FAILED',
         commandFailureText(error) || 'Não foi possível condensar os commits da branch.',
       );
     }
