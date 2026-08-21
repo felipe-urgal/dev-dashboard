@@ -51,6 +51,66 @@ export function gitDiffArgs(
   return ['diff', ...extra];
 }
 
+async function runGitDiffAllowChanges(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
+  try {
+    return await runGit(projectPath, args);
+  } catch (error) {
+    const failure = error as Error & {
+      code?: number | string;
+      stdout?: string;
+    };
+    if (
+      (failure.code === 1 || failure.code === '1') &&
+      typeof failure.stdout === 'string' &&
+      failure.stdout.length > 0
+    ) {
+      return failure.stdout;
+    }
+    throw error;
+  }
+}
+
+export async function readUntrackedDiffStat(
+  projectPath: string,
+  safePath: string,
+): Promise<GitDiffFile> {
+  const output = await runGitDiffAllowChanges(projectPath, [
+    'diff',
+    '--no-index',
+    '--numstat',
+    '-z',
+    '--',
+    '/dev/null',
+    safePath,
+  ]);
+  const record = output.split('\0')[0] ?? '';
+  const [additionsRaw = '0', deletionsRaw = '0'] = record.split('\t');
+  const binary = additionsRaw === '-' && deletionsRaw === '-';
+  return {
+    path: safePath,
+    status: 'untracked',
+    additions: binary ? 0 : Number.parseInt(additionsRaw, 10) || 0,
+    deletions: binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0,
+    binary,
+  };
+}
+
+export async function readUntrackedDiff(
+  projectPath: string,
+  safePath: string,
+): Promise<string> {
+  return runGitDiffAllowChanges(projectPath, [
+    'diff',
+    '--no-index',
+    '--',
+    '/dev/null',
+    safePath,
+  ]);
+}
+
 export function parseNumstat(
   output: string,
   statusByPath: Map<string, GitFileChange>,
