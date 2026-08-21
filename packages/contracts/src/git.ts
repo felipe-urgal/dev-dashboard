@@ -55,6 +55,7 @@ export interface GitTrackingComparison {
 export interface ProjectGitWorkspace {
   branches: GitBranch[];
   remotes: GitRemote[];
+  currentBranchExclusiveCommitCount?: number;
   originComparison?: GitTrackingComparison;
   upstreamComparison?: GitTrackingComparison;
 }
@@ -123,6 +124,7 @@ export type GitMutationOperation =
   | 'push'
   | 'commit'
   | 'amend'
+  | 'squash'
   | 'save'
   | 'discard-file'
   | 'remove-untracked-file';

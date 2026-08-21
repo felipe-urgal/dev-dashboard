@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowsPointingInIcon,
   CheckCircleIcon,
   EllipsisHorizontalIcon,
   LockClosedIcon,
@@ -24,6 +25,8 @@ const props = defineProps<{
   workspace: ProjectGitWorkspace | null;
   loading: boolean;
   busy: boolean;
+  squashCommitCount: number;
+  forcePushBranch: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -32,12 +35,15 @@ const emit = defineEmits<{
   rename: [currentName: string, nextName: string];
   delete: [name: string];
   publish: [name: string];
+  squash: [name: string, message: string];
+  'force-push': [name: string];
   'refresh-remotes': [];
   track: [remoteBranch: string];
   'delete-remote': [remoteBranch: string];
 }>();
 
-type BranchModal = 'create' | 'rename' | 'delete' | 'delete-remote' | null;
+type BranchModal =
+  'create' | 'rename' | 'squash' | 'delete' | 'delete-remote' | null;
 
 interface BranchRow {
   name: string;
@@ -65,6 +71,7 @@ const selectedBranch = ref('');
 const branchPrefix = ref(prefixes[0]!.value);
 const branchSuffix = ref('');
 const renamedBranch = ref('');
+const squashMessage = ref('');
 const deleteConfirmation = ref('');
 
 const rows = computed<BranchRow[]>(() => {
@@ -110,6 +117,11 @@ const canSubmitRename = computed(() => {
   );
 });
 
+const canSubmitSquash = computed(() => {
+  const message = squashMessage.value.trim();
+  return Boolean(message) && message.length <= 500;
+});
+
 const canSubmitDelete = computed(
   () => deleteConfirmation.value === selectedBranch.value,
 );
@@ -144,6 +156,8 @@ const modalTitle = computed(() => {
       return 'Nova branch';
     case 'rename':
       return 'Renomear branch';
+    case 'squash':
+      return 'Squash de commits';
     case 'delete-remote':
       return 'Remover branch remota';
     default:
@@ -174,6 +188,13 @@ function openRenameModal(row: BranchRow): void {
   modal.value = 'rename';
 }
 
+function openSquashModal(row: BranchRow): void {
+  closeMenu();
+  selectedBranch.value = row.name;
+  squashMessage.value = row.local?.latestCommit?.subject?.trim() || row.name;
+  modal.value = 'squash';
+}
+
 function openDeleteModal(row: BranchRow): void {
   closeMenu();
   selectedBranch.value = row.name;
@@ -202,6 +223,12 @@ function submitCreate(): void {
 function submitRename(): void {
   if (!canSubmitRename.value || props.busy) return;
   emit('rename', selectedBranch.value, renamedBranch.value.trim());
+  modal.value = null;
+}
+
+function submitSquash(): void {
+  if (!canSubmitSquash.value || props.busy) return;
+  emit('squash', selectedBranch.value, squashMessage.value.trim());
   modal.value = null;
 }
 
