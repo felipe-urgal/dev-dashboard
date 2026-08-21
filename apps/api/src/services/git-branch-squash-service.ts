@@ -285,7 +285,8 @@ export class GitBranchSquashService {
       }
       throw new GitMutationError(
         'GIT_COMMIT_FAILED',
-        commandFailureText(error) || 'Não foi possível condensar os commits da branch.',
+        commandFailureText(error) ||
+          'Não foi possível condensar os commits da branch.',
       );
     }
 
