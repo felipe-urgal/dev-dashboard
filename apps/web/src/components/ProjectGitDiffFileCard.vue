@@ -246,16 +246,14 @@ const emit = defineEmits<{
         <pre
           v-if="entry.hunks.length === 0 && entry.diff.content"
           class="git-diff-raw-meta"
-          >{{ entry.diff.content }}</pre
-        >
+          >{{ entry.diff.content }}</pre>
 
-        <div
-          v-else-if="entry.hunks.length === 0"
-          class="git-diff-detail-empty"
-        >
+        <div v-else-if="entry.hunks.length === 0" class="git-diff-detail-empty">
           <DocumentTextIcon aria-hidden="true" />
           <strong>Diff textual vazio</strong>
-          <span>O arquivo pode conter apenas mudança de modo ou metadados.</span>
+          <span
+            >O arquivo pode conter apenas mudança de modo ou metadados.</span
+          >
         </div>
 
         <div
