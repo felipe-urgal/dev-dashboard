@@ -10,7 +10,7 @@ import { test } from 'vitest';
 
 import { getProjectGitUpdateIndicator } from '../src/utils/project-git-update-indicator';
 
-const commits: Record<string, GitCommit> = {
+const commits = {
   local: {
     hash: '1111111111111111111111111111111111111111',
     shortHash: '1111111',
@@ -35,7 +35,7 @@ const commits: Record<string, GitCommit> = {
     authorEmail: 'dev@example.com',
     authoredAt: '2026-08-21T12:02:00.000Z',
   },
-};
+} satisfies Record<string, GitCommit>;
 
 function overview(
   overrides: Partial<ProjectGitOverview> = {},
