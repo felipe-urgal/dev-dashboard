@@ -40,7 +40,7 @@ export function createCommitOperations(
       confirmationToken,
     );
     if (includeAllChanges) {
-      await runGit(projectPath, ['add', '--update']);
+      await runGit(projectPath, ['add', '--all']);
     }
     const staged = await runGit(projectPath, [
       'diff',
