@@ -4,6 +4,10 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 const api = vi.hoisted(() => ({
   fetchMachineDatabaseServices: vi.fn(),
   fetchMachineDatabaseServiceDetails: vi.fn(),
+  fetchMachineDatabaseCatalog: vi.fn(),
+  fetchMachineDatabaseTables: vi.fn(),
+  previewMachineDatabaseTable: vi.fn(),
+  queryMachineDatabase: vi.fn(),
   installMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
   runMachineDatabaseServiceAction: vi.fn().mockResolvedValue(undefined),
   uninstallMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
@@ -223,5 +227,107 @@ describe('DatabaseView', () => {
       expect.objectContaining({ title: 'Desinstalar MySQL?' }),
     );
     expect(api.uninstallMachineDatabaseService).toHaveBeenCalledWith('mysql');
+  });
+
+  it('conecta, executa consultas e permite filtrar, ordenar, copiar, exportar e desconectar', async () => {
+    api.fetchMachineDatabaseServices.mockResolvedValue([]);
+    api.fetchMachineDatabaseCatalog.mockResolvedValue([
+      { name: 'app_development' },
+    ]);
+    api.fetchMachineDatabaseTables.mockResolvedValue([
+      { schema: 'public', name: 'users' },
+    ]);
+    const result = {
+      columns: ['id', 'name'],
+      rows: [
+        [2, 'Bia'],
+        [1, 'Ana'],
+      ],
+      rowCount: 2,
+      truncated: false,
+    };
+    api.previewMachineDatabaseTable.mockResolvedValue(result);
+    api.queryMachineDatabase.mockResolvedValue(result);
+    const clipboard = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: clipboard },
+    });
+    const createObjectURL = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:test');
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
+    const wrapper = mount(DatabaseView);
+    wrappers.push(wrapper);
+    await flushPromises();
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Conectar a um serviço'))!
+      .trigger('click');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Conectar e continuar'))!
+      .trigger('click');
+    await flushPromises();
+
+    expect(api.fetchMachineDatabaseCatalog).toHaveBeenCalled();
+    await wrapper.get('select').setValue('app_development');
+    await flushPromises();
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'public.users')!
+      .trigger('click');
+    await flushPromises();
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Executar leitura')!
+      .trigger('click');
+    await flushPromises();
+    expect(api.queryMachineDatabase).toHaveBeenCalled();
+
+    expect(wrapper.text()).toContain('Ana');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'name')!
+      .trigger('click');
+    await wrapper
+      .get('input[placeholder="Buscar nos resultados"]')
+      .setValue('Ana');
+    expect(wrapper.text()).toContain('1 de 2 linhas');
+    expect(wrapper.text()).toContain('Ana');
+    expect(wrapper.text()).not.toContain('Bia');
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Copiar')!
+      .trigger('click');
+    await flushPromises();
+    expect(clipboard).toHaveBeenCalledWith(expect.stringContaining('Ana'));
+    expect(wrapper.get('[role="status"]').text()).toContain(
+      'Resultado copiado',
+    );
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'CSV')!
+      .trigger('click');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'JSON')!
+      .trigger('click');
+    expect(createObjectURL).toHaveBeenCalledTimes(2);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Histórico')!
+      .trigger('click');
+    expect(wrapper.text()).toContain('Consultas recentes');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Desconectar')!
+      .trigger('click');
+    expect(wrapper.text()).toContain('Nenhuma conexão ativa');
   });
 });

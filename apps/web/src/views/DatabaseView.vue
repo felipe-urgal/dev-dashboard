@@ -79,6 +79,24 @@ const SAVED_CONNECTIONS_KEY = 'dev-dashboard.database-connections';
 const savedConnections = ref<SavedDatabaseConnection[]>([]);
 const selectedSavedConnectionId = ref('');
 const explorerTestMessage = ref('');
+type ExplorerQueryHistoryItem = {
+  id: string;
+  query: string;
+  driver: MachineDatabaseConnection['driver'];
+  database: string;
+  table: string;
+  createdAt: string;
+  favorite: boolean;
+};
+const QUERY_HISTORY_KEY = 'dev-dashboard.database-query-history';
+const explorerQueryHistory = ref<ExplorerQueryHistoryItem[]>([]);
+const explorerHistoryOpen = ref(false);
+const explorerResultSearch = ref('');
+const explorerResultSort = ref<{
+  column: string;
+  direction: 'asc' | 'desc';
+} | null>(null);
+const explorerCopiedMessage = ref('');
 const explorerTableSearch = ref('');
 const explorerTablePage = ref(1);
 const EXPLORER_TABLE_PAGE_SIZE = 40;
@@ -108,6 +126,38 @@ const visibleExplorerTables = computed(() => {
     start + EXPLORER_TABLE_PAGE_SIZE,
   );
 });
+const visibleExplorerRows = computed(() => {
+  if (!explorerResult.value) return [];
+  const search = explorerResultSearch.value.trim().toLocaleLowerCase();
+  const columns = explorerResult.value.columns;
+  const rows = explorerResult.value.rows.filter((row) => {
+    if (!search) return true;
+    return row.some((value) =>
+      String(value ?? 'NULL')
+        .toLocaleLowerCase()
+        .includes(search),
+    );
+  });
+  const sort = explorerResultSort.value;
+  if (!sort) return rows;
+  const columnIndex = columns.indexOf(sort.column);
+  if (columnIndex < 0) return rows;
+  return [...rows].sort((left, right) => {
+    const a = left[columnIndex];
+    const b = right[columnIndex];
+    if (a === b) return 0;
+    if (a === null || a === undefined) return sort.direction === 'asc' ? -1 : 1;
+    if (b === null || b === undefined) return sort.direction === 'asc' ? 1 : -1;
+    const result = String(a).localeCompare(String(b), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+    return sort.direction === 'asc' ? result : -result;
+  });
+});
+const recentExplorerQueries = computed(() =>
+  explorerQueryHistory.value.slice(0, 8),
+);
 
 function formatExplorerError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : '';
@@ -162,6 +212,90 @@ function loadSavedConnections(): void {
   } catch {
     savedConnections.value = [];
   }
+}
+
+function loadExplorerQueryHistory(): void {
+  try {
+    const raw = localStorage.getItem(QUERY_HISTORY_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    if (Array.isArray(parsed)) {
+      explorerQueryHistory.value = parsed.filter(
+        (item): item is ExplorerQueryHistoryItem =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as ExplorerQueryHistoryItem).id === 'string' &&
+          typeof (item as ExplorerQueryHistoryItem).query === 'string' &&
+          typeof (item as ExplorerQueryHistoryItem).createdAt === 'string',
+      );
+    }
+  } catch {
+    explorerQueryHistory.value = [];
+  }
+}
+
+function persistExplorerQueryHistory(): void {
+  localStorage.setItem(
+    QUERY_HISTORY_KEY,
+    JSON.stringify(explorerQueryHistory.value.slice(0, 50)),
+  );
+}
+
+function rememberExplorerQuery(): void {
+  if (!explorerConnection.value || !explorerQuery.value.trim()) return;
+  const item: ExplorerQueryHistoryItem = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    query: explorerQuery.value.trim(),
+    driver: explorerConnection.value.driver,
+    database: explorerDatabase.value,
+    table: explorerTable.value,
+    createdAt: new Date().toISOString(),
+    favorite: false,
+  };
+  const duplicate = explorerQueryHistory.value.find(
+    (historyItem) =>
+      historyItem.query === item.query &&
+      historyItem.driver === item.driver &&
+      historyItem.database === item.database,
+  );
+  explorerQueryHistory.value = [
+    { ...item, favorite: duplicate?.favorite ?? false },
+    ...explorerQueryHistory.value.filter(
+      (historyItem) => historyItem.id !== duplicate?.id,
+    ),
+  ];
+  persistExplorerQueryHistory();
+}
+
+function toggleExplorerQueryFavorite(id: string): void {
+  explorerQueryHistory.value = explorerQueryHistory.value.map((item) =>
+    item.id === id ? { ...item, favorite: !item.favorite } : item,
+  );
+  persistExplorerQueryHistory();
+}
+
+function removeExplorerQueryHistory(id: string): void {
+  explorerQueryHistory.value = explorerQueryHistory.value.filter(
+    (item) => item.id !== id,
+  );
+  persistExplorerQueryHistory();
+}
+
+function clearExplorerQueryHistory(): void {
+  explorerQueryHistory.value = [];
+  persistExplorerQueryHistory();
+}
+
+function restoreExplorerQuery(item: ExplorerQueryHistoryItem): void {
+  explorerQuery.value = item.query;
+  explorerTable.value = item.table;
+  if (
+    item.database &&
+    explorerDatabases.value.some((database) => database.name === item.database)
+  ) {
+    explorerDatabase.value = item.database;
+  }
+  explorerHistoryOpen.value = false;
+  explorerError.value = '';
 }
 
 function persistSavedConnections(): void {
@@ -247,6 +381,9 @@ function clearExplorerSession(showExpiryMessage = false): void {
   explorerTableSearch.value = '';
   explorerTablePage.value = 1;
   explorerQueryDurationMs.value = null;
+  explorerResultSearch.value = '';
+  explorerResultSort.value = null;
+  explorerCopiedMessage.value = '';
   explorerTestMessage.value = '';
   explorerDraft.value = {
     driver: explorerDraft.value.driver,
@@ -258,6 +395,11 @@ function clearExplorerSession(showExpiryMessage = false): void {
     explorerError.value =
       'A conexão expirou por inatividade. Conecte-se novamente para continuar.';
   }
+}
+
+function disconnectExplorer(): void {
+  clearExplorerSession();
+  explorerError.value = '';
 }
 
 function scheduleExplorerSessionExpiry(): void {
@@ -305,6 +447,9 @@ async function connectExplorer(): Promise<void> {
     explorerTableSearch.value = '';
     explorerTablePage.value = 1;
     explorerQueryDurationMs.value = null;
+    explorerResultSearch.value = '';
+    explorerResultSort.value = null;
+    explorerCopiedMessage.value = '';
     explorerDraft.value = connectionDraftWithoutSecret(connection);
     resetExplorerQuery();
     scheduleExplorerSessionExpiry();
@@ -360,6 +505,9 @@ async function previewExplorerTable(): Promise<void> {
   explorerQuery.value = buildExplorerTableQuery(table);
   explorerLoading.value = true;
   explorerError.value = '';
+  explorerResultSearch.value = '';
+  explorerResultSort.value = null;
+  explorerCopiedMessage.value = '';
   scheduleExplorerSessionExpiry();
   const startedAt = performance.now();
   try {
@@ -389,6 +537,7 @@ async function runExplorerQuery(): Promise<void> {
   }
   explorerLoading.value = true;
   explorerError.value = '';
+  explorerCopiedMessage.value = '';
   scheduleExplorerSessionExpiry();
   const startedAt = performance.now();
   try {
@@ -399,6 +548,7 @@ async function runExplorerQuery(): Promise<void> {
       },
       explorerQuery.value,
     );
+    rememberExplorerQuery();
   } catch (error) {
     explorerError.value = formatExplorerError(
       error,
@@ -408,6 +558,75 @@ async function runExplorerQuery(): Promise<void> {
     explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
     explorerLoading.value = false;
   }
+}
+
+function toggleExplorerResultSort(column: string): void {
+  const current = explorerResultSort.value;
+  explorerResultSort.value =
+    current?.column === column
+      ? { column, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+      : { column, direction: 'asc' };
+}
+
+function resultRowsAsTsv(): string {
+  if (!explorerResult.value) return '';
+  return [
+    explorerResult.value.columns.join('\t'),
+    ...visibleExplorerRows.value.map((row) =>
+      row.map((value) => String(value ?? 'NULL')).join('\t'),
+    ),
+  ].join('\n');
+}
+
+async function copyExplorerResults(): Promise<void> {
+  const text = resultRowsAsTsv();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    explorerCopiedMessage.value = 'Resultado copiado.';
+  } catch {
+    explorerCopiedMessage.value = 'Não foi possível copiar o resultado.';
+  }
+}
+
+function downloadExplorerFile(
+  content: string,
+  name: string,
+  type: string,
+): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportExplorerResults(format: 'csv' | 'json'): void {
+  if (!explorerResult.value) return;
+  if (format === 'json') {
+    const rows = visibleExplorerRows.value.map((row) =>
+      Object.fromEntries(
+        explorerResult.value!.columns.map((column, index) => [
+          column,
+          row[index] ?? null,
+        ]),
+      ),
+    );
+    downloadExplorerFile(
+      JSON.stringify(rows, null, 2),
+      'resultado.json',
+      'application/json',
+    );
+    return;
+  }
+  const escapeCsv = (value: unknown) =>
+    `"${String(value ?? '').replaceAll('"', '""')}"`;
+  const csv = [
+    explorerResult.value.columns.map(escapeCsv).join(','),
+    ...visibleExplorerRows.value.map((row) => row.map(escapeCsv).join(',')),
+  ].join('\n');
+  downloadExplorerFile(csv, 'resultado.csv', 'text/csv;charset=utf-8');
 }
 
 async function testExplorerConnection(): Promise<void> {
@@ -638,6 +857,7 @@ async function uninstallService(
 
 onMounted(() => {
   loadSavedConnections();
+  loadExplorerQueryHistory();
   void loadServices();
 });
 onUnmounted(() => {
@@ -963,6 +1183,14 @@ onUnmounted(() => {
             {{ explorerConnection ? 'Trocar conexão' : 'Conectar' }}
             <ChevronDownIcon aria-hidden="true" />
           </button>
+          <button
+            v-if="explorerConnection"
+            type="button"
+            class="database-connection-disconnect"
+            @click="disconnectExplorer"
+          >
+            Desconectar
+          </button>
         </div>
         <p
           v-if="explorerError"
@@ -1094,6 +1322,7 @@ onUnmounted(() => {
                   <h3>{{ explorerTable }}</h3>
                 </div>
                 <span v-if="explorerResult">
+                  {{ visibleExplorerRows.length }} de
                   {{ explorerResult.rowCount }} linhas
                   <template v-if="explorerQueryDurationMs !== null">
                     · {{ explorerQueryDurationMs }} ms
@@ -1103,6 +1332,31 @@ onUnmounted(() => {
                   </template>
                 </span>
               </div>
+              <div v-if="explorerResult" class="database-explorer-result-tools">
+                <label>
+                  <MagnifyingGlassIcon aria-hidden="true" />
+                  <span class="sr-only">Buscar nos resultados</span>
+                  <input
+                    v-model="explorerResultSearch"
+                    type="search"
+                    placeholder="Buscar nos resultados"
+                  />
+                </label>
+                <div>
+                  <button type="button" @click="copyExplorerResults">
+                    Copiar
+                  </button>
+                  <button type="button" @click="exportExplorerResults('csv')">
+                    CSV
+                  </button>
+                  <button type="button" @click="exportExplorerResults('json')">
+                    JSON
+                  </button>
+                  <span v-if="explorerCopiedMessage" role="status">
+                    {{ explorerCopiedMessage }}
+                  </span>
+                </div>
+              </div>
               <div v-if="explorerResult" class="database-explorer-table-wrap">
                 <table>
                   <thead>
@@ -1111,13 +1365,29 @@ onUnmounted(() => {
                         v-for="column in explorerResult.columns"
                         :key="column"
                       >
-                        {{ column }}
+                        <button
+                          type="button"
+                          @click="toggleExplorerResultSort(column)"
+                        >
+                          {{ column }}
+                          <ChevronUpIcon
+                            v-if="
+                              explorerResultSort?.column === column &&
+                              explorerResultSort.direction === 'asc'
+                            "
+                            aria-hidden="true"
+                          />
+                          <ChevronDownIcon
+                            v-else-if="explorerResultSort?.column === column"
+                            aria-hidden="true"
+                          />
+                        </button>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr
-                      v-for="(row, rowIndex) in explorerResult.rows"
+                      v-for="(row, rowIndex) in visibleExplorerRows"
                       :key="rowIndex"
                     >
                       <td
@@ -1132,8 +1402,66 @@ onUnmounted(() => {
               </div>
               <div class="database-explorer-query-box">
                 <div class="database-explorer-query-heading">
-                  <label for="database-query">Consulta SELECT/WITH</label>
-                  <span>Ctrl/Cmd + Enter para executar</span>
+                  <div>
+                    <label for="database-query">Consulta SELECT/WITH</label>
+                    <span>Ctrl/Cmd + Enter para executar</span>
+                  </div>
+                  <button
+                    type="button"
+                    @click="explorerHistoryOpen = !explorerHistoryOpen"
+                  >
+                    Histórico
+                  </button>
+                </div>
+                <div
+                  v-if="explorerHistoryOpen"
+                  class="database-explorer-history"
+                >
+                  <div class="database-explorer-history-heading">
+                    <span>Consultas recentes</span>
+                    <button
+                      type="button"
+                      :disabled="!explorerQueryHistory.length"
+                      @click="clearExplorerQueryHistory"
+                    >
+                      Limpar histórico
+                    </button>
+                  </div>
+                  <p v-if="!recentExplorerQueries.length">
+                    Nenhuma consulta executada nesta sessão do navegador.
+                  </p>
+                  <div
+                    v-for="item in recentExplorerQueries"
+                    :key="item.id"
+                    class="database-explorer-history-item"
+                  >
+                    <button
+                      type="button"
+                      class="database-explorer-history-query"
+                      @click="restoreExplorerQuery(item)"
+                    >
+                      <strong>{{ item.favorite ? '★' : '☆' }}</strong>
+                      <code>{{ item.query }}</code>
+                    </button>
+                    <button
+                      type="button"
+                      :aria-label="
+                        item.favorite
+                          ? 'Remover favorito'
+                          : 'Favoritar consulta'
+                      "
+                      @click="toggleExplorerQueryFavorite(item.id)"
+                    >
+                      {{ item.favorite ? '★' : '☆' }}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remover consulta do histórico"
+                      @click="removeExplorerQueryHistory(item.id)"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
                 <textarea
                   id="database-query"
@@ -1583,6 +1911,20 @@ onUnmounted(() => {
 .database-connection-bar button svg {
   width: 14px;
   height: 14px;
+}
+.database-connection-disconnect {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.database-connection-disconnect:hover,
+.database-connection-disconnect:focus-visible {
+  color: var(--text);
+  background: var(--surface-2);
 }
 .database-primary-button {
   color: var(--text-on-accent, #fff);
@@ -2660,6 +3002,183 @@ onUnmounted(() => {
   border-color: var(--border-strong);
   background: var(--surface-2);
 }
+.database-explorer-result-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0;
+}
+.database-explorer-result-tools > label {
+  display: flex;
+  min-width: 220px;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+}
+.database-explorer-result-tools > label svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+}
+.database-explorer-result-tools input {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+}
+.database-explorer-result-tools > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.database-explorer-result-tools button,
+.database-explorer-query-heading > button,
+.database-explorer-history-heading button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.database-explorer-result-tools button:hover,
+.database-explorer-query-heading > button:hover,
+.database-explorer-history-heading button:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.database-explorer-result-tools > div > span {
+  color: var(--success-text);
+  font-size: 10px;
+}
+.database-explorer th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: inherit;
+}
+.database-explorer th button svg {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+.database-explorer-query-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.database-explorer-query-heading > div {
+  display: grid;
+  gap: 4px;
+}
+.database-explorer-query-heading > div > span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.database-explorer-history {
+  display: grid;
+  gap: 8px;
+  max-height: 250px;
+  overflow: auto;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+.database-explorer-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.database-explorer-history-heading button {
+  min-height: 26px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.database-explorer-history > p {
+  margin: 4px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.database-explorer-history-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.database-explorer-history-item > button:not(.database-explorer-history-query) {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.database-explorer-history-item > button:hover {
+  color: var(--accent);
+}
+.database-explorer-history-query {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  padding: 7px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.database-explorer-history-query:hover {
+  background: var(--surface-2);
+}
+.database-explorer-history-query strong {
+  flex: 0 0 auto;
+  color: var(--warning-text);
+}
+.database-explorer-history-query code {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
 @media (max-width: 820px) {
   .database-machine-page {
     padding: 24px 18px 48px;
@@ -2680,6 +3199,16 @@ onUnmounted(() => {
     top: -16px;
     margin: -16px -16px 16px;
     padding: 16px 16px 12px;
+  }
+  .database-explorer-result-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .database-explorer-result-tools > label {
+    min-width: 0;
+  }
+  .database-explorer-result-tools > div {
+    justify-content: flex-end;
   }
 }
 </style>
