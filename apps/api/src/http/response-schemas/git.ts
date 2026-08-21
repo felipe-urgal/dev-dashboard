@@ -171,6 +171,25 @@ export const gitCommitMutationResponseSchema = {
   },
 } as const;
 
+const gitImagePreviewContentResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['mimeType', 'base64'],
+  properties: {
+    mimeType: { type: 'string' },
+    base64: { type: 'string' },
+  },
+} as const;
+
+const gitImageDiffPreviewResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    before: gitImagePreviewContentResponseSchema,
+    after: gitImagePreviewContentResponseSchema,
+  },
+} as const;
+
 export const gitFileDiffResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -193,6 +212,7 @@ export const gitFileDiffResponseSchema = {
     truncated: { type: 'boolean' },
     masked: { type: 'boolean' },
     redactionCount: { type: 'integer', minimum: 0 },
+    imagePreview: gitImageDiffPreviewResponseSchema,
   },
 } as const;
 
