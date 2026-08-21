@@ -115,6 +115,8 @@ export type {
   GitFileDiff,
   GitFileLines,
   GitFileStatus,
+  GitImageDiffPreview,
+  GitImagePreviewContent,
   GitMutationConfirmation,
   GitMutationOperation,
   GitOpenPullRequest,

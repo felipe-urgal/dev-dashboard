@@ -140,6 +140,16 @@ export interface GitCommitResult {
   subject: string;
 }
 
+export interface GitImagePreviewContent {
+  mimeType: string;
+  base64: string;
+}
+
+export interface GitImageDiffPreview {
+  before?: GitImagePreviewContent;
+  after?: GitImagePreviewContent;
+}
+
 export interface GitFileDiff {
   path: string;
   scope: GitDiffScope;
@@ -149,6 +159,7 @@ export interface GitFileDiff {
   truncated: boolean;
   masked: boolean;
   redactionCount: number;
+  imagePreview?: GitImageDiffPreview;
 }
 
 export interface GitFileLines {

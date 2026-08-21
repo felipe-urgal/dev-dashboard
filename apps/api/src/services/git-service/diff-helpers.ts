@@ -5,11 +5,27 @@ import type {
   GitDiffFile,
   GitDiffScope,
   GitFileChange,
+  GitFileStatus,
+  GitImageDiffPreview,
+  GitImagePreviewContent,
 } from '@dev-dashboard/contracts';
 
-import { GIT_DIFF_FILE_LIMIT, EMPTY_TREE_HASH } from './constants.js';
+import {
+  GIT_DIFF_FILE_LIMIT,
+  GIT_DIFF_IMAGE_PREVIEW_LIMIT,
+  EMPTY_TREE_HASH,
+} from './constants.js';
 import { GitDiffError } from './errors.js';
-import { runGit } from './run.js';
+import { runGit, runGitBuffer } from './run.js';
+
+const IMAGE_MIME_TYPES = new Map<string, string>([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.gif', 'image/gif'],
+  ['.webp', 'image/webp'],
+  ['.svg', 'image/svg+xml'],
+]);
 
 export async function resolveDiffBase(
   projectPath: string,
@@ -150,4 +166,127 @@ export async function readWorkingTreeFile(
   } finally {
     await handle.close();
   }
+}
+
+export function imageMimeTypeForPath(filePath: string): string | null {
+  return IMAGE_MIME_TYPES.get(path.extname(filePath).toLowerCase()) ?? null;
+}
+
+function imagePreviewContent(
+  buffer: Buffer,
+  mimeType: string,
+): GitImagePreviewContent {
+  return { mimeType, base64: buffer.toString('base64') };
+}
+
+function assertImagePreviewSize(size: number): void {
+  if (size <= GIT_DIFF_IMAGE_PREVIEW_LIMIT) return;
+  throw new GitDiffError(
+    'GIT_DIFF_LINES_UNAVAILABLE',
+    `A imagem excede o limite de ${Math.round(GIT_DIFF_IMAGE_PREVIEW_LIMIT / 1024 / 1024)} MiB para pré-visualização.`,
+  );
+}
+
+async function readWorkingTreeImage(
+  projectPath: string,
+  safePath: string,
+  mimeType: string,
+): Promise<GitImagePreviewContent> {
+  const absolute = path.resolve(projectPath, safePath);
+  let handle;
+  try {
+    handle = await open(absolute, 'r');
+  } catch {
+    throw new GitDiffError(
+      'GIT_DIFF_LINES_UNAVAILABLE',
+      'Imagem indisponível na árvore de trabalho.',
+    );
+  }
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) {
+      throw new GitDiffError(
+        'GIT_DIFF_LINES_UNAVAILABLE',
+        'O caminho da imagem não é um arquivo comum.',
+      );
+    }
+    assertImagePreviewSize(stats.size);
+    const buffer = Buffer.alloc(stats.size);
+    await handle.read(buffer, 0, stats.size, 0);
+    return imagePreviewContent(buffer, mimeType);
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readGitImage(
+  projectPath: string,
+  revisionPath: string,
+  mimeType: string,
+): Promise<GitImagePreviewContent> {
+  const sizeText = await runGit(projectPath, ['cat-file', '-s', revisionPath]);
+  const size = Number.parseInt(sizeText.trim(), 10);
+  if (!Number.isFinite(size)) {
+    throw new GitDiffError(
+      'GIT_DIFF_LINES_UNAVAILABLE',
+      'Não foi possível determinar o tamanho da imagem no Git.',
+    );
+  }
+  assertImagePreviewSize(size);
+  const buffer = await runGitBuffer(
+    projectPath,
+    ['cat-file', 'blob', revisionPath],
+    { maxBufferBytes: GIT_DIFF_IMAGE_PREVIEW_LIMIT + 1024 },
+  );
+  return imagePreviewContent(buffer, mimeType);
+}
+
+/**
+ * Para imagens suportadas, recupera os dois lados do mesmo escopo usado pelo
+ * diff: índice→working tree, HEAD→índice ou HEAD→working tree.
+ */
+export async function readImageDiffPreview(
+  projectPath: string,
+  safePath: string,
+  previousPath: string | undefined,
+  status: GitFileStatus,
+  scope: GitDiffScope,
+  base: string | null,
+): Promise<GitImageDiffPreview | undefined> {
+  const afterMimeType = imageMimeTypeForPath(safePath);
+  if (!afterMimeType) return undefined;
+
+  const beforePath = previousPath ?? safePath;
+  const beforeMimeType = imageMimeTypeForPath(beforePath) ?? afterMimeType;
+  const hasBefore = status !== 'added' && status !== 'untracked';
+  const hasAfter = status !== 'deleted';
+
+  const beforePromise = !hasBefore
+    ? Promise.resolve(undefined)
+    : scope === 'worktree'
+      ? readGitImage(projectPath, `:${beforePath}`, beforeMimeType).catch(
+          () => undefined,
+        )
+      : readGitImage(
+          projectPath,
+          `${base ?? 'HEAD'}:${beforePath}`,
+          beforeMimeType,
+        ).catch(() => undefined);
+
+  const afterPromise = !hasAfter
+    ? Promise.resolve(undefined)
+    : scope === 'index'
+      ? readGitImage(projectPath, `:${safePath}`, afterMimeType).catch(
+          () => undefined,
+        )
+      : readWorkingTreeImage(projectPath, safePath, afterMimeType).catch(
+          () => undefined,
+        );
+
+  const [before, after] = await Promise.all([beforePromise, afterPromise]);
+  if (!before && !after) return undefined;
+  return {
+    ...(before ? { before } : {}),
+    ...(after ? { after } : {}),
+  };
 }

@@ -11,6 +11,16 @@ export interface RunGitOptions {
   maxBufferBytes?: number;
 }
 
+function gitEnvironment(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    GIT_OPTIONAL_LOCKS: '0',
+    GIT_TERMINAL_PROMPT: '0',
+    GCM_INTERACTIVE: 'Never',
+    LC_ALL: 'C',
+  };
+}
+
 /**
  * Único ponto da API que efetivamente dispara `execFile('git', ...)`. Todo
  * serviço de Git delega aqui (direto ou via um wrapper fino de
@@ -30,15 +40,28 @@ export async function runGit(
     maxBuffer: options.maxBufferBytes ?? DEFAULT_MAX_BUFFER_BYTES,
     windowsHide: true,
     timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      GIT_TERMINAL_PROMPT: '0',
-      GCM_INTERACTIVE: 'Never',
-      LC_ALL: 'C',
-    },
+    env: gitEnvironment(),
   });
   return result.stdout;
+}
+
+/** Mesmas garantias de `runGit`, preservando bytes para blobs binários. */
+export async function runGitBuffer(
+  projectPath: string,
+  args: readonly string[],
+  options: RunGitOptions = {},
+): Promise<Buffer> {
+  const result = await execFileAsync('git', [...args], {
+    cwd: projectPath,
+    encoding: 'buffer',
+    maxBuffer: options.maxBufferBytes ?? DEFAULT_MAX_BUFFER_BYTES,
+    windowsHide: true,
+    timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    env: gitEnvironment(),
+  });
+  return Buffer.isBuffer(result.stdout)
+    ? result.stdout
+    : Buffer.from(result.stdout);
 }
 
 export async function optionalGit(

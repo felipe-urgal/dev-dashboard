@@ -54,3 +54,4 @@ const {
 <template src="./ProjectGitDiffPage.template.html"></template>
 
 <style src="./ProjectGitDiffPage.css"></style>
+<style src="./ProjectGitDiffImagePreview.css"></style>

@@ -11692,6 +11692,44 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "redactionCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "imagePreview": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "base64": {
+                    "type": "string"
+                  }
+                }
+              },
+              "after": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "base64": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         }
       }

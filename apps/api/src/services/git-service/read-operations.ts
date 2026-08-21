@@ -20,6 +20,7 @@ import {
   gitDiffArgs,
   parseNumstat,
   ensurePathInsideProject,
+  readImageDiffPreview,
   readIndexBlob,
   readWorkingTreeFile,
 } from './diff-helpers.js';
@@ -185,15 +186,25 @@ export async function getFileDiff(
   const truncated = raw.length > GIT_DIFF_FILE_LIMIT;
   const trimmed = truncated ? raw.slice(0, GIT_DIFF_FILE_LIMIT) : raw;
   const masked = maskSensitiveLogContent(trimmed);
+  const fileStatus = change?.status ?? 'modified';
+  const imagePreview = await readImageDiffPreview(
+    projectPath,
+    safePath,
+    change?.previousPath,
+    fileStatus,
+    scope,
+    base,
+  );
   return {
     path: safePath,
     scope,
-    status: change?.status ?? 'modified',
+    status: fileStatus,
     binary,
     content: binary ? '' : masked.content,
     truncated,
     masked: masked.masked,
     redactionCount: masked.redactionCount,
+    ...(imagePreview ? { imagePreview } : {}),
   };
 }
 

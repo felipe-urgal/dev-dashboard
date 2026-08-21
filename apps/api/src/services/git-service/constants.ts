@@ -1,5 +1,6 @@
 export const GIT_DIFF_FILE_LIMIT = 262_144;
 export const GIT_DIFF_LINES_LIMIT = 400;
+export const GIT_DIFF_IMAGE_PREVIEW_LIMIT = 8 * 1024 * 1024;
 export const GIT_MUTATION_CONFIRMATION_TTL_MS = 60_000;
 export const GIT_BRANCH_NAME_PATTERN =
   /^(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
