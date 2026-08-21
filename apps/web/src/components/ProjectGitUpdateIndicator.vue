@@ -35,12 +35,12 @@ const indicator = computed(() =>
 async function loadState(refreshRemotes: boolean): Promise<void> {
   const requestedProjectId = props.projectId;
   const requestGeneration = ++generation;
+  if (refreshRemotes) lastRemoteRefreshAt = Date.now();
 
   try {
     let nextWorkspace = await fetchProjectGitWorkspace(requestedProjectId);
 
     if (refreshRemotes) {
-      lastRemoteRefreshAt = Date.now();
       const remotes = nextWorkspace.remotes
         .filter(
           (remote) => remote.name === 'origin' || remote.name === 'upstream',
@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
     class="project-git-update-indicator"
     :to="{
       name: 'project-git',
-      params: { projectId },
+      params: { projectId: props.projectId },
       query: { tab: 'sync' },
     }"
     :title="indicator.title"
