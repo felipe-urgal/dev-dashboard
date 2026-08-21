@@ -25,9 +25,9 @@ export function getProjectGitUpdateIndicator(
   );
   const currentBranchNeedsUpdate = Boolean(
     currentBranchName &&
-      currentBranchName !== 'main' &&
-      currentUpstream &&
-      currentBehind > 0,
+    currentBranchName !== 'main' &&
+    currentUpstream &&
+    currentBehind > 0,
   );
 
   const remotes = workspace?.remotes ?? [];
@@ -55,10 +55,10 @@ export function getProjectGitUpdateIndicator(
   const mainSyncAvailable = Boolean(localMain && hasOrigin && hasUpstream);
   const mainSynchronized = Boolean(
     localMainHash &&
-      originMainHash &&
-      upstreamMainHash &&
-      localMainHash === originMainHash &&
-      localMainHash === upstreamMainHash,
+    originMainHash &&
+    upstreamMainHash &&
+    localMainHash === originMainHash &&
+    localMainHash === upstreamMainHash,
   );
   const mainNeedsSync = mainSyncAvailable && !mainSynchronized;
 
