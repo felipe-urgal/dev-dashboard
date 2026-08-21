@@ -151,7 +151,7 @@ const currentBranchStatus = computed(() => {
   }
   if (currentBranchAhead.value > 0 && currentBranchBehind.value > 0) {
     return {
-      label: 'Branch local e remota divergiram',
+      label: 'Commits locais e remotos pendentes',
       tone: 'warning',
     };
   }
@@ -192,8 +192,7 @@ const currentBranchButtonDisabled = computed(
     props.checking ||
     !props.overview.clean ||
     !currentBranchUpstream.value ||
-    currentBranchBehind.value <= 0 ||
-    currentBranchAhead.value > 0,
+    currentBranchBehind.value <= 0,
 );
 
 function statusIcon(tone: string) {
