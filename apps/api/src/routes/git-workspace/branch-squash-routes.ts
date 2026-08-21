@@ -3,10 +3,12 @@ import type { FastifyInstance } from 'fastify';
 import {
   commonErrorResponseSchemas,
   gitBranchMutationResponseSchema,
-  gitMutationConfirmationResponseSchema,
 } from '../../http/response-schemas.js';
-import { ApiError } from '../../http/api-error.js';
-import type { GitBranchSquashService } from '../../services/git-branch-squash-service.js';
+import { ApiError, type ApiErrorCode } from '../../http/api-error.js';
+import {
+  countSquashableBranchCommits,
+  type GitBranchSquashService,
+} from '../../services/git-branch-squash-service.js';
 import { GitMutationError } from '../../services/git-service/errors.js';
 import { withGitMutationHistory } from '../git-mutation-history-helpers.js';
 import {
@@ -17,6 +19,15 @@ import {
 } from './helpers.js';
 
 const branchBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['branch'],
+  properties: {
+    branch: { type: 'string', minLength: 1, maxLength: 200 },
+  },
+} as const;
+
+const branchQuerySchema = {
   type: 'object',
   additionalProperties: false,
   required: ['branch'],
@@ -36,6 +47,30 @@ const squashBodySchema = {
   },
 } as const;
 
+const squashConfirmationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'operation', 'target', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    operation: { type: 'string', enum: ['squash'] },
+    target: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+function apiCodeForSquashError(code: GitMutationError['code']): ApiErrorCode {
+  switch (code) {
+    case 'GIT_SQUASH_CURRENT_BRANCH_REQUIRED':
+    case 'GIT_SQUASH_NOT_AVAILABLE':
+      return 'CONFLICT';
+    case 'GIT_SQUASH_FAILED':
+      return 'GIT_COMMAND_FAILED';
+    default:
+      return code;
+  }
+}
+
 function translateSquashError(error: unknown): never {
   if (error instanceof GitMutationError) {
     const statusByCode: Record<string, number> = {
@@ -52,14 +87,14 @@ function translateSquashError(error: unknown): never {
     };
     throw new ApiError({
       statusCode: statusByCode[error.code] ?? 400,
-      code: error.code,
+      code: apiCodeForSquashError(error.code),
       message: error.message,
     });
   }
 
   throw new ApiError({
     statusCode: 500,
-    code: 'GIT_SQUASH_FAILED',
+    code: 'GIT_COMMAND_FAILED',
     message:
       error instanceof Error
         ? error.message
@@ -72,6 +107,41 @@ export function registerBranchSquashRoutes(
   options: GitWorkspaceRouteOptions,
   squashService: GitBranchSquashService,
 ): void {
+  app.get<{
+    Params: ProjectParams;
+    Querystring: { branch: string };
+  }>(
+    '/projects/:projectId/git/branches/squash/status',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: branchQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['branch', 'commitCount'],
+            properties: {
+              branch: { type: 'string' },
+              commitCount: { type: 'integer', minimum: 0 },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = findProject(options, request.params.projectId);
+      return {
+        branch: request.query.branch,
+        commitCount: await countSquashableBranchCommits(
+          project.path,
+          request.query.branch,
+        ),
+      };
+    },
+  );
+
   app.post<{ Params: ProjectParams; Body: { branch: string } }>(
     '/projects/:projectId/git/branches/squash/confirmations',
     {
@@ -83,9 +153,7 @@ export function registerBranchSquashRoutes(
             type: 'object',
             additionalProperties: false,
             required: ['confirmation'],
-            properties: {
-              confirmation: gitMutationConfirmationResponseSchema,
-            },
+            properties: { confirmation: squashConfirmationSchema },
           },
           ...commonErrorResponseSchemas,
         },
