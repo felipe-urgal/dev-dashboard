@@ -65,8 +65,22 @@ test('pull reaplica commits locais por rebase quando branch de trabalho divergiu
   const result = await service.pull(second, 'p1', confirmation.token);
 
   assert.equal(result.branch, 'feature/colaborativa');
-  assert.equal(await git(second, ['rev-list', '--count', 'origin/feature/colaborativa..HEAD']), '1');
-  assert.equal(await git(second, ['rev-list', '--count', 'HEAD..origin/feature/colaborativa']), '0');
+  assert.equal(
+    await git(second, [
+      'rev-list',
+      '--count',
+      'origin/feature/colaborativa..HEAD',
+    ]),
+    '1',
+  );
+  assert.equal(
+    await git(second, [
+      'rev-list',
+      '--count',
+      'HEAD..origin/feature/colaborativa',
+    ]),
+    '0',
+  );
   assert.equal(await git(second, ['show', 'HEAD:local.txt']), 'local');
   assert.equal(await git(second, ['show', 'HEAD:remoto.txt']), 'remoto');
 });

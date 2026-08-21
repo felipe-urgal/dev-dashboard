@@ -52,7 +52,10 @@ test('arquivos novos dentro de pasta aparecem no diff e entram no commit', async
   assert.equal(facebook!.status, 'untracked');
   assert.equal(facebook!.additions, 1);
   assert.equal(facebook!.deletions, 0);
-  assert.ok(whatsapp, 'todos os arquivos novos da pasta devem aparecer no diff');
+  assert.ok(
+    whatsapp,
+    'todos os arquivos novos da pasta devem aparecer no diff',
+  );
   assert.equal(whatsapp!.status, 'untracked');
 
   const fileDiff = await service.getFileDiff(

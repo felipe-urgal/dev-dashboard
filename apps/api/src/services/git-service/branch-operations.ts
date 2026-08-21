@@ -154,8 +154,9 @@ export function createBranchOperations(
       await runGit(projectPath, ['pull', '--ff-only']);
     } catch (error) {
       const details = commandFailureText(error);
-      const diverged =
-        /not possible to fast-forward|divergent branches/i.test(details);
+      const diverged = /not possible to fast-forward|divergent branches/i.test(
+        details,
+      );
       if (diverged && branch !== 'main' && branch !== 'master') {
         try {
           await runGit(projectPath, ['rebase', status.upstream]);
