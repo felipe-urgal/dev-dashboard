@@ -76,9 +76,11 @@
         <span class="branch-state" :class="`is-${stateTone(row)}`">
           <span aria-hidden="true" />
           {{ stateLabel(row) }}
+          <template v-if="!row.local && row.origin"> · Somente leitura</template>
         </span>
 
-        <div class="branch-row-actions">
+        <div class="branch-row-actions branch-menu-popover">
+          <span class="branch-menu-trigger" aria-hidden="true">Ações</span>
           <button
             v-if="
               row.local &&
@@ -231,23 +233,18 @@
         class="branch-modal-form branch-create-form"
         @submit.prevent="submitCreate"
       >
-        <fieldset class="branch-prefix-fieldset">
-          <legend>Tipo da branch</legend>
-          <div class="branch-prefix-grid" aria-label="Tipos de branch">
-            <button
+        <label class="branch-prefix-fieldset">
+          <span>Tipo da branch</span>
+          <select v-model="branchPrefix" :disabled="busy" aria-label="Tipo da branch">
+            <option
               v-for="prefix in prefixes"
               :key="prefix.value"
-              type="button"
-              :class="{ active: branchPrefix === prefix.value }"
-              :aria-pressed="branchPrefix === prefix.value"
-              :disabled="busy"
-              @click="branchPrefix = prefix.value"
+              :value="prefix.value"
             >
-              <strong>{{ prefix.value }}</strong>
-              <span>{{ prefix.label }}</span>
-            </button>
-          </div>
-        </fieldset>
+              {{ prefix.value }} — {{ prefix.label }}
+            </option>
+          </select>
+        </label>
 
         <label class="branch-suffix-field">
           <span>Nome</span>
