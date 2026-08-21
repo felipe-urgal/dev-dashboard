@@ -293,11 +293,12 @@ export function useProjectGitPanelPolicy(
   );
 
   watch(
-    () => [
-      props.project.id,
-      panel.overview.value?.branch,
-      panel.overview.value?.latestCommit?.hash,
-    ] as const,
+    () =>
+      [
+        props.project.id,
+        panel.overview.value?.branch,
+        panel.overview.value?.latestCommit?.hash,
+      ] as const,
     ([, branch]) => {
       void refreshSquashStatus(branch);
     },
