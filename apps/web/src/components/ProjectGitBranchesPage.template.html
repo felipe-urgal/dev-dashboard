@@ -85,7 +85,7 @@
               (forcePushBranch === row.name || !row.origin || row.local.ahead > 0)
             "
             type="button"
-            class="secondary-button branch-publish-button"
+            class="secondary-button branch-action-button"
             :disabled="busy"
             @click="
               forcePushBranch === row.name
@@ -101,84 +101,74 @@
                   : 'Publicar'
             }}
           </button>
+
           <button
             v-if="row.local && !row.local.current"
             type="button"
-            class="secondary-button"
+            class="secondary-button branch-action-button"
             :disabled="busy"
             @click="emit('switch', row.name)"
           >
             Trocar
           </button>
-          <template v-else-if="!row.local && row.origin">
-            <span class="branch-readonly">Somente leitura</span>
-            <button
-              type="button"
-              class="secondary-button"
-              :disabled="busy"
-              @click="emit('track', row.origin.name)"
-            >
-              Trazer para local
-            </button>
-          </template>
 
-          <NPopover
-            v-if="!isProtected(row) && (row.local || row.origin)"
-            trigger="manual"
-            placement="bottom-end"
-            raw
-            :show-arrow="false"
-            :show="openMenu === row.name"
-            class="branch-menu-popover"
-            @clickoutside="closeMenu"
+          <button
+            v-if="!row.local && row.origin"
+            type="button"
+            class="secondary-button branch-action-button"
+            :disabled="busy"
+            @click="emit('track', row.origin.name)"
           >
-            <template #trigger>
-              <button
-                type="button"
-                class="branch-menu-trigger"
-                :aria-expanded="openMenu === row.name"
-                :aria-label="`Ações da branch ${row.name}`"
-                @click.stop.prevent="toggleMenu(row.name)"
-              >
-                <EllipsisHorizontalIcon aria-hidden="true" />
-              </button>
-            </template>
+            Trazer para local
+          </button>
 
-            <button
-              v-if="row.local"
-              type="button"
-              @click="openRenameModal(row)"
-            >
-              <PencilSquareIcon aria-hidden="true" />
-              Renomear
-            </button>
-            <button
-              v-if="row.local?.current && squashCommitCount > 1"
-              type="button"
-              @click="openSquashModal(row)"
-            >
-              <ArrowsPointingInIcon aria-hidden="true" />
-              Squash commits…
-            </button>
-            <button
-              v-if="row.local && !row.local.current"
-              type="button"
-              class="is-danger"
-              @click="openDeleteModal(row)"
-            >
-              <TrashIcon aria-hidden="true" />
-              Remover branch…
-            </button>
-            <button
-              v-if="row.origin"
-              type="button"
-              class="is-danger"
-              @click="openDeleteRemoteModal(row)"
-            >
-              <TrashIcon aria-hidden="true" />
-              Remover do origin…
-            </button>
-          </NPopover>
+          <button
+            v-if="row.local && !isProtected(row)"
+            type="button"
+            class="branch-inline-action"
+            :disabled="busy"
+            @click="openRenameModal(row)"
+          >
+            <PencilSquareIcon aria-hidden="true" />
+            Renomear
+          </button>
+
+          <button
+            v-if="
+              row.local?.current &&
+              !isProtected(row) &&
+              squashCommitCount > 1
+            "
+            type="button"
+            class="branch-inline-action"
+            :disabled="busy"
+            @click="openSquashModal(row)"
+          >
+            <ArrowsPointingInIcon aria-hidden="true" />
+            Squash
+          </button>
+
+          <button
+            v-if="row.local && !row.local.current && !isProtected(row)"
+            type="button"
+            class="branch-inline-action is-danger"
+            :disabled="busy"
+            @click="openDeleteModal(row)"
+          >
+            <TrashIcon aria-hidden="true" />
+            Remover local
+          </button>
+
+          <button
+            v-if="row.origin && !isProtected(row)"
+            type="button"
+            class="branch-inline-action is-danger"
+            :disabled="busy"
+            @click="openDeleteRemoteModal(row)"
+          >
+            <TrashIcon aria-hidden="true" />
+            Remover origin
+          </button>
         </div>
       </div>
 
@@ -191,10 +181,8 @@
 
   <NModal
     :show="Boolean(modal)"
-    preset="card"
     :mask-closable="!busy"
     :close-on-esc="!busy"
-    style="width: min(600px, calc(100vw - 32px))"
     @update:show="(show) => !show && closeModal()"
   >
     <section
@@ -207,7 +195,7 @@
         <div>
           <h2 :id="`branch-${modal}-title`">{{ modalTitle }}</h2>
           <p v-if="modal === 'create'">
-            Será criada a partir de
+            A nova branch será criada a partir de
             <strong>{{ overview.branch ?? 'HEAD' }}</strong>.
           </p>
           <p v-else-if="modal === 'rename'">
@@ -240,51 +228,46 @@
 
       <form
         v-if="modal === 'create'"
-        class="branch-modal-form"
+        class="branch-modal-form branch-create-form"
         @submit.prevent="submitCreate"
       >
-        <div class="branch-name-composer">
-          <label>
-            <span>Prefixo</span>
-            <select v-model="branchPrefix" :disabled="busy">
-              <option
-                v-for="prefix in prefixes"
-                :key="prefix.value"
-                :value="prefix.value"
-              >
-                {{ prefix.value }}
-              </option>
-            </select>
-          </label>
-          <label>
-            <span>Nome</span>
+        <fieldset class="branch-prefix-fieldset">
+          <legend>Tipo da branch</legend>
+          <div class="branch-prefix-grid" aria-label="Tipos de branch">
+            <button
+              v-for="prefix in prefixes"
+              :key="prefix.value"
+              type="button"
+              :class="{ active: branchPrefix === prefix.value }"
+              :aria-pressed="branchPrefix === prefix.value"
+              :disabled="busy"
+              @click="branchPrefix = prefix.value"
+            >
+              <strong>{{ prefix.value }}</strong>
+              <span>{{ prefix.label }}</span>
+            </button>
+          </div>
+        </fieldset>
+
+        <label class="branch-suffix-field">
+          <span>Nome</span>
+          <div class="branch-name-input">
+            <code>{{ branchPrefix }}</code>
             <input
               v-model="branchSuffix"
               type="text"
               maxlength="190"
               placeholder="novo-login"
+              autocomplete="off"
               autofocus
               :disabled="busy"
             />
-          </label>
-        </div>
-
-        <label>
-          <span>Nome completo</span>
-          <input :value="fullBranchName" type="text" readonly tabindex="-1" />
+          </div>
         </label>
 
-        <div class="branch-prefix-grid" aria-label="Tipos de branch">
-          <button
-            v-for="prefix in prefixes"
-            :key="prefix.value"
-            type="button"
-            :class="{ active: branchPrefix === prefix.value }"
-            @click="branchPrefix = prefix.value"
-          >
-            <strong>{{ prefix.value }}</strong>
-            <span>{{ prefix.label }}</span>
-          </button>
+        <div class="branch-name-preview" aria-live="polite">
+          <span>Nome completo</span>
+          <code>{{ fullBranchName }}</code>
         </div>
 
         <footer>
