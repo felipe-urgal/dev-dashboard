@@ -68,9 +68,15 @@ test('condensa commits exclusivos da branch atual em um único commit', async ()
 
     assert.equal(result.branch, 'feature/squash');
     assert.equal(await git(repo, 'rev-list', '--count', 'main..HEAD'), '1');
-    assert.equal(await git(repo, 'log', '-1', '--format=%s'), 'feat: versão final');
+    assert.equal(
+      await git(repo, 'log', '-1', '--format=%s'),
+      'feat: versão final',
+    );
     assert.equal(await git(repo, 'rev-parse', 'HEAD^{tree}'), originalTree);
-    assert.equal(await readFile(path.join(repo, 'feature.txt'), 'utf8'), 'versão 3\n');
+    assert.equal(
+      await readFile(path.join(repo, 'feature.txt'), 'utf8'),
+      'versão 3\n',
+    );
     assert.equal(await countSquashableBranchCommits(repo, 'feature/squash'), 1);
   } finally {
     await rm(root, { recursive: true, force: true });
