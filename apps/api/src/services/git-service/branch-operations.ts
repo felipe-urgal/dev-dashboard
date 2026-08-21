@@ -154,19 +154,33 @@ export function createBranchOperations(
       await runGit(projectPath, ['pull', '--ff-only']);
     } catch (error) {
       const details = commandFailureText(error);
-      if (/not possible to fast-forward/i.test(details)) {
+      const diverged =
+        /not possible to fast-forward|divergent branches/i.test(details);
+      if (diverged && branch !== 'main' && branch !== 'master') {
+        try {
+          await runGit(projectPath, ['rebase', status.upstream]);
+        } catch (rebaseError) {
+          const rebaseDetails = commandFailureText(rebaseError);
+          await runGit(projectPath, ['rebase', '--abort']).catch(() => '');
+          throw new GitMutationError(
+            'GIT_PULL_DIVERGED',
+            'A branch local e a remota divergiram, e o rebase encontrou conflitos. A operação foi abortada sem concluir a atualização.' +
+              (rebaseDetails ? `\n${rebaseDetails}` : ''),
+          );
+        }
+      } else if (diverged) {
         throw new GitMutationError(
           'GIT_PULL_DIVERGED',
           'O branch local divergiu do remoto; resolva manualmente antes de tentar novamente.',
         );
-      }
-      if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
+      } else if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
         throw new GitMutationError(
           'GIT_REMOTE_UNAVAILABLE',
           'Não foi possível acessar o remoto configurado.',
         );
+      } else {
+        throw new GitMutationError('GIT_PULL_FAILED', details);
       }
-      throw new GitMutationError('GIT_PULL_FAILED', details);
     }
     const currentSha = (
       await runGit(projectPath, ['rev-parse', 'HEAD'])
