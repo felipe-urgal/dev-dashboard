@@ -1,19 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import {
-  mkdtemp,
-  mkdir,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { test } from 'node:test';
 
 import { GitService } from '../src/services/git-service.js';
-import { ProjectFileMutationService } from '../src/services/project-file-mutation-service.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -25,7 +18,7 @@ async function git(cwd: string, args: readonly string[]): Promise<string> {
   return result.stdout;
 }
 
-test('arquivos novos e pastas vazias aparecem no diff e entram no commit', async (context) => {
+test('arquivos novos dentro de pasta aparecem no diff e entram no commit', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-untracked-'));
   context.after(async () => {
     await rm(root, { recursive: true, force: true });
@@ -38,39 +31,38 @@ test('arquivos novos e pastas vazias aparecem no diff e entram no commit', async
   await git(root, ['add', '.']);
   await git(root, ['commit', '-q', '-m', 'init']);
 
-  await mkdir(path.join(root, 'docs'));
-  const fileMutations = new ProjectFileMutationService();
-  await fileMutations.createEntry(root, {
-    path: 'docs/generated',
-    kind: 'directory',
-  });
+  const iconsDirectory = path.join(root, 'social-medias-share', 'icons');
+  await mkdir(iconsDirectory, { recursive: true });
   await writeFile(
-    path.join(root, 'novo.ts'),
-    'export const first = 1;\nexport const second = 2;\n',
+    path.join(iconsDirectory, 'facebook.svg'),
+    '<svg>facebook</svg>\n',
   );
-
-  assert.equal(
-    await readFile(path.join(root, 'docs', 'generated', '.gitkeep'), 'utf8'),
-    '',
+  await writeFile(
+    path.join(iconsDirectory, 'whatsapp.svg'),
+    '<svg>whatsapp</svg>\n',
   );
 
   const service = new GitService();
   const snapshot = await service.getDiffSnapshot(root, 'combined');
   const byPath = new Map(snapshot.files.map((file) => [file.path, file]));
-  const newFile = byPath.get('novo.ts');
-  const directoryMarker = byPath.get('docs/generated/.gitkeep');
+  const facebook = byPath.get('social-medias-share/icons/facebook.svg');
+  const whatsapp = byPath.get('social-medias-share/icons/whatsapp.svg');
 
-  assert.ok(newFile, 'arquivo não rastreado deve aparecer no diff');
-  assert.equal(newFile!.status, 'untracked');
-  assert.equal(newFile!.additions, 2);
-  assert.equal(newFile!.deletions, 0);
-  assert.ok(directoryMarker, 'pasta vazia deve aparecer pelo .gitkeep');
-  assert.equal(directoryMarker!.status, 'untracked');
+  assert.ok(facebook, 'arquivo novo dentro da pasta deve aparecer no diff');
+  assert.equal(facebook!.status, 'untracked');
+  assert.equal(facebook!.additions, 1);
+  assert.equal(facebook!.deletions, 0);
+  assert.ok(whatsapp, 'todos os arquivos novos da pasta devem aparecer no diff');
+  assert.equal(whatsapp!.status, 'untracked');
 
-  const fileDiff = await service.getFileDiff(root, 'novo.ts', 'combined');
+  const fileDiff = await service.getFileDiff(
+    root,
+    'social-medias-share/icons/facebook.svg',
+    'combined',
+  );
   assert.equal(fileDiff.status, 'untracked');
   assert.match(fileDiff.content, /new file mode/);
-  assert.match(fileDiff.content, /\+export const first = 1;/);
+  assert.match(fileDiff.content, /\+<svg>facebook<\/svg>/);
 
   const confirmation = service.prepareMutationConfirmation(
     'p1',
@@ -86,7 +78,7 @@ test('arquivos novos e pastas vazias aparecem no diff e entram no commit', async
   );
 
   const tree = await git(root, ['ls-tree', '-r', '--name-only', 'HEAD']);
-  assert.match(tree, /^docs\/generated\/\.gitkeep$/m);
-  assert.match(tree, /^novo\.ts$/m);
+  assert.match(tree, /^social-medias-share\/icons\/facebook\.svg$/m);
+  assert.match(tree, /^social-medias-share\/icons\/whatsapp\.svg$/m);
   assert.equal((await git(root, ['status', '--porcelain'])).trim(), '');
 });
