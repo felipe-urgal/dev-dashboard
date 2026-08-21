@@ -2,7 +2,6 @@
 import {
   ArrowsPointingInIcon,
   CheckCircleIcon,
-  EllipsisHorizontalIcon,
   LockClosedIcon,
   MinusCircleIcon,
   PencilSquareIcon,
@@ -11,8 +10,8 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { NModal, NPopover } from 'naive-ui';
+import { computed, ref } from 'vue';
+import { NModal } from 'naive-ui';
 
 import type {
   GitBranch,
@@ -65,7 +64,6 @@ const prefixes: BranchPrefix[] = [
   { value: 'test/', label: 'Testes' },
 ];
 
-const openMenu = ref('');
 const modal = ref<BranchModal>(null);
 const selectedBranch = ref('');
 const branchPrefix = ref(prefixes[0]!.value);
@@ -165,16 +163,7 @@ const modalTitle = computed(() => {
   }
 });
 
-function closeMenu(): void {
-  openMenu.value = '';
-}
-
-function toggleMenu(name: string): void {
-  openMenu.value = openMenu.value === name ? '' : name;
-}
-
 function openCreateModal(): void {
-  closeMenu();
   selectedBranch.value = '';
   branchPrefix.value = prefixes[0]!.value;
   branchSuffix.value = '';
@@ -182,28 +171,24 @@ function openCreateModal(): void {
 }
 
 function openRenameModal(row: BranchRow): void {
-  closeMenu();
   selectedBranch.value = row.name;
   renamedBranch.value = row.name;
   modal.value = 'rename';
 }
 
 function openSquashModal(row: BranchRow): void {
-  closeMenu();
   selectedBranch.value = row.name;
   squashMessage.value = row.local?.latestCommit?.subject?.trim() || row.name;
   modal.value = 'squash';
 }
 
 function openDeleteModal(row: BranchRow): void {
-  closeMenu();
   selectedBranch.value = row.name;
   deleteConfirmation.value = '';
   modal.value = 'delete';
 }
 
 function openDeleteRemoteModal(row: BranchRow): void {
-  closeMenu();
   selectedBranch.value = row.name;
   deleteConfirmation.value = '';
   modal.value = 'delete-remote';
@@ -243,34 +228,8 @@ function submitDelete(): void {
   }
   modal.value = null;
 }
-
-function handleEscape(event: KeyboardEvent): void {
-  if (event.key !== 'Escape' || modal.value) return;
-  closeMenu();
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleEscape);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', handleEscape);
-});
 </script>
 
 <template src="./ProjectGitBranchesPage.template.html"></template>
 
 <style scoped src="./ProjectGitBranchesPage.css"></style>
-
-<style>
-/* NPopover teleporta o conteúdo pra fora da árvore do componente, então o
-   estilo do box em si (a classe passada via prop) não pode ser escopado. */
-.branch-menu-popover {
-  display: grid;
-  min-width: 190px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-}
-</style>
