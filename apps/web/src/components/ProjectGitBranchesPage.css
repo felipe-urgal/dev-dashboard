@@ -514,6 +514,18 @@
   font-weight: var(--font-weight-strong);
 }
 
+.branch-squash-submit,
+.branch-squash-submit > span {
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+}
+
+.branch-squash-submit {
+  min-width: 114px;
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
 .danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;

@@ -24,6 +24,7 @@ const props = defineProps<{
   workspace: ProjectGitWorkspace | null;
   loading: boolean;
   busy: boolean;
+  remoteRefreshing: boolean;
   squashCommitCount: number;
   forcePushBranch: string | null;
 }>();
@@ -71,6 +72,8 @@ const branchSuffix = ref('');
 const renamedBranch = ref('');
 const squashMessage = ref('');
 const deleteConfirmation = ref('');
+
+const actionsBusy = computed(() => props.busy || props.remoteRefreshing);
 
 const rows = computed<BranchRow[]>(() => {
   const byName = new Map<string, BranchRow>();
@@ -200,25 +203,25 @@ function closeModal(): void {
 }
 
 function submitCreate(): void {
-  if (!canSubmitCreate.value || props.busy) return;
+  if (!canSubmitCreate.value || actionsBusy.value) return;
   emit('create', fullBranchName.value);
   modal.value = null;
 }
 
 function submitRename(): void {
-  if (!canSubmitRename.value || props.busy) return;
+  if (!canSubmitRename.value || actionsBusy.value) return;
   emit('rename', selectedBranch.value, renamedBranch.value.trim());
   modal.value = null;
 }
 
 function submitSquash(): void {
-  if (!canSubmitSquash.value || props.busy) return;
+  if (!canSubmitSquash.value || actionsBusy.value) return;
   emit('squash', selectedBranch.value, squashMessage.value.trim());
   modal.value = null;
 }
 
 function submitDelete(): void {
-  if (!canSubmitDelete.value || props.busy) return;
+  if (!canSubmitDelete.value || actionsBusy.value) return;
   if (modal.value === 'delete-remote') {
     const remoteBranch = selectedRow.value?.origin?.name;
     if (!remoteBranch) return;

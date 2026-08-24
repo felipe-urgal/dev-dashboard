@@ -5,11 +5,11 @@
         <span>Branches do projeto</span>
         <strong>Organize o trabalho local e remoto</strong>
       </div>
-      <button type="button" class="primary-button branch-create-button" :disabled="busy" @click="openCreateModal">
+      <button type="button" class="primary-button branch-create-button" :disabled="actionsBusy" @click="openCreateModal">
         <PlusIcon aria-hidden="true" />
         Nova branch
       </button>
-      <button type="button" class="secondary-button branch-refresh-button" :disabled="busy" @click="emit('refresh-remotes')">
+      <button type="button" class="secondary-button branch-refresh-button" :disabled="actionsBusy" @click="emit('refresh-remotes')">
         Atualizar remotas
       </button>
     </header>
@@ -28,13 +28,13 @@
         <span class="branch-state" :class="`is-${stateTone(row)}`"><span aria-hidden="true" />{{ stateLabel(row) }}<template v-if="!row.local && row.origin"> · Somente leitura</template></span>
         <div class="branch-row-actions branch-menu-popover">
           <span class="branch-menu-trigger" aria-hidden="true">Ações</span>
-          <button v-if="row.local && (forcePushBranch === row.name || !row.origin || row.local.ahead > 0)" type="button" class="secondary-button branch-action-button" :disabled="busy" @click="forcePushBranch === row.name ? emit('force-push', row.name) : emit('publish', row.name)">{{ forcePushBranch === row.name ? 'Reenviar' : row.origin ? 'Enviar' : 'Publicar' }}</button>
-          <button v-if="row.local && !row.local.current" type="button" class="secondary-button branch-action-button" :disabled="busy" @click="emit('switch', row.name)">Trocar</button>
-          <button v-if="!row.local && row.origin" type="button" class="secondary-button branch-action-button" :disabled="busy" @click="emit('track', row.origin.name)">Trazer para local</button>
-          <button v-if="row.local && !isProtected(row)" type="button" class="branch-inline-action" :disabled="busy" @click="openRenameModal(row)"><PencilSquareIcon aria-hidden="true" />Renomear</button>
-          <button v-if="row.local?.current && !isProtected(row) && squashCommitCount > 1" type="button" class="branch-inline-action" :disabled="busy" @click="openSquashModal(row)"><ArrowsPointingInIcon aria-hidden="true" />Squash</button>
-          <button v-if="row.local && !row.local.current && !isProtected(row)" type="button" class="branch-inline-action is-danger" :disabled="busy" @click="openDeleteModal(row)"><TrashIcon aria-hidden="true" />Remover branch</button>
-          <button v-if="row.origin && !isProtected(row)" type="button" class="branch-inline-action is-danger" :disabled="busy" @click="openDeleteRemoteModal(row)"><TrashIcon aria-hidden="true" />Remover do origin</button>
+          <button v-if="row.local && (forcePushBranch === row.name || !row.origin || row.local.ahead > 0)" type="button" class="secondary-button branch-action-button" :disabled="actionsBusy" @click="forcePushBranch === row.name ? emit('force-push', row.name) : emit('publish', row.name)">{{ forcePushBranch === row.name ? 'Reenviar' : row.origin ? 'Enviar' : 'Publicar' }}</button>
+          <button v-if="row.local && !row.local.current" type="button" class="secondary-button branch-action-button" :disabled="actionsBusy" @click="emit('switch', row.name)">Trocar</button>
+          <button v-if="!row.local && row.origin" type="button" class="secondary-button branch-action-button" :disabled="actionsBusy" @click="emit('track', row.origin.name)">Trazer para local</button>
+          <button v-if="row.local && !isProtected(row)" type="button" class="branch-inline-action" :disabled="actionsBusy" @click="openRenameModal(row)"><PencilSquareIcon aria-hidden="true" />Renomear</button>
+          <button v-if="row.local?.current && !isProtected(row) && squashCommitCount > 1" type="button" class="branch-inline-action" :disabled="actionsBusy" @click="openSquashModal(row)"><ArrowsPointingInIcon aria-hidden="true" />Squash</button>
+          <button v-if="row.local && !row.local.current && !isProtected(row)" type="button" class="branch-inline-action is-danger" :disabled="actionsBusy" @click="openDeleteModal(row)"><TrashIcon aria-hidden="true" />Remover branch</button>
+          <button v-if="row.origin && !isProtected(row)" type="button" class="branch-inline-action is-danger" :disabled="actionsBusy" @click="openDeleteRemoteModal(row)"><TrashIcon aria-hidden="true" />Remover do origin</button>
         </div>
       </div>
       <div v-if="loading" class="branch-table-empty">Atualizando branches…</div>
@@ -58,21 +58,21 @@
         <label class="branch-prefix-fieldset"><span>Tipo da branch</span><select v-model="branchPrefix" :disabled="busy" aria-label="Tipo da branch"><option v-for="prefix in prefixes" :key="prefix.value" :value="prefix.value">{{ prefix.value }} — {{ prefix.label }}</option></select></label>
         <label class="branch-suffix-field"><span>Nome</span><div class="branch-name-input"><code>{{ branchPrefix }}</code><input v-model="branchSuffix" type="text" maxlength="190" placeholder="novo-login" autocomplete="off" autofocus aria-label="Nome" :disabled="busy" /></div></label>
         <div class="branch-name-preview" aria-live="polite"><span>Nome completo</span><input type="text" :value="fullBranchName" readonly aria-label="Nome completo" /></div>
-        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="primary-button" :disabled="busy || !canSubmitCreate">Criar e trocar</button></footer>
+        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="primary-button" :disabled="actionsBusy || !canSubmitCreate">Criar e trocar</button></footer>
       </form>
       <form v-else-if="modal === 'rename'" class="branch-modal-form" @submit.prevent="submitRename">
         <label><span>Novo nome</span><input v-model="renamedBranch" type="text" maxlength="200" autofocus :disabled="busy" /></label>
-        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="primary-button" :disabled="busy || !canSubmitRename">Salvar novo nome</button></footer>
+        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="primary-button" :disabled="actionsBusy || !canSubmitRename">Salvar novo nome</button></footer>
       </form>
       <form v-else-if="modal === 'squash'" class="branch-modal-form" @submit.prevent="submitSquash">
         <label><span>Mensagem do commit final</span><input v-model="squashMessage" type="text" maxlength="500" autofocus :disabled="busy" /></label>
         <p v-if="selectedRow?.origin">Como esta branch já foi publicada, depois do squash será necessário reenviá-la para o origin com lease.</p>
-        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button" :disabled="busy || !canSubmitSquash">Fazer squash</button></footer>
+        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button branch-squash-submit" :disabled="actionsBusy || !canSubmitSquash"><span>Fazer squash</span></button></footer>
       </form>
       <form v-else class="branch-modal-form branch-delete-form" @submit.prevent="submitDelete">
         <p>Esta ação não pode ser desfeita. Para confirmar, digite <strong>{{ selectedRow?.name }}</strong>.</p>
         <label><span>Nome da branch</span><input v-model="deleteConfirmation" type="text" autocomplete="off" autofocus :disabled="busy" /></label>
-        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button" :disabled="busy || !canSubmitDelete">{{ deleteSubmitLabel }}</button></footer>
+        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button" :disabled="actionsBusy || !canSubmitDelete">{{ deleteSubmitLabel }}</button></footer>
       </form>
     </section>
   </NModal>
