@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useProjectGitPanelPolicy } from '../src/composables/useProjectGitPanelPolicy';
-
 const mocks = vi.hoisted(() => ({
   branch: 'bugfix/ajustar-layout',
   panel: {
@@ -62,7 +60,16 @@ vi.mock('../src/composables/useProjectGitPanel', () => ({
   useProjectGitPanel: () => mocks.panel,
 }));
 
-function policy() {
+async function policy() {
+  // O tsconfig de testes usa tsc puro, que enxerga arquivos .vue apenas pelo
+  // shim genérico e não resolve exports de tipo de <script setup>. Importar o
+  // policy estaticamente faria o tsc seguir useProjectGitPanel.ts e falhar no
+  // tipo CommitMode exportado pelo SFC, mesmo que essa dependência esteja
+  // mockada neste teste. O import em runtime mantém o teste comportamental sem
+  // acoplar a checagem de tipos à implementação interna do componente Vue.
+  const modulePath = '../src/composables/useProjectGitPanelPolicy';
+  const { useProjectGitPanelPolicy } = await vi.importActual<any>(modulePath);
+
   return useProjectGitPanelPolicy(
     { project: { id: 'projeto-1' } as any },
     undefined,
@@ -100,7 +107,7 @@ beforeEach(() => {
 
 describe('squash de branch publicada', () => {
   it('cria o commit com a mensagem escolhida e reenvia para origin com lease', async () => {
-    const git = policy();
+    const git = await policy();
 
     await git.runSquashBranch(
       mocks.branch,
@@ -131,7 +138,7 @@ describe('squash de branch publicada', () => {
 
   it('mantém a ação Reenviar disponível quando o squash local funciona e o push falha', async () => {
     mocks.forcePush.mockRejectedValueOnce(new Error('lease recusado'));
-    const git = policy();
+    const git = await policy();
 
     await git.runSquashBranch(
       mocks.branch,
