@@ -41,8 +41,23 @@
       <div v-else-if="rows.length === 0" class="branch-table-empty">Nenhuma branch disponível neste filtro.</div>
     </div>
   </div>
-  <NModal :show="Boolean(modal)" :mask-closable="!busy" :close-on-esc="!busy" @update:show="(show) => !show && closeModal()">
-    <section class="branch-modal" role="dialog" aria-modal="true" :aria-labelledby="`branch-${modal}-title`">
+  <NModal
+    :show="Boolean(modal)"
+    :mask-closable="!busy"
+    :close-on-esc="!busy"
+    :auto-focus="false"
+    :return-focus="false"
+    :trap-focus="false"
+    @update:show="(show) => !show && closeModal()"
+  >
+    <section
+      ref="modalDialog"
+      class="branch-modal"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="`branch-${modal}-title`"
+      @keydown="handleModalKeydown"
+    >
       <header>
         <div>
           <h2 :id="`branch-${modal}-title`">{{ modalTitle }}</h2>
@@ -56,22 +71,22 @@
       </header>
       <form v-if="modal === 'create'" class="branch-modal-form branch-create-form" @submit.prevent="submitCreate">
         <label class="branch-prefix-fieldset"><span>Tipo da branch</span><select v-model="branchPrefix" :disabled="busy" aria-label="Tipo da branch"><option v-for="prefix in prefixes" :key="prefix.value" :value="prefix.value">{{ prefix.value }} — {{ prefix.label }}</option></select></label>
-        <label class="branch-suffix-field"><span>Nome</span><div class="branch-name-input"><code>{{ branchPrefix }}</code><input v-model="branchSuffix" type="text" maxlength="190" placeholder="novo-login" autocomplete="off" autofocus aria-label="Nome" :disabled="busy" /></div></label>
+        <label class="branch-suffix-field"><span>Nome</span><div class="branch-name-input"><code>{{ branchPrefix }}</code><input v-model="branchSuffix" type="text" maxlength="190" placeholder="novo-login" autocomplete="off" aria-label="Nome" data-branch-modal-autofocus :disabled="busy" /></div></label>
         <div class="branch-name-preview" aria-live="polite"><span>Nome completo</span><input type="text" :value="fullBranchName" readonly aria-label="Nome completo" /></div>
         <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="primary-button" :disabled="actionsBusy || !canSubmitCreate">Criar e trocar</button></footer>
       </form>
       <form v-else-if="modal === 'rename'" class="branch-modal-form" @submit.prevent="submitRename">
-        <label><span>Novo nome</span><input v-model="renamedBranch" type="text" maxlength="200" autofocus :disabled="busy" /></label>
+        <label><span>Novo nome</span><input v-model="renamedBranch" type="text" maxlength="200" aria-label="Novo nome" data-branch-modal-autofocus :disabled="busy" /></label>
         <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="primary-button" :disabled="actionsBusy || !canSubmitRename">Salvar novo nome</button></footer>
       </form>
       <form v-else-if="modal === 'squash'" class="branch-modal-form" @submit.prevent="submitSquash">
-        <label><span>Mensagem do commit final</span><input v-model="squashMessage" type="text" maxlength="500" autofocus :disabled="busy" /></label>
+        <label><span>Mensagem do commit final</span><input :value="squashMessage" type="text" maxlength="500" autocomplete="off" aria-label="Mensagem do commit final" data-branch-modal-autofocus @input="updateSquashMessage" /></label>
         <p v-if="selectedRow?.origin">Como esta branch já foi publicada, depois do squash será necessário reenviá-la para o origin com lease.</p>
         <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button branch-squash-submit" :disabled="actionsBusy || !canSubmitSquash"><span>Fazer squash</span></button></footer>
       </form>
       <form v-else class="branch-modal-form branch-delete-form" @submit.prevent="submitDelete">
         <p>Esta ação não pode ser desfeita. Para confirmar, digite <strong>{{ selectedRow?.name }}</strong>.</p>
-        <label><span>Nome da branch</span><input v-model="deleteConfirmation" type="text" autocomplete="off" autofocus :disabled="busy" /></label>
+        <label><span>Nome da branch</span><input v-model="deleteConfirmation" type="text" autocomplete="off" aria-label="Nome da branch" data-branch-modal-autofocus :disabled="busy" /></label>
         <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button" :disabled="actionsBusy || !canSubmitDelete">{{ deleteSubmitLabel }}</button></footer>
       </form>
     </section>

@@ -42,7 +42,7 @@ test('a página Vue de branches usa os tokens dos temas claro e escuro', async (
   assert.match(css, /branch-delete-form[\s\S]*var\(--danger-surface\)/);
 });
 
-test('o modal de squash continua editável durante atualização remota', async () => {
+test('o modal de squash mantém foco e edição independentes do estado de Git', async () => {
   const [panelTemplate, branchesComponent, branchesTemplate, branchesCss] =
     await Promise.all([
       readFile(
@@ -82,8 +82,18 @@ test('o modal de squash continua editável durante atualização remota', async 
     /const actionsBusy = computed\(\(\) => props\.busy \|\| props\.remoteRefreshing\);/,
   );
   assert.match(
+    branchesComponent,
+    /function updateSquashMessage\(event: Event\)/,
+  );
+  assert.match(branchesTemplate, /:auto-focus="false"/);
+  assert.match(branchesTemplate, /:trap-focus="false"/);
+  assert.match(
     branchesTemplate,
-    /v-model="squashMessage"[^>]*:disabled="busy"/,
+    /aria-label="Mensagem do commit final"[^>]*@input="updateSquashMessage"/,
+  );
+  assert.doesNotMatch(
+    branchesTemplate,
+    /aria-label="Mensagem do commit final"[^>]*:disabled=/,
   );
   assert.match(
     branchesTemplate,
