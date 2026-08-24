@@ -81,8 +81,8 @@
       </form>
       <form v-else-if="modal === 'squash'" class="branch-modal-form" @submit.prevent="submitSquash">
         <label><span>Mensagem do commit final</span><input :value="squashMessage" type="text" maxlength="500" autocomplete="off" aria-label="Mensagem do commit final" data-branch-modal-autofocus @input="updateSquashMessage" /></label>
-        <p v-if="selectedRow?.origin">Como esta branch já foi publicada, depois do squash será necessário reenviá-la para o origin com lease.</p>
-        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button branch-squash-submit" :disabled="actionsBusy || !canSubmitSquash"><span>Fazer squash</span></button></footer>
+        <p v-if="selectedRow?.origin">Como esta branch já foi publicada, o squash também reenviará a branch para o origin com lease. O envio será recusado se o remoto tiver mudado.</p>
+        <footer><button type="button" class="secondary-button" :disabled="busy" @click="closeModal">Cancelar</button><button type="submit" class="danger-button branch-squash-submit" :disabled="actionsBusy || !canSubmitSquash"><span>{{ squashSubmitLabel }}</span></button></footer>
       </form>
       <form v-else class="branch-modal-form branch-delete-form" @submit.prevent="submitDelete">
         <p>Esta ação não pode ser desfeita. Para confirmar, digite <strong>{{ selectedRow?.name }}</strong>.</p>
