@@ -154,6 +154,10 @@ const deleteSubmitLabel = computed(() =>
     : 'Remover branch local',
 );
 
+const squashSubmitLabel = computed(() =>
+  selectedRow.value?.origin ? 'Fazer squash e reenviar' : 'Fazer squash',
+);
+
 const modalTitle = computed(() => {
   switch (modal.value) {
     case 'create':
