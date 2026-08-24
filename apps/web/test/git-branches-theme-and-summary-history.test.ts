@@ -67,10 +67,7 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
         'utf8',
       ),
       readFile(
-        path.resolve(
-          process.cwd(),
-          'src/components/ProjectGitBranchesPage.css',
-        ),
+        path.resolve(process.cwd(), 'src/components/ProjectGitBranchesPage.css'),
         'utf8',
       ),
     ]);
@@ -84,6 +81,10 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
   assert.match(
     branchesComponent,
     /function updateSquashMessage\(event: Event\)/,
+  );
+  assert.match(
+    branchesComponent,
+    /Fazer squash e reenviar[\s\S]*Fazer squash/,
   );
   assert.match(branchesTemplate, /:auto-focus="false"/);
   assert.match(branchesTemplate, /:trap-focus="false"/);
@@ -99,7 +100,11 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
     branchesTemplate,
     /branch-squash-submit" :disabled="actionsBusy \|\| !canSubmitSquash"/,
   );
-  assert.match(branchesTemplate, />\s*<span>Fazer squash<\/span>\s*<\/button>/);
+  assert.match(branchesTemplate, /\{\{ squashSubmitLabel \}\}/);
+  assert.match(
+    branchesTemplate,
+    /squash também reenviará a branch para o origin com lease/,
+  );
   assert.match(
     branchesCss,
     /branch-squash-submit[\s\S]*-webkit-text-fill-color:\s*#fff/,
