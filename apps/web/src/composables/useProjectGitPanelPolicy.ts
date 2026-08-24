@@ -53,6 +53,18 @@ export function useProjectGitPanelPolicy(
     }
   }
 
+  async function pushBranchWithLease(branch: string): Promise<string> {
+    const confirmation = await prepareProjectGitForcePushWithLease(
+      props.project.id,
+      branch,
+    );
+    return forcePushProjectGitBranchWithLease(
+      props.project.id,
+      branch,
+      confirmation.token,
+    );
+  }
+
   async function runMutation(
     operation: 'create-branch' | 'switch-branch',
     target: string,
@@ -194,18 +206,35 @@ export function useProjectGitPanelPolicy(
         confirmation.token,
       );
       squashCommitCount.value = 1;
+      pendingPushBranch.value = null;
+
       if (alreadyPublished) {
         panel.amendedBranch.value = squashedBranch;
-        panel.mutationMessage.value =
-          `Squash concluído em "${squashedBranch}". ` +
-          `Reenvie a branch para origin/${squashedBranch} com lease.`;
+        try {
+          const pushedBranch = await pushBranchWithLease(squashedBranch);
+          if (panel.amendedBranch.value === pushedBranch) {
+            panel.amendedBranch.value = null;
+          }
+          panel.mutationMessage.value =
+            `Squash concluído e branch "${pushedBranch}" reenviada para ` +
+            `origin/${pushedBranch} com lease.`;
+        } catch (pushError) {
+          panel.mutationMessage.value = `Squash concluído localmente em "${squashedBranch}".`;
+          panel.mutationErrorMessage.value =
+            `Não foi possível reenviar origin/${squashedBranch} com lease. ` +
+            (pushError instanceof Error
+              ? pushError.message
+              : 'Use a ação "Reenviar" para tentar novamente.');
+          await panel.reloadGitData();
+          return;
+        }
       } else {
         if (panel.amendedBranch.value === squashedBranch) {
           panel.amendedBranch.value = null;
         }
         panel.mutationMessage.value = `Squash concluído: "${squashedBranch}" agora possui um único commit exclusivo.`;
       }
-      pendingPushBranch.value = null;
+
       await panel.reloadGitData();
     } catch (error) {
       panel.mutationErrorMessage.value =
@@ -236,15 +265,7 @@ export function useProjectGitPanelPolicy(
     panel.mutationErrorMessage.value = '';
 
     try {
-      const confirmation = await prepareProjectGitForcePushWithLease(
-        props.project.id,
-        branch,
-      );
-      const pushedBranch = await forcePushProjectGitBranchWithLease(
-        props.project.id,
-        branch,
-        confirmation.token,
-      );
+      const pushedBranch = await pushBranchWithLease(branch);
       if (panel.amendedBranch.value === pushedBranch) {
         panel.amendedBranch.value = null;
       }

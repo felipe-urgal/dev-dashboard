@@ -10,7 +10,7 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { NModal } from 'naive-ui';
 
 import type {
@@ -44,6 +44,7 @@ const emit = defineEmits<{
 
 type BranchModal =
   'create' | 'rename' | 'squash' | 'delete' | 'delete-remote' | null;
+type OpenBranchModal = Exclude<BranchModal, null>;
 
 interface BranchRow {
   name: string;
@@ -66,12 +67,14 @@ const prefixes: BranchPrefix[] = [
 ];
 
 const modal = ref<BranchModal>(null);
+const modalDialog = ref<HTMLElement | null>(null);
 const selectedBranch = ref('');
 const branchPrefix = ref(prefixes[0]!.value);
 const branchSuffix = ref('');
 const renamedBranch = ref('');
 const squashMessage = ref('');
 const deleteConfirmation = ref('');
+let previousFocus: HTMLElement | null = null;
 
 const actionsBusy = computed(() => props.busy || props.remoteRefreshing);
 
@@ -151,6 +154,10 @@ const deleteSubmitLabel = computed(() =>
     : 'Remover branch local',
 );
 
+const squashSubmitLabel = computed(() =>
+  selectedRow.value?.origin ? 'Fazer squash e reenviar' : 'Fazer squash',
+);
+
 const modalTitle = computed(() => {
   switch (modal.value) {
     case 'create':
@@ -166,58 +173,114 @@ const modalTitle = computed(() => {
   }
 });
 
+function focusModalAutofocus(): void {
+  void nextTick(() => {
+    modalDialog.value
+      ?.querySelector<HTMLElement>('[data-branch-modal-autofocus]')
+      ?.focus();
+  });
+}
+
+function openModal(nextModal: OpenBranchModal): void {
+  if (typeof document !== 'undefined') {
+    previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+  }
+  modal.value = nextModal;
+  focusModalAutofocus();
+}
+
+function finishModal(): void {
+  modal.value = null;
+  const focusTarget = previousFocus;
+  previousFocus = null;
+  if (!focusTarget) return;
+  void nextTick(() => {
+    if (focusTarget.isConnected) focusTarget.focus();
+  });
+}
+
+function handleModalKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Tab') return;
+  const dialog = modalDialog.value;
+  if (!dialog) return;
+  const focusable = [
+    ...dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled])',
+    ),
+  ];
+  if (focusable.length === 0) return;
+  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+  if (event.shiftKey && currentIndex <= 0) {
+    event.preventDefault();
+    focusable.at(-1)?.focus();
+  } else if (!event.shiftKey && currentIndex === focusable.length - 1) {
+    event.preventDefault();
+    focusable[0]?.focus();
+  }
+}
+
+function updateSquashMessage(event: Event): void {
+  const target = event.target;
+  if (target instanceof HTMLInputElement) {
+    squashMessage.value = target.value;
+  }
+}
+
 function openCreateModal(): void {
   selectedBranch.value = '';
   branchPrefix.value = prefixes[0]!.value;
   branchSuffix.value = '';
-  modal.value = 'create';
+  openModal('create');
 }
 
 function openRenameModal(row: BranchRow): void {
   selectedBranch.value = row.name;
   renamedBranch.value = row.name;
-  modal.value = 'rename';
+  openModal('rename');
 }
 
 function openSquashModal(row: BranchRow): void {
   selectedBranch.value = row.name;
   squashMessage.value = row.local?.latestCommit?.subject?.trim() || row.name;
-  modal.value = 'squash';
+  openModal('squash');
 }
 
 function openDeleteModal(row: BranchRow): void {
   selectedBranch.value = row.name;
   deleteConfirmation.value = '';
-  modal.value = 'delete';
+  openModal('delete');
 }
 
 function openDeleteRemoteModal(row: BranchRow): void {
   selectedBranch.value = row.name;
   deleteConfirmation.value = '';
-  modal.value = 'delete-remote';
+  openModal('delete-remote');
 }
 
 function closeModal(): void {
   if (props.busy) return;
-  modal.value = null;
+  finishModal();
 }
 
 function submitCreate(): void {
   if (!canSubmitCreate.value || actionsBusy.value) return;
   emit('create', fullBranchName.value);
-  modal.value = null;
+  finishModal();
 }
 
 function submitRename(): void {
   if (!canSubmitRename.value || actionsBusy.value) return;
   emit('rename', selectedBranch.value, renamedBranch.value.trim());
-  modal.value = null;
+  finishModal();
 }
 
 function submitSquash(): void {
   if (!canSubmitSquash.value || actionsBusy.value) return;
   emit('squash', selectedBranch.value, squashMessage.value.trim());
-  modal.value = null;
+  finishModal();
 }
 
 function submitDelete(): void {
@@ -229,7 +292,7 @@ function submitDelete(): void {
   } else {
     emit('delete', selectedBranch.value);
   }
-  modal.value = null;
+  finishModal();
 }
 </script>
 
