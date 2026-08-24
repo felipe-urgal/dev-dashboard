@@ -74,8 +74,11 @@ it('foca, edita e envia a mensagem informada no squash', async () => {
   input!.dispatchEvent(new Event('input', { bubbles: true }));
   await flushPromises();
   expect(input?.value).toBe('feat: mensagem final escolhida pelo usuário');
+  expect(document.body.textContent).toContain(
+    'o squash também reenviará a branch para o origin com lease',
+  );
 
-  buttonByText('Fazer squash').click();
+  buttonByText('Fazer squash e reenviar').click();
   await flushPromises();
 
   expect(wrapper.emitted('squash')).toEqual([
@@ -94,7 +97,7 @@ it('mantém a mensagem editável se uma operação ficar ocupada com o modal abe
   const input = document.querySelector<HTMLInputElement>(
     'input[aria-label="Mensagem do commit final"]',
   )!;
-  const submit = buttonByText('Fazer squash');
+  const submit = buttonByText('Fazer squash e reenviar');
 
   expect(input.disabled).toBe(false);
   expect(submit.disabled).toBe(true);
