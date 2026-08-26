@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -87,6 +88,28 @@ test('não testa conectividade de hosts remotos definidos pelo projeto', async (
   });
   const overview = await new DatabaseDetectionService().getOverview(project);
   assert.equal(overview.environments[0]?.reachability, 'unknown');
+});
+
+test('detecta conectividade de uma porta local aberta sem depender do ambiente da máquina', async () => {
+  const server = createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve());
+  });
+
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    const project = await fixture({
+      '.env': `DATABASE_URL=postgresql://user@127.0.0.1:${address.port}/example\n`,
+    });
+    const overview = await new DatabaseDetectionService().getOverview(project);
+    assert.equal(overview.environments[0]?.reachability, 'reachable');
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 });
 
 test('detecta múltiplos bancos por ambiente (Rails 6+ primary/data)', async () => {
@@ -311,7 +334,6 @@ test('consulta detalhes, versão e logs recentes de um serviço global', async (
       version: details.version,
       pid: details.pid,
       startedAt: details.startedAt,
-      reachability: details.reachability,
       logs: details.logs,
     },
     {
@@ -319,7 +341,6 @@ test('consulta detalhes, versão e logs recentes de um serviço global', async (
       version: 'psql (PostgreSQL) 16.4',
       pid: 4242,
       startedAt: 'Wed 2026-08-20 09:00:00 BRT',
-      reachability: 'unreachable',
       logs: [
         '2026-08-20T09:00:00 service started',
         '2026-08-20T09:01:00 ready',

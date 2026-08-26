@@ -561,6 +561,17 @@ test('requestSymbolLocations envia uma requisição LSP one-shot sem exigir sock
       writes.length = 0;
       return messages;
     };
+    const waitForMessages = async (
+      expectedCount: number,
+    ): Promise<unknown[]> => {
+      const messages: unknown[] = [];
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        messages.push(...decodeNewWrites());
+        if (messages.length >= expectedCount) return messages;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      assert.fail(`LSP não escreveu ${expectedCount} mensagem(ns) a tempo.`);
+    };
 
     const requestPromise = service.requestSymbolLocations(
       project(root),
@@ -569,11 +580,8 @@ test('requestSymbolLocations envia uma requisição LSP one-shot sem exigir sock
       { line: 1, column: 7 },
       'textDocument/definition',
     );
-    // `requestSymbolLocations` lê o arquivo via fs assíncrono antes de
-    // escrever o didOpen — um único `setImmediate` nem sempre é suficiente.
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const beforeResponse = decodeNewWrites();
+    const beforeResponse = await waitForMessages(2);
     assert.equal(
       (beforeResponse[0] as { method: string }).method,
       'textDocument/didOpen',
@@ -609,8 +617,7 @@ test('requestSymbolLocations envia uma requisição LSP one-shot sem exigir sock
       },
     ]);
 
-    await new Promise((resolve) => setImmediate(resolve));
-    const afterResponse = decodeNewWrites();
+    const afterResponse = await waitForMessages(1);
     assert.equal(
       (afterResponse[0] as { method: string }).method,
       'textDocument/didClose',
