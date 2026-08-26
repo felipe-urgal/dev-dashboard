@@ -37,7 +37,7 @@
   display: none;
 }
 
-.git-modern-panel .git-subtabs button[data-heroicon-ready='true']::before {
+.git-modern-panel .git-subtabs button[data-has-heroicon='true']::before {
   display: none;
 }
 

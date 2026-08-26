@@ -28,7 +28,6 @@ import './shell-option3.css';
 import { installGitActionFeedback } from './git-action-feedback';
 import { installGitDiffHeaderCleanup } from './git-diff-header-cleanup';
 import { installGitDiffSyntaxEnhancer } from './git-diff-syntax-enhancer';
-import { installGitIconEnhancer } from './git-icon-enhancer';
 import { installGitInlineFileDiffEnhancer } from './git-inline-file-diff-enhancer';
 import { installGitSummaryCurrentBranchHistory } from './git-summary-current-branch-history';
 import { installGitSummaryGlobalSearchFix } from './git-summary-global-search-fix';
@@ -43,7 +42,6 @@ import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
-installGitIconEnhancer();
 installGitActionFeedback();
 installGitSummaryCurrentBranchHistory();
 installGitSummaryHistoryEnhancer();
