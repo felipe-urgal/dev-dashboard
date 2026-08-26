@@ -26,7 +26,6 @@ import './sidebar-collapse.css';
 import './shell-option3.css';
 import { installGitDiffSyntaxEnhancer } from './git-diff-syntax-enhancer';
 import { installGitInlineFileDiffEnhancer } from './git-inline-file-diff-enhancer';
-import { installGitSummaryCurrentBranchHistory } from './git-summary-current-branch-history';
 import { installGitSummaryGlobalSearchFix } from './git-summary-global-search-fix';
 import { installGitSummaryHistoryEnhancer } from './git-summary-history-enhancer';
 import { installGitSummaryInlineDiffFix } from './git-summary-inline-diff-fix';
@@ -39,7 +38,6 @@ import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
-installGitSummaryCurrentBranchHistory();
 installGitSummaryHistoryEnhancer();
 installGitSummaryGlobalSearchFix();
 installGitInlineFileDiffEnhancer();
