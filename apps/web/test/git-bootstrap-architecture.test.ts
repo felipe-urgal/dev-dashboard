@@ -24,4 +24,12 @@ describe('arquitetura do bootstrap Git', () => {
       false,
     );
   });
+
+  it('não reescreve globalmente as requisições de histórico Git', () => {
+    expect(entrada).not.toContain('git-summary-current-branch-history');
+    expect(entrada).not.toContain('installGitSummaryCurrentBranchHistory');
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-current-branch-history.ts')),
+    ).toBe(false);
+  });
 });
