@@ -23,6 +23,7 @@ const wrappers: VueWrapper[] = [];
 
 afterEach(() => {
   wrappers.splice(0).forEach((wrapper) => wrapper.unmount());
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -257,6 +258,9 @@ describe('DatabaseView', () => {
       .spyOn(URL, 'createObjectURL')
       .mockReturnValue('blob:test');
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
     const wrapper = mount(DatabaseView);
     wrappers.push(wrapper);
     await flushPromises();
@@ -318,6 +322,7 @@ describe('DatabaseView', () => {
       .trigger('click');
     expect(createObjectURL).toHaveBeenCalledTimes(2);
     expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+    expect(anchorClick).toHaveBeenCalledTimes(2);
 
     await wrapper
       .findAll('button')
