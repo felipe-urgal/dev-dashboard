@@ -439,6 +439,7 @@ test('publica logs durante saída contínua sem adiar até o encerramento', asyn
   });
   const started = await service.start(project, 'package-script:lint');
   let subscriberClosed = false;
+  let receivedInitialLog = false;
   let resolveLiveLog: ((published: boolean) => void) | undefined;
   const liveLog = new Promise<boolean>((resolve) => {
     resolveLiveLog = resolve;
@@ -446,11 +447,12 @@ test('publica logs durante saída contínua sem adiar até o encerramento', asyn
   const closed = new Promise<void>((resolve) => {
     void service.subscribe(project.id, started.id, {
       send: (event) => {
-        if (
-          !subscriberClosed &&
-          event.type === 'log' &&
-          event.log.content.includes('tick-')
-        ) {
+        if (event.type !== 'log') return;
+        if (!receivedInitialLog) {
+          receivedInitialLog = true;
+          return;
+        }
+        if (!subscriberClosed && event.log.content.includes('tick-')) {
           resolveLiveLog?.(true);
         }
       },
