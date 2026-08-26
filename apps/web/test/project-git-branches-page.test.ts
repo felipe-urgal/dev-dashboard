@@ -1,5 +1,10 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import type {
+  GitCommit,
+  ProjectGitOverview,
+  ProjectGitWorkspace,
+} from '@dev-dashboard/contracts';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import { afterEach, expect, it, vi } from 'vitest';
 
 import ProjectGitBranchesPage from '../src/components/ProjectGitBranchesPage.vue';
 
@@ -7,31 +12,56 @@ const wrappers: VueWrapper[] = [];
 
 function mountBranches(): VueWrapper {
   const branch = 'bugfix/ajustar-layout';
+  const latestCommit: GitCommit = {
+    hash: 'abc123456789',
+    shortHash: 'abc1234',
+    subject: 'fix: estabiliza nome acessível do botão de filtros',
+    authorName: 'Dashboard Test',
+    authorEmail: 'dashboard@example.test',
+    authoredAt: '2026-08-26T10:00:00.000Z',
+  };
+  const overview: ProjectGitOverview = {
+    repository: true,
+    branch,
+    detached: false,
+    upstream: `origin/${branch}`,
+    ahead: 2,
+    behind: 0,
+    clean: true,
+    files: [],
+    latestCommit,
+    recentCommits: [latestCommit],
+  };
+  const workspace: ProjectGitWorkspace = {
+    branches: [
+      {
+        kind: 'local',
+        name: branch,
+        shortName: branch,
+        current: true,
+        upstream: `origin/${branch}`,
+        ahead: 2,
+        behind: 0,
+        latestCommit,
+      },
+      {
+        kind: 'remote',
+        name: `origin/${branch}`,
+        shortName: branch,
+        current: false,
+        remote: 'origin',
+        ahead: 0,
+        behind: 0,
+        latestCommit,
+      },
+    ],
+    remotes: [],
+  };
   const wrapper = mount(ProjectGitBranchesPage, {
     attachTo: document.body,
     props: {
-      overview: { branch } as any,
-      workspace: {
-        branches: [
-          {
-            kind: 'local',
-            name: branch,
-            shortName: branch,
-            current: true,
-            ahead: 2,
-            latestCommit: {
-              subject: 'fix: estabiliza nome acessível do botão de filtros',
-            },
-          },
-          {
-            kind: 'remote',
-            name: `origin/${branch}`,
-            shortName: branch,
-            remote: 'origin',
-          },
-        ],
-        remotes: [],
-      } as any,
+      overview,
+      workspace,
       loading: false,
       busy: false,
       remoteRefreshing: false,

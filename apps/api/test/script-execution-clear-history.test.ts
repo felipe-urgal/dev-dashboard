@@ -19,7 +19,7 @@ async function fixture(script: string) {
     JSON.stringify({ scripts: { test: script } }),
   );
   await writeFile(path.join(root, 'package-lock.json'), '{}');
-  const project = {
+  const project: Project = {
     id: 'projeto-clear-history',
     workspaceId: 'workspace-1',
     name: 'Projeto',
@@ -28,7 +28,7 @@ async function fixture(script: string) {
     source: 'workspace',
     enabled: true,
     capabilities: ['scripts'],
-  } as Project;
+  };
   const service = new ScriptExecutionService(
     new ScriptDetectionService(),
     root,
@@ -53,14 +53,21 @@ async function waitForTerminal(
   return execution;
 }
 
+async function cleanup(root: string, service: ScriptExecutionService) {
+  service.close();
+  await rm(root, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 20,
+  });
+}
+
 test('limpa execuções finalizadas e seus registros persistidos', async (t) => {
   const { root, project, service } = await fixture(
     'node -e "console.log(123)"',
   );
-  t.after(() => {
-    service.close();
-    return rm(root, { recursive: true, force: true });
-  });
+  t.after(() => cleanup(root, service));
 
   const started = await service.start(project, 'package-script:test');
   const finished = await waitForTerminal(service, project.id, started.id);
@@ -82,10 +89,7 @@ test('mantém uma execução em andamento ao limpar o histórico', async (t) => 
   const { root, project, service } = await fixture(
     'node -e "setTimeout(() => {}, 1000)"',
   );
-  t.after(() => {
-    service.close();
-    return rm(root, { recursive: true, force: true });
-  });
+  t.after(() => cleanup(root, service));
 
   const started = await service.start(project, 'package-script:test');
   assert.equal((await service.get(project.id, started.id)).status, 'running');
@@ -95,4 +99,6 @@ test('mantém uma execução em andamento ao limpar o histórico', async (t) => 
   assert.equal((await service.get(project.id, started.id)).status, 'running');
 
   await service.cancel(project.id, started.id);
+  const cancelled = await waitForTerminal(service, project.id, started.id);
+  assert.equal(cancelled.status, 'cancelled');
 });

@@ -1,38 +1,78 @@
+import type {
+  Project,
+  ProjectGitOverview,
+  ProjectGitWorkspace,
+} from '@dev-dashboard/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  branch: 'bugfix/ajustar-layout',
-  panel: {
-    mutationRunning: { value: false },
-    remoteRefreshRunning: { value: false },
-    workspace: { value: null as any },
-    mutationMessage: { value: '' },
-    mutationErrorMessage: { value: '' },
-    amendedBranch: { value: null as string | null },
-    overview: {
-      value: {
-        branch: 'bugfix/ajustar-layout',
-        latestCommit: { hash: 'commit-anterior' },
-      } as any,
+type GitPanelPolicy = {
+  runSquashBranch: (branch: string, message: string) => Promise<void>;
+};
+
+type GitPanelPolicyModule = {
+  useProjectGitPanelPolicy: (
+    props: { project: Project },
+    route: undefined,
+    emit: (event: 'git-updated', overview: ProjectGitOverview) => void,
+  ) => GitPanelPolicy;
+};
+
+const mocks = vi.hoisted(() => {
+  const branch = 'bugfix/ajustar-layout';
+  const overview: ProjectGitOverview = {
+    repository: true,
+    branch,
+    detached: false,
+    ahead: 0,
+    behind: 0,
+    clean: true,
+    files: [],
+    recentCommits: [],
+  };
+  const workspace: ProjectGitWorkspace = {
+    branches: [
+      {
+        kind: 'remote',
+        remote: 'origin',
+        shortName: branch,
+        name: `origin/${branch}`,
+        current: false,
+        ahead: 0,
+        behind: 0,
+      },
+    ],
+    remotes: [],
+  };
+
+  return {
+    branch,
+    panel: {
+      mutationRunning: { value: false },
+      remoteRefreshRunning: { value: false },
+      workspace: { value: workspace },
+      mutationMessage: { value: '' },
+      mutationErrorMessage: { value: '' },
+      amendedBranch: { value: null as string | null },
+      overview: { value: overview },
+      reloadGitData: vi.fn().mockResolvedValue(undefined),
+      runMutation: vi.fn(),
+      changeImpact: { value: null },
+      createBranchName: { value: '' },
+      commitMode: { value: 'create' },
+      runCommit: vi.fn().mockResolvedValue(undefined),
     },
-    reloadGitData: vi.fn().mockResolvedValue(undefined),
-    runMutation: vi.fn(),
-    changeImpact: { value: null },
-    createBranchName: { value: '' },
-    commitMode: { value: 'create' },
-    runCommit: vi.fn().mockResolvedValue(undefined),
-  },
-  createBranch: vi.fn(),
-  prepareMutation: vi.fn(),
-  publishBranch: vi.fn(),
-  preparePublish: vi.fn(),
-  prepareForcePush: vi.fn(),
-  forcePush: vi.fn(),
-  fetchSquashStatus: vi.fn(),
-  prepareSquash: vi.fn(),
-  squashBranch: vi.fn(),
-  confirmDialog: vi.fn(),
-}));
+    createBranch: vi.fn(),
+    prepareMutation: vi.fn(),
+    publishBranch: vi.fn(),
+    preparePublish: vi.fn(),
+    prepareForcePush: vi.fn(),
+    forcePush: vi.fn(),
+    fetchSquashStatus: vi.fn(),
+    prepareSquash: vi.fn(),
+    squashBranch: vi.fn(),
+    confirmDialog: vi.fn(),
+  };
+});
 
 vi.mock('../src/api', () => ({
   createProjectGitBranch: mocks.createBranch,
@@ -60,7 +100,7 @@ vi.mock('../src/composables/useProjectGitPanel', () => ({
   useProjectGitPanel: () => mocks.panel,
 }));
 
-async function policy() {
+async function policy(): Promise<GitPanelPolicy> {
   // O tsconfig de testes usa tsc puro, que enxerga arquivos .vue apenas pelo
   // shim genérico e não resolve exports de tipo de <script setup>. Importar o
   // policy estaticamente faria o tsc seguir useProjectGitPanel.ts e falhar no
@@ -68,12 +108,22 @@ async function policy() {
   // mockada neste teste. O import em runtime mantém o teste comportamental sem
   // acoplar a checagem de tipos à implementação interna do componente Vue.
   const modulePath = '../src/composables/useProjectGitPanelPolicy';
-  const { useProjectGitPanelPolicy } = await vi.importActual<any>(modulePath);
+  const { useProjectGitPanelPolicy } =
+    await vi.importActual<GitPanelPolicyModule>(modulePath);
+  const project: Project = {
+    id: 'projeto-1',
+    name: 'Projeto de teste',
+    path: '/tmp/projeto-1',
+    type: 'node',
+    source: 'standalone',
+    enabled: true,
+    capabilities: ['git'],
+  };
 
   return useProjectGitPanelPolicy(
-    { project: { id: 'projeto-1' } as any },
+    { project },
     undefined,
-    vi.fn(),
+    vi.fn<(event: 'git-updated', overview: ProjectGitOverview) => void>(),
   );
 }
 
@@ -84,20 +134,6 @@ beforeEach(() => {
   mocks.panel.mutationMessage.value = '';
   mocks.panel.mutationErrorMessage.value = '';
   mocks.panel.amendedBranch.value = null;
-  mocks.panel.overview.value = {
-    branch: mocks.branch,
-    latestCommit: { hash: 'commit-anterior' },
-  } as any;
-  mocks.panel.workspace.value = {
-    branches: [
-      {
-        kind: 'remote',
-        remote: 'origin',
-        shortName: mocks.branch,
-        name: `origin/${mocks.branch}`,
-      },
-    ],
-  } as any;
   mocks.prepareSquash.mockResolvedValue({ token: 'token-squash' });
   mocks.squashBranch.mockResolvedValue(mocks.branch);
   mocks.prepareForcePush.mockResolvedValue({ token: 'token-force-push' });
