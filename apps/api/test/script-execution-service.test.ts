@@ -438,23 +438,38 @@ test('publica logs durante saída contínua sem adiar até o encerramento', asyn
     return rm(root, { recursive: true, force: true });
   });
   const started = await service.start(project, 'package-script:lint');
-  const events: ScriptExecutionEvent[] = [];
+  let subscriberClosed = false;
+  let resolveLiveLog: ((published: boolean) => void) | undefined;
+  const liveLog = new Promise<boolean>((resolve) => {
+    resolveLiveLog = resolve;
+  });
   const closed = new Promise<void>((resolve) => {
     void service.subscribe(project.id, started.id, {
-      send: (event) => events.push(event),
-      close: resolve,
+      send: (event) => {
+        if (
+          !subscriberClosed &&
+          event.type === 'log' &&
+          event.log.content.includes('tick-')
+        ) {
+          resolveLiveLog?.(true);
+        }
+      },
+      close: () => {
+        subscriberClosed = true;
+        resolve();
+      },
     });
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 700));
+  const publishedBeforeClose = await Promise.race([
+    liveLog,
+    closed.then(() => false),
+  ]);
   assert.equal(
-    events.some(
-      (event) => event.type === 'log' && event.log.content.includes('tick-'),
-    ),
+    publishedBeforeClose,
     true,
     'a janela de frequência deve publicar mesmo quando a saída não para',
   );
-  assert.equal((await service.get(project.id, started.id)).status, 'running');
   await closed;
   assert.match((await service.log(project.id, started.id)).content, /tick-60/);
 });
