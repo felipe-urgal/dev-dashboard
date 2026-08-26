@@ -115,6 +115,9 @@ test('remote-only branch can be tracked and removed from origin', async () => {
       workspace,
       loading: false,
       busy: false,
+      remoteRefreshing: false,
+      squashCommitCount: 0,
+      forcePushBranch: null,
     },
     global: {
       stubs: {
@@ -160,6 +163,9 @@ test('branches page exposes an explicit remote refresh action', async () => {
       workspace,
       loading: false,
       busy: false,
+      remoteRefreshing: false,
+      squashCommitCount: 0,
+      forcePushBranch: null,
     },
   });
 
