@@ -16,4 +16,12 @@ describe('arquitetura do bootstrap Git', () => {
       false,
     );
   });
+
+  it('não reinstala limpeza de cabeçalhos Git baseada em MutationObserver', () => {
+    expect(entrada).not.toContain('git-diff-header-cleanup');
+    expect(entrada).not.toContain('installGitDiffHeaderCleanup');
+    expect(existsSync(resolve(raizWeb, 'src/git-diff-header-cleanup.ts'))).toBe(
+      false,
+    );
+  });
 });
