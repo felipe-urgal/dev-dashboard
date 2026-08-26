@@ -1,3 +1,4 @@
+import { isRedundantGitDiffHeaderLine } from '../git-diff-metadata';
 import { highlightGitDiffCode } from './highlight';
 import { renderText } from './render-text';
 
@@ -12,8 +13,10 @@ export function highlightGitPatch(patch: string, query = ''): string {
   let filePath = '';
   return patch
     .split('\n')
-    .map((line) => {
+    .flatMap((line) => {
       filePath = pathFromDiffHeader(line) ?? filePath;
+      if (isRedundantGitDiffHeaderLine(line)) return [];
+
       let kind = 'meta';
       let prefix = '';
       let body = line;
@@ -39,7 +42,9 @@ export function highlightGitPatch(patch: string, query = ''): string {
         kind === 'addition' || kind === 'deletion' || kind === 'context'
           ? highlightGitDiffCode(body, filePath, query)
           : renderText(body, query);
-      return `<span class="git-syntax-patch-line is-${kind}"><span class="git-syntax-patch-prefix">${renderText(prefix, query)}</span><span class="git-syntax-patch-code">${code}</span></span>`;
+      return [
+        `<span class="git-syntax-patch-line is-${kind}"><span class="git-syntax-patch-prefix">${renderText(prefix, query)}</span><span class="git-syntax-patch-code">${code}</span></span>`,
+      ];
     })
     .join('\n');
 }

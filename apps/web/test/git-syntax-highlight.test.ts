@@ -84,10 +84,11 @@ test('mantém a busca marcada dentro dos tokens de sintaxe', () => {
   );
 });
 
-test('aplica sintaxe por arquivo nas linhas de um patch completo', () => {
+test('aplica sintaxe por arquivo e omite cabeçalhos técnicos do patch completo', () => {
   const patch = highlightGitPatch(
     [
       'diff --git a/app/controllers/admin_controller.rb b/app/controllers/admin_controller.rb',
+      'index 123abcd..456def0 100644',
       '--- a/app/controllers/admin_controller.rb',
       '+++ b/app/controllers/admin_controller.rb',
       '@@ -1,2 +1,2 @@',
@@ -96,8 +97,29 @@ test('aplica sintaxe por arquivo nas linhas de um patch completo', () => {
     ].join('\n'),
   );
 
+  assert.doesNotMatch(patch, /diff --git/);
+  assert.doesNotMatch(patch, /index 123abcd/);
+  assert.doesNotMatch(patch, /--- a\/app\/controllers/);
+  assert.doesNotMatch(patch, /\+\+\+ b\/app\/controllers/);
   assert.match(patch, /git-syntax-patch-line is-deletion/);
   assert.match(patch, /git-syntax-patch-line is-addition/);
   assert.match(patch, /git-syntax-keyword[^>]*>def/);
   assert.match(patch, /git-syntax-function[^>]*>current_site/);
+});
+
+test('preserva metadados informativos do patch completo', () => {
+  const patch = highlightGitPatch(
+    [
+      'diff --git a/app/old.rb b/app/new.rb',
+      'similarity index 98%',
+      'rename from app/old.rb',
+      'rename to app/new.rb',
+      '--- a/app/old.rb',
+      '+++ b/app/new.rb',
+    ].join('\n'),
+  );
+
+  assert.match(patch, /similarity index 98%/);
+  assert.match(patch, /rename from app\/old\.rb/);
+  assert.match(patch, /rename to app\/new\.rb/);
 });
