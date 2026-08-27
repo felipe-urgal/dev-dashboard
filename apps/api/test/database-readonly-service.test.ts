@@ -71,12 +71,10 @@ test('passa host, porta e usuário explicitamente para o cliente MySQL', async (
 
 test('aplica a sessão read-only também para MariaDB', async () => {
   let args: string[] = [];
-  const service = new DatabaseReadonlyService(
-    async (_command, commandArgs) => {
-      args = commandArgs;
-      return 'id\n1';
-    },
-  );
+  const service = new DatabaseReadonlyService(async (_command, commandArgs) => {
+    args = commandArgs;
+    return 'id\n1';
+  });
 
   await service.query({ driver: 'mariadb' }, 'SELECT 1');
 
