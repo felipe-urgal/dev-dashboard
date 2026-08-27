@@ -26,7 +26,7 @@
     "lint": "eslint \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
-    "format:check": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\" && git diff -- apps/api/src/services/database-readonly-service.ts apps/api/test/database-explorer-cancellation-routes.test.ts && false",
+    "format:check": "prettier --check \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "build:packages": "npm run build --workspace=@dev-dashboard/contracts && npm run build --workspace=@dev-dashboard/core && npm run build --workspace=@dev-dashboard/project-discovery && npm run build --workspace=@dev-dashboard/process-manager",
     "build:apps": "npm run build --workspace=@dev-dashboard/api && npm run build --workspace=@dev-dashboard/web",
     "predev": "npm run build:packages",
