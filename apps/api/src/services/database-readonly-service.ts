@@ -11,7 +11,16 @@ import type {
 const execFileAsync = promisify(execFile);
 const MAX_QUERY_LENGTH = 4_000;
 const MAX_ROWS = 100;
+const COMMAND_TIMEOUT_MS = 15_000;
+const POSTGRES_READ_ONLY_OPTIONS = `-c default_transaction_read_only=on -c statement_timeout=${COMMAND_TIMEOUT_MS}`;
+const MYSQL_READ_ONLY_INIT_COMMAND =
+  'SET SESSION TRANSACTION READ ONLY';
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+
+const blockedPostgresFunctions =
+  /\b(?:nextval|setval|pg_notify|pg_advisory_(?:xact_)?lock(?:_shared)?|pg_cancel_backend|pg_terminate_backend|pg_reload_conf|pg_rotate_logfile|pg_create_restore_point|lo_import|lo_export|dblink_exec)\s*\(/i;
+const blockedMysqlFunctions =
+  /\b(?:get_lock|release_lock|load_file|sleep|benchmark)\s*\(/i;
 
 function commandFailureText(error: unknown): string {
   if (!error || typeof error !== 'object') return '';
@@ -41,7 +50,7 @@ const defaultCommandRunner: CommandRunner = async (command, args, env) => {
     env,
     encoding: 'utf8',
     maxBuffer: 2 * 1024 * 1024,
-    timeout: 15_000,
+    timeout: COMMAND_TIMEOUT_MS,
     windowsHide: true,
   });
   return result.stdout;
@@ -104,7 +113,42 @@ function quoteIdentifier(
   return driver === 'postgresql' ? `"${identifier}"` : `\`${identifier}\``;
 }
 
-function readOnlyQuery(query: string): string {
+function rejectUnsafeReadConstructs(
+  query: string,
+  driver: MachineDatabaseConnection['driver'],
+): void {
+  if (/\bfor\s+(?:no\s+key\s+update|key\s+share|update|share)\b/i.test(query)) {
+    throw new DatabaseReadonlyError(
+      'invalid-query',
+      'Consultas com bloqueio explícito de linhas não são permitidas.',
+    );
+  }
+
+  if (driver === 'postgresql') {
+    if (/\binto\b/i.test(query) || blockedPostgresFunctions.test(query)) {
+      throw new DatabaseReadonlyError(
+        'invalid-query',
+        'A consulta usa uma construção com efeito colateral bloqueada no modo somente leitura.',
+      );
+    }
+    return;
+  }
+
+  if (
+    /\binto\s+(?:out|dump)file\b/i.test(query) ||
+    blockedMysqlFunctions.test(query)
+  ) {
+    throw new DatabaseReadonlyError(
+      'invalid-query',
+      'A consulta usa uma construção com efeito colateral bloqueada no modo somente leitura.',
+    );
+  }
+}
+
+function readOnlyQuery(
+  query: string,
+  driver: MachineDatabaseConnection['driver'],
+): string {
   const normalized = query.trim().replace(/;\s*$/, '');
   if (!normalized || normalized.length > MAX_QUERY_LENGTH) {
     throw new DatabaseReadonlyError(
@@ -128,6 +172,7 @@ function readOnlyQuery(query: string): string {
       'A consulta contém uma operação de escrita ou administração bloqueada.',
     );
   }
+  rejectUnsafeReadConstructs(normalized, driver);
   return normalized;
 }
 
@@ -168,6 +213,7 @@ export class DatabaseReadonlyService {
       Object.assign(env, {
         PGHOST: host,
         PGPORT: String(port),
+        PGOPTIONS: POSTGRES_READ_ONLY_OPTIONS,
         ...(connection.username ? { PGUSER: connection.username } : {}),
         ...(connection.password ? { PGPASSWORD: connection.password } : {}),
         ...(database ? { PGDATABASE: database } : {}),
@@ -207,6 +253,7 @@ export class DatabaseReadonlyService {
             '--column-names',
             '--batch',
             '--raw',
+            `--init-command=${MYSQL_READ_ONLY_INIT_COMMAND}`,
             '--execute',
             sql,
           ];
@@ -305,6 +352,6 @@ export class DatabaseReadonlyService {
     connection: MachineDatabaseConnection,
     query: string,
   ): Promise<MachineDatabaseQueryResult> {
-    return this.run(connection, readOnlyQuery(query));
+    return this.run(connection, readOnlyQuery(query, connection.driver));
   }
 }
