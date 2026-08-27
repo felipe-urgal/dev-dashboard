@@ -3,9 +3,9 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import {
-  CurrentBranchHistoryError,
-  listCurrentBranchOnlyCommits,
-} from '../services/git-current-branch-history-service.js';
+  ExclusiveBranchHistoryError,
+  listExclusiveBranchCommits,
+} from '../services/git-exclusive-branch-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface GitCurrentBranchHistoryRouteOptions extends FastifyPluginOptions {
@@ -78,6 +78,8 @@ const historySchema = {
   },
 } as const;
 
+// Adapter de compatibilidade para consumidores do endpoint anterior.
+// O fluxo atual deve usar git-exclusive-branch-history diretamente.
 export const gitCurrentBranchHistoryRoutes: FastifyPluginAsync<
   GitCurrentBranchHistoryRouteOptions
 > = async (app, options) => {
@@ -112,7 +114,7 @@ export const gitCurrentBranchHistoryRoutes: FastifyPluginAsync<
 
       try {
         return {
-          history: await listCurrentBranchOnlyCommits(project.path, {
+          history: await listExclusiveBranchCommits(project.path, {
             page: request.query.page ?? 1,
             pageSize: request.query.pageSize ?? 10,
             ...(request.query.search !== undefined
@@ -121,7 +123,7 @@ export const gitCurrentBranchHistoryRoutes: FastifyPluginAsync<
           }),
         };
       } catch (error) {
-        if (error instanceof CurrentBranchHistoryError) {
+        if (error instanceof ExclusiveBranchHistoryError) {
           throw new ApiError({
             statusCode: 400,
             code: error.code,
