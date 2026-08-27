@@ -6,14 +6,16 @@ import test from 'node:test';
 import { createHttpAbortScope } from '../src/http/request-abort.js';
 
 function fakeRequest(): IncomingMessage {
-  return Object.assign(new EventEmitter(), { aborted: false }) as IncomingMessage;
+  return Object.assign(new EventEmitter(), {
+    aborted: false,
+  }) as unknown as IncomingMessage;
 }
 
 function fakeResponse(): ServerResponse {
   return Object.assign(new EventEmitter(), {
     destroyed: false,
     writableEnded: false,
-  }) as ServerResponse;
+  }) as unknown as ServerResponse;
 }
 
 test('aborta quando o cliente interrompe a requisição', () => {
