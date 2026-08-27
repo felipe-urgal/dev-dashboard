@@ -15,15 +15,11 @@ outro; o web reaproveita conceitos por trás de uma API HTTP local.
 
 1. **Idioma**: todo texto criado ou editado (UI, comentários, mensagens
    de commit, documentação, PRs) é em **português brasileiro**.
-2. **Documentação de tasks**: cada entrega funcional tem um arquivo
-   numerado em `tasks/NNN-*.md`. `docs/` é só documentação viva do
-   produto — planejamento e histórico de entregas vivem em `tasks/`. Ao
-   concluir uma task:
-   - registrar `tasks/NNN-*.md` com o resultado real
-   (status, arquivos, decisões, limitações);
-   - substituir `tasks/NEXT.md` pelo plano detalhado da próxima
-     entrega;
-   - reconciliar `tasks/PENDENCIAS.md`.
+2. **Planejamento fora do repositório**: a pasta `tasks/` foi removida
+   deliberadamente e não deve ser recriada. O backlog não é versionado
+   neste repositório. Antes de começar, use o contexto fornecido, issues/PRs
+   existentes quando houver e a documentação viva para delimitar o escopo.
+   O PR deve registrar objetivo, decisões, riscos, validação e resultado real.
 3. **Documentação sempre atualizada**: todo ajuste, correção ou nova
    funcionalidade que muda comportamento, rota, capacidade ou fluxo
    precisa atualizar o documento correspondente em `docs/` (arquitetura,
@@ -42,7 +38,7 @@ outro; o web reaproveita conceitos por trás de uma API HTTP local.
 
 ## Layout do repositório
 
-```
+```text
 apps/
   api/         # Fastify, escuta em 127.0.0.1, autenticação por token
   web/         # Vue 3 + Vite SFCs, consome apenas a API
@@ -50,12 +46,11 @@ packages/
   contracts/         # Tipos TS puros compartilhados
   core/              # Configuração de workspaces, token local
   project-discovery/ # Detecção de projetos (Rails / Node)
-  process-manager/   # Ciclo de vida de processos (server / test)
-lib/           # CLI bash original (carregado pelo ~/.bashrc)
-docs/
-  architecture/  # overview.md, security.md
-tasks/           # NNN-*.md por entrega + NEXT.md + PENDENCIAS.md
-init.sh        # Entry point do CLI bash
+  process-manager/   # Ciclo de vida de processos gerenciados
+lib/                 # CLI bash original (carregado pelo ~/.bashrc)
+docs/                # Documentação viva do produto e da engenharia
+  architecture/      # overview.md, security.md, api-reference.md etc.
+init.sh              # Entry point do CLI bash
 ```
 
 ## Comandos que você provavelmente vai rodar
@@ -65,6 +60,7 @@ npm install                    # uma vez, na raiz
 npm run typecheck              # tsc --build em todos os workspaces
 npm run build                  # packages primeiro, depois apps
 npm test                       # --workspaces --if-present
+npm run test:e2e               # build + smoke Playwright da web
 npm run dev                    # API (:4343) + web (:5173) juntos
 npm run lint                   # ESLint em apps/, packages/ e scripts/
 npm run format:check           # Prettier, sem regravar
@@ -87,10 +83,11 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Rotas privadas exigem o header `X-Dev-Dashboard-Token`
   (`apps/api/src/security/local-security.ts`). `GET /api/health` é a
   única pública.
-- Processos gerenciados usam `packages/process-manager`. O `kind` é
-  `'server'` ou `'test'`; adicionar um novo kind exige generalizar
-  `resolveLogFile`, `resolveProcessFile`, mapas `observedExits`,
-  `exitWaiters` e o regex do `sweepStaleProcesses`.
+- Processos gerenciados usam `packages/process-manager`. Os kinds atuais
+  são `'server'`, `'test'`, `'worker'` e `'webpack'`; `MANAGED_KINDS` em
+  `process-store.ts` é a fonte de verdade compartilhada com a retenção de
+  logs. Processos de script têm ciclo de vida próprio em
+  `apps/api/src/services/script-execution/` e não pertencem a esse store.
 
 ## Convenções do frontend (`apps/web`)
 
@@ -103,6 +100,9 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Rotas ficam em `apps/web/src/router/index.ts`. A `ProjectDetailsView`
   reaproveita o mesmo componente para as sub-rotas
   (`project-details`, `project-git`, `project-tests`).
+- Estados visuais precisam ser honestos: loading só durante trabalho real,
+  ações concorrentes bloqueadas quando necessário e respostas obsoletas
+  descartadas após troca de contexto.
 
 ## Convenções do CLI bash (`lib/`)
 
@@ -127,19 +127,27 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
   carregado. `lib/*/tests/` é outra coisa — menus para rodar a suíte do
   *projeto alvo* (ex. `bundle exec rspec`), não testes deste codebase.
 
-## Como abrir e fechar uma task de trabalho
+## Como abrir e fechar uma entrega
 
-1. Ler `tasks/NEXT.md` e o `docs/architecture/overview.md`
-   relevante.
-2. Implementar, adicionando ao menos um teste automatizado quando o
-   escopo suportar.
-3. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test`.
-4. Atualizar o documento da task e reconciliar `tasks/PENDENCIAS.md`.
-5. Substituir `tasks/NEXT.md` pelo próximo plano.
-6. Commit descritivo em português, PR em draft.
+1. Ler `docs/architecture/overview.md`, `docs/development-guide.md` e a
+   documentação específica do domínio. Consultar também o contexto externo,
+   issues e PRs relacionados quando existirem.
+2. Confirmar o comportamento atual no código antes de reaproveitar qualquer
+   débito ou plano antigo; não transformar histórico obsoleto em backlog novo.
+3. Implementar na menor camada correta, adicionando teste automatizado quando
+   o escopo suportar.
+4. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test`.
+   Rodar `npm run test:e2e` quando o fluxo web alterado justificar.
+5. Atualizar a documentação viva correspondente na mesma entrega.
+6. Fazer auto code review do diff, corrigir os achados e repetir os gates
+   impactados antes do PR.
+7. Abrir PR com objetivo, alterações, riscos, validação e impacto visual.
+   Não fazer merge sem instrução explícita; quando autorizado, só mergear
+   depois dos gates exigidos estarem verdes.
 
 ## O que evitar
 
+- Recriar `tasks/`, `NEXT.md` ou `PENDENCIAS.md` como fonte de backlog.
 - Executar `git` de escrita em nome do usuário sem instrução direta.
 - Introduzir dependências novas em `packages/contracts` — ele é
   intencionalmente puro (só tipos).

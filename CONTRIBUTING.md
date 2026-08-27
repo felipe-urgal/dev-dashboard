@@ -19,6 +19,8 @@ npm run doctor
 npm run dev
 ```
 
+O backlog não é versionado neste repositório. A pasta `tasks/` foi removida deliberadamente e não deve ser recriada. Para delimitar uma entrega, use o contexto fornecido, issues/PRs relacionados quando existirem e a documentação viva do domínio. Antes de reaproveitar qualquer débito antigo, confirme no código se ele ainda se aplica.
+
 ## Princípios de contribuição
 
 1. Mantenha o produto local por padrão.
@@ -81,6 +83,8 @@ A descrição deve informar:
 - documentação atualizada;
 - screenshots quando houver mudança visual.
 
+Quando uma entrega parte de um débito ou plano antigo, registre também como o comportamento atual foi confirmado. O PR deve explicar o resultado real da mudança, não apenas repetir a intenção inicial.
+
 ### Checklist sugerido
 
 - [ ] Escopo claro e sem arquivos não relacionados.
@@ -93,6 +97,7 @@ A descrição deve informar:
 - [ ] Operações mutáveis revisadas.
 - [ ] Shutdown e cleanup revisados.
 - [ ] Estados de UI revisados.
+- [ ] Auto code review executado e achados aplicados.
 
 ## Mudanças na API
 
@@ -186,6 +191,8 @@ Execute o conjunto relevante durante o desenvolvimento e o conjunto completo ant
 
 ```bash
 npm run typecheck
+npm run lint
+npm run format:check
 npm run build
 npm test
 ```
@@ -200,34 +207,27 @@ Testes com arquivos, repositórios Git ou processos devem usar fixtures temporá
 
 ### Cobertura
 
-`npm test` já mede cobertura e falha se cair abaixo do piso configurado por
-workspace (política de ratchet: o piso parte da cobertura medida no momento
-em que foi definido, task 122 — nunca um alvo arbitrário, e só sobe, nunca
-desce). Node (`--experimental-test-coverage` em `apps/api`,
-`packages/core`, `packages/process-manager`, `packages/project-discovery`,
-restrito a `src/**/*.ts` via `--test-coverage-include`) e Vitest
+`npm test` mede cobertura e falha se cair abaixo do piso configurado por
+workspace. A política é de **ratchet**: o piso acompanha uma cobertura já
+alcançada de forma sustentável; não deve cair silenciosamente e também não
+deve ser elevado por um pico acidental.
+
+Node (`--experimental-test-coverage` em `apps/api`, `packages/core`,
+`packages/process-manager`, `packages/project-discovery`, restrito a
+`src/**/*.ts` via `--test-coverage-include`) e Vitest
 (`@vitest/coverage-v8`, `coverage.thresholds` em `apps/web/vitest.config.ts`,
-restrito a `src/**/*.{ts,vue}`).
+restrito a `src/**/*.{ts,vue}`) aplicam os pisos por workspace.
 
-Os pisos ficam ~2-3 pontos percentuais abaixo do valor medido (mais nos
-branches, a métrica mais sensível a diferenças de patch do Node/V8) — o
-piso da task 122 foi fixado bem rente ao valor medido localmente (task 124
-alargou a margem como prática defensiva). Nota: um CI vermelho subsequente
-no mesmo PR pareceu, à primeira vista, confirmar esse risco, mas a causa
-raiz real era outra (um teste que dependia de um binário externo ausente
-no runner — ver task 125); o risco de piso sem margem continua real e
-válido, só não foi o que causou aquele incidente específico.
+Mantenha uma margem defensiva para pequenas diferenças entre versões de Node/V8,
+especialmente em branches. Se uma mudança legítima reduzir a cobertura (por
+exemplo, ao remover um ramo de comportamento que deixou de existir), baixar o
+piso é aceitável quando for deliberado e justificado no PR. Se uma mudança
+aumentar a cobertura de forma estável, considere elevar o piso na mesma
+entrega.
 
-Se uma mudança legítima reduzir a cobertura (ex. remover um branch de
-tratamento de erro que não existe mais), baixar o piso é aceitável — mas
-precisa ser deliberado e justificado no PR, não silencioso. Se uma mudança
-aumentar a cobertura de forma sustentável, considere subir o piso do
-workspace na mesma entrega para travar o ganho.
-
-`scripts/*.mjs` (tooling de dev) e o CLI bash (`lib/`) ficam fora da
-medição — o primeiro por não ser código de produto, o segundo por não ter
-instrumentação de cobertura equivalente para Bash configurada neste
-repositório.
+`scripts/*.mjs` (tooling de dev) e o CLI bash (`lib/`) ficam fora da medição: o
+primeiro não é código de produto e o segundo não possui instrumentação de
+cobertura equivalente configurada neste repositório.
 
 ## Documentação
 
@@ -241,9 +241,11 @@ Uma mudança está incompleta quando altera o comportamento sem atualizar a expl
 | nova camada ou dependência | `docs/architecture/*` |
 | fluxo operacional | `docs/architecture/runtime-flows.md` |
 | variável, porta ou persistência | `docs/operations-and-troubleshooting.md` |
-| processo de engenharia | `docs/development-guide.md` ou este arquivo |
+| processo de engenharia | `docs/development-guide.md`, `AGENTS.md`, `CLAUDE.md` ou este arquivo |
 | endpoint | referência gerada da API |
-| planejamento | `tasks/PENDENCIAS.md` ou `tasks/*` |
+| planejamento e acompanhamento | contexto externo e issues/PRs; não criar `tasks/` |
+
+`docs/` descreve o estado atual do produto e da engenharia. Histórico de decisões específicas de uma entrega deve permanecer no PR correspondente, salvo quando a decisão continuar sendo parte da arquitetura viva.
 
 ## Dados e segredos
 
@@ -273,7 +275,7 @@ Fluxo, em dois workflows:
    `workflow_dispatch` manual, escolhendo `patch`/`minor`/`major`): roda
    `npm run release -- <bump>` (`scripts/release.mjs`), que incrementa a
    versão em `package.json` e regenera `CHANGELOG.md`
-   (`scripts/generate-changelog.mjs`, task 093), e abre um PR normal
+   (`scripts/generate-changelog.mjs`), e abre um PR normal
    (`chore(release): vX.Y.Z`) — passa pelo mesmo processo de revisão de
    qualquer outra mudança.
 2. **Release — tag** (`.github/workflows/release-tag.yml`, dispara em push
