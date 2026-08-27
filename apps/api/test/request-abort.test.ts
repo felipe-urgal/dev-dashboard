@@ -43,7 +43,7 @@ test('não aborta no close normal após a resposta terminar', () => {
   const response = fakeResponse();
   const scope = createHttpAbortScope(request, response);
 
-  response.writableEnded = true;
+  Object.defineProperty(response, 'writableEnded', { value: true });
   response.emit('close');
 
   assert.equal(scope.signal.aborted, false);
