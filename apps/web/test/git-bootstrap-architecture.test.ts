@@ -60,4 +60,36 @@ describe('arquitetura do bootstrap Git', () => {
       existsSync(resolve(raizWeb, 'src/git-summary-inline-diff-fix')),
     ).toBe(false);
   });
+
+  it('mantém o diff Vue sem enhancers globais de DOM', () => {
+    expect(entrada).not.toContain('git-inline-file-diff-enhancer');
+    expect(entrada).not.toContain('installGitInlineFileDiffEnhancer');
+    expect(entrada).not.toContain('git-diff-syntax-enhancer');
+    expect(entrada).not.toContain('installGitDiffSyntaxEnhancer');
+
+    const caminhosLegados = [
+      'src/git-inline-file-diff-enhancer.ts',
+      'src/git-inline-file-diff-enhancer.css',
+      'src/git-inline-file-diff',
+      'src/git-diff-syntax-enhancer.ts',
+      'src/git-diff-syntax',
+    ];
+    for (const caminho of caminhosLegados) {
+      expect(existsSync(resolve(raizWeb, caminho))).toBe(false);
+    }
+
+    const diffView = readFileSync(
+      resolve(raizWeb, 'src/components/GitFileDiffView.vue'),
+      'utf8',
+    );
+    const diffSyntax = readFileSync(
+      resolve(raizWeb, 'src/utils/git-diff-syntax.ts'),
+      'utf8',
+    );
+
+    expect(diffView).toContain("import('../utils/git-diff-syntax')");
+    expect(diffView).toContain('syntax.syntaxRangesFor');
+    expect(diffSyntax).toContain('export function syntaxRangesFor(');
+    expect(entrada).toContain("import './git-syntax-highlight.css';");
+  });
 });
