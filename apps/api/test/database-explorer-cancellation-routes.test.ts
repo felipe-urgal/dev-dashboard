@@ -36,11 +36,7 @@ test('rotas do Database Explorer propagam AbortSignal ao serviço', async (conte
       if (signal) signals.push(signal);
       return emptyResult;
     },
-    async query(
-      _connection: unknown,
-      _query: string,
-      signal?: AbortSignal,
-    ) {
+    async query(_connection: unknown, _query: string, signal?: AbortSignal) {
       if (signal) signals.push(signal);
       return emptyResult;
     },
