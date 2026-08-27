@@ -208,7 +208,9 @@ test('aceita ponto e vírgula único no fim de uma consulta de leitura', async (
 test('não devolve segredo quando o cliente rejeita as credenciais', async () => {
   const secret = 'senha-super-secreta';
   const service = new DatabaseReadonlyService(async () => {
-    const error = new Error(`password authentication failed: ${secret}`) as Error & {
+    const error = new Error(
+      `password authentication failed: ${secret}`,
+    ) as Error & {
       stderr?: string;
     };
     error.stderr = `role rejected password ${secret}`;
