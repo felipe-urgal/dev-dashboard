@@ -12,8 +12,7 @@ const execFileAsync = promisify(execFile);
 const MAX_QUERY_LENGTH = 4_000;
 const MAX_ROWS = 100;
 const COMMAND_TIMEOUT_MS = 15_000;
-const POSTGRES_READ_ONLY_OPTIONS =
-  `-c default_transaction_read_only=on -c statement_timeout=${COMMAND_TIMEOUT_MS}`;
+const POSTGRES_READ_ONLY_OPTIONS = `-c default_transaction_read_only=on -c statement_timeout=${COMMAND_TIMEOUT_MS}`;
 const MYSQL_READ_ONLY_INIT_COMMAND = 'SET SESSION TRANSACTION READ ONLY';
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
@@ -117,9 +116,7 @@ function rejectUnsafeReadConstructs(
   query: string,
   driver: MachineDatabaseConnection['driver'],
 ): void {
-  if (
-    /\bfor\s+(?:no\s+key\s+update|key\s+share|update|share)\b/i.test(query)
-  ) {
+  if (/\bfor\s+(?:no\s+key\s+update|key\s+share|update|share)\b/i.test(query)) {
     throw new DatabaseReadonlyError(
       'invalid-query',
       'Consultas com bloqueio explícito de linhas não são permitidas.',
