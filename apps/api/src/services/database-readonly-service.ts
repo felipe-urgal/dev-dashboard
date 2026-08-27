@@ -52,7 +52,12 @@ type CommandRunner = (
   signal?: AbortSignal,
 ) => Promise<string>;
 
-const defaultCommandRunner: CommandRunner = async (command, args, env, signal) => {
+const defaultCommandRunner: CommandRunner = async (
+  command,
+  args,
+  env,
+  signal,
+) => {
   const result = await execFileAsync(command, args, {
     env,
     encoding: 'utf8',
@@ -268,9 +273,7 @@ export class DatabaseReadonlyService {
             sql,
           ];
     try {
-      return parseTabular(
-        await this.commandRunner(command, args, env, signal),
-      );
+      return parseTabular(await this.commandRunner(command, args, env, signal));
     } catch (error) {
       if (isAbortFailure(error, signal)) {
         throw new DatabaseReadonlyError('aborted', 'Consulta cancelada.');
