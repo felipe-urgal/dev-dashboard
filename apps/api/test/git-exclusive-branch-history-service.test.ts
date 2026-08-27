@@ -62,8 +62,15 @@ test('lista somente commits exclusivos da referência selecionada', async () => 
       ['fix(observatorio): remove conteudo orfao'],
     );
 
+    const currentBranchHistory = await listExclusiveBranchCommits(directory);
+    assert.equal(currentBranchHistory.branch, 'feature/remove-conteudo-orfao');
+    assert.equal(currentBranchHistory.total, 1);
+    assert.deepEqual(
+      currentBranchHistory.commits.map((commit) => commit.subject),
+      ['fix(observatorio): remove conteudo orfao'],
+    );
+
     const inheritedSearch = await listExclusiveBranchCommits(directory, {
-      reference: 'feature/remove-conteudo-orfao',
       search: 'atualiza base',
     });
     assert.equal(inheritedSearch.total, 0);
