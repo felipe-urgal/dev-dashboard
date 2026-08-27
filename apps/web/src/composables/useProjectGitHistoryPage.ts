@@ -64,6 +64,7 @@ export function useProjectGitHistoryPage(
 
   let historyController: AbortController | undefined;
   let detailController: AbortController | undefined;
+  let fileDiffController: AbortController | undefined;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
   /** Descarta respostas de `loadWorkspace()` fora de ordem numa troca rápida de projeto. */
   let workspaceGeneration = 0;
@@ -392,6 +393,7 @@ export function useProjectGitHistoryPage(
 
   async function openCommit(commit: GitCommitHistoryEntry): Promise<void> {
     detailController?.abort();
+    fileDiffController?.abort();
     const controller = new AbortController();
     detailController = controller;
     selectedHash.value = commit.hash;
@@ -434,6 +436,7 @@ export function useProjectGitHistoryPage(
 
   function closeCommit(): void {
     detailController?.abort();
+    fileDiffController?.abort();
     selectedHash.value = '';
     detail.value = null;
     fileStates.value = [];
@@ -443,21 +446,32 @@ export function useProjectGitHistoryPage(
 
   async function loadFileDiff(state: FileState): Promise<void> {
     if (state.diff || state.loading || !detail.value) return;
+
+    fileDiffController?.abort();
+    const controller = new AbortController();
+    fileDiffController = controller;
+    const commitHash = detail.value.hash;
+
     state.loading = true;
     state.error = '';
     try {
-      state.diff = await fetchProjectGitCommitFileDiff(
+      const diff = await fetchProjectGitCommitFileDiff(
         props.projectId,
-        detail.value.hash,
+        commitHash,
         state.file.path,
+        controller.signal,
       );
+      if (controller.signal.aborted) return;
+      state.diff = diff;
     } catch (error) {
+      if (controller.signal.aborted) return;
       state.error =
         error instanceof Error
           ? error.message
           : 'Não foi possível carregar o diff deste arquivo.';
     } finally {
       state.loading = false;
+      if (fileDiffController === controller) fileDiffController = undefined;
     }
   }
 
@@ -520,6 +534,7 @@ export function useProjectGitHistoryPage(
   onBeforeUnmount(() => {
     historyController?.abort();
     detailController?.abort();
+    fileDiffController?.abort();
     if (copyTimer) clearTimeout(copyTimer);
   });
 
