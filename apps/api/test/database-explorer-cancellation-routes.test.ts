@@ -48,9 +48,9 @@ test('rotas do Database Explorer propagam AbortSignal ao serviço', async (conte
 
   const app = Fastify();
   await app.register(databaseRoutes, {
-    projectStore: {} as ProjectStore,
-    databaseDetectionService: {} as DatabaseDetectionService,
-    databaseSnapshotService: {} as DatabaseSnapshotService,
+    projectStore: {} as unknown as ProjectStore,
+    databaseDetectionService: {} as unknown as DatabaseDetectionService,
+    databaseSnapshotService: {} as unknown as DatabaseSnapshotService,
     databaseReadonlyService,
   });
   context.after(async () => app.close());
