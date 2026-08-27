@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
+import { createHttpAbortScope } from '../http/request-abort.js';
 import {
   commonErrorResponseSchemas,
   databaseRestoreResultResponseSchema,
@@ -69,11 +70,13 @@ function explorerErrorResponse(error: unknown): {
   }
   return {
     statusCode:
-      error.reason === 'client-unavailable'
-        ? 503
-        : error.reason === 'command-failed'
-          ? 502
-          : 400,
+      error.reason === 'aborted'
+        ? 499
+        : error.reason === 'client-unavailable'
+          ? 503
+          : error.reason === 'command-failed'
+            ? 502
+            : 400,
     message: error.message,
   };
 }
@@ -120,10 +123,12 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   app.post<{ Body: ExplorerBody }>(
     '/database/explorer/catalog',
     async (request, reply) => {
+      const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
           databases: await options.databaseReadonlyService.listDatabases(
             request.body,
+            abortScope.signal,
           ),
         };
       } catch (error) {
@@ -131,16 +136,20 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
         return reply
           .code(response.statusCode)
           .send({ message: response.message });
+      } finally {
+        abortScope.dispose();
       }
     },
   );
   app.post<{ Body: ExplorerBody }>(
     '/database/explorer/tables',
     async (request, reply) => {
+      const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
           tables: await options.databaseReadonlyService.listTables(
             request.body,
+            abortScope.signal,
           ),
         };
       } catch (error) {
@@ -148,18 +157,22 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
         return reply
           .code(response.statusCode)
           .send({ message: response.message });
+      } finally {
+        abortScope.dispose();
       }
     },
   );
   app.post<{ Body: ExplorerPreviewBody }>(
     '/database/explorer/preview',
     async (request, reply) => {
+      const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
           result: await options.databaseReadonlyService.preview(
             request.body,
             request.body.schema,
             request.body.table,
+            abortScope.signal,
           ),
         };
       } catch (error) {
@@ -167,17 +180,21 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
         return reply
           .code(response.statusCode)
           .send({ message: response.message });
+      } finally {
+        abortScope.dispose();
       }
     },
   );
   app.post<{ Body: ExplorerQueryBody }>(
     '/database/explorer/query',
     async (request, reply) => {
+      const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
           result: await options.databaseReadonlyService.query(
             request.body,
             request.body.query,
+            abortScope.signal,
           ),
         };
       } catch (error) {
@@ -185,6 +202,8 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
         return reply
           .code(response.statusCode)
           .send({ message: response.message });
+      } finally {
+        abortScope.dispose();
       }
     },
   );

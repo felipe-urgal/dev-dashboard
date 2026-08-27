@@ -242,3 +242,38 @@ test('limita o resultado da consulta a cem linhas', async () => {
   assert.equal(result.rowCount, 101);
   assert.equal(result.truncated, true);
 });
+
+test('propaga AbortSignal e preserva cancelamento como condição própria', async () => {
+  let receivedSignal: AbortSignal | undefined;
+  const service = new DatabaseReadonlyService(
+    async (_command, _args, _env, signal) => {
+      receivedSignal = signal;
+      return await new Promise<string>((_resolve, reject) => {
+        signal?.addEventListener(
+          'abort',
+          () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          },
+          { once: true },
+        );
+      });
+    },
+  );
+  const controller = new AbortController();
+
+  const pending = service.query(
+    { driver: 'postgresql' },
+    'SELECT id FROM users',
+    controller.signal,
+  );
+  controller.abort();
+
+  await assert.rejects(
+    pending,
+    (error: unknown) =>
+      error instanceof DatabaseReadonlyError && error.reason === 'aborted',
+  );
+  assert.equal(receivedSignal, controller.signal);
+});

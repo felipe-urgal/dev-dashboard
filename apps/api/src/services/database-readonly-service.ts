@@ -38,19 +38,33 @@ function commandFailureText(error: unknown): string {
     .toLowerCase();
 }
 
+function isAbortFailure(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  if (!error || typeof error !== 'object') return false;
+  const failure = error as { code?: unknown; name?: unknown };
+  return failure.name === 'AbortError' || failure.code === 'ABORT_ERR';
+}
+
 type CommandRunner = (
   command: string,
   args: string[],
   env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
 ) => Promise<string>;
 
-const defaultCommandRunner: CommandRunner = async (command, args, env) => {
+const defaultCommandRunner: CommandRunner = async (
+  command,
+  args,
+  env,
+  signal,
+) => {
   const result = await execFileAsync(command, args, {
     env,
     encoding: 'utf8',
     maxBuffer: 2 * 1024 * 1024,
     timeout: COMMAND_TIMEOUT_MS,
     windowsHide: true,
+    signal,
   });
   return result.stdout;
 };
@@ -62,7 +76,8 @@ export class DatabaseReadonlyError extends Error {
       | 'remote-host'
       | 'invalid-query'
       | 'client-unavailable'
-      | 'command-failed',
+      | 'command-failed'
+      | 'aborted',
     message: string,
   ) {
     super(message);
@@ -199,6 +214,7 @@ export class DatabaseReadonlyService {
   private async run(
     connection: MachineDatabaseConnection,
     sql: string,
+    signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
     validateConnection(connection);
     const host = connection.host?.trim() || '127.0.0.1';
@@ -257,8 +273,11 @@ export class DatabaseReadonlyService {
             sql,
           ];
     try {
-      return parseTabular(await this.commandRunner(command, args, env));
+      return parseTabular(await this.commandRunner(command, args, env, signal));
     } catch (error) {
+      if (isAbortFailure(error, signal)) {
+        throw new DatabaseReadonlyError('aborted', 'Consulta cancelada.');
+      }
       const code =
         error && typeof error === 'object' && 'code' in error
           ? String(error.code)
@@ -308,12 +327,13 @@ export class DatabaseReadonlyService {
 
   async listDatabases(
     connection: MachineDatabaseConnection,
+    signal?: AbortSignal,
   ): Promise<MachineDatabaseCatalogItem[]> {
     const sql =
       connection.driver === 'postgresql'
         ? 'SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname'
         : 'SELECT schema_name FROM information_schema.schemata ORDER BY schema_name';
-    const result = await this.run(connection, sql);
+    const result = await this.run(connection, sql, signal);
     return result.rows
       .map((row) => ({ name: String(row[0] ?? '') }))
       .filter((item) => item.name);
@@ -321,12 +341,13 @@ export class DatabaseReadonlyService {
 
   async listTables(
     connection: MachineDatabaseConnection,
+    signal?: AbortSignal,
   ): Promise<MachineDatabaseTable[]> {
     const sql =
       connection.driver === 'postgresql'
         ? "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY table_schema, table_name"
         : "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' ORDER BY table_schema, table_name";
-    const result = await this.run(connection, sql);
+    const result = await this.run(connection, sql, signal);
     return result.rows.map((row) => ({
       schema: String(row[0] ?? ''),
       name: String(row[1] ?? ''),
@@ -337,6 +358,7 @@ export class DatabaseReadonlyService {
     connection: MachineDatabaseConnection,
     schema: string | undefined,
     table: string,
+    signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
     const target = schema
       ? `${quoteIdentifier(schema, connection.driver)}.${quoteIdentifier(table, connection.driver)}`
@@ -344,13 +366,19 @@ export class DatabaseReadonlyService {
     return this.run(
       connection,
       `SELECT * FROM ${target} LIMIT ${MAX_ROWS + 1}`,
+      signal,
     );
   }
 
   async query(
     connection: MachineDatabaseConnection,
     query: string,
+    signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
-    return this.run(connection, readOnlyQuery(query, connection.driver));
+    return this.run(
+      connection,
+      readOnlyQuery(query, connection.driver),
+      signal,
+    );
   }
 }
