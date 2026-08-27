@@ -2537,7 +2537,7 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "pageSize": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 10
+            "maximum": 50
           },
           "total": {
             "type": "integer",
