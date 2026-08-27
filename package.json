@@ -15,7 +15,7 @@
     "dev:web": "npm run dev --workspace=@dev-dashboard/web",
     "doctor": "node scripts/doctor.mjs",
     "docs:api": "node --import=tsx scripts/generate-api-docs.mjs",
-    "docs:api:check": "node --import=tsx scripts/generate-api-docs.mjs && git diff -- docs/architecture/api-reference.md",
+    "docs:api:check": "node --import=tsx scripts/generate-api-docs.mjs && git diff --exit-code -- docs/architecture/api-reference.md",
     "predocs:api": "npm run build:packages",
     "predocs:api:check": "npm run build:packages",
     "release": "node scripts/release.mjs",
