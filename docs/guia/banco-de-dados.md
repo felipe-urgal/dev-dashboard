@@ -31,6 +31,32 @@ A aba é dividida em sub-seções, navegáveis por `?section=` na URL:
 - A URL de conexão de cada ambiente fica oculta por padrão; o botão de revelar mostra o valor uma
   vez, sem persistir esse estado.
 
+## Explorador de leitura
+
+Para MySQL, MariaDB e PostgreSQL locais, o explorador permite listar bancos e tabelas, visualizar
+uma amostra de tabela e executar uma única consulta de leitura `SELECT`/`WITH`.
+
+A proteção é feita em camadas:
+
+- PostgreSQL inicia a sessão com `default_transaction_read_only=on`; o mesmo canal também recebe
+  `statement_timeout=15000` para limitar a consulta no servidor;
+- MySQL e MariaDB executam `SET SESSION TRANSACTION READ ONLY` ao conectar, fazendo as transações
+  seguintes da sessão nascerem em modo de leitura;
+- a API continua rejeitando comandos múltiplos, comentários SQL, DML/DDL, locking reads e
+  construções conhecidas com efeito colateral, como `SELECT ... INTO OUTFILE`/`DUMPFILE` e funções
+  administrativas bloqueadas;
+- consultas digitadas têm no máximo 4.000 caracteres e o resultado exibido é limitado a 100
+  linhas;
+- somente hosts de loopback (`localhost`, `127.0.0.1` e `::1`) são aceitos nesta versão;
+- senha de banco é passada ao cliente por variável de ambiente (`PGPASSWORD`/`MYSQL_PWD`), nunca
+  como argumento visível do processo.
+
+O modo read-only do banco é a barreira principal contra alterações de dados/schema. A validação
+textual é uma defesa adicional e não substitui as permissões do banco. Extensões, UDFs ou funções
+criadas pelo próprio projeto podem produzir efeitos externos que o mecanismo transacional do banco
+não consegue impedir; por isso, para consultas livres, use preferencialmente um usuário de banco
+com o menor conjunto de privilégios necessário para leitura.
+
 ## Snapshots
 
 - **Criar snapshot** guarda o estado atual do banco do ambiente selecionado.
@@ -63,5 +89,9 @@ serviço, restaurar um snapshot, rodar uma migration) usa o catálogo fechado de
 pela API — nunca um comando arbitrário vindo do navegador. Restaurar snapshot exige o token de
 confirmação de uso único descrito acima; as operações de migration pedem confirmação no próprio
 navegador antes de iniciar e, por rodarem num canal WebSocket somente leitura (sem stdin livre),
-não usam token de confirmação do servidor — ver `docs/architecture/security.md` para o detalhe do
-modelo de ameaça.
+não usam token de confirmação do servidor.
+
+O explorador SQL livre é uma operação separada: ele só aceita leitura, combina política read-only
+no próprio banco com validação adicional na API e nunca deve ser usado como substituto de um usuário
+de banco com privilégios mínimos. Ver `docs/architecture/security.md` para o detalhe do modelo de
+ameaça.
