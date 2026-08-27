@@ -319,7 +319,7 @@ Não persistir por conveniência:
 
 Snapshots e restaurações possuem risco elevado.
 
-Controles:
+Controles para snapshots/restores:
 
 - drivers conhecidos;
 - argumentos separados;
@@ -328,7 +328,36 @@ Controles:
 - limites de tamanho;
 - diretórios privados.
 
-Credenciais de banco vêm do ambiente do projeto e não são devolvidas ao navegador como texto puro.
+### Database Explorer somente leitura
+
+O `DatabaseReadonlyService` aceita apenas MySQL, MariaDB e PostgreSQL em hosts de loopback. O
+explorador livre combina controles da aplicação com uma política read-only aplicada pelo próprio
+banco:
+
+- PostgreSQL recebe `PGOPTIONS` com `default_transaction_read_only=on`; cada nova transação da
+  sessão nasce em modo somente leitura. A sessão também recebe `statement_timeout=15000`;
+- MySQL/MariaDB executam `SET SESSION TRANSACTION READ ONLY` via `--init-command` assim que o
+  cliente conecta, definindo o modo de acesso das transações seguintes da sessão;
+- a consulta digitada continua limitada a uma única instrução `SELECT`/`WITH`, sem comentários ou
+  comandos múltiplos;
+- DML/DDL, locking reads e construções conhecidas com efeitos colaterais são bloqueadas antes de
+  chegar ao cliente. Isso inclui, entre outros, `SELECT ... INTO OUTFILE`/`DUMPFILE`, acesso por
+  `LOAD_FILE`, locks de sessão e funções administrativas PostgreSQL conhecidas;
+- consultas têm até 4.000 caracteres, o processo cliente tem timeout de 15 segundos, PostgreSQL
+  também aplica timeout no servidor e a resposta exibida é limitada a 100 linhas;
+- credenciais são fornecidas ao subprocesso por ambiente (`PGPASSWORD`/`MYSQL_PWD`) e não entram
+  nos argumentos do processo. Falhas são traduzidas para mensagens genéricas antes de voltar à UI.
+
+A configuração read-only do engine é a barreira principal contra mutações SQL de dados/schema; a
+validação lexical é apenas defesa adicional. Essa garantia não transforma uma credencial poderosa
+em sandbox geral: extensões, UDFs ou funções definidas pelo próprio banco podem produzir efeitos
+externos que uma transação read-only não consegue desfazer ou impedir. O serviço bloqueia funções
+administrativas conhecidas, mas o princípio operacional continua sendo usar um usuário de banco
+com o menor conjunto de privilégios necessário para leitura.
+
+A URL de conexão fica oculta por padrão na interface e só é revelada após ação explícita. Valores
+revelados não devem ser persistidos por conveniência, copiados para logs ou incluídos em mensagens
+de erro.
 
 ## Scripts
 
