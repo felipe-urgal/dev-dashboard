@@ -131,6 +131,10 @@ test('bloqueia SELECTs com efeitos colaterais conhecidos por driver', async () =
       query: "SELECT id FROM users INTO OUTFILE '/tmp/users.csv'",
     },
     {
+      driver: 'mysql' as const,
+      query: "SELECT id FROM users INTO DUMPFILE '/tmp/users.bin'",
+    },
+    {
       driver: 'mariadb' as const,
       query: "SELECT LOAD_FILE('/etc/passwd')",
     },
@@ -141,6 +145,10 @@ test('bloqueia SELECTs com efeitos colaterais conhecidos por driver', async () =
     {
       driver: 'postgresql' as const,
       query: "SELECT pg_notify('jobs', 'ready')",
+    },
+    {
+      driver: 'postgresql' as const,
+      query: 'SELECT pg_sleep(30)',
     },
     {
       driver: 'postgresql' as const,
