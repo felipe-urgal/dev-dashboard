@@ -32,4 +32,32 @@ describe('arquitetura do bootstrap Git', () => {
       existsSync(resolve(raizWeb, 'src/git-summary-current-branch-history.ts')),
     ).toBe(false);
   });
+
+  it('não reinstala o resumo Git legado baseado em DOM', () => {
+    expect(entrada).not.toContain('git-summary-history-enhancer');
+    expect(entrada).not.toContain('installGitSummaryHistoryEnhancer');
+    expect(entrada).not.toContain('git-summary-global-search-fix');
+    expect(entrada).not.toContain('installGitSummaryGlobalSearchFix');
+    expect(entrada).not.toContain('git-summary-inline-diff-fix');
+    expect(entrada).not.toContain('installGitSummaryInlineDiffFix');
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-history-enhancer.ts')),
+    ).toBe(false);
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-history-enhancer.css')),
+    ).toBe(false);
+    expect(existsSync(resolve(raizWeb, 'src/git-summary-history'))).toBe(false);
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-global-search-fix.ts')),
+    ).toBe(false);
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-global-search-fix')),
+    ).toBe(false);
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-inline-diff-fix.ts')),
+    ).toBe(false);
+    expect(
+      existsSync(resolve(raizWeb, 'src/git-summary-inline-diff-fix')),
+    ).toBe(false);
+  });
 });
