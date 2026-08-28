@@ -5,12 +5,41 @@ import type {
   MachineDatabaseTable,
 } from '@dev-dashboard/contracts';
 
-import {
-  DatabaseReadonlyError,
-  type DatabaseReadonlyService,
-} from './database-readonly-service.js';
+import { DatabaseReadonlyError } from './database-readonly-service.js';
 
-export type DatabaseExplorerErrorReason = DatabaseReadonlyError['reason'];
+export type DatabaseExplorerErrorReason =
+  | 'unsupported-driver'
+  | 'remote-host'
+  | 'invalid-connection'
+  | 'invalid-query'
+  | 'client-unavailable'
+  | 'credentials-rejected'
+  | 'connection-failed'
+  | 'database-unavailable'
+  | 'command-failed'
+  | 'aborted';
+
+export interface DatabaseExplorerBackend {
+  listDatabases(
+    connection: MachineDatabaseConnection,
+    signal?: AbortSignal,
+  ): Promise<MachineDatabaseCatalogItem[]>;
+  listTables(
+    connection: MachineDatabaseConnection,
+    signal?: AbortSignal,
+  ): Promise<MachineDatabaseTable[]>;
+  preview(
+    connection: MachineDatabaseConnection,
+    schema: string | undefined,
+    table: string,
+    signal?: AbortSignal,
+  ): Promise<MachineDatabaseQueryResult>;
+  query(
+    connection: MachineDatabaseConnection,
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<MachineDatabaseQueryResult>;
+}
 
 export class DatabaseExplorerError extends Error {
   public constructor(
@@ -23,9 +52,7 @@ export class DatabaseExplorerError extends Error {
 }
 
 export class DatabaseExplorerService {
-  public constructor(
-    private readonly databaseReadonlyService: DatabaseReadonlyService,
-  ) {}
+  public constructor(private readonly backend: DatabaseExplorerBackend) {}
 
   private async execute<T>(operation: () => Promise<T>): Promise<T> {
     try {
@@ -46,18 +73,14 @@ export class DatabaseExplorerService {
     connection: MachineDatabaseConnection,
     signal?: AbortSignal,
   ): Promise<MachineDatabaseCatalogItem[]> {
-    return this.execute(() =>
-      this.databaseReadonlyService.listDatabases(connection, signal),
-    );
+    return this.execute(() => this.backend.listDatabases(connection, signal));
   }
 
   async listTables(
     connection: MachineDatabaseConnection,
     signal?: AbortSignal,
   ): Promise<MachineDatabaseTable[]> {
-    return this.execute(() =>
-      this.databaseReadonlyService.listTables(connection, signal),
-    );
+    return this.execute(() => this.backend.listTables(connection, signal));
   }
 
   async preview(
@@ -67,12 +90,7 @@ export class DatabaseExplorerService {
     signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
     return this.execute(() =>
-      this.databaseReadonlyService.preview(
-        connection,
-        schema,
-        table,
-        signal,
-      ),
+      this.backend.preview(connection, schema, table, signal),
     );
   }
 
@@ -81,8 +99,6 @@ export class DatabaseExplorerService {
     query: string,
     signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
-    return this.execute(() =>
-      this.databaseReadonlyService.query(connection, query, signal),
-    );
+    return this.execute(() => this.backend.query(connection, query, signal));
   }
 }
