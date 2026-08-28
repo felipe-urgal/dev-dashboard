@@ -223,7 +223,7 @@ test('não devolve segredo quando o cliente rejeita as credenciais', async () =>
       ),
     (error: unknown) =>
       error instanceof DatabaseReadonlyError &&
-      error.reason === 'command-failed' &&
+      error.reason === 'credentials-rejected' &&
       !error.message.includes(secret),
   );
 });

@@ -158,47 +158,1020 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 
 ### `GET /api/database`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "services"
+    ],
+    "properties": {
+      "services": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "driver",
+            "label",
+            "unit",
+            "installed",
+            "active"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "driver": {
+              "type": "string",
+              "enum": [
+                "mysql",
+                "mariadb",
+                "postgresql",
+                "redis",
+                "mongodb"
+              ]
+            },
+            "label": {
+              "type": "string"
+            },
+            "unit": {
+              "type": "string"
+            },
+            "installed": {
+              "type": "boolean"
+            },
+            "active": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `GET /api/database/:serviceId/details`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "serviceId"
+  ],
+  "properties": {
+    "serviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "details"
+    ],
+    "properties": {
+      "details": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "serviceId",
+          "reachability",
+          "logs"
+        ],
+        "properties": {
+          "serviceId": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "version": {
+            "type": "string"
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "reachability": {
+            "type": "string",
+            "enum": [
+              "reachable",
+              "unreachable",
+              "unknown"
+            ]
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/:serviceId/install`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "serviceId"
+  ],
+  "properties": {
+    "serviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "installed"
+    ],
+    "properties": {
+      "installed": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/:serviceId/restart`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "serviceId"
+  ],
+  "properties": {
+    "serviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "action",
+      "succeeded"
+    ],
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "start",
+          "stop",
+          "restart"
+        ]
+      },
+      "succeeded": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/:serviceId/start`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "serviceId"
+  ],
+  "properties": {
+    "serviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "action",
+      "succeeded"
+    ],
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "start",
+          "stop",
+          "restart"
+        ]
+      },
+      "succeeded": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/:serviceId/stop`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "serviceId"
+  ],
+  "properties": {
+    "serviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "action",
+      "succeeded"
+    ],
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "start",
+          "stop",
+          "restart"
+        ]
+      },
+      "succeeded": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/:serviceId/uninstall`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "serviceId"
+  ],
+  "properties": {
+    "serviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "uninstalled"
+    ],
+    "properties": {
+      "uninstalled": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/explorer/catalog`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "driver"
+  ],
+  "properties": {
+    "driver": {
+      "type": "string",
+      "enum": [
+        "mysql",
+        "mariadb",
+        "postgresql"
+      ]
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "password": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "database": {
+      "type": "string",
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "databases"
+    ],
+    "properties": {
+      "databases": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **499** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **503** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/explorer/preview`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "driver",
+    "table"
+  ],
+  "properties": {
+    "driver": {
+      "type": "string",
+      "enum": [
+        "mysql",
+        "mariadb",
+        "postgresql"
+      ]
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "password": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "database": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "schema": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "table": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "columns",
+          "rows",
+          "rowCount",
+          "truncated"
+        ],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "rowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **499** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **503** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/explorer/query`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "driver",
+    "query"
+  ],
+  "properties": {
+    "driver": {
+      "type": "string",
+      "enum": [
+        "mysql",
+        "mariadb",
+        "postgresql"
+      ]
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "password": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "database": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "columns",
+          "rows",
+          "rowCount",
+          "truncated"
+        ],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "rowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **499** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **503** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/database/explorer/tables`
 
-_Rota sem schema declarado (ex. upgrade de WebSocket)._
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "driver"
+  ],
+  "properties": {
+    "driver": {
+      "type": "string",
+      "enum": [
+        "mysql",
+        "mariadb",
+        "postgresql"
+      ]
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "password": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "database": {
+      "type": "string",
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "tables"
+    ],
+    "properties": {
+      "tables": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **499** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **503** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `GET /api/projects/:projectId/database`
 

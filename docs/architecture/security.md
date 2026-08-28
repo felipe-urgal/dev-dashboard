@@ -345,8 +345,12 @@ banco:
   `LOAD_FILE`, locks de sessão e funções administrativas PostgreSQL conhecidas;
 - consultas têm até 4.000 caracteres, o processo cliente tem timeout de 15 segundos, PostgreSQL
   também aplica timeout no servidor e a resposta exibida é limitada a 100 linhas;
+- as rotas HTTP do explorador usam schemas explícitos com `additionalProperties: false`, limites
+  para conexão/query e respostas declaradas; campos inesperados são rejeitados antes do serviço;
 - credenciais são fornecidas ao subprocesso por ambiente (`PGPASSWORD`/`MYSQL_PWD`) e não entram
-  nos argumentos do processo. Falhas são traduzidas para mensagens genéricas antes de voltar à UI.
+  nos argumentos do processo. Falhas são traduzidas para mensagens genéricas antes de voltar à UI;
+- falhas do domínio são convertidas em códigos estáveis `DATABASE_EXPLORER_*`; o frontend reage ao
+  código retornado pela API, sem usar texto localizado como identificador de lógica.
 
 A configuração read-only do engine é a barreira principal contra mutações SQL de dados/schema; a
 validação lexical é apenas defesa adicional. Essa garantia não transforma uma credencial poderosa
