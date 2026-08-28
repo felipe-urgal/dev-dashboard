@@ -55,11 +55,13 @@ test('expõe código estável quando as credenciais do Explorer são rejeitadas'
   assert.equal(response.body.includes('segredo'), false);
 });
 
-test('rejeita propriedades extras no corpo antes de chamar o serviço', async (context) => {
+test('remove propriedades extras do corpo antes de chamar o serviço', async (context) => {
   let calls = 0;
+  let receivedConnection: unknown;
   const databaseReadonlyService = {
-    async listDatabases() {
+    async listDatabases(connection: unknown) {
       calls += 1;
+      receivedConnection = connection;
       return [];
     },
   } as unknown as DatabaseReadonlyService;
@@ -75,9 +77,10 @@ test('rejeita propriedades extras no corpo antes de chamar o serviço', async (c
     },
   });
 
-  assert.equal(response.statusCode, 400);
-  assert.equal(response.json().error, 'VALIDATION_ERROR');
-  assert.equal(calls, 0);
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { databases: [] });
+  assert.equal(calls, 1);
+  assert.deepEqual(receivedConnection, { driver: 'postgresql' });
 });
 
 test('diferencia falha de conexão de erro genérico do comando', async (context) => {
