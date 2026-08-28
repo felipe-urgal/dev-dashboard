@@ -70,11 +70,11 @@ npm install                    # uma vez, na raiz
 npm run typecheck              # tsc --build em todos os workspaces
 npm run build                  # packages primeiro, depois apps
 npm test                       # --workspaces --if-present
+npm run test:cli               # suíte do CLI bash (helpers não interativos)
 npm run test:e2e               # build + smoke Playwright da web
-npm run dev                    # API (:4343) + web (:5173) juntos
+npm run dev                    # API (:4343) + web (:5174) juntos
 npm run lint                   # ESLint em apps/, packages/ e scripts/
 npm run format:check           # Prettier, sem regravar
-tests/cli/run.sh               # suíte do CLI bash (helpers não interativos)
 ```
 
 `build:packages` roda `contracts → core → project-discovery →
@@ -137,7 +137,9 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
   E2E). Padrão de nome: `*.test.ts` em `test/` de cada workspace.
 - CLI bash: os helpers **não interativos** (`_dev_*`/`_project_*`/`_git_*`
   puros, sem `gum`/`read -r -p`) têm suíte própria em `tests/cli/`
-  (`tests/cli/run.sh`, só `bash` + `git`). Funções interativas continuam
+  (`npm run test:cli`, que executa `tests/cli/run.sh`, só `bash` + `git`).
+  O CI executa essa suíte em um job `CLI Bash` independente das ferramentas
+  do frontend, e uma falha bloqueia o PR. Funções interativas continuam
   validadas manualmente, rodando a função direto num shell com o dashboard
   carregado. `lib/*/tests/` é outra coisa — menus para rodar a suíte do
   *projeto alvo* (ex. `bundle exec rspec`), não testes deste codebase.
@@ -153,9 +155,8 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
    ou atualizar as issues antes de perder o contexto.
 3. Implementar na menor camada correta, adicionando teste automatizado quando
    o escopo suportar.
-4. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test`.
-   Rodar `tests/cli/run.sh` quando `lib/` for afetado e `npm run test:e2e`
-   quando o fluxo web alterado justificar.
+4. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test && npm run test:cli`.
+   Rodar `npm run test:e2e` quando o fluxo web alterado justificar.
 5. Atualizar a documentação viva correspondente na mesma entrega.
 6. Fazer auto code review do diff, corrigir os achados e repetir os gates
    impactados antes do PR.
