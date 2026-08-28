@@ -5,7 +5,10 @@ import Fastify from 'fastify';
 
 import { databaseRoutes } from '../src/routes/database.js';
 import type { DatabaseDetectionService } from '../src/services/database-detection-service.js';
-import type { DatabaseReadonlyService } from '../src/services/database-readonly-service.js';
+import {
+  DatabaseExplorerService,
+  type DatabaseExplorerBackend,
+} from '../src/services/database-explorer-service.js';
 import type { DatabaseSnapshotService } from '../src/services/database-snapshot-service.js';
 import type { ProjectStore } from '../src/store/project-store.js';
 
@@ -18,36 +21,34 @@ const emptyResult = {
 
 test('rotas do Database Explorer propagam AbortSignal ao serviço', async (context) => {
   const signals: AbortSignal[] = [];
-  const databaseReadonlyService = {
-    async listDatabases(_connection: unknown, signal?: AbortSignal) {
+  const databaseExplorerBackend: DatabaseExplorerBackend = {
+    async listDatabases(_connection, signal) {
       if (signal) signals.push(signal);
       return [];
     },
-    async listTables(_connection: unknown, signal?: AbortSignal) {
+    async listTables(_connection, signal) {
       if (signal) signals.push(signal);
       return [];
     },
-    async preview(
-      _connection: unknown,
-      _schema: string | undefined,
-      _table: string,
-      signal?: AbortSignal,
-    ) {
+    async preview(_connection, _schema, _table, signal) {
       if (signal) signals.push(signal);
       return emptyResult;
     },
-    async query(_connection: unknown, _query: string, signal?: AbortSignal) {
+    async query(_connection, _query, signal) {
       if (signal) signals.push(signal);
       return emptyResult;
     },
-  } as unknown as DatabaseReadonlyService;
+  };
+  const databaseExplorerService = new DatabaseExplorerService(
+    databaseExplorerBackend,
+  );
 
   const app = Fastify();
   await app.register(databaseRoutes, {
     projectStore: {} as unknown as ProjectStore,
     databaseDetectionService: {} as unknown as DatabaseDetectionService,
     databaseSnapshotService: {} as unknown as DatabaseSnapshotService,
-    databaseReadonlyService,
+    databaseExplorerService,
   });
   context.after(async () => app.close());
 

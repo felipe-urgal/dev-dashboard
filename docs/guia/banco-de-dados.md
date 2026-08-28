@@ -36,6 +36,10 @@ A aba é dividida em sub-seções, navegáveis por `?section=` na URL:
 Para MySQL, MariaDB e PostgreSQL locais, o explorador permite listar bancos e tabelas, visualizar
 uma amostra de tabela e executar uma única consulta de leitura `SELECT`/`WITH`.
 
+No backend, as rotas HTTP delegam essas operações ao `DatabaseExplorerService`, que funciona como
+fronteira de aplicação antes do executor read-only atual. A separação entre transporte, aplicação e
+infraestrutura está detalhada em [Arquitetura do Database Explorer](../architecture/database-explorer.md).
+
 A proteção é feita em camadas:
 
 - PostgreSQL inicia a sessão com `default_transaction_read_only=on`; o mesmo canal também recebe
