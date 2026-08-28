@@ -12,15 +12,18 @@
 // apps/api/src/app.ts para descobrir, na ordem real de registro, quais plugins de rota
 // existem (todo `import { xxxRoutes } from './routes/algo.js'` referenciado em app.ts).
 // Cada plugin é então importado e executado contra uma instância "stub" do Fastify que
-// apenas registra `{ method, url, schema }` para cada `app.get/post/put/patch/delete(...)`
-// chamado — sem subir um servidor de verdade, sem tocar em rede/filesystem além da leitura
-// dos próprios arquivos-fonte. Isso garante que os JSON Schemas exibidos são exatamente os
-// objetos reais definidos no código (incluindo os schemas de erro compartilhados via
-// spread, ex. `...commonErrorResponseSchemas`), não uma cópia mantida à mão.
+// apenas registra `{ method, url, schema, websocket }` para cada
+// `app.get/post/put/patch/delete(...)` chamado — sem subir um servidor de verdade, sem
+// tocar em rede/filesystem além da leitura dos próprios arquivos-fonte. Isso garante que
+// os JSON Schemas exibidos são exatamente os objetos reais definidos no código (incluindo
+// os schemas de erro compartilhados via spread, ex. `...commonErrorResponseSchemas`), não
+// uma cópia mantida à mão.
 
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { assertExplicitHttpSchemas } from './api-schema-gate.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
@@ -61,7 +64,7 @@ async function discoverRoutePlugins() {
   return plugins;
 }
 
-// --- 2. Stub mínimo de Fastify: só registra (method, url, schema) ----------------------
+// --- 2. Stub mínimo de Fastify: registra contrato e tipo da rota -----------------------
 
 const HTTP_METHODS = [
   'get',
@@ -90,11 +93,14 @@ function createStubApp(prefix, collected) {
   const stub = {};
 
   const recordRoute = (method, url, opts) => {
-    const schema = opts && typeof opts === 'object' ? opts.schema : undefined;
+    const routeOptions =
+      opts && typeof opts === 'object' ? opts : undefined;
+    const schema = routeOptions?.schema;
     collected.push({
       method: method.toUpperCase(),
       url: `${prefix}${url}`,
       schema,
+      websocket: routeOptions?.websocket === true,
     });
   };
 
@@ -323,6 +329,7 @@ async function main() {
   const plugins = await discoverRoutePlugins();
   const routes = await collectRoutes(plugins);
 
+  assertExplicitHttpSchemas(routes);
   routes.sort((a, b) => a.group.localeCompare(b.group));
 
   const body = renderRoutes(routes);
