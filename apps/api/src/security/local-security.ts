@@ -16,10 +16,10 @@ export const LOCAL_TOKEN_HEADER = 'x-dev-dashboard-token';
 export const BROWSER_BOOTSTRAP_HEADER = 'x-dev-dashboard-browser-bootstrap';
 
 export const DEFAULT_ALLOWED_ORIGINS = [
-  'http://127.0.0.1:5173',
-  'http://localhost:5173',
-  'http://127.0.0.1:4173',
-  'http://localhost:4173',
+  'http://127.0.0.1:5174',
+  'http://localhost:5174',
+  'http://127.0.0.1:4343',
+  'http://localhost:4343',
 ] as const;
 
 export interface LocalSecurityOptions {
