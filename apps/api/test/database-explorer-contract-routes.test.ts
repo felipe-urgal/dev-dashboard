@@ -7,34 +7,34 @@ import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { databaseRoutes } from '../src/routes/database.js';
 import type { DatabaseDetectionService } from '../src/services/database-detection-service.js';
 import {
-  DatabaseReadonlyError,
-  type DatabaseReadonlyService,
-} from '../src/services/database-readonly-service.js';
+  DatabaseExplorerError,
+  type DatabaseExplorerService,
+} from '../src/services/database-explorer-service.js';
 import type { DatabaseSnapshotService } from '../src/services/database-snapshot-service.js';
 import type { ProjectStore } from '../src/store/project-store.js';
 
-async function createApp(databaseReadonlyService: DatabaseReadonlyService) {
+async function createApp(databaseExplorerService: DatabaseExplorerService) {
   const app = Fastify();
   registerApiErrorHandling(app);
   await app.register(databaseRoutes, {
     projectStore: {} as unknown as ProjectStore,
     databaseDetectionService: {} as unknown as DatabaseDetectionService,
     databaseSnapshotService: {} as unknown as DatabaseSnapshotService,
-    databaseReadonlyService,
+    databaseExplorerService,
   });
   return app;
 }
 
 test('expõe código estável quando as credenciais do Explorer são rejeitadas', async (context) => {
-  const databaseReadonlyService = {
+  const databaseExplorerService = {
     async listDatabases() {
-      throw new DatabaseReadonlyError(
+      throw new DatabaseExplorerError(
         'credentials-rejected',
         'Credenciais rejeitadas.',
       );
     },
-  } as unknown as DatabaseReadonlyService;
-  const app = await createApp(databaseReadonlyService);
+  } as unknown as DatabaseExplorerService;
+  const app = await createApp(databaseExplorerService);
   context.after(async () => app.close());
 
   const response = await app.inject({
@@ -58,14 +58,14 @@ test('expõe código estável quando as credenciais do Explorer são rejeitadas'
 test('remove propriedades extras do corpo antes de chamar o serviço', async (context) => {
   let calls = 0;
   let receivedConnection: unknown;
-  const databaseReadonlyService = {
+  const databaseExplorerService = {
     async listDatabases(connection: unknown) {
       calls += 1;
       receivedConnection = connection;
       return [];
     },
-  } as unknown as DatabaseReadonlyService;
-  const app = await createApp(databaseReadonlyService);
+  } as unknown as DatabaseExplorerService;
+  const app = await createApp(databaseExplorerService);
   context.after(async () => app.close());
 
   const response = await app.inject({
@@ -84,15 +84,15 @@ test('remove propriedades extras do corpo antes de chamar o serviço', async (co
 });
 
 test('diferencia falha de conexão de erro genérico do comando', async (context) => {
-  const databaseReadonlyService = {
+  const databaseExplorerService = {
     async listDatabases() {
-      throw new DatabaseReadonlyError(
+      throw new DatabaseExplorerError(
         'connection-failed',
         'Não foi possível conectar ao serviço.',
       );
     },
-  } as unknown as DatabaseReadonlyService;
-  const app = await createApp(databaseReadonlyService);
+  } as unknown as DatabaseExplorerService;
+  const app = await createApp(databaseExplorerService);
   context.after(async () => app.close());
 
   const response = await app.inject({
