@@ -12,7 +12,7 @@ import {
 
 const TOKEN = 'a'.repeat(64);
 const BOOTSTRAP_TOKEN = 'b'.repeat(64);
-const ALLOWED_ORIGIN = 'http://127.0.0.1:5173';
+const ALLOWED_ORIGIN = 'http://127.0.0.1:5174';
 
 async function buildTestApp() {
   const app = Fastify({
