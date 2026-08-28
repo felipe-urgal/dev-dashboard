@@ -16,34 +16,6 @@ permissions:
   contents: read
 
 jobs:
-  database-explorer-codemod:
-    if: github.event_name == 'pull_request' && github.head_ref == 'refactor/database-explorer-service' && github.actor != 'github-actions[bot]'
-    name: Database Explorer codemod
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-
-      - name: Apply codemod
-        run: node scripts/tmp-database-explorer-service-codemod.mjs
-
-      - name: Commit codemod
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/api/src/routes/database.ts apps/api/src/app.ts
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "refactor(database): liga rotas ao serviço do explorer"
-          git push origin "HEAD:${{ github.head_ref }}"
-
   validate:
     name: Validate
     runs-on: ubuntu-latest
