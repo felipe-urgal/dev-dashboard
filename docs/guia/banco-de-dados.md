@@ -49,7 +49,10 @@ A proteção é feita em camadas:
   linhas;
 - somente hosts de loopback (`localhost`, `127.0.0.1` e `::1`) são aceitos nesta versão;
 - senha de banco é passada ao cliente por variável de ambiente (`PGPASSWORD`/`MYSQL_PWD`), nunca
-  como argumento visível do processo.
+  como argumento visível do processo;
+- os corpos das rotas do explorador usam schema fechado (`additionalProperties: false`), e falhas
+  retornam códigos estáveis `DATABASE_EXPLORER_*`; a interface escolhe o feedback pelo código, não
+  pelo texto localizado da mensagem de erro.
 
 O modo read-only do banco é a barreira principal contra alterações de dados/schema. A validação
 textual é uma defesa adicional e não substitui as permissões do banco. Extensões, UDFs ou funções
