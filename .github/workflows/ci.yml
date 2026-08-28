@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -52,13 +52,22 @@ jobs:
       - name: Verifica docs/architecture/api-reference.md
         run: npm run docs:api:check
 
-      - name: Upload generated API reference
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-api-reference
-          path: docs/architecture/api-reference.md
-          retention-days: 1
+      - name: Sincroniza referência gerada na branch
+        if: always() && github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          git fetch origin "$HEAD_REF"
+          git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
+          npm run docs:api
+          if git diff --quiet -- docs/architecture/api-reference.md; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/architecture/api-reference.md
+          git commit -m "docs: atualiza referência gerada da API"
+          git push origin HEAD:"$HEAD_REF"
 
       - name: Test
         run: npm test
