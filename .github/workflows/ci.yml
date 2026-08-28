@@ -55,6 +55,23 @@ jobs:
       - name: Test
         run: npm test
 
+  cli:
+    name: CLI Bash
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify prerequisites
+        run: |
+          bash --version
+          git --version
+
+      - name: CLI Bash
+        run: bash tests/cli/run.sh
+
   e2e:
     name: Smoke E2E
     runs-on: ubuntu-latest
