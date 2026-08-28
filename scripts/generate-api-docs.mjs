@@ -93,8 +93,7 @@ function createStubApp(prefix, collected) {
   const stub = {};
 
   const recordRoute = (method, url, opts) => {
-    const routeOptions =
-      opts && typeof opts === 'object' ? opts : undefined;
+    const routeOptions = opts && typeof opts === 'object' ? opts : undefined;
     const schema = routeOptions?.schema;
     collected.push({
       method: method.toUpperCase(),
