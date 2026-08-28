@@ -28,15 +28,15 @@ import {
 } from '../services/database-snapshot-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import {
-  DatabaseReadonlyError,
-  type DatabaseReadonlyService,
-} from '../services/database-readonly-service.js';
+  DatabaseExplorerError,
+  type DatabaseExplorerService,
+} from '../services/database-explorer-service.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   databaseDetectionService: DatabaseDetectionService;
   databaseSnapshotService: DatabaseSnapshotService;
-  databaseReadonlyService: DatabaseReadonlyService;
+  databaseExplorerService: DatabaseExplorerService;
 }
 interface Params {
   projectId: string;
@@ -65,7 +65,7 @@ interface ExplorerPreviewBody extends ExplorerBody {
 }
 
 const explorerErrorCodes: Record<
-  DatabaseReadonlyError['reason'],
+  DatabaseExplorerError['reason'],
   { statusCode: number; code: ApiErrorCode }
 > = {
   'unsupported-driver': {
@@ -112,7 +112,7 @@ const explorerErrorCodes: Record<
 
 function asExplorerApiError(error: unknown): never {
   if (error instanceof ApiError) throw error;
-  if (error instanceof DatabaseReadonlyError) {
+  if (error instanceof DatabaseExplorerError) {
     const mapped = explorerErrorCodes[error.reason];
     throw new ApiError({
       statusCode: mapped.statusCode,
@@ -288,7 +288,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
-          databases: await options.databaseReadonlyService.listDatabases(
+          databases: await options.databaseExplorerService.listDatabases(
             request.body,
             abortScope.signal,
           ),
@@ -327,7 +327,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
-          tables: await options.databaseReadonlyService.listTables(
+          tables: await options.databaseExplorerService.listTables(
             request.body,
             abortScope.signal,
           ),
@@ -363,7 +363,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
-          result: await options.databaseReadonlyService.preview(
+          result: await options.databaseExplorerService.preview(
             request.body,
             request.body.schema,
             request.body.table,
@@ -401,7 +401,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
         return {
-          result: await options.databaseReadonlyService.query(
+          result: await options.databaseExplorerService.query(
             request.body,
             request.body.query,
             abortScope.signal,

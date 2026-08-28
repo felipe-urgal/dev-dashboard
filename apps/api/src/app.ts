@@ -327,7 +327,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     databaseDetectionService: context.databaseDetectionService,
     databaseSnapshotService: context.databaseSnapshotService,
-    databaseReadonlyService: context.databaseReadonlyService,
+    databaseExplorerService: context.databaseExplorerService,
   });
 
   app.register(railsRoutes, {
