@@ -38,7 +38,9 @@ test('rejeita rota HTTP comum sem schema', () => {
     url: '/api/example/run',
   });
 
-  assert.deepEqual(findHttpRoutesWithoutSchema([missingSchema]), [missingSchema]);
+  assert.deepEqual(findHttpRoutesWithoutSchema([missingSchema]), [
+    missingSchema,
+  ]);
   assert.throws(
     () => assertExplicitHttpSchemas([missingSchema]),
     /POST \/api\/example\/run \(example\)/,
