@@ -195,7 +195,10 @@ npm run lint
 npm run format:check
 npm run build
 npm test
+npm run test:cli
 ```
+
+`npm run test:cli` executa `tests/cli/run.sh` e exige apenas `bash` e `git`. No CI, a suíte roda em um job `CLI Bash` independente, sem instalar dependências do frontend; qualquer falha nos helpers Bash bloqueia o PR.
 
 Para fluxos de navegador:
 
@@ -227,7 +230,8 @@ entrega.
 
 `scripts/*.mjs` (tooling de dev) e o CLI bash (`lib/`) ficam fora da medição: o
 primeiro não é código de produto e o segundo não possui instrumentação de
-cobertura equivalente configurada neste repositório.
+cobertura equivalente configurada neste repositório. O CLI continua protegido
+pela suíte `tests/cli/run.sh`, executada separadamente no CI.
 
 ## Documentação
 
