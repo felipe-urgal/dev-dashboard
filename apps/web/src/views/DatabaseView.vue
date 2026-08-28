@@ -160,25 +160,31 @@ const recentExplorerQueries = computed(() =>
 );
 
 function formatExplorerError(error: unknown, fallback: string): string {
-  const message = error instanceof Error ? error.message : '';
-  const normalized = message.toLocaleLowerCase();
-  if (normalized.includes('credenciais') || normalized.includes('password')) {
-    return 'Não foi possível conectar: confira o usuário e a senha informados.';
+  const requestError =
+    error && typeof error === 'object'
+      ? (error as { code?: unknown; message?: unknown })
+      : undefined;
+  const code =
+    typeof requestError?.code === 'string' ? requestError.code : undefined;
+  const message =
+    typeof requestError?.message === 'string' ? requestError.message : '';
+
+  switch (code) {
+    case 'DATABASE_EXPLORER_CREDENTIALS_REJECTED':
+      return 'Não foi possível conectar: confira o usuário e a senha informados.';
+    case 'DATABASE_EXPLORER_CONNECTION_FAILED':
+      return 'Não foi possível conectar: verifique se o serviço está instalado e em execução.';
+    case 'DATABASE_EXPLORER_CLIENT_UNAVAILABLE':
+      return 'O cliente deste banco não está instalado nesta máquina.';
+    case 'DATABASE_EXPLORER_REMOTE_HOST_NOT_ALLOWED':
+      return 'Por segurança, o explorador aceita somente bancos locais.';
+    case 'DATABASE_EXPLORER_DATABASE_UNAVAILABLE':
+      return 'O banco informado não existe ou o usuário não tem acesso a ele.';
+    case 'DATABASE_EXPLORER_ABORTED':
+      return 'Consulta cancelada.';
+    default:
+      return message || fallback;
   }
-  if (
-    normalized.includes('connection refused') ||
-    normalized.includes('não está em execução') ||
-    normalized.includes('could not connect')
-  ) {
-    return 'Não foi possível conectar: verifique se o serviço está instalado e em execução.';
-  }
-  if (normalized.includes('não está instalado')) {
-    return 'O cliente deste banco não está instalado nesta máquina.';
-  }
-  if (normalized.includes('apenas bancos locais')) {
-    return 'Por segurança, o explorador aceita somente bancos locais.';
-  }
-  return message || fallback;
 }
 
 function savedConnectionId(connection: MachineDatabaseConnection): string {
