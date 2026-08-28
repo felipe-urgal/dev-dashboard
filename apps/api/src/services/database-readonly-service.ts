@@ -74,8 +74,12 @@ export class DatabaseReadonlyError extends Error {
     public readonly reason:
       | 'unsupported-driver'
       | 'remote-host'
+      | 'invalid-connection'
       | 'invalid-query'
       | 'client-unavailable'
+      | 'credentials-rejected'
+      | 'connection-failed'
+      | 'database-unavailable'
       | 'command-failed'
       | 'aborted',
     message: string,
@@ -106,7 +110,7 @@ function validateConnection(connection: MachineDatabaseConnection): void {
       connection.port > 65535)
   ) {
     throw new DatabaseReadonlyError(
-      'command-failed',
+      'invalid-connection',
       'A porta informada é inválida.',
     );
   }
@@ -294,7 +298,7 @@ export class DatabaseReadonlyService {
         (failureText.includes('role') && failureText.includes('does not exist'))
       ) {
         throw new DatabaseReadonlyError(
-          'command-failed',
+          'credentials-rejected',
           'Credenciais rejeitadas. Informe um usuário e senha válidos para este banco.',
         );
       }
@@ -304,7 +308,7 @@ export class DatabaseReadonlyService {
         failureText.includes('could not connect')
       ) {
         throw new DatabaseReadonlyError(
-          'command-failed',
+          'connection-failed',
           'Não foi possível conectar ao serviço. Verifique se ele está em execução e se a porta está correta.',
         );
       }
@@ -314,7 +318,7 @@ export class DatabaseReadonlyService {
           failureText.includes('does not exist'))
       ) {
         throw new DatabaseReadonlyError(
-          'command-failed',
+          'database-unavailable',
           'O banco informado não existe ou o usuário não tem acesso a ele.',
         );
       }
