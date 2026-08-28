@@ -1,12 +1,18 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
-import { ApiError } from '../http/api-error.js';
+import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { createHttpAbortScope } from '../http/request-abort.js';
 import {
+  apiErrorResponseSchema,
   commonErrorResponseSchemas,
   databaseRestoreResultResponseSchema,
   databaseSnapshotConfirmationResponseSchema,
   databaseSnapshotListResponseSchema,
   databaseSnapshotResponseSchema,
+  machineDatabaseCatalogItemResponseSchema,
+  machineDatabaseQueryResultResponseSchema,
+  machineDatabaseServiceDetailsResponseSchema,
+  machineDatabaseServiceResponseSchema,
+  machineDatabaseTableResponseSchema,
   projectDatabaseOverviewResponseSchema,
 } from '../http/response-schemas.js';
 import {
@@ -58,39 +64,134 @@ interface ExplorerPreviewBody extends ExplorerBody {
   table: string;
 }
 
-function explorerErrorResponse(error: unknown): {
-  statusCode: number;
-  message: string;
-} {
-  if (!(error instanceof DatabaseReadonlyError)) {
-    return {
-      statusCode: 500,
-      message: 'Não foi possível consultar o banco de dados.',
-    };
+const explorerErrorCodes: Record<
+  DatabaseReadonlyError['reason'],
+  { statusCode: number; code: ApiErrorCode }
+> = {
+  'unsupported-driver': {
+    statusCode: 400,
+    code: 'DATABASE_EXPLORER_DRIVER_UNSUPPORTED',
+  },
+  'remote-host': {
+    statusCode: 400,
+    code: 'DATABASE_EXPLORER_REMOTE_HOST_NOT_ALLOWED',
+  },
+  'invalid-connection': {
+    statusCode: 400,
+    code: 'DATABASE_EXPLORER_CONNECTION_INVALID',
+  },
+  'invalid-query': {
+    statusCode: 400,
+    code: 'DATABASE_EXPLORER_QUERY_INVALID',
+  },
+  'client-unavailable': {
+    statusCode: 503,
+    code: 'DATABASE_EXPLORER_CLIENT_UNAVAILABLE',
+  },
+  'credentials-rejected': {
+    statusCode: 400,
+    code: 'DATABASE_EXPLORER_CREDENTIALS_REJECTED',
+  },
+  'connection-failed': {
+    statusCode: 502,
+    code: 'DATABASE_EXPLORER_CONNECTION_FAILED',
+  },
+  'database-unavailable': {
+    statusCode: 400,
+    code: 'DATABASE_EXPLORER_DATABASE_UNAVAILABLE',
+  },
+  'command-failed': {
+    statusCode: 502,
+    code: 'DATABASE_EXPLORER_COMMAND_FAILED',
+  },
+  aborted: {
+    statusCode: 499,
+    code: 'DATABASE_EXPLORER_ABORTED',
+  },
+};
+
+function asExplorerApiError(error: unknown): never {
+  if (error instanceof ApiError) throw error;
+  if (error instanceof DatabaseReadonlyError) {
+    const mapped = explorerErrorCodes[error.reason];
+    throw new ApiError({
+      statusCode: mapped.statusCode,
+      code: mapped.code,
+      message: error.message,
+    });
   }
-  return {
-    statusCode:
-      error.reason === 'aborted'
-        ? 499
-        : error.reason === 'client-unavailable'
-          ? 503
-          : error.reason === 'command-failed'
-            ? 502
-            : 400,
-    message: error.message,
-  };
+  throw new ApiError({
+    statusCode: 500,
+    code: 'DATABASE_EXPLORER_COMMAND_FAILED',
+    message: 'Não foi possível consultar o banco de dados.',
+  });
 }
 
+const emptyObjectSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {},
+} as const;
 const paramsSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['projectId'],
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
+const serviceParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['serviceId'],
+  properties: {
+    serviceId: { type: 'string', minLength: 1, maxLength: 80 },
+  },
+} as const;
 const emptyQuery = {
   type: 'object',
   additionalProperties: false,
   properties: {},
+} as const;
+const explorerConnectionProperties = {
+  driver: {
+    type: 'string',
+    enum: ['mysql', 'mariadb', 'postgresql'],
+  },
+  host: { type: 'string', minLength: 1, maxLength: 255 },
+  port: { type: 'integer', minimum: 1, maximum: 65535 },
+  username: { type: 'string', maxLength: 128 },
+  password: { type: 'string', maxLength: 4096 },
+  database: { type: 'string', maxLength: 128 },
+} as const;
+const explorerBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['driver'],
+  properties: explorerConnectionProperties,
+} as const;
+const explorerPreviewBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['driver', 'table'],
+  properties: {
+    ...explorerConnectionProperties,
+    schema: { type: 'string', minLength: 1, maxLength: 128 },
+    table: { type: 'string', minLength: 1, maxLength: 128 },
+  },
+} as const;
+const explorerQueryBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['driver', 'query'],
+  properties: {
+    ...explorerConnectionProperties,
+    query: { type: 'string', minLength: 1, maxLength: 4000 },
+  },
+} as const;
+const explorerErrorResponseSchemas = {
+  ...commonErrorResponseSchemas,
+  499: apiErrorResponseSchema,
+  502: apiErrorResponseSchema,
+  503: apiErrorResponseSchema,
 } as const;
 const requireProject = (store: ProjectStore, id: string) => {
   const project = store.findProject(id);
@@ -107,12 +208,52 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  app.get('/database', async () => ({
-    services: await options.databaseDetectionService.getMachineServices(),
-  }));
+  app.get(
+    '/database',
+    {
+      schema: {
+        params: emptyObjectSchema,
+        querystring: emptyQuery,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['services'],
+            properties: {
+              services: {
+                type: 'array',
+                items: machineDatabaseServiceResponseSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async () => ({
+      services: await options.databaseDetectionService.getMachineServices(),
+    }),
+  );
 
   app.get<{ Params: { serviceId: string } }>(
     '/database/:serviceId/details',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        querystring: emptyQuery,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['details'],
+            properties: {
+              details: machineDatabaseServiceDetailsResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
     async (request) => ({
       details: await options.databaseDetectionService.getMachineServiceDetails(
         request.params.serviceId,
@@ -122,6 +263,27 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
 
   app.post<{ Body: ExplorerBody }>(
     '/database/explorer/catalog',
+    {
+      schema: {
+        params: emptyObjectSchema,
+        querystring: emptyQuery,
+        body: explorerBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['databases'],
+            properties: {
+              databases: {
+                type: 'array',
+                items: machineDatabaseCatalogItemResponseSchema,
+              },
+            },
+          },
+          ...explorerErrorResponseSchemas,
+        },
+      },
+    },
     async (request, reply) => {
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
@@ -132,10 +294,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
           ),
         };
       } catch (error) {
-        const response = explorerErrorResponse(error);
-        return reply
-          .code(response.statusCode)
-          .send({ message: response.message });
+        return asExplorerApiError(error);
       } finally {
         abortScope.dispose();
       }
@@ -143,6 +302,27 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   );
   app.post<{ Body: ExplorerBody }>(
     '/database/explorer/tables',
+    {
+      schema: {
+        params: emptyObjectSchema,
+        querystring: emptyQuery,
+        body: explorerBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['tables'],
+            properties: {
+              tables: {
+                type: 'array',
+                items: machineDatabaseTableResponseSchema,
+              },
+            },
+          },
+          ...explorerErrorResponseSchemas,
+        },
+      },
+    },
     async (request, reply) => {
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
@@ -153,10 +333,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
           ),
         };
       } catch (error) {
-        const response = explorerErrorResponse(error);
-        return reply
-          .code(response.statusCode)
-          .send({ message: response.message });
+        return asExplorerApiError(error);
       } finally {
         abortScope.dispose();
       }
@@ -164,6 +341,24 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   );
   app.post<{ Body: ExplorerPreviewBody }>(
     '/database/explorer/preview',
+    {
+      schema: {
+        params: emptyObjectSchema,
+        querystring: emptyQuery,
+        body: explorerPreviewBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: machineDatabaseQueryResultResponseSchema,
+            },
+          },
+          ...explorerErrorResponseSchemas,
+        },
+      },
+    },
     async (request, reply) => {
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
@@ -176,10 +371,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
           ),
         };
       } catch (error) {
-        const response = explorerErrorResponse(error);
-        return reply
-          .code(response.statusCode)
-          .send({ message: response.message });
+        return asExplorerApiError(error);
       } finally {
         abortScope.dispose();
       }
@@ -187,6 +379,24 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   );
   app.post<{ Body: ExplorerQueryBody }>(
     '/database/explorer/query',
+    {
+      schema: {
+        params: emptyObjectSchema,
+        querystring: emptyQuery,
+        body: explorerQueryBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: machineDatabaseQueryResultResponseSchema,
+            },
+          },
+          ...explorerErrorResponseSchemas,
+        },
+      },
+    },
     async (request, reply) => {
       const abortScope = createHttpAbortScope(request.raw, reply.raw);
       try {
@@ -198,10 +408,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
           ),
         };
       } catch (error) {
-        const response = explorerErrorResponse(error);
-        return reply
-          .code(response.statusCode)
-          .send({ message: response.message });
+        return asExplorerApiError(error);
       } finally {
         abortScope.dispose();
       }
@@ -211,7 +418,29 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post<{ Params: { serviceId: string } }>(
       `/database/:serviceId/${action}`,
-      async (request, reply) => {
+      {
+        schema: {
+          params: serviceParamsSchema,
+          querystring: emptyQuery,
+          body: emptyObjectSchema,
+          response: {
+            200: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['action', 'succeeded'],
+              properties: {
+                action: {
+                  type: 'string',
+                  enum: ['start', 'stop', 'restart'],
+                },
+                succeeded: { type: 'boolean' },
+              },
+            },
+            ...commonErrorResponseSchemas,
+          },
+        },
+      },
+      async (request) => {
         try {
           await options.databaseDetectionService.runMachineServiceAction(
             request.params.serviceId,
@@ -232,7 +461,11 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
             error.reason === 'conflicting-service-active'
               ? 409
               : 500;
-          return reply.code(statusCode).send({ message });
+          throw new ApiError({
+            statusCode,
+            code: 'DATABASE_SERVICE_ACTION_FAILED',
+            message,
+          });
         }
       },
     );
@@ -241,7 +474,27 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
   for (const operation of ['install', 'uninstall'] as const) {
     app.post<{ Params: { serviceId: string } }>(
       `/database/:serviceId/${operation}`,
-      async (request, reply) => {
+      {
+        schema: {
+          params: serviceParamsSchema,
+          querystring: emptyQuery,
+          body: emptyObjectSchema,
+          response: {
+            200: {
+              type: 'object',
+              additionalProperties: false,
+              required: [operation === 'install' ? 'installed' : 'uninstalled'],
+              properties: {
+                [operation === 'install' ? 'installed' : 'uninstalled']: {
+                  type: 'boolean',
+                },
+              },
+            },
+            ...commonErrorResponseSchemas,
+          },
+        },
+      },
+      async (request) => {
         try {
           if (operation === 'install') {
             await options.databaseDetectionService.installMachineService(
@@ -264,7 +517,11 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (
             error instanceof DatabaseServicePackageError
               ? databaseServicePackageErrorMessage(error)
               : `Não foi possível ${operation === 'install' ? 'instalar' : 'desinstalar'} o serviço de banco de dados.`;
-          return reply.code(500).send({ message });
+          throw new ApiError({
+            statusCode: 500,
+            code: 'DATABASE_SERVICE_PACKAGE_FAILED',
+            message,
+          });
         }
       },
     );
