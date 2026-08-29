@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   ArrowPathIcon,
   ChevronDownIcon,
@@ -24,15 +24,17 @@ import type {
 import {
   fetchMachineDatabaseServices,
   fetchMachineDatabaseServiceDetails,
-  fetchMachineDatabaseCatalog,
-  fetchMachineDatabaseTables,
-  previewMachineDatabaseTable,
-  queryMachineDatabase,
   installMachineDatabaseService,
   runMachineDatabaseServiceAction,
   uninstallMachineDatabaseService,
 } from '../api/rails';
+import {
+  fetchDatabaseExplorerTables,
+  previewDatabaseExplorerTable,
+  queryDatabaseExplorer,
+} from '../api/database-explorer';
 import { formatDatabaseExplorerError } from '../api/database-explorer-errors';
+import { useDatabaseExplorerSession } from '../composables/useDatabaseExplorerSession';
 import { confirmDialog } from '../stores/app-dialog';
 
 const services = ref<MachineDatabaseService[]>([]);
@@ -65,7 +67,6 @@ const explorerDraft = ref<MachineDatabaseConnection>({
   host: '127.0.0.1',
   port: 5432,
 });
-const explorerConnection = ref<MachineDatabaseConnection | null>(null);
 const explorerDatabases = ref<{ name: string }[]>([]);
 const explorerTables = ref<MachineDatabaseTable[]>([]);
 const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
@@ -102,8 +103,16 @@ const explorerTableSearch = ref('');
 const explorerTablePage = ref(1);
 const EXPLORER_TABLE_PAGE_SIZE = 40;
 const explorerQueryDurationMs = ref<number | null>(null);
-const EXPLORER_SESSION_TTL_MS = 15 * 60 * 1000;
-let explorerSessionTimer: ReturnType<typeof setTimeout> | null = null;
+const {
+  sessionId: explorerSessionId,
+  connection: explorerConnection,
+  connect: connectExplorerSession,
+  testConnection: testExplorerSessionConnection,
+  disconnect: disconnectExplorerSession,
+  handleSessionError: handleExplorerSessionError,
+} = useDatabaseExplorerSession({
+  onExpired: () => clearExplorerData(true),
+});
 
 const filteredExplorerTables = computed(() => {
   const search = explorerTableSearch.value.trim().toLocaleLowerCase();
@@ -347,11 +356,7 @@ function buildExplorerTableQuery(table: MachineDatabaseTable): string {
   return `SELECT * FROM ${qualifiedName}`;
 }
 
-function clearExplorerSession(showExpiryMessage = false): void {
-  if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
-  explorerSessionTimer = null;
-  const hadConnection = explorerConnection.value !== null;
-  explorerConnection.value = null;
+function clearExplorerData(showExpiryMessage = false): void {
   explorerDatabases.value = [];
   explorerTables.value = [];
   explorerResult.value = null;
@@ -370,23 +375,27 @@ function clearExplorerSession(showExpiryMessage = false): void {
     ...(explorerDraft.value.port ? { port: explorerDraft.value.port } : {}),
   };
   resetExplorerQuery();
-  if (showExpiryMessage && hadConnection) {
+  if (showExpiryMessage) {
     explorerError.value =
       'A conexão expirou por inatividade. Conecte-se novamente para continuar.';
   }
 }
 
-function disconnectExplorer(): void {
-  clearExplorerSession();
+async function disconnectExplorer(): Promise<void> {
+  if (explorerLoading.value) return;
+  explorerLoading.value = true;
   explorerError.value = '';
-}
-
-function scheduleExplorerSessionExpiry(): void {
-  if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
-  explorerSessionTimer = setTimeout(
-    () => clearExplorerSession(true),
-    EXPLORER_SESSION_TTL_MS,
-  );
+  try {
+    await disconnectExplorerSession();
+    clearExplorerData();
+  } catch (error) {
+    explorerError.value = formatDatabaseExplorerError(
+      error,
+      'Não foi possível encerrar a sessão do banco.',
+    );
+  } finally {
+    explorerLoading.value = false;
+  }
 }
 
 function syncExplorerPort(): void {
@@ -418,8 +427,7 @@ async function connectExplorer(): Promise<void> {
   explorerResult.value = null;
   try {
     const connection = { ...explorerDraft.value };
-    explorerDatabases.value = await fetchMachineDatabaseCatalog(connection);
-    explorerConnection.value = connection;
+    explorerDatabases.value = await connectExplorerSession(connection);
     explorerDatabase.value = '';
     explorerTable.value = '';
     explorerTables.value = [];
@@ -431,20 +439,22 @@ async function connectExplorer(): Promise<void> {
     explorerCopiedMessage.value = '';
     explorerDraft.value = connectionDraftWithoutSecret(connection);
     resetExplorerQuery();
-    scheduleExplorerSessionExpiry();
     explorerModalOpen.value = false;
   } catch (error) {
-    explorerError.value = formatDatabaseExplorerError(
-      error,
-      'Não foi possível conectar ao banco.',
-    );
+    if (!handleExplorerSessionError(error)) {
+      explorerError.value = formatDatabaseExplorerError(
+        error,
+        'Não foi possível conectar ao banco.',
+      );
+    }
   } finally {
     explorerLoading.value = false;
   }
 }
 
 async function selectExplorerDatabase(database: string): Promise<void> {
-  if (!explorerConnection.value) return;
+  const sessionId = explorerSessionId.value;
+  if (!sessionId) return;
   explorerDatabase.value = database;
   explorerTable.value = '';
   explorerTableSearch.value = '';
@@ -452,19 +462,21 @@ async function selectExplorerDatabase(database: string): Promise<void> {
   explorerResult.value = null;
   explorerQueryDurationMs.value = null;
   resetExplorerQuery();
-  scheduleExplorerSessionExpiry();
   explorerLoading.value = true;
   explorerError.value = '';
   try {
-    explorerTables.value = await fetchMachineDatabaseTables({
-      ...explorerConnection.value,
-      ...(database ? { database } : {}),
-    });
-  } catch (error) {
-    explorerError.value = formatDatabaseExplorerError(
-      error,
-      'Não foi possível listar as tabelas.',
+    const tables = await fetchDatabaseExplorerTables(
+      sessionId,
+      database || undefined,
     );
+    if (explorerSessionId.value === sessionId) explorerTables.value = tables;
+  } catch (error) {
+    if (!handleExplorerSessionError(error)) {
+      explorerError.value = formatDatabaseExplorerError(
+        error,
+        'Não foi possível listar as tabelas.',
+      );
+    }
   } finally {
     explorerLoading.value = false;
   }
@@ -476,7 +488,8 @@ function onExplorerDatabaseChange(event: Event): void {
 }
 
 async function previewExplorerTable(): Promise<void> {
-  if (!explorerConnection.value) return;
+  const sessionId = explorerSessionId.value;
+  if (!sessionId) return;
   const table = explorerTables.value.find(
     (item) => item.name === explorerTable.value,
   );
@@ -487,29 +500,32 @@ async function previewExplorerTable(): Promise<void> {
   explorerResultSearch.value = '';
   explorerResultSort.value = null;
   explorerCopiedMessage.value = '';
-  scheduleExplorerSessionExpiry();
   const startedAt = performance.now();
   try {
-    explorerResult.value = await previewMachineDatabaseTable(
-      {
-        ...explorerConnection.value,
-        ...(explorerDatabase.value ? { database: explorerDatabase.value } : {}),
-      },
+    const result = await previewDatabaseExplorerTable(
+      sessionId,
       table,
+      explorerDatabase.value || undefined,
     );
+    if (explorerSessionId.value === sessionId) explorerResult.value = result;
   } catch (error) {
-    explorerError.value = formatDatabaseExplorerError(
-      error,
-      'Não foi possível consultar a tabela.',
-    );
+    if (!handleExplorerSessionError(error)) {
+      explorerError.value = formatDatabaseExplorerError(
+        error,
+        'Não foi possível consultar a tabela.',
+      );
+    }
   } finally {
-    explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+    if (explorerSessionId.value === sessionId) {
+      explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+    }
     explorerLoading.value = false;
   }
 }
 
 async function runExplorerQuery(): Promise<void> {
-  if (!explorerConnection.value) return;
+  const sessionId = explorerSessionId.value;
+  if (!sessionId) return;
   if (!explorerQuery.value.trim()) {
     explorerError.value = 'Informe uma consulta SELECT ou WITH.';
     return;
@@ -517,24 +533,28 @@ async function runExplorerQuery(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
   explorerCopiedMessage.value = '';
-  scheduleExplorerSessionExpiry();
   const startedAt = performance.now();
   try {
-    explorerResult.value = await queryMachineDatabase(
-      {
-        ...explorerConnection.value,
-        ...(explorerDatabase.value ? { database: explorerDatabase.value } : {}),
-      },
+    const result = await queryDatabaseExplorer(
+      sessionId,
       explorerQuery.value,
+      explorerDatabase.value || undefined,
     );
-    rememberExplorerQuery();
+    if (explorerSessionId.value === sessionId) {
+      explorerResult.value = result;
+      rememberExplorerQuery();
+    }
   } catch (error) {
-    explorerError.value = formatDatabaseExplorerError(
-      error,
-      'Não foi possível executar a consulta.',
-    );
+    if (!handleExplorerSessionError(error)) {
+      explorerError.value = formatDatabaseExplorerError(
+        error,
+        'Não foi possível executar a consulta.',
+      );
+    }
   } finally {
-    explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+    if (explorerSessionId.value === sessionId) {
+      explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+    }
     explorerLoading.value = false;
   }
 }
@@ -613,7 +633,7 @@ async function testExplorerConnection(): Promise<void> {
   explorerError.value = '';
   explorerTestMessage.value = '';
   try {
-    const databases = await fetchMachineDatabaseCatalog({
+    const databases = await testExplorerSessionConnection({
       ...explorerDraft.value,
     });
     explorerTestMessage.value = `Conexão validada. ${databases.length} banco(s) encontrado(s).`;
@@ -838,9 +858,6 @@ onMounted(() => {
   loadSavedConnections();
   loadExplorerQueryHistory();
   void loadServices();
-});
-onUnmounted(() => {
-  if (explorerSessionTimer) clearTimeout(explorerSessionTimer);
 });
 </script>
 
