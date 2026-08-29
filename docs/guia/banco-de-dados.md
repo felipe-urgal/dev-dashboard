@@ -11,14 +11,14 @@ dashboard detecta suporte a banco no projeto.
 
 A aba é dividida em sub-seções, navegáveis por `?section=` na URL:
 
-| Seção | O que mostra |
-|---|---|
-| Visão geral | Resumo consolidado: ambientes, migrations pendentes/aplicadas, contagem de tabelas. |
-| Ambientes | Cada banco/ambiente detectado, com driver, acessibilidade e serviço local associado. |
-| Snapshots | Cópias do estado do banco guardadas antes de trocar de branch, com criação e restauração. |
-| Migrations *(só Rails)* | Status (`up`/`down`) e código-fonte de cada migration do projeto. |
-| Modelos *(só Rails)* | Tabelas do schema com colunas, índices e chaves estrangeiras. |
-| Operações *(só Rails)* | Console de comandos de banco e geração de model/migration a partir de campos informados. |
+| Seção                   | O que mostra                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| Visão geral             | Resumo consolidado: ambientes, migrations pendentes/aplicadas, contagem de tabelas.       |
+| Ambientes               | Cada banco/ambiente detectado, com driver, acessibilidade e serviço local associado.      |
+| Snapshots               | Cópias do estado do banco guardadas antes de trocar de branch, com criação e restauração. |
+| Migrations _(só Rails)_ | Status (`up`/`down`) e código-fonte de cada migration do projeto.                         |
+| Modelos _(só Rails)_    | Tabelas do schema com colunas, índices e chaves estrangeiras.                             |
+| Operações _(só Rails)_  | Console de comandos de banco e geração de model/migration a partir de campos informados.  |
 
 ## Ambientes e serviços
 
@@ -42,18 +42,16 @@ infraestrutura está detalhada em [Arquitetura do Database Explorer](../architec
 
 A proteção é feita em camadas:
 
-- PostgreSQL inicia a sessão com `default_transaction_read_only=on`; o mesmo canal também recebe
-  `statement_timeout=15000` para limitar a consulta no servidor;
-- MySQL e MariaDB executam `SET SESSION TRANSACTION READ ONLY` ao conectar, fazendo as transações
-  seguintes da sessão nascerem em modo de leitura;
+- PostgreSQL usa `pg` e abre cada operação com `BEGIN READ ONLY`, com timeout de 15 segundos;
+- MySQL e MariaDB usam `mysql2` e abrem cada operação com `START TRANSACTION READ ONLY`;
 - a API continua rejeitando comandos múltiplos, comentários SQL, DML/DDL, locking reads e
   construções conhecidas com efeito colateral, como `SELECT ... INTO OUTFILE`/`DUMPFILE` e funções
   administrativas bloqueadas;
-- consultas digitadas têm no máximo 4.000 caracteres e o resultado exibido é limitado a 100
-  linhas;
+- consultas digitadas têm no máximo 4.000 caracteres, a query livre é limitada a 101 linhas no
+  servidor, o resultado exibido mostra até 100 linhas e o payload tem teto de 2 MiB;
 - somente hosts de loopback (`localhost`, `127.0.0.1` e `::1`) são aceitos nesta versão;
-- senha de banco é passada ao cliente por variável de ambiente (`PGPASSWORD`/`MYSQL_PWD`), nunca
-  como argumento visível do processo;
+- credenciais são passadas diretamente às opções de conexão do driver, sem argv ou shell;
+- resultados são estruturados pelo protocolo nativo, preservando tab, newline e `NULL` sem parsing TSV;
 - os corpos das rotas do explorador usam schema fechado (`additionalProperties: false`), e falhas
   retornam códigos estáveis `DATABASE_EXPLORER_*`; a interface escolhe o feedback pelo código, não
   pelo texto localizado da mensagem de erro.

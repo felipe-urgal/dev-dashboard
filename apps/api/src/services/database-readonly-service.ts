@@ -7,7 +7,6 @@ import type {
 
 import {
   DatabaseExplorerAdapterError,
-  type DatabaseCommandRunner,
   type DatabaseExplorerAdapter,
 } from './database-explorer-adapter.js';
 import { MysqlExplorerAdapter } from './mysql-explorer-adapter.js';
@@ -16,12 +15,18 @@ import { PostgresExplorerAdapter } from './postgres-explorer-adapter.js';
 export { DatabaseExplorerAdapterError as DatabaseReadonlyError };
 
 const MAX_QUERY_LENGTH = 4_000;
+const MAX_QUERY_ROWS = 101;
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
 const blockedPostgresFunctions =
   /\b(?:nextval|setval|pg_sleep|pg_notify|pg_advisory_(?:xact_)?lock(?:_shared)?|pg_cancel_backend|pg_terminate_backend|pg_reload_conf|pg_rotate_logfile|pg_create_restore_point|lo_import|lo_export|dblink_exec)\s*\(/i;
 const blockedMysqlFunctions =
   /\b(?:get_lock|release_lock|load_file|sleep|benchmark)\s*\(/i;
+
+export interface DatabaseReadonlyServiceOptions {
+  postgresAdapter?: DatabaseExplorerAdapter;
+  mysqlAdapter?: DatabaseExplorerAdapter;
+}
 
 function validateConnection(connection: MachineDatabaseConnection): void {
   if (!['mysql', 'mariadb', 'postgresql'].includes(connection.driver)) {
@@ -113,13 +118,104 @@ function readOnlyQuery(
   return normalized;
 }
 
+function topLevelKeywordIndex(query: string, keyword: string): number {
+  let depth = 0;
+  let quote: "'" | '"' | '`' | undefined;
+  const lower = query.toLowerCase();
+
+  for (let index = 0; index < query.length; index += 1) {
+    const current = query[index]!;
+    if (quote) {
+      if (current === quote) {
+        if (query[index + 1] === quote) {
+          index += 1;
+        } else {
+          quote = undefined;
+        }
+      } else if (current === '\\') {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (current === "'" || current === '"' || current === '`') {
+      quote = current;
+      continue;
+    }
+    if (current === '(') {
+      depth += 1;
+      continue;
+    }
+    if (current === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth !== 0 || !lower.startsWith(keyword, index)) continue;
+
+    const before = index === 0 ? '' : query[index - 1]!;
+    const after = query[index + keyword.length] ?? '';
+    if (!/[A-Za-z0-9_$]/.test(before) && !/[A-Za-z0-9_$]/.test(after)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function boundedReadOnlyQuery(
+  query: string,
+  driver: MachineDatabaseConnection['driver'],
+): string {
+  const normalized = readOnlyQuery(query, driver);
+  if (topLevelKeywordIndex(normalized, 'fetch') >= 0) {
+    throw new DatabaseExplorerAdapterError(
+      'invalid-query',
+      'Use LIMIT para limitar resultados no explorador.',
+    );
+  }
+
+  const limitIndex = topLevelKeywordIndex(normalized, 'limit');
+  if (limitIndex < 0) return `${normalized} LIMIT ${MAX_QUERY_ROWS}`;
+
+  const prefixEnd = limitIndex + 'limit'.length;
+  const suffix = normalized.slice(prefixEnd);
+  const match = suffix.match(/^(\s+)(\d+)(\s*,\s*(\d+))?/);
+  const matchText = match?.[0];
+  const leadingWhitespace = match?.[1];
+  const countText = match?.[2];
+  if (!matchText || !leadingWhitespace || !countText) {
+    throw new DatabaseExplorerAdapterError(
+      'invalid-query',
+      'Use LIMIT com um valor numérico no explorador.',
+    );
+  }
+
+  const offsetCountText = match[4];
+  if (offsetCountText) {
+    const count = Number(offsetCountText);
+    if (count <= MAX_QUERY_ROWS) return normalized;
+    const countOffset = prefixEnd + matchText.lastIndexOf(offsetCountText);
+    return `${normalized.slice(0, countOffset)}${MAX_QUERY_ROWS}${normalized.slice(
+      countOffset + offsetCountText.length,
+    )}`;
+  }
+
+  const count = Number(countText);
+  if (count <= MAX_QUERY_ROWS) return normalized;
+  const countOffset = prefixEnd + leadingWhitespace.length;
+  return `${normalized.slice(0, countOffset)}${MAX_QUERY_ROWS}${normalized.slice(
+    countOffset + countText.length,
+  )}`;
+}
+
 export class DatabaseReadonlyService {
   private readonly postgresAdapter: DatabaseExplorerAdapter;
   private readonly mysqlAdapter: DatabaseExplorerAdapter;
 
-  public constructor(commandRunner?: DatabaseCommandRunner) {
-    this.postgresAdapter = new PostgresExplorerAdapter(commandRunner);
-    this.mysqlAdapter = new MysqlExplorerAdapter(commandRunner);
+  public constructor(options: DatabaseReadonlyServiceOptions = {}) {
+    this.postgresAdapter =
+      options.postgresAdapter ?? new PostgresExplorerAdapter();
+    this.mysqlAdapter = options.mysqlAdapter ?? new MysqlExplorerAdapter();
   }
 
   private adapterFor(
@@ -166,7 +262,7 @@ export class DatabaseReadonlyService {
   ): Promise<MachineDatabaseQueryResult> {
     return this.adapterFor(connection).query(
       connection,
-      readOnlyQuery(query, connection.driver),
+      boundedReadOnlyQuery(query, connection.driver),
       signal,
     );
   }

@@ -2,21 +2,89 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { DatabaseExplorerAdapterError } from '../src/services/database-explorer-adapter.js';
-import { MysqlExplorerAdapter } from '../src/services/mysql-explorer-adapter.js';
-import { PostgresExplorerAdapter } from '../src/services/postgres-explorer-adapter.js';
+import {
+  type MysqlExplorerClient,
+  type MysqlExplorerClientFactory,
+  MysqlExplorerAdapter,
+} from '../src/services/mysql-explorer-adapter.js';
+import {
+  type PostgresExplorerClient,
+  type PostgresExplorerClientFactory,
+  PostgresExplorerAdapter,
+} from '../src/services/postgres-explorer-adapter.js';
 
-test('PostgresExplorerAdapter encapsula cliente, read-only e credenciais', async () => {
-  let received:
-    | {
-        command: string;
-        args: string[];
-        env: NodeJS.ProcessEnv;
-      }
-    | undefined;
-  const adapter = new PostgresExplorerAdapter(async (command, args, env) => {
-    received = { command, args, env };
-    return 'datname\napp';
-  });
+function postgresFactory(options: {
+  onQuery: (
+    sql: string,
+  ) => { columns: string[]; rows: unknown[][] } | Promise<never>;
+  onControlQuery?: (sql: string) => void;
+  onEnd?: () => void;
+  onConfig?: (config: Parameters<PostgresExplorerClientFactory>[0]) => void;
+  connectError?: unknown;
+}): PostgresExplorerClientFactory {
+  return (config) => {
+    options.onConfig?.(config);
+    const client = {
+      async connect() {
+        if (options.connectError) throw options.connectError;
+      },
+      async query(input: string | { text: string; rowMode: 'array' }) {
+        if (typeof input === 'string') {
+          options.onControlQuery?.(input);
+          return {};
+        }
+        const result = await options.onQuery(input.text);
+        return {
+          fields: result.columns.map((name) => ({ name })),
+          rows: result.rows,
+        };
+      },
+      async end() {
+        options.onEnd?.();
+      },
+    };
+    return client as PostgresExplorerClient;
+  };
+}
+
+function mysqlFactory(options: {
+  onQuery: (sql: string) => { columns: string[]; rows: unknown[][] };
+  onControlQuery?: (sql: string) => void;
+  onDestroy?: () => void;
+  onConfig?: (config: Parameters<MysqlExplorerClientFactory>[0]) => void;
+}): MysqlExplorerClientFactory {
+  return async (config) => {
+    options.onConfig?.(config);
+    const client: MysqlExplorerClient = {
+      async query(input) {
+        if (typeof input === 'string') {
+          options.onControlQuery?.(input);
+          return [[], []];
+        }
+        const result = options.onQuery(input.sql);
+        return [result.rows, result.columns.map((name) => ({ name }))];
+      },
+      async end() {},
+      destroy() {
+        options.onDestroy?.();
+      },
+    };
+    return client;
+  };
+}
+
+test('PostgresExplorerAdapter usa protocolo nativo em transação read-only', async () => {
+  let receivedConfig: Parameters<PostgresExplorerClientFactory>[0] | undefined;
+  const controlQueries: string[] = [];
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({
+      onConfig: (config) => {
+        receivedConfig = config;
+      },
+      onControlQuery: (sql) => controlQueries.push(sql),
+      onQuery: () => ({ columns: ['datname'], rows: [['app']] }),
+    }),
+  );
 
   const databases = await adapter.listDatabases({
     driver: 'postgresql',
@@ -25,100 +93,157 @@ test('PostgresExplorerAdapter encapsula cliente, read-only e credenciais', async
   });
 
   assert.deepEqual(databases, [{ name: 'app' }]);
-  assert.equal(received?.command, 'psql');
-  assert.equal(received?.args.includes('segredo'), false);
-  assert.equal(received?.env.PGUSER, 'app_user');
-  assert.equal(received?.env.PGPASSWORD, 'segredo');
-  assert.equal(received?.env.PGDATABASE, 'postgres');
-  assert.match(
-    received?.env.PGOPTIONS ?? '',
-    /default_transaction_read_only=on/,
-  );
-  assert.match(received?.env.PGOPTIONS ?? '', /statement_timeout=15000/);
+  assert.equal(receivedConfig?.user, 'app_user');
+  assert.equal(receivedConfig?.password, 'segredo');
+  assert.equal(receivedConfig?.database, 'postgres');
+  assert.equal(receivedConfig?.statement_timeout, 15_000);
+  assert.equal(receivedConfig?.query_timeout, 15_000);
+  assert.deepEqual(controlQueries, ['BEGIN READ ONLY', 'ROLLBACK']);
 });
 
-test('PostgresExplorerAdapter monta preview com identificadores validados', async () => {
-  let executedQuery = '';
-  let calls = 0;
-  const adapter = new PostgresExplorerAdapter(async (_command, args) => {
-    calls += 1;
-    executedQuery = args[args.indexOf('-c') + 1] ?? '';
-    return 'id\n1';
-  });
+test('PostgresExplorerAdapter preserva tab, newline, null e valores binários', async () => {
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({
+      onQuery: () => ({
+        columns: ['tab', 'line', 'nullable', 'binary', 'big'],
+        rows: [['a\tb', 'linha 1\nlinha 2', null, Buffer.from([0, 255]), 9n]],
+      }),
+    }),
+  );
 
-  await adapter.preview({ driver: 'postgresql' }, 'public', 'users');
-  assert.equal(executedQuery, 'SELECT * FROM "public"."users" LIMIT 101');
+  const result = await adapter.query({ driver: 'postgresql' }, 'SELECT 1');
+
+  assert.deepEqual(result, {
+    columns: ['tab', 'line', 'nullable', 'binary', 'big'],
+    rows: [['a\tb', 'linha 1\nlinha 2', null, '0x00ff', '9']],
+    rowCount: 1,
+    truncated: false,
+  });
+});
+
+test('PostgresExplorerAdapter valida identificadores antes de abrir conexão', () => {
+  let created = 0;
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({
+      onConfig: () => {
+        created += 1;
+      },
+      onQuery: () => ({ columns: [], rows: [] }),
+    }),
+  );
 
   assert.throws(
     () => {
-      void adapter.preview(
-        { driver: 'postgresql' },
-        'public',
-        'users;drop',
-      );
+      void adapter.preview({ driver: 'postgresql' }, 'public', 'users;drop');
     },
     (error: unknown) =>
       error instanceof DatabaseExplorerAdapterError &&
       error.reason === 'invalid-query',
   );
-  assert.equal(calls, 1);
+  assert.equal(created, 0);
 });
 
-test('MysqlExplorerAdapter encapsula cliente, read-only e credenciais', async () => {
-  let received:
-    | {
-        command: string;
-        args: string[];
-        env: NodeJS.ProcessEnv;
-      }
-    | undefined;
-  const adapter = new MysqlExplorerAdapter(async (command, args, env) => {
-    received = { command, args, env };
-    return 'schema_name\napp';
-  });
-
-  const databases = await adapter.listDatabases({
-    driver: 'mysql',
-    username: 'root',
-    password: 'segredo',
-  });
-
-  assert.deepEqual(databases, [{ name: 'app' }]);
-  assert.equal(received?.command, 'mysql');
-  assert.equal(received?.args.includes('segredo'), false);
-  assert.equal(received?.args.includes('--host'), true);
-  assert.equal(received?.args.includes('127.0.0.1'), true);
-  assert.equal(
-    received?.args.includes('--init-command=SET SESSION TRANSACTION READ ONLY'),
-    true,
+test('MysqlExplorerAdapter usa protocolo nativo em transação read-only', async () => {
+  let receivedConfig: Parameters<MysqlExplorerClientFactory>[0] | undefined;
+  let executedQuery = '';
+  const controlQueries: string[] = [];
+  const adapter = new MysqlExplorerAdapter(
+    mysqlFactory({
+      onConfig: (config) => {
+        receivedConfig = config;
+      },
+      onControlQuery: (sql) => controlQueries.push(sql),
+      onQuery: (sql) => {
+        executedQuery = sql;
+        return {
+          columns: ['tab', 'line', 'nullable'],
+          rows: [['a\tb', 'linha 1\nlinha 2', null]],
+        };
+      },
+    }),
   );
-  assert.equal(received?.env.MYSQL_USER, 'root');
-  assert.equal(received?.env.MYSQL_PWD, 'segredo');
-});
 
-test('MysqlExplorerAdapter atende MariaDB pelo mesmo protocolo', async () => {
-  let command = '';
-  let executedQuery = '';
-  const adapter = new MysqlExplorerAdapter(async (currentCommand, args) => {
-    command = currentCommand;
-    executedQuery = args[args.indexOf('--execute') + 1] ?? '';
-    return 'id\n1';
-  });
-
-  await adapter.query({ driver: 'mariadb' }, 'SELECT 1');
-
-  assert.equal(command, 'mysql');
-  assert.equal(executedQuery, 'SELECT 1');
-});
-
-test('MysqlExplorerAdapter monta preview com quoting próprio', async () => {
-  let executedQuery = '';
-  const adapter = new MysqlExplorerAdapter(async (_command, args) => {
-    executedQuery = args[args.indexOf('--execute') + 1] ?? '';
-    return 'id\n1';
-  });
-
-  await adapter.preview({ driver: 'mysql' }, 'app', 'users');
+  const result = await adapter.preview(
+    { driver: 'mariadb', username: 'root', password: 'segredo' },
+    'app',
+    'users',
+  );
 
   assert.equal(executedQuery, 'SELECT * FROM `app`.`users` LIMIT 101');
+  assert.equal(receivedConfig?.user, 'root');
+  assert.equal(receivedConfig?.password, 'segredo');
+  assert.equal(receivedConfig?.rowsAsArray, true);
+  assert.equal(receivedConfig?.dateStrings, true);
+  assert.equal(receivedConfig?.bigNumberStrings, true);
+  assert.deepEqual(controlQueries, ['START TRANSACTION READ ONLY', 'ROLLBACK']);
+  assert.deepEqual(result.rows, [['a\tb', 'linha 1\nlinha 2', null]]);
+});
+
+test('resultado estruturado mantém rowCount e limita payload a cem linhas', async () => {
+  const rows = Array.from({ length: 101 }, (_, index) => [index]);
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({ onQuery: () => ({ columns: ['id'], rows }) }),
+  );
+
+  const result = await adapter.query(
+    { driver: 'postgresql' },
+    'SELECT id FROM users',
+  );
+
+  assert.equal(result.rows.length, 100);
+  assert.equal(result.rowCount, 101);
+  assert.equal(result.truncated, true);
+});
+
+test('erros de autenticação viram contrato estável sem vazar segredo', async () => {
+  const secret = 'senha-super-secreta';
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({
+      connectError: Object.assign(
+        new Error(`password authentication failed: ${secret}`),
+        { code: '28P01' },
+      ),
+      onQuery: () => ({ columns: [], rows: [] }),
+    }),
+  );
+
+  await assert.rejects(
+    () =>
+      adapter.query(
+        { driver: 'postgresql', username: 'app', password: secret },
+        'SELECT 1',
+      ),
+    (error: unknown) =>
+      error instanceof DatabaseExplorerAdapterError &&
+      error.reason === 'credentials-rejected' &&
+      !error.message.includes(secret),
+  );
+});
+
+test('AbortSignal encerra a conexão PostgreSQL e retorna aborted', async () => {
+  let endCalls = 0;
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({
+      onEnd: () => {
+        endCalls += 1;
+      },
+      onQuery: () => new Promise<never>(() => undefined),
+    }),
+  );
+  const controller = new AbortController();
+
+  const pending = adapter.query(
+    { driver: 'postgresql' },
+    'SELECT id FROM users',
+    controller.signal,
+  );
+  controller.abort();
+
+  await assert.rejects(
+    pending,
+    (error: unknown) =>
+      error instanceof DatabaseExplorerAdapterError &&
+      error.reason === 'aborted',
+  );
+  assert.equal(endCalls, 1);
 });

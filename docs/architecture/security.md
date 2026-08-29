@@ -8,17 +8,17 @@ Por esse motivo, a segurança não pode depender apenas de “ser uma aplicaçã
 
 As ameaças principais consideradas pelo projeto são:
 
-| Ameaça | Exemplo | Mitigação principal |
-|---|---|---|
-| Origem web não autorizada | Uma página aberta no navegador tenta chamar a API local. | allowlist de `Origin` e autenticação local. |
-| Reuso de credencial | Um token local aparece em histórico ou DevTools e é reutilizado. | bootstrap curto, cookie HttpOnly e sessão com validade. |
-| Execução arbitrária | O frontend envia `rm -rf`, shell syntax ou argumentos não previstos. | catálogos fechados e `spawn`/`execFile` sem shell. |
-| Path traversal | Uma rota recebe `../../arquivo-fora-do-projeto`. | resolução canônica e validação de raiz. |
-| TOCTOU | Um symlink muda entre validação e escrita. | revalidação no momento da operação e versões esperadas. |
-| Mutação acidental | Um clique apaga branch, arquivo ou banco. | tokens de confirmação por operação. |
-| Exposição de segredos | Logs, diffs, tool results ou requests cloud contêm API keys/tokens. | masking, limites, consentimento cloud e ausência de bodies sensíveis em logs. |
-| Processo órfão | A API encerra mas deixa subprocessos vivos. | grupos de processos, cleanup e persistência de estado. |
-| Estado persistido adulterado | Arquivo JSON local é editado/corrompido. | diretórios privados, validação e fallback seguro. |
+| Ameaça                       | Exemplo                                                              | Mitigação principal                                                           |
+| ---------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Origem web não autorizada    | Uma página aberta no navegador tenta chamar a API local.             | allowlist de `Origin` e autenticação local.                                   |
+| Reuso de credencial          | Um token local aparece em histórico ou DevTools e é reutilizado.     | bootstrap curto, cookie HttpOnly e sessão com validade.                       |
+| Execução arbitrária          | O frontend envia `rm -rf`, shell syntax ou argumentos não previstos. | catálogos fechados e `spawn`/`execFile` sem shell.                            |
+| Path traversal               | Uma rota recebe `../../arquivo-fora-do-projeto`.                     | resolução canônica e validação de raiz.                                       |
+| TOCTOU                       | Um symlink muda entre validação e escrita.                           | revalidação no momento da operação e versões esperadas.                       |
+| Mutação acidental            | Um clique apaga branch, arquivo ou banco.                            | tokens de confirmação por operação.                                           |
+| Exposição de segredos        | Logs, diffs, tool results ou requests cloud contêm API keys/tokens.  | masking, limites, consentimento cloud e ausência de bodies sensíveis em logs. |
+| Processo órfão               | A API encerra mas deixa subprocessos vivos.                          | grupos de processos, cleanup e persistência de estado.                        |
+| Estado persistido adulterado | Arquivo JSON local é editado/corrompido.                             | diretórios privados, validação e fallback seguro.                             |
 
 ## Princípio: local-first
 
@@ -153,7 +153,7 @@ Antes de ler ou escrever:
 Uma checagem textual simples como:
 
 ```ts
-candidate.startsWith(projectRoot)
+candidate.startsWith(projectRoot);
 ```
 
 não é suficiente sozinha.
@@ -334,21 +334,22 @@ O `DatabaseReadonlyService` aceita apenas MySQL, MariaDB e PostgreSQL em hosts d
 explorador livre combina controles da aplicação com uma política read-only aplicada pelo próprio
 banco:
 
-- PostgreSQL recebe `PGOPTIONS` com `default_transaction_read_only=on`; cada nova transação da
-  sessão nasce em modo somente leitura. A sessão também recebe `statement_timeout=15000`;
-- MySQL/MariaDB executam `SET SESSION TRANSACTION READ ONLY` via `--init-command` assim que o
-  cliente conecta, definindo o modo de acesso das transações seguintes da sessão;
+- PostgreSQL usa o driver `pg`, abre `BEGIN READ ONLY` antes da consulta e configura
+  `statement_timeout`/`query_timeout` em 15 segundos;
+- MySQL/MariaDB usam `mysql2` e abrem `START TRANSACTION READ ONLY` antes da consulta;
 - a consulta digitada continua limitada a uma única instrução `SELECT`/`WITH`, sem comentários ou
   comandos múltiplos;
 - DML/DDL, locking reads e construções conhecidas com efeitos colaterais são bloqueadas antes de
   chegar ao cliente. Isso inclui, entre outros, `SELECT ... INTO OUTFILE`/`DUMPFILE`, acesso por
   `LOAD_FILE`, locks de sessão e funções administrativas PostgreSQL conhecidas;
-- consultas têm até 4.000 caracteres, o processo cliente tem timeout de 15 segundos, PostgreSQL
-  também aplica timeout no servidor e a resposta exibida é limitada a 100 linhas;
+- consultas têm até 4.000 caracteres; queries livres são limitadas a 101 linhas no servidor, os
+  drivers têm timeout de 15 segundos, a resposta expõe no máximo 100 linhas e mantém teto de 2 MiB;
 - as rotas HTTP do explorador usam schemas explícitos com `additionalProperties: false`, limites
   para conexão/query e respostas declaradas; campos inesperados são rejeitados antes do serviço;
-- credenciais são fornecidas ao subprocesso por ambiente (`PGPASSWORD`/`MYSQL_PWD`) e não entram
-  nos argumentos do processo. Falhas são traduzidas para mensagens genéricas antes de voltar à UI;
+- credenciais são entregues diretamente às opções de conexão dos drivers e não passam por argv,
+  shell ou logs. Falhas são traduzidas para mensagens genéricas antes de voltar à UI;
+- resultados vêm como arrays estruturados + metadados de coluna do protocolo nativo; tab, newline e
+  `NULL` não dependem mais de parsing por delimitador TSV;
 - falhas do domínio são convertidas em códigos estáveis `DATABASE_EXPLORER_*`; o frontend reage ao
   código retornado pela API, sem usar texto localizado como identificador de lógica.
 

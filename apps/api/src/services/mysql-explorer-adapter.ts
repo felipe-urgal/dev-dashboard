@@ -4,19 +4,38 @@ import type {
   MachineDatabaseQueryResult,
   MachineDatabaseTable,
 } from '@dev-dashboard/contracts';
+import { createConnection } from 'mysql2/promise';
 
 import {
-  type DatabaseCommandRunner,
+  DatabaseExplorerAdapterError,
   type DatabaseExplorerAdapter,
   validateDatabaseIdentifier,
 } from './database-explorer-adapter.js';
 import {
-  defaultDatabaseCommandRunner,
-  runDatabaseCliCommand,
-} from './database-explorer-cli.js';
+  DATABASE_QUERY_TIMEOUT_MS,
+  mapDatabaseDriverError,
+  runAbortableDatabaseOperation,
+  toDatabaseQueryResult,
+} from './database-explorer-driver.js';
 
-const MYSQL_READ_ONLY_INIT_COMMAND = 'SET SESSION TRANSACTION READ ONLY';
 const MAX_ROWS = 100;
+
+type MysqlConnectionConfig = Parameters<typeof createConnection>[0];
+
+export interface MysqlExplorerClient {
+  query(
+    query: string | { sql: string; rowsAsArray: true; timeout: number },
+  ): Promise<[unknown, Array<{ name: string }>]>;
+  end(): Promise<void>;
+  destroy(): void;
+}
+
+export type MysqlExplorerClientFactory = (
+  config: MysqlConnectionConfig,
+) => Promise<MysqlExplorerClient>;
+
+const defaultMysqlClientFactory: MysqlExplorerClientFactory = async (config) =>
+  (await createConnection(config)) as unknown as MysqlExplorerClient;
 
 function quoteIdentifier(value: string, label: string): string {
   return `\`${validateDatabaseIdentifier(value, label)}\``;
@@ -24,47 +43,84 @@ function quoteIdentifier(value: string, label: string): string {
 
 export class MysqlExplorerAdapter implements DatabaseExplorerAdapter {
   public constructor(
-    private readonly commandRunner: DatabaseCommandRunner = defaultDatabaseCommandRunner,
+    private readonly clientFactory: MysqlExplorerClientFactory = defaultMysqlClientFactory,
   ) {}
 
-  private run(
+  private async run(
     connection: MachineDatabaseConnection,
     sql: string,
     signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
-    const host = connection.host?.trim() || '127.0.0.1';
-    const port = connection.port ?? 3306;
-    const database = connection.database?.trim();
-    const env = {
-      ...process.env,
-      MYSQL_HOST: host,
-      MYSQL_TCP_PORT: String(port),
-      ...(connection.username ? { MYSQL_USER: connection.username } : {}),
-      ...(connection.password ? { MYSQL_PWD: connection.password } : {}),
-      ...(database ? { MYSQL_DATABASE: database } : {}),
+    if (signal?.aborted) {
+      throw new DatabaseExplorerAdapterError('aborted', 'Consulta cancelada.');
+    }
+
+    let client: MysqlExplorerClient | undefined;
+    let transactionStarted = false;
+    let terminated = false;
+    const terminate = () => {
+      terminated = true;
+      client?.destroy();
     };
 
-    return runDatabaseCliCommand({
-      command: 'mysql',
-      args: [
-        '--no-defaults',
-        '--protocol=tcp',
-        '--host',
-        host,
-        '--port',
-        String(port),
-        ...(connection.username ? ['--user', connection.username] : []),
-        '--column-names',
-        '--batch',
-        '--raw',
-        `--init-command=${MYSQL_READ_ONLY_INIT_COMMAND}`,
-        '--execute',
-        sql,
-      ],
-      env,
-      runner: this.commandRunner,
-      ...(signal ? { signal } : {}),
-    });
+    try {
+      const result = await runAbortableDatabaseOperation({
+        operation: (async () => {
+          client = await this.clientFactory({
+            host: connection.host?.trim() || '127.0.0.1',
+            port: connection.port ?? 3306,
+            ...(connection.username ? { user: connection.username } : {}),
+            ...(connection.password ? { password: connection.password } : {}),
+            ...(connection.database?.trim()
+              ? { database: connection.database.trim() }
+              : {}),
+            connectTimeout: DATABASE_QUERY_TIMEOUT_MS,
+            rowsAsArray: true,
+            dateStrings: true,
+            supportBigNumbers: true,
+            bigNumberStrings: true,
+          });
+          if (terminated) {
+            client.destroy();
+            throw new DatabaseExplorerAdapterError(
+              'aborted',
+              'Consulta cancelada.',
+            );
+          }
+
+          await client.query('START TRANSACTION READ ONLY');
+          transactionStarted = true;
+          const [rows, fields] = await client.query({
+            sql,
+            rowsAsArray: true,
+            timeout: DATABASE_QUERY_TIMEOUT_MS,
+          });
+          if (!Array.isArray(rows)) {
+            throw new DatabaseExplorerAdapterError(
+              'command-failed',
+              'O banco não retornou um conjunto tabular de leitura.',
+            );
+          }
+          return {
+            columns: fields.map((field) => field.name),
+            rows: rows as unknown[][],
+          };
+        })(),
+        ...(signal ? { signal } : {}),
+        terminate,
+      });
+
+      return toDatabaseQueryResult(result.columns, result.rows);
+    } catch (error) {
+      throw mapDatabaseDriverError(error, signal);
+    } finally {
+      if (client && !terminated) {
+        if (transactionStarted) {
+          await client.query('ROLLBACK').catch(() => undefined);
+        }
+        await client.end().catch(() => undefined);
+      }
+    }
   }
 
   async listDatabases(
