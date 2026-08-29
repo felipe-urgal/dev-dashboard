@@ -2201,7 +2201,6 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **410** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **499** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
