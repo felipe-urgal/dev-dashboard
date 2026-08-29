@@ -78,6 +78,23 @@ function defaultSpawnPty(
   return pty.spawn(file, [...args], options);
 }
 
+function utf8TailWithinByteLimit(value: string, limit: number): string {
+  if (limit <= 0) return '';
+  if (Buffer.byteLength(value, 'utf8') <= limit) return value;
+
+  const codePoints = Array.from(value);
+  let bytes = 0;
+  let start = codePoints.length;
+  for (let index = codePoints.length - 1; index >= 0; index -= 1) {
+    const codePoint = codePoints[index]!;
+    const codePointBytes = Buffer.byteLength(codePoint, 'utf8');
+    if (bytes + codePointBytes > limit) break;
+    bytes += codePointBytes;
+    start = index;
+  }
+  return codePoints.slice(start).join('');
+}
+
 /**
  * Executa um comando fixo (já resolvido pelo chamador — nunca uma string
  * vinda do navegador) num PTY que continua rodando **independente de quem
@@ -231,10 +248,10 @@ export class DetachableExecutionService {
       if (oldest === undefined) break;
 
       if (record.chunks.length === 1) {
-        const overBy = record.bufferedBytes - this.bufferLimitBytes;
-        const trimmed = Buffer.from(oldest, 'utf8')
-          .subarray(overBy)
-          .toString('utf8');
+        const trimmed = utf8TailWithinByteLimit(
+          oldest,
+          this.bufferLimitBytes,
+        );
         record.chunks[0] = trimmed;
         record.bufferedBytes = Buffer.byteLength(trimmed, 'utf8');
         record.truncated = true;

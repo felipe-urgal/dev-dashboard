@@ -80,6 +80,34 @@ test('serve HTML, asset versionado e fallback com caches distintos', async (cont
   );
 });
 
+test('rejeita URI malformada sem converter erro de cliente em 500', async (context) => {
+  const root = await fixture();
+  const app = Fastify({ logger: false });
+  await registerStaticDashboard(app, root);
+  context.after(async () => {
+    await app.close();
+    await rm(root, { recursive: true });
+  });
+
+  const response = await app.inject({
+    url: '/%E0%A4%A',
+    headers: { accept: 'text/html' },
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.json(), {
+    error: 'INVALID_PATH',
+    message: 'Caminho inválido.',
+  });
+
+  const headResponse = await app.inject({
+    method: 'HEAD',
+    url: '/%E0%A4%A',
+    headers: { accept: 'text/html' },
+  });
+  assert.equal(headResponse.statusCode, 400);
+});
+
 test('falha para build ausente, sem index ou sem asset obrigatório', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'dashboard-invalid-'));
   await assert.rejects(

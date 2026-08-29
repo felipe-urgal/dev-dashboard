@@ -210,6 +210,23 @@ test('o buffer respeita o teto configurado, preservando o final da saída', () =
   assert.equal(snapshot?.truncated, true);
 });
 
+test('o buffer não corta caracteres UTF-8 no meio ao atingir o teto', () => {
+  const fakePty = new FakePty();
+  const service = new DetachableExecutionService({
+    spawnPty: () => fakePty as never,
+    bufferLimitBytes: 5,
+  });
+
+  service.start('projeto-1:test', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  fakePty.emitData('😀ab');
+
+  const snapshot = service.snapshotOf('projeto-1:test');
+  assert.equal(snapshot?.buffer, 'ab');
+  assert.equal(snapshot?.truncated, true);
+  assert.ok(Buffer.byteLength(snapshot?.buffer ?? '', 'utf8') <= 5);
+  assert.doesNotMatch(snapshot?.buffer ?? '', /�/);
+});
+
 test('cancel() manda TERM e escalona para KILL se o processo não sair a tempo', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const fakePty = new FakePty();

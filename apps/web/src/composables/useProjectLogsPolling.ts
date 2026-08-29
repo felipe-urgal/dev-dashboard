@@ -110,6 +110,7 @@ export function useProjectLogsPolling(
       !supportsServer.value ||
       !hasManagedProcess.value
     ) {
+      loadingLogs.value = false;
       return;
     }
 
@@ -118,8 +119,9 @@ export function useProjectLogsPolling(
     const logGeneration = logRequests.capture();
     loadingLogs.value = true;
 
-    logStream = followProjectProcessLogEvents(projectId, (snapshot) => {
+    const stream = followProjectProcessLogEvents(projectId, (snapshot) => {
       if (
+        logStream !== stream ||
         !isCurrentProject(projectId, generation) ||
         !logRequests.isCurrent(logGeneration)
       ) {
@@ -131,19 +133,29 @@ export function useProjectLogsPolling(
       logSnapshot.value = snapshot;
       void scrollLogsToLatest();
     });
+    logStream = stream;
 
-    logStream.done.catch((error: unknown) => {
-      if (
-        isCurrentProject(projectId, generation) &&
-        logRequests.isCurrent(logGeneration)
-      ) {
-        loadingLogs.value = false;
+    void stream.done
+      .catch((error: unknown) => {
+        if (
+          logStream !== stream ||
+          !isCurrentProject(projectId, generation) ||
+          !logRequests.isCurrent(logGeneration)
+        ) {
+          return;
+        }
+
         logErrorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível acompanhar os logs.';
-      }
-    });
+      })
+      .finally(() => {
+        if (logStream === stream) {
+          logStream = undefined;
+          loadingLogs.value = false;
+        }
+      });
   }
 
   function handleLogScroll(): void {
@@ -200,6 +212,7 @@ export function useProjectLogsPolling(
 
     if (streamPaused.value) {
       stopLogStream();
+      loadingLogs.value = false;
     } else {
       startLogStream();
     }
@@ -231,6 +244,7 @@ export function useProjectLogsPolling(
     (available) => {
       if (!available) {
         stopLogStream();
+        loadingLogs.value = false;
         return;
       }
 
