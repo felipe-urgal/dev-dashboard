@@ -35,13 +35,14 @@ export class MysqlExplorerAdapter implements DatabaseExplorerAdapter {
   ): Promise<MachineDatabaseQueryResult> {
     const host = connection.host?.trim() || '127.0.0.1';
     const port = connection.port ?? 3306;
+    const database = connection.database?.trim();
     const env = {
       ...process.env,
       MYSQL_HOST: host,
       MYSQL_TCP_PORT: String(port),
       ...(connection.username ? { MYSQL_USER: connection.username } : {}),
       ...(connection.password ? { MYSQL_PWD: connection.password } : {}),
-      ...(connection.database ? { MYSQL_DATABASE: connection.database } : {}),
+      ...(database ? { MYSQL_DATABASE: database } : {}),
     };
 
     return runDatabaseCliCommand({
@@ -105,7 +106,11 @@ export class MysqlExplorerAdapter implements DatabaseExplorerAdapter {
     const target = schema
       ? `${quoteIdentifier(schema, 'Schema')}.${quoteIdentifier(table, 'Tabela')}`
       : quoteIdentifier(table, 'Tabela');
-    return this.run(connection, `SELECT * FROM ${target} LIMIT ${MAX_ROWS + 1}`, signal);
+    return this.run(
+      connection,
+      `SELECT * FROM ${target} LIMIT ${MAX_ROWS + 1}`,
+      signal,
+    );
   }
 
   query(
