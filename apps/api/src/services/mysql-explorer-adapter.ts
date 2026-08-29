@@ -24,8 +24,7 @@ function quoteIdentifier(value: string, label: string): string {
 
 export class MysqlExplorerAdapter implements DatabaseExplorerAdapter {
   public constructor(
-    private readonly commandRunner: DatabaseCommandRunner =
-      defaultDatabaseCommandRunner,
+    private readonly commandRunner: DatabaseCommandRunner = defaultDatabaseCommandRunner,
   ) {}
 
   private run(

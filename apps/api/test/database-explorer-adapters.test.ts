@@ -46,20 +46,11 @@ test('PostgresExplorerAdapter monta preview com identificadores validados', asyn
     return 'id\n1';
   });
 
-  await adapter.preview(
-    { driver: 'postgresql' },
-    'public',
-    'users',
-  );
+  await adapter.preview({ driver: 'postgresql' }, 'public', 'users');
   assert.equal(executedQuery, 'SELECT * FROM "public"."users" LIMIT 101');
 
   await assert.rejects(
-    () =>
-      adapter.preview(
-        { driver: 'postgresql' },
-        'public',
-        'users;drop',
-      ),
+    () => adapter.preview({ driver: 'postgresql' }, 'public', 'users;drop'),
     (error: unknown) =>
       error instanceof DatabaseExplorerAdapterError &&
       error.reason === 'invalid-query',
@@ -102,13 +93,11 @@ test('MysqlExplorerAdapter encapsula cliente, read-only e credenciais', async ()
 test('MysqlExplorerAdapter atende MariaDB pelo mesmo protocolo', async () => {
   let command = '';
   let executedQuery = '';
-  const adapter = new MysqlExplorerAdapter(
-    async (currentCommand, args) => {
-      command = currentCommand;
-      executedQuery = args[args.indexOf('--execute') + 1] ?? '';
-      return 'id\n1';
-    },
-  );
+  const adapter = new MysqlExplorerAdapter(async (currentCommand, args) => {
+    command = currentCommand;
+    executedQuery = args[args.indexOf('--execute') + 1] ?? '';
+    return 'id\n1';
+  });
 
   await adapter.query({ driver: 'mariadb' }, 'SELECT 1');
 

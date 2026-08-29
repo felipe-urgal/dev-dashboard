@@ -56,9 +56,15 @@ export interface DatabaseExplorerAdapter {
   ): Promise<MachineDatabaseQueryResult>;
 }
 
-export function validateDatabaseIdentifier(value: string, label: string): string {
+export function validateDatabaseIdentifier(
+  value: string,
+  label: string,
+): string {
   if (!/^[A-Za-z0-9_$-]+$/.test(value) || value.length > 128) {
-    throw new DatabaseExplorerAdapterError('invalid-query', `${label} inválido.`);
+    throw new DatabaseExplorerAdapterError(
+      'invalid-query',
+      `${label} inválido.`,
+    );
   }
   return value;
 }

@@ -124,7 +124,8 @@ export async function runDatabaseCliCommand(options: {
     }
     if (
       failureText.includes('unknown database') ||
-      (failureText.includes('database') && failureText.includes('does not exist'))
+      (failureText.includes('database') &&
+        failureText.includes('does not exist'))
     ) {
       throw new DatabaseExplorerAdapterError(
         'database-unavailable',

@@ -25,8 +25,7 @@ function quoteIdentifier(value: string, label: string): string {
 
 export class PostgresExplorerAdapter implements DatabaseExplorerAdapter {
   public constructor(
-    private readonly commandRunner: DatabaseCommandRunner =
-      defaultDatabaseCommandRunner,
+    private readonly commandRunner: DatabaseCommandRunner = defaultDatabaseCommandRunner,
   ) {}
 
   private run(
@@ -105,7 +104,11 @@ export class PostgresExplorerAdapter implements DatabaseExplorerAdapter {
     const target = schema
       ? `${quoteIdentifier(schema, 'Schema')}.${quoteIdentifier(table, 'Tabela')}`
       : quoteIdentifier(table, 'Tabela');
-    return this.run(connection, `SELECT * FROM ${target} LIMIT ${MAX_ROWS + 1}`, signal);
+    return this.run(
+      connection,
+      `SELECT * FROM ${target} LIMIT ${MAX_ROWS + 1}`,
+      signal,
+    );
   }
 
   query(
