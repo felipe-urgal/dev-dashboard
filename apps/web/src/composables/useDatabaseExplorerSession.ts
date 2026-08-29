@@ -79,7 +79,7 @@ export function useDatabaseExplorerSession(
       await deleteDatabaseExplorerSession(id);
     } catch {
       // O servidor ainda aplica TTL absoluto; cleanup best-effort é usado
-      // somente para sessão substituída ou desmontagem da view.
+      // somente para sessão temporária, substituída ou desmontagem da view.
     }
   }
 
@@ -102,10 +102,7 @@ export function useDatabaseExplorerSession(
       connection.value = connectionWithoutSecret(input);
       scheduleExpiry(created.expiresAt);
 
-      if (
-        previousSessionId &&
-        previousSessionId !== created.sessionId
-      ) {
+      if (previousSessionId && previousSessionId !== created.sessionId) {
         void deleteBestEffort(previousSessionId);
       }
 
@@ -125,7 +122,7 @@ export function useDatabaseExplorerSession(
     try {
       return await fetchDatabaseExplorerCatalog(created.sessionId);
     } finally {
-      await deleteDatabaseExplorerSession(created.sessionId);
+      await deleteBestEffort(created.sessionId);
     }
   }
 
