@@ -56,8 +56,8 @@ test('cria sessão opaca sem devolver credenciais e reutiliza a conexão no cat�
 
   const catalogResponse = await app.inject({
     method: 'POST',
-    url: '/database/explorer/sessions/opaque-session-id/catalog',
-    payload: {},
+    url: '/database/explorer/sessions/catalog',
+    payload: { sessionId: 'opaque-session-id' },
   });
 
   assert.equal(catalogResponse.statusCode, 200);
@@ -96,8 +96,9 @@ test('permite selecionar database sem reenviar credenciais', async (context) => 
 
   const response = await app.inject({
     method: 'POST',
-    url: '/database/explorer/sessions/database-session/tables',
+    url: '/database/explorer/sessions/tables',
     payload: {
+      sessionId: 'database-session',
       database: 'app_development',
       password: 'nao-deve-ser-aceita',
     },
@@ -137,8 +138,8 @@ test('disconnect encerra a sessão e chamadas posteriores retornam sessão expir
 
   const response = await app.inject({
     method: 'POST',
-    url: '/database/explorer/sessions/disconnect-session/catalog',
-    payload: {},
+    url: '/database/explorer/sessions/catalog',
+    payload: { sessionId: 'disconnect-session' },
   });
 
   assert.equal(response.statusCode, 410);
@@ -172,8 +173,8 @@ test('sessão expirada é removida antes de executar operação', async (context
 
   const response = await app.inject({
     method: 'POST',
-    url: '/database/explorer/sessions/expired-session/catalog',
-    payload: {},
+    url: '/database/explorer/sessions/catalog',
+    payload: { sessionId: 'expired-session' },
   });
 
   assert.equal(response.statusCode, 410);
