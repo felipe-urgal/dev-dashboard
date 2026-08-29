@@ -25,7 +25,7 @@ type MysqlConnectionConfig = Parameters<typeof createConnection>[0];
 export interface MysqlExplorerClient {
   query(
     query: string | { sql: string; rowsAsArray: true; timeout: number },
-  ): Promise<[unknown, Array<{ name: string }>] >;
+  ): Promise<[unknown, Array<{ name: string }>]>;
   end(): Promise<void>;
   destroy(): void;
 }
@@ -82,7 +82,10 @@ export class MysqlExplorerAdapter implements DatabaseExplorerAdapter {
           });
           if (terminated) {
             client.destroy();
-            throw new DatabaseExplorerAdapterError('aborted', 'Consulta cancelada.');
+            throw new DatabaseExplorerAdapterError(
+              'aborted',
+              'Consulta cancelada.',
+            );
           }
 
           await client.query('START TRANSACTION READ ONLY');

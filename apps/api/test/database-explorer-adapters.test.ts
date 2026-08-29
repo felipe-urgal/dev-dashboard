@@ -14,9 +14,9 @@ import {
 } from '../src/services/postgres-explorer-adapter.js';
 
 function postgresFactory(options: {
-  onQuery: (sql: string) =>
-    | { columns: string[]; rows: unknown[][] }
-    | Promise<never>;
+  onQuery: (
+    sql: string,
+  ) => { columns: string[]; rows: unknown[][] } | Promise<never>;
   onControlQuery?: (sql: string) => void;
   onEnd?: () => void;
   onConfig?: (config: Parameters<PostgresExplorerClientFactory>[0]) => void;
@@ -134,11 +134,7 @@ test('PostgresExplorerAdapter valida identificadores antes de abrir conexão', (
 
   assert.throws(
     () => {
-      void adapter.preview(
-        { driver: 'postgresql' },
-        'public',
-        'users;drop',
-      );
+      void adapter.preview({ driver: 'postgresql' }, 'public', 'users;drop');
     },
     (error: unknown) =>
       error instanceof DatabaseExplorerAdapterError &&
@@ -246,7 +242,8 @@ test('AbortSignal encerra a conexão PostgreSQL e retorna aborted', async () => 
   await assert.rejects(
     pending,
     (error: unknown) =>
-      error instanceof DatabaseExplorerAdapterError && error.reason === 'aborted',
+      error instanceof DatabaseExplorerAdapterError &&
+      error.reason === 'aborted',
   );
   assert.equal(endCalls, 1);
 });

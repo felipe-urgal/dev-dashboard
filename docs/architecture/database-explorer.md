@@ -15,7 +15,7 @@ DatabaseReadonlyService
     ↓
 PostgresExplorerAdapter / MysqlExplorerAdapter
     ↓
-psql / mysql
+pg / mysql2 (protocolo nativo)
 ```
 
 As rotas legadas em `apps/api/src/routes/database.ts` continuam disponíveis durante a migração e recebem uma conexão completa por operação. As novas rotas em `apps/api/src/routes/database-explorer-sessions.ts` oferecem o fluxo server-side por sessão sem quebrar o cliente atual.
@@ -42,17 +42,16 @@ Os adapters encapsulam os detalhes específicos de cada banco:
 - SQL de catálogo e tabelas;
 - quoting e preview de tabela;
 - defaults de porta/database;
-- variáveis de ambiente e argumentos do cliente;
 - configuração read-only específica do driver;
-- execução e classificação das falhas do cliente.
+- conexão e execução pelo protocolo nativo via `pg`/`mysql2`;
+- normalização JSON-safe dos valores retornados;
+- timeout, cancelamento, limite de linhas/tamanho e classificação de falhas.
 
-A execução CLI compartilhada fica em `database-explorer-cli.ts`, incluindo timeout, cancelamento, limite de resultado e o parser tabular atual. O parser TSV é mantido deliberadamente neste recorte para que a separação de adapters não seja misturada com a troca de protocolo de resultado.
+## Resultados estruturados
 
-## Decisão sobre `pg` e `mysql2`
+Os adapters usam `pg` e `mysql2` diretamente, com rows em modo array e metadados de campos fornecidos pelo protocolo do banco. Não existe mais parser TSV no caminho do Explorer, portanto valores com tab, newline e `NULL` permanecem células reais em vez de delimitadores ambíguos.
 
-O PR de adapters preserva `psql`/`mysql` como transporte para manter o comportamento atual enquanto cria a fronteira correta por driver. A adoção de `pg`/`mysql2` foi separada para o próximo recorte, que também removerá a fragilidade do TSV e passará a trabalhar com resultados estruturados. Fazer as duas mudanças ao mesmo tempo dificultaria distinguir regressões de arquitetura de regressões de protocolo/driver.
-
-Os adapters foram desenhados para permitir essa substituição sem alterar `DatabaseExplorerService`, rotas ou política read-only comum.
+A normalização antes da resposta HTTP preserva strings, números, booleanos e `null`; `bigint` vira string, datas viram ISO e binários viram hexadecimal. A query livre recebe um limite superior de 101 linhas antes de chegar ao driver, a resposta expõe no máximo 100 linhas e o payload estruturado mantém teto de 2 MiB. PostgreSQL e MySQL/MariaDB executam cada operação dentro de uma transação explicitamente read-only e sempre fazem rollback/cleanup ao final.
 
 ## Sessão server-side
 
@@ -89,12 +88,12 @@ Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas 
 
 `buildApp()` cria o `DatabaseExplorerSessionStore`, registra as rotas de sessão com o mesmo `DatabaseExplorerService` e chama `close()` no encerramento da aplicação. Essa composição preserva o store como estado efêmero do processo e evita que credenciais entrem no `AppContext` persistente.
 
-Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com um `DatabaseCommandRunner` injetado, o store pode ter TTL e cleanup testados sem banco real, e as rotas de sessão podem substituir diretamente `DatabaseExplorerService`.
+Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, e as rotas de sessão podem substituir diretamente `DatabaseExplorerService`.
 
 ## Compatibilidade e próxima etapa
 
 As rotas legadas permanecem temporariamente para evitar uma mudança incompatível no mesmo PR. O frontend será migrado para criar uma única sessão e usar `sessionId` nas operações; depois dessa migração, as rotas que aceitam credenciais por operação poderão ser removidas em um recorte separado e revisável.
 
-O próximo recorte de infraestrutura substitui o protocolo TSV por resultados estruturados e reavalia `pg`/`mysql2` dentro dos adapters recém-criados, sem alterar as camadas superiores.
+O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 
-O cancelamento nasce na requisição HTTP e é propagado como `AbortSignal` pelas camadas até o processo do cliente de banco. A política de read-only e os limites de segurança continuam descritos em [`security.md`](security.md) e no [guia da aba Banco de dados](../guia/banco-de-dados.md).
+O cancelamento nasce na requisição HTTP e é propagado como `AbortSignal` pelas camadas até o client nativo do banco. A política de read-only e os limites de segurança continuam descritos em [`security.md`](security.md) e no [guia da aba Banco de dados](../guia/banco-de-dados.md).

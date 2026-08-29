@@ -209,7 +209,8 @@ export class DatabaseReadonlyService {
   private readonly mysqlAdapter: DatabaseExplorerAdapter;
 
   public constructor(options: DatabaseReadonlyServiceOptions = {}) {
-    this.postgresAdapter = options.postgresAdapter ?? new PostgresExplorerAdapter();
+    this.postgresAdapter =
+      options.postgresAdapter ?? new PostgresExplorerAdapter();
     this.mysqlAdapter = options.mysqlAdapter ?? new MysqlExplorerAdapter();
   }
 

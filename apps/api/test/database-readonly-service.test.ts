@@ -69,9 +69,10 @@ test('roteia PostgreSQL e MySQL/MariaDB para seus adapters', async () => {
     (await service.query({ driver: 'postgresql' }, 'SELECT 1')).rows,
     [['postgresql']],
   );
-  assert.deepEqual((await service.query({ driver: 'mysql' }, 'SELECT 1')).rows, [
-    ['mysql'],
-  ]);
+  assert.deepEqual(
+    (await service.query({ driver: 'mysql' }, 'SELECT 1')).rows,
+    [['mysql']],
+  );
   assert.deepEqual(
     (await service.query({ driver: 'mariadb' }, 'SELECT 1')).rows,
     [['mariadb']],
@@ -85,7 +86,8 @@ test('bloqueia consultas de escrita, múltiplas instruções e hosts remotos', a
   await assert.rejects(
     () => service.query({ driver: 'mysql' }, "UPDATE users SET name = 'x'"),
     (error: unknown) =>
-      error instanceof DatabaseReadonlyError && error.reason === 'invalid-query',
+      error instanceof DatabaseReadonlyError &&
+      error.reason === 'invalid-query',
   );
   await assert.rejects(
     () => service.query({ driver: 'mysql' }, 'SELECT 1; SELECT 2'),
@@ -147,7 +149,8 @@ test('bloqueia SELECTs com efeitos colaterais conhecidos antes do adapter', asyn
     await assert.rejects(
       () => service.query({ driver: current.driver }, current.query),
       (error: unknown) =>
-        error instanceof DatabaseReadonlyError && error.reason === 'invalid-query',
+        error instanceof DatabaseReadonlyError &&
+        error.reason === 'invalid-query',
     );
   }
   assert.equal(calls, 0);
@@ -175,10 +178,7 @@ test('normaliza query, limita linhas e propaga AbortSignal ao adapter', async ()
     controller.signal,
   );
   await service.query({ driver: 'mysql' }, 'SELECT * FROM posts LIMIT 500');
-  await service.query(
-    { driver: 'mysql' },
-    'SELECT * FROM posts LIMIT 20, 500',
-  );
+  await service.query({ driver: 'mysql' }, 'SELECT * FROM posts LIMIT 20, 500');
   await service.query(
     { driver: 'mysql' },
     'SELECT * FROM (SELECT * FROM posts LIMIT 500) nested',

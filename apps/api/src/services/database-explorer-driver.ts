@@ -9,7 +9,8 @@ export const DATABASE_MAX_RESULT_BYTES = 2 * 1024 * 1024;
 function normalizeDatabaseValue(value: unknown): unknown {
   if (value === null || value === undefined) return null;
   if (typeof value === 'bigint') return value.toString();
-  if (typeof value === 'number' && !Number.isFinite(value)) return String(value);
+  if (typeof value === 'number' && !Number.isFinite(value))
+    return String(value);
   if (
     typeof value === 'string' ||
     typeof value === 'number' ||
@@ -47,7 +48,10 @@ export function toDatabaseQueryResult(
     rowCount,
     truncated: rowCount > DATABASE_MAX_ROWS,
   };
-  if (Buffer.byteLength(JSON.stringify(result), 'utf8') > DATABASE_MAX_RESULT_BYTES) {
+  if (
+    Buffer.byteLength(JSON.stringify(result), 'utf8') >
+    DATABASE_MAX_RESULT_BYTES
+  ) {
     throw new DatabaseExplorerAdapterError(
       'command-failed',
       'O resultado excedeu o limite de 2 MiB.',
@@ -188,6 +192,7 @@ export async function runAbortableDatabaseOperation<T>(options: {
     return await Promise.race([operation, interruption]);
   } finally {
     if (timeout) clearTimeout(timeout);
-    if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+    if (signal && abortHandler)
+      signal.removeEventListener('abort', abortHandler);
   }
 }
