@@ -36,6 +36,13 @@ A aba é dividida em sub-seções, navegáveis por `?section=` na URL:
 Para MySQL, MariaDB e PostgreSQL locais, o explorador permite listar bancos e tabelas, visualizar
 uma amostra de tabela e executar uma única consulta de leitura `SELECT`/`WITH`.
 
+Ao conectar, o navegador envia as credenciais uma única vez para criar uma sessão curta no servidor.
+Depois disso, catálogo, tabelas, preview e consultas usam somente um `sessionId` opaco; usuário e senha
+não são reenviados em cada operação nem ficam armazenados no estado ativo da interface. O prazo local
+segue o `expiresAt` absoluto devolvido pela API, e **Desconectar** encerra explicitamente a sessão no
+servidor. Fechar a view também dispara cleanup em best-effort, enquanto o TTL de 15 minutos no servidor
+continua sendo a garantia final de remoção.
+
 No backend, as rotas HTTP delegam essas operações ao `DatabaseExplorerService`, que funciona como
 fronteira de aplicação antes do executor read-only atual. A separação entre transporte, aplicação e
 infraestrutura está detalhada em [Arquitetura do Database Explorer](../architecture/database-explorer.md).
@@ -50,7 +57,8 @@ A proteção é feita em camadas:
 - consultas digitadas têm no máximo 4.000 caracteres, a query livre é limitada a 101 linhas no
   servidor, o resultado exibido mostra até 100 linhas e o payload tem teto de 2 MiB;
 - somente hosts de loopback (`localhost`, `127.0.0.1` e `::1`) são aceitos nesta versão;
-- credenciais são passadas diretamente às opções de conexão do driver, sem argv ou shell;
+- credenciais são passadas diretamente às opções de conexão do driver na criação da sessão, sem argv
+  ou shell, e permanecem somente na memória do servidor durante o TTL;
 - resultados são estruturados pelo protocolo nativo, preservando tab, newline e `NULL` sem parsing TSV;
 - os corpos das rotas do explorador usam schema fechado (`additionalProperties: false`), e falhas
   retornam códigos estáveis `DATABASE_EXPLORER_*`; a interface escolhe o feedback pelo código, não
