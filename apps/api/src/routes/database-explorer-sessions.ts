@@ -181,12 +181,16 @@ const explorerErrorCodes: Record<
   },
 };
 
-const explorerErrorResponseSchemas = {
+const explorerConnectionErrorResponseSchemas = {
   ...commonErrorResponseSchemas,
-  410: apiErrorResponseSchema,
   499: apiErrorResponseSchema,
   502: apiErrorResponseSchema,
   503: apiErrorResponseSchema,
+} as const;
+
+const explorerSessionErrorResponseSchemas = {
+  ...explorerConnectionErrorResponseSchemas,
+  410: apiErrorResponseSchema,
 } as const;
 
 function asExplorerApiError(error: unknown): never {
@@ -233,7 +237,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
         body: sessionConnectionBodySchema,
         response: {
           201: sessionResponseSchema,
-          ...explorerErrorResponseSchemas,
+          ...explorerConnectionErrorResponseSchemas,
         },
       },
     },
@@ -290,7 +294,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
               },
             },
           },
-          ...explorerErrorResponseSchemas,
+          ...explorerSessionErrorResponseSchemas,
         },
       },
     },
@@ -334,7 +338,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
               },
             },
           },
-          ...explorerErrorResponseSchemas,
+          ...explorerSessionErrorResponseSchemas,
         },
       },
     },
@@ -375,7 +379,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
               result: machineDatabaseQueryResultResponseSchema,
             },
           },
-          ...explorerErrorResponseSchemas,
+          ...explorerSessionErrorResponseSchemas,
         },
       },
     },
@@ -418,7 +422,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
               result: machineDatabaseQueryResultResponseSchema,
             },
           },
-          ...explorerErrorResponseSchemas,
+          ...explorerSessionErrorResponseSchemas,
         },
       },
     },
