@@ -99,6 +99,13 @@ test('rejeita URI malformada sem converter erro de cliente em 500', async (conte
     error: 'INVALID_PATH',
     message: 'Caminho inválido.',
   });
+
+  const headResponse = await app.inject({
+    method: 'HEAD',
+    url: '/%E0%A4%A',
+    headers: { accept: 'text/html' },
+  });
+  assert.equal(headResponse.statusCode, 400);
 });
 
 test('falha para build ausente, sem index ou sem asset obrigatório', async () => {
