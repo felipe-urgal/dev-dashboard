@@ -49,8 +49,14 @@ test('PostgresExplorerAdapter monta preview com identificadores validados', asyn
   await adapter.preview({ driver: 'postgresql' }, 'public', 'users');
   assert.equal(executedQuery, 'SELECT * FROM "public"."users" LIMIT 101');
 
-  await assert.rejects(
-    () => adapter.preview({ driver: 'postgresql' }, 'public', 'users;drop'),
+  assert.throws(
+    () => {
+      void adapter.preview(
+        { driver: 'postgresql' },
+        'public',
+        'users;drop',
+      );
+    },
     (error: unknown) =>
       error instanceof DatabaseExplorerAdapterError &&
       error.reason === 'invalid-query',
