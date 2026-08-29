@@ -55,7 +55,16 @@ export async function registerStaticDashboard(
   const index = await readFile(path.join(root, 'index.html'));
 
   app.setNotFoundHandler(async (request, reply) => {
-    const pathname = decodeURIComponent(request.url.split('?', 1)[0] ?? '/');
+    const rawPathname = request.url.split('?', 1)[0] ?? '/';
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(rawPathname);
+    } catch {
+      return reply
+        .code(400)
+        .send({ error: 'INVALID_PATH', message: 'Caminho inválido.' });
+    }
+
     if (pathname === '/api' || pathname.startsWith('/api/')) {
       return reply
         .code(404)
