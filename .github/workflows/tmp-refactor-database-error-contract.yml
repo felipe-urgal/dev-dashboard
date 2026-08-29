@@ -43,8 +43,8 @@ jobs:
           source = source.slice(0, functionStart) + '\n' + source.slice(functionEnd);
 
           const usages = (source.match(/formatExplorerError\(/g) ?? []).length;
-          if (usages !== 4) {
-            throw new Error(`Expected 4 formatExplorerError usages, found ${usages}`);
+          if (usages !== 5) {
+            throw new Error(`Expected 5 formatExplorerError usages, found ${usages}`);
           }
           source = source.replaceAll(
             'formatExplorerError(',
