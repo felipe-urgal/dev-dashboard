@@ -377,7 +377,7 @@ function clearExplorerData(showExpiryMessage = false): void {
   resetExplorerQuery();
   if (showExpiryMessage) {
     explorerError.value =
-      'A conexão expirou por inatividade. Conecte-se novamente para continuar.';
+      'A conexão expirou. Conecte-se novamente para continuar.';
   }
 }
 
