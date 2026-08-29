@@ -1,0 +1,65 @@
+name: Temporary Database Error Contract Refactor
+
+on:
+  push:
+    branches:
+      - refactor/database-explorer-error-contract
+    paths:
+      - .github/workflows/tmp-refactor-database-error-contract.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor-view:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: refactor/database-explorer-error-contract
+
+      - name: Apply deterministic refactor
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/web/src/views/DatabaseView.vue';
+          let source = fs.readFileSync(path, 'utf8');
+
+          const importMarker = "} from '../api/rails';\nimport { confirmDialog } from '../stores/app-dialog';";
+          if (!source.includes(importMarker)) {
+            throw new Error('DatabaseView import marker not found');
+          }
+          source = source.replace(
+            importMarker,
+            "} from '../api/rails';\nimport { formatDatabaseExplorerError } from '../api/database-explorer-errors';\nimport { confirmDialog } from '../stores/app-dialog';",
+          );
+
+          const functionStart = source.indexOf('\nfunction formatExplorerError(');
+          const functionEnd = source.indexOf('\nfunction savedConnectionId(', functionStart);
+          if (functionStart < 0 || functionEnd < 0) {
+            throw new Error('DatabaseView local error formatter markers not found');
+          }
+          source = source.slice(0, functionStart) + '\n' + source.slice(functionEnd);
+
+          const usages = (source.match(/formatExplorerError\(/g) ?? []).length;
+          if (usages !== 4) {
+            throw new Error(`Expected 4 formatExplorerError usages, found ${usages}`);
+          }
+          source = source.replaceAll(
+            'formatExplorerError(',
+            'formatDatabaseExplorerError(',
+          );
+
+          fs.writeFileSync(path, source);
+          NODE
+
+      - name: Verify and commit
+        run: |
+          git diff --check
+          git diff -- apps/web/src/views/DatabaseView.vue
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/views/DatabaseView.vue
+          git commit -m "refactor(database): usa contrato tipado de erros na view"
+          git push origin HEAD:refactor/database-explorer-error-contract
