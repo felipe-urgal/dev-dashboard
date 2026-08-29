@@ -45,14 +45,14 @@ Fluxo disponível:
 
 ```text
 POST   /api/database/explorer/sessions
-POST   /api/database/explorer/sessions/:sessionId/catalog
-POST   /api/database/explorer/sessions/:sessionId/tables
-POST   /api/database/explorer/sessions/:sessionId/preview
-POST   /api/database/explorer/sessions/:sessionId/query
+POST   /api/database/explorer/sessions/catalog
+POST   /api/database/explorer/sessions/tables
+POST   /api/database/explorer/sessions/preview
+POST   /api/database/explorer/sessions/query
 DELETE /api/database/explorer/sessions/:sessionId
 ```
 
-Depois da criação da sessão, as operações enviam somente o `sessionId` e os dados específicos da operação, como `database`, `schema`, `table` ou `query`. Usuário e senha não precisam ser reenviados. O `database` pode sobrescrever temporariamente o valor armazenado sem alterar as credenciais da sessão.
+Depois da criação da sessão, catálogo, tabelas, preview e query recebem `sessionId` no corpo validado junto dos dados específicos da operação, como `database`, `schema`, `table` ou `query`. O identificador não vai na URL dessas operações para reduzir sua exposição em access logs. Usuário e senha não precisam ser reenviados. O `database` pode sobrescrever temporariamente o valor armazenado sem alterar as credenciais da sessão.
 
 O store:
 
@@ -62,7 +62,7 @@ O store:
 - remove a sessão explicitamente no `DELETE`, de forma idempotente;
 - limpa timers e credenciais restantes no shutdown da API por `close()`.
 
-Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED`. O identificador da sessão deve ser tratado como credencial efêmera: ele não deve ser logado nem persistido pelo cliente.
+Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED`. O identificador da sessão deve ser tratado como credencial efêmera: ele não deve ser persistido pelo cliente nem incluído em logs adicionais. O `DELETE` mantém o identificador no path por ser o endpoint explícito de encerramento definido para o ciclo de vida da sessão.
 
 ## Composição
 
