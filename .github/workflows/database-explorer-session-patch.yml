@@ -5,7 +5,7 @@ on:
     branches:
       - refactor/database-explorer-session-composable
     paths:
-      - scripts/patch-database-explorer-session-composable.mjs
+      - scripts/patch-database-explorer-session-tests.mjs
       - .github/workflows/database-explorer-session-patch.yml
 
 permissions:
@@ -20,17 +20,17 @@ jobs:
         with:
           ref: refactor/database-explorer-session-composable
 
-      - name: Patch DatabaseView
-        run: node scripts/patch-database-explorer-session-composable.mjs
+      - name: Patch Database Explorer tests
+        run: node scripts/patch-database-explorer-session-tests.mjs
 
       - name: Commit patch
         run: |
-          if git diff --quiet -- apps/web/src/views/DatabaseView.vue; then
-            echo "DatabaseView já está migrada."
+          if git diff --quiet -- apps/web/test/database-view.test.ts apps/web/test/database-view-concurrency.test.ts; then
+            echo "Testes já estão migrados."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/web/src/views/DatabaseView.vue
-          git commit -m "refactor(database): usa sessão server-side no Explorer"
+          git add apps/web/test/database-view.test.ts apps/web/test/database-view-concurrency.test.ts
+          git commit -m "test(database): migra view para sessão do Explorer"
           git push
