@@ -4,6 +4,7 @@ import { DatabaseExplorerAdapterError } from './database-explorer-adapter.js';
 
 export const DATABASE_QUERY_TIMEOUT_MS = 15_000;
 export const DATABASE_MAX_ROWS = 100;
+export const DATABASE_MAX_RESULT_BYTES = 2 * 1024 * 1024;
 
 function normalizeDatabaseValue(value: unknown): unknown {
   if (value === null || value === undefined) return null;
@@ -38,7 +39,7 @@ export function toDatabaseQueryResult(
   rows: unknown[][],
 ): MachineDatabaseQueryResult {
   const rowCount = rows.length;
-  return {
+  const result: MachineDatabaseQueryResult = {
     columns,
     rows: rows
       .slice(0, DATABASE_MAX_ROWS)
@@ -46,6 +47,13 @@ export function toDatabaseQueryResult(
     rowCount,
     truncated: rowCount > DATABASE_MAX_ROWS,
   };
+  if (Buffer.byteLength(JSON.stringify(result), 'utf8') > DATABASE_MAX_RESULT_BYTES) {
+    throw new DatabaseExplorerAdapterError(
+      'command-failed',
+      'O resultado excedeu o limite de 2 MiB.',
+    );
+  }
+  return result;
 }
 
 function errorDetails(error: unknown): {
