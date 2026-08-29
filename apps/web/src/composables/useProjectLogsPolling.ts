@@ -110,6 +110,7 @@ export function useProjectLogsPolling(
       !supportsServer.value ||
       !hasManagedProcess.value
     ) {
+      loadingLogs.value = false;
       return;
     }
 
@@ -243,6 +244,7 @@ export function useProjectLogsPolling(
     (available) => {
       if (!available) {
         stopLogStream();
+        loadingLogs.value = false;
         return;
       }
 
