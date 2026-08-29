@@ -233,13 +233,24 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
         body: sessionConnectionBodySchema,
         response: {
           201: sessionResponseSchema,
-          ...commonErrorResponseSchemas,
+          ...explorerErrorResponseSchemas,
         },
       },
     },
     async (request, reply) => {
-      const session = options.databaseExplorerSessionStore.create(request.body);
-      return reply.code(201).send(session);
+      const abortScope = createHttpAbortScope(request.raw, reply.raw);
+      try {
+        await options.databaseExplorerService.listDatabases(
+          request.body,
+          abortScope.signal,
+        );
+        const session = options.databaseExplorerSessionStore.create(request.body);
+        return reply.code(201).send(session);
+      } catch (error) {
+        return asExplorerApiError(error);
+      } finally {
+        abortScope.dispose();
+      }
     },
   );
 
