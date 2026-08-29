@@ -158,10 +158,10 @@ test('bloqueia SELECTs com efeitos colaterais conhecidos antes do adapter', asyn
 
 test('normaliza query, limita linhas e propaga AbortSignal ao adapter', async () => {
   const receivedQueries: string[] = [];
-  let receivedSignal: AbortSignal | undefined;
+  const receivedSignals: Array<AbortSignal | undefined> = [];
   const adapter = createAdapter(async (_connection, query, signal) => {
     receivedQueries.push(query);
-    receivedSignal = signal;
+    receivedSignals.push(signal);
     return {
       ...emptyResult,
       columns: ['id'],
@@ -190,6 +190,8 @@ test('normaliza query, limita linhas e propaga AbortSignal ao adapter', async ()
     'SELECT * FROM posts LIMIT 20, 101',
     'SELECT * FROM (SELECT * FROM posts LIMIT 500) nested LIMIT 101',
   ]);
-  assert.equal(receivedSignal, controller.signal);
+  assert.equal(receivedSignals.length, 4);
+  assert.equal(receivedSignals[0], controller.signal);
+  assert.deepEqual(receivedSignals.slice(1), [undefined, undefined, undefined]);
   assert.deepEqual(result.rows, [[1]]);
 });
