@@ -1157,6 +1157,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="database-primary-button database-connection-button"
+            :disabled="explorerLoading"
             @click="openExplorerConnection"
           >
             {{ explorerConnection ? 'Trocar conexão' : 'Conectar' }}
@@ -1166,6 +1167,7 @@ onUnmounted(() => {
             v-if="explorerConnection"
             type="button"
             class="database-connection-disconnect"
+            :disabled="explorerLoading"
             @click="disconnectExplorer"
           >
             Desconectar
@@ -1233,6 +1235,7 @@ onUnmounted(() => {
               >Banco
               <select
                 :value="explorerDatabase"
+                :disabled="explorerLoading"
                 @change="onExplorerDatabaseChange"
               >
                 <option value="">Selecione um banco</option>
@@ -1252,6 +1255,7 @@ onUnmounted(() => {
                 :key="`${table.schema}.${table.name}`"
                 type="button"
                 :class="{ active: explorerTable === table.name }"
+                :disabled="explorerLoading"
                 @click="
                   explorerTable = table.name;
                   explorerQuery = buildExplorerTableQuery(table);
