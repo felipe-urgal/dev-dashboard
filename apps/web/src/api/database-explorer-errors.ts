@@ -30,7 +30,10 @@ export type DatabaseExplorerErrorCode =
 export function isDatabaseExplorerErrorCode(
   value: string | undefined,
 ): value is DatabaseExplorerErrorCode {
-  return value !== undefined && value in DATABASE_EXPLORER_ERROR_MESSAGES;
+  return (
+    value !== undefined &&
+    Object.hasOwn(DATABASE_EXPLORER_ERROR_MESSAGES, value)
+  );
 }
 
 export function formatDatabaseExplorerError(
