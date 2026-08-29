@@ -33,6 +33,7 @@ import { processRoutes } from './routes/processes.js';
 import { testRoutes } from './routes/tests.js';
 import { testRelatedRoutes } from './routes/test-related.js';
 import { databaseRoutes } from './routes/database.js';
+import { databaseExplorerSessionRoutes } from './routes/database-explorer-sessions.js';
 import { railsRoutes } from './routes/rails.js';
 import { bundlerRoutes } from './routes/bundler.js';
 import { projectEnvironmentRoutes } from './routes/project-environment.js';
@@ -55,6 +56,7 @@ import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import { ProjectTerminalService } from './services/project-terminal-service.js';
+import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
 
 import { createAppContext, type AppContext } from './app-context.js';
 
@@ -98,6 +100,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
     createAppContext({
       languageServerLogger: app.log,
     });
+  const databaseExplorerSessionStore = new DatabaseExplorerSessionStore(
+    options.now ? { now: options.now } : {},
+  );
   const projectDoctorService =
     options.projectDoctorService ??
     new ProjectDoctorService(options.now ? { now: options.now } : {});
@@ -115,6 +120,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
+    databaseExplorerSessionStore.close();
     projectLanguageServerService.close();
     projectTerminalService.close();
   });
@@ -328,6 +334,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     databaseDetectionService: context.databaseDetectionService,
     databaseSnapshotService: context.databaseSnapshotService,
     databaseExplorerService: context.databaseExplorerService,
+  });
+
+  app.register(databaseExplorerSessionRoutes, {
+    prefix: '/api',
+    databaseExplorerService: context.databaseExplorerService,
+    databaseExplorerSessionStore,
   });
 
   app.register(railsRoutes, {
