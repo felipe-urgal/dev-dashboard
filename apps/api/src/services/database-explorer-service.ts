@@ -5,7 +5,7 @@ import type {
   MachineDatabaseTable,
 } from '@dev-dashboard/contracts';
 
-import { DatabaseReadonlyError } from './database-readonly-service.js';
+import { DatabaseExplorerAdapterError } from './database-explorer-adapter.js';
 
 export type DatabaseExplorerErrorReason =
   | 'unsupported-driver'
@@ -59,7 +59,7 @@ export class DatabaseExplorerService {
       return await operation();
     } catch (error) {
       if (error instanceof DatabaseExplorerError) throw error;
-      if (error instanceof DatabaseReadonlyError) {
+      if (error instanceof DatabaseExplorerAdapterError) {
         throw new DatabaseExplorerError(error.reason, error.message);
       }
       throw new DatabaseExplorerError(
