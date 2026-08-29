@@ -15,6 +15,7 @@ import { PostgresExplorerAdapter } from './postgres-explorer-adapter.js';
 export { DatabaseExplorerAdapterError as DatabaseReadonlyError };
 
 const MAX_QUERY_LENGTH = 4_000;
+const MAX_QUERY_ROWS = 101;
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
 const blockedPostgresFunctions =
@@ -117,6 +118,92 @@ function readOnlyQuery(
   return normalized;
 }
 
+function topLevelKeywordIndex(query: string, keyword: string): number {
+  let depth = 0;
+  let quote: "'" | '"' | '`' | undefined;
+  const lower = query.toLowerCase();
+
+  for (let index = 0; index < query.length; index += 1) {
+    const current = query[index]!;
+    if (quote) {
+      if (current === quote) {
+        if (query[index + 1] === quote) {
+          index += 1;
+        } else {
+          quote = undefined;
+        }
+      } else if (current === '\\') {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (current === "'" || current === '"' || current === '`') {
+      quote = current;
+      continue;
+    }
+    if (current === '(') {
+      depth += 1;
+      continue;
+    }
+    if (current === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth !== 0 || !lower.startsWith(keyword, index)) continue;
+
+    const before = index === 0 ? '' : query[index - 1]!;
+    const after = query[index + keyword.length] ?? '';
+    if (!/[A-Za-z0-9_$]/.test(before) && !/[A-Za-z0-9_$]/.test(after)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function boundedReadOnlyQuery(
+  query: string,
+  driver: MachineDatabaseConnection['driver'],
+): string {
+  const normalized = readOnlyQuery(query, driver);
+  if (topLevelKeywordIndex(normalized, 'fetch') >= 0) {
+    throw new DatabaseExplorerAdapterError(
+      'invalid-query',
+      'Use LIMIT para limitar resultados no explorador.',
+    );
+  }
+
+  const limitIndex = topLevelKeywordIndex(normalized, 'limit');
+  if (limitIndex < 0) return `${normalized} LIMIT ${MAX_QUERY_ROWS}`;
+
+  const prefixEnd = limitIndex + 'limit'.length;
+  const suffix = normalized.slice(prefixEnd);
+  const match = suffix.match(/^(\s+)(\d+)(\s*,\s*(\d+))?/);
+  if (!match) {
+    throw new DatabaseExplorerAdapterError(
+      'invalid-query',
+      'Use LIMIT com um valor numérico no explorador.',
+    );
+  }
+
+  if (match[4]) {
+    const count = Number(match[4]);
+    if (count <= MAX_QUERY_ROWS) return normalized;
+    const countOffset = prefixEnd + match[0].lastIndexOf(match[4]);
+    return `${normalized.slice(0, countOffset)}${MAX_QUERY_ROWS}${normalized.slice(
+      countOffset + match[4].length,
+    )}`;
+  }
+
+  const count = Number(match[2]);
+  if (count <= MAX_QUERY_ROWS) return normalized;
+  const countOffset = prefixEnd + match[1].length;
+  return `${normalized.slice(0, countOffset)}${MAX_QUERY_ROWS}${normalized.slice(
+    countOffset + match[2].length,
+  )}`;
+}
+
 export class DatabaseReadonlyService {
   private readonly postgresAdapter: DatabaseExplorerAdapter;
   private readonly mysqlAdapter: DatabaseExplorerAdapter;
@@ -170,7 +257,7 @@ export class DatabaseReadonlyService {
   ): Promise<MachineDatabaseQueryResult> {
     return this.adapterFor(connection).query(
       connection,
-      readOnlyQuery(query, connection.driver),
+      boundedReadOnlyQuery(query, connection.driver),
       signal,
     );
   }
