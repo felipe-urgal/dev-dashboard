@@ -34,16 +34,17 @@ interface SessionConnectionBody {
   database?: string;
 }
 
-interface SessionDatabaseBody {
+interface SessionOperationBody {
+  sessionId: string;
   database?: string;
 }
 
-interface SessionPreviewBody extends SessionDatabaseBody {
+interface SessionPreviewBody extends SessionOperationBody {
   schema?: string;
   table: string;
 }
 
-interface SessionQueryBody extends SessionDatabaseBody {
+interface SessionQueryBody extends SessionOperationBody {
   query: string;
 }
 
@@ -53,48 +54,61 @@ const emptyQuerySchema = {
   properties: {},
 } as const;
 
+const sessionIdProperty = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 128,
+} as const;
+
+const databaseProperty = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 128,
+} as const;
+
 const sessionParamsSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['sessionId'],
   properties: {
-    sessionId: { type: 'string', minLength: 1, maxLength: 128 },
+    sessionId: sessionIdProperty,
   },
-} as const;
-
-const connectionProperties = {
-  driver: {
-    type: 'string',
-    enum: ['mysql', 'mariadb', 'postgresql'],
-  },
-  host: { type: 'string', minLength: 1, maxLength: 255 },
-  port: { type: 'integer', minimum: 1, maximum: 65535 },
-  username: { type: 'string', maxLength: 128 },
-  password: { type: 'string', maxLength: 4096 },
-  database: { type: 'string', maxLength: 128 },
 } as const;
 
 const sessionConnectionBodySchema = {
   type: 'object',
   additionalProperties: false,
   required: ['driver'],
-  properties: connectionProperties,
+  properties: {
+    driver: {
+      type: 'string',
+      enum: ['mysql', 'mariadb', 'postgresql'],
+    },
+    host: { type: 'string', minLength: 1, maxLength: 255 },
+    port: { type: 'integer', minimum: 1, maximum: 65535 },
+    username: { type: 'string', maxLength: 128 },
+    password: { type: 'string', maxLength: 4096 },
+    database: { type: 'string', maxLength: 128 },
+  },
 } as const;
 
-const sessionDatabaseBodySchema = {
+const sessionOperationBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['sessionId'],
   properties: {
-    database: { type: 'string', minLength: 1, maxLength: 128 },
+    sessionId: sessionIdProperty,
+    database: databaseProperty,
   },
 } as const;
 
 const sessionPreviewBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['table'],
+  required: ['sessionId', 'table'],
   properties: {
-    database: { type: 'string', minLength: 1, maxLength: 128 },
+    sessionId: sessionIdProperty,
+    database: databaseProperty,
     schema: { type: 'string', minLength: 1, maxLength: 128 },
     table: { type: 'string', minLength: 1, maxLength: 128 },
   },
@@ -103,9 +117,10 @@ const sessionPreviewBodySchema = {
 const sessionQueryBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['query'],
+  required: ['sessionId', 'query'],
   properties: {
-    database: { type: 'string', minLength: 1, maxLength: 128 },
+    sessionId: sessionIdProperty,
+    database: databaseProperty,
     query: { type: 'string', minLength: 1, maxLength: 4000 },
   },
 } as const;
@@ -247,13 +262,12 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
     },
   );
 
-  app.post<{ Params: SessionParams; Body: SessionDatabaseBody }>(
-    '/database/explorer/sessions/:sessionId/catalog',
+  app.post<{ Body: SessionOperationBody }>(
+    '/database/explorer/sessions/catalog',
     {
       schema: {
-        params: sessionParamsSchema,
         querystring: emptyQuerySchema,
-        body: sessionDatabaseBodySchema,
+        body: sessionOperationBodySchema,
         response: {
           200: {
             type: 'object',
@@ -275,7 +289,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
       try {
         const connection = requireSessionConnection(
           options.databaseExplorerSessionStore,
-          request.params.sessionId,
+          request.body.sessionId,
           request.body.database,
         );
         return {
@@ -292,13 +306,12 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
     },
   );
 
-  app.post<{ Params: SessionParams; Body: SessionDatabaseBody }>(
-    '/database/explorer/sessions/:sessionId/tables',
+  app.post<{ Body: SessionOperationBody }>(
+    '/database/explorer/sessions/tables',
     {
       schema: {
-        params: sessionParamsSchema,
         querystring: emptyQuerySchema,
-        body: sessionDatabaseBodySchema,
+        body: sessionOperationBodySchema,
         response: {
           200: {
             type: 'object',
@@ -320,7 +333,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
       try {
         const connection = requireSessionConnection(
           options.databaseExplorerSessionStore,
-          request.params.sessionId,
+          request.body.sessionId,
           request.body.database,
         );
         return {
@@ -337,11 +350,10 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
     },
   );
 
-  app.post<{ Params: SessionParams; Body: SessionPreviewBody }>(
-    '/database/explorer/sessions/:sessionId/preview',
+  app.post<{ Body: SessionPreviewBody }>(
+    '/database/explorer/sessions/preview',
     {
       schema: {
-        params: sessionParamsSchema,
         querystring: emptyQuerySchema,
         body: sessionPreviewBodySchema,
         response: {
@@ -362,7 +374,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
       try {
         const connection = requireSessionConnection(
           options.databaseExplorerSessionStore,
-          request.params.sessionId,
+          request.body.sessionId,
           request.body.database,
         );
         return {
@@ -381,11 +393,10 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
     },
   );
 
-  app.post<{ Params: SessionParams; Body: SessionQueryBody }>(
-    '/database/explorer/sessions/:sessionId/query',
+  app.post<{ Body: SessionQueryBody }>(
+    '/database/explorer/sessions/query',
     {
       schema: {
-        params: sessionParamsSchema,
         querystring: emptyQuerySchema,
         body: sessionQueryBodySchema,
         response: {
@@ -406,7 +417,7 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async 
       try {
         const connection = requireSessionConnection(
           options.databaseExplorerSessionStore,
-          request.params.sessionId,
+          request.body.sessionId,
           request.body.database,
         );
         return {
