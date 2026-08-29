@@ -1,110 +1,91 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
+import type {
+  MachineDatabaseConnection,
+  MachineDatabaseQueryResult,
+} from '@dev-dashboard/contracts';
+
+import type { DatabaseExplorerAdapter } from '../src/services/database-explorer-adapter.js';
 import {
   DatabaseReadonlyError,
   DatabaseReadonlyService,
 } from '../src/services/database-readonly-service.js';
 
-test('lista bancos e tabelas sem expor a senha nos argumentos', async () => {
-  const calls: Array<{
-    command: string;
-    args: string[];
-    env: NodeJS.ProcessEnv;
-  }> = [];
-  const service = new DatabaseReadonlyService(async (command, args, env) => {
-    calls.push({ command, args, env });
-    return 'name\tother\napp\tpublic';
-  });
-  const connection = {
-    driver: 'postgresql' as const,
-    password: 'segredo',
-    database: 'app',
+const emptyResult: MachineDatabaseQueryResult = {
+  columns: [],
+  rows: [],
+  rowCount: 0,
+  truncated: false,
+};
+
+function createAdapter(
+  query: DatabaseExplorerAdapter['query'] = async () => emptyResult,
+): DatabaseExplorerAdapter {
+  return {
+    listDatabases: async () => [{ name: 'app' }],
+    listTables: async () => [{ schema: 'public', name: 'users' }],
+    preview: async () => emptyResult,
+    query,
   };
-  assert.deepEqual(await service.listDatabases(connection), [{ name: 'app' }]);
-  assert.equal(calls[0]?.command, 'psql');
-  assert.equal(calls[0]?.args.includes('segredo'), false);
-  assert.equal(calls[0]?.env.PGPASSWORD, 'segredo');
-  assert.equal(calls[0]?.env.PGDATABASE, 'app');
-  assert.match(
-    calls[0]?.env.PGOPTIONS ?? '',
-    /default_transaction_read_only=on/,
+}
+
+function createService(
+  options: {
+    postgresAdapter?: DatabaseExplorerAdapter;
+    mysqlAdapter?: DatabaseExplorerAdapter;
+  } = {},
+): DatabaseReadonlyService {
+  return new DatabaseReadonlyService({
+    postgresAdapter: options.postgresAdapter ?? createAdapter(),
+    mysqlAdapter: options.mysqlAdapter ?? createAdapter(),
+  });
+}
+
+test('roteia PostgreSQL e MySQL/MariaDB para seus adapters', async () => {
+  const postgresConnections: MachineDatabaseConnection[] = [];
+  const mysqlConnections: MachineDatabaseConnection[] = [];
+  const postgresAdapter = createAdapter(async (connection) => {
+    postgresConnections.push(connection);
+    return {
+      ...emptyResult,
+      columns: ['driver'],
+      rows: [['postgresql']],
+      rowCount: 1,
+    };
+  });
+  const mysqlAdapter = createAdapter(async (connection) => {
+    mysqlConnections.push(connection);
+    return {
+      ...emptyResult,
+      columns: ['driver'],
+      rows: [[connection.driver]],
+      rowCount: 1,
+    };
+  });
+  const service = createService({ postgresAdapter, mysqlAdapter });
+
+  assert.deepEqual(
+    (await service.query({ driver: 'postgresql' }, 'SELECT 1')).rows,
+    [['postgresql']],
   );
-  assert.match(calls[0]?.env.PGOPTIONS ?? '', /statement_timeout=15000/);
-  assert.deepEqual(await service.listTables(connection), [
-    { schema: 'app', name: 'public' },
+  assert.deepEqual((await service.query({ driver: 'mysql' }, 'SELECT 1')).rows, [
+    ['mysql'],
   ]);
-});
-
-test('passa host, porta e usuário explicitamente para o cliente MySQL', async () => {
-  let args: string[] | undefined;
-  let environment: NodeJS.ProcessEnv | undefined;
-  const service = new DatabaseReadonlyService(
-    async (_command, commandArgs, env) => {
-      args = commandArgs;
-      environment = env;
-      return 'name\tother\napp\tpublic';
-    },
+  assert.deepEqual(
+    (await service.query({ driver: 'mariadb' }, 'SELECT 1')).rows,
+    [['mariadb']],
   );
-  await service.listDatabases({
-    driver: 'mysql',
-    username: 'root',
-    password: '123456',
-  });
-  assert.deepEqual(args?.slice(0, 9), [
-    '--no-defaults',
-    '--protocol=tcp',
-    '--host',
-    '127.0.0.1',
-    '--port',
-    '3306',
-    '--user',
-    'root',
-    '--column-names',
-  ]);
-  assert.equal(args?.includes('123456'), false);
-  assert.equal(
-    args?.includes('--init-command=SET SESSION TRANSACTION READ ONLY'),
-    true,
-  );
-  assert.equal(environment?.MYSQL_PWD, '123456');
-});
-
-test('aplica a sessão read-only também para MariaDB', async () => {
-  let args: string[] = [];
-  const service = new DatabaseReadonlyService(async (_command, commandArgs) => {
-    args = commandArgs;
-    return 'id\n1';
-  });
-
-  await service.query({ driver: 'mariadb' }, 'SELECT 1');
-
-  assert.equal(
-    args.includes('--init-command=SET SESSION TRANSACTION READ ONLY'),
-    true,
-  );
-});
-
-test('usa o banco postgres quando o PostgreSQL não recebe um banco padrão', async () => {
-  let environment: NodeJS.ProcessEnv | undefined;
-  const service = new DatabaseReadonlyService(async (_command, _args, env) => {
-    environment = env;
-    return 'name\npostgres';
-  });
-  await service.listDatabases({ driver: 'postgresql', username: 'felipe' });
-  assert.equal(environment?.PGDATABASE, 'postgres');
-  assert.match(
-    environment?.PGOPTIONS ?? '',
-    /default_transaction_read_only=on/,
-  );
+  assert.equal(postgresConnections.length, 1);
+  assert.equal(mysqlConnections.length, 2);
 });
 
 test('bloqueia consultas de escrita, múltiplas instruções e hosts remotos', async () => {
-  const service = new DatabaseReadonlyService(async () => 'id\n1');
+  const service = createService();
   await assert.rejects(
     () => service.query({ driver: 'mysql' }, "UPDATE users SET name = 'x'"),
     (error: unknown) =>
-      error instanceof DatabaseReadonlyError &&
-      error.reason === 'invalid-query',
+      error instanceof DatabaseReadonlyError && error.reason === 'invalid-query',
   );
   await assert.rejects(
     () => service.query({ driver: 'mysql' }, 'SELECT 1; SELECT 2'),
@@ -116,11 +97,15 @@ test('bloqueia consultas de escrita, múltiplas instruções e hosts remotos', a
   );
 });
 
-test('bloqueia SELECTs com efeitos colaterais conhecidos por driver', async () => {
+test('bloqueia SELECTs com efeitos colaterais conhecidos antes do adapter', async () => {
   let calls = 0;
-  const service = new DatabaseReadonlyService(async () => {
+  const adapter = createAdapter(async () => {
     calls += 1;
-    return 'id\n1';
+    return emptyResult;
+  });
+  const service = createService({
+    postgresAdapter: adapter,
+    mysqlAdapter: adapter,
   });
 
   const cases = [
@@ -162,118 +147,35 @@ test('bloqueia SELECTs com efeitos colaterais conhecidos por driver', async () =
     await assert.rejects(
       () => service.query({ driver: current.driver }, current.query),
       (error: unknown) =>
-        error instanceof DatabaseReadonlyError &&
-        error.reason === 'invalid-query',
+        error instanceof DatabaseReadonlyError && error.reason === 'invalid-query',
     );
   }
-
   assert.equal(calls, 0);
 });
 
-test('mantém consultas de leitura e agregações válidas', async () => {
-  let executedQuery = '';
-  const service = new DatabaseReadonlyService(async (_command, args) => {
-    const executeIndex = args.findIndex(
-      (argument) => argument === '--execute' || argument === '-c',
-    );
-    executedQuery = args[executeIndex + 1] ?? '';
-    return 'total\n42';
+test('normaliza ponto e vírgula final e propaga AbortSignal ao adapter', async () => {
+  let receivedQuery = '';
+  let receivedSignal: AbortSignal | undefined;
+  const adapter = createAdapter(async (_connection, query, signal) => {
+    receivedQuery = query;
+    receivedSignal = signal;
+    return {
+      ...emptyResult,
+      columns: ['id'],
+      rows: [[1]],
+      rowCount: 1,
+    };
   });
+  const service = createService({ mysqlAdapter: adapter });
+  const controller = new AbortController();
 
-  const result = await service.query(
-    { driver: 'postgresql' },
-    'SELECT COUNT(*) AS total FROM users',
-  );
-
-  assert.equal(executedQuery, 'SELECT COUNT(*) AS total FROM users');
-  assert.deepEqual(result.rows, [['42']]);
-});
-
-test('aceita ponto e vírgula único no fim de uma consulta de leitura', async () => {
-  let executedQuery = '';
-  const service = new DatabaseReadonlyService(async (_command, args) => {
-    executedQuery = args[args.indexOf('--execute') + 1] ?? '';
-    return 'id\n1';
-  });
   const result = await service.query(
     { driver: 'mysql' },
     "SELECT title FROM posts WHERE title = 'Fórum';",
-  );
-  assert.equal(executedQuery, "SELECT title FROM posts WHERE title = 'Fórum'");
-  assert.deepEqual(result.rows, [['1']]);
-});
-
-test('não devolve segredo quando o cliente rejeita as credenciais', async () => {
-  const secret = 'senha-super-secreta';
-  const service = new DatabaseReadonlyService(async () => {
-    const error = new Error(
-      `password authentication failed: ${secret}`,
-    ) as Error & {
-      stderr?: string;
-    };
-    error.stderr = `role rejected password ${secret}`;
-    throw error;
-  });
-
-  await assert.rejects(
-    () =>
-      service.query(
-        { driver: 'postgresql', username: 'app', password: secret },
-        'SELECT 1',
-      ),
-    (error: unknown) =>
-      error instanceof DatabaseReadonlyError &&
-      error.reason === 'credentials-rejected' &&
-      !error.message.includes(secret),
-  );
-});
-
-test('limita o resultado da consulta a cem linhas', async () => {
-  const output = [
-    'id',
-    ...Array.from({ length: 101 }, (_, index) => String(index)),
-  ].join('\n');
-  const service = new DatabaseReadonlyService(async () => output);
-  const result = await service.query(
-    { driver: 'postgresql' },
-    'SELECT id FROM users',
-  );
-  assert.equal(result.rows.length, 100);
-  assert.equal(result.rowCount, 101);
-  assert.equal(result.truncated, true);
-});
-
-test('propaga AbortSignal e preserva cancelamento como condição própria', async () => {
-  let receivedSignal: AbortSignal | undefined;
-  const service = new DatabaseReadonlyService(
-    async (_command, _args, _env, signal) => {
-      receivedSignal = signal;
-      return await new Promise<string>((_resolve, reject) => {
-        signal?.addEventListener(
-          'abort',
-          () => {
-            const error = new Error('aborted');
-            error.name = 'AbortError';
-            reject(error);
-          },
-          { once: true },
-        );
-      });
-    },
-  );
-  const controller = new AbortController();
-
-  const pending = service.query(
-    { driver: 'postgresql' },
-    'SELECT id FROM users',
     controller.signal,
   );
-  controller.abort();
 
-  await assert.rejects(
-    pending,
-    (error: unknown) =>
-      error instanceof DatabaseReadonlyError && error.reason === 'aborted',
-  );
+  assert.equal(receivedQuery, "SELECT title FROM posts WHERE title = 'Fórum'");
   assert.equal(receivedSignal, controller.signal);
+  assert.deepEqual(result.rows, [[1]]);
 });
