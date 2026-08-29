@@ -4,17 +4,22 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 const api = vi.hoisted(() => ({
   fetchMachineDatabaseServices: vi.fn(),
   fetchMachineDatabaseServiceDetails: vi.fn(),
-  fetchMachineDatabaseCatalog: vi.fn(),
-  fetchMachineDatabaseTables: vi.fn(),
-  previewMachineDatabaseTable: vi.fn(),
-  queryMachineDatabase: vi.fn(),
   installMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
   runMachineDatabaseServiceAction: vi.fn().mockResolvedValue(undefined),
   uninstallMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
 }));
+const explorerApi = vi.hoisted(() => ({
+  createDatabaseExplorerSession: vi.fn(),
+  deleteDatabaseExplorerSession: vi.fn().mockResolvedValue(undefined),
+  fetchDatabaseExplorerCatalog: vi.fn(),
+  fetchDatabaseExplorerTables: vi.fn(),
+  previewDatabaseExplorerTable: vi.fn(),
+  queryDatabaseExplorer: vi.fn(),
+}));
 const confirmDialog = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/api/rails', () => api);
+vi.mock('../src/api/database-explorer', () => explorerApi);
 vi.mock('../src/stores/app-dialog', () => ({ confirmDialog }));
 
 import DatabaseView from '../src/views/DatabaseView.vue';
@@ -232,10 +237,14 @@ describe('DatabaseView', () => {
 
   it('conecta, executa consultas e permite filtrar, ordenar, copiar, exportar e desconectar', async () => {
     api.fetchMachineDatabaseServices.mockResolvedValue([]);
-    api.fetchMachineDatabaseCatalog.mockResolvedValue([
+    explorerApi.createDatabaseExplorerSession.mockResolvedValue({
+      sessionId: 'session-1',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    explorerApi.fetchDatabaseExplorerCatalog.mockResolvedValue([
       { name: 'app_development' },
     ]);
-    api.fetchMachineDatabaseTables.mockResolvedValue([
+    explorerApi.fetchDatabaseExplorerTables.mockResolvedValue([
       { schema: 'public', name: 'users' },
     ]);
     const result = {
@@ -247,8 +256,8 @@ describe('DatabaseView', () => {
       rowCount: 2,
       truncated: false,
     };
-    api.previewMachineDatabaseTable.mockResolvedValue(result);
-    api.queryMachineDatabase.mockResolvedValue(result);
+    explorerApi.previewDatabaseExplorerTable.mockResolvedValue(result);
+    explorerApi.queryDatabaseExplorer.mockResolvedValue(result);
     const clipboard = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -275,7 +284,10 @@ describe('DatabaseView', () => {
       .trigger('click');
     await flushPromises();
 
-    expect(api.fetchMachineDatabaseCatalog).toHaveBeenCalled();
+    expect(explorerApi.createDatabaseExplorerSession).toHaveBeenCalled();
+    expect(explorerApi.fetchDatabaseExplorerCatalog).toHaveBeenCalledWith(
+      'session-1',
+    );
     await wrapper.get('select').setValue('app_development');
     await flushPromises();
     await wrapper
@@ -288,7 +300,11 @@ describe('DatabaseView', () => {
       .find((button) => button.text().trim() === 'Executar leitura')!
       .trigger('click');
     await flushPromises();
-    expect(api.queryMachineDatabase).toHaveBeenCalled();
+    expect(explorerApi.queryDatabaseExplorer).toHaveBeenCalledWith(
+      'session-1',
+      expect.any(String),
+      'app_development',
+    );
 
     expect(wrapper.text()).toContain('Ana');
     await wrapper
@@ -333,6 +349,10 @@ describe('DatabaseView', () => {
       .findAll('button')
       .find((button) => button.text().trim() === 'Desconectar')!
       .trigger('click');
+    await flushPromises();
+    expect(explorerApi.deleteDatabaseExplorerSession).toHaveBeenCalledWith(
+      'session-1',
+    );
     expect(wrapper.text()).toContain('Nenhuma conexão ativa');
   });
 });
