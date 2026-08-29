@@ -62,14 +62,13 @@ export function useDatabaseExplorerSession(
     if (expired) options.onExpired?.();
   }
 
-  function scheduleExpiry(value: string): void {
+  function scheduleExpiry(value: string, expectedSessionId: string): void {
     clearExpiryTimer();
     const timestamp = Date.parse(value);
     if (!Number.isFinite(timestamp)) return;
 
     expiryTimer = setTimeout(() => {
-      if (!sessionId.value) return;
-      generation += 1;
+      if (sessionId.value !== expectedSessionId) return;
       clearLocalSession(true);
     }, Math.max(0, timestamp - Date.now()));
   }
@@ -88,19 +87,22 @@ export function useDatabaseExplorerSession(
   ): Promise<MachineDatabaseCatalogItem[]> {
     const requestGeneration = ++generation;
     const previousSessionId = sessionId.value;
-    const created = await createDatabaseExplorerSession(input);
+    const previousExpiresAt = expiresAt.value;
+    clearExpiryTimer();
+
+    let created:
+      | { sessionId: string; expiresAt: string }
+      | undefined;
 
     try {
+      created = await createDatabaseExplorerSession(input);
       const databases = await fetchDatabaseExplorerCatalog(created.sessionId);
-      if (requestGeneration !== generation) {
-        await deleteBestEffort(created.sessionId);
-        throw supersededSessionError();
-      }
+      if (requestGeneration !== generation) throw supersededSessionError();
 
       sessionId.value = created.sessionId;
       expiresAt.value = created.expiresAt;
       connection.value = connectionWithoutSecret(input);
-      scheduleExpiry(created.expiresAt);
+      scheduleExpiry(created.expiresAt, created.sessionId);
 
       if (previousSessionId && previousSessionId !== created.sessionId) {
         void deleteBestEffort(previousSessionId);
@@ -108,8 +110,16 @@ export function useDatabaseExplorerSession(
 
       return databases;
     } catch (error) {
-      if (sessionId.value !== created.sessionId) {
+      if (created && sessionId.value !== created.sessionId) {
         await deleteBestEffort(created.sessionId);
+      }
+      if (
+        requestGeneration === generation &&
+        previousSessionId &&
+        previousExpiresAt &&
+        sessionId.value === previousSessionId
+      ) {
+        scheduleExpiry(previousExpiresAt, previousSessionId);
       }
       throw error;
     }
@@ -144,7 +154,6 @@ export function useDatabaseExplorerSession(
       return false;
     }
 
-    generation += 1;
     clearLocalSession(true);
     return true;
   }
