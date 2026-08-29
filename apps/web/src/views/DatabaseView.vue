@@ -160,7 +160,6 @@ const recentExplorerQueries = computed(() =>
   explorerQueryHistory.value.slice(0, 8),
 );
 
-
 function savedConnectionId(connection: MachineDatabaseConnection): string {
   return [
     connection.driver,
