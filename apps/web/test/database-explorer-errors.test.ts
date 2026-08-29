@@ -65,11 +65,12 @@ describe('database explorer error contract', () => {
     ).toBe('fallback seguro');
   });
 
-  it('usa fallback determinístico para valores malformados', () => {
+  it('usa fallback determinístico para valores e códigos malformados', () => {
     expect(formatDatabaseExplorerError(null, 'fallback seguro')).toBe(
       'fallback seguro',
     );
     expect(isDatabaseExplorerErrorCode('OUTRO_CODIGO')).toBe(false);
+    expect(isDatabaseExplorerErrorCode('toString')).toBe(false);
     expect(isDatabaseExplorerErrorCode(undefined)).toBe(false);
   });
 });
