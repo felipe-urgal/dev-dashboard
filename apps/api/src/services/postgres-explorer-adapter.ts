@@ -62,7 +62,7 @@ export class PostgresExplorerAdapter implements DatabaseExplorerAdapter {
       ],
       env,
       runner: this.commandRunner,
-      signal,
+      ...(signal ? { signal } : {}),
     });
   }
 
