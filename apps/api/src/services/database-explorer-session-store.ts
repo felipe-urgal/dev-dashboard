@@ -33,7 +33,9 @@ export class DatabaseExplorerSessionStore {
     this.generateSessionId = options.generateSessionId ?? randomUUID;
 
     if (!Number.isFinite(this.ttlMs) || this.ttlMs <= 0) {
-      throw new Error('O TTL da sessão do Database Explorer deve ser positivo.');
+      throw new Error(
+        'O TTL da sessão do Database Explorer deve ser positivo.',
+      );
     }
   }
 
@@ -89,7 +91,9 @@ export class DatabaseExplorerSessionStore {
       const sessionId = this.generateSessionId();
       if (sessionId && !this.sessions.has(sessionId)) return sessionId;
     }
-    throw new Error('Não foi possível gerar uma sessão única do Database Explorer.');
+    throw new Error(
+      'Não foi possível gerar uma sessão única do Database Explorer.',
+    );
   }
 
   private removeRecord(
