@@ -32,6 +32,7 @@ import {
   runMachineDatabaseServiceAction,
   uninstallMachineDatabaseService,
 } from '../api/rails';
+import { formatDatabaseExplorerError } from '../api/database-explorer-errors';
 import { confirmDialog } from '../stores/app-dialog';
 
 const services = ref<MachineDatabaseService[]>([]);
@@ -159,33 +160,6 @@ const recentExplorerQueries = computed(() =>
   explorerQueryHistory.value.slice(0, 8),
 );
 
-function formatExplorerError(error: unknown, fallback: string): string {
-  const requestError =
-    error && typeof error === 'object'
-      ? (error as { code?: unknown; message?: unknown })
-      : undefined;
-  const code =
-    typeof requestError?.code === 'string' ? requestError.code : undefined;
-  const message =
-    typeof requestError?.message === 'string' ? requestError.message : '';
-
-  switch (code) {
-    case 'DATABASE_EXPLORER_CREDENTIALS_REJECTED':
-      return 'Não foi possível conectar: confira o usuário e a senha informados.';
-    case 'DATABASE_EXPLORER_CONNECTION_FAILED':
-      return 'Não foi possível conectar: verifique se o serviço está instalado e em execução.';
-    case 'DATABASE_EXPLORER_CLIENT_UNAVAILABLE':
-      return 'O cliente deste banco não está instalado nesta máquina.';
-    case 'DATABASE_EXPLORER_REMOTE_HOST_NOT_ALLOWED':
-      return 'Por segurança, o explorador aceita somente bancos locais.';
-    case 'DATABASE_EXPLORER_DATABASE_UNAVAILABLE':
-      return 'O banco informado não existe ou o usuário não tem acesso a ele.';
-    case 'DATABASE_EXPLORER_ABORTED':
-      return 'Consulta cancelada.';
-    default:
-      return message || fallback;
-  }
-}
 
 function savedConnectionId(connection: MachineDatabaseConnection): string {
   return [
@@ -461,7 +435,7 @@ async function connectExplorer(): Promise<void> {
     scheduleExplorerSessionExpiry();
     explorerModalOpen.value = false;
   } catch (error) {
-    explorerError.value = formatExplorerError(
+    explorerError.value = formatDatabaseExplorerError(
       error,
       'Não foi possível conectar ao banco.',
     );
@@ -488,7 +462,7 @@ async function selectExplorerDatabase(database: string): Promise<void> {
       ...(database ? { database } : {}),
     });
   } catch (error) {
-    explorerError.value = formatExplorerError(
+    explorerError.value = formatDatabaseExplorerError(
       error,
       'Não foi possível listar as tabelas.',
     );
@@ -525,7 +499,7 @@ async function previewExplorerTable(): Promise<void> {
       table,
     );
   } catch (error) {
-    explorerError.value = formatExplorerError(
+    explorerError.value = formatDatabaseExplorerError(
       error,
       'Não foi possível consultar a tabela.',
     );
@@ -556,7 +530,7 @@ async function runExplorerQuery(): Promise<void> {
     );
     rememberExplorerQuery();
   } catch (error) {
-    explorerError.value = formatExplorerError(
+    explorerError.value = formatDatabaseExplorerError(
       error,
       'Não foi possível executar a consulta.',
     );
@@ -645,7 +619,7 @@ async function testExplorerConnection(): Promise<void> {
     });
     explorerTestMessage.value = `Conexão validada. ${databases.length} banco(s) encontrado(s).`;
   } catch (error) {
-    explorerError.value = formatExplorerError(
+    explorerError.value = formatDatabaseExplorerError(
       error,
       'Não foi possível testar a conexão.',
     );
