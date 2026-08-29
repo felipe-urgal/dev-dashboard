@@ -5,7 +5,10 @@ import Fastify from 'fastify';
 
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { databaseExplorerSessionRoutes } from '../src/routes/database-explorer-sessions.js';
-import type { DatabaseExplorerService } from '../src/services/database-explorer-service.js';
+import {
+  DatabaseExplorerError,
+  type DatabaseExplorerService,
+} from '../src/services/database-explorer-service.js';
 import { DatabaseExplorerSessionStore } from '../src/services/database-explorer-session-store.js';
 
 async function createApp(
@@ -69,6 +72,45 @@ test('cria sessão opaca sem devolver credenciais e reutiliza a conexão no cat�
     username: 'app',
     password: 'segredo',
   });
+});
+
+test('rejeita conexão antes de persistir credenciais na sessão', async (context) => {
+  const databaseExplorerService = {
+    async listDatabases() {
+      throw new DatabaseExplorerError(
+        'remote-host',
+        'Por segurança, o explorador aceita somente bancos locais.',
+      );
+    },
+  } as unknown as DatabaseExplorerService;
+  const store = new DatabaseExplorerSessionStore({
+    ttlMs: 60_000,
+    generateSessionId: () => 'rejected-session',
+  });
+  const app = await createApp(databaseExplorerService, store);
+  context.after(async () => {
+    store.close();
+    await app.close();
+  });
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/database/explorer/sessions',
+    payload: {
+      driver: 'postgresql',
+      host: 'database.example.com',
+      username: 'app',
+      password: 'segredo',
+    },
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.json(), {
+    error: 'DATABASE_EXPLORER_REMOTE_HOST_NOT_ALLOWED',
+    message: 'Por segurança, o explorador aceita somente bancos locais.',
+  });
+  assert.equal(response.body.includes('segredo'), false);
+  assert.equal(store.get('rejected-session'), undefined);
 });
 
 test('permite selecionar database sem reenviar credenciais', async (context) => {
