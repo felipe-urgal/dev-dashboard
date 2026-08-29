@@ -5,6 +5,10 @@
 O Database Explorer separa a adaptação HTTP da execução de consultas locais por fronteiras explícitas:
 
 ```text
+DatabaseView / useDatabaseExplorerSession
+    ↓
+Typed API client (sessionId)
+    ↓
 Rotas Fastify
     ↓
 DatabaseExplorerSessionStore
@@ -18,7 +22,7 @@ PostgresExplorerAdapter / MysqlExplorerAdapter
 pg / mysql2 (protocolo nativo)
 ```
 
-As rotas legadas em `apps/api/src/routes/database.ts` continuam disponíveis durante a migração e recebem uma conexão completa por operação. As novas rotas em `apps/api/src/routes/database-explorer-sessions.ts` oferecem o fluxo server-side por sessão sem quebrar o cliente atual.
+O frontend usa as rotas de sessão em `apps/api/src/routes/database-explorer-sessions.ts`. As rotas legadas em `apps/api/src/routes/database.ts`, que ainda aceitam uma conexão completa por operação, permanecem temporariamente apenas para compatibilidade e não são mais o caminho usado pela interface web do Explorer.
 
 As rotas são responsáveis apenas por aspectos de transporte:
 
@@ -57,7 +61,7 @@ A normalização antes da resposta HTTP preserva strings, números, booleanos e 
 
 `DatabaseExplorerSessionStore`, em `apps/api/src/services/database-explorer-session-store.ts`, mantém a conexão somente na memória do processo por um TTL curto de 15 minutos. A sessão usa um identificador opaco gerado por `crypto.randomUUID()` e retorna ao cliente apenas `sessionId` e `expiresAt`.
 
-Fluxo disponível:
+Fluxo usado pela interface web:
 
 ```text
 POST   /api/database/explorer/sessions
@@ -70,7 +74,18 @@ DELETE /api/database/explorer/sessions/:sessionId
 
 A criação da sessão valida primeiro a conexão pelo `DatabaseExplorerService`. Driver, host local, cliente disponível, credenciais e acesso ao banco são verificados antes de `DatabaseExplorerSessionStore.create()`. Uma conexão rejeitada, remota ou indisponível não chega a ser retida no store.
 
-Depois da criação da sessão, catálogo, tabelas, preview e query recebem `sessionId` no corpo validado junto dos dados específicos da operação, como `database`, `schema`, `table` ou `query`. O identificador não vai na URL dessas operações para reduzir sua exposição em access logs. Usuário e senha não precisam ser reenviados. O `database` pode sobrescrever temporariamente o valor armazenado sem alterar as credenciais da sessão.
+Depois da criação da sessão, catálogo, tabelas, preview e query recebem `sessionId` no corpo validado junto dos dados específicos da operação, como `database`, `schema`, `table` ou `query`. O identificador não vai na URL dessas operações para reduzir sua exposição em access logs. Usuário e senha não são reenviados. O `database` pode sobrescrever temporariamente o valor armazenado sem alterar as credenciais da sessão.
+
+No frontend, `apps/web/src/composables/useDatabaseExplorerSession.ts` concentra o lifecycle da conexão:
+
+- cria a sessão e guarda no estado reativo apenas `sessionId`, `expiresAt` e metadados sem senha;
+- usa o `expiresAt` retornado pelo servidor como prazo absoluto, sem renovar o TTL local a cada consulta;
+- ao testar uma conexão, usa uma sessão temporária e faz cleanup sem ativá-la na interface;
+- ao trocar de conexão, ativa a nova sessão somente depois de validar catálogo e remove a anterior em best-effort;
+- ao desconectar explicitamente, espera o `DELETE` antes de limpar o estado local, permitindo retry se o encerramento falhar;
+- ao receber `SESSION_EXPIRED`, limpa imediatamente a sessão e o contexto visual do Explorer;
+- ao desmontar a view, tenta remover a sessão ativa em best-effort; o TTL absoluto do servidor permanece como garantia final de cleanup;
+- respostas de tabelas/preview/query só são aplicadas se o `sessionId` capturado no início ainda for o atual, evitando que uma operação antiga ressuscite dados depois de troca ou expiração de sessão.
 
 O store:
 
@@ -80,7 +95,7 @@ O store:
 - remove a sessão explicitamente no `DELETE`, de forma idempotente;
 - limpa timers e credenciais restantes no shutdown da API por `close()`.
 
-Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas nas operações que dependem de uma sessão já criada. A criação expõe somente falhas de conexão/execução do Explorer. O identificador da sessão deve ser tratado como credencial efêmera: ele não deve ser persistido pelo cliente nem incluído em logs adicionais. O `DELETE` mantém o identificador no path por ser o endpoint explícito de encerramento definido para o ciclo de vida da sessão.
+Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas nas operações que dependem de uma sessão já criada. A criação expõe somente falhas de conexão/execução do Explorer. O identificador da sessão deve ser tratado como credencial efêmera: ele não é persistido pelo cliente nem incluído em logs adicionais. O `DELETE` mantém o identificador no path por ser o endpoint explícito de encerramento definido para o ciclo de vida da sessão.
 
 ## Composição
 
@@ -88,11 +103,13 @@ Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas 
 
 `buildApp()` cria o `DatabaseExplorerSessionStore`, registra as rotas de sessão com o mesmo `DatabaseExplorerService` e chama `close()` no encerramento da aplicação. Essa composição preserva o store como estado efêmero do processo e evita que credenciais entrem no `AppContext` persistente.
 
-Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, e as rotas de sessão podem substituir diretamente `DatabaseExplorerService`.
+Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e o composable web pode validar expiração/cleanup sem montar a view inteira.
 
 ## Compatibilidade e próxima etapa
 
-As rotas legadas permanecem temporariamente para evitar uma mudança incompatível no mesmo PR. O frontend será migrado para criar uma única sessão e usar `sessionId` nas operações; depois dessa migração, as rotas que aceitam credenciais por operação poderão ser removidas em um recorte separado e revisável.
+As rotas legadas permanecem temporariamente para consumidores compatíveis, mas a interface web já cria uma única sessão e usa `sessionId` nas operações. A remoção das rotas que aceitam credenciais por operação pode ocorrer em um recorte separado, depois de confirmar que não existem outros consumidores.
+
+A próxima etapa de frontend separa query history e saved connections da `DatabaseView`, sem misturar essa responsabilidade ao lifecycle de sessão.
 
 O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 
