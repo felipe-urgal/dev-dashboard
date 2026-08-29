@@ -153,11 +153,11 @@ test('bloqueia SELECTs com efeitos colaterais conhecidos antes do adapter', asyn
   assert.equal(calls, 0);
 });
 
-test('normaliza ponto e vírgula final e propaga AbortSignal ao adapter', async () => {
-  let receivedQuery = '';
+test('normaliza query, limita linhas e propaga AbortSignal ao adapter', async () => {
+  const receivedQueries: string[] = [];
   let receivedSignal: AbortSignal | undefined;
   const adapter = createAdapter(async (_connection, query, signal) => {
-    receivedQuery = query;
+    receivedQueries.push(query);
     receivedSignal = signal;
     return {
       ...emptyResult,
@@ -174,8 +174,22 @@ test('normaliza ponto e vírgula final e propaga AbortSignal ao adapter', async 
     "SELECT title FROM posts WHERE title = 'Fórum';",
     controller.signal,
   );
+  await service.query({ driver: 'mysql' }, 'SELECT * FROM posts LIMIT 500');
+  await service.query(
+    { driver: 'mysql' },
+    'SELECT * FROM posts LIMIT 20, 500',
+  );
+  await service.query(
+    { driver: 'mysql' },
+    'SELECT * FROM (SELECT * FROM posts LIMIT 500) nested',
+  );
 
-  assert.equal(receivedQuery, "SELECT title FROM posts WHERE title = 'Fórum'");
+  assert.deepEqual(receivedQueries, [
+    "SELECT title FROM posts WHERE title = 'Fórum' LIMIT 101",
+    'SELECT * FROM posts LIMIT 101',
+    'SELECT * FROM posts LIMIT 20, 101',
+    'SELECT * FROM (SELECT * FROM posts LIMIT 500) nested LIMIT 101',
+  ]);
   assert.equal(receivedSignal, controller.signal);
   assert.deepEqual(result.rows, [[1]]);
 });
