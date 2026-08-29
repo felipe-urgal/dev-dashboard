@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - refactor/database-explorer-session-store
+    paths:
+      - .github/workflows/tmp-update-database-api-docs.yml
 
 permissions:
   contents: write
