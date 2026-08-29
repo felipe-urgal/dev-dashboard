@@ -9,17 +9,22 @@ import type {
 const api = vi.hoisted(() => ({
   fetchMachineDatabaseServices: vi.fn(),
   fetchMachineDatabaseServiceDetails: vi.fn(),
-  fetchMachineDatabaseCatalog: vi.fn(),
-  fetchMachineDatabaseTables: vi.fn(),
-  previewMachineDatabaseTable: vi.fn(),
-  queryMachineDatabase: vi.fn(),
   installMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
   runMachineDatabaseServiceAction: vi.fn().mockResolvedValue(undefined),
   uninstallMachineDatabaseService: vi.fn().mockResolvedValue(undefined),
 }));
+const explorerApi = vi.hoisted(() => ({
+  createDatabaseExplorerSession: vi.fn(),
+  deleteDatabaseExplorerSession: vi.fn().mockResolvedValue(undefined),
+  fetchDatabaseExplorerCatalog: vi.fn(),
+  fetchDatabaseExplorerTables: vi.fn(),
+  previewDatabaseExplorerTable: vi.fn(),
+  queryDatabaseExplorer: vi.fn(),
+}));
 const confirmDialog = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/api/rails', () => api);
+vi.mock('../src/api/database-explorer', () => explorerApi);
 vi.mock('../src/stores/app-dialog', () => ({ confirmDialog }));
 
 import DatabaseView from '../src/views/DatabaseView.vue';
@@ -45,12 +50,16 @@ afterEach(() => {
 describe('DatabaseView concorrência do Explorer', () => {
   it('bloqueia troca de conexão, banco e tabela enquanto uma leitura está em voo', async () => {
     api.fetchMachineDatabaseServices.mockResolvedValue([]);
-    api.fetchMachineDatabaseCatalog.mockResolvedValue([
+    explorerApi.createDatabaseExplorerSession.mockResolvedValue({
+      sessionId: 'session-1',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    explorerApi.fetchDatabaseExplorerCatalog.mockResolvedValue([
       { name: 'app_development' },
     ]);
 
     const tables = deferred<MachineDatabaseTable[]>();
-    api.fetchMachineDatabaseTables.mockReturnValueOnce(tables.promise);
+    explorerApi.fetchDatabaseExplorerTables.mockReturnValueOnce(tables.promise);
 
     const wrapper = mount(DatabaseView);
     wrappers.push(wrapper);
@@ -89,7 +98,9 @@ describe('DatabaseView concorrência do Explorer', () => {
     expect(databaseSelect.attributes('disabled')).toBeUndefined();
 
     const preview = deferred<MachineDatabaseQueryResult>();
-    api.previewMachineDatabaseTable.mockReturnValueOnce(preview.promise);
+    explorerApi.previewDatabaseExplorerTable.mockReturnValueOnce(
+      preview.promise,
+    );
     const tableButton = wrapper
       .findAll('button')
       .find((button) => button.text().trim() === 'public.users')!;
