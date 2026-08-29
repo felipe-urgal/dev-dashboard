@@ -63,7 +63,7 @@ export class MysqlExplorerAdapter implements DatabaseExplorerAdapter {
       ],
       env,
       runner: this.commandRunner,
-      signal,
+      ...(signal ? { signal } : {}),
     });
   }
 
