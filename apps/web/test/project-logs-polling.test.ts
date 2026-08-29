@@ -47,7 +47,7 @@ function mountHarness() {
     }),
   );
 
-  return { wrapper, state };
+  return { wrapper, state, hasManagedProcess };
 }
 
 describe('lifecycle do stream de logs do projeto', () => {
@@ -73,6 +73,28 @@ describe('lifecycle do stream de logs do projeto', () => {
     await flushPromises();
 
     expect(state.streamPaused.value).toBe(true);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(state.loadingLogs.value).toBe(false);
+    expect(state.logErrorMessage.value).toBe('');
+
+    wrapper.unmount();
+  });
+
+  it('encerra o loading quando o processo deixa de estar disponível', async () => {
+    const done = deferred<void>();
+    const close = vi.fn(() => done.resolve());
+    followProjectProcessLogEvents.mockReturnValue({
+      close,
+      done: done.promise,
+    });
+
+    const { wrapper, state, hasManagedProcess } = mountHarness();
+    await flushPromises();
+
+    expect(state.loadingLogs.value).toBe(true);
+    hasManagedProcess.value = false;
+    await flushPromises();
+
     expect(close).toHaveBeenCalledTimes(1);
     expect(state.loadingLogs.value).toBe(false);
     expect(state.logErrorMessage.value).toBe('');
