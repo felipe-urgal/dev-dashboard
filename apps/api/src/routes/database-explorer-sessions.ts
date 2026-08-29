@@ -248,7 +248,9 @@ export const databaseExplorerSessionRoutes: FastifyPluginAsync<
           request.body,
           abortScope.signal,
         );
-        const session = options.databaseExplorerSessionStore.create(request.body);
+        const session = options.databaseExplorerSessionStore.create(
+          request.body,
+        );
         return reply.code(201).send(session);
       } catch (error) {
         return asExplorerApiError(error);
