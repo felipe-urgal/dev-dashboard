@@ -180,27 +180,31 @@ function boundedReadOnlyQuery(
   const prefixEnd = limitIndex + 'limit'.length;
   const suffix = normalized.slice(prefixEnd);
   const match = suffix.match(/^(\s+)(\d+)(\s*,\s*(\d+))?/);
-  if (!match) {
+  const matchText = match?.[0];
+  const leadingWhitespace = match?.[1];
+  const countText = match?.[2];
+  if (!matchText || !leadingWhitespace || !countText) {
     throw new DatabaseExplorerAdapterError(
       'invalid-query',
       'Use LIMIT com um valor numérico no explorador.',
     );
   }
 
-  if (match[4]) {
-    const count = Number(match[4]);
+  const offsetCountText = match[4];
+  if (offsetCountText) {
+    const count = Number(offsetCountText);
     if (count <= MAX_QUERY_ROWS) return normalized;
-    const countOffset = prefixEnd + match[0].lastIndexOf(match[4]);
+    const countOffset = prefixEnd + matchText.lastIndexOf(offsetCountText);
     return `${normalized.slice(0, countOffset)}${MAX_QUERY_ROWS}${normalized.slice(
-      countOffset + match[4].length,
+      countOffset + offsetCountText.length,
     )}`;
   }
 
-  const count = Number(match[2]);
+  const count = Number(countText);
   if (count <= MAX_QUERY_ROWS) return normalized;
-  const countOffset = prefixEnd + match[1].length;
+  const countOffset = prefixEnd + leadingWhitespace.length;
   return `${normalized.slice(0, countOffset)}${MAX_QUERY_ROWS}${normalized.slice(
-    countOffset + match[2].length,
+    countOffset + countText.length,
   )}`;
 }
 
