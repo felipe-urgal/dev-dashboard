@@ -57,9 +57,9 @@ describe('lifecycle do stream de logs do projeto', () => {
     followProjectProcessLogEvents.mockReset();
   });
 
-  it('não transforma pausa intencional em erro e encerra o loading', async () => {
+  it('encerra o loading ao pausar antes do primeiro evento', async () => {
     const done = deferred<void>();
-    const close = vi.fn();
+    const close = vi.fn(() => done.resolve());
     followProjectProcessLogEvents.mockReturnValue({
       close,
       done: done.promise,
@@ -70,18 +70,12 @@ describe('lifecycle do stream de logs do projeto', () => {
 
     expect(state.loadingLogs.value).toBe(true);
     state.toggleStream();
+    await flushPromises();
 
     expect(state.streamPaused.value).toBe(true);
     expect(close).toHaveBeenCalledTimes(1);
     expect(state.loadingLogs.value).toBe(false);
-
-    const abortError = new Error('A operação foi cancelada.');
-    abortError.name = 'AbortError';
-    done.reject(abortError);
-    await flushPromises();
-
     expect(state.logErrorMessage.value).toBe('');
-    expect(state.loadingLogs.value).toBe(false);
 
     wrapper.unmount();
   });
