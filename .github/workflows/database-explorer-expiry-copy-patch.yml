@@ -1,0 +1,27 @@
+name: Database Explorer Expiry Copy Patch
+
+on:
+  push:
+    branches:
+      - refactor/database-explorer-session-composable
+    paths:
+      - scripts/fix-database-explorer-expiry-copy.mjs
+      - .github/workflows/database-explorer-expiry-copy-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/database-explorer-session-composable
+      - run: node scripts/fix-database-explorer-expiry-copy.mjs
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/views/DatabaseView.vue
+          git commit -m "fix(database): alinha copy ao TTL absoluto"
+          git push
