@@ -14,9 +14,7 @@ import {
   DatabaseExplorerError,
   type DatabaseExplorerService,
 } from '../services/database-explorer-service.js';
-import type {
-  DatabaseExplorerSessionStore,
-} from '../services/database-explorer-session-store.js';
+import type { DatabaseExplorerSessionStore } from '../services/database-explorer-session-store.js';
 
 interface Options extends FastifyPluginOptions {
   databaseExplorerService: DatabaseExplorerService;
@@ -224,10 +222,9 @@ function requireSessionConnection(
   return database ? { ...connection, database } : connection;
 }
 
-export const databaseExplorerSessionRoutes: FastifyPluginAsync<Options> = async (
-  app,
-  options,
-) => {
+export const databaseExplorerSessionRoutes: FastifyPluginAsync<
+  Options
+> = async (app, options) => {
   app.post<{ Body: SessionConnectionBody }>(
     '/database/explorer/sessions',
     {
