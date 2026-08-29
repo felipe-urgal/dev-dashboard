@@ -7,7 +7,6 @@ import type {
 
 import {
   DatabaseExplorerAdapterError,
-  type DatabaseCommandRunner,
   type DatabaseExplorerAdapter,
 } from './database-explorer-adapter.js';
 import { MysqlExplorerAdapter } from './mysql-explorer-adapter.js';
@@ -22,6 +21,11 @@ const blockedPostgresFunctions =
   /\b(?:nextval|setval|pg_sleep|pg_notify|pg_advisory_(?:xact_)?lock(?:_shared)?|pg_cancel_backend|pg_terminate_backend|pg_reload_conf|pg_rotate_logfile|pg_create_restore_point|lo_import|lo_export|dblink_exec)\s*\(/i;
 const blockedMysqlFunctions =
   /\b(?:get_lock|release_lock|load_file|sleep|benchmark)\s*\(/i;
+
+export interface DatabaseReadonlyServiceOptions {
+  postgresAdapter?: DatabaseExplorerAdapter;
+  mysqlAdapter?: DatabaseExplorerAdapter;
+}
 
 function validateConnection(connection: MachineDatabaseConnection): void {
   if (!['mysql', 'mariadb', 'postgresql'].includes(connection.driver)) {
@@ -117,9 +121,9 @@ export class DatabaseReadonlyService {
   private readonly postgresAdapter: DatabaseExplorerAdapter;
   private readonly mysqlAdapter: DatabaseExplorerAdapter;
 
-  public constructor(commandRunner?: DatabaseCommandRunner) {
-    this.postgresAdapter = new PostgresExplorerAdapter(commandRunner);
-    this.mysqlAdapter = new MysqlExplorerAdapter(commandRunner);
+  public constructor(options: DatabaseReadonlyServiceOptions = {}) {
+    this.postgresAdapter = options.postgresAdapter ?? new PostgresExplorerAdapter();
+    this.mysqlAdapter = options.mysqlAdapter ?? new MysqlExplorerAdapter();
   }
 
   private adapterFor(
