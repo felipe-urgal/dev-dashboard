@@ -1,3 +1,4 @@
+# Workflow temporário: remover antes do merge.
 name: Temporary Database API Docs Update
 
 on:
