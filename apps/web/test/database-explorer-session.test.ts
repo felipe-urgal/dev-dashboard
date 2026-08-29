@@ -27,6 +27,16 @@ function mountHarness(onExpired = vi.fn()) {
   return { wrapper, state, onExpired };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 function futureExpiry(): string {
   return new Date(Date.now() + 60_000).toISOString();
 }
@@ -98,6 +108,41 @@ describe('useDatabaseExplorerSession', () => {
     expect(state.sessionId.value).toBeNull();
     expect(state.connection.value).toBeNull();
     expect(onExpired).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it('não deixa a expiração antiga cancelar um reconnect em andamento', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-29T17:00:00.000Z'));
+    api.createDatabaseExplorerSession
+      .mockResolvedValueOnce({
+        sessionId: 'session-1',
+        expiresAt: '2026-08-29T17:00:01.000Z',
+      })
+      .mockResolvedValueOnce({
+        sessionId: 'session-2',
+        expiresAt: '2026-08-29T17:00:10.000Z',
+      });
+    const nextCatalog = deferred<{ name: string }[]>();
+    api.fetchDatabaseExplorerCatalog
+      .mockResolvedValueOnce([{ name: 'old_database' }])
+      .mockReturnValueOnce(nextCatalog.promise);
+
+    const { wrapper, state, onExpired } = mountHarness();
+    await state.connect(connection);
+
+    const reconnect = state.connect({ ...connection, username: 'next' });
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(state.sessionId.value).toBe('session-1');
+    expect(onExpired).not.toHaveBeenCalled();
+
+    nextCatalog.resolve([{ name: 'next_database' }]);
+    await expect(reconnect).resolves.toEqual([{ name: 'next_database' }]);
+    expect(state.sessionId.value).toBe('session-2');
+    expect(onExpired).not.toHaveBeenCalled();
 
     wrapper.unmount();
   });
