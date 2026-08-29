@@ -13,6 +13,8 @@ DatabaseExplorerService
     ↓
 DatabaseReadonlyService
     ↓
+PostgresCliDatabaseReadonlyAdapter / MysqlCliDatabaseReadonlyAdapter
+    ↓
 psql / mysql
 ```
 
@@ -28,14 +30,25 @@ As rotas são responsáveis apenas por aspectos de transporte:
 
 `DatabaseExplorerService`, em `apps/api/src/services/database-explorer-service.ts`, é a fronteira de aplicação do explorador. Ele recebe as operações de catálogo, tabelas, preview e consulta livre, delega a execução à infraestrutura read-only e normaliza falhas dessa infraestrutura em `DatabaseExplorerError`. Assim, a camada HTTP não depende diretamente do executor baseado em cliente de banco.
 
-`DatabaseReadonlyService`, em `apps/api/src/services/database-readonly-service.ts`, continua responsável pela infraestrutura atual:
+`DatabaseReadonlyService`, em `apps/api/src/services/database-readonly-service.ts`, concentra a política comum do modo somente leitura:
 
 - validar conexão local e driver suportado;
-- aplicar as proteções read-only específicas do banco;
-- montar a invocação segura de `psql`/`mysql` sem shell;
-- aplicar timeout, cancelamento e limites de consulta/resultado;
-- interpretar a saída tabular dos clientes;
-- classificar falhas de cliente, conexão, credencial e banco.
+- validar consultas `SELECT/WITH` e construções perigosas conhecidas;
+- montar SQL de catálogo, tabelas e preview;
+- selecionar o adapter correspondente ao driver.
+
+Os adapters em `apps/api/src/services/database-readonly-adapters.ts` isolam detalhes de infraestrutura específicos de cada família de banco:
+
+- `PostgresCliDatabaseReadonlyAdapter` monta ambiente/argumentos do `psql`, aplica `default_transaction_read_only=on` e `statement_timeout`;
+- `MysqlCliDatabaseReadonlyAdapter` atende MySQL e MariaDB, monta ambiente/argumentos do `mysql` e aplica `SET SESSION TRANSACTION READ ONLY`;
+- ambos compartilham apenas o runner de processo, classificação de falhas e o parsing tabular legado;
+- credenciais continuam fora dos argumentos de processo e ficam somente no ambiente do processo filho.
+
+`DatabaseReadonlyError`, em `apps/api/src/services/database-readonly-error.ts`, é compartilhado entre serviço e adapters sem criar dependência circular. `database-readonly-service.ts` reexporta a classe para preservar compatibilidade dos consumidores existentes.
+
+### Decisão sobre `pg` e `mysql2`
+
+Este recorte não adiciona `pg` nem `mysql2`. A adoção desses clientes mudaria simultaneamente lifecycle de conexão, cancelamento e principalmente o formato de resultado, misturando a fronteira de adapters com a remoção do parsing TSV. A fronteira foi criada primeiro mantendo o comportamento atual; o próximo recorte de resultados estruturados pode substituir cada adapter internamente sem alterar `DatabaseReadonlyService`, `DatabaseExplorerService` ou as rotas.
 
 ## Sessão server-side
 
@@ -68,11 +81,11 @@ Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas 
 
 ## Composição
 
-`createAppContext()` instancia `DatabaseReadonlyService`, injeta essa dependência em `DatabaseExplorerService` e expõe somente `databaseExplorerService` para o registro das rotas. O executor read-only fica, portanto, como detalhe de composição do contexto em vez de dependência direta do adaptador HTTP.
+`createAppContext()` instancia `DatabaseReadonlyService`, injeta essa dependência em `DatabaseExplorerService` e expõe somente `databaseExplorerService` para o registro das rotas. O executor CLI e os adapters permanecem detalhes internos da composição read-only em vez de dependências do adaptador HTTP.
 
 `buildApp()` cria o `DatabaseExplorerSessionStore`, registra as rotas de sessão com o mesmo `DatabaseExplorerService` e chama `close()` no encerramento da aplicação. Essa composição preserva o store como estado efêmero do processo e evita que credenciais entrem no `AppContext` persistente.
 
-Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, o store pode ter TTL e cleanup testados sem banco real, e as rotas de sessão podem substituir diretamente `DatabaseExplorerService`.
+Essa separação também facilita testes isolados: o serviço pode ser exercitado com um `DatabaseCommandRunner` controlado, cada adapter mantém comportamento específico por driver atrás de uma interface comum, o store pode ter TTL e cleanup testados sem banco real, e as rotas de sessão podem substituir diretamente `DatabaseExplorerService`.
 
 ## Compatibilidade e próxima etapa
 
