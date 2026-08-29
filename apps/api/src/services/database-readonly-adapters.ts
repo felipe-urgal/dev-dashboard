@@ -6,7 +6,7 @@ import type {
   MachineDatabaseQueryResult,
 } from '@dev-dashboard/contracts';
 
-import { DatabaseReadonlyError } from './database-readonly-service.js';
+import { DatabaseReadonlyError } from './database-readonly-error.js';
 
 const execFileAsync = promisify(execFile);
 export const DATABASE_COMMAND_TIMEOUT_MS = 15_000;
@@ -93,7 +93,10 @@ abstract class CliDatabaseReadonlyAdapter implements DatabaseReadonlyAdapter {
     protected readonly commandRunner: DatabaseCommandRunner = defaultDatabaseCommandRunner,
   ) {}
 
-  protected abstract buildInvocation(connection: MachineDatabaseConnection, sql: string): {
+  protected abstract buildInvocation(
+    connection: MachineDatabaseConnection,
+    sql: string,
+  ): {
     args: string[];
     env: NodeJS.ProcessEnv;
   };
