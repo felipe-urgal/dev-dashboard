@@ -27,6 +27,10 @@ function mountHarness(onExpired = vi.fn()) {
   return { wrapper, state, onExpired };
 }
 
+function futureExpiry(): string {
+  return new Date(Date.now() + 60_000).toISOString();
+}
+
 const connection = {
   driver: 'postgresql' as const,
   host: '127.0.0.1',
@@ -50,7 +54,7 @@ describe('useDatabaseExplorerSession', () => {
   it('mantém apenas metadados sem senha depois de conectar', async () => {
     api.createDatabaseExplorerSession.mockResolvedValue({
       sessionId: 'session-1',
-      expiresAt: '2099-01-01T00:00:00.000Z',
+      expiresAt: futureExpiry(),
     });
     api.fetchDatabaseExplorerCatalog.mockResolvedValue([
       { name: 'app_development' },
@@ -101,7 +105,7 @@ describe('useDatabaseExplorerSession', () => {
   it('usa sessão temporária no teste e não mascara falha com erro de cleanup', async () => {
     api.createDatabaseExplorerSession.mockResolvedValue({
       sessionId: 'test-session',
-      expiresAt: '2099-01-01T00:00:00.000Z',
+      expiresAt: futureExpiry(),
     });
     api.fetchDatabaseExplorerCatalog.mockRejectedValue(
       new Error('credenciais rejeitadas'),
@@ -126,7 +130,7 @@ describe('useDatabaseExplorerSession', () => {
   it('faz disconnect explícito antes de limpar o estado local', async () => {
     api.createDatabaseExplorerSession.mockResolvedValue({
       sessionId: 'session-1',
-      expiresAt: '2099-01-01T00:00:00.000Z',
+      expiresAt: futureExpiry(),
     });
     api.fetchDatabaseExplorerCatalog.mockResolvedValue([]);
 
@@ -144,7 +148,7 @@ describe('useDatabaseExplorerSession', () => {
   it('limpa a sessão ao receber SESSION_EXPIRED', async () => {
     api.createDatabaseExplorerSession.mockResolvedValue({
       sessionId: 'session-1',
-      expiresAt: '2099-01-01T00:00:00.000Z',
+      expiresAt: futureExpiry(),
     });
     api.fetchDatabaseExplorerCatalog.mockResolvedValue([]);
 
