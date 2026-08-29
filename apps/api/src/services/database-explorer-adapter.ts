@@ -27,13 +27,6 @@ export class DatabaseExplorerAdapterError extends Error {
   }
 }
 
-export type DatabaseCommandRunner = (
-  command: string,
-  args: string[],
-  env: NodeJS.ProcessEnv,
-  signal?: AbortSignal,
-) => Promise<string>;
-
 export interface DatabaseExplorerAdapter {
   listDatabases(
     connection: MachineDatabaseConnection,
