@@ -4,20 +4,43 @@ import type {
   MachineDatabaseQueryResult,
   MachineDatabaseTable,
 } from '@dev-dashboard/contracts';
+import { Client, type ClientConfig } from 'pg';
 
 import {
-  type DatabaseCommandRunner,
+  DatabaseExplorerAdapterError,
   type DatabaseExplorerAdapter,
   validateDatabaseIdentifier,
 } from './database-explorer-adapter.js';
 import {
-  DATABASE_COMMAND_TIMEOUT_MS,
-  defaultDatabaseCommandRunner,
-  runDatabaseCliCommand,
-} from './database-explorer-cli.js';
+  DATABASE_QUERY_TIMEOUT_MS,
+  mapDatabaseDriverError,
+  runAbortableDatabaseOperation,
+  toDatabaseQueryResult,
+} from './database-explorer-driver.js';
 
-const POSTGRES_READ_ONLY_OPTIONS = `-c default_transaction_read_only=on -c statement_timeout=${DATABASE_COMMAND_TIMEOUT_MS}`;
 const MAX_ROWS = 100;
+
+interface PostgresQueryResult {
+  fields: Array<{ name: string }>;
+  rows: unknown[][];
+}
+
+export interface PostgresExplorerClient {
+  connect(): Promise<void>;
+  query(sql: string): Promise<unknown>;
+  query(options: {
+    text: string;
+    rowMode: 'array';
+  }): Promise<PostgresQueryResult>;
+  end(): Promise<void>;
+}
+
+export type PostgresExplorerClientFactory = (
+  config: ClientConfig,
+) => PostgresExplorerClient;
+
+const defaultPostgresClientFactory: PostgresExplorerClientFactory = (config) =>
+  new Client(config) as unknown as PostgresExplorerClient;
 
 function quoteIdentifier(value: string, label: string): string {
   return `"${validateDatabaseIdentifier(value, label)}"`;
@@ -25,45 +48,68 @@ function quoteIdentifier(value: string, label: string): string {
 
 export class PostgresExplorerAdapter implements DatabaseExplorerAdapter {
   public constructor(
-    private readonly commandRunner: DatabaseCommandRunner = defaultDatabaseCommandRunner,
+    private readonly clientFactory: PostgresExplorerClientFactory = defaultPostgresClientFactory,
   ) {}
 
-  private run(
+  private async run(
     connection: MachineDatabaseConnection,
     sql: string,
     signal?: AbortSignal,
   ): Promise<MachineDatabaseQueryResult> {
-    const host = connection.host?.trim() || '127.0.0.1';
-    const port = connection.port ?? 5432;
-    const database = connection.database?.trim() || 'postgres';
-    const env = {
-      ...process.env,
-      PGHOST: host,
-      PGPORT: String(port),
-      PGOPTIONS: POSTGRES_READ_ONLY_OPTIONS,
-      ...(connection.username ? { PGUSER: connection.username } : {}),
-      ...(connection.password ? { PGPASSWORD: connection.password } : {}),
-      PGDATABASE: database,
+    if (signal?.aborted) {
+      throw new DatabaseExplorerAdapterError('aborted', 'Consulta cancelada.');
+    }
+
+    const client = this.clientFactory({
+      host: connection.host?.trim() || '127.0.0.1',
+      port: connection.port ?? 5432,
+      ...(connection.username ? { user: connection.username } : {}),
+      ...(connection.password ? { password: connection.password } : {}),
+      database: connection.database?.trim() || 'postgres',
+      connectionTimeoutMillis: DATABASE_QUERY_TIMEOUT_MS,
+      statement_timeout: DATABASE_QUERY_TIMEOUT_MS,
+      query_timeout: DATABASE_QUERY_TIMEOUT_MS,
+      application_name: 'dev-dashboard',
+    });
+
+    let connected = false;
+    let transactionStarted = false;
+    let terminated = false;
+    const terminate = () => {
+      if (terminated) return;
+      terminated = true;
+      void client.end().catch(() => undefined);
     };
 
-    return runDatabaseCliCommand({
-      command: 'psql',
-      args: [
-        '-X',
-        '-A',
-        '-F',
-        '\t',
-        '-P',
-        'footer=off',
-        '-v',
-        'ON_ERROR_STOP=1',
-        '-c',
-        sql,
-      ],
-      env,
-      runner: this.commandRunner,
-      ...(signal ? { signal } : {}),
-    });
+    try {
+      const result = await runAbortableDatabaseOperation({
+        operation: (async () => {
+          await client.connect();
+          connected = true;
+          await client.query('BEGIN READ ONLY');
+          transactionStarted = true;
+          return client.query({ text: sql, rowMode: 'array' });
+        })(),
+        ...(signal ? { signal } : {}),
+        terminate,
+      });
+
+      return toDatabaseQueryResult(
+        result.fields.map((field) => field.name),
+        result.rows,
+      );
+    } catch (error) {
+      throw mapDatabaseDriverError(error, signal);
+    } finally {
+      if (!terminated && connected) {
+        if (transactionStarted) {
+          await client.query('ROLLBACK').catch(() => undefined);
+        }
+        await client.end().catch(() => undefined);
+      } else if (!terminated) {
+        terminate();
+      }
+    }
   }
 
   async listDatabases(
