@@ -184,6 +184,28 @@ retorna snapshot e metadados de redaction
 
 A API não deve aceitar um caminho arbitrário de log vindo da web.
 
+### Apresentação visual no frontend
+
+A camada visual genérica de logs é declarativa. `ProjectLogExperience.vue` recebe o conteúdo e a origem do log, `utils/log-experience.ts` transforma cada linha em dados como tag, tom, duração e diagnóstico, e `LogExperienceFlow.vue` renderiza busca, filtros e estados diretamente pelo Vue.
+
+```text
+conteúdo do log
+      ↓
+parseLogExperience()
+      ↓
+LogExperienceLine[]
+      ├── tag
+      ├── tone
+      ├── durationMs
+      └── issueKind
+      ↓
+ProjectLogExperience / LogExperienceFlow
+      ↓
+DOM produzido pelo Vue
+```
+
+O bootstrap web não instala mais um `Log Visual Enhancer` nem observa o documento para redecorar linhas após o render. As superfícies de terminal bruto, como servidor e workers, continuam usando `ProjectLogTerminal`/xterm sem essa segunda camada de pós-processamento. O stylesheet `log-visual-enhancer.css` permanece apenas como compatibilidade passiva para classes ainda emitidas pelo detalhamento especializado de logs; ele não instala comportamento nem observa o DOM.
+
 ## Operação Git somente leitura
 
 ```text
