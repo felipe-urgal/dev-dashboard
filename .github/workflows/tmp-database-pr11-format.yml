@@ -1,0 +1,43 @@
+name: Temporary Database PR11 format
+
+on:
+  push:
+    branches:
+      - refactor/database-query-history-saved-connections
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Format changed files
+        run: |
+          npx prettier --write \
+            apps/web/src/composables/useDatabaseQueryHistory.ts \
+            apps/web/src/composables/useDatabaseSavedConnections.ts \
+            apps/web/src/views/DatabaseView.vue \
+            apps/web/test/database-explorer-local-state.test.ts \
+            docs/architecture/database-explorer.md
+      - name: Commit formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/web/src/composables/useDatabaseQueryHistory.ts \
+            apps/web/src/composables/useDatabaseSavedConnections.ts \
+            apps/web/src/views/DatabaseView.vue \
+            apps/web/test/database-explorer-local-state.test.ts \
+            docs/architecture/database-explorer.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(format): normaliza extração do Explorer"
+            git push
+          fi
