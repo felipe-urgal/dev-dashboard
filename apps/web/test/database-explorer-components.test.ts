@@ -22,7 +22,7 @@ describe('DatabaseExplorerSidebar', () => {
   test('emite seleção, busca e paginação sem assumir operações assíncronas', async () => {
     const wrapper = mount(DatabaseExplorerSidebar, {
       props: {
-        databases: [{ name: 'app' }],
+        databases: [{ name: 'app' }, { name: 'audit' }],
         tables: [{ schema: 'public', name: 'users' }],
         selectedDatabase: 'app',
         selectedTable: '',
@@ -34,7 +34,7 @@ describe('DatabaseExplorerSidebar', () => {
       },
     });
 
-    await wrapper.get('select').setValue('app');
+    await wrapper.get('select').setValue('audit');
     await wrapper.get('input[type="search"]').setValue('user');
     await wrapper
       .get('.database-explorer-table-list > button')
@@ -44,7 +44,7 @@ describe('DatabaseExplorerSidebar', () => {
     );
     await paginationButtons[1]!.trigger('click');
 
-    assert.deepEqual(wrapper.emitted('select-database')?.[0], ['app']);
+    assert.deepEqual(wrapper.emitted('select-database')?.[0], ['audit']);
     assert.deepEqual(wrapper.emitted('search-table')?.[0], ['user']);
     assert.deepEqual(wrapper.emitted('select-table')?.[0], [
       { schema: 'public', name: 'users' },
