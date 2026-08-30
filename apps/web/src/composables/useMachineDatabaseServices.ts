@@ -174,8 +174,7 @@ export function useMachineDatabaseServices(
       const confirmed = await dependencies.confirmMutation({
         title: `${action === 'stop' ? 'Parar' : 'Reiniciar'} ${service.label}?`,
         message: `O serviço ${service.label} será ${verb}. Aplicações que dependem dele podem ficar indisponíveis durante a operação.`,
-        confirmLabel:
-          action === 'stop' ? 'Parar serviço' : 'Reiniciar serviço',
+        confirmLabel: action === 'stop' ? 'Parar serviço' : 'Reiniciar serviço',
         tone: 'warning',
       });
       if (!confirmed) return;
@@ -197,7 +196,9 @@ export function useMachineDatabaseServices(
     }
   }
 
-  async function installService(service: MachineDatabaseService): Promise<void> {
+  async function installService(
+    service: MachineDatabaseService,
+  ): Promise<void> {
     if (service.installed || pending.value) return;
     const confirmed = await dependencies.confirmMutation({
       title: `Instalar ${service.label}?`,
