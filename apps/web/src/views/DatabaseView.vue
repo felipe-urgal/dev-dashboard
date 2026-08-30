@@ -7,25 +7,10 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline';
 import type {
-  DatabaseServiceAction,
   MachineDatabaseConnection,
   MachineDatabaseTable,
-  MachineDatabaseService,
-  MachineDatabaseServiceDetails,
 } from '@dev-dashboard/contracts';
 
-import {
-  fetchMachineDatabaseServices,
-  fetchMachineDatabaseServiceDetails,
-  installMachineDatabaseService,
-  runMachineDatabaseServiceAction,
-  uninstallMachineDatabaseService,
-} from '../api/rails';
-import {
-  fetchDatabaseExplorerTables,
-  previewDatabaseExplorerTable,
-  queryDatabaseExplorer,
-} from '../api/database-explorer';
 import { formatDatabaseExplorerError } from '../api/database-explorer-errors';
 import DatabaseConnectionDialog from '../components/database/DatabaseConnectionDialog.vue';
 import DatabaseExplorerSidebar from '../components/database/DatabaseExplorerSidebar.vue';
@@ -37,24 +22,32 @@ import {
   useDatabaseQueryHistory,
 } from '../composables/useDatabaseQueryHistory';
 import { useDatabaseExplorerSession } from '../composables/useDatabaseExplorerSession';
+import { useDatabaseQueryExecution } from '../composables/useDatabaseQueryExecution';
 import { useDatabaseResultView } from '../composables/useDatabaseResultView';
 import { useDatabaseTableListView } from '../composables/useDatabaseTableListView';
 import { useDatabaseSavedConnections } from '../composables/useDatabaseSavedConnections';
-import { confirmDialog } from '../stores/app-dialog';
+import { useMachineDatabaseServices } from '../composables/useMachineDatabaseServices';
 
-const services = ref<MachineDatabaseService[]>([]);
-const loading = ref(true);
-const errorMessage = ref('');
-const successMessage = ref('');
-const lastUpdatedAt = ref<Date | null>(null);
-const expandedServiceId = ref<string | null>(null);
-const details = ref<Record<string, MachineDatabaseServiceDetails>>({});
-const detailsErrors = ref<Record<string, string>>({});
-const detailsLoading = ref<string | null>(null);
-const pending = ref<{
-  serviceId: string;
-  action: DatabaseServiceAction | 'install' | 'uninstall';
-} | null>(null);
+const {
+  services,
+  loading,
+  errorMessage,
+  successMessage,
+  lastUpdatedAt,
+  expandedServiceId,
+  details,
+  detailsErrors,
+  detailsLoading,
+  pending,
+  loadServices,
+  refreshServices,
+  loadDetails,
+  toggleDetails,
+  runAction,
+  installService,
+  uninstallService,
+} = useMachineDatabaseServices();
+
 const explorerModalOpen = ref(false);
 const explorerLoading = ref(false);
 const explorerError = ref('');
@@ -135,6 +128,29 @@ function rememberExplorerQuery(): void {
   });
 }
 
+const {
+  selectDatabase: selectExplorerDatabase,
+  selectTable: selectExplorerTable,
+  runQuery: runExplorerQuery,
+  invalidate: invalidateExplorerExecution,
+} = useDatabaseQueryExecution({
+  sessionId: explorerSessionId,
+  database: explorerDatabase,
+  table: explorerTable,
+  tables: explorerTables,
+  query: explorerQuery,
+  loading: explorerLoading,
+  error: explorerError,
+  resetTableList: resetExplorerTableList,
+  resetQuery: resetExplorerQuery,
+  setResult: setExplorerResult,
+  setDuration: setExplorerQueryDuration,
+  resetResultPresentation: resetExplorerResultPresentation,
+  clearCopiedMessage: clearExplorerCopiedMessage,
+  rememberQuery: rememberExplorerQuery,
+  handleSessionError: handleExplorerSessionError,
+});
+
 function restoreExplorerQuery(item: DatabaseQueryHistoryItem): void {
   explorerQuery.value = item.query;
   explorerTable.value = item.table;
@@ -186,14 +202,8 @@ function connectionDraftWithoutSecret(
   };
 }
 
-function buildExplorerTableQuery(table: MachineDatabaseTable): string {
-  const qualifiedName = table.schema
-    ? `${table.schema}.${table.name}`
-    : table.name;
-  return `SELECT * FROM ${qualifiedName}`;
-}
-
 function clearExplorerData(showExpiryMessage = false): void {
+  invalidateExplorerExecution();
   explorerDatabases.value = [];
   explorerTables.value = [];
   explorerDatabase.value = '';
@@ -215,6 +225,7 @@ function clearExplorerData(showExpiryMessage = false): void {
 
 async function disconnectExplorer(): Promise<void> {
   if (explorerLoading.value) return;
+  invalidateExplorerExecution();
   explorerLoading.value = true;
   explorerError.value = '';
   try {
@@ -258,6 +269,7 @@ function closeExplorerConnection(): void {
 }
 
 async function connectExplorer(): Promise<void> {
+  invalidateExplorerExecution();
   explorerLoading.value = true;
   explorerError.value = '';
   explorerTestMessage.value = '';
@@ -285,111 +297,6 @@ async function connectExplorer(): Promise<void> {
   }
 }
 
-async function selectExplorerDatabase(database: string): Promise<void> {
-  const sessionId = explorerSessionId.value;
-  if (!sessionId) return;
-  explorerDatabase.value = database;
-  explorerTable.value = '';
-  resetExplorerTableList();
-  setExplorerResult(null);
-  setExplorerQueryDuration(null);
-  resetExplorerQuery();
-  explorerLoading.value = true;
-  explorerError.value = '';
-  try {
-    const tables = await fetchDatabaseExplorerTables(
-      sessionId,
-      database || undefined,
-    );
-    if (explorerSessionId.value === sessionId) explorerTables.value = tables;
-  } catch (error) {
-    if (!handleExplorerSessionError(error)) {
-      explorerError.value = formatDatabaseExplorerError(
-        error,
-        'Não foi possível listar as tabelas.',
-      );
-    }
-  } finally {
-    explorerLoading.value = false;
-  }
-}
-
-function selectExplorerTable(table: MachineDatabaseTable): void {
-  explorerTable.value = table.name;
-  explorerQuery.value = buildExplorerTableQuery(table);
-  void previewExplorerTable();
-}
-
-async function previewExplorerTable(): Promise<void> {
-  const sessionId = explorerSessionId.value;
-  if (!sessionId) return;
-  const table = explorerTables.value.find(
-    (item) => item.name === explorerTable.value,
-  );
-  if (!table) return;
-  explorerQuery.value = buildExplorerTableQuery(table);
-  explorerLoading.value = true;
-  explorerError.value = '';
-  resetExplorerResultPresentation();
-  const startedAt = performance.now();
-  try {
-    const result = await previewDatabaseExplorerTable(
-      sessionId,
-      table,
-      explorerDatabase.value || undefined,
-    );
-    if (explorerSessionId.value === sessionId) setExplorerResult(result);
-  } catch (error) {
-    if (!handleExplorerSessionError(error)) {
-      explorerError.value = formatDatabaseExplorerError(
-        error,
-        'Não foi possível consultar a tabela.',
-      );
-    }
-  } finally {
-    if (explorerSessionId.value === sessionId) {
-      setExplorerQueryDuration(Math.round(performance.now() - startedAt));
-    }
-    explorerLoading.value = false;
-  }
-}
-
-async function runExplorerQuery(): Promise<void> {
-  const sessionId = explorerSessionId.value;
-  if (!sessionId) return;
-  if (!explorerQuery.value.trim()) {
-    explorerError.value = 'Informe uma consulta SELECT ou WITH.';
-    return;
-  }
-  explorerLoading.value = true;
-  explorerError.value = '';
-  clearExplorerCopiedMessage();
-  const startedAt = performance.now();
-  try {
-    const result = await queryDatabaseExplorer(
-      sessionId,
-      explorerQuery.value,
-      explorerDatabase.value || undefined,
-    );
-    if (explorerSessionId.value === sessionId) {
-      setExplorerResult(result);
-      rememberExplorerQuery();
-    }
-  } catch (error) {
-    if (!handleExplorerSessionError(error)) {
-      explorerError.value = formatDatabaseExplorerError(
-        error,
-        'Não foi possível executar a consulta.',
-      );
-    }
-  } finally {
-    if (explorerSessionId.value === sessionId) {
-      setExplorerQueryDuration(Math.round(performance.now() - startedAt));
-    }
-    explorerLoading.value = false;
-  }
-}
-
 async function testExplorerConnection(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
@@ -406,172 +313,6 @@ async function testExplorerConnection(): Promise<void> {
     );
   } finally {
     explorerLoading.value = false;
-  }
-}
-
-async function loadServices(
-  options: { clearSuccess?: boolean } = {},
-): Promise<boolean> {
-  loading.value = true;
-  errorMessage.value = '';
-  if (options.clearSuccess) successMessage.value = '';
-  try {
-    services.value = await fetchMachineDatabaseServices();
-    lastUpdatedAt.value = new Date();
-    return true;
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível consultar os serviços do sistema.';
-    return false;
-  } finally {
-    loading.value = false;
-  }
-}
-
-function refreshServices(): void {
-  void loadServices({ clearSuccess: true });
-}
-
-async function loadDetails(serviceId: string): Promise<void> {
-  detailsLoading.value = serviceId;
-  detailsErrors.value = { ...detailsErrors.value, [serviceId]: '' };
-  try {
-    details.value = {
-      ...details.value,
-      [serviceId]: await fetchMachineDatabaseServiceDetails(serviceId),
-    };
-  } catch (error) {
-    detailsErrors.value = {
-      ...detailsErrors.value,
-      [serviceId]:
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível consultar os detalhes do serviço.',
-    };
-  } finally {
-    detailsLoading.value = null;
-  }
-}
-
-async function toggleDetails(serviceId: string): Promise<void> {
-  if (expandedServiceId.value === serviceId) {
-    expandedServiceId.value = null;
-    return;
-  }
-  expandedServiceId.value = serviceId;
-  if (!details.value[serviceId]) await loadDetails(serviceId);
-}
-
-function actionLabel(action: DatabaseServiceAction | 'install' | 'uninstall') {
-  return {
-    start: 'iniciado',
-    stop: 'parado',
-    restart: 'reiniciado',
-    install: 'instalado',
-    uninstall: 'desinstalado',
-  }[action];
-}
-
-async function runAction(
-  service: MachineDatabaseService,
-  action: DatabaseServiceAction,
-): Promise<void> {
-  if (!service.installed || pending.value) return;
-  if (action === 'stop' || action === 'restart') {
-    const actionLabel = action === 'stop' ? 'parar' : 'reiniciar';
-    const confirmed = await confirmDialog({
-      title: `${action === 'stop' ? 'Parar' : 'Reiniciar'} ${service.label}?`,
-      message: `O serviço ${service.label} será ${actionLabel}. Aplicações que dependem dele podem ficar indisponíveis durante a operação.`,
-      confirmLabel: action === 'stop' ? 'Parar serviço' : 'Reiniciar serviço',
-      tone: 'warning',
-    });
-    if (!confirmed) return;
-  }
-  pending.value = { serviceId: service.id, action };
-  errorMessage.value = '';
-  successMessage.value = '';
-  try {
-    await runMachineDatabaseServiceAction(service.id, action);
-    const refreshed = await loadServices();
-    if (refreshed) {
-      successMessage.value = `${service.label} ${actionLabel(action)} com sucesso.`;
-      details.value = {};
-    } else if (!errorMessage.value) {
-      errorMessage.value = `${service.label} foi ${actionLabel(action)}, mas não foi possível atualizar o status.`;
-    }
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível alterar o serviço do sistema.';
-  } finally {
-    pending.value = null;
-  }
-}
-
-async function installService(service: MachineDatabaseService): Promise<void> {
-  if (service.installed || pending.value) return;
-  const confirmed = await confirmDialog({
-    title: `Instalar ${service.label}?`,
-    message: `A instalação de ${service.label} altera os pacotes do sistema e pode solicitar sua senha.`,
-    confirmLabel: 'Instalar serviço',
-    tone: 'warning',
-  });
-  if (!confirmed) return;
-  pending.value = { serviceId: service.id, action: 'install' };
-  errorMessage.value = '';
-  successMessage.value = '';
-  try {
-    await installMachineDatabaseService(service.id);
-    const refreshed = await loadServices();
-    if (refreshed) {
-      successMessage.value = `${service.label} instalado com sucesso.`;
-      details.value = {};
-    } else if (!errorMessage.value) {
-      errorMessage.value = `${service.label} foi instalado, mas não foi possível atualizar o status.`;
-    }
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível instalar o serviço do sistema.';
-  } finally {
-    pending.value = null;
-  }
-}
-
-async function uninstallService(
-  service: MachineDatabaseService,
-): Promise<void> {
-  if (!service.installed || pending.value) return;
-  const confirmed = await confirmDialog({
-    title: `Desinstalar ${service.label}?`,
-    message: `O pacote de ${service.label} será removido do sistema. Os dados do banco podem permanecer no disco e o serviço ficará indisponível.`,
-    confirmLabel: 'Desinstalar serviço',
-    tone: 'danger',
-  });
-  if (!confirmed) return;
-  pending.value = { serviceId: service.id, action: 'uninstall' };
-  errorMessage.value = '';
-  successMessage.value = '';
-  try {
-    await uninstallMachineDatabaseService(service.id);
-    const refreshed = await loadServices();
-    if (refreshed) {
-      successMessage.value = `${service.label} desinstalado com sucesso.`;
-      details.value = {};
-    } else if (!errorMessage.value) {
-      errorMessage.value = `${service.label} foi desinstalado, mas não foi possível atualizar o status.`;
-    }
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível desinstalar o serviço do sistema.';
-  } finally {
-    pending.value = null;
   }
 }
 

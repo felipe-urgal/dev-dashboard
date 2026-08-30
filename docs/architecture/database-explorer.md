@@ -7,7 +7,7 @@ O Database Explorer separa a adaptação HTTP da execução de consultas locais 
 ```text
 DatabaseView
     ↓
-useDatabaseExplorerSession / useDatabaseSavedConnections / useDatabaseQueryHistory
+Composables de sessão / orquestração / estado local
     ↓
 Typed API client (sessionId)
     ↓
@@ -24,7 +24,7 @@ PostgresExplorerAdapter / MysqlExplorerAdapter
 pg / mysql2 (protocolo nativo)
 ```
 
-O frontend usa as rotas de sessão em `apps/api/src/routes/database-explorer-sessions.ts`. As rotas legadas em `apps/api/src/routes/database.ts`, que ainda aceitam uma conexão completa por operação, permanecem temporariamente apenas para compatibilidade e não são mais o caminho usado pela interface web do Explorer.
+O frontend usa as rotas de sessão em `apps/api/src/routes/database-explorer-sessions.ts`. As rotas legadas em `apps/api/src/routes/database.ts`, que ainda aceitam uma conexão completa por operação, permanecem para compatibilidade e não são mais o caminho usado pela interface web do Explorer.
 
 As rotas são responsáveis apenas por aspectos de transporte:
 
@@ -128,7 +128,23 @@ A `DatabaseView` não implementa mais diretamente as regras de conexões salvas 
 
 `apps/web/src/composables/useDatabaseTableListView.ts` concentra a busca e paginação da lista de tabelas do sidebar, mantendo o page size atual de 40 itens e reiniciando a página ao alterar a busca.
 
-A composição visual do workspace também começou a sair da view principal sem mover regras assíncronas para os filhos:
+`apps/web/src/composables/useMachineDatabaseServices.ts` concentra o estado e a orquestração dos serviços da máquina:
+
+- carrega lista e detalhes por meio da camada `api/`;
+- mantém loading, erro, sucesso, expansão, detalhes e ação pendente;
+- preserva as confirmações explícitas de start/stop/restart/install/uninstall sensíveis;
+- usa `generation/latest-wins` para impedir que refreshes ou detalhes obsoletos sobrescrevam estado mais novo;
+- recebe dependências substituíveis para testes de comportamento sem acoplar a view ao transporte.
+
+`apps/web/src/composables/useDatabaseQueryExecution.ts` concentra seleção de banco/tabela, preview e query livre da sessão ativa:
+
+- recebe refs e operações de apresentação já pertencentes aos composables de sessão, lista e resultado;
+- usa somente o `sessionId` efêmero nas chamadas da camada `api/`;
+- aplica resultado, duração e histórico apenas quando a geração e a sessão capturadas ainda são atuais;
+- invalida operações em andamento quando o contexto do Explorer é limpo ou substituído;
+- recebe dependências HTTP substituíveis para testes determinísticos.
+
+A composição visual do workspace é dividida em componentes menores sem mover regras assíncronas para os filhos:
 
 - `DatabaseExplorerSidebar.vue` recebe bancos, tabelas e estado de paginação e emite seleção/busca/navegação;
 - `DatabaseResultTable.vue` renderiza resultado, busca e ações de cópia/exportação, delegando transformações ao `useDatabaseResultView`;
@@ -138,9 +154,9 @@ A composição visual do workspace também começou a sair da view principal sem
 
 Para manter exatamente a hierarquia visual após a extração, as regras antes `scoped` da `DatabaseView` foram movidas sem alteração para `DatabaseView.css`. Os seletores são específicos da feature (`database-*`) e agora alcançam o DOM interno dos componentes extraídos.
 
-A view continua responsável apenas por adaptar essas unidades ao contexto visual e às operações assíncronas: preencher o draft ao escolher uma conexão, restaurar query/tabela/banco quando possível, decidir quando uma execução bem-sucedida entra no histórico e entregar ao result view os dados retornados. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
+A view atua majoritariamente como composição da feature: conecta os componentes visuais aos composables, mantém o draft/modal de conexão, adapta conexões salvas e restauração do histórico e coordena o lifecycle da sessão. Requests de serviços, listagem de tabelas, preview e execução de queries não ficam mais implementados diretamente na `DatabaseView`. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
 
-O formato das chaves locais ainda é o legado atual. Versionamento, migração, fallback e tratamento consistente de quota/security errors pertencem ao primitive de storage planejado para um recorte separado.
+O formato das chaves locais permanece legado. Os composables atuais preservam esse contrato e não implementam versionamento, migração, fallback nem tratamento uniforme de quota/security errors.
 
 ## Composição
 
@@ -148,13 +164,13 @@ O formato das chaves locais ainda é o legado atual. Versionamento, migração, 
 
 `buildApp()` cria o `DatabaseExplorerSessionStore`, registra as rotas de sessão com o mesmo `DatabaseExplorerService` e chama `close()` no encerramento da aplicação. Essa composição preserva o store como estado efêmero do processo e evita que credenciais entrem no `AppContext` persistente.
 
-Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e os composables web podem validar sessão, histórico, conexões salvas, result view e paginação de tabelas sem montar a view inteira.
+Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e os composables web validam sessão, histórico, conexões salvas, serviços da máquina, execução de queries, result view e paginação de tabelas sem montar a view inteira.
 
-## Compatibilidade e próxima etapa
+## Compatibilidade
 
-As rotas legadas permanecem temporariamente para consumidores compatíveis, mas a interface web já cria uma única sessão e usa `sessionId` nas operações. A remoção das rotas que aceitam credenciais por operação pode ocorrer em um recorte separado, depois de confirmar que não existem outros consumidores.
+As rotas legadas permanecem para consumidores compatíveis, enquanto a interface web cria uma única sessão e usa `sessionId` nas operações.
 
-A decomposição visual principal agora inclui `DatabaseServicesPanel` e `DatabaseConnectionDialog` sem mover requests para os filhos. O próximo recorte de frontend deve retirar da `DatabaseView` a orquestração remanescente de serviços e execução para composables próprios (`useMachineDatabaseServices` e `useDatabaseQueryExecution`); o primitive de storage versionado permanece em recorte posterior.
+A decomposição da `DatabaseView` inclui componentes visuais menores e composables próprios para sessão, conexões salvas, histórico, visualização de resultado, paginação de tabelas, serviços da máquina e execução de queries. Os componentes filhos continuam emitindo intenções de UI; requests e regras assíncronas ficam nos composables e na camada `api/`, sem state manager global para estado local da feature.
 
 O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 
