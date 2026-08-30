@@ -39,13 +39,35 @@ function savedConnectionLabel(connection: MachineDatabaseConnection): string {
   return `${connection.driver} · ${address}${connection.username ? ` · ${connection.username}` : ''}`;
 }
 
-function isSavedConnection(value: unknown): value is SavedDatabaseConnection {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as SavedDatabaseConnection).id === 'string' &&
-    typeof (value as SavedDatabaseConnection).label === 'string'
-  );
+function isExplorerDriver(
+  value: unknown,
+): value is MachineDatabaseConnection['driver'] {
+  return value === 'postgresql' || value === 'mysql' || value === 'mariadb';
+}
+
+function sanitizeSavedConnection(
+  value: unknown,
+): SavedDatabaseConnection | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const item = value as Record<string, unknown>;
+  if (
+    typeof item.id !== 'string' ||
+    typeof item.label !== 'string' ||
+    !isExplorerDriver(item.driver)
+  ) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    label: item.label,
+    driver: item.driver,
+    ...(typeof item.host === 'string' ? { host: item.host } : {}),
+    ...(typeof item.port === 'number' ? { port: item.port } : {}),
+    ...(typeof item.username === 'string' ? { username: item.username } : {}),
+    ...(typeof item.database === 'string' ? { database: item.database } : {}),
+  };
 }
 
 export function useDatabaseSavedConnections() {
@@ -57,7 +79,11 @@ export function useDatabaseSavedConnections() {
       const raw = localStorage.getItem(SAVED_CONNECTIONS_KEY);
       const parsed = raw ? (JSON.parse(raw) as unknown) : [];
       connections.value = Array.isArray(parsed)
-        ? parsed.filter(isSavedConnection)
+        ? parsed
+            .map(sanitizeSavedConnection)
+            .filter(
+              (item): item is SavedDatabaseConnection => item !== null,
+            )
         : [];
     } catch {
       connections.value = [];
