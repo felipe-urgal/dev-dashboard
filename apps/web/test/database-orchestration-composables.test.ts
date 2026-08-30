@@ -71,7 +71,9 @@ describe('useMachineDatabaseServices', () => {
     const state = useMachineDatabaseServices({
       dependencies: {
         confirmMutation: async (input) => {
-          confirmations.push(typeof input === 'string' ? input : input.title);
+          confirmations.push(
+            typeof input === 'string' ? input : (input.title ?? ''),
+          );
           return true;
         },
         runAction: async (serviceId, action) => {
