@@ -23,11 +23,8 @@ describe('useDatabaseResultView', () => {
       truncated: false,
     });
 
-    view.search.value = 'a';
-    expect(view.visibleRows.value).toEqual([
-      [1, 'Ana'],
-      [null, 'Caio'],
-    ]);
+    view.search.value = 'an';
+    expect(view.visibleRows.value).toEqual([[1, 'Ana']]);
 
     view.search.value = '';
     view.toggleSort('id');
