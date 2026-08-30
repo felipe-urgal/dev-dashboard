@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   apply:
-    if: contains(github.event.head_commit.message, 'chore(ci): aplica integração dos componentes do banco')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
