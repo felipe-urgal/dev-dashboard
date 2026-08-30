@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 
 import { useDatabaseResultView } from '../src/composables/useDatabaseResultView';
 import { useDatabaseTableListView } from '../src/composables/useDatabaseTableListView';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('useDatabaseResultView', () => {
   it('filtra e ordena sem mutar as linhas originais', () => {
