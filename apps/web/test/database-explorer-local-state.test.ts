@@ -46,8 +46,11 @@ describe('useDatabaseSavedConnections', () => {
 
   it('ignora storage inválido ao carregar', () => {
     localStorage.setItem('dev-dashboard.database-connections', '{invalid');
+    const saved = useDatabaseSavedConnections();
 
-    expect(useDatabaseSavedConnections().connections.value).toEqual([]);
+    saved.load();
+
+    expect(saved.connections.value).toEqual([]);
   });
 });
 
@@ -105,7 +108,10 @@ describe('useDatabaseQueryHistory', () => {
 
   it('ignora storage inválido ao carregar', () => {
     localStorage.setItem('dev-dashboard.database-query-history', '{invalid');
+    const queries = useDatabaseQueryHistory();
 
-    expect(useDatabaseQueryHistory().history.value).toEqual([]);
+    queries.load();
+
+    expect(queries.history.value).toEqual([]);
   });
 });
