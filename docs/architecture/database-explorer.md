@@ -103,16 +103,21 @@ Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas 
 
 A `DatabaseView` não implementa mais diretamente as regras de conexões salvas e histórico de consultas.
 
+`apps/web/src/utils/versioned-local-storage.ts` é o primitive comum das preferências locais do Explorer. Cada chave persiste um envelope `{ version, value }`, valida o payload antes de devolvê-lo à feature e trata falhas de leitura/escrita do navegador sem lançar erro para a UI. Payloads anteriores sem envelope são tratados como versão `0`, migrados para a versão atual e regravados em best-effort; versões futuras desconhecidas e conteúdo inválido caem no fallback seguro sem tentativa de interpretar um contrato incompatível.
+
 `apps/web/src/composables/useDatabaseSavedConnections.ts` concentra:
 
-- leitura e persistência da chave existente `dev-dashboard.database-connections`;
-- remoção da senha antes de qualquer gravação;
+- leitura e persistência da chave existente `dev-dashboard.database-connections` pelo storage versionado;
+- migração automática do array legado sem versão;
+- remoção da senha antes de qualquer gravação, inclusive ao migrar dados antigos;
 - identificação e rótulo estáveis da conexão;
 - deduplicação, seleção e remoção de conexões salvas.
 
 `apps/web/src/composables/useDatabaseQueryHistory.ts` concentra:
 
-- leitura e persistência da chave existente `dev-dashboard.database-query-history`;
+- leitura e persistência da chave existente `dev-dashboard.database-query-history` pelo storage versionado;
+- migração automática do array legado sem versão;
+- validação estrutural das entradas antes de colocá-las no estado reativo;
 - deduplicação por consulta, driver e banco;
 - preservação do favorito ao repetir uma consulta;
 - favoritos, remoção e limpeza;
@@ -154,9 +159,7 @@ A composição visual do workspace é dividida em componentes menores sem mover 
 
 Para manter exatamente a hierarquia visual após a extração, as regras antes `scoped` da `DatabaseView` foram movidas sem alteração para `DatabaseView.css`. Os seletores são específicos da feature (`database-*`) e agora alcançam o DOM interno dos componentes extraídos.
 
-A view atua majoritariamente como composição da feature: conecta os componentes visuais aos composables, mantém o draft/modal de conexão, adapta conexões salvas e restauração do histórico e coordena o lifecycle da sessão. Requests de serviços, listagem de tabelas, preview e execução de queries não ficam mais implementados diretamente na `DatabaseView`. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
-
-O formato das chaves locais permanece legado. Os composables atuais preservam esse contrato e não implementam versionamento, migração, fallback nem tratamento uniforme de quota/security errors.
+A view atua majoritariamente como composição da feature: conecta os componentes visuais aos composables, mantém o draft/modal de conexão, adapta conexões salvas e restauração do histórico e coordena o lifecycle da sessão. Requests de serviços, listagem de tabelas, preview e execução de queries não ficam mais implementados diretamente na `DatabaseView`. A leitura do estado local continua no `onMounted`, preservando o lifecycle anterior.
 
 ## Composição
 
