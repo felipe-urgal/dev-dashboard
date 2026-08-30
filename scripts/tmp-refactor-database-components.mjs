@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const viewPath = 'apps/web/src/views/DatabaseView.vue';
+const dialogPath =
+  'apps/web/src/components/database/DatabaseConnectionDialog.vue';
 const docsPath = 'docs/architecture/database-explorer.md';
 
 let view = readFileSync(viewPath, 'utf8');
@@ -54,6 +56,12 @@ replaceView(
 );
 
 replaceView(
+  `async function toggleDetails(serviceId: string): Promise<void> {\n  if (expandedServiceId.value === serviceId) {\n    expandedServiceId.value = null;\n    return;\n  }\n  expandedServiceId.value = serviceId;\n  if (!serviceDetails(serviceId)) await loadDetails(serviceId);\n}`,
+  `async function toggleDetails(serviceId: string): Promise<void> {\n  if (expandedServiceId.value === serviceId) {\n    expandedServiceId.value = null;\n    return;\n  }\n  expandedServiceId.value = serviceId;\n  if (!details.value[serviceId]) await loadDetails(serviceId);\n}`,
+  'details state lookup',
+);
+
+replaceView(
   `function isPending(\n  service: MachineDatabaseService,\n  action: DatabaseServiceAction | 'install' | 'uninstall',\n) {\n  return (\n    pending.value?.serviceId === service.id && pending.value?.action === action\n  );\n}\n\n`,
   '',
   'pending presentation helper',
@@ -93,6 +101,16 @@ const dialogComponent = `  <DatabaseConnectionDialog\n    :open="explorerModalOp
 view = view.slice(0, modalStart) + dialogComponent + view.slice(templateEnd);
 
 writeFileSync(viewPath, view);
+
+let dialog = readFileSync(dialogPath, 'utf8');
+const oldUpdatePort = `function updatePort(event: Event): void {\n  const value = inputValue(event);\n  updateDraft({ port: value ? Number(value) : undefined });\n}`;
+const newUpdatePort = `function updatePort(event: Event): void {\n  const value = inputValue(event);\n  const draft = { ...props.draft };\n  if (value) draft.port = Number(value);\n  else delete draft.port;\n  emit('update:draft', draft);\n}`;
+const nextDialog = dialog.replace(oldUpdatePort, newUpdatePort);
+if (nextDialog === dialog) {
+  throw new Error('DatabaseConnectionDialog drift: port update');
+}
+dialog = nextDialog;
+writeFileSync(dialogPath, dialog);
 
 let docs = readFileSync(docsPath, 'utf8');
 
