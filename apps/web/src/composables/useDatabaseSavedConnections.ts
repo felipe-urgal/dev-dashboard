@@ -65,10 +65,15 @@ export function useDatabaseSavedConnections() {
   }
 
   function persist(): void {
-    localStorage.setItem(SAVED_CONNECTIONS_KEY, JSON.stringify(connections.value));
+    localStorage.setItem(
+      SAVED_CONNECTIONS_KEY,
+      JSON.stringify(connections.value),
+    );
   }
 
-  function save(connection: MachineDatabaseConnection): SavedDatabaseConnection {
+  function save(
+    connection: MachineDatabaseConnection,
+  ): SavedDatabaseConnection {
     const metadata = connectionWithoutSecret(connection);
     const saved: SavedDatabaseConnection = {
       ...metadata,

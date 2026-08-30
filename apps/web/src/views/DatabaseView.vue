@@ -170,10 +170,6 @@ const visibleExplorerRows = computed(() => {
   });
 });
 
-
-
-
-
 function rememberExplorerQuery(): void {
   if (!explorerConnection.value) return;
   rememberDatabaseQuery({
@@ -183,9 +179,6 @@ function rememberExplorerQuery(): void {
     table: explorerTable.value,
   });
 }
-
-
-
 
 function restoreExplorerQuery(item: DatabaseQueryHistoryItem): void {
   explorerQuery.value = item.query;
@@ -199,7 +192,6 @@ function restoreExplorerQuery(item: DatabaseQueryHistoryItem): void {
   explorerHistoryOpen.value = false;
   explorerError.value = '';
 }
-
 
 function saveExplorerConnection(): void {
   saveDatabaseConnection(explorerDraft.value);

@@ -31,9 +31,9 @@ describe('useDatabaseSavedConnections', () => {
 
     expect(saved.connections.value).toHaveLength(1);
     expect(saved.connections.value[0]).not.toHaveProperty('password');
-    expect(localStorage.getItem('dev-dashboard.database-connections')).not.toContain(
-      'secret',
-    );
+    expect(
+      localStorage.getItem('dev-dashboard.database-connections'),
+    ).not.toContain('secret');
 
     const selected = saved.select(saved.connections.value[0]!.id);
     expect(selected?.database).toBe('app_development');
@@ -100,7 +100,9 @@ describe('useDatabaseQueryHistory', () => {
 
     const firstId = queries.history.value[0]!.id;
     queries.remove(firstId);
-    expect(queries.history.value.some((item) => item.id === firstId)).toBe(false);
+    expect(queries.history.value.some((item) => item.id === firstId)).toBe(
+      false,
+    );
 
     queries.clear();
     expect(queries.history.value).toEqual([]);
