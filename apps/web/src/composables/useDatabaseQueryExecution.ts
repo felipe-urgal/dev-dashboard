@@ -12,6 +12,12 @@ import {
 } from '../api/database-explorer';
 import { formatDatabaseExplorerError } from '../api/database-explorer-errors';
 
+type DatabaseQueryExecutionDependencies = {
+  fetchTables: typeof fetchDatabaseExplorerTables;
+  previewTable: typeof previewDatabaseExplorerTable;
+  runQuery: typeof queryDatabaseExplorer;
+};
+
 interface UseDatabaseQueryExecutionOptions {
   sessionId: Ref<string | null>;
   database: Ref<string>;
@@ -28,7 +34,14 @@ interface UseDatabaseQueryExecutionOptions {
   clearCopiedMessage: () => void;
   rememberQuery: () => void;
   handleSessionError: (error: unknown) => boolean;
+  dependencies?: Partial<DatabaseQueryExecutionDependencies>;
 }
+
+const defaultDependencies: DatabaseQueryExecutionDependencies = {
+  fetchTables: fetchDatabaseExplorerTables,
+  previewTable: previewDatabaseExplorerTable,
+  runQuery: queryDatabaseExplorer,
+};
 
 function buildTableQuery(table: MachineDatabaseTable): string {
   const qualifiedName = table.schema
@@ -40,6 +53,11 @@ function buildTableQuery(table: MachineDatabaseTable): string {
 export function useDatabaseQueryExecution(
   options: UseDatabaseQueryExecutionOptions,
 ) {
+  const dependencies = {
+    ...defaultDependencies,
+    ...options.dependencies,
+  };
+
   let operationGeneration = 0;
 
   function isCurrent(generation: number, expectedSessionId: string): boolean {
@@ -73,7 +91,7 @@ export function useDatabaseQueryExecution(
 
     const generation = beginOperation();
     try {
-      const tables = await fetchDatabaseExplorerTables(
+      const tables = await dependencies.fetchTables(
         expectedSessionId,
         database || undefined,
       );
@@ -115,7 +133,7 @@ export function useDatabaseQueryExecution(
     const startedAt = performance.now();
 
     try {
-      const result = await previewDatabaseExplorerTable(
+      const result = await dependencies.previewTable(
         expectedSessionId,
         table,
         options.database.value || undefined,
@@ -152,7 +170,7 @@ export function useDatabaseQueryExecution(
     const startedAt = performance.now();
 
     try {
-      const result = await queryDatabaseExplorer(
+      const result = await dependencies.runQuery(
         expectedSessionId,
         options.query.value,
         options.database.value || undefined,
