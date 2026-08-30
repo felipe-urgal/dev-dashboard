@@ -2,6 +2,8 @@ import { computed, ref } from 'vue';
 
 import type { MachineDatabaseConnection } from '@dev-dashboard/contracts';
 
+import { createVersionedLocalStorage } from '../utils/versioned-local-storage';
+
 export type DatabaseQueryHistoryItem = {
   id: string;
   query: string;
@@ -18,38 +20,74 @@ export type DatabaseQueryHistoryInput = Omit<
 >;
 
 const QUERY_HISTORY_KEY = 'dev-dashboard.database-query-history';
+const QUERY_HISTORY_VERSION = 1;
 const QUERY_HISTORY_LIMIT = 50;
 const RECENT_QUERY_LIMIT = 8;
 
-function isHistoryItem(value: unknown): value is DatabaseQueryHistoryItem {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as DatabaseQueryHistoryItem).id === 'string' &&
-    typeof (value as DatabaseQueryHistoryItem).query === 'string' &&
-    typeof (value as DatabaseQueryHistoryItem).createdAt === 'string'
-  );
+function isExplorerDriver(
+  value: unknown,
+): value is MachineDatabaseConnection['driver'] {
+  return value === 'postgresql' || value === 'mysql' || value === 'mariadb';
 }
+
+function sanitizeHistoryItem(value: unknown): DatabaseQueryHistoryItem | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const item = value as Record<string, unknown>;
+  if (
+    typeof item.id !== 'string' ||
+    typeof item.query !== 'string' ||
+    !isExplorerDriver(item.driver) ||
+    typeof item.database !== 'string' ||
+    typeof item.table !== 'string' ||
+    typeof item.createdAt !== 'string' ||
+    typeof item.favorite !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    query: item.query,
+    driver: item.driver,
+    database: item.database,
+    table: item.table,
+    createdAt: item.createdAt,
+    favorite: item.favorite,
+  };
+}
+
+function sanitizeQueryHistory(value: unknown): DatabaseQueryHistoryItem[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .map(sanitizeHistoryItem)
+    .filter((item): item is DatabaseQueryHistoryItem => item !== null)
+    .slice(0, QUERY_HISTORY_LIMIT);
+}
+
+const queryHistoryStorage = createVersionedLocalStorage<
+  DatabaseQueryHistoryItem[]
+>({
+  key: QUERY_HISTORY_KEY,
+  version: QUERY_HISTORY_VERSION,
+  fallback: () => [],
+  sanitize: sanitizeQueryHistory,
+  migrate: (value, fromVersion) => {
+    if (fromVersion === 0) return value;
+    throw new Error(`Versão de histórico não suportada: ${fromVersion}`);
+  },
+});
 
 export function useDatabaseQueryHistory() {
   const history = ref<DatabaseQueryHistoryItem[]>([]);
   const recent = computed(() => history.value.slice(0, RECENT_QUERY_LIMIT));
 
   function load(): void {
-    try {
-      const raw = localStorage.getItem(QUERY_HISTORY_KEY);
-      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      history.value = Array.isArray(parsed) ? parsed.filter(isHistoryItem) : [];
-    } catch {
-      history.value = [];
-    }
+    history.value = queryHistoryStorage.read();
   }
 
   function persist(): void {
-    localStorage.setItem(
-      QUERY_HISTORY_KEY,
-      JSON.stringify(history.value.slice(0, QUERY_HISTORY_LIMIT)),
-    );
+    queryHistoryStorage.write(history.value.slice(0, QUERY_HISTORY_LIMIT));
   }
 
   function remember(input: DatabaseQueryHistoryInput): void {

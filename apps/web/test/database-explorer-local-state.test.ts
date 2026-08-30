@@ -31,9 +31,12 @@ describe('useDatabaseSavedConnections', () => {
 
     expect(saved.connections.value).toHaveLength(1);
     expect(saved.connections.value[0]).not.toHaveProperty('password');
-    expect(
-      localStorage.getItem('dev-dashboard.database-connections'),
-    ).not.toContain('secret');
+    const raw = localStorage.getItem('dev-dashboard.database-connections');
+    expect(raw).not.toContain('secret');
+    expect(JSON.parse(raw ?? '{}')).toMatchObject({
+      version: 1,
+      value: [{ database: 'app_development' }],
+    });
 
     const selected = saved.select(saved.connections.value[0]!.id);
     expect(selected?.database).toBe('app_development');
@@ -44,7 +47,7 @@ describe('useDatabaseSavedConnections', () => {
     expect(saved.selectedId.value).toBe('');
   });
 
-  it('sanitiza segredos e entradas incompatíveis ao carregar', () => {
+  it('migra legado, sanitiza segredos e entradas incompatíveis ao carregar', () => {
     localStorage.setItem(
       'dev-dashboard.database-connections',
       JSON.stringify([
@@ -77,10 +80,12 @@ describe('useDatabaseSavedConnections', () => {
     });
     expect(saved.connections.value[0]).not.toHaveProperty('password');
 
-    saved.save({ driver: 'mysql', host: '127.0.0.1', port: 3306 });
-    expect(
-      localStorage.getItem('dev-dashboard.database-connections'),
-    ).not.toContain('secret');
+    const migrated = localStorage.getItem('dev-dashboard.database-connections');
+    expect(migrated).not.toContain('secret');
+    expect(JSON.parse(migrated ?? '{}')).toMatchObject({
+      version: 1,
+      value: [{ driver: 'postgresql', database: 'app_development' }],
+    });
   });
 
   it('ignora storage inválido ao carregar', () => {
@@ -119,7 +124,7 @@ describe('useDatabaseQueryHistory', () => {
     expect(queries.recent.value).toHaveLength(1);
   });
 
-  it('persiste no máximo 50 consultas e permite remover/limpar', () => {
+  it('persiste no máximo 50 consultas em envelope versionado e permite remover/limpar', () => {
     const queries = useDatabaseQueryHistory();
 
     for (let index = 0; index < 55; index += 1) {
@@ -132,9 +137,10 @@ describe('useDatabaseQueryHistory', () => {
     }
 
     const persisted = JSON.parse(
-      localStorage.getItem('dev-dashboard.database-query-history') ?? '[]',
-    ) as unknown[];
-    expect(persisted).toHaveLength(50);
+      localStorage.getItem('dev-dashboard.database-query-history') ?? '{}',
+    ) as { version?: number; value?: unknown[] };
+    expect(persisted.version).toBe(1);
+    expect(persisted.value).toHaveLength(50);
     expect(queries.recent.value).toHaveLength(8);
 
     const firstId = queries.history.value[0]!.id;
@@ -145,6 +151,35 @@ describe('useDatabaseQueryHistory', () => {
 
     queries.clear();
     expect(queries.history.value).toEqual([]);
+  });
+
+  it('migra histórico legado preservando favorito', () => {
+    localStorage.setItem(
+      'dev-dashboard.database-query-history',
+      JSON.stringify([
+        {
+          id: 'legacy-query',
+          query: 'SELECT * FROM users',
+          driver: 'postgresql',
+          database: 'app_development',
+          table: 'users',
+          createdAt: '2026-08-30T12:00:00.000Z',
+          favorite: true,
+        },
+      ]),
+    );
+    const queries = useDatabaseQueryHistory();
+
+    queries.load();
+
+    expect(queries.history.value).toEqual([
+      expect.objectContaining({ id: 'legacy-query', favorite: true }),
+    ]);
+    expect(
+      JSON.parse(
+        localStorage.getItem('dev-dashboard.database-query-history') ?? '{}',
+      ),
+    ).toMatchObject({ version: 1, value: [{ id: 'legacy-query' }] });
   });
 
   it('ignora storage inválido ao carregar', () => {
