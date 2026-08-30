@@ -20,11 +20,29 @@ type PendingDatabaseServiceAction = {
   action: DatabaseServiceAction | 'install' | 'uninstall';
 } | null;
 
-type ConfirmDatabaseMutation = typeof confirmDialog;
+type LoadServicesResult = 'applied' | 'failed' | 'superseded';
+
+type MachineDatabaseServicesDependencies = {
+  fetchServices: typeof fetchMachineDatabaseServices;
+  fetchDetails: typeof fetchMachineDatabaseServiceDetails;
+  runAction: typeof runMachineDatabaseServiceAction;
+  install: typeof installMachineDatabaseService;
+  uninstall: typeof uninstallMachineDatabaseService;
+  confirmMutation: typeof confirmDialog;
+};
 
 interface UseMachineDatabaseServicesOptions {
-  confirmMutation?: ConfirmDatabaseMutation;
+  dependencies?: Partial<MachineDatabaseServicesDependencies>;
 }
+
+const defaultDependencies: MachineDatabaseServicesDependencies = {
+  fetchServices: fetchMachineDatabaseServices,
+  fetchDetails: fetchMachineDatabaseServiceDetails,
+  runAction: runMachineDatabaseServiceAction,
+  install: installMachineDatabaseService,
+  uninstall: uninstallMachineDatabaseService,
+  confirmMutation: confirmDialog,
+};
 
 function actionPastLabel(
   action: DatabaseServiceAction | 'install' | 'uninstall',
@@ -41,7 +59,10 @@ function actionPastLabel(
 export function useMachineDatabaseServices(
   options: UseMachineDatabaseServicesOptions = {},
 ) {
-  const confirmMutation = options.confirmMutation ?? confirmDialog;
+  const dependencies = {
+    ...defaultDependencies,
+    ...options.dependencies,
+  };
 
   const services = ref<MachineDatabaseService[]>([]);
   const loading = ref(true);
@@ -59,25 +80,25 @@ export function useMachineDatabaseServices(
 
   async function loadServices(
     loadOptions: { clearSuccess?: boolean } = {},
-  ): Promise<boolean> {
+  ): Promise<LoadServicesResult> {
     const generation = ++servicesGeneration;
     loading.value = true;
     errorMessage.value = '';
     if (loadOptions.clearSuccess) successMessage.value = '';
 
     try {
-      const nextServices = await fetchMachineDatabaseServices();
-      if (generation !== servicesGeneration) return false;
+      const nextServices = await dependencies.fetchServices();
+      if (generation !== servicesGeneration) return 'superseded';
       services.value = nextServices;
       lastUpdatedAt.value = new Date();
-      return true;
+      return 'applied';
     } catch (error) {
-      if (generation !== servicesGeneration) return false;
+      if (generation !== servicesGeneration) return 'superseded';
       errorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível consultar os serviços do sistema.';
-      return false;
+      return 'failed';
     } finally {
       if (generation === servicesGeneration) loading.value = false;
     }
@@ -94,7 +115,7 @@ export function useMachineDatabaseServices(
     detailsErrors.value = { ...detailsErrors.value, [serviceId]: '' };
 
     try {
-      const nextDetails = await fetchMachineDatabaseServiceDetails(serviceId);
+      const nextDetails = await dependencies.fetchDetails(serviceId);
       if (detailsGeneration.get(serviceId) !== generation) return;
       details.value = { ...details.value, [serviceId]: nextDetails };
     } catch (error) {
@@ -129,8 +150,9 @@ export function useMachineDatabaseServices(
     service: MachineDatabaseService,
     action: DatabaseServiceAction | 'install' | 'uninstall',
   ): Promise<void> {
-    const refreshed = await loadServices();
-    if (refreshed) {
+    const result = await loadServices();
+    if (result === 'superseded') return;
+    if (result === 'applied') {
       successMessage.value = `${service.label} ${actionPastLabel(action)} com sucesso.`;
       details.value = {};
       detailsGeneration.clear();
@@ -149,7 +171,7 @@ export function useMachineDatabaseServices(
 
     if (action === 'stop' || action === 'restart') {
       const verb = action === 'stop' ? 'parar' : 'reiniciar';
-      const confirmed = await confirmMutation({
+      const confirmed = await dependencies.confirmMutation({
         title: `${action === 'stop' ? 'Parar' : 'Reiniciar'} ${service.label}?`,
         message: `O serviço ${service.label} será ${verb}. Aplicações que dependem dele podem ficar indisponíveis durante a operação.`,
         confirmLabel:
@@ -163,7 +185,7 @@ export function useMachineDatabaseServices(
     errorMessage.value = '';
     successMessage.value = '';
     try {
-      await runMachineDatabaseServiceAction(service.id, action);
+      await dependencies.runAction(service.id, action);
       await refreshAfterMutation(service, action);
     } catch (error) {
       errorMessage.value =
@@ -177,7 +199,7 @@ export function useMachineDatabaseServices(
 
   async function installService(service: MachineDatabaseService): Promise<void> {
     if (service.installed || pending.value) return;
-    const confirmed = await confirmMutation({
+    const confirmed = await dependencies.confirmMutation({
       title: `Instalar ${service.label}?`,
       message: `A instalação de ${service.label} altera os pacotes do sistema e pode solicitar sua senha.`,
       confirmLabel: 'Instalar serviço',
@@ -189,7 +211,7 @@ export function useMachineDatabaseServices(
     errorMessage.value = '';
     successMessage.value = '';
     try {
-      await installMachineDatabaseService(service.id);
+      await dependencies.install(service.id);
       await refreshAfterMutation(service, 'install');
     } catch (error) {
       errorMessage.value =
@@ -205,7 +227,7 @@ export function useMachineDatabaseServices(
     service: MachineDatabaseService,
   ): Promise<void> {
     if (!service.installed || pending.value) return;
-    const confirmed = await confirmMutation({
+    const confirmed = await dependencies.confirmMutation({
       title: `Desinstalar ${service.label}?`,
       message: `O pacote de ${service.label} será removido do sistema. Os dados do banco podem permanecer no disco e o serviço ficará indisponível.`,
       confirmLabel: 'Desinstalar serviço',
@@ -217,7 +239,7 @@ export function useMachineDatabaseServices(
     errorMessage.value = '';
     successMessage.value = '';
     try {
-      await uninstallMachineDatabaseService(service.id);
+      await dependencies.uninstall(service.id);
       await refreshAfterMutation(service, 'uninstall');
     } catch (error) {
       errorMessage.value =
