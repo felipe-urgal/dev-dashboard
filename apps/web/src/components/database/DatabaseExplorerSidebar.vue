@@ -35,7 +35,8 @@ function onTableSearch(event: Event): void {
   <aside class="database-explorer-sidebar" aria-label="Bancos e tabelas">
     <div class="database-explorer-sidebar-heading">
       <div>
-        <strong>Bancos e tabelas</strong><span>{{ databases.length }} bancos</span>
+        <strong>Bancos e tabelas</strong
+        ><span>{{ databases.length }} bancos</span>
       </div>
       <ArrowPathIcon
         v-if="loading"

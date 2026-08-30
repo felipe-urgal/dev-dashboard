@@ -35,7 +35,9 @@ describe('DatabaseExplorerSidebar', () => {
 
     await wrapper.get('select').setValue('app');
     await wrapper.get('input[type="search"]').setValue('user');
-    await wrapper.get('.database-explorer-table-list > button').trigger('click');
+    await wrapper
+      .get('.database-explorer-table-list > button')
+      .trigger('click');
     const paginationButtons = wrapper.findAll(
       '.database-explorer-pagination button',
     );
@@ -71,7 +73,9 @@ describe('DatabaseResultTable', () => {
 
     await wrapper.get('input[type="search"]').setValue('Ana');
     await wrapper.get('th button').trigger('click');
-    const toolButtons = wrapper.findAll('.database-explorer-result-tools button');
+    const toolButtons = wrapper.findAll(
+      '.database-explorer-result-tools button',
+    );
     await toolButtons[0]!.trigger('click');
     await toolButtons[1]!.trigger('click');
     await toolButtons[2]!.trigger('click');

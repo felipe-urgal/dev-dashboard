@@ -63,7 +63,9 @@ function onQueryInput(event: Event): void {
         </button>
         <button
           type="button"
-          :aria-label="item.favorite ? 'Remover favorito' : 'Favoritar consulta'"
+          :aria-label="
+            item.favorite ? 'Remover favorito' : 'Favoritar consulta'
+          "
           @click="emit('toggle-favorite', item.id)"
         >
           {{ item.favorite ? '★' : '☆' }}

@@ -128,6 +128,14 @@ A `DatabaseView` não implementa mais diretamente as regras de conexões salvas 
 
 `apps/web/src/composables/useDatabaseTableListView.ts` concentra a busca e paginação da lista de tabelas do sidebar, mantendo o page size atual de 40 itens e reiniciando a página ao alterar a busca.
 
+A composição visual do workspace também começou a sair da view principal sem mover regras assíncronas para os filhos:
+
+- `DatabaseExplorerSidebar.vue` recebe bancos, tabelas e estado de paginação e emite seleção/busca/navegação;
+- `DatabaseResultTable.vue` renderiza resultado, busca e ações de cópia/exportação, delegando transformações ao `useDatabaseResultView`;
+- `DatabaseQueryEditor.vue` preserva editor, histórico e o atalho `Ctrl/Cmd + Enter`, emitindo apenas intenções para a view.
+
+Para manter exatamente a hierarquia visual após a extração, as regras antes `scoped` da `DatabaseView` foram movidas sem alteração para `DatabaseView.css`. Os seletores são específicos da feature (`database-*`) e agora alcançam o DOM interno dos componentes extraídos.
+
 A view continua responsável apenas por adaptar essas unidades ao contexto visual e às operações assíncronas: preencher o draft ao escolher uma conexão, restaurar query/tabela/banco quando possível, decidir quando uma execução bem-sucedida entra no histórico e entregar ao result view os dados retornados. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
 
 O formato das chaves locais ainda é o legado atual. Versionamento, migração, fallback e tratamento consistente de quota/security errors pertencem ao primitive de storage planejado para um recorte separado.
@@ -144,7 +152,7 @@ Essa separação também facilita testes isolados: o serviço pode ser exercitad
 
 As rotas legadas permanecem temporariamente para consumidores compatíveis, mas a interface web já cria uma única sessão e usa `sessionId` nas operações. A remoção das rotas que aceitam credenciais por operação pode ocorrer em um recorte separado, depois de confirmar que não existem outros consumidores.
 
-A próxima etapa de frontend decompõe a `DatabaseView` em componentes visuais menores, preservando os composables já extraídos e mantendo o storage versionado para o recorte específico posterior.
+A próxima etapa de frontend continua a decomposição visual com `DatabaseServicesPanel` e `DatabaseConnectionDialog`, mantendo a orquestração na `DatabaseView`; o primitive de storage versionado permanece em recorte posterior.
 
 O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 
