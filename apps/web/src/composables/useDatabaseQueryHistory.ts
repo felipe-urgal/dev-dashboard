@@ -93,11 +93,10 @@ export function useDatabaseQueryHistory() {
     persist();
   }
 
-  load();
-
   return {
     history,
     recent,
+    load,
     remember,
     toggleFavorite,
     remove,
