@@ -71,7 +71,7 @@ describe('useMachineDatabaseServices', () => {
     const state = useMachineDatabaseServices({
       dependencies: {
         confirmMutation: async (input) => {
-          confirmations.push(input.title);
+          confirmations.push(typeof input === 'string' ? input : input.title);
           return true;
         },
         runAction: async (serviceId, action) => {
@@ -135,7 +135,7 @@ function createQueryExecutionHarness(
       remembered += 1;
     },
     handleSessionError: () => false,
-    dependencies,
+    ...(dependencies ? { dependencies } : {}),
   });
 
   return {
