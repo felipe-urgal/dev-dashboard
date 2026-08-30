@@ -118,7 +118,17 @@ A `DatabaseView` não implementa mais diretamente as regras de conexões salvas 
 - favoritos, remoção e limpeza;
 - limite persistido de 50 entradas e recorte das 8 consultas recentes.
 
-A view continua responsável apenas por adaptar essas unidades ao contexto visual: preencher o draft ao escolher uma conexão, restaurar query/tabela/banco quando possível e decidir quando uma execução bem-sucedida entra no histórico. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
+`apps/web/src/composables/useDatabaseResultView.ts` concentra o estado e as transformações da visualização de resultados:
+
+- resultado estruturado e duração da última leitura;
+- busca local nas células;
+- ordenação ascendente/descendente sem mutar as rows originais;
+- mensagem de cópia, serialização TSV para clipboard e exportação CSV/JSON da visualização atual;
+- resets explícitos que distinguem limpar o resultado de apenas preparar uma nova apresentação.
+
+`apps/web/src/composables/useDatabaseTableListView.ts` concentra a busca e paginação da lista de tabelas do sidebar, mantendo o page size atual de 40 itens e reiniciando a página ao alterar a busca.
+
+A view continua responsável apenas por adaptar essas unidades ao contexto visual e às operações assíncronas: preencher o draft ao escolher uma conexão, restaurar query/tabela/banco quando possível, decidir quando uma execução bem-sucedida entra no histórico e entregar ao result view os dados retornados. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
 
 O formato das chaves locais ainda é o legado atual. Versionamento, migração, fallback e tratamento consistente de quota/security errors pertencem ao primitive de storage planejado para um recorte separado.
 
@@ -128,13 +138,13 @@ O formato das chaves locais ainda é o legado atual. Versionamento, migração, 
 
 `buildApp()` cria o `DatabaseExplorerSessionStore`, registra as rotas de sessão com o mesmo `DatabaseExplorerService` e chama `close()` no encerramento da aplicação. Essa composição preserva o store como estado efêmero do processo e evita que credenciais entrem no `AppContext` persistente.
 
-Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e os composables web podem validar sessão, histórico e conexões salvas sem montar a view inteira.
+Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e os composables web podem validar sessão, histórico, conexões salvas, result view e paginação de tabelas sem montar a view inteira.
 
 ## Compatibilidade e próxima etapa
 
 As rotas legadas permanecem temporariamente para consumidores compatíveis, mas a interface web já cria uma única sessão e usa `sessionId` nas operações. A remoção das rotas que aceitam credenciais por operação pode ocorrer em um recorte separado, depois de confirmar que não existem outros consumidores.
 
-A próxima etapa de frontend separa result view, busca, ordenação e paginação da `DatabaseView`, mantendo o storage versionado para o recorte específico posterior.
+A próxima etapa de frontend decompõe a `DatabaseView` em componentes visuais menores, preservando os composables já extraídos e mantendo o storage versionado para o recorte específico posterior.
 
 O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 

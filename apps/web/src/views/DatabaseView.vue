@@ -15,7 +15,6 @@ import {
 import type {
   DatabaseServiceAction,
   MachineDatabaseConnection,
-  MachineDatabaseQueryResult,
   MachineDatabaseTable,
   MachineDatabaseService,
   MachineDatabaseServiceDetails,
@@ -39,6 +38,8 @@ import {
   useDatabaseQueryHistory,
 } from '../composables/useDatabaseQueryHistory';
 import { useDatabaseExplorerSession } from '../composables/useDatabaseExplorerSession';
+import { useDatabaseResultView } from '../composables/useDatabaseResultView';
+import { useDatabaseTableListView } from '../composables/useDatabaseTableListView';
 import { useDatabaseSavedConnections } from '../composables/useDatabaseSavedConnections';
 import { confirmDialog } from '../stores/app-dialog';
 
@@ -74,7 +75,33 @@ const explorerDraft = ref<MachineDatabaseConnection>({
 });
 const explorerDatabases = ref<{ name: string }[]>([]);
 const explorerTables = ref<MachineDatabaseTable[]>([]);
-const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
+const {
+  search: explorerTableSearch,
+  page: explorerTablePage,
+  filtered: filteredExplorerTables,
+  pageCount: explorerTablePageCount,
+  visible: visibleExplorerTables,
+  setSearch: setExplorerTableSearch,
+  reset: resetExplorerTableList,
+  previous: previousExplorerTablePage,
+  next: nextExplorerTablePage,
+} = useDatabaseTableListView(explorerTables);
+const {
+  result: explorerResult,
+  search: explorerResultSearch,
+  sort: explorerResultSort,
+  copiedMessage: explorerCopiedMessage,
+  durationMs: explorerQueryDurationMs,
+  visibleRows: visibleExplorerRows,
+  setResult: setExplorerResult,
+  setDuration: setExplorerQueryDuration,
+  clearCopiedMessage: clearExplorerCopiedMessage,
+  resetPresentation: resetExplorerResultPresentation,
+  clear: clearExplorerResult,
+  toggleSort: toggleExplorerResultSort,
+  copy: copyExplorerResults,
+  exportResults: exportExplorerResults,
+} = useDatabaseResultView();
 const explorerQuery = ref('SELECT * FROM ');
 const explorerTable = ref('');
 const explorerDatabase = ref('');
@@ -97,16 +124,6 @@ const {
   clear: clearExplorerQueryHistory,
 } = useDatabaseQueryHistory();
 const explorerHistoryOpen = ref(false);
-const explorerResultSearch = ref('');
-const explorerResultSort = ref<{
-  column: string;
-  direction: 'asc' | 'desc';
-} | null>(null);
-const explorerCopiedMessage = ref('');
-const explorerTableSearch = ref('');
-const explorerTablePage = ref(1);
-const EXPLORER_TABLE_PAGE_SIZE = 40;
-const explorerQueryDurationMs = ref<number | null>(null);
 const {
   sessionId: explorerSessionId,
   connection: explorerConnection,
@@ -116,58 +133,6 @@ const {
   handleSessionError: handleExplorerSessionError,
 } = useDatabaseExplorerSession({
   onExpired: () => clearExplorerData(true),
-});
-
-const filteredExplorerTables = computed(() => {
-  const search = explorerTableSearch.value.trim().toLocaleLowerCase();
-  if (!search) return explorerTables.value;
-  return explorerTables.value.filter((table) =>
-    `${table.schema ? `${table.schema}.` : ''}${table.name}`
-      .toLocaleLowerCase()
-      .includes(search),
-  );
-});
-const explorerTablePageCount = computed(() =>
-  Math.max(
-    1,
-    Math.ceil(filteredExplorerTables.value.length / EXPLORER_TABLE_PAGE_SIZE),
-  ),
-);
-const visibleExplorerTables = computed(() => {
-  const start = (explorerTablePage.value - 1) * EXPLORER_TABLE_PAGE_SIZE;
-  return filteredExplorerTables.value.slice(
-    start,
-    start + EXPLORER_TABLE_PAGE_SIZE,
-  );
-});
-const visibleExplorerRows = computed(() => {
-  if (!explorerResult.value) return [];
-  const search = explorerResultSearch.value.trim().toLocaleLowerCase();
-  const columns = explorerResult.value.columns;
-  const rows = explorerResult.value.rows.filter((row) => {
-    if (!search) return true;
-    return row.some((value) =>
-      String(value ?? 'NULL')
-        .toLocaleLowerCase()
-        .includes(search),
-    );
-  });
-  const sort = explorerResultSort.value;
-  if (!sort) return rows;
-  const columnIndex = columns.indexOf(sort.column);
-  if (columnIndex < 0) return rows;
-  return [...rows].sort((left, right) => {
-    const a = left[columnIndex];
-    const b = right[columnIndex];
-    if (a === b) return 0;
-    if (a === null || a === undefined) return sort.direction === 'asc' ? -1 : 1;
-    if (b === null || b === undefined) return sort.direction === 'asc' ? 1 : -1;
-    const result = String(a).localeCompare(String(b), undefined, {
-      numeric: true,
-      sensitivity: 'base',
-    });
-    return sort.direction === 'asc' ? result : -result;
-  });
 });
 
 function rememberExplorerQuery(): void {
@@ -242,15 +207,10 @@ function buildExplorerTableQuery(table: MachineDatabaseTable): string {
 function clearExplorerData(showExpiryMessage = false): void {
   explorerDatabases.value = [];
   explorerTables.value = [];
-  explorerResult.value = null;
   explorerDatabase.value = '';
   explorerTable.value = '';
-  explorerTableSearch.value = '';
-  explorerTablePage.value = 1;
-  explorerQueryDurationMs.value = null;
-  explorerResultSearch.value = '';
-  explorerResultSort.value = null;
-  explorerCopiedMessage.value = '';
+  resetExplorerTableList();
+  clearExplorerResult();
   explorerTestMessage.value = '';
   explorerDraft.value = {
     driver: explorerDraft.value.driver,
@@ -307,19 +267,15 @@ async function connectExplorer(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
   explorerTestMessage.value = '';
-  explorerResult.value = null;
+  setExplorerResult(null);
   try {
     const connection = { ...explorerDraft.value };
     explorerDatabases.value = await connectExplorerSession(connection);
     explorerDatabase.value = '';
     explorerTable.value = '';
     explorerTables.value = [];
-    explorerTableSearch.value = '';
-    explorerTablePage.value = 1;
-    explorerQueryDurationMs.value = null;
-    explorerResultSearch.value = '';
-    explorerResultSort.value = null;
-    explorerCopiedMessage.value = '';
+    resetExplorerTableList();
+    clearExplorerResult();
     explorerDraft.value = connectionDraftWithoutSecret(connection);
     resetExplorerQuery();
     explorerModalOpen.value = false;
@@ -340,10 +296,9 @@ async function selectExplorerDatabase(database: string): Promise<void> {
   if (!sessionId) return;
   explorerDatabase.value = database;
   explorerTable.value = '';
-  explorerTableSearch.value = '';
-  explorerTablePage.value = 1;
-  explorerResult.value = null;
-  explorerQueryDurationMs.value = null;
+  resetExplorerTableList();
+  setExplorerResult(null);
+  setExplorerQueryDuration(null);
   resetExplorerQuery();
   explorerLoading.value = true;
   explorerError.value = '';
@@ -380,9 +335,7 @@ async function previewExplorerTable(): Promise<void> {
   explorerQuery.value = buildExplorerTableQuery(table);
   explorerLoading.value = true;
   explorerError.value = '';
-  explorerResultSearch.value = '';
-  explorerResultSort.value = null;
-  explorerCopiedMessage.value = '';
+  resetExplorerResultPresentation();
   const startedAt = performance.now();
   try {
     const result = await previewDatabaseExplorerTable(
@@ -390,7 +343,7 @@ async function previewExplorerTable(): Promise<void> {
       table,
       explorerDatabase.value || undefined,
     );
-    if (explorerSessionId.value === sessionId) explorerResult.value = result;
+    if (explorerSessionId.value === sessionId) setExplorerResult(result);
   } catch (error) {
     if (!handleExplorerSessionError(error)) {
       explorerError.value = formatDatabaseExplorerError(
@@ -400,7 +353,7 @@ async function previewExplorerTable(): Promise<void> {
     }
   } finally {
     if (explorerSessionId.value === sessionId) {
-      explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+      setExplorerQueryDuration(Math.round(performance.now() - startedAt));
     }
     explorerLoading.value = false;
   }
@@ -415,7 +368,7 @@ async function runExplorerQuery(): Promise<void> {
   }
   explorerLoading.value = true;
   explorerError.value = '';
-  explorerCopiedMessage.value = '';
+  clearExplorerCopiedMessage();
   const startedAt = performance.now();
   try {
     const result = await queryDatabaseExplorer(
@@ -424,7 +377,7 @@ async function runExplorerQuery(): Promise<void> {
       explorerDatabase.value || undefined,
     );
     if (explorerSessionId.value === sessionId) {
-      explorerResult.value = result;
+      setExplorerResult(result);
       rememberExplorerQuery();
     }
   } catch (error) {
@@ -436,79 +389,10 @@ async function runExplorerQuery(): Promise<void> {
     }
   } finally {
     if (explorerSessionId.value === sessionId) {
-      explorerQueryDurationMs.value = Math.round(performance.now() - startedAt);
+      setExplorerQueryDuration(Math.round(performance.now() - startedAt));
     }
     explorerLoading.value = false;
   }
-}
-
-function toggleExplorerResultSort(column: string): void {
-  const current = explorerResultSort.value;
-  explorerResultSort.value =
-    current?.column === column
-      ? { column, direction: current.direction === 'asc' ? 'desc' : 'asc' }
-      : { column, direction: 'asc' };
-}
-
-function resultRowsAsTsv(): string {
-  if (!explorerResult.value) return '';
-  return [
-    explorerResult.value.columns.join('\t'),
-    ...visibleExplorerRows.value.map((row) =>
-      row.map((value) => String(value ?? 'NULL')).join('\t'),
-    ),
-  ].join('\n');
-}
-
-async function copyExplorerResults(): Promise<void> {
-  const text = resultRowsAsTsv();
-  if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
-    explorerCopiedMessage.value = 'Resultado copiado.';
-  } catch {
-    explorerCopiedMessage.value = 'Não foi possível copiar o resultado.';
-  }
-}
-
-function downloadExplorerFile(
-  content: string,
-  name: string,
-  type: string,
-): void {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function exportExplorerResults(format: 'csv' | 'json'): void {
-  if (!explorerResult.value) return;
-  if (format === 'json') {
-    const rows = visibleExplorerRows.value.map((row) =>
-      Object.fromEntries(
-        explorerResult.value!.columns.map((column, index) => [
-          column,
-          row[index] ?? null,
-        ]),
-      ),
-    );
-    downloadExplorerFile(
-      JSON.stringify(rows, null, 2),
-      'resultado.json',
-      'application/json',
-    );
-    return;
-  }
-  const escapeCsv = (value: unknown) =>
-    `"${String(value ?? '').replaceAll('"', '""')}"`;
-  const csv = [
-    explorerResult.value.columns.map(escapeCsv).join(','),
-    ...visibleExplorerRows.value.map((row) => row.map(escapeCsv).join(',')),
-  ].join('\n');
-  downloadExplorerFile(csv, 'resultado.csv', 'text/csv;charset=utf-8');
 }
 
 async function testExplorerConnection(): Promise<void> {
@@ -531,19 +415,7 @@ async function testExplorerConnection(): Promise<void> {
 }
 
 function onExplorerTableSearch(event: Event): void {
-  explorerTableSearch.value = (event.target as HTMLInputElement).value;
-  explorerTablePage.value = 1;
-}
-
-function previousExplorerTablePage(): void {
-  explorerTablePage.value = Math.max(1, explorerTablePage.value - 1);
-}
-
-function nextExplorerTablePage(): void {
-  explorerTablePage.value = Math.min(
-    explorerTablePageCount.value,
-    explorerTablePage.value + 1,
-  );
+  setExplorerTableSearch((event.target as HTMLInputElement).value);
 }
 
 async function loadServices(
