@@ -44,7 +44,10 @@ function onTableSearch(event: Event): void {
         aria-label="Carregando"
       />
     </div>
-    <label v-if="tables.length" class="database-explorer-table-search">
+    <label
+      v-if="tables.length || tableSearch"
+      class="database-explorer-table-search"
+    >
       <span>Buscar tabela</span>
       <input
         :value="tableSearch"
