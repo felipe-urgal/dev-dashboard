@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import type {
   MachineDatabaseQueryResult,
   MachineDatabaseService,
+  MachineDatabaseServiceDetails,
   MachineDatabaseTable,
 } from '@dev-dashboard/contracts';
 
@@ -93,6 +94,33 @@ describe('useMachineDatabaseServices', () => {
       state.successMessage.value,
       'PostgreSQL reiniciado com sucesso.',
     );
+  });
+
+  test('limpa loading de detalhes ao invalidar request em voo após mutação', async () => {
+    const pendingDetails = deferred<MachineDatabaseServiceDetails>();
+    const state = useMachineDatabaseServices({
+      dependencies: {
+        fetchDetails: async () => await pendingDetails.promise,
+        runAction: async () => undefined,
+        fetchServices: async () => [{ ...postgresqlService, active: true }],
+      },
+    });
+
+    const detailsLoad = state.loadDetails(postgresqlService.id);
+    assert.equal(state.detailsLoading.value, postgresqlService.id);
+
+    await state.runAction(postgresqlService, 'start');
+    assert.equal(state.detailsLoading.value, null);
+
+    pendingDetails.resolve({
+      serviceId: postgresqlService.id,
+      reachability: 'reachable',
+      logs: [],
+    });
+    await detailsLoad;
+
+    assert.equal(state.detailsLoading.value, null);
+    assert.deepEqual(state.details.value, {});
   });
 });
 
