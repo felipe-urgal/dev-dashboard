@@ -36,7 +36,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   refresh: [];
-  'run-action': [service: MachineDatabaseService, action: DatabaseServiceAction];
+  'run-action': [
+    service: MachineDatabaseService,
+    action: DatabaseServiceAction,
+  ];
   'toggle-details': [serviceId: string];
   'reload-details': [serviceId: string];
   install: [service: MachineDatabaseService];
@@ -191,9 +194,7 @@ function isPending(
               @click="emit('run-action', service, 'restart')"
             >
               <ArrowPathIcon aria-hidden="true" />
-              {{
-                isPending(service, 'restart') ? 'Reiniciando…' : 'Reiniciar'
-              }}
+              {{ isPending(service, 'restart') ? 'Reiniciando…' : 'Reiniciar' }}
             </button>
             <button
               type="button"
@@ -233,9 +234,7 @@ function isPending(
           >
             <TrashIcon aria-hidden="true" />
             {{
-              isPending(service, 'uninstall')
-                ? 'Desinstalando…'
-                : 'Desinstalar'
+              isPending(service, 'uninstall') ? 'Desinstalando…' : 'Desinstalar'
             }}
           </button>
         </div>
@@ -259,7 +258,9 @@ function isPending(
               </div>
               <div>
                 <span>Versão</span>
-                <strong>{{ serviceDetails(service.id)?.version ?? '—' }}</strong>
+                <strong>{{
+                  serviceDetails(service.id)?.version ?? '—'
+                }}</strong>
               </div>
               <div>
                 <span>Conexão</span>

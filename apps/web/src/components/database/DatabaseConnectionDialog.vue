@@ -38,16 +38,15 @@ function updateDraft(patch: Partial<MachineDatabaseConnection>): void {
 
 function updatePort(event: Event): void {
   const value = inputValue(event);
-  updateDraft({ port: value ? Number(value) : undefined });
+  const draft = { ...props.draft };
+  if (value) draft.port = Number(value);
+  else delete draft.port;
+  emit('update:draft', draft);
 }
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="database-modal-backdrop"
-    @click.self="emit('close')"
-  >
+  <div v-if="open" class="database-modal-backdrop" @click.self="emit('close')">
     <section
       class="database-connection-modal"
       role="dialog"
