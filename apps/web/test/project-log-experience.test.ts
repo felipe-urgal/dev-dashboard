@@ -53,4 +53,31 @@ describe('ProjectLogExperience', () => {
       ?.trigger('click');
     expect(wrapper.text()).toContain('Nenhum problema evidente encontrado');
   });
+
+  it('classifica requisições e busca linhas sem pós-processamento global', async () => {
+    const wrapper = mount(ProjectLogExperience, {
+      props: {
+        source: 'server',
+        content: [
+          'GET /api/users 200 in 120ms',
+          'POST /api/users 503 in 1200ms',
+        ].join('\n'),
+      },
+    });
+
+    const lines = wrapper.findAll('.log-experience-line');
+    expect(lines).toHaveLength(2);
+    expect(lines[1]?.classes()).toContain('log-experience-tone-danger');
+    expect(lines[1]?.find('.log-experience-tag').text()).toBe('POST');
+    expect(lines[1]?.find('.log-experience-duration').text()).toBe('1.20s');
+
+    const search = wrapper.find('.log-experience-search input');
+    await search.setValue('POST');
+    expect(wrapper.findAll('.log-experience-line')).toHaveLength(1);
+    expect(wrapper.text()).toContain('POST /api/users');
+
+    await search.setValue('inexistente');
+    expect(wrapper.findAll('.log-experience-line')).toHaveLength(0);
+    expect(wrapper.text()).toContain('Nenhuma linha corresponde aos filtros.');
+  });
 });

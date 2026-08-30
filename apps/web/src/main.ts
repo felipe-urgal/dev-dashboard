@@ -23,7 +23,6 @@ import './git-syntax-highlight.css';
 import './sidebar-collapse.css';
 import './shell-option3.css';
 import { installLogDetailEnhancer } from './log-detail-enhancer';
-import { installLogVisualEnhancer } from './log-visual-enhancer';
 import { installTestLogAutoFollow } from './test-log-auto-follow';
 import { installTestLogInspector } from './test-log-inspector';
 import { installTestLogInspectorMutationGuard } from './test-log-inspector-mutation-guard';
@@ -31,7 +30,6 @@ import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
-installLogVisualEnhancer();
 installTestLogAutoFollow();
 installTestLogToneEnhancer();
 const restoreTestLogInspectorMutationObserver =
