@@ -57,7 +57,8 @@ jobs:
             apps/web/test/database-orchestration-composables.test.ts
 
       - name: Test orchestration and related database units
-        run: npm run test --workspace=@dev-dashboard/web -- run test/database-orchestration-composables.test.ts test/database-machine-components.test.ts test/database-explorer-components.test.ts test/database-explorer-session.test.ts
+        working-directory: apps/web
+        run: npx vitest run test/database-orchestration-composables.test.ts test/database-machine-components.test.ts test/database-explorer-components.test.ts test/database-explorer-session.test.ts
 
       - name: Build
         run: npm run build
