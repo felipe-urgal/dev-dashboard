@@ -50,6 +50,25 @@ describe('DatabaseExplorerSidebar', () => {
     ]);
     assert.equal(wrapper.emitted('next-page')?.length, 1);
   });
+
+  test('mantém a busca disponível quando o filtro não encontra tabelas', () => {
+    const wrapper = mount(DatabaseExplorerSidebar, {
+      props: {
+        databases: [{ name: 'app' }],
+        tables: [],
+        selectedDatabase: 'app',
+        selectedTable: '',
+        tableSearch: 'missing',
+        filteredTableCount: 0,
+        page: 1,
+        pageCount: 1,
+        loading: false,
+      },
+    });
+
+    assert.equal(wrapper.find('input[type="search"]').exists(), true);
+    assert.match(wrapper.text(), /Nenhuma tabela encontrada para esta busca/);
+  });
 });
 
 describe('DatabaseResultTable', () => {
