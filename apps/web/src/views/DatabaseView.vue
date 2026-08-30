@@ -34,7 +34,12 @@ import {
   queryDatabaseExplorer,
 } from '../api/database-explorer';
 import { formatDatabaseExplorerError } from '../api/database-explorer-errors';
+import {
+  type DatabaseQueryHistoryItem,
+  useDatabaseQueryHistory,
+} from '../composables/useDatabaseQueryHistory';
 import { useDatabaseExplorerSession } from '../composables/useDatabaseExplorerSession';
+import { useDatabaseSavedConnections } from '../composables/useDatabaseSavedConnections';
 import { confirmDialog } from '../stores/app-dialog';
 
 const services = ref<MachineDatabaseService[]>([]);
@@ -73,25 +78,24 @@ const explorerResult = ref<MachineDatabaseQueryResult | null>(null);
 const explorerQuery = ref('SELECT * FROM ');
 const explorerTable = ref('');
 const explorerDatabase = ref('');
-type SavedDatabaseConnection = Omit<MachineDatabaseConnection, 'password'> & {
-  id: string;
-  label: string;
-};
-const SAVED_CONNECTIONS_KEY = 'dev-dashboard.database-connections';
-const savedConnections = ref<SavedDatabaseConnection[]>([]);
-const selectedSavedConnectionId = ref('');
+const {
+  connections: savedConnections,
+  selectedId: selectedSavedConnectionId,
+  load: loadSavedConnections,
+  save: saveDatabaseConnection,
+  select: selectSavedConnection,
+  remove: removeDatabaseSavedConnection,
+} = useDatabaseSavedConnections();
 const explorerTestMessage = ref('');
-type ExplorerQueryHistoryItem = {
-  id: string;
-  query: string;
-  driver: MachineDatabaseConnection['driver'];
-  database: string;
-  table: string;
-  createdAt: string;
-  favorite: boolean;
-};
-const QUERY_HISTORY_KEY = 'dev-dashboard.database-query-history';
-const explorerQueryHistory = ref<ExplorerQueryHistoryItem[]>([]);
+const {
+  history: explorerQueryHistory,
+  recent: recentExplorerQueries,
+  load: loadExplorerQueryHistory,
+  remember: rememberDatabaseQuery,
+  toggleFavorite: toggleExplorerQueryFavorite,
+  remove: removeExplorerQueryHistory,
+  clear: clearExplorerQueryHistory,
+} = useDatabaseQueryHistory();
 const explorerHistoryOpen = ref(false);
 const explorerResultSearch = ref('');
 const explorerResultSort = ref<{
@@ -165,115 +169,18 @@ const visibleExplorerRows = computed(() => {
     return sort.direction === 'asc' ? result : -result;
   });
 });
-const recentExplorerQueries = computed(() =>
-  explorerQueryHistory.value.slice(0, 8),
-);
-
-function savedConnectionId(connection: MachineDatabaseConnection): string {
-  return [
-    connection.driver,
-    connection.host ?? '127.0.0.1',
-    connection.port ?? '',
-    connection.username ?? '',
-    connection.database ?? '',
-  ].join('|');
-}
-
-function savedConnectionLabel(connection: MachineDatabaseConnection): string {
-  const address = `${connection.host ?? '127.0.0.1'}:${connection.port ?? ''}`;
-  return `${connection.driver} · ${address}${connection.username ? ` · ${connection.username}` : ''}`;
-}
-
-function loadSavedConnections(): void {
-  try {
-    const raw = localStorage.getItem(SAVED_CONNECTIONS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    if (Array.isArray(parsed)) {
-      savedConnections.value = parsed.filter(
-        (item): item is SavedDatabaseConnection =>
-          typeof item === 'object' &&
-          item !== null &&
-          typeof (item as SavedDatabaseConnection).id === 'string' &&
-          typeof (item as SavedDatabaseConnection).label === 'string',
-      );
-    }
-  } catch {
-    savedConnections.value = [];
-  }
-}
-
-function loadExplorerQueryHistory(): void {
-  try {
-    const raw = localStorage.getItem(QUERY_HISTORY_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    if (Array.isArray(parsed)) {
-      explorerQueryHistory.value = parsed.filter(
-        (item): item is ExplorerQueryHistoryItem =>
-          typeof item === 'object' &&
-          item !== null &&
-          typeof (item as ExplorerQueryHistoryItem).id === 'string' &&
-          typeof (item as ExplorerQueryHistoryItem).query === 'string' &&
-          typeof (item as ExplorerQueryHistoryItem).createdAt === 'string',
-      );
-    }
-  } catch {
-    explorerQueryHistory.value = [];
-  }
-}
-
-function persistExplorerQueryHistory(): void {
-  localStorage.setItem(
-    QUERY_HISTORY_KEY,
-    JSON.stringify(explorerQueryHistory.value.slice(0, 50)),
-  );
-}
 
 function rememberExplorerQuery(): void {
-  if (!explorerConnection.value || !explorerQuery.value.trim()) return;
-  const item: ExplorerQueryHistoryItem = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    query: explorerQuery.value.trim(),
+  if (!explorerConnection.value) return;
+  rememberDatabaseQuery({
+    query: explorerQuery.value,
     driver: explorerConnection.value.driver,
     database: explorerDatabase.value,
     table: explorerTable.value,
-    createdAt: new Date().toISOString(),
-    favorite: false,
-  };
-  const duplicate = explorerQueryHistory.value.find(
-    (historyItem) =>
-      historyItem.query === item.query &&
-      historyItem.driver === item.driver &&
-      historyItem.database === item.database,
-  );
-  explorerQueryHistory.value = [
-    { ...item, favorite: duplicate?.favorite ?? false },
-    ...explorerQueryHistory.value.filter(
-      (historyItem) => historyItem.id !== duplicate?.id,
-    ),
-  ];
-  persistExplorerQueryHistory();
+  });
 }
 
-function toggleExplorerQueryFavorite(id: string): void {
-  explorerQueryHistory.value = explorerQueryHistory.value.map((item) =>
-    item.id === id ? { ...item, favorite: !item.favorite } : item,
-  );
-  persistExplorerQueryHistory();
-}
-
-function removeExplorerQueryHistory(id: string): void {
-  explorerQueryHistory.value = explorerQueryHistory.value.filter(
-    (item) => item.id !== id,
-  );
-  persistExplorerQueryHistory();
-}
-
-function clearExplorerQueryHistory(): void {
-  explorerQueryHistory.value = [];
-  persistExplorerQueryHistory();
-}
-
-function restoreExplorerQuery(item: ExplorerQueryHistoryItem): void {
+function restoreExplorerQuery(item: DatabaseQueryHistoryItem): void {
   explorerQuery.value = item.query;
   explorerTable.value = item.table;
   if (
@@ -286,32 +193,14 @@ function restoreExplorerQuery(item: ExplorerQueryHistoryItem): void {
   explorerError.value = '';
 }
 
-function persistSavedConnections(): void {
-  localStorage.setItem(
-    SAVED_CONNECTIONS_KEY,
-    JSON.stringify(savedConnections.value),
-  );
-}
-
 function saveExplorerConnection(): void {
-  const connection = connectionDraftWithoutSecret(explorerDraft.value);
-  const saved: SavedDatabaseConnection = {
-    ...connection,
-    id: savedConnectionId(connection),
-    label: savedConnectionLabel(connection),
-  };
-  savedConnections.value = [
-    saved,
-    ...savedConnections.value.filter((item) => item.id !== saved.id),
-  ];
-  persistSavedConnections();
+  saveDatabaseConnection(explorerDraft.value);
   explorerTestMessage.value = 'Conexão salva sem armazenar a senha.';
 }
 
 function applySavedConnection(event: Event): void {
   const id = (event.target as HTMLSelectElement).value;
-  selectedSavedConnectionId.value = id;
-  const saved = savedConnections.value.find((item) => item.id === id);
+  const saved = selectSavedConnection(id);
   if (!saved) return;
   explorerDraft.value = {
     driver: saved.driver,
@@ -324,13 +213,7 @@ function applySavedConnection(event: Event): void {
 }
 
 function removeSavedConnection(id: string): void {
-  savedConnections.value = savedConnections.value.filter(
-    (item) => item.id !== id,
-  );
-  if (selectedSavedConnectionId.value === id) {
-    selectedSavedConnectionId.value = '';
-  }
-  persistSavedConnections();
+  removeDatabaseSavedConnection(id);
 }
 
 function resetExplorerQuery(): void {
