@@ -155,6 +155,7 @@ export function useMachineDatabaseServices(
     if (result === 'applied') {
       successMessage.value = `${service.label} ${actionPastLabel(action)} com sucesso.`;
       details.value = {};
+      detailsLoading.value = null;
       detailsGeneration.clear();
       return;
     }
