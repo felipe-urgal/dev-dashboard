@@ -41,8 +41,11 @@ describe('DatabaseServicesPanel', () => {
       },
     });
 
-    assert.match(wrapper.text(), /Instalados\s+1/);
-    assert.match(wrapper.text(), /Disponíveis\s+1/);
+    const overviewItems = wrapper.findAll('.database-machine-overview-item');
+    assert.equal(overviewItems[0]!.get('span').text(), 'Instalados');
+    assert.equal(overviewItems[0]!.get('strong').text(), '1');
+    assert.equal(overviewItems[2]!.get('span').text(), 'Disponíveis');
+    assert.equal(overviewItems[2]!.get('strong').text(), '1');
 
     await wrapper.get('.database-machine-refresh').trigger('click');
     await wrapper
