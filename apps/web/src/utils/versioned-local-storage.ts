@@ -31,9 +31,19 @@ function isEnvelope(value: unknown): value is VersionedStorageEnvelope {
 export function createVersionedLocalStorage<T>(
   options: VersionedLocalStorageOptions<T>,
 ): VersionedLocalStorage<T> {
-  const storage = options.storage ?? localStorage;
+  function resolveStorage(): StorageLike | null {
+    if (options.storage) return options.storage;
+    try {
+      return localStorage;
+    } catch {
+      return null;
+    }
+  }
 
   function write(value: T): boolean {
+    const storage = resolveStorage();
+    if (!storage) return false;
+
     try {
       storage.setItem(
         options.key,
@@ -46,6 +56,9 @@ export function createVersionedLocalStorage<T>(
   }
 
   function read(): T {
+    const storage = resolveStorage();
+    if (!storage) return options.fallback();
+
     let raw: string | null;
     try {
       raw = storage.getItem(options.key);
