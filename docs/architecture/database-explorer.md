@@ -5,7 +5,9 @@
 O Database Explorer separa a adaptação HTTP da execução de consultas locais por fronteiras explícitas:
 
 ```text
-DatabaseView / useDatabaseExplorerSession
+DatabaseView
+    ↓
+useDatabaseExplorerSession / useDatabaseSavedConnections / useDatabaseQueryHistory
     ↓
 Typed API client (sessionId)
     ↓
@@ -97,19 +99,42 @@ O store:
 
 Uma sessão ausente ou expirada retorna HTTP `410` com `SESSION_EXPIRED` apenas nas operações que dependem de uma sessão já criada. A criação expõe somente falhas de conexão/execução do Explorer. O identificador da sessão deve ser tratado como credencial efêmera: ele não é persistido pelo cliente nem incluído em logs adicionais. O `DELETE` mantém o identificador no path por ser o endpoint explícito de encerramento definido para o ciclo de vida da sessão.
 
+## Estado local do frontend
+
+A `DatabaseView` não implementa mais diretamente as regras de conexões salvas e histórico de consultas.
+
+`apps/web/src/composables/useDatabaseSavedConnections.ts` concentra:
+
+- leitura e persistência da chave existente `dev-dashboard.database-connections`;
+- remoção da senha antes de qualquer gravação;
+- identificação e rótulo estáveis da conexão;
+- deduplicação, seleção e remoção de conexões salvas.
+
+`apps/web/src/composables/useDatabaseQueryHistory.ts` concentra:
+
+- leitura e persistência da chave existente `dev-dashboard.database-query-history`;
+- deduplicação por consulta, driver e banco;
+- preservação do favorito ao repetir uma consulta;
+- favoritos, remoção e limpeza;
+- limite persistido de 50 entradas e recorte das 8 consultas recentes.
+
+A view continua responsável apenas por adaptar essas unidades ao contexto visual: preencher o draft ao escolher uma conexão, restaurar query/tabela/banco quando possível e decidir quando uma execução bem-sucedida entra no histórico. A leitura do `localStorage` continua no `onMounted`, preservando o lifecycle anterior.
+
+O formato das chaves locais ainda é o legado atual. Versionamento, migração, fallback e tratamento consistente de quota/security errors pertencem ao primitive de storage planejado para um recorte separado.
+
 ## Composição
 
 `createAppContext()` instancia `DatabaseReadonlyService`, que compõe os adapters PostgreSQL e MySQL/MariaDB e é injetado em `DatabaseExplorerService`. O executor específico de cada banco fica, portanto, como detalhe de infraestrutura em vez de dependência da rota ou da camada de aplicação.
 
 `buildApp()` cria o `DatabaseExplorerSessionStore`, registra as rotas de sessão com o mesmo `DatabaseExplorerService` e chama `close()` no encerramento da aplicação. Essa composição preserva o store como estado efêmero do processo e evita que credenciais entrem no `AppContext` persistente.
 
-Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e o composable web pode validar expiração/cleanup sem montar a view inteira.
+Essa separação também facilita testes isolados: o serviço pode ser exercitado com uma implementação controlada da dependência read-only, cada adapter pode ser testado com uma factory de client nativo injetada, o store pode ter TTL e cleanup testados sem banco real, as rotas de sessão podem substituir diretamente `DatabaseExplorerService`, e os composables web podem validar sessão, histórico e conexões salvas sem montar a view inteira.
 
 ## Compatibilidade e próxima etapa
 
 As rotas legadas permanecem temporariamente para consumidores compatíveis, mas a interface web já cria uma única sessão e usa `sessionId` nas operações. A remoção das rotas que aceitam credenciais por operação pode ocorrer em um recorte separado, depois de confirmar que não existem outros consumidores.
 
-A próxima etapa de frontend separa query history e saved connections da `DatabaseView`, sem misturar essa responsabilidade ao lifecycle de sessão.
+A próxima etapa de frontend separa result view, busca, ordenação e paginação da `DatabaseView`, mantendo o storage versionado para o recorte específico posterior.
 
 O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 
