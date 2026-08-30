@@ -1535,7 +1535,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sr-only {
+.database-explorer .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
