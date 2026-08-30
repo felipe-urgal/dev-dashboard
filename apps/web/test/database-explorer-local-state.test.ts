@@ -44,6 +44,45 @@ describe('useDatabaseSavedConnections', () => {
     expect(saved.selectedId.value).toBe('');
   });
 
+  it('sanitiza segredos e entradas incompatíveis ao carregar', () => {
+    localStorage.setItem(
+      'dev-dashboard.database-connections',
+      JSON.stringify([
+        {
+          id: 'postgresql|127.0.0.1|5432|app|app_development',
+          label: 'PostgreSQL local',
+          driver: 'postgresql',
+          host: '127.0.0.1',
+          port: 5432,
+          username: 'app',
+          password: 'legacy-secret',
+          database: 'app_development',
+        },
+        {
+          id: 'unsupported',
+          label: 'Inválida',
+          driver: 'mongodb',
+          password: 'other-secret',
+        },
+      ]),
+    );
+    const saved = useDatabaseSavedConnections();
+
+    saved.load();
+
+    expect(saved.connections.value).toHaveLength(1);
+    expect(saved.connections.value[0]).toMatchObject({
+      driver: 'postgresql',
+      database: 'app_development',
+    });
+    expect(saved.connections.value[0]).not.toHaveProperty('password');
+
+    saved.save({ driver: 'mysql', host: '127.0.0.1', port: 3306 });
+    expect(
+      localStorage.getItem('dev-dashboard.database-connections'),
+    ).not.toContain('secret');
+  });
+
   it('ignora storage inválido ao carregar', () => {
     localStorage.setItem('dev-dashboard.database-connections', '{invalid');
     const saved = useDatabaseSavedConnections();
