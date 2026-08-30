@@ -94,11 +94,10 @@ export function useDatabaseSavedConnections() {
     persist();
   }
 
-  load();
-
   return {
     connections,
     selectedId,
+    load,
     save,
     select,
     remove,
