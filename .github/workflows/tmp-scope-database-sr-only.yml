@@ -1,0 +1,39 @@
+name: Temporary Scope Database CSS
+
+on:
+  push:
+    branches:
+      - refactor/database-explorer-components
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scope sr-only and remove temporary workflow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/views/DatabaseView.css')
+          content = path.read_text()
+          old = '.sr-only {'
+          new = '.database-explorer .sr-only {'
+          if content.count(old) != 1:
+              raise SystemExit(f'expected one sr-only selector, found {content.count(old)}')
+          path.write_text(content.replace(old, new, 1))
+          PY
+          rm .github/workflows/tmp-scope-database-sr-only.yml
+          git diff --check
+      - name: Commit adjustment
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/views/DatabaseView.css .github/workflows/tmp-scope-database-sr-only.yml
+          git commit -m "fix(database): mantém utilitário visual no escopo do Explorer"
+          git push origin HEAD:refactor/database-explorer-components
