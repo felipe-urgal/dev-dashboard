@@ -2,6 +2,8 @@ import { ref } from 'vue';
 
 import type { MachineDatabaseConnection } from '@dev-dashboard/contracts';
 
+import { createVersionedLocalStorage } from '../utils/versioned-local-storage';
+
 export type SavedDatabaseConnection = Omit<
   MachineDatabaseConnection,
   'password'
@@ -11,6 +13,7 @@ export type SavedDatabaseConnection = Omit<
 };
 
 const SAVED_CONNECTIONS_KEY = 'dev-dashboard.database-connections';
+const SAVED_CONNECTIONS_VERSION = 1;
 
 function connectionWithoutSecret(
   connection: MachineDatabaseConnection,
@@ -70,31 +73,37 @@ function sanitizeSavedConnection(
   };
 }
 
+function sanitizeSavedConnections(
+  value: unknown,
+): SavedDatabaseConnection[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .map(sanitizeSavedConnection)
+    .filter((item): item is SavedDatabaseConnection => item !== null);
+}
+
+const savedConnectionsStorage =
+  createVersionedLocalStorage<SavedDatabaseConnection[]>({
+    key: SAVED_CONNECTIONS_KEY,
+    version: SAVED_CONNECTIONS_VERSION,
+    fallback: () => [],
+    sanitize: sanitizeSavedConnections,
+    migrate: (value, fromVersion) => {
+      if (fromVersion === 0) return value;
+      throw new Error(`Versão de conexões não suportada: ${fromVersion}`);
+    },
+  });
+
 export function useDatabaseSavedConnections() {
   const connections = ref<SavedDatabaseConnection[]>([]);
   const selectedId = ref('');
 
   function load(): void {
-    try {
-      const raw = localStorage.getItem(SAVED_CONNECTIONS_KEY);
-      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      connections.value = Array.isArray(parsed)
-        ? parsed
-            .map(sanitizeSavedConnection)
-            .filter(
-              (item): item is SavedDatabaseConnection => item !== null,
-            )
-        : [];
-    } catch {
-      connections.value = [];
-    }
+    connections.value = savedConnectionsStorage.read();
   }
 
   function persist(): void {
-    localStorage.setItem(
-      SAVED_CONNECTIONS_KEY,
-      JSON.stringify(connections.value),
-    );
+    savedConnectionsStorage.write(connections.value);
   }
 
   function save(
