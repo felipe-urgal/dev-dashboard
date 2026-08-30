@@ -105,7 +105,7 @@ describe('DatabaseResultTable', () => {
     assert.equal(wrapper.emitted('copy')?.length, 1);
     assert.deepEqual(wrapper.emitted('export')?.[0], ['csv']);
     assert.deepEqual(wrapper.emitted('export')?.[1], ['json']);
-    assert.match(wrapper.text(), /1 de 1 linhas · 18 ms/);
+    assert.match(wrapper.text(), /1 de 1 linhas\s+·\s+18 ms/);
   });
 });
 
