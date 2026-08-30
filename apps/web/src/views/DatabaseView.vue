@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
-  ArrowPathIcon,
   ChevronDownIcon,
-  ChevronUpIcon,
   CircleStackIcon,
-  InformationCircleIcon,
   LinkIcon,
   MagnifyingGlassIcon,
-  PauseIcon,
-  PlayIcon,
-  TrashIcon,
 } from '@heroicons/vue/24/outline';
 import type {
   DatabaseServiceAction,
@@ -33,9 +27,11 @@ import {
   queryDatabaseExplorer,
 } from '../api/database-explorer';
 import { formatDatabaseExplorerError } from '../api/database-explorer-errors';
+import DatabaseConnectionDialog from '../components/database/DatabaseConnectionDialog.vue';
 import DatabaseExplorerSidebar from '../components/database/DatabaseExplorerSidebar.vue';
 import DatabaseQueryEditor from '../components/database/DatabaseQueryEditor.vue';
 import DatabaseResultTable from '../components/database/DatabaseResultTable.vue';
+import DatabaseServicesPanel from '../components/database/DatabaseServicesPanel.vue';
 import {
   type DatabaseQueryHistoryItem,
   useDatabaseQueryHistory,
@@ -59,15 +55,6 @@ const pending = ref<{
   serviceId: string;
   action: DatabaseServiceAction | 'install' | 'uninstall';
 } | null>(null);
-const installedServices = computed(() =>
-  services.value.filter((service) => service.installed),
-);
-const uninstalledServices = computed(() =>
-  services.value.filter((service) => !service.installed),
-);
-const activeServices = computed(() =>
-  installedServices.value.filter((service) => service.active),
-);
 const explorerModalOpen = ref(false);
 const explorerLoading = ref(false);
 const explorerError = ref('');
@@ -166,8 +153,7 @@ function saveExplorerConnection(): void {
   explorerTestMessage.value = 'Conexão salva sem armazenar a senha.';
 }
 
-function applySavedConnection(event: Event): void {
-  const id = (event.target as HTMLSelectElement).value;
+function applySavedConnection(id: string): void {
   const saved = selectSavedConnection(id);
   if (!saved) return;
   explorerDraft.value = {
@@ -244,10 +230,15 @@ async function disconnectExplorer(): Promise<void> {
   }
 }
 
-function syncExplorerPort(): void {
+function updateExplorerDraft(draft: MachineDatabaseConnection): void {
+  explorerDraft.value = draft;
+}
+
+function syncExplorerPort(driver: MachineDatabaseConnection['driver']): void {
   explorerDraft.value = {
     ...explorerDraft.value,
-    port: explorerDraft.value.driver === 'postgresql' ? 5432 : 3306,
+    driver,
+    port: driver === 'postgresql' ? 5432 : 3306,
   };
 }
 
@@ -443,22 +434,6 @@ function refreshServices(): void {
   void loadServices({ clearSuccess: true });
 }
 
-function serviceDetails(
-  serviceId: string,
-): MachineDatabaseServiceDetails | undefined {
-  return details.value[serviceId];
-}
-
-function reachabilityLabel(
-  value: MachineDatabaseServiceDetails['reachability'],
-) {
-  return {
-    reachable: 'Porta acessível',
-    unreachable: 'Porta indisponível',
-    unknown: 'Não testada',
-  }[value];
-}
-
 async function loadDetails(serviceId: string): Promise<void> {
   detailsLoading.value = serviceId;
   detailsErrors.value = { ...detailsErrors.value, [serviceId]: '' };
@@ -486,7 +461,7 @@ async function toggleDetails(serviceId: string): Promise<void> {
     return;
   }
   expandedServiceId.value = serviceId;
-  if (!serviceDetails(serviceId)) await loadDetails(serviceId);
+  if (!details.value[serviceId]) await loadDetails(serviceId);
 }
 
 function actionLabel(action: DatabaseServiceAction | 'install' | 'uninstall') {
@@ -534,15 +509,6 @@ async function runAction(
   } finally {
     pending.value = null;
   }
-}
-
-function isPending(
-  service: MachineDatabaseService,
-  action: DatabaseServiceAction | 'install' | 'uninstall',
-) {
-  return (
-    pending.value?.serviceId === service.id && pending.value?.action === action
-  );
 }
 
 async function installService(service: MachineDatabaseService): Promise<void> {
@@ -622,508 +588,65 @@ onMounted(() => {
     aria-labelledby="database-page-title"
     :aria-busy="loading"
   >
-    <header class="database-machine-header">
-      <div>
-        <span class="database-machine-eyebrow">Serviços da máquina</span>
-        <h1 id="database-page-title">Banco de dados</h1>
-        <p>
-          Gerencie os bancos instalados no sistema, independentemente do
-          workspace.
-        </p>
-      </div>
-      <button
-        type="button"
-        class="database-machine-refresh"
-        :disabled="loading"
-        @click="refreshServices"
-      >
-        <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
-        {{ loading ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-    </header>
-
-    <p v-if="successMessage" class="database-machine-success" role="status">
-      {{ successMessage }}
-      <span v-if="lastUpdatedAt">
-        Status atualizado às
-        {{
-          lastUpdatedAt.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        }}.
-      </span>
-    </p>
-    <p v-if="errorMessage" class="activity-error" role="alert">
-      {{ errorMessage }}
-    </p>
-    <div
-      v-if="loading && services.length === 0"
-      class="activity-empty"
-      role="status"
-    >
-      Consultando os serviços do sistema…
-    </div>
-    <template v-else>
-      <div class="database-machine-overview" aria-label="Resumo dos serviços">
-        <div class="database-machine-overview-item">
-          <span>Instalados</span>
-          <strong>{{ installedServices.length }}</strong>
-        </div>
-        <div class="database-machine-overview-item">
-          <span>Em execução</span>
-          <strong class="is-success">{{ activeServices.length }}</strong>
-        </div>
-        <div class="database-machine-overview-item">
-          <span>Disponíveis</span>
-          <strong>{{ uninstalledServices.length }}</strong>
-        </div>
-      </div>
-
-      <div v-if="installedServices.length" class="database-machine-section">
-        <div class="database-machine-section-heading">
-          <div>
-            <h2>Serviços da máquina</h2>
-            <p>Gerencie os serviços disponíveis nesta máquina.</p>
-          </div>
-          <span class="database-machine-count"
-            >{{ installedServices.length }} serviços</span
-          >
-        </div>
-      </div>
-      <div v-if="installedServices.length" class="database-machine-list">
-        <article
-          v-for="service in installedServices"
-          :key="service.id"
-          class="database-machine-card"
-          :data-service-id="service.id"
-          :aria-busy="pending?.serviceId === service.id"
-        >
-          <div class="database-machine-card-icon">
-            <CircleStackIcon aria-hidden="true" />
-          </div>
-          <div class="database-machine-card-copy">
-            <div class="database-machine-title-line">
-              <h2>{{ service.label }}</h2>
-              <span
-                :class="['database-machine-status', { active: service.active }]"
-              >
-                {{ service.active ? 'Em execução' : 'Parado' }}
-              </span>
-            </div>
-            <div class="database-machine-meta">
-              <code>{{ service.unit }}</code>
-              <span>systemd</span>
-            </div>
-          </div>
-          <div v-if="service.installed" class="database-machine-actions">
-            <button
-              v-if="!service.active"
-              type="button"
-              :disabled="pending !== null"
-              @click="runAction(service, 'start')"
-            >
-              <PlayIcon aria-hidden="true" />
-              {{ isPending(service, 'start') ? 'Iniciando…' : 'Iniciar' }}
-            </button>
-            <template v-else>
-              <button
-                type="button"
-                :disabled="pending !== null"
-                @click="runAction(service, 'restart')"
-              >
-                <ArrowPathIcon aria-hidden="true" />
-                {{
-                  isPending(service, 'restart') ? 'Reiniciando…' : 'Reiniciar'
-                }}
-              </button>
-              <button
-                type="button"
-                class="danger"
-                :disabled="pending !== null"
-                @click="runAction(service, 'stop')"
-              >
-                <PauseIcon aria-hidden="true" />
-                {{ isPending(service, 'stop') ? 'Parando…' : 'Parar' }}
-              </button>
-            </template>
-            <button
-              type="button"
-              class="database-machine-details-toggle"
-              :disabled="
-                detailsLoading !== null && detailsLoading !== service.id
-              "
-              :aria-expanded="expandedServiceId === service.id"
-              :aria-controls="`database-details-${service.id}`"
-              @click="toggleDetails(service.id)"
-            >
-              <InformationCircleIcon aria-hidden="true" />
-              {{
-                expandedServiceId === service.id
-                  ? 'Ocultar detalhes'
-                  : 'Ver detalhes'
-              }}
-              <ChevronUpIcon
-                v-if="expandedServiceId === service.id"
-                aria-hidden="true"
-              />
-              <ChevronDownIcon v-else aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              class="danger"
-              :disabled="pending !== null"
-              @click="uninstallService(service)"
-            >
-              <TrashIcon aria-hidden="true" />
-              {{
-                isPending(service, 'uninstall')
-                  ? 'Desinstalando…'
-                  : 'Desinstalar'
-              }}
-            </button>
-          </div>
-          <div
-            v-if="expandedServiceId === service.id"
-            :id="`database-details-${service.id}`"
-            class="database-machine-details"
-          >
-            <div v-if="detailsLoading === service.id" role="status">
-              Consultando detalhes…
-            </div>
-            <template v-else-if="serviceDetails(service.id)">
-              <div class="database-machine-details-grid">
-                <div>
-                  <span>Porta</span>
-                  <strong>{{ serviceDetails(service.id)?.port ?? '—' }}</strong>
-                </div>
-                <div>
-                  <span>PID</span>
-                  <strong>{{ serviceDetails(service.id)?.pid ?? '—' }}</strong>
-                </div>
-                <div>
-                  <span>Versão</span>
-                  <strong>{{
-                    serviceDetails(service.id)?.version ?? '—'
-                  }}</strong>
-                </div>
-                <div>
-                  <span>Conexão</span>
-                  <strong
-                    :class="`database-machine-reachability-${serviceDetails(service.id)?.reachability}`"
-                  >
-                    {{
-                      reachabilityLabel(
-                        serviceDetails(service.id)?.reachability ?? 'unknown',
-                      )
-                    }}
-                  </strong>
-                </div>
-              </div>
-              <div class="database-machine-details-toolbar">
-                <span v-if="serviceDetails(service.id)?.startedAt">
-                  Iniciado em {{ serviceDetails(service.id)?.startedAt }}
-                </span>
-                <button
-                  type="button"
-                  :disabled="detailsLoading !== null"
-                  @click="loadDetails(service.id)"
-                >
-                  <ArrowPathIcon aria-hidden="true" />
-                  {{
-                    detailsLoading === service.id
-                      ? 'Testando…'
-                      : 'Testar conexão'
-                  }}
-                </button>
-              </div>
-              <p
-                v-if="detailsErrors[service.id]"
-                class="database-machine-details-error"
-                role="alert"
-              >
-                {{ detailsErrors[service.id] }}
-              </p>
-              <div class="database-machine-log">
-                <div class="database-machine-log-heading">
-                  <span>Logs recentes</span>
-                  <small>últimas 40 linhas</small>
-                </div>
-                <pre v-if="serviceDetails(service.id)?.logs.length">{{
-                  serviceDetails(service.id)?.logs.join('\n')
-                }}</pre>
-                <p v-else>Não há logs recentes disponíveis.</p>
-              </div>
-            </template>
-          </div>
-        </article>
-      </div>
-
-      <div
-        v-if="uninstalledServices.length"
-        class="database-machine-section database-machine-section-available"
-      >
-        <div class="database-machine-section-heading">
-          <div>
-            <h2>Disponíveis para instalar</h2>
-            <p>Instale um serviço quando precisar dele nesta máquina.</p>
-          </div>
-          <span class="database-machine-count"
-            >{{ uninstalledServices.length }} disponíveis</span
-          >
-        </div>
-      </div>
-      <div v-if="uninstalledServices.length" class="database-machine-list">
-        <article
-          v-for="service in uninstalledServices"
-          :key="service.id"
-          class="database-machine-card database-machine-card-uninstalled"
-          :data-service-id="service.id"
-          :aria-busy="pending?.serviceId === service.id"
-        >
-          <div class="database-machine-card-icon">
-            <CircleStackIcon aria-hidden="true" />
-          </div>
-          <div class="database-machine-card-copy">
-            <h2>{{ service.label }}</h2>
-            <div class="database-machine-meta">
-              <code>{{ service.unit }}</code>
-              <span>Não instalado</span>
-            </div>
-          </div>
-          <div class="database-machine-actions">
-            <button
-              type="button"
-              :disabled="pending !== null"
-              @click="installService(service)"
-            >
-              <PlayIcon aria-hidden="true" />
-              {{ isPending(service, 'install') ? 'Instalando…' : 'Instalar' }}
-            </button>
-          </div>
-        </article>
-      </div>
-      <section
-        class="database-explorer"
-        aria-labelledby="database-explorer-title"
-      >
-        <div class="database-machine-section-heading">
-          <div>
-            <h2 id="database-explorer-title">Explorador de dados</h2>
-            <p>
-              Acesso local somente leitura. Credenciais ficam apenas nesta
-              sessão.
-            </p>
-          </div>
-        </div>
-        <div class="database-connection-bar">
-          <LinkIcon aria-hidden="true" />
-          <div>
-            <strong>Conexão</strong>
-            <span>{{
-              explorerConnection
-                ? `${explorerConnection.driver} · ${explorerConnection.host}:${explorerConnection.port}`
-                : 'Nenhuma conexão ativa'
-            }}</span>
-          </div>
-          <button
-            type="button"
-            class="database-primary-button database-connection-button"
-            :disabled="explorerLoading"
-            @click="openExplorerConnection"
-          >
-            {{ explorerConnection ? 'Trocar conexão' : 'Conectar' }}
-            <ChevronDownIcon aria-hidden="true" />
-          </button>
-          <button
-            v-if="explorerConnection"
-            type="button"
-            class="database-connection-disconnect"
-            :disabled="explorerLoading"
-            @click="disconnectExplorer"
-          >
-            Desconectar
-          </button>
-        </div>
-        <p
-          v-if="explorerError"
-          class="database-machine-details-error"
-          role="alert"
-        >
-          {{ explorerError }}
-        </p>
-        <div v-if="!explorerConnection" class="database-explorer-empty">
-          <div class="database-explorer-empty-copy">
-            <h3>Bancos e tabelas</h3>
-            <p>Conecte-se para visualizar seus bancos e tabelas.</p>
-          </div>
-          <div class="database-explorer-empty-art" aria-hidden="true">
-            <CircleStackIcon />
-            <MagnifyingGlassIcon />
-          </div>
-          <div
-            class="database-explorer-empty-copy database-explorer-empty-copy-right"
-          >
-            <h3>Conecte-se para explorar seus bancos</h3>
-            <p>Use uma conexão local somente leitura para começar.</p>
-            <button
-              type="button"
-              class="database-primary-button"
-              @click="openExplorerConnection"
-            >
-              Conectar a um serviço
-            </button>
-          </div>
-        </div>
-        <div v-else class="database-explorer-workspace">
-          <DatabaseExplorerSidebar
-            :databases="explorerDatabases"
-            :tables="visibleExplorerTables"
-            :selected-database="explorerDatabase"
-            :selected-table="explorerTable"
-            :table-search="explorerTableSearch"
-            :filtered-table-count="filteredExplorerTables.length"
-            :page="explorerTablePage"
-            :page-count="explorerTablePageCount"
-            :loading="explorerLoading"
-            @select-database="selectExplorerDatabase"
-            @search-table="setExplorerTableSearch"
-            @select-table="selectExplorerTable"
-            @previous-page="previousExplorerTablePage"
-            @next-page="nextExplorerTablePage"
-          />
-          <div class="database-explorer-main">
-            <div v-if="!explorerTable" class="database-explorer-main-empty">
-              <CircleStackIcon aria-hidden="true" />
-              <h3>Selecione uma tabela</h3>
-              <p>Escolha um banco e uma tabela para visualizar os dados.</p>
-            </div>
-            <template v-else>
-              <DatabaseResultTable
-                :table="explorerTable"
-                :result="explorerResult"
-                :visible-rows="visibleExplorerRows"
-                :duration-ms="explorerQueryDurationMs"
-                :search="explorerResultSearch"
-                :sort="explorerResultSort"
-                :copied-message="explorerCopiedMessage"
-                @update:search="explorerResultSearch = $event"
-                @toggle-sort="toggleExplorerResultSort"
-                @copy="copyExplorerResults"
-                @export="exportExplorerResults"
-              />
-              <DatabaseQueryEditor
-                :query="explorerQuery"
-                :loading="explorerLoading"
-                :history-open="explorerHistoryOpen"
-                :history-count="explorerQueryHistory.length"
-                :recent-queries="recentExplorerQueries"
-                @update:query="explorerQuery = $event"
-                @toggle-history="explorerHistoryOpen = !explorerHistoryOpen"
-                @clear-history="clearExplorerQueryHistory"
-                @restore-query="restoreExplorerQuery"
-                @toggle-favorite="toggleExplorerQueryFavorite"
-                @remove-history="removeExplorerQueryHistory"
-                @reset="resetExplorerQuery"
-                @run="runExplorerQuery"
-              />
-            </template>
-          </div>
-        </div>
-      </section>
-    </template>
-  </section>
-  <div
-    v-if="explorerModalOpen"
-    class="database-modal-backdrop"
-    @click.self="closeExplorerConnection"
-  >
+    <DatabaseServicesPanel
+      :services="services"
+      :loading="loading"
+      :error-message="errorMessage"
+      :success-message="successMessage"
+      :last-updated-at="lastUpdatedAt"
+      :expanded-service-id="expandedServiceId"
+      :details="details"
+      :details-errors="detailsErrors"
+      :details-loading="detailsLoading"
+      :pending="pending"
+      @refresh="refreshServices"
+      @run-action="runAction"
+      @toggle-details="toggleDetails"
+      @reload-details="loadDetails"
+      @install="installService"
+      @uninstall="uninstallService"
+    />
     <section
-      class="database-connection-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="database-connection-title"
+      v-if="!loading || services.length > 0"
+      class="database-explorer"
+      aria-labelledby="database-explorer-title"
     >
-      <div class="database-modal-heading">
+      <div class="database-machine-section-heading">
         <div>
-          <span class="database-machine-eyebrow">Conexão local</span>
-          <h2 id="database-connection-title">Conectar a um serviço</h2>
-          <p>As credenciais são usadas somente nesta sessão.</p>
+          <h2 id="database-explorer-title">Explorador de dados</h2>
+          <p>
+            Acesso local somente leitura. Credenciais ficam apenas nesta sessão.
+          </p>
+        </div>
+      </div>
+      <div class="database-connection-bar">
+        <LinkIcon aria-hidden="true" />
+        <div>
+          <strong>Conexão</strong>
+          <span>{{
+            explorerConnection
+              ? `${explorerConnection.driver} · ${explorerConnection.host}:${explorerConnection.port}`
+              : 'Nenhuma conexão ativa'
+          }}</span>
         </div>
         <button
           type="button"
-          aria-label="Fechar"
-          @click="closeExplorerConnection"
+          class="database-primary-button database-connection-button"
+          :disabled="explorerLoading"
+          @click="openExplorerConnection"
         >
-          ×
+          {{ explorerConnection ? 'Trocar conexão' : 'Conectar' }}
+          <ChevronDownIcon aria-hidden="true" />
         </button>
-      </div>
-      <div class="database-connection-form">
-        <div v-if="savedConnections.length" class="database-saved-connections">
-          <label for="database-saved-connection">Conexão salva</label>
-          <div class="database-saved-connection-control">
-            <select
-              id="database-saved-connection"
-              v-model="selectedSavedConnectionId"
-              @change="applySavedConnection"
-            >
-              <option value="">Selecione uma conexão</option>
-              <option
-                v-for="saved in savedConnections"
-                :key="saved.id"
-                :value="saved.id"
-              >
-                {{ saved.label }}
-              </option>
-            </select>
-            <button
-              v-if="selectedSavedConnectionId"
-              type="button"
-              class="database-saved-remove"
-              @click="removeSavedConnection(selectedSavedConnectionId)"
-            >
-              Remover
-            </button>
-          </div>
-        </div>
-        <label
-          >Banco<select
-            v-model="explorerDraft.driver"
-            @change="syncExplorerPort"
-          >
-            <option value="postgresql">PostgreSQL</option>
-            <option value="mysql">MySQL</option>
-            <option value="mariadb">MariaDB</option>
-          </select></label
+        <button
+          v-if="explorerConnection"
+          type="button"
+          class="database-connection-disconnect"
+          :disabled="explorerLoading"
+          @click="disconnectExplorer"
         >
-        <label
-          >Host<input v-model="explorerDraft.host" autocomplete="off"
-        /></label>
-        <label
-          >Porta<input
-            v-model.number="explorerDraft.port"
-            type="number"
-            min="1"
-            max="65535"
-        /></label>
-        <label
-          >Usuário<input
-            v-model="explorerDraft.username"
-            placeholder="ex.: felipe, root ou postgres"
-            autocomplete="off"
-        /></label>
-        <label
-          >Senha<input
-            v-model="explorerDraft.password"
-            type="password"
-            autocomplete="new-password"
-        /></label>
-        <label
-          >Banco (opcional)<input
-            v-model="explorerDraft.database"
-            placeholder="Vazio lista todos"
-            autocomplete="off"
-        /></label>
+          Desconectar
+        </button>
       </div>
       <p
         v-if="explorerError"
@@ -1132,39 +655,103 @@ onMounted(() => {
       >
         {{ explorerError }}
       </p>
-      <p
-        v-if="explorerTestMessage"
-        class="database-machine-success"
-        role="status"
-      >
-        {{ explorerTestMessage }}
-      </p>
-      <div class="database-modal-actions">
-        <button type="button" @click="closeExplorerConnection">Cancelar</button>
-        <button
-          type="button"
-          :disabled="explorerLoading"
-          @click="saveExplorerConnection"
+      <div v-if="!explorerConnection" class="database-explorer-empty">
+        <div class="database-explorer-empty-copy">
+          <h3>Bancos e tabelas</h3>
+          <p>Conecte-se para visualizar seus bancos e tabelas.</p>
+        </div>
+        <div class="database-explorer-empty-art" aria-hidden="true">
+          <CircleStackIcon />
+          <MagnifyingGlassIcon />
+        </div>
+        <div
+          class="database-explorer-empty-copy database-explorer-empty-copy-right"
         >
-          Salvar sem senha
-        </button>
-        <button
-          type="button"
-          :disabled="explorerLoading"
-          @click="testExplorerConnection"
-        >
-          {{ explorerLoading ? 'Testando…' : 'Testar conexão' }}</button
-        ><button
-          type="button"
-          class="database-primary-button"
-          :disabled="explorerLoading"
-          @click="connectExplorer"
-        >
-          {{ explorerLoading ? 'Conectando…' : 'Conectar e continuar' }}
-        </button>
+          <h3>Conecte-se para explorar seus bancos</h3>
+          <p>Use uma conexão local somente leitura para começar.</p>
+          <button
+            type="button"
+            class="database-primary-button"
+            @click="openExplorerConnection"
+          >
+            Conectar a um serviço
+          </button>
+        </div>
+      </div>
+      <div v-else class="database-explorer-workspace">
+        <DatabaseExplorerSidebar
+          :databases="explorerDatabases"
+          :tables="visibleExplorerTables"
+          :selected-database="explorerDatabase"
+          :selected-table="explorerTable"
+          :table-search="explorerTableSearch"
+          :filtered-table-count="filteredExplorerTables.length"
+          :page="explorerTablePage"
+          :page-count="explorerTablePageCount"
+          :loading="explorerLoading"
+          @select-database="selectExplorerDatabase"
+          @search-table="setExplorerTableSearch"
+          @select-table="selectExplorerTable"
+          @previous-page="previousExplorerTablePage"
+          @next-page="nextExplorerTablePage"
+        />
+        <div class="database-explorer-main">
+          <div v-if="!explorerTable" class="database-explorer-main-empty">
+            <CircleStackIcon aria-hidden="true" />
+            <h3>Selecione uma tabela</h3>
+            <p>Escolha um banco e uma tabela para visualizar os dados.</p>
+          </div>
+          <template v-else>
+            <DatabaseResultTable
+              :table="explorerTable"
+              :result="explorerResult"
+              :visible-rows="visibleExplorerRows"
+              :duration-ms="explorerQueryDurationMs"
+              :search="explorerResultSearch"
+              :sort="explorerResultSort"
+              :copied-message="explorerCopiedMessage"
+              @update:search="explorerResultSearch = $event"
+              @toggle-sort="toggleExplorerResultSort"
+              @copy="copyExplorerResults"
+              @export="exportExplorerResults"
+            />
+            <DatabaseQueryEditor
+              :query="explorerQuery"
+              :loading="explorerLoading"
+              :history-open="explorerHistoryOpen"
+              :history-count="explorerQueryHistory.length"
+              :recent-queries="recentExplorerQueries"
+              @update:query="explorerQuery = $event"
+              @toggle-history="explorerHistoryOpen = !explorerHistoryOpen"
+              @clear-history="clearExplorerQueryHistory"
+              @restore-query="restoreExplorerQuery"
+              @toggle-favorite="toggleExplorerQueryFavorite"
+              @remove-history="removeExplorerQueryHistory"
+              @reset="resetExplorerQuery"
+              @run="runExplorerQuery"
+            />
+          </template>
+        </div>
       </div>
     </section>
-  </div>
+  </section>
+  <DatabaseConnectionDialog
+    :open="explorerModalOpen"
+    :draft="explorerDraft"
+    :saved-connections="savedConnections"
+    :selected-saved-connection-id="selectedSavedConnectionId"
+    :loading="explorerLoading"
+    :error="explorerError"
+    :test-message="explorerTestMessage"
+    @close="closeExplorerConnection"
+    @update:draft="updateExplorerDraft"
+    @update-driver="syncExplorerPort"
+    @select-saved="applySavedConnection"
+    @remove-saved="removeSavedConnection"
+    @save="saveExplorerConnection"
+    @test="testExplorerConnection"
+    @connect="connectExplorer"
+  />
 </template>
 
 <style src="./DatabaseView.css"></style>

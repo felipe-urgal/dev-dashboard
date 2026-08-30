@@ -132,7 +132,9 @@ A composição visual do workspace também começou a sair da view principal sem
 
 - `DatabaseExplorerSidebar.vue` recebe bancos, tabelas e estado de paginação e emite seleção/busca/navegação;
 - `DatabaseResultTable.vue` renderiza resultado, busca e ações de cópia/exportação, delegando transformações ao `useDatabaseResultView`;
-- `DatabaseQueryEditor.vue` preserva editor, histórico e o atalho `Ctrl/Cmd + Enter`, emitindo apenas intenções para a view.
+- `DatabaseQueryEditor.vue` preserva editor, histórico e o atalho `Ctrl/Cmd + Enter`, emitindo apenas intenções para a view;
+- `DatabaseServicesPanel.vue` renderiza resumo, cards, detalhes e ações dos serviços da máquina, emitindo as intenções de refresh/start/stop/restart/install/uninstall para a view;
+- `DatabaseConnectionDialog.vue` renderiza o formulário de conexão e conexões salvas, mantendo teste, conexão, persistência e seleção efetiva sob responsabilidade da view/composables.
 
 Para manter exatamente a hierarquia visual após a extração, as regras antes `scoped` da `DatabaseView` foram movidas sem alteração para `DatabaseView.css`. Os seletores são específicos da feature (`database-*`) e agora alcançam o DOM interno dos componentes extraídos.
 
@@ -152,7 +154,7 @@ Essa separação também facilita testes isolados: o serviço pode ser exercitad
 
 As rotas legadas permanecem temporariamente para consumidores compatíveis, mas a interface web já cria uma única sessão e usa `sessionId` nas operações. A remoção das rotas que aceitam credenciais por operação pode ocorrer em um recorte separado, depois de confirmar que não existem outros consumidores.
 
-A próxima etapa de frontend continua a decomposição visual com `DatabaseServicesPanel` e `DatabaseConnectionDialog`, mantendo a orquestração na `DatabaseView`; o primitive de storage versionado permanece em recorte posterior.
+A decomposição visual principal agora inclui `DatabaseServicesPanel` e `DatabaseConnectionDialog` sem mover requests para os filhos. O próximo recorte de frontend deve retirar da `DatabaseView` a orquestração remanescente de serviços e execução para composables próprios (`useMachineDatabaseServices` e `useDatabaseQueryExecution`); o primitive de storage versionado permanece em recorte posterior.
 
 O protocolo TSV foi removido sem alterar o contrato HTTP nem as camadas superiores.
 
