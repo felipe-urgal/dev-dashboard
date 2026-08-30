@@ -47,6 +47,9 @@ jobs:
       - name: Typecheck web
         run: npm run typecheck --workspace=@dev-dashboard/web
 
+      - name: Typecheck web tests
+        run: npx tsc -p apps/web/tsconfig.test.json --noEmit
+
       - name: Lint affected files
         run: |
           npx eslint \
@@ -56,7 +59,8 @@ jobs:
             apps/web/test/database-machine-components.test.ts
 
       - name: Test extracted components
-        run: npx vitest run apps/web/test/database-machine-components.test.ts apps/web/test/database-explorer-components.test.ts
+        working-directory: apps/web
+        run: npx vitest run test/database-machine-components.test.ts test/database-explorer-components.test.ts
 
       - name: Commit refactor
         run: |
