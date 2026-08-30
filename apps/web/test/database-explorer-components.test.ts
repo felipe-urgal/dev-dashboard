@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
+import { nextTick } from 'vue';
 
 import { mount } from '@vue/test-utils';
 
@@ -122,7 +123,16 @@ describe('DatabaseQueryEditor', () => {
 
     const textarea = wrapper.get('textarea');
     await textarea.setValue('SELECT id FROM users');
-    await textarea.trigger('keydown', { key: 'Enter', ctrlKey: true });
+    textarea.element.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await nextTick();
     await wrapper.get('.database-explorer-history-query').trigger('click');
     await wrapper
       .get('button[aria-label="Favoritar consulta"]')
