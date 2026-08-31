@@ -164,7 +164,10 @@ test('sudo bloqueado no início de etapa irreversível termina failed sem exigir
     store: new DeploymentStore(path.join(directory, 'state')),
   });
   const plan = await service.plan(project);
-  const confirmation = await service.prepareConfirmation(project, plan.planHash);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
   const started = await service.start(
     project,
     plan.planHash,

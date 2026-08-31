@@ -1,15 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue';
-import {
-  KeyIcon,
-  LockClosedIcon,
-  XMarkIcon,
-} from '@heroicons/vue/24/outline';
+import { KeyIcon, LockClosedIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
-import {
-  authorizeDeploymentSudo,
-  fetchDeploymentSudoStatus,
-} from '../api';
+import { authorizeDeploymentSudo, fetchDeploymentSudoStatus } from '../api';
 
 interface Props {
   open: boolean;
@@ -67,7 +60,8 @@ async function authorize(): Promise<void> {
       password.value,
     );
     if (!status.authorized) {
-      errorMessage.value = 'O sudo não ficou autorizado para uso não interativo.';
+      errorMessage.value =
+        'O sudo não ficou autorizado para uso não interativo.';
       return;
     }
     clearSecret();
@@ -156,8 +150,8 @@ onBeforeUnmount(clearSecret);
           <p class="sudo-modal-note">
             Por segurança, esta autorização só funciona quando o dashboard é
             acessado diretamente pelo host local. Se a política sudoers não
-            permitir reutilizar o ticket sem TTY, o dashboard vai informar que
-            é necessária uma regra NOPASSWD limitada.
+            permitir reutilizar o ticket sem TTY, o dashboard vai informar que é
+            necessária uma regra NOPASSWD limitada.
           </p>
 
           <footer>

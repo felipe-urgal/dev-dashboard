@@ -150,9 +150,9 @@ export class ProductionCommandAdapter {
       child.stderr.on('data', (chunk: Buffer | string) => {
         const content = chunk.toString();
         if (stderrForClassification.length < STDERR_CLASSIFICATION_LIMIT) {
-          stderrForClassification = (
-            stderrForClassification + content
-          ).slice(-STDERR_CLASSIFICATION_LIMIT);
+          stderrForClassification = (stderrForClassification + content).slice(
+            -STDERR_CLASSIFICATION_LIMIT,
+          );
         }
         emit(content);
       });

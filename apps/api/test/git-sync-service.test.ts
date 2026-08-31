@@ -174,7 +174,13 @@ test('sincroniza a main usando origin/main quando upstream não está configurad
 
   try {
     await git(fixture.local, 'remote', 'remove', 'upstream');
-    await git(fixture.source, 'remote', 'add', 'dashboard-origin', fixture.origin);
+    await git(
+      fixture.source,
+      'remote',
+      'add',
+      'dashboard-origin',
+      fixture.origin,
+    );
     await writeFile(path.join(fixture.source, 'origin-only.txt'), 'origin\n');
     await git(fixture.source, 'add', 'origin-only.txt');
     await git(fixture.source, 'commit', '-m', 'feat: atualiza origin');
