@@ -287,12 +287,15 @@ export class VercelDeploymentAdapter {
     }
 
     const meta = record(value.meta);
-    const branch = boundedString(meta?.githubCommitRef, 256);
-    const candidateRevision = boundedString(meta?.githubCommitSha, 64);
-    const revision =
-      candidateRevision && /^[0-9a-f]{40}$/i.test(candidateRevision)
-        ? candidateRevision
-        : undefined;
+    const branch =
+      boundedString(meta?.githubCommitRef, 256) ??
+      boundedString(meta?.gitlabCommitRef, 256) ??
+      boundedString(meta?.bitbucketCommitRef, 256);
+    const revision = [
+      boundedString(meta?.githubCommitSha, 64),
+      boundedString(meta?.gitlabCommitSha, 64),
+      boundedString(meta?.bitbucketCommitSha, 64),
+    ].find((candidate) => candidate && /^[0-9a-f]{40}$/i.test(candidate));
 
     return {
       id,
