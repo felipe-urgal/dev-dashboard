@@ -137,6 +137,66 @@ test('contrato git-managed valida preflight sem exigir deploy local', async () =
   );
 });
 
+test('identificadores sem conteúdo útil são rejeitados pelo contrato', async () => {
+  const scripts = {
+    'prod:status': 'node status.mjs',
+    'prod:check': 'npm test',
+    'prod:deploy': 'node deploy.mjs',
+    'prod:verify': 'node verify.mjs',
+  };
+
+  await withNodeProject(scripts, async (projectPath) => {
+    await writeProductionManifest(projectPath, {
+      enabled: true,
+      strategy: 'command',
+      provider: 'systemd',
+      branch: '   ',
+      commands: {
+        status: 'prod:status',
+        check: 'prod:check',
+        deploy: 'prod:deploy',
+        verify: 'prod:verify',
+      },
+      policies: localPolicies,
+    });
+
+    const project = await detectProject(projectPath);
+    assert.equal(project?.production, undefined);
+    assert.equal(
+      project?.productionWarning?.code,
+      'PRODUCTION_CONTRACT_INVALID_SHAPE',
+    );
+  });
+
+  await withNodeProject(
+    {
+      'prod:check': 'pnpm check',
+      'prod:verify': 'node verify.mjs',
+    },
+    async (projectPath) => {
+      await writeProductionManifest(projectPath, {
+        enabled: true,
+        strategy: 'git-managed',
+        provider: 'vercel',
+        branch: 'main',
+        commands: {
+          check: 'prod:check',
+          verify: 'prod:verify',
+        },
+        external: { project: '   ' },
+        policies: vercelPolicies,
+      });
+
+      const project = await detectProject(projectPath);
+      assert.equal(project?.production, undefined);
+      assert.equal(
+        project?.productionWarning?.code,
+        'PRODUCTION_CONTRACT_INVALID_SHAPE',
+      );
+    },
+  );
+});
+
 test('contrato disabled válido continua detectável sem habilitar deploy público', async () => {
   await withNodeProject(
     {
