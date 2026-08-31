@@ -81,8 +81,7 @@ function adapterWithDeployment(options: {
           {
             ...identifier,
             url: options.url ?? 'controle-gastos-exemplo.vercel.app',
-            created:
-              options.created ?? Date.parse('2026-08-31T12:00:00Z'),
+            created: options.created ?? Date.parse('2026-08-31T12:00:00Z'),
             state: options.state ?? 'READY',
             target: options.deploymentTarget ?? 'production',
             meta: {
