@@ -74,29 +74,27 @@ const currentBranchBehind = computed(
   () => currentLocalBranch.value?.behind ?? props.overview.behind ?? 0,
 );
 
-const hasRequiredRemotes = computed(() => {
-  const remotes = props.workspace?.remotes ?? [];
-  return (
-    remotes.some((remote) => remote.name === 'upstream') &&
-    remotes.some((remote) => remote.name === 'origin')
-  );
-});
+const hasOriginRemote = computed(() =>
+  (props.workspace?.remotes ?? []).some((remote) => remote.name === 'origin'),
+);
+
+const hasUpstreamRemote = computed(() =>
+  (props.workspace?.remotes ?? []).some((remote) => remote.name === 'upstream'),
+);
 
 const synchronized = computed(() => {
   const localHash = localMain.value?.latestCommit?.hash;
   const originHash = originMain.value?.latestCommit?.hash;
+  if (!localHash || !originHash || localHash !== originHash) return false;
+
+  if (!hasUpstreamRemote.value) return true;
+
   const upstreamHash = upstreamMain.value?.latestCommit?.hash;
-  return Boolean(
-    localHash &&
-    originHash &&
-    upstreamHash &&
-    localHash === originHash &&
-    localHash === upstreamHash,
-  );
+  return Boolean(upstreamHash && localHash === upstreamHash);
 });
 
 const available = computed(
-  () => Boolean(localMain.value) && hasRequiredRemotes.value,
+  () => Boolean(localMain.value) && hasOriginRemote.value,
 );
 
 const status = computed(() => {
