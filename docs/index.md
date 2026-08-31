@@ -36,6 +36,7 @@ Os objetivos principais são:
 - scan dos diretórios imediatamente abaixo de cada workspace;
 - detecção de projetos Rails e Node;
 - identificação de capacidades por projeto;
+- descoberta fail-closed do `Production Contract v1` em `.dev-dashboard/production.json`, sem executar deploy;
 - favoritos e navegação global;
 - diagnóstico do ambiente do projeto.
 
@@ -145,6 +146,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 
 - [Primeiros passos](getting-started.md): requisitos, instalação e primeiro uso.
 - [Visão geral da arquitetura](architecture/overview.md): contexto e decisões arquiteturais existentes.
+- [Production Contract v1](architecture/production-contract.md): manifesto, validação, discovery, warnings e limites de segurança da capability de produção.
 - [Estrutura do repositório](architecture/repository-structure.md): diretórios, camadas e dependências.
 - [Fluxos de execução](architecture/runtime-flows.md): o que acontece em cada operação importante.
 
@@ -180,7 +182,8 @@ no [guia de desenvolvimento](development-guide.md) e no
 | ------------------- | --------------------------------------------------------------------------- |
 | Workspace           | Diretório cadastrado que contém projetos imediatamente abaixo dele.         |
 | Projeto             | Aplicação Rails ou Node detectada e mantida no `ProjectStore`.              |
-| Capacidade          | Recurso reconhecido, como Git, testes, banco, scripts, Sidekiq ou Bundler.  |
+| Capacidade          | Recurso reconhecido, como Git, testes, banco, scripts, produção, Sidekiq ou Bundler. |
+| Production Contract | Manifesto v1 que declara estratégia, provider, scripts canônicos e políticas de produção sem autorizar execução por si só. |
 | Processo gerenciado | Processo iniciado e acompanhado pelo Process Manager.                       |
 | Catálogo            | Lista fechada de comandos ou ações detectadas pelo backend.                 |
 | Confirmação         | Token temporário vinculado a uma operação mutável específica.               |

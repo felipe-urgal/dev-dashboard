@@ -1,3 +1,8 @@
+import type {
+  ProductionContractV1,
+  ProductionContractWarning,
+} from './production.js';
+
 export type ProjectType = 'rails' | 'node' | 'unknown';
 
 export type ProjectSource = 'workspace' | 'standalone';
@@ -11,7 +16,8 @@ export type ProjectCapability =
   | 'webpack'
   | 'sidekiq'
   | 'rake'
-  | 'bundler';
+  | 'bundler'
+  | 'production';
 
 export interface Project {
   id: string;
@@ -24,4 +30,6 @@ export interface Project {
   enabled: boolean;
   lastAccessedAt?: string;
   capabilities: ProjectCapability[];
+  production?: ProductionContractV1;
+  productionWarning?: ProductionContractWarning;
 }
