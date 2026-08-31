@@ -16,6 +16,7 @@ export const capabilityLabels: Record<ProjectCapability, string> = {
   sidekiq: 'Sidekiq',
   rake: 'Rake',
   bundler: 'Bundler',
+  production: 'Produção',
 };
 
 export function capabilityLabel(capability: ProjectCapability): string {
