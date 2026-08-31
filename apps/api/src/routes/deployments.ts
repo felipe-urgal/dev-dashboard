@@ -86,6 +86,7 @@ const statusByCode: Partial<Record<DeploymentErrorCode, number>> = {
   DEPLOYMENT_MIGRATION_COMMAND_REQUIRED: 409,
   DEPLOYMENT_PACKAGE_MANAGER_UNSUPPORTED: 409,
   DEPLOYMENT_CANCEL_NOT_AVAILABLE: 409,
+  DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE: 409,
 };
 
 function translate(error: unknown): never {
@@ -345,6 +346,37 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
             request.params.deploymentId,
           ),
         };
+      } catch (error) {
+        translate(error);
+      }
+    },
+  );
+
+  app.post<{ Params: DeploymentParams }>(
+    '/projects/:projectId/deployments/:deploymentId/verify',
+    {
+      schema: {
+        params: deploymentParamsSchema,
+        response: {
+          202: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['deployment'],
+            properties: { deployment: deploymentResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = findProject(options, request.params.projectId);
+      try {
+        return reply.code(202).send({
+          deployment: await options.deploymentService.retryVerify(
+            project,
+            request.params.deploymentId,
+          ),
+        });
       } catch (error) {
         translate(error);
       }
