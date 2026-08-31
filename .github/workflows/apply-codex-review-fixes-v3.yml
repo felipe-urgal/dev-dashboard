@@ -1,0 +1,497 @@
+name: Apply Codex review fixes v3
+
+on:
+  push:
+    branches:
+      - bugfix/deployment-verify-retry
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    name: Patch and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def load(path: str) -> list[str]:
+              return Path(path).read_text().splitlines()
+
+          def save(path: str, lines: list[str]) -> None:
+              Path(path).write_text('\n'.join(lines) + '\n')
+
+          def find(lines: list[str], value: str, start: int = 0) -> int:
+              for index in range(start, len(lines)):
+                  if lines[index] == value:
+                      return index
+              raise SystemExit(f'anchor not found: {value!r}')
+
+          def find_contains(lines: list[str], value: str, start: int = 0) -> int:
+              for index in range(start, len(lines)):
+                  if value in lines[index]:
+                      return index
+              raise SystemExit(f'anchor not found containing: {value!r}')
+
+          # Backend retry safety and auditability.
+          path = 'apps/api/src/deployment/service.ts'
+          lines = load(path)
+          retry_start = find(lines, '  public async retryVerify(')
+          revision_check = find(
+              lines,
+              '    await this.assertRevisionUnchanged(project, deployment);',
+              retry_start,
+          )
+          if lines[revision_check + 1] != '    this.assertNoActiveDeployment();':
+              raise SystemExit('unexpected retry preflight shape')
+          lines[revision_check : revision_check + 2] = [
+              '    const currentPlan = await this.plan(project);',
+              '    if (',
+              '      currentPlan.branch !== deployment.branch ||',
+              '      currentPlan.revision !== deployment.revision ||',
+              '      currentPlan.provider !== deployment.provider',
+              '    ) {',
+              '      throw new DeploymentError(',
+              "        'DEPLOYMENT_PLAN_STALE',",
+              "        'Branch, revisão ou contrato de produção mudou; prepare um novo deployment.',",
+              '      );',
+              '    }',
+              '',
+              '    this.assertNoActiveDeployment();',
+              '    await this.assertLatestDeployment(project.id, deployment.id);',
+              '    this.assertNoActiveDeployment();',
+          ]
+
+          retry_executor = find(lines, '  private async executeVerifyRetry(')
+          log_queue = find(lines, '    let logQueue = Promise.resolve();', retry_executor)
+          lines.insert(log_queue + 1, '    let verifyExitCode: number | undefined;')
+          await_log = find(lines, '      await logQueue;', retry_executor)
+          lines.insert(await_log + 1, '      verifyExitCode = result.exitCode;')
+
+          cancelled = find(
+              lines,
+              "              ? { ...step, status: 'cancelled', finishedAt }",
+              retry_executor,
+          )
+          lines[cancelled : cancelled + 1] = [
+              '              ? {',
+              '                  ...step,',
+              "                  status: 'cancelled',",
+              '                  finishedAt,',
+              '                  ...(verifyExitCode === undefined',
+              '                    ? {}',
+              '                    : { exitCode: verifyExitCode }),',
+              '                }',
+          ]
+          failed = find(
+              lines,
+              "            ? { ...step, status: 'failed', finishedAt }",
+              retry_executor,
+          )
+          lines[failed : failed + 1] = [
+              '            ? {',
+              '                ...step,',
+              "                status: 'failed',",
+              '                finishedAt,',
+              '                ...(verifyExitCode === undefined',
+              '                  ? {}',
+              '                  : { exitCode: verifyExitCode }),',
+              '              }',
+          ]
+
+          retry_index = find(lines, '  private verifyRetryIndex(deployment: Deployment): number {')
+          status_guard = find(
+              lines,
+              "    if (deployment.status !== 'recovery_required') {",
+              retry_index,
+          )
+          lines[status_guard : status_guard + 1] = [
+              '    if (',
+              "      deployment.status !== 'recovery_required' &&",
+              "      deployment.status !== 'failed' &&",
+              "      deployment.status !== 'cancelled'",
+              '    ) {',
+          ]
+          old_message = find_contains(
+              lines,
+              'A verificação só pode ser repetida quando o deploy terminou',
+              status_guard,
+          )
+          lines[old_message] = (
+              "        'A verificação só pode ser repetida depois que o deploy terminou e somente o verify falhou ou foi cancelado.',"
+          )
+
+          revision_method = find(lines, '  private async assertRevisionUnchanged(')
+          lines[revision_method:revision_method] = [
+              '  private async assertLatestDeployment(',
+              '    projectId: string,',
+              '    deploymentId: string,',
+              '  ): Promise<void> {',
+              '    const latest = await this.store.history(projectId, 1, 1);',
+              '    if (latest.items[0]?.id !== deploymentId) {',
+              '      throw new DeploymentError(',
+              "        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',",
+              "        'Somente o deployment mais recente do projeto pode repetir o verify.',",
+              '      );',
+              '    }',
+              '  }',
+              '',
+          ]
+          save(path, lines)
+
+          # Frontend: allow verify-only recovery for non-irreversible deploys.
+          path = 'apps/web/src/components/ProjectProductionPanel.vue'
+          lines = load(path)
+          status_line = find(
+              lines,
+              "  if (!deployment || deployment.status !== 'recovery_required') return false;",
+          )
+          lines[status_line : status_line + 1] = [
+              '  if (',
+              '    !deployment ||',
+              "    (deployment.status !== 'recovery_required' &&",
+              "      deployment.status !== 'failed' &&",
+              "      deployment.status !== 'cancelled')",
+              '  ) {',
+              '    return false;',
+              '  }',
+          ]
+          save(path, lines)
+
+          # Keep the Git snapshot used by the production panel fresh while it is open.
+          path = 'apps/web/src/views/ProjectDetailsView.vue'
+          lines = load(path)
+          import_anchor = find(lines, '  defineAsyncComponent,')
+          lines.insert(import_anchor + 1, '  onBeforeUnmount,')
+
+          overview_function = find(
+              lines,
+              'function updateGitOverview(git: ProjectGitOverview): void {',
+          )
+          overview_end = find(lines, '}', overview_function)
+          refresh_block = [
+              '',
+              'let gitOverviewRefreshTimer: ReturnType<typeof setTimeout> | undefined;',
+              'let gitOverviewRefreshGeneration = 0;',
+              '',
+              'function stopGitOverviewRefresh(): void {',
+              '  gitOverviewRefreshGeneration += 1;',
+              '  if (gitOverviewRefreshTimer !== undefined) {',
+              '    clearTimeout(gitOverviewRefreshTimer);',
+              '    gitOverviewRefreshTimer = undefined;',
+              '  }',
+              '}',
+              '',
+              'async function refreshGitOverviewWhileProduction(',
+              '  requestedProjectId: string,',
+              '  generation: number,',
+              '): Promise<void> {',
+              '  try {',
+              '    const git = await fetchProjectGit(requestedProjectId);',
+              '    if (',
+              '      generation !== gitOverviewRefreshGeneration ||',
+              '      projectId.value !== requestedProjectId ||',
+              '      !isProductionRoute.value',
+              '    ) {',
+              '      return;',
+              '    }',
+              '    updateGitOverview(git);',
+              '  } catch {',
+              '    if (',
+              '      generation === gitOverviewRefreshGeneration &&',
+              '      projectId.value === requestedProjectId &&',
+              '      isProductionRoute.value',
+              '    ) {',
+              '      gitOverview.value = null;',
+              '    }',
+              '  } finally {',
+              '    if (',
+              '      generation === gitOverviewRefreshGeneration &&',
+              '      projectId.value === requestedProjectId &&',
+              '      isProductionRoute.value &&',
+              '      project.value?.id === requestedProjectId &&',
+              "      project.value.capabilities.includes('git')",
+              '    ) {',
+              '      gitOverviewRefreshTimer = setTimeout(',
+              '        () =>',
+              '          void refreshGitOverviewWhileProduction(',
+              '            requestedProjectId,',
+              '            generation,',
+              '          ),',
+              '        3_000,',
+              '      );',
+              '    }',
+              '  }',
+              '}',
+          ]
+          lines[overview_end + 1 : overview_end + 1] = refresh_block
+
+          load_data = find_contains(lines, 'async function loadProjectData(')
+          first_watch = find(lines, 'watch(', load_data)
+          watcher = [
+              'watch(',
+              "  [projectId, isProductionRoute, () => project.value?.id ?? ''],",
+              '  ([requestedProjectId, productionRoute, loadedProjectId]) => {',
+              '    stopGitOverviewRefresh();',
+              '    const loadedProject = project.value;',
+              '    if (',
+              '      !productionRoute ||',
+              '      !requestedProjectId ||',
+              '      loadedProjectId !== requestedProjectId ||',
+              "      !loadedProject?.capabilities.includes('git')",
+              '    ) {',
+              '      return;',
+              '    }',
+              '    const generation = gitOverviewRefreshGeneration;',
+              '    void refreshGitOverviewWhileProduction(requestedProjectId, generation);',
+              '  },',
+              '  { immediate: true },',
+              ');',
+              '',
+          ]
+          lines[first_watch:first_watch] = watcher
+          script_end = find(lines, '</script>')
+          lines[script_end:script_end] = [
+              '',
+              'onBeforeUnmount(stopGitOverviewRefresh);',
+          ]
+          save(path, lines)
+
+          # Backend regressions.
+          path = 'apps/api/test/deployment-verify-retry.test.ts'
+          lines = load(path)
+          failed_test = find_contains(lines, "test('retry que falha mantém recovery_required")
+          status_assert = find(
+              lines,
+              "  assert.equal(failed.timeline.at(-1)?.status, 'failed');",
+              failed_test,
+          )
+          lines.insert(status_assert + 1, "  assert.equal(failed.timeline.at(-1)?.exitCode, 9);")
+
+          invalid_test = find_contains(
+              lines,
+              "test('retry falha fechado quando o estado não prova",
+              failed_test,
+          )
+          non_irreversible_test = [
+              "test('retry aceita verify falho após deploy não irreversível', async (t) => {",
+              '  const store = await makeStore(t);',
+              '  const failed = recoveryDeployment({',
+              "    status: 'failed',",
+              "    failurePoint: 'before-irreversible',",
+              '    timeline: recoveryDeployment().timeline.map((step) =>',
+              "      step.id === 'deploy' ? { ...step, irreversible: false } : step,",
+              '    ),',
+              '  });',
+              '  await store.save(failed);',
+              '  const runner = new FakeRunner();',
+              '  const service = new DeploymentService({',
+              '    store,',
+              '    adapter: runner,',
+              '    revisionResolver: new FixedRevisionResolver(),',
+              '  });',
+              '',
+              '  await service.retryVerify(project, failed.id);',
+              '  const completed = await waitForTerminal(service, failed.id);',
+              '',
+              "  assert.equal(completed.status, 'succeeded');",
+              "  assert.deepEqual(runner.calls, ['verify']);",
+              '});',
+              '',
+          ]
+          lines[invalid_test:invalid_test] = non_irreversible_test
+
+          revision_test = find_contains(
+              lines,
+              "test('retry recusa revision diferente antes de executar",
+          )
+          safety_tests = [
+              "test('retry recusa deployment antigo mesmo se a revisão voltar a coincidir', async (t) => {",
+              '  const store = await makeStore(t);',
+              '  await store.save(recoveryDeployment());',
+              '  await store.save(',
+              '    recoveryDeployment({',
+              "      id: 'deployment-2',",
+              "      createdAt: '2026-08-31T19:00:00.000Z',",
+              '    }),',
+              '  );',
+              '  const runner = new FakeRunner();',
+              '  const service = new DeploymentService({',
+              '    store,',
+              '    adapter: runner,',
+              '    revisionResolver: new FixedRevisionResolver(),',
+              '  });',
+              '',
+              '  await assert.rejects(',
+              "    service.retryVerify(project, 'deployment-1'),",
+              '    (error: unknown) =>',
+              '      error instanceof DeploymentError &&',
+              "      error.code === 'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',",
+              '  );',
+              '  assert.deepEqual(runner.calls, []);',
+              '});',
+              '',
+              "test('retry recusa contrato que deixou de usar strategy command', async (t) => {",
+              '  const store = await makeStore(t);',
+              '  await store.save(recoveryDeployment());',
+              '  const runner = new FakeRunner();',
+              '  const gitManagedProject: Project = {',
+              '    ...project,',
+              '    production: {',
+              '      version: 1,',
+              '      enabled: true,',
+              "      strategy: 'git-managed',",
+              "      provider: 'vercel',",
+              "      branch: 'main',",
+              '      commands: {',
+              "        check: 'prod:check',",
+              "        verify: 'prod:verify',",
+              '      },',
+              "      external: { project: 'home-music' },",
+              '      policies: {',
+              "        backup: 'external',",
+              "        migrations: 'not-configured',",
+              "        rollback: 'provider-only-when-schema-compatible',",
+              '      },',
+              '    },',
+              '  };',
+              '  const service = new DeploymentService({',
+              '    store,',
+              '    adapter: runner,',
+              '    revisionResolver: new FixedRevisionResolver(),',
+              '  });',
+              '',
+              '  await assert.rejects(',
+              "    service.retryVerify(gitManagedProject, 'deployment-1'),",
+              '    (error: unknown) =>',
+              '      error instanceof DeploymentError &&',
+              "      error.code === 'DEPLOYMENT_STRATEGY_UNSUPPORTED',",
+              '  );',
+              '  assert.deepEqual(runner.calls, []);',
+              '});',
+              '',
+          ]
+          lines[revision_test:revision_test] = safety_tests
+          save(path, lines)
+
+          # Frontend regression for non-irreversible deploy retry.
+          path = 'apps/web/test/project-production-panel.test.ts'
+          lines = load(path)
+          sudo_test = find_contains(
+              lines,
+              "it('autoriza sudo antes de repetir somente o verify elegível'",
+          )
+          web_test = [
+              "  it('oferece retry quando somente o verify falha após deploy não irreversível', async () => {",
+              '    resetApi();',
+              '    const failed = verifyFailedDeployment({',
+              "      status: 'failed',",
+              "      failurePoint: 'before-irreversible',",
+              "      errorCode: 'DEPLOYMENT_COMMAND_FAILED',",
+              "      errorMessage: 'O verify falhou.',",
+              '    });',
+              '    api.fetchDeploymentHistory.mockResolvedValue({',
+              '      items: [failed],',
+              '      page: 1,',
+              '      pageSize: 8,',
+              '      total: 1,',
+              '    });',
+              '    api.retryDeploymentVerify.mockResolvedValue({',
+              '      ...failed,',
+              "      status: 'verifying',",
+              '    });',
+              '',
+              '    const wrapper = mount(ProjectProductionPanel, {',
+              '      props: {',
+              '        project: commandProject(),',
+              '        gitOverview: gitOverview(),',
+              '      },',
+              '    });',
+              '    await flushPromises();',
+              '',
+              "    expect(wrapper.text()).toContain('Verificar novamente');",
+              "    expect(wrapper.text()).not.toContain('Preparar deployment');",
+              '    await wrapper',
+              "      .findAll('button')",
+              "      .find((button) => button.text().includes('Verificar novamente'))!",
+              "      .trigger('click');",
+              '    await flushPromises();',
+              '',
+              '    expect(api.retryDeploymentVerify).toHaveBeenCalledWith(',
+              "      'project-1',",
+              '      failed.id,',
+              '      expect.any(AbortSignal),',
+              '    );',
+              '    expect(api.fetchDeploymentPlan).not.toHaveBeenCalled();',
+              '    wrapper.unmount();',
+              '  });',
+              '',
+          ]
+          lines[sudo_test:sudo_test] = web_test
+          save(path, lines)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native terminal dependency
+        run: npm rebuild node-pty
+
+      - name: Regenerate API docs
+        run: npm run docs:api
+
+      - name: Format changed source files
+        run: >-
+          npx prettier --write
+          apps/api/src/deployment/service.ts
+          apps/api/test/deployment-verify-retry.test.ts
+          apps/web/src/components/ProjectProductionPanel.vue
+          apps/web/src/views/ProjectDetailsView.vue
+          apps/web/test/project-production-panel.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Verify generated API reference
+        run: npm run docs:api:check
+
+      - name: API retry regression tests
+        run: node --import=tsx --test apps/api/test/deployment-verify-retry.test.ts
+
+      - name: Web production panel regression tests
+        working-directory: apps/web
+        run: npx vitest run test/project-production-panel.test.ts
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git status --short
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/api/src/deployment/service.ts \
+            apps/api/test/deployment-verify-retry.test.ts \
+            apps/web/src/components/ProjectProductionPanel.vue \
+            apps/web/src/views/ProjectDetailsView.vue \
+            apps/web/test/project-production-panel.test.ts \
+            docs/architecture/api-reference.md
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(deployment): address Codex retry review"
+          git push origin HEAD:bugfix/deployment-verify-retry
