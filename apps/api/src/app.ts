@@ -9,6 +9,7 @@ import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
+import { deploymentSudoRoutes } from './routes/deployment-sudo.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
 import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
@@ -194,6 +195,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     deploymentService,
+  });
+
+  app.register(deploymentSudoRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
   });
 
   app.register(gitMutationRoutes, {
