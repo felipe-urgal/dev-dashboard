@@ -245,7 +245,9 @@ describe('ProjectProductionPanel', () => {
 
     const confirmButton = wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Confirmar e iniciar deployment'));
+      .find((button) =>
+        button.text().includes('Confirmar e iniciar deployment'),
+      );
     expect(confirmButton).toBeDefined();
     await confirmButton!.trigger('click');
     await flushPromises();
