@@ -62,7 +62,8 @@ async function checkExistingAuthorization(): Promise<void> {
 }
 
 async function authorize(): Promise<void> {
-  if (!password.value || submitting.value || requiresNopasswdSetup.value) return;
+  if (!password.value || submitting.value || requiresNopasswdSetup.value)
+    return;
   submitting.value = true;
   errorMessage.value = '';
   try {
