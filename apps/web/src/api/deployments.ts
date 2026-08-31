@@ -79,7 +79,11 @@ export async function startDeployment(
 
 export async function fetchDeploymentHistory(
   projectId: string,
-  options: { page?: number; pageSize?: number; signal?: AbortSignal } = {},
+  options: {
+    page?: number;
+    pageSize?: number;
+    signal?: AbortSignal | undefined;
+  } = {},
 ): Promise<DeploymentHistory> {
   const query = new URLSearchParams();
   if (options.page) query.set('page', String(options.page));
