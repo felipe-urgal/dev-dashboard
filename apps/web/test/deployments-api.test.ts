@@ -94,7 +94,7 @@ describe('API de deployments', () => {
   it('envia somente planHash e token de confirmação nas mutações', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input, init) => {
+      .mockImplementation(async (input, _init) => {
         const url = String(input);
         if (url.endsWith('/plan')) {
           return jsonResponse({
