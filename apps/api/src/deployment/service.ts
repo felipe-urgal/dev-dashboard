@@ -208,6 +208,8 @@ export class DeploymentService {
           return;
         }
 
+        await this.assertRevisionUnchanged(project, deployment);
+
         currentIrreversible = planStep.irreversible;
         const startedAt = new Date(this.now()).toISOString();
         deployment = {
@@ -306,6 +308,22 @@ export class DeploymentService {
       await this.store.save(deployment);
     } finally {
       if (this.active?.deploymentId === deployment.id) this.active = undefined;
+    }
+  }
+
+  private async assertRevisionUnchanged(
+    project: Project,
+    deployment: Deployment,
+  ): Promise<void> {
+    const current = await this.revisionResolver.resolve(project);
+    if (
+      current.revision !== deployment.revision ||
+      current.branch !== deployment.branch
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PLAN_STALE',
+        'Branch ou revisão mudou durante o deployment; a execução foi interrompida antes da próxima etapa.',
+      );
     }
   }
 
