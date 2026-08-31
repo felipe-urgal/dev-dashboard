@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type {
+  DeploymentCommandPlanStep,
   DeploymentPlan,
   DeploymentPlanStep,
   ProductionCommandId,
@@ -22,11 +23,11 @@ const SCRIPT_BY_COMMAND = {
   logs: 'prod:logs',
 } as const satisfies Record<ProductionCommandId, string>;
 
-function step(
+function commandStep(
   id: ProductionCommandId,
-  phase: DeploymentPlanStep['phase'],
+  phase: DeploymentCommandPlanStep['phase'],
   options: { mutating?: boolean; irreversible?: boolean } = {},
-): DeploymentPlanStep {
+): DeploymentCommandPlanStep {
   return {
     id,
     script: SCRIPT_BY_COMMAND[id],
@@ -34,6 +35,42 @@ function step(
     mutating: options.mutating ?? false,
     irreversible: options.irreversible ?? false,
   };
+}
+
+function addPreDeploySteps(
+  project: Project,
+  steps: DeploymentPlanStep[],
+): void {
+  const production = project.production!;
+  const commands = production.commands;
+  const requiresBackup =
+    production.policies.backup === 'required-before-deploy' ||
+    production.policies.backup === 'required-before-migration';
+
+  if (requiresBackup) {
+    if (!commands.backup) {
+      throw new DeploymentError(
+        'DEPLOYMENT_BACKUP_REQUIRED',
+        'A política de produção exige backup, mas prod:backup não está disponível.',
+      );
+    }
+    steps.push(commandStep('backup', 'backing_up'));
+  }
+
+  if (production.policies.migrations === 'before-deploy') {
+    if (!commands.migrate) {
+      throw new DeploymentError(
+        'DEPLOYMENT_MIGRATION_COMMAND_REQUIRED',
+        'A política exige migração antes do deploy, mas prod:migrate não está disponível.',
+      );
+    }
+    steps.push(
+      commandStep('migrate', 'migrating', {
+        mutating: true,
+        irreversible: true,
+      }),
+    );
+  }
 }
 
 export class DeploymentPlanner {
@@ -47,12 +84,6 @@ export class DeploymentPlanner {
         'O projeto não possui produção habilitada e válida.',
       );
     }
-    if (production.strategy !== 'command') {
-      throw new DeploymentError(
-        'DEPLOYMENT_STRATEGY_UNSUPPORTED',
-        'Este adapter executa somente contratos strategy=command.',
-      );
-    }
     if (revision.branch !== production.branch) {
       throw new DeploymentError(
         'DEPLOYMENT_BRANCH_MISMATCH',
@@ -61,50 +92,54 @@ export class DeploymentPlanner {
     }
 
     const commands = production.commands;
-    if (!commands.check || !commands.deploy || !commands.verify) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-        'O contrato command não possui check, deploy e verify válidos.',
-      );
-    }
+    const steps: DeploymentPlanStep[] = [];
 
-    const steps: DeploymentPlanStep[] = [step('check', 'preparing')];
-    const requiresBackup =
-      production.policies.backup === 'required-before-deploy' ||
-      production.policies.backup === 'required-before-migration';
-
-    if (requiresBackup) {
-      if (!commands.backup) {
+    if (production.strategy === 'command') {
+      if (!commands.check || !commands.deploy || !commands.verify) {
         throw new DeploymentError(
-          'DEPLOYMENT_BACKUP_REQUIRED',
-          'A política de produção exige backup, mas prod:backup não está disponível.',
+          'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+          'O contrato command não possui check, deploy e verify válidos.',
         );
       }
-      steps.push(step('backup', 'backing_up'));
-    }
 
-    if (production.policies.migrations === 'before-deploy') {
-      if (!commands.migrate) {
-        throw new DeploymentError(
-          'DEPLOYMENT_MIGRATION_COMMAND_REQUIRED',
-          'A política exige migração antes do deploy, mas prod:migrate não está disponível.',
-        );
-      }
+      steps.push(commandStep('check', 'preparing'));
+      addPreDeploySteps(project, steps);
       steps.push(
-        step('migrate', 'migrating', {
+        commandStep('deploy', 'deploying', {
           mutating: true,
-          irreversible: true,
+          irreversible: production.policies.migrations === 'startup',
         }),
       );
-    }
+      steps.push(commandStep('verify', 'verifying'));
+    } else if (production.strategy === 'git-managed') {
+      if (
+        production.provider !== 'vercel' ||
+        !production.external?.project ||
+        !commands.check ||
+        !commands.verify ||
+        commands.deploy
+      ) {
+        throw new DeploymentError(
+          'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+          'O contrato git-managed/Vercel precisa declarar external.project, check/verify e não pode declarar prod:deploy local.',
+        );
+      }
 
-    steps.push(
-      step('deploy', 'deploying', {
+      steps.push(commandStep('check', 'preparing'));
+      addPreDeploySteps(project, steps);
+      steps.push({
+        id: 'provider-deploy',
+        phase: 'deploying',
         mutating: true,
-        irreversible: production.policies.migrations === 'startup',
-      }),
-    );
-    steps.push(step('verify', 'verifying'));
+        irreversible: true,
+      });
+      steps.push(commandStep('verify', 'verifying'));
+    } else {
+      throw new DeploymentError(
+        'DEPLOYMENT_STRATEGY_UNSUPPORTED',
+        'A estratégia de produção não possui executor de deployment.',
+      );
+    }
 
     const hashPayload = {
       projectId: project.id,
