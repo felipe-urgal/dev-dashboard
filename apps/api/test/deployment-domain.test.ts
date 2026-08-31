@@ -544,9 +544,11 @@ test('cancelamento durante etapa irreversível não finge rollback e vira recove
       if (step.id !== 'deploy')
         return super.run(project, step, signal, onOutput);
       this.calls.push(step.id);
-      await new Promise<void>((resolve) =>
-        signal.addEventListener('abort', resolve, { once: true }),
-      );
+      if (!signal.aborted) {
+        await new Promise<void>((resolve) =>
+          signal.addEventListener('abort', resolve, { once: true }),
+        );
+      }
       return { exitCode: 1, cancelled: true };
     }
   }
