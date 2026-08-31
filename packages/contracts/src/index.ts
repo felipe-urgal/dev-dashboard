@@ -32,15 +32,22 @@ export type {
 export type {
   Deployment,
   DeploymentConfirmation,
+  DeploymentDriftStatus,
   DeploymentExecutionPhase,
   DeploymentFailurePoint,
   DeploymentHistory,
   DeploymentLog,
   DeploymentPlan,
   DeploymentPlanStep,
+  DeploymentProviderAvailability,
+  DeploymentProviderIssueCode,
+  DeploymentProviderSnapshot,
+  DeploymentProviderState,
+  DeploymentProviderTimelineStep,
   DeploymentStatus,
   DeploymentStepStatus,
   DeploymentTimelineStep,
+  ProductionDeploymentStatus,
 } from './deployment.js';
 
 export type {
