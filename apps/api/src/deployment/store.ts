@@ -48,6 +48,12 @@ async function atomicJsonWrite(filePath: string, value: unknown): Promise<void> 
   await rename(temporaryPath, filePath);
 }
 
+function invalidDeploymentStateError(fileName: string): Error {
+  return new Error(
+    `Estado persistido de deployment inválido em ${fileName}; corrija ou remova o arquivo antes de iniciar novos deployments.`,
+  );
+}
+
 export interface DeploymentStoreOptions {
   historyLimit?: number;
   logLimitBytes?: number;
@@ -195,30 +201,30 @@ export class DeploymentStore {
     const entries = await readdir(this.stateDirectory, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile()) continue;
+      const filePath = path.join(this.stateDirectory, entry.name);
       if (entry.name.endsWith('.log.json')) {
         try {
-          const parsed: unknown = JSON.parse(
-            await readFile(path.join(this.stateDirectory, entry.name), 'utf8'),
-          );
+          const parsed: unknown = JSON.parse(await readFile(filePath, 'utf8'));
           if (isPersistedDeploymentLog(parsed)) {
             this.logs.set(parsed.deploymentId, parsed);
           }
         } catch {
-          // Arquivo local inválido não deve impedir a inicialização do dashboard.
+          // Log local inválido não altera o estado operacional do deployment.
         }
         continue;
       }
       if (!entry.name.endsWith('.json')) continue;
+
+      let parsed: unknown;
       try {
-        const parsed: unknown = JSON.parse(
-          await readFile(path.join(this.stateDirectory, entry.name), 'utf8'),
-        );
-        if (isPersistedDeployment(parsed)) {
-          this.deployments.set(parsed.id, parsed);
-        }
+        parsed = JSON.parse(await readFile(filePath, 'utf8'));
       } catch {
-        // Histórico corrompido é ignorado; não vira entrada confiável na API.
+        throw invalidDeploymentStateError(entry.name);
       }
+      if (!isPersistedDeployment(parsed)) {
+        throw invalidDeploymentStateError(entry.name);
+      }
+      this.deployments.set(parsed.id, parsed);
     }
   }
 
