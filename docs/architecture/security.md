@@ -246,6 +246,17 @@ Para contratos `strategy=command`, os controles são:
 - cancelamento envia TERM antes da escalada para KILL;
 - falha, cancelamento ou reinício durante/depois de etapa irreversível termina em `recovery_required`, nunca em rollback automático.
 
+A autorização temporária de `sudo` para esse fluxo possui controles adicionais:
+
+- os endpoints de autorização aceitam somente acesso pelo host loopback;
+- a senha é usada exclusivamente em `sudo -S -v`, não é persistida e não entra em log;
+- a senha nunca é entregue ao `prod:*`, por variável de ambiente, stdin do projeto ou arquivo temporário;
+- depois da senha ser aceita, a API valida `sudo -n -v` a partir de **outro processo pai**, aproximando a árvore real em que `npm`/shell executará um novo `sudo`;
+- isso impede falso positivo em políticas como `timestamp_type=ppid`, nas quais o ticket pode valer para o processo da API e não para um descendente diferente;
+- se a validação descendente falhar, a autorização permanece bloqueada e a orientação é configurar uma regra `NOPASSWD` limitada aos comandos de produção necessários; o dashboard não enfraquece a política sudoers nem repassa a senha ao projeto para contorná-la.
+
+A validação descendente executa apenas um comando interno literal de verificação; nenhum programa, argumento ou fragmento de shell é derivado do navegador ou do projeto.
+
 O `planHash` cobre projeto, provider, branch, revision e etapas. `start()` recalcula o plano antes de consumir a confirmação; mudança de checkout ou de plano invalida a autorização anterior.
 
 O estado persistido fica em `~/.local/state/dev-dashboard/deployments/` (ou sob `DEV_DASHBOARD_STATE_DIR`) com diretório `0700` e arquivos `0600`. A recuperação após crash considera uma etapa irreversível `running` como já iniciada, pois não é seguro assumir que nenhuma mutação aconteceu.
@@ -414,6 +425,7 @@ Exemplos:
 - version de arquivo divergente;
 - working tree suja antes de produção;
 - interrupção durante etapa irreversível;
+- ticket sudo aceito no processo local mas não reutilizável por descendentes;
 - log mascarado.
 
 ## Erros seguros

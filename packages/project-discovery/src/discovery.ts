@@ -2,12 +2,13 @@ import { createHash } from 'node:crypto';
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-import type {
-  Project,
-  ProjectCapability,
-  ProjectSource,
-  ProjectType,
-  Workspace,
+import {
+  NODE_SERVER_SCRIPT_CANDIDATES,
+  type Project,
+  type ProjectCapability,
+  type ProjectSource,
+  type ProjectType,
+  type Workspace,
 } from '@dev-dashboard/contracts';
 
 import { loadProjectTypeRules } from './project-type-rules.js';
@@ -254,7 +255,9 @@ async function detectCapabilities(
 
     if (
       type === 'node' &&
-      ['dev', 'start', 'serve'].some((scriptName) => scriptName in scripts)
+      NODE_SERVER_SCRIPT_CANDIDATES.some(
+        (scriptName) => scriptName in scripts,
+      )
     ) {
       capabilities.add('server');
     }

@@ -127,7 +127,7 @@ lê configurações de porta, health check e ambiente
 seleciona comando permitido
         ├── Rails: bin/rails server
         │           ou bundle exec rails server
-        └── Node: dev → start → serve
+        └── Node: dev → start → serve → scripts namespaced reconhecidos
         ↓
 prepara ambiente reconhecido
         ↓
@@ -143,6 +143,8 @@ estado running ou failed
 ```
 
 O navegador não envia o comando final. A seleção ocorre no backend a partir do tipo e dos arquivos atuais do projeto.
+
+Para Node, `Project Discovery` e `Process Manager` consomem o mesmo catálogo ordenado `NODE_SERVER_SCRIPT_CANDIDATES`, publicado por `packages/contracts`. Além de `dev`, `start` e `serve`, o catálogo reconhece variantes como `api:start`, `server:start`, `web:dev` e `app:serve`. Assim, a capability `server` e o comando efetivamente executável não podem divergir por manter listas independentes.
 
 ## Encerramento de processo
 
@@ -340,6 +342,30 @@ mutação usa serviço separado e confirmação quando aplicável
 ```
 
 Caminhos precisam ser relativos ao projeto e permanecer dentro do caminho canônico após resolução de symlinks.
+
+## Autorização sudo em deployment local
+
+A autorização de `sudo` para contratos `strategy=command` não considera suficiente validar o ticket no mesmo processo da API. Políticas como `timestamp_type=ppid` associam o cache de credenciais ao processo pai; nesse caso a API poderia executar `sudo -n -v` com sucesso enquanto um `sudo` posterior dentro de `npm -> shell -> script` voltaria a exigir autenticação.
+
+O fluxo é fail-closed:
+
+```text
+usuário informa senha no modal local
+        ↓
+API executa sudo -S -v sem persistir a senha
+        ↓
+API cria outro processo pai
+        ↓
+esse descendente executa sudo -n -v
+        ↓
+reutilização funciona? ── não ──→ autorização recusada + orientação NOPASSWD limitada
+        │
+       sim
+        ↓
+UI pode tratar o ticket como reutilizável pelo deployment
+```
+
+A validação descendente usa um comando interno literal, sem argumentos vindos do navegador ou do projeto. A senha nunca é encaminhada por variável de ambiente, stdin do `prod:*` ou arquivo temporário. Se o host não oferece um ticket reutilizável entre processos, o dashboard não tenta contornar a política do `sudo`; a configuração permanente deve usar uma regra `NOPASSWD` mínima para os comandos de produção necessários.
 
 ## Shutdown coordenado
 

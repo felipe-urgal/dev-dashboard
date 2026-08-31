@@ -2,7 +2,10 @@ import { access, readFile } from 'node:fs/promises';
 
 import path from 'node:path';
 
-import type { Project } from '@dev-dashboard/contracts';
+import {
+  NODE_SERVER_SCRIPT_CANDIDATES,
+  type Project,
+} from '@dev-dashboard/contracts';
 
 import { ProcessManagerError } from './errors.js';
 
@@ -15,24 +18,6 @@ export interface ResolvedCommand {
 interface PackageManifest {
   scripts?: Record<string, string>;
 }
-
-const NODE_SERVER_SCRIPT_CANDIDATES = [
-  'dev',
-  'start',
-  'serve',
-  'api:dev',
-  'api:start',
-  'api:serve',
-  'server:dev',
-  'server:start',
-  'server:serve',
-  'web:dev',
-  'web:start',
-  'web:serve',
-  'app:dev',
-  'app:start',
-  'app:serve',
-] as const;
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {

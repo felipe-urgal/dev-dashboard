@@ -17,8 +17,11 @@ export type SudoCommandRunner = (
   input?: string,
 ) => Promise<SudoCommandResult>;
 
+export type SudoDelegatedCommandRunner = () => Promise<SudoCommandResult>;
+
 export interface SudoSessionServiceOptions {
   runSudo?: SudoCommandRunner;
+  runDelegatedSudo?: SudoDelegatedCommandRunner;
   timeoutMs?: number;
 }
 
@@ -70,18 +73,73 @@ function defaultRunSudo(
   });
 }
 
+/**
+ * Confirma o ticket a partir de outro processo pai, reproduzindo a parte
+ * relevante da árvore real `npm -> shell -> sudo`. Em hosts com
+ * `timestamp_type=ppid`, um `sudo -n -v` disparado diretamente pela API pode
+ * reutilizar o próprio ticket e produzir falso positivo, enquanto o sudo do
+ * script de produção será autenticado separadamente.
+ *
+ * O comando do shell é literal e não contém dado do navegador ou do projeto.
+ */
+function defaultRunDelegatedSudo(
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<SudoCommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('sh', ['-c', 'sudo -n -v'], {
+      env: { ...process.env },
+      shell: false,
+      stdio: 'ignore',
+    });
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) child.kill('SIGKILL');
+    }, timeoutMs);
+    timer.unref();
+
+    const finish = (result: SudoCommandResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
+    child.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') {
+        finish({ exitCode: 127, unavailable: true });
+        return;
+      }
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      }
+    });
+    child.once('close', (code) => {
+      const exitCode = code ?? 1;
+      finish({
+        exitCode,
+        unavailable: exitCode === 127,
+      });
+    });
+  });
+}
+
 export class SudoSessionService {
   private readonly runSudo: SudoCommandRunner;
+  private readonly runDelegatedSudo: SudoDelegatedCommandRunner;
 
   public constructor(options: SudoSessionServiceOptions = {}) {
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.runSudo =
       options.runSudo ??
       ((args, input) => defaultRunSudo(args, input, timeoutMs));
+    this.runDelegatedSudo =
+      options.runDelegatedSudo ?? (() => defaultRunDelegatedSudo(timeoutMs));
   }
 
   public async status(): Promise<DeploymentSudoStatus> {
-    const result = await this.runSudo(['-n', '-v']);
+    const result = await this.runDelegatedSudo();
     return {
       available: !result.unavailable,
       authorized: !result.unavailable && result.exitCode === 0,
@@ -111,10 +169,16 @@ export class SudoSessionService {
     }
 
     const status = await this.status();
+    if (!status.available) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRIVILEGE_REQUIRED',
+        'A senha foi aceita, mas não foi possível validar sudo a partir da árvore de processos do deployment.',
+      );
+    }
     if (!status.authorized) {
       throw new DeploymentError(
         'DEPLOYMENT_PRIVILEGE_REQUIRED',
-        'A senha foi aceita, mas a política sudoers não permite reutilizar a autorização sem TTY. Configure uma regra NOPASSWD limitada aos comandos de produção deste projeto.',
+        'A senha foi aceita, mas o ticket sudo não pode ser reutilizado pela árvore de processos do deployment. Isso ocorre, por exemplo, com timestamp_type=ppid. Configure uma regra NOPASSWD limitada aos comandos de produção necessários.',
       );
     }
     return status;

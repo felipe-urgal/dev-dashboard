@@ -254,6 +254,31 @@ com:
 
 Por isso o dashboard não precisa saber que `prod:deploy` usa `systemctl` no Home Music ou `docker compose` no Loto Lab.
 
+## Autorização temporária de `sudo`
+
+Quando um `prod:*` falha porque `sudo` exige senha/TTY, o deployment recebe `DEPLOYMENT_PRIVILEGE_REQUIRED`. Para projetos `strategy=command`, a UI local pode abrir a autorização temporária.
+
+A senha é enviada apenas à API em loopback e usada uma vez em:
+
+```text
+sudo -S -v
+```
+
+Ela não é persistida, não é escrita em arquivo, não é colocada no ambiente e não é encaminhada ao stdin do script de produção.
+
+Aceitar a senha ainda não significa que o ticket pode ser usado pelo deployment. Em configurações do sudoers como `timestamp_type=ppid`, o ticket é associado ao processo pai: um `sudo -n -v` executado diretamente pela API pode funcionar, mas outro `sudo` executado por `npm -> shell -> script` será autenticado separadamente.
+
+Por isso `SudoSessionService` considera `authorized=true` somente depois de uma segunda validação não interativa executada a partir de outro processo pai:
+
+```text
+API
+ ├── sudo -S -v          # recebe a senha
+ └── processo descendente
+       └── sudo -n -v    # precisa reutilizar o ticket sem senha
+```
+
+Se a segunda validação falhar, o modal permanece bloqueado e informa que é necessária uma regra `NOPASSWD` limitada aos comandos de produção. O dashboard não tenta alterar `timestamp_type`, criar regra ampla de sudoers ou repassar a senha ao projeto para forçar o deploy.
+
 ## Concorrência
 
 A política inicial do executor `command` é conservadora: existe no máximo **um deployment ativo globalmente** no Dev Dashboard.
@@ -320,9 +345,11 @@ GET  /api/projects/:projectId/deployments/status
 GET  /api/projects/:projectId/deployments/:deploymentId
 GET  /api/projects/:projectId/deployments/:deploymentId/log
 POST /api/projects/:projectId/deployments/:deploymentId/cancel
+GET  /api/projects/:projectId/deployments/sudo
+POST /api/projects/:projectId/deployments/sudo
 ```
 
-Todas usam schemas fechados. O browser envia IDs, `planHash` e token de confirmação nas rotas mutáveis; nunca envia comando, programa, argumentos, path de projeto, token Vercel ou corpo de script.
+Todas usam schemas fechados. O browser envia IDs, `planHash` e token de confirmação nas rotas mutáveis; nunca envia comando, programa, argumentos, path de projeto, token Vercel ou corpo de script. A única entrada sensível adicional é a senha no `POST .../deployments/sudo`, restrito a loopback e usada somente para `sudo -S -v` durante a própria requisição.
 
 ## Diagnóstico operacional
 
@@ -334,7 +361,8 @@ Quando o plano `command` for recusado:
 - `DEPLOYMENT_WORKTREE_DIRTY`: faça commit ou descarte todas as mudanças locais, incluindo arquivos não rastreados;
 - `DEPLOYMENT_REVISION_UNAVAILABLE`: confirme que o projeto é um repositório Git válido e não está em detached HEAD;
 - `DEPLOYMENT_PLAN_STALE`: gere novo plano e nova confirmação;
-- `DEPLOYMENT_ALREADY_RUNNING`: aguarde ou cancele conscientemente o deployment ativo.
+- `DEPLOYMENT_ALREADY_RUNNING`: aguarde ou cancele conscientemente o deployment ativo;
+- `DEPLOYMENT_PRIVILEGE_REQUIRED`: se a senha for aceita mas a autorização continuar bloqueada, o host não permite reutilizar o ticket na árvore do deployment (por exemplo, `timestamp_type=ppid`); configure `NOPASSWD` apenas para os comandos de produção necessários.
 
 Quando `providerAvailability` não for `available`, trate o drift como desconhecido até a integração voltar a produzir um snapshot válido. Não crie commits artificiais para contornar quota ou forçar novo deployment.
 
@@ -347,7 +375,6 @@ Esta versão não implementa:
 - disparo/promoção de deployment Vercel pelo Dev Dashboard;
 - rollback automático local ou Vercel;
 - execução paralela entre projetos;
-- UI de Produção;
 - self-update do Dev Dashboard;
 - visão global de deployments pendentes;
 - `git fetch` implícito durante a leitura de status.

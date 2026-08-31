@@ -13,6 +13,9 @@ export type {
   ProjectType,
 } from './project.js';
 
+export type { NodeServerScriptName } from './server-script-catalog.js';
+export { NODE_SERVER_SCRIPT_CANDIDATES } from './server-script-catalog.js';
+
 export type {
   ProductionBackupPolicy,
   ProductionCommandId,
