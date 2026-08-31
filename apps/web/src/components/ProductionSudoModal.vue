@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 import { KeyIcon, LockClosedIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 import { authorizeDeploymentSudo, fetchDeploymentSudoStatus } from '../api';
+import { ApiRequestError } from '../api/core';
 
 interface Props {
   open: boolean;
@@ -19,21 +20,28 @@ const password = ref('');
 const errorMessage = ref('');
 const checking = ref(false);
 const submitting = ref(false);
+const requiresNopasswdSetup = ref(false);
 
 function clearSecret(): void {
   password.value = '';
 }
 
-function close(): void {
-  if (submitting.value) return;
+function resetState(): void {
   clearSecret();
   errorMessage.value = '';
+  requiresNopasswdSetup.value = false;
+}
+
+function close(): void {
+  if (submitting.value) return;
+  resetState();
   emit('close');
 }
 
 async function checkExistingAuthorization(): Promise<void> {
   checking.value = true;
   errorMessage.value = '';
+  requiresNopasswdSetup.value = false;
   try {
     const status = await fetchDeploymentSudoStatus(props.projectId);
     if (status.authorized) {
@@ -51,7 +59,7 @@ async function checkExistingAuthorization(): Promise<void> {
 }
 
 async function authorize(): Promise<void> {
-  if (!password.value || submitting.value) return;
+  if (!password.value || submitting.value || requiresNopasswdSetup.value) return;
   submitting.value = true;
   errorMessage.value = '';
   try {
@@ -67,6 +75,12 @@ async function authorize(): Promise<void> {
     clearSecret();
     emit('authorized');
   } catch (error) {
+    if (
+      error instanceof ApiRequestError &&
+      error.code === 'DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED'
+    ) {
+      requiresNopasswdSetup.value = true;
+    }
     errorMessage.value =
       error instanceof Error
         ? error.message
@@ -80,8 +94,7 @@ async function authorize(): Promise<void> {
 watch(
   () => props.open,
   (open) => {
-    clearSecret();
-    errorMessage.value = '';
+    resetState();
     if (open) void checkExistingAuthorization();
   },
 );
@@ -109,7 +122,13 @@ onBeforeUnmount(clearSecret);
           </div>
           <div>
             <span>Permissão local</span>
-            <h3 id="sudo-modal-title">Autorizar sudo temporariamente</h3>
+            <h3 id="sudo-modal-title">
+              {{
+                requiresNopasswdSetup
+                  ? 'Configurar privilégio mínimo'
+                  : 'Autorizar sudo temporariamente'
+              }}
+            </h3>
           </div>
           <button
             class="sudo-modal-close"
@@ -123,35 +142,52 @@ onBeforeUnmount(clearSecret);
         </header>
 
         <p class="sudo-modal-description">
-          O deployment foi bloqueado porque um comando precisa de sudo. A senha
-          é enviada somente para a API local para executar
-          <code>sudo -S -v</code>; ela não é salva no projeto nem no estado do
-          dashboard.
+          <template v-if="requiresNopasswdSetup">
+            Este host comprovou que um ticket sudo temporário não atravessa a
+            árvore de processos do deployment. Não adianta repetir a senha.
+            Configure no próprio projeto um helper de produção com
+            <code>NOPASSWD</code> limitado e depois gere um novo plano.
+          </template>
+          <template v-else>
+            O deployment foi bloqueado porque um comando precisa de sudo. A
+            senha é enviada somente para a API local para executar
+            <code>sudo -S -v</code>; ela não é salva no projeto nem no estado do
+            dashboard.
+          </template>
         </p>
 
         <form @submit.prevent="authorize">
-          <label for="production-sudo-password">Senha do sudo</label>
-          <div class="sudo-password-field">
-            <KeyIcon aria-hidden="true" />
-            <input
-              id="production-sudo-password"
-              v-model="password"
-              type="password"
-              autocomplete="current-password"
-              :disabled="checking || submitting"
-              autofocus
-            />
-          </div>
+          <template v-if="!requiresNopasswdSetup">
+            <label for="production-sudo-password">Senha do sudo</label>
+            <div class="sudo-password-field">
+              <KeyIcon aria-hidden="true" />
+              <input
+                id="production-sudo-password"
+                v-model="password"
+                type="password"
+                autocomplete="current-password"
+                :disabled="checking || submitting"
+                autofocus
+              />
+            </div>
+          </template>
 
           <div v-if="errorMessage" class="sudo-modal-error" role="alert">
             {{ errorMessage }}
           </div>
 
           <p class="sudo-modal-note">
-            Por segurança, esta autorização só funciona quando o dashboard é
-            acessado diretamente pelo host local. Se a política sudoers não
-            permitir reutilizar o ticket sem TTY, o dashboard vai informar que é
-            necessária uma regra NOPASSWD limitada.
+            <template v-if="requiresNopasswdSetup">
+              O dashboard não altera sudoers nem envia a senha para scripts do
+              projeto. Depois da configuração externa segura, feche este modal e
+              use <strong>Preparar deployment</strong> para tentar novamente.
+            </template>
+            <template v-else>
+              Por segurança, esta autorização só funciona quando o dashboard é
+              acessado diretamente pelo host local. Se a política sudoers não
+              permitir reutilizar o ticket sem TTY, o dashboard interrompe as
+              tentativas de senha e orienta uma regra NOPASSWD limitada.
+            </template>
           </p>
 
           <footer>
@@ -161,9 +197,10 @@ onBeforeUnmount(clearSecret);
               :disabled="submitting"
               @click="close"
             >
-              Cancelar
+              {{ requiresNopasswdSetup ? 'Fechar' : 'Cancelar' }}
             </button>
             <button
+              v-if="!requiresNopasswdSetup"
               class="sudo-primary-button"
               type="submit"
               :disabled="checking || submitting || !password"
