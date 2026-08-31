@@ -133,7 +133,9 @@ class FakeRunner implements DeploymentCommandRunner {
 }
 
 async function makeStore(t: test.TestContext): Promise<DeploymentStore> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'deployment-verify-retry-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'deployment-verify-retry-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   const store = new DeploymentStore(directory);
   await store.ready();
@@ -146,7 +148,11 @@ async function waitForTerminal(
 ): Promise<Deployment> {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     const deployment = await service.get(project.id, deploymentId);
-    if (['succeeded', 'recovery_required', 'failed', 'cancelled'].includes(deployment.status)) {
+    if (
+      ['succeeded', 'recovery_required', 'failed', 'cancelled'].includes(
+        deployment.status,
+      )
+    ) {
       return deployment;
     }
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -193,6 +199,31 @@ test('retry que falha mantém recovery_required e não repete etapas mutantes', 
   assert.equal(failed.status, 'recovery_required');
   assert.equal(failed.failurePoint, 'after-irreversible');
   assert.equal(failed.timeline.at(-1)?.status, 'failed');
+  assert.equal(failed.timeline.at(-1)?.exitCode, 9);
+  assert.deepEqual(runner.calls, ['verify']);
+});
+
+test('retry aceita verify falho após deploy não irreversível', async (t) => {
+  const store = await makeStore(t);
+  const failed = recoveryDeployment({
+    status: 'failed',
+    failurePoint: 'before-irreversible',
+    timeline: recoveryDeployment().timeline.map((step) =>
+      step.id === 'deploy' ? { ...step, irreversible: false } : step,
+    ),
+  });
+  await store.save(failed);
+  const runner = new FakeRunner();
+  const service = new DeploymentService({
+    store,
+    adapter: runner,
+    revisionResolver: new FixedRevisionResolver(),
+  });
+
+  await service.retryVerify(project, failed.id);
+  const completed = await waitForTerminal(service, failed.id);
+
+  assert.equal(completed.status, 'succeeded');
   assert.deepEqual(runner.calls, ['verify']);
 });
 
@@ -218,18 +249,87 @@ test('retry falha fechado quando o estado não prova deploy concluído + verify 
   );
 });
 
+test('retry recusa deployment antigo mesmo se a revisão voltar a coincidir', async (t) => {
+  const store = await makeStore(t);
+  await store.save(recoveryDeployment());
+  await store.save(
+    recoveryDeployment({
+      id: 'deployment-2',
+      createdAt: '2026-08-31T19:00:00.000Z',
+    }),
+  );
+  const runner = new FakeRunner();
+  const service = new DeploymentService({
+    store,
+    adapter: runner,
+    revisionResolver: new FixedRevisionResolver(),
+  });
+
+  await assert.rejects(
+    service.retryVerify(project, 'deployment-1'),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
+  );
+  assert.deepEqual(runner.calls, []);
+});
+
+test('retry recusa contrato que deixou de usar strategy command', async (t) => {
+  const store = await makeStore(t);
+  await store.save(recoveryDeployment());
+  const runner = new FakeRunner();
+  const gitManagedProject: Project = {
+    ...project,
+    production: {
+      version: 1,
+      enabled: true,
+      strategy: 'git-managed',
+      provider: 'vercel',
+      branch: 'main',
+      commands: {
+        check: 'prod:check',
+        verify: 'prod:verify',
+      },
+      external: { project: 'home-music' },
+      policies: {
+        backup: 'external',
+        migrations: 'not-configured',
+        rollback: 'provider-only-when-schema-compatible',
+      },
+    },
+  };
+  const service = new DeploymentService({
+    store,
+    adapter: runner,
+    revisionResolver: new FixedRevisionResolver(),
+  });
+
+  await assert.rejects(
+    service.retryVerify(gitManagedProject, 'deployment-1'),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_STRATEGY_UNSUPPORTED',
+  );
+  assert.deepEqual(runner.calls, []);
+});
+
 test('retry recusa revision diferente antes de executar qualquer comando', async (t) => {
   const store = await makeStore(t);
   await store.save(recoveryDeployment());
   const runner = new FakeRunner();
   const revisionResolver = new FixedRevisionResolver();
   revisionResolver.revision = 'c'.repeat(40);
-  const service = new DeploymentService({ store, adapter: runner, revisionResolver });
+  const service = new DeploymentService({
+    store,
+    adapter: runner,
+    revisionResolver,
+  });
 
   await assert.rejects(
     service.retryVerify(project, 'deployment-1'),
     (error: unknown) =>
-      error instanceof DeploymentError && error.code === 'DEPLOYMENT_PLAN_STALE',
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_PLAN_STALE',
   );
   assert.deepEqual(runner.calls, []);
 });

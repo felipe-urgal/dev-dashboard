@@ -422,6 +422,50 @@ describe('ProjectProductionPanel', () => {
     wrapper.unmount();
   });
 
+  it('oferece retry quando somente o verify falha após deploy não irreversível', async () => {
+    resetApi();
+    const failed = verifyFailedDeployment({
+      status: 'failed',
+      failurePoint: 'before-irreversible',
+      errorCode: 'DEPLOYMENT_COMMAND_FAILED',
+      errorMessage: 'O verify falhou.',
+    });
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [failed],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+    api.retryDeploymentVerify.mockResolvedValue({
+      ...failed,
+      status: 'verifying',
+    });
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: {
+        project: commandProject(),
+        gitOverview: gitOverview(),
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Verificar novamente');
+    expect(wrapper.text()).not.toContain('Preparar deployment');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Verificar novamente'))!
+      .trigger('click');
+    await flushPromises();
+
+    expect(api.retryDeploymentVerify).toHaveBeenCalledWith(
+      'project-1',
+      failed.id,
+      expect.any(AbortSignal),
+    );
+    expect(api.fetchDeploymentPlan).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it('autoriza sudo antes de repetir somente o verify elegível', async () => {
     resetApi();
     const failed = verifyFailedDeployment();

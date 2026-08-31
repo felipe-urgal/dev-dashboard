@@ -137,7 +137,20 @@ export class DeploymentService {
     const deployment = await this.get(project.id, deploymentId);
     const verifyIndex = this.verifyRetryIndex(deployment);
 
-    await this.assertRevisionUnchanged(project, deployment);
+    const currentPlan = await this.plan(project);
+    if (
+      currentPlan.branch !== deployment.branch ||
+      currentPlan.revision !== deployment.revision ||
+      currentPlan.provider !== deployment.provider
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PLAN_STALE',
+        'Branch, revisão ou contrato de produção mudou; prepare um novo deployment.',
+      );
+    }
+
+    this.assertNoActiveDeployment();
+    await this.assertLatestDeployment(project.id, deployment.id);
     this.assertNoActiveDeployment();
 
     const startedAt = new Date(this.now()).toISOString();
@@ -177,9 +190,12 @@ export class DeploymentService {
       throw error;
     }
 
-    void this.executeVerifyRetry(project, retrying, verifyIndex, controller).catch(
-      () => undefined,
-    );
+    void this.executeVerifyRetry(
+      project,
+      retrying,
+      verifyIndex,
+      controller,
+    ).catch(() => undefined);
     return structuredClone(retrying);
   }
 
@@ -374,6 +390,7 @@ export class DeploymentService {
   ): Promise<void> {
     let deployment = initial;
     let logQueue = Promise.resolve();
+    let verifyExitCode: number | undefined;
     const verifyStep = deployment.timeline[verifyIndex]!;
 
     try {
@@ -389,6 +406,7 @@ export class DeploymentService {
         },
       );
       await logQueue;
+      verifyExitCode = result.exitCode;
 
       if (result.cancelled || controller.signal.aborted) {
         const finishedAt = new Date(this.now()).toISOString();
@@ -402,7 +420,14 @@ export class DeploymentService {
             'A nova verificação foi cancelada. O deploy já ocorreu; nenhuma etapa de mutação foi repetida.',
           timeline: deployment.timeline.map((step, index) =>
             index === verifyIndex
-              ? { ...step, status: 'cancelled', finishedAt }
+              ? {
+                  ...step,
+                  status: 'cancelled',
+                  finishedAt,
+                  ...(verifyExitCode === undefined
+                    ? {}
+                    : { exitCode: verifyExitCode }),
+                }
               : step,
           ),
         };
@@ -456,7 +481,14 @@ export class DeploymentService {
         errorMessage: deploymentError.message,
         timeline: deployment.timeline.map((step, index) =>
           index === verifyIndex && step.status === 'running'
-            ? { ...step, status: 'failed', finishedAt }
+            ? {
+                ...step,
+                status: 'failed',
+                finishedAt,
+                ...(verifyExitCode === undefined
+                  ? {}
+                  : { exitCode: verifyExitCode }),
+              }
             : step,
         ),
       };
@@ -467,10 +499,14 @@ export class DeploymentService {
   }
 
   private verifyRetryIndex(deployment: Deployment): number {
-    if (deployment.status !== 'recovery_required') {
+    if (
+      deployment.status !== 'recovery_required' &&
+      deployment.status !== 'failed' &&
+      deployment.status !== 'cancelled'
+    ) {
       throw new DeploymentError(
         'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
-        'A verificação só pode ser repetida quando o deploy terminou e a execução está aguardando recuperação.',
+        'A verificação só pode ser repetida depois que o deploy terminou e somente o verify falhou ou foi cancelado.',
       );
     }
 
@@ -503,6 +539,19 @@ export class DeploymentService {
     }
 
     return verifyIndex;
+  }
+
+  private async assertLatestDeployment(
+    projectId: string,
+    deploymentId: string,
+  ): Promise<void> {
+    const latest = await this.store.history(projectId, 1, 1);
+    if (latest.items[0]?.id !== deploymentId) {
+      throw new DeploymentError(
+        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
+        'Somente o deployment mais recente do projeto pode repetir o verify.',
+      );
+    }
   }
 
   private async assertRevisionUnchanged(

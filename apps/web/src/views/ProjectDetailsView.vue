@@ -2,6 +2,7 @@
 import {
   computed,
   defineAsyncComponent,
+  onBeforeUnmount,
   ref,
   watch,
   type Component,
@@ -116,6 +117,59 @@ function updateGitOverview(git: ProjectGitOverview): void {
   gitOverview.value = git;
 }
 
+let gitOverviewRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+let gitOverviewRefreshGeneration = 0;
+
+function stopGitOverviewRefresh(): void {
+  gitOverviewRefreshGeneration += 1;
+  if (gitOverviewRefreshTimer !== undefined) {
+    clearTimeout(gitOverviewRefreshTimer);
+    gitOverviewRefreshTimer = undefined;
+  }
+}
+
+async function refreshGitOverviewWhileProduction(
+  requestedProjectId: string,
+  generation: number,
+): Promise<void> {
+  try {
+    const git = await fetchProjectGit(requestedProjectId);
+    if (
+      generation !== gitOverviewRefreshGeneration ||
+      projectId.value !== requestedProjectId ||
+      !isProductionRoute.value
+    ) {
+      return;
+    }
+    updateGitOverview(git);
+  } catch {
+    if (
+      generation === gitOverviewRefreshGeneration &&
+      projectId.value === requestedProjectId &&
+      isProductionRoute.value
+    ) {
+      gitOverview.value = null;
+    }
+  } finally {
+    if (
+      generation === gitOverviewRefreshGeneration &&
+      projectId.value === requestedProjectId &&
+      isProductionRoute.value &&
+      project.value?.id === requestedProjectId &&
+      project.value.capabilities.includes('git')
+    ) {
+      gitOverviewRefreshTimer = setTimeout(
+        () =>
+          void refreshGitOverviewWhileProduction(
+            requestedProjectId,
+            generation,
+          ),
+        3_000,
+      );
+    }
+  }
+}
+
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   if (activeProjectLoad?.projectId === requestedProjectId) {
@@ -174,6 +228,25 @@ async function loadProjectData(requestedProjectId: string): Promise<void> {
 }
 
 watch(
+  [projectId, isProductionRoute, () => project.value?.id ?? ''],
+  ([requestedProjectId, productionRoute, loadedProjectId]) => {
+    stopGitOverviewRefresh();
+    const loadedProject = project.value;
+    if (
+      !productionRoute ||
+      !requestedProjectId ||
+      loadedProjectId !== requestedProjectId ||
+      !loadedProject?.capabilities.includes('git')
+    ) {
+      return;
+    }
+    const generation = gitOverviewRefreshGeneration;
+    void refreshGitOverviewWhileProduction(requestedProjectId, generation);
+  },
+  { immediate: true },
+);
+
+watch(
   projectId,
   () => {
     void loadProject();
@@ -182,6 +255,8 @@ watch(
     immediate: true,
   },
 );
+
+onBeforeUnmount(stopGitOverviewRefresh);
 </script>
 
 <template>

@@ -62,12 +62,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 type Operation =
-  | ''
-  | 'planning'
-  | 'starting'
-  | 'verifying'
-  | 'cancelling'
-  | 'refreshing';
+  '' | 'planning' | 'starting' | 'verifying' | 'cancelling' | 'refreshing';
 
 const TERMINAL_STATUSES = new Set<DeploymentStatus>([
   'succeeded',
@@ -146,20 +141,29 @@ const hasActiveDeployment = computed(() => {
 const hasRetryableLatestVerifyTimeline = computed(() => {
   if (!isCommand.value) return false;
   const deployment = latestDeployment.value;
-  if (!deployment || deployment.status !== 'recovery_required') return false;
-  const verifyIndex = deployment.timeline.findIndex((step) => step.id === 'verify');
+  if (
+    !deployment ||
+    (deployment.status !== 'recovery_required' &&
+      deployment.status !== 'failed' &&
+      deployment.status !== 'cancelled')
+  ) {
+    return false;
+  }
+  const verifyIndex = deployment.timeline.findIndex(
+    (step) => step.id === 'verify',
+  );
   const verify = deployment.timeline[verifyIndex];
   const deploy = deployment.timeline.find((step) => step.id === 'deploy');
   return Boolean(
     verify &&
-      verifyIndex === deployment.timeline.length - 1 &&
-      !verify.mutating &&
-      !verify.irreversible &&
-      (verify.status === 'failed' || verify.status === 'cancelled') &&
-      deploy?.status === 'succeeded' &&
-      deployment.timeline
-        .slice(0, verifyIndex)
-        .every((step) => step.status === 'succeeded'),
+    verifyIndex === deployment.timeline.length - 1 &&
+    !verify.mutating &&
+    !verify.irreversible &&
+    (verify.status === 'failed' || verify.status === 'cancelled') &&
+    deploy?.status === 'succeeded' &&
+    deployment.timeline
+      .slice(0, verifyIndex)
+      .every((step) => step.status === 'succeeded'),
   );
 });
 
@@ -169,8 +173,8 @@ const latestVerifySnapshotIsCurrent = computed(() => {
   const deployment = latestDeployment.value;
   return Boolean(
     deployment &&
-      props.gitOverview?.branch === deployment.branch &&
-      localRevision.value === deployment.revision,
+    props.gitOverview?.branch === deployment.branch &&
+    localRevision.value === deployment.revision,
   );
 });
 const canRetryLatestVerify = computed(
@@ -182,9 +186,9 @@ const needsSudoAuthorization = computed(() => {
   const deployment = latestDeployment.value;
   return Boolean(
     isCommand.value &&
-      deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
-      (deployment.status === 'failed' || canRetryLatestVerify.value) &&
-      !sudoAuthorized.value,
+    deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+    (deployment.status === 'failed' || canRetryLatestVerify.value) &&
+    !sudoAuthorized.value,
   );
 });
 const originRevision = computed(() => {
@@ -936,11 +940,15 @@ onBeforeUnmount(() => {
             :class="{ 'production-spin': operation === 'verifying' }"
             aria-hidden="true"
           />
-          {{ operation === 'verifying' ? 'Verificando' : 'Verificar novamente' }}
+          {{
+            operation === 'verifying' ? 'Verificando' : 'Verificar novamente'
+          }}
         </button>
         <button
           v-if="isCommand && !hasActiveDeployment && !canRetryLatestVerify"
-          :class="needsSudoAuthorization ? 'secondary-button' : 'primary-button'"
+          :class="
+            needsSudoAuthorization ? 'secondary-button' : 'primary-button'
+          "
           type="button"
           :disabled="Boolean(operation)"
           @click="preparePlan"
@@ -1033,17 +1041,23 @@ onBeforeUnmount(() => {
           <div class="production-revision-flow">
             <div>
               <span>Local</span>
-              <code :title="localRevision">{{ shortRevision(localRevision) }}</code>
+              <code :title="localRevision">{{
+                shortRevision(localRevision)
+              }}</code>
             </div>
             <span aria-hidden="true">→</span>
             <div>
               <span>origin/{{ branch }}</span>
-              <code :title="originRevision">{{ shortRevision(originRevision) }}</code>
+              <code :title="originRevision">{{
+                shortRevision(originRevision)
+              }}</code>
             </div>
             <span aria-hidden="true">→</span>
             <div>
               <span>Produção</span>
-              <code :title="productionRevision">{{ shortRevision(productionRevision) }}</code>
+              <code :title="productionRevision">{{
+                shortRevision(productionRevision)
+              }}</code>
             </div>
           </div>
           <p v-if="isCommand" class="production-note">
@@ -1095,16 +1109,28 @@ onBeforeUnmount(() => {
         <header>
           <div>
             <span class="production-eyebrow">Provider externo</span>
-            <h4>{{ providerStatus.providerProjectName ?? providerStatus.externalProject }}</h4>
+            <h4>
+              {{
+                providerStatus.providerProjectName ??
+                providerStatus.externalProject
+              }}
+            </h4>
           </div>
           <StatusBadge
-            :tone="providerStatus.providerAvailability === 'available' ? 'success' : 'warning'"
+            :tone="
+              providerStatus.providerAvailability === 'available'
+                ? 'success'
+                : 'warning'
+            "
           >
             {{ providerAvailabilityLabel(providerStatus.providerAvailability) }}
           </StatusBadge>
         </header>
 
-        <div v-if="providerStatus.deployment" class="production-provider-deployment">
+        <div
+          v-if="providerStatus.deployment"
+          class="production-provider-deployment"
+        >
           <div>
             <span>Último deployment</span>
             <strong>{{ providerStatus.deployment.state }}</strong>
@@ -1141,7 +1167,9 @@ onBeforeUnmount(() => {
         <header>
           <div>
             <span class="production-eyebrow">Confirmação</span>
-            <h4 ref="planHeading" tabindex="-1">Revise o plano antes de executar</h4>
+            <h4 ref="planHeading" tabindex="-1">
+              Revise o plano antes de executar
+            </h4>
           </div>
           <StatusBadge tone="warning">Ação de produção</StatusBadge>
         </header>
@@ -1157,7 +1185,9 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <span>Revision alvo</span>
-            <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
+            <code :title="plan.revision">{{
+              shortRevision(plan.revision)
+            }}</code>
           </div>
         </div>
 
@@ -1169,9 +1199,15 @@ onBeforeUnmount(() => {
               <code>{{ step.script }}</code>
             </div>
             <div class="production-step-flags">
-              <StatusBadge v-if="step.mutating" tone="warning">Muda estado</StatusBadge>
-              <StatusBadge v-if="step.irreversible" tone="danger">Irreversível</StatusBadge>
-              <StatusBadge v-if="!step.mutating" tone="neutral">Leitura/validação</StatusBadge>
+              <StatusBadge v-if="step.mutating" tone="warning"
+                >Muda estado</StatusBadge
+              >
+              <StatusBadge v-if="step.irreversible" tone="danger"
+                >Irreversível</StatusBadge
+              >
+              <StatusBadge v-if="!step.mutating" tone="neutral"
+                >Leitura/validação</StatusBadge
+              >
             </div>
           </li>
         </ol>
@@ -1205,7 +1241,11 @@ onBeforeUnmount(() => {
               aria-hidden="true"
             />
             <PlayIcon v-else aria-hidden="true" />
-            {{ operation === 'starting' ? 'Iniciando' : 'Confirmar e iniciar deployment' }}
+            {{
+              operation === 'starting'
+                ? 'Iniciando'
+                : 'Confirmar e iniciar deployment'
+            }}
           </button>
         </footer>
       </article>
@@ -1223,7 +1263,11 @@ onBeforeUnmount(() => {
             <StatusBadge :tone="deploymentTone(latestDeployment.status)">
               {{ deploymentStatusLabel(latestDeployment.status) }}
             </StatusBadge>
-            <span>{{ formatDate(latestDeployment.startedAt ?? latestDeployment.createdAt) }}</span>
+            <span>{{
+              formatDate(
+                latestDeployment.startedAt ?? latestDeployment.createdAt,
+              )
+            }}</span>
           </div>
         </header>
 
@@ -1238,8 +1282,10 @@ onBeforeUnmount(() => {
               <strong>{{ commandLabels[step.id] }}</strong>
               <code>{{ step.script }}</code>
               <small v-if="step.startedAt">
-                {{ formatDate(step.startedAt) }}<template v-if="step.finishedAt">
-                  → {{ formatDate(step.finishedAt) }}</template>
+                {{ formatDate(step.startedAt)
+                }}<template v-if="step.finishedAt">
+                  → {{ formatDate(step.finishedAt) }}</template
+                >
               </small>
             </div>
             <StatusBadge :tone="stepTone(step.status)">
@@ -1274,12 +1320,17 @@ onBeforeUnmount(() => {
         <details
           v-if="deploymentLog"
           class="production-log"
-          :open="hasActiveDeployment || latestDeployment.status === 'recovery_required'"
+          :open="
+            hasActiveDeployment ||
+            latestDeployment.status === 'recovery_required'
+          "
         >
           <summary>Log do deployment</summary>
           <div class="production-log-meta">
             <span v-if="deploymentLog.masked">Conteúdo sensível mascarado</span>
-            <span v-if="deploymentLog.truncated">Log limitado à cauda disponível</span>
+            <span v-if="deploymentLog.truncated"
+              >Log limitado à cauda disponível</span
+            >
           </div>
           <pre>{{ deploymentLog.content || 'Nenhuma saída registrada.' }}</pre>
         </details>
@@ -1304,7 +1355,9 @@ onBeforeUnmount(() => {
             ></span>
             <div>
               <strong>Provider deploy</strong>
-              <small v-if="step.startedAt">{{ formatDate(step.startedAt) }}</small>
+              <small v-if="step.startedAt">{{
+                formatDate(step.startedAt)
+              }}</small>
             </div>
             <StatusBadge :tone="stepTone(step.status)">
               {{ stepStatusLabels[step.status] }}
@@ -1326,7 +1379,9 @@ onBeforeUnmount(() => {
         <ul>
           <li v-for="item in history" :key="item.id">
             <div>
-              <code :title="item.revision">{{ shortRevision(item.revision) }}</code>
+              <code :title="item.revision">{{
+                shortRevision(item.revision)
+              }}</code>
               <span>{{ formatDate(item.startedAt ?? item.createdAt) }}</span>
             </div>
             <StatusBadge :tone="deploymentTone(item.status)">
