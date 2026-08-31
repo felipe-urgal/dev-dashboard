@@ -82,17 +82,18 @@ function sanitizeSavedConnections(
     .filter((item): item is SavedDatabaseConnection => item !== null);
 }
 
-const savedConnectionsStorage =
-  createVersionedLocalStorage<SavedDatabaseConnection[]>({
-    key: SAVED_CONNECTIONS_KEY,
-    version: SAVED_CONNECTIONS_VERSION,
-    fallback: () => [],
-    sanitize: sanitizeSavedConnections,
-    migrate: (value, fromVersion) => {
-      if (fromVersion === 0) return value;
-      throw new Error(`Versão de conexões não suportada: ${fromVersion}`);
-    },
-  });
+const savedConnectionsStorage = createVersionedLocalStorage<
+  SavedDatabaseConnection[]
+>({
+  key: SAVED_CONNECTIONS_KEY,
+  version: SAVED_CONNECTIONS_VERSION,
+  fallback: () => [],
+  sanitize: sanitizeSavedConnections,
+  migrate: (value, fromVersion) => {
+    if (fromVersion === 0) return value;
+    throw new Error(`Versão de conexões não suportada: ${fromVersion}`);
+  },
+});
 
 export function useDatabaseSavedConnections() {
   const connections = ref<SavedDatabaseConnection[]>([]);

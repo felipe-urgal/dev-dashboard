@@ -67,10 +67,13 @@ export function useDatabaseExplorerSession(
     const timestamp = Date.parse(value);
     if (!Number.isFinite(timestamp)) return;
 
-    expiryTimer = setTimeout(() => {
-      if (sessionId.value !== expectedSessionId) return;
-      clearLocalSession(true);
-    }, Math.max(0, timestamp - Date.now()));
+    expiryTimer = setTimeout(
+      () => {
+        if (sessionId.value !== expectedSessionId) return;
+        clearLocalSession(true);
+      },
+      Math.max(0, timestamp - Date.now()),
+    );
   }
 
   async function deleteBestEffort(id: string): Promise<void> {
@@ -90,9 +93,7 @@ export function useDatabaseExplorerSession(
     const previousExpiresAt = expiresAt.value;
     clearExpiryTimer();
 
-    let created:
-      | { sessionId: string; expiresAt: string }
-      | undefined;
+    let created: { sessionId: string; expiresAt: string } | undefined;
 
     try {
       created = await createDatabaseExplorerSession(input);
@@ -150,7 +151,10 @@ export function useDatabaseExplorerSession(
   }
 
   function handleSessionError(error: unknown): boolean {
-    if (!(error instanceof ApiRequestError) || error.code !== 'SESSION_EXPIRED') {
+    if (
+      !(error instanceof ApiRequestError) ||
+      error.code !== 'SESSION_EXPIRED'
+    ) {
       return false;
     }
 

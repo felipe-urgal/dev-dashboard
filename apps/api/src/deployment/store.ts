@@ -1,5 +1,12 @@
 import { homedir } from 'node:os';
-import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -39,7 +46,10 @@ function utf8TailWithinByteLimit(value: string, limit: number): string {
   return codePoints.slice(start).join('');
 }
 
-async function atomicJsonWrite(filePath: string, value: unknown): Promise<void> {
+async function atomicJsonWrite(
+  filePath: string,
+  value: unknown,
+): Promise<void> {
   const temporaryPath = `${filePath}.${process.pid}.tmp`;
   await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, {
     encoding: 'utf8',

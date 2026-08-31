@@ -180,9 +180,9 @@ test.describe('Banco de dados da máquina', () => {
         method === 'POST' && pathname === '/api/database/explorer/sessions',
     );
     expect(sessionCreations).toHaveLength(2);
-    expect(sessionCreations.every(({ body }) => body.password === '123456')).toBe(
-      true,
-    );
+    expect(
+      sessionCreations.every(({ body }) => body.password === '123456'),
+    ).toBe(true);
     expect(
       requests.some(
         ({ method, pathname }) =>

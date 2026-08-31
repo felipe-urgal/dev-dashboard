@@ -64,7 +64,10 @@ function optionalString(value: unknown): boolean {
 }
 
 function optionalInteger(value: unknown): boolean {
-  return value === undefined || (typeof value === 'number' && Number.isInteger(value));
+  return (
+    value === undefined ||
+    (typeof value === 'number' && Number.isInteger(value))
+  );
 }
 
 function isTimelineStep(value: unknown): boolean {
@@ -118,17 +121,19 @@ export function isPersistedDeployment(value: unknown): value is Deployment {
   );
 }
 
-export function isPersistedDeploymentLog(value: unknown): value is DeploymentLog {
+export function isPersistedDeploymentLog(
+  value: unknown,
+): value is DeploymentLog {
   const log = record(value);
   return Boolean(
     log &&
-      typeof log.deploymentId === 'string' &&
-      log.deploymentId.length > 0 &&
-      typeof log.content === 'string' &&
-      typeof log.truncated === 'boolean' &&
-      typeof log.masked === 'boolean' &&
-      typeof log.redactionCount === 'number' &&
-      Number.isSafeInteger(log.redactionCount) &&
-      log.redactionCount >= 0,
+    typeof log.deploymentId === 'string' &&
+    log.deploymentId.length > 0 &&
+    typeof log.content === 'string' &&
+    typeof log.truncated === 'boolean' &&
+    typeof log.masked === 'boolean' &&
+    typeof log.redactionCount === 'number' &&
+    Number.isSafeInteger(log.redactionCount) &&
+    log.redactionCount >= 0,
   );
 }

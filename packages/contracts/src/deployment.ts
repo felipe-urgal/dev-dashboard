@@ -17,11 +17,7 @@ export type DeploymentStatus =
   | 'cancelled';
 
 export type DeploymentStepStatus =
-  | 'pending'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled';
+  'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export type DeploymentExecutionPhase = Extract<
   DeploymentStatus,
@@ -67,8 +63,7 @@ export interface DeploymentTimelineStep extends DeploymentPlanStep {
 }
 
 export type DeploymentFailurePoint =
-  | 'before-irreversible'
-  | 'after-irreversible';
+  'before-irreversible' | 'after-irreversible';
 
 export interface Deployment {
   id: string;

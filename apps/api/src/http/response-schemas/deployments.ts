@@ -92,14 +92,7 @@ export const deploymentConfirmationResponseSchema = {
 export const deploymentTimelineStepResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'id',
-    'script',
-    'phase',
-    'mutating',
-    'irreversible',
-    'status',
-  ],
+  required: ['id', 'script', 'phase', 'mutating', 'irreversible', 'status'],
   properties: {
     ...deploymentPlanStepResponseSchema.properties,
     status: {

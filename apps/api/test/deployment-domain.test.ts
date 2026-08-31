@@ -61,7 +61,9 @@ function makeProject(
 }
 
 async function temporaryDirectory(t: test.TestContext): Promise<string> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-deployment-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-deployment-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   return directory;
 }
@@ -156,7 +158,9 @@ function makeDeployment(id = 'deployment-1'): Deployment {
 }
 
 test('planner monta Home Music com backup antes do deploy e marca deploy/startup como irreversível', () => {
-  const planner = new DeploymentPlanner(() => Date.parse('2026-08-31T12:00:00Z'));
+  const planner = new DeploymentPlanner(() =>
+    Date.parse('2026-08-31T12:00:00Z'),
+  );
   const plan = planner.build(makeProject(), {
     revision: REVISION_A,
     branch: 'main',
@@ -204,9 +208,14 @@ test('planner inclui migrate explícito antes do deploy e o torna irreversível'
 test('planner falha fechado para branch errada, strategy externa e políticas sem scripts obrigatórios', () => {
   const planner = new DeploymentPlanner();
   assert.throws(
-    () => planner.build(makeProject(), { revision: REVISION_A, branch: 'feature/x' }),
+    () =>
+      planner.build(makeProject(), {
+        revision: REVISION_A,
+        branch: 'feature/x',
+      }),
     (error: unknown) =>
-      error instanceof DeploymentError && error.code === 'DEPLOYMENT_BRANCH_MISMATCH',
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_BRANCH_MISMATCH',
   );
 
   assert.throws(
@@ -234,7 +243,8 @@ test('planner falha fechado para branch errada, strategy externa e políticas se
         { revision: REVISION_A, branch: 'main' },
       ),
     (error: unknown) =>
-      error instanceof DeploymentError && error.code === 'DEPLOYMENT_BACKUP_REQUIRED',
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_BACKUP_REQUIRED',
   );
 
   assert.throws(
@@ -267,11 +277,19 @@ test('planner não cria produção para capability ausente ou produção desabil
   const withoutCapability = makeProject();
   withoutCapability.capabilities = [];
   assert.throws(
-    () => planner.build(withoutCapability, { revision: REVISION_A, branch: 'main' }),
+    () =>
+      planner.build(withoutCapability, {
+        revision: REVISION_A,
+        branch: 'main',
+      }),
     /produção habilitada e válida/i,
   );
 
-  const disabled = makeProject({ enabled: false, strategy: 'disabled', provider: 'none' });
+  const disabled = makeProject({
+    enabled: false,
+    strategy: 'disabled',
+    provider: 'none',
+  });
   assert.throws(
     () => planner.build(disabled, { revision: REVISION_A, branch: 'main' }),
     /produção habilitada e válida/i,
@@ -291,20 +309,30 @@ test('confirmação fica vinculada a projeto + revision + hash e é de uso únic
   assert.equal(confirmation.revision, plan.revision);
   assert.equal(confirmation.planHash, plan.planHash);
   assert.throws(
-    () => service.consume({ ...plan, revision: REVISION_B }, confirmation.token),
+    () =>
+      service.consume({ ...plan, revision: REVISION_B }, confirmation.token),
     /Confirmação válida/i,
   );
   service.consume(plan, confirmation.token);
-  assert.throws(() => service.consume(plan, confirmation.token), /Confirmação válida/i);
+  assert.throws(
+    () => service.consume(plan, confirmation.token),
+    /Confirmação válida/i,
+  );
 
   const expiring = service.prepare(plan);
   now += 501;
-  assert.throws(() => service.consume(plan, expiring.token), /Confirmação válida/i);
+  assert.throws(
+    () => service.consume(plan, expiring.token),
+    /Confirmação válida/i,
+  );
 });
 
 test('store persiste histórico, limita log UTF-8 e recupera execução interrompida', async (t) => {
   const directory = await temporaryDirectory(t);
-  const store = new DeploymentStore(directory, { historyLimit: 2, logLimitBytes: 8 });
+  const store = new DeploymentStore(directory, {
+    historyLimit: 2,
+    logLimitBytes: 8,
+  });
   const deployment = {
     ...makeDeployment(),
     status: 'deploying' as const,
@@ -347,12 +375,24 @@ test('store persiste histórico, limita log UTF-8 e recupera execução interrom
   assert.equal(recovered?.failurePoint, 'after-irreversible');
   assert.equal(recovered?.timeline[1]?.status, 'failed');
 
-  await store.save({ ...makeDeployment('deployment-2'), createdAt: '2026-08-31T14:00:00Z' });
-  await store.save({ ...makeDeployment('deployment-3'), createdAt: '2026-08-31T15:00:00Z' });
+  await store.save({
+    ...makeDeployment('deployment-2'),
+    createdAt: '2026-08-31T14:00:00Z',
+  });
+  await store.save({
+    ...makeDeployment('deployment-3'),
+    createdAt: '2026-08-31T15:00:00Z',
+  });
   const history = await store.history('project-1', 1, 20);
-  assert.deepEqual(history.items.map((item) => item.id), ['deployment-3', 'deployment-2']);
+  assert.deepEqual(
+    history.items.map((item) => item.id),
+    ['deployment-3', 'deployment-2'],
+  );
 
-  const restored = new DeploymentStore(directory, { historyLimit: 2, logLimitBytes: 8 });
+  const restored = new DeploymentStore(directory, {
+    historyLimit: 2,
+    logLimitBytes: 8,
+  });
   await restored.ready();
   assert.equal((await restored.history('project-1')).total, 2);
 });
@@ -367,14 +407,24 @@ test('service executa check → backup → deploy → verify, persiste log e con
   });
   const project = makeProject();
   const plan = await service.plan(project);
-  const confirmation = await service.prepareConfirmation(project, plan.planHash);
-  const started = await service.start(project, plan.planHash, confirmation.token);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
+  const started = await service.start(
+    project,
+    plan.planHash,
+    confirmation.token,
+  );
   const finished = await waitForTerminal(service, started);
 
   assert.equal(finished.status, 'succeeded');
   assert.deepEqual(runner.calls, ['check', 'backup', 'deploy', 'verify']);
   assert.ok(finished.timeline.every((step) => step.status === 'succeeded'));
-  assert.match((await service.log(project.id, started.id)).content, /step=deploy/);
+  assert.match(
+    (await service.log(project.id, started.id)).content,
+    /step=deploy/,
+  );
   assert.equal((await service.history(project.id)).total, 1);
 });
 
@@ -396,7 +446,11 @@ test('falha antes de etapa irreversível termina failed; falha durante etapa irr
   );
   const before = await waitForTerminal(
     beforeService,
-    await beforeService.start(project, beforePlan.planHash, beforeConfirmation.token),
+    await beforeService.start(
+      project,
+      beforePlan.planHash,
+      beforeConfirmation.token,
+    ),
   );
   assert.equal(before.status, 'failed');
   assert.equal(before.failurePoint, 'before-irreversible');
@@ -415,7 +469,11 @@ test('falha antes de etapa irreversível termina failed; falha durante etapa irr
   );
   const risky = await waitForTerminal(
     riskyService,
-    await riskyService.start(project, riskyPlan.planHash, riskyConfirmation.token),
+    await riskyService.start(
+      project,
+      riskyPlan.planHash,
+      riskyConfirmation.token,
+    ),
   );
   assert.equal(risky.status, 'recovery_required');
   assert.equal(risky.failurePoint, 'after-irreversible');
@@ -434,12 +492,16 @@ test('service rejeita plano stale e uma segunda execução concorrente global', 
   });
   const project = makeProject();
   const oldPlan = await service.plan(project);
-  const oldConfirmation = await service.prepareConfirmation(project, oldPlan.planHash);
+  const oldConfirmation = await service.prepareConfirmation(
+    project,
+    oldPlan.planHash,
+  );
   revisions.revision = REVISION_B;
   await assert.rejects(
     service.start(project, oldPlan.planHash, oldConfirmation.token),
     (error: unknown) =>
-      error instanceof DeploymentError && error.code === 'DEPLOYMENT_PLAN_STALE',
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_PLAN_STALE',
   );
 
   const currentPlan = await service.plan(project);
@@ -460,7 +522,8 @@ test('service rejeita plano stale e uma segunda execução concorrente global', 
   await assert.rejects(
     service.start(project, currentPlan.planHash, secondConfirmation.token),
     (error: unknown) =>
-      error instanceof DeploymentError && error.code === 'DEPLOYMENT_ALREADY_RUNNING',
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_ALREADY_RUNNING',
   );
 
   await service.cancel(project.id, active.id);
@@ -478,9 +541,12 @@ test('cancelamento durante etapa irreversível não finge rollback e vira recove
       signal: AbortSignal,
       onOutput: Parameters<DeploymentCommandRunner['run']>[3],
     ) {
-      if (step.id !== 'deploy') return super.run(project, step, signal, onOutput);
+      if (step.id !== 'deploy')
+        return super.run(project, step, signal, onOutput);
       this.calls.push(step.id);
-      await new Promise<void>((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+      await new Promise<void>((resolve) =>
+        signal.addEventListener('abort', resolve, { once: true }),
+      );
       return { exitCode: 1, cancelled: true };
     }
   }
@@ -493,8 +559,15 @@ test('cancelamento durante etapa irreversível não finge rollback e vira recove
   });
   const project = makeProject();
   const plan = await service.plan(project);
-  const confirmation = await service.prepareConfirmation(project, plan.planHash);
-  const started = await service.start(project, plan.planHash, confirmation.token);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
+  const started = await service.start(
+    project,
+    plan.planHash,
+    confirmation.token,
+  );
 
   for (let attempt = 0; attempt < 200; attempt += 1) {
     const current = await service.get(project.id, started.id);
@@ -505,7 +578,10 @@ test('cancelamento durante etapa irreversível não finge rollback e vira recove
   const finished = await waitForTerminal(service, started);
   assert.equal(finished.status, 'recovery_required');
   assert.equal(finished.failurePoint, 'after-irreversible');
-  assert.equal(finished.timeline.find((step) => step.id === 'deploy')?.status, 'cancelled');
+  assert.equal(
+    finished.timeline.find((step) => step.id === 'deploy')?.status,
+    'cancelled',
+  );
 });
 
 class FakeChild extends EventEmitter {
@@ -523,7 +599,10 @@ test('command adapter resolve programa no backend, usa shell:false e mascara seg
   const directory = await temporaryDirectory(t);
   await writeFile(
     path.join(directory, 'package.json'),
-    JSON.stringify({ packageManager: 'npm@11.0.0', scripts: { 'prod:check': 'echo ok' } }),
+    JSON.stringify({
+      packageManager: 'npm@11.0.0',
+      scripts: { 'prod:check': 'echo ok' },
+    }),
   );
   const child = new FakeChild();
   let invocation:
@@ -612,14 +691,19 @@ test('command adapter rejeita script divergente e packageManager desconhecido', 
 test('Git revision resolver usa git sem shell e falha fechado fora de repositório', async (t) => {
   const directory = await temporaryDirectory(t);
   execFileSync('git', ['init', '-b', 'main'], { cwd: directory });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: directory });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: directory,
+  });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: directory });
   await writeFile(path.join(directory, 'README.md'), 'ok\n');
   execFileSync('git', ['add', 'README.md'], { cwd: directory });
   execFileSync('git', ['commit', '-m', 'init'], { cwd: directory });
 
   const resolver = new GitDeploymentRevisionResolver();
-  const resolved = await resolver.resolve({ ...makeProject(), path: directory });
+  const resolved = await resolver.resolve({
+    ...makeProject(),
+    path: directory,
+  });
   assert.equal(resolved.branch, 'main');
   assert.match(resolved.revision, /^[0-9a-f]{40}$/);
 

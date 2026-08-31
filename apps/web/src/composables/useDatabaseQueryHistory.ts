@@ -57,7 +57,9 @@ function sanitizeHistoryItem(value: unknown): DatabaseQueryHistoryItem | null {
   };
 }
 
-function sanitizeQueryHistory(value: unknown): DatabaseQueryHistoryItem[] | null {
+function sanitizeQueryHistory(
+  value: unknown,
+): DatabaseQueryHistoryItem[] | null {
   if (!Array.isArray(value)) return null;
   return value
     .map(sanitizeHistoryItem)

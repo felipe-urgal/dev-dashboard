@@ -11,7 +11,9 @@ import { DeploymentStore } from '../src/deployment/store.js';
 const REVISION = 'a'.repeat(40);
 
 async function temporaryDirectory(t: test.TestContext): Promise<string> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-recovery-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-recovery-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   return directory;
 }

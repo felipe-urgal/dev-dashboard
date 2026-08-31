@@ -4,10 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type {
-  DeploymentPlanStep,
-  Project,
-} from '@dev-dashboard/contracts';
+import type { DeploymentPlanStep, Project } from '@dev-dashboard/contracts';
 
 import type { DeploymentCommandRunner } from '../src/deployment/service.js';
 import { DeploymentService } from '../src/deployment/service.js';
@@ -99,7 +96,9 @@ async function waitForTerminal(
 }
 
 test('mudança de revision depois do check impede a próxima etapa', async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-revalidate-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-revalidate-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
 
   const revision = new MutableRevisionResolver();

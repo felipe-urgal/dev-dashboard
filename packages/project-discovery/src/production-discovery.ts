@@ -24,7 +24,10 @@ async function readPackageScripts(
   projectPath: string,
 ): Promise<Record<string, string> | undefined> {
   try {
-    const contents = await readFile(path.join(projectPath, 'package.json'), 'utf8');
+    const contents = await readFile(
+      path.join(projectPath, 'package.json'),
+      'utf8',
+    );
     const parsed: unknown = JSON.parse(contents);
     if (!isRecord(parsed) || !isRecord(parsed.scripts)) {
       return undefined;
@@ -40,7 +43,9 @@ async function readPackageScripts(
   }
 }
 
-export async function enrichProjectProduction(project: Project): Promise<Project> {
+export async function enrichProjectProduction(
+  project: Project,
+): Promise<Project> {
   if (!(await hasProductionManifest(project.path))) {
     return project;
   }

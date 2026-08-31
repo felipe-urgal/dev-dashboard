@@ -1,10 +1,7 @@
 export type ProductionStrategy = 'command' | 'git-managed' | 'disabled';
 
 export type ProductionProvider =
-  | 'systemd'
-  | 'docker-compose'
-  | 'vercel'
-  | 'none';
+  'systemd' | 'docker-compose' | 'vercel' | 'none';
 
 export type ProductionCommandId =
   | 'status'
@@ -36,9 +33,7 @@ export type ProductionBackupPolicy =
   | 'not-configured';
 
 export type ProductionMigrationPolicy =
-  | 'startup'
-  | 'before-deploy'
-  | 'not-configured';
+  'startup' | 'before-deploy' | 'not-configured';
 
 export type ProductionRollbackPolicy =
   | 'restore-backup-when-schema-changed'

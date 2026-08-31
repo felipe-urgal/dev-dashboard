@@ -370,7 +370,10 @@ test('scan do workspace preserva contrato ou warning por projeto', async () => {
       '{not-json',
     );
 
-    const result = await scanWorkspace({ id: 'workspace', path: workspacePath });
+    const result = await scanWorkspace({
+      id: 'workspace',
+      path: workspacePath,
+    });
     const validProject = result.projects.find(
       (project) => project.name === 'valid-project',
     );
