@@ -70,7 +70,7 @@ async function waitForTerminal(
   service: DeploymentService,
   deployment: Deployment,
 ): Promise<Deployment> {
-  for (let attempt = 0; attempt < 300; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     const current = await service.get(deployment.projectId, deployment.id);
     if (
       ['succeeded', 'failed', 'recovery_required', 'cancelled'].includes(
@@ -113,10 +113,12 @@ class FakeRunner implements DeploymentCommandRunner {
     });
 
     if (this.block) {
-      await new Promise<void>((resolve) => {
-        this.releaseBlocking = resolve;
-        signal.addEventListener('abort', resolve, { once: true });
-      });
+      if (!signal.aborted) {
+        await new Promise<void>((resolve) => {
+          this.releaseBlocking = resolve;
+          signal.addEventListener('abort', resolve, { once: true });
+        });
+      }
       return { exitCode: signal.aborted ? 1 : 0, cancelled: signal.aborted };
     }
 
