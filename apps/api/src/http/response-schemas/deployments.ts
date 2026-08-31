@@ -33,6 +33,11 @@ const phaseSchema = {
   enum: ['preparing', 'backing_up', 'migrating', 'deploying', 'verifying'],
 } as const;
 
+const stepStatusSchema = {
+  type: 'string',
+  enum: ['pending', 'running', 'succeeded', 'failed', 'cancelled'],
+} as const;
+
 const providerSchema = {
   type: 'string',
   enum: ['systemd', 'docker-compose', 'vercel', 'none'],
@@ -95,10 +100,7 @@ export const deploymentTimelineStepResponseSchema = {
   required: ['id', 'script', 'phase', 'mutating', 'irreversible', 'status'],
   properties: {
     ...deploymentPlanStepResponseSchema.properties,
-    status: {
-      type: 'string',
-      enum: ['pending', 'running', 'succeeded', 'failed', 'cancelled'],
-    },
+    status: stepStatusSchema,
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
     exitCode: { type: 'integer' },
@@ -185,5 +187,92 @@ export const deploymentLogResponseSchema = {
     truncated: { type: 'boolean' },
     masked: { type: 'boolean' },
     redactionCount: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
+const providerTimelineStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'phase', 'status'],
+  properties: {
+    id: { type: 'string', enum: ['provider-deploy'] },
+    phase: { type: 'string', enum: ['deploying'] },
+    status: stepStatusSchema,
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+  },
+} as const;
+
+const providerSnapshotResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'url', 'state', 'createdAt'],
+  properties: {
+    id: { type: 'string' },
+    url: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['queued', 'building', 'ready', 'error', 'cancelled', 'unknown'],
+    },
+    createdAt: { type: 'string' },
+    branch: { type: 'string' },
+    revision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+  },
+} as const;
+
+export const productionDeploymentStatusResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'projectId',
+    'projectName',
+    'strategy',
+    'provider',
+    'branch',
+    'externalProject',
+    'providerAvailability',
+    'drift',
+    'localOperations',
+    'timeline',
+  ],
+  properties: {
+    projectId: { type: 'string' },
+    projectName: { type: 'string' },
+    strategy: { type: 'string', enum: ['git-managed'] },
+    provider: { type: 'string', enum: ['vercel'] },
+    branch: { type: 'string' },
+    externalProject: { type: 'string' },
+    providerAvailability: {
+      type: 'string',
+      enum: [
+        'available',
+        'not-configured',
+        'auth-error',
+        'quota-limited',
+        'project-not-found',
+        'unavailable',
+        'invalid-response',
+      ],
+    },
+    originRevision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+    productionRevision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+    drift: { type: 'string', enum: ['in-sync', 'drift', 'unknown'] },
+    localOperations: { type: 'array', items: commandIdSchema },
+    providerProjectId: { type: 'string' },
+    providerProjectName: { type: 'string' },
+    deployment: providerSnapshotResponseSchema,
+    timeline: { type: 'array', items: providerTimelineStepResponseSchema },
+    errorCode: {
+      type: 'string',
+      enum: [
+        'DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE',
+        'DEPLOYMENT_PROVIDER_AUTH_FAILED',
+        'DEPLOYMENT_PROVIDER_QUOTA_EXCEEDED',
+        'DEPLOYMENT_PROVIDER_PROJECT_NOT_FOUND',
+        'DEPLOYMENT_PROVIDER_UNAVAILABLE',
+        'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+      ],
+    },
+    errorMessage: { type: 'string' },
   },
 } as const;
