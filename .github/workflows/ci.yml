@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,6 +39,24 @@ jobs:
       - name: Rebuild native terminal dependency
         run: npm rebuild node-pty
 
+      - name: Generate API docs and format
+        run: |
+          npm run docs:api
+          npm run format
+
+      - name: Commit generated and formatted files
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git add docs/architecture/api-reference.md apps packages scripts eslint.config.js
+          if git diff --cached --quiet; then
+            echo "Generated files and formatting are already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update generated files and formatting"
+          git push origin HEAD:${{ github.head_ref }}
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -49,7 +69,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verifica docs/architecture/api-reference.md
+      - name: Verify generated API reference
         run: npm run docs:api:check
 
       - name: Test
