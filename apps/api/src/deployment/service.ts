@@ -276,7 +276,6 @@ export class DeploymentService {
       await this.store.save(deployment);
     } catch (error) {
       await logQueue.catch(() => undefined);
-      const afterIrreversible = irreversibleCompleted || currentIrreversible;
       const finishedAt = new Date(this.now()).toISOString();
       const currentStepId = deployment.currentStepId;
       const deploymentError =
@@ -286,6 +285,12 @@ export class DeploymentService {
               'DEPLOYMENT_COMMAND_FAILED',
               'A execução da etapa de produção falhou.',
             );
+      const privilegeBlockedBeforeMutation =
+        deploymentError.code === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+        !irreversibleCompleted;
+      const afterIrreversible =
+        irreversibleCompleted ||
+        (currentIrreversible && !privilegeBlockedBeforeMutation);
       deployment = {
         ...deployment,
         status: afterIrreversible ? 'recovery_required' : 'failed',
