@@ -6,10 +6,15 @@ import type {
   DeploymentHistory,
   DeploymentLog,
   DeploymentPlan,
+  DeploymentPlanStep,
   Project,
 } from '@dev-dashboard/contracts';
+import type { MaskedLogContent } from '@dev-dashboard/process-manager';
 
-import { ProductionCommandAdapter } from './command-adapter.js';
+import {
+  ProductionCommandAdapter,
+  type ProductionCommandResult,
+} from './command-adapter.js';
 import { DeploymentConfirmationService } from './confirmation.js';
 import { DeploymentError } from './errors.js';
 import { DeploymentPlanner } from './planner.js';
@@ -25,11 +30,20 @@ interface ActiveDeployment {
   controller: AbortController;
 }
 
+export interface DeploymentCommandRunner {
+  run(
+    project: Project,
+    step: DeploymentPlanStep,
+    signal: AbortSignal,
+    onOutput: (output: MaskedLogContent) => void,
+  ): Promise<ProductionCommandResult>;
+}
+
 export interface DeploymentServiceOptions {
   planner?: DeploymentPlanner;
   revisionResolver?: DeploymentRevisionResolver;
   confirmationService?: DeploymentConfirmationService;
-  adapter?: ProductionCommandAdapter;
+  adapter?: DeploymentCommandRunner;
   store?: DeploymentStore;
   now?: () => number;
 }
@@ -38,7 +52,7 @@ export class DeploymentService {
   private readonly planner: DeploymentPlanner;
   private readonly revisionResolver: DeploymentRevisionResolver;
   private readonly confirmationService: DeploymentConfirmationService;
-  private readonly adapter: ProductionCommandAdapter;
+  private readonly adapter: DeploymentCommandRunner;
   private readonly store: DeploymentStore;
   private readonly now: () => number;
   private readonly readyPromise: Promise<void>;
