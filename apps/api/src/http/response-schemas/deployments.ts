@@ -13,6 +13,21 @@ const commandIdSchema = {
   ],
 } as const;
 
+const scriptIdSchema = {
+  type: 'string',
+  enum: [
+    'prod:status',
+    'prod:check',
+    'prod:backup',
+    'prod:migrate',
+    'prod:deploy',
+    'prod:verify',
+    'prod:restore-check',
+    'prod:rollback',
+    'prod:logs',
+  ],
+} as const;
+
 const phaseSchema = {
   type: 'string',
   enum: ['preparing', 'backing_up', 'migrating', 'deploying', 'verifying'],
@@ -29,7 +44,7 @@ export const deploymentPlanStepResponseSchema = {
   required: ['id', 'script', 'phase', 'mutating', 'irreversible'],
   properties: {
     id: commandIdSchema,
-    script: { type: 'string' },
+    script: scriptIdSchema,
     phase: phaseSchema,
     mutating: { type: 'boolean' },
     irreversible: { type: 'boolean' },
