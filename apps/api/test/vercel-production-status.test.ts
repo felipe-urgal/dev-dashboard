@@ -55,6 +55,9 @@ function adapterWithDeployment(options: {
   revision?: string;
   branch?: string;
   deploymentTarget?: string | null;
+  identifierField?: 'id' | 'uid';
+  url?: string;
+  created?: number;
 }) {
   const requests: string[] = [];
   const adapter = new VercelDeploymentAdapter({
@@ -69,12 +72,17 @@ function adapterWithDeployment(options: {
           name: 'controle-gastos',
         });
       }
+      const identifier =
+        options.identifierField === 'uid'
+          ? { uid: 'dpl_producao' }
+          : { id: 'dpl_producao' };
       return response(200, {
         deployments: [
           {
-            id: 'dpl_producao',
-            url: 'controle-gastos-exemplo.vercel.app',
-            created: Date.parse('2026-08-31T12:00:00Z'),
+            ...identifier,
+            url: options.url ?? 'controle-gastos-exemplo.vercel.app',
+            created:
+              options.created ?? Date.parse('2026-08-31T12:00:00Z'),
             state: options.state ?? 'READY',
             target: options.deploymentTarget ?? 'production',
             meta: {
@@ -90,11 +98,14 @@ function adapterWithDeployment(options: {
 }
 
 test('adapter usa external.project explicitamente e restringe leitura à produção', async () => {
-  const { adapter, requests } = adapterWithDeployment({});
+  const { adapter, requests } = adapterWithDeployment({
+    identifierField: 'uid',
+  });
   const snapshot = await adapter.readProduction('controle-gastos');
 
   assert.equal(snapshot.projectId, 'prj_controle_gastos');
   assert.equal(snapshot.projectName, 'controle-gastos');
+  assert.equal(snapshot.deployment?.id, 'dpl_producao');
   assert.equal(snapshot.deployment?.revision, REVISION_A);
   assert.equal(snapshot.deployment?.state, 'ready');
   assert.equal(
@@ -260,4 +271,57 @@ test('adapter falha fechado para resposta externa inválida', async () => {
       error instanceof DeploymentError &&
       error.code === 'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
   );
+});
+
+test('adapter rejeita esquema não HTTPS e timestamp fora do intervalo de Date', async () => {
+  const { adapter: insecureUrlAdapter } = adapterWithDeployment({
+    url: 'http://exemplo.test/app',
+  });
+  await assert.rejects(
+    () => insecureUrlAdapter.readProduction('controle-gastos'),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+  );
+
+  const { adapter: invalidTimestampAdapter } = adapterWithDeployment({
+    created: Number.MAX_VALUE,
+  });
+  await assert.rejects(
+    () => invalidTimestampAdapter.readProduction('controle-gastos'),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+  );
+});
+
+test('adapter interrompe resposta em stream quando excede o limite aceito', async () => {
+  let textCalled = false;
+  const oversizedChunk = new Uint8Array(300 * 1024);
+  const adapter = new VercelDeploymentAdapter({
+    token: 'token-local',
+    fetchRequest: async () => ({
+      ok: true,
+      status: 200,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(oversizedChunk);
+          controller.enqueue(oversizedChunk);
+          controller.close();
+        },
+      }),
+      async text() {
+        textCalled = true;
+        return '{}';
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => adapter.readProduction('controle-gastos'),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+  );
+  assert.equal(textCalled, false);
 });
