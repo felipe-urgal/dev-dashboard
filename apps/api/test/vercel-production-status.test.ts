@@ -325,3 +325,51 @@ test('adapter interrompe resposta em stream quando excede o limite aceito', asyn
   );
   assert.equal(textCalled, false);
 });
+
+test('adapter normaliza revisão de GitLab e Bitbucket', async () => {
+  for (const provider of ['gitlab', 'bitbucket'] as const) {
+    let call = 0;
+    const adapter = new VercelDeploymentAdapter({
+      token: 'token-local',
+      fetchRequest: async () => {
+        call += 1;
+        if (call === 1) {
+          return response(200, {
+            id: 'prj_controle_gastos',
+            name: 'controle-gastos',
+          });
+        }
+
+        const meta =
+          provider === 'gitlab'
+            ? {
+                gitlabCommitRef: 'main',
+                gitlabCommitSha: REVISION_A,
+              }
+            : {
+                bitbucketCommitRef: 'main',
+                bitbucketCommitSha: REVISION_B,
+              };
+        return response(200, {
+          deployments: [
+            {
+              id: `dpl_${provider}`,
+              url: `controle-gastos-${provider}.vercel.app`,
+              created: Date.parse('2026-08-31T12:00:00Z'),
+              state: 'READY',
+              target: 'production',
+              meta,
+            },
+          ],
+        });
+      },
+    });
+
+    const snapshot = await adapter.readProduction('controle-gastos');
+    assert.equal(snapshot.deployment?.branch, 'main');
+    assert.equal(
+      snapshot.deployment?.revision,
+      provider === 'gitlab' ? REVISION_A : REVISION_B,
+    );
+  }
+});
