@@ -33,13 +33,23 @@ export async function requireRemoteReference(
   }
 }
 
+export async function hasRemote(
+  projectPath: string,
+  remote: 'origin' | 'upstream',
+): Promise<boolean> {
+  try {
+    await runGit(projectPath, ['remote', 'get-url', remote]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function requireRemote(
   projectPath: string,
   remote: 'origin' | 'upstream',
 ): Promise<void> {
-  try {
-    await runGit(projectPath, ['remote', 'get-url', remote]);
-  } catch {
+  if (!(await hasRemote(projectPath, remote))) {
     throw new GitSyncError(
       'GIT_REMOTE_NOT_CONFIGURED',
       `O remote "${remote}" não está configurado neste projeto.`,
