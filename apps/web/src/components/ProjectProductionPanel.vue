@@ -841,8 +841,8 @@ onBeforeUnmount(() => {
           Autorizar sudo
         </button>
         <button
-          v-if="isCommand && !hasActiveDeployment && !needsSudoAuthorization"
-          class="primary-button"
+          v-if="isCommand && !hasActiveDeployment"
+          :class="needsSudoAuthorization ? 'secondary-button' : 'primary-button'"
           type="button"
           :disabled="Boolean(operation)"
           @click="preparePlan"
@@ -854,7 +854,11 @@ onBeforeUnmount(() => {
           />
           <PlayIcon v-else aria-hidden="true" />
           {{
-            operation === 'planning' ? 'Gerando plano' : 'Preparar deployment'
+            operation === 'planning'
+              ? 'Gerando plano'
+              : needsSudoAuthorization
+                ? 'Preparar novamente'
+                : 'Preparar deployment'
           }}
         </button>
         <button
