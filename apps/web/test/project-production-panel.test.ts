@@ -103,6 +103,52 @@ function successfulDeployment(
   };
 }
 
+function privilegeFailedDeployment(): Deployment {
+  return {
+    id: 'deployment-privilege-failed',
+    projectId: 'project-1',
+    projectName: 'Projeto A',
+    provider: 'systemd',
+    branch: 'main',
+    revision: REVISION_A,
+    planHash: PLAN_HASH,
+    status: 'failed',
+    createdAt: '2026-08-31T12:00:00.000Z',
+    startedAt: '2026-08-31T12:00:01.000Z',
+    finishedAt: '2026-08-31T12:00:03.000Z',
+    failurePoint: 'before-irreversible',
+    errorCode: 'DEPLOYMENT_PRIVILEGE_REQUIRED',
+    errorMessage:
+      'O comando de produção requer sudo interativo. Configure privilégio não interativo limitado.',
+    timeline: [
+      {
+        id: 'check',
+        script: 'prod:check',
+        phase: 'preparing',
+        mutating: false,
+        irreversible: false,
+        status: 'succeeded',
+      },
+      {
+        id: 'deploy',
+        script: 'prod:deploy',
+        phase: 'deploying',
+        mutating: true,
+        irreversible: false,
+        status: 'failed',
+      },
+      {
+        id: 'verify',
+        script: 'prod:verify',
+        phase: 'verifying',
+        mutating: false,
+        irreversible: false,
+        status: 'pending',
+      },
+    ],
+  };
+}
+
 function deploymentPlan(): DeploymentPlan {
   return {
     projectId: 'project-1',
@@ -266,6 +312,51 @@ describe('ProjectProductionPanel', () => {
     expect(wrapper.text()).toContain('Timeline do deployment');
     expect(wrapper.text()).toContain('Último deployment concluído');
     expect(wrapper.text()).toContain('deploy ok');
+    wrapper.unmount();
+  });
+
+  it('permite gerar novo plano depois de corrigir externamente um bloqueio de sudo', async () => {
+    resetApi();
+    const failed = privilegeFailedDeployment();
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [failed],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+    api.fetchDeploymentLog.mockResolvedValue({
+      deploymentId: failed.id,
+      content: 'sudo: a terminal is required to authenticate',
+      truncated: false,
+      masked: false,
+      redactionCount: 0,
+    });
+    api.fetchDeploymentPlan.mockResolvedValue(deploymentPlan());
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: { project: commandProject() },
+    });
+    await flushPromises();
+
+    const buttons = wrapper.findAll('button');
+    const authorizeButton = buttons.find((button) =>
+      button.text().includes('Autorizar sudo'),
+    );
+    const retryButton = buttons.find((button) =>
+      button.text().includes('Preparar novamente'),
+    );
+
+    expect(authorizeButton).toBeDefined();
+    expect(retryButton).toBeDefined();
+
+    await retryButton!.trigger('click');
+    await flushPromises();
+
+    expect(api.fetchDeploymentPlan).toHaveBeenCalledWith(
+      'project-1',
+      expect.any(AbortSignal),
+    );
+    expect(wrapper.text()).toContain('Revise o plano antes de executar');
     wrapper.unmount();
   });
 
