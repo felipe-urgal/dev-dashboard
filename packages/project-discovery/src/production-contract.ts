@@ -226,7 +226,9 @@ function parseHealth(value: unknown): ParseResult<ProductionHealthCheck> {
     if (
       !['http:', 'https:'].includes(parsedUrl.protocol) ||
       parsedUrl.username.length > 0 ||
-      parsedUrl.password.length > 0
+      parsedUrl.password.length > 0 ||
+      parsedUrl.search.length > 0 ||
+      parsedUrl.hash.length > 0
     ) {
       throw new Error('URL de health não permitida');
     }
