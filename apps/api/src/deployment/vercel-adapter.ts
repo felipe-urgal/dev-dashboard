@@ -148,7 +148,9 @@ function responseError(
   );
 }
 
-async function readResponseBody(response: VercelFetchResponse): Promise<string> {
+async function readResponseBody(
+  response: VercelFetchResponse,
+): Promise<string> {
   if (!response.body) {
     const body = await response.text();
     if (Buffer.byteLength(body, 'utf8') > MAX_RESPONSE_BYTES) {
@@ -261,8 +263,7 @@ export class VercelDeploymentAdapter {
   private parseDeployment(
     value: Record<string, unknown>,
   ): VercelProductionDeployment {
-    const id =
-      boundedString(value.id, 256) ?? boundedString(value.uid, 256);
+    const id = boundedString(value.id, 256) ?? boundedString(value.uid, 256);
     const url = boundedString(value.url, 2048);
     const state = boundedString(value.state, 64);
     const created = value.created;
