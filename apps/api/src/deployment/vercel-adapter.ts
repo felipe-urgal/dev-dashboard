@@ -105,7 +105,10 @@ function normalizeUrl(value: string): string {
   }
 }
 
-function responseError(status: number, code: string | undefined): DeploymentError {
+function responseError(
+  status: number,
+  code: string | undefined,
+): DeploymentError {
   if (status === 401 || status === 403) {
     return new DeploymentError(
       'DEPLOYMENT_PROVIDER_AUTH_FAILED',

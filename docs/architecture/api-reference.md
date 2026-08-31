@@ -4167,6 +4167,236 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `GET /api/projects/:projectId/deployments/status`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "status"
+    ],
+    "properties": {
+      "status": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "projectName",
+          "strategy",
+          "provider",
+          "branch",
+          "externalProject",
+          "providerAvailability",
+          "drift",
+          "localOperations",
+          "timeline"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "git-managed"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "vercel"
+            ]
+          },
+          "branch": {
+            "type": "string"
+          },
+          "externalProject": {
+            "type": "string"
+          },
+          "providerAvailability": {
+            "type": "string",
+            "enum": [
+              "available",
+              "not-configured",
+              "auth-error",
+              "quota-limited",
+              "project-not-found",
+              "unavailable",
+              "invalid-response"
+            ]
+          },
+          "originRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{40}$"
+          },
+          "productionRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{40}$"
+          },
+          "drift": {
+            "type": "string",
+            "enum": [
+              "in-sync",
+              "drift",
+              "unknown"
+            ]
+          },
+          "localOperations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "status",
+                "check",
+                "backup",
+                "migrate",
+                "deploy",
+                "verify",
+                "restoreCheck",
+                "rollback",
+                "logs"
+              ]
+            }
+          },
+          "providerProjectId": {
+            "type": "string"
+          },
+          "providerProjectName": {
+            "type": "string"
+          },
+          "deployment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "state",
+              "createdAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "building",
+                  "ready",
+                  "error",
+                  "cancelled",
+                  "unknown"
+                ]
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{40}$"
+              }
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "phase",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "provider-deploy"
+                  ]
+                },
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "deploying"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "running",
+                    "succeeded",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "errorCode": {
+            "type": "string",
+            "enum": [
+              "DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE",
+              "DEPLOYMENT_PROVIDER_AUTH_FAILED",
+              "DEPLOYMENT_PROVIDER_QUOTA_EXCEEDED",
+              "DEPLOYMENT_PROVIDER_PROJECT_NOT_FOUND",
+              "DEPLOYMENT_PROVIDER_UNAVAILABLE",
+              "DEPLOYMENT_PROVIDER_RESPONSE_INVALID"
+            ]
+          },
+          "errorMessage": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Directories
 
 ### `GET /api/directories`

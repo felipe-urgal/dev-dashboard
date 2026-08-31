@@ -30,10 +30,11 @@ function showRef(cwd: string, ref: string): Promise<string | undefined> {
   });
 }
 
-export class GitDeploymentOriginRevisionResolver
-  implements DeploymentOriginRevisionResolver
-{
-  public resolve(project: Project, branch: string): Promise<string | undefined> {
+export class GitDeploymentOriginRevisionResolver implements DeploymentOriginRevisionResolver {
+  public resolve(
+    project: Project,
+    branch: string,
+  ): Promise<string | undefined> {
     return showRef(project.path, `refs/remotes/origin/${branch}`);
   }
 }

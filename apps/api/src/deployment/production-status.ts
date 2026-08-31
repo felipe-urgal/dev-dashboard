@@ -95,7 +95,8 @@ export class ProductionDeploymentStatusService {
   public constructor(options: ProductionDeploymentStatusServiceOptions = {}) {
     this.provider = options.provider ?? new VercelDeploymentAdapter();
     this.originRevisionResolver =
-      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
+      options.originRevisionResolver ??
+      new GitDeploymentOriginRevisionResolver();
   }
 
   public async read(project: Project): Promise<ProductionDeploymentStatus> {
@@ -106,7 +107,10 @@ export class ProductionDeploymentStatusService {
         'O projeto não possui produção habilitada e válida.',
       );
     }
-    if (production.strategy !== 'git-managed' || production.provider !== 'vercel') {
+    if (
+      production.strategy !== 'git-managed' ||
+      production.provider !== 'vercel'
+    ) {
       throw new DeploymentError(
         'DEPLOYMENT_STRATEGY_UNSUPPORTED',
         'O status externo está disponível somente para contratos git-managed/Vercel.',
@@ -139,7 +143,9 @@ export class ProductionDeploymentStatusService {
 
     let snapshot: VercelProductionSnapshot;
     try {
-      snapshot = await this.provider.readProduction(production.external.project);
+      snapshot = await this.provider.readProduction(
+        production.external.project,
+      );
     } catch (error) {
       const issue = providerIssue(error);
       if (!issue) throw error;

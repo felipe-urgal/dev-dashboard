@@ -200,10 +200,7 @@ test('status traduz ausência de integração sem expor segredo', async () => {
 
   const status = await service.read(project());
   assert.equal(status.providerAvailability, 'not-configured');
-  assert.equal(
-    status.errorCode,
-    'DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE',
-  );
+  assert.equal(status.errorCode, 'DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE');
   assert.equal(status.drift, 'unknown');
   assert.deepEqual(status.timeline, []);
 });
