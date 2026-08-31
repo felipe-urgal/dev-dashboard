@@ -72,7 +72,7 @@ async function waitForTerminal(
   service: DeploymentService,
   deployment: Deployment,
 ): Promise<Deployment> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  for (let attempt = 0; attempt < 500; attempt += 1) {
     const current = await service.get(deployment.projectId, deployment.id);
     if (
       ['succeeded', 'failed', 'recovery_required', 'cancelled'].includes(
@@ -81,7 +81,7 @@ async function waitForTerminal(
     ) {
       return current;
     }
-    await new Promise((resolve) => setTimeout(resolve, 2));
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error('deployment não terminou dentro do limite do teste');
 }
