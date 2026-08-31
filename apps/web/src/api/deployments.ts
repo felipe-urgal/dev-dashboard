@@ -9,6 +9,11 @@ import type {
 
 import { requestJson } from './core';
 
+export interface DeploymentSudoStatus {
+  available: boolean;
+  authorized: boolean;
+}
+
 function projectDeploymentsUrl(projectId: string): string {
   return `/api/projects/${encodeURIComponent(projectId)}/deployments`;
 }
@@ -39,6 +44,29 @@ export async function fetchProductionDeploymentStatus(
     requestInit('GET', signal),
   );
   return response.status;
+}
+
+export async function fetchDeploymentSudoStatus(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<DeploymentSudoStatus> {
+  const response = await requestJson<{ sudo: DeploymentSudoStatus }>(
+    `${projectDeploymentsUrl(projectId)}/sudo`,
+    requestInit('GET', signal),
+  );
+  return response.sudo;
+}
+
+export async function authorizeDeploymentSudo(
+  projectId: string,
+  password: string,
+  signal?: AbortSignal,
+): Promise<DeploymentSudoStatus> {
+  const response = await requestJson<{ sudo: DeploymentSudoStatus }>(
+    `${projectDeploymentsUrl(projectId)}/sudo`,
+    requestInit('POST', signal, { password }),
+  );
+  return response.sudo;
 }
 
 export async function fetchDeploymentPlan(
