@@ -1,0 +1,24 @@
+export type DeploymentErrorCode =
+  | 'DEPLOYMENT_PRODUCTION_UNAVAILABLE'
+  | 'DEPLOYMENT_STRATEGY_UNSUPPORTED'
+  | 'DEPLOYMENT_BRANCH_MISMATCH'
+  | 'DEPLOYMENT_REVISION_UNAVAILABLE'
+  | 'DEPLOYMENT_PLAN_STALE'
+  | 'DEPLOYMENT_CONFIRMATION_REQUIRED'
+  | 'DEPLOYMENT_ALREADY_RUNNING'
+  | 'DEPLOYMENT_NOT_FOUND'
+  | 'DEPLOYMENT_BACKUP_REQUIRED'
+  | 'DEPLOYMENT_MIGRATION_COMMAND_REQUIRED'
+  | 'DEPLOYMENT_PACKAGE_MANAGER_UNSUPPORTED'
+  | 'DEPLOYMENT_COMMAND_FAILED'
+  | 'DEPLOYMENT_CANCEL_NOT_AVAILABLE';
+
+export class DeploymentError extends Error {
+  public constructor(
+    public readonly code: DeploymentErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DeploymentError';
+  }
+}
