@@ -52,6 +52,14 @@ jobs:
       - name: Verifica docs/architecture/api-reference.md
         run: npm run docs:api:check
 
+      - name: Upload generated API reference
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-api-reference
+          path: docs/architecture/api-reference.md
+          retention-days: 1
+
       - name: Test
         run: npm test
 
