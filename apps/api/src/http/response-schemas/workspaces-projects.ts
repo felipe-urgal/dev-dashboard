@@ -11,6 +11,125 @@ export const workspaceResponseSchema = {
   },
 } as const;
 
+const productionCommandsResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    status: { type: 'string', enum: ['prod:status'] },
+    check: { type: 'string', enum: ['prod:check'] },
+    backup: { type: 'string', enum: ['prod:backup'] },
+    migrate: { type: 'string', enum: ['prod:migrate'] },
+    deploy: { type: 'string', enum: ['prod:deploy'] },
+    verify: { type: 'string', enum: ['prod:verify'] },
+    restoreCheck: { type: 'string', enum: ['prod:restore-check'] },
+    rollback: { type: 'string', enum: ['prod:rollback'] },
+    logs: { type: 'string', enum: ['prod:logs'] },
+  },
+} as const;
+
+const productionResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'version',
+    'enabled',
+    'strategy',
+    'provider',
+    'branch',
+    'commands',
+    'policies',
+  ],
+  properties: {
+    version: { type: 'integer', enum: [1] },
+    enabled: { type: 'boolean' },
+    strategy: {
+      type: 'string',
+      enum: ['command', 'git-managed', 'disabled'],
+    },
+    provider: {
+      type: 'string',
+      enum: ['systemd', 'docker-compose', 'vercel', 'none'],
+    },
+    branch: { type: 'string' },
+    documentation: { type: 'string' },
+    commands: productionCommandsResponseSchema,
+    health: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'url'],
+      properties: {
+        type: { type: 'string', enum: ['http'] },
+        url: { type: 'string' },
+      },
+    },
+    external: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['project'],
+      properties: {
+        project: { type: 'string' },
+      },
+    },
+    reasonCode: { type: 'string' },
+    blockedBy: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    policies: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['backup', 'migrations', 'rollback'],
+      properties: {
+        backup: {
+          type: 'string',
+          enum: [
+            'required-before-migration',
+            'required-before-deploy',
+            'external',
+            'not-configured',
+          ],
+        },
+        migrations: {
+          type: 'string',
+          enum: ['startup', 'before-deploy', 'not-configured'],
+        },
+        rollback: {
+          type: 'string',
+          enum: [
+            'restore-backup-when-schema-changed',
+            'manual-restore',
+            'provider-only-when-schema-compatible',
+            'not-configured',
+          ],
+        },
+      },
+    },
+  },
+} as const;
+
+const productionWarningResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['code', 'message', 'manifestPath'],
+  properties: {
+    code: {
+      type: 'string',
+      enum: [
+        'PRODUCTION_CONTRACT_UNREADABLE',
+        'PRODUCTION_CONTRACT_INVALID_JSON',
+        'PRODUCTION_CONTRACT_UNSUPPORTED_VERSION',
+        'PRODUCTION_CONTRACT_INVALID_SHAPE',
+        'PRODUCTION_CONTRACT_SCRIPT_MISSING',
+      ],
+    },
+    message: { type: 'string' },
+    manifestPath: {
+      type: 'string',
+      enum: ['.dev-dashboard/production.json'],
+    },
+  },
+} as const;
+
 export const projectResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -46,9 +165,12 @@ export const projectResponseSchema = {
           'rake',
           'bundler',
           'docker',
+          'production',
         ],
       },
     },
+    production: productionResponseSchema,
+    productionWarning: productionWarningResponseSchema,
   },
 } as const;
 
