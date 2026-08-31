@@ -8,6 +8,7 @@ import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
+import { deploymentRoutes } from './routes/deployments.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
 import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
@@ -51,6 +52,7 @@ import { registerLocalSecurity } from './security/local-security.js';
 
 import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
+import { DeploymentService } from './deployment/service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
@@ -75,6 +77,7 @@ export interface BuildAppOptions {
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
+  deploymentService?: DeploymentService;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -117,12 +120,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
     context.projectLanguageServerService;
   const projectTerminalService =
     options.projectTerminalService ?? context.projectTerminalService;
+  const deploymentService =
+    options.deploymentService ??
+    new DeploymentService(options.now ? { now: options.now } : {});
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     databaseExplorerSessionStore.close();
     projectLanguageServerService.close();
     projectTerminalService.close();
+    deploymentService.close();
   });
 
   const localToken =
@@ -181,6 +188,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     projectCoverageService: context.projectCoverageService,
     projectCoverageHistoryService: context.projectCoverageHistoryService,
+  });
+
+  app.register(deploymentRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    deploymentService,
   });
 
   app.register(gitMutationRoutes, {
