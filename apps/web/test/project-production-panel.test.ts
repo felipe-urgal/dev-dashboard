@@ -166,11 +166,9 @@ describe('ProjectProductionPanel', () => {
 
   it('não oferece ação quando o projeto não possui capability de produção', async () => {
     resetApi();
-    const project: Project = {
-      ...commandProject(),
-      capabilities: ['git'],
-      production: undefined,
-    };
+    const project = commandProject();
+    project.capabilities = ['git'];
+    delete project.production;
     const wrapper = mount(ProjectProductionPanel, { props: { project } });
     await flushPromises();
 
@@ -182,15 +180,13 @@ describe('ProjectProductionPanel', () => {
 
   it('mostra warning de contrato inválido sem liberar botão de produção', async () => {
     resetApi();
-    const project: Project = {
-      ...commandProject(),
-      capabilities: ['git'],
-      production: undefined,
-      productionWarning: {
-        code: 'PRODUCTION_CONTRACT_INVALID_SHAPE',
-        message: 'O contrato precisa ser corrigido.',
-        manifestPath: '.dev-dashboard/production.json',
-      },
+    const project = commandProject();
+    project.capabilities = ['git'];
+    delete project.production;
+    project.productionWarning = {
+      code: 'PRODUCTION_CONTRACT_INVALID_SHAPE',
+      message: 'O contrato precisa ser corrigido.',
+      manifestPath: '.dev-dashboard/production.json',
     };
     const wrapper = mount(ProjectProductionPanel, { props: { project } });
     await flushPromises();
