@@ -24,7 +24,7 @@
     "test:cli": "bash tests/cli/run.sh",
     "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "eslint \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
+    "lint": "eslint --max-warnings=0 \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "format:check": "prettier --write \"apps/api/src/routes/database-explorer-sessions.ts\" && git diff --exit-code -- apps/api/src/routes/database-explorer-sessions.ts",
