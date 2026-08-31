@@ -1,6 +1,10 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import {
+  spawn,
+  type ChildProcessByStdio,
+} from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { Readable } from 'node:stream';
 
 import type {
   DeploymentPlanStep,
@@ -39,7 +43,7 @@ type SpawnProcess = (
     shell: false;
     stdio: ['ignore', 'pipe', 'pipe'];
   },
-) => ChildProcessWithoutNullStreams;
+) => ChildProcessByStdio<null, Readable, Readable>;
 
 export interface ProductionCommandResult {
   exitCode: number;
@@ -97,8 +101,7 @@ export class ProductionCommandAdapter {
   public constructor(options: ProductionCommandAdapterOptions = {}) {
     this.spawnProcess =
       options.spawnProcess ??
-      ((file, args, spawnOptions) =>
-        spawn(file, [...args], spawnOptions) as ChildProcessWithoutNullStreams);
+      ((file, args, spawnOptions) => spawn(file, [...args], spawnOptions));
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;
   }
 
@@ -109,7 +112,10 @@ export class ProductionCommandAdapter {
     onOutput: (output: MaskedLogContent) => void,
   ): Promise<ProductionCommandResult> {
     const expectedScript = SCRIPT_BY_COMMAND[step.id];
-    if (step.script !== expectedScript || project.production?.commands[step.id] !== expectedScript) {
+    if (
+      step.script !== expectedScript ||
+      project.production?.commands[step.id] !== expectedScript
+    ) {
       throw new DeploymentError(
         'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
         `A etapa ${step.id} não corresponde ao script canônico reconhecido no contrato.`,
@@ -138,7 +144,10 @@ export class ProductionCommandAdapter {
       const abort = () => {
         cancelled = true;
         child.kill('SIGTERM');
-        escalation = setTimeout(() => child.kill('SIGKILL'), KILL_ESCALATION_MS);
+        escalation = setTimeout(
+          () => child.kill('SIGKILL'),
+          KILL_ESCALATION_MS,
+        );
         escalation.unref();
       };
       signal.addEventListener('abort', abort, { once: true });
