@@ -226,6 +226,32 @@ Exemplos:
 
 Um token não pode ser reutilizado para outra operação.
 
+## Deployments de produção
+
+O domínio de deployment aplica uma fronteira adicional sobre o `Production Contract v1`. Um manifesto válido declara capabilities, mas não concede autorização para executar processos.
+
+Para contratos `strategy=command`, os controles são:
+
+- somente scripts canônicos `prod:*` já reconhecidos no contrato podem virar etapas;
+- o browser não envia programa, argumentos, `cwd`, linha de shell ou corpo de script;
+- o backend deriva `cwd` de `Project.path` resolvido pelo `ProjectStore`;
+- package manager e argumentos são resolvidos no backend;
+- processos são iniciados com `shell: false` e stdin fechado;
+- branch e SHA Git são resolvidos antes do plano e novamente antes da execução;
+- o working tree precisa estar limpo, incluindo arquivos não rastreados, para impedir que código fora da revision confirmada seja executado;
+- o token de confirmação fica vinculado a `projectId + revision + planHash`, expira rapidamente e é de uso único;
+- existe no máximo um deployment ativo globalmente nesta versão;
+- stdout/stderr passam por `maskSensitiveLogContent` antes de serem persistidos;
+- logs e histórico possuem limites; tokens de confirmação não são persistidos;
+- cancelamento envia TERM antes da escalada para KILL;
+- falha, cancelamento ou reinício durante/depois de etapa irreversível termina em `recovery_required`, nunca em rollback automático.
+
+O `planHash` cobre projeto, provider, branch, revision e etapas. `start()` recalcula o plano antes de consumir a confirmação; mudança de checkout ou de plano invalida a autorização anterior.
+
+O estado persistido fica em `~/.local/state/dev-dashboard/deployments/` (ou sob `DEV_DASHBOARD_STATE_DIR`) com diretório `0700` e arquivos `0600`. A recuperação após crash considera uma etapa irreversível `running` como já iniciada, pois não é seguro assumir que nenhuma mutação aconteceu.
+
+Detalhes de estados e troubleshooting: [Domínio de deployment local](deployment-domain.md).
+
 ## Git
 
 ### Branch names
@@ -385,7 +411,9 @@ Exemplos:
 - symlink externo;
 - branch inválida;
 - confirmação ausente;
-- versão de arquivo divergente;
+- version de arquivo divergente;
+- working tree suja antes de produção;
+- interrupção durante etapa irreversível;
 - log mascarado.
 
 ## Erros seguros

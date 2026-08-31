@@ -1,0 +1,196 @@
+const commandIdSchema = {
+  type: 'string',
+  enum: [
+    'status',
+    'check',
+    'backup',
+    'migrate',
+    'deploy',
+    'verify',
+    'restoreCheck',
+    'rollback',
+    'logs',
+  ],
+} as const;
+
+const scriptIdSchema = {
+  type: 'string',
+  enum: [
+    'prod:status',
+    'prod:check',
+    'prod:backup',
+    'prod:migrate',
+    'prod:deploy',
+    'prod:verify',
+    'prod:restore-check',
+    'prod:rollback',
+    'prod:logs',
+  ],
+} as const;
+
+const phaseSchema = {
+  type: 'string',
+  enum: ['preparing', 'backing_up', 'migrating', 'deploying', 'verifying'],
+} as const;
+
+const providerSchema = {
+  type: 'string',
+  enum: ['systemd', 'docker-compose', 'vercel', 'none'],
+} as const;
+
+export const deploymentPlanStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'script', 'phase', 'mutating', 'irreversible'],
+  properties: {
+    id: commandIdSchema,
+    script: scriptIdSchema,
+    phase: phaseSchema,
+    mutating: { type: 'boolean' },
+    irreversible: { type: 'boolean' },
+  },
+} as const;
+
+export const deploymentPlanResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'projectId',
+    'projectName',
+    'provider',
+    'branch',
+    'revision',
+    'planHash',
+    'createdAt',
+    'steps',
+  ],
+  properties: {
+    projectId: { type: 'string' },
+    projectName: { type: 'string' },
+    provider: providerSchema,
+    branch: { type: 'string' },
+    revision: { type: 'string' },
+    planHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    createdAt: { type: 'string' },
+    steps: { type: 'array', items: deploymentPlanStepResponseSchema },
+  },
+} as const;
+
+export const deploymentConfirmationResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'projectId', 'revision', 'planHash', 'expiresAt'],
+  properties: {
+    token: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    projectId: { type: 'string' },
+    revision: { type: 'string' },
+    planHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+export const deploymentTimelineStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'script',
+    'phase',
+    'mutating',
+    'irreversible',
+    'status',
+  ],
+  properties: {
+    ...deploymentPlanStepResponseSchema.properties,
+    status: {
+      type: 'string',
+      enum: ['pending', 'running', 'succeeded', 'failed', 'cancelled'],
+    },
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    exitCode: { type: 'integer' },
+  },
+} as const;
+
+export const deploymentResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'projectId',
+    'projectName',
+    'provider',
+    'branch',
+    'revision',
+    'planHash',
+    'status',
+    'createdAt',
+    'timeline',
+  ],
+  properties: {
+    id: { type: 'string' },
+    projectId: { type: 'string' },
+    projectName: { type: 'string' },
+    provider: providerSchema,
+    branch: { type: 'string' },
+    revision: { type: 'string' },
+    planHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    status: {
+      type: 'string',
+      enum: [
+        'planned',
+        'preparing',
+        'backing_up',
+        'migrating',
+        'deploying',
+        'verifying',
+        'succeeded',
+        'failed',
+        'recovery_required',
+        'cancelled',
+      ],
+    },
+    createdAt: { type: 'string' },
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    currentStepId: commandIdSchema,
+    failurePoint: {
+      type: 'string',
+      enum: ['before-irreversible', 'after-irreversible'],
+    },
+    errorCode: { type: 'string' },
+    errorMessage: { type: 'string' },
+    timeline: { type: 'array', items: deploymentTimelineStepResponseSchema },
+  },
+} as const;
+
+export const deploymentHistoryResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['items', 'page', 'pageSize', 'total'],
+  properties: {
+    items: { type: 'array', items: deploymentResponseSchema },
+    page: { type: 'integer', minimum: 1 },
+    pageSize: { type: 'integer', minimum: 1 },
+    total: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
+export const deploymentLogResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'deploymentId',
+    'content',
+    'truncated',
+    'masked',
+    'redactionCount',
+  ],
+  properties: {
+    deploymentId: { type: 'string' },
+    content: { type: 'string' },
+    truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
+  },
+} as const;

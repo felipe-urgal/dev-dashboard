@@ -7,6 +7,8 @@ import type {
   ProjectServerSettingsErrorCode,
 } from '@dev-dashboard/process-manager';
 
+import type { DeploymentErrorCode } from '../deployment/errors.js';
+
 export interface ApiErrorDetails {
   path?: string;
   message: string;
@@ -175,7 +177,8 @@ export type ApiErrorCode =
   | 'INVALID_LOCAL_TOKEN'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
-  | ProjectServerSettingsErrorCode;
+  | ProjectServerSettingsErrorCode
+  | DeploymentErrorCode;
 
 export class ApiError extends Error {
   public readonly statusCode: number;

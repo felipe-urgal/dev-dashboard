@@ -30,6 +30,20 @@ export type {
 } from './production.js';
 
 export type {
+  Deployment,
+  DeploymentConfirmation,
+  DeploymentExecutionPhase,
+  DeploymentFailurePoint,
+  DeploymentHistory,
+  DeploymentLog,
+  DeploymentPlan,
+  DeploymentPlanStep,
+  DeploymentStatus,
+  DeploymentStepStatus,
+  DeploymentTimelineStep,
+} from './deployment.js';
+
+export type {
   ProjectDiagnosticAction,
   ProjectDiagnosticActionTarget,
   ProjectDiagnosticCategory,
