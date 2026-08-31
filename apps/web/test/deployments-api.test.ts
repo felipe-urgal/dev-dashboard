@@ -26,8 +26,9 @@ describe('API de deployments', () => {
   });
 
   it('usa rotas estruturadas para status, histórico, detalhe e log', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
-      async (input) => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
         const url = String(input);
         if (url.endsWith('/status')) {
           return jsonResponse({
@@ -75,8 +76,7 @@ describe('API de deployments', () => {
         return jsonResponse({
           history: { items: [], page: 1, pageSize: 8, total: 0 },
         });
-      },
-    );
+      });
 
     await fetchProductionDeploymentStatus('project/1');
     await fetchDeploymentHistory('project/1', { page: 1, pageSize: 8 });
@@ -92,8 +92,9 @@ describe('API de deployments', () => {
   });
 
   it('envia somente planHash e token de confirmação nas mutações', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
-      async (input, init) => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input, init) => {
         const url = String(input);
         if (url.endsWith('/plan')) {
           return jsonResponse({
@@ -140,8 +141,7 @@ describe('API de deployments', () => {
           },
           url.endsWith('/cancel') ? 200 : 202,
         );
-      },
-    );
+      });
 
     const plan = await fetchDeploymentPlan('project-1');
     const confirmation = await createDeploymentConfirmation(

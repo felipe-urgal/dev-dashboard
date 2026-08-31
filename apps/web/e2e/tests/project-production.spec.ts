@@ -45,7 +45,9 @@ test.describe('produção por projeto', () => {
       page.getByRole('heading', { name: 'Revise o plano antes de executar' }),
     ).toBeVisible();
     await expect(page.getByText('prod:deploy', { exact: true })).toBeVisible();
-    await expect(page.getByText('Revision alvo', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Revision alvo', { exact: true }),
+    ).toBeVisible();
 
     await page
       .getByRole('button', { name: 'Confirmar e iniciar deployment' })
