@@ -12,13 +12,15 @@ import {
   CONFLICT_PATTERN,
   FAST_FORWARD_PATTERN,
   MAIN_BRANCH,
-  MAIN_REFERENCE,
   MAIN_STRATEGY,
+  ORIGIN_MAIN_REFERENCE,
+  UPSTREAM_MAIN_REFERENCE,
 } from './git-sync/constants.js';
 import { GitSyncError } from './git-sync/errors.js';
 import {
   abortOperation,
   currentBranch,
+  hasRemote,
   optionalReferenceHead,
   requireCleanWorkingTree,
   requireLocalMain,
@@ -39,8 +41,31 @@ export type { GitSyncErrorCode } from './git-sync/errors.js';
 /** Identificadores do catálogo (`git-mutation-catalog.ts`) usados pelas duas confirmações deste serviço. */
 type GitSyncOperationId = 'sync-integrate' | 'sync-main';
 
+type MainSyncSource = {
+  remote: 'origin' | 'upstream';
+  reference: string;
+};
+
 function syncTarget(reference: string, strategy: GitSyncStrategy): string {
   return `${reference}::${strategy}`;
+}
+
+async function resolveMainSyncSource(
+  projectPath: string,
+): Promise<MainSyncSource> {
+  await requireRemote(projectPath, 'origin');
+
+  if (await hasRemote(projectPath, 'upstream')) {
+    return {
+      remote: 'upstream',
+      reference: UPSTREAM_MAIN_REFERENCE,
+    };
+  }
+
+  return {
+    remote: 'origin',
+    reference: ORIGIN_MAIN_REFERENCE,
+  };
 }
 
 export class GitSyncService {
@@ -75,16 +100,21 @@ export class GitSyncService {
     return { token, reference, strategy, expiresAt };
   }
 
-  public prepareMainConfirmation(projectId: string): GitSyncConfirmation {
+  public async prepareMainConfirmation(
+    projectPath: string,
+    projectId: string,
+  ): Promise<GitSyncConfirmation> {
+    await requireRepository(projectPath);
+    const source = await resolveMainSyncSource(projectPath);
     const { token, expiresAt } = this.confirmations.prepare(
       projectId,
       'sync-main' satisfies GitSyncOperationId,
-      syncTarget(MAIN_REFERENCE, MAIN_STRATEGY),
+      syncTarget(source.reference, MAIN_STRATEGY),
     );
 
     return {
       token,
-      reference: MAIN_REFERENCE,
+      reference: source.reference,
       strategy: MAIN_STRATEGY,
       expiresAt,
     };
@@ -187,37 +217,36 @@ export class GitSyncService {
     confirmationToken?: string,
   ): Promise<GitSyncResult> {
     await requireRepository(projectPath);
+    const source = await resolveMainSyncSource(projectPath);
     this.consumeConfirmation(
       projectId,
       'sync-main',
-      syncTarget(MAIN_REFERENCE, MAIN_STRATEGY),
+      syncTarget(source.reference, MAIN_STRATEGY),
       confirmationToken,
     );
     await requireCleanWorkingTree(projectPath);
-    await requireRemote(projectPath, 'upstream');
-    await requireRemote(projectPath, 'origin');
     await requireLocalMain(projectPath);
 
     const previousHead = await runGit(projectPath, ['rev-parse', MAIN_BRANCH]);
     const previousOriginHead = await optionalReferenceHead(
       projectPath,
-      'origin/main',
+      ORIGIN_MAIN_REFERENCE,
     );
 
     try {
-      await runGit(projectPath, ['fetch', '--prune', 'upstream']);
+      await runGit(projectPath, ['fetch', '--prune', source.remote]);
     } catch {
       throw new GitSyncError(
         'GIT_SYNC_FAILED',
-        'Não foi possível buscar atualizações do repositório principal.',
+        `Não foi possível buscar atualizações de ${source.remote}.`,
       );
     }
 
-    await requireRemoteReference(projectPath, MAIN_REFERENCE);
+    await requireRemoteReference(projectPath, source.reference);
     await runGit(projectPath, ['checkout', MAIN_BRANCH]);
 
     try {
-      await runGit(projectPath, ['merge', '--no-edit', MAIN_REFERENCE]);
+      await runGit(projectPath, ['merge', '--no-edit', source.reference]);
     } catch (error) {
       const details = failureText(error);
       await abortOperation(projectPath, MAIN_STRATEGY);
@@ -230,7 +259,7 @@ export class GitSyncService {
       }
       throw new GitSyncError(
         'GIT_SYNC_FAILED',
-        'Não foi possível integrar upstream/main na main.',
+        `Não foi possível integrar ${source.reference} na main.`,
       );
     }
 
@@ -250,7 +279,7 @@ export class GitSyncService {
     const currentHead = await runGit(projectPath, ['rev-parse', 'HEAD']);
     return {
       branch: MAIN_BRANCH,
-      reference: MAIN_REFERENCE,
+      reference: source.reference,
       strategy: MAIN_STRATEGY,
       changed:
         currentHead !== previousHead || previousOriginHead !== currentHead,

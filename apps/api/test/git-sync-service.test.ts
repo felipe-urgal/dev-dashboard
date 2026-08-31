@@ -137,13 +137,17 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
     await git(fixture.source, 'commit', '-m', 'feat: nova atualização');
     await git(fixture.source, 'push', 'origin', 'main');
 
-    const confirmation = service.prepareMainConfirmation('project-1');
+    const confirmation = await service.prepareMainConfirmation(
+      fixture.local,
+      'project-1',
+    );
     const result = await service.synchronizeMain(
       fixture.local,
       'project-1',
       confirmation.token,
     );
 
+    assert.equal(confirmation.reference, 'upstream/main');
     assert.equal(result.branch, 'main');
     assert.equal(result.reference, 'upstream/main');
     assert.equal(result.strategy, 'merge');
@@ -159,6 +163,47 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
     );
     assert.equal(result.impact.previousSha, result.previousHead);
     assert.equal(result.impact.currentSha, result.currentHead);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test('sincroniza a main usando origin/main quando upstream não está configurado', async () => {
+  const fixture = await createFixture();
+  const service = new GitSyncService();
+
+  try {
+    await git(fixture.local, 'remote', 'remove', 'upstream');
+    await git(
+      fixture.source,
+      'remote',
+      'add',
+      'dashboard-origin',
+      fixture.origin,
+    );
+    await writeFile(path.join(fixture.source, 'origin-only.txt'), 'origin\n');
+    await git(fixture.source, 'add', 'origin-only.txt');
+    await git(fixture.source, 'commit', '-m', 'feat: atualiza origin');
+    await git(fixture.source, 'push', 'dashboard-origin', 'main');
+
+    const confirmation = await service.prepareMainConfirmation(
+      fixture.local,
+      'project-origin-only',
+    );
+    const result = await service.synchronizeMain(
+      fixture.local,
+      'project-origin-only',
+      confirmation.token,
+    );
+
+    assert.equal(confirmation.reference, 'origin/main');
+    assert.equal(result.reference, 'origin/main');
+    assert.equal(result.changed, true);
+    assert.equal(await git(fixture.local, 'branch', '--show-current'), 'main');
+    assert.equal(
+      await git(fixture.local, 'rev-parse', 'main'),
+      await git(fixture.origin, 'rev-parse', 'main'),
+    );
   } finally {
     await fixture.cleanup();
   }

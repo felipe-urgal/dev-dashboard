@@ -276,7 +276,10 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return reply.code(201).send({
-          confirmation: service.prepareMainConfirmation(project.id),
+          confirmation: await service.prepareMainConfirmation(
+            project.path,
+            project.id,
+          ),
         });
       } catch (error) {
         translateSyncError(error);

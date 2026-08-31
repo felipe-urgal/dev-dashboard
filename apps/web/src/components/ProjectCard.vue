@@ -76,7 +76,7 @@ const typeLabel = computed(() => projectTypeLabels[props.project.type]);
 const typeCode = computed(() => stackCode[props.project.type]);
 
 const localUrl = computed(() =>
-  props.project.enabled && managedProcess.value?.port
+  props.project.enabled && isRunning.value && managedProcess.value?.port
     ? `http://localhost:${managedProcess.value.port}`
     : '',
 );

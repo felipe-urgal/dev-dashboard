@@ -37,6 +37,11 @@ jobs:
       - name: Rebuild native terminal dependency
         run: npm rebuild node-pty
 
+      - name: Generate API docs and format
+        run: |
+          npm run docs:api
+          npm run format
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -49,7 +54,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verifica docs/architecture/api-reference.md
+      - name: Verify generated API reference
         run: npm run docs:api:check
 
       - name: Test

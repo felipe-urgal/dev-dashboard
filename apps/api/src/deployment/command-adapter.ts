@@ -28,6 +28,9 @@ const SCRIPT_BY_COMMAND = {
 } as const satisfies Record<ProductionCommandId, string>;
 
 const KILL_ESCALATION_MS = 1_000;
+const STDERR_CLASSIFICATION_LIMIT = 16_384;
+const SUDO_INTERACTIVE_PATTERN =
+  /sudo:.*(?:terminal is required|no tty present|password is required|askpass|a terminal is required to read the password)/i;
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
@@ -138,12 +141,21 @@ export class ProductionCommandAdapter {
       let settled = false;
       let cancelled = false;
       let escalation: NodeJS.Timeout | undefined;
+      let stderrForClassification = '';
 
       const emit = (chunk: Buffer | string) => {
         onOutput(this.maskLog(chunk.toString()));
       };
       child.stdout.on('data', emit);
-      child.stderr.on('data', emit);
+      child.stderr.on('data', (chunk: Buffer | string) => {
+        const content = chunk.toString();
+        if (stderrForClassification.length < STDERR_CLASSIFICATION_LIMIT) {
+          stderrForClassification = (stderrForClassification + content).slice(
+            -STDERR_CLASSIFICATION_LIMIT,
+          );
+        }
+        emit(content);
+      });
 
       const abort = () => {
         cancelled = true;
@@ -169,6 +181,21 @@ export class ProductionCommandAdapter {
         settled = true;
         signal.removeEventListener('abort', abort);
         if (escalation) clearTimeout(escalation);
+
+        if (
+          !cancelled &&
+          (code ?? 1) !== 0 &&
+          SUDO_INTERACTIVE_PATTERN.test(stderrForClassification)
+        ) {
+          reject(
+            new DeploymentError(
+              'DEPLOYMENT_PRIVILEGE_REQUIRED',
+              'O comando de produção requer sudo interativo. O dashboard não fornece senha ou TTY; configure uma regra NOPASSWD limitada ao comando necessário ou remova o sudo do script automatizado.',
+            ),
+          );
+          return;
+        }
+
         resolve({ exitCode: code ?? 1, cancelled });
       });
     });
