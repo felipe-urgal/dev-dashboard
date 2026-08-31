@@ -156,6 +156,25 @@ const productionRevision = computed(
     lastSuccessfulDeployment.value?.revision,
 );
 
+function applicationUrlFromHealth(value: string | undefined): string {
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    url.pathname = '/';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+const productionUrl = computed(
+  () =>
+    providerStatus.value?.deployment?.url ??
+    applicationUrlFromHealth(production.value?.health?.url),
+);
+
 const visibleCommandTimeline = computed(
   () => latestDeployment.value?.timeline ?? [],
 );
@@ -239,9 +258,12 @@ const statusView = computed(
         return {
           title: 'Último deployment falhou',
           description:
-            deployment.failurePoint === 'before-irreversible'
-              ? 'A falha ocorreu antes de uma mudança irreversível.'
-              : 'Revise a timeline e o log antes de gerar um novo plano.',
+            deployment.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED'
+              ? (deployment.errorMessage ??
+                'O comando requer privilégio não interativo configurado no host.')
+              : deployment.failurePoint === 'before-irreversible'
+                ? 'A falha ocorreu antes de uma mudança irreversível.'
+                : 'Revise a timeline e o log antes de gerar um novo plano.',
           label: 'Falhou',
           tone: 'danger',
           icon: XCircleIcon,
@@ -777,6 +799,16 @@ onBeforeUnmount(() => {
         v-if="hasProductionCapability && production?.enabled"
         class="production-overview-actions"
       >
+        <a
+          v-if="productionUrl"
+          class="secondary-button"
+          :href="productionUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Abrir produção
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+        </a>
         <button
           v-if="isCommand && !hasActiveDeployment"
           class="primary-button"
@@ -914,7 +946,7 @@ onBeforeUnmount(() => {
               <dd>{{ healthCopy }}</dd>
             </div>
             <div>
-              <dt>Provider</dt>
+              <dt>{{ isCommand ? 'Runtime' : 'Provider' }}</dt>
               <dd>{{ production.provider }}</dd>
             </div>
             <div>
