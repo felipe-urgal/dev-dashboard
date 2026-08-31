@@ -108,6 +108,9 @@ watch(
   () => props.projectId,
   () => {
     resetProjectState();
+    if (props.open) {
+      void checkExistingAuthorization();
+    }
   },
 );
 
