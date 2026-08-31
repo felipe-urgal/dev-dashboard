@@ -17,7 +17,11 @@ export type DeploymentStatus =
   | 'cancelled';
 
 export type DeploymentStepStatus =
-  'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled';
 
 export type DeploymentExecutionPhase = Extract<
   DeploymentStatus,
@@ -63,7 +67,8 @@ export interface DeploymentTimelineStep extends DeploymentPlanStep {
 }
 
 export type DeploymentFailurePoint =
-  'before-irreversible' | 'after-irreversible';
+  | 'before-irreversible'
+  | 'after-irreversible';
 
 export interface Deployment {
   id: string;
@@ -97,4 +102,68 @@ export interface DeploymentLog {
   truncated: boolean;
   masked: boolean;
   redactionCount: number;
+}
+
+export type DeploymentProviderAvailability =
+  | 'available'
+  | 'not-configured'
+  | 'auth-error'
+  | 'quota-limited'
+  | 'project-not-found'
+  | 'unavailable'
+  | 'invalid-response';
+
+export type DeploymentProviderIssueCode =
+  | 'DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE'
+  | 'DEPLOYMENT_PROVIDER_AUTH_FAILED'
+  | 'DEPLOYMENT_PROVIDER_QUOTA_EXCEEDED'
+  | 'DEPLOYMENT_PROVIDER_PROJECT_NOT_FOUND'
+  | 'DEPLOYMENT_PROVIDER_UNAVAILABLE'
+  | 'DEPLOYMENT_PROVIDER_RESPONSE_INVALID';
+
+export type DeploymentProviderState =
+  | 'queued'
+  | 'building'
+  | 'ready'
+  | 'error'
+  | 'cancelled'
+  | 'unknown';
+
+export type DeploymentDriftStatus = 'in-sync' | 'drift' | 'unknown';
+
+export interface DeploymentProviderTimelineStep {
+  id: 'provider-deploy';
+  phase: Extract<DeploymentExecutionPhase, 'deploying'>;
+  status: DeploymentStepStatus;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+export interface DeploymentProviderSnapshot {
+  id: string;
+  url: string;
+  state: DeploymentProviderState;
+  createdAt: string;
+  branch?: string;
+  revision?: string;
+}
+
+export interface ProductionDeploymentStatus {
+  projectId: string;
+  projectName: string;
+  strategy: 'git-managed';
+  provider: 'vercel';
+  branch: string;
+  externalProject: string;
+  providerAvailability: DeploymentProviderAvailability;
+  originRevision?: string;
+  productionRevision?: string;
+  drift: DeploymentDriftStatus;
+  localOperations: ProductionCommandId[];
+  providerProjectId?: string;
+  providerProjectName?: string;
+  deployment?: DeploymentProviderSnapshot;
+  timeline: DeploymentProviderTimelineStep[];
+  errorCode?: DeploymentProviderIssueCode;
+  errorMessage?: string;
 }
