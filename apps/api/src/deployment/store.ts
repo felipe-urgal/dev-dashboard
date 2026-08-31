@@ -9,6 +9,11 @@ import type {
 } from '@dev-dashboard/contracts';
 import type { MaskedLogContent } from '@dev-dashboard/process-manager';
 
+import {
+  isPersistedDeployment,
+  isPersistedDeploymentLog,
+} from './persistence-validation.js';
+
 const DEFAULT_HISTORY_LIMIT = 50;
 const DEFAULT_LOG_LIMIT_BYTES = 512 * 1024;
 const ACTIVE_STATUSES = new Set<Deployment['status']>([
@@ -192,11 +197,11 @@ export class DeploymentStore {
       if (!entry.isFile()) continue;
       if (entry.name.endsWith('.log.json')) {
         try {
-          const log = JSON.parse(
+          const parsed: unknown = JSON.parse(
             await readFile(path.join(this.stateDirectory, entry.name), 'utf8'),
-          ) as DeploymentLog;
-          if (typeof log.deploymentId === 'string') {
-            this.logs.set(log.deploymentId, log);
+          );
+          if (isPersistedDeploymentLog(parsed)) {
+            this.logs.set(parsed.deploymentId, parsed);
           }
         } catch {
           // Arquivo local inválido não deve impedir a inicialização do dashboard.
@@ -205,14 +210,11 @@ export class DeploymentStore {
       }
       if (!entry.name.endsWith('.json')) continue;
       try {
-        const deployment = JSON.parse(
+        const parsed: unknown = JSON.parse(
           await readFile(path.join(this.stateDirectory, entry.name), 'utf8'),
-        ) as Deployment;
-        if (
-          typeof deployment.id === 'string' &&
-          typeof deployment.projectId === 'string'
-        ) {
-          this.deployments.set(deployment.id, deployment);
+        );
+        if (isPersistedDeployment(parsed)) {
+          this.deployments.set(parsed.id, parsed);
         }
       } catch {
         // Histórico corrompido é ignorado; não vira entrada confiável na API.
