@@ -98,10 +98,7 @@ function parseFail<T>(
   return { warning: warning(code, message) };
 }
 
-function isBoundedString(
-  value: unknown,
-  maxLength: number,
-): value is string {
+function isBoundedString(value: unknown, maxLength: number): value is string {
   return (
     typeof value === 'string' &&
     value.trim().length > 0 &&
@@ -117,9 +114,7 @@ function isOneOf<T extends string>(
 }
 
 function isReasonCode(value: unknown): value is string {
-  return (
-    isBoundedString(value, 128) && /^[a-z0-9][a-z0-9-]*$/.test(value)
-  );
+  return isBoundedString(value, 128) && /^[a-z0-9][a-z0-9-]*$/.test(value);
 }
 
 function isSafeRelativePath(value: unknown): value is string {
@@ -270,7 +265,9 @@ function validateStrategy(
     if (!enabled || !['systemd', 'docker-compose'].includes(provider)) {
       return 'strategy=command exige produção habilitada e provider systemd ou docker-compose.';
     }
-    if (!hasRequiredCommands(commands, ['status', 'check', 'deploy', 'verify'])) {
+    if (
+      !hasRequiredCommands(commands, ['status', 'check', 'deploy', 'verify'])
+    ) {
       return 'strategy=command exige os scripts canônicos status, check, deploy e verify.';
     }
     return null;
@@ -280,7 +277,10 @@ function validateStrategy(
     if (!enabled || provider !== 'vercel') {
       return 'strategy=git-managed exige produção habilitada e provider vercel.';
     }
-    if (!hasRequiredCommands(commands, ['check', 'verify']) || commands.deploy) {
+    if (
+      !hasRequiredCommands(commands, ['check', 'verify']) ||
+      commands.deploy
+    ) {
       return 'strategy=git-managed exige check/verify e não pode declarar deploy local.';
     }
     if (!external) {

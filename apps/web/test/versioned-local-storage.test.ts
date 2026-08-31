@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { createVersionedLocalStorage } from '../src/utils/versioned-local-storage';
 
 function stringList(value: unknown): string[] | null {
-  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
+  if (
+    !Array.isArray(value) ||
+    !value.every((item) => typeof item === 'string')
+  ) {
     return null;
   }
   return value;
@@ -36,9 +39,7 @@ describe('createVersionedLocalStorage', () => {
 
   it('lê envelope da versão atual sem regravar', () => {
     const storage = {
-      getItem: vi.fn(() =>
-        JSON.stringify({ version: 1, value: ['current'] }),
-      ),
+      getItem: vi.fn(() => JSON.stringify({ version: 1, value: ['current'] })),
       setItem: vi.fn(),
     };
     const state = createVersionedLocalStorage<string[]>({

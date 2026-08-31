@@ -75,7 +75,9 @@ describe('DatabaseView concorrência do Explorer', () => {
       .trigger('click');
     await flushPromises();
 
-    const databaseSelect = wrapper.get('.database-explorer-select-label select');
+    const databaseSelect = wrapper.get(
+      '.database-explorer-select-label select',
+    );
     await databaseSelect.setValue('app_development');
 
     expect(databaseSelect.attributes('disabled')).toBeDefined();

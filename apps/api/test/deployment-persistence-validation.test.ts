@@ -63,9 +63,6 @@ test('recusa deployment adulterado ou incompleto', () => {
 
 test('recusa log adulterado', () => {
   assert.equal(isPersistedDeploymentLog(undefined), false);
-  assert.equal(
-    isPersistedDeploymentLog({ ...log, redactionCount: -1 }),
-    false,
-  );
+  assert.equal(isPersistedDeploymentLog({ ...log, redactionCount: -1 }), false);
   assert.equal(isPersistedDeploymentLog({ ...log, masked: 'sim' }), false);
 });

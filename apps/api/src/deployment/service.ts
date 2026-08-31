@@ -199,11 +199,7 @@ export class DeploymentService {
       for (let index = 0; index < deployment.timeline.length; index += 1) {
         const planStep = deployment.timeline[index]!;
         if (controller.signal.aborted) {
-          deployment = this.cancelled(
-            deployment,
-            irreversibleCompleted,
-            false,
-          );
+          deployment = this.cancelled(deployment, irreversibleCompleted, false);
           await this.store.save(deployment);
           return;
         }

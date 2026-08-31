@@ -35,15 +35,17 @@ function runGit(cwd: string, args: readonly string[]): Promise<string> {
   });
 }
 
-export class GitDeploymentRevisionResolver
-  implements DeploymentRevisionResolver
-{
+export class GitDeploymentRevisionResolver implements DeploymentRevisionResolver {
   public async resolve(project: Project): Promise<DeploymentRevision> {
     try {
       const [revision, branch, worktreeStatus] = await Promise.all([
         runGit(project.path, ['rev-parse', 'HEAD']),
         runGit(project.path, ['branch', '--show-current']),
-        runGit(project.path, ['status', '--porcelain', '--untracked-files=normal']),
+        runGit(project.path, [
+          'status',
+          '--porcelain',
+          '--untracked-files=normal',
+        ]),
       ]);
 
       if (!/^[0-9a-f]{40}$/i.test(revision) || branch.length === 0) {

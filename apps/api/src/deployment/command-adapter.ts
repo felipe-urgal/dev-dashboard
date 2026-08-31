@@ -1,7 +1,4 @@
-import {
-  spawn,
-  type ChildProcessByStdio,
-} from 'node:child_process';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
@@ -64,14 +61,21 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-async function resolvePackageManager(projectPath: string): Promise<PackageManager> {
+async function resolvePackageManager(
+  projectPath: string,
+): Promise<PackageManager> {
   try {
     const parsed = JSON.parse(
       await readFile(path.join(projectPath, 'package.json'), 'utf8'),
     ) as { packageManager?: unknown };
     if (typeof parsed.packageManager === 'string') {
       const manager = parsed.packageManager.split('@')[0];
-      if (manager === 'npm' || manager === 'pnpm' || manager === 'yarn' || manager === 'bun') {
+      if (
+        manager === 'npm' ||
+        manager === 'pnpm' ||
+        manager === 'yarn' ||
+        manager === 'bun'
+      ) {
         return manager;
       }
       throw new DeploymentError(

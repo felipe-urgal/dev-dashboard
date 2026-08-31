@@ -8,11 +8,13 @@ import {
   deploymentLogResponseSchema,
   deploymentPlanResponseSchema,
   deploymentResponseSchema,
+  productionDeploymentStatusResponseSchema,
 } from '../http/response-schemas.js';
 import {
   DeploymentError,
   type DeploymentErrorCode,
 } from '../deployment/errors.js';
+import { ProductionDeploymentStatusService } from '../deployment/production-status.js';
 import type { DeploymentService } from '../deployment/service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
@@ -40,6 +42,7 @@ interface HistoryQuery {
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   deploymentService: DeploymentService;
+  productionStatusService?: ProductionDeploymentStatusService;
 }
 
 const projectParamsSchema = {
@@ -110,6 +113,9 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
+  const productionStatusService =
+    options.productionStatusService ?? new ProductionDeploymentStatusService();
+
   app.post<{ Params: ProjectParams }>(
     '/projects/:projectId/deployments/plan',
     {
@@ -254,6 +260,32 @@ export const deploymentRoutes: FastifyPluginAsync<Options> = async (
           request.query.pageSize,
         ),
       };
+    },
+  );
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/deployments/status',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['status'],
+            properties: { status: productionDeploymentStatusResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = findProject(options, request.params.projectId);
+      try {
+        return { status: await productionStatusService.read(project) };
+      } catch (error) {
+        translate(error);
+      }
     },
   );
 

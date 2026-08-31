@@ -248,10 +248,7 @@ export class DetachableExecutionService {
       if (oldest === undefined) break;
 
       if (record.chunks.length === 1) {
-        const trimmed = utf8TailWithinByteLimit(
-          oldest,
-          this.bufferLimitBytes,
-        );
+        const trimmed = utf8TailWithinByteLimit(oldest, this.bufferLimitBytes);
         record.chunks[0] = trimmed;
         record.bufferedBytes = Buffer.byteLength(trimmed, 'utf8');
         record.truncated = true;

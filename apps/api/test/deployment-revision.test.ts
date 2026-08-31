@@ -15,7 +15,9 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 async function makeRepository(t: test.TestContext): Promise<string> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-revision-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-revision-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   git(directory, 'init', '-b', 'main');
   git(directory, 'config', 'user.email', 'test@example.com');
@@ -52,7 +54,10 @@ test('resolver bloqueia alteração rastreada ou arquivo não rastreado', async 
   const directory = await makeRepository(t);
   const resolver = new GitDeploymentRevisionResolver();
 
-  await writeFile(path.join(directory, 'package.json'), '{"name":"alterado"}\n');
+  await writeFile(
+    path.join(directory, 'package.json'),
+    '{"name":"alterado"}\n',
+  );
   await assert.rejects(
     resolver.resolve(project(directory)),
     (error: unknown) =>
@@ -61,7 +66,10 @@ test('resolver bloqueia alteração rastreada ou arquivo não rastreado', async 
   );
 
   git(directory, 'restore', 'package.json');
-  await writeFile(path.join(directory, 'nao-rastreado.txt'), 'alteração local\n');
+  await writeFile(
+    path.join(directory, 'nao-rastreado.txt'),
+    'alteração local\n',
+  );
   await assert.rejects(
     resolver.resolve(project(directory)),
     (error: unknown) =>
