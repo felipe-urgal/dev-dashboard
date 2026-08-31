@@ -97,7 +97,9 @@ export class DeploymentStore {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     const start = (page - 1) * pageSize;
     return {
-      items: matching.slice(start, start + pageSize).map((item) => structuredClone(item)),
+      items: matching
+        .slice(start, start + pageSize)
+        .map((item) => structuredClone(item)),
       page,
       pageSize,
       total: matching.length,
@@ -127,7 +129,8 @@ export class DeploymentStore {
     };
     this.logs.set(deploymentId, next);
 
-    const previous = this.pendingLogWrites.get(deploymentId) ?? Promise.resolve();
+    const previous =
+      this.pendingLogWrites.get(deploymentId) ?? Promise.resolve();
     const queued = previous
       .catch(() => undefined)
       .then(() => atomicJsonWrite(this.logPath(deploymentId), next));
@@ -155,8 +158,10 @@ export class DeploymentStore {
     const finishedAt = new Date(now).toISOString();
     for (const deployment of this.deployments.values()) {
       if (!ACTIVE_STATUSES.has(deployment.status)) continue;
-      const irreversibleCompleted = deployment.timeline.some(
-        (step) => step.irreversible && step.status === 'succeeded',
+      const irreversibleStarted = deployment.timeline.some(
+        (step) =>
+          step.irreversible &&
+          (step.status === 'running' || step.status === 'succeeded'),
       );
       const timeline = deployment.timeline.map((step) =>
         step.status === 'running'
@@ -165,13 +170,14 @@ export class DeploymentStore {
       );
       const recovered: Deployment = {
         ...deployment,
-        status: irreversibleCompleted ? 'recovery_required' : 'failed',
+        status: irreversibleStarted ? 'recovery_required' : 'failed',
         finishedAt,
-        failurePoint: irreversibleCompleted
+        failurePoint: irreversibleStarted
           ? 'after-irreversible'
           : 'before-irreversible',
         errorCode: 'DEPLOYMENT_INTERRUPTED',
-        errorMessage: 'A execução foi interrompida pelo encerramento do Dev Dashboard.',
+        errorMessage:
+          'A execução foi interrompida pelo encerramento do Dev Dashboard.',
         timeline,
       };
       this.deployments.set(deployment.id, recovered);
@@ -189,7 +195,9 @@ export class DeploymentStore {
           const log = JSON.parse(
             await readFile(path.join(this.stateDirectory, entry.name), 'utf8'),
           ) as DeploymentLog;
-          if (typeof log.deploymentId === 'string') this.logs.set(log.deploymentId, log);
+          if (typeof log.deploymentId === 'string') {
+            this.logs.set(log.deploymentId, log);
+          }
         } catch {
           // Arquivo local inválido não deve impedir a inicialização do dashboard.
         }
@@ -200,7 +208,10 @@ export class DeploymentStore {
         const deployment = JSON.parse(
           await readFile(path.join(this.stateDirectory, entry.name), 'utf8'),
         ) as Deployment;
-        if (typeof deployment.id === 'string' && typeof deployment.projectId === 'string') {
+        if (
+          typeof deployment.id === 'string' &&
+          typeof deployment.projectId === 'string'
+        ) {
           this.deployments.set(deployment.id, deployment);
         }
       } catch {
