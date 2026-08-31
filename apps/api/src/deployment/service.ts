@@ -64,7 +64,8 @@ export class DeploymentService {
     this.revisionResolver =
       options.revisionResolver ?? new GitDeploymentRevisionResolver();
     this.confirmationService =
-      options.confirmationService ?? new DeploymentConfirmationService(60_000, this.now);
+      options.confirmationService ??
+      new DeploymentConfirmationService(60_000, this.now);
     this.adapter = options.adapter ?? new ProductionCommandAdapter();
     this.store = options.store ?? new DeploymentStore();
     this.readyPromise = this.store.recoverInterrupted(this.now());
@@ -128,7 +129,10 @@ export class DeploymentService {
     return structuredClone(deployment);
   }
 
-  public async get(projectId: string, deploymentId: string): Promise<Deployment> {
+  public async get(
+    projectId: string,
+    deploymentId: string,
+  ): Promise<Deployment> {
     const deployment = await this.store.get(deploymentId);
     if (!deployment || deployment.projectId !== projectId) {
       throw new DeploymentError(
@@ -147,12 +151,18 @@ export class DeploymentService {
     return this.store.history(projectId, page, pageSize);
   }
 
-  public async log(projectId: string, deploymentId: string): Promise<DeploymentLog> {
+  public async log(
+    projectId: string,
+    deploymentId: string,
+  ): Promise<DeploymentLog> {
     await this.get(projectId, deploymentId);
     return this.store.log(deploymentId);
   }
 
-  public async cancel(projectId: string, deploymentId: string): Promise<Deployment> {
+  public async cancel(
+    projectId: string,
+    deploymentId: string,
+  ): Promise<Deployment> {
     const deployment = await this.get(projectId, deploymentId);
     if (
       !this.active ||
@@ -177,7 +187,7 @@ export class DeploymentService {
     initial: Deployment,
     controller: AbortController,
   ): Promise<void> {
-    let deployment = {
+    let deployment: Deployment = {
       ...initial,
       startedAt: new Date(this.now()).toISOString(),
     };
@@ -189,7 +199,11 @@ export class DeploymentService {
       for (let index = 0; index < deployment.timeline.length; index += 1) {
         const planStep = deployment.timeline[index]!;
         if (controller.signal.aborted) {
-          deployment = this.cancelled(deployment, irreversibleCompleted, false);
+          deployment = this.cancelled(
+            deployment,
+            irreversibleCompleted,
+            false,
+          );
           await this.store.save(deployment);
           return;
         }
