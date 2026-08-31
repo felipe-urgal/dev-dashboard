@@ -4068,6 +4068,230 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `POST /api/projects/:projectId/deployments/:deploymentId/verify`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "deploymentId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "deploymentId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **202**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "deployment"
+    ],
+    "properties": {
+      "deployment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "projectName",
+          "provider",
+          "branch",
+          "revision",
+          "planHash",
+          "status",
+          "createdAt",
+          "timeline"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "systemd",
+              "docker-compose",
+              "vercel",
+              "none"
+            ]
+          },
+          "branch": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "planHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "preparing",
+              "backing_up",
+              "migrating",
+              "deploying",
+              "verifying",
+              "succeeded",
+              "failed",
+              "recovery_required",
+              "cancelled"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "currentStepId": {
+            "type": "string",
+            "enum": [
+              "status",
+              "check",
+              "backup",
+              "migrate",
+              "deploy",
+              "verify",
+              "restoreCheck",
+              "rollback",
+              "logs"
+            ]
+          },
+          "failurePoint": {
+            "type": "string",
+            "enum": [
+              "before-irreversible",
+              "after-irreversible"
+            ]
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "script",
+                "phase",
+                "mutating",
+                "irreversible",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "status",
+                    "check",
+                    "backup",
+                    "migrate",
+                    "deploy",
+                    "verify",
+                    "restoreCheck",
+                    "rollback",
+                    "logs"
+                  ]
+                },
+                "script": {
+                  "type": "string",
+                  "enum": [
+                    "prod:status",
+                    "prod:check",
+                    "prod:backup",
+                    "prod:migrate",
+                    "prod:deploy",
+                    "prod:verify",
+                    "prod:restore-check",
+                    "prod:rollback",
+                    "prod:logs"
+                  ]
+                },
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "preparing",
+                    "backing_up",
+                    "migrating",
+                    "deploying",
+                    "verifying"
+                  ]
+                },
+                "mutating": {
+                  "type": "boolean"
+                },
+                "irreversible": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "running",
+                    "succeeded",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                },
+                "exitCode": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `POST /api/projects/:projectId/deployments/confirmations`
 
 **Parâmetros de rota (`params`)**

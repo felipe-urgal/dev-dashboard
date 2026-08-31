@@ -36,6 +36,8 @@ Durante o retry:
 
 ## UI
 
-Quando a timeline satisfaz o estado seguro acima, a tela mostra `Deploy concluído · verificação falhou` e a ação `Verificar novamente`. A ação de preparar um deployment completo fica escondida nesse estado para evitar que o caminho mais amplo seja escolhido por engano.
+Quando a timeline satisfaz o estado seguro acima **e** o snapshot Git carregado na tela ainda confirma a mesma branch e revision, a tela mostra `Deploy concluído · verificação falhou` e a ação `Verificar novamente`. A ação de preparar um deployment completo fica escondida nesse estado para evitar que o caminho mais amplo seja escolhido por engano. Se branch ou HEAD mudou, o retry deixa de ser oferecido e a preparação de um novo deployment volta a ficar disponível.
+
+Se a tentativa de `verify` falhou por falta de privilégio, a autorização sudo temporária também fica disponível nesse estado. Depois da autorização, a interface repete somente o `verify`; ela não prepara nem executa novamente as etapas mutantes.
 
 O aviso genérico `Não faça rollback cego` continua sendo exibido para todos os demais estados `recovery_required` em que o dashboard não consegue provar que apenas o verify falhou.

@@ -143,14 +143,7 @@ const hasActiveDeployment = computed(() => {
   const current = latestDeployment.value;
   return current ? !TERMINAL_STATUSES.has(current.status) : false;
 });
-const needsSudoAuthorization = computed(
-  () =>
-    isCommand.value &&
-    latestDeployment.value?.status === 'failed' &&
-    latestDeployment.value.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
-    !sudoAuthorized.value,
-);
-const canRetryLatestVerify = computed(() => {
+const hasRetryableLatestVerifyTimeline = computed(() => {
   if (!isCommand.value) return false;
   const deployment = latestDeployment.value;
   if (!deployment || deployment.status !== 'recovery_required') return false;
@@ -172,6 +165,28 @@ const canRetryLatestVerify = computed(() => {
 
 const branch = computed(() => production.value?.branch ?? 'main');
 const localRevision = computed(() => props.gitOverview?.latestCommit?.hash);
+const latestVerifySnapshotIsCurrent = computed(() => {
+  const deployment = latestDeployment.value;
+  return Boolean(
+    deployment &&
+      props.gitOverview?.branch === deployment.branch &&
+      localRevision.value === deployment.revision,
+  );
+});
+const canRetryLatestVerify = computed(
+  () =>
+    hasRetryableLatestVerifyTimeline.value &&
+    latestVerifySnapshotIsCurrent.value,
+);
+const needsSudoAuthorization = computed(() => {
+  const deployment = latestDeployment.value;
+  return Boolean(
+    isCommand.value &&
+      deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+      (deployment.status === 'failed' || canRetryLatestVerify.value) &&
+      !sudoAuthorized.value,
+  );
+});
 const originRevision = computed(() => {
   if (providerStatus.value?.originRevision) {
     return providerStatus.value.originRevision;
@@ -738,7 +753,11 @@ async function preparePlan(): Promise<void> {
 async function handleSudoAuthorized(): Promise<void> {
   sudoModalOpen.value = false;
   sudoAuthorized.value = true;
-  await preparePlan();
+  if (canRetryLatestVerify.value) {
+    await retryLatestVerify();
+  } else {
+    await preparePlan();
+  }
 }
 
 async function confirmAndStart(): Promise<void> {
