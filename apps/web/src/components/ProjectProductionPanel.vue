@@ -47,6 +47,7 @@ import {
   fetchProjectGitWorkspace,
   startDeployment,
 } from '../api';
+import ProductionSudoModal from './ProductionSudoModal.vue';
 import StatusBadge from './StatusBadge.vue';
 
 interface Props {
@@ -98,6 +99,8 @@ const deploymentLog = ref<DeploymentLog | null>(null);
 const providerStatus = ref<ProductionDeploymentStatus | null>(null);
 const gitWorkspace = ref<ProjectGitWorkspace | null>(null);
 const planHeading = ref<HTMLElement | null>(null);
+const sudoModalOpen = ref(false);
+const sudoAuthorized = ref(false);
 
 let generation = 0;
 let requestController: AbortController | undefined;
@@ -133,6 +136,13 @@ const hasActiveDeployment = computed(() => {
   const current = latestDeployment.value;
   return current ? !TERMINAL_STATUSES.has(current.status) : false;
 });
+const needsSudoAuthorization = computed(
+  () =>
+    isCommand.value &&
+    latestDeployment.value?.status === 'failed' &&
+    latestDeployment.value.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+    !sudoAuthorized.value,
+);
 
 const branch = computed(() => production.value?.branch ?? 'main');
 const localRevision = computed(() => props.gitOverview?.latestCommit?.hash);
@@ -574,6 +584,9 @@ async function pollCommandDeployment(current: number): Promise<void> {
     if (log) deploymentLog.value = log;
 
     if (TERMINAL_STATUSES.has(deployment.status)) {
+      if (deployment.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED') {
+        sudoAuthorized.value = false;
+      }
       const refreshed = await fetchDeploymentHistory(props.project.id, {
         page: 1,
         pageSize: 8,
@@ -630,6 +643,8 @@ async function load(): Promise<void> {
   deploymentLog.value = null;
   providerStatus.value = null;
   gitWorkspace.value = null;
+  sudoModalOpen.value = false;
+  sudoAuthorized.value = false;
 
   if (!hasProductionCapability.value || !production.value) return;
   if (!production.value.enabled || production.value.strategy === 'disabled') {
@@ -682,6 +697,12 @@ async function preparePlan(): Promise<void> {
   } finally {
     if (current === generation) operation.value = '';
   }
+}
+
+async function handleSudoAuthorized(): Promise<void> {
+  sudoModalOpen.value = false;
+  sudoAuthorized.value = true;
+  await preparePlan();
 }
 
 async function confirmAndStart(): Promise<void> {
@@ -810,7 +831,17 @@ onBeforeUnmount(() => {
           <ArrowTopRightOnSquareIcon aria-hidden="true" />
         </a>
         <button
-          v-if="isCommand && !hasActiveDeployment"
+          v-if="needsSudoAuthorization"
+          class="primary-button"
+          type="button"
+          :disabled="Boolean(operation)"
+          @click="sudoModalOpen = true"
+        >
+          <ShieldExclamationIcon aria-hidden="true" />
+          Autorizar sudo
+        </button>
+        <button
+          v-if="isCommand && !hasActiveDeployment && !needsSudoAuthorization"
           class="primary-button"
           type="button"
           :disabled="Boolean(operation)"
@@ -1242,6 +1273,13 @@ onBeforeUnmount(() => {
         </ul>
       </article>
     </template>
+
+    <ProductionSudoModal
+      :open="sudoModalOpen"
+      :project-id="project.id"
+      @close="sudoModalOpen = false"
+      @authorized="handleSudoAuthorized"
+    />
   </section>
 </template>
 
