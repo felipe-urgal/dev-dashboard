@@ -253,7 +253,9 @@ A autorização temporária de `sudo` para esse fluxo possui controles adicionai
 - a senha nunca é entregue ao `prod:*`, por variável de ambiente, stdin do projeto ou arquivo temporário;
 - depois da senha ser aceita, a API valida `sudo -n -v` a partir de **outro processo pai**, aproximando a árvore real em que `npm`/shell executará um novo `sudo`;
 - isso impede falso positivo em políticas como `timestamp_type=ppid`, nas quais o ticket pode valer para o processo da API e não para um descendente diferente;
-- se a validação descendente falhar, a autorização permanece bloqueada e a orientação é configurar uma regra `NOPASSWD` limitada aos comandos de produção necessários; o dashboard não enfraquece a política sudoers nem repassa a senha ao projeto para contorná-la.
+- se a validação descendente falhar, a API retorna `DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED`: a UI interrompe novas tentativas de senha e orienta uma remediação não interativa, como `NOPASSWD` limitado a um helper de produção do próprio projeto;
+- o dashboard nunca altera sudoers, não desabilita `timestamp_type` e não repassa a senha ao projeto para contornar a política local;
+- depois de corrigir o privilégio externamente, a execução anterior continua registrada como falha, mas não bloqueia a geração de um novo plano; o backend volta a validar revision, working tree, plano e confirmação antes de qualquer nova tentativa.
 
 A validação descendente executa apenas um comando interno literal de verificação; nenhum programa, argumento ou fragmento de shell é derivado do navegador ou do projeto.
 

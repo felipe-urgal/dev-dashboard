@@ -277,7 +277,9 @@ API
        └── sudo -n -v    # precisa reutilizar o ticket sem senha
 ```
 
-Se a segunda validação falhar, o modal permanece bloqueado e informa que é necessária uma regra `NOPASSWD` limitada aos comandos de produção. O dashboard não tenta alterar `timestamp_type`, criar regra ampla de sudoers ou repassar a senha ao projeto para forçar o deploy.
+Se a senha for aceita mas a segunda validação falhar, a API retorna `DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED`. O modal deixa de pedir a senha repetidamente e orienta uma remediação externa não interativa, como uma regra `NOPASSWD` limitada a um helper de produção do próprio projeto. O dashboard não tenta alterar `timestamp_type`, editar sudoers, criar regra ampla ou repassar a senha ao projeto.
+
+A falha histórica não funciona como um lock permanente. Depois que o projeto/host for corrigido, a pessoa pode gerar um novo plano; branch, revision, working tree, `planHash` e confirmação continuam sendo revalidados normalmente antes da nova execução.
 
 ## Concorrência
 
@@ -362,7 +364,8 @@ Quando o plano `command` for recusado:
 - `DEPLOYMENT_REVISION_UNAVAILABLE`: confirme que o projeto é um repositório Git válido e não está em detached HEAD;
 - `DEPLOYMENT_PLAN_STALE`: gere novo plano e nova confirmação;
 - `DEPLOYMENT_ALREADY_RUNNING`: aguarde ou cancele conscientemente o deployment ativo;
-- `DEPLOYMENT_PRIVILEGE_REQUIRED`: se a senha for aceita mas a autorização continuar bloqueada, o host não permite reutilizar o ticket na árvore do deployment (por exemplo, `timestamp_type=ppid`); configure `NOPASSWD` apenas para os comandos de produção necessários.
+- `DEPLOYMENT_PRIVILEGE_REQUIRED`: o comando exigiu privilégio que ainda pode ser satisfeito pelo fluxo local de autorização temporária;
+- `DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED`: a senha foi aceita, mas a política do host impede reutilizar o ticket na árvore do deployment (por exemplo, `timestamp_type=ppid`); pare de repetir a senha, configure uma remediação `NOPASSWD` limitada no projeto e gere um novo plano.
 
 Quando `providerAvailability` não for `available`, trate o drift como desconhecido até a integração voltar a produzir um snapshot válido. Não crie commits artificiais para contornar quota ou forçar novo deployment.
 

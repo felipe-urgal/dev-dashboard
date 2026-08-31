@@ -177,8 +177,8 @@ export class SudoSessionService {
     }
     if (!status.authorized) {
       throw new DeploymentError(
-        'DEPLOYMENT_PRIVILEGE_REQUIRED',
-        'A senha foi aceita, mas o ticket sudo não pode ser reutilizado pela árvore de processos do deployment. Isso ocorre, por exemplo, com timestamp_type=ppid. Configure uma regra NOPASSWD limitada aos comandos de produção necessários.',
+        'DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED',
+        'A senha foi aceita, mas o ticket sudo não pode ser reutilizado pela árvore de processos do deployment. Este host exige uma remediação não interativa, como uma regra NOPASSWD limitada ao helper de produção do projeto. Depois de configurá-la, gere um novo plano de deployment.',
       );
     }
     return status;

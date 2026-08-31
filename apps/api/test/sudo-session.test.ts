@@ -52,7 +52,7 @@ test('authorize envia a senha somente para sudo -S -v e confirma reutilização 
   assert.equal(delegatedCalls, 1);
 });
 
-test('authorize falha quando o ticket direto não pode ser reutilizado por um descendente', async () => {
+test('authorize tipa ticket aceito que não pode ser reutilizado por um descendente', async () => {
   const service = new SudoSessionService({
     runSudo: async () => ({ exitCode: 0, unavailable: false }),
     runDelegatedSudo: async () => ({ exitCode: 1, unavailable: false }),
@@ -60,9 +60,9 @@ test('authorize falha quando o ticket direto não pode ser reutilizado por um de
 
   await assert.rejects(service.authorize('senha-local'), (error: unknown) => {
     assert.ok(error instanceof DeploymentError);
-    assert.equal(error.code, 'DEPLOYMENT_PRIVILEGE_REQUIRED');
-    assert.match(error.message, /timestamp_type=ppid/);
+    assert.equal(error.code, 'DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED');
     assert.match(error.message, /NOPASSWD/);
+    assert.match(error.message, /novo plano/);
     return true;
   });
 });
