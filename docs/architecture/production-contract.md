@@ -2,7 +2,7 @@
 
 O Dev Dashboard reconhece produção como uma capability declarativa do projeto. Esta camada existe para padronizar **o contrato operacional**, sem padronizar a infraestrutura física usada por cada aplicação.
 
-Nesta versão, a descoberta é somente leitura: o dashboard identifica e valida o contrato, mas não executa deploy, migration, backup, rollback ou comandos de produção.
+O contrato continua sendo apenas a declaração de capabilities e políticas. A execução local é uma camada separada: o domínio de deployment usa contratos válidos `strategy=command`, recalcula revision/plano, exige confirmação forte e executa somente scripts canônicos reconhecidos.
 
 ## Manifesto
 
@@ -64,6 +64,8 @@ Requisitos mínimos:
 
 Backup, migration, logs, restore-check e rollback são capabilities opcionais e continuam pertencendo ao próprio projeto.
 
+O domínio de deployment local suporta esta estratégia. O dashboard não interpreta systemd ou Docker Compose diretamente: ele planeja operações canônicas e o adapter executa somente os aliases `prod:*` reconhecidos.
+
 ### `git-managed`
 
 Usada inicialmente pelo provider Vercel.
@@ -77,7 +79,7 @@ Requisitos mínimos:
 - referência `external.project`;
 - ausência de `prod:deploy` local.
 
-O deploy remoto será responsabilidade de um adapter futuro. Esta estratégia impede esconder `git push`, `vercel --prod` ou outra mutação externa atrás de um alias local genérico.
+O deploy remoto continua responsabilidade de um adapter externo específico. O motor `command` recusa esta estratégia com `DEPLOYMENT_STRATEGY_UNSUPPORTED`. Isso impede esconder `git push`, `vercel --prod` ou outra mutação externa atrás de um alias local genérico.
 
 ### `disabled`
 
@@ -90,7 +92,7 @@ Requisitos mínimos:
 - `prod:status`;
 - `prod:check`.
 
-`reasonCode` e `blockedBy` permitem explicar o gate sem transformar projeto bloqueado em erro de health.
+`reasonCode` e `blockedBy` permitem explicar o gate sem transformar projeto bloqueado em erro de health. O planner não cria deployment para produção desabilitada.
 
 ## Descoberta
 
@@ -120,55 +122,80 @@ Warnings estáveis do v1:
 - `PRODUCTION_CONTRACT_INVALID_SHAPE`;
 - `PRODUCTION_CONTRACT_SCRIPT_MISSING`.
 
-## Segurança
+## Da declaração à execução
 
-Esta entrega não executa nenhum script `prod:*`.
-
-A separação deliberada é:
+Um contrato válido **não autoriza sozinho** uma mutação de produção. Para `strategy=command`, o backend segue uma segunda fronteira:
 
 ```text
-manifesto versionado
+Production Contract válido
       ↓
-IDs canônicos de operação
+branch + revision Git + working tree limpa
       ↓
-validação contra package.json real
+DeploymentPlan + planHash
       ↓
-capability estruturada
+confirmationToken de uso único
       ↓
-nenhuma execução nesta fase
+revalidação do plano
+      ↓
+ProductionCommandAdapter
 ```
 
-O navegador recebe metadados estruturados pela API, mas não escolhe programa, argumentos nem corpo de shell. Quando o motor de deployment for implementado, ele deverá redetectar o catálogo no momento da execução, aplicar confirmação para mutações e resolver cada operação no backend; o manifesto validado não será, por si só, autorização para executar processo.
+O plano é calculado sem executar scripts. A confirmação fica vinculada a `projectId + revision + planHash`, possui TTL curto e é consumida uma única vez.
 
-`documentation` só aceita caminho relativo sem `..`; health aceita apenas HTTP/HTTPS sem credenciais embutidas; o contrato não possui campos para tokens, connection strings ou variáveis secretas.
+O working tree precisa estar limpo, inclusive de arquivos não rastreados. Isso impede confirmar o SHA A e executar código local que não pertence ao SHA A. `start()` recalcula o plano antes de consumir o token; mudanças entre planejamento e execução são recusadas.
+
+As políticas do contrato determinam a timeline. Por exemplo, backup obrigatório e migrations no startup produzem `check → backup → deploy → verify`, com `deploy` tratado como potencialmente irreversível. Migration explícita antes do deploy produz `check → backup → migrate → deploy → verify`, com `migrate` irreversível.
+
+Detalhes do motor, estados, persistência e troubleshooting estão em [Domínio de deployment local](deployment-domain.md).
+
+## Segurança
+
+O navegador recebe metadados estruturados e identificadores. Ele não escolhe programa, argumentos, `cwd`, corpo de script ou linha de shell.
+
+O adapter local:
+
+- aceita somente operações canônicas já reconhecidas no contrato;
+- resolve package manager no backend;
+- deriva `cwd` de `Project.path` vindo do `ProjectStore`;
+- executa com `shell: false`;
+- fecha stdin;
+- mascara stdout/stderr antes da persistência;
+- usa `SIGTERM` antes de escalonar para `SIGKILL` em cancelamento;
+- não executa rollback cego após uma etapa irreversível.
+
+`documentation` só aceita caminho relativo sem `..`; health aceita apenas HTTP/HTTPS sem credenciais, query string ou fragmento; o contrato não possui campos para tokens, connection strings ou variáveis secretas.
 
 ## API
 
-Os schemas de projeto da API expõem dois campos opcionais:
+Os schemas de projeto expõem dois campos opcionais:
 
 - `production`: contrato v1 normalizado quando válido;
 - `productionWarning`: warning estruturado quando o manifesto existe, mas é inválido.
 
 A capability `production` só é adicionada quando o contrato é válido. `production.enabled=false` continua sendo um contrato válido e permite distinguir "produção bloqueada" de "projeto sem contrato".
 
-## Escopo desta versão
+Para contratos `command` habilitados, a API também expõe o domínio de deployments: planejamento, confirmação, start, histórico, detalhe, log e cancelamento. A referência exata dos endpoints é gerada em `docs/architecture/api-reference.md`.
 
-Incluído no v1:
+## Escopo atual
 
-- tipos compartilhados;
-- validação fechada;
-- descoberta;
-- serialização pela API;
-- warnings estruturados;
-- testes dos formatos `command`, `git-managed` e `disabled`.
+Incluído:
+
+- tipos compartilhados do Production Contract v1;
+- validação fechada e discovery fail-closed;
+- serialização do contrato pela API;
+- planner local para `strategy=command`;
+- confirmação vinculada a revision e hash do plano;
+- execução de scripts `prod:*` canônicos com `shell: false`;
+- timeline, histórico e logs locais limitados;
+- detecção de falha antes/depois de etapa irreversível;
+- recuperação conservadora após interrupção do dashboard.
 
 Fora de escopo:
 
-- executar qualquer `prod:*`;
-- confirmação de deploy;
-- jobs/timeline de deployment;
-- integração com systemd, Docker ou Vercel;
+- adapter Vercel/`git-managed`;
+- rollback automático;
 - UI de Produção;
-- self-update do Dev Dashboard.
+- self-update do Dev Dashboard;
+- visão global de produção e atualização de pendentes.
 
-Essas responsabilidades pertencem às fases seguintes da iniciativa de produção e não devem ser antecipadas dentro do discovery.
+Essas responsabilidades permanecem em adapters/camadas posteriores, sem enfraquecer o contrato declarativo.
