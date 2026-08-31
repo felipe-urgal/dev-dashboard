@@ -255,9 +255,7 @@ async function detectCapabilities(
 
     if (
       type === 'node' &&
-      NODE_SERVER_SCRIPT_CANDIDATES.some(
-        (scriptName) => scriptName in scripts,
-      )
+      NODE_SERVER_SCRIPT_CANDIDATES.some((scriptName) => scriptName in scripts)
     ) {
       capabilities.add('server');
     }
