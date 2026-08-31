@@ -55,44 +55,6 @@ jobs:
       - name: Test
         run: npm test
 
-  sync-api-docs:
-    name: Sync API docs
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout da branch do PR
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Regenera referência da API
-        run: npm run docs:api
-
-      - name: Commita referência quando necessário
-        run: |
-          if git diff --quiet -- docs/architecture/api-reference.md; then
-            echo "Referência da API já está sincronizada."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/architecture/api-reference.md
-          git commit -m "docs: atualiza referência da API"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
-
   cli:
     name: CLI Bash
     runs-on: ubuntu-latest
