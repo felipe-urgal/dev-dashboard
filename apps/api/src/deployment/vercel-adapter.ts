@@ -10,9 +10,18 @@ const QUOTA_ERROR_CODES = new Set([
   'api-deployments-free-per-day',
 ]);
 
+interface VercelBodyReader {
+  read(): Promise<{ done: boolean; value?: Uint8Array }>;
+  cancel(reason?: unknown): Promise<void>;
+  releaseLock(): void;
+}
+
 interface VercelFetchResponse {
   ok: boolean;
   status: number;
+  body?: {
+    getReader(): VercelBodyReader;
+  } | null;
   text(): Promise<string>;
 }
 
@@ -84,11 +93,18 @@ function normalizeState(value: string): DeploymentProviderState {
   }
 }
 
+function invalidProviderResponse(message: string): DeploymentError {
+  return new DeploymentError('DEPLOYMENT_PROVIDER_RESPONSE_INVALID', message);
+}
+
 function normalizeUrl(value: string): string {
   try {
-    const parsed = new URL(
-      value.startsWith('https://') ? value : `https://${value}`,
-    );
+    const hasExplicitScheme = /^[a-z][a-z\d+.-]*:/i.test(value);
+    if (hasExplicitScheme && !/^https:\/\//i.test(value)) {
+      throw new Error('Esquema de URL inválido');
+    }
+
+    const parsed = new URL(hasExplicitScheme ? value : `https://${value}`);
     if (
       parsed.protocol !== 'https:' ||
       parsed.username.length > 0 ||
@@ -98,8 +114,7 @@ function normalizeUrl(value: string): string {
     }
     return parsed.toString().replace(/\/$/, '');
   } catch {
-    throw new DeploymentError(
-      'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+    throw invalidProviderResponse(
       'A Vercel retornou uma URL de deployment inválida.',
     );
   }
@@ -131,6 +146,44 @@ function responseError(
     'DEPLOYMENT_PROVIDER_UNAVAILABLE',
     'A Vercel não respondeu com um estado operacional utilizável.',
   );
+}
+
+async function readResponseBody(response: VercelFetchResponse): Promise<string> {
+  if (!response.body) {
+    const body = await response.text();
+    if (Buffer.byteLength(body, 'utf8') > MAX_RESPONSE_BYTES) {
+      throw invalidProviderResponse(
+        'A resposta da Vercel excedeu o limite aceito pelo Dev Dashboard.',
+      );
+    }
+    return body;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let body = '';
+
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (!chunk.value) continue;
+
+      totalBytes += chunk.value.byteLength;
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw invalidProviderResponse(
+          'A resposta da Vercel excedeu o limite aceito pelo Dev Dashboard.',
+        );
+      }
+      body += decoder.decode(chunk.value, { stream: true });
+    }
+    body += decoder.decode();
+    return body;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export class VercelDeploymentAdapter {
@@ -168,8 +221,7 @@ export class VercelDeploymentAdapter {
     });
     const parsed = record(response);
     if (!Array.isArray(parsed?.deployments)) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+      throw invalidProviderResponse(
         'A Vercel retornou uma lista de deployments inválida.',
       );
     }
@@ -199,8 +251,7 @@ export class VercelDeploymentAdapter {
     const id = boundedString(parsed?.id, 256);
     const name = boundedString(parsed?.name, 256);
     if (!id || !name) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+      throw invalidProviderResponse(
         'A Vercel retornou metadados de projeto inválidos.',
       );
     }
@@ -210,7 +261,8 @@ export class VercelDeploymentAdapter {
   private parseDeployment(
     value: Record<string, unknown>,
   ): VercelProductionDeployment {
-    const id = boundedString(value.id, 256);
+    const id =
+      boundedString(value.id, 256) ?? boundedString(value.uid, 256);
     const url = boundedString(value.url, 2048);
     const state = boundedString(value.state, 64);
     const created = value.created;
@@ -222,9 +274,15 @@ export class VercelDeploymentAdapter {
       !Number.isFinite(created) ||
       created <= 0
     ) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+      throw invalidProviderResponse(
         'A Vercel retornou metadados de deployment inválidos.',
+      );
+    }
+
+    const createdAt = new Date(created);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw invalidProviderResponse(
+        'A Vercel retornou um timestamp de deployment inválido.',
       );
     }
 
@@ -240,7 +298,7 @@ export class VercelDeploymentAdapter {
       id,
       url: normalizeUrl(url),
       state: normalizeState(state),
-      createdAt: new Date(created).toISOString(),
+      createdAt: createdAt.toISOString(),
       ...(branch ? { branch } : {}),
       ...(revision ? { revision } : {}),
     };
@@ -274,18 +332,12 @@ export class VercelDeploymentAdapter {
 
     let body: string;
     try {
-      body = await response.text();
-    } catch {
+      body = await readResponseBody(response);
+    } catch (error) {
+      if (error instanceof DeploymentError) throw error;
       throw new DeploymentError(
         'DEPLOYMENT_PROVIDER_UNAVAILABLE',
         'Não foi possível ler a resposta da Vercel.',
-      );
-    }
-
-    if (Buffer.byteLength(body, 'utf8') > MAX_RESPONSE_BYTES) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
-        'A resposta da Vercel excedeu o limite aceito pelo Dev Dashboard.',
       );
     }
 
@@ -294,8 +346,7 @@ export class VercelDeploymentAdapter {
       parsed = body.length > 0 ? JSON.parse(body) : {};
     } catch {
       if (response.ok) {
-        throw new DeploymentError(
-          'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+        throw invalidProviderResponse(
           'A Vercel retornou uma resposta que não é JSON válido.',
         );
       }
@@ -305,8 +356,7 @@ export class VercelDeploymentAdapter {
       throw responseError(response.status, providerErrorCode(parsed));
     }
     if (parsed === undefined) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PROVIDER_RESPONSE_INVALID',
+      throw invalidProviderResponse(
         'A Vercel retornou uma resposta vazia ou inválida.',
       );
     }
