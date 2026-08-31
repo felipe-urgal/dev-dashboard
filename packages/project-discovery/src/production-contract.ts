@@ -104,7 +104,7 @@ function isBoundedString(
 ): value is string {
   return (
     typeof value === 'string' &&
-    value.length > 0 &&
+    value.trim().length > 0 &&
     value.length <= maxLength
   );
 }
