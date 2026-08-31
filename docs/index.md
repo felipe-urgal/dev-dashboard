@@ -36,7 +36,7 @@ Os objetivos principais são:
 - scan dos diretórios imediatamente abaixo de cada workspace;
 - detecção de projetos Rails e Node;
 - identificação de capacidades por projeto;
-- descoberta fail-closed do `Production Contract v1` em `.dev-dashboard/production.json`, sem executar deploy;
+- descoberta fail-closed do `Production Contract v1` em `.dev-dashboard/production.json`;
 - favoritos e navegação global;
 - diagnóstico do ambiente do projeto.
 
@@ -48,6 +48,16 @@ Os objetivos principais são:
 - leitura limitada e mascarada de logs;
 - gerenciamento de processos em segundo plano;
 - abertura de projeto no navegador do sistema.
+
+### Produção local
+
+- planejamento sem execução para contratos `strategy=command`;
+- confirmação de uso único vinculada a projeto, revision e hash do plano;
+- execução somente de scripts canônicos `prod:*`, com `shell: false`;
+- working tree limpa e revision revalidadas durante a execução;
+- timeline, histórico e logs locais limitados e mascarados;
+- estado `recovery_required` quando uma etapa potencialmente irreversível já iniciou;
+- suporte indireto a systemd e Docker Compose sem acoplamento ao runtime físico.
 
 ### Git
 
@@ -97,7 +107,7 @@ Os objetivos principais são:
 │ Pacotes e serviços                                           │
 ├──────────────────────────────────────────────────────────────┤
 │ contracts │ core │ project-discovery │ process-manager       │
-│ serviços Git, testes, banco, Rails e arquivos                │
+│ serviços Git, deployment, testes, banco, Rails e arquivos    │
 └───────────────────────────────┬──────────────────────────────┘
                                 │
                                 ▼
@@ -147,6 +157,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 - [Primeiros passos](getting-started.md): requisitos, instalação e primeiro uso.
 - [Visão geral da arquitetura](architecture/overview.md): contexto e decisões arquiteturais existentes.
 - [Production Contract v1](architecture/production-contract.md): manifesto, validação, discovery, warnings e limites de segurança da capability de produção.
+- [Domínio de deployment local](architecture/deployment-domain.md): planejamento, confirmação, execução, estados, persistência e recovery do adapter `command`.
 - [Estrutura do repositório](architecture/repository-structure.md): diretórios, camadas e dependências.
 - [Fluxos de execução](architecture/runtime-flows.md): o que acontece em cada operação importante.
 
@@ -167,6 +178,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para operar e diagnosticar
 
 - [Operação e troubleshooting](operations-and-troubleshooting.md): portas, dados locais, logs e falhas comuns.
+- [Operação de deployments locais](deployment-operations.md): preflight, execução, cancelamento, recovery e diagnóstico do motor `command`.
 - [Referência da API HTTP](architecture/api-reference.md): contratos gerados a partir das rotas Fastify.
 
 ### Planejamento
@@ -184,6 +196,7 @@ no [guia de desenvolvimento](development-guide.md) e no
 | Projeto             | Aplicação Rails ou Node detectada e mantida no `ProjectStore`.              |
 | Capacidade          | Recurso reconhecido, como Git, testes, banco, scripts, produção, Sidekiq ou Bundler. |
 | Production Contract | Manifesto v1 que declara estratégia, provider, scripts canônicos e políticas de produção sem autorizar execução por si só. |
+| Deployment          | Execução planejada e confirmada de um contrato de produção, com revision, timeline, histórico e recovery explícitos. |
 | Processo gerenciado | Processo iniciado e acompanhado pelo Process Manager.                       |
 | Catálogo            | Lista fechada de comandos ou ações detectadas pelo backend.                 |
 | Confirmação         | Token temporário vinculado a uma operação mutável específica.               |
