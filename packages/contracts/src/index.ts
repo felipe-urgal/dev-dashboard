@@ -14,6 +14,22 @@ export type {
 } from './project.js';
 
 export type {
+  ProductionBackupPolicy,
+  ProductionCommandId,
+  ProductionCommands,
+  ProductionContractV1,
+  ProductionContractWarning,
+  ProductionContractWarningCode,
+  ProductionExternalReference,
+  ProductionHealthCheck,
+  ProductionMigrationPolicy,
+  ProductionPolicies,
+  ProductionProvider,
+  ProductionRollbackPolicy,
+  ProductionStrategy,
+} from './production.js';
+
+export type {
   ProjectDiagnosticAction,
   ProjectDiagnosticActionTarget,
   ProjectDiagnosticCategory,
