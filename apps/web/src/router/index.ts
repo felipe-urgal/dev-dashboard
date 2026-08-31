@@ -53,6 +53,11 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
+      path: '/projects/:projectId/production',
+      name: 'project-production',
+      component: () => import('../views/ProjectDetailsView.vue'),
+    },
+    {
       path: '/projects/:projectId/database',
       redirect: { name: 'database' },
     },

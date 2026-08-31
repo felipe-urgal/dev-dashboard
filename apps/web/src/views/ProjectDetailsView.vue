@@ -11,6 +11,7 @@ import {
   BeakerIcon,
   CodeBracketIcon,
   CommandLineIcon,
+  RocketLaunchIcon,
   ServerStackIcon,
   ShareIcon,
 } from '@heroicons/vue/24/outline';
@@ -47,6 +48,9 @@ const ProjectDoctorPanel = lazyTool(
 );
 const ProjectGitPanel = lazyTool(
   () => import('../components/ProjectGitPanel.vue'),
+);
+const ProjectProductionPanel = lazyTool(
+  () => import('../components/ProjectProductionPanel.vue'),
 );
 const ProjectRailsRuntimePanel = lazyTool(
   () => import('../components/ProjectRailsRuntimePanel.vue'),
@@ -90,6 +94,7 @@ const isServerRoute = computed(
 );
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
+const isProductionRoute = computed(() => route.name === 'project-production');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
 );
@@ -305,6 +310,20 @@ watch(
             </RouterLink>
 
             <RouterLink
+              v-if="project.capabilities.includes('production')"
+              class="project-details-tab"
+              :class="{ 'project-details-tab-active': isProductionRoute }"
+              :aria-current="isProductionRoute ? 'page' : undefined"
+              :to="{
+                name: 'project-production',
+                params: { projectId: project.id },
+              }"
+            >
+              <RocketLaunchIcon aria-hidden="true" />
+              <span>Produção</span>
+            </RouterLink>
+
+            <RouterLink
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isTerminalRoute }"
               :aria-current="isTerminalRoute ? 'page' : undefined"
@@ -354,6 +373,13 @@ watch(
         v-else-if="isTestsRoute"
         :key="`tests-${project.id}`"
         :project="project"
+      />
+
+      <ProjectProductionPanel
+        v-else-if="isProductionRoute"
+        :key="`production-${project.id}`"
+        :project="project"
+        :git-overview="gitOverview"
       />
 
       <ProjectDependenciesPanel
