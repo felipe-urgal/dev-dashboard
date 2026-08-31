@@ -1,0 +1,170 @@
+name: Apply Codex review fixes
+
+on:
+  push:
+    branches:
+      - bugfix/deployment-verify-retry
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    name: Patch and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}')
+              file.write_text(text.replace(old, new, 1))
+
+          service = 'apps/api/src/deployment/service.ts'
+          replace_once(
+              service,
+              """    const deployment = await this.get(project.id, deploymentId);\n    const verifyIndex = this.verifyRetryIndex(deployment);\n\n    await this.assertRevisionUnchanged(project, deployment);\n    this.assertNoActiveDeployment();\n""",
+              """    const deployment = await this.get(project.id, deploymentId);\n    const verifyIndex = this.verifyRetryIndex(deployment);\n\n    const currentPlan = await this.plan(project);\n    if (\n      currentPlan.branch !== deployment.branch ||\n      currentPlan.revision !== deployment.revision ||\n      currentPlan.provider !== deployment.provider\n    ) {\n      throw new DeploymentError(\n        'DEPLOYMENT_PLAN_STALE',\n        'Branch, revisão ou contrato de produção mudou; prepare um novo deployment.',\n      );\n    }\n\n    this.assertNoActiveDeployment();\n    await this.assertLatestDeployment(project.id, deployment.id);\n    this.assertNoActiveDeployment();\n""",
+          )
+          replace_once(
+              service,
+              """    let deployment = initial;\n    let logQueue = Promise.resolve();\n    const verifyStep = deployment.timeline[verifyIndex]!;\n""",
+              """    let deployment = initial;\n    let logQueue = Promise.resolve();\n    let verifyExitCode: number | undefined;\n    const verifyStep = deployment.timeline[verifyIndex]!;\n""",
+          )
+          replace_once(
+              service,
+              """      );\n      await logQueue;\n\n      if (result.cancelled || controller.signal.aborted) {\n        const finishedAt = new Date(this.now()).toISOString();\n""",
+              """      );\n      await logQueue;\n      verifyExitCode = result.exitCode;\n\n      if (result.cancelled || controller.signal.aborted) {\n        const finishedAt = new Date(this.now()).toISOString();\n""",
+          )
+          replace_once(
+              service,
+              """            index === verifyIndex\n              ? { ...step, status: 'cancelled', finishedAt }\n              : step,\n""",
+              """            index === verifyIndex\n              ? {\n                  ...step,\n                  status: 'cancelled',\n                  finishedAt,\n                  ...(verifyExitCode === undefined\n                    ? {}\n                    : { exitCode: verifyExitCode }),\n                }\n              : step,\n""",
+          )
+          replace_once(
+              service,
+              """            index === verifyIndex && step.status === 'running'\n              ? { ...step, status: 'failed', finishedAt }\n              : step,\n""",
+              """            index === verifyIndex && step.status === 'running'\n              ? {\n                  ...step,\n                  status: 'failed',\n                  finishedAt,\n                  ...(verifyExitCode === undefined\n                    ? {}\n                    : { exitCode: verifyExitCode }),\n                }\n              : step,\n""",
+          )
+          replace_once(
+              service,
+              """  private verifyRetryIndex(deployment: Deployment): number {\n    if (deployment.status !== 'recovery_required') {\n      throw new DeploymentError(\n        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',\n        'A verificação só pode ser repetida quando o deploy terminou e a execução está aguardando recuperação.',\n      );\n    }\n""",
+              """  private verifyRetryIndex(deployment: Deployment): number {\n    if (\n      deployment.status !== 'recovery_required' &&\n      deployment.status !== 'failed' &&\n      deployment.status !== 'cancelled'\n    ) {\n      throw new DeploymentError(\n        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',\n        'A verificação só pode ser repetida depois que o deploy terminou e somente o verify falhou ou foi cancelado.',\n      );\n    }\n""",
+          )
+          replace_once(
+              service,
+              """  private async assertRevisionUnchanged(\n    project: Project,\n    deployment: Deployment,\n  ): Promise<void> {\n""",
+              """  private async assertLatestDeployment(\n    projectId: string,\n    deploymentId: string,\n  ): Promise<void> {\n    const latest = await this.store.history(projectId, 1, 1);\n    if (latest.items[0]?.id !== deploymentId) {\n      throw new DeploymentError(\n        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',\n        'Somente o deployment mais recente do projeto pode repetir o verify.',\n      );\n    }\n  }\n\n  private async assertRevisionUnchanged(\n    project: Project,\n    deployment: Deployment,\n  ): Promise<void> {\n""",
+          )
+
+          panel = 'apps/web/src/components/ProjectProductionPanel.vue'
+          replace_once(
+              panel,
+              """  const deployment = latestDeployment.value;\n  if (!deployment || deployment.status !== 'recovery_required') return false;\n  const verifyIndex = deployment.timeline.findIndex((step) => step.id === 'verify');\n""",
+              """  const deployment = latestDeployment.value;\n  if (\n    !deployment ||\n    (deployment.status !== 'recovery_required' &&\n      deployment.status !== 'failed' &&\n      deployment.status !== 'cancelled')\n  ) {\n    return false;\n  }\n  const verifyIndex = deployment.timeline.findIndex((step) => step.id === 'verify');\n""",
+          )
+
+          view = 'apps/web/src/views/ProjectDetailsView.vue'
+          replace_once(
+              view,
+              """  computed,\n  defineAsyncComponent,\n  ref,\n  watch,\n""",
+              """  computed,\n  defineAsyncComponent,\n  onBeforeUnmount,\n  ref,\n  watch,\n""",
+          )
+          replace_once(
+              view,
+              """function updateGitOverview(git: ProjectGitOverview): void {\n  gitBranch.value = git.branch ?? '';\n  gitOverview.value = git;\n}\n\nasync function loadProject(): Promise<void> {\n""",
+              """function updateGitOverview(git: ProjectGitOverview): void {\n  gitBranch.value = git.branch ?? '';\n  gitOverview.value = git;\n}\n\nlet gitOverviewRefreshTimer: ReturnType<typeof setTimeout> | undefined;\nlet gitOverviewRefreshGeneration = 0;\n\nfunction stopGitOverviewRefresh(): void {\n  gitOverviewRefreshGeneration += 1;\n  if (gitOverviewRefreshTimer !== undefined) {\n    clearTimeout(gitOverviewRefreshTimer);\n    gitOverviewRefreshTimer = undefined;\n  }\n}\n\nasync function refreshGitOverviewWhileProduction(\n  requestedProjectId: string,\n  generation: number,\n): Promise<void> {\n  try {\n    const git = await fetchProjectGit(requestedProjectId);\n    if (\n      generation !== gitOverviewRefreshGeneration ||\n      projectId.value !== requestedProjectId ||\n      !isProductionRoute.value\n    ) {\n      return;\n    }\n    updateGitOverview(git);\n  } catch {\n    if (\n      generation === gitOverviewRefreshGeneration &&\n      projectId.value === requestedProjectId &&\n      isProductionRoute.value\n    ) {\n      gitOverview.value = null;\n    }\n  } finally {\n    if (\n      generation === gitOverviewRefreshGeneration &&\n      projectId.value === requestedProjectId &&\n      isProductionRoute.value &&\n      project.value?.id === requestedProjectId &&\n      project.value.capabilities.includes('git')\n    ) {\n      gitOverviewRefreshTimer = setTimeout(\n        () => void refreshGitOverviewWhileProduction(requestedProjectId, generation),\n        3_000,\n      );\n    }\n  }\n}\n\nasync function loadProject(): Promise<void> {\n""",
+          )
+          replace_once(
+              view,
+              """watch(\n  projectId,\n  () => {\n    void loadProject();\n  },\n  {\n    immediate: true,\n  },\n);\n</script>\n""",
+              """watch(\n  [projectId, isProductionRoute, () => project.value?.id ?? ''],\n  ([requestedProjectId, productionRoute, loadedProjectId]) => {\n    stopGitOverviewRefresh();\n    const loadedProject = project.value;\n    if (\n      !productionRoute ||\n      !requestedProjectId ||\n      loadedProjectId !== requestedProjectId ||\n      !loadedProject?.capabilities.includes('git')\n    ) {\n      return;\n    }\n    const generation = gitOverviewRefreshGeneration;\n    void refreshGitOverviewWhileProduction(requestedProjectId, generation);\n  },\n  { immediate: true },\n);\n\nwatch(\n  projectId,\n  () => {\n    void loadProject();\n  },\n  {\n    immediate: true,\n  },\n);\n\nonBeforeUnmount(stopGitOverviewRefresh);\n</script>\n""",
+          )
+
+          api_test = 'apps/api/test/deployment-verify-retry.test.ts'
+          replace_once(
+              api_test,
+              """  assert.equal(failed.timeline.at(-1)?.status, 'failed');\n  assert.deepEqual(runner.calls, ['verify']);\n});\n\ntest('retry falha fechado quando o estado não prova deploy concluído + verify isolado', async (t) => {\n""",
+              """  assert.equal(failed.timeline.at(-1)?.status, 'failed');\n  assert.equal(failed.timeline.at(-1)?.exitCode, 9);\n  assert.deepEqual(runner.calls, ['verify']);\n});\n\ntest('retry aceita verify falho após deploy não irreversível', async (t) => {\n  const store = await makeStore(t);\n  const failed = recoveryDeployment({\n    status: 'failed',\n    failurePoint: 'before-irreversible',\n    timeline: recoveryDeployment().timeline.map((step) =>\n      step.id === 'deploy' ? { ...step, irreversible: false } : step,\n    ),\n  });\n  await store.save(failed);\n  const runner = new FakeRunner();\n  const service = new DeploymentService({\n    store,\n    adapter: runner,\n    revisionResolver: new FixedRevisionResolver(),\n  });\n\n  await service.retryVerify(project, failed.id);\n  const completed = await waitForTerminal(service, failed.id);\n\n  assert.equal(completed.status, 'succeeded');\n  assert.deepEqual(runner.calls, ['verify']);\n});\n\ntest('retry falha fechado quando o estado não prova deploy concluído + verify isolado', async (t) => {\n""",
+          )
+          replace_once(
+              api_test,
+              """test('retry recusa revision diferente antes de executar qualquer comando', async (t) => {\n""",
+              """test('retry recusa deployment antigo mesmo se a revisão voltar a coincidir', async (t) => {\n  const store = await makeStore(t);\n  await store.save(recoveryDeployment());\n  await store.save(\n    recoveryDeployment({\n      id: 'deployment-2',\n      createdAt: '2026-08-31T19:00:00.000Z',\n    }),\n  );\n  const runner = new FakeRunner();\n  const service = new DeploymentService({\n    store,\n    adapter: runner,\n    revisionResolver: new FixedRevisionResolver(),\n  });\n\n  await assert.rejects(\n    service.retryVerify(project, 'deployment-1'),\n    (error: unknown) =>\n      error instanceof DeploymentError &&\n      error.code === 'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',\n  );\n  assert.deepEqual(runner.calls, []);\n});\n\ntest('retry recusa contrato que deixou de usar strategy command', async (t) => {\n  const store = await makeStore(t);\n  await store.save(recoveryDeployment());\n  const runner = new FakeRunner();\n  const gitManagedProject: Project = {\n    ...project,\n    production: {\n      version: 1,\n      enabled: true,\n      strategy: 'git-managed',\n      provider: 'vercel',\n      branch: 'main',\n      commands: {\n        check: 'prod:check',\n        verify: 'prod:verify',\n      },\n      external: { project: 'home-music' },\n      policies: {\n        backup: 'external',\n        migrations: 'not-configured',\n        rollback: 'provider-only-when-schema-compatible',\n      },\n    },\n  };\n  const service = new DeploymentService({\n    store,\n    adapter: runner,\n    revisionResolver: new FixedRevisionResolver(),\n  });\n\n  await assert.rejects(\n    service.retryVerify(gitManagedProject, 'deployment-1'),\n    (error: unknown) =>\n      error instanceof DeploymentError &&\n      error.code === 'DEPLOYMENT_STRATEGY_UNSUPPORTED',\n  );\n  assert.deepEqual(runner.calls, []);\n});\n\ntest('retry recusa revision diferente antes de executar qualquer comando', async (t) => {\n""",
+          )
+
+          web_test = 'apps/web/test/project-production-panel.test.ts'
+          replace_once(
+              web_test,
+              """  it('autoriza sudo antes de repetir somente o verify elegível', async () => {\n""",
+              """  it('oferece retry quando somente o verify falha após deploy não irreversível', async () => {\n    resetApi();\n    const failed = verifyFailedDeployment({\n      status: 'failed',\n      failurePoint: 'before-irreversible',\n      errorCode: 'DEPLOYMENT_COMMAND_FAILED',\n      errorMessage: 'O verify falhou.',\n    });\n    api.fetchDeploymentHistory.mockResolvedValue({\n      items: [failed],\n      page: 1,\n      pageSize: 8,\n      total: 1,\n    });\n    api.retryDeploymentVerify.mockResolvedValue({\n      ...failed,\n      status: 'verifying',\n    });\n\n    const wrapper = mount(ProjectProductionPanel, {\n      props: {\n        project: commandProject(),\n        gitOverview: gitOverview(),\n      },\n    });\n    await flushPromises();\n\n    expect(wrapper.text()).toContain('Verificar novamente');\n    expect(wrapper.text()).not.toContain('Preparar deployment');\n    await wrapper\n      .findAll('button')\n      .find((button) => button.text().includes('Verificar novamente'))!\n      .trigger('click');\n    await flushPromises();\n\n    expect(api.retryDeploymentVerify).toHaveBeenCalledWith(\n      'project-1',\n      failed.id,\n      expect.any(AbortSignal),\n    );\n    expect(api.fetchDeploymentPlan).not.toHaveBeenCalled();\n    wrapper.unmount();\n  });\n\n  it('autoriza sudo antes de repetir somente o verify elegível', async () => {\n""",
+          )
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native terminal dependency
+        run: npm rebuild node-pty
+
+      - name: Regenerate API docs
+        run: npm run docs:api
+
+      - name: Format changed source files
+        run: >-
+          npx prettier --write
+          apps/api/src/deployment/service.ts
+          apps/api/test/deployment-verify-retry.test.ts
+          apps/web/src/components/ProjectProductionPanel.vue
+          apps/web/src/views/ProjectDetailsView.vue
+          apps/web/test/project-production-panel.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Verify generated API reference
+        run: npm run docs:api:check
+
+      - name: API retry regression tests
+        run: node --import=tsx --test apps/api/test/deployment-verify-retry.test.ts
+
+      - name: Web production panel regression tests
+        working-directory: apps/web
+        run: npx vitest run test/project-production-panel.test.ts
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git status --short
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/api/src/deployment/service.ts \
+            apps/api/test/deployment-verify-retry.test.ts \
+            apps/web/src/components/ProjectProductionPanel.vue \
+            apps/web/src/views/ProjectDetailsView.vue \
+            apps/web/test/project-production-panel.test.ts \
+            docs/architecture/api-reference.md
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(deployment): address Codex retry review"
+          git push origin HEAD:bugfix/deployment-verify-retry
