@@ -11,6 +11,8 @@ import type {
 } from './discovery.js';
 import { enrichProjectProduction } from './production-discovery.js';
 
+const DEFAULT_RECURSIVE_TIMEOUT_MS = 5000;
+
 export async function detectProject(
   projectPath: string,
   options: DetectProjectOptions = {},
@@ -23,12 +25,73 @@ export async function scanWorkspace(
   workspace: Pick<Workspace, 'id' | 'path'>,
   options: ScanWorkspaceOptions = {},
 ): Promise<WorkspaceScanResult> {
+  const startedAt = Date.now();
   const result = await scanBaseWorkspace(workspace, options);
 
-  return {
-    ...result,
-    projects: await Promise.all(result.projects.map(enrichProjectProduction)),
-  };
+  if (!options.recursive) {
+    return {
+      ...result,
+      projects: await Promise.all(result.projects.map(enrichProjectProduction)),
+    };
+  }
+
+  if (result.warnings.some((warning) => warning.code === 'SCAN_TIMEOUT')) {
+    return result;
+  }
+
+  const timeoutMs = options.timeoutMs ?? DEFAULT_RECURSIVE_TIMEOUT_MS;
+  const remainingMs = Math.max(0, timeoutMs - (Date.now() - startedAt));
+
+  if (remainingMs === 0) {
+    return {
+      ...result,
+      warnings: [
+        ...result.warnings,
+        {
+          path: result.workspacePath,
+          code: 'SCAN_TIMEOUT',
+          message:
+            'Tempo limite da varredura recursiva atingido durante a descoberta do contrato de produção; resultado parcial.',
+        },
+      ],
+    };
+  }
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    const enrichedProjects = await Promise.race([
+      Promise.all(result.projects.map(enrichProjectProduction)),
+      new Promise<null>((resolve) => {
+        timeoutHandle = setTimeout(() => resolve(null), remainingMs);
+        timeoutHandle.unref?.();
+      }),
+    ]);
+
+    if (enrichedProjects) {
+      return {
+        ...result,
+        projects: enrichedProjects,
+      };
+    }
+
+    return {
+      ...result,
+      warnings: [
+        ...result.warnings,
+        {
+          path: result.workspacePath,
+          code: 'SCAN_TIMEOUT',
+          message:
+            'Tempo limite da varredura recursiva atingido durante a descoberta do contrato de produção; resultado parcial.',
+        },
+      ],
+    };
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
 }
 
 export type {
