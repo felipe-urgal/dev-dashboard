@@ -40,17 +40,26 @@ export class GitDeploymentRevisionResolver
 {
   public async resolve(project: Project): Promise<DeploymentRevision> {
     try {
-      const [revision, branch] = await Promise.all([
+      const [revision, branch, worktreeStatus] = await Promise.all([
         runGit(project.path, ['rev-parse', 'HEAD']),
         runGit(project.path, ['branch', '--show-current']),
+        runGit(project.path, ['status', '--porcelain', '--untracked-files=normal']),
       ]);
 
       if (!/^[0-9a-f]{40}$/i.test(revision) || branch.length === 0) {
         throw new Error('Revisão Git inválida ou HEAD destacado.');
       }
 
+      if (worktreeStatus.length > 0) {
+        throw new DeploymentError(
+          'DEPLOYMENT_WORKTREE_DIRTY',
+          'A produção exige um working tree limpo; commit ou descarte as alterações locais antes de gerar o plano.',
+        );
+      }
+
       return { revision, branch };
-    } catch {
+    } catch (error) {
+      if (error instanceof DeploymentError) throw error;
       throw new DeploymentError(
         'DEPLOYMENT_REVISION_UNAVAILABLE',
         'Não foi possível resolver branch e revisão Git do projeto.',
