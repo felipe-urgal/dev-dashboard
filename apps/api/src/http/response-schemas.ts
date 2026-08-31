@@ -9,3 +9,4 @@ export * from './response-schemas/database.js';
 export * from './response-schemas/project-environment.js';
 export * from './response-schemas/project-doctor.js';
 export * from './response-schemas/project-coverage.js';
+export * from './response-schemas/deployments.js';
