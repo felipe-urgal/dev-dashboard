@@ -71,7 +71,9 @@ async function initSampleGitRepository(
 
 async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   const projectDirectory = path.join(workspaceDirectory, 'sample-node-app');
-  await mkdir(projectDirectory, { recursive: true });
+  await mkdir(path.join(projectDirectory, '.dev-dashboard'), {
+    recursive: true,
+  });
   await writeFile(
     path.join(projectDirectory, 'package.json'),
     JSON.stringify(
@@ -88,6 +90,41 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
           // (delegado à aba Dependências, ver project-script-visibility.ts).
           lint: 'node -e "setTimeout(() => process.exit(0), 500)"',
           format: 'node -e "setTimeout(() => process.exit(1), 500)"',
+          'prod:status': 'node -e "process.exit(0)"',
+          'prod:check': 'node -e "process.exit(0)"',
+          'prod:deploy': 'node -e "process.exit(0)"',
+          'prod:verify': 'node -e "process.exit(0)"',
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  await writeFile(
+    path.join(projectDirectory, '.dev-dashboard', 'production.json'),
+    JSON.stringify(
+      {
+        version: 1,
+        production: {
+          enabled: true,
+          strategy: 'command',
+          provider: 'systemd',
+          branch: 'main',
+          commands: {
+            status: 'prod:status',
+            check: 'prod:check',
+            deploy: 'prod:deploy',
+            verify: 'prod:verify',
+          },
+          health: {
+            type: 'http',
+            url: 'https://example.test/health',
+          },
+          policies: {
+            backup: 'not-configured',
+            migrations: 'not-configured',
+            rollback: 'manual-restore',
+          },
         },
       },
       null,

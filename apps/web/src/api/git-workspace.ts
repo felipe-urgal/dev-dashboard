@@ -33,9 +33,11 @@ async function requestJson<T>(
 
 export async function fetchProjectGitWorkspace(
   projectId: string,
+  signal?: AbortSignal,
 ): Promise<ProjectGitWorkspace> {
   const response = await requestJson<GitWorkspaceResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/workspace`,
+    signal ? { signal } : undefined,
   );
 
   return response.workspace;
