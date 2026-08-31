@@ -105,6 +105,18 @@ export async function startDeployment(
   return response.deployment;
 }
 
+export async function retryDeploymentVerify(
+  projectId: string,
+  deploymentId: string,
+  signal?: AbortSignal,
+): Promise<Deployment> {
+  const response = await requestJson<{ deployment: Deployment }>(
+    `${projectDeploymentsUrl(projectId)}/${encodeURIComponent(deploymentId)}/verify`,
+    requestInit('POST', signal),
+  );
+  return response.deployment;
+}
+
 export async function fetchDeploymentHistory(
   projectId: string,
   options: {

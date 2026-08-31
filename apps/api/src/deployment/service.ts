@@ -129,6 +129,76 @@ export class DeploymentService {
     return structuredClone(deployment);
   }
 
+  public async retryVerify(
+    project: Project,
+    deploymentId: string,
+  ): Promise<Deployment> {
+    await this.readyPromise;
+    const deployment = await this.get(project.id, deploymentId);
+    const verifyIndex = this.verifyRetryIndex(deployment);
+
+    const currentPlan = await this.plan(project);
+    if (
+      currentPlan.branch !== deployment.branch ||
+      currentPlan.revision !== deployment.revision ||
+      currentPlan.provider !== deployment.provider
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PLAN_STALE',
+        'Branch, revisão ou contrato de produção mudou; prepare um novo deployment.',
+      );
+    }
+
+    this.assertNoActiveDeployment();
+    await this.assertLatestDeployment(project.id, deployment.id);
+    this.assertNoActiveDeployment();
+
+    const startedAt = new Date(this.now()).toISOString();
+    const retryingTimeline = deployment.timeline.map((step, index) => {
+      if (index !== verifyIndex) return step;
+      const retryingStep = {
+        ...step,
+        status: 'running' as const,
+        startedAt,
+      };
+      delete retryingStep.finishedAt;
+      delete retryingStep.exitCode;
+      return retryingStep;
+    });
+    const retrying: Deployment = {
+      ...deployment,
+      status: 'verifying',
+      currentStepId: 'verify',
+      timeline: retryingTimeline,
+    };
+    delete retrying.finishedAt;
+    delete retrying.failurePoint;
+    delete retrying.errorCode;
+    delete retrying.errorMessage;
+
+    const controller = new AbortController();
+    this.active = {
+      deploymentId: retrying.id,
+      projectId: retrying.projectId,
+      controller,
+    };
+
+    try {
+      await this.store.save(retrying);
+    } catch (error) {
+      this.active = undefined;
+      throw error;
+    }
+
+    void this.executeVerifyRetry(
+      project,
+      retrying,
+      verifyIndex,
+      controller,
+    ).catch(() => undefined);
+    return structuredClone(retrying);
+  }
+
   public async get(
     projectId: string,
     deploymentId: string,
@@ -309,6 +379,178 @@ export class DeploymentService {
       await this.store.save(deployment);
     } finally {
       if (this.active?.deploymentId === deployment.id) this.active = undefined;
+    }
+  }
+
+  private async executeVerifyRetry(
+    project: Project,
+    initial: Deployment,
+    verifyIndex: number,
+    controller: AbortController,
+  ): Promise<void> {
+    let deployment = initial;
+    let logQueue = Promise.resolve();
+    let verifyExitCode: number | undefined;
+    const verifyStep = deployment.timeline[verifyIndex]!;
+
+    try {
+      await this.assertRevisionUnchanged(project, deployment);
+      const result = await this.adapter.run(
+        project,
+        verifyStep,
+        controller.signal,
+        (output) => {
+          logQueue = logQueue
+            .then(() => this.store.appendLog(deployment.id, output))
+            .catch(() => undefined);
+        },
+      );
+      await logQueue;
+      verifyExitCode = result.exitCode;
+
+      if (result.cancelled || controller.signal.aborted) {
+        const finishedAt = new Date(this.now()).toISOString();
+        deployment = {
+          ...deployment,
+          status: 'recovery_required',
+          finishedAt,
+          failurePoint: 'after-irreversible',
+          errorCode: 'DEPLOYMENT_VERIFY_RETRY_CANCELLED',
+          errorMessage:
+            'A nova verificação foi cancelada. O deploy já ocorreu; nenhuma etapa de mutação foi repetida.',
+          timeline: deployment.timeline.map((step, index) =>
+            index === verifyIndex
+              ? {
+                  ...step,
+                  status: 'cancelled',
+                  finishedAt,
+                  ...(verifyExitCode === undefined
+                    ? {}
+                    : { exitCode: verifyExitCode }),
+                }
+              : step,
+          ),
+        };
+        await this.store.save(deployment);
+        return;
+      }
+
+      if (result.exitCode !== 0) {
+        throw new DeploymentError(
+          'DEPLOYMENT_COMMAND_FAILED',
+          `A etapa verify terminou com código ${result.exitCode}.`,
+        );
+      }
+
+      const finishedAt = new Date(this.now()).toISOString();
+      deployment = {
+        ...deployment,
+        status: 'succeeded',
+        finishedAt,
+        timeline: deployment.timeline.map((step, index) =>
+          index === verifyIndex
+            ? {
+                ...step,
+                status: 'succeeded',
+                finishedAt,
+                exitCode: result.exitCode,
+              }
+            : step,
+        ),
+      };
+      delete deployment.failurePoint;
+      delete deployment.errorCode;
+      delete deployment.errorMessage;
+      await this.store.save(deployment);
+    } catch (error) {
+      await logQueue.catch(() => undefined);
+      const finishedAt = new Date(this.now()).toISOString();
+      const deploymentError =
+        error instanceof DeploymentError
+          ? error
+          : new DeploymentError(
+              'DEPLOYMENT_COMMAND_FAILED',
+              'A nova verificação de produção falhou.',
+            );
+      deployment = {
+        ...deployment,
+        status: 'recovery_required',
+        finishedAt,
+        failurePoint: 'after-irreversible',
+        errorCode: deploymentError.code,
+        errorMessage: deploymentError.message,
+        timeline: deployment.timeline.map((step, index) =>
+          index === verifyIndex && step.status === 'running'
+            ? {
+                ...step,
+                status: 'failed',
+                finishedAt,
+                ...(verifyExitCode === undefined
+                  ? {}
+                  : { exitCode: verifyExitCode }),
+              }
+            : step,
+        ),
+      };
+      await this.store.save(deployment);
+    } finally {
+      if (this.active?.deploymentId === deployment.id) this.active = undefined;
+    }
+  }
+
+  private verifyRetryIndex(deployment: Deployment): number {
+    if (
+      deployment.status !== 'recovery_required' &&
+      deployment.status !== 'failed' &&
+      deployment.status !== 'cancelled'
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
+        'A verificação só pode ser repetida depois que o deploy terminou e somente o verify falhou ou foi cancelado.',
+      );
+    }
+
+    const verifyIndex = deployment.timeline.findIndex(
+      (step) => step.id === 'verify',
+    );
+    const verifyStep = deployment.timeline[verifyIndex];
+    const deployStep = deployment.timeline.find((step) => step.id === 'deploy');
+    const previousStepsSucceeded =
+      verifyIndex > 0 &&
+      deployment.timeline
+        .slice(0, verifyIndex)
+        .every((step) => step.status === 'succeeded');
+    const verifyRetryable =
+      verifyStep &&
+      !verifyStep.mutating &&
+      !verifyStep.irreversible &&
+      (verifyStep.status === 'failed' || verifyStep.status === 'cancelled');
+
+    if (
+      verifyIndex !== deployment.timeline.length - 1 ||
+      deployStep?.status !== 'succeeded' ||
+      !previousStepsSucceeded ||
+      !verifyRetryable
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
+        'Esta execução não está no estado seguro para repetir somente o verify. Revise timeline, log e política de recuperação.',
+      );
+    }
+
+    return verifyIndex;
+  }
+
+  private async assertLatestDeployment(
+    projectId: string,
+    deploymentId: string,
+  ): Promise<void> {
+    const latest = await this.store.history(projectId, 1, 1);
+    if (latest.items[0]?.id !== deploymentId) {
+      throw new DeploymentError(
+        'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
+        'Somente o deployment mais recente do projeto pode repetir o verify.',
+      );
     }
   }
 

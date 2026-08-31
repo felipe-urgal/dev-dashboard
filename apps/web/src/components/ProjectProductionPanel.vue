@@ -45,6 +45,7 @@ import {
   fetchDeploymentPlan,
   fetchProductionDeploymentStatus,
   fetchProjectGitWorkspace,
+  retryDeploymentVerify,
   startDeployment,
 } from '../api';
 import ProductionSudoModal from './ProductionSudoModal.vue';
@@ -60,7 +61,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-type Operation = '' | 'planning' | 'starting' | 'cancelling' | 'refreshing';
+type Operation =
+  '' | 'planning' | 'starting' | 'verifying' | 'cancelling' | 'refreshing';
 
 const TERMINAL_STATUSES = new Set<DeploymentStatus>([
   'succeeded',
@@ -136,16 +138,59 @@ const hasActiveDeployment = computed(() => {
   const current = latestDeployment.value;
   return current ? !TERMINAL_STATUSES.has(current.status) : false;
 });
-const needsSudoAuthorization = computed(
-  () =>
-    isCommand.value &&
-    latestDeployment.value?.status === 'failed' &&
-    latestDeployment.value.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
-    !sudoAuthorized.value,
-);
+const hasRetryableLatestVerifyTimeline = computed(() => {
+  if (!isCommand.value) return false;
+  const deployment = latestDeployment.value;
+  if (
+    !deployment ||
+    (deployment.status !== 'recovery_required' &&
+      deployment.status !== 'failed' &&
+      deployment.status !== 'cancelled')
+  ) {
+    return false;
+  }
+  const verifyIndex = deployment.timeline.findIndex(
+    (step) => step.id === 'verify',
+  );
+  const verify = deployment.timeline[verifyIndex];
+  const deploy = deployment.timeline.find((step) => step.id === 'deploy');
+  return Boolean(
+    verify &&
+    verifyIndex === deployment.timeline.length - 1 &&
+    !verify.mutating &&
+    !verify.irreversible &&
+    (verify.status === 'failed' || verify.status === 'cancelled') &&
+    deploy?.status === 'succeeded' &&
+    deployment.timeline
+      .slice(0, verifyIndex)
+      .every((step) => step.status === 'succeeded'),
+  );
+});
 
 const branch = computed(() => production.value?.branch ?? 'main');
 const localRevision = computed(() => props.gitOverview?.latestCommit?.hash);
+const latestVerifySnapshotIsCurrent = computed(() => {
+  const deployment = latestDeployment.value;
+  return Boolean(
+    deployment &&
+    props.gitOverview?.branch === deployment.branch &&
+    localRevision.value === deployment.revision,
+  );
+});
+const canRetryLatestVerify = computed(
+  () =>
+    hasRetryableLatestVerifyTimeline.value &&
+    latestVerifySnapshotIsCurrent.value,
+);
+const needsSudoAuthorization = computed(() => {
+  const deployment = latestDeployment.value;
+  return Boolean(
+    isCommand.value &&
+    deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+    (deployment.status === 'failed' || canRetryLatestVerify.value) &&
+    !sudoAuthorized.value,
+  );
+});
 const originRevision = computed(() => {
   if (providerStatus.value?.originRevision) {
     return providerStatus.value.originRevision;
@@ -255,6 +300,16 @@ const statusView = computed(
         };
       }
       if (deployment.status === 'recovery_required') {
+        if (canRetryLatestVerify.value) {
+          return {
+            title: 'Deploy concluído · verificação falhou',
+            description:
+              'A mutação terminou e somente o verify falhou. Você pode verificar novamente sem repetir check, backup, migration ou deploy.',
+            label: 'Verificar',
+            tone: 'warning',
+            icon: ExclamationTriangleIcon,
+          };
+        }
         return {
           title: 'Produção requer recuperação',
           description:
@@ -702,7 +757,11 @@ async function preparePlan(): Promise<void> {
 async function handleSudoAuthorized(): Promise<void> {
   sudoModalOpen.value = false;
   sudoAuthorized.value = true;
-  await preparePlan();
+  if (canRetryLatestVerify.value) {
+    await retryLatestVerify();
+  } else {
+    await preparePlan();
+  }
 }
 
 async function confirmAndStart(): Promise<void> {
@@ -745,6 +804,36 @@ async function confirmAndStart(): Promise<void> {
       error instanceof Error
         ? error.message
         : 'Não foi possível iniciar o deployment.';
+  } finally {
+    if (current === generation) operation.value = '';
+  }
+}
+
+async function retryLatestVerify(): Promise<void> {
+  const deployment = latestDeployment.value;
+  if (!deployment || !canRetryLatestVerify.value || operation.value) return;
+  const current = generation;
+  operation.value = 'verifying';
+  errorMessage.value = '';
+  try {
+    const retrying = await retryDeploymentVerify(
+      props.project.id,
+      deployment.id,
+      requestController?.signal,
+    );
+    if (current !== generation) return;
+    activeDeployment.value = retrying;
+    history.value = [
+      retrying,
+      ...history.value.filter((item) => item.id !== retrying.id),
+    ].slice(0, 8);
+    schedulePoll(() => void pollCommandDeployment(current), 250);
+  } catch (error) {
+    if (current !== generation || isAbortError(error)) return;
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível repetir a verificação de produção.';
   } finally {
     if (current === generation) operation.value = '';
   }
@@ -841,8 +930,25 @@ onBeforeUnmount(() => {
           Autorizar sudo
         </button>
         <button
-          v-if="isCommand && !hasActiveDeployment"
-          :class="needsSudoAuthorization ? 'secondary-button' : 'primary-button'"
+          v-if="canRetryLatestVerify"
+          class="primary-button"
+          type="button"
+          :disabled="Boolean(operation)"
+          @click="retryLatestVerify"
+        >
+          <ArrowPathIcon
+            :class="{ 'production-spin': operation === 'verifying' }"
+            aria-hidden="true"
+          />
+          {{
+            operation === 'verifying' ? 'Verificando' : 'Verificar novamente'
+          }}
+        </button>
+        <button
+          v-if="isCommand && !hasActiveDeployment && !canRetryLatestVerify"
+          :class="
+            needsSudoAuthorization ? 'secondary-button' : 'primary-button'
+          "
           type="button"
           :disabled="Boolean(operation)"
           @click="preparePlan"
@@ -1193,7 +1299,15 @@ onBeforeUnmount(() => {
           class="production-recovery"
         >
           <ShieldExclamationIcon aria-hidden="true" />
-          <div>
+          <div v-if="canRetryLatestVerify">
+            <strong>O deploy terminou; não repita a mutação</strong>
+            <p>
+              Apenas o verify falhou. Use “Verificar novamente” para repetir
+              somente a validação de leitura. Check, backup, migration e deploy
+              não serão executados de novo.
+            </p>
+          </div>
+          <div v-else>
             <strong>Não faça rollback cego</strong>
             <p>
               A execução passou por uma etapa irreversível. Confira log, schema,

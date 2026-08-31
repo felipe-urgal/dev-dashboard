@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   fetchDeploymentPlan: vi.fn(),
   fetchProductionDeploymentStatus: vi.fn(),
   fetchProjectGitWorkspace: vi.fn(),
+  retryDeploymentVerify: vi.fn(),
   startDeployment: vi.fn(),
 }));
 
@@ -146,6 +147,44 @@ function privilegeFailedDeployment(): Deployment {
         status: 'pending',
       },
     ],
+  };
+}
+
+function verifyFailedDeployment(
+  overrides: Partial<Deployment> = {},
+): Deployment {
+  const deployment = successfulDeployment();
+  return {
+    ...deployment,
+    status: 'recovery_required',
+    failurePoint: 'after-irreversible',
+    errorCode: 'DEPLOYMENT_PRIVILEGE_REQUIRED',
+    errorMessage: 'O verify requer autorização sudo.',
+    timeline: deployment.timeline.map((step) =>
+      step.id === 'verify' ? { ...step, status: 'failed' as const } : step,
+    ),
+    ...overrides,
+  };
+}
+
+function gitOverview(revision = REVISION_A) {
+  return {
+    repository: true as const,
+    branch: 'main',
+    detached: false,
+    ahead: 0,
+    behind: 0,
+    clean: true,
+    files: [],
+    latestCommit: {
+      hash: revision,
+      shortHash: revision.slice(0, 8),
+      subject: 'feat: alvo',
+      authorName: 'Dev',
+      authorEmail: 'dev@example.com',
+      authoredAt: '2026-08-31T11:00:00.000Z',
+    },
+    recentCommits: [],
   };
 }
 
@@ -357,6 +396,117 @@ describe('ProjectProductionPanel', () => {
       expect.any(AbortSignal),
     );
     expect(wrapper.text()).toContain('Revise o plano antes de executar');
+    wrapper.unmount();
+  });
+
+  it('libera novo deployment quando branch ou revision torna o retry obsoleto', async () => {
+    resetApi();
+    const failed = verifyFailedDeployment();
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [failed],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: {
+        project: commandProject(),
+        gitOverview: gitOverview(REVISION_B),
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('Verificar novamente');
+    expect(wrapper.text()).toContain('Preparar deployment');
+    wrapper.unmount();
+  });
+
+  it('oferece retry quando somente o verify falha após deploy não irreversível', async () => {
+    resetApi();
+    const failed = verifyFailedDeployment({
+      status: 'failed',
+      failurePoint: 'before-irreversible',
+      errorCode: 'DEPLOYMENT_COMMAND_FAILED',
+      errorMessage: 'O verify falhou.',
+    });
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [failed],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+    api.retryDeploymentVerify.mockResolvedValue({
+      ...failed,
+      status: 'verifying',
+    });
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: {
+        project: commandProject(),
+        gitOverview: gitOverview(),
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Verificar novamente');
+    expect(wrapper.text()).not.toContain('Preparar deployment');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Verificar novamente'))!
+      .trigger('click');
+    await flushPromises();
+
+    expect(api.retryDeploymentVerify).toHaveBeenCalledWith(
+      'project-1',
+      failed.id,
+      expect.any(AbortSignal),
+    );
+    expect(api.fetchDeploymentPlan).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('autoriza sudo antes de repetir somente o verify elegível', async () => {
+    resetApi();
+    const failed = verifyFailedDeployment();
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [failed],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+    api.retryDeploymentVerify.mockResolvedValue({
+      ...failed,
+      status: 'verifying',
+    });
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: {
+        project: commandProject(),
+        gitOverview: gitOverview(),
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Autorizar sudo');
+    expect(wrapper.text()).toContain('Verificar novamente');
+    expect(wrapper.text()).not.toContain('Preparar deployment');
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Autorizar sudo'))!
+      .trigger('click');
+    await wrapper
+      .findComponent({ name: 'ProductionSudoModal' })
+      .vm.$emit('authorized');
+    await flushPromises();
+
+    expect(api.retryDeploymentVerify).toHaveBeenCalledWith(
+      'project-1',
+      failed.id,
+      expect.any(AbortSignal),
+    );
+    expect(api.fetchDeploymentPlan).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
