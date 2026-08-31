@@ -26,22 +26,25 @@ function clearSecret(): void {
   password.value = '';
 }
 
-function resetState(): void {
+function resetTransientState(): void {
   clearSecret();
   errorMessage.value = '';
+}
+
+function resetProjectState(): void {
+  resetTransientState();
   requiresNopasswdSetup.value = false;
 }
 
 function close(): void {
   if (submitting.value) return;
-  resetState();
+  resetTransientState();
   emit('close');
 }
 
 async function checkExistingAuthorization(): Promise<void> {
   checking.value = true;
   errorMessage.value = '';
-  requiresNopasswdSetup.value = false;
   try {
     const status = await fetchDeploymentSudoStatus(props.projectId);
     if (status.authorized) {
@@ -94,8 +97,17 @@ async function authorize(): Promise<void> {
 watch(
   () => props.open,
   (open) => {
-    resetState();
-    if (open) void checkExistingAuthorization();
+    resetTransientState();
+    if (open && !requiresNopasswdSetup.value) {
+      void checkExistingAuthorization();
+    }
+  },
+);
+
+watch(
+  () => props.projectId,
+  () => {
+    resetProjectState();
   },
 );
 
