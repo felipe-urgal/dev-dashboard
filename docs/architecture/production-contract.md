@@ -22,6 +22,8 @@ O formato atual usa `version: 1` e um objeto `production` com:
 - `policies`: políticas explícitas de backup, migrations e rollback/recovery;
 - metadados opcionais de documentação, health, provider externo e bloqueadores.
 
+Identificadores textuais obrigatórios, como `branch` e `external.project`, precisam conter conteúdo útil; strings compostas apenas por espaços são inválidas e mantêm o contrato fail-closed.
+
 O contrato normalizado é exposto em `Project.production` com `version: 1`.
 
 ## Operações canônicas
@@ -96,7 +98,7 @@ Requisitos mínimos:
 
 ## Descoberta
 
-`packages/project-discovery` continua responsável pela descoberta de Rails/Node e capabilities. Após a descoberta base, ele procura o manifesto de produção e o cruza com os scripts atuais do projeto.
+`packages/project-discovery` continua responsável pela descoberta de Rails/Node e capabilities. Após a descoberta base, ele primeiro verifica se o projeto optou pelo manifesto de produção; somente quando `.dev-dashboard/production.json` existe relê os scripts atuais do `package.json` para cruzar o contrato com o catálogo real. Isso evita I/O redundante no caminho comum de projetos sem contrato.
 
 O comportamento é fail-closed:
 
