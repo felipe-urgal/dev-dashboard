@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Readable } from 'node:stream';
 
 import type {
-  DeploymentPlanStep,
+  DeploymentCommandPlanStep,
   ProductionCommandId,
   Project,
 } from '@dev-dashboard/contracts';
@@ -114,7 +114,7 @@ export class ProductionCommandAdapter {
 
   public async run(
     project: Project,
-    step: DeploymentPlanStep,
+    step: DeploymentCommandPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
   ): Promise<ProductionCommandResult> {
