@@ -12,7 +12,7 @@ import { ApiRequestError } from '../src/api/core';
 import ProductionSudoModal from '../src/components/ProductionSudoModal.vue';
 
 describe('ProductionSudoModal', () => {
-  it('interrompe tentativas de senha quando o ticket sudo não é delegável', async () => {
+  it('interrompe tentativas de senha e preserva o diagnóstico ao reabrir', async () => {
     api.fetchDeploymentSudoStatus.mockReset();
     api.authorizeDeploymentSudo.mockReset();
     api.fetchDeploymentSudoStatus.mockResolvedValue({
@@ -56,7 +56,19 @@ describe('ProductionSudoModal', () => {
         .findAll('button')
         .some((button) => button.text().includes('Autorizar sudo')),
     ).toBe(false);
-    expect(wrapper.text()).toContain('Fechar');
+
+    await wrapper.setProps({ open: false });
+    await wrapper.setProps({ open: true });
+    await flushPromises();
+
+    expect(api.fetchDeploymentSudoStatus).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('Configurar privilégio mínimo');
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false);
+
+    await wrapper.setProps({ projectId: 'project-2' });
+    await flushPromises();
+    expect(api.fetchDeploymentSudoStatus).toHaveBeenLastCalledWith('project-2');
+    expect(wrapper.find('input[type="password"]').exists()).toBe(true);
 
     wrapper.unmount();
   });
