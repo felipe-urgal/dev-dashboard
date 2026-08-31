@@ -1,5 +1,6 @@
 import type {
   ProductionCommandId,
+  ProductionCommands,
   ProductionProvider,
 } from './production.js';
 
@@ -27,9 +28,13 @@ export type DeploymentExecutionPhase = Extract<
   'preparing' | 'backing_up' | 'migrating' | 'deploying' | 'verifying'
 >;
 
+export type DeploymentScriptId = NonNullable<
+  ProductionCommands[ProductionCommandId]
+>;
+
 export interface DeploymentPlanStep {
   id: ProductionCommandId;
-  script: string;
+  script: DeploymentScriptId;
   phase: DeploymentExecutionPhase;
   mutating: boolean;
   irreversible: boolean;
