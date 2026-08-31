@@ -57,6 +57,8 @@ test.describe('produção por projeto', () => {
     await expect(
       page.getByRole('heading', { name: 'Timeline do deployment' }),
     ).toBeVisible();
-    await expect(page.getByText('Último verify passou')).toBeVisible();
+    await expect(
+      page.getByText('Último verify passou', { exact: true }),
+    ).toBeVisible();
   });
 });
