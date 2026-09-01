@@ -37,7 +37,9 @@ export class GitDeploymentOriginRevisionResolver implements DeploymentOriginRevi
     project: Project,
     branch: string,
   ): Promise<string | undefined> {
-    const live = parseLsRemote(
+    // Production decisions must use the live remote. Falling back to the local
+    // tracking ref after a network/auth failure could approve a stale revision.
+    return parseLsRemote(
       await gitOutput(project.path, [
         'ls-remote',
         '--heads',
@@ -45,14 +47,5 @@ export class GitDeploymentOriginRevisionResolver implements DeploymentOriginRevi
         `refs/heads/${branch}`,
       ]),
     );
-    if (live) return live;
-
-    const tracked = await gitOutput(project.path, [
-      'show-ref',
-      '--verify',
-      '--hash',
-      `refs/remotes/origin/${branch}`,
-    ]);
-    return tracked && /^[0-9a-f]{40}$/i.test(tracked) ? tracked : undefined;
   }
 }
