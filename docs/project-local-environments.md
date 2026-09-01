@@ -18,6 +18,8 @@ CHECK_DATABASE_URL=postgresql://usuario:senha@localhost:5432/projeto_test
 
 A aba **Testes** carrega esse arquivo somente no processo filho do comando detectado. Quando `CHECK_DATABASE_URL` existe, o backend o promove para `DATABASE_URL` nessa execução para que suítes que esperam a variável padrão usem o banco de check.
 
+A aba Testes não usa `DATABASE_URL` herdada do processo da API como fallback: sem `CHECK_DATABASE_URL`, `DATABASE_URL` é explicitamente esvaziada. Credenciais do provider do dashboard, como `VERCEL_TOKEN` e `VERCEL_TEAM_ID`, também são removidas da execução de testes.
+
 O `prod:check` também pode receber o ambiente de check. Ele continua isolado de `.env.production.local` e, portanto, não ganha acesso ao banco de produção apenas por fazer parte de um plano de deployment.
 
 ## Produção
@@ -50,6 +52,6 @@ Nunca use `.env.production.local` para testes automatizados.
 A tela diferencia dois destinos:
 
 - **Abrir produção**: usa a URL pública derivada do health declarado no Production Contract; se o contrato não declarar health, usa a URL pública do deployment como fallback.
-- **Abrir deployment**: usa a URL do deployment específico retornada pela Vercel, separada do domínio canônico declarado no health.
+- **Abrir deployment**: usa o `inspectorUrl` do deployment específico retornado pela Vercel; se o provider não informar esse campo, a URL pública do deployment é usada apenas como fallback.
 
-Assim, abrir a aplicação de produção e abrir a revisão específica publicada pelo provider são ações distintas na interface.
+Assim, abrir a aplicação de produção e inspecionar a execução específica na Vercel são ações distintas na interface. A área **Domains** continua sendo configuração de domínio/DNS e não é o destino do botão de deployment.
