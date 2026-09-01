@@ -1,4 +1,4 @@
-import { open } from 'node:fs/promises';
+import { open, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -252,13 +252,44 @@ function assertPreviewSize(size: number, label: string): void {
   );
 }
 
+async function resolveWorkingTreePreviewPath(
+  projectPath: string,
+  safePath: string,
+  label: string,
+): Promise<string> {
+  try {
+    const [canonicalProject, canonicalTarget] = await Promise.all([
+      realpath(projectPath),
+      realpath(path.resolve(projectPath, safePath)),
+    ]);
+    const relative = path.relative(canonicalProject, canonicalTarget);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new GitDiffError(
+        'GIT_DIFF_PATH_OUTSIDE_PROJECT',
+        `${label} aponta para fora do projeto.`,
+      );
+    }
+    return canonicalTarget;
+  } catch (error) {
+    if (error instanceof GitDiffError) throw error;
+    throw new GitDiffError(
+      'GIT_DIFF_LINES_UNAVAILABLE',
+      `${label} indisponível na árvore de trabalho.`,
+    );
+  }
+}
+
 async function readWorkingTreePreview(
   projectPath: string,
   safePath: string,
   mimeType: string,
   label: string,
 ): Promise<GitImagePreviewContent> {
-  const absolute = path.resolve(projectPath, safePath);
+  const absolute = await resolveWorkingTreePreviewPath(
+    projectPath,
+    safePath,
+    label,
+  );
   let handle;
   try {
     handle = await open(absolute, 'r');
