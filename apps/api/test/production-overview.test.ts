@@ -86,6 +86,8 @@ function deployment(options: {
   revision?: string;
   status?: Deployment['status'];
   verifyStatus?: 'succeeded' | 'failed';
+  branch?: string;
+  provider?: Deployment['provider'];
 } = {}): Deployment {
   const project = options.project ?? commandProject();
   const revision = options.revision ?? REVISION_A;
@@ -94,8 +96,8 @@ function deployment(options: {
     id: options.id ?? 'deployment-1',
     projectId: project.id,
     projectName: project.name,
-    provider: project.production?.provider ?? 'none',
-    branch: project.production?.branch ?? 'main',
+    provider: options.provider ?? project.production?.provider ?? 'none',
+    branch: options.branch ?? project.production?.branch ?? 'main',
     revision,
     planHash: 'c'.repeat(64),
     status,
@@ -226,6 +228,39 @@ test('estado de execução e recovery tem precedência sobre comparação de rev
   const byId = new Map(overview.items.map((item) => [item.projectId, item]));
   assert.equal(byId.get(runningProject.id)?.state, 'running');
   assert.equal(byId.get(recoveryProject.id)?.state, 'recovery-required');
+});
+
+test('ignora histórico de branch ou provider de contratos anteriores', async () => {
+  const project = commandProject('contract-changed');
+  if (!project.production) throw new Error('produção esperada no fixture');
+  project.production.branch = 'release';
+
+  const staleBranch = deployment({
+    id: 'old-branch',
+    project,
+    revision: REVISION_A,
+    branch: 'main',
+    provider: 'systemd',
+  });
+  const staleProvider = deployment({
+    id: 'old-provider',
+    project,
+    revision: REVISION_A,
+    branch: 'release',
+    provider: 'docker-compose',
+  });
+
+  const overview = await service({
+    histories: new Map([
+      [project.id, history([staleProvider, staleBranch])],
+    ]),
+    targetRevision: REVISION_A,
+  }).read([project]);
+
+  assert.equal(overview.items[0]?.state, 'unknown');
+  assert.equal(overview.items[0]?.health, 'unknown');
+  assert.equal(overview.items[0]?.productionRevision, undefined);
+  assert.equal(overview.items[0]?.deploymentId, undefined);
 });
 
 test('Vercel READY e in-sync não inventam health atual sem verify correspondente', async () => {
