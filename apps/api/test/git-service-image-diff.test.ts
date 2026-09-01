@@ -166,3 +166,31 @@ test('getFileDiff não lê preview de PDF por link simbólico fora do projeto', 
   assert.equal(diff.pdfPreview, undefined);
   assert.doesNotMatch(diff.content, /conteudo-fora-do-projeto/);
 });
+
+test('getFileDiff não lê preview de imagem por link simbólico fora do projeto', async (context) => {
+  const { root } = await makeRepo();
+  const outsideRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-image-outside-'),
+  );
+  context.after(async () => {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(outsideRoot, { recursive: true, force: true }),
+    ]);
+  });
+
+  const outsideImage = path.join(outsideRoot, 'secret.png');
+  await writeFile(
+    outsideImage,
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x73, 0x65, 0x67, 0x72, 0x65, 0x64, 0x6f]),
+  );
+  await symlink(outsideImage, path.join(root, 'public', 'leak.png'));
+
+  const diff = await new GitService().getFileDiff(
+    root,
+    'public/leak.png',
+    'combined',
+  );
+
+  assert.equal(diff.imagePreview, undefined);
+});
