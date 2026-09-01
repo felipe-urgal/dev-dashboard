@@ -87,19 +87,21 @@ com `cwd=Project.path`, `shell: false`, stdin fechado e stdout/stderr mascarados
 
 ## Ambiente local de produção por projeto
 
-Antes de iniciar qualquer script `prod:*` local, o `ProductionCommandAdapter` procura opcionalmente:
+Para scripts locais que realmente consultam ou alteram o ambiente de produção, o `ProductionCommandAdapter` procura opcionalmente:
 
 ```text
 <Project.path>/.dev-dashboard/.env.production.local
 ```
 
-O arquivo não faz parte do `Production Contract` e não é enviado pelo browser. Quando existe, ele é lido e interpretado no backend, limitado a 64 KiB e aceito somente como arquivo regular. Seus valores são mesclados sobre o ambiente herdado pelo processo filho, portanto uma variável definida pelo projeto prevalece sobre uma variável homônima do processo do Dev Dashboard apenas naquela execução `prod:*`.
+O arquivo não faz parte do `Production Contract` e não é enviado pelo browser. Quando existe, ele é lido e interpretado no backend, limitado a 64 KiB e aceito somente como arquivo regular. Seus valores são mesclados sobre o ambiente herdado pelo processo filho, portanto uma variável definida pelo projeto prevalece sobre uma variável homônima do processo do Dev Dashboard apenas naquela execução.
 
-Ausência do arquivo mantém o comportamento anterior. Arquivo inválido, ilegível, não regular ou acima do limite bloqueia a etapa antes de iniciar o processo, sem incluir conteúdo do arquivo na mensagem de erro.
+`prod:check` é uma exceção deliberada: ele **não recebe** `.env.production.local`. A etapa de check deve validar código, build e testes sem ganhar credenciais de produção por consequência do deployment. Isso impede que uma suíte de testes que usa `DATABASE_URL`, por exemplo, passe a escrever no banco de produção apenas porque o deployment foi iniciado.
+
+Ausência do arquivo mantém o comportamento anterior nas etapas que o consomem. Arquivo inválido, ilegível, não regular ou acima do limite bloqueia essas etapas antes de iniciar o processo, sem incluir conteúdo do arquivo na mensagem de erro. Como `prod:check` não lê esse arquivo, uma configuração de produção inválida também não impede a validação local; ela falha quando a primeira etapa que realmente precisa do ambiente de produção for iniciada.
 
 O arquivo deve permanecer fora do Git. Ele é destinado a credenciais específicas do projeto, por exemplo `DATABASE_URL` usada por `prod:migrate`. Credenciais do provider, como `VERCEL_TOKEN`, continuam pertencendo ao ambiente do próprio Dev Dashboard e não ao manifesto.
 
-A etapa externa `provider-deploy` não carrega esse arquivo; ela continua usando exclusivamente o adapter/provider correspondente.
+A etapa externa `provider-deploy` também não carrega esse arquivo; ela continua usando exclusivamente o adapter/provider correspondente.
 
 ## `strategy=git-managed` + Vercel
 

@@ -71,6 +71,12 @@ function hasErrorCode(error: unknown, code: string): boolean {
   );
 }
 
+function shouldLoadProjectProductionEnvironment(
+  commandId: ProductionCommandId,
+): boolean {
+  return commandId !== 'check';
+}
+
 async function exists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
@@ -199,9 +205,9 @@ export class ProductionCommandAdapter {
     }
 
     const packageManager = await resolvePackageManager(project.path);
-    const productionEnvironment = await loadProjectProductionEnvironment(
-      project.path,
-    );
+    const productionEnvironment = shouldLoadProjectProductionEnvironment(step.id)
+      ? await loadProjectProductionEnvironment(project.path)
+      : {};
     const child = this.spawnProcess(packageManager, ['run', expectedScript], {
       cwd: project.path,
       env: { ...process.env, ...productionEnvironment },

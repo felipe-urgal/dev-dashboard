@@ -50,7 +50,7 @@ Preparar o plano não executa mutações. A confirmação é vinculada ao plano,
 
 ## Ambiente local de produção por projeto
 
-Quando um script `prod:*` precisa de segredos específicos do projeto, crie localmente:
+Quando uma etapa local que realmente consulta ou altera produção precisa de segredos específicos do projeto, crie localmente:
 
 ```text
 <projeto>/.dev-dashboard/.env.production.local
@@ -62,7 +62,9 @@ Exemplo:
 DATABASE_URL=postgresql://usuario:senha@host/banco
 ```
 
-Esse arquivo é opcional e não faz parte de `.dev-dashboard/production.json`. O `ProductionCommandAdapter` o carrega apenas para os scripts locais `prod:*`, mesclando os valores sobre o ambiente herdado do processo do Dev Dashboard. Assim, uma `DATABASE_URL` definida nesse arquivo prevalece para `prod:check`, `prod:migrate`, `prod:verify` e demais etapas locais, sem alterar `process.env` do dashboard.
+Esse arquivo é opcional e não faz parte de `.dev-dashboard/production.json`. O `ProductionCommandAdapter` o carrega para as etapas locais que operam o ambiente de produção, mesclando os valores sobre o ambiente herdado do processo do Dev Dashboard. Assim, uma `DATABASE_URL` definida nesse arquivo pode ser usada por `prod:migrate`, `prod:verify` e outras operações de produção sem alterar `process.env` do dashboard.
+
+**`prod:check` não recebe `.env.production.local`.** O check deve validar lint, typecheck, testes e build sem ganhar credenciais de produção. Se a suíte do projeto usa banco de dados, ela continua usando o ambiente normal do projeto/processo, e não a `DATABASE_URL` de produção apenas porque o deployment foi iniciado.
 
 Regras operacionais:
 
@@ -70,9 +72,9 @@ Regras operacionais:
 - prefira permissões locais restritas, por exemplo `chmod 600 .dev-dashboard/.env.production.local`;
 - não cole o conteúdo em issue, PR ou log;
 - o arquivo deve ser regular e ter no máximo 64 KiB;
-- ausência do arquivo é válida e mantém somente o ambiente herdado;
-- arquivo inválido, ilegível ou acima do limite bloqueia a etapa antes de iniciar o processo;
-- `provider-deploy` não usa esse arquivo.
+- ausência do arquivo é válida e mantém somente o ambiente herdado nas etapas que o consomem;
+- arquivo inválido, ilegível ou acima do limite bloqueia a primeira etapa que precisa do ambiente de produção antes de iniciar o processo;
+- `prod:check` e `provider-deploy` não usam esse arquivo.
 
 Credenciais do provider continuam centralizadas no ambiente do Dev Dashboard. Para Vercel, `VERCEL_TOKEN` permanece em `dev-dashboard/.env.local`; não o duplique no projeto alvo.
 
