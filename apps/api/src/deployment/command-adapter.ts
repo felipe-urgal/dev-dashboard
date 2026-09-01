@@ -31,15 +31,20 @@ const SCRIPT_BY_COMMAND = {
 
 const KILL_ESCALATION_MS = 1_000;
 const STDERR_CLASSIFICATION_LIMIT = 16_384;
-const PRODUCTION_ENV_MAX_BYTES = 64 * 1024;
-const PRODUCTION_ENV_PATH = path.join(
-  '.dev-dashboard',
-  '.env.production.local',
-);
+const PROJECT_ENV_MAX_BYTES = 64 * 1024;
+const PROJECT_ENV_PATH = {
+  check: path.join('.dev-dashboard', '.env.check.local'),
+  production: path.join('.dev-dashboard', '.env.production.local'),
+} as const;
+const PROJECT_ENV_LABEL = {
+  check: 'ambiente local de check',
+  production: 'ambiente local de produção',
+} as const;
 const SUDO_INTERACTIVE_PATTERN =
   /sudo:.*(?:terminal is required|no tty present|password is required|askpass|a terminal is required to read the password)/i;
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
+type ProjectEnvironmentKind = keyof typeof PROJECT_ENV_PATH;
 
 type SpawnProcess = (
   file: string,
@@ -71,12 +76,6 @@ function hasErrorCode(error: unknown, code: string): boolean {
   );
 }
 
-function shouldLoadProjectProductionEnvironment(
-  commandId: ProductionCommandId,
-): boolean {
-  return commandId !== 'check';
-}
-
 async function exists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
@@ -86,10 +85,12 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-async function loadProjectProductionEnvironment(
+async function loadProjectEnvironment(
   projectPath: string,
+  kind: ProjectEnvironmentKind,
 ): Promise<NodeJS.ProcessEnv> {
-  const envPath = path.join(projectPath, PRODUCTION_ENV_PATH);
+  const envPath = path.join(projectPath, PROJECT_ENV_PATH[kind]);
+  const label = PROJECT_ENV_LABEL[kind];
 
   let stats;
   try {
@@ -98,14 +99,14 @@ async function loadProjectProductionEnvironment(
     if (hasErrorCode(error, 'ENOENT')) return {};
     throw new DeploymentError(
       'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-      'Não foi possível acessar o ambiente local de produção do projeto.',
+      `Não foi possível acessar o ${label} do projeto.`,
     );
   }
 
-  if (!stats.isFile() || stats.size > PRODUCTION_ENV_MAX_BYTES) {
+  if (!stats.isFile() || stats.size > PROJECT_ENV_MAX_BYTES) {
     throw new DeploymentError(
       'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-      'O ambiente local de produção do projeto é inválido.',
+      `O ${label} do projeto é inválido.`,
     );
   }
 
@@ -114,7 +115,7 @@ async function loadProjectProductionEnvironment(
   } catch {
     throw new DeploymentError(
       'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-      'Não foi possível interpretar o ambiente local de produção do projeto.',
+      `Não foi possível interpretar o ${label} do projeto.`,
     );
   }
 }
@@ -205,12 +206,13 @@ export class ProductionCommandAdapter {
     }
 
     const packageManager = await resolvePackageManager(project.path);
-    const productionEnvironment = shouldLoadProjectProductionEnvironment(step.id)
-      ? await loadProjectProductionEnvironment(project.path)
-      : {};
+    const projectEnvironment = await loadProjectEnvironment(
+      project.path,
+      step.id === 'check' ? 'check' : 'production',
+    );
     const child = this.spawnProcess(packageManager, ['run', expectedScript], {
       cwd: project.path,
-      env: { ...process.env, ...productionEnvironment },
+      env: { ...process.env, ...projectEnvironment },
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
