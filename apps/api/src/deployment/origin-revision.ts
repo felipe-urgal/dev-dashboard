@@ -72,7 +72,11 @@ export class GitDeploymentOriginRevisionResolver implements DeploymentOriginRevi
     try {
       const { stdout } = await this.execGit(
         ['ls-remote', '--heads', 'origin', `refs/heads/${branch}`],
-        { cwd: project.path, timeoutMs: this.timeoutMs, signal },
+        {
+          cwd: project.path,
+          timeoutMs: this.timeoutMs,
+          ...(signal ? { signal } : {}),
+        },
       );
       return parseLsRemote(stdout);
     } catch {
