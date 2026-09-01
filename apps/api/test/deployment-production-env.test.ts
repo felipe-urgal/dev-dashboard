@@ -28,7 +28,10 @@ async function temporaryProject(t: test.TestContext): Promise<string> {
     path.join(directory, 'package.json'),
     JSON.stringify({
       packageManager: 'npm@11.0.0',
-      scripts: { 'prod:check': 'echo ok' },
+      scripts: {
+        'prod:check': 'echo ok',
+        'prod:migrate': 'echo migrate',
+      },
     }),
   );
   return directory;
@@ -52,12 +55,13 @@ function makeProject(projectPath: string): Project {
       commands: {
         status: 'prod:status',
         check: 'prod:check',
+        migrate: 'prod:migrate',
         deploy: 'prod:deploy',
         verify: 'prod:verify',
       },
       policies: {
         backup: 'required-before-migration',
-        migrations: 'startup',
+        migrations: 'before-deploy',
         rollback: 'restore-backup-when-schema-changed',
       },
     },
@@ -70,6 +74,14 @@ const checkStep = {
   phase: 'preparing' as const,
   mutating: false,
   irreversible: false,
+};
+
+const migrateStep = {
+  id: 'migrate' as const,
+  script: 'prod:migrate',
+  phase: 'migrating' as const,
+  mutating: true,
+  irreversible: true,
 };
 
 test('command adapter mantém ambiente herdado quando arquivo de produção não existe', async (t) => {
@@ -102,7 +114,54 @@ test('command adapter mantém ambiente herdado quando arquivo de produção não
   assert.equal(inheritedValue, 'herdado-do-dashboard');
 });
 
-test('command adapter carrega .dev-dashboard/.env.production.local e prioriza valores do projeto', async (t) => {
+test('command adapter não injeta .env.production.local em prod:check', async (t) => {
+  const directory = await temporaryProject(t);
+  await mkdir(path.join(directory, '.dev-dashboard'));
+  await writeFile(
+    path.join(directory, '.dev-dashboard', '.env.production.local'),
+    [
+      'DATABASE_URL="postgresql://production.example/app"',
+      'DEV_DASHBOARD_ENV_OVERRIDE=valor-do-projeto',
+      '',
+    ].join('\n'),
+  );
+
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousOverride = process.env.DEV_DASHBOARD_ENV_OVERRIDE;
+  process.env.DATABASE_URL = 'postgresql://development.example/app';
+  process.env.DEV_DASHBOARD_ENV_OVERRIDE = 'valor-do-dashboard';
+  t.after(() => {
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousOverride === undefined) delete process.env.DEV_DASHBOARD_ENV_OVERRIDE;
+    else process.env.DEV_DASHBOARD_ENV_OVERRIDE = previousOverride;
+  });
+
+  const child = new FakeChild();
+  let databaseUrl: string | undefined;
+  let overrideValue: string | undefined;
+  const adapter = new ProductionCommandAdapter({
+    spawnProcess: ((_file, _args, options) => {
+      databaseUrl = options.env.DATABASE_URL;
+      overrideValue = options.env.DEV_DASHBOARD_ENV_OVERRIDE;
+      queueMicrotask(() => child.emit('close', 0));
+      return child as never;
+    }) as never,
+  });
+
+  const result = await adapter.run(
+    makeProject(directory),
+    checkStep,
+    new AbortController().signal,
+    () => undefined,
+  );
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(databaseUrl, 'postgresql://development.example/app');
+  assert.equal(overrideValue, 'valor-do-dashboard');
+});
+
+test('command adapter carrega .env.production.local em prod:migrate e prioriza valores do projeto', async (t) => {
   const directory = await temporaryProject(t);
   await mkdir(path.join(directory, '.dev-dashboard'));
   await writeFile(
@@ -135,7 +194,7 @@ test('command adapter carrega .dev-dashboard/.env.production.local e prioriza va
 
   const result = await adapter.run(
     makeProject(directory),
-    checkStep,
+    migrateStep,
     new AbortController().signal,
     () => undefined,
   );
@@ -146,23 +205,34 @@ test('command adapter carrega .dev-dashboard/.env.production.local e prioriza va
   assert.equal(process.env.DEV_DASHBOARD_ENV_OVERRIDE, 'valor-do-dashboard');
 });
 
-test('command adapter falha fechado para arquivo de ambiente inválido antes de iniciar processo', async (t) => {
+test('arquivo de produção inválido não bloqueia check, mas falha fechado antes de migrate', async (t) => {
   const directory = await temporaryProject(t);
   await mkdir(path.join(directory, '.dev-dashboard'));
   await mkdir(path.join(directory, '.dev-dashboard', '.env.production.local'));
 
-  let spawned = false;
+  let spawnCount = 0;
   const adapter = new ProductionCommandAdapter({
     spawnProcess: (() => {
-      spawned = true;
-      return new FakeChild() as never;
+      spawnCount += 1;
+      const child = new FakeChild();
+      queueMicrotask(() => child.emit('close', 0));
+      return child as never;
     }) as never,
   });
+
+  const checkResult = await adapter.run(
+    makeProject(directory),
+    checkStep,
+    new AbortController().signal,
+    () => undefined,
+  );
+  assert.equal(checkResult.exitCode, 0);
+  assert.equal(spawnCount, 1);
 
   await assert.rejects(
     adapter.run(
       makeProject(directory),
-      checkStep,
+      migrateStep,
       new AbortController().signal,
       () => undefined,
     ),
@@ -171,5 +241,5 @@ test('command adapter falha fechado para arquivo de ambiente inválido antes de 
       error.code === 'DEPLOYMENT_PRODUCTION_UNAVAILABLE' &&
       /ambiente local de produção/i.test(error.message),
   );
-  assert.equal(spawned, false);
+  assert.equal(spawnCount, 1);
 });
