@@ -9,7 +9,7 @@ import {
 
 const MAX_ENVIRONMENT_FILE_BYTES = 256 * 1_024;
 const IGNORED_ENVIRONMENT_MARKER =
-  /(?:^|[._-])(?:local|sample|example|bak(?:up)?|old|orig)(?:$|[._-])/i;
+  /(?:^|[._-])(?:local|sample|example|bak|backup|old|orig)(?:$|[._-])/i;
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
