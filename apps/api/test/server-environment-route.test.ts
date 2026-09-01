@@ -35,6 +35,10 @@ test('configura e aplica o ambiente Node escolhido ao iniciar', async (context) 
     writeFile(path.join(projectPath, '.env.staging'), 'APP_ENV=staging\n'),
     writeFile(path.join(projectPath, '.env.example'), 'APP_ENV=example\n'),
     writeFile(path.join(projectPath, '.env.bak-portas'), 'APP_ENV=backup\n'),
+    writeFile(
+      path.join(projectPath, '.env.example.bak-portas'),
+      'APP_ENV=backup-template\n',
+    ),
   ]);
 
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
