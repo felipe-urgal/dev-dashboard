@@ -2,12 +2,14 @@ import type {
   Deployment,
   DeploymentLog,
   DeploymentPlanStep,
-  DeploymentProviderTarget,
+  DeploymentProviderPlanStep,
   DeploymentStatus,
   DeploymentStepStatus,
   ProductionCommandId,
   ProductionProvider,
 } from '@dev-dashboard/contracts';
+
+type DeploymentProviderTarget = DeploymentProviderPlanStep['target'];
 
 const COMMAND_SCRIPTS = {
   status: 'prod:status',
