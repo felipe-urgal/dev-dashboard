@@ -55,5 +55,3 @@ A tela diferencia dois destinos:
 - **Abrir deployment**: usa o `inspectorUrl` do deployment específico retornado pela Vercel; se o provider não informar esse campo, a URL pública do deployment é usada apenas como fallback.
 
 Assim, abrir a aplicação de produção e inspecionar a execução específica na Vercel são ações distintas na interface. A área **Domains** continua sendo configuração de domínio/DNS e não é o destino do botão de deployment.
-
-Implementação acompanhada em #514.
