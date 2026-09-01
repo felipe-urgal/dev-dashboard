@@ -1,0 +1,49 @@
+.git-pdf-diff-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-subtle, #f8fafc);
+}
+
+.git-pdf-diff-preview.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.git-pdf-diff-preview figure {
+  min-width: 0;
+  margin: 0;
+}
+
+.git-pdf-diff-preview figcaption {
+  margin-bottom: 8px;
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.git-pdf-diff-preview object {
+  display: block;
+  width: 100%;
+  min-height: 560px;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.git-pdf-diff-preview object p {
+  margin: 0;
+  padding: 24px;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .git-pdf-diff-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .git-pdf-diff-preview object {
+    min-height: 480px;
+  }
+}
