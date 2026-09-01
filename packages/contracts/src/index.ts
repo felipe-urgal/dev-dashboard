@@ -34,6 +34,7 @@ export type {
 
 export type {
   Deployment,
+  DeploymentCommandPlanStep,
   DeploymentConfirmation,
   DeploymentDriftStatus,
   DeploymentExecutionPhase,
@@ -44,10 +45,13 @@ export type {
   DeploymentPlanStep,
   DeploymentProviderAvailability,
   DeploymentProviderIssueCode,
+  DeploymentProviderPlanStep,
   DeploymentProviderSnapshot,
   DeploymentProviderState,
   DeploymentProviderTimelineStep,
+  DeploymentScriptId,
   DeploymentStatus,
+  DeploymentStepId,
   DeploymentStepStatus,
   DeploymentTimelineStep,
   ProductionDeploymentStatus,
@@ -218,52 +222,19 @@ export type {
   ProjectCoverageHistoryEntry,
   ProjectCoverageMetric,
   ProjectCoverageSummary,
-  ProjectCoverageTotals,
 } from './coverage.js';
 
 export type {
-  DatabaseReachability,
-  DatabaseRestoreResult,
-  DatabaseServiceAction,
-  MachineDatabaseDriver,
-  MachineDatabaseService,
-  MachineDatabaseServiceDetails,
-  MachineDatabaseExplorerDriver,
-  MachineDatabaseConnection,
-  MachineDatabaseCatalogItem,
-  MachineDatabaseTable,
-  MachineDatabaseQueryResult,
-  DatabaseSnapshot,
-  DatabaseSnapshotConfirmation,
-  DatabaseSnapshotDriver,
-  DatabaseSnapshotList,
-  ProjectDatabaseEnvironment,
-  ProjectDatabaseOverview,
-  ProjectDatabaseSecret,
-  ProjectDatabaseServiceActionResult,
-  ProjectDatabaseSource,
-} from './database.js';
-
-export type {
-  BundlerCheckResult,
-  BundlerOutdatedGem,
-  BundlerOverview,
-} from './bundler.js';
-
-export type {
-  RailsGeneratorConfirmation,
-  RailsGeneratorField,
-  RailsGeneratorFieldType,
-  RailsGeneratorKind,
-  RailsGeneratorResult,
-  RailsMigrationDetail,
-  RailsMigrationEntry,
-  RailsMigrationMutationOperation,
-  RailsMigrationStatus,
-  RailsMigrationsOverview,
-  RailsModelsOverview,
-  RailsRouteEntry,
-  RailsRoutesOverview,
+  RailsActionConfirmation,
+  RailsActionKind,
+  RailsActionResult,
+  RailsDatabaseInfo,
+  RailsGenerator,
+  RailsGeneratorInfo,
+  RailsMigration,
+  RailsMigrationDirection,
+  RailsMigrationResult,
+  RailsRoute,
   RailsSchemaColumn,
   RailsSchemaForeignKey,
   RailsSchemaIndex,
@@ -271,52 +242,74 @@ export type {
 } from './rails.js';
 
 export type {
-  RailsCredentialsEnvironmentStatus,
-  RailsCredentialsKeySource,
-  RailsCredentialsOverview,
-  RailsWorkerId,
-  RailsWorkerOverview,
+  RailsRuntimeAction,
+  RailsRuntimeActionResult,
+  RailsRuntimeActionTarget,
+  RailsRuntimeState,
+  RailsWorkerState,
 } from './rails-runtime.js';
 
 export type {
   ProjectScript,
-  ProjectScriptCatalog,
-  ProjectScriptOrigin,
-  ProjectScriptRisk,
-  ProjectScriptVariable,
-  ScriptExecution,
-  ScriptExecutionHistory,
-  ScriptExecutionEvent,
-  ScriptExecutionConfirmation,
-  ScriptExecutionLog,
-  ScriptExecutionStatus,
-  ScriptExecutionVariables,
+  ProjectScriptExecution,
+  ProjectScriptExecutionStatus,
+  ProjectScriptExecutionSummary,
 } from './script.js';
 
 export type {
-  CreateEnvironmentProfileInput,
-  EnvironmentProfile,
-  EnvironmentProfileLimits,
-  EnvironmentProfileList,
-  EnvironmentProfileVariable,
-  UpdateEnvironmentProfileInput,
+  BundlerInspection,
+  BundlerKind,
+  BundlerStatus,
+} from './bundler.js';
+
+export type {
+  ProjectEnvironmentProfile,
+  ProjectEnvironmentProfileSummary,
 } from './environment-profile.js';
 
 export type {
-  ProjectEnvironmentFile,
-  ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
-  ProjectEnvironmentVariableValue,
+  ProjectEnvironmentVariableSource,
+  ProjectEnvironmentVariables,
 } from './project-environment.js';
 
 export type {
+  DatabaseAdapterCapability,
+  DatabaseConnectionInput,
+  DatabaseConnectionResult,
+  DatabaseConnectionSummary,
+  DatabaseConnectionTestResult,
+  DatabaseDriver,
+  DatabaseExplorerColumn,
+  DatabaseExplorerError,
+  DatabaseExplorerForeignKey,
+  DatabaseExplorerIndex,
+  DatabaseExplorerQuery,
+  DatabaseExplorerQueryResult,
+  DatabaseExplorerQueryRow,
+  DatabaseExplorerSession,
+  DatabaseExplorerSessionState,
+  DatabaseExplorerTable,
+  DatabaseExplorerTableDetails,
+  DatabaseExplorerTableList,
+  DatabaseOverview,
+  DatabaseService,
+  DatabaseServiceKind,
+  DatabaseServiceState,
+  DatabaseSnapshot,
+  DatabaseSnapshotAdapter,
+  DatabaseSnapshotState,
+} from './database.js';
+
+export type {
   ProjectChangeImpact,
-  ProjectChangeImpactAction,
-  ProjectChangeImpactCategory,
+  ProjectChangeImpactFile,
+  ProjectChangeImpactRisk,
+  ProjectChangeImpactSummary,
 } from './project-change-impact.js';
 
 export type {
-  ProjectTerminalConfirmation,
-  ProjectTerminalKind,
-  ProjectTerminalStatus,
+  ProjectTerminalConfig,
+  ProjectTerminalSession,
+  ProjectTerminalState,
 } from './terminal.js';
