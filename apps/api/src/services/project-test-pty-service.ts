@@ -2,6 +2,10 @@ import type { Project } from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
 import {
+  loadProjectLocalEnvironment,
+  ProjectLocalEnvironmentError,
+} from '../security/project-local-environment.js';
+import {
   DetachableExecutionError,
   DetachableExecutionService,
   type DetachableExecutionSnapshot,
@@ -33,6 +37,31 @@ function sendJson(socket: WebSocket, message: unknown): void {
 
 function executionKey(projectId: string): string {
   return `${projectId}:test-pty`;
+}
+
+async function testEnvironment(project: Project): Promise<NodeJS.ProcessEnv> {
+  try {
+    const environment = await loadProjectLocalEnvironment(project.path, 'check');
+    const checkDatabaseUrl = environment.CHECK_DATABASE_URL?.trim();
+
+    return {
+      ...environment,
+      // A aba Testes nunca deve herdar uma DATABASE_URL do processo da API.
+      // Projetos que precisam de banco usam explicitamente CHECK_DATABASE_URL;
+      // projetos sem banco recebem uma variável vazia em vez de um fallback.
+      DATABASE_URL: checkDatabaseUrl ?? '',
+      // Credenciais do provider pertencem ao Dev Dashboard e não ao processo
+      // de testes do projeto alvo.
+      VERCEL_TOKEN: '',
+      VERCEL_TEAM_ID: '',
+    };
+  } catch (error) {
+    if (!(error instanceof ProjectLocalEnvironmentError)) throw error;
+    throw new ProjectTestPtyError(
+      'START_FAILED',
+      'O ambiente local de check do projeto é inválido ou não pôde ser lido.',
+    );
+  }
 }
 
 /**
@@ -75,11 +104,14 @@ export class ProjectTestPtyService {
       );
     }
 
+    const environment = await testEnvironment(project);
+
     try {
       return this.detachable.start(executionKey(project.id), {
         file: resolved.command,
         args: resolved.args,
         cwd: project.path,
+        env: environment,
       });
     } catch (error) {
       if (

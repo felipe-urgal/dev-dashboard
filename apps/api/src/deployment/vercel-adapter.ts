@@ -43,6 +43,7 @@ type VercelFetch = (
 export interface VercelProductionDeployment {
   id: string;
   url: string;
+  inspectorUrl?: string;
   state: DeploymentProviderState;
   createdAt: string;
   branch?: string;
@@ -464,6 +465,7 @@ export class VercelDeploymentAdapter {
   ): VercelProductionDeployment {
     const id = boundedString(value.id, 256) ?? boundedString(value.uid, 256);
     const url = boundedString(value.url, 2048);
+    const inspectorUrl = boundedString(value.inspectorUrl, 2048);
     const state =
       boundedString(value.state, 64) ?? boundedString(value.readyState, 64);
     const created = value.created ?? value.createdAt;
@@ -506,6 +508,7 @@ export class VercelDeploymentAdapter {
     return {
       id,
       url: normalizeUrl(url),
+      ...(inspectorUrl ? { inspectorUrl: normalizeUrl(inspectorUrl) } : {}),
       state: normalizeState(state),
       createdAt: createdAt.toISOString(),
       ...(branch ? { branch } : {}),
