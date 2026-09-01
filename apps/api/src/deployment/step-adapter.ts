@@ -1,13 +1,10 @@
-import type { DeploymentPlanStep, Project } from '@dev-dashboard/contracts';
+import type { DeploymentProviderPlanStep, Project } from '@dev-dashboard/contracts';
 import {
   maskSensitiveLogContent,
   type MaskedLogContent,
 } from '@dev-dashboard/process-manager';
 
-import {
-  ProductionCommandAdapter,
-  type ProductionCommandResult,
-} from './command-adapter.js';
+import type { ProductionCommandResult } from './command-adapter.js';
 import { DeploymentError } from './errors.js';
 import {
   LocalGitHubOriginResolver,
@@ -23,17 +20,7 @@ import {
 } from './revision.js';
 import { VercelDeploymentAdapter } from './vercel-adapter.js';
 
-export interface ProductionStepRunner {
-  run(
-    project: Project,
-    step: DeploymentPlanStep,
-    signal: AbortSignal,
-    onOutput: (output: MaskedLogContent) => void,
-  ): Promise<ProductionCommandResult>;
-}
-
-export interface ProductionStepAdapterOptions {
-  commandAdapter?: ProductionCommandAdapter;
+export interface VercelProviderStepAdapterOptions {
   vercelAdapter?: VercelDeploymentAdapter;
   githubOriginResolver?: GitHubOriginResolver;
   originRevisionResolver?: DeploymentOriginRevisionResolver;
@@ -41,16 +28,14 @@ export interface ProductionStepAdapterOptions {
   maskLog?: (content: string) => MaskedLogContent;
 }
 
-export class ProductionStepAdapter implements ProductionStepRunner {
-  private readonly commandAdapter: ProductionCommandAdapter;
+export class VercelProviderStepAdapter {
   private readonly vercelAdapter: VercelDeploymentAdapter;
   private readonly githubOriginResolver: GitHubOriginResolver;
   private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
   private readonly revisionResolver: DeploymentRevisionResolver;
   private readonly maskLog: (content: string) => MaskedLogContent;
 
-  public constructor(options: ProductionStepAdapterOptions = {}) {
-    this.commandAdapter = options.commandAdapter ?? new ProductionCommandAdapter();
+  public constructor(options: VercelProviderStepAdapterOptions = {}) {
     this.vercelAdapter = options.vercelAdapter ?? new VercelDeploymentAdapter();
     this.githubOriginResolver =
       options.githubOriginResolver ?? new LocalGitHubOriginResolver();
@@ -63,12 +48,15 @@ export class ProductionStepAdapter implements ProductionStepRunner {
 
   public async run(
     project: Project,
-    step: DeploymentPlanStep,
+    step: DeploymentProviderPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
   ): Promise<ProductionCommandResult> {
     if (step.id !== 'provider-deploy') {
-      return this.commandAdapter.run(project, step, signal, onOutput);
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'A etapa externa informada não é reconhecida pelo adapter Vercel.',
+      );
     }
 
     const production = project.production;
