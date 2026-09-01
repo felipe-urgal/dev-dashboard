@@ -13,6 +13,22 @@ const commandIdSchema = {
   ],
 } as const;
 
+const stepIdSchema = {
+  type: 'string',
+  enum: [
+    'status',
+    'check',
+    'backup',
+    'migrate',
+    'deploy',
+    'verify',
+    'restoreCheck',
+    'rollback',
+    'logs',
+    'provider-deploy',
+  ],
+} as const;
+
 const scriptIdSchema = {
   type: 'string',
   enum: [
@@ -43,7 +59,7 @@ const providerSchema = {
   enum: ['systemd', 'docker-compose', 'vercel', 'none'],
 } as const;
 
-export const deploymentPlanStepResponseSchema = {
+const commandPlanStepResponseSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['id', 'script', 'phase', 'mutating', 'irreversible'],
@@ -54,6 +70,22 @@ export const deploymentPlanStepResponseSchema = {
     mutating: { type: 'boolean' },
     irreversible: { type: 'boolean' },
   },
+} as const;
+
+const providerPlanStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'phase', 'mutating', 'irreversible'],
+  properties: {
+    id: { type: 'string', enum: ['provider-deploy'] },
+    phase: { type: 'string', enum: ['deploying'] },
+    mutating: { type: 'boolean', const: true },
+    irreversible: { type: 'boolean', const: true },
+  },
+} as const;
+
+export const deploymentPlanStepResponseSchema = {
+  oneOf: [commandPlanStepResponseSchema, providerPlanStepResponseSchema],
 } as const;
 
 export const deploymentPlanResponseSchema = {
@@ -94,17 +126,37 @@ export const deploymentConfirmationResponseSchema = {
   },
 } as const;
 
-export const deploymentTimelineStepResponseSchema = {
+const commandTimelineStepResponseSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['id', 'script', 'phase', 'mutating', 'irreversible', 'status'],
   properties: {
-    ...deploymentPlanStepResponseSchema.properties,
+    ...commandPlanStepResponseSchema.properties,
     status: stepStatusSchema,
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
     exitCode: { type: 'integer' },
   },
+} as const;
+
+const providerExecutionTimelineStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'phase', 'mutating', 'irreversible', 'status'],
+  properties: {
+    ...providerPlanStepResponseSchema.properties,
+    status: stepStatusSchema,
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    exitCode: { type: 'integer' },
+  },
+} as const;
+
+export const deploymentTimelineStepResponseSchema = {
+  oneOf: [
+    commandTimelineStepResponseSchema,
+    providerExecutionTimelineStepResponseSchema,
+  ],
 } as const;
 
 export const deploymentResponseSchema = {
@@ -148,7 +200,7 @@ export const deploymentResponseSchema = {
     createdAt: { type: 'string' },
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
-    currentStepId: commandIdSchema,
+    currentStepId: stepIdSchema,
     failurePoint: {
       type: 'string',
       enum: ['before-irreversible', 'after-irreversible'],
