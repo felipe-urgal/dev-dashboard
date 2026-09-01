@@ -1,13 +1,6 @@
-import { randomBytes } from 'node:crypto';
-import {
-  readFile,
-  readdir,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { parseEnv } from 'node:util';
 
 import {
   ProjectServerSettingsError,
@@ -15,10 +8,15 @@ import {
 } from './server-settings.js';
 
 const MAX_ENVIRONMENT_FILE_BYTES = 256 * 1_024;
-const TEMPLATE_OR_LOCAL_SUFFIX = /(?:^|\.)(?:local|sample|example)$/i;
+const IGNORED_ENVIRONMENT_MARKER =
+  /(?:^|[._-])(?:local|sample|example|bak(?:up)?|old|orig)(?:$|[._-])/i;
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
+}
+
+function isRunnableEnvironment(environment: string): boolean {
+  return !IGNORED_ENVIRONMENT_MARKER.test(environment);
 }
 
 export async function listNodeServerEnvironments(
@@ -47,7 +45,7 @@ export async function listNodeServerEnvironments(
 
     const environment = entry.name.slice('.env.'.length);
 
-    if (!environment || TEMPLATE_OR_LOCAL_SUFFIX.test(environment)) {
+    if (!environment || !isRunnableEnvironment(environment)) {
       continue;
     }
 
@@ -65,30 +63,14 @@ export async function listNodeServerEnvironments(
 export async function prepareNodeServerEnvironment(
   projectPath: string,
   selectedEnvironment?: string,
-): Promise<string | undefined> {
-  if (selectedEnvironment !== undefined) {
-    validateServerEnvironment(selectedEnvironment);
-  }
-
-  const environments = await listNodeServerEnvironments(projectPath);
-
-  if (environments.length === 0) {
-    if (selectedEnvironment !== undefined) {
-      throw new ProjectServerSettingsError(
-        'SERVER_ENVIRONMENT_NOT_FOUND',
-        `O arquivo .env.${selectedEnvironment} não foi encontrado.`,
-      );
-    }
-
+): Promise<NodeJS.ProcessEnv | undefined> {
+  if (selectedEnvironment === undefined) {
     return undefined;
   }
 
-  if (!selectedEnvironment) {
-    throw new ProjectServerSettingsError(
-      'SERVER_ENVIRONMENT_REQUIRED',
-      'Escolha um ambiente antes de iniciar o servidor.',
-    );
-  }
+  validateServerEnvironment(selectedEnvironment);
+
+  const environments = await listNodeServerEnvironments(projectPath);
 
   if (!environments.includes(selectedEnvironment)) {
     throw new ProjectServerSettingsError(
@@ -98,12 +80,6 @@ export async function prepareNodeServerEnvironment(
   }
 
   const source = path.join(projectPath, `.env.${selectedEnvironment}`);
-  const target = path.join(projectPath, '.env.local');
-  const temporary = path.join(
-    projectPath,
-    `.env.local.${process.pid}.${randomBytes(6).toString('hex')}.tmp`,
-  );
-
   const sourceStats = await stat(source);
 
   if (!sourceStats.isFile() || sourceStats.size > MAX_ENVIRONMENT_FILE_BYTES) {
@@ -113,17 +89,14 @@ export async function prepareNodeServerEnvironment(
     );
   }
 
-  const contents = await readFile(source);
+  const contents = await readFile(source, 'utf8');
 
   try {
-    await writeFile(temporary, contents, {
-      mode: 0o600,
-    });
-    await rename(temporary, target);
-  } catch (error) {
-    await rm(temporary, { force: true }).catch(() => undefined);
-    throw error;
+    return parseEnv(contents);
+  } catch {
+    throw new ProjectServerSettingsError(
+      'INVALID_SERVER_ENVIRONMENT',
+      `O arquivo .env.${selectedEnvironment} possui conteúdo inválido.`,
+    );
   }
-
-  return selectedEnvironment;
 }
