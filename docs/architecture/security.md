@@ -115,18 +115,21 @@ O dashboard não interpreta comandos internos de systemd ou Docker Compose; essa
 
 ### Ambiente local de produção por projeto
 
-Scripts `prod:*` podem receber segredos específicos do projeto a partir do caminho fixo `<Project.path>/.dev-dashboard/.env.production.local`. O browser não escolhe esse path nem envia o conteúdo do arquivo.
+Etapas locais que realmente consultam ou alteram produção podem receber segredos específicos do projeto a partir do caminho fixo `<Project.path>/.dev-dashboard/.env.production.local`. O browser não escolhe esse path nem envia o conteúdo do arquivo.
 
-O backend trata esse arquivo como configuração local sensível:
+`prod:check` é isolado dessa configuração por design. Ele não recebe `.env.production.local`, porque check normalmente executa lint, typecheck, testes e build. Dar credenciais de produção a essa etapa permitiria que uma suíte de testes que usa `DATABASE_URL`, por exemplo, alcançasse o banco de produção antes de qualquer migration ou promoção.
+
+O backend trata esse arquivo como configuração local sensível nas etapas que o consomem:
 
 - ausência é aceita;
 - somente arquivo regular é aceito, o que rejeita diretórios e symlinks nesse caminho;
 - o tamanho máximo é 64 KiB;
-- conteúdo inválido ou ilegível falha fechado antes de iniciar o processo;
+- conteúdo inválido ou ilegível falha fechado antes de iniciar a primeira etapa que precisa dele;
 - mensagens de erro não incluem o conteúdo do arquivo;
-- valores são adicionados somente ao ambiente do processo filho `prod:*` e não alteram `process.env` do Dev Dashboard;
+- valores são adicionados somente ao ambiente do processo filho correspondente e não alteram `process.env` do Dev Dashboard;
 - valores do arquivo prevalecem sobre variáveis homônimas herdadas somente naquela execução;
-- conteúdo não é persistido nem retornado pela API.
+- conteúdo não é persistido nem retornado pela API;
+- `prod:check` e `provider-deploy` não leem esse arquivo.
 
 O arquivo deve ser ignorado pelo Git e mantido com permissões locais restritas. Se ele não estiver ignorado, a própria regra de working tree limpa também pode bloquear o plano. Credenciais de provider continuam fora desse arquivo; por exemplo, `VERCEL_TOKEN` pertence ao `.env.local` do Dev Dashboard.
 
@@ -277,7 +280,8 @@ Mudanças sensíveis devem cobrir o risco relevante, por exemplo:
 - plano stale;
 - revision remota divergente ou indisponível antes de Vercel;
 - credencial Vercel ausente/recusada;
-- ambiente local de produção inválido/não regular;
+- `prod:check` sem acesso ao `.env.production.local`;
+- ambiente local de produção inválido/não regular nas etapas que o consomem;
 - resposta externa inválida ou acima do limite;
 - interrupção/cancelamento depois de etapa irreversível;
 - retry de verify sem repetir mutação;
