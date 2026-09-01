@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -135,4 +135,34 @@ test('getFileDiff inclui antes e depois para PDF binário', async (context) => {
     Buffer.from(diff.pdfPreview?.after?.base64 ?? '', 'base64'),
     pdfAfter,
   );
+});
+
+test('getFileDiff não lê preview de PDF por link simbólico fora do projeto', async (context) => {
+  const { root } = await makeRepo();
+  const outsideRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-pdf-outside-'),
+  );
+  context.after(async () => {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(outsideRoot, { recursive: true, force: true }),
+    ]);
+  });
+
+  const secretPdf = Buffer.from(
+    '%PDF-1.4\nconteudo-fora-do-projeto\u0000\n%%EOF\n',
+    'utf8',
+  );
+  const outsidePdf = path.join(outsideRoot, 'secret.pdf');
+  await writeFile(outsidePdf, secretPdf);
+  await symlink(outsidePdf, path.join(root, 'public', 'leak.pdf'));
+
+  const diff = await new GitService().getFileDiff(
+    root,
+    'public/leak.pdf',
+    'combined',
+  );
+
+  assert.equal(diff.pdfPreview, undefined);
+  assert.doesNotMatch(diff.content, /conteudo-fora-do-projeto/);
 });
