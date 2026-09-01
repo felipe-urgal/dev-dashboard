@@ -138,6 +138,19 @@ export class ProductionCommandAdapter {
       );
     }
 
+    if (step.providerPreflight) {
+      try {
+        await this.providerAdapter.preflight(
+          project,
+          step.providerPreflight,
+          signal,
+        );
+      } catch (error) {
+        if (signal.aborted) return { exitCode: 1, cancelled: true };
+        throw error;
+      }
+    }
+
     const packageManager = await resolvePackageManager(project.path);
     const child = this.spawnProcess(packageManager, ['run', expectedScript], {
       cwd: project.path,
