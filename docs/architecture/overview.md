@@ -2,64 +2,54 @@
 
 ## Contexto
 
-O Dev Dashboard começou como um conjunto modular de scripts Bash carregados diretamente no shell.
+O Dev Dashboard nasceu como scripts Bash carregados no shell e evoluiu para uma segunda interface web local. As duas interfaces continuam válidas: o CLI preserva fluxos existentes e a aplicação web concentra operações estruturadas por uma API Fastify.
 
-Essa implementação continua útil por oferecer acesso rápido a projetos locais, operações Git, servidores Rails e Node, banco de dados, testes e outras ferramentas de desenvolvimento.
-
-A evolução web não substitui imediatamente o CLI. Ela adiciona uma segunda interface e cria uma arquitetura compartilhada que permitirá reduzir gradualmente o acoplamento entre regras de negócio e menus interativos.
+Além do desenvolvimento local, a arquitetura atual inclui um domínio próprio de **deployment de produção** baseado em `Production Contract v1`. Cada projeto continua dono de sua infraestrutura física; o Dashboard padroniza contrato, plano, confirmação, timeline, provider e recovery.
 
 ## Objetivos arquiteturais
 
 A arquitetura deve:
 
-- preservar o funcionamento do CLI existente;
-- permitir uma interface profissional no navegador;
-- reutilizar regras entre CLI, API e frontend;
-- impedir execução arbitrária de comandos;
-- manter todos os serviços limitados ao computador local;
-- operar com múltiplos workspaces;
-- suportar projetos Rails e Node;
-- acompanhar processos persistentes;
-- oferecer logs e estados estruturados;
-- permitir testes automatizados das regras centrais.
+- preservar o CLI existente;
+- manter API/web local-first;
+- suportar múltiplos workspaces e projetos Rails/Node;
+- impedir shell arbitrário em ações estruturadas;
+- compartilhar contratos entre frontend/backend;
+- acompanhar processos/logs/estado de forma limitada;
+- usar confirmação/revalidação para mutações sensíveis;
+- operar produção sem hard-code por nome de repositório;
+- representar provider, revision, health e recovery de forma honesta;
+- permitir testes isolados de regras, adapters e fluxos críticos.
 
 ## Visão de alto nível
 
 ```text
-┌──────────────────────────────────────────────────────┐
-│ Interfaces                                           │
-├──────────────────────────┬───────────────────────────┤
-│ CLI Bash                 │ Dashboard Vue             │
-│ dev-tools                │ http://127.0.0.1:5173     │
-└─────────────┬────────────┴──────────────┬────────────┘
-              │                           │ HTTP
-              │                           ▼
-              │              ┌─────────────────────────┐
-              │              │ API Fastify             │
-              │              │ http://127.0.0.1:4343   │
-              │              └────────────┬────────────┘
-              │                           │
-              ▼                           ▼
-┌──────────────────────────────────────────────────────┐
-│ Núcleo da aplicação                                  │
-├──────────────────────────────────────────────────────┤
-│ Contracts                                            │
-│ Core                                                 │
-│ Project Discovery                                    │
-│ Process Manager                                      │
-└──────────────────────────┬───────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────┐
-│ Sistema operacional e ferramentas locais             │
-├──────────────────────────────────────────────────────┤
-│ Filesystem │ Git │ Rails │ Ruby │ Node │ npm │ MySQL │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Interfaces                                                  │
+├────────────────────────────┬────────────────────────────────┤
+│ CLI Bash                   │ Dashboard Vue 3                │
+│ lib/ + init.sh             │ http://127.0.0.1:5173         │
+└─────────────┬──────────────┴──────────────┬─────────────────┘
+              │                             │ HTTP/SSE/WS
+              │                             ▼
+              │                ┌──────────────────────────────┐
+              │                │ API Fastify                  │
+              │                │ http://127.0.0.1:4343       │
+              │                └──────────────┬───────────────┘
+              │                               │
+              ▼                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ packages/contracts │ core │ project-discovery              │
+│ process-manager │ Git │ deployment │ testes │ banco         │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+                  ┌───────────┴────────────┐
+                  ▼                        ▼
+        sistema/repositórios        providers explícitos
+        locais                      (Vercel)
 ```
 
 ## Monorepo
-
-O projeto utiliza npm workspaces.
 
 ```text
 apps/
@@ -73,426 +63,165 @@ packages/
 └── project-discovery/
 ```
 
-Essa organização permite que aplicações e bibliotecas sejam versionadas juntas, mas mantenham responsabilidades separadas.
+Código de domínio específico da API fica em `apps/api/src`; contratos públicos compartilhados ficam em `packages/contracts`.
 
-## Aplicação web
+## Frontend
 
-Localização:
-
-```text
-apps/web
-```
-
-Tecnologias:
-
-- Vue 3;
-- TypeScript;
-- Vite;
-- componentes Vue SFC;
-- Fetch API.
+`apps/web` usa Vue 3, TypeScript e Vite.
 
 Responsabilidades:
 
-- apresentar workspaces;
-- apresentar projetos detectados;
-- ajustar retenção local dentro de limites fechados;
-- exibir estados;
-- solicitar ações à API;
-- mostrar erros de forma compreensível;
-- acompanhar processos;
-- exibir logs;
-- descartar respostas assíncronas obsoletas ao trocar de projeto;
-- impedir sobreposição das consultas periódicas de status de processo; acompanhar logs de
-  servidor/workers por push (SSE) em vez de reconsultar em intervalo fixo.
-
-O frontend não deve executar comandos locais nem acessar diretamente o filesystem.
+- apresentar workspaces/projetos/capabilities;
+- chamar somente APIs estruturadas;
+- acompanhar estado por HTTP/SSE/WS;
+- representar loading/erro/sucesso reais;
+- descartar respostas stale ao trocar de contexto;
+- mostrar previews/confirmações antes de mutações sensíveis;
+- nunca acessar filesystem/processos/provider diretamente.
 
 ## API local
 
-Localização:
+`apps/api` usa Fastify + JSON Schema e é a fronteira de segurança entre navegador, sistema local e providers externos.
 
-```text
-apps/api
-```
+Responsabilidades incluem:
 
-Tecnologias:
+- autenticação/origem;
+- workspaces e `ProjectStore`;
+- Git/processos/testes/banco/filesystem;
+- contratos e rotas de produção;
+- adapters locais/externos;
+- persistência de histórico/logs;
+- tradução de erros para contratos públicos seguros.
 
-- Node.js;
-- TypeScript;
-- Fastify;
-- JSON Schema.
-
-Responsabilidades:
-
-- validar requisições;
-- gerenciar workspaces;
-- solicitar scans;
-- disponibilizar projetos;
-- iniciar e parar processos;
-- fornecer logs;
-- abrir sessões de terminal/console via WebSocket (`apps/api/src/services/project-terminal-service.ts`, ver `docs/architecture/security.md`);
-- rodar comandos de execução única (suíte completa de testes, operações de Migration Rails e ações de Dependências/Build) num PTY destacável que sobrevive à desconexão (`apps/api/src/services/detachable-execution-service.ts`, `project-test-pty-service.ts`, `rails-migration-pty-service.ts`, `project-dependencies-pty-service.ts` — task 234, ver `docs/guia/testes.md`, `docs/guia/banco-de-dados.md` e `docs/guia/dependencias.md`);
-- traduzir erros internos em respostas HTTP;
-- persistir preferências de retenção sem aceitar caminhos;
-- manter a API limitada a `127.0.0.1`.
-
-A API atua como fronteira de segurança entre o navegador e o sistema operacional.
-
-Cada instância criada por `buildApp()` recebe um contexto próprio com repositório de
-workspaces, store de projetos, gerenciador de processos e configurações de servidor.
-As rotas recebem essas dependências explicitamente, o que evita estado global entre
-instâncias e permite substituí-las por implementações isoladas nos testes.
+A API escuta em `127.0.0.1`.
 
 ## Contratos compartilhados
 
-Localização:
+`packages/contracts` contém tipos puros como `Workspace`, `Project`, processos, testes e contratos de deployment/produção.
 
-```text
-packages/contracts
-```
-
-Contém tipos compartilhados como:
-
-- `Workspace`;
-- `Project`;
-- `ManagedProcess`;
-- `ProcessLogSnapshot`;
-- `Job`.
-
-Os contratos não devem conter lógica de infraestrutura ou depender de aplicações específicas.
+O package não deve importar infraestrutura, Fastify ou Vue.
 
 ## Core
 
-Localização:
-
-```text
-packages/core
-```
-
-Responsabilidades atuais:
-
-- persistir workspaces;
-- validar caminhos cadastrados;
-- gerar identificadores;
-- evitar duplicidade;
-- remover configurações;
-- abstrair o caminho do arquivo de configuração.
-
-O `core` não depende de Fastify ou Vue.
+`packages/core` concentra configuração de workspaces, IDs e token local. Não depende das aplicações.
 
 ## Project Discovery
 
-Localização:
+`packages/project-discovery` detecta projetos Rails/Node e capabilities. O scan pode ser direto ou recursivo opt-in com limites de profundidade, quantidade e tempo.
 
-```text
-packages/project-discovery
-```
-
-Responsabilidades:
-
-- receber um workspace;
-- listar candidatos;
-- identificar Rails;
-- identificar Node;
-- detectar capacidades;
-- gerar identificadores estáveis;
-- retornar warnings por diretório;
-- ignorar diretórios internos e dependências.
-
-A descoberta não deve exibir prompts ou depender de interfaces interativas.
-
-### Varredura recursiva (opt-in)
-
-Por padrão `scanWorkspace` só examina os filhos diretos do workspace, como
-sempre fez. Passar `recursive: true` em `ScanWorkspaceOptions` ativa uma
-varredura em profundidade para atender monorepos, com limites explícitos que
-sempre produzem um resultado parcial (nunca travam nem estouram memória):
-
-- `maxDepth` (padrão 3) — profundidade máxima de subdiretórios explorados;
-  diretórios além do limite geram um warning `SCAN_DEPTH_LIMIT_REACHED`.
-- `maxProjects` (padrão 200) — interrompe a varredura ao atingir o total,
-  com warning `SCAN_PROJECT_LIMIT_REACHED`.
-- `timeoutMs` (padrão 5000) — interrompe a varredura ao estourar o tempo,
-  com warning `SCAN_TIMEOUT`.
-- `followSymlinks` (padrão `false`) — política de symlinks: por padrão a
-  varredura recursiva não desce em diretórios que são links simbólicos, para
-  evitar ciclos e travessia para fora do workspace; o comportamento de
-  symlinks nos filhos diretos (não recursivo) não muda.
-
-Ao encontrar um diretório que já é um projeto, a varredura não desce nele —
-o conteúdo interno de um projeto (`node_modules`, `vendor`, etc.) nunca é
-tratado como candidato a projeto aninhado.
-
-A opção é persistida por workspace (`Workspace.recursiveScan`, em
-`packages/contracts`) e decidida inteiramente no servidor — o navegador nunca
-envia `recursive` na chamada de scan, só liga/desliga a preferência do
-workspace previamente cadastrado (catálogo fechado de ações). A rota
-`POST /api/workspaces/:workspaceId/scan` lê `workspace.recursiveScan` e passa
-`{ recursive: workspace.recursiveScan }` para `scanWorkspace`.
-`PATCH /api/workspaces/:workspaceId` (corpo `{ recursiveScan: boolean }`)
-alterna a preferência de um workspace já cadastrado via
-`WorkspaceRepository.setRecursiveScan`; configs persistidos antes deste campo
-existir são migrados para `recursiveScan: false` na leitura (nunca descartados).
-No cadastro (`WorkspaceManagerModal.vue`), a opção aparece como um checkbox
-("Escanear subdiretórios (monorepos)") com aviso de que pode deixar o scan
-mais lento. O mesmo modal também lista os workspaces já cadastrados
-("Workspaces cadastrados") com um switch por workspace para alternar
-`recursiveScan` depois do cadastro — a alteração é otimista
-(`toggleWorkspaceRecursiveScan` em `stores/dashboard.ts`, que chama
-`PATCH /api/workspaces/:workspaceId` e desfaz a mudança local se a API
-falhar), no mesmo padrão já usado por `toggleProjectEnabled`.
-
-### Regras compartilhadas entre CLI e web
-
-`shared/project-type-rules.json` (raiz do repo) é a fonte única para a regra
-de detecção de tipo de projeto (Rails via nome exato da gem no `Gemfile`,
-Node via presença de `package.json`) — a única regra hoje duplicada nos dois
-lados com um comportamento real de divergência já encontrado (o CLI bash
-fazia um `grep` por substring "rails", confundindo gems como
-`rails-html-sanitizer` com a própria gem `rails`; o TypeScript já usava um
-regex de nome exato).
-
-O arquivo guarda dois campos de padrão para a mesma regra — `gemNamePattern`
-(sintaxe `RegExp` do JavaScript, usado por
-`packages/project-discovery/src/project-type-rules.ts`) e
-`gemNamePatternPosix` (sintaxe POSIX ERE, usado por
-`lib/projects/detect.sh` via `grep -E`) — porque bash e TypeScript não
-compartilham sintaxe de regex; nenhum dos dois lados faz tradução automática
-de um formato para o outro. Cada lado lê e cacheia o arquivo em runtime (não
-o compila/embute); se o arquivo estiver ausente ou malformado, cada lado cai
-num padrão embutido idêntico ao valor atual do arquivo compartilhado, então
-a leitura nunca é um requisito rígido.
-
-`packages/project-discovery` lê o arquivo relativo à própria localização do
-módulo (`import.meta.url`), estável tanto rodando de `src/` via `tsx` quanto
-de `dist/` compilado, sem depender do `cwd` do processo. `lib/projects/detect.sh`
-lê o arquivo via `jq` quando disponível (dependência opcional, verificada por
-`dev-doctor` no mesmo padrão de `gum`/`gh` — um aviso, não um bloqueio); sem
-`jq`, usa o padrão POSIX embutido.
-
-Esse mecanismo cobre só a detecção de tipo — deliberadamente não tenta unificar
-gerenciamento de processo (`lib/server/core/start.sh` vs.
-`packages/process-manager`) nem detecção de capacidades além do tipo
-(`config/webpack`, MySQL, sidekiq, etc.): os dois lados divergiram demais em
-maturidade e escopo (o `process-manager` cresceu para tratar retenção de log,
-rastreamento de saída de processo e verificação de identidade via
-`/proc/<pid>/cwd`, muito além do que o CLI bash faz) para uma regra
-declarativa compartilhada fazer sentido ali. Uma eventual extração mais
-profunda — ex. o CLI bash chamando um binário Node compartilhado — quebraria
-o princípio explícito do CLI de não exigir build step/compilador e precisa de
-decisão arquitetural e modelo de ameaça próprios (ver
-as decisões históricas do Git), não um mecanismo genérico.
+Quando `.dev-dashboard/production.json` existe, o discovery valida o `Production Contract v1` contra shape/estratégia/scripts reais. Contrato inválido gera `productionWarning` e não cria capability `production`.
 
 ## Process Manager
 
-Localização:
+`packages/process-manager` cuida de processos de desenvolvimento: comando reconhecido, `cwd`, porta, identidade, lifecycle e logs limitados.
+
+**Deployment não é um tipo de processo gerenciado.** Ele possui domínio próprio porque precisa de revision, plano, confirmação, irreversibilidade, provider externo e recovery.
+
+## Domínio de deployment
+
+O domínio em `apps/api/src/deployment/` coordena:
 
 ```text
-packages/process-manager
+ProductionContractV1
+        ↓
+GitDeploymentRevisionResolver
+        ↓
+DeploymentPlanner
+        ↓
+DeploymentConfirmationService
+        ↓
+DeploymentService
+        ├── ProductionCommandAdapter
+        ├── VercelDeploymentAdapter
+        ├── OriginRevisionResolver
+        └── DeploymentStore
 ```
 
-Responsabilidades:
+### `strategy=command`
 
-- selecionar comandos conhecidos;
-- iniciar servidores;
-- definir o diretório de execução;
-- escolher portas;
-- persistir estado;
-- validar processos existentes;
-- encerrar grupos de processos;
-- armazenar logs;
-- fornecer trechos limitados de logs.
-- mascarar credenciais conhecidas antes de devolver logs às interfaces.
-- varrer e remover estado/log terminal fora da janela de retenção
-  (`sweepStaleProcesses`), incluindo logs órfãos sem arquivo de estado
-  correspondente (task 042).
+Providers locais como systemd/Docker Compose expõem scripts canônicos `prod:*` e o projeto esconde os detalhes físicos.
 
-O gerenciador não aceita strings de shell arbitrárias.
+```text
+check → backup? → migrate? → deploy → verify
+```
 
-## Execução do catálogo
+### `strategy=git-managed` + Vercel
 
-O catálogo de scripts é redetectado no momento da execução. O identificador recebido pela API precisa corresponder a um script `package.json`, tarefa Rails ou executável `bin/` da allowlist atual; comando e argumentos nunca vêm do navegador. A execução possui estado e log limitados, pode ser cancelada e impede duas ações simultâneas no mesmo projeto. O histórico versionado persiste somente o contrato público, é limitado por idade e quantidade e reconcilia uma execução órfã como falha sem sinalizar seu antigo PID. Durante uma execução ativa, a API publica snapshots limitados de estado e log por SSE autenticado. O frontend recupera detalhe e log por HTTP antes de cada conexão ou reconexão, consulta registros terminais sob demanda e encerra o stream ao trocar de projeto.
+Não existe `prod:deploy` local. O plano usa uma etapa externa:
+
+```text
+check → migrate? → provider-deploy → verify
+```
+
+Antes da promoção, o backend consulta diretamente `origin/<production.branch>` e exige o mesmo SHA confirmado no plano. A Vercel recebe o SHA exato e a origem GitHub resolvida no backend.
+
+`READY` do provider não substitui `prod:verify`.
+
+### Estado/recovery
+
+Timeline/histórico/log são compartilhados pelas estratégias. Se uma etapa irreversível já iniciou, falha/cancelamento/crash pode terminar em `recovery_required`.
+
+Quando a promoção concluiu e somente `verify` falhou, existe retry fail-closed de apenas `prod:verify`, sem repetir mutação.
+
+## Integração Vercel
+
+Credenciais são locais ao processo:
+
+```text
+VERCEL_TOKEN
+VERCEL_TEAM_ID   # opcional
+```
+
+`npm run dev` carrega `.env.local` quando presente. O token não pertence ao Production Contract, não é persistido e não volta ao browser.
+
+O adapter limita/valida respostas externas e transforma auth/quota/not-found/indisponibilidade/resposta inválida em códigos estáveis.
 
 ## Persistência
 
-### Configuração
-
-Caminho padrão:
+Configuração padrão:
 
 ```text
-~/.config/dev-dashboard/config.json
+~/.config/dev-dashboard
 ```
 
-Alternativas:
-
-```text
-DEV_DASHBOARD_CONFIG_DIR
-XDG_CONFIG_HOME
-```
-
-Conteúdo atual:
-
-```json
-{
-  "version": 1,
-  "workspaces": []
-}
-```
-
-### Estado
-
-Caminho padrão:
+Estado padrão:
 
 ```text
 ~/.local/state/dev-dashboard
 ```
 
-Alternativas:
+Subdomínios mantêm stores próprios sob essa raiz, incluindo `processes/`, `logs/` e `deployments/`. Arquivos privados usam permissões restritas.
 
-```text
-DEV_DASHBOARD_STATE_DIR
-XDG_STATE_HOME
-```
+Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos.
 
-Subdiretórios:
+## Segurança
 
-```text
-processes/
-logs/
-```
+Princípios transversais:
 
-Arquivos de configuração e estado são criados com permissões restritas ao usuário sempre que possível.
+- loopback + autenticação/origem;
+- schemas fechados;
+- IDs/catálogos em vez de comandos livres;
+- paths/cwd canônicos;
+- `shell:false` quando aplicável;
+- preview + confirmação + revalidação;
+- limites/masking de logs;
+- prova de revision remota antes de promoção Vercel;
+- provider externo tratado como input não confiável;
+- recovery conservador após mutação irreversível.
 
-## Fluxo de workspace
+Veja [security.md](security.md).
 
-```text
-Usuário cadastra uma pasta
-        ↓
-API valida a requisição
-        ↓
-Core resolve o caminho real
-        ↓
-Workspace é persistido
-        ↓
-Usuário solicita scan
-        ↓
-Project Discovery analisa os diretórios
-        ↓
-Projetos estruturados são armazenados pela API
-        ↓
-Frontend renderiza os projetos
-```
+## Self-production
 
-## Fluxo de processo
+O próprio Dev Dashboard possui contrato fail-closed `strategy=disabled`. A API que coordena um deployment não pode reiniciar a si mesma e ainda provar o resultado final com segurança.
 
-```text
-Usuário clica em Iniciar
-        ↓
-Frontend envia projectId
-        ↓
-API procura o projeto detectado
-        ↓
-Process Manager escolhe um comando permitido
-        ↓
-Processo é iniciado sem shell
-        ↓
-Estado starting, PID, porta, comando e log são persistidos
-        ↓
-Process Manager confirma que a porta está aceitando conexões
-        ↓
-Estado passa para running
-        ↓
-Saída inesperada é persistida como failed com exitCode
-        ↓
-Frontend consulta o estado sem reutilizar PID ou URLs obsoletos
-```
+Self-update exige helper externo/handoff/readiness/privilégio mínimo antes de ser habilitado. Veja [self-production.md](self-production.md).
 
-## Fluxo de encerramento
+## Documentos relacionados
 
-```text
-Usuário clica em Parar
-        ↓
-API procura o processo persistido
-        ↓
-Process Manager verifica se o PID existe
-        ↓
-No Linux, compara /proc/<pid>/cwd com o projeto
-        ↓
-Envia SIGTERM ao grupo
-        ↓
-Aguarda encerramento
-        ↓
-Usa SIGKILL somente quando necessário
-        ↓
-Persiste o estado stopped
-```
-
-## Processo de desenvolvimento
-
-O comando:
-
-```bash
-npm run dev
-```
-
-inicia API e frontend.
-
-Para uso local sem Vite, `npm run dev-web` executa diagnóstico e build, valida `apps/web/dist` e inicia somente a API compilada em `http://127.0.0.1:4343`. O comando gera e imprime uma URL com capacidade efêmera no fragmento para autenticar o bootstrap da sessão; origem HTTP isoladamente não concede acesso. A API serve assets versionados com cache imutável, HTML sem cache prolongado e fallback Vue somente fora de `/api`. Porta e diretório podem ser definidos por `DEV_DASHBOARD_API_PORT` e `DEV_DASHBOARD_WEB_DIST`; o modo exige `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1`. O bind permanece fixo no loopback.
-
-Comandos de validação:
-
-```bash
-npm run typecheck
-npm run build
-npm test
-```
-
-## Estratégia de migração do Bash
-
-A migração deve ser incremental.
-
-1. Manter funções Bash atuais funcionando.
-2. Identificar comportamentos reutilizáveis.
-3. Criar operações não interativas.
-4. Implementar essas regras em pacotes testáveis.
-5. Fazer o CLI e a API consumirem o mesmo núcleo.
-6. Remover duplicações somente depois de validar paridade.
-
-Não devemos reescrever todo o CLI antes que a nova arquitetura comprove seu valor.
-
-## Próximos componentes
-
-Componentes já incorporados à arquitetura: repositório de projetos persistentes,
-status e operações Git (leitura e mutações com confirmação, incluindo
-`git-save` — task 041), avisos locais de conclusão (task 040), execução de
-testes, scripts Node, operações Rails de baixo risco, autenticação local,
-command palette, histórico de execuções (scripts e testes) e limpeza de
-estado/log obsoleto do Process Manager — incluindo logs órfãos sem estado
-correspondente (task 042).
-
-Ainda faltam:
-
-- adaptador para navegador local;
-- jobs/histórico de ações unificado entre Git, Rails e processos.
-
-`git-pr` foi concluído na task 043 e o adaptador de editor local na task 064 — esse adaptador
-(abertura de editor externo) e a IDE embutida que veio depois dele foram removidos no PR #262; ver
-nota em [`local-editor-design.md`](local-editor-design.md).
-
-`dev-kill-port` do CLI foi avaliado e adiado (task 042): encerra qualquer
-PID dono de uma porta sem validar sua identidade, o que conflita com a
-seção "Identidade de processos" abaixo.
-
-## Critérios para novos módulos
-
-Um módulo novo deve:
-
-- ter responsabilidade clara;
-- não depender da interface;
-- aceitar dados estruturados;
-- retornar dados estruturados;
-- validar entradas;
-- ser testável isoladamente;
-- não executar shell arbitrário;
-- não acessar caminhos fora do escopo autorizado;
-- expor erros identificáveis.
+- [Production Contract v1](production-contract.md)
+- [Domínio de deployment](deployment-domain.md)
+- [Fluxos runtime](runtime-flows.md)
+- [Segurança](security.md)
+- [Operação de deployments](../deployment-operations.md)
+- [Interface de Produção](../production-ui.md)
