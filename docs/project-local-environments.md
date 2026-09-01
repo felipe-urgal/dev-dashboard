@@ -50,6 +50,6 @@ Nunca use `.env.production.local` para testes automatizados.
 A tela diferencia dois destinos:
 
 - **Abrir produção**: usa a URL pública derivada do health declarado no Production Contract; se o contrato não declarar health, usa a URL pública do deployment como fallback.
-- **Abrir deployment**: prefere `inspectorUrl` retornado pela Vercel, abrindo a página de inspeção daquele deployment; se o provider não retornar esse campo, usa a URL do deployment como fallback.
+- **Abrir deployment**: usa a URL do deployment específico retornada pela Vercel, separada do domínio canônico declarado no health.
 
-Assim, navegar para a aplicação publicada e investigar um deployment são ações distintas na interface.
+Assim, abrir a aplicação de produção e abrir a revisão específica publicada pelo provider são ações distintas na interface.
