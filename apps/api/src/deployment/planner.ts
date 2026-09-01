@@ -4,6 +4,7 @@ import type {
   DeploymentCommandPlanStep,
   DeploymentPlan,
   DeploymentPlanStep,
+  DeploymentProviderTarget,
   ProductionCommandId,
   Project,
 } from '@dev-dashboard/contracts';
@@ -26,7 +27,11 @@ const SCRIPT_BY_COMMAND = {
 function commandStep(
   id: ProductionCommandId,
   phase: DeploymentCommandPlanStep['phase'],
-  options: { mutating?: boolean; irreversible?: boolean } = {},
+  options: {
+    mutating?: boolean;
+    irreversible?: boolean;
+    providerPreflight?: DeploymentProviderTarget;
+  } = {},
 ): DeploymentCommandPlanStep {
   return {
     id,
@@ -34,12 +39,16 @@ function commandStep(
     phase,
     mutating: options.mutating ?? false,
     irreversible: options.irreversible ?? false,
+    ...(options.providerPreflight
+      ? { providerPreflight: options.providerPreflight }
+      : {}),
   };
 }
 
 function addPreDeploySteps(
   project: Project,
   steps: DeploymentPlanStep[],
+  providerPreflight?: DeploymentProviderTarget,
 ): void {
   const production = project.production!;
   const commands = production.commands;
@@ -68,6 +77,7 @@ function addPreDeploySteps(
       commandStep('migrate', 'migrating', {
         mutating: true,
         irreversible: true,
+        ...(providerPreflight ? { providerPreflight } : {}),
       }),
     );
   }
@@ -125,13 +135,20 @@ export class DeploymentPlanner {
         );
       }
 
+      const target: DeploymentProviderTarget = {
+        externalProject: production.external.project,
+        branch: production.branch,
+        revision: revision.revision,
+      };
+
       steps.push(commandStep('check', 'preparing'));
-      addPreDeploySteps(project, steps);
+      addPreDeploySteps(project, steps, target);
       steps.push({
         id: 'provider-deploy',
         phase: 'deploying',
         mutating: true,
         irreversible: true,
+        target,
       });
       steps.push(commandStep('verify', 'verifying'));
     } else {
