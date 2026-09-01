@@ -130,36 +130,57 @@ test('start() injeta .env.check.local e promove CHECK_DATABASE_URL apenas no pro
     ].join('\n'),
   );
 
-  const fakePty = new FakePty();
-  let spawnedEnvironment: NodeJS.ProcessEnv | undefined;
-  const detachable = new DetachableExecutionService({
-    spawnPty: (_file, _args, options) => {
-      spawnedEnvironment = options.env;
-      return fakePty as never;
-    },
-  });
-  const service = new ProjectTestPtyService(
-    detachable,
-    stubDetection({ command: 'pnpm', args: ['run', 'test'] }),
-  );
+  const previousVercelToken = process.env.VERCEL_TOKEN;
+  const previousVercelTeamId = process.env.VERCEL_TEAM_ID;
+  process.env.VERCEL_TOKEN = 'segredo-dashboard';
+  process.env.VERCEL_TEAM_ID = 'team-dashboard';
 
-  await service.start(project({ path: directory }), 'full-suite');
+  try {
+    const fakePty = new FakePty();
+    let spawnedEnvironment: NodeJS.ProcessEnv | undefined;
+    const detachable = new DetachableExecutionService({
+      spawnPty: (_file, _args, options) => {
+        spawnedEnvironment = options.env;
+        return fakePty as never;
+      },
+    });
+    const service = new ProjectTestPtyService(
+      detachable,
+      stubDetection({ command: 'pnpm', args: ['run', 'test'] }),
+    );
 
-  assert.equal(
-    spawnedEnvironment?.DATABASE_URL,
-    'postgresql://check.example/app',
-  );
-  assert.equal(
-    spawnedEnvironment?.CHECK_DATABASE_URL,
-    'postgresql://check.example/app',
-  );
-  assert.equal(spawnedEnvironment?.TEST_ONLY_FLAG, 'check');
-  assert.equal(spawnedEnvironment?.PRODUCTION_ONLY_FLAG, undefined);
+    await service.start(project({ path: directory }), 'full-suite');
+
+    assert.equal(
+      spawnedEnvironment?.DATABASE_URL,
+      'postgresql://check.example/app',
+    );
+    assert.equal(
+      spawnedEnvironment?.CHECK_DATABASE_URL,
+      'postgresql://check.example/app',
+    );
+    assert.equal(spawnedEnvironment?.TEST_ONLY_FLAG, 'check');
+    assert.equal(spawnedEnvironment?.PRODUCTION_ONLY_FLAG, undefined);
+    assert.equal(spawnedEnvironment?.VERCEL_TOKEN, '');
+    assert.equal(spawnedEnvironment?.VERCEL_TEAM_ID, '');
+  } finally {
+    if (previousVercelToken === undefined) delete process.env.VERCEL_TOKEN;
+    else process.env.VERCEL_TOKEN = previousVercelToken;
+    if (previousVercelTeamId === undefined) delete process.env.VERCEL_TEAM_ID;
+    else process.env.VERCEL_TEAM_ID = previousVercelTeamId;
+  }
 });
 
-test('start() aceita projeto sem .env.check.local e mantém o ambiente herdado', async () => {
-  const previous = process.env.TEST_PTY_INHERITED;
+test('start() aceita projeto sem .env.check.local, preserva ambiente operacional e não herda DATABASE_URL/provider', async () => {
+  const previousInherited = process.env.TEST_PTY_INHERITED;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousVercelToken = process.env.VERCEL_TOKEN;
+  const previousVercelTeamId = process.env.VERCEL_TEAM_ID;
   process.env.TEST_PTY_INHERITED = 'herdado';
+  process.env.DATABASE_URL = 'postgresql://nao-pode-vazar.example/app';
+  process.env.VERCEL_TOKEN = 'segredo-dashboard';
+  process.env.VERCEL_TEAM_ID = 'team-dashboard';
+
   try {
     const fakePty = new FakePty();
     let spawnedEnvironment: NodeJS.ProcessEnv | undefined;
@@ -177,9 +198,18 @@ test('start() aceita projeto sem .env.check.local e mantém o ambiente herdado',
     await service.start(project(), 'full-suite');
 
     assert.equal(spawnedEnvironment?.TEST_PTY_INHERITED, 'herdado');
+    assert.equal(spawnedEnvironment?.DATABASE_URL, '');
+    assert.equal(spawnedEnvironment?.VERCEL_TOKEN, '');
+    assert.equal(spawnedEnvironment?.VERCEL_TEAM_ID, '');
   } finally {
-    if (previous === undefined) delete process.env.TEST_PTY_INHERITED;
-    else process.env.TEST_PTY_INHERITED = previous;
+    if (previousInherited === undefined) delete process.env.TEST_PTY_INHERITED;
+    else process.env.TEST_PTY_INHERITED = previousInherited;
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousVercelToken === undefined) delete process.env.VERCEL_TOKEN;
+    else process.env.VERCEL_TOKEN = previousVercelToken;
+    if (previousVercelTeamId === undefined) delete process.env.VERCEL_TEAM_ID;
+    else process.env.VERCEL_TEAM_ID = previousVercelTeamId;
   }
 });
 
