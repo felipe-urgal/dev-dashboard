@@ -378,12 +378,9 @@ async function readBinaryDiffPreview(
   const afterPromise = !hasAfter
     ? Promise.resolve(undefined)
     : scope === 'index'
-      ? readGitPreview(
-          projectPath,
-          `:${safePath}`,
-          afterMimeType,
-          label,
-        ).catch(() => undefined)
+      ? readGitPreview(projectPath, `:${safePath}`, afterMimeType, label).catch(
+          () => undefined,
+        )
       : readWorkingTreePreview(
           projectPath,
           safePath,

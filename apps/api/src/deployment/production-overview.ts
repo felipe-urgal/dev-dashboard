@@ -323,7 +323,11 @@ export class ProductionOverviewService {
       );
       const productionDeployment = currentHistory.find(mutationStepSucceeded);
       const productionRevision = productionDeployment?.revision;
-      const health = healthEvidence(project, currentHistory, productionRevision);
+      const health = healthEvidence(
+        project,
+        currentHistory,
+        productionRevision,
+      );
 
       let state = latestExecutionState;
       if (!state) {
@@ -361,7 +365,12 @@ export class ProductionOverviewService {
     project: Project,
     base: Pick<
       ProductionOverviewItem,
-      'projectId' | 'projectName' | 'workspaceId' | 'strategy' | 'provider' | 'branch'
+      | 'projectId'
+      | 'projectName'
+      | 'workspaceId'
+      | 'strategy'
+      | 'provider'
+      | 'branch'
     >,
     history: readonly Deployment[],
     latestExecutionState: ProductionOverviewState | undefined,
@@ -417,7 +426,9 @@ export class ProductionOverviewService {
       state,
       ...health,
       providerAvailability: status.providerAvailability,
-      ...(targetRevision ? { targetRevision, originRevision: targetRevision } : {}),
+      ...(targetRevision
+        ? { targetRevision, originRevision: targetRevision }
+        : {}),
       ...(productionRevision ? { productionRevision } : {}),
       ...(status.errorCode ? { errorCode: status.errorCode } : {}),
       ...(status.errorMessage ? { errorMessage: status.errorMessage } : {}),

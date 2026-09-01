@@ -43,7 +43,9 @@ const runningCount = computed(
 const attentionCount = computed(
   () =>
     items.value.filter((item) =>
-      ['failed', 'recovery-required', 'blocked', 'unknown'].includes(item.state),
+      ['failed', 'recovery-required', 'blocked', 'unknown'].includes(
+        item.state,
+      ),
     ).length,
 );
 
@@ -290,7 +292,9 @@ onBeforeUnmount(() => {
             </td>
             <td data-label="Provider">
               <span>{{ providerLabel(item.provider) }}</span>
-              <small v-if="providerAvailabilityLabel(item.providerAvailability)">
+              <small
+                v-if="providerAvailabilityLabel(item.providerAvailability)"
+              >
                 {{ providerAvailabilityLabel(item.providerAvailability) }}
               </small>
             </td>

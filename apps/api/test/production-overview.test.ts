@@ -80,15 +80,17 @@ function vercelProject(id = 'vercel-project'): Project {
   };
 }
 
-function deployment(options: {
-  id?: string;
-  project?: Project;
-  revision?: string;
-  status?: Deployment['status'];
-  verifyStatus?: 'succeeded' | 'failed';
-  branch?: string;
-  provider?: Deployment['provider'];
-} = {}): Deployment {
+function deployment(
+  options: {
+    id?: string;
+    project?: Project;
+    revision?: string;
+    status?: Deployment['status'];
+    verifyStatus?: 'succeeded' | 'failed';
+    branch?: string;
+    provider?: Deployment['provider'];
+  } = {},
+): Deployment {
   const project = options.project ?? commandProject();
   const revision = options.revision ?? REVISION_A;
   const status = options.status ?? 'succeeded';
@@ -175,10 +177,7 @@ test('classifica projeto command atualizado e preserva verify como evidência se
   assert.equal(overview.items[0]?.health, 'verified');
   assert.equal(overview.items[0]?.targetRevision, REVISION_A);
   assert.equal(overview.items[0]?.productionRevision, REVISION_A);
-  assert.equal(
-    overview.items[0]?.healthCheckedAt,
-    '2026-09-01T14:05:00.000Z',
-  );
+  assert.equal(overview.items[0]?.healthCheckedAt, '2026-09-01T14:05:00.000Z');
 });
 
 test('classifica drift sem transformar revision divergente em falha operacional', async () => {
@@ -251,9 +250,7 @@ test('ignora histórico de branch ou provider de contratos anteriores', async ()
   });
 
   const overview = await service({
-    histories: new Map([
-      [project.id, history([staleProvider, staleBranch])],
-    ]),
+    histories: new Map([[project.id, history([staleProvider, staleBranch])]]),
     targetRevision: REVISION_A,
   }).read([project]);
 

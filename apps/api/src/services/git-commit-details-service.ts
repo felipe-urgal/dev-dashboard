@@ -60,7 +60,11 @@ async function readPdfAtRevision(
   revisionPath: string,
 ): Promise<GitImagePreviewContent | undefined> {
   try {
-    const sizeText = await runGit(projectPath, ['cat-file', '-s', revisionPath]);
+    const sizeText = await runGit(projectPath, [
+      'cat-file',
+      '-s',
+      revisionPath,
+    ]);
     const size = Number.parseInt(sizeText.trim(), 10);
     if (
       !Number.isFinite(size) ||

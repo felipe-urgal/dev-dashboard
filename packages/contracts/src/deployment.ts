@@ -190,10 +190,7 @@ export type ProductionOverviewState =
   | 'unknown';
 
 export type ProductionOverviewHealth =
-  | 'verified'
-  | 'verify-failed'
-  | 'unknown'
-  | 'not-configured';
+  'verified' | 'verify-failed' | 'unknown' | 'not-configured';
 
 export interface ProductionOverviewItem {
   projectId: string;

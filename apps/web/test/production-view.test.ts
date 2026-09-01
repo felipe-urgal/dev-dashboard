@@ -27,10 +27,7 @@ import ProductionView from '../src/views/ProductionView.vue';
 
 const fetchOverviewMock = vi.mocked(fetchProductionOverview);
 
-function overview(
-  projectId: string,
-  projectName: string,
-): ProductionOverview {
+function overview(projectId: string, projectName: string): ProductionOverview {
   return {
     generatedAt: '2026-09-01T15:00:00.000Z',
     items: [
@@ -69,8 +66,9 @@ test('recarrega o overview quando o scan da troca de workspace termina', async (
   await flushPromises();
 
   assert.equal(
-    fetchOverviewMock.mock.calls.filter(([workspaceId]) => workspaceId === 'workspace-2')
-      .length,
+    fetchOverviewMock.mock.calls.filter(
+      ([workspaceId]) => workspaceId === 'workspace-2',
+    ).length,
     0,
   );
   assert.doesNotMatch(wrapper.text(), /Nenhum projeto foi detectado/);
@@ -80,8 +78,9 @@ test('recarrega o overview quando o scan da troca de workspace termina', async (
   await flushPromises();
 
   assert.equal(
-    fetchOverviewMock.mock.calls.filter(([workspaceId]) => workspaceId === 'workspace-2')
-      .length,
+    fetchOverviewMock.mock.calls.filter(
+      ([workspaceId]) => workspaceId === 'workspace-2',
+    ).length,
     1,
   );
   assert.match(wrapper.text(), /Projeto workspace 2/);

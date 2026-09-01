@@ -146,10 +146,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     token: localToken,
     ...(options.sessionSecret ? { sessionSecret: options.sessionSecret } : {}),
     ...(options.browserBootstrapToken
-      ? { browserBootstrapToken: options.browserBootstrapToken } : {}),
+      ? { browserBootstrapToken: options.browserBootstrapToken }
+      : {}),
     localOrigin: options.localOrigin ?? 'http://127.0.0.1:4343',
     ...(options.sessionTtlSeconds
-      ? { sessionTtlSeconds: options.sessionTtlSeconds } : {}),
+      ? { sessionTtlSeconds: options.sessionTtlSeconds }
+      : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.allowedOrigins
       ? {

@@ -180,7 +180,7 @@ export interface GitFileLines {
 }
 
 export type GitCommitFileStatus =
-  | 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
+  'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
 
 export interface GitCommitDetailFile {
   path: string;
@@ -243,7 +243,7 @@ export type GitCommitHistoryKind = 'all' | 'merge' | 'regular';
 
 export type GitPullRequestProvider = 'github' | 'gitlab';
 export type GitPullRequestCiStatus =
-  | 'success' | 'pending' | 'failure' | 'unknown';
+  'success' | 'pending' | 'failure' | 'unknown';
 
 export interface GitPullRequestUrl {
   provider: GitPullRequestProvider;
