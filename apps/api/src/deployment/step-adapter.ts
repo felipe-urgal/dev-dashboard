@@ -41,12 +41,17 @@ interface VercelPreflightResult {
   providerProject: VercelResolvedProject;
 }
 
+function targetKey(target: DeploymentProviderTarget): string {
+  return `${target.externalProject}\n${target.branch}\n${target.revision}`;
+}
+
 export class VercelProviderStepAdapter {
   private readonly vercelAdapter: VercelDeploymentAdapter;
   private readonly githubOriginResolver: GitHubOriginResolver;
   private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
   private readonly revisionResolver: DeploymentRevisionResolver;
   private readonly maskLog: (content: string) => MaskedLogContent;
+  private readonly preflightCache = new Map<string, VercelPreflightResult>();
 
   public constructor(options: VercelProviderStepAdapterOptions = {}) {
     this.vercelAdapter = options.vercelAdapter ?? new VercelDeploymentAdapter();
@@ -122,17 +127,19 @@ export class VercelProviderStepAdapter {
       );
     }
 
-    return {
+    const result = {
       repository,
       providerProject: {
         id: snapshot.projectId,
         name: snapshot.projectName,
       },
     };
+    this.preflightCache.set(targetKey(target), result);
+    return result;
   }
 
   public async run(
-    project: Project,
+    _project: Project,
     step: DeploymentProviderPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
@@ -143,13 +150,16 @@ export class VercelProviderStepAdapter {
         'A etapa externa informada não é reconhecida pelo adapter Vercel.',
       );
     }
+    if (signal.aborted) return { exitCode: 1, cancelled: true };
 
-    let preflight: VercelPreflightResult;
-    try {
-      preflight = await this.preflight(project, step.target, signal);
-    } catch (error) {
-      if (signal.aborted) return { exitCode: 1, cancelled: true };
-      throw error;
+    const key = targetKey(step.target);
+    const preflight = this.preflightCache.get(key);
+    this.preflightCache.delete(key);
+    if (!preflight) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'O preflight Vercel confirmado não está disponível para esta etapa; gere e confirme um novo plano.',
+      );
     }
 
     const result = await this.vercelAdapter.deployProduction(
