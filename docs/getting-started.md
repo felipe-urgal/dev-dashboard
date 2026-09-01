@@ -1,27 +1,18 @@
 # Primeiros passos
 
-Este guia leva de um clone limpo até a primeira execução completa do Dev Dashboard e explica o que cada serviço faz.
+Este guia leva de um clone limpo até a primeira execução do Dev Dashboard e explica a configuração opcional para operar projetos com Production Contract.
 
 ## Requisitos
 
-### Sistema e ferramentas
-
 - Linux;
-- Bash 4 ou superior;
+- Bash 4+;
 - Node.js `20.19+` ou `22.12+`;
 - npm;
 - Git.
 
-O desenvolvimento do projeto é validado principalmente com Node.js 24.
+O desenvolvimento é validado principalmente com Node.js 24.
 
-### Runtimes dos projetos gerenciados
-
-O Dev Dashboard não instala as dependências dos projetos encontrados. Cada projeto precisa possuir seu próprio ambiente, por exemplo:
-
-- Ruby, Bundler e Rails;
-- Node.js e o gerenciador correspondente ao lockfile;
-- MySQL, PostgreSQL ou Docker, quando usados pelo projeto;
-- executáveis auxiliares exigidos pelos scripts locais.
+Projetos gerenciados continuam responsáveis pelos próprios runtimes: Ruby/Bundler/Rails, Node/gerenciador do lockfile, bancos, Docker e ferramentas exigidas por seus scripts.
 
 ## Instalação
 
@@ -29,27 +20,8 @@ O Dev Dashboard não instala as dependências dos projetos encontrados. Cada pro
 git clone git@github.com:felipe-urgal/dev-dashboard.git ~/.dev-dashboard
 cd ~/.dev-dashboard
 npm install
-```
-
-A raiz é um monorepo npm. Um único `npm install` prepara aplicações e pacotes internos.
-
-## Verificação do ambiente
-
-Antes de iniciar os serviços:
-
-```bash
 npm run doctor
 ```
-
-O diagnóstico verifica:
-
-- versão do Node.js;
-- disponibilidade de npm e Git;
-- existência de `node_modules`;
-- acesso ao repositório;
-- disponibilidade das portas da API e web.
-
-Porta ocupada é exibida como aviso, pois pode representar outra instância legítima.
 
 ## Desenvolvimento completo
 
@@ -57,58 +29,35 @@ Porta ocupada é exibida como aviso, pois pode representar outra instância leg�
 npm run dev
 ```
 
-O script raiz executa dois processos filhos:
-
-```text
-api → npm run dev --workspace=@dev-dashboard/api
-web → npm run dev --workspace=@dev-dashboard/web
-```
-
-Antes disso, `predev` compila os pacotes compartilhados para que as aplicações consumam artefatos atualizados.
-
-### URLs locais
+URLs padrão:
 
 ```text
 API:           http://127.0.0.1:4343
 Dashboard web: http://127.0.0.1:5173
 ```
 
-O processo raiz encaminha o encerramento para todo o grupo. Use `Ctrl+C` uma vez para finalizar o ambiente.
+`predev` compila os pacotes compartilhados. `scripts/dev.mjs` também carrega `.env.local` na raiz quando o arquivo existe.
 
-## Execução separada
+Use `Ctrl+C` para encerrar API e web em conjunto.
+
+Para investigar separadamente:
 
 ```bash
 npm run dev:api
 npm run dev:web
 ```
 
-Isso é útil para investigar um serviço isoladamente.
-
-## Primeiro uso do dashboard
+## Primeiro uso
 
 1. Abra `http://127.0.0.1:5173`.
 2. Cadastre um workspace, como `/home/usuario/Projetos`.
-3. Solicite um scan.
-4. Selecione um projeto detectado.
-5. Abra a área desejada: servidor, Git, testes, banco, scripts, dependências ou ambiente.
+3. Execute o scan.
+4. Abra um projeto detectado.
+5. Use somente as abas/capabilities que o projeto expõe.
 
-A barra lateral também concentra os atalhos de **Documentação** e a alternância entre os temas **Escuro** e **Claro**, logo acima do status da API.
+Um projeto Rails possui `Gemfile` com a gem `rails`; um projeto Node possui `package.json`.
 
-Um workspace representa a pasta que contém projetos. O scanner analisa os diretórios imediatamente abaixo dela.
-
-## Como projetos são reconhecidos
-
-### Rails
-
-Um diretório é reconhecido como Rails quando possui um `Gemfile` que declara a gem `rails`.
-
-### Node
-
-Um diretório é reconhecido como Node quando possui `package.json`.
-
-### Capacidades
-
-Depois de reconhecer o tipo, o scanner identifica recursos disponíveis, como:
+Capabilities comuns incluem:
 
 ```text
 server
@@ -120,92 +69,141 @@ webpack
 sidekiq
 rake
 bundler
+production
 ```
 
-A interface deve mostrar somente operações compatíveis com as capacidades detectadas.
+`production` só aparece quando `.dev-dashboard/production.json` existe e passa pela validação fail-closed do Production Contract v1.
 
-## Autenticação no desenvolvimento
+## Configuração opcional da Vercel
 
-A API gera um token local em:
+Você só precisa configurar Vercel no **Dev Dashboard** se quiser consultar ou executar deployments de projetos cujo contrato declare:
+
+```text
+strategy=git-managed
+provider=vercel
+```
+
+Na raiz do Dev Dashboard, crie `.env.local`:
+
+```dotenv
+VERCEL_TOKEN=...
+# opcional quando o projeto está sob time que exige escopo explícito:
+VERCEL_TEAM_ID=team_...
+```
+
+Depois reinicie `npm run dev`.
+
+Regras:
+
+- não versione `.env.local`;
+- não coloque o token no manifesto do projeto;
+- não cole o token em logs/issues/PRs;
+- `VERCEL_TEAM_ID` só é necessário quando o escopo realmente exigir.
+
+Sem `VERCEL_TOKEN`, projetos Vercel continuam visíveis, mas a integração externa fica `not-configured` e a mutação permanece bloqueada.
+
+## Como funciona a aba Produção
+
+Com um contrato habilitado, a aba **Produção** pode mostrar revision, provider, health/readiness e drift.
+
+Para executar:
+
+```text
+Preparar deployment
+  ↓
+revisar branch + SHA + etapas
+  ↓
+Confirmar e iniciar
+  ↓
+acompanhar timeline/log
+```
+
+Em providers locais `strategy=command`, a promoção usa `prod:deploy` do próprio projeto. Em Vercel `git-managed`, a promoção aparece como `provider-deploy`: o backend confirma a revision real de `origin/<branch>` e envia o SHA exato à Vercel, depois roda `prod:verify`.
+
+Veja [guia/producao.md](guia/producao.md) antes da primeira operação real.
+
+## Autenticação local
+
+A API gera um token em:
 
 ```text
 ~/.config/dev-dashboard/api-token
 ```
 
-O proxy do Vite lê esse token no processo Node e adiciona `X-Dev-Dashboard-Token` às chamadas para `/api`. O token não é incluído no bundle do navegador.
+Em desenvolvimento, o proxy Vite o lê no processo Node e autentica requests para `/api`; o token não entra no bundle web.
 
-Clientes de linha de comando precisam fornecer o header manualmente nas rotas privadas. O health check permanece público.
+Clientes de linha de comando precisam fornecer `X-Dev-Dashboard-Token` nas rotas privadas. `/api/health` permanece público.
 
 ## Diretórios locais
 
-### Configuração
+Configuração:
 
 ```text
 ~/.config/dev-dashboard
 ```
 
-Pode ser alterado por:
+Alternativas:
 
 ```text
 DEV_DASHBOARD_CONFIG_DIR
 XDG_CONFIG_HOME
 ```
 
-### Estado e logs
+Estado/logs:
 
 ```text
 ~/.local/state/dev-dashboard
 ```
 
-Pode ser alterado por:
+Alternativas:
 
 ```text
 DEV_DASHBOARD_STATE_DIR
 XDG_STATE_HOME
 ```
 
-Arquivos privados devem usar permissões restritas ao usuário.
+Arquivos privados usam permissões restritas ao usuário.
 
 ## Distribuição local compilada
-
-Para compilar e executar a API servindo o frontend estático:
 
 ```bash
 npm run dev-web
 ```
 
-Esse modo:
+Esse modo executa diagnóstico/build, serve o frontend estático pela API e usa bootstrap efêmero de navegador sem Vite.
 
-- executa diagnóstico e build;
-- valida os artefatos do frontend;
-- inicia somente a API compilada;
-- gera uma capacidade efêmera de bootstrap;
-- imprime uma URL que deve ser aberta integralmente;
-- não inicia Vite.
+## Validação
 
-## Validação do projeto
+Antes de finalizar uma mudança relevante:
+
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+npm test
+npm run test:cli
+```
+
+Quando o fluxo web justificar:
+
+```bash
+npm run test:e2e
+```
+
+Rotas/schemas alterados também exigem:
 
 ```bash
 npm run docs:api
-npm run typecheck
-npm run build
-npm test
+npm run docs:api:check
 ```
-
-### O que cada comando garante
-
-| Comando | Garantia principal |
-|---|---|
-| `npm run docs:api` | Regenera os contratos HTTP a partir das rotas reais. |
-| `npm run docs:api:check` | Falha se a referência gerada estiver desatualizada. |
-| `npm run typecheck` | Valida tipos em workspaces que oferecem esse script. |
-| `npm run build` | Compila pacotes, API e web. |
-| `npm test` | Executa testes dos scripts e de todos os workspaces. |
-| `npm run test:e2e` | Compila e executa o fluxo E2E da web. |
 
 ## Próximas leituras
 
-- [Estrutura do repositório](architecture/repository-structure.md)
-- [Fluxos de execução](architecture/runtime-flows.md)
-- [Guia de desenvolvimento](development-guide.md)
+- [Guia do dashboard](guia/README.md)
+- [Produção](guia/producao.md)
+- [Production Contract v1](architecture/production-contract.md)
+- [Domínio de deployment](architecture/deployment-domain.md)
+- [Operação de deployments](deployment-operations.md)
+- [Segurança](architecture/security.md)
 - [Operação e troubleshooting](operations-and-troubleshooting.md)

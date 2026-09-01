@@ -514,7 +514,9 @@ export class DeploymentService {
       (step) => step.id === 'verify',
     );
     const verifyStep = deployment.timeline[verifyIndex];
-    const deployStep = deployment.timeline.find((step) => step.id === 'deploy');
+    const deployStep = deployment.timeline.find(
+      (step) => step.id === 'deploy' || step.id === 'provider-deploy',
+    );
     const previousStepsSucceeded =
       verifyIndex > 0 &&
       deployment.timeline

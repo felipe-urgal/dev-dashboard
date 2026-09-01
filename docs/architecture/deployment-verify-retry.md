@@ -2,42 +2,152 @@
 
 ## Contexto
 
-Um deployment `command` pode concluir todas as mutações e falhar apenas na validação final. Um exemplo real é um serviço systemd que reinicia corretamente, mas ainda não abriu a porta de readiness no primeiro instante em que `prod:verify` roda.
+Um deployment pode concluir todas as mutações e falhar apenas na validação final. Isso vale tanto para:
 
-Nesse cenário, repetir o plano inteiro seria desnecessário e potencialmente mais arriscado: `check`, `backup`, migration e `deploy` já produziram os efeitos previstos. O Dev Dashboard mantém a execução como `recovery_required` enquanto a produção não for verificada, mas oferece uma ação mais estreita que recuperação manual ou novo deploy.
+- `strategy=command`, depois de `prod:deploy`;
+- `strategy=git-managed`/Vercel, depois de `provider-deploy`.
 
-## Invariante de elegibilidade
+Exemplo comum: serviço/provider conclui a promoção, mas a aplicação ainda não está pronta no primeiro instante em que `prod:verify` roda.
 
-`retryVerify` é permitido somente quando a execução persistida prova simultaneamente que:
+Repetir o plano inteiro seria mais amplo e potencialmente perigoso: backup, migration e promoção já podem ter produzido efeito. Por isso o Dev Dashboard oferece uma ação estrita que repete somente a etapa final de verificação quando consegue **provar** que isso é seguro.
 
-- o status é `recovery_required`;
-- a etapa `verify` é a última da timeline;
+## Princípio
+
+`retryVerify` não é um novo deployment e não é um atalho para ignorar recovery.
+
+Ele só existe quando a timeline persistida e o estado atual provam que:
+
+```text
+mutações anteriores concluíram
++ verify final falhou/cancelou
++ contexto Git/contrato ainda corresponde
++ execução ainda é a referência mais recente
+= pode repetir somente verify
+```
+
+Se qualquer parte não puder ser provada, o backend falha fechado com `DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE` ou erro de stale/revision apropriado e não executa comando algum.
+
+## Elegibilidade
+
+A validação exige, entre outras invariantes:
+
+- a execução terminou em um estado compatível com retry (`recovery_required` ou outro estado terminal seguro reconhecido pelo domínio);
+- `verify` é a última etapa da timeline;
 - `verify` é somente leitura (`mutating=false`, `irreversible=false`);
 - `verify` terminou como `failed` ou `cancelled`;
-- `deploy` terminou como `succeeded`;
-- todas as etapas anteriores a `verify` terminaram como `succeeded`;
-- branch e revision atuais continuam iguais ao snapshot da execução original;
-- não existe outro deployment em execução.
+- todas as etapas anteriores terminaram como `succeeded`;
+- a etapa de promoção correspondente terminou como `succeeded`:
+  - `deploy` para `strategy=command`, ou
+  - `provider-deploy` para `strategy=git-managed`;
+- branch e revision atuais continuam compatíveis com o snapshot original;
+- o Production Contract atual continua permitindo a mesma estratégia/verify;
+- a execução ainda não foi superada por um deployment mais recente do projeto;
+- não existe outro deployment mutável incompatível em andamento.
 
-Se qualquer condição não for provada, o backend responde com `DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE` e não executa comando algum.
+O backend não confia apenas no texto exibido pela UI para decidir elegibilidade.
 
 ## Execução
 
-A rota `POST /api/projects/:projectId/deployments/:deploymentId/verify` reutiliza a etapa `verify` persistida no deployment original. Ela não reconstrói o plano e não consulta um script novo do `package.json`, evitando ampliar silenciosamente o escopo da execução confirmada.
+A rota:
+
+```text
+POST /api/projects/:projectId/deployments/:deploymentId/verify
+```
+
+reutiliza a etapa `verify` persistida na execução original.
 
 Durante o retry:
 
-1. a mesma execução volta temporariamente para `verifying`;
-2. somente o adapter da etapa `verify` é executado;
-3. logs são anexados ao log existente;
-4. sucesso transforma a execução em `succeeded` e limpa o diagnóstico anterior;
-5. nova falha mantém `recovery_required`;
-6. cancelamento não repete nenhuma mutação e continua exigindo validação/decisão antes de qualquer recuperação.
+1. o deployment volta temporariamente a `verifying`;
+2. o serviço revalida o contexto necessário;
+3. executa **somente** o adapter da etapa `verify`;
+4. anexa o output mascarado ao log existente;
+5. registra o novo `exitCode`/horários na mesma timeline;
+6. sucesso transforma a execução em `succeeded` e limpa o diagnóstico anterior;
+7. nova falha mantém o estado de falha/recovery apropriado sem repetir mutação.
+
+## O que nunca é repetido
+
+O retry não executa novamente:
+
+```text
+check
+backup
+migrate
+deploy
+provider-deploy
+```
+
+Em Vercel, isso significa que uma falha de readiness depois de um deployment `READY` **não cria outro deployment Vercel**.
+
+## `strategy=command`
+
+Exemplo:
+
+```text
+check ✓
+backup ✓
+deploy ✓
+verify ✗
+```
+
+Se o snapshot continuar válido, `Verificar novamente` executa apenas `prod:verify`.
+
+Se o `verify` local exigir privilégio e falhar por sudo, a autorização temporária pode continuar disponível para o retry; a senha não é encaminhada a etapas anteriores nem causa novo deploy.
+
+## `strategy=git-managed` + Vercel
+
+Exemplo:
+
+```text
+check ✓
+migrate ✓
+provider-deploy ✓   # Vercel READY para o SHA confirmado
+verify ✗
+```
+
+O retry não precisa reabrir a promoção nem criar outro deployment. Ele repete somente `prod:verify` no projeto alvo.
+
+A prova de `origin/<branch>` usada para **autorizar a promoção original** não é transformada em justificativa para uma nova promoção, porque nenhuma nova mutação de provider acontece no retry. Ainda assim, branch/revision/contrato atuais precisam satisfazer as revalidações do domínio para evitar executar um verify historicamente obsoleto como se pertencesse ao estado atual.
+
+## Execução antiga superada
+
+Um deployment histórico não pode voltar a ser “o atual” apenas porque seu verify era elegível no passado.
+
+Se existe deployment mais recente para o projeto, o retry da execução antiga é recusado. Isso evita validar uma revision anterior e sobrescrever semanticamente o resultado operacional mais novo.
 
 ## UI
 
-Quando a timeline satisfaz o estado seguro acima **e** o snapshot Git carregado na tela ainda confirma a mesma branch e revision, a tela mostra `Deploy concluído · verificação falhou` e a ação `Verificar novamente`. A ação de preparar um deployment completo fica escondida nesse estado para evitar que o caminho mais amplo seja escolhido por engano. Se branch ou HEAD mudou, o retry deixa de ser oferecido e a preparação de um novo deployment volta a ficar disponível.
+Quando backend/timeline/snapshot Git indicam elegibilidade, a tela mostra:
 
-Se a tentativa de `verify` falhou por falta de privilégio, a autorização sudo temporária também fica disponível nesse estado. Depois da autorização, a interface repete somente o `verify`; ela não prepara nem executa novamente as etapas mutantes.
+```text
+Deploy concluído · verificação falhou
+```
 
-O aviso genérico `Não faça rollback cego` continua sendo exibido para todos os demais estados `recovery_required` em que o dashboard não consegue provar que apenas o verify falhou.
+com a ação **Verificar novamente**.
+
+Nesse estado, a UI evita incentivar um deployment completo quando o caminho estreito é suficiente.
+
+Se branch, HEAD, contrato ou histórico ficarem stale, o retry deixa de ser oferecido/é recusado e o fluxo volta a exigir preparação de um novo plano.
+
+## Relação com `recovery_required`
+
+`recovery_required` continua sendo o estado conservador quando uma etapa irreversível já iniciou e o dashboard não consegue concluir que a situação é segura automaticamente.
+
+O retry de verify é uma exceção estreita porque a timeline prova que:
+
+- a mutação anterior terminou;
+- a única etapa problemática é somente leitura;
+- repetir essa etapa não amplia os efeitos já aplicados.
+
+Todos os demais casos continuam mostrando orientação para revisar timeline, provider/aplicação, schema/backup e política de rollback antes de qualquer nova mutação.
+
+## Invariantes de segurança
+
+1. nenhum novo token de confirmação de mutação é criado para o retry;
+2. nenhuma etapa mutável é reexecutada;
+3. o script usado continua sendo o `prod:verify` canônico reconhecido/persistido;
+4. execução antiga superada é recusada;
+5. branch/revision/contrato são revalidados;
+6. logs continuam limitados e mascarados;
+7. uma falha repetida não é convertida artificialmente em sucesso.

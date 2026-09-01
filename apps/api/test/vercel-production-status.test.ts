@@ -372,3 +372,82 @@ test('adapter normaliza revisão de GitLab e Bitbucket', async () => {
     );
   }
 });
+
+test('adapter cria deployment production no projeto Vercel e aguarda a revisão confirmada ficar READY', async () => {
+  const requests: Array<{
+    url: URL;
+    method: string;
+    body?: unknown;
+  }> = [];
+  let deploymentReads = 0;
+  const adapter = new VercelDeploymentAdapter({
+    token: 'token-local',
+    teamId: 'team_teste',
+    pollIntervalMs: 0,
+    sleep: async () => true,
+    fetchRequest: async (input, init) => {
+      const url = new URL(input);
+      requests.push({
+        url,
+        method: init.method,
+        ...(init.body ? { body: JSON.parse(init.body) } : {}),
+      });
+      if (url.pathname === '/v9/projects/controle-gastos') {
+        return response(200, {
+          id: 'prj_controle_gastos',
+          name: 'controle-gastos',
+        });
+      }
+      if (url.pathname === '/v13/deployments' && init.method === 'POST') {
+        return response(200, { id: 'dpl_novo' });
+      }
+      if (url.pathname === '/v13/deployments/dpl_novo') {
+        deploymentReads += 1;
+        return response(200, {
+          id: 'dpl_novo',
+          url: 'controle-gastos-novo.vercel.app',
+          created: Date.parse('2026-08-31T12:00:00Z'),
+          readyState: deploymentReads === 1 ? 'BUILDING' : 'READY',
+          meta: {
+            githubCommitRef: 'main',
+            githubCommitSha: REVISION_A,
+          },
+        });
+      }
+      return response(404, { error: { code: 'not_found' } });
+    },
+  });
+  const controller = new AbortController();
+  const messages: string[] = [];
+
+  const result = await adapter.deployProduction('controle-gastos', {
+    repository: { owner: 'felipe-urgal', repo: 'controle-gastos' },
+    branch: 'main',
+    revision: REVISION_A,
+    signal: controller.signal,
+    onStatus: (message) => messages.push(message),
+  });
+
+  assert.equal(result.cancelled, false);
+  assert.equal(result.deployment?.state, 'ready');
+  assert.equal(result.deployment?.revision, REVISION_A);
+  assert.equal(deploymentReads, 2);
+  const createRequest = requests.find(
+    (item) =>
+      item.url.pathname === '/v13/deployments' && item.method === 'POST',
+  );
+  assert.deepEqual(createRequest?.body, {
+    name: 'controle-gastos',
+    target: 'production',
+    gitSource: {
+      type: 'github',
+      org: 'felipe-urgal',
+      repo: 'controle-gastos',
+      ref: 'main',
+      sha: REVISION_A,
+    },
+  });
+  assert.equal(createRequest?.url.searchParams.get('teamId'), 'team_teste');
+  assert.match(messages.join(''), /Vercel: building/);
+  assert.match(messages.join(''), /Vercel: ready/);
+});

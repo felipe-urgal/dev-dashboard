@@ -1,0 +1,130 @@
+# Produção
+
+A aba **Produção** aparece quando o projeto possui um `Production Contract v1` válido. Ela mostra o estado real do ambiente e, quando o contrato permite, prepara e executa deployments com confirmação explícita.
+
+## O que olhar primeiro
+
+No topo da superfície, confira:
+
+- provider e estratégia;
+- branch de produção;
+- revision local/origin/produção quando conhecidas;
+- drift;
+- health/readiness declarado;
+- disponibilidade do provider externo.
+
+`READY` da Vercel não substitui a verificação funcional da aplicação. O fluxo só termina com sucesso depois de `prod:verify` quando essa etapa faz parte do plano.
+
+## Preparar deployment
+
+Clique em **Preparar deployment**.
+
+Isso apenas gera o preview. Nenhuma migration, restart ou promoção é executada nessa etapa.
+
+Revise:
+
+- projeto;
+- branch;
+- SHA/revision;
+- provider;
+- ordem das etapas;
+- quais etapas são mutáveis/irreversíveis.
+
+Se o plano estiver correto, use **Confirmar e iniciar deployment**.
+
+A confirmação vale somente para aquele projeto, revision e `planHash`. Se o Git mudar, um novo plano será necessário.
+
+## Projetos `strategy=command`
+
+O fluxo usa scripts `prod:*` do próprio projeto. Dependendo das políticas, a timeline pode ser:
+
+```text
+check → backup → deploy → verify
+```
+
+ou:
+
+```text
+check → backup → migrate → deploy → verify
+```
+
+O Dev Dashboard não precisa conhecer os comandos internos de systemd ou Docker Compose.
+
+## Projetos Vercel `strategy=git-managed`
+
+O fluxo não usa `prod:deploy` local. A promoção aparece como `provider-deploy`:
+
+```text
+check → migrate? → provider-deploy → verify
+```
+
+Antes de criar o deployment, o backend confirma que a revision planejada ainda corresponde à branch de produção no `origin`. A Vercel recebe o SHA exato confirmado.
+
+Se `origin/main` avançou depois do preview, a execução é recusada e você precisa preparar novamente.
+
+## Configurar integração Vercel
+
+Se aparecer **Integração Vercel não configurada**, configure o processo local do Dev Dashboard, não o projeto alvo.
+
+Na raiz do Dev Dashboard, crie/edite `.env.local`:
+
+```dotenv
+VERCEL_TOKEN=...
+# opcional, somente quando o escopo do time exigir:
+VERCEL_TEAM_ID=team_...
+```
+
+Depois reinicie:
+
+```bash
+npm run dev
+```
+
+Não coloque o token em `.dev-dashboard/production.json`, issue, PR ou screenshot.
+
+## Durante o deployment
+
+A timeline mostra a etapa atual e o log real da execução. Em Vercel, `provider-deploy` acompanha estados como queued/building/ready.
+
+Não feche/reinicie o Dev Dashboard deliberadamente durante uma etapa irreversível. Se o coordenador cair depois de migration ou promoção já iniciada, a execução pode voltar como `recovery_required`.
+
+## Cancelar
+
+O botão de cancelamento aparece somente com execução ativa.
+
+Em etapas locais, o processo é sinalizado de forma controlada. Na etapa Vercel, o dashboard interrompe o acompanhamento e tenta cancelar o deployment remoto quando isso ainda é suportado pelo provider.
+
+Se a mutação já começou, cancelamento não garante ausência de efeitos e pode resultar em `recovery_required`.
+
+## Verify falhou, mas o deploy terminou
+
+Quando a promoção terminou e somente a verificação final falhou, a tela pode oferecer **Verificar novamente**.
+
+Use esse botão antes de repetir um deployment completo. Ele executa somente `prod:verify` e não repete migration nem a promoção Vercel.
+
+Se o contexto Git/contrato mudou, o backend não permite o retry e pede um novo plano.
+
+## `recovery_required`
+
+Não faça rollback cego.
+
+Revise a timeline e confirme o estado real de:
+
+- aplicação/provider;
+- banco/schema;
+- backup/checkpoint;
+- política de rollback do projeto.
+
+Só prepare novo deployment depois de entender o que já foi aplicado.
+
+## Produção bloqueada
+
+`strategy=disabled` é um estado válido. A aba explica `reasonCode`/blockers, mas não oferece deploy. Isso é especialmente importante para o próprio Dev Dashboard: self-update continua bloqueado até existir um helper externo capaz de sobreviver ao restart da API.
+
+## Mais detalhes
+
+- [Interface de Produção](../production-ui.md)
+- [Operação de deployments](../deployment-operations.md)
+- [Production Contract v1](../architecture/production-contract.md)
+- [Domínio de deployment](../architecture/deployment-domain.md)
+- [Self-production do Dev Dashboard](../architecture/self-production.md)

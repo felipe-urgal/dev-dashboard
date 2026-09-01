@@ -3,6 +3,14 @@ import process from 'node:process';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
+try {
+  process.loadEnvFile('.env.local');
+} catch (error) {
+  if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+    throw error;
+  }
+}
+
 const DEFAULT_PROCESS_DEFINITIONS = [
   { name: 'api', args: ['run', 'dev', '--workspace=@dev-dashboard/api'] },
   { name: 'web', args: ['run', 'dev', '--workspace=@dev-dashboard/web'] },

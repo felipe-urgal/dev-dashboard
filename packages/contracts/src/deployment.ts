@@ -28,13 +28,33 @@ export type DeploymentScriptId = NonNullable<
   ProductionCommands[ProductionCommandId]
 >;
 
-export interface DeploymentPlanStep {
+export type DeploymentStepId = ProductionCommandId | 'provider-deploy';
+
+export interface DeploymentProviderTarget {
+  externalProject: string;
+  branch: string;
+  revision: string;
+}
+
+export interface DeploymentCommandPlanStep {
   id: ProductionCommandId;
   script: DeploymentScriptId;
   phase: DeploymentExecutionPhase;
   mutating: boolean;
   irreversible: boolean;
+  providerPreflight?: DeploymentProviderTarget;
 }
+
+export interface DeploymentProviderPlanStep {
+  id: 'provider-deploy';
+  phase: Extract<DeploymentExecutionPhase, 'deploying'>;
+  mutating: true;
+  irreversible: true;
+  target: DeploymentProviderTarget;
+}
+
+export type DeploymentPlanStep =
+  DeploymentCommandPlanStep | DeploymentProviderPlanStep;
 
 export interface DeploymentPlan {
   projectId: string;
@@ -55,12 +75,12 @@ export interface DeploymentConfirmation {
   expiresAt: string;
 }
 
-export interface DeploymentTimelineStep extends DeploymentPlanStep {
+export type DeploymentTimelineStep = DeploymentPlanStep & {
   status: DeploymentStepStatus;
   startedAt?: string;
   finishedAt?: string;
   exitCode?: number;
-}
+};
 
 export type DeploymentFailurePoint =
   'before-irreversible' | 'after-irreversible';
@@ -77,7 +97,7 @@ export interface Deployment {
   createdAt: string;
   startedAt?: string;
   finishedAt?: string;
-  currentStepId?: ProductionCommandId;
+  currentStepId?: DeploymentStepId;
   failurePoint?: DeploymentFailurePoint;
   errorCode?: string;
   errorMessage?: string;

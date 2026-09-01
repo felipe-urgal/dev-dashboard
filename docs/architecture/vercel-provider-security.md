@@ -2,11 +2,13 @@
 
 Esta nota complementa [Segurança e modelo de ameaça](security.md) para o adapter `strategy=git-managed` + `provider=vercel` do domínio de deployment.
 
-A integração desta fase é **somente leitura**. Ela consulta estado de produção e não transforma uma credencial Vercel em autorização para criar deployment, promover código, fazer rollback, cancelar deployment ou executar Git remoto.
+A integração suporta **leitura e promoção explícita para produção**. A mutação não transforma a credencial Vercel em uma autorização genérica: ela só ocorre dentro de um `DeploymentPlan` confirmado, vinculado à branch, revision e projeto Vercel alvo, usando a mesma timeline, histórico e recovery do domínio de deployment.
 
 ## Fronteira de confiança
 
 O vínculo entre projeto local e Vercel vem exclusivamente de `production.external.project` em um `Production Contract v1` já validado. O backend não usa nome da pasta, repositório, workspace ou usuário autenticado como fallback implícito.
+
+Para uma promoção, `external.project`, branch e SHA entram no próprio plano/hash confirmado. Se o contrato mudar depois do preview, a confirmação anterior deixa de ser válida. O POST para a Vercel usa o SHA exato confirmado; ele não usa uma branch móvel como única prova do código a publicar.
 
 O browser não envia:
 
@@ -15,6 +17,8 @@ O browser não envia:
 - host da API;
 - URL arbitrária de provider;
 - headers externos;
+- owner/repositório Git arbitráveis;
+- branch ou SHA de promoção fora do plano calculado;
 - programa, argumentos ou corpo de shell.
 
 ## Credenciais
@@ -28,28 +32,65 @@ Esses valores:
 - não são retornados pela API local;
 - não são incluídos em logs ou mensagens de erro do provider.
 
+## Preflight antes de mutações
+
+Uma promoção `git-managed` é fail-closed. Antes de qualquer migration explícita e novamente imediatamente antes do POST de deployment, o backend valida:
+
+1. o contrato continua `git-managed` + `vercel` e aponta para o mesmo `external.project` confirmado;
+2. checkout local continua na branch/revision confirmadas;
+3. `git ls-remote origin refs/heads/<branch>` confirma o mesmo SHA no remote real;
+4. o remote `origin` resolve para um repositório GitHub reconhecível;
+5. a integração Vercel autentica e resolve o projeto confirmado;
+6. não existe deployment de produção Vercel em `queued`, `building` ou estado desconhecido que torne uma segunda promoção insegura.
+
+Esse preflight é somente leitura; ele não altera banco, Git ou provider. A primeira mudança irreversível só pode ocorrer depois que essas evidências tiverem sido aceitas para o alvo confirmado.
+
+A consulta remota Git possui timeout e pode ser interrompida pelo cancelamento do deployment. Falha de rede/autenticação/credential helper não cai para uma tracking ref local antiga.
+
 ## Saída para a Vercel
 
-O adapter usa a API HTTPS fixa da Vercel. `external.project` participa somente como identificador de projeto, codificado como segmento de path; o ID canônico retornado pelo provider é usado na consulta de deployments.
+O adapter usa a API HTTPS fixa da Vercel. `external.project` participa como identificador explicitamente confirmado; o ID canônico retornado pelo provider é resolvido no preflight e reutilizado na promoção.
 
-A resposta externa possui timeout e limite de tamanho aceito. Somente os campos necessários ao status operacional são utilizados: projeto, deployment de produção, URL, estado e metadados Git de branch/SHA quando presentes.
+A criação do deployment envia somente os campos necessários:
 
-Bodies e mensagens brutas de erro não são repassados ao browser. Falhas esperadas viram códigos estáveis `DEPLOYMENT_PROVIDER_*` para configuração ausente, autenticação recusada, quota, projeto ausente, indisponibilidade e resposta inválida.
+- projeto Vercel resolvido;
+- `target=production`;
+- origem GitHub reconhecida pelo backend;
+- branch confirmada;
+- SHA exato confirmado.
+
+Depois da criação, polling bounded acompanha **esse deployment específico** até estado terminal. `READY` conclui apenas a etapa `provider-deploy`; `prod:verify` permanece separado e decide a validação funcional declarada pelo projeto.
+
+## Cancelamento
+
+Cancelar a execução local interrompe o polling. Quando um deployment remoto já foi criado, o adapter tenta cancelá-lo na Vercel em modo best-effort e com timeout próprio.
+
+Cancelamento remoto não é tratado como transação ou rollback. Se a promoção já pode ter produzido efeito, o domínio preserva a semântica conservadora de `recovery_required` e exige revisão do estado real antes de uma nova tentativa.
+
+## Respostas externas e segredos
+
+Respostas da Vercel possuem timeout, limite de tamanho e validação defensiva de shape. Somente campos necessários ao estado operacional são usados: projeto, deployment de produção, URL, estado e metadados Git de branch/SHA quando presentes.
+
+Bodies e **mensagens brutas** de erro não são repassados ao browser nem persistidos no histórico. Falhas esperadas viram códigos/mensagens locais estáveis `DEPLOYMENT_PROVIDER_*` para configuração ausente, autenticação recusada, quota, projeto ausente, deployment concorrente, indisponibilidade e resposta inválida.
 
 ## Git e drift
 
-A consulta de drift lê apenas a ref local já conhecida em `refs/remotes/origin/<production.branch>` usando Git sem shell.
+Decisões de mutação consultam o remote real com `git ls-remote`; não usam a tracking ref local como prova de autorização.
 
-Ela não executa `git fetch`, `git pull`, `git push` nem qualquer outra mutação. Se a ref remota não existir localmente, o resultado é `drift=unknown`.
+A superfície de status compara a revision remota observável com a revision de produção e classifica apenas `in-sync`, `drift` ou `unknown`. O domínio não deduz `ahead`, `behind` ou ancestralidade sem análise Git específica.
 
-Diferença entre SHA de `origin/<branch>` e SHA de produção significa somente `drift`; o domínio não deduz `ahead`, `behind` ou ancestralidade sem uma análise Git específica.
+O Dashboard não executa `git push`, não cria commit artificial e não altera a branch para disparar a Vercel. A promoção é feita diretamente pelo adapter com o SHA confirmado.
 
 ## Health, migration e promoção
 
-`READY` da Vercel representa somente o estado reportado pelo provider para o deployment observado. Ele não substitui health/readiness do Production Contract.
+`READY` da Vercel representa somente o estado reportado pelo provider. Ele não substitui health/readiness do Production Contract.
 
-`prod:migrate` e `prod:verify`, quando declarados, continuam operações independentes. O adapter não fabrica um `prod:deploy` local e não esconde `git push`, promoção Vercel ou outro mecanismo de publicação atrás de uma ação genérica.
+Quando `migrations=before-deploy`, o plano pode executar `prod:migrate` antes da promoção, mas somente depois do preflight remoto/Vercel passar. Isso evita alterar schema de produção para uma revision que não está publicada ou não pode ser promovida com segurança.
+
+Não existe `prod:deploy` local artificial. `prod:check`, `prod:migrate` e `prod:verify` continuam comandos canônicos do próprio projeto; `provider-deploy` é uma etapa externa tipada do domínio.
 
 Quota externa nunca é contornada com commit artificial ou redisparo automático.
 
-Qualquer futura mutação no provider exige revisão explícita deste modelo de ameaça, plano/preview próprio e confirmação vinculada ao alvo antes de entrar na API.
+## Novas mutações
+
+Rollback remoto automático, troca de alias/domínio, alteração de configuração Vercel ou qualquer nova mutação fora de `provider-deploy` continuam fora deste modelo. Cada nova capability precisa de revisão explícita de ameaça, alvo incluído no plano/hash e confirmação proporcional ao impacto.

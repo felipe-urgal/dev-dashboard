@@ -14,6 +14,7 @@ import {
 } from '@dev-dashboard/process-manager';
 
 import { DeploymentError } from './errors.js';
+import { VercelProviderStepAdapter } from './step-adapter.js';
 
 const SCRIPT_BY_COMMAND = {
   status: 'prod:status',
@@ -53,6 +54,7 @@ export interface ProductionCommandResult {
 export interface ProductionCommandAdapterOptions {
   spawnProcess?: SpawnProcess;
   maskLog?: (content: string) => MaskedLogContent;
+  providerAdapter?: VercelProviderStepAdapter;
 }
 
 async function exists(filePath: string): Promise<boolean> {
@@ -104,12 +106,15 @@ async function resolvePackageManager(
 export class ProductionCommandAdapter {
   private readonly spawnProcess: SpawnProcess;
   private readonly maskLog: (content: string) => MaskedLogContent;
+  private readonly providerAdapter: VercelProviderStepAdapter;
 
   public constructor(options: ProductionCommandAdapterOptions = {}) {
     this.spawnProcess =
       options.spawnProcess ??
       ((file, args, spawnOptions) => spawn(file, [...args], spawnOptions));
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;
+    this.providerAdapter =
+      options.providerAdapter ?? new VercelProviderStepAdapter();
   }
 
   public async run(
@@ -118,6 +123,10 @@ export class ProductionCommandAdapter {
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
   ): Promise<ProductionCommandResult> {
+    if (step.id === 'provider-deploy') {
+      return this.providerAdapter.run(project, step, signal, onOutput);
+    }
+
     const expectedScript = SCRIPT_BY_COMMAND[step.id];
     if (
       step.script !== expectedScript ||
@@ -127,6 +136,19 @@ export class ProductionCommandAdapter {
         'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
         `A etapa ${step.id} não corresponde ao script canônico reconhecido no contrato.`,
       );
+    }
+
+    if (step.providerPreflight) {
+      try {
+        await this.providerAdapter.preflight(
+          project,
+          step.providerPreflight,
+          signal,
+        );
+      } catch (error) {
+        if (signal.aborted) return { exitCode: 1, cancelled: true };
+        throw error;
+      }
     }
 
     const packageManager = await resolvePackageManager(project.path);
@@ -196,7 +218,26 @@ export class ProductionCommandAdapter {
           return;
         }
 
-        resolve({ exitCode: code ?? 1, cancelled });
+        const finish = async () => {
+          if (!cancelled && (code ?? 1) === 0 && step.providerPreflight) {
+            try {
+              await this.providerAdapter.preflight(
+                project,
+                step.providerPreflight,
+                signal,
+              );
+            } catch (error) {
+              if (signal.aborted) {
+                resolve({ exitCode: 1, cancelled: true });
+                return;
+              }
+              reject(error);
+              return;
+            }
+          }
+          resolve({ exitCode: code ?? 1, cancelled });
+        };
+        void finish();
       });
     });
   }

@@ -1,17 +1,17 @@
 # Domínio de deployment
 
-O Dev Dashboard possui um domínio de deployment separado do `process-manager`. Ele transforma um `Production Contract v1` válido em estado operacional estruturado sem ensinar o dashboard sobre detalhes internos de systemd, Docker Compose ou Vercel.
+O Dev Dashboard possui um domínio de deployment separado do `process-manager`. Ele transforma um `Production Contract v1` válido em uma operação estruturada, auditável e fail-closed sem ensinar o dashboard sobre detalhes internos de systemd, Docker Compose ou da aplicação hospedada na Vercel.
 
-Nesta versão existem duas integrações deliberadamente diferentes:
+Existem duas estratégias mutáveis suportadas:
 
-- `strategy=command`: planeja e executa scripts `prod:*` canônicos do projeto;
-- `strategy=git-managed` + `provider=vercel`: consulta o provider, compara revisions e normaliza a timeline sem disparar promoção remota.
+- `strategy=command`: executa scripts `prod:*` canônicos do projeto;
+- `strategy=git-managed` + `provider=vercel`: executa operações locais do contrato e uma etapa externa `provider-deploy` pela API da Vercel.
 
-Produção `disabled` continua fail-closed.
+Produção `disabled` continua bloqueada por contrato.
 
 ## Fronteira arquitetural
 
-O fluxo `command` continua separado de processos de desenvolvimento:
+O mesmo planner, confirmação, store, timeline e serviço coordenam as duas estratégias. O que muda é o adapter responsável pela etapa.
 
 ```text
 ProjectStore
@@ -25,286 +25,248 @@ GitDeploymentRevisionResolver
     ▼
 DeploymentPlanner
     │
-    ├── plano + planHash
+    ├── DeploymentPlan + planHash
     ▼
 DeploymentConfirmationService
     │
     ├── token de uso único
     ▼
 DeploymentService
-    │
-    ├── ProductionCommandAdapter
+    ├── ProductionCommandAdapter    # check/backup/migrate/deploy/verify locais
+    ├── VercelDeploymentAdapter     # provider-deploy git-managed
+    ├── OriginRevisionResolver      # prova remota antes da promoção
     └── DeploymentStore
 ```
 
-O fluxo Vercel é somente leitura:
+A leitura de status externo usa `ProductionDeploymentStatusService` + `VercelDeploymentAdapter` e não inicia mutação.
 
-```text
-ProjectStore
-    │
-    ▼
-ProductionContractV1
-    │
-    ├── strategy=git-managed
-    ├── provider=vercel
-    └── external.project
-    │
-    ▼
-ProductionDeploymentStatusService
-    ├── GitDeploymentOriginRevisionResolver
-    └── VercelDeploymentAdapter
-            │
-            ▼
-      API REST da Vercel
-```
+O `process-manager` continua responsável por servidor, worker e outros processos de desenvolvimento. Deployment possui semântica própria: revision, plano, confirmação, irreversibilidade, histórico e recovery.
 
-O `process-manager` continua responsável por processos como servidor, teste, worker e webpack. Deployment tem semântica diferente: revision, confirmação forte quando há mutação local, etapas potencialmente irreversíveis, histórico próprio e representação explícita de provider externo.
+## Planejamento
 
-## Plano `command`
+Gerar um plano não executa produção. O backend:
 
-Gerar um plano não executa nenhum script de produção. O backend:
+1. resolve o projeto pelo `ProjectStore`;
+2. exige `production.enabled=true` e capability `production`;
+3. resolve branch e SHA Git atuais;
+4. exige working tree limpa, inclusive arquivos não rastreados;
+5. exige branch atual igual a `production.branch`;
+6. valida requisitos específicos da estratégia;
+7. converte comandos/políticas em etapas tipadas;
+8. calcula `planHash` determinístico sobre projeto, provider, branch, revision e etapas.
 
-1. resolve o `Project` já conhecido pelo `ProjectStore`;
-2. exige `production.enabled=true`, capability `production` e `strategy=command`;
-3. resolve a branch e o SHA Git atuais;
-4. exige que o working tree esteja limpo, incluindo arquivos não rastreados;
-5. exige que a branch atual seja a branch declarada no contrato;
-6. converte políticas e comandos canônicos em uma sequência de etapas;
-7. calcula um SHA-256 determinístico do projeto, provider, branch, revision e etapas.
+O resultado contém `projectId`, provider, branch, revision, `planHash` e timeline planejada.
 
-O resultado inclui `projectId`, provider, branch, revision, `planHash`, horário de criação e as etapas planejadas.
+`start()` recalcula o plano antes de consumir a confirmação. Se checkout, revision, working tree, contrato ou etapas mudarem, o plano anterior fica stale e a mutação não começa.
 
-### Working tree limpa
+## `strategy=command`
 
-O plano é vinculado a uma revision Git, portanto alterações locais fora do commit não podem participar silenciosamente de uma execução confirmada. `GitDeploymentRevisionResolver` usa Git sem shell e recusa o plano com `DEPLOYMENT_WORKTREE_DIRTY` quando `git status --porcelain --untracked-files=normal` retorna qualquer alteração.
+O planner exige `check`, `deploy` e `verify`. Etapas adicionais são inseridas pelas políticas.
 
-A mesma validação ocorre novamente ao iniciar o deployment, porque `start()` recalcula o plano antes de consumir a confirmação. Se o checkout mudar após a confirmação, o hash/revision deixa de corresponder ou o working tree deixa de ser limpo e a execução é recusada.
-
-## Etapas `command` por política
-
-As operações possíveis continuam vindo exclusivamente do catálogo canônico do Production Contract.
-
-Para um projeto com migrations no startup e backup obrigatório, como o Home Music:
+Exemplos:
 
 ```text
 check → backup → deploy → verify
 ```
 
-O `deploy` é marcado como potencialmente irreversível porque a migration pode acontecer dentro da inicialização da aplicação.
-
-Para uma política de migration explícita antes do deploy:
+quando migration acontece no startup, ou:
 
 ```text
 check → backup → migrate → deploy → verify
 ```
 
-Nesse caso `migrate` é a etapa irreversível. O motor não inventa backup ou migration quando o contrato e as políticas não os declaram.
+quando migration é separada.
 
-## Adapter Vercel `git-managed`
+`ProductionCommandAdapter` resolve o package manager no backend e executa:
 
-O adapter Vercel não adiciona um `prod:deploy` fictício. O projeto continua dono das operações locais que realmente existem, como `prod:check`, `prod:migrate` e `prod:verify`; promoção Git/Vercel continua sendo uma responsabilidade externa ao executor `command`.
-
-### Mapeamento explícito
-
-O vínculo com a Vercel vem exclusivamente de:
-
-```json
-{
-  "production": {
-    "strategy": "git-managed",
-    "provider": "vercel",
-    "external": {
-      "project": "nome-ou-id-explicito"
-    }
-  }
-}
+```text
+<package-manager> run <script-prod-canônico>
 ```
 
-O backend não deduz o projeto remoto pelo nome da pasta, repositório, workspace ou usuário autenticado. `VercelDeploymentAdapter` primeiro resolve `external.project` na API da Vercel e usa o ID canônico retornado para consultar deployments de produção.
+com `cwd=Project.path`, `shell: false`, stdin fechado e stdout/stderr mascarados antes da persistência. O dashboard não precisa saber se `prod:deploy` usa systemd, Docker Compose ou outro mecanismo interno reconhecido pelo projeto.
 
-### Credenciais
+## `strategy=git-managed` + Vercel
 
-O token nunca pertence ao manifesto. O adapter usa somente configuração local do processo:
+O planner exige:
 
-- `VERCEL_TOKEN` para autenticação;
-- `VERCEL_TEAM_ID` opcional para escopo de time.
+- `provider=vercel`;
+- `external.project`;
+- `prod:check`;
+- `prod:verify`;
+- ausência de `prod:deploy` local;
+- `prod:migrate` quando `policies.migrations=before-deploy`.
 
-Esses valores não são persistidos pelo domínio, não são retornados ao browser e não entram nas mensagens sanitizadas de erro.
+A etapa de promoção é representada explicitamente como:
 
-### Snapshot de produção
+```text
+provider-deploy
+```
 
-`GET /api/projects/:projectId/deployments/status` retorna um `ProductionDeploymentStatus` com:
+Ela é mutável e tratada como irreversível, porque a criação/promoção externa pode produzir efeito mesmo se o processo local cair logo depois.
 
-- projeto/provider declarados;
+Um plano típico é:
+
+```text
+check → migrate → provider-deploy → verify
+```
+
+ou, quando não há migration separada:
+
+```text
+check → provider-deploy → verify
+```
+
+Não existe `prod:deploy` artificial.
+
+## Prova da revision remota
+
+A revision local confirmada no plano não basta para autorizar uma promoção git-managed. Imediatamente antes de `provider-deploy`, o backend consulta a branch diretamente no `origin` com Git sem shell.
+
+A regra é:
+
+```text
+revision confirmada == revision atual de origin/<production.branch>
+```
+
+Se o remote não puder ser consultado, a branch não existir ou o SHA diferir, o deployment falha fechado antes da promoção. Uma ref local de tracking não é aceita como prova quando a mutação externa depende do estado real do remote.
+
+Isso reduz dois riscos:
+
+- promover um commit local que nunca foi publicado em `origin`;
+- promover outra revision porque a branch avançou depois da confirmação.
+
+## Origem Git e criação na Vercel
+
+Para deploy mutável, o backend resolve a origem GitHub do projeto a partir do remote Git reconhecido. O browser não informa `owner`, `repo`, branch ou SHA de promoção.
+
+A criação do deployment Vercel recebe:
+
+- projeto Vercel resolvido por `external.project`;
+- target `production`;
+- repositório GitHub resolvido pelo backend;
+- `ref=production.branch`;
+- `sha=revision` confirmada.
+
+Enviar o SHA exato é obrigatório; a branch sozinha é móvel e não preserva a confirmação.
+
+Depois da criação, o adapter faz polling bounded do deployment específico até estado terminal. `BUILDING` permanece em execução; `READY` conclui a etapa; `ERROR`/`CANCELED` viram falha/cancelamento de provider conforme o domínio.
+
+## Status Vercel e drift
+
+`GET /api/projects/:projectId/deployments/status` permanece uma leitura separada. O snapshot inclui, quando disponíveis:
+
 - projeto Vercel resolvido;
-- deployment atual com `target=production`, quando existir;
-- URL, estado normalizado, branch e revision quando presentes no provider;
-- revision já conhecida em `refs/remotes/origin/<production.branch>`;
-- drift calculado por igualdade de SHA;
-- operações locais `check`, `migrate` e `verify` declaradas;
-- timeline do provider normalizada para os estados de etapa do domínio.
+- deployment atual com `target=production`;
+- URL e estado;
+- branch/revision do provider;
+- revision conhecida em `origin/<production.branch>`;
+- drift;
+- timeline normalizada;
+- operações locais declaradas.
 
-A leitura de `origin/<branch>` usa `git show-ref --verify --hash` com `shell: false`. Ela **não executa `git fetch`**. Ausência da ref remota resulta em `originRevision` ausente e `drift=unknown`, sem efeito colateral no repositório.
+A leitura de status não faz `git fetch`. Ausência da ref local resulta em `drift=unknown`.
 
-### Drift
+Estados de drift:
 
-O domínio usa três estados:
+- `in-sync`: SHAs conhecidos e iguais;
+- `drift`: SHAs conhecidos e diferentes;
+- `unknown`: evidência insuficiente.
 
-- `in-sync`: `originRevision === productionRevision`;
-- `drift`: ambas existem e os SHAs diferem;
-- `unknown`: uma das revisions não pôde ser determinada.
+Drift não é automaticamente classificado como ahead/behind.
 
-A comparação não tenta classificar automaticamente `behind`, `ahead` ou divergência por ancestralidade. Isso exigiria uma análise Git adicional e não deve ser inferido apenas pela desigualdade de SHA.
+## Timeline do provider
 
-### Timeline do provider
+A etapa lógica `provider-deploy` normaliza estados Vercel:
 
-O deployment Vercel usa uma etapa lógica `provider-deploy` com fase `deploying`. O estado remoto é normalizado assim:
-
-| Vercel | Domínio |
+| Vercel | Etapa |
 | --- | --- |
 | `QUEUED`, `INITIALIZING` | `pending` |
 | `BUILDING` | `running` |
 | `READY` | `succeeded` |
 | `ERROR` | `failed` |
 | `CANCELED` | `cancelled` |
-| desconhecido | `pending` + estado provider `unknown` |
+| desconhecido | tratamento conservador / resposta inválida conforme o endpoint |
 
-Essa timeline é observacional. Ela não afirma que `check`, `migrate` ou `verify` já rodaram e não autoriza mutação remota.
-
-### Migration e verify continuam independentes
-
-Um contrato `git-managed` pode declarar:
-
-```text
-prod:check
-prod:migrate
-prod:verify
-```
-
-Essas operações continuam separadas da observação do deployment Vercel. Em uma política `migrations=before-deploy`, o adapter não executa migration automaticamente e não promove código antes dela.
-
-Isso preserva fluxos seguros como:
-
-```text
-check
-→ backup/checkpoint externo quando necessário
-→ migrate
-→ validar schema
-→ promoção pelo fluxo Git/Vercel existente
-→ acompanhar provider
-→ verify
-```
-
-## Estados `command`
-
-O contrato público de execução local usa os estados:
-
-- `planned`;
-- `preparing`;
-- `backing_up`;
-- `migrating`;
-- `deploying`;
-- `verifying`;
-- `succeeded`;
-- `failed`;
-- `recovery_required`;
-- `cancelled`.
-
-Cada etapa da timeline também registra estado, horários e exit code quando disponível.
+`READY` prova conclusão do provider, não health funcional da aplicação. `prod:verify` continua uma etapa posterior e independente.
 
 ## Confirmação
 
-Executar produção `command` exige confirmação separada do planejamento. O token:
+Toda execução mutável parte de um preview e confirmação. O token:
 
-- é aleatório, com 32 bytes;
+- é aleatório;
 - possui TTL curto;
 - é de uso único;
 - fica vinculado a `projectId + revision + planHash`;
 - não é persistido.
 
-A confirmação não é uma autorização genérica para “fazer deploy”. Mudança de revision, branch, working tree ou plano exige novo planejamento e nova confirmação.
+A confirmação não é uma autorização genérica para “fazer deploy”. Qualquer mudança relevante exige novo plano.
 
-A consulta Vercel não recebe token de confirmação porque não inicia mutação.
+## Retry seguro de verify
 
-## Adapter `command`
+Se todas as etapas anteriores concluíram e somente o `verify` final falhou/cancelou, o domínio pode repetir **somente `prod:verify`** na mesma execução.
 
-`ProductionCommandAdapter` não recebe programa, argumentos ou `cwd` do navegador.
+O retry é fail-closed. Ele exige que:
 
-Para cada etapa ele valida novamente que a operação corresponde ao script canônico reconhecido no contrato, por exemplo:
+- a timeline persistida prove que a promoção anterior terminou;
+- `verify` seja a etapa final e somente leitura;
+- branch/revision continuem válidas;
+- o contrato atual continue compatível;
+- a execução ainda seja a mais recente aplicável ao projeto.
 
-```text
-deploy → prod:deploy
-verify → prod:verify
-```
+No retry não há nova migration, backup, `deploy` nem `provider-deploy`. Se a promoção Vercel já foi concluída, ela não é criada de novo apenas porque o primeiro readiness check da aplicação falhou.
 
-O package manager é resolvido localmente pelo backend a partir do `packageManager`/lockfile e a execução assume a forma:
-
-```text
-<package-manager> run <script-prod-canônico>
-```
-
-com:
-
-- `cwd` igual ao `Project.path` vindo do `ProjectStore`;
-- `shell: false`;
-- stdin fechado;
-- stdout/stderr capturados;
-- `SIGTERM` antes de `SIGKILL` em cancelamento;
-- nenhum argumento de shell vindo do manifesto ou request.
-
-Por isso o dashboard não precisa saber que `prod:deploy` usa `systemctl` no Home Music ou `docker compose` no Loto Lab.
-
-## Autorização temporária de `sudo`
-
-Quando um `prod:*` falha porque `sudo` exige senha/TTY, o deployment recebe `DEPLOYMENT_PRIVILEGE_REQUIRED`. Para projetos `strategy=command`, a UI local pode abrir a autorização temporária.
-
-A senha é enviada apenas à API em loopback e usada uma vez em:
-
-```text
-sudo -S -v
-```
-
-Ela não é persistida, não é escrita em arquivo, não é colocada no ambiente e não é encaminhada ao stdin do script de produção.
-
-Aceitar a senha ainda não significa que o ticket pode ser usado pelo deployment. Em configurações do sudoers como `timestamp_type=ppid`, o ticket é associado ao processo pai: um `sudo -n -v` executado diretamente pela API pode funcionar, mas outro `sudo` executado por `npm -> shell -> script` será autenticado separadamente.
-
-Por isso `SudoSessionService` considera `authorized=true` somente depois de uma segunda validação não interativa executada a partir de outro processo pai:
-
-```text
-API
- ├── sudo -S -v          # recebe a senha
- └── processo descendente
-       └── sudo -n -v    # precisa reutilizar o ticket sem senha
-```
-
-Se a senha for aceita mas a segunda validação falhar, a API retorna `DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED`. O modal deixa de pedir a senha repetidamente e orienta uma remediação externa não interativa, como uma regra `NOPASSWD` limitada a um helper de produção do próprio projeto. O dashboard não tenta alterar `timestamp_type`, editar sudoers, criar regra ampla ou repassar a senha ao projeto.
-
-A falha histórica não funciona como um lock permanente. Depois que o projeto/host for corrigido, a pessoa pode gerar um novo plano; branch, revision, working tree, `planHash` e confirmação continuam sendo revalidados normalmente antes da nova execução.
+Detalhes adicionais: [deployment-verify-retry.md](deployment-verify-retry.md).
 
 ## Concorrência
 
-A política inicial do executor `command` é conservadora: existe no máximo **um deployment ativo globalmente** no Dev Dashboard.
+Existe no máximo **um deployment mutável ativo globalmente** nesta versão. A regra vale para `command` e `git-managed` porque ambos podem executar migration, alterar infraestrutura ou depender de recursos locais compartilhados.
 
-Isso é mais restritivo que bloquear somente o mesmo projeto, mas evita concorrência entre operações de produção que podem disputar recursos locais, backups ou infraestrutura compartilhada enquanto a visão global ainda não existe.
+Leituras de status Vercel não ocupam o slot.
 
-Snapshots Vercel são leituras externas e não ocupam esse slot.
+## Cancelamento
 
-## Falhas, cancelamento e irreversibilidade
+### Etapas locais
 
-O motor `command` diferencia o ponto da falha:
+O adapter de comando usa `SIGTERM` e escala para `SIGKILL` somente após a janela de encerramento.
 
-- falha/cancelamento antes de iniciar qualquer etapa irreversível → `failed` ou `cancelled`;
-- falha/cancelamento durante ou depois de uma etapa irreversível → `recovery_required`.
+### Vercel
 
-`recovery_required` não executa rollback automaticamente. O Production Contract descreve a política de recuperação, mas a decisão de restaurar backup ou executar rollback continua explícita porque schema/data podem já ter mudado.
+Durante `provider-deploy`, cancelar interrompe o polling local e o adapter tenta cancelar o deployment Vercel em andamento quando o provider ainda permite isso. A tentativa remota é best-effort; o estado final precisa ser observado e persistido conservadoramente.
 
-Se a API reiniciar enquanto um deployment estava ativo, o `DeploymentStore` recupera o registro como interrompido. Uma etapa irreversível marcada como `running` já conta como iniciada; portanto uma queda no meio de migration/deploy não é rebaixada incorretamente para `failed` comum.
+Se uma etapa irreversível já iniciou, cancelamento/falha pode terminar em `recovery_required`.
 
-O adapter Vercel desta fase não oferece rollback/cancelamento remoto.
+## Falhas e irreversibilidade
+
+O domínio diferencia:
+
+- falha antes de qualquer etapa irreversível → `failed`;
+- cancelamento antes de etapa irreversível → `cancelled`;
+- falha/cancelamento durante ou depois de etapa irreversível → `recovery_required`.
+
+`recovery_required` não executa rollback automático. Schema, dados ou provider podem já ter mudado.
+
+Se a API reiniciar no meio de um deployment, o store recupera o registro de forma conservadora. Uma etapa irreversível `running` já conta como iniciada.
+
+## Credenciais Vercel
+
+O adapter lê apenas configuração local do processo:
+
+```text
+VERCEL_TOKEN
+VERCEL_TEAM_ID   # opcional
+```
+
+`npm run dev` carrega `.env.local` quando presente. O token:
+
+- não pertence ao manifesto;
+- não é persistido no store;
+- não é devolvido ao browser;
+- não entra em mensagens sanitizadas;
+- não pode ser enviado pelo request de deployment.
 
 ## Falhas externas seguras
 
-Falhas esperadas da integração Vercel viram estados operacionais estruturados em `providerAvailability`, acompanhados de códigos estáveis:
+Falhas esperadas são traduzidas para códigos estáveis, incluindo:
 
 - `DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE`;
 - `DEPLOYMENT_PROVIDER_AUTH_FAILED`;
@@ -313,30 +275,29 @@ Falhas esperadas da integração Vercel viram estados operacionais estruturados 
 - `DEPLOYMENT_PROVIDER_UNAVAILABLE`;
 - `DEPLOYMENT_PROVIDER_RESPONSE_INVALID`.
 
-O adapter limita o corpo aceito da resposta externa, valida a forma dos campos usados e nunca repassa a mensagem bruta do provider ao browser. Rate limit HTTP `429` e códigos conhecidos de cota são normalizados para `quota-limited`.
+Respostas externas têm tamanho limitado e shape validado. Corpos brutos do provider não são repassados ao navegador.
 
-## Logs e persistência
+## Persistência e logs
 
-O estado `command` fica fora do repositório, sob o diretório de estado do Dev Dashboard:
+O estado fica em:
 
 ```text
 ${DEV_DASHBOARD_STATE_DIR:-~/.local/state/dev-dashboard}/deployments/
 ```
 
-O store mantém:
+O store mantém registros e logs em diretório privado, com histórico e tamanho limitados. Todo stdout/stderr local passa por `maskSensitiveLogContent` antes da persistência. Mensagens da Vercel são geradas localmente a partir de estados normalizados; o corpo externo não vira log bruto.
 
-- registros JSON de deployments;
-- logs JSON separados;
-- histórico limitado por projeto;
-- arquivos com permissão `0600` em diretório privado `0700`.
+Tokens de confirmação e `VERCEL_TOKEN` nunca são persistidos.
 
-Logs possuem teto de 512 KiB por deployment por padrão e preservam apenas a cauda UTF-8 quando excedem o limite. Todo chunk de stdout/stderr passa por `maskSensitiveLogContent` **antes** da persistência; o store registra também se houve masking e quantas substituições ocorreram.
+## Autorização temporária de sudo
 
-Tokens de confirmação nunca são persistidos. O snapshot Vercel não persiste `VERCEL_TOKEN` nem corpo bruto da API externa.
+O fluxo de sudo existe somente para etapas locais que realmente precisam de privilégio. A senha é usada exclusivamente para validar o ticket local e nunca é encaminhada a `prod:*` ou ao provider.
+
+A validação também testa reutilização do ticket a partir de outro processo pai para evitar falso positivo com `timestamp_type=ppid`. Se não for delegável, o dashboard falha fechado e orienta uma regra `NOPASSWD` limitada ao helper necessário; não edita sudoers nem repassa senha ao projeto.
 
 ## API
 
-As rotas privadas do domínio são:
+Rotas privadas principais:
 
 ```text
 POST /api/projects/:projectId/deployments/plan
@@ -347,39 +308,27 @@ GET  /api/projects/:projectId/deployments/status
 GET  /api/projects/:projectId/deployments/:deploymentId
 GET  /api/projects/:projectId/deployments/:deploymentId/log
 POST /api/projects/:projectId/deployments/:deploymentId/cancel
+POST /api/projects/:projectId/deployments/:deploymentId/verify
 GET  /api/projects/:projectId/deployments/sudo
 POST /api/projects/:projectId/deployments/sudo
 ```
 
-Todas usam schemas fechados. O browser envia IDs, `planHash` e token de confirmação nas rotas mutáveis; nunca envia comando, programa, argumentos, path de projeto, token Vercel ou corpo de script. A única entrada sensível adicional é a senha no `POST .../deployments/sudo`, restrito a loopback e usada somente para `sudo -S -v` durante a própria requisição.
+Schemas são fechados. O browser envia IDs, `planHash` e token de confirmação; não envia linha de comando, path do projeto, credencial Vercel ou parâmetros livres de promoção.
 
-## Diagnóstico operacional
+A referência exata é gerada em [api-reference.md](api-reference.md).
 
-Quando o plano `command` for recusado:
+## Invariantes
 
-- `DEPLOYMENT_PRODUCTION_UNAVAILABLE`: confirme o Production Contract/capability;
-- `DEPLOYMENT_STRATEGY_UNSUPPORTED`: use a operação correspondente à estratégia declarada;
-- `DEPLOYMENT_BRANCH_MISMATCH`: troque para a branch de produção declarada;
-- `DEPLOYMENT_WORKTREE_DIRTY`: faça commit ou descarte todas as mudanças locais, incluindo arquivos não rastreados;
-- `DEPLOYMENT_REVISION_UNAVAILABLE`: confirme que o projeto é um repositório Git válido e não está em detached HEAD;
-- `DEPLOYMENT_PLAN_STALE`: gere novo plano e nova confirmação;
-- `DEPLOYMENT_ALREADY_RUNNING`: aguarde ou cancele conscientemente o deployment ativo;
-- `DEPLOYMENT_PRIVILEGE_REQUIRED`: o comando exigiu privilégio que ainda pode ser satisfeito pelo fluxo local de autorização temporária;
-- `DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED`: a senha foi aceita, mas a política do host impede reutilizar o ticket na árvore do deployment (por exemplo, `timestamp_type=ppid`); pare de repetir a senha, configure uma remediação `NOPASSWD` limitada no projeto e gere um novo plano.
+Mudanças neste domínio precisam preservar:
 
-Quando `providerAvailability` não for `available`, trate o drift como desconhecido até a integração voltar a produzir um snapshot válido. Não crie commits artificiais para contornar quota ou forçar novo deployment.
-
-Quando um histórico `command` terminar em `recovery_required`, consulte a timeline e o log antes de qualquer ação manual. Não repita o deployment automaticamente: primeiro confirme qual etapa irreversível chegou a iniciar e siga a política de backup/rollback do projeto.
-
-## Limites atuais
-
-Esta versão não implementa:
-
-- disparo/promoção de deployment Vercel pelo Dev Dashboard;
-- rollback automático local ou Vercel;
-- execução paralela entre projetos;
-- self-update do Dev Dashboard;
-- visão global de deployments pendentes;
-- `git fetch` implícito durante a leitura de status.
-
-Esses limites mantêm o domínio revisável sem enfraquecer o contrato de segurança.
+1. nenhum shell arbitrário vindo do browser ou manifesto;
+2. working tree limpa para o código confirmado;
+3. branch e revision revalidadas no start;
+4. `git-managed` prova `origin/<branch>` antes da promoção;
+5. Vercel recebe o SHA exato confirmado;
+6. confirmação vinculada ao plano;
+7. mutation externa/local registrada na mesma timeline;
+8. logs/erros sanitizados;
+9. `READY` do provider separado de `prod:verify`;
+10. nenhuma repetição de etapa mutável no retry de verify;
+11. nenhuma recuperação destrutiva automática após mudança irreversível.

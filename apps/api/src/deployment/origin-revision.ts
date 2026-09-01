@@ -2,39 +2,85 @@ import { execFile } from 'node:child_process';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 export interface DeploymentOriginRevisionResolver {
-  resolve(project: Project, branch: string): Promise<string | undefined>;
+  resolve(
+    project: Project,
+    branch: string,
+    signal?: AbortSignal,
+  ): Promise<string | undefined>;
 }
 
-function showRef(cwd: string, ref: string): Promise<string | undefined> {
-  return new Promise((resolve) => {
+type ExecGit = (
+  args: readonly string[],
+  options: { cwd: string; timeoutMs: number; signal?: AbortSignal },
+) => Promise<{ stdout: string }>;
+
+export interface GitDeploymentOriginRevisionResolverOptions {
+  timeoutMs?: number;
+  execGit?: ExecGit;
+}
+
+function parseLsRemote(output: string | undefined): string | undefined {
+  const revision = output?.split(/\s+/)[0];
+  return revision && /^[0-9a-f]{40}$/i.test(revision) ? revision : undefined;
+}
+
+function defaultExecGit(
+  args: readonly string[],
+  options: { cwd: string; timeoutMs: number; signal?: AbortSignal },
+): Promise<{ stdout: string }> {
+  return new Promise((resolve, reject) => {
     execFile(
       'git',
-      ['show-ref', '--verify', '--hash', ref],
+      [...args],
       {
-        cwd,
+        cwd: options.cwd,
         encoding: 'utf8',
         maxBuffer: 64 * 1024,
         shell: false,
+        timeout: options.timeoutMs,
+        killSignal: 'SIGTERM',
+        ...(options.signal ? { signal: options.signal } : {}),
       },
       (error, stdout) => {
         if (error) {
-          resolve(undefined);
+          reject(error);
           return;
         }
-
-        const revision = stdout.trim();
-        resolve(/^[0-9a-f]{40}$/i.test(revision) ? revision : undefined);
+        resolve({ stdout });
       },
     );
   });
 }
 
 export class GitDeploymentOriginRevisionResolver implements DeploymentOriginRevisionResolver {
-  public resolve(
+  private readonly timeoutMs: number;
+  private readonly execGit: ExecGit;
+
+  public constructor(options: GitDeploymentOriginRevisionResolverOptions = {}) {
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.execGit = options.execGit ?? defaultExecGit;
+  }
+
+  public async resolve(
     project: Project,
     branch: string,
+    signal?: AbortSignal,
   ): Promise<string | undefined> {
-    return showRef(project.path, `refs/remotes/origin/${branch}`);
+    try {
+      const { stdout } = await this.execGit(
+        ['ls-remote', '--heads', 'origin', `refs/heads/${branch}`],
+        {
+          cwd: project.path,
+          timeoutMs: this.timeoutMs,
+          ...(signal ? { signal } : {}),
+        },
+      );
+      return parseLsRemote(stdout);
+    } catch {
+      return undefined;
+    }
   }
 }

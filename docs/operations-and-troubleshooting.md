@@ -1,149 +1,120 @@
 # Operação e troubleshooting
 
-Este guia reúne portas, variáveis, persistência, observabilidade e procedimentos para diagnosticar falhas no ambiente local.
+Este guia reúne portas, variáveis, persistência e procedimentos gerais para diagnosticar o ambiente local. Para falhas específicas de deployment, use também [deployment-operations.md](deployment-operations.md).
 
-## Sistemas e runtimes suportados
+## Sistemas e runtimes
 
-Esta matriz descreve o que é validado hoje (CI, código com tratamento
-explícito por SO) — não é uma promessa de suporte, e evolui junto com o
-código. Validar e ampliar essa cobertura (macOS, Windows) continua sendo
-trabalho futuro, acompanhado neste guia e no histórico de mudanças do Git.
+O caminho principal é Linux, validado em CI com Node 24. macOS possui suporte parcial em áreas que usam `lsof`; Windows nativo não é suportado. O CLI Bash exige Bash 4+.
 
-| Sistema operacional           | Dashboard web (`apps/`, `packages/`)                                                                                                                                                                                                                                                          | CLI bash (`lib/`)                                                                                                                                                                                                                                                                                                                   |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux                         | Suportado e testado em CI (`ubuntu-latest`, Node 24). Identidade de processo validada via `/proc/<pid>/cwd` (ver `docs/architecture/security.md`).                                                                                                                                            | Suportado; caminho principal de desenvolvimento.                                                                                                                                                                                                                                                                                    |
-| macOS                         | Não validado em CI (a matriz de CI só roda em `ubuntu-latest`). Identidade de processo via `lsof -d cwd` implementada (task 133, equivalente ao `/proc/<pid>/cwd` do Linux) e coberta por testes unitários com saída de `lsof` simulada — mas nunca executada contra um `lsof` real de macOS. | `_dev_os` (`lib/core/checks.sh`) distingue `mac`/`linux` para abrir navegador e iniciar/parar banco local; os ramos `mac`/`other` agora têm cobertura dedicada (`tests/cli/cases/01-core-checks.sh`, via um `uname` falso no `PATH`), mas o comportamento de cada branch (`open`, `brew services`) segue não validado num Mac real. |
-| Windows (nativo, fora de WSL) | Não suportado.                                                                                                                                                                                                                                                                                | Não suportado — o CLI depende de Bash; WSL não é testado nem documentado oficialmente.                                                                                                                                                                                                                                              |
+Requisitos principais:
 
-Requisitos de runtime:
+| Dependência | Escopo | Obrigatória? |
+| --- | --- | --- |
+| Node.js `^20.19.0 || >=22.12.0` | dashboard web/API | sim |
+| npm | monorepo | sim |
+| Git | dashboard e CLI | sim |
+| Bash 4+ | CLI | sim |
+| Ruby/Bundler/Rails | projetos Rails | quando aplicável |
+| MySQL/PostgreSQL/Docker | projetos alvo | quando aplicável |
+| `pg_dump`/`mysqldump` | snapshot via CLI | quando aplicável |
+| `gh` | recursos GitHub do CLI | opcional |
+| `gum` | UX do CLI | opcional, há fallback |
 
-| Dependência                                                        | Onde é exigida                                     | Obrigatória?                                                                                                                                                                            |
-| ------------------------------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node.js `^20.19.0 \|\| >=22.12.0` (`package.json` raiz, `engines`) | Dashboard web                                      | Sim, para `apps/`/`packages/`.                                                                                                                                                          |
-| Bash >= 4.0                                                        | CLI bash                                           | Sim, para `lib/`/`init.sh`.                                                                                                                                                             |
-| `git`                                                              | Ambos                                              | Sim.                                                                                                                                                                                    |
-| `gum` ([charmbracelet/gum](https://github.com/charmbracelet/gum))  | CLI bash                                           | Não — fallback em texto puro quando ausente (ver `dev-doctor`).                                                                                                                         |
-| `lsof`                                                             | CLI bash                                           | Sim (liberação de porta em `dev-stop`).                                                                                                                                                 |
-| `lsof`                                                             | Dashboard web, só no macOS                         | Não — usado por `verifyProcessDirectory` para identidade de processo no macOS (task 133); ausente/falho degrada para "não verificado", não bloqueia. Sem efeito no Linux (usa `/proc`). |
-| `ruby`, `bundle`                                                   | CLI bash, projetos Rails                           | Só para projetos Rails.                                                                                                                                                                 |
-| `mysql` (cliente)                                                  | CLI bash, projetos com MySQL                       | Só se o projeto usar MySQL.                                                                                                                                                             |
-| `mysqldump`/`pg_dump`                                              | CLI bash, `db:snapshot`/`db:restore`               | Só para essas ações.                                                                                                                                                                    |
-| `gh` (GitHub CLI)                                                  | CLI bash, `git-pr`/detecção de PR em `git-publish` | Não — aviso em `dev-doctor` se ausente.                                                                                                                                                 |
-
-Rode `npm run doctor` (dashboard web) ou `dev-doctor` (CLI bash) para
-verificar o ambiente atual contra essa lista.
-
-## Mapa de serviços
-
-| Serviço     | Porta padrão | Processo                  | Escopo                       |
-| ----------- | -----------: | ------------------------- | ---------------------------- |
-| API         |         4343 | `tsx watch src/server.ts` | Produto e integrações locais |
-| Web         |         5173 | `vite`                    | Interface de desenvolvimento |
-| Preview web |         4173 | `vite preview`            | Validação do build web       |
-
-Todos os listeners devem permanecer em `127.0.0.1`.
-
-## Variáveis de ambiente
-
-### API e distribuição
-
-| Variável                             | Finalidade                                    |
-| ------------------------------------ | --------------------------------------------- |
-| `DEV_DASHBOARD_API_PORT`             | Porta da API; padrão `4343`.                  |
-| `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` | Ativa frontend estático servido pela API.     |
-| `DEV_DASHBOARD_WEB_DIST`             | Diretório canônico do build web.              |
-| `DEV_DASHBOARD_BROWSER_BOOTSTRAP`    | Capacidade efêmera do bootstrap do navegador. |
-| `LOG_LEVEL`                          | Nível do logger Fastify.                      |
-
-### Configuração e estado
-
-| Variável                           | Finalidade                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| `DEV_DASHBOARD_CONFIG_DIR`         | Diretório de configuração da aplicação.                                                     |
-| `XDG_CONFIG_HOME`                  | Base XDG alternativa para configuração.                                                     |
-| `DEV_DASHBOARD_STATE_DIR`          | Diretório de processos, logs e históricos.                                                  |
-| `XDG_STATE_HOME`                   | Base XDG alternativa para estado.                                                           |
-| `DEV_DASHBOARD_LOG_RETENTION_DAYS` | Janela padrão de retenção de logs terminais.                                                |
-| `DEV_DASHBOARD_BACKUP_DIR`         | Diretório onde `dev-backup` grava os arquivos `.tar.gz`; padrão `~/.dev-dashboard-backups`. |
-
-### Limites de logs e terminais
-
-Os terminais do navegador mantêm apenas uma janela recente de saída para que
-uma execução longa não faça a aba crescer indefinidamente. O backend mantém um
-buffer limitado para reconexões destacáveis, e a leitura de logs persistidos
-também retorna somente o trecho final dentro do limite do contrato. Use
-`Limpar` no painel quando quiser iniciar uma nova janela de observação.
-
-Para reproduzir os fluxos principais com o servidor de fixtures:
-
-```bash
-npm run test:e2e --workspace=@dev-dashboard/web
-```
-
-## Arquivos locais
-
-### Configuração
-
-```text
-~/.config/dev-dashboard/
-├── config.json
-├── api-token
-├── retention-settings.json
-└── outros arquivos versionados de preferência
-```
-
-### Estado
-
-```text
-~/.local/state/dev-dashboard/
-├── processes/
-├── logs/
-├── históricos de testes e scripts
-├── snapshots de banco
-└── estados de operações gerenciadas
-```
-
-Diretórios privados devem usar `0700`; arquivos privados, `0600`.
-
-### Backup e restauração
-
-`dev-backup` (CLI bash) empacota `~/.config/dev-dashboard` (sem `api-token`)
-e `~/.local/state/dev-dashboard` num `.tar.gz` timestamped em
-`~/.dev-dashboard-backups`; `dev-restore <arquivo.tar.gz>` restaura a partir
-de um desses arquivos, pedindo confirmação antes de sobrescrever. Segredos
-(`~/.dev-dashboard.secrets`, o token da API) ficam fora por padrão — use
-`dev-backup --include-secrets` para incluir `~/.dev-dashboard.secrets`; o
-token nunca é incluído, pois é regenerado automaticamente pela API. Veja
-`docs/architecture/security.md`, seção "Backup e restauração do estado
-local (CLI)".
-
-## Diagnóstico inicial
+Rode:
 
 ```bash
 npm run doctor
 ```
 
-Depois verifique os serviços individualmente:
+## Serviços locais
 
-```bash
-curl http://127.0.0.1:4343/api/health
+| Serviço | Porta padrão | Escopo |
+| --- | ---: | --- |
+| API | 4343 | regras, persistência e integrações |
+| Web | 5173 | frontend Vite |
+| Preview web | 4173 | validação de build |
+
+Listeners do produto devem permanecer em `127.0.0.1`.
+
+## Variáveis de ambiente
+
+### API e distribuição
+
+| Variável | Finalidade |
+| --- | --- |
+| `DEV_DASHBOARD_API_PORT` | porta da API, padrão `4343` |
+| `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` | serve frontend estático pela API |
+| `DEV_DASHBOARD_WEB_DIST` | diretório canônico do build web |
+| `DEV_DASHBOARD_BROWSER_BOOTSTRAP` | bootstrap efêmero do navegador |
+| `LOG_LEVEL` | nível do logger Fastify |
+
+### Configuração e estado
+
+| Variável | Finalidade |
+| --- | --- |
+| `DEV_DASHBOARD_CONFIG_DIR` | diretório de configuração |
+| `XDG_CONFIG_HOME` | base XDG alternativa de configuração |
+| `DEV_DASHBOARD_STATE_DIR` | diretório de estado/logs/históricos |
+| `XDG_STATE_HOME` | base XDG alternativa de estado |
+| `DEV_DASHBOARD_LOG_RETENTION_DAYS` | retenção padrão de logs |
+| `DEV_DASHBOARD_BACKUP_DIR` | destino de `dev-backup` |
+
+### Vercel
+
+| Variável | Finalidade |
+| --- | --- |
+| `VERCEL_TOKEN` | autentica leitura e deployment de projetos `git-managed`/Vercel |
+| `VERCEL_TEAM_ID` | escopo opcional de time quando necessário |
+
+Configure essas variáveis preferencialmente em `.env.local` na raiz do Dev Dashboard:
+
+```dotenv
+VERCEL_TOKEN=...
+VERCEL_TEAM_ID=team_...
 ```
 
-Para a web, abra `http://127.0.0.1:5173` no navegador.
+`npm run dev` carrega `.env.local` automaticamente. Reinicie o processo depois de mudar o arquivo.
+
+Nunca publique o conteúdo de `.env.local`. O token não pertence a `.dev-dashboard/production.json` e não deve aparecer em issue, PR, screenshot ou log.
+
+## Arquivos locais
+
+Configuração:
+
+```text
+~/.config/dev-dashboard/
+├── config.json
+├── api-token
+└── preferências locais
+```
+
+Estado:
+
+```text
+~/.local/state/dev-dashboard/
+├── processes/
+├── logs/
+├── deployments/
+├── históricos de testes/scripts
+└── snapshots de banco
+```
+
+Diretórios privados usam `0700`; arquivos privados, `0600`.
+
+Deployments persistem timeline/log/histórico, mas **não** token de confirmação nem credenciais Vercel.
+
+## Diagnóstico inicial
+
+```bash
+npm run doctor
+curl -i http://127.0.0.1:4343/api/health
+```
+
+Se a web estiver em desenvolvimento, abra `http://127.0.0.1:5173`.
 
 ## `npm run dev` não inicia
 
 ### Dependências ausentes
-
-Sintoma:
-
-```text
-node_modules não encontrado
-módulo não encontrado
-workspace não resolvido
-```
-
-Correção:
 
 ```bash
 npm install
@@ -151,176 +122,187 @@ npm run doctor
 npm run dev
 ```
 
-### Versão do Node incompatível
-
-Confira:
+### Node incompatível
 
 ```bash
 node --version
 ```
 
-Use Node `20.19+`, `22.12+` ou versão mais recente suportada pelo projeto.
+Use uma versão compatível com `package.json`.
 
-### Pacotes compartilhados não compilam
-
-`predev` executa o build de `contracts`, `core`, `project-discovery` e `process-manager`. Rode diretamente para obter erro mais focado:
+### Package compartilhado desatualizado
 
 ```bash
 npm run build:packages
 ```
 
-Depois execute typecheck no workspace indicado pelo erro.
+Depois rode o typecheck do workspace que falhou.
 
 ## Porta ocupada
-
-Descubra o processo:
 
 ```bash
 ss -ltnp | grep ':4343\|:5173'
 ```
 
-Não encerre um PID sem saber sua identidade. Pode existir outra instância legítima ou outro serviço local.
+Não encerre um PID sem confirmar sua identidade.
 
-### Alterar porta da API
+## Dashboard abre, mas API falha
 
-A distribuição local aceita `DEV_DASHBOARD_API_PORT`. No desenvolvimento padrão, a web e as origens permitidas são configuradas para a porta esperada; mudar apenas uma camada pode exigir ajustes coordenados.
+Confira:
 
-## Um processo filho encerra e derruba os demais
+1. API em `127.0.0.1:4343`;
+2. web em `127.0.0.1:5173` no modo Vite;
+3. origem correta;
+4. token local legível pelo processo;
+5. request passando pelo proxy `/api`.
 
-Esse é o comportamento esperado do orquestrador. O ambiente não deve continuar parcialmente ativo quando API ou web falha.
-
-Procure no terminal a primeira mensagem de erro antes do encerramento coordenado. Para isolar:
-
-```bash
-npm run dev:api
-npm run dev:web
-```
-
-## Dashboard abre, mas chamadas da API falham
-
-Verifique:
-
-1. API está ativa em `127.0.0.1:4343`;
-2. Vite está ativo em `127.0.0.1:5173`;
-3. o token local pode ser lido pelo processo do Vite;
-4. não existe proxy, extensão ou configuração alterando a origem;
-5. o request passa por `/api` no Vite, em vez de chamar origem externa.
-
-Teste o health check, que é público:
-
-```bash
-curl -i http://127.0.0.1:4343/api/health
-```
-
-Para uma rota privada via `curl`:
+Rota privada via curl:
 
 ```bash
 TOKEN="$(cat ~/.config/dev-dashboard/api-token)"
 curl -H "X-Dev-Dashboard-Token: $TOKEN" http://127.0.0.1:4343/api/workspaces
 ```
 
-Não cole o token em logs, issues ou documentação pública.
+Não publique o token.
 
-## Erro de origem ou CORS
+## Erro de origem/CORS
 
-A API aceita uma lista fechada de origens locais. Confirme que o navegador está usando exatamente a URL impressa pelo processo correto.
+A aplicação aceita uma lista fechada de origens locais. Não use IP de LAN, `0.0.0.0`, túnel público ou iframe em origem externa como atalho.
 
-Não use:
+## Projeto não aparece
 
-- IP da rede local;
-- `0.0.0.0`;
-- domínio customizado;
-- túnel público;
-- iframe em outra origem.
+Confira:
 
-## Workspace não é aceito
+- workspace correto;
+- scan executado;
+- `package.json` para Node ou `Gemfile` Rails;
+- limites do scan recursivo, quando habilitado;
+- warnings retornados pelo discovery.
 
-Possíveis causas:
+## Aba Produção não aparece
 
-- caminho inexistente;
-- alvo não é diretório;
-- falta de permissão;
-- caminho resolve para workspace já cadastrado;
-- symlink resolve para destino fora do esperado.
+A capability `production` só existe quando `.dev-dashboard/production.json` é válido.
 
-Verifique:
+Confira no projeto alvo:
 
 ```bash
-realpath /caminho/do/workspace
-ls -ld /caminho/do/workspace
+cat .dev-dashboard/production.json
+cat package.json
 ```
 
-## Projeto não aparece no scan
+Não inclua segredos no manifesto. Se o scan indicar `productionWarning`, corrija shape/versão/scripts declarados e faça novo scan.
 
-Confira se ele está diretamente abaixo do workspace e possui:
+## Produção aparece como bloqueada
 
-- `package.json`, para Node; ou
-- `Gemfile` com Rails, para Rails.
+`strategy=disabled` é deliberado. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
 
-Diretórios internos, dependências e estruturas não reconhecidas podem ser ignorados. Consulte warnings retornados pelo scan.
+O próprio Dev Dashboard permanece nesse estado para self-production até existir helper externo de restart/handoff.
 
-## Servidor do projeto não inicia
+## Vercel: integração não configurada
 
-### Rails
-
-Verifique manualmente no projeto:
-
-```bash
-bin/rails server
-```
-
-ou:
-
-```bash
-bundle exec rails server
-```
-
-Problemas comuns: bundle ausente, banco indisponível, credenciais inválidas ou porta usada.
-
-### Node
-
-O dashboard procura scripts na ordem:
+Sintoma na UI:
 
 ```text
-dev
-start
-serve
+Integração Vercel não configurada
 ```
 
-Confira `package.json` e o lockfile. Ambientes selecionados precisam corresponder a arquivos reconhecidos pelo backend.
+Confirme **sem imprimir o token**:
 
-### Estado preso em `starting`
+```bash
+cd /caminho/do/dev-dashboard
+test -f .env.local && echo '.env.local existe'
+```
 
-Possíveis causas:
+Depois reinicie:
 
-- processo iniciou, mas não abriu a porta;
-- health check configurado não responde;
-- processo saiu sem flush completo de log;
-- porta efetiva difere da esperada.
+```bash
+npm run dev
+```
 
-Abra o log limitado pelo dashboard e confira o processo no sistema sem sinalizá-lo imediatamente.
+Se você exporta a variável diretamente no shell:
 
-## Processo não pode ser encerrado
+```bash
+test -n "$VERCEL_TOKEN" && echo 'VERCEL_TOKEN presente' || echo 'VERCEL_TOKEN ausente'
+```
 
-O Process Manager recusa sinalizar quando a identidade não corresponde ao projeto esperado. Isso protege contra reutilização de PID.
+## Vercel: autenticação falhou
 
-Se o estado ficou órfão após reinício ou crash:
+`DEPLOYMENT_PROVIDER_AUTH_FAILED` indica token/escopo recusado.
 
-- confirme o processo real com `ps` e `/proc/<pid>/cwd`;
-- use a limpeza segura oferecida pelo dashboard para estados finalizados;
-- evite apagar arquivos de estado enquanto o processo ainda existe.
+- gere/use token válido na Vercel;
+- confirme `VERCEL_TEAM_ID` somente quando o projeto estiver sob esse time;
+- reinicie o processo após ajustar `.env.local`;
+- não cole a credencial no diagnóstico.
 
-## Logs vazios ou truncados
+## Vercel: projeto não encontrado
 
-A leitura é deliberadamente limitada. O dashboard retorna o final do arquivo e pode remover a primeira linha parcial.
+`DEPLOYMENT_PROVIDER_PROJECT_NOT_FOUND` normalmente significa que `production.external.project` não existe no escopo do token/team.
 
-Também pode haver substituições de segredos. Consulte os metadados de redaction exibidos na interface.
+Confira o manifesto do projeto alvo e o nome/ID do projeto Vercel. Não tente contornar alterando o nome da pasta local.
 
-Para investigar localmente, abra o arquivo somente no computador confiável e não publique seu conteúdo sem revisão.
+## Vercel: revision remota não pôde ser confirmada
+
+Antes de `provider-deploy`, o dashboard exige que a revision confirmada seja exatamente a revision atual de `origin/<production.branch>`.
+
+Diagnóstico somente leitura:
+
+```bash
+git status --short --branch
+git remote -v
+git rev-parse HEAD
+git ls-remote --heads origin main
+```
+
+Troque `main` pela branch declarada.
+
+Casos comuns:
+
+- commit local ainda não foi enviado;
+- remote indisponível;
+- branch remota mudou após o preview;
+- origin aponta para outro repositório.
+
+Corrija o Git conscientemente e **gere novo plano**; não force o dashboard a usar uma ref stale.
+
+## Vercel: deployment BUILDING por muito tempo
+
+O polling do dashboard é bounded. Se o provider não chegar a estado terminal dentro da janela, o domínio não inventa sucesso.
+
+Abra o deployment na Vercel para investigar build/log do provider e mantenha a execução local como falha/indeterminada conforme a timeline registrada.
+
+## Vercel READY, mas verify falhou
+
+`READY` não é health da aplicação.
+
+Se a UI oferecer **Verificar novamente**, use essa ação. Ela repete somente `prod:verify` quando o backend comprova que o caso é seguro.
+
+Não dispare um segundo deployment apenas para repetir readiness.
+
+## `recovery_required`
+
+Esse estado significa que uma etapa potencialmente irreversível já começou.
+
+Antes de qualquer rollback/retry:
+
+1. revise timeline e log;
+2. confira provider/aplicação;
+3. confira schema/migration;
+4. valide backup/checkpoint;
+5. leia `production.policies.rollback`.
+
+Não promova deployment antigo cegamente se o schema já avançou.
+
+## Deployment já em andamento
+
+Existe um único deployment mutável ativo globalmente. Status Vercel somente leitura não ocupa esse slot.
+
+Acompanhe/cancele o deployment atual; não mate a API para contornar a trava.
+
+## Logs vazios/truncados
+
+Logs são deliberadamente limitados e mascarados. Abra o arquivo local somente em máquina confiável se precisar de detalhe adicional e revise o conteúdo antes de compartilhar.
 
 ## Git mostra estado inesperado
-
-Execute no projeto:
 
 ```bash
 git status --short --branch
@@ -328,105 +310,61 @@ git remote -v
 git branch -vv
 ```
 
-A interface deve representar o estado atual, sem indicar atualização quando nenhum commit novo existe.
+A UI deve representar estado real e não mostrar atividade quando não há trabalho em execução.
 
-Para mutações:
+## Banco/snapshot falha
 
-- confira branch atual;
-- confira alterações não commitadas;
-- revise remote e upstream;
-- valide o resumo da confirmação;
-- não reutilize tokens expirados.
+Confira cliente (`pg_dump`/`mysqldump`), host/porta, permissão, espaço em disco, serviço e limites. Senhas não devem aparecer em argv/log.
 
-## Teste ou script não aparece
+## Build/typecheck
 
-O catálogo é detectado a partir dos arquivos atuais. Confira:
-
-- scripts em `package.json`;
-- lockfile único e reconhecido;
-- tarefas Rails disponíveis;
-- executáveis permitidos em `bin/`;
-- arquivos de teste dentro do escopo esperado.
-
-A API redetecta o catálogo no momento da execução; uma ação removida entre listagem e clique deve ser recusada.
-
-## SSE desconecta
-
-A desconexão pode ocorrer por:
-
-- conclusão da execução;
-- troca de projeto;
-- limite de assinantes;
-- reinício da API;
-- perda temporária da conexão local.
-
-O frontend deve recuperar o snapshot persistido por HTTP antes de reconectar. SSE é atualização, não a única fonte de verdade.
-
-## Snapshot de banco falha
-
-Verifique:
-
-- cliente `mysqldump` ou `pg_dump` instalado;
-- host e porta detectados;
-- usuário com permissão;
-- espaço em disco;
-- limite de tamanho e tempo;
-- serviço de banco ativo;
-- snapshot e environmentId ainda válidos.
-
-A senha não aparece na linha de comando; ela é transmitida ao cliente por variável específica.
-
-## Build da web falha
+Web:
 
 ```bash
 npm run typecheck --workspace=@dev-dashboard/web
 npm run build --workspace=@dev-dashboard/web
 ```
 
-Verifique erros de Vue SFC, tipos de props/emits, imports e mudanças incompatíveis em `contracts`.
-
-## Build da API falha
+API:
 
 ```bash
+npm run build:packages
 npm run typecheck --workspace=@dev-dashboard/api
 npm run build --workspace=@dev-dashboard/api
 ```
 
-Se o erro vier de um pacote compartilhado, compile primeiro:
-
-```bash
-npm run build:packages
-```
-
 ## Referência da API desatualizada
-
-Sintoma:
-
-```text
-docs:api:check ... está desatualizado
-```
-
-Correção:
 
 ```bash
 npm run docs:api
 npm run docs:api:check
 ```
 
-Revise e commite `docs/architecture/api-reference.md`.
+`docs/architecture/api-reference.md` é gerada; não edite manualmente.
 
-## Coleta mínima para reportar um problema
+## Validação completa
 
-Inclua sem segredos:
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+npm test
+npm run test:cli
+npm run test:e2e
+```
 
-- sistema operacional;
-- `node --version` e `npm --version`;
-- comando executado;
-- primeira mensagem de erro;
-- resultado de `npm run doctor`;
-- serviço e porta envolvidos;
-- passos para reproduzir;
-- comportamento esperado e observado;
-- logs já mascarados.
+Use a suíte completa antes de concluir mudanças de fluxo crítico.
 
-Nunca inclua token local, `.env`, credenciais de banco ou dumps.
+## Backup/restauração do estado local
+
+O CLI `dev-backup` pode empacotar configuração/estado local. O token da API não é incluído; segredos só entram quando a opção explícita correspondente for usada.
+
+Esse backup local é diferente dos backups dos **projetos em produção**. O Production Contract de cada projeto continua responsável por declarar sua política real de backup/recovery.
+
+## Mais detalhes
+
+- [Guia de Produção](guia/producao.md)
+- [Operação de deployments](deployment-operations.md)
+- [Segurança](architecture/security.md)
+- [Self-production](architecture/self-production.md)

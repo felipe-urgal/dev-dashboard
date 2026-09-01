@@ -27,6 +27,7 @@ import type {
   DeploymentPlan,
   DeploymentPlanStep,
   DeploymentProviderAvailability,
+  DeploymentStepId,
   DeploymentStepStatus,
   DeploymentStatus,
   ProductionCommandId,
@@ -56,9 +57,7 @@ interface Props {
   gitOverview?: ProjectGitOverview | null;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  gitOverview: null,
-});
+const props = withDefaults(defineProps<Props>(), { gitOverview: null });
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 type Operation =
@@ -71,7 +70,7 @@ const TERMINAL_STATUSES = new Set<DeploymentStatus>([
   'cancelled',
 ]);
 
-const commandLabels: Record<ProductionCommandId, string> = {
+const stepLabels: Record<DeploymentStepId, string> = {
   status: 'Status',
   check: 'Check',
   backup: 'Backup',
@@ -81,6 +80,7 @@ const commandLabels: Record<ProductionCommandId, string> = {
   restoreCheck: 'Restore check',
   rollback: 'Rollback',
   logs: 'Logs',
+  'provider-deploy': 'Deploy Vercel',
 };
 
 const stepStatusLabels: Record<DeploymentStepStatus, string> = {
@@ -124,22 +124,33 @@ const isGitManaged = computed(
     production.value?.enabled === true &&
     production.value.strategy === 'git-managed',
 );
+const canExecuteDeployment = computed(
+  () => isCommand.value || isGitManaged.value,
+);
 
 const latestDeployment = computed(
   () => activeDeployment.value ?? history.value[0] ?? null,
 );
 const lastSuccessfulDeployment = computed(() => {
-  if (activeDeployment.value?.status === 'succeeded') {
+  if (activeDeployment.value?.status === 'succeeded')
     return activeDeployment.value;
-  }
   return history.value.find((item) => item.status === 'succeeded') ?? null;
 });
 const hasActiveDeployment = computed(() => {
   const current = latestDeployment.value;
   return current ? !TERMINAL_STATUSES.has(current.status) : false;
 });
+
+function mutationStepSucceeded(deployment: Deployment): boolean {
+  return Boolean(
+    deployment.timeline.find(
+      (step) => step.id === 'deploy' || step.id === 'provider-deploy',
+    )?.status === 'succeeded',
+  );
+}
+
 const hasRetryableLatestVerifyTimeline = computed(() => {
-  if (!isCommand.value) return false;
+  if (!canExecuteDeployment.value) return false;
   const deployment = latestDeployment.value;
   if (
     !deployment ||
@@ -153,14 +164,13 @@ const hasRetryableLatestVerifyTimeline = computed(() => {
     (step) => step.id === 'verify',
   );
   const verify = deployment.timeline[verifyIndex];
-  const deploy = deployment.timeline.find((step) => step.id === 'deploy');
   return Boolean(
     verify &&
     verifyIndex === deployment.timeline.length - 1 &&
     !verify.mutating &&
     !verify.irreversible &&
     (verify.status === 'failed' || verify.status === 'cancelled') &&
-    deploy?.status === 'succeeded' &&
+    mutationStepSucceeded(deployment) &&
     deployment.timeline
       .slice(0, verifyIndex)
       .every((step) => step.status === 'succeeded'),
@@ -191,10 +201,10 @@ const needsSudoAuthorization = computed(() => {
     !sudoAuthorized.value,
   );
 });
+
 const originRevision = computed(() => {
-  if (providerStatus.value?.originRevision) {
+  if (providerStatus.value?.originRevision)
     return providerStatus.value.originRevision;
-  }
   const target = branch.value;
   const remoteBranch = gitWorkspace.value?.branches.find(
     (item) =>
@@ -229,13 +239,27 @@ const productionUrl = computed(
     providerStatus.value?.deployment?.url ??
     applicationUrlFromHealth(production.value?.health?.url),
 );
-
 const visibleCommandTimeline = computed(
   () => latestDeployment.value?.timeline ?? [],
 );
 const visibleProviderTimeline = computed(
   () => providerStatus.value?.timeline ?? [],
 );
+
+function providerAvailabilityLabel(
+  availability: DeploymentProviderAvailability,
+): string {
+  const labels: Record<DeploymentProviderAvailability, string> = {
+    available: 'Disponível',
+    'not-configured': 'Não configurado',
+    'auth-error': 'Autenticação',
+    'quota-limited': 'Cota limitada',
+    'project-not-found': 'Projeto não encontrado',
+    unavailable: 'Indisponível',
+    'invalid-response': 'Resposta inválida',
+  };
+  return labels[availability];
+}
 
 const statusView = computed(
   (): {
@@ -277,23 +301,14 @@ const statusView = computed(
       };
     }
 
-    if (isCommand.value) {
-      const deployment = latestDeployment.value;
-      if (!deployment) {
-        return {
-          title: 'Produção pronta para planejar',
-          description:
-            'Gere um plano para revisar revision, etapas e impacto antes de confirmar qualquer mutação.',
-          label: 'Pronta',
-          tone: 'info',
-          icon: InformationCircleIcon,
-        };
-      }
+    const deployment = latestDeployment.value;
+    if (deployment && canExecuteDeployment.value) {
       if (!TERMINAL_STATUSES.has(deployment.status)) {
         return {
           title: 'Deployment em execução',
-          description:
-            'A timeline e o log abaixo acompanham somente o trabalho real registrado pelo domínio de deployment.',
+          description: isGitManaged.value
+            ? 'O plano local está executando validações e acompanhando a promoção real na Vercel.'
+            : 'A timeline e o log abaixo acompanham somente o trabalho real registrado pelo domínio de deployment.',
           label: 'Executando',
           tone: 'info',
           icon: ClockIcon,
@@ -304,7 +319,7 @@ const statusView = computed(
           return {
             title: 'Deploy concluído · verificação falhou',
             description:
-              'A mutação terminou e somente o verify falhou. Você pode verificar novamente sem repetir check, backup, migration ou deploy.',
+              'A mutação terminou e somente o verify falhou. Você pode verificar novamente sem repetir a promoção.',
             label: 'Verificar',
             tone: 'warning',
             icon: ExclamationTriangleIcon,
@@ -344,13 +359,26 @@ const statusView = computed(
           icon: StopIcon,
         };
       }
+      if (isCommand.value) {
+        return {
+          title: 'Último deployment concluído',
+          description:
+            'A execução terminou com sucesso. Health atual continua separado do resultado histórico do verify.',
+          label: 'Concluído',
+          tone: 'success',
+          icon: CheckCircleIcon,
+        };
+      }
+    }
+
+    if (isCommand.value) {
       return {
-        title: 'Último deployment concluído',
+        title: 'Produção pronta para planejar',
         description:
-          'A execução terminou com sucesso. Health atual continua separado do resultado histórico do verify.',
-        label: 'Concluído',
-        tone: 'success',
-        icon: CheckCircleIcon,
+          'Gere um plano para revisar revision, etapas e impacto antes de confirmar qualquer mutação.',
+        label: 'Pronta',
+        tone: 'info',
+        icon: InformationCircleIcon,
       };
     }
 
@@ -359,8 +387,7 @@ const statusView = computed(
       if (!status) {
         return {
           title: 'Status externo ainda não disponível',
-          description:
-            'Atualize o snapshot para comparar origin e produção sem disparar promoção remota.',
+          description: 'Atualize o snapshot para comparar origin e produção.',
           label: 'Desconhecido',
           tone: 'neutral',
           icon: InformationCircleIcon,
@@ -382,7 +409,7 @@ const statusView = computed(
         return {
           title: 'Deployment externo em andamento',
           description:
-            'O dashboard acompanha o provider em modo somente leitura; migrations e verify continuam operações separadas.',
+            'A Vercel está construindo ou promovendo a revisão atual.',
           label: 'Executando',
           tone: 'info',
           icon: ClockIcon,
@@ -402,7 +429,7 @@ const statusView = computed(
         return {
           title: 'Produção está em revision diferente',
           description:
-            'origin e produção apontam para SHAs diferentes. O dashboard não presume direção da divergência sem análise Git adicional.',
+            'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
           label: 'Desatualizada',
           tone: 'warning',
           icon: ExclamationTriangleIcon,
@@ -412,18 +439,18 @@ const statusView = computed(
         return {
           title: 'Produção alinhada com origin',
           description:
-            'A revision coincide e o provider está READY. Isso não substitui a verificação de health da aplicação.',
+            'A revision coincide e o provider está READY. Um novo plano continua disponível para uma nova revisão.',
           label: 'Atualizada',
           tone: 'success',
           icon: CheckCircleIcon,
         };
       }
       return {
-        title: 'Estado de produção parcial',
+        title: 'Produção pronta para planejar',
         description:
-          'O snapshot é válido, mas ainda não há informação suficiente para afirmar alinhamento completo.',
-        label: 'Parcial',
-        tone: 'neutral',
+          'O provider está disponível. Gere um plano antes de promover a revisão confirmada.',
+        label: 'Pronta',
+        tone: 'info',
         icon: InformationCircleIcon,
       };
     }
@@ -440,6 +467,12 @@ const statusView = computed(
 );
 
 const readinessCopy = computed(() => {
+  const verify = latestDeployment.value?.timeline.find(
+    (step) => step.id === 'verify',
+  );
+  if (verify?.status === 'running') return 'Verify em execução';
+  if (verify?.status === 'succeeded') return 'Último verify passou';
+  if (verify?.status === 'failed') return 'Último verify falhou';
   if (isGitManaged.value) {
     const state = providerStatus.value?.deployment?.state;
     if (state === 'ready') return 'Provider READY';
@@ -449,12 +482,6 @@ const readinessCopy = computed(() => {
     if (state === 'cancelled') return 'Deployment cancelado';
     return 'Não informado';
   }
-  const verify = latestDeployment.value?.timeline.find(
-    (step) => step.id === 'verify',
-  );
-  if (verify?.status === 'running') return 'Verify em execução';
-  if (verify?.status === 'succeeded') return 'Último verify passou';
-  if (verify?.status === 'failed') return 'Último verify falhou';
   return 'Sem verify recente';
 });
 
@@ -463,35 +490,17 @@ const healthCopy = computed(() => {
   const verify = latestDeployment.value?.timeline.find(
     (step) => step.id === 'verify',
   );
-  if (isCommand.value && verify?.status === 'succeeded') {
+  if (verify?.status === 'succeeded')
     return 'HTTP configurado; último verify passou';
-  }
   return 'HTTP configurado; estado atual não consultado';
 });
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
-
-function providerAvailabilityLabel(
-  availability: DeploymentProviderAvailability,
-): string {
-  const labels: Record<DeploymentProviderAvailability, string> = {
-    available: 'Disponível',
-    'not-configured': 'Não configurado',
-    'auth-error': 'Autenticação',
-    'quota-limited': 'Cota limitada',
-    'project-not-found': 'Projeto não encontrado',
-    unavailable: 'Indisponível',
-    'invalid-response': 'Resposta inválida',
-  };
-  return labels[availability];
-}
-
 function shortRevision(value: string | undefined): string {
   return value ? value.slice(0, 8) : '—';
 }
-
 function stepTone(status: DeploymentStepStatus): Tone {
   if (status === 'succeeded') return 'success';
   if (status === 'failed') return 'danger';
@@ -499,7 +508,6 @@ function stepTone(status: DeploymentStepStatus): Tone {
   if (status === 'cancelled') return 'warning';
   return 'neutral';
 }
-
 function deploymentTone(status: DeploymentStatus): Tone {
   if (status === 'succeeded') return 'success';
   if (status === 'failed' || status === 'recovery_required') return 'danger';
@@ -507,7 +515,6 @@ function deploymentTone(status: DeploymentStatus): Tone {
   if (status === 'planned') return 'neutral';
   return 'info';
 }
-
 function deploymentStatusLabel(status: DeploymentStatus): string {
   const labels: Record<DeploymentStatus, string> = {
     planned: 'Planejado',
@@ -523,7 +530,6 @@ function deploymentStatusLabel(status: DeploymentStatus): string {
   };
   return labels[status];
 }
-
 function formatDate(value: string | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -533,19 +539,19 @@ function formatDate(value: string | undefined): string {
     timeStyle: 'short',
   }).format(date);
 }
-
 function commandScript(id: ProductionCommandId): string {
   if (id === 'restoreCheck') return 'prod:restore-check';
   return `prod:${id}`;
 }
-
+function stepScript(step: DeploymentPlanStep): string {
+  return 'script' in step ? step.script : 'Vercel API';
+}
 function clearPoll(): void {
   if (pollTimer !== undefined) {
     window.clearTimeout(pollTimer);
     pollTimer = undefined;
   }
 }
-
 function schedulePoll(callback: () => void, delay: number): void {
   clearPoll();
   pollTimer = window.setTimeout(callback, delay);
@@ -568,7 +574,7 @@ async function loadDeploymentLog(
   }
 }
 
-async function loadCommandState(current: number): Promise<void> {
+async function loadExecutionState(current: number): Promise<void> {
   const [historyResult, workspaceResult] = await Promise.all([
     fetchDeploymentHistory(props.project.id, {
       page: 1,
@@ -586,19 +592,12 @@ async function loadCommandState(current: number): Promise<void> {
       : Promise.resolve(null),
   ]);
   if (current !== generation) return;
-
   history.value = historyResult.items;
   gitWorkspace.value = workspaceResult;
   const latest = historyResult.items[0];
   activeDeployment.value =
     latest && !TERMINAL_STATUSES.has(latest.status) ? latest : null;
-
-  if (latest) {
-    await loadDeploymentLog(latest.id, current);
-  }
-  if (current === generation && activeDeployment.value) {
-    schedulePoll(() => void pollCommandDeployment(current), 700);
-  }
+  if (latest) await loadDeploymentLog(latest.id, current);
 }
 
 async function loadProviderState(current: number): Promise<void> {
@@ -606,17 +605,27 @@ async function loadProviderState(current: number): Promise<void> {
     props.project.id,
     requestController?.signal,
   );
-  if (current !== generation) return;
-  providerStatus.value = status;
-  if (['queued', 'building'].includes(status.deployment?.state ?? '')) {
+  if (current === generation) providerStatus.value = status;
+}
+
+function scheduleRelevantPoll(current: number): void {
+  if (activeDeployment.value) {
+    schedulePoll(() => void pollDeployment(current), 700);
+    return;
+  }
+  if (
+    isGitManaged.value &&
+    ['queued', 'building'].includes(
+      providerStatus.value?.deployment?.state ?? '',
+    )
+  ) {
     schedulePoll(() => void pollProviderStatus(current), 3_000);
   }
 }
 
-async function pollCommandDeployment(current: number): Promise<void> {
+async function pollDeployment(current: number): Promise<void> {
   const deploymentId = activeDeployment.value?.id;
   if (!deploymentId || current !== generation) return;
-
   try {
     const [deployment, log] = await Promise.all([
       fetchDeployment(
@@ -634,7 +643,6 @@ async function pollCommandDeployment(current: number): Promise<void> {
       }),
     ]);
     if (current !== generation) return;
-
     activeDeployment.value = deployment;
     if (log) deploymentLog.value = log;
 
@@ -650,9 +658,14 @@ async function pollCommandDeployment(current: number): Promise<void> {
       if (current !== generation) return;
       history.value = refreshed.items;
       activeDeployment.value = deployment;
+      if (isGitManaged.value) {
+        await loadProviderState(current).catch((error: unknown) => {
+          if (isAbortError(error)) throw error;
+        });
+      }
       return;
     }
-    schedulePoll(() => void pollCommandDeployment(current), 700);
+    schedulePoll(() => void pollDeployment(current), 700);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
@@ -665,13 +678,13 @@ async function pollCommandDeployment(current: number): Promise<void> {
 async function pollProviderStatus(current: number): Promise<void> {
   if (current !== generation) return;
   try {
-    const status = await fetchProductionDeploymentStatus(
-      props.project.id,
-      requestController?.signal,
-    );
-    if (current !== generation) return;
-    providerStatus.value = status;
-    if (['queued', 'building'].includes(status.deployment?.state ?? '')) {
+    await loadProviderState(current);
+    if (
+      current === generation &&
+      ['queued', 'building'].includes(
+        providerStatus.value?.deployment?.state ?? '',
+      )
+    ) {
       schedulePoll(() => void pollProviderStatus(current), 3_000);
     }
   } catch (error) {
@@ -688,7 +701,6 @@ async function load(): Promise<void> {
   clearPoll();
   requestController?.abort();
   requestController = new AbortController();
-
   initialLoading.value = false;
   operation.value = '';
   errorMessage.value = '';
@@ -702,17 +714,14 @@ async function load(): Promise<void> {
   sudoAuthorized.value = false;
 
   if (!hasProductionCapability.value || !production.value) return;
-  if (!production.value.enabled || production.value.strategy === 'disabled') {
+  if (!production.value.enabled || production.value.strategy === 'disabled')
     return;
-  }
 
   initialLoading.value = true;
   try {
-    if (production.value.strategy === 'git-managed') {
-      await loadProviderState(current);
-    } else if (production.value.strategy === 'command') {
-      await loadCommandState(current);
-    }
+    await loadExecutionState(current);
+    if (isGitManaged.value) await loadProviderState(current);
+    if (current === generation) scheduleRelevantPoll(current);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
@@ -730,7 +739,16 @@ async function refresh(): Promise<void> {
 }
 
 async function preparePlan(): Promise<void> {
-  if (!isCommand.value || operation.value) return;
+  if (!canExecuteDeployment.value || operation.value) return;
+  if (
+    isGitManaged.value &&
+    providerStatus.value?.providerAvailability !== 'available'
+  ) {
+    errorMessage.value =
+      providerStatus.value?.errorMessage ??
+      'Configure a integração Vercel antes de preparar o deployment.';
+    return;
+  }
   const current = generation;
   operation.value = 'planning';
   errorMessage.value = '';
@@ -757,11 +775,8 @@ async function preparePlan(): Promise<void> {
 async function handleSudoAuthorized(): Promise<void> {
   sudoModalOpen.value = false;
   sudoAuthorized.value = true;
-  if (canRetryLatestVerify.value) {
-    await retryLatestVerify();
-  } else {
-    await preparePlan();
-  }
+  if (canRetryLatestVerify.value) await retryLatestVerify();
+  else await preparePlan();
 }
 
 async function confirmAndStart(): Promise<void> {
@@ -784,7 +799,6 @@ async function confirmAndStart(): Promise<void> {
       requestController?.signal,
     );
     if (current !== generation) return;
-
     plan.value = null;
     activeDeployment.value = deployment;
     deploymentLog.value = null;
@@ -792,11 +806,10 @@ async function confirmAndStart(): Promise<void> {
       deployment,
       ...history.value.filter((item) => item.id !== deployment.id),
     ].slice(0, 8);
-
     if (TERMINAL_STATUSES.has(deployment.status)) {
       await loadDeploymentLog(deployment.id, current);
     } else {
-      schedulePoll(() => void pollCommandDeployment(current), 350);
+      schedulePoll(() => void pollDeployment(current), 350);
     }
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
@@ -827,7 +840,7 @@ async function retryLatestVerify(): Promise<void> {
       retrying,
       ...history.value.filter((item) => item.id !== retrying.id),
     ].slice(0, 8);
-    schedulePoll(() => void pollCommandDeployment(current), 250);
+    schedulePoll(() => void pollDeployment(current), 250);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
@@ -845,9 +858,8 @@ async function cancelActiveDeployment(): Promise<void> {
     !deployment ||
     TERMINAL_STATUSES.has(deployment.status) ||
     operation.value
-  ) {
+  )
     return;
-  }
   const current = generation;
   operation.value = 'cancelling';
   errorMessage.value = '';
@@ -858,7 +870,7 @@ async function cancelActiveDeployment(): Promise<void> {
       requestController?.signal,
     );
     if (current !== generation) return;
-    schedulePoll(() => void pollCommandDeployment(current), 250);
+    schedulePoll(() => void pollDeployment(current), 250);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
@@ -872,9 +884,7 @@ async function cancelActiveDeployment(): Promise<void> {
 
 watch(
   () => props.project.id,
-  () => {
-    void load();
-  },
+  () => void load(),
   { immediate: true },
 );
 
@@ -945,12 +955,20 @@ onBeforeUnmount(() => {
           }}
         </button>
         <button
-          v-if="isCommand && !hasActiveDeployment && !canRetryLatestVerify"
+          v-if="
+            canExecuteDeployment &&
+            !hasActiveDeployment &&
+            !canRetryLatestVerify
+          "
           :class="
             needsSudoAuthorization ? 'secondary-button' : 'primary-button'
           "
           type="button"
-          :disabled="Boolean(operation)"
+          :disabled="
+            Boolean(operation) ||
+            (isGitManaged &&
+              providerStatus?.providerAvailability !== 'available')
+          "
           @click="preparePlan"
         >
           <ArrowPathIcon
@@ -968,7 +986,7 @@ onBeforeUnmount(() => {
           }}
         </button>
         <button
-          v-if="isCommand && hasActiveDeployment"
+          v-if="canExecuteDeployment && hasActiveDeployment"
           class="secondary-button production-danger-button"
           type="button"
           :disabled="Boolean(operation)"
@@ -1040,22 +1058,22 @@ onBeforeUnmount(() => {
           </header>
           <div class="production-revision-flow">
             <div>
-              <span>Local</span>
-              <code :title="localRevision">{{
+              <span>Local</span
+              ><code :title="localRevision">{{
                 shortRevision(localRevision)
               }}</code>
             </div>
             <span aria-hidden="true">→</span>
             <div>
-              <span>origin/{{ branch }}</span>
-              <code :title="originRevision">{{
+              <span>origin/{{ branch }}</span
+              ><code :title="originRevision">{{
                 shortRevision(originRevision)
               }}</code>
             </div>
             <span aria-hidden="true">→</span>
             <div>
-              <span>Produção</span>
-              <code :title="productionRevision">{{
+              <span>Produção</span
+              ><code :title="productionRevision">{{
                 shortRevision(productionRevision)
               }}</code>
             </div>
@@ -1065,8 +1083,8 @@ onBeforeUnmount(() => {
             concluída registrada pelo domínio.
           </p>
           <p v-else class="production-note">
-            O snapshot Vercel compara apenas SHAs conhecidos; não executa git
-            fetch implicitamente.
+            O snapshot Vercel consulta a revisão remota e não altera o working
+            tree local.
           </p>
         </article>
 
@@ -1096,8 +1114,8 @@ onBeforeUnmount(() => {
             </div>
           </dl>
           <p v-if="production.health" class="production-health-url">
-            <span>Health declarado</span>
-            <code>{{ production.health.url }}</code>
+            <span>Health declarado</span
+            ><code>{{ production.health.url }}</code>
           </p>
         </article>
       </section>
@@ -1126,7 +1144,6 @@ onBeforeUnmount(() => {
             {{ providerAvailabilityLabel(providerStatus.providerAvailability) }}
           </StatusBadge>
         </header>
-
         <div
           v-if="providerStatus.deployment"
           class="production-provider-deployment"
@@ -1141,24 +1158,22 @@ onBeforeUnmount(() => {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Abrir deployment
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
+            Abrir deployment <ArrowTopRightOnSquareIcon aria-hidden="true" />
           </a>
         </div>
-
         <div
           v-if="providerStatus.localOperations.length"
           class="production-local-operations"
         >
           <span>Operações locais declaradas</span>
           <div>
-            <code v-for="item in providerStatus.localOperations" :key="item">
-              {{ commandScript(item) }}
-            </code>
+            <code v-for="item in providerStatus.localOperations" :key="item">{{
+              commandScript(item)
+            }}</code>
           </div>
           <small>
-            Elas continuam separadas da promoção Git/Vercel e não são executadas
-            automaticamente por esta tela.
+            Check, migration e verify entram no plano conforme o contrato; a
+            promoção é executada pela API da Vercel.
           </small>
         </div>
       </article>
@@ -1173,30 +1188,26 @@ onBeforeUnmount(() => {
           </div>
           <StatusBadge tone="warning">Ação de produção</StatusBadge>
         </header>
-
         <div class="production-plan-target">
           <div>
-            <span>Projeto</span>
-            <strong>{{ plan.projectName }}</strong>
+            <span>Projeto</span><strong>{{ plan.projectName }}</strong>
           </div>
           <div>
-            <span>Branch</span>
-            <strong>{{ plan.branch }}</strong>
+            <span>Branch</span><strong>{{ plan.branch }}</strong>
           </div>
           <div>
-            <span>Revision alvo</span>
-            <code :title="plan.revision">{{
+            <span>Revision alvo</span
+            ><code :title="plan.revision">{{
               shortRevision(plan.revision)
             }}</code>
           </div>
         </div>
-
         <ol class="production-timeline production-plan-steps">
           <li v-for="step in plan.steps" :key="step.id">
             <span class="production-step-marker" aria-hidden="true"></span>
             <div>
-              <strong>{{ commandLabels[step.id] }}</strong>
-              <code>{{ step.script }}</code>
+              <strong>{{ stepLabels[step.id] }}</strong
+              ><code>{{ stepScript(step) }}</code>
             </div>
             <div class="production-step-flags">
               <StatusBadge v-if="step.mutating" tone="warning"
@@ -1211,7 +1222,6 @@ onBeforeUnmount(() => {
             </div>
           </li>
         </ol>
-
         <div class="production-plan-warning">
           <ShieldExclamationIcon aria-hidden="true" />
           <p>
@@ -1219,7 +1229,6 @@ onBeforeUnmount(() => {
             branch, working tree ou revision mudar, o backend recusa a execução.
           </p>
         </div>
-
         <footer class="production-plan-actions">
           <button
             class="secondary-button"
@@ -1251,7 +1260,7 @@ onBeforeUnmount(() => {
       </article>
 
       <article
-        v-if="isCommand && latestDeployment"
+        v-if="canExecuteDeployment && latestDeployment"
         class="production-card production-execution"
       >
         <header>
@@ -1260,9 +1269,9 @@ onBeforeUnmount(() => {
             <h4>Timeline do deployment</h4>
           </div>
           <div class="production-execution-meta">
-            <StatusBadge :tone="deploymentTone(latestDeployment.status)">
-              {{ deploymentStatusLabel(latestDeployment.status) }}
-            </StatusBadge>
+            <StatusBadge :tone="deploymentTone(latestDeployment.status)">{{
+              deploymentStatusLabel(latestDeployment.status)
+            }}</StatusBadge>
             <span>{{
               formatDate(
                 latestDeployment.startedAt ?? latestDeployment.createdAt,
@@ -1270,7 +1279,6 @@ onBeforeUnmount(() => {
             }}</span>
           </div>
         </header>
-
         <ol class="production-timeline">
           <li v-for="step in visibleCommandTimeline" :key="step.id">
             <span
@@ -1279,21 +1287,20 @@ onBeforeUnmount(() => {
               aria-hidden="true"
             ></span>
             <div>
-              <strong>{{ commandLabels[step.id] }}</strong>
-              <code>{{ step.script }}</code>
-              <small v-if="step.startedAt">
-                {{ formatDate(step.startedAt)
+              <strong>{{ stepLabels[step.id] }}</strong>
+              <code>{{ stepScript(step) }}</code>
+              <small v-if="step.startedAt"
+                >{{ formatDate(step.startedAt)
                 }}<template v-if="step.finishedAt">
                   → {{ formatDate(step.finishedAt) }}</template
-                >
-              </small>
+                ></small
+              >
             </div>
-            <StatusBadge :tone="stepTone(step.status)">
-              {{ stepStatusLabels[step.status] }}
-            </StatusBadge>
+            <StatusBadge :tone="stepTone(step.status)">{{
+              stepStatusLabels[step.status]
+            }}</StatusBadge>
           </li>
         </ol>
-
         <div
           v-if="latestDeployment.status === 'recovery_required'"
           class="production-recovery"
@@ -1303,8 +1310,7 @@ onBeforeUnmount(() => {
             <strong>O deploy terminou; não repita a mutação</strong>
             <p>
               Apenas o verify falhou. Use “Verificar novamente” para repetir
-              somente a validação de leitura. Check, backup, migration e deploy
-              não serão executados de novo.
+              somente a validação de leitura.
             </p>
           </div>
           <div v-else>
@@ -1316,7 +1322,6 @@ onBeforeUnmount(() => {
             </p>
           </div>
         </div>
-
         <details
           v-if="deploymentLog"
           class="production-log"
@@ -1337,7 +1342,9 @@ onBeforeUnmount(() => {
       </article>
 
       <article
-        v-if="isGitManaged && visibleProviderTimeline.length"
+        v-if="
+          isGitManaged && !latestDeployment && visibleProviderTimeline.length
+        "
         class="production-card production-execution"
       >
         <header>
@@ -1354,20 +1361,20 @@ onBeforeUnmount(() => {
               aria-hidden="true"
             ></span>
             <div>
-              <strong>Provider deploy</strong>
-              <small v-if="step.startedAt">{{
+              <strong>Provider deploy</strong
+              ><small v-if="step.startedAt">{{
                 formatDate(step.startedAt)
               }}</small>
             </div>
-            <StatusBadge :tone="stepTone(step.status)">
-              {{ stepStatusLabels[step.status] }}
-            </StatusBadge>
+            <StatusBadge :tone="stepTone(step.status)">{{
+              stepStatusLabels[step.status]
+            }}</StatusBadge>
           </li>
         </ol>
       </article>
 
       <article
-        v-if="isCommand && history.length > 0"
+        v-if="canExecuteDeployment && history.length > 0"
         class="production-card production-history"
       >
         <header>
@@ -1381,12 +1388,12 @@ onBeforeUnmount(() => {
             <div>
               <code :title="item.revision">{{
                 shortRevision(item.revision)
-              }}</code>
-              <span>{{ formatDate(item.startedAt ?? item.createdAt) }}</span>
+              }}</code
+              ><span>{{ formatDate(item.startedAt ?? item.createdAt) }}</span>
             </div>
-            <StatusBadge :tone="deploymentTone(item.status)">
-              {{ deploymentStatusLabel(item.status) }}
-            </StatusBadge>
+            <StatusBadge :tone="deploymentTone(item.status)">{{
+              deploymentStatusLabel(item.status)
+            }}</StatusBadge>
           </li>
         </ul>
       </article>

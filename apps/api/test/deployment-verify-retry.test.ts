@@ -274,10 +274,8 @@ test('retry recusa deployment antigo mesmo se a revisão voltar a coincidir', as
   assert.deepEqual(runner.calls, []);
 });
 
-test('retry recusa contrato que deixou de usar strategy command', async (t) => {
+test('retry executa somente verify após provider-deploy Vercel concluído', async (t) => {
   const store = await makeStore(t);
-  await store.save(recoveryDeployment());
-  const runner = new FakeRunner();
   const gitManagedProject: Project = {
     ...project,
     production: {
@@ -298,19 +296,49 @@ test('retry recusa contrato que deixou de usar strategy command', async (t) => {
       },
     },
   };
+  const providerDeployment = recoveryDeployment({
+    provider: 'vercel',
+    timeline: [
+      {
+        id: 'check',
+        script: 'prod:check',
+        phase: 'preparing',
+        mutating: false,
+        irreversible: false,
+        status: 'succeeded',
+      },
+      {
+        id: 'provider-deploy',
+        phase: 'deploying',
+        mutating: true,
+        irreversible: true,
+        status: 'succeeded',
+      },
+      {
+        id: 'verify',
+        script: 'prod:verify',
+        phase: 'verifying',
+        mutating: false,
+        irreversible: false,
+        status: 'failed',
+        exitCode: 7,
+      },
+    ],
+  });
+  await store.save(providerDeployment);
+  const runner = new FakeRunner();
   const service = new DeploymentService({
     store,
     adapter: runner,
     revisionResolver: new FixedRevisionResolver(),
   });
 
-  await assert.rejects(
-    service.retryVerify(gitManagedProject, 'deployment-1'),
-    (error: unknown) =>
-      error instanceof DeploymentError &&
-      error.code === 'DEPLOYMENT_STRATEGY_UNSUPPORTED',
-  );
-  assert.deepEqual(runner.calls, []);
+  await service.retryVerify(gitManagedProject, providerDeployment.id);
+  const completed = await waitForTerminal(service, providerDeployment.id);
+
+  assert.equal(completed.status, 'succeeded');
+  assert.equal(completed.timeline.at(-1)?.status, 'succeeded');
+  assert.deepEqual(runner.calls, ['verify']);
 });
 
 test('retry recusa revision diferente antes de executar qualquer comando', async (t) => {

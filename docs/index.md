@@ -1,90 +1,88 @@
 # Dev Dashboard — documentação do projeto
 
-O **Dev Dashboard** é uma aplicação local para organizar, inspecionar e operar projetos de desenvolvimento Rails e Node por uma interface web, mantendo o CLI Bash existente como interface complementar.
+O **Dev Dashboard** é uma aplicação local para organizar, inspecionar e operar projetos Rails e Node por uma interface web, mantendo o CLI Bash existente como interface complementar.
 
-Esta documentação descreve o produto, a arquitetura, a organização do repositório, os fluxos de execução, as decisões de segurança, a operação local e o processo de contribuição. Ela deve ser lida como parte do código: quando o comportamento muda, o documento correspondente também precisa mudar.
+Além do desenvolvimento local, projetos que optam por um `Production Contract v1` podem expor uma superfície de **Produção** com revision, health, drift, planejamento, confirmação, timeline e recovery. Providers locais usam `strategy=command`; Vercel usa `strategy=git-managed` com uma etapa externa explícita `provider-deploy`.
+
+Esta documentação descreve o estado vivo do produto e da engenharia. Planejamento futuro permanece em issues/PRs.
 
 ## Para quem esta documentação existe
 
-| Público               | O que encontrará aqui                                                            |
-| --------------------- | -------------------------------------------------------------------------------- |
-| Pessoa usuária        | Instalação, inicialização, recursos disponíveis e resolução de problemas.        |
-| Pessoa desenvolvedora | Arquitetura, responsabilidades dos módulos, padrões de implementação e testes.   |
-| Pessoa revisora       | Limites de segurança, contratos, fluxos mutáveis e critérios de qualidade.       |
-| Pessoa mantenedora    | Operação, persistência, evolução, documentação da API e organização do monorepo. |
+| Público | O que encontrará aqui |
+| --- | --- |
+| Pessoa usuária | instalação, recursos, guias por aba e troubleshooting |
+| Pessoa desenvolvedora | arquitetura, contratos, padrões e testes |
+| Pessoa revisora | limites de segurança, mutações e critérios de qualidade |
+| Pessoa mantenedora | operação, persistência, providers e evolução do monorepo |
 
-## Visão do produto
+## Objetivos principais
 
-O projeto resolve um problema comum de ambientes de desenvolvimento: cada repositório possui comandos, processos, logs, banco de dados, testes e operações Git diferentes. O Dev Dashboard oferece uma camada local única para descobrir essas capacidades e executar apenas operações conhecidas.
-
-Os objetivos principais são:
-
-- centralizar projetos de vários diretórios de trabalho;
-- detectar automaticamente projetos Rails e Node;
-- oferecer uma interface rápida e consistente para tarefas recorrentes;
-- acompanhar processos e logs sem depender de várias janelas de terminal;
-- executar operações mutáveis com validação e confirmação explícita;
-- manter a aplicação restrita ao computador local por padrão;
-- compartilhar regras entre API, frontend, pacotes TypeScript e CLI legado;
-- preservar rastreabilidade por testes, contratos e documentação versionada.
+- centralizar projetos de vários workspaces;
+- detectar projetos Rails e Node e suas capabilities;
+- operar tarefas recorrentes com UX consistente;
+- acompanhar processos e logs;
+- executar mutações estruturadas com validação/confirmacão;
+- manter API e desenvolvimento restritos ao computador local;
+- operar produção sem shell arbitrário ou hard-code por nome de repositório;
+- preservar rastreabilidade por contratos, histórico, testes e documentação.
 
 ## Capacidades principais
 
-### Organização de workspaces e projetos
+### Workspaces e projetos
 
-- cadastro persistente de workspaces locais;
-- scan dos diretórios imediatamente abaixo de cada workspace;
-- detecção de projetos Rails e Node;
-- identificação de capacidades por projeto;
-- descoberta fail-closed do `Production Contract v1` em `.dev-dashboard/production.json`;
-- favoritos e navegação global;
-- diagnóstico do ambiente do projeto.
+- cadastro persistente de workspaces;
+- scan de projetos Rails/Node;
+- identificação de capabilities;
+- discovery fail-closed de `.dev-dashboard/production.json`;
+- favoritos/navegação e diagnóstico do ambiente.
 
-### Desenvolvimento e execução
+### Desenvolvimento local
 
-- inicialização e encerramento de servidores;
-- seleção segura de porta e ambiente;
-- acompanhamento de estado, PID e health check;
-- leitura limitada e mascarada de logs;
-- gerenciamento de processos em segundo plano;
-- abertura de projeto no navegador do sistema.
-
-### Produção local
-
-- planejamento sem execução para contratos `strategy=command`;
-- confirmação de uso único vinculada a projeto, revision e hash do plano;
-- execução somente de scripts canônicos `prod:*`, com `shell: false`;
-- working tree limpa e revision revalidadas durante a execução;
-- timeline, histórico e logs locais limitados e mascarados;
-- estado `recovery_required` quando uma etapa potencialmente irreversível já iniciou;
-- suporte indireto a systemd e Docker Compose sem acoplamento ao runtime físico.
+- servidor e processos em background;
+- seleção de porta/ambiente;
+- logs limitados e mascarados;
+- testes e histórico;
+- Rails migrations/routes, dependências e banco;
+- terminal/console com salvaguardas próprias.
 
 ### Git
 
-- status, diff, histórico e detalhes de commits;
-- criação, troca, acompanhamento, renomeação e exclusão de branches;
-- sincronização com remotos permitidos;
-- pull, push e commit;
-- histórico de mutações;
-- operações destrutivas protegidas por confirmação;
-- integração com pull requests e desfazer de operações reconhecidas.
+- status, diff, histórico e commits;
+- CRUD de branches;
+- sincronização, pull/push e PRs;
+- mutações destrutivas sob confirmação.
 
-### Qualidade e automação
+### Produção
 
-- descoberta e execução de testes;
-- execução de arquivo específico;
-- histórico persistente de execuções;
-- acompanhamento em tempo real por SSE;
-- inspeção de dependências, Bundler, migrations e routes Rails.
+O Production Contract separa estratégia de infraestrutura.
 
-### Banco de dados e ambiente
+`strategy=command`:
 
-- detecção de bancos e ambientes;
-- identificação de serviço local ou Docker;
-- inicialização de serviços reconhecidos;
-- snapshots e restauração protegida por confirmação;
-- perfis de ambiente reutilizáveis, com busca na lista e aviso de alterações não salvas;
-- proteção contra persistência acidental de valores sensíveis.
+```text
+check → backup? → migrate? → deploy → verify
+```
+
+`strategy=git-managed` + Vercel:
+
+```text
+check → backup? → migrate? → provider-deploy → verify
+```
+
+O domínio oferece:
+
+- preview com branch/revision/etapas;
+- confirmação de uso único vinculada ao `planHash`;
+- working tree limpa e revalidação antes da execução;
+- para Vercel, prova direta de `origin/<branch>` antes da promoção;
+- envio do SHA exato confirmado à Vercel;
+- polling bounded até estado terminal;
+- timeline, histórico e logs no mesmo domínio;
+- cancelamento com semântica conservadora;
+- `recovery_required` após risco irreversível;
+- retry seguro de somente `prod:verify` quando a promoção já concluiu;
+- status/drift remoto separado do health funcional.
+
+Credenciais Vercel são configuração local do processo (`VERCEL_TOKEN` e, opcionalmente, `VERCEL_TEAM_ID`) e nunca fazem parte do manifesto.
 
 ## Arquitetura em uma página
 
@@ -95,7 +93,7 @@ Os objetivos principais são:
 │ CLI Bash                      │ Dashboard Vue 3              │
 │ dev-tools / lib / init.sh     │ http://127.0.0.1:5173       │
 └───────────────┬───────────────┴──────────────┬───────────────┘
-                │                              │ HTTP / SSE / WS
+                │                              │ HTTP/SSE/WS
                 │                              ▼
                 │                 ┌────────────────────────────┐
                 │                 │ API Fastify                │
@@ -104,120 +102,131 @@ Os objetivos principais são:
                 │                                │
                 ▼                                ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ Pacotes e serviços                                           │
-├──────────────────────────────────────────────────────────────┤
 │ contracts │ core │ project-discovery │ process-manager       │
-│ serviços Git, deployment, testes, banco, Rails e arquivos    │
+│ Git │ deployment │ testes │ banco │ Rails │ arquivos         │
 └───────────────────────────────┬──────────────────────────────┘
                                 │
-                                ▼
-┌──────────────────────────────────────────────────────────────┐
-│ Sistema local e integrações explícitas                       │
-├──────────────────────────────────────────────────────────────┤
-│ filesystem │ processos │ Git │ Node │ Rails │ bancos          │
-└──────────────────────────────────────────────────────────────┘
+             ┌──────────────────┴──────────────────┐
+             ▼                                     ▼
+┌──────────────────────────┐          ┌──────────────────────────┐
+│ Sistema/repositórios     │          │ Providers explícitos     │
+│ filesystem/Git/processos │          │ Vercel API               │
+└──────────────────────────┘          └──────────────────────────┘
 ```
 
-A API é a fronteira de segurança. O navegador trabalha com identificadores e contratos estruturados; ele não recebe permissão para enviar comandos livres ou caminhos arbitrários.
+A API é a fronteira de segurança. O navegador trabalha com IDs/contratos; não recebe permissão para enviar comandos livres, paths arbitrários ou credenciais de provider.
 
 ## Princípios arquiteturais
 
-1. **Local por padrão.** Serviços de desenvolvimento escutam em `127.0.0.1`. O produto não possui nenhuma capacidade de IA.
-2. **Catálogo fechado.** Comandos e argumentos são escolhidos pela aplicação, não pelo navegador.
-3. **Sem shell arbitrário.** Processos usam programa e argumentos separados, preferencialmente com `shell: false`.
-4. **Identificadores em vez de caminhos.** Depois do scan, a maioria das operações recebe `workspaceId`, `projectId` ou outro identificador controlado.
-5. **Dependências explícitas.** Serviços são construídos no contexto da API e entregues às rotas.
-6. **Contratos compartilhados.** Frontend e backend reutilizam tipos do pacote `contracts`.
-7. **Persistência mínima e protegida.** Configurações e estados usam diretórios locais restritos ao usuário.
-8. **Confirmação para mutações sensíveis.** Operações destrutivas ou irreversíveis exigem uma etapa adicional.
-9. **Observabilidade limitada.** Logs, diffs e históricos possuem limites e mascaramento de segredos.
-10. **Documentação junto do código.** Referências automáticas e guias manuais fazem parte da validação do projeto.
+1. **Local por padrão.** API e desenvolvimento escutam em `127.0.0.1`.
+2. **Catálogo fechado.** Ações estruturadas são resolvidas pelo backend.
+3. **Sem shell arbitrário.** Programa e argumentos são separados sempre que possível.
+4. **IDs em vez de paths.** Operações usam identificadores controlados.
+5. **Contratos compartilhados.** Frontend/backend reutilizam `packages/contracts`.
+6. **Persistência mínima.** Configuração/estado ficam fora do repo e com permissões restritas.
+7. **Confirmação forte.** Mutações sensíveis são vinculadas a contexto/target.
+8. **Revision é evidência.** Produção exige prova do código confirmado; git-managed adiciona prova do `origin` real antes da promoção.
+9. **Provider não é health.** `READY` da Vercel não substitui `prod:verify`.
+10. **Recovery conservador.** Não há rollback cego após etapa irreversível.
+11. **Documentação junto do código.** Mudança de comportamento atualiza docs na mesma entrega.
 
-## Serviços iniciados no desenvolvimento
-
-Após instalar as dependências, execute:
+## Desenvolvimento
 
 ```bash
+npm install
 npm run dev
 ```
 
-O comando inicia e encerra em conjunto:
+| Serviço | Endereço | Responsabilidade |
+| --- | --- | --- |
+| API | `http://127.0.0.1:4343` | regras, persistência, processos e integrações |
+| Web | `http://127.0.0.1:5173` | interface Vue |
 
-| Serviço | Endereço                | Responsabilidade                                      |
-| ------- | ----------------------- | ----------------------------------------------------- |
-| API     | `http://127.0.0.1:4343` | Regras, persistência, processos e integrações locais. |
-| Web     | `http://127.0.0.1:5173` | Interface Vue para uso do dashboard.                  |
+Para integração Vercel local, use `.env.local` na raiz:
 
-Use `Ctrl+C` para encerrar o grupo de processos.
+```dotenv
+VERCEL_TOKEN=...
+# opcional:
+VERCEL_TEAM_ID=team_...
+```
+
+O token não deve ser versionado.
 
 ## Mapa da documentação
 
 ### Comece por aqui
 
-- [Primeiros passos](getting-started.md): requisitos, instalação e primeiro uso.
-- [Visão geral da arquitetura](architecture/overview.md): contexto e decisões arquiteturais existentes.
-- [Production Contract v1](architecture/production-contract.md): manifesto, validação, discovery, warnings e limites de segurança da capability de produção.
-- [Domínio de deployment local](architecture/deployment-domain.md): planejamento, confirmação, execução, estados, persistência e recovery do adapter `command`.
-- [Estrutura do repositório](architecture/repository-structure.md): diretórios, camadas e dependências.
-- [Fluxos de execução](architecture/runtime-flows.md): o que acontece em cada operação importante.
+- [Primeiros passos](getting-started.md)
+- [Visão geral da arquitetura](architecture/overview.md)
+- [Estrutura do repositório](architecture/repository-structure.md)
+- [Fluxos de execução](architecture/runtime-flows.md)
+- [Segurança](architecture/security.md)
 
-### Para usar o dashboard web, aba por aba
+### Produção
 
-- [Guia passo a passo do dashboard web](guia/README.md): o que cada aba do projeto mostra, o que
-  cada botão faz e qual comando roda por trás — README, Diagnóstico, Servidor, Logs, Git, Testes,
-  Banco de dados, Dependências, Terminal/Console e Variáveis de ambiente.
+- [Production Contract v1](architecture/production-contract.md): manifesto, estratégias e validação.
+- [Domínio de deployment](architecture/deployment-domain.md): planner, confirmação, execução, Vercel e recovery.
+- [Retry de verify](architecture/deployment-verify-retry.md): caso seguro de repetição somente da verificação.
+- [Self-production](architecture/self-production.md): por que o próprio dashboard continua bloqueado para self-update.
+- [Operação de deployments](deployment-operations.md): procedimento e troubleshooting.
+- [Interface de Produção](production-ui.md): estados/UX da superfície web.
+- [Guia da aba Produção](guia/producao.md): passo a passo para uso diário.
 
-### Para desenvolver
+### Dashboard web por aba
 
-- [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
-- [IA no Dev Dashboard](architecture/ai-multi-provider.md): histórico — o produto não tem mais nenhuma capacidade de IA.
-- [Playbook de correção de CI](ci-fix-playbook.md): passo a passo para diagnosticar e corrigir um PR com CI vermelho.
-- [Segurança](architecture/security.md): modelo de ameaça e controles obrigatórios.
-- [Contribuindo](../CONTRIBUTING.md): fluxo de branch, commit, revisão e documentação.
+- [Guia geral](guia/README.md)
+- [README](guia/readme.md)
+- [Diagnóstico](guia/diagnostico.md)
+- [Servidor](guia/servidor.md)
+- [Logs](guia/logs.md)
+- [Git](guia/git.md)
+- [Testes](guia/testes.md)
+- [Banco de dados](guia/banco-de-dados.md)
+- [Dependências](guia/dependencias.md)
+- [Produção](guia/producao.md)
+- [Terminal/Console](guia/terminal.md)
+- [Variáveis de ambiente](guia/variaveis-de-ambiente.md)
+- [Workspaces](guia/workspaces.md)
 
-### Para operar e diagnosticar
+### Engenharia e operação
 
-- [Operação e troubleshooting](operations-and-troubleshooting.md): portas, dados locais, logs e falhas comuns.
-- [Operação de deployments locais](deployment-operations.md): preflight, execução, cancelamento, recovery e diagnóstico do motor `command`.
-- [Referência da API HTTP](architecture/api-reference.md): contratos gerados a partir das rotas Fastify.
+- [Guia de desenvolvimento](development-guide.md)
+- [Contribuindo](../CONTRIBUTING.md)
+- [Playbook de CI](ci-fix-playbook.md)
+- [Operação e troubleshooting geral](operations-and-troubleshooting.md)
+- [Referência da API](architecture/api-reference.md) — gerada a partir dos schemas Fastify.
 
-### Planejamento
+## Planejamento
 
-O planejamento operacional é mantido nas issues e pull requests do GitHub.
-Decisões permanentes e procedimentos ficam nesta documentação, especialmente
-no [guia de desenvolvimento](development-guide.md) e no
-[guia de operação](operations-and-troubleshooting.md).
+Roadmaps, débitos e acompanhamento multi-PR vivem nas issues e PRs do GitHub. `docs/` descreve comportamento implementado e procedimentos permanentes; não recrie `tasks/`, `NEXT.md` ou arquivos de backlog equivalentes.
 
-## Glossário essencial
+## Glossário
 
-| Termo               | Significado no projeto                                                      |
-| ------------------- | --------------------------------------------------------------------------- |
-| Workspace           | Diretório cadastrado que contém projetos imediatamente abaixo dele.         |
-| Projeto             | Aplicação Rails ou Node detectada e mantida no `ProjectStore`.              |
-| Capacidade          | Recurso reconhecido, como Git, testes, banco, scripts, produção, Sidekiq ou Bundler. |
-| Production Contract | Manifesto v1 que declara estratégia, provider, scripts canônicos e políticas de produção sem autorizar execução por si só. |
-| Deployment          | Execução planejada e confirmada de um contrato de produção, com revision, timeline, histórico e recovery explícitos. |
-| Processo gerenciado | Processo iniciado e acompanhado pelo Process Manager.                       |
-| Catálogo            | Lista fechada de comandos ou ações detectadas pelo backend.                 |
-| Confirmação         | Token temporário vinculado a uma operação mutável específica.               |
-| Distribuição local  | Modo compilado em que a API também serve o frontend estático.               |
-| Contrato            | Tipo e formato de dados compartilhado entre camadas.                        |
-| Snapshot            | Cópia controlada de banco armazenada no diretório privado de estado.        |
-| SSE                 | Canal de eventos do servidor usado para acompanhar execuções em tempo real. |
+| Termo | Significado |
+| --- | --- |
+| Workspace | diretório cadastrado que contém projetos |
+| Projeto | aplicação Rails/Node conhecida pelo `ProjectStore` |
+| Capability | recurso detectado, como Git, tests, database ou production |
+| Production Contract | manifesto v1 de estratégia/provider/scripts/políticas |
+| DeploymentPlan | preview imutável de projeto, revision e etapas |
+| `provider-deploy` | etapa externa tipada de promoção Vercel |
+| Deployment | execução confirmada com timeline/histórico/recovery |
+| Drift | comparação entre revisions conhecidas de origin e produção |
+| `recovery_required` | estado que exige investigação após risco irreversível |
+| Confirmação | token temporário vinculado a uma mutação específica |
+| Snapshot | cópia controlada de banco |
+| SSE | canal de eventos servidor → navegador |
 
 ## Critério de documentação completa
 
-Uma funcionalidade é considerada documentada quando existem informações suficientes para responder:
+Uma funcionalidade está documentada quando é possível responder:
 
-- o que ela é;
-- por que existe;
+- o que é e por que existe;
 - onde está implementada;
-- quais dados recebe e retorna;
-- que comandos ou processos executa;
+- quais entradas/saídas aceita;
+- que comando/provider pode acionar;
 - que estado persiste;
 - quais riscos e limites possui;
 - como é testada;
 - como diagnosticar falhas;
 - como alterá-la sem quebrar contratos existentes.
-
-Esse critério deve orientar novas páginas e revisões futuras.

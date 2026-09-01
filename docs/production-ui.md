@@ -1,114 +1,188 @@
 # Interface de Produção
 
-A superfície **Produção** concentra o estado operacional de um projeto que possui `capability=production` válida. Ela não cria um dashboard paralelo: fica dentro do detalhe do projeto e usa o mesmo domínio de deployment documentado em [Domínio de deployment](architecture/deployment-domain.md).
+A superfície **Produção** concentra o estado e a operação de um projeto com `capability=production` válida. Ela usa o mesmo domínio de deployment para providers locais e Vercel, sem criar um fluxo paralelo no frontend.
 
 ## Quando a aba aparece
 
-A aba `Produção` aparece somente quando o projeto possui a capability `production` adicionada pelo discovery de um Production Contract v1 válido.
+A aba aparece quando o discovery reconhece um `Production Contract v1` válido.
 
-Projetos sem contrato ou com manifesto inválido não recebem botão/aba de produção. Se a rota `/projects/:projectId/production` for acessada diretamente, a tela permanece fail-closed e explica `Produção não configurada` ou o warning de contrato sem liberar ações.
+- manifesto ausente/inválido: nenhuma capability falsa é criada;
+- `strategy=disabled`: a superfície pode explicar o bloqueio, mas não oferece deploy;
+- `strategy=command`: oferece planejamento/execução dos scripts canônicos;
+- `strategy=git-managed` + Vercel: oferece planejamento/execução com etapa externa `provider-deploy`.
 
-Contratos válidos com `strategy=disabled` podem abrir a superfície porque possuem capability conhecida, mas a interface mostra o bloqueio declarado e não oferece execução.
+A rota acessada diretamente continua fail-closed quando o projeto não possui contrato operacional válido.
 
 ## Sinais exibidos
 
 A tela separa sinais que não são equivalentes:
 
-- **revision local**: último commit conhecido pelo overview Git do projeto;
-- **origin/<branch>**: para Vercel, a ref remota já conhecida pelo adapter; para `command`, a branch remota retornada pelo workspace Git quando disponível;
-- **produção**: revision informada pelo provider Vercel ou, em `command`, a última execução `succeeded` registrada pelo domínio;
-- **readiness**: estado do provider Vercel ou resultado do último `prod:verify` conhecido;
-- **health**: existência do health HTTP declarado no contrato e, quando aplicável, contexto do último verify.
+- **revision local**: SHA do checkout usado para planejar;
+- **origin/<branch>**: revision remota conhecida pelo status Git/provider;
+- **produção**: revision informada pela Vercel ou última execução local conhecida;
+- **provider**: disponibilidade/estado do runtime externo;
+- **drift**: comparação de SHA quando as duas revisions são conhecidas;
+- **health/verify**: resultado da verificação funcional declarada pelo projeto.
 
-A interface não afirma health atual quando o backend não executou uma verificação atual. `READY` da Vercel continua sendo readiness do provider, não prova única de saúde da aplicação.
+`READY` da Vercel significa que a etapa do provider terminou; não substitui `prod:verify`.
 
-## Fluxo `strategy=command`
+## Fluxo de planejamento e confirmação
 
-A UI mantém a fronteira de confirmação do backend:
+As duas estratégias usam o mesmo preview:
 
 ```text
 Preparar deployment
         ↓
 DeploymentPlan
         ↓
-revisar projeto + branch + revision + etapas + impacto
+revisar projeto + provider + branch + revision + etapas
         ↓
 Confirmar e iniciar deployment
         ↓
 confirmationToken vinculado ao planHash
         ↓
-start
+execução
         ↓
-timeline + log limitado
+timeline + log
 ```
 
-O botão **Preparar deployment** apenas solicita o plano; nenhuma confirmação é criada nessa etapa. A confirmação só é pedida depois que o plano está visível e o usuário escolhe **Confirmar e iniciar deployment**.
+**Preparar deployment** não executa mutação. A confirmação só é criada depois que o plano está visível.
 
-Etapas mutáveis e irreversíveis recebem marcação explícita. Mudança de branch, working tree, revision ou hash depois do preview continua sendo recusada pelo backend.
+Mudança de branch, working tree, revision ou plano entre preview e start é recusada pelo backend.
 
-Enquanto uma execução está ativa, a tela acompanha o deployment e o log. O polling para quando o estado chega a `succeeded`, `failed`, `cancelled` ou `recovery_required`.
+## `strategy=command`
 
-### Cancelamento e recuperação
+A timeline pode conter:
 
-Cancelamento só aparece durante uma execução ativa. O resultado final continua pertencendo ao domínio:
+```text
+check → backup → migrate → deploy → verify
+```
 
-- antes de mudança irreversível: pode terminar `cancelled`;
-- durante/depois de mudança irreversível: pode terminar `recovery_required`.
+conforme as políticas do projeto.
 
-Quando o estado é `recovery_required`, a UI destaca que rollback automático não é seguro e orienta a revisar timeline, log, schema, backup e a política do projeto antes de repetir a operação.
+A UI não conhece `systemctl` ou `docker compose`; ela mostra apenas as etapas do contrato e o resultado real do domínio.
 
-## Fluxo `strategy=git-managed`
+## `strategy=git-managed` + Vercel
 
-Para Vercel, a superfície é somente leitura nesta fase. Ela consulta `GET /api/projects/:projectId/deployments/status` e mostra:
+A timeline usa uma etapa própria:
 
-- disponibilidade do provider;
-- projeto externo mapeado;
-- deployment de produção atual;
-- URL, state, branch e revision quando fornecidos;
-- drift entre origin e produção;
-- timeline normalizada do provider;
-- operações locais declaradas (`prod:check`, `prod:migrate`, `prod:verify`) apenas como capabilities informativas.
+```text
+check → migrate? → provider-deploy → verify
+```
 
-A tela não dispara `git push`, `vercel --prod`, migration, verify ou rollback remoto. Quando o deployment externo está `queued` ou `building`, o snapshot é atualizado enquanto existe trabalho real no provider.
+Não existe `prod:deploy` artificial.
 
-## Estados visuais
+Ao confirmar, o backend:
 
-A superfície representa explicitamente:
+1. revalida o plano;
+2. antes da promoção, confirma a revision diretamente em `origin/<production.branch>`;
+3. resolve a origem GitHub e o projeto Vercel sem aceitar esses valores do browser;
+4. cria o deployment de `target=production` para o SHA exato confirmado;
+5. acompanha o deployment até estado terminal;
+6. executa `prod:verify` quando o provider conclui.
 
-- produção não configurada;
-- contrato inválido;
-- produção bloqueada pelo contrato;
-- pronta para planejar;
-- atualizada/alinhada;
-- revision diferente;
-- deployment em execução;
-- falha antes de recuperação obrigatória;
-- `recovery_required`;
-- cancelamento;
-- provider externo não configurado, sem autenticação, limitado por cota, indisponível ou com resposta inválida;
-- estado parcial quando não há revision/sinal suficiente para uma conclusão forte.
+A UI mostra `queued/building/ready/error/canceled` por meio da timeline normalizada e mantém o log da operação no mesmo histórico do deployment.
 
-Loading visual só aparece enquanto uma requisição real está em andamento. Estado de execução possui semântica própria e não reutiliza loading artificial.
+## Configuração Vercel ausente
 
-## Troca de projeto e concorrência de requests
+Quando `VERCEL_TOKEN` não está disponível no processo da API, a tela mostra integração não configurada e orienta a configuração local.
 
-Requests da superfície usam `AbortController` quando possível e uma geração monotônica (`latest-wins`). Ao trocar de projeto:
+A correção é feita no Dev Dashboard, por exemplo em `.env.local`:
 
-1. a geração anterior é invalidada;
-2. requests pendentes são abortados;
-3. timers de polling são cancelados;
-4. respostas antigas são descartadas mesmo que algum transporte não consiga ser interrompido a tempo.
+```dotenv
+VERCEL_TOKEN=...
+# opcional quando necessário para time:
+VERCEL_TEAM_ID=team_...
+```
 
-Isso impede o estado de produção do projeto anterior de sobrescrever a tela atual.
+Depois, reinicie `npm run dev`.
+
+A interface nunca pede, exibe ou persiste o token.
+
+## Provider disponível, projeto/revision inválidos
+
+Erros externos são apresentados por categoria, sem corpo bruto da Vercel:
+
+- token/escopo recusado;
+- cota/rate limit;
+- projeto externo ausente;
+- provider indisponível;
+- resposta inválida.
+
+Se a revision de `origin` não puder ser provada ou tiver mudado, a execução é recusada antes da promoção e a pessoa precisa preparar novo plano após revisar o Git.
+
+## Acompanhamento e concorrência
+
+Enquanto existe deployment ativo, a tela acompanha detalhe e log. O polling para quando o estado chega a:
+
+- `succeeded`;
+- `failed`;
+- `cancelled`;
+- `recovery_required`.
+
+Existe um único deployment mutável globalmente. A UI desabilita ações concorrentes compatíveis com essa regra e não usa loading artificial quando não há trabalho real.
+
+## Cancelamento
+
+O cancelamento aparece durante execução ativa.
+
+- etapa local: o domínio sinaliza o processo controlado;
+- `provider-deploy`: o polling local é interrompido e o adapter tenta cancelamento remoto best-effort quando o deployment Vercel ainda permite.
+
+Se uma etapa irreversível já iniciou, o resultado pode ser `recovery_required`.
+
+## Verify falhou após a promoção
+
+Quando a promoção concluiu e apenas o `verify` final falhou, a tela pode mostrar:
+
+```text
+Deploy concluído · verificação falhou
+```
+
+Nesse caso, quando o backend comprova que o retry é seguro, aparece **Verificar novamente**.
+
+O botão repete somente `prod:verify`. Ele nunca repete migration, deploy local ou `provider-deploy` Vercel.
+
+Se branch/revision/contrato ficaram stale, o retry é recusado e a UI volta a orientar um novo plano.
+
+## `recovery_required`
+
+A tela não apresenta rollback automático como solução genérica. Ela orienta revisar:
+
+- etapa irreversível;
+- timeline/log;
+- estado real do provider/aplicação;
+- schema/backup;
+- política de rollback do projeto.
+
+## Status externo e drift
+
+Fora de uma execução mutável, a tela consulta o snapshot Vercel para mostrar provider, revision de produção e drift.
+
+A consulta de status não faz `git fetch`. Por isso ausência de uma ref local pode produzir `drift=unknown`. A validação de segurança antes de um novo `provider-deploy` é mais forte: ela consulta o `origin` diretamente e exige igualdade com a revision confirmada.
+
+## Troca de projeto
+
+Requests canceláveis usam `AbortController` e a tela descarta respostas obsoletas por geração/latest-wins. Ao trocar de projeto:
+
+1. invalida a geração anterior;
+2. aborta requests pendentes;
+3. cancela timers;
+4. descarta respostas tardias.
+
+Estado do projeto anterior não pode sobrescrever a nova tela.
 
 ## Acessibilidade e responsividade
 
-- o preview recebe foco programático depois de ser gerado;
-- botões nativos preservam teclado e estados `disabled` durante operações concorrentes;
-- erros usam `role=alert` e carregamento inicial usa `role=status`;
-- o layout de revisions e plano colapsa para uma coluna em telas estreitas;
-- animação de spinner é removida com `prefers-reduced-motion: reduce`.
+- preview recebe foco depois de ser criado;
+- botões nativos preservam teclado e `disabled`;
+- erros usam semântica de alerta;
+- loading usa semântica de status;
+- layout colapsa em telas estreitas;
+- spinners respeitam `prefers-reduced-motion`.
 
 ## Testes
 
-A entrega possui testes de componente para estados fail-closed, preview/confirmação, stale response e Vercel, além de smoke E2E do fluxo `command` usando uma fixture Git real com Production Contract válido.
+A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify e regressões do fluxo `command`.
+
+Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md).

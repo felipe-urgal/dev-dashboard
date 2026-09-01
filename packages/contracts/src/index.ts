@@ -34,6 +34,7 @@ export type {
 
 export type {
   Deployment,
+  DeploymentCommandPlanStep,
   DeploymentConfirmation,
   DeploymentDriftStatus,
   DeploymentExecutionPhase,
@@ -44,10 +45,13 @@ export type {
   DeploymentPlanStep,
   DeploymentProviderAvailability,
   DeploymentProviderIssueCode,
+  DeploymentProviderPlanStep,
   DeploymentProviderSnapshot,
   DeploymentProviderState,
   DeploymentProviderTimelineStep,
+  DeploymentScriptId,
   DeploymentStatus,
+  DeploymentStepId,
   DeploymentStepStatus,
   DeploymentTimelineStep,
   ProductionDeploymentStatus,

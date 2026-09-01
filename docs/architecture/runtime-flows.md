@@ -1,6 +1,6 @@
 # Fluxos de execução
 
-Esta página explica o que o Dev Dashboard executa em seus principais fluxos, quais camadas participam e quais controles precisam permanecer presentes.
+Esta página resume os principais fluxos runtime do Dev Dashboard, as camadas envolvidas e os controles que precisam permanecer presentes.
 
 ## Inicialização de desenvolvimento
 
@@ -9,374 +9,450 @@ npm run dev
         ↓
 predev compila packages/*
         ↓
-scripts/dev.mjs cria dois grupos de processo
-        ├── API Fastify :4343
-        └── Vite        :5173
+scripts/dev.mjs carrega .env.local quando existir
         ↓
-qualquer filho encerra inesperadamente
+API Fastify :4343 + Vite :5173
         ↓
-processo raiz encerra os demais
+um filho encerra inesperadamente
+        ↓
+orquestrador encerra os demais
 ```
 
-No Linux, os filhos são destacados em grupos próprios. O encerramento envia `SIGTERM` ao grupo e usa `SIGKILL` somente depois do período de tolerância.
+No Linux, filhos usam grupos próprios. Shutdown envia `SIGTERM` e só escala para `SIGKILL` após a janela de tolerância.
+
+`.env.local` é configuração local do Dev Dashboard. É onde integrações como Vercel podem receber `VERCEL_TOKEN`/`VERCEL_TEAM_ID` sem versionar segredo.
 
 ## Inicialização da API
 
 ```text
 server.ts
-  ↓ lê configuração
+  ↓
 buildApp()
-  ↓ cria Fastify e WebSocket
-  ↓ registra tratamento de erros
-  ↓ constrói AppContext
-  ↓ obtém token local
-  ↓ registra segurança local
-  ↓ registra plugins de rota
-  ↓ registra frontend estático quando habilitado
-app.listen(127.0.0.1, porta)
+  ↓
+Fastify + WebSocket + segurança local
+  ↓
+AppContext
+  ├── workspaces / ProjectStore
+  ├── Process Manager
+  ├── serviços Git/testes/banco
+  └── domínio de deployment + adapters
+  ↓
+plugins de rota
+  ↓
+listen 127.0.0.1:4343
 ```
 
-O `AppContext` concentra dependências de longa duração. Serviços que mantêm recursos ativos precisam ser fechados no hook `onClose`.
+Serviços que mantêm recursos ativos precisam ser fechados no `onClose`.
 
 ## Requisição do navegador
 
 ### Desenvolvimento com Vite
 
 ```text
-Vue em :5173
+Vue :5173
    ↓ fetch /api/...
-proxy Vite
-   ↓ adiciona X-Dev-Dashboard-Token
-API em :4343
-   ↓ valida origem, autenticação e JSON Schema
-rota
-   ↓ chama serviço/repositório
+proxy Vite adiciona autenticação local
+   ↓
+API :4343
+   ↓ origem + auth + JSON Schema
+serviço
+   ↓
 resposta estruturada
 ```
-
-O token é lido pelo processo do Vite. Ele não deve ser exposto por variável `VITE_*` nem serializado no frontend.
 
 ### Distribuição local
 
 ```text
-URL com capacidade efêmera no fragmento
-   ↓ frontend move para sessionStorage
+URL com bootstrap efêmero no fragmento
+        ↓
+frontend move para sessionStorage
+        ↓
 POST /api/auth/browser-session
-   ↓ API valida capacidade
+        ↓
 cookie HttpOnly + SameSite=Strict
-   ↓ chamadas seguintes usam sessão local
+        ↓
+requests autenticados
 ```
 
-Origem e conteúdo JSON são controles adicionais, não substitutos da autenticação.
+Origem e JSON são defesas adicionais, não substitutos da autenticação.
 
-## Cadastro de workspace
+## Workspace e descoberta
 
 ```text
-usuário informa diretório
+cadastrar workspace
         ↓
-frontend envia request estruturado
+resolver caminho canônico
         ↓
-API valida schema
+persistir configuração
         ↓
-Core resolve caminho real
+scan
         ↓
-confirma que é diretório
+Project Discovery detecta Rails/Node + capabilities
         ↓
-impede duplicidade
+se existir .dev-dashboard/production.json:
+  valida Production Contract fail-closed
         ↓
-persiste workspace
-        ↓
-retorna contrato público
+ProjectStore recebe snapshot
 ```
 
-Remover um workspace altera somente a configuração do dashboard. O diretório e os projetos locais não são apagados.
+Manifesto de produção inválido gera warning no projeto e não cria capability falsa.
 
-## Scan e descoberta de projetos
+## Servidor de desenvolvimento
 
 ```text
-POST scan(workspaceId)
-        ↓
-API encontra workspace persistido
-        ↓
-Project Discovery lista filhos diretos
-        ↓
-ignora diretórios internos/dependências
-        ↓
-detecta Rails ou Node
-        ↓
-detecta capacidades
-        ↓
-gera IDs estáveis e warnings
-        ↓
-ProjectStore substitui o snapshot em memória
-        ↓
-frontend atualiza a listagem
+Iniciar
+  ↓ projectId conhecido
+resolver comando permitido
+  ↓ Rails ou script Node reconhecido
+Process Manager escolhe porta/cwd
+  ↓ spawn shell:false
+persistir starting + PID + log
+  ↓ health/porta
+running | failed
 ```
 
-O projeto precisa estar presente no `ProjectStore` para operações posteriores. Após reiniciar a API, um novo scan pode ser necessário.
-
-## Inicialização de servidor de projeto
-
-```text
-usuário escolhe Iniciar
-        ↓
-API exige projectId conhecido
-        ↓
-lê configurações de porta, health check e ambiente
-        ↓
-seleciona comando permitido
-        ├── Rails: bin/rails server
-        │           ou bundle exec rails server
-        └── Node: dev → start → serve → scripts namespaced reconhecidos
-        ↓
-prepara ambiente reconhecido
-        ↓
-Process Manager escolhe porta
-        ↓
-spawn(command, args, shell: false)
-        ↓
-persiste estado starting, PID, cwd, porta e log
-        ↓
-health check confirma disponibilidade
-        ↓
-estado running ou failed
-```
-
-O navegador não envia o comando final. A seleção ocorre no backend a partir do tipo e dos arquivos atuais do projeto.
-
-Para Node, `Project Discovery` e `Process Manager` consomem o mesmo catálogo ordenado `NODE_SERVER_SCRIPT_CANDIDATES`, publicado por `packages/contracts`. Além de `dev`, `start` e `serve`, o catálogo reconhece variantes como `api:start`, `server:start`, `web:dev` e `app:serve`. Assim, a capability `server` e o comando efetivamente executável não podem divergir por manter listas independentes.
+O browser não envia a linha de comando final.
 
 ## Encerramento de processo
 
 ```text
-usuário solicita Parar
-        ↓
-API encontra estado persistido
-        ↓
-valida que o PID ainda existe
-        ↓
-Linux: compara /proc/<pid>/cwd com o projeto
-        ↓
-envia SIGTERM ao grupo
-        ↓
-aguarda encerramento
-        ↓
-usa SIGKILL apenas se necessário
-        ↓
-persiste stopped
+Parar
+  ↓
+carregar estado persistido
+  ↓
+validar identidade PID/cwd
+  ↓
+SIGTERM ao grupo
+  ↓ timeout
+SIGKILL se necessário
+  ↓
+stopped
 ```
 
-Um PID não é prova de identidade porque pode ser reutilizado pelo sistema operacional.
+PID isolado não é prova de identidade.
 
-## Leitura de logs
+## Logs
 
 ```text
-request recebe apenas IDs e limites
-        ↓
+IDs + limites
+   ↓
 backend deriva arquivo permitido
-        ↓
-lê no máximo o teto configurado
-        ↓
-remove linha inicial incompleta quando necessário
-        ↓
-mascara segredos conhecidos
-        ↓
-retorna snapshot e metadados de redaction
+   ↓
+lê janela limitada
+   ↓
+masking de segredos
+   ↓
+snapshot estruturado
 ```
 
-A API não deve aceitar um caminho arbitrário de log vindo da web.
+A API não aceita path arbitrário de log vindo do browser.
 
-### Apresentação visual no frontend
-
-A camada visual genérica de logs é declarativa. `ProjectLogExperience.vue` recebe o conteúdo e a origem do log, `utils/log-experience.ts` transforma cada linha em dados como tag, tom, duração e diagnóstico, e `LogExperienceFlow.vue` renderiza busca, filtros e estados diretamente pelo Vue.
+## Git somente leitura
 
 ```text
-conteúdo do log
-      ↓
-parseLogExperience()
-      ↓
-LogExperienceLine[]
-      ├── tag
-      ├── tone
-      ├── durationMs
-      └── issueKind
-      ↓
-ProjectLogExperience / LogExperienceFlow
-      ↓
-DOM produzido pelo Vue
+status/diff/histórico
+        ↓
+projectId → cwd canônico
+        ↓
+subcomando Git permitido
+        ↓
+normalização + limites
+        ↓
+contrato público
 ```
 
-O bootstrap web não instala mais um `Log Visual Enhancer` nem observa o documento para redecorar linhas após o render. As superfícies de terminal bruto, como servidor e workers, continuam usando `ProjectLogTerminal`/xterm sem essa segunda camada de pós-processamento. O stylesheet `log-visual-enhancer.css` permanece apenas como compatibilidade passiva para classes ainda emitidas pelo detalhamento especializado de logs; ele não instala comportamento nem observa o DOM.
-
-## Operação Git somente leitura
+## Git mutável
 
 ```text
-frontend pede status/diff/histórico
-        ↓
-API encontra projeto conhecido
-        ↓
-serviço Git usa cwd canônico
-        ↓
-executa subcomando permitido
-        ↓
-normaliza saída
-        ↓
-retorna contrato limitado
+preparar ação
+   ↓
+confirmationToken vinculado a operação/alvo
+   ↓
+confirmar
+   ↓
+revalidar contexto
+   ↓
+executar subcomando permitido
+   ↓
+registrar resultado
 ```
 
-Diffs e expansão de contexto precisam respeitar limites de arquivo, linhas e bytes, além de recusar caminhos que não pertençam ao diff consultado.
+Tokens não são genéricos nem reutilizáveis.
 
-## Mutação Git com confirmação
+## Testes e execuções destacáveis
 
 ```text
-usuário prepara ação
+redetectar comando reconhecido
         ↓
-frontend solicita confirmação
+start em processo/PTy controlado
         ↓
-API emite token aleatório temporário
-   vinculado a projeto + operação + parâmetros
+estado + buffer/log limitado
         ↓
-usuário confirma
+SSE/WS conforme superfície
         ↓
-frontend envia token e payload fechado
-        ↓
-API consome token na primeira tentativa
-        ↓
-serviço executa operação permitida
-        ↓
-histórico registra resultado
-        ↓
-frontend atualiza status
+conclusão persistida
 ```
 
-Tokens de confirmação não podem ser reutilizáveis ou genéricos. Uma mudança nos parâmetros relevantes deve invalidar a confirmação anterior.
+Testes completos, Migration Rails e Dependências/Build podem sobreviver à desconexão do navegador sem ganhar stdin arbitrário.
 
-## Execução de testes
+## Banco de dados
+
+### Snapshot
 
 ```text
-API redetecta comandos de teste
+projectId + environmentId
         ↓
-frontend escolhe commandId reconhecido
+resolver conexão reconhecida
         ↓
-serviço reconstrói programa e argumentos
+pg_dump/mysqldump sem shell
         ↓
-inicia processo controlado
+credencial por canal próprio do driver/cliente
         ↓
-persiste estado e histórico
-        ↓
-publica snapshots por SSE
-        ↓
-conclusão terminal é persistida
+arquivo 0600 em estado privado
 ```
 
-Para arquivo específico, o caminho precisa vir de uma listagem reconhecida ou passar por validação equivalente dentro do projeto.
-
-## Catálogo de scripts e tarefas
+### Restore
 
 ```text
-GET catálogo
+escolher snapshot
         ↓
-detecta scripts package.json, tarefas Rails e binários permitidos
+confirmação vinculada
         ↓
-frontend recebe IDs, nomes e risco
+revalidar UUID/tamanho/token
         ↓
-na execução, API redetecta o catálogo
+cliente conhecido sem shell
         ↓
-confirma que o ID ainda representa a mesma ação
-        ↓
-exige confirmação quando mutável
-        ↓
-executa sem shell e acompanha histórico/SSE
+resultado estruturado
 ```
 
-A redetecção no momento da execução evita usar uma descrição obsoleta após o projeto ser alterado.
+Restore é destrutivo e exige confirmação explícita.
 
-## Snapshot de banco
-
-### Criação
+## Arquivos
 
 ```text
-projectId + environmentId reconhecidos
+projectId + path relativo
         ↓
-backend recupera host, porta, usuário e banco
+resolver/canonicalizar sob Project.path
         ↓
-spawn mysqldump ou pg_dump com argumentos fixos
+validar tamanho/tipo/encoding
         ↓
-senha via variável de ambiente específica
+leitura ou preview de mutação
         ↓
-grava arquivo 0600 no estado privado
-        ↓
-retorna somente metadados
+revalidar versão/confirmar quando aplicável
 ```
 
-### Restauração
+## Production Contract
+
+Durante o scan, um manifesto válido produz `Project.production` e capability `production`. O manifesto declara estratégia/provider/scripts/políticas, mas não executa nada.
 
 ```text
-usuário escolhe snapshot
-        ↓
-solicita confirmação vinculada ao snapshot
-        ↓
-API valida UUID, tamanho, prazo e token
-        ↓
-executa cliente do banco sem shell
-        ↓
-limita duração e remove parcial em falha
-        ↓
-retorna resultado estruturado
+production.json
+   ↓ validação fail-closed
+Project.production
+   ↓
+DeploymentPlanner
 ```
 
-A restauração é destrutiva e sempre exige confirmação explícita.
+## Deployment `strategy=command`
 
-## Edição de arquivos
+### Preview
 
 ```text
-frontend solicita árvore/arquivo por projectId
+Preparar deployment
         ↓
-ProjectFileService resolve caminho dentro do projeto
+resolver branch + HEAD
         ↓
-valida escopo, tipo, tamanho e encoding
+working tree limpa?
         ↓
-retorna conteúdo permitido
+branch == production.branch?
         ↓
-mutação usa serviço separado e confirmação quando aplicável
+montar etapas conforme contrato/políticas
+        ↓
+planHash
+        ↓
+DeploymentPlan (sem execução)
 ```
 
-Caminhos precisam ser relativos ao projeto e permanecer dentro do caminho canônico após resolução de symlinks.
-
-## Autorização sudo em deployment local
-
-A autorização de `sudo` para contratos `strategy=command` não considera suficiente validar o ticket no mesmo processo da API. Políticas como `timestamp_type=ppid` associam o cache de credenciais ao processo pai; nesse caso a API poderia executar `sudo -n -v` com sucesso enquanto um `sudo` posterior dentro de `npm -> shell -> script` voltaria a exigir autenticação.
-
-O fluxo é fail-closed:
+### Start
 
 ```text
-usuário informa senha no modal local
-        ↓
-API executa sudo -S -v sem persistir a senha
-        ↓
-API cria outro processo pai
-        ↓
-esse descendente executa sudo -n -v
-        ↓
-reutilização funciona? ── não ──→ autorização recusada + orientação NOPASSWD limitada
-        │
-       sim
-        ↓
-UI pode tratar o ticket como reutilizável pelo deployment
+Confirmar
+  ↓ token vinculado a projectId + revision + planHash
+start
+  ↓ recalcular plano
+  ↓ consumir confirmação
+check
+  ↓
+backup/migrate quando aplicáveis
+  ↓
+prod:deploy
+  ↓
+prod:verify
+  ↓
+succeeded | failed | cancelled | recovery_required
 ```
 
-A validação descendente usa um comando interno literal, sem argumentos vindos do navegador ou do projeto. A senha nunca é encaminhada por variável de ambiente, stdin do `prod:*` ou arquivo temporário. Se o host não oferece um ticket reutilizável entre processos, o dashboard não tenta contornar a política do `sudo`; a configuração permanente deve usar uma regra `NOPASSWD` mínima para os comandos de produção necessários.
+Cada `prod:*` é resolvido pelo backend e executado com package manager reconhecido, `cwd=Project.path`, `shell:false` e log mascarado.
+
+## Deployment `strategy=git-managed` + Vercel
+
+O fluxo usa o mesmo planner/confirmacão/store/timeline, mas a promoção é uma etapa externa tipada `provider-deploy`.
+
+### Preview
+
+```text
+Preparar deployment
+        ↓
+branch + HEAD + working tree limpa
+        ↓
+contrato exige vercel + external.project + check/verify
+        ↓
+migrate incluído quando migrations=before-deploy
+        ↓
+provider-deploy incluído no plano
+        ↓
+planHash + confirmação
+```
+
+### Revalidação antes da promoção
+
+Depois das etapas locais anteriores e **imediatamente antes** de criar o deployment Vercel:
+
+```text
+revision confirmada
+        ↓
+git ls-remote origin production.branch
+        ↓
+SHA remoto existe e é igual?
+   ├── não/indisponível → falhar fechado
+   └── sim
+        ↓
+resolver remote GitHub no backend
+```
+
+Uma ref local `refs/remotes/origin/...` não substitui essa prova remota para autorizar a mutação.
+
+### Criação e polling
+
+```text
+VercelDeploymentAdapter
+        ↓
+resolver production.external.project
+        ↓
+POST deployment target=production
+  gitSource = GitHub resolvido
+  ref       = production.branch
+  sha       = revision confirmada
+        ↓
+acompanhar deployment específico
+        ↓
+QUEUED/INITIALIZING → BUILDING → READY | ERROR | CANCELED
+        ↓
+READY
+        ↓
+prod:verify
+        ↓
+succeeded
+```
+
+O browser não informa owner/repo/ref/sha nem token Vercel. `READY` termina a etapa do provider, não o health da aplicação.
+
+## Status Vercel
+
+A leitura de status é separada da mutação:
+
+```text
+GET /deployments/status
+        ↓
+external.project
+        ↓
+Vercel API
+        ↓
+production deployment + revision + state
+        ↓
+ref local conhecida de origin/<branch>
+        ↓
+in-sync | drift | unknown
+```
+
+A leitura não faz `git fetch`. A prova remota forte acontece somente quando um novo `provider-deploy` vai começar.
+
+## Cancelamento de deployment
+
+### Etapa local
+
+```text
+cancel
+  ↓
+AbortSignal
+  ↓
+SIGTERM → SIGKILL se necessário
+```
+
+### Provider Vercel
+
+```text
+cancel
+  ↓
+interromper polling
+  ↓
+tentar cancelamento remoto best-effort
+  ↓
+persistir estado conservador
+```
+
+Depois de migration/promoção iniciada, cancelamento pode exigir `recovery_required`.
+
+## Retry de verify
+
+Quando a timeline prova que toda mutação anterior terminou e somente o `verify` final falhou:
+
+```text
+Verificar novamente
+        ↓
+revalidar projeto + contrato + branch/revision + ordem histórica
+        ↓
+caso seguro?
+   ├── não → recusar / novo plano
+   └── sim
+        ↓
+executar somente prod:verify
+```
+
+Não repete backup, migration, `prod:deploy` ou `provider-deploy`.
+
+## Sudo em deployment local
+
+```text
+senha no modal local
+        ↓
+sudo -S -v
+        ↓
+outro processo pai
+        ↓
+sudo -n -v
+        ↓
+ticket reutilizável?
+  ├── não → fail-closed + orientar NOPASSWD mínima
+  └── sim → etapa local pode prosseguir
+```
+
+A senha não é persistida, não entra no ambiente e não é encaminhada ao script de produção.
+
+## Crash e recovery
+
+```text
+API reinicia
+  ↓
+DeploymentStore carrega execuções ativas
+  ↓
+etapa irreversível já iniciou?
+  ├── não → failed/interrupted
+  └── sim → recovery_required
+```
+
+O domínio não assume que uma mutação interrompida “não aconteceu”.
 
 ## Shutdown coordenado
 
-Toda camada que inicia recurso duradouro precisa possuir fechamento explícito:
-
-- servidores HTTP;
-- conexões SSE e WebSocket;
-- watchers;
-- processos filhos;
-- timers;
-- language servers;
-- serviços com arquivos ou streams abertos.
-
-No desenvolvimento, o orquestrador encerra o conjunto quando um serviço falha, evitando ambientes parcialmente ativos.
+Toda camada que inicia recurso duradouro precisa possuir fechamento explícito: servidores, SSE/WS, watchers, processos filhos, timers, PTYs, language servers e adapters com polling.
