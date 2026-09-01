@@ -41,7 +41,10 @@ function executionKey(projectId: string): string {
 
 async function testEnvironment(project: Project): Promise<NodeJS.ProcessEnv> {
   try {
-    const environment = await loadProjectLocalEnvironment(project.path, 'check');
+    const environment = await loadProjectLocalEnvironment(
+      project.path,
+      'check',
+    );
     const checkDatabaseUrl = environment.CHECK_DATABASE_URL?.trim();
 
     return {

@@ -147,7 +147,8 @@ test('prod:check carrega .env.check.local e não injeta .env.production.local', 
   t.after(() => {
     if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = previousDatabaseUrl;
-    if (previousOverride === undefined) delete process.env.DEV_DASHBOARD_ENV_OVERRIDE;
+    if (previousOverride === undefined)
+      delete process.env.DEV_DASHBOARD_ENV_OVERRIDE;
     else process.env.DEV_DASHBOARD_ENV_OVERRIDE = previousOverride;
   });
 

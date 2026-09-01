@@ -81,7 +81,9 @@ function stubDetection(resolved: { command: string; args: string[] } | null) {
 }
 
 async function temporaryProject(t: test.TestContext): Promise<string> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-test-pty-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-test-pty-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   return directory;
 }

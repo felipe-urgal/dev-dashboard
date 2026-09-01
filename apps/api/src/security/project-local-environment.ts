@@ -12,9 +12,7 @@ const PROJECT_LOCAL_ENV_PATH = {
 } as const satisfies Record<ProjectLocalEnvironmentKind, string>;
 
 export type ProjectLocalEnvironmentErrorCode =
-  | 'ACCESS_FAILED'
-  | 'INVALID_FILE'
-  | 'PARSE_FAILED';
+  'ACCESS_FAILED' | 'INVALID_FILE' | 'PARSE_FAILED';
 
 export class ProjectLocalEnvironmentError extends Error {
   public constructor(
