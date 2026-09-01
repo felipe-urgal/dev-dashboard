@@ -1,0 +1,35 @@
+name: Diagnose PR 505 tests
+
+on:
+  push:
+    branches:
+      - feature/vercel-git-managed-deploy
+    paths:
+      - .github/workflows/diagnose-pr-505.yml
+
+permissions:
+  contents: read
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - name: API tests concise diagnostics
+        shell: bash
+        run: |
+          set +e
+          npm run test --workspace=@dev-dashboard/api > /tmp/api-test.log 2>&1
+          rc=$?
+          echo "exit_code=$rc"
+          grep -E "(not ok|ERR_|Error:|AssertionError|coverage|Coverage|fail|FAIL|expected|actual|DEPLOYMENT_)" /tmp/api-test.log | tail -n 160 || true
+          echo "--- tail ---"
+          tail -n 160 /tmp/api-test.log
+          exit "$rc"
