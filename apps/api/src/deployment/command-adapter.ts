@@ -218,7 +218,30 @@ export class ProductionCommandAdapter {
           return;
         }
 
-        resolve({ exitCode: code ?? 1, cancelled });
+        const finish = async () => {
+          if (
+            !cancelled &&
+            (code ?? 1) === 0 &&
+            step.providerPreflight
+          ) {
+            try {
+              await this.providerAdapter.preflight(
+                project,
+                step.providerPreflight,
+                signal,
+              );
+            } catch (error) {
+              if (signal.aborted) {
+                resolve({ exitCode: 1, cancelled: true });
+                return;
+              }
+              reject(error);
+              return;
+            }
+          }
+          resolve({ exitCode: code ?? 1, cancelled });
+        };
+        void finish();
       });
     });
   }
