@@ -2,6 +2,7 @@ import type {
   Deployment,
   DeploymentLog,
   DeploymentPlanStep,
+  DeploymentProviderTarget,
   DeploymentStatus,
   DeploymentStepStatus,
   ProductionCommandId,
@@ -70,13 +71,24 @@ function optionalInteger(value: unknown): boolean {
   );
 }
 
+function isProviderTarget(value: unknown): value is DeploymentProviderTarget {
+  const target = record(value);
+  return Boolean(
+    target &&
+      typeof target.externalProject === 'string' &&
+      target.externalProject.trim().length > 0 &&
+      typeof target.branch === 'string' &&
+      target.branch.trim().length > 0 &&
+      typeof target.revision === 'string' &&
+      /^[0-9a-f]{40}$/i.test(target.revision),
+  );
+}
+
 function isTimelineStep(value: unknown): boolean {
   const step = record(value);
   if (!step || typeof step.id !== 'string') return false;
-  const expectedScript = COMMAND_SCRIPTS[step.id as ProductionCommandId];
-  return (
-    expectedScript !== undefined &&
-    step.script === expectedScript &&
+
+  const commonValid =
     typeof step.phase === 'string' &&
     PHASES.has(step.phase as DeploymentPlanStep['phase']) &&
     typeof step.mutating === 'boolean' &&
@@ -85,7 +97,25 @@ function isTimelineStep(value: unknown): boolean {
     STEP_STATUSES.has(step.status as DeploymentStepStatus) &&
     optionalString(step.startedAt) &&
     optionalString(step.finishedAt) &&
-    optionalInteger(step.exitCode)
+    optionalInteger(step.exitCode);
+  if (!commonValid) return false;
+
+  if (step.id === 'provider-deploy') {
+    return (
+      step.phase === 'deploying' &&
+      step.mutating === true &&
+      step.irreversible === true &&
+      step.script === undefined &&
+      isProviderTarget(step.target)
+    );
+  }
+
+  const expectedScript = COMMAND_SCRIPTS[step.id as ProductionCommandId];
+  if (expectedScript === undefined || step.script !== expectedScript) return false;
+  return (
+    step.target === undefined &&
+    (step.providerPreflight === undefined ||
+      isProviderTarget(step.providerPreflight))
   );
 }
 
@@ -110,7 +140,8 @@ export function isPersistedDeployment(value: unknown): value is Deployment {
     optionalString(deployment.finishedAt) &&
     (deployment.currentStepId === undefined ||
       (typeof deployment.currentStepId === 'string' &&
-        deployment.currentStepId in COMMAND_SCRIPTS)) &&
+        (deployment.currentStepId === 'provider-deploy' ||
+          deployment.currentStepId in COMMAND_SCRIPTS))) &&
     (deployment.failurePoint === undefined ||
       deployment.failurePoint === 'before-irreversible' ||
       deployment.failurePoint === 'after-irreversible') &&
@@ -127,13 +158,13 @@ export function isPersistedDeploymentLog(
   const log = record(value);
   return Boolean(
     log &&
-    typeof log.deploymentId === 'string' &&
-    log.deploymentId.length > 0 &&
-    typeof log.content === 'string' &&
-    typeof log.truncated === 'boolean' &&
-    typeof log.masked === 'boolean' &&
-    typeof log.redactionCount === 'number' &&
-    Number.isSafeInteger(log.redactionCount) &&
-    log.redactionCount >= 0,
+      typeof log.deploymentId === 'string' &&
+      log.deploymentId.length > 0 &&
+      typeof log.content === 'string' &&
+      typeof log.truncated === 'boolean' &&
+      typeof log.masked === 'boolean' &&
+      typeof log.redactionCount === 'number' &&
+      Number.isSafeInteger(log.redactionCount) &&
+      log.redactionCount >= 0,
   );
 }
