@@ -222,19 +222,52 @@ export type {
   ProjectCoverageHistoryEntry,
   ProjectCoverageMetric,
   ProjectCoverageSummary,
+  ProjectCoverageTotals,
 } from './coverage.js';
 
 export type {
-  RailsActionConfirmation,
-  RailsActionKind,
-  RailsActionResult,
-  RailsDatabaseInfo,
-  RailsGenerator,
-  RailsGeneratorInfo,
-  RailsMigration,
-  RailsMigrationDirection,
-  RailsMigrationResult,
-  RailsRoute,
+  DatabaseReachability,
+  DatabaseRestoreResult,
+  DatabaseServiceAction,
+  MachineDatabaseDriver,
+  MachineDatabaseService,
+  MachineDatabaseServiceDetails,
+  MachineDatabaseExplorerDriver,
+  MachineDatabaseConnection,
+  MachineDatabaseCatalogItem,
+  MachineDatabaseTable,
+  MachineDatabaseQueryResult,
+  DatabaseSnapshot,
+  DatabaseSnapshotConfirmation,
+  DatabaseSnapshotDriver,
+  DatabaseSnapshotList,
+  ProjectDatabaseEnvironment,
+  ProjectDatabaseOverview,
+  ProjectDatabaseSecret,
+  ProjectDatabaseServiceActionResult,
+  ProjectDatabaseSource,
+} from './database.js';
+
+export type {
+  BundlerCheckResult,
+  BundlerOutdatedGem,
+  BundlerOverview,
+} from './bundler.js';
+
+export type {
+  RailsGeneratorConfirmation,
+  RailsGeneratorField,
+  RailsGeneratorFieldType,
+  RailsGeneratorKind,
+  RailsGeneratorResult,
+  RailsMigrationDetail,
+  RailsMigrationEntry,
+  RailsMigrationMutationOperation,
+  RailsMigrationStatus,
+  RailsMigrationsOverview,
+  RailsModelsOverview,
+  RailsRouteEntry,
+  RailsRoutesOverview,
   RailsSchemaColumn,
   RailsSchemaForeignKey,
   RailsSchemaIndex,
@@ -242,74 +275,52 @@ export type {
 } from './rails.js';
 
 export type {
-  RailsRuntimeAction,
-  RailsRuntimeActionResult,
-  RailsRuntimeActionTarget,
-  RailsRuntimeState,
-  RailsWorkerState,
+  RailsCredentialsEnvironmentStatus,
+  RailsCredentialsKeySource,
+  RailsCredentialsOverview,
+  RailsWorkerId,
+  RailsWorkerOverview,
 } from './rails-runtime.js';
 
 export type {
   ProjectScript,
-  ProjectScriptExecution,
-  ProjectScriptExecutionStatus,
-  ProjectScriptExecutionSummary,
+  ProjectScriptCatalog,
+  ProjectScriptOrigin,
+  ProjectScriptRisk,
+  ProjectScriptVariable,
+  ScriptExecution,
+  ScriptExecutionHistory,
+  ScriptExecutionEvent,
+  ScriptExecutionConfirmation,
+  ScriptExecutionLog,
+  ScriptExecutionStatus,
+  ScriptExecutionVariables,
 } from './script.js';
 
 export type {
-  BundlerInspection,
-  BundlerKind,
-  BundlerStatus,
-} from './bundler.js';
-
-export type {
-  ProjectEnvironmentProfile,
-  ProjectEnvironmentProfileSummary,
+  CreateEnvironmentProfileInput,
+  EnvironmentProfile,
+  EnvironmentProfileLimits,
+  EnvironmentProfileList,
+  EnvironmentProfileVariable,
+  UpdateEnvironmentProfileInput,
 } from './environment-profile.js';
 
 export type {
+  ProjectEnvironmentFile,
+  ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
-  ProjectEnvironmentVariableSource,
-  ProjectEnvironmentVariables,
+  ProjectEnvironmentVariableValue,
 } from './project-environment.js';
 
 export type {
-  DatabaseAdapterCapability,
-  DatabaseConnectionInput,
-  DatabaseConnectionResult,
-  DatabaseConnectionSummary,
-  DatabaseConnectionTestResult,
-  DatabaseDriver,
-  DatabaseExplorerColumn,
-  DatabaseExplorerError,
-  DatabaseExplorerForeignKey,
-  DatabaseExplorerIndex,
-  DatabaseExplorerQuery,
-  DatabaseExplorerQueryResult,
-  DatabaseExplorerQueryRow,
-  DatabaseExplorerSession,
-  DatabaseExplorerSessionState,
-  DatabaseExplorerTable,
-  DatabaseExplorerTableDetails,
-  DatabaseExplorerTableList,
-  DatabaseOverview,
-  DatabaseService,
-  DatabaseServiceKind,
-  DatabaseServiceState,
-  DatabaseSnapshot,
-  DatabaseSnapshotAdapter,
-  DatabaseSnapshotState,
-} from './database.js';
-
-export type {
   ProjectChangeImpact,
-  ProjectChangeImpactFile,
-  ProjectChangeImpactRisk,
-  ProjectChangeImpactSummary,
+  ProjectChangeImpactAction,
+  ProjectChangeImpactCategory,
 } from './project-change-impact.js';
 
 export type {
-  ProjectTerminalConfig,
-  ProjectTerminalSession,
-  ProjectTerminalState,
+  ProjectTerminalConfirmation,
+  ProjectTerminalKind,
+  ProjectTerminalStatus,
 } from './terminal.js';
