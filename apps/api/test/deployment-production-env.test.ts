@@ -56,12 +56,12 @@ function makeProject(projectPath: string): Project {
         verify: 'prod:verify',
       },
       policies: {
-        backup: 'none',
+        backup: 'required-before-migration',
         migrations: 'startup',
-        rollback: 'manual',
+        rollback: 'restore-backup-when-schema-changed',
       },
     },
-  } as Project;
+  };
 }
 
 const checkStep = {
