@@ -88,14 +88,6 @@ let hasObservedRunning = false;
 
 const executingAction = computed(() => currentAction.value !== null);
 
-const requiresEnvironmentSelection = computed(
-  () => props.project.type === 'node' && availableEnvironments.value.length > 0,
-);
-
-const environmentSelectionMissing = computed(
-  () => requiresEnvironmentSelection.value && !selectedEnvironment.value,
-);
-
 const environmentDisplayLabel = computed(() => {
   if (props.project.type === 'rails') return 'development';
 
@@ -114,8 +106,8 @@ async function confirmEnvironmentReplacement(
   return await confirmDialog({
     title: `Usar .env.${selectedEnvironment.value}?`,
     message:
-      `Antes de ${action} o servidor, .env.${selectedEnvironment.value} ` +
-      'substituirá .env.local. Nenhum valor será exibido no dashboard.',
+      `Ao ${action} o servidor, as variáveis de .env.${selectedEnvironment.value} ` +
+      'serão aplicadas somente a esta execução. .env e .env.local não serão alterados.',
     confirmLabel: action === 'iniciar' ? 'Usar e iniciar' : 'Usar e reiniciar',
     tone: 'warning',
   });
@@ -205,9 +197,7 @@ async function refreshServerSettings(): Promise<void> {
       settings.environment &&
       configuration.environments.includes(settings.environment)
         ? settings.environment
-        : configuration.environments.length === 1
-          ? (configuration.environments[0] ?? '')
-          : '';
+        : '';
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
       errorMessage.value =
@@ -288,11 +278,6 @@ async function startServer(
 }
 
 async function handleStart(): Promise<void> {
-  if (environmentSelectionMissing.value) {
-    errorMessage.value = 'Escolha um ambiente antes de iniciar o servidor.';
-    return;
-  }
-
   if (!(await confirmEnvironmentReplacement('iniciar'))) return;
 
   const projectId = props.project.id;
@@ -343,11 +328,6 @@ async function handleStop(): Promise<void> {
 }
 
 async function handleRestart(): Promise<void> {
-  if (environmentSelectionMissing.value) {
-    errorMessage.value = 'Escolha um ambiente antes de reiniciar o servidor.';
-    return;
-  }
-
   if (!(await confirmEnvironmentReplacement('reiniciar'))) return;
 
   const projectId = props.project.id;
