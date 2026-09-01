@@ -16,6 +16,8 @@ import { DeploymentStore } from '../src/deployment/store.js';
 
 const REVISION_A = 'a'.repeat(40);
 const REVISION_B = 'b'.repeat(40);
+const TERMINAL_WAIT_TIMEOUT_MS = 5_000;
+const TERMINAL_POLL_INTERVAL_MS = 10;
 
 class MutableRevisionResolver implements DeploymentRevisionResolver {
   public current: DeploymentRevision = {
@@ -80,8 +82,12 @@ async function waitForTerminal(
   service: DeploymentService,
   deploymentId: string,
 ): Promise<Awaited<ReturnType<DeploymentService['get']>>> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  const deadline = Date.now() + TERMINAL_WAIT_TIMEOUT_MS;
+  let lastStatus = 'desconhecido';
+
+  while (Date.now() < deadline) {
     const current = await service.get('project-1', deploymentId);
+    lastStatus = current.status;
     if (
       current.status === 'succeeded' ||
       current.status === 'failed' ||
@@ -90,9 +96,13 @@ async function waitForTerminal(
     ) {
       return current;
     }
-    await new Promise((resolve) => setTimeout(resolve, 1));
+    await new Promise((resolve) =>
+      setTimeout(resolve, TERMINAL_POLL_INTERVAL_MS),
+    );
   }
-  throw new Error('deployment não chegou a um estado terminal');
+  throw new Error(
+    `deployment não chegou a um estado terminal em ${TERMINAL_WAIT_TIMEOUT_MS}ms; último status: ${lastStatus}`,
+  );
 }
 
 test('mudança de revision depois do check impede a próxima etapa', async (t) => {
