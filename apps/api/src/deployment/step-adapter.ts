@@ -1,0 +1,104 @@
+import type { DeploymentPlanStep, Project } from '@dev-dashboard/contracts';
+import {
+  maskSensitiveLogContent,
+  type MaskedLogContent,
+} from '@dev-dashboard/process-manager';
+
+import {
+  ProductionCommandAdapter,
+  type ProductionCommandResult,
+} from './command-adapter.js';
+import { DeploymentError } from './errors.js';
+import {
+  LocalGitHubOriginResolver,
+  type GitHubOriginResolver,
+} from './github-origin.js';
+import {
+  GitDeploymentOriginRevisionResolver,
+  type DeploymentOriginRevisionResolver,
+} from './origin-revision.js';
+import { VercelDeploymentAdapter } from './vercel-adapter.js';
+
+export interface ProductionStepRunner {
+  run(
+    project: Project,
+    step: DeploymentPlanStep,
+    signal: AbortSignal,
+    onOutput: (output: MaskedLogContent) => void,
+  ): Promise<ProductionCommandResult>;
+}
+
+export interface ProductionStepAdapterOptions {
+  commandAdapter?: ProductionCommandAdapter;
+  vercelAdapter?: VercelDeploymentAdapter;
+  githubOriginResolver?: GitHubOriginResolver;
+  originRevisionResolver?: DeploymentOriginRevisionResolver;
+  maskLog?: (content: string) => MaskedLogContent;
+}
+
+export class ProductionStepAdapter implements ProductionStepRunner {
+  private readonly commandAdapter: ProductionCommandAdapter;
+  private readonly vercelAdapter: VercelDeploymentAdapter;
+  private readonly githubOriginResolver: GitHubOriginResolver;
+  private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
+  private readonly maskLog: (content: string) => MaskedLogContent;
+
+  public constructor(options: ProductionStepAdapterOptions = {}) {
+    this.commandAdapter = options.commandAdapter ?? new ProductionCommandAdapter();
+    this.vercelAdapter = options.vercelAdapter ?? new VercelDeploymentAdapter();
+    this.githubOriginResolver =
+      options.githubOriginResolver ?? new LocalGitHubOriginResolver();
+    this.originRevisionResolver =
+      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
+    this.maskLog = options.maskLog ?? maskSensitiveLogContent;
+  }
+
+  public async run(
+    project: Project,
+    step: DeploymentPlanStep,
+    signal: AbortSignal,
+    onOutput: (output: MaskedLogContent) => void,
+  ): Promise<ProductionCommandResult> {
+    if (step.id !== 'provider-deploy') {
+      return this.commandAdapter.run(project, step, signal, onOutput);
+    }
+
+    const production = project.production;
+    if (
+      !production?.enabled ||
+      production.strategy !== 'git-managed' ||
+      production.provider !== 'vercel' ||
+      !production.external?.project
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'A etapa provider-deploy exige um contrato git-managed/Vercel habilitado.',
+      );
+    }
+
+    const originRevision = await this.originRevisionResolver.resolve(
+      project,
+      production.branch,
+    );
+    if (!originRevision || originRevision !== project.git.headRevision) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PLAN_STALE',
+        'A revisão confirmada localmente ainda não corresponde à revisão atual de origin; sincronize/publie a branch antes do deploy.',
+      );
+    }
+
+    const repository = await this.githubOriginResolver.resolve(project);
+    const result = await this.vercelAdapter.deployProduction(
+      production.external.project,
+      {
+        repository,
+        branch: production.branch,
+        revision: originRevision,
+        signal,
+        onStatus: (message) => onOutput(this.maskLog(message)),
+      },
+    );
+
+    return { exitCode: result.cancelled ? 1 : 0, cancelled: result.cancelled };
+  }
+}
