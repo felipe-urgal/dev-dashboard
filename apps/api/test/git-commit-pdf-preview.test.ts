@@ -44,14 +44,14 @@ test('histórico do commit entrega antes e depois de PDF modificado', async (con
   const file = await inspectGitCommitFile(root, commitHash, 'manual.pdf');
 
   assert.equal(file.binary, true);
-  assert.equal(file.imagePreview?.before?.mimeType, 'application/pdf');
-  assert.equal(file.imagePreview?.after?.mimeType, 'application/pdf');
+  assert.equal(file.pdfPreview?.before?.mimeType, 'application/pdf');
+  assert.equal(file.pdfPreview?.after?.mimeType, 'application/pdf');
   assert.deepEqual(
-    Buffer.from(file.imagePreview?.before?.base64 ?? '', 'base64'),
+    Buffer.from(file.pdfPreview?.before?.base64 ?? '', 'base64'),
     pdfBefore,
   );
   assert.deepEqual(
-    Buffer.from(file.imagePreview?.after?.base64 ?? '', 'base64'),
+    Buffer.from(file.pdfPreview?.after?.base64 ?? '', 'base64'),
     pdfAfter,
   );
 });
@@ -78,10 +78,10 @@ test('histórico de PDF adicionado entrega somente o lado atual', async (context
   const file = await inspectGitCommitFile(root, commitHash, 'manual.pdf');
 
   assert.equal(file.status, 'added');
-  assert.equal(file.imagePreview?.before, undefined);
-  assert.equal(file.imagePreview?.after?.mimeType, 'application/pdf');
+  assert.equal(file.pdfPreview?.before, undefined);
+  assert.equal(file.pdfPreview?.after?.mimeType, 'application/pdf');
   assert.deepEqual(
-    Buffer.from(file.imagePreview?.after?.base64 ?? '', 'base64'),
+    Buffer.from(file.pdfPreview?.after?.base64 ?? '', 'base64'),
     pdf,
   );
 });
