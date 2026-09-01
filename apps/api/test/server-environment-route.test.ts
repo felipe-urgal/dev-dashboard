@@ -34,6 +34,7 @@ test('configura e aplica o ambiente Node escolhido ao iniciar', async (context) 
     ),
     writeFile(path.join(projectPath, '.env.staging'), 'APP_ENV=staging\n'),
     writeFile(path.join(projectPath, '.env.example'), 'APP_ENV=example\n'),
+    writeFile(path.join(projectPath, '.env.bak-portas'), 'APP_ENV=backup\n'),
   ]);
 
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
@@ -61,16 +62,20 @@ test('configura e aplica o ambiente Node escolhido ao iniciar', async (context) 
     warnings: [],
   });
 
+  let receivedEnvironment: NodeJS.ProcessEnv | undefined;
   appContext.processManager.startServer = async (
     _project,
     options,
-  ): Promise<ManagedProcess> => ({
-    id: 'p1:server',
-    projectId: 'p1',
-    kind: 'server',
-    status: 'starting',
-    port: options.port ?? 3_000,
-  });
+  ): Promise<ManagedProcess> => {
+    receivedEnvironment = options.environment;
+    return {
+      id: 'p1:server',
+      projectId: 'p1',
+      kind: 'server',
+      status: 'starting',
+      port: options.port ?? 3_000,
+    };
+  };
 
   const app = await buildApp({
     localToken: TOKEN,
@@ -130,9 +135,19 @@ test('configura e aplica o ambiente Node escolhido ao iniciar', async (context) 
     payload: JSON.stringify({ port: 3_300 }),
   });
   assert.equal(startResponse.statusCode, 201);
+  assert.equal(receivedEnvironment?.APP_ENV, 'staging');
+  await assert.rejects(readFile(path.join(projectPath, '.env.local'), 'utf8'));
+
+  const clearResponse = await app.inject({
+    method: 'PUT',
+    url: '/api/projects/p1/server-settings',
+    headers,
+    payload: JSON.stringify({ environment: null }),
+  });
+  assert.equal(clearResponse.statusCode, 200);
   assert.equal(
-    await readFile(path.join(projectPath, '.env.local'), 'utf8'),
-    'APP_ENV=staging\n',
+    clearResponse.json<ProjectServerConfiguration>().settings.environment,
+    undefined,
   );
 
   const invalidResponse = await app.inject({
