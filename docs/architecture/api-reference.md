@@ -6218,6 +6218,44 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "redactionCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "pdfPreview": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "base64": {
+                    "type": "string"
+                  }
+                }
+              },
+              "after": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "base64": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -12353,6 +12391,189 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Production Overview
+
+### `GET /api/workspaces/:workspaceId/production/overview`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "overview"
+    ],
+    "properties": {
+      "overview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generatedAt",
+          "items"
+        ],
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "projectId",
+                "projectName",
+                "state",
+                "health"
+              ],
+              "properties": {
+                "projectId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "projectName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "workspaceId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "in-sync",
+                    "drift",
+                    "running",
+                    "failed",
+                    "recovery-required",
+                    "not-configured",
+                    "blocked",
+                    "unknown"
+                  ]
+                },
+                "health": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "verify-failed",
+                    "unknown",
+                    "not-configured"
+                  ]
+                },
+                "strategy": {
+                  "type": "string",
+                  "enum": [
+                    "command",
+                    "git-managed",
+                    "disabled"
+                  ]
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "systemd",
+                    "docker-compose",
+                    "vercel",
+                    "none"
+                  ]
+                },
+                "branch": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "targetRevision": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{40}$"
+                },
+                "originRevision": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{40}$"
+                },
+                "productionRevision": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{40}$"
+                },
+                "providerAvailability": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "not-configured",
+                    "auth-error",
+                    "quota-limited",
+                    "project-not-found",
+                    "unavailable",
+                    "invalid-response"
+                  ]
+                },
+                "deploymentId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "deploymentStatus": {
+                  "type": "string",
+                  "enum": [
+                    "planned",
+                    "preparing",
+                    "backing_up",
+                    "migrating",
+                    "deploying",
+                    "verifying",
+                    "succeeded",
+                    "failed",
+                    "recovery_required",
+                    "cancelled"
+                  ]
+                },
+                "healthCheckedAt": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "errorCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "errorMessage": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Project Browser
 
 ### `POST /api/projects/:projectId/browser/open`
@@ -16799,6 +17020,44 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "minimum": 0
           },
           "imagePreview": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "base64": {
+                    "type": "string"
+                  }
+                }
+              },
+              "after": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "base64": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "pdfPreview": {
             "type": "object",
             "additionalProperties": false,
             "properties": {

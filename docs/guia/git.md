@@ -147,8 +147,14 @@ Como o Diff é somente leitura, não há ação de atualização manual nessa te
 - Ao clicar para expandir mais linhas de contexto acima/abaixo de um trecho, o dashboard lê o
   conteúdo direto do blob do Git (`git show :<arquivo>`) ou do arquivo em disco, em blocos de até
   400 linhas por vez.
-- Arquivos binários são detectados e mostrados como "arquivo binário", sem tentar exibir diff de
-  texto.
+- Imagens suportadas (`png`, `jpg/jpeg`, `gif`, `webp` e `svg`) podem ser revisadas visualmente com
+  os lados **Antes** e **Depois** correspondentes ao mesmo escopo do diff. SVG mantém também a
+  alternativa de código textual quando existe diff de texto.
+- PDFs são tratados como preview binário visual: o dashboard recupera os blobs **Antes/Depois** e
+  usa o visualizador PDF nativo do navegador. Arquivo adicionado/removido mostra somente o lado
+  existente. Cada lado possui limite de 8 MiB; acima do limite, ou quando o navegador não consegue
+  renderizar o formato, a tela mantém o fallback de arquivo binário em vez de tentar interpretar
+  o conteúdo como texto.
 
 ---
 
@@ -242,6 +248,10 @@ Sub-aba 100% de leitura, para navegar pelos commits.
   (`git show --name-status`), estatísticas por arquivo (`git show --numstat`) e o patch completo
   (`git show --unified=3`, também truncado e mascarado como no Diff). É possível abrir o diff de um
   arquivo específico do commit isoladamente, inclusive quando ele foi renomeado.
+- Quando o arquivo do commit é PDF, o histórico recupera o blob do commit e do pai correspondente
+  e exibe **Antes/Depois** no mesmo visualizador PDF usado no Diff. Adições e remoções mostram só o
+  lado existente, renomes usam o caminho anterior correto e o mesmo limite de 8 MiB por lado evita
+  carregar previews grandes demais.
 
 ---
 

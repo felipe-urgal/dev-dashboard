@@ -27,6 +27,7 @@ import {
 import { fetchProjectGitWorkspace } from '../api/git-workspace';
 import { gitFileToneFor } from '../utils/status-tones';
 import GitFileDiffView from './GitFileDiffView.vue';
+import GitPdfDiffPreview from './GitPdfDiffPreview.vue';
 import ProjectGitHistoryRow from './ProjectGitHistoryRow.vue';
 import StatusBadge from './StatusBadge.vue';
 

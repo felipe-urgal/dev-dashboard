@@ -2,6 +2,7 @@ import type {
   ProductionCommandId,
   ProductionCommands,
   ProductionProvider,
+  ProductionStrategy,
 } from './production.js';
 
 export type DeploymentStatus =
@@ -176,4 +177,42 @@ export interface ProductionDeploymentStatus {
   timeline: DeploymentProviderTimelineStep[];
   errorCode?: DeploymentProviderIssueCode;
   errorMessage?: string;
+}
+
+export type ProductionOverviewState =
+  | 'in-sync'
+  | 'drift'
+  | 'running'
+  | 'failed'
+  | 'recovery-required'
+  | 'not-configured'
+  | 'blocked'
+  | 'unknown';
+
+export type ProductionOverviewHealth =
+  'verified' | 'verify-failed' | 'unknown' | 'not-configured';
+
+export interface ProductionOverviewItem {
+  projectId: string;
+  projectName: string;
+  workspaceId?: string;
+  state: ProductionOverviewState;
+  health: ProductionOverviewHealth;
+  strategy?: ProductionStrategy;
+  provider?: ProductionProvider;
+  branch?: string;
+  targetRevision?: string;
+  originRevision?: string;
+  productionRevision?: string;
+  providerAvailability?: DeploymentProviderAvailability;
+  deploymentId?: string;
+  deploymentStatus?: DeploymentStatus;
+  healthCheckedAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface ProductionOverview {
+  generatedAt: string;
+  items: ProductionOverviewItem[];
 }

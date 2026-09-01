@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -101,4 +101,96 @@ test('getFileDiff mantém diff textual e preview visual para SVG', async (contex
     ),
     svgAfter,
   );
+});
+
+test('getFileDiff inclui antes e depois para PDF binário', async (context) => {
+  const { root } = await makeRepo();
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const pdfBefore = Buffer.from('%PDF-1.4\nantes\u0000fim\n%%EOF\n', 'utf8');
+  const pdfAfter = Buffer.from('%PDF-1.4\ndepois\u0000fim\n%%EOF\n', 'utf8');
+  const pdfPath = path.join(root, 'public', 'manual.pdf');
+
+  await writeFile(pdfPath, pdfBefore);
+  await git(root, ['add', 'public/manual.pdf']);
+  await git(root, ['commit', '-q', '-m', 'adiciona pdf']);
+  await writeFile(pdfPath, pdfAfter);
+
+  const diff = await new GitService().getFileDiff(
+    root,
+    'public/manual.pdf',
+    'combined',
+  );
+
+  assert.equal(diff.binary, true);
+  assert.equal(diff.pdfPreview?.before?.mimeType, 'application/pdf');
+  assert.equal(diff.pdfPreview?.after?.mimeType, 'application/pdf');
+  assert.deepEqual(
+    Buffer.from(diff.pdfPreview?.before?.base64 ?? '', 'base64'),
+    pdfBefore,
+  );
+  assert.deepEqual(
+    Buffer.from(diff.pdfPreview?.after?.base64 ?? '', 'base64'),
+    pdfAfter,
+  );
+});
+
+test('getFileDiff não lê preview de PDF por link simbólico fora do projeto', async (context) => {
+  const { root } = await makeRepo();
+  const outsideRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-pdf-outside-'),
+  );
+  context.after(async () => {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(outsideRoot, { recursive: true, force: true }),
+    ]);
+  });
+
+  const secretPdf = Buffer.from(
+    '%PDF-1.4\nconteudo-fora-do-projeto\u0000\n%%EOF\n',
+    'utf8',
+  );
+  const outsidePdf = path.join(outsideRoot, 'secret.pdf');
+  await writeFile(outsidePdf, secretPdf);
+  await symlink(outsidePdf, path.join(root, 'public', 'leak.pdf'));
+
+  const diff = await new GitService().getFileDiff(
+    root,
+    'public/leak.pdf',
+    'combined',
+  );
+
+  assert.equal(diff.pdfPreview, undefined);
+  assert.doesNotMatch(diff.content, /conteudo-fora-do-projeto/);
+});
+
+test('getFileDiff não lê preview de imagem por link simbólico fora do projeto', async (context) => {
+  const { root } = await makeRepo();
+  const outsideRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-image-outside-'),
+  );
+  context.after(async () => {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(outsideRoot, { recursive: true, force: true }),
+    ]);
+  });
+
+  const outsideImage = path.join(outsideRoot, 'secret.png');
+  await writeFile(
+    outsideImage,
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x73, 0x65, 0x67, 0x72, 0x65, 0x64, 0x6f]),
+  );
+  await symlink(outsideImage, path.join(root, 'public', 'leak.png'));
+
+  const diff = await new GitService().getFileDiff(
+    root,
+    'public/leak.png',
+    'combined',
+  );
+
+  assert.equal(diff.imagePreview, undefined);
 });

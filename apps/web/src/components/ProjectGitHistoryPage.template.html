@@ -349,6 +349,12 @@
                     Carregando diff…
                   </div>
 
+                  <GitPdfDiffPreview
+                    v-else-if="selectedFile.diff?.pdfPreview"
+                    :preview="selectedFile.diff.pdfPreview"
+                    :path="selectedFile.file.path"
+                  />
+
                   <div
                     v-else-if="selectedFile.diff?.binary"
                     class="git-history-empty"

@@ -1,4 +1,7 @@
-import { runGit as sharedRunGit } from '../shared/run-git.js';
+import {
+  runGit as sharedRunGit,
+  runGitBuffer as sharedRunGitBuffer,
+} from '../shared/run-git.js';
 
 import { GitCommitDetailsError } from './errors.js';
 
@@ -9,6 +12,14 @@ export async function runGit(
   args: readonly string[],
 ): Promise<string> {
   return sharedRunGit(projectPath, args, { maxBufferBytes: MAX_BUFFER_BYTES });
+}
+
+export async function runGitBuffer(
+  projectPath: string,
+  args: readonly string[],
+  maxBufferBytes = MAX_BUFFER_BYTES,
+): Promise<Buffer> {
+  return sharedRunGitBuffer(projectPath, args, { maxBufferBytes });
 }
 
 export async function requireRepository(projectPath: string): Promise<void> {

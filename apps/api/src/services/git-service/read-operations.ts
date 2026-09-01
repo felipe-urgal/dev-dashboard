@@ -22,6 +22,7 @@ import {
   ensurePathInsideProject,
   readImageDiffPreview,
   readIndexBlob,
+  readPdfDiffPreview,
   readUntrackedDiff,
   readUntrackedDiffStat,
   readWorkingTreeFile,
@@ -198,14 +199,24 @@ export async function getFileDiff(
   const trimmed = truncated ? raw.slice(0, GIT_DIFF_FILE_LIMIT) : raw;
   const masked = maskSensitiveLogContent(trimmed);
   const fileStatus = change?.status ?? 'modified';
-  const imagePreview = await readImageDiffPreview(
-    projectPath,
-    safePath,
-    change?.previousPath,
-    fileStatus,
-    scope,
-    base,
-  );
+  const [imagePreview, pdfPreview] = await Promise.all([
+    readImageDiffPreview(
+      projectPath,
+      safePath,
+      change?.previousPath,
+      fileStatus,
+      scope,
+      base,
+    ),
+    readPdfDiffPreview(
+      projectPath,
+      safePath,
+      change?.previousPath,
+      fileStatus,
+      scope,
+      base,
+    ),
+  ]);
   return {
     path: safePath,
     scope,
@@ -216,6 +227,7 @@ export async function getFileDiff(
     masked: masked.masked,
     redactionCount: masked.redactionCount,
     ...(imagePreview ? { imagePreview } : {}),
+    ...(pdfPreview ? { pdfPreview } : {}),
   };
 }
 

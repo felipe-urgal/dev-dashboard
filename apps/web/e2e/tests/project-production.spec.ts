@@ -11,16 +11,22 @@ test.describe('produção por projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
+    const nodeProjectTabs = page.getByRole('navigation', {
+      name: 'Áreas do projeto',
+    });
     await expect(
-      page.getByRole('link', { name: 'Produção', exact: true }),
+      nodeProjectTabs.getByRole('link', { name: 'Produção', exact: true }),
     ).toBeVisible();
 
     await page.goto('/');
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
       .click();
+    const railsProjectTabs = page.getByRole('navigation', {
+      name: 'Áreas do projeto',
+    });
     await expect(
-      page.getByRole('link', { name: 'Produção', exact: true }),
+      railsProjectTabs.getByRole('link', { name: 'Produção', exact: true }),
     ).toHaveCount(0);
   });
 
@@ -31,7 +37,10 @@ test.describe('produção por projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
-    await page.getByRole('link', { name: 'Produção', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Áreas do projeto' })
+      .getByRole('link', { name: 'Produção', exact: true })
+      .click();
 
     await expect(
       page.getByRole('heading', { name: 'Produção pronta para planejar' }),

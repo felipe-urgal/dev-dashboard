@@ -152,6 +152,9 @@ export interface GitImageDiffPreview {
   after?: GitImagePreviewContent;
 }
 
+export type GitPdfPreviewContent = GitImagePreviewContent;
+export type GitPdfDiffPreview = GitImageDiffPreview;
+
 export interface GitFileDiff {
   path: string;
   scope: GitDiffScope;
@@ -162,6 +165,7 @@ export interface GitFileDiff {
   masked: boolean;
   redactionCount: number;
   imagePreview?: GitImageDiffPreview;
+  pdfPreview?: GitPdfDiffPreview;
 }
 
 export interface GitFileLines {
@@ -213,6 +217,7 @@ export interface GitCommitFileDiff {
   truncated: boolean;
   masked: boolean;
   redactionCount: number;
+  pdfPreview?: GitPdfDiffPreview;
 }
 
 export interface GitCommitHistoryEntry {

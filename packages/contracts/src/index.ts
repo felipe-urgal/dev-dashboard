@@ -55,6 +55,10 @@ export type {
   DeploymentStepStatus,
   DeploymentTimelineStep,
   ProductionDeploymentStatus,
+  ProductionOverview,
+  ProductionOverviewHealth,
+  ProductionOverviewItem,
+  ProductionOverviewState,
 } from './deployment.js';
 
 export type {

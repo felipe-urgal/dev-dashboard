@@ -22,6 +22,7 @@ import type {
   GitUnifiedDiffLine,
 } from '../utils/git-diff-view';
 import { gitFileToneFor } from '../utils/status-tones';
+import GitPdfDiffPreview from './GitPdfDiffPreview.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{
@@ -219,6 +220,12 @@ const emit = defineEmits<{
           </div>
         </figure>
       </div>
+
+      <GitPdfDiffPreview
+        v-else-if="entry.diff?.pdfPreview"
+        :preview="entry.diff.pdfPreview"
+        :path="entry.file.path"
+      />
 
       <div v-else-if="entry.diff?.binary" class="git-diff-detail-empty">
         <DocumentTextIcon aria-hidden="true" />

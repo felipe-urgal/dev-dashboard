@@ -1,4 +1,4 @@
-import { open } from 'node:fs/promises';
+import { open, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -11,8 +11,8 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  GIT_DIFF_BINARY_PREVIEW_LIMIT,
   GIT_DIFF_FILE_LIMIT,
-  GIT_DIFF_IMAGE_PREVIEW_LIMIT,
   EMPTY_TREE_HASH,
 } from './constants.js';
 import { GitDiffError } from './errors.js';
@@ -26,6 +26,7 @@ const IMAGE_MIME_TYPES = new Map<string, string>([
   ['.webp', 'image/webp'],
   ['.svg', 'image/svg+xml'],
 ]);
+const PDF_MIME_TYPE = 'application/pdf';
 
 export async function resolveDiffBase(
   projectPath: string,
@@ -232,34 +233,70 @@ export function imageMimeTypeForPath(filePath: string): string | null {
   return IMAGE_MIME_TYPES.get(path.extname(filePath).toLowerCase()) ?? null;
 }
 
-function imagePreviewContent(
+export function pdfMimeTypeForPath(filePath: string): string | null {
+  return path.extname(filePath).toLowerCase() === '.pdf' ? PDF_MIME_TYPE : null;
+}
+
+function previewContent(
   buffer: Buffer,
   mimeType: string,
 ): GitImagePreviewContent {
   return { mimeType, base64: buffer.toString('base64') };
 }
 
-function assertImagePreviewSize(size: number): void {
-  if (size <= GIT_DIFF_IMAGE_PREVIEW_LIMIT) return;
+function assertPreviewSize(size: number, label: string): void {
+  if (size <= GIT_DIFF_BINARY_PREVIEW_LIMIT) return;
   throw new GitDiffError(
     'GIT_DIFF_LINES_UNAVAILABLE',
-    `A imagem excede o limite de ${Math.round(GIT_DIFF_IMAGE_PREVIEW_LIMIT / 1024 / 1024)} MiB para pré-visualização.`,
+    `${label} excede o limite de ${Math.round(GIT_DIFF_BINARY_PREVIEW_LIMIT / 1024 / 1024)} MiB para pré-visualização.`,
   );
 }
 
-async function readWorkingTreeImage(
+async function resolveWorkingTreePreviewPath(
+  projectPath: string,
+  safePath: string,
+  label: string,
+): Promise<string> {
+  try {
+    const [canonicalProject, canonicalTarget] = await Promise.all([
+      realpath(projectPath),
+      realpath(path.resolve(projectPath, safePath)),
+    ]);
+    const relative = path.relative(canonicalProject, canonicalTarget);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new GitDiffError(
+        'GIT_DIFF_PATH_OUTSIDE_PROJECT',
+        `${label} aponta para fora do projeto.`,
+      );
+    }
+    return canonicalTarget;
+  } catch (error) {
+    if (error instanceof GitDiffError) throw error;
+    throw new GitDiffError(
+      'GIT_DIFF_LINES_UNAVAILABLE',
+      `${label} indisponível na árvore de trabalho.`,
+    );
+  }
+}
+
+async function readWorkingTreePreview(
   projectPath: string,
   safePath: string,
   mimeType: string,
+  label: string,
 ): Promise<GitImagePreviewContent> {
-  const absolute = path.resolve(projectPath, safePath);
+  const absolute = await resolveWorkingTreePreviewPath(
+    projectPath,
+    safePath,
+    label,
+  );
   let handle;
   try {
     handle = await open(absolute, 'r');
   } catch {
     throw new GitDiffError(
       'GIT_DIFF_LINES_UNAVAILABLE',
-      'Imagem indisponível na árvore de trabalho.',
+      `${label} indisponível na árvore de trabalho.`,
     );
   }
   try {
@@ -267,81 +304,89 @@ async function readWorkingTreeImage(
     if (!stats.isFile()) {
       throw new GitDiffError(
         'GIT_DIFF_LINES_UNAVAILABLE',
-        'O caminho da imagem não é um arquivo comum.',
+        `O caminho de ${label.toLowerCase()} não é um arquivo comum.`,
       );
     }
-    assertImagePreviewSize(stats.size);
+    assertPreviewSize(stats.size, label);
     const buffer = Buffer.alloc(stats.size);
     await handle.read(buffer, 0, stats.size, 0);
-    return imagePreviewContent(buffer, mimeType);
+    return previewContent(buffer, mimeType);
   } finally {
     await handle.close();
   }
 }
 
-async function readGitImage(
+async function readGitPreview(
   projectPath: string,
   revisionPath: string,
   mimeType: string,
+  label: string,
 ): Promise<GitImagePreviewContent> {
   const sizeText = await runGit(projectPath, ['cat-file', '-s', revisionPath]);
   const size = Number.parseInt(sizeText.trim(), 10);
   if (!Number.isFinite(size)) {
     throw new GitDiffError(
       'GIT_DIFF_LINES_UNAVAILABLE',
-      'Não foi possível determinar o tamanho da imagem no Git.',
+      `Não foi possível determinar o tamanho de ${label.toLowerCase()} no Git.`,
     );
   }
-  assertImagePreviewSize(size);
+  assertPreviewSize(size, label);
   const buffer = await runGitBuffer(
     projectPath,
     ['cat-file', 'blob', revisionPath],
-    { maxBufferBytes: GIT_DIFF_IMAGE_PREVIEW_LIMIT + 1024 },
+    { maxBufferBytes: GIT_DIFF_BINARY_PREVIEW_LIMIT + 1024 },
   );
-  return imagePreviewContent(buffer, mimeType);
+  return previewContent(buffer, mimeType);
 }
 
-/**
- * Para imagens suportadas, recupera os dois lados do mesmo escopo usado pelo
- * diff: índice→working tree, HEAD→índice ou HEAD→working tree.
- */
-export async function readImageDiffPreview(
+type PreviewMimeResolver = (filePath: string) => string | null;
+
+async function readBinaryDiffPreview(
   projectPath: string,
   safePath: string,
   previousPath: string | undefined,
   status: GitFileStatus,
   scope: GitDiffScope,
   base: string | null,
+  mimeTypeForPath: PreviewMimeResolver,
+  label: string,
 ): Promise<GitImageDiffPreview | undefined> {
-  const afterMimeType = imageMimeTypeForPath(safePath);
+  const afterMimeType = mimeTypeForPath(safePath);
   if (!afterMimeType) return undefined;
 
   const beforePath = previousPath ?? safePath;
-  const beforeMimeType = imageMimeTypeForPath(beforePath) ?? afterMimeType;
+  const beforeMimeType = mimeTypeForPath(beforePath) ?? afterMimeType;
   const hasBefore = status !== 'added' && status !== 'untracked';
   const hasAfter = status !== 'deleted';
 
   const beforePromise = !hasBefore
     ? Promise.resolve(undefined)
     : scope === 'worktree'
-      ? readGitImage(projectPath, `:${beforePath}`, beforeMimeType).catch(
-          () => undefined,
-        )
-      : readGitImage(
+      ? readGitPreview(
+          projectPath,
+          `:${beforePath}`,
+          beforeMimeType,
+          label,
+        ).catch(() => undefined)
+      : readGitPreview(
           projectPath,
           `${base ?? 'HEAD'}:${beforePath}`,
           beforeMimeType,
+          label,
         ).catch(() => undefined);
 
   const afterPromise = !hasAfter
     ? Promise.resolve(undefined)
     : scope === 'index'
-      ? readGitImage(projectPath, `:${safePath}`, afterMimeType).catch(
+      ? readGitPreview(projectPath, `:${safePath}`, afterMimeType, label).catch(
           () => undefined,
         )
-      : readWorkingTreeImage(projectPath, safePath, afterMimeType).catch(
-          () => undefined,
-        );
+      : readWorkingTreePreview(
+          projectPath,
+          safePath,
+          afterMimeType,
+          label,
+        ).catch(() => undefined);
 
   const [before, after] = await Promise.all([beforePromise, afterPromise]);
   if (!before && !after) return undefined;
@@ -349,4 +394,49 @@ export async function readImageDiffPreview(
     ...(before ? { before } : {}),
     ...(after ? { after } : {}),
   };
+}
+
+/**
+ * Para imagens suportadas, recupera os dois lados do mesmo escopo usado pelo
+ * diff: índice→working tree, HEAD→índice ou HEAD→working tree.
+ */
+export function readImageDiffPreview(
+  projectPath: string,
+  safePath: string,
+  previousPath: string | undefined,
+  status: GitFileStatus,
+  scope: GitDiffScope,
+  base: string | null,
+): Promise<GitImageDiffPreview | undefined> {
+  return readBinaryDiffPreview(
+    projectPath,
+    safePath,
+    previousPath,
+    status,
+    scope,
+    base,
+    imageMimeTypeForPath,
+    'Imagem',
+  );
+}
+
+/** Mesma leitura antes/depois, usando o viewer PDF nativo do navegador. */
+export function readPdfDiffPreview(
+  projectPath: string,
+  safePath: string,
+  previousPath: string | undefined,
+  status: GitFileStatus,
+  scope: GitDiffScope,
+  base: string | null,
+): Promise<GitImageDiffPreview | undefined> {
+  return readBinaryDiffPreview(
+    projectPath,
+    safePath,
+    previousPath,
+    status,
+    scope,
+    base,
+    pdfMimeTypeForPath,
+    'PDF',
+  );
 }
