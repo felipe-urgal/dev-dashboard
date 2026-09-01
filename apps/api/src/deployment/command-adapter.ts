@@ -1,8 +1,7 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
-import { access, lstat, readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
-import { parseEnv } from 'node:util';
 
 import type {
   DeploymentPlanStep,
@@ -14,6 +13,11 @@ import {
   type MaskedLogContent,
 } from '@dev-dashboard/process-manager';
 
+import {
+  loadProjectLocalEnvironment,
+  ProjectLocalEnvironmentError,
+  type ProjectLocalEnvironmentKind,
+} from '../security/project-local-environment.js';
 import { DeploymentError } from './errors.js';
 import { VercelProviderStepAdapter } from './step-adapter.js';
 
@@ -31,20 +35,14 @@ const SCRIPT_BY_COMMAND = {
 
 const KILL_ESCALATION_MS = 1_000;
 const STDERR_CLASSIFICATION_LIMIT = 16_384;
-const PROJECT_ENV_MAX_BYTES = 64 * 1024;
-const PROJECT_ENV_PATH = {
-  check: path.join('.dev-dashboard', '.env.check.local'),
-  production: path.join('.dev-dashboard', '.env.production.local'),
-} as const;
 const PROJECT_ENV_LABEL = {
   check: 'ambiente local de check',
   production: 'ambiente local de produção',
-} as const;
+} as const satisfies Record<ProjectLocalEnvironmentKind, string>;
 const SUDO_INTERACTIVE_PATTERN =
   /sudo:.*(?:terminal is required|no tty present|password is required|askpass|a terminal is required to read the password)/i;
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
-type ProjectEnvironmentKind = keyof typeof PROJECT_ENV_PATH;
 
 type SpawnProcess = (
   file: string,
@@ -68,14 +66,6 @@ export interface ProductionCommandAdapterOptions {
   providerAdapter?: VercelProviderStepAdapter;
 }
 
-function hasErrorCode(error: unknown, code: string): boolean {
-  return (
-    error instanceof Error &&
-    'code' in error &&
-    (error as Error & { code?: unknown }).code === code
-  );
-}
-
 async function exists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
@@ -85,38 +75,22 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-async function loadProjectEnvironment(
+async function projectEnvironment(
   projectPath: string,
-  kind: ProjectEnvironmentKind,
+  kind: ProjectLocalEnvironmentKind,
 ): Promise<NodeJS.ProcessEnv> {
-  const envPath = path.join(projectPath, PROJECT_ENV_PATH[kind]);
-  const label = PROJECT_ENV_LABEL[kind];
-
-  let stats;
   try {
-    stats = await lstat(envPath);
+    return await loadProjectLocalEnvironment(projectPath, kind);
   } catch (error) {
-    if (hasErrorCode(error, 'ENOENT')) return {};
-    throw new DeploymentError(
-      'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-      `Não foi possível acessar o ${label} do projeto.`,
-    );
-  }
-
-  if (!stats.isFile() || stats.size > PROJECT_ENV_MAX_BYTES) {
-    throw new DeploymentError(
-      'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-      `O ${label} do projeto é inválido.`,
-    );
-  }
-
-  try {
-    return parseEnv(await readFile(envPath, 'utf8'));
-  } catch {
-    throw new DeploymentError(
-      'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-      `Não foi possível interpretar o ${label} do projeto.`,
-    );
+    if (!(error instanceof ProjectLocalEnvironmentError)) throw error;
+    const label = PROJECT_ENV_LABEL[kind];
+    const message =
+      error.code === 'ACCESS_FAILED'
+        ? `Não foi possível acessar o ${label} do projeto.`
+        : error.code === 'INVALID_FILE'
+          ? `O ${label} do projeto é inválido.`
+          : `Não foi possível interpretar o ${label} do projeto.`;
+    throw new DeploymentError('DEPLOYMENT_PRODUCTION_UNAVAILABLE', message);
   }
 }
 
@@ -206,13 +180,13 @@ export class ProductionCommandAdapter {
     }
 
     const packageManager = await resolvePackageManager(project.path);
-    const projectEnvironment = await loadProjectEnvironment(
+    const environment = await projectEnvironment(
       project.path,
       step.id === 'check' ? 'check' : 'production',
     );
     const child = this.spawnProcess(packageManager, ['run', expectedScript], {
       cwd: project.path,
-      env: { ...process.env, ...projectEnvironment },
+      env: { ...process.env, ...environment },
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
