@@ -175,6 +175,19 @@ function blockedMessage(project: Project): string {
   return 'O contrato de produção está bloqueado ou desabilitado.';
 }
 
+function historyForCurrentContract(
+  project: Project,
+  history: readonly Deployment[],
+): Deployment[] {
+  const production = project.production;
+  if (!production) return [];
+  return history.filter(
+    (deployment) =>
+      deployment.branch === production.branch &&
+      deployment.provider === production.provider,
+  );
+}
+
 export class ProductionOverviewService {
   private readonly deploymentReader: ProductionOverviewDeploymentReader;
   private readonly providerReader: ProductionOverviewProviderReader;
@@ -280,7 +293,8 @@ export class ProductionOverviewService {
       };
     }
 
-    const latest = history.items[0];
+    const currentHistory = historyForCurrentContract(project, history.items);
+    const latest = currentHistory[0];
     const latestExecutionState = executionState(latest);
     const deploymentFields = latest
       ? {
@@ -296,7 +310,7 @@ export class ProductionOverviewService {
       return this.readGitManagedProject(
         project,
         base,
-        history.items,
+        currentHistory,
         latestExecutionState,
         deploymentFields,
       );
@@ -307,9 +321,9 @@ export class ProductionOverviewService {
         project,
         production.branch,
       );
-      const productionDeployment = history.items.find(mutationStepSucceeded);
+      const productionDeployment = currentHistory.find(mutationStepSucceeded);
       const productionRevision = productionDeployment?.revision;
-      const health = healthEvidence(project, history.items, productionRevision);
+      const health = healthEvidence(project, currentHistory, productionRevision);
 
       let state = latestExecutionState;
       if (!state) {
