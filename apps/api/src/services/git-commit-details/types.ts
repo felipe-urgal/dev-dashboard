@@ -1,3 +1,5 @@
+import type { GitImageDiffPreview } from '@dev-dashboard/contracts';
+
 export type GitCommitFileStatus =
   'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
 
@@ -44,6 +46,7 @@ export interface GitCommitFileDiff {
   truncated: boolean;
   masked: boolean;
   redactionCount: number;
+  pdfPreview?: GitImageDiffPreview;
 }
 
 export interface GitCommitHistoryEntry {
