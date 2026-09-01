@@ -102,3 +102,37 @@ test('getFileDiff mantém diff textual e preview visual para SVG', async (contex
     svgAfter,
   );
 });
+
+test('getFileDiff inclui antes e depois para PDF binário', async (context) => {
+  const { root } = await makeRepo();
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const pdfBefore = Buffer.from('%PDF-1.4\nantes\u0000fim\n%%EOF\n', 'utf8');
+  const pdfAfter = Buffer.from('%PDF-1.4\ndepois\u0000fim\n%%EOF\n', 'utf8');
+  const pdfPath = path.join(root, 'public', 'manual.pdf');
+
+  await writeFile(pdfPath, pdfBefore);
+  await git(root, ['add', 'public/manual.pdf']);
+  await git(root, ['commit', '-q', '-m', 'adiciona pdf']);
+  await writeFile(pdfPath, pdfAfter);
+
+  const diff = await new GitService().getFileDiff(
+    root,
+    'public/manual.pdf',
+    'combined',
+  );
+
+  assert.equal(diff.binary, true);
+  assert.equal(diff.imagePreview?.before?.mimeType, 'application/pdf');
+  assert.equal(diff.imagePreview?.after?.mimeType, 'application/pdf');
+  assert.deepEqual(
+    Buffer.from(diff.imagePreview?.before?.base64 ?? '', 'base64'),
+    pdfBefore,
+  );
+  assert.deepEqual(
+    Buffer.from(diff.imagePreview?.after?.base64 ?? '', 'base64'),
+    pdfAfter,
+  );
+});
