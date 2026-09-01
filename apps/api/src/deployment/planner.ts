@@ -4,13 +4,15 @@ import type {
   DeploymentCommandPlanStep,
   DeploymentPlan,
   DeploymentPlanStep,
-  DeploymentProviderTarget,
+  DeploymentProviderPlanStep,
   ProductionCommandId,
   Project,
 } from '@dev-dashboard/contracts';
 
 import { DeploymentError } from './errors.js';
 import type { DeploymentRevision } from './revision.js';
+
+type DeploymentProviderTarget = DeploymentProviderPlanStep['target'];
 
 const SCRIPT_BY_COMMAND = {
   status: 'prod:status',
