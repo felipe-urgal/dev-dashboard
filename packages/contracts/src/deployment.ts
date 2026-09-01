@@ -189,19 +189,28 @@ export type ProductionOverviewState =
   | 'blocked'
   | 'unknown';
 
+export type ProductionOverviewHealth =
+  | 'verified'
+  | 'verify-failed'
+  | 'unknown'
+  | 'not-configured';
+
 export interface ProductionOverviewItem {
   projectId: string;
   projectName: string;
   workspaceId?: string;
   state: ProductionOverviewState;
+  health: ProductionOverviewHealth;
   strategy?: ProductionStrategy;
   provider?: ProductionProvider;
   branch?: string;
+  targetRevision?: string;
   originRevision?: string;
   productionRevision?: string;
   providerAvailability?: DeploymentProviderAvailability;
   deploymentId?: string;
   deploymentStatus?: DeploymentStatus;
+  healthCheckedAt?: string;
   errorCode?: string;
   errorMessage?: string;
 }
