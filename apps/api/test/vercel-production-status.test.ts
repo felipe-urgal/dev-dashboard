@@ -443,6 +443,7 @@ test('adapter cria deployment production no projeto Vercel e aguarda a revisão 
       org: 'felipe-urgal',
       repo: 'controle-gastos',
       ref: 'main',
+      sha: REVISION_A,
     },
   });
   assert.equal(createRequest?.url.searchParams.get('teamId'), 'team_teste');
