@@ -17,6 +17,10 @@ import {
   GitDeploymentOriginRevisionResolver,
   type DeploymentOriginRevisionResolver,
 } from './origin-revision.js';
+import {
+  GitDeploymentRevisionResolver,
+  type DeploymentRevisionResolver,
+} from './revision.js';
 import { VercelDeploymentAdapter } from './vercel-adapter.js';
 
 export interface ProductionStepRunner {
@@ -33,6 +37,7 @@ export interface ProductionStepAdapterOptions {
   vercelAdapter?: VercelDeploymentAdapter;
   githubOriginResolver?: GitHubOriginResolver;
   originRevisionResolver?: DeploymentOriginRevisionResolver;
+  revisionResolver?: DeploymentRevisionResolver;
   maskLog?: (content: string) => MaskedLogContent;
 }
 
@@ -41,6 +46,7 @@ export class ProductionStepAdapter implements ProductionStepRunner {
   private readonly vercelAdapter: VercelDeploymentAdapter;
   private readonly githubOriginResolver: GitHubOriginResolver;
   private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
+  private readonly revisionResolver: DeploymentRevisionResolver;
   private readonly maskLog: (content: string) => MaskedLogContent;
 
   public constructor(options: ProductionStepAdapterOptions = {}) {
@@ -50,6 +56,8 @@ export class ProductionStepAdapter implements ProductionStepRunner {
       options.githubOriginResolver ?? new LocalGitHubOriginResolver();
     this.originRevisionResolver =
       options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
+    this.revisionResolver =
+      options.revisionResolver ?? new GitDeploymentRevisionResolver();
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;
   }
 
@@ -76,11 +84,16 @@ export class ProductionStepAdapter implements ProductionStepRunner {
       );
     }
 
+    const localRevision = await this.revisionResolver.resolve(project);
     const originRevision = await this.originRevisionResolver.resolve(
       project,
       production.branch,
     );
-    if (!originRevision || originRevision !== project.git.headRevision) {
+    if (
+      localRevision.branch !== production.branch ||
+      !originRevision ||
+      originRevision !== localRevision.revision
+    ) {
       throw new DeploymentError(
         'DEPLOYMENT_PLAN_STALE',
         'A revisão confirmada localmente ainda não corresponde à revisão atual de origin; sincronize/publie a branch antes do deploy.',
