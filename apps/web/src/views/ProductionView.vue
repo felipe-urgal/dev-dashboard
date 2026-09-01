@@ -28,6 +28,7 @@ let requestController: AbortController | undefined;
 let generation = 0;
 
 const workspaceId = dashboardStore.selectedWorkspaceId;
+const scanningWorkspace = dashboardStore.scanningWorkspace;
 
 const items = computed(() => overview.value?.items ?? []);
 const inSyncCount = computed(
@@ -142,6 +143,12 @@ async function loadOverview(): Promise<void> {
     return;
   }
 
+  if (scanningWorkspace.value) {
+    overview.value = null;
+    loading.value = false;
+    return;
+  }
+
   loading.value = true;
   try {
     const result = await fetchProductionOverview(
@@ -161,7 +168,14 @@ async function loadOverview(): Promise<void> {
 }
 
 watch(workspaceId, () => {
+  overview.value = null;
   void loadOverview();
+});
+
+watch(scanningWorkspace, (scanning, wasScanning) => {
+  if (wasScanning && !scanning) {
+    void loadOverview();
+  }
 });
 
 onMounted(async () => {
@@ -177,18 +191,21 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="content production-overview-page"
-    :aria-busy="loading"
+    :aria-busy="loading || scanningWorkspace"
     aria-label="Produção do workspace"
   >
     <div class="production-overview-actions">
       <button
         type="button"
         class="production-overview-refresh"
-        :disabled="loading || !workspaceId"
+        :disabled="loading || scanningWorkspace || !workspaceId"
         @click="loadOverview"
       >
-        <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
-        {{ loading ? 'Atualizando…' : 'Atualizar' }}
+        <ArrowPathIcon
+          :class="{ spinning: loading || scanningWorkspace }"
+          aria-hidden="true"
+        />
+        {{ loading || scanningWorkspace ? 'Atualizando…' : 'Atualizar' }}
       </button>
     </div>
 
@@ -221,7 +238,7 @@ onBeforeUnmount(() => {
     </p>
 
     <LoadingSkeleton
-      v-if="loading && !overview"
+      v-if="(loading || scanningWorkspace) && !overview"
       label="Carregando produção…"
       :rows="4"
     />
