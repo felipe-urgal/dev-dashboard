@@ -49,6 +49,11 @@ export interface VercelProductionDeployment {
   revision?: string;
 }
 
+export interface VercelResolvedProject {
+  id: string;
+  name: string;
+}
+
 export interface VercelProductionSnapshot {
   projectId: string;
   projectName: string;
@@ -60,6 +65,7 @@ export interface VercelProductionDeployRequest {
   branch: string;
   revision: string;
   signal: AbortSignal;
+  providerProject?: VercelResolvedProject;
   onStatus?: (message: string) => void;
 }
 
@@ -96,11 +102,6 @@ function boundedString(value: unknown, maxLength: number): string | undefined {
 function providerErrorCode(value: unknown): string | undefined {
   const error = record(record(value)?.error);
   return boundedString(error?.code, 128);
-}
-
-function providerErrorMessage(value: unknown): string | undefined {
-  const error = record(record(value)?.error);
-  return boundedString(error?.message, 2048);
 }
 
 function normalizeState(value: string): DeploymentProviderState {
@@ -152,7 +153,6 @@ function normalizeUrl(value: string): string {
 function responseError(
   status: number,
   code: string | undefined,
-  providerMessage?: string,
 ): DeploymentError {
   if (status === 401 || status === 403) {
     return new DeploymentError(
@@ -174,9 +174,7 @@ function responseError(
   }
   return new DeploymentError(
     'DEPLOYMENT_PROVIDER_UNAVAILABLE',
-    providerMessage
-      ? `A Vercel recusou a operação: ${providerMessage}`
-      : 'A Vercel não respondeu com um estado operacional utilizável.',
+    'A Vercel não respondeu com um estado operacional utilizável.',
   );
 }
 
@@ -269,15 +267,17 @@ export class VercelDeploymentAdapter {
 
   public async readProduction(
     externalProject: string,
+    signal?: AbortSignal,
   ): Promise<VercelProductionSnapshot> {
     this.assertConfigured();
-    const project = await this.readProject(externalProject);
+    const project = await this.readProject(externalProject, signal);
     const response = await this.request('/v7/deployments', {
       params: {
         projectId: project.id,
         target: 'production',
         limit: '20',
       },
+      ...(signal ? { signal } : {}),
     });
     const parsed = record(response);
     if (!Array.isArray(parsed?.deployments)) {
@@ -308,7 +308,9 @@ export class VercelDeploymentAdapter {
     this.assertConfigured();
     if (request.signal.aborted) return { cancelled: true };
 
-    const project = await this.readProject(externalProject, request.signal);
+    const project =
+      request.providerProject ??
+      (await this.readProject(externalProject, request.signal));
     if (request.signal.aborted) return { cancelled: true };
 
     const created = await this.request('/v13/deployments', {
@@ -421,7 +423,7 @@ export class VercelDeploymentAdapter {
   private async readProject(
     externalProject: string,
     signal?: AbortSignal,
-  ): Promise<{ id: string; name: string }> {
+  ): Promise<VercelResolvedProject> {
     const response = await this.request(
       `/v9/projects/${encodeURIComponent(externalProject)}`,
       signal ? { signal } : {},
@@ -582,11 +584,7 @@ export class VercelDeploymentAdapter {
     }
 
     if (!response.ok) {
-      throw responseError(
-        response.status,
-        providerErrorCode(parsed),
-        providerErrorMessage(parsed),
-      );
+      throw responseError(response.status, providerErrorCode(parsed));
     }
     if (parsed === undefined) {
       throw invalidProviderResponse(
