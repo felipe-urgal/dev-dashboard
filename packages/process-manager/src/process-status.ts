@@ -1,6 +1,7 @@
 import type { ManagedProcess } from '@dev-dashboard/contracts';
 
 import type { ExitTracker } from './process-exit-tracking.js';
+import { detectListeningPortsForProcessTree } from './listening-port-discovery.js';
 import { canConnect } from './port-utils.js';
 import {
   isManagedProcessAlive,
@@ -28,6 +29,37 @@ export function createProcessStatusReader(
   context: ProcessStoreContext,
   exitTracker: ExitTracker,
 ): ProcessStatusReader {
+  async function detectReadyServerPort(
+    storedProcess: StoredProcess,
+  ): Promise<number | undefined> {
+    const expectedPort = storedProcess.port;
+
+    if (
+      expectedPort !== undefined &&
+      (await canConnect('127.0.0.1', expectedPort))
+    ) {
+      return expectedPort;
+    }
+
+    if (storedProcess.pid === undefined) {
+      return undefined;
+    }
+
+    const detectedPorts = await detectListeningPortsForProcessTree(
+      storedProcess.pid,
+    );
+
+    for (const port of detectedPorts) {
+      if (port === expectedPort) continue;
+
+      if (await canConnect('127.0.0.1', port)) {
+        return port;
+      }
+    }
+
+    return undefined;
+  }
+
   async function getManagedProcess(
     projectId: string,
     kind: ManagedKind,
@@ -81,20 +113,28 @@ export function createProcessStatusReader(
         return finishedProcess;
       }
 
-      if (
-        kind === 'server' &&
-        storedProcess.status === 'starting' &&
-        storedProcess.port !== undefined &&
-        (await canConnect('127.0.0.1', storedProcess.port))
-      ) {
-        const runningProcess: StoredProcess = {
-          ...storedProcess,
-          status: 'running',
-        };
+      if (kind === 'server' && storedProcess.status === 'starting') {
+        const readyPort = await detectReadyServerPort(storedProcess);
 
-        await writeStoredProcess(context, runningProcess);
+        if (readyPort !== undefined) {
+          const portChanged = readyPort !== storedProcess.port;
+          const primaryUrl = `http://localhost:${readyPort}`;
+          const runningProcess: StoredProcess = {
+            ...storedProcess,
+            status: 'running',
+            ...(portChanged
+              ? {
+                  port: readyPort,
+                  url: primaryUrl,
+                  urls: [primaryUrl],
+                }
+              : {}),
+          };
 
-        return runningProcess;
+          await writeStoredProcess(context, runningProcess);
+
+          return runningProcess;
+        }
       }
     }
 
