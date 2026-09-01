@@ -22,8 +22,12 @@ test('passes the selected environment to the managed server process', async (con
       path.join(projectPath, 'package.json'),
       JSON.stringify({
         name: 'runtime-env-fixture',
-        scripts: { dev: 'node server.js' },
+        scripts: { dev: 'node --env-file-if-exists=.env server.js' },
       }),
+    ),
+    writeFile(
+      path.join(projectPath, '.env'),
+      'RUNTIME_ENV_MARKER=project-default\nPORT=9999\n',
     ),
     writeFile(
       path.join(projectPath, 'server.js'),
@@ -56,7 +60,7 @@ test('passes the selected environment to the managed server process', async (con
   await manager.startServer(project, {
     environment: {
       RUNTIME_ENV_MARKER: 'selected-environment',
-      PORT: '9999',
+      PORT: '9998',
     },
   });
 
@@ -74,5 +78,6 @@ test('passes the selected environment to the managed server process', async (con
 
   const running = await manager.getServerProcess(project.id);
   assert.ok(running?.port);
+  assert.notEqual(running.port, 9_998);
   assert.notEqual(running.port, 9_999);
 });
