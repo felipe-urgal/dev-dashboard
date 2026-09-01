@@ -226,7 +226,7 @@ test('planner falha fechado para branch errada, strategy externa e políticas se
       ),
     (error: unknown) =>
       error instanceof DeploymentError &&
-      error.code === 'DEPLOYMENT_STRATEGY_UNSUPPORTED',
+      error.code === 'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
   );
 
   assert.throws(
