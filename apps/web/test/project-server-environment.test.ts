@@ -85,6 +85,8 @@ describe('ambiente do servidor Node', () => {
       async (_projectId: string, input: Record<string, unknown>) => ({
         projectId: 'p1',
         ...input,
+        environment:
+          input.environment === null ? undefined : input.environment,
       }),
     );
     startProjectProcess.mockResolvedValue({
@@ -96,7 +98,7 @@ describe('ambiente do servidor Node', () => {
     confirmDialog.mockResolvedValue(true);
   });
 
-  it('seleciona um .env conhecido, confirma a cópia e persiste antes do start', async () => {
+  it('seleciona um .env conhecido, confirma o uso e persiste antes do start', async () => {
     const wrapper = mount(ProjectServerPanel, {
       props: { project },
     });
@@ -117,6 +119,7 @@ describe('ambiente do servidor Node', () => {
     expect(confirmDialog).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Usar .env.development?',
+        message: expect.stringContaining('não serão alterados'),
       }),
     );
     expect(saveProjectServerSettings).toHaveBeenCalledWith(
@@ -124,6 +127,40 @@ describe('ambiente do servidor Node', () => {
       expect.objectContaining({
         environment: 'development',
       }),
+    );
+    expect(startProjectProcess).toHaveBeenCalledWith('p1', { port: null });
+
+    wrapper.unmount();
+  });
+
+  it('permite voltar ao ambiente padrão e iniciar sem exigir outro .env.*', async () => {
+    const wrapper = mount(ProjectServerPanel, {
+      props: { project },
+    });
+    await flushPromises();
+    await wrapper.get('.server-settings-toggle').trigger('click');
+
+    const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
+    const defaultOption = select.find('option[value=""]');
+    expect(defaultOption.exists()).toBe(true);
+    expect(defaultOption.attributes('disabled')).toBeUndefined();
+    expect(defaultOption.text()).toContain('Padrão');
+
+    await select.setValue('');
+
+    const startButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Iniciar'));
+    expect(startButton).toBeDefined();
+    expect(startButton!.attributes('disabled')).toBeUndefined();
+
+    await startButton!.trigger('click');
+    await flushPromises();
+
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(saveProjectServerSettings).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ environment: null }),
     );
     expect(startProjectProcess).toHaveBeenCalledWith('p1', { port: null });
 

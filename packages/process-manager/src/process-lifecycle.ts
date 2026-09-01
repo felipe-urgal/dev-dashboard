@@ -32,6 +32,7 @@ import type { StoredProcess } from './process-state.js';
 
 export interface StartServerOptions {
   port?: number;
+  environment?: NodeJS.ProcessEnv;
 }
 
 export interface StartWorkerCommand {
@@ -160,6 +161,7 @@ export function createProcessLifecycle(
         stdio: ['ignore', logHandle.fd, logHandle.fd],
         env: {
           ...process.env,
+          ...options.environment,
           ...resolvedCommand.env,
         },
       });

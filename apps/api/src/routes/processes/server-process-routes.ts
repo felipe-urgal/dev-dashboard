@@ -255,18 +255,22 @@ export function registerServerProcessRoutes(
           });
         }
 
-        if (project.type === 'node') {
-          await prepareNodeServerEnvironment(
-            project.path,
-            settings.environment,
-          );
-        }
+        const processEnvironment =
+          project.type === 'node'
+            ? await prepareNodeServerEnvironment(
+                project.path,
+                settings.environment,
+              )
+            : undefined;
 
         const managedProcess = await processManager.startServer(project, {
           ...(settings.port !== undefined
             ? {
                 port: settings.port,
               }
+            : {}),
+          ...(processEnvironment !== undefined
+            ? { environment: processEnvironment }
             : {}),
         });
 

@@ -19,6 +19,9 @@ import {
   type SaveServerSettingsBody,
 } from './helpers.js';
 
+const SERVER_ENVIRONMENT_TEMPLATE_OR_BACKUP_PATTERN =
+  /(?:^|[._-])(?:local|sample|example|bak(?:up)?|old|orig)(?:$|[._-])/i;
+
 const serverSettingsEnvelopeResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -52,9 +55,12 @@ export function registerServerSettingsRoutes(
   async function environmentsForProject(
     project: ReturnType<typeof requireProject>,
   ): Promise<string[]> {
-    return project.type === 'node'
-      ? await listNodeServerEnvironments(project.path)
-      : [];
+    if (project.type !== 'node') return [];
+
+    return (await listNodeServerEnvironments(project.path)).filter(
+      (environment) =>
+        !SERVER_ENVIRONMENT_TEMPLATE_OR_BACKUP_PATTERN.test(environment),
+    );
   }
 
   app.get<{
