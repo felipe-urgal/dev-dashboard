@@ -1,3 +1,7 @@
+import type {
+  GitImageDiffPreview,
+  GitImagePreviewContent,
+} from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import {
@@ -19,13 +23,19 @@ import {
   parseHistory,
   resolveHistoryReference,
 } from './git-commit-details/history-parsing.js';
-import { requireRepository, runGit } from './git-commit-details/run.js';
+import {
+  requireRepository,
+  runGit,
+  runGitBuffer,
+} from './git-commit-details/run.js';
 import type {
   GitCommitDetails,
   GitCommitFileDiff,
+  GitCommitFileStatus,
   GitCommitHistoryFilters,
   GitCommitHistoryPage,
 } from './git-commit-details/types.js';
+import { GIT_DIFF_BINARY_PREVIEW_LIMIT } from './git-service/constants.js';
 
 export { GitCommitDetailsError } from './git-commit-details/errors.js';
 export type {
@@ -38,6 +48,70 @@ export type {
   GitCommitHistoryKind,
   GitCommitHistoryPage,
 } from './git-commit-details/types.js';
+
+const PDF_MIME_TYPE = 'application/pdf';
+
+function isPdfPath(filePath: string | undefined): boolean {
+  return filePath?.toLowerCase().endsWith('.pdf') === true;
+}
+
+async function readPdfAtRevision(
+  projectPath: string,
+  revisionPath: string,
+): Promise<GitImagePreviewContent | undefined> {
+  try {
+    const sizeText = await runGit(projectPath, ['cat-file', '-s', revisionPath]);
+    const size = Number.parseInt(sizeText.trim(), 10);
+    if (
+      !Number.isFinite(size) ||
+      size < 0 ||
+      size > GIT_DIFF_BINARY_PREVIEW_LIMIT
+    ) {
+      return undefined;
+    }
+    const buffer = await runGitBuffer(
+      projectPath,
+      ['cat-file', 'blob', revisionPath],
+      GIT_DIFF_BINARY_PREVIEW_LIMIT + 1024,
+    );
+    return {
+      mimeType: PDF_MIME_TYPE,
+      base64: buffer.toString('base64'),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function readCommitPdfPreview(
+  projectPath: string,
+  commitHash: string,
+  entry: {
+    path: string;
+    previousPath?: string;
+    status: GitCommitFileStatus;
+  },
+): Promise<GitImageDiffPreview | undefined> {
+  const beforePath = entry.previousPath ?? entry.path;
+  const hasBefore = entry.status !== 'added' && isPdfPath(beforePath);
+  const hasAfter = entry.status !== 'deleted' && isPdfPath(entry.path);
+  if (!hasBefore && !hasAfter) return undefined;
+
+  const [before, after] = await Promise.all([
+    hasBefore
+      ? readPdfAtRevision(projectPath, `${commitHash}^:${beforePath}`)
+      : Promise.resolve(undefined),
+    hasAfter
+      ? readPdfAtRevision(projectPath, `${commitHash}:${entry.path}`)
+      : Promise.resolve(undefined),
+  ]);
+
+  if (!before && !after) return undefined;
+  return {
+    ...(before ? { before } : {}),
+    ...(after ? { after } : {}),
+  };
+}
 
 export async function listBranchCommits(
   projectPath: string,
@@ -309,6 +383,7 @@ export async function inspectGitCommitFile(
   const masked = maskSensitiveLogContent(
     truncated ? raw.slice(0, FILE_PATCH_LIMIT) : raw,
   );
+  const pdfPreview = await readCommitPdfPreview(projectPath, commitHash, entry);
 
   return {
     hash: commitHash,
@@ -319,5 +394,6 @@ export async function inspectGitCommitFile(
     truncated,
     masked: masked.masked,
     redactionCount: masked.redactionCount,
+    ...(pdfPreview ? { pdfPreview } : {}),
   };
 }
