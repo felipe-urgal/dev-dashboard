@@ -113,7 +113,8 @@ export class ProductionCommandAdapter {
       options.spawnProcess ??
       ((file, args, spawnOptions) => spawn(file, [...args], spawnOptions));
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;
-    this.providerAdapter = options.providerAdapter ?? new VercelProviderStepAdapter();
+    this.providerAdapter =
+      options.providerAdapter ?? new VercelProviderStepAdapter();
   }
 
   public async run(

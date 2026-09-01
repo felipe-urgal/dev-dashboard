@@ -132,7 +132,8 @@ const latestDeployment = computed(
   () => activeDeployment.value ?? history.value[0] ?? null,
 );
 const lastSuccessfulDeployment = computed(() => {
-  if (activeDeployment.value?.status === 'succeeded') return activeDeployment.value;
+  if (activeDeployment.value?.status === 'succeeded')
+    return activeDeployment.value;
   return history.value.find((item) => item.status === 'succeeded') ?? null;
 });
 const hasActiveDeployment = computed(() => {
@@ -159,18 +160,20 @@ const hasRetryableLatestVerifyTimeline = computed(() => {
   ) {
     return false;
   }
-  const verifyIndex = deployment.timeline.findIndex((step) => step.id === 'verify');
+  const verifyIndex = deployment.timeline.findIndex(
+    (step) => step.id === 'verify',
+  );
   const verify = deployment.timeline[verifyIndex];
   return Boolean(
     verify &&
-      verifyIndex === deployment.timeline.length - 1 &&
-      !verify.mutating &&
-      !verify.irreversible &&
-      (verify.status === 'failed' || verify.status === 'cancelled') &&
-      mutationStepSucceeded(deployment) &&
-      deployment.timeline
-        .slice(0, verifyIndex)
-        .every((step) => step.status === 'succeeded'),
+    verifyIndex === deployment.timeline.length - 1 &&
+    !verify.mutating &&
+    !verify.irreversible &&
+    (verify.status === 'failed' || verify.status === 'cancelled') &&
+    mutationStepSucceeded(deployment) &&
+    deployment.timeline
+      .slice(0, verifyIndex)
+      .every((step) => step.status === 'succeeded'),
   );
 });
 
@@ -180,25 +183,28 @@ const latestVerifySnapshotIsCurrent = computed(() => {
   const deployment = latestDeployment.value;
   return Boolean(
     deployment &&
-      props.gitOverview?.branch === deployment.branch &&
-      localRevision.value === deployment.revision,
+    props.gitOverview?.branch === deployment.branch &&
+    localRevision.value === deployment.revision,
   );
 });
 const canRetryLatestVerify = computed(
-  () => hasRetryableLatestVerifyTimeline.value && latestVerifySnapshotIsCurrent.value,
+  () =>
+    hasRetryableLatestVerifyTimeline.value &&
+    latestVerifySnapshotIsCurrent.value,
 );
 const needsSudoAuthorization = computed(() => {
   const deployment = latestDeployment.value;
   return Boolean(
     isCommand.value &&
-      deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
-      (deployment.status === 'failed' || canRetryLatestVerify.value) &&
-      !sudoAuthorized.value,
+    deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+    (deployment.status === 'failed' || canRetryLatestVerify.value) &&
+    !sudoAuthorized.value,
   );
 });
 
 const originRevision = computed(() => {
-  if (providerStatus.value?.originRevision) return providerStatus.value.originRevision;
+  if (providerStatus.value?.originRevision)
+    return providerStatus.value.originRevision;
   const target = branch.value;
   const remoteBranch = gitWorkspace.value?.branches.find(
     (item) =>
@@ -210,7 +216,9 @@ const originRevision = computed(() => {
   return remoteBranch?.latestCommit?.hash;
 });
 const productionRevision = computed(
-  () => providerStatus.value?.productionRevision ?? lastSuccessfulDeployment.value?.revision,
+  () =>
+    providerStatus.value?.productionRevision ??
+    lastSuccessfulDeployment.value?.revision,
 );
 
 function applicationUrlFromHealth(value: string | undefined): string {
@@ -298,10 +306,9 @@ const statusView = computed(
       if (!TERMINAL_STATUSES.has(deployment.status)) {
         return {
           title: 'Deployment em execução',
-          description:
-            isGitManaged.value
-              ? 'O plano local está executando validações e acompanhando a promoção real na Vercel.'
-              : 'A timeline e o log abaixo acompanham somente o trabalho real registrado pelo domínio de deployment.',
+          description: isGitManaged.value
+            ? 'O plano local está executando validações e acompanhando a promoção real na Vercel.'
+            : 'A timeline e o log abaixo acompanham somente o trabalho real registrado pelo domínio de deployment.',
           label: 'Executando',
           tone: 'info',
           icon: ClockIcon,
@@ -390,16 +397,19 @@ const statusView = computed(
         return {
           title: 'Provider externo indisponível',
           description:
-            status.errorMessage ?? providerAvailabilityLabel(status.providerAvailability),
+            status.errorMessage ??
+            providerAvailabilityLabel(status.providerAvailability),
           label: providerAvailabilityLabel(status.providerAvailability),
-          tone: status.providerAvailability === 'auth-error' ? 'danger' : 'warning',
+          tone:
+            status.providerAvailability === 'auth-error' ? 'danger' : 'warning',
           icon: ExclamationTriangleIcon,
         };
       }
       if (['queued', 'building'].includes(status.deployment?.state ?? '')) {
         return {
           title: 'Deployment externo em andamento',
-          description: 'A Vercel está construindo ou promovendo a revisão atual.',
+          description:
+            'A Vercel está construindo ou promovendo a revisão atual.',
           label: 'Executando',
           tone: 'info',
           icon: ClockIcon,
@@ -447,7 +457,8 @@ const statusView = computed(
 
     return {
       title: 'Estratégia de produção sem operação nesta tela',
-      description: 'O contrato foi reconhecido, mas não há ação compatível disponível.',
+      description:
+        'O contrato foi reconhecido, mas não há ação compatível disponível.',
       label: 'Indisponível',
       tone: 'neutral',
       icon: InformationCircleIcon,
@@ -456,7 +467,9 @@ const statusView = computed(
 );
 
 const readinessCopy = computed(() => {
-  const verify = latestDeployment.value?.timeline.find((step) => step.id === 'verify');
+  const verify = latestDeployment.value?.timeline.find(
+    (step) => step.id === 'verify',
+  );
   if (verify?.status === 'running') return 'Verify em execução';
   if (verify?.status === 'succeeded') return 'Último verify passou';
   if (verify?.status === 'failed') return 'Último verify falhou';
@@ -474,8 +487,11 @@ const readinessCopy = computed(() => {
 
 const healthCopy = computed(() => {
   if (!production.value?.health) return 'Não declarado no contrato';
-  const verify = latestDeployment.value?.timeline.find((step) => step.id === 'verify');
-  if (verify?.status === 'succeeded') return 'HTTP configurado; último verify passou';
+  const verify = latestDeployment.value?.timeline.find(
+    (step) => step.id === 'verify',
+  );
+  if (verify?.status === 'succeeded')
+    return 'HTTP configurado; último verify passou';
   return 'HTTP configurado; estado atual não consultado';
 });
 
@@ -566,12 +582,13 @@ async function loadExecutionState(current: number): Promise<void> {
       signal: requestController?.signal,
     }),
     props.project.capabilities.includes('git')
-      ? fetchProjectGitWorkspace(props.project.id, requestController?.signal).catch(
-          (error: unknown) => {
-            if (isAbortError(error)) throw error;
-            return null;
-          },
-        )
+      ? fetchProjectGitWorkspace(
+          props.project.id,
+          requestController?.signal,
+        ).catch((error: unknown) => {
+          if (isAbortError(error)) throw error;
+          return null;
+        })
       : Promise.resolve(null),
   ]);
   if (current !== generation) return;
@@ -598,7 +615,9 @@ function scheduleRelevantPoll(current: number): void {
   }
   if (
     isGitManaged.value &&
-    ['queued', 'building'].includes(providerStatus.value?.deployment?.state ?? '')
+    ['queued', 'building'].includes(
+      providerStatus.value?.deployment?.state ?? '',
+    )
   ) {
     schedulePoll(() => void pollProviderStatus(current), 3_000);
   }
@@ -609,7 +628,11 @@ async function pollDeployment(current: number): Promise<void> {
   if (!deploymentId || current !== generation) return;
   try {
     const [deployment, log] = await Promise.all([
-      fetchDeployment(props.project.id, deploymentId, requestController?.signal),
+      fetchDeployment(
+        props.project.id,
+        deploymentId,
+        requestController?.signal,
+      ),
       fetchDeploymentLog(
         props.project.id,
         deploymentId,
@@ -646,7 +669,9 @@ async function pollDeployment(current: number): Promise<void> {
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível acompanhar o deployment.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível acompanhar o deployment.';
   }
 }
 
@@ -656,14 +681,18 @@ async function pollProviderStatus(current: number): Promise<void> {
     await loadProviderState(current);
     if (
       current === generation &&
-      ['queued', 'building'].includes(providerStatus.value?.deployment?.state ?? '')
+      ['queued', 'building'].includes(
+        providerStatus.value?.deployment?.state ?? '',
+      )
     ) {
       schedulePoll(() => void pollProviderStatus(current), 3_000);
     }
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível atualizar o status do provider.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível atualizar o status do provider.';
   }
 }
 
@@ -685,7 +714,8 @@ async function load(): Promise<void> {
   sudoAuthorized.value = false;
 
   if (!hasProductionCapability.value || !production.value) return;
-  if (!production.value.enabled || production.value.strategy === 'disabled') return;
+  if (!production.value.enabled || production.value.strategy === 'disabled')
+    return;
 
   initialLoading.value = true;
   try {
@@ -695,7 +725,9 @@ async function load(): Promise<void> {
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível carregar o estado de produção.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar o estado de produção.';
   } finally {
     if (current === generation) initialLoading.value = false;
   }
@@ -732,7 +764,9 @@ async function preparePlan(): Promise<void> {
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível gerar o plano de deployment.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível gerar o plano de deployment.';
   } finally {
     if (current === generation) operation.value = '';
   }
@@ -780,7 +814,9 @@ async function confirmAndStart(): Promise<void> {
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível iniciar o deployment.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível iniciar o deployment.';
   } finally {
     if (current === generation) operation.value = '';
   }
@@ -818,7 +854,12 @@ async function retryLatestVerify(): Promise<void> {
 
 async function cancelActiveDeployment(): Promise<void> {
   const deployment = latestDeployment.value;
-  if (!deployment || TERMINAL_STATUSES.has(deployment.status) || operation.value) return;
+  if (
+    !deployment ||
+    TERMINAL_STATUSES.has(deployment.status) ||
+    operation.value
+  )
+    return;
   const current = generation;
   operation.value = 'cancelling';
   errorMessage.value = '';
@@ -833,7 +874,9 @@ async function cancelActiveDeployment(): Promise<void> {
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível cancelar o deployment.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível cancelar o deployment.';
   } finally {
     if (current === generation) operation.value = '';
   }
@@ -866,7 +909,9 @@ onBeforeUnmount(() => {
         <span class="production-eyebrow">Produção</span>
         <div class="production-title-row">
           <h3 id="production-title">{{ statusView.title }}</h3>
-          <StatusBadge :tone="statusView.tone">{{ statusView.label }}</StatusBadge>
+          <StatusBadge :tone="statusView.tone">{{
+            statusView.label
+          }}</StatusBadge>
         </div>
         <p>{{ statusView.description }}</p>
       </div>
@@ -905,15 +950,24 @@ onBeforeUnmount(() => {
             :class="{ 'production-spin': operation === 'verifying' }"
             aria-hidden="true"
           />
-          {{ operation === 'verifying' ? 'Verificando' : 'Verificar novamente' }}
+          {{
+            operation === 'verifying' ? 'Verificando' : 'Verificar novamente'
+          }}
         </button>
         <button
-          v-if="canExecuteDeployment && !hasActiveDeployment && !canRetryLatestVerify"
-          :class="needsSudoAuthorization ? 'secondary-button' : 'primary-button'"
+          v-if="
+            canExecuteDeployment &&
+            !hasActiveDeployment &&
+            !canRetryLatestVerify
+          "
+          :class="
+            needsSudoAuthorization ? 'secondary-button' : 'primary-button'
+          "
           type="button"
           :disabled="
             Boolean(operation) ||
-            (isGitManaged && providerStatus?.providerAvailability !== 'available')
+            (isGitManaged &&
+              providerStatus?.providerAvailability !== 'available')
           "
           @click="preparePlan"
         >
@@ -1003,157 +1057,343 @@ onBeforeUnmount(() => {
             </StatusBadge>
           </header>
           <div class="production-revision-flow">
-            <div><span>Local</span><code :title="localRevision">{{ shortRevision(localRevision) }}</code></div>
+            <div>
+              <span>Local</span
+              ><code :title="localRevision">{{
+                shortRevision(localRevision)
+              }}</code>
+            </div>
             <span aria-hidden="true">→</span>
-            <div><span>origin/{{ branch }}</span><code :title="originRevision">{{ shortRevision(originRevision) }}</code></div>
+            <div>
+              <span>origin/{{ branch }}</span
+              ><code :title="originRevision">{{
+                shortRevision(originRevision)
+              }}</code>
+            </div>
             <span aria-hidden="true">→</span>
-            <div><span>Produção</span><code :title="productionRevision">{{ shortRevision(productionRevision) }}</code></div>
+            <div>
+              <span>Produção</span
+              ><code :title="productionRevision">{{
+                shortRevision(productionRevision)
+              }}</code>
+            </div>
           </div>
           <p v-if="isCommand" class="production-note">
-            Em contratos command, a revision de produção é a última execução concluída registrada pelo domínio.
+            Em contratos command, a revision de produção é a última execução
+            concluída registrada pelo domínio.
           </p>
           <p v-else class="production-note">
-            O snapshot Vercel consulta a revisão remota e não altera o working tree local.
+            O snapshot Vercel consulta a revisão remota e não altera o working
+            tree local.
           </p>
         </article>
 
         <article class="production-card production-signals">
-          <header><div><span class="production-eyebrow">Sinais</span><h4>Readiness e health</h4></div></header>
+          <header>
+            <div>
+              <span class="production-eyebrow">Sinais</span>
+              <h4>Readiness e health</h4>
+            </div>
+          </header>
           <dl>
-            <div><dt>Readiness</dt><dd>{{ readinessCopy }}</dd></div>
-            <div><dt>Health</dt><dd>{{ healthCopy }}</dd></div>
-            <div><dt>{{ isCommand ? 'Runtime' : 'Provider' }}</dt><dd>{{ production.provider }}</dd></div>
-            <div><dt>Estratégia</dt><dd>{{ production.strategy }}</dd></div>
+            <div>
+              <dt>Readiness</dt>
+              <dd>{{ readinessCopy }}</dd>
+            </div>
+            <div>
+              <dt>Health</dt>
+              <dd>{{ healthCopy }}</dd>
+            </div>
+            <div>
+              <dt>{{ isCommand ? 'Runtime' : 'Provider' }}</dt>
+              <dd>{{ production.provider }}</dd>
+            </div>
+            <div>
+              <dt>Estratégia</dt>
+              <dd>{{ production.strategy }}</dd>
+            </div>
           </dl>
           <p v-if="production.health" class="production-health-url">
-            <span>Health declarado</span><code>{{ production.health.url }}</code>
+            <span>Health declarado</span
+            ><code>{{ production.health.url }}</code>
           </p>
         </article>
       </section>
 
-      <article v-if="isGitManaged && providerStatus" class="production-card production-provider">
+      <article
+        v-if="isGitManaged && providerStatus"
+        class="production-card production-provider"
+      >
         <header>
           <div>
             <span class="production-eyebrow">Provider externo</span>
-            <h4>{{ providerStatus.providerProjectName ?? providerStatus.externalProject }}</h4>
+            <h4>
+              {{
+                providerStatus.providerProjectName ??
+                providerStatus.externalProject
+              }}
+            </h4>
           </div>
-          <StatusBadge :tone="providerStatus.providerAvailability === 'available' ? 'success' : 'warning'">
+          <StatusBadge
+            :tone="
+              providerStatus.providerAvailability === 'available'
+                ? 'success'
+                : 'warning'
+            "
+          >
             {{ providerAvailabilityLabel(providerStatus.providerAvailability) }}
           </StatusBadge>
         </header>
-        <div v-if="providerStatus.deployment" class="production-provider-deployment">
+        <div
+          v-if="providerStatus.deployment"
+          class="production-provider-deployment"
+        >
           <div>
             <span>Último deployment</span>
             <strong>{{ providerStatus.deployment.state }}</strong>
             <small>{{ formatDate(providerStatus.deployment.createdAt) }}</small>
           </div>
-          <a :href="providerStatus.deployment.url" target="_blank" rel="noopener noreferrer">
+          <a
+            :href="providerStatus.deployment.url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Abrir deployment <ArrowTopRightOnSquareIcon aria-hidden="true" />
           </a>
         </div>
-        <div v-if="providerStatus.localOperations.length" class="production-local-operations">
+        <div
+          v-if="providerStatus.localOperations.length"
+          class="production-local-operations"
+        >
           <span>Operações locais declaradas</span>
           <div>
-            <code v-for="item in providerStatus.localOperations" :key="item">{{ commandScript(item) }}</code>
+            <code v-for="item in providerStatus.localOperations" :key="item">{{
+              commandScript(item)
+            }}</code>
           </div>
           <small>
-            Check, migration e verify entram no plano conforme o contrato; a promoção é executada pela API da Vercel.
+            Check, migration e verify entram no plano conforme o contrato; a
+            promoção é executada pela API da Vercel.
           </small>
         </div>
       </article>
 
       <article v-if="plan" class="production-card production-plan">
         <header>
-          <div><span class="production-eyebrow">Confirmação</span><h4 ref="planHeading" tabindex="-1">Revise o plano antes de executar</h4></div>
+          <div>
+            <span class="production-eyebrow">Confirmação</span>
+            <h4 ref="planHeading" tabindex="-1">
+              Revise o plano antes de executar
+            </h4>
+          </div>
           <StatusBadge tone="warning">Ação de produção</StatusBadge>
         </header>
         <div class="production-plan-target">
-          <div><span>Projeto</span><strong>{{ plan.projectName }}</strong></div>
-          <div><span>Branch</span><strong>{{ plan.branch }}</strong></div>
-          <div><span>Revision alvo</span><code :title="plan.revision">{{ shortRevision(plan.revision) }}</code></div>
+          <div>
+            <span>Projeto</span><strong>{{ plan.projectName }}</strong>
+          </div>
+          <div>
+            <span>Branch</span><strong>{{ plan.branch }}</strong>
+          </div>
+          <div>
+            <span>Revision alvo</span
+            ><code :title="plan.revision">{{
+              shortRevision(plan.revision)
+            }}</code>
+          </div>
         </div>
         <ol class="production-timeline production-plan-steps">
           <li v-for="step in plan.steps" :key="step.id">
             <span class="production-step-marker" aria-hidden="true"></span>
-            <div><strong>{{ stepLabels[step.id] }}</strong><code>{{ stepScript(step) }}</code></div>
+            <div>
+              <strong>{{ stepLabels[step.id] }}</strong
+              ><code>{{ stepScript(step) }}</code>
+            </div>
             <div class="production-step-flags">
-              <StatusBadge v-if="step.mutating" tone="warning">Muda estado</StatusBadge>
-              <StatusBadge v-if="step.irreversible" tone="danger">Irreversível</StatusBadge>
-              <StatusBadge v-if="!step.mutating" tone="neutral">Leitura/validação</StatusBadge>
+              <StatusBadge v-if="step.mutating" tone="warning"
+                >Muda estado</StatusBadge
+              >
+              <StatusBadge v-if="step.irreversible" tone="danger"
+                >Irreversível</StatusBadge
+              >
+              <StatusBadge v-if="!step.mutating" tone="neutral"
+                >Leitura/validação</StatusBadge
+              >
             </div>
           </li>
         </ol>
         <div class="production-plan-warning">
           <ShieldExclamationIcon aria-hidden="true" />
-          <p>A confirmação fica vinculada a este projeto, revision e planHash. Se branch, working tree ou revision mudar, o backend recusa a execução.</p>
+          <p>
+            A confirmação fica vinculada a este projeto, revision e planHash. Se
+            branch, working tree ou revision mudar, o backend recusa a execução.
+          </p>
         </div>
         <footer class="production-plan-actions">
-          <button class="secondary-button" type="button" :disabled="Boolean(operation)" @click="plan = null">Descartar plano</button>
-          <button class="primary-button" type="button" :disabled="Boolean(operation)" @click="confirmAndStart">
-            <ArrowPathIcon v-if="operation === 'starting'" class="production-spin" aria-hidden="true" />
+          <button
+            class="secondary-button"
+            type="button"
+            :disabled="Boolean(operation)"
+            @click="plan = null"
+          >
+            Descartar plano
+          </button>
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="Boolean(operation)"
+            @click="confirmAndStart"
+          >
+            <ArrowPathIcon
+              v-if="operation === 'starting'"
+              class="production-spin"
+              aria-hidden="true"
+            />
             <PlayIcon v-else aria-hidden="true" />
-            {{ operation === 'starting' ? 'Iniciando' : 'Confirmar e iniciar deployment' }}
+            {{
+              operation === 'starting'
+                ? 'Iniciando'
+                : 'Confirmar e iniciar deployment'
+            }}
           </button>
         </footer>
       </article>
 
-      <article v-if="canExecuteDeployment && latestDeployment" class="production-card production-execution">
+      <article
+        v-if="canExecuteDeployment && latestDeployment"
+        class="production-card production-execution"
+      >
         <header>
-          <div><span class="production-eyebrow">Execução</span><h4>Timeline do deployment</h4></div>
+          <div>
+            <span class="production-eyebrow">Execução</span>
+            <h4>Timeline do deployment</h4>
+          </div>
           <div class="production-execution-meta">
-            <StatusBadge :tone="deploymentTone(latestDeployment.status)">{{ deploymentStatusLabel(latestDeployment.status) }}</StatusBadge>
-            <span>{{ formatDate(latestDeployment.startedAt ?? latestDeployment.createdAt) }}</span>
+            <StatusBadge :tone="deploymentTone(latestDeployment.status)">{{
+              deploymentStatusLabel(latestDeployment.status)
+            }}</StatusBadge>
+            <span>{{
+              formatDate(
+                latestDeployment.startedAt ?? latestDeployment.createdAt,
+              )
+            }}</span>
           </div>
         </header>
         <ol class="production-timeline">
           <li v-for="step in visibleCommandTimeline" :key="step.id">
-            <span class="production-step-marker" :class="`is-${step.status}`" aria-hidden="true"></span>
+            <span
+              class="production-step-marker"
+              :class="`is-${step.status}`"
+              aria-hidden="true"
+            ></span>
             <div>
               <strong>{{ stepLabels[step.id] }}</strong>
               <code>{{ stepScript(step) }}</code>
-              <small v-if="step.startedAt">{{ formatDate(step.startedAt) }}<template v-if="step.finishedAt"> → {{ formatDate(step.finishedAt) }}</template></small>
+              <small v-if="step.startedAt"
+                >{{ formatDate(step.startedAt)
+                }}<template v-if="step.finishedAt">
+                  → {{ formatDate(step.finishedAt) }}</template
+                ></small
+              >
             </div>
-            <StatusBadge :tone="stepTone(step.status)">{{ stepStatusLabels[step.status] }}</StatusBadge>
+            <StatusBadge :tone="stepTone(step.status)">{{
+              stepStatusLabels[step.status]
+            }}</StatusBadge>
           </li>
         </ol>
-        <div v-if="latestDeployment.status === 'recovery_required'" class="production-recovery">
+        <div
+          v-if="latestDeployment.status === 'recovery_required'"
+          class="production-recovery"
+        >
           <ShieldExclamationIcon aria-hidden="true" />
           <div v-if="canRetryLatestVerify">
             <strong>O deploy terminou; não repita a mutação</strong>
-            <p>Apenas o verify falhou. Use “Verificar novamente” para repetir somente a validação de leitura.</p>
+            <p>
+              Apenas o verify falhou. Use “Verificar novamente” para repetir
+              somente a validação de leitura.
+            </p>
           </div>
           <div v-else>
             <strong>Não faça rollback cego</strong>
-            <p>A execução passou por uma etapa irreversível. Confira log, schema, backup e a política do projeto antes de qualquer recuperação manual.</p>
+            <p>
+              A execução passou por uma etapa irreversível. Confira log, schema,
+              backup e a política do projeto antes de qualquer recuperação
+              manual.
+            </p>
           </div>
         </div>
-        <details v-if="deploymentLog" class="production-log" :open="hasActiveDeployment || latestDeployment.status === 'recovery_required'">
+        <details
+          v-if="deploymentLog"
+          class="production-log"
+          :open="
+            hasActiveDeployment ||
+            latestDeployment.status === 'recovery_required'
+          "
+        >
           <summary>Log do deployment</summary>
           <div class="production-log-meta">
             <span v-if="deploymentLog.masked">Conteúdo sensível mascarado</span>
-            <span v-if="deploymentLog.truncated">Log limitado à cauda disponível</span>
+            <span v-if="deploymentLog.truncated"
+              >Log limitado à cauda disponível</span
+            >
           </div>
           <pre>{{ deploymentLog.content || 'Nenhuma saída registrada.' }}</pre>
         </details>
       </article>
 
-      <article v-if="isGitManaged && !latestDeployment && visibleProviderTimeline.length" class="production-card production-execution">
-        <header><div><span class="production-eyebrow">Timeline externa</span><h4>Deployment do provider</h4></div></header>
+      <article
+        v-if="
+          isGitManaged && !latestDeployment && visibleProviderTimeline.length
+        "
+        class="production-card production-execution"
+      >
+        <header>
+          <div>
+            <span class="production-eyebrow">Timeline externa</span>
+            <h4>Deployment do provider</h4>
+          </div>
+        </header>
         <ol class="production-timeline">
           <li v-for="step in visibleProviderTimeline" :key="step.id">
-            <span class="production-step-marker" :class="`is-${step.status}`" aria-hidden="true"></span>
-            <div><strong>Provider deploy</strong><small v-if="step.startedAt">{{ formatDate(step.startedAt) }}</small></div>
-            <StatusBadge :tone="stepTone(step.status)">{{ stepStatusLabels[step.status] }}</StatusBadge>
+            <span
+              class="production-step-marker"
+              :class="`is-${step.status}`"
+              aria-hidden="true"
+            ></span>
+            <div>
+              <strong>Provider deploy</strong
+              ><small v-if="step.startedAt">{{
+                formatDate(step.startedAt)
+              }}</small>
+            </div>
+            <StatusBadge :tone="stepTone(step.status)">{{
+              stepStatusLabels[step.status]
+            }}</StatusBadge>
           </li>
         </ol>
       </article>
 
-      <article v-if="canExecuteDeployment && history.length > 0" class="production-card production-history">
-        <header><div><span class="production-eyebrow">Histórico</span><h4>Execuções recentes</h4></div></header>
+      <article
+        v-if="canExecuteDeployment && history.length > 0"
+        class="production-card production-history"
+      >
+        <header>
+          <div>
+            <span class="production-eyebrow">Histórico</span>
+            <h4>Execuções recentes</h4>
+          </div>
+        </header>
         <ul>
           <li v-for="item in history" :key="item.id">
-            <div><code :title="item.revision">{{ shortRevision(item.revision) }}</code><span>{{ formatDate(item.startedAt ?? item.createdAt) }}</span></div>
-            <StatusBadge :tone="deploymentTone(item.status)">{{ deploymentStatusLabel(item.status) }}</StatusBadge>
+            <div>
+              <code :title="item.revision">{{
+                shortRevision(item.revision)
+              }}</code
+              ><span>{{ formatDate(item.startedAt ?? item.createdAt) }}</span>
+            </div>
+            <StatusBadge :tone="deploymentTone(item.status)">{{
+              deploymentStatusLabel(item.status)
+            }}</StatusBadge>
           </li>
         </ul>
       </article>

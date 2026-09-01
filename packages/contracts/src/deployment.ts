@@ -46,8 +46,7 @@ export interface DeploymentProviderPlanStep {
 }
 
 export type DeploymentPlanStep =
-  | DeploymentCommandPlanStep
-  | DeploymentProviderPlanStep;
+  DeploymentCommandPlanStep | DeploymentProviderPlanStep;
 
 export interface DeploymentPlan {
   projectId: string;

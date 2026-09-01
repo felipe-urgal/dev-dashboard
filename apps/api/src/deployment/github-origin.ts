@@ -25,15 +25,20 @@ export interface LocalGitHubOriginResolverOptions {
   execGit?: ExecGit;
 }
 
-function parseGitHubRemote(value: string): GitHubRepositoryReference | undefined {
+function parseGitHubRemote(
+  value: string,
+): GitHubRepositoryReference | undefined {
   const remote = value.trim();
-  const scp = remote.match(/^git@github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
+  const scp = remote.match(
+    /^git@github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i,
+  );
   if (scp) return { owner: scp[1]!, repo: scp[2]! };
 
   try {
     const parsed = new URL(remote);
     if (parsed.hostname.toLowerCase() !== 'github.com') return undefined;
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'ssh:') return undefined;
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'ssh:')
+      return undefined;
     const [owner, rawRepo, ...rest] = parsed.pathname
       .replace(/^\/+/, '')
       .split('/');

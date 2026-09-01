@@ -1,4 +1,7 @@
-import type { DeploymentProviderPlanStep, Project } from '@dev-dashboard/contracts';
+import type {
+  DeploymentProviderPlanStep,
+  Project,
+} from '@dev-dashboard/contracts';
 import {
   maskSensitiveLogContent,
   type MaskedLogContent,
@@ -40,7 +43,8 @@ export class VercelProviderStepAdapter {
     this.githubOriginResolver =
       options.githubOriginResolver ?? new LocalGitHubOriginResolver();
     this.originRevisionResolver =
-      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
+      options.originRevisionResolver ??
+      new GitDeploymentOriginRevisionResolver();
     this.revisionResolver =
       options.revisionResolver ?? new GitDeploymentRevisionResolver();
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;

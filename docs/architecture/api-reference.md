@@ -3180,7 +3180,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "verify",
                     "restoreCheck",
                     "rollback",
-                    "logs"
+                    "logs",
+                    "provider-deploy"
                   ]
                 },
                 "failurePoint": {
@@ -3199,81 +3200,137 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "timeline": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "id",
-                      "script",
-                      "phase",
-                      "mutating",
-                      "irreversible",
-                      "status"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "enum": [
-                          "status",
-                          "check",
-                          "backup",
-                          "migrate",
-                          "deploy",
-                          "verify",
-                          "restoreCheck",
-                          "rollback",
-                          "logs"
-                        ]
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "script",
+                          "phase",
+                          "mutating",
+                          "irreversible",
+                          "status"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "enum": [
+                              "status",
+                              "check",
+                              "backup",
+                              "migrate",
+                              "deploy",
+                              "verify",
+                              "restoreCheck",
+                              "rollback",
+                              "logs"
+                            ]
+                          },
+                          "script": {
+                            "type": "string",
+                            "enum": [
+                              "prod:status",
+                              "prod:check",
+                              "prod:backup",
+                              "prod:migrate",
+                              "prod:deploy",
+                              "prod:verify",
+                              "prod:restore-check",
+                              "prod:rollback",
+                              "prod:logs"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "preparing",
+                              "backing_up",
+                              "migrating",
+                              "deploying",
+                              "verifying"
+                            ]
+                          },
+                          "mutating": {
+                            "type": "boolean"
+                          },
+                          "irreversible": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "running",
+                              "succeeded",
+                              "failed",
+                              "cancelled"
+                            ]
+                          },
+                          "startedAt": {
+                            "type": "string"
+                          },
+                          "finishedAt": {
+                            "type": "string"
+                          },
+                          "exitCode": {
+                            "type": "integer"
+                          }
+                        }
                       },
-                      "script": {
-                        "type": "string",
-                        "enum": [
-                          "prod:status",
-                          "prod:check",
-                          "prod:backup",
-                          "prod:migrate",
-                          "prod:deploy",
-                          "prod:verify",
-                          "prod:restore-check",
-                          "prod:rollback",
-                          "prod:logs"
-                        ]
-                      },
-                      "phase": {
-                        "type": "string",
-                        "enum": [
-                          "preparing",
-                          "backing_up",
-                          "migrating",
-                          "deploying",
-                          "verifying"
-                        ]
-                      },
-                      "mutating": {
-                        "type": "boolean"
-                      },
-                      "irreversible": {
-                        "type": "boolean"
-                      },
-                      "status": {
-                        "type": "string",
-                        "enum": [
-                          "pending",
-                          "running",
-                          "succeeded",
-                          "failed",
-                          "cancelled"
-                        ]
-                      },
-                      "startedAt": {
-                        "type": "string"
-                      },
-                      "finishedAt": {
-                        "type": "string"
-                      },
-                      "exitCode": {
-                        "type": "integer"
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "phase",
+                          "mutating",
+                          "irreversible",
+                          "status"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "enum": [
+                              "provider-deploy"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "deploying"
+                            ]
+                          },
+                          "mutating": {
+                            "type": "boolean",
+                            "const": true
+                          },
+                          "irreversible": {
+                            "type": "boolean",
+                            "const": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "running",
+                              "succeeded",
+                              "failed",
+                              "cancelled"
+                            ]
+                          },
+                          "startedAt": {
+                            "type": "string"
+                          },
+                          "finishedAt": {
+                            "type": "string"
+                          },
+                          "exitCode": {
+                            "type": "integer"
+                          }
+                        }
                       }
-                    }
+                    ]
                   }
                 }
               }
@@ -3436,7 +3493,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "verify",
               "restoreCheck",
               "rollback",
-              "logs"
+              "logs",
+              "provider-deploy"
             ]
           },
           "failurePoint": {
@@ -3455,81 +3513,137 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "timeline": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id",
-                "script",
-                "phase",
-                "mutating",
-                "irreversible",
-                "status"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "enum": [
-                    "status",
-                    "check",
-                    "backup",
-                    "migrate",
-                    "deploy",
-                    "verify",
-                    "restoreCheck",
-                    "rollback",
-                    "logs"
-                  ]
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "script",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "status",
+                        "check",
+                        "backup",
+                        "migrate",
+                        "deploy",
+                        "verify",
+                        "restoreCheck",
+                        "rollback",
+                        "logs"
+                      ]
+                    },
+                    "script": {
+                      "type": "string",
+                      "enum": [
+                        "prod:status",
+                        "prod:check",
+                        "prod:backup",
+                        "prod:migrate",
+                        "prod:deploy",
+                        "prod:verify",
+                        "prod:restore-check",
+                        "prod:rollback",
+                        "prod:logs"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "preparing",
+                        "backing_up",
+                        "migrating",
+                        "deploying",
+                        "verifying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean"
+                    },
+                    "irreversible": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 },
-                "script": {
-                  "type": "string",
-                  "enum": [
-                    "prod:status",
-                    "prod:check",
-                    "prod:backup",
-                    "prod:migrate",
-                    "prod:deploy",
-                    "prod:verify",
-                    "prod:restore-check",
-                    "prod:rollback",
-                    "prod:logs"
-                  ]
-                },
-                "phase": {
-                  "type": "string",
-                  "enum": [
-                    "preparing",
-                    "backing_up",
-                    "migrating",
-                    "deploying",
-                    "verifying"
-                  ]
-                },
-                "mutating": {
-                  "type": "boolean"
-                },
-                "irreversible": {
-                  "type": "boolean"
-                },
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "pending",
-                    "running",
-                    "succeeded",
-                    "failed",
-                    "cancelled"
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "finishedAt": {
-                  "type": "string"
-                },
-                "exitCode": {
-                  "type": "integer"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "provider-deploy"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 }
-              }
+              ]
             }
           }
         }
@@ -3660,7 +3774,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "verify",
               "restoreCheck",
               "rollback",
-              "logs"
+              "logs",
+              "provider-deploy"
             ]
           },
           "failurePoint": {
@@ -3679,81 +3794,137 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "timeline": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id",
-                "script",
-                "phase",
-                "mutating",
-                "irreversible",
-                "status"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "enum": [
-                    "status",
-                    "check",
-                    "backup",
-                    "migrate",
-                    "deploy",
-                    "verify",
-                    "restoreCheck",
-                    "rollback",
-                    "logs"
-                  ]
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "script",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "status",
+                        "check",
+                        "backup",
+                        "migrate",
+                        "deploy",
+                        "verify",
+                        "restoreCheck",
+                        "rollback",
+                        "logs"
+                      ]
+                    },
+                    "script": {
+                      "type": "string",
+                      "enum": [
+                        "prod:status",
+                        "prod:check",
+                        "prod:backup",
+                        "prod:migrate",
+                        "prod:deploy",
+                        "prod:verify",
+                        "prod:restore-check",
+                        "prod:rollback",
+                        "prod:logs"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "preparing",
+                        "backing_up",
+                        "migrating",
+                        "deploying",
+                        "verifying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean"
+                    },
+                    "irreversible": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 },
-                "script": {
-                  "type": "string",
-                  "enum": [
-                    "prod:status",
-                    "prod:check",
-                    "prod:backup",
-                    "prod:migrate",
-                    "prod:deploy",
-                    "prod:verify",
-                    "prod:restore-check",
-                    "prod:rollback",
-                    "prod:logs"
-                  ]
-                },
-                "phase": {
-                  "type": "string",
-                  "enum": [
-                    "preparing",
-                    "backing_up",
-                    "migrating",
-                    "deploying",
-                    "verifying"
-                  ]
-                },
-                "mutating": {
-                  "type": "boolean"
-                },
-                "irreversible": {
-                  "type": "boolean"
-                },
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "pending",
-                    "running",
-                    "succeeded",
-                    "failed",
-                    "cancelled"
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "finishedAt": {
-                  "type": "string"
-                },
-                "exitCode": {
-                  "type": "integer"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "provider-deploy"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 }
-              }
+              ]
             }
           }
         }
@@ -3884,7 +4055,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "verify",
               "restoreCheck",
               "rollback",
-              "logs"
+              "logs",
+              "provider-deploy"
             ]
           },
           "failurePoint": {
@@ -3903,81 +4075,137 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "timeline": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id",
-                "script",
-                "phase",
-                "mutating",
-                "irreversible",
-                "status"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "enum": [
-                    "status",
-                    "check",
-                    "backup",
-                    "migrate",
-                    "deploy",
-                    "verify",
-                    "restoreCheck",
-                    "rollback",
-                    "logs"
-                  ]
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "script",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "status",
+                        "check",
+                        "backup",
+                        "migrate",
+                        "deploy",
+                        "verify",
+                        "restoreCheck",
+                        "rollback",
+                        "logs"
+                      ]
+                    },
+                    "script": {
+                      "type": "string",
+                      "enum": [
+                        "prod:status",
+                        "prod:check",
+                        "prod:backup",
+                        "prod:migrate",
+                        "prod:deploy",
+                        "prod:verify",
+                        "prod:restore-check",
+                        "prod:rollback",
+                        "prod:logs"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "preparing",
+                        "backing_up",
+                        "migrating",
+                        "deploying",
+                        "verifying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean"
+                    },
+                    "irreversible": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 },
-                "script": {
-                  "type": "string",
-                  "enum": [
-                    "prod:status",
-                    "prod:check",
-                    "prod:backup",
-                    "prod:migrate",
-                    "prod:deploy",
-                    "prod:verify",
-                    "prod:restore-check",
-                    "prod:rollback",
-                    "prod:logs"
-                  ]
-                },
-                "phase": {
-                  "type": "string",
-                  "enum": [
-                    "preparing",
-                    "backing_up",
-                    "migrating",
-                    "deploying",
-                    "verifying"
-                  ]
-                },
-                "mutating": {
-                  "type": "boolean"
-                },
-                "irreversible": {
-                  "type": "boolean"
-                },
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "pending",
-                    "running",
-                    "succeeded",
-                    "failed",
-                    "cancelled"
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "finishedAt": {
-                  "type": "string"
-                },
-                "exitCode": {
-                  "type": "integer"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "provider-deploy"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 }
-              }
+              ]
             }
           }
         }
@@ -4184,7 +4412,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "verify",
               "restoreCheck",
               "rollback",
-              "logs"
+              "logs",
+              "provider-deploy"
             ]
           },
           "failurePoint": {
@@ -4203,81 +4432,137 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "timeline": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id",
-                "script",
-                "phase",
-                "mutating",
-                "irreversible",
-                "status"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "enum": [
-                    "status",
-                    "check",
-                    "backup",
-                    "migrate",
-                    "deploy",
-                    "verify",
-                    "restoreCheck",
-                    "rollback",
-                    "logs"
-                  ]
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "script",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "status",
+                        "check",
+                        "backup",
+                        "migrate",
+                        "deploy",
+                        "verify",
+                        "restoreCheck",
+                        "rollback",
+                        "logs"
+                      ]
+                    },
+                    "script": {
+                      "type": "string",
+                      "enum": [
+                        "prod:status",
+                        "prod:check",
+                        "prod:backup",
+                        "prod:migrate",
+                        "prod:deploy",
+                        "prod:verify",
+                        "prod:restore-check",
+                        "prod:rollback",
+                        "prod:logs"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "preparing",
+                        "backing_up",
+                        "migrating",
+                        "deploying",
+                        "verifying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean"
+                    },
+                    "irreversible": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 },
-                "script": {
-                  "type": "string",
-                  "enum": [
-                    "prod:status",
-                    "prod:check",
-                    "prod:backup",
-                    "prod:migrate",
-                    "prod:deploy",
-                    "prod:verify",
-                    "prod:restore-check",
-                    "prod:rollback",
-                    "prod:logs"
-                  ]
-                },
-                "phase": {
-                  "type": "string",
-                  "enum": [
-                    "preparing",
-                    "backing_up",
-                    "migrating",
-                    "deploying",
-                    "verifying"
-                  ]
-                },
-                "mutating": {
-                  "type": "boolean"
-                },
-                "irreversible": {
-                  "type": "boolean"
-                },
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "pending",
-                    "running",
-                    "succeeded",
-                    "failed",
-                    "cancelled"
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "finishedAt": {
-                  "type": "string"
-                },
-                "exitCode": {
-                  "type": "integer"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "provider-deploy"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
                 }
-              }
+              ]
             }
           }
         }
@@ -4459,61 +4744,97 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "steps": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id",
-                "script",
-                "phase",
-                "mutating",
-                "irreversible"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "enum": [
-                    "status",
-                    "check",
-                    "backup",
-                    "migrate",
-                    "deploy",
-                    "verify",
-                    "restoreCheck",
-                    "rollback",
-                    "logs"
-                  ]
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "script",
+                    "phase",
+                    "mutating",
+                    "irreversible"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "status",
+                        "check",
+                        "backup",
+                        "migrate",
+                        "deploy",
+                        "verify",
+                        "restoreCheck",
+                        "rollback",
+                        "logs"
+                      ]
+                    },
+                    "script": {
+                      "type": "string",
+                      "enum": [
+                        "prod:status",
+                        "prod:check",
+                        "prod:backup",
+                        "prod:migrate",
+                        "prod:deploy",
+                        "prod:verify",
+                        "prod:restore-check",
+                        "prod:rollback",
+                        "prod:logs"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "preparing",
+                        "backing_up",
+                        "migrating",
+                        "deploying",
+                        "verifying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean"
+                    },
+                    "irreversible": {
+                      "type": "boolean"
+                    }
+                  }
                 },
-                "script": {
-                  "type": "string",
-                  "enum": [
-                    "prod:status",
-                    "prod:check",
-                    "prod:backup",
-                    "prod:migrate",
-                    "prod:deploy",
-                    "prod:verify",
-                    "prod:restore-check",
-                    "prod:rollback",
-                    "prod:logs"
-                  ]
-                },
-                "phase": {
-                  "type": "string",
-                  "enum": [
-                    "preparing",
-                    "backing_up",
-                    "migrating",
-                    "deploying",
-                    "verifying"
-                  ]
-                },
-                "mutating": {
-                  "type": "boolean"
-                },
-                "irreversible": {
-                  "type": "boolean"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "provider-deploy"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  }
                 }
-              }
+              ]
             }
           }
         }

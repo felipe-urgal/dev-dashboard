@@ -433,7 +433,8 @@ test('adapter cria deployment production no projeto Vercel e aguarda a revisão 
   assert.equal(result.deployment?.revision, REVISION_A);
   assert.equal(deploymentReads, 2);
   const createRequest = requests.find(
-    (item) => item.url.pathname === '/v13/deployments' && item.method === 'POST',
+    (item) =>
+      item.url.pathname === '/v13/deployments' && item.method === 'POST',
   );
   assert.deepEqual(createRequest?.body, {
     name: 'controle-gastos',

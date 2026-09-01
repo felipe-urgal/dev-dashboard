@@ -10,7 +10,9 @@ const blockers = [
 const mode = process.argv[2] ?? 'check';
 
 if (mode === 'status') {
-  console.log('Self-production do Dev Dashboard ainda está bloqueada por contrato.');
+  console.log(
+    'Self-production do Dev Dashboard ainda está bloqueada por contrato.',
+  );
   console.log(`Blockers: ${blockers.join(', ')}`);
   process.exit(0);
 }
@@ -20,6 +22,8 @@ if (mode !== 'check') {
   process.exit(2);
 }
 
-console.error('Self-production do Dev Dashboard não está pronta para habilitação.');
+console.error(
+  'Self-production do Dev Dashboard não está pronta para habilitação.',
+);
 console.error(`Resolva antes: ${blockers.join(', ')}`);
 process.exit(1);
