@@ -294,7 +294,7 @@ export type {
   ProjectScriptVariable,
   ScriptExecution,
   ScriptExecutionHistory,
-  TestExecutionEvent,
+  ScriptExecutionEvent,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
   ScriptExecutionStatus,
