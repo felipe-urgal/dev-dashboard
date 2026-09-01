@@ -236,8 +236,15 @@ function applicationUrlFromHealth(value: string | undefined): string {
 
 const productionUrl = computed(
   () =>
+    applicationUrlFromHealth(production.value?.health?.url) ||
+    providerStatus.value?.deployment?.url ||
+    '',
+);
+const deploymentInspectorUrl = computed(
+  () =>
+    providerStatus.value?.deployment?.inspectorUrl ??
     providerStatus.value?.deployment?.url ??
-    applicationUrlFromHealth(production.value?.health?.url),
+    '',
 );
 const visibleCommandTimeline = computed(
   () => latestDeployment.value?.timeline ?? [],
@@ -448,7 +455,7 @@ const statusView = computed(
       return {
         title: 'Produção pronta para planejar',
         description:
-          'O provider está disponível. Gere um plano antes de promover a revisão confirmada.',
+          'O provider está disponível. Gere um plano antes de promover a revision confirmada.',
         label: 'Pronta',
         tone: 'info',
         icon: InformationCircleIcon,
@@ -1154,7 +1161,7 @@ onBeforeUnmount(() => {
             <small>{{ formatDate(providerStatus.deployment.createdAt) }}</small>
           </div>
           <a
-            :href="providerStatus.deployment.url"
+            :href="deploymentInspectorUrl"
             target="_blank"
             rel="noopener noreferrer"
           >
