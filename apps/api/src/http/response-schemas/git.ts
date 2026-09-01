@@ -213,6 +213,7 @@ export const gitFileDiffResponseSchema = {
     masked: { type: 'boolean' },
     redactionCount: { type: 'integer', minimum: 0 },
     imagePreview: gitImageDiffPreviewResponseSchema,
+    pdfPreview: gitImageDiffPreviewResponseSchema,
   },
 } as const;
 
