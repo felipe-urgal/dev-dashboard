@@ -275,6 +275,7 @@ const providerSnapshotResponseSchema = {
   properties: {
     id: { type: 'string' },
     url: { type: 'string' },
+    inspectorUrl: { type: 'string' },
     state: {
       type: 'string',
       enum: ['queued', 'building', 'ready', 'error', 'cancelled', 'unknown'],
