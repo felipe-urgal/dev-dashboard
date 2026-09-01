@@ -153,6 +153,7 @@ export interface DeploymentProviderTimelineStep {
 export interface DeploymentProviderSnapshot {
   id: string;
   url: string;
+  inspectorUrl?: string;
   state: DeploymentProviderState;
   createdAt: string;
   branch?: string;
