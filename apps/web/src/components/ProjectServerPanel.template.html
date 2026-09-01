@@ -55,7 +55,7 @@
                 class="server-config-control server-environment-select"
                 :disabled="loadingSettings || executingAction"
               >
-                <option value="" disabled>Escolha</option>
+                <option value="">Padrão (.env / .env.local)</option>
                 <option v-for="environment in availableEnvironments" :key="environment" :value="environment">
                   {{ `.env.${environment}` }}
                 </option>
@@ -80,7 +80,7 @@
             <button
               type="button"
               class="server-secondary-button"
-              :disabled="savingSettings || loadingSettings || environmentSelectionMissing"
+              :disabled="savingSettings || loadingSettings"
               @click="handleSaveSettings"
             >
               {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
@@ -103,7 +103,7 @@
             <button
               type="button"
               class="server-primary-button"
-              :disabled="executingAction || loadingSettings || environmentSelectionMissing"
+              :disabled="executingAction || loadingSettings"
               @click="handleStart"
             >
               <PlayIcon aria-hidden="true" />
