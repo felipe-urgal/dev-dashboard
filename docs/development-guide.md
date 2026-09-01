@@ -13,226 +13,217 @@ npm run dev
 Abra:
 
 ```text
-Dashboard:     http://127.0.0.1:5173
-API health:    http://127.0.0.1:4343/api/health
+Dashboard:  http://127.0.0.1:5173
+API health: http://127.0.0.1:4343/api/health
 ```
 
-## Scripts da raiz
+`npm run dev` carrega `.env.local` quando existir. Credenciais locais de integrações, como `VERCEL_TOKEN`, ficam nesse arquivo e nunca no repositório.
 
-| Script                   | Uso                                     |
-| ------------------------ | --------------------------------------- |
-| `npm run dev`            | Inicia API e web.                       |
-| `npm run dev:api`        | Inicia somente a API com watch.         |
-| `npm run dev:web`        | Inicia somente Vite.                    |
-| `npm run dev-web`        | Compila e inicia a distribuição local.  |
-| `npm run doctor`         | Diagnostica ferramentas e portas.       |
-| `npm run docs:api`       | Regenera a referência HTTP.             |
-| `npm run docs:api:check` | Verifica divergência da referência.     |
-| `npm run typecheck`      | Valida TypeScript.                      |
-| `npm run build`          | Compila pacotes e aplicações.           |
-| `npm test`               | Executa testes de scripts e workspaces. |
-| `npm run test:e2e`       | Executa smoke E2E da web.               |
+## Scripts principais
 
-## Ordem de validação
+| Script | Uso |
+| --- | --- |
+| `npm run dev` | API + web com watch |
+| `npm run dev:api` | somente API |
+| `npm run dev:web` | somente Vite |
+| `npm run dev-web` | distribuição local compilada |
+| `npm run doctor` | diagnóstico local |
+| `npm run docs:api` | regenera referência HTTP |
+| `npm run docs:api:check` | verifica referência gerada |
+| `npm run typecheck` | valida tipos |
+| `npm run lint` | ESLint |
+| `npm run format:check` | verifica Prettier |
+| `npm run build` | compila packages/apps |
+| `npm test` | testes dos workspaces |
+| `npm run test:cli` | suíte Bash |
+| `npm run test:e2e` | smoke E2E da web |
 
-Para feedback rápido:
+## Como adicionar ou alterar uma funcionalidade
 
-```bash
-npm run typecheck
-npm test
-npm run build
-```
+### 1. Defina o contrato
 
-Quando rotas ou schemas mudarem:
+Responda:
+
+- qual problema é resolvido;
+- qual estado é público;
+- que entradas são aceitas;
+- quais erros possuem código estável;
+- leitura ou mutação;
+- risco destrutivo/irreversível;
+- persistência necessária;
+- dependência local ou provider externo.
+
+Tipos compartilhados por web/API pertencem a `packages/contracts`.
+
+### 2. Escolha a camada correta
+
+- regra genérica: package compartilhado;
+- caso de uso/integração: serviço da API;
+- transporte: rota Fastify;
+- provider externo: adapter explícito;
+- apresentação: Vue;
+- tooling do repo: `scripts/`;
+- estado permanente do produto: `docs/`;
+- planejamento futuro/multi-PR: issue GitHub.
+
+Não coloque comportamento específico de um repositório alvo no Dev Dashboard.
+
+### 3. Defina a fronteira de segurança
+
+Para operações locais:
+
+- IDs conhecidos em vez de paths livres;
+- canonicalização e revalidação;
+- programa/args no backend;
+- `shell: false` quando aplicável;
+- timeout e limites;
+- masking;
+- confirmação para mutações sensíveis.
+
+Para providers externos:
+
+- credencial só no processo local;
+- browser não fornece token nem parâmetros de autoridade que possam ser derivados pelo backend;
+- request/response externos com timeout/tamanho/shape bounded;
+- mensagens externas sanitizadas;
+- estado parcial/indisponível representado honestamente;
+- mutação externa dentro do mesmo domínio de confirmação/recovery quando aplicável.
+
+### 4. Rotas e schemas
+
+Toda rota deve possuir params/query/body/responses explícitos e `additionalProperties: false` quando apropriado. Traduza erros internos para códigos estáveis e cubra auth/origem nos testes relevantes.
+
+Depois de alterar rotas:
 
 ```bash
 npm run docs:api
 npm run docs:api:check
 ```
 
-Antes de publicar uma alteração relevante:
+A referência gerada não é editada manualmente.
 
-```bash
-npm run typecheck
-npm run build
-npm test
-```
+### 5. Web
 
-## Como adicionar uma funcionalidade
+A interface precisa tratar loading real, vazio, erro, sucesso, ação em andamento, clique duplicado, confirmação, resposta stale, teclado/foco, responsividade e reduced motion.
 
-### 1. Defina o contrato
+Não use texto localizado da API como identificador de lógica.
 
-Responda primeiro:
+### 6. Testes
 
-- qual problema é resolvido;
-- qual entidade ou estado é público;
-- quais entradas são aceitas;
-- quais erros são identificáveis;
-- a operação é somente leitura ou mutável;
-- existe risco destrutivo;
-- o que precisa ser persistido.
+| Camada | Teste esperado |
+| --- | --- |
+| package | unidade |
+| serviço API | unidade/integração com fixtures |
+| adapter externo | transporte simulado, limites, erros e estados |
+| rota | Fastify inject + schemas/auth |
+| web | Vitest + Vue Test Utils |
+| fluxo crítico | Playwright E2E |
+| script raiz | `node:test` |
 
-Tipos reutilizados por web e API pertencem a `packages/contracts`.
+Testes que iniciam processo/repositório temporário devem ter cleanup garantido.
 
-### 2. Escolha a camada correta
+## Mudanças no domínio de Produção
 
-- regra genérica e independente de interface: pacote compartilhado;
-- integração local ou caso de uso: serviço da API;
-- adaptação HTTP: rota;
-- apresentação e interação: web;
-- automação do monorepo: `scripts`;
-- decisão ou explicação: `docs`.
+Antes de alterar Production Contract, planner, adapters ou UI, leia:
 
-### 3. Implemente a fronteira de segurança
+- [production-contract.md](architecture/production-contract.md)
+- [deployment-domain.md](architecture/deployment-domain.md)
+- [security.md](architecture/security.md)
+- [deployment-operations.md](deployment-operations.md)
+- [production-ui.md](production-ui.md)
 
-Para qualquer operação que toque o sistema local:
+Invariantes que não devem ser quebrados:
 
-- use IDs conhecidos sempre que possível;
-- canonicalize caminhos;
-- confirme que o destino está no projeto/workspace permitido;
-- escolha programa e argumentos no backend;
-- evite `shell: true`;
-- aplique timeout e limites;
-- masque segredos antes da resposta;
-- exija confirmação para ações sensíveis;
-- registre resultado sem persistir segredos.
+1. manifesto/browser não enviam linha de shell arbitrária;
+2. plano usa branch/revision real e working tree limpa;
+3. confirmação é vinculada ao `planHash`;
+4. `strategy=command` executa somente aliases `prod:*` canônicos;
+5. `strategy=git-managed` não inventa `prod:deploy` local;
+6. Vercel recebe projeto/origem/revision derivados pelo backend;
+7. antes da promoção Vercel, `origin/<branch>` real precisa provar o SHA confirmado;
+8. provider READY é separado de `prod:verify`;
+9. etapas irreversíveis usam recovery conservador;
+10. retry de verify nunca repete mutação anterior;
+11. credenciais Vercel não entram em contratos, responses ou persistência.
 
-### 4. Adicione a rota
+### Testes mínimos para Vercel
 
-Uma rota deve possuir:
+Cubra quando relevante:
 
-- schema de params, query e body;
-- schemas de resposta;
-- limites de comprimento e quantidade;
-- `additionalProperties: false` quando apropriado;
-- tradução de erros internos;
-- dependências explícitas no plugin;
-- teste de sucesso e falhas importantes.
+- token ausente;
+- auth/escopo recusado;
+- projeto não encontrado;
+- quota/transport indisponível;
+- resposta inválida/acima do limite;
+- criação com branch + SHA exato;
+- revision remota divergente/indisponível;
+- polling BUILDING → READY;
+- ERROR/CANCELED;
+- cancelamento best-effort;
+- falha de verify depois de promoção sem repetir provider-deploy.
 
-Depois, registre o plugin em `apps/api/src/app.ts`.
+## Persistência
 
-### 5. Atualize a web
+Arquivos privados usam `0700`/`0600` quando aplicável, formatos são validados na leitura e escrita deve ser atômica quando relevante.
 
-A interface deve tratar:
+Não persista token de confirmação, senha, `VERCEL_TOKEN`, response bruta de provider ou conteúdo de projeto quando metadado/ID basta.
 
-- carregamento inicial;
-- vazio;
-- erro compreensível;
-- sucesso;
-- ação em andamento;
-- prevenção de clique duplicado;
-- confirmação;
-- resposta obsoleta após troca de projeto;
-- teclado e foco;
-- redução de movimento.
+## UI
 
-Não use mensagens internas da API como identificador de lógica. Prefira códigos ou contratos explícitos.
+O produto prioriza experiência simples, ágil e funcional:
 
-### 6. Teste a regra, a integração e a interface
+- ação no contexto onde é usada;
+- sem títulos/resumos redundantes;
+- estado real em vez de animação artificial;
+- loading só durante trabalho;
+- linguagem direta em português;
+- risco/irreversibilidade explícitos sem dramatização.
 
-| Camada        | Tipo de teste                                             |
-| ------------- | --------------------------------------------------------- |
-| Pacote        | unidade com filesystem/processo isolado quando necessário |
-| Serviço API   | unidade e integração com fixtures                         |
-| Rota          | injeção Fastify, schemas, auth e tradução de erros        |
-| Web           | Vitest + Vue Test Utils                                   |
-| Fluxo crítico | Playwright E2E                                            |
-| Script raiz   | `node:test` em `scripts/*.test.mjs`                       |
+## Documentação
 
-Testes que iniciam processos devem possuir cleanup mesmo em falha.
-
-### 7. Documente
+Uma mudança está incompleta quando o comportamento mudou e os documentos correspondentes não.
 
 Atualize:
 
-- referência gerada se a API mudou;
-- página de arquitetura se o fluxo mudou;
-- guia de operação se novas variáveis, arquivos ou portas surgiram;
-- README se o primeiro uso mudou;
-- `CONTRIBUTING.md` se o processo mudou;
-- issues e pull requests quando houver impacto de planejamento.
+- `README.md`/`getting-started.md` para primeiro uso;
+- `architecture/*` para contratos/fluxos/segurança;
+- `operations-and-troubleshooting.md` para variáveis/arquivos/diagnóstico;
+- `deployment-operations.md` e `production-ui.md` para produção;
+- `guia/*` para a experiência do usuário;
+- issues para backlog/roadmap que atravessa PRs.
 
-## Padrões de TypeScript
+Não recrie `tasks/`, `NEXT.md` ou roadmaps versionados.
 
-- tipos explícitos nas fronteiras;
-- unions para estados fechados;
-- `unknown` antes de validar erros externos;
-- sem `any` como atalho de integração;
-- funções pequenas para validação e transformação;
-- dependências recebidas por argumento quando precisam ser substituídas;
-- sem estado global mutável entre instâncias de app.
+## Validação final
 
-## Padrões de processos
-
-Use preferencialmente:
-
-```ts
-spawn(command, args, {
-  cwd,
-  shell: false,
-});
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+npm test
+npm run test:cli
 ```
 
-Defina:
+Rode também:
 
-- comando proveniente de catálogo fechado;
-- argumentos separados;
-- diretório canônico;
-- ambiente mínimo ou preparado;
-- grupo de processo quando necessário;
-- timeout;
-- captura limitada de saída;
-- estratégia de encerramento.
+```bash
+npm run test:e2e
+```
 
-## Padrões de persistência
-
-Arquivos de configuração e estado devem:
-
-- viver nos diretórios gerenciados;
-- possuir formato versionado quando relevante;
-- ser escritos atomicamente;
-- usar `0700` para diretórios e `0600` para arquivos privados;
-- validar conteúdo ao carregar;
-- ignorar ou isolar entradas corrompidas;
-- evitar caminhos e segredos quando apenas IDs ou preferências bastam.
-
-## Padrões de UI
-
-O projeto prioriza uma experiência simples, ágil e funcional.
-
-- remover elementos redundantes;
-- manter ações no contexto onde são usadas;
-- preferir uma listagem clara a múltiplos resumos repetidos;
-- usar modal quando a ação exige dados relacionados;
-- manter largura e hierarquia visual consistentes;
-- não animar ícones quando não existe trabalho ativo;
-- mostrar estado real, sem sugerir atualização inexistente;
-- usar linguagem direta em português.
-
-## API e documentação gerada
-
-`generate-api-docs.mjs` descobre os plugins registrados em `app.ts`, executa as declarações de rota contra um stub de Fastify e gera os schemas reais.
-
-Ao adicionar uma rota:
-
-1. exporte um plugin identificável;
-2. importe e registre em `app.ts`;
-3. declare schemas completos;
-4. execute `npm run docs:api`;
-5. revise o diff de `docs/architecture/api-reference.md`.
-
-Não edite manualmente a referência gerada.
+quando o fluxo web alterado justificar.
 
 ## Checklist de revisão
 
-- [ ] A responsabilidade está na camada correta.
-- [ ] Entradas e caminhos são validados.
-- [ ] Não existe execução arbitrária.
-- [ ] A operação mutável exige confirmação quando necessário.
-- [ ] Logs e respostas possuem limites.
-- [ ] Segredos não são retornados ou persistidos indevidamente.
-- [ ] O shutdown fecha recursos.
-- [ ] Existem testes para sucesso e falhas relevantes.
-- [ ] Contratos e documentação foram atualizados.
-- [ ] A interface representa o estado real.
-- [ ] Typecheck, build e testes passam.
+- [ ] responsabilidade na camada correta;
+- [ ] entradas, paths e provider data validados;
+- [ ] nenhum shell arbitrário;
+- [ ] mutação possui preview/confirmacão/revalidação apropriados;
+- [ ] logs/respostas possuem limites e masking;
+- [ ] credenciais não vazam;
+- [ ] shutdown/cancelamento fecham recursos;
+- [ ] recovery representa efeitos parciais honestamente;
+- [ ] testes cobrem sucesso e falhas relevantes;
+- [ ] documentação e issues estão coerentes;
+- [ ] gates completos passaram no head final;
+- [ ] auto-review foi executado depois do último commit.
