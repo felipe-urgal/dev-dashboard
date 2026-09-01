@@ -1,8 +1,29 @@
 # Interface de Produção
 
-A superfície **Produção** concentra o estado e a operação de um projeto com `capability=production` válida. Ela usa o mesmo domínio de deployment para providers locais e Vercel, sem criar um fluxo paralelo no frontend.
+A superfície **Produção** concentra o estado e a operação de projetos com `capability=production` válida. Existe uma visão global do workspace, somente leitura, e a superfície detalhada por projeto; ambas usam o mesmo domínio de deployment, sem criar um fluxo paralelo no frontend.
 
-## Quando a aba aparece
+## Visão global do workspace
+
+A navegação principal possui a rota `/production`. Ela lê o workspace ativo por
+`GET /api/workspaces/:workspaceId/production/overview` e apresenta uma tabela compacta com:
+
+- projeto, provider e branch de produção;
+- revision conhecida em produção;
+- revision alvo conhecida;
+- evidência do último `verify` aplicável à revision em produção;
+- estado agregado: `in-sync`, `drift`, `running`, `failed`, `recovery-required`, `not-configured`, `blocked` ou `unknown`.
+
+A consulta usa o scan de projetos já conhecido pelo `ProjectStore`; abrir ou atualizar essa tela não dispara novo scan, não faz `git fetch` e não inicia deployment. As leituras por projeto são limitadas em concorrência e uma falha isolada vira `unknown` naquele item, sem derrubar a visão inteira.
+
+Para `strategy=command`, a revision alvo é a branch de produção local conhecida e a revision de produção vem da última execução cuja etapa mutável de deploy terminou. Para `strategy=git-managed` + Vercel, origin/revision e estado do provider vêm do mesmo `ProductionDeploymentStatusService` usado na tela do projeto.
+
+A coluna **Health** não representa monitoramento contínuo. `Verify passou` ou `Verify falhou` significa que existe uma execução registrada para a mesma revision atualmente identificada em produção e que a etapa `verify` terminou nesse estado. Sem essa evidência, a tela mostra `Não verificado`, mesmo que a Vercel esteja `READY`.
+
+O botão **Atualizar** nessa visão apenas renova o snapshot de leitura. A atualização em lote de projetos pendentes não faz parte desta superfície implementada; qualquer mutação continua sendo feita no fluxo detalhado do projeto com plano, confirmação e as regras do domínio de deployment.
+
+Cada linha abre a rota existente `/projects/:projectId/production` para inspeção, planejamento e operação do projeto.
+
+## Quando a aba do projeto aparece
 
 A aba aparece quando o discovery reconhece um `Production Contract v1` válido.
 
@@ -183,6 +204,6 @@ Estado do projeto anterior não pode sobrescrever a nova tela.
 
 ## Testes
 
-A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify e regressões do fluxo `command`.
+A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace e regressões do fluxo `command`.
 
 Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md).
