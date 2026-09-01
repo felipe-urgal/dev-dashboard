@@ -43,9 +43,18 @@ async function testEnvironment(project: Project): Promise<NodeJS.ProcessEnv> {
   try {
     const environment = await loadProjectLocalEnvironment(project.path, 'check');
     const checkDatabaseUrl = environment.CHECK_DATABASE_URL?.trim();
-    return checkDatabaseUrl
-      ? { ...environment, DATABASE_URL: checkDatabaseUrl }
-      : environment;
+
+    return {
+      ...environment,
+      // A aba Testes nunca deve herdar uma DATABASE_URL do processo da API.
+      // Projetos que precisam de banco usam explicitamente CHECK_DATABASE_URL;
+      // projetos sem banco recebem uma variável vazia em vez de um fallback.
+      DATABASE_URL: checkDatabaseUrl ?? '',
+      // Credenciais do provider pertencem ao Dev Dashboard e não ao processo
+      // de testes do projeto alvo.
+      VERCEL_TOKEN: '',
+      VERCEL_TEAM_ID: '',
+    };
   } catch (error) {
     if (!(error instanceof ProjectLocalEnvironmentError)) throw error;
     throw new ProjectTestPtyError(
