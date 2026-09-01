@@ -55,6 +55,10 @@ export type {
   DeploymentStepStatus,
   DeploymentTimelineStep,
   ProductionDeploymentStatus,
+  ProductionOverview,
+  ProductionOverviewHealth,
+  ProductionOverviewItem,
+  ProductionOverviewState,
 } from './deployment.js';
 
 export type {
@@ -290,7 +294,7 @@ export type {
   ProjectScriptVariable,
   ScriptExecution,
   ScriptExecutionHistory,
-  ScriptExecutionEvent,
+  TestExecutionEvent,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
   ScriptExecutionStatus,
