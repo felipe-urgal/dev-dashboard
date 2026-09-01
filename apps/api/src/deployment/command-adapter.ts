@@ -1,7 +1,8 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
-import { access, readFile } from 'node:fs/promises';
+import { access, lstat, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
+import { parseEnv } from 'node:util';
 
 import type {
   DeploymentPlanStep,
@@ -30,6 +31,11 @@ const SCRIPT_BY_COMMAND = {
 
 const KILL_ESCALATION_MS = 1_000;
 const STDERR_CLASSIFICATION_LIMIT = 16_384;
+const PRODUCTION_ENV_MAX_BYTES = 64 * 1024;
+const PRODUCTION_ENV_PATH = path.join(
+  '.dev-dashboard',
+  '.env.production.local',
+);
 const SUDO_INTERACTIVE_PATTERN =
   /sudo:.*(?:terminal is required|no tty present|password is required|askpass|a terminal is required to read the password)/i;
 
@@ -57,12 +63,53 @@ export interface ProductionCommandAdapterOptions {
   providerAdapter?: VercelProviderStepAdapter;
 }
 
+function hasErrorCode(error: unknown, code: string): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as Error & { code?: unknown }).code === code
+  );
+}
+
 async function exists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
     return true;
   } catch {
     return false;
+  }
+}
+
+async function loadProjectProductionEnvironment(
+  projectPath: string,
+): Promise<NodeJS.ProcessEnv> {
+  const envPath = path.join(projectPath, PRODUCTION_ENV_PATH);
+
+  let stats;
+  try {
+    stats = await lstat(envPath);
+  } catch (error) {
+    if (hasErrorCode(error, 'ENOENT')) return {};
+    throw new DeploymentError(
+      'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+      'Não foi possível acessar o ambiente local de produção do projeto.',
+    );
+  }
+
+  if (!stats.isFile() || stats.size > PRODUCTION_ENV_MAX_BYTES) {
+    throw new DeploymentError(
+      'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+      'O ambiente local de produção do projeto é inválido.',
+    );
+  }
+
+  try {
+    return parseEnv(await readFile(envPath, 'utf8'));
+  } catch {
+    throw new DeploymentError(
+      'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+      'Não foi possível interpretar o ambiente local de produção do projeto.',
+    );
   }
 }
 
@@ -152,9 +199,12 @@ export class ProductionCommandAdapter {
     }
 
     const packageManager = await resolvePackageManager(project.path);
+    const productionEnvironment = await loadProjectProductionEnvironment(
+      project.path,
+    );
     const child = this.spawnProcess(packageManager, ['run', expectedScript], {
       cwd: project.path,
-      env: { ...process.env },
+      env: { ...process.env, ...productionEnvironment },
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
