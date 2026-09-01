@@ -48,6 +48,42 @@ succeeded | failed | cancelled | recovery_required
 
 Preparar o plano não executa mutações. A confirmação é vinculada ao plano, expira e só pode ser usada uma vez.
 
+## Ambiente local de produção por projeto
+
+Quando um script `prod:*` precisa de segredos específicos do projeto, crie localmente:
+
+```text
+<projeto>/.dev-dashboard/.env.production.local
+```
+
+Exemplo:
+
+```dotenv
+DATABASE_URL=postgresql://usuario:senha@host/banco
+```
+
+Esse arquivo é opcional e não faz parte de `.dev-dashboard/production.json`. O `ProductionCommandAdapter` o carrega apenas para os scripts locais `prod:*`, mesclando os valores sobre o ambiente herdado do processo do Dev Dashboard. Assim, uma `DATABASE_URL` definida nesse arquivo prevalece para `prod:check`, `prod:migrate`, `prod:verify` e demais etapas locais, sem alterar `process.env` do dashboard.
+
+Regras operacionais:
+
+- mantenha `.dev-dashboard/.env.production.local` fora do Git; adicione-o ao `.gitignore` quando o projeto ainda não ignorar arquivos `.env*`;
+- prefira permissões locais restritas, por exemplo `chmod 600 .dev-dashboard/.env.production.local`;
+- não cole o conteúdo em issue, PR ou log;
+- o arquivo deve ser regular e ter no máximo 64 KiB;
+- ausência do arquivo é válida e mantém somente o ambiente herdado;
+- arquivo inválido, ilegível ou acima do limite bloqueia a etapa antes de iniciar o processo;
+- `provider-deploy` não usa esse arquivo.
+
+Credenciais do provider continuam centralizadas no ambiente do Dev Dashboard. Para Vercel, `VERCEL_TOKEN` permanece em `dev-dashboard/.env.local`; não o duplique no projeto alvo.
+
+Como o deployment exige working tree limpa, confirme que o arquivo está realmente ignorado:
+
+```bash
+git status --short
+```
+
+O arquivo não deve aparecer na saída.
+
 ## `strategy=command`
 
 Providers locais como systemd e Docker Compose continuam encapsulados pelo próprio projeto. O dashboard executa apenas aliases canônicos como:
@@ -272,7 +308,7 @@ Não repita automaticamente um deployment interrompido.
 
 | Código | Significado | Ação |
 | --- | --- | --- |
-| `DEPLOYMENT_PRODUCTION_UNAVAILABLE` | contrato/capability não permite a operação | valide `.dev-dashboard/production.json` e faça novo scan |
+| `DEPLOYMENT_PRODUCTION_UNAVAILABLE` | contrato/capability ou ambiente local de produção não permite a operação | valide `.dev-dashboard/production.json`, `.dev-dashboard/.env.production.local` e faça novo scan quando necessário |
 | `DEPLOYMENT_BRANCH_MISMATCH` | branch atual difere da branch de produção | troque para a branch declarada |
 | `DEPLOYMENT_WORKTREE_DIRTY` | existem mudanças locais | commit/stash/descarte conscientemente |
 | `DEPLOYMENT_REVISION_UNAVAILABLE` | Git/HEAD ou revision necessária não pôde ser resolvida | verifique repositório, remote e branch |
