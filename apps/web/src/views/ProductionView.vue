@@ -226,11 +226,7 @@ onBeforeUnmount(() => {
       :rows="4"
     />
 
-    <div
-      v-else-if="!workspaceId"
-      class="activity-empty"
-      role="status"
-    >
+    <div v-else-if="!workspaceId" class="activity-empty" role="status">
       Selecione um workspace para consultar produção.
     </div>
 
@@ -362,7 +358,7 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--surface-1);
 }
 
 .production-overview-summary dt {
@@ -455,7 +451,7 @@ onBeforeUnmount(() => {
 .production-overview-open a:hover,
 .production-overview-open a:focus-visible {
   color: var(--accent);
-  background: var(--surface-hover);
+  background: var(--surface-2);
 }
 
 .production-overview-footnote {
