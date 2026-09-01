@@ -5,6 +5,7 @@ import {
   HomeIcon,
   PlayCircleIcon,
   PlusIcon,
+  RocketLaunchIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onMounted, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
@@ -161,6 +162,17 @@ onMounted(() => {
           >
             <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Processos</span>
+          </RouterLink>
+
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'production' }"
+            :to="{ name: 'production' }"
+            :aria-label="sidebarCollapsed ? 'Produção' : undefined"
+            :title="sidebarCollapsed ? 'Produção' : undefined"
+          >
+            <RocketLaunchIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Produção</span>
           </RouterLink>
 
           <RouterLink
