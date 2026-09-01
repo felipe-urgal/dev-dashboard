@@ -113,6 +113,23 @@ Somente scripts `prod:*` canônicos reconhecidos no contrato podem virar etapas.
 
 O dashboard não interpreta comandos internos de systemd ou Docker Compose; essa implementação permanece no projeto alvo.
 
+### Ambiente local de produção por projeto
+
+Scripts `prod:*` podem receber segredos específicos do projeto a partir do caminho fixo `<Project.path>/.dev-dashboard/.env.production.local`. O browser não escolhe esse path nem envia o conteúdo do arquivo.
+
+O backend trata esse arquivo como configuração local sensível:
+
+- ausência é aceita;
+- somente arquivo regular é aceito, o que rejeita diretórios e symlinks nesse caminho;
+- o tamanho máximo é 64 KiB;
+- conteúdo inválido ou ilegível falha fechado antes de iniciar o processo;
+- mensagens de erro não incluem o conteúdo do arquivo;
+- valores são adicionados somente ao ambiente do processo filho `prod:*` e não alteram `process.env` do Dev Dashboard;
+- valores do arquivo prevalecem sobre variáveis homônimas herdadas somente naquela execução;
+- conteúdo não é persistido nem retornado pela API.
+
+O arquivo deve ser ignorado pelo Git e mantido com permissões locais restritas. Se ele não estiver ignorado, a própria regra de working tree limpa também pode bloquear o plano. Credenciais de provider continuam fora desse arquivo; por exemplo, `VERCEL_TOKEN` pertence ao `.env.local` do Dev Dashboard.
+
 ### `strategy=git-managed` + Vercel
 
 O deploy Vercel usa uma etapa própria `provider-deploy`; não existe `prod:deploy` local fictício.
@@ -260,6 +277,7 @@ Mudanças sensíveis devem cobrir o risco relevante, por exemplo:
 - plano stale;
 - revision remota divergente ou indisponível antes de Vercel;
 - credencial Vercel ausente/recusada;
+- ambiente local de produção inválido/não regular;
 - resposta externa inválida ou acima do limite;
 - interrupção/cancelamento depois de etapa irreversível;
 - retry de verify sem repetir mutação;
