@@ -39,9 +39,9 @@ function commandProject(id = 'command-project'): Project {
         url: 'https://example.test/health',
       },
       policies: {
-        backup: 'none',
+        backup: 'required-before-deploy',
         migrations: 'startup',
-        rollback: 'provider-only',
+        rollback: 'not-configured',
       },
     },
   };
@@ -74,7 +74,7 @@ function vercelProject(id = 'vercel-project'): Project {
       policies: {
         backup: 'external',
         migrations: 'startup',
-        rollback: 'provider-only',
+        rollback: 'provider-only-when-schema-compatible',
       },
     },
   };
