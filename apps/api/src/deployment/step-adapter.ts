@@ -1,6 +1,5 @@
 import type {
   DeploymentProviderPlanStep,
-  DeploymentProviderTarget,
   Project,
 } from '@dev-dashboard/contracts';
 import {
@@ -27,6 +26,8 @@ import {
   VercelDeploymentAdapter,
   type VercelResolvedProject,
 } from './vercel-adapter.js';
+
+type DeploymentProviderTarget = DeploymentProviderPlanStep['target'];
 
 export interface VercelProviderStepAdapterOptions {
   vercelAdapter?: VercelDeploymentAdapter;
