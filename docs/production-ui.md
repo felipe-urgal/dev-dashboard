@@ -15,7 +15,9 @@ A navegação principal possui a rota `/production`. Ela lê o workspace ativo p
 
 A consulta usa o scan de projetos já conhecido pelo `ProjectStore`; abrir ou atualizar essa tela não dispara novo scan, não faz `git fetch` e não inicia deployment. As leituras por projeto são limitadas em concorrência e uma falha isolada vira `unknown` naquele item, sem derrubar a visão inteira.
 
-Para `strategy=command`, a revision alvo é a branch de produção local conhecida e a revision de produção vem da última execução cuja etapa mutável de deploy terminou. Para `strategy=git-managed` + Vercel, origin/revision e estado do provider vêm do mesmo `ProductionDeploymentStatusService` usado na tela do projeto.
+Ao trocar de workspace enquanto essa tela está aberta, o snapshot anterior é descartado. A UI aguarda o scan iniciado pelo fluxo normal de troca de workspace terminar e então consulta novamente o overview; ela não mantém um falso estado vazio entre a seleção e a conclusão do scan.
+
+Para `strategy=command`, a revision alvo é a branch de produção local conhecida e a revision de produção vem da última execução cuja etapa mutável de deploy terminou. Histórico só é usado como evidência quando `deployment.branch` e `deployment.provider` ainda correspondem ao contrato de produção atual; execuções de contratos anteriores não podem declarar `in-sync`, health ou estado operacional para o contrato novo. Para `strategy=git-managed` + Vercel, origin/revision e estado do provider vêm do mesmo `ProductionDeploymentStatusService` usado na tela do projeto, e a evidência local de execução/verify obedece à mesma restrição de branch/provider atual.
 
 A coluna **Health** não representa monitoramento contínuo. `Verify passou` ou `Verify falhou` significa que existe uma execução registrada para a mesma revision atualmente identificada em produção e que a etapa `verify` terminou nesse estado. Sem essa evidência, a tela mostra `Não verificado`, mesmo que a Vercel esteja `READY`.
 
@@ -204,6 +206,6 @@ Estado do projeto anterior não pode sobrescrever a nova tela.
 
 ## Testes
 
-A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace e regressões do fluxo `command`.
+A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan e regressões do fluxo `command`.
 
 Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md).
