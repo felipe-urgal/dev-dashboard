@@ -133,6 +133,25 @@ const commitFileSchema = {
   },
 } as const;
 
+const binaryPreviewContentSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['mimeType', 'base64'],
+  properties: {
+    mimeType: { type: 'string' },
+    base64: { type: 'string' },
+  },
+} as const;
+
+const binaryDiffPreviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    before: binaryPreviewContentSchema,
+    after: binaryPreviewContentSchema,
+  },
+} as const;
+
 const responseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -341,6 +360,7 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
                   truncated: { type: 'boolean' },
                   masked: { type: 'boolean' },
                   redactionCount: { type: 'integer', minimum: 0 },
+                  pdfPreview: binaryDiffPreviewSchema,
                 },
               },
             },
