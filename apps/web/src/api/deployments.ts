@@ -5,6 +5,7 @@ import type {
   DeploymentLog,
   DeploymentPlan,
   ProductionDeploymentStatus,
+  ProductionOverview,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -33,6 +34,17 @@ function requestInit(
           body: JSON.stringify(body),
         }),
   };
+}
+
+export async function fetchProductionOverview(
+  workspaceId: string,
+  signal?: AbortSignal,
+): Promise<ProductionOverview> {
+  const response = await requestJson<{ overview: ProductionOverview }>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/production/overview`,
+    requestInit('GET', signal),
+  );
+  return response.overview;
 }
 
 export async function fetchProductionDeploymentStatus(
