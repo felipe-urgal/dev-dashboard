@@ -43,6 +43,8 @@ Uma promoção `git-managed` é fail-closed. Antes de qualquer migration explíc
 5. a integração Vercel autentica e resolve o projeto confirmado;
 6. não existe deployment de produção Vercel em `queued`, `building` ou estado desconhecido que torne uma segunda promoção insegura.
 
+Esse preflight é somente leitura; ele não altera banco, Git ou provider. A primeira mudança irreversível só pode ocorrer depois que essas evidências tiverem sido aceitas para o alvo confirmado.
+
 A consulta remota Git possui timeout e pode ser interrompida pelo cancelamento do deployment. Falha de rede/autenticação/credential helper não cai para uma tracking ref local antiga.
 
 ## Saída para a Vercel
