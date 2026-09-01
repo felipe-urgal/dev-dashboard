@@ -59,6 +59,17 @@ const providerSchema = {
   enum: ['systemd', 'docker-compose', 'vercel', 'none'],
 } as const;
 
+const providerTargetSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['externalProject', 'branch', 'revision'],
+  properties: {
+    externalProject: { type: 'string', minLength: 1 },
+    branch: { type: 'string', minLength: 1 },
+    revision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+  },
+} as const;
+
 const commandPlanStepResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -69,18 +80,20 @@ const commandPlanStepResponseSchema = {
     phase: phaseSchema,
     mutating: { type: 'boolean' },
     irreversible: { type: 'boolean' },
+    providerPreflight: providerTargetSchema,
   },
 } as const;
 
 const providerPlanStepResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'phase', 'mutating', 'irreversible'],
+  required: ['id', 'phase', 'mutating', 'irreversible', 'target'],
   properties: {
     id: { type: 'string', enum: ['provider-deploy'] },
     phase: { type: 'string', enum: ['deploying'] },
     mutating: { type: 'boolean', const: true },
     irreversible: { type: 'boolean', const: true },
+    target: providerTargetSchema,
   },
 } as const;
 
@@ -142,7 +155,7 @@ const commandTimelineStepResponseSchema = {
 const providerExecutionTimelineStepResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'phase', 'mutating', 'irreversible', 'status'],
+  required: ['id', 'phase', 'mutating', 'irreversible', 'target', 'status'],
   properties: {
     ...providerPlanStepResponseSchema.properties,
     status: stepStatusSchema,
