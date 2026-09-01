@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Readable } from 'node:stream';
 
 import type {
-  DeploymentCommandPlanStep,
+  DeploymentPlanStep,
   ProductionCommandId,
   Project,
 } from '@dev-dashboard/contracts';
@@ -14,6 +14,7 @@ import {
 } from '@dev-dashboard/process-manager';
 
 import { DeploymentError } from './errors.js';
+import { VercelProviderStepAdapter } from './step-adapter.js';
 
 const SCRIPT_BY_COMMAND = {
   status: 'prod:status',
@@ -53,6 +54,7 @@ export interface ProductionCommandResult {
 export interface ProductionCommandAdapterOptions {
   spawnProcess?: SpawnProcess;
   maskLog?: (content: string) => MaskedLogContent;
+  providerAdapter?: VercelProviderStepAdapter;
 }
 
 async function exists(filePath: string): Promise<boolean> {
@@ -104,20 +106,26 @@ async function resolvePackageManager(
 export class ProductionCommandAdapter {
   private readonly spawnProcess: SpawnProcess;
   private readonly maskLog: (content: string) => MaskedLogContent;
+  private readonly providerAdapter: VercelProviderStepAdapter;
 
   public constructor(options: ProductionCommandAdapterOptions = {}) {
     this.spawnProcess =
       options.spawnProcess ??
       ((file, args, spawnOptions) => spawn(file, [...args], spawnOptions));
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;
+    this.providerAdapter = options.providerAdapter ?? new VercelProviderStepAdapter();
   }
 
   public async run(
     project: Project,
-    step: DeploymentCommandPlanStep,
+    step: DeploymentPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
   ): Promise<ProductionCommandResult> {
+    if (step.id === 'provider-deploy') {
+      return this.providerAdapter.run(project, step, signal, onOutput);
+    }
+
     const expectedScript = SCRIPT_BY_COMMAND[step.id];
     if (
       step.script !== expectedScript ||
