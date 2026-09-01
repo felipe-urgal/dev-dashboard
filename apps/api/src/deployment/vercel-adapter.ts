@@ -321,6 +321,7 @@ export class VercelDeploymentAdapter {
           org: request.repository.owner,
           repo: request.repository.repo,
           ref: request.branch,
+          sha: request.revision,
         },
       },
       signal: request.signal,
