@@ -85,6 +85,22 @@ quando migration é separada.
 
 com `cwd=Project.path`, `shell: false`, stdin fechado e stdout/stderr mascarados antes da persistência. O dashboard não precisa saber se `prod:deploy` usa systemd, Docker Compose ou outro mecanismo interno reconhecido pelo projeto.
 
+## Ambiente local de produção por projeto
+
+Antes de iniciar qualquer script `prod:*` local, o `ProductionCommandAdapter` procura opcionalmente:
+
+```text
+<Project.path>/.dev-dashboard/.env.production.local
+```
+
+O arquivo não faz parte do `Production Contract` e não é enviado pelo browser. Quando existe, ele é lido e interpretado no backend, limitado a 64 KiB e aceito somente como arquivo regular. Seus valores são mesclados sobre o ambiente herdado pelo processo filho, portanto uma variável definida pelo projeto prevalece sobre uma variável homônima do processo do Dev Dashboard apenas naquela execução `prod:*`.
+
+Ausência do arquivo mantém o comportamento anterior. Arquivo inválido, ilegível, não regular ou acima do limite bloqueia a etapa antes de iniciar o processo, sem incluir conteúdo do arquivo na mensagem de erro.
+
+O arquivo deve permanecer fora do Git. Ele é destinado a credenciais específicas do projeto, por exemplo `DATABASE_URL` usada por `prod:migrate`. Credenciais do provider, como `VERCEL_TOKEN`, continuam pertencendo ao ambiente do próprio Dev Dashboard e não ao manifesto.
+
+A etapa externa `provider-deploy` não carrega esse arquivo; ela continua usando exclusivamente o adapter/provider correspondente.
+
 ## `strategy=git-managed` + Vercel
 
 O planner exige:
