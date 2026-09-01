@@ -401,6 +401,7 @@ export class VercelDeploymentAdapter {
       }
     }
 
+    await this.cancelDeployment(deploymentId);
     throw new DeploymentError(
       'DEPLOYMENT_PROVIDER_UNAVAILABLE',
       'A Vercel não concluiu o deployment dentro do tempo limite configurado.',
@@ -422,7 +423,7 @@ export class VercelDeploymentAdapter {
   ): Promise<{ id: string; name: string }> {
     const response = await this.request(
       `/v9/projects/${encodeURIComponent(externalProject)}`,
-      { signal },
+      signal ? { signal } : {},
     );
     const parsed = record(response);
     const id = boundedString(parsed?.id, 256);
