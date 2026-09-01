@@ -125,14 +125,14 @@ test('getFileDiff inclui antes e depois para PDF binário', async (context) => {
   );
 
   assert.equal(diff.binary, true);
-  assert.equal(diff.imagePreview?.before?.mimeType, 'application/pdf');
-  assert.equal(diff.imagePreview?.after?.mimeType, 'application/pdf');
+  assert.equal(diff.pdfPreview?.before?.mimeType, 'application/pdf');
+  assert.equal(diff.pdfPreview?.after?.mimeType, 'application/pdf');
   assert.deepEqual(
-    Buffer.from(diff.imagePreview?.before?.base64 ?? '', 'base64'),
+    Buffer.from(diff.pdfPreview?.before?.base64 ?? '', 'base64'),
     pdfBefore,
   );
   assert.deepEqual(
-    Buffer.from(diff.imagePreview?.after?.base64 ?? '', 'base64'),
+    Buffer.from(diff.pdfPreview?.after?.base64 ?? '', 'base64'),
     pdfAfter,
   );
 });
