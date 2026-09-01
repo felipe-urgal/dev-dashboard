@@ -63,7 +63,11 @@ function addPreDeploySteps(
         'A política de produção exige backup, mas prod:backup não está disponível.',
       );
     }
-    steps.push(commandStep('backup', 'backing_up'));
+    steps.push(
+      commandStep('backup', 'backing_up', {
+        ...(providerPreflight ? { providerPreflight } : {}),
+      }),
+    );
   }
 
   if (production.policies.migrations === 'before-deploy') {
@@ -141,7 +145,9 @@ export class DeploymentPlanner {
         revision: revision.revision,
       };
 
-      steps.push(commandStep('check', 'preparing'));
+      steps.push(
+        commandStep('check', 'preparing', { providerPreflight: target }),
+      );
       addPreDeploySteps(project, steps, target);
       steps.push({
         id: 'provider-deploy',
