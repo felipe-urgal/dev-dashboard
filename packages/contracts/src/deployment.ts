@@ -30,12 +30,19 @@ export type DeploymentScriptId = NonNullable<
 
 export type DeploymentStepId = ProductionCommandId | 'provider-deploy';
 
+export interface DeploymentProviderTarget {
+  externalProject: string;
+  branch: string;
+  revision: string;
+}
+
 export interface DeploymentCommandPlanStep {
   id: ProductionCommandId;
   script: DeploymentScriptId;
   phase: DeploymentExecutionPhase;
   mutating: boolean;
   irreversible: boolean;
+  providerPreflight?: DeploymentProviderTarget;
 }
 
 export interface DeploymentProviderPlanStep {
@@ -43,6 +50,7 @@ export interface DeploymentProviderPlanStep {
   phase: Extract<DeploymentExecutionPhase, 'deploying'>;
   mutating: true;
   irreversible: true;
+  target: DeploymentProviderTarget;
 }
 
 export type DeploymentPlanStep =
