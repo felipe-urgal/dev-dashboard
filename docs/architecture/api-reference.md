@@ -3257,6 +3257,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "irreversible": {
                             "type": "boolean"
                           },
+                          "providerPreflight": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "externalProject",
+                              "branch",
+                              "revision"
+                            ],
+                            "properties": {
+                              "externalProject": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "branch": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "revision": {
+                                "type": "string",
+                                "pattern": "^[0-9a-fA-F]{40}$"
+                              }
+                            }
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -3286,6 +3309,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "phase",
                           "mutating",
                           "irreversible",
+                          "target",
                           "status"
                         ],
                         "properties": {
@@ -3308,6 +3332,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "irreversible": {
                             "type": "boolean",
                             "const": true
+                          },
+                          "target": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "externalProject",
+                              "branch",
+                              "revision"
+                            ],
+                            "properties": {
+                              "externalProject": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "branch": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "revision": {
+                                "type": "string",
+                                "pattern": "^[0-9a-fA-F]{40}$"
+                              }
+                            }
                           },
                           "status": {
                             "type": "string",
@@ -3570,6 +3617,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean"
                     },
+                    "providerPreflight": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -3599,6 +3669,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "phase",
                     "mutating",
                     "irreversible",
+                    "target",
                     "status"
                   ],
                   "properties": {
@@ -3621,6 +3692,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
                     },
                     "status": {
                       "type": "string",
@@ -3851,6 +3945,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean"
                     },
+                    "providerPreflight": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -3880,6 +3997,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "phase",
                     "mutating",
                     "irreversible",
+                    "target",
                     "status"
                   ],
                   "properties": {
@@ -3902,6 +4020,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
                     },
                     "status": {
                       "type": "string",
@@ -4132,6 +4273,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean"
                     },
+                    "providerPreflight": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -4161,6 +4325,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "phase",
                     "mutating",
                     "irreversible",
+                    "target",
                     "status"
                   ],
                   "properties": {
@@ -4183,6 +4348,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
                     },
                     "status": {
                       "type": "string",
@@ -4489,6 +4677,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean"
                     },
+                    "providerPreflight": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -4518,6 +4729,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "phase",
                     "mutating",
                     "irreversible",
+                    "target",
                     "status"
                   ],
                   "properties": {
@@ -4540,6 +4752,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
                     },
                     "status": {
                       "type": "string",
@@ -4799,6 +5034,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     },
                     "irreversible": {
                       "type": "boolean"
+                    },
+                    "providerPreflight": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
                     }
                   }
                 },
@@ -4809,7 +5067,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "id",
                     "phase",
                     "mutating",
-                    "irreversible"
+                    "irreversible",
+                    "target"
                   ],
                   "properties": {
                     "id": {
@@ -4831,6 +5090,29 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "irreversible": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "externalProject",
+                        "branch",
+                        "revision"
+                      ],
+                      "properties": {
+                        "externalProject": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{40}$"
+                        }
+                      }
                     }
                   }
                 }

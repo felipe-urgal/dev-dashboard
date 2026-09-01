@@ -282,7 +282,8 @@ test('provider-deploy usa somente o alvo confirmado e o preflight imediatamente 
   assert.equal(result.cancelled, false);
   assert.equal(detailReads, 1);
   const create = requests.find(
-    (request) => request.path === '/v13/deployments' && request.method === 'POST',
+    (request) =>
+      request.path === '/v13/deployments' && request.method === 'POST',
   );
   assert.deepEqual(create?.body, {
     name: 'portfolio-copilot',
@@ -296,7 +297,8 @@ test('provider-deploy usa somente o alvo confirmado e o preflight imediatamente 
     },
   });
   assert.equal(
-    requests.filter((request) => request.path.startsWith('/v9/projects/')).length,
+    requests.filter((request) => request.path.startsWith('/v9/projects/'))
+      .length,
     1,
   );
 });

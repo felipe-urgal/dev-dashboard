@@ -219,11 +219,7 @@ export class ProductionCommandAdapter {
         }
 
         const finish = async () => {
-          if (
-            !cancelled &&
-            (code ?? 1) === 0 &&
-            step.providerPreflight
-          ) {
+          if (!cancelled && (code ?? 1) === 0 && step.providerPreflight) {
             try {
               await this.providerAdapter.preflight(
                 project,

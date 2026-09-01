@@ -77,12 +77,12 @@ function isProviderTarget(value: unknown): value is DeploymentProviderTarget {
   const target = record(value);
   return Boolean(
     target &&
-      typeof target.externalProject === 'string' &&
-      target.externalProject.trim().length > 0 &&
-      typeof target.branch === 'string' &&
-      target.branch.trim().length > 0 &&
-      typeof target.revision === 'string' &&
-      /^[0-9a-f]{40}$/i.test(target.revision),
+    typeof target.externalProject === 'string' &&
+    target.externalProject.trim().length > 0 &&
+    typeof target.branch === 'string' &&
+    target.branch.trim().length > 0 &&
+    typeof target.revision === 'string' &&
+    /^[0-9a-f]{40}$/i.test(target.revision),
   );
 }
 
@@ -113,7 +113,8 @@ function isTimelineStep(value: unknown): boolean {
   }
 
   const expectedScript = COMMAND_SCRIPTS[step.id as ProductionCommandId];
-  if (expectedScript === undefined || step.script !== expectedScript) return false;
+  if (expectedScript === undefined || step.script !== expectedScript)
+    return false;
   return (
     step.target === undefined &&
     (step.providerPreflight === undefined ||
@@ -160,13 +161,13 @@ export function isPersistedDeploymentLog(
   const log = record(value);
   return Boolean(
     log &&
-      typeof log.deploymentId === 'string' &&
-      log.deploymentId.length > 0 &&
-      typeof log.content === 'string' &&
-      typeof log.truncated === 'boolean' &&
-      typeof log.masked === 'boolean' &&
-      typeof log.redactionCount === 'number' &&
-      Number.isSafeInteger(log.redactionCount) &&
-      log.redactionCount >= 0,
+    typeof log.deploymentId === 'string' &&
+    log.deploymentId.length > 0 &&
+    typeof log.content === 'string' &&
+    typeof log.truncated === 'boolean' &&
+    typeof log.masked === 'boolean' &&
+    typeof log.redactionCount === 'number' &&
+    Number.isSafeInteger(log.redactionCount) &&
+    log.redactionCount >= 0,
   );
 }
