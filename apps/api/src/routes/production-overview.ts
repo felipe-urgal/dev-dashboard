@@ -1,12 +1,7 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import type {
-  ProductionOverview,
-  Project,
-  Workspace,
-} from '@dev-dashboard/contracts';
+import type { ProductionOverview, Project } from '@dev-dashboard/contracts';
 
-import { ApiError } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
   productionOverviewResponseSchema,
@@ -14,10 +9,6 @@ import {
 
 interface WorkspaceParams {
   workspaceId: string;
-}
-
-export interface ProductionOverviewWorkspaceRepository {
-  find(workspaceId: string): Promise<Workspace | null>;
 }
 
 export interface ProductionOverviewProjectStore {
@@ -32,7 +23,6 @@ export interface ProductionOverviewReader {
 }
 
 interface Options extends FastifyPluginOptions {
-  workspaceRepository: ProductionOverviewWorkspaceRepository;
   projectStore: ProductionOverviewProjectStore;
   productionOverviewService: ProductionOverviewReader;
 }
@@ -69,20 +59,9 @@ export const productionOverviewRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const workspace = await options.workspaceRepository.find(
-        request.params.workspaceId,
-      );
-      if (!workspace) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'WORKSPACE_NOT_FOUND',
-          message: 'Workspace não encontrado.',
-        });
-      }
-
       const scan = options.projectStore
         .listWorkspaceScans()
-        .find((item) => item.workspaceId === workspace.id);
+        .find((item) => item.workspaceId === request.params.workspaceId);
 
       return {
         overview: await options.productionOverviewService.read(
