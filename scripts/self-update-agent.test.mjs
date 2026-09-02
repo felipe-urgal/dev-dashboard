@@ -163,8 +163,14 @@ test('serializa claims concorrentes do mesmo handoff', async (t) => {
     }),
   ]);
 
-  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
-  assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+  assert.equal(
+    results.filter((result) => result.status === 'fulfilled').length,
+    1,
+  );
+  assert.equal(
+    results.filter((result) => result.status === 'rejected').length,
+    1,
+  );
 
   const inspected = await sendSelfUpdateAgentRequest('inspect', {
     paths,
@@ -198,6 +204,45 @@ test('startup recupera handoff assumido por execução anterior', async (t) => {
   assert.equal(inspected.result.code, 'SELF_UPDATE_HELPER_INTERRUPTED');
 });
 
+test('segundo agent não executa recovery enquanto o socket já está ativo', async (t) => {
+  const paths = await createTestPaths(t);
+  const token = await getOrCreateSelfUpdateAgentToken(paths);
+  const firstStore = new SelfUpdateHandoffStore(paths.stateDirectory);
+  const firstRuntime = await startSelfUpdateAgentServer({
+    paths,
+    token,
+    store: firstStore,
+    release: 'first-release',
+  });
+  t.after(() => firstRuntime.close());
+
+  const handoff = await prepareHandoff(firstStore);
+  await sendSelfUpdateAgentRequest('claim', {
+    paths,
+    token,
+    handoffId: handoff.id,
+  });
+
+  const secondStore = new SelfUpdateHandoffStore(paths.stateDirectory);
+  await assert.rejects(
+    () =>
+      startSelfUpdateAgentServer({
+        paths,
+        token,
+        store: secondStore,
+        release: 'second-release',
+      }),
+    (error) => error?.code === 'AGENT_ALREADY_RUNNING',
+  );
+
+  const inspected = await sendSelfUpdateAgentRequest('inspect', {
+    paths,
+    token,
+    handoffId: handoff.id,
+  });
+  assert.equal(inspected.status, 'accepted');
+});
+
 test('lifecycle inicia cópia instalada fora do repo e encerra pelo PID autenticado', async (t) => {
   const paths = await createTestPaths(t);
   await installAgent({ paths, sourceDirectory: SOURCE_DIRECTORY });
@@ -226,5 +271,22 @@ test('token com permissões abertas falha fechado', async (t) => {
   await assert.rejects(
     () => sendSelfUpdateAgentRequest('ping', { paths }),
     (error) => error?.code === 'AGENT_FILE_UNSAFE',
+  );
+});
+
+test('token ausente não é interpretado como agent parado', async (t) => {
+  const paths = await createTestPaths(t);
+  const token = await getOrCreateSelfUpdateAgentToken(paths);
+  const runtime = await startSelfUpdateAgentServer({
+    paths,
+    token,
+    release: 'test-release',
+  });
+  t.after(() => runtime.close());
+  await rm(paths.tokenPath, { force: true });
+
+  await assert.rejects(
+    () => agentStatus({ paths }),
+    (error) => error?.code === 'AGENT_TOKEN_MISSING',
   );
 });
