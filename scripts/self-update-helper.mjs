@@ -44,13 +44,14 @@ function printJson(value, stdout) {
 
 export async function runSelfUpdateHelper(
   argv,
-  {
-    store = new SelfUpdateHandoffStore(),
-    stdout = process.stdout,
-    stderr = process.stderr,
-  } = {},
+  { store, stdout = process.stdout, stderr = process.stderr } = {},
 ) {
   const [command, ...args] = argv;
+  let activeStore = store;
+  const getStore = () => {
+    activeStore ??= new SelfUpdateHandoffStore();
+    return activeStore;
+  };
 
   try {
     if (!command || command === 'help') {
@@ -70,7 +71,7 @@ export async function runSelfUpdateHelper(
       if (!projectId || !targetRevision || !planHash || options.size !== 3) {
         throw new Error('prepare exige project-id, revision e plan-hash.');
       }
-      const handoff = await store.prepare({
+      const handoff = await getStore().prepare({
         projectId,
         targetRevision,
         planHash,
@@ -83,7 +84,7 @@ export async function runSelfUpdateHelper(
       if (args.length !== 1) {
         throw new Error('claim exige exatamente um handoff-id.');
       }
-      const handoff = await store.claim(args[0]);
+      const handoff = await getStore().claim(args[0]);
       printJson(handoff, stdout);
       return 0;
     }
@@ -92,7 +93,7 @@ export async function runSelfUpdateHelper(
       if (args.length !== 1) {
         throw new Error('inspect exige exatamente um handoff-id.');
       }
-      const handoff = await store.get(args[0]);
+      const handoff = await getStore().get(args[0]);
       if (!handoff) throw new Error('Handoff de self-update não encontrado.');
       printJson(handoff, stdout);
       return 0;
@@ -100,7 +101,7 @@ export async function runSelfUpdateHelper(
 
     if (command === 'recover') {
       if (args.length !== 0) throw new Error('recover não aceita argumentos.');
-      const recovered = await store.recoverInterrupted();
+      const recovered = await getStore().recoverInterrupted();
       printJson(
         {
           recovered: recovered.length,
