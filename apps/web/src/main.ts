@@ -8,7 +8,6 @@ import './project-details-redesign.css';
 import './project-dependencies-typography.css';
 import './database-layout-polish.css';
 import './scripts-explorer-redesign.css';
-import './test-log-visual-polish.css';
 import './test-log-theme-fix.css';
 import './test-log-inspector.css';
 import './git-modern-polish.css';
@@ -22,12 +21,10 @@ import './shell-option3.css';
 import { installTestLogAutoFollow } from './test-log-auto-follow';
 import { installTestLogInspector } from './test-log-inspector';
 import { installTestLogInspectorMutationGuard } from './test-log-inspector-mutation-guard';
-import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
 installTestLogAutoFollow();
-installTestLogToneEnhancer();
 const restoreTestLogInspectorMutationObserver =
   installTestLogInspectorMutationGuard();
 try {
