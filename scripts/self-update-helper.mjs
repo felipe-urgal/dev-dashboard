@@ -16,25 +16,26 @@ function usage() {
   ].join('\n');
 }
 
-function optionValue(args, name) {
-  const index = args.indexOf(name);
-  if (index === -1) return undefined;
-  const value = args[index + 1];
-  if (!value || value.startsWith('--')) {
-    throw new Error(`Valor ausente para ${name}.`);
-  }
-  return value;
-}
-
-function assertOnlyKnownOptions(args, knownOptions) {
-  for (let index = 0; index < args.length; index += 1) {
-    const argument = args[index];
-    if (!argument?.startsWith('--')) continue;
-    if (!knownOptions.has(argument)) {
-      throw new Error(`Opção desconhecida: ${argument}.`);
+function parseOptions(args, knownOptions) {
+  const parsed = new Map();
+  for (let index = 0; index < args.length; index += 2) {
+    const option = args[index];
+    const value = args[index + 1];
+    if (!option?.startsWith('--')) {
+      throw new Error(`Argumento posicional inesperado: ${String(option)}.`);
     }
-    index += 1;
+    if (!knownOptions.has(option)) {
+      throw new Error(`Opção desconhecida: ${option}.`);
+    }
+    if (!value || value.startsWith('--')) {
+      throw new Error(`Valor ausente para ${option}.`);
+    }
+    if (parsed.has(option)) {
+      throw new Error(`Opção repetida: ${option}.`);
+    }
+    parsed.set(option, value);
   }
+  return parsed;
 }
 
 function printJson(value, stdout) {
@@ -53,14 +54,14 @@ export async function runSelfUpdateHelper(
 
   try {
     if (command === 'prepare') {
-      assertOnlyKnownOptions(
+      const options = parseOptions(
         args,
         new Set(['--project-id', '--revision', '--plan-hash']),
       );
-      const projectId = optionValue(args, '--project-id');
-      const targetRevision = optionValue(args, '--revision');
-      const planHash = optionValue(args, '--plan-hash');
-      if (!projectId || !targetRevision || !planHash) {
+      const projectId = options.get('--project-id');
+      const targetRevision = options.get('--revision');
+      const planHash = options.get('--plan-hash');
+      if (!projectId || !targetRevision || !planHash || options.size !== 3) {
         throw new Error('prepare exige project-id, revision e plan-hash.');
       }
       const handoff = await store.prepare({
@@ -107,7 +108,8 @@ export async function runSelfUpdateHelper(
     stderr.write(`${usage()}\n`);
     return 2;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha desconhecida.';
+    const message =
+      error instanceof Error ? error.message : 'Falha desconhecida.';
     stderr.write(`Self-update helper: ${message}\n`);
     return 1;
   }
