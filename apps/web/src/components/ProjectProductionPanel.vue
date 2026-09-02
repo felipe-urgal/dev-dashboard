@@ -48,6 +48,7 @@ import {
   retryDeploymentVerify,
   startDeployment,
 } from '../api';
+import DeploymentLogViewer from './DeploymentLogViewer.vue';
 import ProductionSudoModal from './ProductionSudoModal.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -1329,23 +1330,15 @@ onBeforeUnmount(() => {
             </p>
           </div>
         </div>
-        <details
+        <DeploymentLogViewer
           v-if="deploymentLog"
-          class="production-log"
+          :log="deploymentLog"
+          :active="hasActiveDeployment"
           :open="
             hasActiveDeployment ||
             latestDeployment.status === 'recovery_required'
           "
-        >
-          <summary>Log do deployment</summary>
-          <div class="production-log-meta">
-            <span v-if="deploymentLog.masked">Conteúdo sensível mascarado</span>
-            <span v-if="deploymentLog.truncated"
-              >Log limitado à cauda disponível</span
-            >
-          </div>
-          <pre>{{ deploymentLog.content || 'Nenhuma saída registrada.' }}</pre>
-        </details>
+        />
       </article>
 
       <article
