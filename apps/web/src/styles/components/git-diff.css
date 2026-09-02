@@ -7,7 +7,7 @@
 .git-diff-file-button code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-diff-file-button small { color: var(--text-muted); font-size: 9px; }
 .git-diff-viewer { display: grid; gap: 8px; min-height: 200px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
-.git-diff-content { overflow: auto; max-height: 480px; padding: 12px; margin: 0; border-radius: 8px; background: var(--surface-0); color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.5; white-space: pre; }
+.git-diff-content { overflow: auto; max-height: 480px; padding: 12px; margin: 0; border-radius: 8px; background: var(--code-surface); color: var(--code-text); font-family: var(--font-family-mono); font-size: 11px; line-height: var(--diff-line-height); white-space: pre; }
 @media (max-width: 900px) { .git-diff-layout { grid-template-columns: 1fr; } .git-diff-files { max-height: 240px; } }
 
 /* Mutações do Git */
