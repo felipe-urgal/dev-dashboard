@@ -95,7 +95,8 @@ function markRemainingNotStarted(
   startIndex: number,
 ): void {
   for (let index = startIndex; index < items.length; index += 1) {
-    if (items[index]?.status === 'queued') items[index].status = 'not-started';
+    const item = items[index];
+    if (item?.status === 'queued') item.status = 'not-started';
   }
 }
 
@@ -195,7 +196,7 @@ export async function executeProductionBatch(
 
     throwIfAborted(options.signal);
     item.status = 'running';
-    item.message = undefined;
+    delete item.message;
     notify(items, options.onUpdate);
 
     try {
@@ -225,7 +226,8 @@ export async function executeProductionBatch(
       item.deploymentId = terminal.id;
       item.deploymentStatus = terminal.status;
       item.status = terminalItemStatus(terminal.status);
-      item.message = terminal.errorMessage;
+      if (terminal.errorMessage) item.message = terminal.errorMessage;
+      else delete item.message;
       notify(items, options.onUpdate);
 
       if (terminal.status === 'succeeded') continue;
