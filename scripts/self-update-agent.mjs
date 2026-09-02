@@ -31,6 +31,7 @@ const MAX_LOCK_BYTES = 1024;
 const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
 const API_PORT_PATTERN = /^[1-9][0-9]{0,4}$/;
 const EXECUTION_LOCK_FILE = 'execution.lock';
+const RUNTIME_REVISION_HEADER = 'x-dev-dashboard-revision';
 
 export class SelfUpdateExecutionError extends Error {
   constructor(code, message) {
@@ -381,9 +382,17 @@ async function readHealth(healthUrl, fetchImpl) {
     const text = await response.text();
     if (Buffer.byteLength(text, 'utf8') > MAX_HEALTH_BYTES) return null;
     const parsed = JSON.parse(text);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : null;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const revision = response.headers?.get?.(RUNTIME_REVISION_HEADER);
+    return {
+      ...parsed,
+      ...(typeof revision === 'string' && REVISION_PATTERN.test(revision)
+        ? { revision }
+        : {}),
+    };
   } catch {
     return null;
   }
