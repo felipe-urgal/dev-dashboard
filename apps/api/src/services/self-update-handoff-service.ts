@@ -188,12 +188,11 @@ async function defaultToolRunner(
     let stdout = '';
     let stderr = '';
     let settled = false;
-    let timeout: NodeJS.Timeout | undefined;
 
     const finishError = (error: Error) => {
       if (settled) return;
       settled = true;
-      if (timeout) clearTimeout(timeout);
+      clearTimeout(timeout);
       child.kill('SIGTERM');
       reject(error);
     };
@@ -215,7 +214,7 @@ async function defaultToolRunner(
     });
     child.once('error', finishError);
 
-    timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       finishError(new Error('Tooling de self-update excedeu o timeout.'));
     }, TOOL_TIMEOUT_MS);
     timeout.unref();
@@ -223,7 +222,7 @@ async function defaultToolRunner(
     child.once('close', (code) => {
       if (settled) return;
       settled = true;
-      if (timeout) clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve({ code: code ?? 1, stdout, stderr });
     });
   });
