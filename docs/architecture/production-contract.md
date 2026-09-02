@@ -32,6 +32,7 @@ O manifesto não escolhe qualquer script do `package.json`. Cada operação poss
 
 | Operação | Script aceito |
 | --- | --- |
+| `prepare` | `prod:prepare` |
 | `status` | `prod:status` |
 | `check` | `prod:check` |
 | `backup` | `prod:backup` |
@@ -43,6 +44,10 @@ O manifesto não escolhe qualquer script do `package.json`. Cada operação poss
 | `logs` | `prod:logs` |
 
 A validação exige que o valor corresponda exatamente ao alias canônico e que o script exista de fato no `package.json` atual. O manifesto não contém corpo de script, programa, argumentos, token ou linha de shell.
+
+`prod:prepare` é um hook opcional de pré-check. Quando declarado, o planner o vincula à etapa de `check` e o adapter o executa imediatamente antes de `prod:check`. O significado físico desse hook é integralmente definido pelo projeto consumidor: o Dev Dashboard não infere serviço, banco, container, processo ou qualquer outra implementação específica. Projetos sem `prepare` preservam exatamente o fluxo anterior.
+
+O hook `prepare` usa a mesma fronteira de ambiente local do check (`.dev-dashboard/.env.check.local`) e não carrega `.dev-dashboard/.env.production.local`. Isso mantém o hook de preparação separado das credenciais locais reservadas às etapas mutáveis de produção.
 
 ## Estratégias v1
 
@@ -59,7 +64,7 @@ Requisitos mínimos:
 - `prod:deploy`;
 - `prod:verify`.
 
-Backup, migration, logs, restore-check e rollback são capabilities adicionais quando declaradas. O dashboard não interpreta systemd ou Docker Compose diretamente: o projeto continua dono da implementação física de seus scripts `prod:*`.
+Prepare, backup, migration, logs, restore-check e rollback são capabilities adicionais quando declaradas. O dashboard não interpreta systemd, Docker Compose ou a implementação de `prod:prepare` diretamente: o projeto continua dono da implementação física de seus scripts `prod:*`.
 
 ### `git-managed`
 
@@ -79,7 +84,8 @@ Requisitos mínimos:
 O fluxo mutável suportado é:
 
 ```text
-prod:check
+prod:prepare (quando declarado)
+→ prod:check
 → backup/migrate quando a política exigir
 → provider-deploy na Vercel para a revision confirmada
 → prod:verify
@@ -133,7 +139,7 @@ Warnings estáveis do v1 incluem:
 
 Um contrato válido **não autoriza sozinho** uma mutação de produção.
 
-Para `command` e `git-managed`, o backend resolve branch, revision e working tree antes do plano. O working tree precisa estar limpo, inclusive arquivos não rastreados. O `planHash` cobre projeto, provider, branch, revision e etapas.
+Para `command` e `git-managed`, o backend resolve branch, revision e working tree antes do plano. O working tree precisa estar limpo, inclusive arquivos não rastreados. O `planHash` cobre projeto, provider, branch, revision e etapas; quando `prod:prepare` está declarado, seu vínculo com o `check` também faz parte do plano confirmado.
 
 ```text
 Production Contract válido
@@ -155,22 +161,22 @@ No `git-managed`, existe uma defesa adicional imediatamente antes de `provider-d
 
 ## Políticas e irreversibilidade
 
-As políticas determinam a timeline. Exemplos:
+As políticas determinam a timeline. O hook opcional `prepare` é executado dentro da fase de preparação, imediatamente antes de `check`; ele não cria uma operação mutável independente na timeline. Exemplos:
 
 ```text
 command + migration no startup:
-check → backup → deploy → verify
+prepare? → check → backup → deploy → verify
 
 command + migration separada:
-check → backup → migrate → deploy → verify
+prepare? → check → backup → migrate → deploy → verify
 
 git-managed/Vercel + migration separada:
-check → migrate → provider-deploy → verify
+prepare? → check → migrate → provider-deploy → verify
 ```
 
 Uma migration ou promoção externa já iniciada pode produzir efeito parcial. Falhas posteriores podem resultar em `recovery_required`; o dashboard não executa rollback cego.
 
-Quando a promoção já concluiu e somente o `verify` falhou, o domínio pode repetir **somente `prod:verify`** se a timeline, revision, contrato e ordem histórica provarem que o retry é seguro. Check, backup, migrate e provider-deploy não são repetidos nesse fluxo.
+Quando a promoção já concluiu e somente o `verify` falhou, o domínio pode repetir **somente `prod:verify`** se a timeline, revision, contrato e ordem histórica provarem que o retry é seguro. Prepare, check, backup, migrate e provider-deploy não são repetidos nesse fluxo.
 
 ## Credenciais externas
 
@@ -189,7 +195,7 @@ Tokens não são persistidos no domínio, não são retornados ao browser e não
 
 O navegador envia IDs, `planHash`, token de confirmação e ações tipadas. Ele não escolhe programa, argumentos, `cwd`, corpo de script, linha de shell, token Vercel ou SHA arbitrário para promoção.
 
-O adapter local usa scripts canônicos e `shell: false`. O adapter Vercel usa o projeto externo declarado, a origem Git resolvida pelo backend e a revision já confirmada. Respostas externas possuem tamanho/shape limitados e erros são traduzidos para códigos locais estáveis.
+O adapter local usa scripts canônicos e `shell: false`. `prod:prepare` segue a mesma regra: somente o alias canônico declarado pelo projeto pode ser executado, sem conhecimento do Dev Dashboard sobre o que o script prepara. O adapter Vercel usa o projeto externo declarado, a origem Git resolvida pelo backend e a revision já confirmada. Respostas externas possuem tamanho/shape limitados e erros são traduzidos para códigos locais estáveis.
 
 `documentation` aceita somente caminho relativo seguro. Health aceita apenas HTTP/HTTPS sem credenciais. O contrato não possui campos para tokens, connection strings ou valores secretos.
 
@@ -236,6 +242,7 @@ Depois do PR C, o gate permanece fechado para revisão formal do modelo de privi
 Incluído:
 
 - Production Contract v1 e discovery fail-closed;
+- hook opcional e genérico `prod:prepare` executado antes de `prod:check`, com implementação pertencente ao projeto consumidor;
 - `strategy=command` para systemd/Docker Compose via scripts `prod:*`;
 - `strategy=git-managed` para deploy Vercel explícito;
 - status/drift Vercel;
