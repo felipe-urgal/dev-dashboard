@@ -189,18 +189,23 @@ test('executor usa somente comandos Git fixos e exige fast-forward de origin/mai
   );
 });
 
-test('readiness só aceita health da nova revision', async () => {
+test('readiness só aceita a revision comprovada pelo header do runtime', async () => {
   let calls = 0;
   const fetchImpl = async () => {
     calls += 1;
     const revision = calls === 1 ? 'c'.repeat(40) : REVISION;
     return {
       ok: true,
+      headers: {
+        get(name) {
+          return name === 'x-dev-dashboard-revision' ? revision : null;
+        },
+      },
       async text() {
         return JSON.stringify({
           status: 'ok',
           service: 'dev-dashboard-api',
-          revision,
+          revision: REVISION,
         });
       },
     };
