@@ -1,9 +1,7 @@
 import type { Project } from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
-import {
-  isolateProjectExecutionEnvironment,
-} from '../security/project-execution-environment.js';
+import { isolateProjectExecutionEnvironment } from '../security/project-execution-environment.js';
 import {
   loadProjectLocalEnvironment,
   ProjectLocalEnvironmentError,

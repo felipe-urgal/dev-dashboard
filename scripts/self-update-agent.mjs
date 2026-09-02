@@ -406,7 +406,10 @@ export class SelfUpdateExecutor {
     fetchImpl = fetch,
     apiPort = resolveApiPort(),
   }) {
-    if (typeof repositoryRoot !== 'string' || !path.isAbsolute(repositoryRoot)) {
+    if (
+      typeof repositoryRoot !== 'string' ||
+      !path.isAbsolute(repositoryRoot)
+    ) {
       throw new SelfUpdateExecutionError(
         'SELF_UPDATE_REPOSITORY_INVALID',
         'Checkout registrada para self-update é inválida.',
@@ -557,10 +560,7 @@ export class SelfUpdateExecutor {
     return { pid: child.pid };
   }
 
-  async waitForReadiness(
-    targetRevision,
-    timeoutMs = READINESS_TIMEOUT_MS,
-  ) {
+  async waitForReadiness(targetRevision, timeoutMs = READINESS_TIMEOUT_MS) {
     assertRevision(targetRevision);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -660,7 +660,8 @@ async function acquireExecutionLock(paths, handoffId) {
       if (!isErrnoCode(error, 'EEXIST')) throw error;
 
       const metadata = await lstat(lockPath);
-      const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+      const uid =
+        typeof process.getuid === 'function' ? process.getuid() : null;
       if (
         !metadata.isFile() ||
         metadata.isSymbolicLink() ||
@@ -720,7 +721,8 @@ export async function runSelfUpdateExecutionWorker({
   store,
 } = {}) {
   const activePaths = paths ?? resolveSelfUpdateAgentPaths();
-  const activeStore = store ?? new SelfUpdateHandoffStore(activePaths.stateDirectory);
+  const activeStore =
+    store ?? new SelfUpdateHandoffStore(activePaths.stateDirectory);
   await activeStore.ready();
   const releaseLock = await acquireExecutionLock(activePaths, handoffId);
 
@@ -734,13 +736,16 @@ export async function runSelfUpdateExecutionWorker({
     }
 
     const root = await assertRepositoryRoot(repositoryRoot);
-    const activeExecutor = executor ?? new SelfUpdateExecutor({ repositoryRoot: root });
+    const activeExecutor =
+      executor ?? new SelfUpdateExecutor({ repositoryRoot: root });
 
     try {
       await activeExecutor.waitForApiShutdown();
       await activeStore.transition(handoff.id, 'applying');
       await activeExecutor.preflight(handoff.targetRevision);
-      const appliedRevision = await activeExecutor.apply(handoff.targetRevision);
+      const appliedRevision = await activeExecutor.apply(
+        handoff.targetRevision,
+      );
 
       await installSelfUpdateAgent({
         sourceDirectory: path.join(root, 'scripts'),
@@ -768,10 +773,14 @@ export async function runSelfUpdateExecutionWorker({
       });
     } catch (error) {
       const current = await activeStore.get(handoff.id);
-      if (!current || ['succeeded', 'failed', 'recovery_required'].includes(current.status)) {
+      if (
+        !current ||
+        ['succeeded', 'failed', 'recovery_required'].includes(current.status)
+      ) {
         throw error;
       }
-      const nextStatus = current.status === 'accepted' ? 'failed' : 'recovery_required';
+      const nextStatus =
+        current.status === 'accepted' ? 'failed' : 'recovery_required';
       await activeStore.transition(
         handoff.id,
         nextStatus,
@@ -845,9 +854,11 @@ export async function executeAcceptedHandoff({
   }
 
   const root = await assertRepositoryRoot(
-    repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+    repositoryRoot ??
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
   );
-  const activeExecutor = executor ?? new SelfUpdateExecutor({ repositoryRoot: root });
+  const activeExecutor =
+    executor ?? new SelfUpdateExecutor({ repositoryRoot: root });
   await activeExecutor.preflight(handoff.targetRevision);
 
   return await spawnInstalledExecutionWorker({
@@ -860,7 +871,10 @@ export async function executeAcceptedHandoff({
 
 async function runInstalledExecutionWorker(handoffId, paths) {
   const activePaths = paths ?? resolveSelfUpdateAgentPaths();
-  await assertAgentEntrypointInstalled(fileURLToPath(import.meta.url), activePaths);
+  await assertAgentEntrypointInstalled(
+    fileURLToPath(import.meta.url),
+    activePaths,
+  );
   const repositoryRoot = process.env.DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT;
   await runSelfUpdateExecutionWorker({
     handoffId,

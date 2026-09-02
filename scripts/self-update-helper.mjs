@@ -63,12 +63,7 @@ export async function runSelfUpdateHelper(
     if (command === 'prepare') {
       const options = parseOptions(
         args,
-        new Set([
-          '--project-id',
-          '--revision',
-          '--plan-hash',
-          '--handoff-id',
-        ]),
+        new Set(['--project-id', '--revision', '--plan-hash', '--handoff-id']),
       );
       const projectId = options.get('--project-id');
       const targetRevision = options.get('--revision');

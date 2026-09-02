@@ -73,7 +73,9 @@ function workerStarted(overrides = {}) {
   });
 }
 
-function successfulRunner(calls: Array<{ scriptPath: string; args: string[] }>) {
+function successfulRunner(
+  calls: Array<{ scriptPath: string; args: string[] }>,
+) {
   const runner: SelfUpdateToolRunner = async (scriptPath, args) => {
     calls.push({ scriptPath, args });
     if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };

@@ -4,7 +4,10 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const MANIFEST_URL = new URL('../.dev-dashboard/production.json', import.meta.url);
+const MANIFEST_URL = new URL(
+  '../.dev-dashboard/production.json',
+  import.meta.url,
+);
 const AGENT_PATH = fileURLToPath(
   new URL('./self-update-agent.mjs', import.meta.url),
 );
@@ -96,11 +99,7 @@ function inspectAgent(runner) {
 
 export function runProductionGate(
   argv,
-  {
-    runner = spawnSync,
-    stdout = process.stdout,
-    stderr = process.stderr,
-  } = {},
+  { runner = spawnSync, stdout = process.stdout, stderr = process.stderr } = {},
 ) {
   const mode = argv[0] ?? 'check';
   if (mode !== 'status' && mode !== 'check') {
@@ -119,7 +118,9 @@ export function runProductionGate(
 
   const agent = inspectAgent(runner);
   if (mode === 'status') {
-    stdout.write('Self-production do Dev Dashboard está habilitada por contrato.\n');
+    stdout.write(
+      'Self-production do Dev Dashboard está habilitada por contrato.\n',
+    );
     stdout.write(
       agent.ready
         ? 'Self-update agent: pronto.\n'

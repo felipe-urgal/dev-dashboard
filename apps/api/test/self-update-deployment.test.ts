@@ -4,10 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type {
-  DeploymentPlanStep,
-  Project,
-} from '@dev-dashboard/contracts';
+import type { DeploymentPlanStep, Project } from '@dev-dashboard/contracts';
 import type { MaskedLogContent } from '@dev-dashboard/process-manager';
 
 import { DeploymentPlanner } from '../src/deployment/planner.js';
@@ -78,7 +75,11 @@ class CheckRunner implements DeploymentCommandRunner {
     onOutput: (output: MaskedLogContent) => void,
   ) {
     this.calls.push(step.id);
-    onOutput({ content: `step=${step.id}\n`, masked: false, redactionCount: 0 });
+    onOutput({
+      content: `step=${step.id}\n`,
+      masked: false,
+      redactionCount: 0,
+    });
     return { exitCode: 0, cancelled: false };
   }
 }
@@ -117,7 +118,9 @@ class FakeSelfUpdateHandoff implements DeploymentSelfUpdateHandoff {
 }
 
 async function temporaryStore(t: test.TestContext) {
-  const directory = await mkdtemp(path.join(tmpdir(), 'self-update-deployment-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'self-update-deployment-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   return new DeploymentStore(directory);
 }
@@ -179,7 +182,10 @@ test('deployment entrega revision de origin/main ao handoff e reconcilia sucesso
 
   const plan = await service.plan(project);
   assert.equal(plan.revision, TARGET_REVISION);
-  const confirmation = await service.prepareConfirmation(project, plan.planHash);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
   const started = await service.start(
     project,
     plan.planHash,
@@ -196,10 +202,7 @@ test('deployment entrega revision de origin/main ao handoff e reconcilia sucesso
   assert.deepEqual(runner.calls, ['check']);
   assert.equal(handoff.prepareCalls.length, 1);
   assert.equal(handoff.prepareCalls[0]?.targetRevision, TARGET_REVISION);
-  assert.equal(
-    handoff.prepareCalls[0]?.handoffId,
-    `self-update-${started.id}`,
-  );
+  assert.equal(handoff.prepareCalls[0]?.handoffId, `self-update-${started.id}`);
 
   handoff.status = 'succeeded';
   handoff.result = {
@@ -215,7 +218,10 @@ test('deployment entrega revision de origin/main ao handoff e reconcilia sucesso
   assert.equal(finished.timeline[0]?.status, 'succeeded');
   assert.equal(finished.timeline[1]?.status, 'succeeded');
   assert.equal(finished.timeline[1]?.exitCode, 0);
-  assert.match((await restarted.log(project.id, started.id)).content, /Nova API validada/);
+  assert.match(
+    (await restarted.log(project.id, started.id)).content,
+    /Nova API validada/,
+  );
 });
 
 test('reconciliação mantém recovery_required quando worker não comprova conclusão segura', async (t) => {
@@ -224,10 +230,19 @@ test('reconciliação mantém recovery_required quando worker não comprova conc
   const { service } = makeService(store, handoff);
   const project = makeProject();
   const plan = await service.plan(project);
-  const confirmation = await service.prepareConfirmation(project, plan.planHash);
-  const started = await service.start(project, plan.planHash, confirmation.token);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
+  const started = await service.start(
+    project,
+    plan.planHash,
+    confirmation.token,
+  );
 
-  await waitUntil(async () => (await store.get(started.id))?.currentStepId === 'self-update');
+  await waitUntil(
+    async () => (await store.get(started.id))?.currentStepId === 'self-update',
+  );
 
   handoff.status = 'recovery_required';
   handoff.result = {

@@ -10,9 +10,9 @@ describe('arquitetura do bootstrap de testes', () => {
     expect(entrada).not.toContain('installTestLogToneEnhancer');
     expect(entrada).not.toContain("from './test-log-tone-enhancer'");
     expect(entrada).not.toContain("import './test-log-visual-polish.css'");
-    expect(
-      existsSync(resolve(raizWeb, 'src/test-log-tone-enhancer.ts')),
-    ).toBe(false);
+    expect(existsSync(resolve(raizWeb, 'src/test-log-tone-enhancer.ts'))).toBe(
+      false,
+    );
     expect(existsSync(resolve(raizWeb, 'src/test-log-tone'))).toBe(false);
     expect(existsSync(resolve(raizWeb, 'src/test-log-visual-polish.css'))).toBe(
       false,

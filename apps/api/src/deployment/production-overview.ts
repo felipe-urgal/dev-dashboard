@@ -230,7 +230,8 @@ export class ProductionOverviewService {
       options.targetRevisionResolver ??
       new GitProductionOverviewTargetRevisionResolver();
     this.originRevisionResolver =
-      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
+      options.originRevisionResolver ??
+      new GitDeploymentOriginRevisionResolver();
     this.now = options.now ?? Date.now;
     this.concurrency = Math.max(
       1,
@@ -351,8 +352,14 @@ export class ProductionOverviewService {
     ) {
       const targetRevision =
         production.strategy === 'self-update'
-          ? await this.originRevisionResolver.resolve(project, production.branch)
-          : await this.targetRevisionResolver.resolve(project, production.branch);
+          ? await this.originRevisionResolver.resolve(
+              project,
+              production.branch,
+            )
+          : await this.targetRevisionResolver.resolve(
+              project,
+              production.branch,
+            );
       const productionDeployment = currentHistory.find(mutationStepSucceeded);
       const productionRevision = productionDeployment?.revision;
       const health = healthEvidence(

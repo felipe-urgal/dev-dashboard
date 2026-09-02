@@ -1,9 +1,5 @@
 export type TestLogSemanticTone =
-  | 'default'
-  | 'success'
-  | 'error'
-  | 'warning'
-  | 'muted';
+  'default' | 'success' | 'error' | 'warning' | 'muted';
 
 const RSPEC_PROGRESS_PATTERN = /^[.·•*EFSPX]+$/i;
 

@@ -73,7 +73,10 @@ test('planner incorpora prepare no check sem alterar o fluxo quando hook não ex
   const planner = new DeploymentPlanner(() => 0);
   const revision = { branch: 'main', revision: REVISION };
 
-  const withoutPrepare = planner.build(project('/tmp/project', false), revision);
+  const withoutPrepare = planner.build(
+    project('/tmp/project', false),
+    revision,
+  );
   const withPrepare = planner.build(project('/tmp/project', true), revision);
 
   assert.deepEqual(
