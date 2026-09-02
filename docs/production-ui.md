@@ -1,6 +1,6 @@
 # Interface de Produção
 
-A superfície **Produção** concentra o estado e a operação de projetos com `capability=production` válida. Existe uma visão global do workspace, somente leitura, e a superfície detalhada por projeto; ambas usam o mesmo domínio de deployment, sem criar um fluxo paralelo no frontend.
+A superfície **Produção** concentra o estado e a operação de projetos com `capability=production` válida. Existe uma visão global do workspace com overview e atualização segura de pendentes, além da superfície detalhada por projeto; ambas usam o mesmo domínio de deployment, sem criar um fluxo paralelo no frontend.
 
 ## Visão global do workspace
 
@@ -21,9 +21,42 @@ Para `strategy=command`, a revision alvo é a branch de produção local conheci
 
 A coluna **Health** não representa monitoramento contínuo. `Verify passou` ou `Verify falhou` significa que existe uma execução registrada para a mesma revision atualmente identificada em produção e que a etapa `verify` terminou nesse estado. Sem essa evidência, a tela mostra `Não verificado`, mesmo que a Vercel esteja `READY`.
 
-O botão **Atualizar** nessa visão apenas renova o snapshot de leitura. A atualização em lote de projetos pendentes não faz parte desta superfície implementada; qualquer mutação continua sendo feita no fluxo detalhado do projeto com plano, confirmação e as regras do domínio de deployment.
+O botão **Atualizar** nessa visão apenas renova o snapshot de leitura. Já **Atualizar pendentes** prepara uma operação em lote somente para itens atualmente classificados como `drift` e com estratégia operacional. Projetos `strategy=disabled` não entram no lote; isso mantém o self-update do próprio Dev Dashboard fora da operação enquanto o contrato continuar fail-closed.
 
-Cada linha abre a rota existente `/projects/:projectId/production` para inspeção, planejamento e operação do projeto.
+### Atualizar pendentes
+
+O lote não possui um segundo motor de deployment nem um endpoint mutável próprio. A UI orquestra as mesmas operações já usadas na superfície detalhada e o `DeploymentService` continua sendo a autoridade para plano, confirmação, revalidação e execução.
+
+Antes da primeira mutação, a UI tenta gerar o `DeploymentPlan` de **todos** os projetos pendentes elegíveis. O preview mostra, na ordem do overview:
+
+- projeto;
+- provider;
+- branch;
+- revision exata do plano;
+- etapas do plano;
+- projetos que não puderam produzir um plano válido, marcados como ignorados com o motivo retornado.
+
+Nenhuma `DeploymentConfirmation` é criada enquanto esse preview não estiver visível e a pessoa não confirmar explicitamente o lote.
+
+Depois de **Confirmar e atualizar N**, a execução é sequencial por padrão:
+
+```text
+plan A + plan B + plan C já conhecidos
+            ↓
+confirm A → start A → aguardar terminal
+            ↓ sucesso
+confirm B → start B → aguardar terminal
+            ↓ sucesso
+confirm C → start C → aguardar terminal
+```
+
+A confirmação é criada **just-in-time** para cada projeto. O `start` continua recebendo `planHash` e token vinculados, e o backend revalida branch/revision/plano antes de iniciar a mutação real. Assim, um plano que ficou stale enquanto aguardava sua vez falha fechado em vez de executar com contexto antigo.
+
+O lote para na primeira falha de start/acompanhamento ou no primeiro deployment terminal `failed`, `cancelled` ou `recovery_required`. Projetos seguintes ficam explicitamente como **Não iniciado**; os anteriores preservam seu resultado real. Não existe rollback automático do lote nem tentativa implícita de continuar depois de uma falha parcial.
+
+Se a pessoa trocar de workspace ou sair da superfície durante a orquestração, o frontend aborta o acompanhamento e não inicia os projetos seguintes. Um deployment que já tenha sido aceito pelo backend continua pertencendo ao domínio de deployment e deve ser acompanhado pela superfície detalhada/histórico; abortar a request do browser não equivale a cancelar a mutação já iniciada.
+
+Cada linha do overview abre a rota existente `/projects/:projectId/production` para inspeção, planejamento, logs e recuperação do projeto.
 
 ## Quando a aba do projeto aparece
 
@@ -143,7 +176,7 @@ Enquanto existe deployment ativo, a tela acompanha detalhe e log. O polling para
 - `cancelled`;
 - `recovery_required`.
 
-Existe um único deployment mutável globalmente. A UI desabilita ações concorrentes compatíveis com essa regra e não usa loading artificial quando não há trabalho real.
+Existe um único deployment mutável globalmente. A UI detalhada desabilita ações concorrentes compatíveis com essa regra e o lote global espera o projeto atual chegar a estado terminal antes de criar a confirmação/iniciar o próximo. Não há loading artificial quando não existe trabalho real.
 
 ## Cancelamento
 
@@ -206,6 +239,6 @@ Estado do projeto anterior não pode sobrescrever a nova tela.
 
 ## Testes
 
-A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan e regressões do fluxo `command`.
+A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan, geração de todos os planos antes da primeira confirmação, execução sequencial/parada do lote e regressões do fluxo `command`.
 
 Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md).

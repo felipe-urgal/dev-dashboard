@@ -15,6 +15,26 @@ No topo da superfície, confira:
 
 `READY` da Vercel não substitui a verificação funcional da aplicação. O fluxo só termina com sucesso depois de `prod:verify` quando essa etapa faz parte do plano.
 
+## Atualizar pendentes no workspace
+
+Na visão global **Produção**, o botão **Atualizar pendentes** prepara os projetos atualmente marcados como pendentes (`drift`). Ele não inicia deployments imediatamente.
+
+Primeiro, o Dev Dashboard calcula todos os planos elegíveis e mostra um preview único com:
+
+- ordem de execução;
+- projeto e provider;
+- branch e revision exata;
+- etapas previstas;
+- projetos ignorados porque não conseguiram gerar um plano válido.
+
+Revise esse conjunto antes de confirmar. Projetos com `strategy=disabled` não entram no lote; por isso o próprio Dev Dashboard continua fora enquanto o self-update estiver bloqueado por segurança.
+
+Ao clicar em **Confirmar e atualizar N**, os projetos são executados um por vez. A confirmação de cada projeto só é criada quando chega sua vez, e o backend revalida o `planHash`/revision antes de iniciar. Se o contexto mudou desde o preview, a operação daquele projeto falha fechado.
+
+O lote para na primeira falha, cancelamento ou `recovery_required`. Os projetos seguintes aparecem como **Não iniciado**, enquanto os anteriores mantêm o resultado que realmente alcançaram. Abra a produção detalhada do projeto que falhou para revisar timeline, log e possíveis ações de recuperação antes de tentar novamente.
+
+Se você sair da tela ou trocar de workspace durante o lote, os projetos seguintes não são iniciados. Um deployment que já foi aceito pela API continua existindo e deve ser acompanhado na tela detalhada; sair da página não equivale a cancelar uma mutação já em andamento.
+
 ## Preparar deployment
 
 Clique em **Preparar deployment**.
