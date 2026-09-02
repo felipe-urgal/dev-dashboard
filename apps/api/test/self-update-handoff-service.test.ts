@@ -44,7 +44,16 @@ function ping() {
   });
 }
 
-test('persiste handoff antes de transferir ownership para o agent', async () => {
+function workerStarted(overrides = {}) {
+  return JSON.stringify({
+    status: 'worker-started',
+    handoffId: HANDOFF_ID,
+    pid: 4321,
+    ...overrides,
+  });
+}
+
+test('persiste, transfere ownership e inicia worker antes de liberar shutdown da API', async () => {
   const calls: Array<{ scriptPath: string; args: string[] }> = [];
   const runner: SelfUpdateToolRunner = async (scriptPath, args) => {
     calls.push({ scriptPath, args });
@@ -52,11 +61,14 @@ test('persiste handoff antes de transferir ownership para o agent', async () => 
     if (args[0] === 'prepare') {
       return { code: 0, stdout: handoff('prepared'), stderr: '' };
     }
-    return { code: 0, stdout: handoff('accepted'), stderr: '' };
+    if (args[0] === 'claim') {
+      return { code: 0, stdout: handoff('accepted'), stderr: '' };
+    }
+    return { code: 0, stdout: workerStarted(), stderr: '' };
   };
   const service = new SelfUpdateHandoffService(runner, '/repo');
 
-  const result = await service.prepareAndClaim(INPUT);
+  const result = await service.prepareAndExecute(INPUT);
 
   assert.equal(result.status, 'accepted');
   assert.equal(result.id, HANDOFF_ID);
@@ -81,6 +93,10 @@ test('persiste handoff antes de transferir ownership para o agent', async () => 
       scriptPath: path.join('/repo', 'scripts/self-update-agent.mjs'),
       args: ['claim', HANDOFF_ID],
     },
+    {
+      scriptPath: path.join('/repo', 'scripts/self-update-agent.mjs'),
+      args: ['execute', HANDOFF_ID],
+    },
   ]);
 });
 
@@ -93,7 +109,7 @@ test('recusa contexto inválido antes de executar tooling local', async () => {
 
   await assert.rejects(
     () =>
-      service.prepareAndClaim({
+      service.prepareAndExecute({
         ...INPUT,
         projectId: '../outro-projeto',
       }),
@@ -112,7 +128,7 @@ test('falha fechado quando o agent não está disponível', async () => {
   }), '/repo');
 
   await assert.rejects(
-    () => service.prepareAndClaim(INPUT),
+    () => service.prepareAndExecute(INPUT),
     (error) =>
       error instanceof SelfUpdateHandoffError &&
       error.code === 'SELF_UPDATE_AGENT_UNAVAILABLE',
@@ -135,7 +151,7 @@ test('não cria handoff se ping não provar suporte a claim', async () => {
   }, '/repo');
 
   await assert.rejects(
-    () => service.prepareAndClaim(INPUT),
+    () => service.prepareAndExecute(INPUT),
     (error) =>
       error instanceof SelfUpdateHandoffError &&
       error.code === 'SELF_UPDATE_AGENT_UNAVAILABLE',
@@ -143,14 +159,14 @@ test('não cria handoff se ping não provar suporte a claim', async () => {
   assert.equal(calls, 1);
 });
 
-test('distingue falha ao persistir handoff de falha ao transferir ownership', async () => {
+test('distingue falhas de persistência, ownership e início do worker', async () => {
   const prepareFailure = new SelfUpdateHandoffService(async (_script, args) => {
     if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
     return { code: 1, stdout: '', stderr: 'persistência recusada' };
   }, '/repo');
 
   await assert.rejects(
-    () => prepareFailure.prepareAndClaim(INPUT),
+    () => prepareFailure.prepareAndExecute(INPUT),
     (error) =>
       error instanceof SelfUpdateHandoffError &&
       error.code === 'SELF_UPDATE_HANDOFF_PREPARE_FAILED',
@@ -165,14 +181,32 @@ test('distingue falha ao persistir handoff de falha ao transferir ownership', as
   }, '/repo');
 
   await assert.rejects(
-    () => claimFailure.prepareAndClaim(INPUT),
+    () => claimFailure.prepareAndExecute(INPUT),
     (error) =>
       error instanceof SelfUpdateHandoffError &&
       error.code === 'SELF_UPDATE_HANDOFF_CLAIM_FAILED',
   );
+
+  const workerFailure = new SelfUpdateHandoffService(async (_script, args) => {
+    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+    if (args[0] === 'prepare') {
+      return { code: 0, stdout: handoff('prepared'), stderr: '' };
+    }
+    if (args[0] === 'claim') {
+      return { code: 0, stdout: handoff('accepted'), stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: 'preflight recusado' };
+  }, '/repo');
+
+  await assert.rejects(
+    () => workerFailure.prepareAndExecute(INPUT),
+    (error) =>
+      error instanceof SelfUpdateHandoffError &&
+      error.code === 'SELF_UPDATE_EXECUTION_START_FAILED',
+  );
 });
 
-test('recusa resposta adulterada do helper ou troca de handoff pelo agent', async () => {
+test('recusa resposta adulterada do helper, agent ou worker', async () => {
   const wrongRevision = new SelfUpdateHandoffService(async (_script, args) => {
     if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
     return {
@@ -183,7 +217,7 @@ test('recusa resposta adulterada do helper ou troca de handoff pelo agent', asyn
   }, '/repo');
 
   await assert.rejects(
-    () => wrongRevision.prepareAndClaim(INPUT),
+    () => wrongRevision.prepareAndExecute(INPUT),
     (error) =>
       error instanceof SelfUpdateHandoffError &&
       error.code === 'SELF_UPDATE_HANDOFF_INVALID',
@@ -204,9 +238,31 @@ test('recusa resposta adulterada do helper ou troca de handoff pelo agent', asyn
   }, '/repo');
 
   await assert.rejects(
-    () => swappedHandoff.prepareAndClaim(INPUT),
+    () => swappedHandoff.prepareAndExecute(INPUT),
     (error) =>
       error instanceof SelfUpdateHandoffError &&
       error.code === 'SELF_UPDATE_HANDOFF_INVALID',
+  );
+
+  const wrongWorker = new SelfUpdateHandoffService(async (_script, args) => {
+    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+    if (args[0] === 'prepare') {
+      return { code: 0, stdout: handoff('prepared'), stderr: '' };
+    }
+    if (args[0] === 'claim') {
+      return { code: 0, stdout: handoff('accepted'), stderr: '' };
+    }
+    return {
+      code: 0,
+      stdout: workerStarted({ handoffId: 'outro-handoff' }),
+      stderr: '',
+    };
+  }, '/repo');
+
+  await assert.rejects(
+    () => wrongWorker.prepareAndExecute(INPUT),
+    (error) =>
+      error instanceof SelfUpdateHandoffError &&
+      error.code === 'SELF_UPDATE_EXECUTION_START_FAILED',
   );
 });
