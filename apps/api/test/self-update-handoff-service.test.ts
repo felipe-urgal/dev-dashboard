@@ -53,8 +53,7 @@ function workerStarted(overrides = {}) {
   });
 }
 
-test('persiste, transfere ownership e inicia worker antes de liberar shutdown da API', async () => {
-  const calls: Array<{ scriptPath: string; args: string[] }> = [];
+function successfulRunner(calls: Array<{ scriptPath: string; args: string[] }>) {
   const runner: SelfUpdateToolRunner = async (scriptPath, args) => {
     calls.push({ scriptPath, args });
     if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
@@ -66,12 +65,30 @@ test('persiste, transfere ownership e inicia worker antes de liberar shutdown da
     }
     return { code: 0, stdout: workerStarted(), stderr: '' };
   };
-  const service = new SelfUpdateHandoffService(runner, '/repo');
+  return runner;
+}
+
+test('persiste, transfere ownership e só solicita shutdown após o worker provar exclusividade', async () => {
+  const calls: Array<{ scriptPath: string; args: string[] }> = [];
+  const probeCalls: Array<{ handoffId: string; workerPid: number }> = [];
+  let shutdownCalls = 0;
+  const service = new SelfUpdateHandoffService({
+    runner: successfulRunner(calls),
+    repositoryRoot: '/repo',
+    executionProbe: async (handoffId, workerPid) => {
+      probeCalls.push({ handoffId, workerPid });
+    },
+    requestShutdown: () => {
+      shutdownCalls += 1;
+    },
+  });
 
   const result = await service.prepareAndExecute(INPUT);
 
   assert.equal(result.status, 'accepted');
   assert.equal(result.id, HANDOFF_ID);
+  assert.deepEqual(probeCalls, [{ handoffId: HANDOFF_ID, workerPid: 4321 }]);
+  assert.equal(shutdownCalls, 1);
   assert.deepEqual(calls, [
     {
       scriptPath: path.join('/repo', 'scripts/self-update-agent.mjs'),
@@ -100,12 +117,55 @@ test('persiste, transfere ownership e inicia worker antes de liberar shutdown da
   ]);
 });
 
+test('não solicita shutdown quando o worker não comprova ownership', async () => {
+  let shutdownCalls = 0;
+  const service = new SelfUpdateHandoffService({
+    runner: successfulRunner([]),
+    repositoryRoot: '/repo',
+    executionProbe: async () => {
+      throw new Error('lock ausente');
+    },
+    requestShutdown: () => {
+      shutdownCalls += 1;
+    },
+  });
+
+  await assert.rejects(
+    () => service.prepareAndExecute(INPUT),
+    (error) =>
+      error instanceof SelfUpdateHandoffError &&
+      error.code === 'SELF_UPDATE_EXECUTION_START_FAILED',
+  );
+  assert.equal(shutdownCalls, 0);
+});
+
+test('distingue falha ao solicitar a parada depois do ownership comprovado', async () => {
+  const service = new SelfUpdateHandoffService({
+    runner: successfulRunner([]),
+    repositoryRoot: '/repo',
+    executionProbe: async () => undefined,
+    requestShutdown: () => {
+      throw new Error('shutdown indisponível');
+    },
+  });
+
+  await assert.rejects(
+    () => service.prepareAndExecute(INPUT),
+    (error) =>
+      error instanceof SelfUpdateHandoffError &&
+      error.code === 'SELF_UPDATE_SHUTDOWN_REQUEST_FAILED',
+  );
+});
+
 test('recusa contexto inválido antes de executar tooling local', async () => {
   let calls = 0;
-  const service = new SelfUpdateHandoffService(async () => {
-    calls += 1;
-    return { code: 0, stdout: '', stderr: '' };
-  }, '/repo');
+  const service = new SelfUpdateHandoffService({
+    runner: async () => {
+      calls += 1;
+      return { code: 0, stdout: '', stderr: '' };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () =>
@@ -121,11 +181,14 @@ test('recusa contexto inválido antes de executar tooling local', async () => {
 });
 
 test('falha fechado quando o agent não está disponível', async () => {
-  const service = new SelfUpdateHandoffService(async () => ({
-    code: 1,
-    stdout: '',
-    stderr: 'Self-update agent: indisponível\n',
-  }), '/repo');
+  const service = new SelfUpdateHandoffService({
+    runner: async () => ({
+      code: 1,
+      stdout: '',
+      stderr: 'Self-update agent: indisponível\n',
+    }),
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => service.prepareAndExecute(INPUT),
@@ -137,18 +200,21 @@ test('falha fechado quando o agent não está disponível', async () => {
 
 test('não cria handoff se ping não provar suporte a claim', async () => {
   let calls = 0;
-  const service = new SelfUpdateHandoffService(async () => {
-    calls += 1;
-    return {
-      code: 0,
-      stdout: JSON.stringify({
-        status: 'ready',
-        instanceId: '22222222-2222-4222-8222-222222222222',
-        actions: ['ping', 'inspect'],
-      }),
-      stderr: '',
-    };
-  }, '/repo');
+  const service = new SelfUpdateHandoffService({
+    runner: async () => {
+      calls += 1;
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          status: 'ready',
+          instanceId: '22222222-2222-4222-8222-222222222222',
+          actions: ['ping', 'inspect'],
+        }),
+        stderr: '',
+      };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => service.prepareAndExecute(INPUT),
@@ -160,10 +226,13 @@ test('não cria handoff se ping não provar suporte a claim', async () => {
 });
 
 test('distingue falhas de persistência, ownership e início do worker', async () => {
-  const prepareFailure = new SelfUpdateHandoffService(async (_script, args) => {
-    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
-    return { code: 1, stdout: '', stderr: 'persistência recusada' };
-  }, '/repo');
+  const prepareFailure = new SelfUpdateHandoffService({
+    runner: async (_script, args) => {
+      if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+      return { code: 1, stdout: '', stderr: 'persistência recusada' };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => prepareFailure.prepareAndExecute(INPUT),
@@ -172,13 +241,16 @@ test('distingue falhas de persistência, ownership e início do worker', async (
       error.code === 'SELF_UPDATE_HANDOFF_PREPARE_FAILED',
   );
 
-  const claimFailure = new SelfUpdateHandoffService(async (_script, args) => {
-    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
-    if (args[0] === 'prepare') {
-      return { code: 0, stdout: handoff('prepared'), stderr: '' };
-    }
-    return { code: 1, stdout: '', stderr: 'claim recusado' };
-  }, '/repo');
+  const claimFailure = new SelfUpdateHandoffService({
+    runner: async (_script, args) => {
+      if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+      if (args[0] === 'prepare') {
+        return { code: 0, stdout: handoff('prepared'), stderr: '' };
+      }
+      return { code: 1, stdout: '', stderr: 'claim recusado' };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => claimFailure.prepareAndExecute(INPUT),
@@ -187,16 +259,19 @@ test('distingue falhas de persistência, ownership e início do worker', async (
       error.code === 'SELF_UPDATE_HANDOFF_CLAIM_FAILED',
   );
 
-  const workerFailure = new SelfUpdateHandoffService(async (_script, args) => {
-    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
-    if (args[0] === 'prepare') {
-      return { code: 0, stdout: handoff('prepared'), stderr: '' };
-    }
-    if (args[0] === 'claim') {
-      return { code: 0, stdout: handoff('accepted'), stderr: '' };
-    }
-    return { code: 1, stdout: '', stderr: 'preflight recusado' };
-  }, '/repo');
+  const workerFailure = new SelfUpdateHandoffService({
+    runner: async (_script, args) => {
+      if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+      if (args[0] === 'prepare') {
+        return { code: 0, stdout: handoff('prepared'), stderr: '' };
+      }
+      if (args[0] === 'claim') {
+        return { code: 0, stdout: handoff('accepted'), stderr: '' };
+      }
+      return { code: 1, stdout: '', stderr: 'preflight recusado' };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => workerFailure.prepareAndExecute(INPUT),
@@ -207,14 +282,17 @@ test('distingue falhas de persistência, ownership e início do worker', async (
 });
 
 test('recusa resposta adulterada do helper, agent ou worker', async () => {
-  const wrongRevision = new SelfUpdateHandoffService(async (_script, args) => {
-    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
-    return {
-      code: 0,
-      stdout: handoff('prepared', { targetRevision: 'c'.repeat(40) }),
-      stderr: '',
-    };
-  }, '/repo');
+  const wrongRevision = new SelfUpdateHandoffService({
+    runner: async (_script, args) => {
+      if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+      return {
+        code: 0,
+        stdout: handoff('prepared', { targetRevision: 'c'.repeat(40) }),
+        stderr: '',
+      };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => wrongRevision.prepareAndExecute(INPUT),
@@ -223,19 +301,22 @@ test('recusa resposta adulterada do helper, agent ou worker', async () => {
       error.code === 'SELF_UPDATE_HANDOFF_INVALID',
   );
 
-  const swappedHandoff = new SelfUpdateHandoffService(async (_script, args) => {
-    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
-    if (args[0] === 'prepare') {
-      return { code: 0, stdout: handoff('prepared'), stderr: '' };
-    }
-    return {
-      code: 0,
-      stdout: handoff('accepted', {
-        id: 'self-update-33333333-3333-4333-8333-333333333333',
-      }),
-      stderr: '',
-    };
-  }, '/repo');
+  const swappedHandoff = new SelfUpdateHandoffService({
+    runner: async (_script, args) => {
+      if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+      if (args[0] === 'prepare') {
+        return { code: 0, stdout: handoff('prepared'), stderr: '' };
+      }
+      return {
+        code: 0,
+        stdout: handoff('accepted', {
+          id: 'self-update-33333333-3333-4333-8333-333333333333',
+        }),
+        stderr: '',
+      };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => swappedHandoff.prepareAndExecute(INPUT),
@@ -244,20 +325,23 @@ test('recusa resposta adulterada do helper, agent ou worker', async () => {
       error.code === 'SELF_UPDATE_HANDOFF_INVALID',
   );
 
-  const wrongWorker = new SelfUpdateHandoffService(async (_script, args) => {
-    if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
-    if (args[0] === 'prepare') {
-      return { code: 0, stdout: handoff('prepared'), stderr: '' };
-    }
-    if (args[0] === 'claim') {
-      return { code: 0, stdout: handoff('accepted'), stderr: '' };
-    }
-    return {
-      code: 0,
-      stdout: workerStarted({ handoffId: 'outro-handoff' }),
-      stderr: '',
-    };
-  }, '/repo');
+  const wrongWorker = new SelfUpdateHandoffService({
+    runner: async (_script, args) => {
+      if (args[0] === 'ping') return { code: 0, stdout: ping(), stderr: '' };
+      if (args[0] === 'prepare') {
+        return { code: 0, stdout: handoff('prepared'), stderr: '' };
+      }
+      if (args[0] === 'claim') {
+        return { code: 0, stdout: handoff('accepted'), stderr: '' };
+      }
+      return {
+        code: 0,
+        stdout: workerStarted({ handoffId: 'outro-handoff' }),
+        stderr: '',
+      };
+    },
+    repositoryRoot: '/repo',
+  });
 
   await assert.rejects(
     () => wrongWorker.prepareAndExecute(INPUT),
