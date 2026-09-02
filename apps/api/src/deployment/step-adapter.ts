@@ -24,6 +24,7 @@ import {
 } from './revision.js';
 import {
   VercelDeploymentAdapter,
+  type VercelProductionDeployment,
   type VercelResolvedProject,
 } from './vercel-adapter.js';
 
@@ -40,10 +41,23 @@ export interface VercelProviderStepAdapterOptions {
 interface VercelPreflightResult {
   repository: GitHubRepositoryReference;
   providerProject: VercelResolvedProject;
+  readyDeployment?: VercelProductionDeployment;
 }
 
 function targetKey(target: DeploymentProviderTarget): string {
   return `${target.externalProject}\n${target.branch}\n${target.revision}`;
+}
+
+function matchesReadyDeployment(
+  deployment: VercelProductionDeployment | undefined,
+  target: DeploymentProviderTarget,
+): deployment is VercelProductionDeployment {
+  return Boolean(
+    deployment &&
+      deployment.state === 'ready' &&
+      deployment.branch === target.branch &&
+      deployment.revision === target.revision,
+  );
 }
 
 export class VercelProviderStepAdapter {
@@ -128,12 +142,16 @@ export class VercelProviderStepAdapter {
       );
     }
 
-    const result = {
+    const readyDeployment = matchesReadyDeployment(snapshot.deployment, target)
+      ? snapshot.deployment
+      : undefined;
+    const result: VercelPreflightResult = {
       repository,
       providerProject: {
         id: snapshot.projectId,
         name: snapshot.projectName,
       },
+      ...(readyDeployment ? { readyDeployment } : {}),
     };
     this.preflightCache.set(targetKey(target), result);
     return result;
@@ -161,6 +179,15 @@ export class VercelProviderStepAdapter {
         'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
         'O preflight Vercel confirmado não está disponível para esta etapa; gere e confirme um novo plano.',
       );
+    }
+
+    if (preflight.readyDeployment) {
+      onOutput(
+        this.maskLog(
+          `Vercel: a revisão confirmada já está READY em ${preflight.readyDeployment.url}; reutilizando o deployment ${preflight.readyDeployment.id}.\n`,
+        ),
+      );
+      return { exitCode: 0, cancelled: false };
     }
 
     const result = await this.vercelAdapter.deployProduction(
