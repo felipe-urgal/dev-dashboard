@@ -2,7 +2,7 @@ import {
   classifyTestLogSemanticTone,
   isTestLogErrorLine,
   isTestLogWarningLine,
-} from '../test-log-tone-enhancer';
+} from '../utils/test-log-tone';
 
 export type TestLogTab = 'log' | 'errors' | 'warnings' | 'details';
 export type TestLogLineTone =
