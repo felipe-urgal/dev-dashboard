@@ -12,11 +12,22 @@ import type {
 import type { MaskedLogContent } from '@dev-dashboard/process-manager';
 
 import {
+  SelfUpdateHandoffError,
+  SelfUpdateHandoffService,
+  type SelfUpdateHandoff,
+  type SelfUpdateHandoffInput,
+  type SelfUpdateHandoffInspectInput,
+} from '../services/self-update-handoff-service.js';
+import {
   ProductionCommandAdapter,
   type ProductionCommandResult,
 } from './command-adapter.js';
 import { DeploymentConfirmationService } from './confirmation.js';
 import { DeploymentError } from './errors.js';
+import {
+  GitDeploymentOriginRevisionResolver,
+  type DeploymentOriginRevisionResolver,
+} from './origin-revision.js';
 import { DeploymentPlanner } from './planner.js';
 import {
   GitDeploymentRevisionResolver,
@@ -28,6 +39,7 @@ interface ActiveDeployment {
   deploymentId: string;
   projectId: string;
   controller: AbortController;
+  handedOff?: boolean;
 }
 
 export interface DeploymentCommandRunner {
@@ -39,20 +51,41 @@ export interface DeploymentCommandRunner {
   ): Promise<ProductionCommandResult>;
 }
 
+export interface DeploymentSelfUpdateHandoff {
+  prepareAndExecute(input: SelfUpdateHandoffInput): Promise<SelfUpdateHandoff>;
+  inspect(input: SelfUpdateHandoffInspectInput): Promise<SelfUpdateHandoff>;
+}
+
 export interface DeploymentServiceOptions {
   planner?: DeploymentPlanner;
   revisionResolver?: DeploymentRevisionResolver;
+  originRevisionResolver?: DeploymentOriginRevisionResolver;
   confirmationService?: DeploymentConfirmationService;
   adapter?: DeploymentCommandRunner;
+  selfUpdateHandoffService?: DeploymentSelfUpdateHandoff;
   store?: DeploymentStore;
   now?: () => number;
+}
+
+function selfUpdateHandoffId(deploymentId: string): string {
+  return `self-update-${deploymentId}`;
+}
+
+function safeSelfUpdateMessage(error: unknown): string {
+  if (error instanceof SelfUpdateHandoffError) return error.message;
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim().replaceAll(/\s+/g, ' ').slice(0, 500);
+  }
+  return 'O handoff de self-update falhou antes de transferir a execução.';
 }
 
 export class DeploymentService {
   private readonly planner: DeploymentPlanner;
   private readonly revisionResolver: DeploymentRevisionResolver;
+  private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
   private readonly confirmationService: DeploymentConfirmationService;
   private readonly adapter: DeploymentCommandRunner;
+  private readonly selfUpdateHandoffService: DeploymentSelfUpdateHandoff;
   private readonly store: DeploymentStore;
   private readonly now: () => number;
   private readonly readyPromise: Promise<void>;
@@ -63,18 +96,39 @@ export class DeploymentService {
     this.planner = options.planner ?? new DeploymentPlanner(this.now);
     this.revisionResolver =
       options.revisionResolver ?? new GitDeploymentRevisionResolver();
+    this.originRevisionResolver =
+      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
     this.confirmationService =
       options.confirmationService ??
       new DeploymentConfirmationService(60_000, this.now);
     this.adapter = options.adapter ?? new ProductionCommandAdapter();
+    this.selfUpdateHandoffService =
+      options.selfUpdateHandoffService ?? new SelfUpdateHandoffService();
     this.store = options.store ?? new DeploymentStore();
     this.readyPromise = this.store.recoverInterrupted(this.now());
   }
 
   public async plan(project: Project): Promise<DeploymentPlan> {
     await this.readyPromise;
-    const revision = await this.revisionResolver.resolve(project);
-    return this.planner.build(project, revision);
+    const current = await this.revisionResolver.resolve(project);
+    if (project.production?.strategy !== 'self-update') {
+      return this.planner.build(project, current);
+    }
+
+    const targetRevision = await this.originRevisionResolver.resolve(
+      project,
+      project.production.branch,
+    );
+    if (!targetRevision) {
+      throw new DeploymentError(
+        'DEPLOYMENT_REVISION_UNAVAILABLE',
+        'Não foi possível resolver origin/main para planejar o self-update.',
+      );
+    }
+    return this.planner.build(project, {
+      branch: current.branch,
+      revision: targetRevision,
+    });
   }
 
   public async prepareConfirmation(
@@ -203,6 +257,7 @@ export class DeploymentService {
     projectId: string,
     deploymentId: string,
   ): Promise<Deployment> {
+    await this.readyPromise;
     const deployment = await this.store.get(deploymentId);
     if (!deployment || deployment.projectId !== projectId) {
       throw new DeploymentError(
@@ -210,7 +265,7 @@ export class DeploymentService {
         'Deployment não encontrado para este projeto.',
       );
     }
-    return deployment;
+    return this.reconcileSelfUpdate(deployment);
   }
 
   public async history(
@@ -218,7 +273,14 @@ export class DeploymentService {
     page = 1,
     pageSize = 20,
   ): Promise<DeploymentHistory> {
-    return this.store.history(projectId, page, pageSize);
+    await this.readyPromise;
+    const history = await this.store.history(projectId, page, pageSize);
+    return {
+      ...history,
+      items: await Promise.all(
+        history.items.map((deployment) => this.reconcileSelfUpdate(deployment)),
+      ),
+    };
   }
 
   public async log(
@@ -237,11 +299,12 @@ export class DeploymentService {
     if (
       !this.active ||
       this.active.deploymentId !== deploymentId ||
-      this.active.projectId !== projectId
+      this.active.projectId !== projectId ||
+      this.active.handedOff
     ) {
       throw new DeploymentError(
         'DEPLOYMENT_CANCEL_NOT_AVAILABLE',
-        'Este deployment não está em execução e não pode ser cancelado.',
+        'Este deployment não está sob controle da API atual e não pode ser cancelado.',
       );
     }
     this.active.controller.abort();
@@ -249,7 +312,7 @@ export class DeploymentService {
   }
 
   public close(): void {
-    this.active?.controller.abort();
+    if (!this.active?.handedOff) this.active?.controller.abort();
   }
 
   private async execute(
@@ -264,6 +327,7 @@ export class DeploymentService {
     let irreversibleCompleted = false;
     let currentIrreversible = false;
     let logQueue = Promise.resolve();
+    let handedOff = false;
 
     try {
       for (let index = 0; index < deployment.timeline.length; index += 1) {
@@ -289,6 +353,36 @@ export class DeploymentService {
           ),
         };
         await this.store.save(deployment);
+
+        if (planStep.id === 'self-update') {
+          if (project.production?.strategy !== 'self-update') {
+            currentIrreversible = false;
+            throw new DeploymentError(
+              'DEPLOYMENT_PLAN_STALE',
+              'O contrato deixou de ser self-update depois da confirmação.',
+            );
+          }
+          try {
+            await this.selfUpdateHandoffService.prepareAndExecute({
+              handoffId: selfUpdateHandoffId(deployment.id),
+              projectId: deployment.projectId,
+              targetRevision: deployment.revision,
+              planHash: deployment.planHash,
+            });
+          } catch (error) {
+            currentIrreversible = false;
+            throw new DeploymentError(
+              'DEPLOYMENT_SELF_UPDATE_FAILED',
+              safeSelfUpdateMessage(error),
+            );
+          }
+
+          handedOff = true;
+          if (this.active?.deploymentId === deployment.id) {
+            this.active.handedOff = true;
+          }
+          return;
+        }
 
         const result = await this.adapter.run(
           project,
@@ -378,8 +472,166 @@ export class DeploymentService {
       };
       await this.store.save(deployment);
     } finally {
-      if (this.active?.deploymentId === deployment.id) this.active = undefined;
+      if (
+        !handedOff &&
+        this.active?.deploymentId === deployment.id
+      ) {
+        this.active = undefined;
+      }
     }
+  }
+
+  private async reconcileSelfUpdate(
+    deployment: Deployment,
+  ): Promise<Deployment> {
+    const selfUpdateIndex = deployment.timeline.findIndex(
+      (step) => step.id === 'self-update',
+    );
+    if (selfUpdateIndex < 0 || deployment.status === 'succeeded') {
+      return deployment;
+    }
+
+    let handoff: SelfUpdateHandoff;
+    try {
+      handoff = await this.selfUpdateHandoffService.inspect({
+        handoffId: selfUpdateHandoffId(deployment.id),
+        projectId: deployment.projectId,
+        targetRevision: deployment.revision,
+        planHash: deployment.planHash,
+      });
+    } catch {
+      return deployment;
+    }
+
+    if (
+      handoff.status === 'accepted' ||
+      handoff.status === 'applying' ||
+      handoff.status === 'restarting' ||
+      handoff.status === 'verifying'
+    ) {
+      const running = {
+        ...deployment,
+        status: 'deploying' as const,
+        currentStepId: 'self-update' as const,
+        timeline: deployment.timeline.map((step, index) => {
+          if (index !== selfUpdateIndex) return step;
+          const next = {
+            ...step,
+            status: 'running' as const,
+            startedAt: step.startedAt ?? handoff.createdAt,
+          };
+          delete next.finishedAt;
+          delete next.exitCode;
+          return next;
+        }),
+      };
+      delete running.finishedAt;
+      delete running.failurePoint;
+      delete running.errorCode;
+      delete running.errorMessage;
+      await this.store.save(running);
+      return running;
+    }
+
+    if (handoff.status === 'prepared') {
+      if (deployment.errorCode !== 'DEPLOYMENT_INTERRUPTED') return deployment;
+      return this.finishSelfUpdate(deployment, selfUpdateIndex, {
+        status: 'failed',
+        code: 'SELF_UPDATE_HANDOFF_NOT_ACCEPTED',
+        message:
+          'A API reiniciou antes que o self-update agent comprovasse ownership do handoff.',
+        finishedAt: handoff.updatedAt,
+      });
+    }
+
+    const result = handoff.result;
+    if (!result) return deployment;
+
+    if (handoff.status === 'succeeded') {
+      if (result.appliedRevision !== deployment.revision) {
+        return this.finishSelfUpdate(deployment, selfUpdateIndex, {
+          status: 'recovery_required',
+          code: 'SELF_UPDATE_APPLIED_REVISION_MISMATCH',
+          message:
+            'O worker concluiu, mas a revision aplicada não corresponde à revision confirmada.',
+          finishedAt: result.finishedAt,
+        });
+      }
+      return this.finishSelfUpdate(deployment, selfUpdateIndex, {
+        status: 'succeeded',
+        code: result.code,
+        message: result.message,
+        finishedAt: result.finishedAt,
+      });
+    }
+
+    return this.finishSelfUpdate(deployment, selfUpdateIndex, {
+      status:
+        handoff.status === 'recovery_required'
+          ? 'recovery_required'
+          : 'failed',
+      code: result.code,
+      message: result.message,
+      finishedAt: result.finishedAt,
+    });
+  }
+
+  private async finishSelfUpdate(
+    deployment: Deployment,
+    selfUpdateIndex: number,
+    result: {
+      status: 'succeeded' | 'failed' | 'recovery_required';
+      code: string;
+      message: string;
+      finishedAt: string;
+    },
+  ): Promise<Deployment> {
+    const succeeded = result.status === 'succeeded';
+    const next: Deployment = {
+      ...deployment,
+      status: result.status,
+      currentStepId: 'self-update',
+      finishedAt: result.finishedAt,
+      ...(succeeded
+        ? {}
+        : {
+            failurePoint:
+              result.status === 'recovery_required'
+                ? ('after-irreversible' as const)
+                : ('before-irreversible' as const),
+            errorCode: result.code,
+            errorMessage: result.message,
+          }),
+      timeline: deployment.timeline.map((step, index) =>
+        index === selfUpdateIndex
+          ? {
+              ...step,
+              status: succeeded ? ('succeeded' as const) : ('failed' as const),
+              finishedAt: result.finishedAt,
+              exitCode: succeeded ? 0 : 1,
+            }
+          : step,
+      ),
+    };
+    if (succeeded) {
+      delete next.failurePoint;
+      delete next.errorCode;
+      delete next.errorMessage;
+    }
+
+    const changed =
+      deployment.status !== next.status ||
+      deployment.finishedAt !== next.finishedAt ||
+      deployment.errorCode !== next.errorCode;
+    if (changed) {
+      await this.store.save(next);
+      await this.store.appendLog(deployment.id, {
+        content: `[self-update] ${result.message}\n`,
+        masked: false,
+        redactionCount: 0,
+      });
+    }
+    return next;
   }
 
   private async executeVerifyRetry(
@@ -561,6 +813,23 @@ export class DeploymentService {
     deployment: Deployment,
   ): Promise<void> {
     const current = await this.revisionResolver.resolve(project);
+    if (project.production?.strategy === 'self-update') {
+      const target = await this.originRevisionResolver.resolve(
+        project,
+        deployment.branch,
+      );
+      if (
+        current.branch !== deployment.branch ||
+        target !== deployment.revision
+      ) {
+        throw new DeploymentError(
+          'DEPLOYMENT_PLAN_STALE',
+          'Branch local ou origin/main mudou durante o self-update; gere e confirme um novo plano.',
+        );
+      }
+      return;
+    }
+
     if (
       current.revision !== deployment.revision ||
       current.branch !== deployment.branch

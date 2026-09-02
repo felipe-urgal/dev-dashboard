@@ -3181,7 +3181,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "restoreCheck",
                     "rollback",
                     "logs",
-                    "provider-deploy"
+                    "provider-deploy",
+                    "self-update"
                   ]
                 },
                 "failurePoint": {
@@ -3239,6 +3240,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                               "prod:restore-check",
                               "prod:rollback",
                               "prod:logs"
+                            ]
+                          },
+                          "prepareScript": {
+                            "type": "string",
+                            "enum": [
+                              "prod:prepare"
                             ]
                           },
                           "phase": {
@@ -3355,6 +3362,58 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                                 "pattern": "^[0-9a-fA-F]{40}$"
                               }
                             }
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "running",
+                              "succeeded",
+                              "failed",
+                              "cancelled"
+                            ]
+                          },
+                          "startedAt": {
+                            "type": "string"
+                          },
+                          "finishedAt": {
+                            "type": "string"
+                          },
+                          "exitCode": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "phase",
+                          "mutating",
+                          "irreversible",
+                          "status"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "enum": [
+                              "self-update"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "deploying"
+                            ]
+                          },
+                          "mutating": {
+                            "type": "boolean",
+                            "const": true
+                          },
+                          "irreversible": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "status": {
                             "type": "string",
@@ -3541,7 +3600,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "restoreCheck",
               "rollback",
               "logs",
-              "provider-deploy"
+              "provider-deploy",
+              "self-update"
             ]
           },
           "failurePoint": {
@@ -3599,6 +3659,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         "prod:restore-check",
                         "prod:rollback",
                         "prod:logs"
+                      ]
+                    },
+                    "prepareScript": {
+                      "type": "string",
+                      "enum": [
+                        "prod:prepare"
                       ]
                     },
                     "phase": {
@@ -3715,6 +3781,58 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "pattern": "^[0-9a-fA-F]{40}$"
                         }
                       }
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "self-update"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "status": {
                       "type": "string",
@@ -3869,7 +3987,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "restoreCheck",
               "rollback",
               "logs",
-              "provider-deploy"
+              "provider-deploy",
+              "self-update"
             ]
           },
           "failurePoint": {
@@ -3927,6 +4046,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         "prod:restore-check",
                         "prod:rollback",
                         "prod:logs"
+                      ]
+                    },
+                    "prepareScript": {
+                      "type": "string",
+                      "enum": [
+                        "prod:prepare"
                       ]
                     },
                     "phase": {
@@ -4043,6 +4168,58 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "pattern": "^[0-9a-fA-F]{40}$"
                         }
                       }
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "self-update"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "status": {
                       "type": "string",
@@ -4197,7 +4374,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "restoreCheck",
               "rollback",
               "logs",
-              "provider-deploy"
+              "provider-deploy",
+              "self-update"
             ]
           },
           "failurePoint": {
@@ -4255,6 +4433,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         "prod:restore-check",
                         "prod:rollback",
                         "prod:logs"
+                      ]
+                    },
+                    "prepareScript": {
+                      "type": "string",
+                      "enum": [
+                        "prod:prepare"
                       ]
                     },
                     "phase": {
@@ -4371,6 +4555,58 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "pattern": "^[0-9a-fA-F]{40}$"
                         }
                       }
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "self-update"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "status": {
                       "type": "string",
@@ -4601,7 +4837,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "restoreCheck",
               "rollback",
               "logs",
-              "provider-deploy"
+              "provider-deploy",
+              "self-update"
             ]
           },
           "failurePoint": {
@@ -4659,6 +4896,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         "prod:restore-check",
                         "prod:rollback",
                         "prod:logs"
+                      ]
+                    },
+                    "prepareScript": {
+                      "type": "string",
+                      "enum": [
+                        "prod:prepare"
                       ]
                     },
                     "phase": {
@@ -4775,6 +5018,58 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "pattern": "^[0-9a-fA-F]{40}$"
                         }
                       }
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "exitCode": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "self-update"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "status": {
                       "type": "string",
@@ -5019,6 +5314,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         "prod:logs"
                       ]
                     },
+                    "prepareScript": {
+                      "type": "string",
+                      "enum": [
+                        "prod:prepare"
+                      ]
+                    },
                     "phase": {
                       "type": "string",
                       "enum": [
@@ -5113,6 +5414,38 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                           "pattern": "^[0-9a-fA-F]{40}$"
                         }
                       }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "phase",
+                    "mutating",
+                    "irreversible"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "enum": [
+                        "self-update"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "deploying"
+                      ]
+                    },
+                    "mutating": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "irreversible": {
+                      "type": "boolean",
+                      "const": true
                     }
                   }
                 }
@@ -5268,6 +5601,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "type": "string"
               },
               "url": {
+                "type": "string"
+              },
+              "inspectorUrl": {
                 "type": "string"
               },
               "state": {
@@ -12488,6 +12824,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                   "enum": [
                     "command",
                     "git-managed",
+                    "self-update",
                     "disabled"
                   ]
                 },

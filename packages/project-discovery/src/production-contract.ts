@@ -30,7 +30,12 @@ const SCRIPT_BY_OPERATION = {
   logs: 'prod:logs',
 } as const satisfies Record<keyof ProductionCommands, string>;
 
-const STRATEGIES = ['command', 'git-managed', 'disabled'] as const;
+const STRATEGIES = [
+  'command',
+  'git-managed',
+  'self-update',
+  'disabled',
+] as const;
 const PROVIDERS = ['systemd', 'docker-compose', 'vercel', 'none'] as const;
 const BACKUP_POLICIES = [
   'required-before-migration',
@@ -150,9 +155,7 @@ function parseCommands(
   const normalized: Partial<Record<keyof ProductionCommands, string>> = {};
 
   for (const operation of operations) {
-    if (!(operation in value)) {
-      continue;
-    }
+    if (!(operation in value)) continue;
 
     const expectedScript = SCRIPT_BY_OPERATION[operation];
     if (value[operation] !== expectedScript) {
@@ -256,20 +259,40 @@ function parseExternal(
   return { value: { project: value.project } };
 }
 
+function noSelfUpdateMutationCommands(commands: ProductionCommands): boolean {
+  return !(
+    commands.prepare ||
+    commands.backup ||
+    commands.migrate ||
+    commands.deploy ||
+    commands.verify ||
+    commands.restoreCheck ||
+    commands.rollback ||
+    commands.logs
+  );
+}
+
+function selfUpdatePoliciesAreClosed(policies: ProductionPolicies): boolean {
+  return (
+    policies.backup === 'not-configured' &&
+    policies.migrations === 'not-configured' &&
+    policies.rollback === 'not-configured'
+  );
+}
+
 function validateStrategy(
   enabled: boolean,
   strategy: ProductionStrategy,
   provider: ProductionProvider,
   commands: ProductionCommands,
   external: ProductionExternalReference | undefined,
+  policies: ProductionPolicies,
 ): string | null {
   if (strategy === 'command') {
     if (!enabled || !['systemd', 'docker-compose'].includes(provider)) {
       return 'strategy=command exige produção habilitada e provider systemd ou docker-compose.';
     }
-    if (
-      !hasRequiredCommands(commands, ['status', 'check', 'deploy', 'verify'])
-    ) {
+    if (!hasRequiredCommands(commands, ['status', 'check', 'deploy', 'verify'])) {
       return 'strategy=command exige os scripts canônicos status, check, deploy e verify.';
     }
     return null;
@@ -279,14 +302,27 @@ function validateStrategy(
     if (!enabled || provider !== 'vercel') {
       return 'strategy=git-managed exige produção habilitada e provider vercel.';
     }
-    if (
-      !hasRequiredCommands(commands, ['check', 'verify']) ||
-      commands.deploy
-    ) {
+    if (!hasRequiredCommands(commands, ['check', 'verify']) || commands.deploy) {
       return 'strategy=git-managed exige check/verify e não pode declarar deploy local.';
     }
     if (!external) {
       return 'strategy=git-managed exige a referência external.project.';
+    }
+    return null;
+  }
+
+  if (strategy === 'self-update') {
+    if (!enabled || provider !== 'none') {
+      return 'strategy=self-update exige produção habilitada e provider none.';
+    }
+    if (!hasRequiredCommands(commands, ['status', 'check'])) {
+      return 'strategy=self-update exige somente os gates canônicos status e check antes do handoff.';
+    }
+    if (!noSelfUpdateMutationCommands(commands) || external) {
+      return 'strategy=self-update não aceita hooks mutáveis, verify local nem provider externo; a mutação pertence ao worker fechado.';
+    }
+    if (!selfUpdatePoliciesAreClosed(policies)) {
+      return 'strategy=self-update exige políticas locais not-configured; recovery pertence ao protocolo de handoff.';
     }
     return null;
   }
@@ -371,14 +407,10 @@ function parseManifest(
   }
 
   const commandsResult = parseCommands(production.commands, scripts);
-  if (commandsResult.warning) {
-    return { warning: commandsResult.warning };
-  }
+  if (commandsResult.warning) return { warning: commandsResult.warning };
 
   const policiesResult = parsePolicies(production.policies);
-  if (policiesResult.warning) {
-    return { warning: policiesResult.warning };
-  }
+  if (policiesResult.warning) return { warning: policiesResult.warning };
 
   let health: ProductionHealthCheck | undefined;
   if (production.health !== undefined) {
@@ -417,12 +449,23 @@ function parseManifest(
     );
   }
 
+  if (
+    production.enabled &&
+    (production.reasonCode !== undefined || production.blockedBy !== undefined)
+  ) {
+    return fail(
+      'PRODUCTION_CONTRACT_INVALID_SHAPE',
+      'Produção habilitada não pode manter reasonCode ou blockedBy de um estado bloqueado.',
+    );
+  }
+
   const strategyError = validateStrategy(
     production.enabled,
     production.strategy,
     production.provider,
     commandsResult.value,
     external,
+    policiesResult.value,
   );
   if (strategyError) {
     return fail('PRODUCTION_CONTRACT_INVALID_SHAPE', strategyError);
@@ -462,9 +505,7 @@ export async function detectProductionContract(
   try {
     contents = await readFile(manifestPath, 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return {};
-    }
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
 
     return fail(
       'PRODUCTION_CONTRACT_UNREADABLE',

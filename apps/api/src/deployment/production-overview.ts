@@ -11,6 +11,10 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
+import {
+  GitDeploymentOriginRevisionResolver,
+  type DeploymentOriginRevisionResolver,
+} from './origin-revision.js';
 import { ProductionDeploymentStatusService } from './production-status.js';
 
 const DEFAULT_CONCURRENCY = 4;
@@ -47,6 +51,7 @@ export interface ProductionOverviewServiceOptions {
   deploymentReader: ProductionOverviewDeploymentReader;
   providerReader?: ProductionOverviewProviderReader;
   targetRevisionResolver?: ProductionOverviewTargetRevisionResolver;
+  originRevisionResolver?: DeploymentOriginRevisionResolver;
   now?: () => number;
   concurrency?: number;
 }
@@ -116,7 +121,10 @@ export class GitProductionOverviewTargetRevisionResolver implements ProductionOv
 function mutationStepSucceeded(deployment: Deployment): boolean {
   return Boolean(
     deployment.timeline.find(
-      (step) => step.id === 'deploy' || step.id === 'provider-deploy',
+      (step) =>
+        step.id === 'deploy' ||
+        step.id === 'provider-deploy' ||
+        step.id === 'self-update',
     )?.status === 'succeeded',
   );
 }
@@ -145,6 +153,24 @@ function healthEvidence(
   history: readonly Deployment[],
   productionRevision: string | undefined,
 ): { health: ProductionOverviewHealth; healthCheckedAt?: string } {
+  if (project.production?.strategy === 'self-update') {
+    const deployment = history.find(
+      (item) =>
+        item.revision === productionRevision && mutationStepSucceeded(item),
+    );
+    const selfUpdate = deployment?.timeline.find(
+      (step) => step.id === 'self-update',
+    );
+    return selfUpdate?.status === 'succeeded'
+      ? {
+          health: 'verified',
+          ...(selfUpdate.finishedAt
+            ? { healthCheckedAt: selfUpdate.finishedAt }
+            : {}),
+        }
+      : { health: 'unknown' };
+  }
+
   if (!project.production?.health) return { health: 'not-configured' };
   if (!productionRevision) return { health: 'unknown' };
 
@@ -192,6 +218,7 @@ export class ProductionOverviewService {
   private readonly deploymentReader: ProductionOverviewDeploymentReader;
   private readonly providerReader: ProductionOverviewProviderReader;
   private readonly targetRevisionResolver: ProductionOverviewTargetRevisionResolver;
+  private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
   private readonly now: () => number;
   private readonly concurrency: number;
 
@@ -202,6 +229,8 @@ export class ProductionOverviewService {
     this.targetRevisionResolver =
       options.targetRevisionResolver ??
       new GitProductionOverviewTargetRevisionResolver();
+    this.originRevisionResolver =
+      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
     this.now = options.now ?? Date.now;
     this.concurrency = Math.max(
       1,
@@ -316,11 +345,14 @@ export class ProductionOverviewService {
       );
     }
 
-    if (production.strategy === 'command') {
-      const targetRevision = await this.targetRevisionResolver.resolve(
-        project,
-        production.branch,
-      );
+    if (
+      production.strategy === 'command' ||
+      production.strategy === 'self-update'
+    ) {
+      const targetRevision =
+        production.strategy === 'self-update'
+          ? await this.originRevisionResolver.resolve(project, production.branch)
+          : await this.targetRevisionResolver.resolve(project, production.branch);
       const productionDeployment = currentHistory.find(mutationStepSucceeded);
       const productionRevision = productionDeployment?.revision;
       const health = healthEvidence(

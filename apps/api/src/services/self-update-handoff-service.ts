@@ -13,8 +13,29 @@ const HANDOFF_ID_PATTERN = /^self-update-[0-9a-f-]{36}$/;
 const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
 const PLAN_HASH_PATTERN = /^[0-9a-f]{64}$/;
 const PROJECT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,160}$/;
+const RESULT_CODE_PATTERN = /^[A-Z0-9_]{1,96}$/;
+const TERMINAL_STATUSES = new Set([
+  'succeeded',
+  'failed',
+  'recovery_required',
+]);
 
-export type SelfUpdateHandoffStatus = 'prepared' | 'accepted';
+export type SelfUpdateHandoffStatus =
+  | 'prepared'
+  | 'accepted'
+  | 'applying'
+  | 'restarting'
+  | 'verifying'
+  | 'succeeded'
+  | 'failed'
+  | 'recovery_required';
+
+export interface SelfUpdateHandoffResult {
+  code: string;
+  message: string;
+  finishedAt: string;
+  appliedRevision?: string;
+}
 
 export interface SelfUpdateHandoff {
   version: 1;
@@ -26,12 +47,18 @@ export interface SelfUpdateHandoff {
   status: SelfUpdateHandoffStatus;
   createdAt: string;
   updatedAt: string;
+  result?: SelfUpdateHandoffResult;
 }
 
-interface PrepareInput {
+export interface SelfUpdateHandoffInput {
+  handoffId?: string;
   projectId: string;
   targetRevision: string;
   planHash: string;
+}
+
+export interface SelfUpdateHandoffInspectInput extends SelfUpdateHandoffInput {
+  handoffId: string;
 }
 
 interface ToolResult {
@@ -69,6 +96,7 @@ export type SelfUpdateHandoffErrorCode =
   | 'SELF_UPDATE_AGENT_UNAVAILABLE'
   | 'SELF_UPDATE_HANDOFF_PREPARE_FAILED'
   | 'SELF_UPDATE_HANDOFF_CLAIM_FAILED'
+  | 'SELF_UPDATE_HANDOFF_INSPECT_FAILED'
   | 'SELF_UPDATE_EXECUTION_START_FAILED'
   | 'SELF_UPDATE_SHUTDOWN_REQUEST_FAILED'
   | 'SELF_UPDATE_HANDOFF_INVALID';
@@ -93,8 +121,25 @@ function isIsoTimestamp(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
 }
 
-function validateInput(input: PrepareInput): void {
+function isHandoffResult(value: unknown): value is SelfUpdateHandoffResult {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.code === 'string' &&
+    RESULT_CODE_PATTERN.test(value.code) &&
+    typeof value.message === 'string' &&
+    value.message.length > 0 &&
+    value.message.length <= 1000 &&
+    isIsoTimestamp(value.finishedAt) &&
+    (value.appliedRevision === undefined ||
+      (typeof value.appliedRevision === 'string' &&
+        REVISION_PATTERN.test(value.appliedRevision)))
+  );
+}
+
+function validateInput(input: SelfUpdateHandoffInput): void {
   if (
+    (input.handoffId !== undefined &&
+      !HANDOFF_ID_PATTERN.test(input.handoffId)) ||
     !PROJECT_ID_PATTERN.test(input.projectId) ||
     !REVISION_PATTERN.test(input.targetRevision) ||
     !PLAN_HASH_PATTERN.test(input.planHash)
@@ -108,8 +153,8 @@ function validateInput(input: PrepareInput): void {
 
 function parseHandoff(
   raw: string,
-  expected: PrepareInput,
-  expectedStatus: SelfUpdateHandoffStatus,
+  expected: SelfUpdateHandoffInput,
+  expectedStatus?: SelfUpdateHandoffStatus,
 ): SelfUpdateHandoff {
   let parsed: unknown;
   try {
@@ -121,18 +166,35 @@ function parseHandoff(
     );
   }
 
+  const value = isRecord(parsed) ? parsed : null;
+  const status = value?.status;
   if (
-    !isRecord(parsed) ||
-    parsed.version !== 1 ||
-    parsed.action !== 'self-update' ||
-    typeof parsed.id !== 'string' ||
-    !HANDOFF_ID_PATTERN.test(parsed.id) ||
-    parsed.projectId !== expected.projectId ||
-    parsed.targetRevision !== expected.targetRevision ||
-    parsed.planHash !== expected.planHash ||
-    parsed.status !== expectedStatus ||
-    !isIsoTimestamp(parsed.createdAt) ||
-    !isIsoTimestamp(parsed.updatedAt)
+    !value ||
+    value.version !== 1 ||
+    value.action !== 'self-update' ||
+    typeof value.id !== 'string' ||
+    !HANDOFF_ID_PATTERN.test(value.id) ||
+    (expected.handoffId !== undefined && value.id !== expected.handoffId) ||
+    value.projectId !== expected.projectId ||
+    value.targetRevision !== expected.targetRevision ||
+    value.planHash !== expected.planHash ||
+    typeof status !== 'string' ||
+    ![
+      'prepared',
+      'accepted',
+      'applying',
+      'restarting',
+      'verifying',
+      'succeeded',
+      'failed',
+      'recovery_required',
+    ].includes(status) ||
+    (expectedStatus !== undefined && status !== expectedStatus) ||
+    !isIsoTimestamp(value.createdAt) ||
+    !isIsoTimestamp(value.updatedAt) ||
+    (TERMINAL_STATUSES.has(status)
+      ? !isHandoffResult(value.result)
+      : value.result !== undefined)
   ) {
     throw new SelfUpdateHandoffError(
       'SELF_UPDATE_HANDOFF_INVALID',
@@ -140,7 +202,7 @@ function parseHandoff(
     );
   }
 
-  return parsed as unknown as SelfUpdateHandoff;
+  return value as unknown as SelfUpdateHandoff;
 }
 
 function parseAgentPing(raw: string): void {
@@ -159,11 +221,12 @@ function parseAgentPing(raw: string): void {
     parsed.status !== 'ready' ||
     !Array.isArray(parsed.actions) ||
     !parsed.actions.includes('claim') ||
+    !parsed.actions.includes('inspect') ||
     typeof parsed.instanceId !== 'string'
   ) {
     throw new SelfUpdateHandoffError(
       'SELF_UPDATE_AGENT_UNAVAILABLE',
-      'Self-update agent não está pronto para assumir handoffs.',
+      'Self-update agent não está pronto para assumir e reconciliar handoffs.',
     );
   }
 }
@@ -356,7 +419,28 @@ export class SelfUpdateHandoffService {
     this.agentPath = path.join(repositoryRoot, 'scripts/self-update-agent.mjs');
   }
 
-  async prepareAndExecute(input: PrepareInput): Promise<SelfUpdateHandoff> {
+  async inspect(input: SelfUpdateHandoffInspectInput): Promise<SelfUpdateHandoff> {
+    validateInput(input);
+    let result: ToolResult;
+    try {
+      result = await this.runner(this.agentPath, ['inspect', input.handoffId]);
+    } catch {
+      throw new SelfUpdateHandoffError(
+        'SELF_UPDATE_HANDOFF_INSPECT_FAILED',
+        'Não foi possível consultar o handoff no self-update agent.',
+      );
+    }
+    if (result.code !== 0) {
+      throw new SelfUpdateHandoffError(
+        'SELF_UPDATE_HANDOFF_INSPECT_FAILED',
+        safeToolMessage(result.stderr) ||
+          'Não foi possível consultar o handoff no self-update agent.',
+      );
+    }
+    return parseHandoff(result.stdout, input);
+  }
+
+  async prepareAndExecute(input: SelfUpdateHandoffInput): Promise<SelfUpdateHandoff> {
     validateInput(input);
 
     let ping: ToolResult;
@@ -376,17 +460,19 @@ export class SelfUpdateHandoffService {
     }
     parseAgentPing(ping.stdout);
 
+    const prepareArgs = [
+      'prepare',
+      '--project-id',
+      input.projectId,
+      '--revision',
+      input.targetRevision,
+      '--plan-hash',
+      input.planHash,
+      ...(input.handoffId ? ['--handoff-id', input.handoffId] : []),
+    ];
     let preparedResult: ToolResult;
     try {
-      preparedResult = await this.runner(this.helperPath, [
-        'prepare',
-        '--project-id',
-        input.projectId,
-        '--revision',
-        input.targetRevision,
-        '--plan-hash',
-        input.planHash,
-      ]);
+      preparedResult = await this.runner(this.helperPath, prepareArgs);
     } catch {
       throw new SelfUpdateHandoffError(
         'SELF_UPDATE_HANDOFF_PREPARE_FAILED',
