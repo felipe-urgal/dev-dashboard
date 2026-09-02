@@ -153,7 +153,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       : {}),
     localOrigin: options.localOrigin ?? 'http://127.0.0.1:4343',
     ...(options.sessionTtlSeconds
-      ? { sessionTtlSeconds: options.sessionTtlSeconds } : {}),
+      ? { sessionTtlSeconds: options.sessionTtlSeconds }
+      : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.allowedOrigins
       ? { allowedOrigins: options.allowedOrigins }

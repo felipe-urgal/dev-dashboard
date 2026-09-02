@@ -9,10 +9,7 @@ import {
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-import type {
-  Project,
-  ProjectScriptCatalog,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectScriptCatalog } from '@dev-dashboard/contracts';
 
 import { fetchProjectScripts } from '../api';
 import { useProjectDependenciesPty } from '../composables/useProjectDependenciesPty';

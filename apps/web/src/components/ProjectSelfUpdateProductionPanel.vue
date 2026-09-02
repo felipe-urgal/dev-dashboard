@@ -122,16 +122,17 @@ const status = computed(() => {
     };
   }
   return {
-    title: reconnecting.value
-      ? 'API reiniciando…'
-      : 'Self-update em execução',
+    title: reconnecting.value ? 'API reiniciando…' : 'Self-update em execução',
     description:
       'O worker externo assumiu a operação. A página volta a reconciliar o resultado quando a API responder novamente.',
     tone: 'info',
   };
 });
 
-async function refreshLog(deploymentId: string, current: number): Promise<void> {
+async function refreshLog(
+  deploymentId: string,
+  current: number,
+): Promise<void> {
   try {
     const next = await fetchDeploymentLog(
       props.project.id,
@@ -211,10 +212,15 @@ async function preparePlan(): Promise<void> {
   errorMessage.value = '';
   plan.value = null;
   try {
-    plan.value = await fetchDeploymentPlan(props.project.id, controller?.signal);
+    plan.value = await fetchDeploymentPlan(
+      props.project.id,
+      controller?.signal,
+    );
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível gerar o plano.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível gerar o plano.';
   } finally {
     operation.value = '';
   }
@@ -255,7 +261,11 @@ async function confirmAndStart(): Promise<void> {
   }
 }
 
-watch(() => props.project.id, () => void load(), { immediate: true });
+watch(
+  () => props.project.id,
+  () => void load(),
+  { immediate: true },
+);
 onBeforeUnmount(() => {
   generation += 1;
   clearTimer();
@@ -317,7 +327,9 @@ onBeforeUnmount(() => {
         <div class="self-update-plan-summary">
           <div>
             <span>Revision alvo</span>
-            <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
+            <code :title="plan.revision">{{
+              shortRevision(plan.revision)
+            }}</code>
           </div>
           <div>
             <span>Etapas</span>
@@ -327,16 +339,20 @@ onBeforeUnmount(() => {
 
         <ol class="self-update-steps">
           <li v-for="step in plan.steps" :key="step.id">
-            <span>{{ step.id === 'check' ? 'Check do agent' : 'Self-update' }}</span>
-            <small v-if="step.id === 'self-update'">reinicia a própria API</small>
+            <span>{{
+              step.id === 'check' ? 'Check do agent' : 'Self-update'
+            }}</span>
+            <small v-if="step.id === 'self-update'"
+              >reinicia a própria API</small
+            >
             <small v-else>somente leitura</small>
           </li>
         </ol>
 
         <div class="self-update-warning">
           A confirmação vale somente para este plano e SHA. Depois do handoff, o
-          worker exige working tree limpa, fast-forward de origin/main e readiness
-          da nova API antes de concluir.
+          worker exige working tree limpa, fast-forward de origin/main e
+          readiness da nova API antes de concluir.
         </div>
 
         <div class="self-update-plan-actions">
@@ -349,7 +365,9 @@ onBeforeUnmount(() => {
             :disabled="Boolean(operation)"
             @click="confirmAndStart"
           >
-            {{ operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar' }}
+            {{
+              operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar'
+            }}
           </button>
         </div>
       </div>
@@ -361,12 +379,20 @@ onBeforeUnmount(() => {
           <span class="self-update-eyebrow">Última execução</span>
           <h3>{{ formatDate(latest.createdAt) }}</h3>
         </div>
-        <code :title="latest.revision">{{ shortRevision(latest.revision) }}</code>
+        <code :title="latest.revision">{{
+          shortRevision(latest.revision)
+        }}</code>
       </div>
 
       <div class="self-update-timeline">
-        <div v-for="step in latest.timeline" :key="step.id" class="self-update-step">
-          <span>{{ step.id === 'check' ? 'Check do agent' : 'Self-update' }}</span>
+        <div
+          v-for="step in latest.timeline"
+          :key="step.id"
+          class="self-update-step"
+        >
+          <span>{{
+            step.id === 'check' ? 'Check do agent' : 'Self-update'
+          }}</span>
           <strong>{{ step.status }}</strong>
         </div>
       </div>

@@ -1,13 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import {
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -139,7 +132,11 @@ async function stopChild(child) {
   try {
     process.kill(child.pid, 'SIGTERM');
   } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+    if (!(
+      error instanceof Error &&
+      'code' in error &&
+      error.code === 'ESRCH'
+    )) {
       throw error;
     }
   }
@@ -147,7 +144,9 @@ async function stopChild(child) {
 }
 
 async function createRepositoryFixture(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-self-update-e2e-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-self-update-e2e-'),
+  );
   const repositoryRoot = path.join(root, 'repo');
   const originRoot = path.join(root, 'origin.git');
   const scriptsDirectory = path.join(repositoryRoot, 'scripts');
@@ -172,7 +171,11 @@ async function createRepositoryFixture(t) {
   await git(root, ['init', '--bare', originRoot]);
   await git(repositoryRoot, ['init', '--initial-branch=main']);
   await git(repositoryRoot, ['config', 'user.name', 'Self Update Test']);
-  await git(repositoryRoot, ['config', 'user.email', 'self-update@example.invalid']);
+  await git(repositoryRoot, [
+    'config',
+    'user.email',
+    'self-update@example.invalid',
+  ]);
   await git(repositoryRoot, ['add', '.']);
   await git(repositoryRoot, ['commit', '-m', 'estado inicial']);
   const initialRevision = await git(repositoryRoot, ['rev-parse', 'HEAD']);

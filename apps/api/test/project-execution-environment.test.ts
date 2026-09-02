@@ -54,10 +54,7 @@ test('Rails não herda contexto Ruby/Bundler da API e fixa o Gemfile do projeto'
   const project = railsProject();
   const environment = isolateProjectExecutionEnvironment(project);
 
-  assert.equal(
-    environment.BUNDLE_GEMFILE,
-    path.join(project.path, 'Gemfile'),
-  );
+  assert.equal(environment.BUNDLE_GEMFILE, path.join(project.path, 'Gemfile'));
   assert.equal(environment.BUNDLE_BIN_PATH, undefined);
   assert.equal(environment.BUNDLE_WITHOUT, undefined);
   assert.equal(environment.BUNDLER_VERSION, undefined);
@@ -108,8 +105,5 @@ test('override explícito do projeto é preservado, exceto BUNDLE_GEMFILE', () =
 
   assert.equal(environment.GEM_HOME, '/tmp/rails-project/.gems');
   assert.equal(environment.BUNDLE_WITHOUT, 'production');
-  assert.equal(
-    environment.BUNDLE_GEMFILE,
-    path.join(project.path, 'Gemfile'),
-  );
+  assert.equal(environment.BUNDLE_GEMFILE, path.join(project.path, 'Gemfile'));
 });

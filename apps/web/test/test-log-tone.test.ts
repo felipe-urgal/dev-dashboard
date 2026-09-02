@@ -27,9 +27,6 @@ test('classifica tons sem depender de DOM', () => {
 
 test('não trata resumos sem falhas como erro', () => {
   assert.equal(isTestLogErrorLine('7483 examples, 0 failures'), false);
-  assert.equal(
-    classifyTestLogSemanticTone('120 tests, 0 failed'),
-    'success',
-  );
+  assert.equal(classifyTestLogSemanticTone('120 tests, 0 failed'), 'success');
   assert.equal(classifyTestLogSemanticTone('...F..'), 'error');
 });

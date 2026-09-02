@@ -215,7 +215,9 @@ export class SelfUpdateHandoffStore {
 
     const id = handoffId ?? `self-update-${randomUUID()}`;
     if (await this.get(id)) {
-      throw new Error('Já existe um handoff de self-update com esse identificador.');
+      throw new Error(
+        'Já existe um handoff de self-update com esse identificador.',
+      );
     }
 
     const timestamp = new Date(now).toISOString();
@@ -270,7 +272,9 @@ export class SelfUpdateHandoffStore {
   async transition(handoffId, nextStatus, result, now = Date.now()) {
     assertHandoffId(handoffId);
     if (!SELF_UPDATE_STATUSES.includes(nextStatus)) {
-      throw new Error(`Estado de self-update desconhecido: ${String(nextStatus)}.`);
+      throw new Error(
+        `Estado de self-update desconhecido: ${String(nextStatus)}.`,
+      );
     }
     const current = await this.get(handoffId);
     if (!current) throw new Error('Handoff de self-update não encontrado.');

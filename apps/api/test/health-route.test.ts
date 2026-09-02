@@ -3,10 +3,7 @@ import { test } from 'node:test';
 
 import Fastify from 'fastify';
 
-import {
-  healthRoutes,
-  resolveRuntimeRevision,
-} from '../src/routes/health.js';
+import { healthRoutes, resolveRuntimeRevision } from '../src/routes/health.js';
 
 const REVISION = 'a'.repeat(40);
 

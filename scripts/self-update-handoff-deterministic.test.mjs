@@ -11,7 +11,9 @@ const REVISION = 'a'.repeat(40);
 const PLAN_HASH = 'b'.repeat(64);
 
 test('handoff aceita id determinístico sem permitir sobrescrita', async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'self-update-handoff-id-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'self-update-handoff-id-'),
+  );
   t.after(() => rm(directory, { recursive: true, force: true }));
   const store = new SelfUpdateHandoffStore(directory);
 

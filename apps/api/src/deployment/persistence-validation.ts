@@ -126,7 +126,8 @@ function isTimelineStep(value: unknown): boolean {
   }
 
   const expectedScript = COMMAND_SCRIPTS[step.id as ProductionCommandId];
-  if (expectedScript === undefined || step.script !== expectedScript) return false;
+  if (expectedScript === undefined || step.script !== expectedScript)
+    return false;
   return (
     step.target === undefined &&
     (step.prepareScript === undefined ||

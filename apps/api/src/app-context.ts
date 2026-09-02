@@ -173,7 +173,8 @@ export function createAppContext(
     projectTerminalService,
     selfUpdateHandoffService: new SelfUpdateHandoffService({
       requestShutdown:
-        options.selfUpdateShutdownRequester ?? defaultSelfUpdateShutdownRequester,
+        options.selfUpdateShutdownRequester ??
+        defaultSelfUpdateShutdownRequester,
     }),
   };
 }

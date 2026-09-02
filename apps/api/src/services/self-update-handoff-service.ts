@@ -14,11 +14,7 @@ const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
 const PLAN_HASH_PATTERN = /^[0-9a-f]{64}$/;
 const PROJECT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,160}$/;
 const RESULT_CODE_PATTERN = /^[A-Z0-9_]{1,96}$/;
-const TERMINAL_STATUSES = new Set([
-  'succeeded',
-  'failed',
-  'recovery_required',
-]);
+const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'recovery_required']);
 
 export type SelfUpdateHandoffStatus =
   | 'prepared'
@@ -295,7 +291,11 @@ async function defaultExecutionProbe(
   handoffId: string,
   workerPid: number,
 ): Promise<void> {
-  const lockPath = path.join(resolveStateRoot(), 'self-update', 'execution.lock');
+  const lockPath = path.join(
+    resolveStateRoot(),
+    'self-update',
+    'execution.lock',
+  );
   const deadline = Date.now() + WORKER_READY_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
@@ -305,7 +305,8 @@ async function defaultExecutionProbe(
 
     try {
       const metadata = await lstat(lockPath);
-      const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+      const uid =
+        typeof process.getuid === 'function' ? process.getuid() : null;
       if (
         !metadata.isFile() ||
         metadata.isSymbolicLink() ||
@@ -335,7 +336,11 @@ async function defaultExecutionProbe(
 
       throw new Error('Lock de execução pertence a outro handoff ou processo.');
     } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
         await sleep(WORKER_READY_POLL_MS);
         continue;
       }
@@ -373,7 +378,9 @@ async function defaultToolRunner(
     const append = (current: string, chunk: Buffer): string => {
       const next = current + chunk.toString('utf8');
       if (Buffer.byteLength(next, 'utf8') > MAX_TOOL_OUTPUT_BYTES) {
-        finishError(new Error('Saída do tooling de self-update excedeu o limite.'));
+        finishError(
+          new Error('Saída do tooling de self-update excedeu o limite.'),
+        );
         return current;
       }
       return next;
@@ -415,11 +422,16 @@ export class SelfUpdateHandoffService {
     this.runner = options.runner ?? defaultToolRunner;
     this.executionProbe = options.executionProbe ?? defaultExecutionProbe;
     this.requestShutdown = options.requestShutdown ?? (() => undefined);
-    this.helperPath = path.join(repositoryRoot, 'scripts/self-update-helper.mjs');
+    this.helperPath = path.join(
+      repositoryRoot,
+      'scripts/self-update-helper.mjs',
+    );
     this.agentPath = path.join(repositoryRoot, 'scripts/self-update-agent.mjs');
   }
 
-  async inspect(input: SelfUpdateHandoffInspectInput): Promise<SelfUpdateHandoff> {
+  async inspect(
+    input: SelfUpdateHandoffInspectInput,
+  ): Promise<SelfUpdateHandoff> {
     validateInput(input);
     let result: ToolResult;
     try {
@@ -440,7 +452,9 @@ export class SelfUpdateHandoffService {
     return parseHandoff(result.stdout, input);
   }
 
-  async prepareAndExecute(input: SelfUpdateHandoffInput): Promise<SelfUpdateHandoff> {
+  async prepareAndExecute(
+    input: SelfUpdateHandoffInput,
+  ): Promise<SelfUpdateHandoff> {
     validateInput(input);
 
     let ping: ToolResult;
@@ -455,7 +469,8 @@ export class SelfUpdateHandoffService {
     if (ping.code !== 0) {
       throw new SelfUpdateHandoffError(
         'SELF_UPDATE_AGENT_UNAVAILABLE',
-        safeToolMessage(ping.stderr) || 'Self-update agent local não está disponível.',
+        safeToolMessage(ping.stderr) ||
+          'Self-update agent local não está disponível.',
       );
     }
     parseAgentPing(ping.stdout);
@@ -506,7 +521,10 @@ export class SelfUpdateHandoffService {
     }
 
     const claimed = parseHandoff(claimedResult.stdout, input, 'accepted');
-    if (claimed.id !== prepared.id || claimed.createdAt !== prepared.createdAt) {
+    if (
+      claimed.id !== prepared.id ||
+      claimed.createdAt !== prepared.createdAt
+    ) {
       throw new SelfUpdateHandoffError(
         'SELF_UPDATE_HANDOFF_INVALID',
         'Self-update agent assumiu um handoff diferente daquele persistido pela API.',
@@ -515,7 +533,10 @@ export class SelfUpdateHandoffService {
 
     let executionResult: ToolResult;
     try {
-      executionResult = await this.runner(this.agentPath, ['execute', claimed.id]);
+      executionResult = await this.runner(this.agentPath, [
+        'execute',
+        claimed.id,
+      ]);
     } catch {
       throw new SelfUpdateHandoffError(
         'SELF_UPDATE_EXECUTION_START_FAILED',

@@ -97,7 +97,8 @@ export class DeploymentService {
     this.revisionResolver =
       options.revisionResolver ?? new GitDeploymentRevisionResolver();
     this.originRevisionResolver =
-      options.originRevisionResolver ?? new GitDeploymentOriginRevisionResolver();
+      options.originRevisionResolver ??
+      new GitDeploymentOriginRevisionResolver();
     this.confirmationService =
       options.confirmationService ??
       new DeploymentConfirmationService(60_000, this.now);
@@ -472,10 +473,7 @@ export class DeploymentService {
       };
       await this.store.save(deployment);
     } finally {
-      if (
-        !handedOff &&
-        this.active?.deploymentId === deployment.id
-      ) {
+      if (!handedOff && this.active?.deploymentId === deployment.id) {
         this.active = undefined;
       }
     }
@@ -567,9 +565,7 @@ export class DeploymentService {
 
     return this.finishSelfUpdate(deployment, selfUpdateIndex, {
       status:
-        handoff.status === 'recovery_required'
-          ? 'recovery_required'
-          : 'failed',
+        handoff.status === 'recovery_required' ? 'recovery_required' : 'failed',
       code: result.code,
       message: result.message,
       finishedAt: result.finishedAt,
