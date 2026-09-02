@@ -68,11 +68,11 @@ function installFetch(
 ): void {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const path = new URL(String(input), 'http://localhost').pathname;
-    if (path.endsWith('/dependencies/pty/status')) {
+    const requestPath = new URL(String(input), 'http://localhost').pathname;
+    if (requestPath.endsWith('/dependencies/pty/status')) {
       return jsonResponse({ snapshot: null });
     }
-    if (path.endsWith('/dependencies/pty/start')) {
+    if (requestPath.endsWith('/dependencies/pty/start')) {
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       options.onStartCall?.(body);
       const action = catalog.items.find((item) => item.id === body.actionId);
@@ -91,10 +91,10 @@ function installFetch(
         201,
       );
     }
-    if (path.endsWith('/dependencies/pty/cancel')) {
+    if (requestPath.endsWith('/dependencies/pty/cancel')) {
       return jsonResponse({ ok: true });
     }
-    if (path.endsWith('/scripts')) return jsonResponse({ catalog });
+    if (requestPath.endsWith('/scripts')) return jsonResponse({ catalog });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
   restoreFetch = () => {
@@ -102,7 +102,7 @@ function installFetch(
   };
 }
 
-test('mostra instalação e build do gerenciador Node detectado', async () => {
+test('mostra instalação e build do gerenciador Node detectado sem terminal vazio', async () => {
   installFetch({
     items: [
       {
@@ -142,19 +142,17 @@ test('mostra instalação e build do gerenciador Node detectado', async () => {
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
+  assert.doesNotMatch(wrapper.text(), /Pronto/);
   assert.equal(
     wrapper.get('.dependencies-panel').attributes('aria-busy'),
     'false',
   );
-  assert.equal(
-    wrapper.get('.dependencies-console').attributes('aria-label'),
-    'Detalhes da execução',
-  );
-  assert.equal(wrapper.findAll('.dependencies-table tbody tr').length, 2);
+  assert.equal(wrapper.find('.dependencies-console').exists(), false);
+  assert.equal(wrapper.findAll('.dependencies-action-row').length, 2);
   wrapper.unmount();
 });
 
-test('projeto Rails com frontend mostra Bundler e Node juntos', async () => {
+test('projeto Rails com frontend agrupa Bundler e Node sem cards redundantes', async () => {
   installFetch({
     items: [
       {
@@ -225,11 +223,12 @@ test('projeto Rails com frontend mostra Bundler e Node juntos', async () => {
   assert.match(wrapper.text(), /bundle check/);
   assert.match(wrapper.text(), /bundle update/);
   assert.match(wrapper.text(), /npm run build/);
-  assert.equal(wrapper.findAll('.dependencies-table tbody tr').length, 5);
+  assert.equal(wrapper.findAll('.dependencies-group').length, 2);
+  assert.equal(wrapper.findAll('.dependencies-action-row').length, 5);
   wrapper.unmount();
 });
 
-test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
+test('executa uma ação via PTY e mostra estado, código de saída e reexecução', async () => {
   const calls: unknown[] = [];
   installFetch(
     {
@@ -261,7 +260,7 @@ test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
   await flushPromises();
 
   const runButton = wrapper
-    .findAll('.dependencies-table tbody button')
+    .findAll('.dependencies-action-row button')
     .find((button) => button.text().includes('Executar'));
   assert.ok(runButton);
   await runButton!.trigger('click');
@@ -287,7 +286,13 @@ test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
     },
   });
   await flushPromises();
-  assert.doesNotMatch(wrapper.text(), /Executando…/);
+
+  assert.match(wrapper.text(), /Executando/);
+  assert.doesNotMatch(wrapper.text(), /exit —/);
+  assert.equal(
+    wrapper.get('.dependencies-console').attributes('aria-label'),
+    'Detalhes da execução',
+  );
 
   socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
   await flushPromises();
@@ -296,5 +301,21 @@ test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
   await flushPromises();
   await flushPromises();
 
-  assert.doesNotMatch(wrapper.text(), /concluído/);
+  assert.match(wrapper.text(), /Concluído/);
+  assert.match(wrapper.text(), /código 0/);
+  const rerunButton = wrapper
+    .findAll('.dependencies-console-actions button')
+    .find((button) => button.text().includes('Executar novamente'));
+  assert.ok(rerunButton);
+
+  await rerunButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(calls, [
+    { actionId: 'package-manager:install' },
+    { actionId: 'package-manager:install' },
+  ]);
+  assert.equal(FakeWebSocket.instances.length, 2);
+  wrapper.unmount();
 });

@@ -67,7 +67,7 @@ test('Rails não herda contexto Ruby/Bundler da API e fixa o Gemfile do projeto'
   assert.equal(environment.RUBYLIB, undefined);
   assert.equal(environment.RUBYOPT, undefined);
 
-  let spawnedEnvironment: Record<string, string> | undefined;
+  let spawnedEnvironment: NodeJS.ProcessEnv | undefined;
   const fakePty = {
     onData: () => ({ dispose() {} }),
     onExit: () => ({ dispose() {} }),

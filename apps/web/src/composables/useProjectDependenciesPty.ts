@@ -48,6 +48,7 @@ export function useProjectDependenciesPty(
           status: 'exited',
           exitCode,
           exitSignal,
+          endedAt: new Date().toISOString(),
         };
       }
     },
@@ -85,6 +86,10 @@ export function useProjectDependenciesPty(
 
     starting.value = action.id;
     errorMessage.value = '';
+    // Uma execução concluída pode manter o WebSocket anterior aberto. Ao
+    // iniciar de novo, desconecta primeiro para que o terminal novo se anexe
+    // ao novo registro do backend em vez de continuar ouvindo o PTY antigo.
+    disconnect();
     disposeTerminal();
     try {
       snapshot.value = await startProjectDependenciesPty(
