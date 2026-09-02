@@ -24,7 +24,9 @@ describe('arquitetura do bootstrap de testes', () => {
     expect(entrada).not.toContain('installTestLogInspectorMutationGuard');
     expect(entrada).not.toContain("from './test-log-inspector'");
     expect(entrada).not.toContain("import './test-log-inspector.css'");
-    expect(existsSync(resolve(raizWeb, 'src/test-log-inspector.ts'))).toBe(false);
+    expect(existsSync(resolve(raizWeb, 'src/test-log-inspector.ts'))).toBe(
+      false,
+    );
     expect(existsSync(resolve(raizWeb, 'src/test-log-inspector'))).toBe(false);
     expect(
       existsSync(resolve(raizWeb, 'src/test-log-inspector-mutation-guard.ts')),
