@@ -35,6 +35,8 @@
   --font-family:
     system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', sans-serif;
+  --font-family-mono:
+    'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Monaco, monospace;
   --font-xs: 10px;
   --font-sm: 11px;
   --font-md: 13px;
@@ -42,6 +44,30 @@
   --font-xl: 20px;
   --font-weight-body: 500;
   --font-weight-strong: 600;
+
+  /* Controles e interação */
+  --control-height-sm: 30px;
+  --control-height-md: 34px;
+  --control-height-lg: 40px;
+  --interactive-target-min: 34px;
+  --disabled-opacity: 0.56;
+
+  /* Foco */
+  --focus-ring-width: 2px;
+  --focus-ring-color: var(--accent);
+  --focus-ring-offset: 2px;
+
+  /* Overlay */
+  --overlay-backdrop: rgb(8 12 20 / 68%);
+
+  /* Código e diff */
+  --code-surface: var(--surface-0);
+  --code-text: var(--text);
+  --diff-line-height: 1.5;
+
+  /* Motion */
+  --motion-duration-fast: 160ms;
+  --motion-easing-standard: ease;
 
   /* Espaço */
   --space-1: 4px;
