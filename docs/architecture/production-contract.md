@@ -101,6 +101,8 @@ Requisitos mínimos:
 
 `reasonCode` e `blockedBy` explicam o gate. O planner não cria deployment para produção desabilitada.
 
+O próprio Dev Dashboard usa essa estratégia enquanto #487 não conclui a revisão/habilitação final. A cadeia operacional de handoff/agent/worker já existir não muda essa regra: tooling interno não transforma um contrato `disabled` em deployment autorizado.
+
 ## Descoberta fail-closed
 
 `packages/project-discovery` cruza o manifesto com os scripts reais do projeto. O comportamento é:
@@ -179,7 +181,9 @@ VERCEL_TOKEN
 VERCEL_TEAM_ID   # opcional
 ```
 
-`npm run dev` carrega `.env.local` quando presente, permitindo manter essas variáveis fora do repositório. Tokens não são persistidos no domínio, não são retornados ao browser e não entram em logs sanitizados.
+`npm run dev` carrega `.env.local` quando presente. O template versionado `.env.example` pode ser copiado para `.env.local`, mas nunca contém token real.
+
+Tokens não são persistidos no domínio, não são retornados ao browser e não entram em logs sanitizados.
 
 ## Segurança
 
@@ -188,6 +192,8 @@ O navegador envia IDs, `planHash`, token de confirmação e ações tipadas. Ele
 O adapter local usa scripts canônicos e `shell: false`. O adapter Vercel usa o projeto externo declarado, a origem Git resolvida pelo backend e a revision já confirmada. Respostas externas possuem tamanho/shape limitados e erros são traduzidos para códigos locais estáveis.
 
 `documentation` aceita somente caminho relativo seguro. Health aceita apenas HTTP/HTTPS sem credenciais. O contrato não possui campos para tokens, connection strings ou valores secretos.
+
+Self-update possui uma fronteira adicional descrita em [self-production.md](self-production.md): o socket do agent permanece com catálogo remoto fechado, o worker só assume handoff previamente vinculado e a API só encerra depois de ownership comprovado. Enquanto `strategy=disabled`, essa infraestrutura não é autorização do Production Contract.
 
 Detalhes: [Segurança e modelo de ameaça](security.md).
 
@@ -204,7 +210,26 @@ A capability `production` só aparece quando o contrato é válido. Produção h
 
 A superfície de Produção usa o mesmo domínio para `command` e `git-managed`; a diferença está em quem executa a etapa de promoção.
 
+A visão global do workspace também usa esse mesmo domínio. **Atualizar pendentes** calcula os planos elegíveis antes da primeira confirmação e executa projetos sequencialmente, sem criar um motor paralelo de deployment. Projetos `strategy=disabled` ficam fora do lote mutável.
+
 A referência exata dos endpoints é gerada em [api-reference.md](api-reference.md).
+
+## Self-production do Dev Dashboard
+
+A cadeia de self-update agora inclui:
+
+- handoff persistente e recovery conservador (#520);
+- agent instalado fora da checkout, lifecycle independente e Unix socket autenticado (#521);
+- integração interna API → agent;
+- prova de ownership do worker antes da parada;
+- aplicação `ff-only` da revision confirmada;
+- restart user-space independente da API antiga;
+- readiness bounded com prova da revision no header de `/api/health`;
+- resultado terminal persistido e teste real de restart/recovery (#523).
+
+Isso ainda **não** habilita o Production Contract do próprio Dashboard.
+
+Depois do PR C, o gate permanece fechado para revisão formal do modelo de privilégio/segurança. O PR D da #487 deverá habilitar conscientemente o contrato e integrar o fluxo ao planner/UI sem bypass.
 
 ## Escopo atual
 
@@ -218,12 +243,17 @@ Incluído:
 - revalidação de revision local e de `origin/<branch>`;
 - promoção Vercel por SHA exato;
 - retry seguro de somente verify;
-- UI de Produção por projeto.
+- UI de Produção por projeto;
+- visão global do workspace e `Atualizar pendentes` sequencial;
+- contrato `strategy=disabled` para projetos bloqueados, incluindo o próprio Dev Dashboard;
+- infraestrutura operacional completa de handoff/agent/restart/readiness do self-update, ainda sem habilitação de produção.
 
-Fora de escopo:
+Fora de escopo/pendente:
 
 - rollback Vercel automático;
-- self-update do Dev Dashboard enquanto a própria API é o coordenador;
-- visão global/`Atualizar pendentes` entre providers distintos.
+- habilitação do self-update do Dev Dashboard antes de fechar #487;
+- interpretar tooling interno como bypass de `strategy=disabled`;
+- qualquer executor remoto genérico para o self-update agent;
+- qualquer elevação privilegiada automática sem revisão específica.
 
-Self-production permanece documentada em [self-production.md](self-production.md); evolução multi-projeto permanece rastreada nas issues da frente de produção.
+Self-production permanece documentada em [self-production.md](self-production.md); evolução multi-projeto e self-update permanecem rastreadas nas issues da frente de produção (#482/#487).

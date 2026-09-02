@@ -6,16 +6,14 @@
     "provider": "none",
     "branch": "main",
     "documentation": "docs/architecture/self-production.md",
-    "reasonCode": "self-update-operational-integration-required",
+    "reasonCode": "self-update-security-review-required",
     "commands": {
       "status": "prod:status",
       "check": "prod:check"
     },
     "blockedBy": [
-      "self-update-api-agent-integration-not-implemented",
-      "self-update-execution-not-implemented",
-      "production-health-not-validated",
-      "privilege-model-not-validated"
+      "privilege-model-not-validated",
+      "self-update-security-review-not-completed"
     ],
     "policies": {
       "backup": "not-configured",

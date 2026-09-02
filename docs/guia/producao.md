@@ -86,7 +86,13 @@ Se `origin/main` avançou depois do preview, a execução é recusada e você pr
 
 Se aparecer **Integração Vercel não configurada**, configure o processo local do Dev Dashboard, não o projeto alvo.
 
-Na raiz do Dev Dashboard, crie/edite `.env.local`:
+Na raiz do Dev Dashboard, crie a configuração local a partir do template:
+
+```bash
+cp .env.example .env.local
+```
+
+Depois preencha `.env.local`:
 
 ```dotenv
 VERCEL_TOKEN=...
@@ -139,7 +145,13 @@ Só prepare novo deployment depois de entender o que já foi aplicado.
 
 ## Produção bloqueada
 
-`strategy=disabled` é um estado válido. A aba explica `reasonCode`/blockers, mas não oferece deploy. Isso é especialmente importante para o próprio Dev Dashboard: self-update continua bloqueado até existir um helper externo capaz de sobreviver ao restart da API.
+`strategy=disabled` é um estado válido. A aba explica `reasonCode`/blockers, mas não oferece deploy.
+
+Isso é especialmente importante para o próprio Dev Dashboard. #520 entregou handoff persistente, #521 entregou agent instalado/lifecycle/canal autenticado e o PR #523 fecha a cadeia operacional: ownership do worker antes da parada, aplicação fast-forward, restart user-space, readiness bounded com prova da revision e recovery persistido/testado.
+
+Mesmo com esse mecanismo, o contrato continua bloqueado. Os blockers restantes são a revisão formal do modelo de privilégio/segurança e a habilitação explícita no PR D da #487.
+
+Não use os scripts `self-update:*` como atalho para contornar `strategy=disabled`.
 
 ## Mais detalhes
 
