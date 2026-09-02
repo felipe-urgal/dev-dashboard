@@ -33,12 +33,11 @@ button {
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.56;
+  opacity: var(--disabled-opacity);
 }
 
 code,
 kbd {
-  font-family:
-    'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-family: var(--font-family-mono);
 }
 
