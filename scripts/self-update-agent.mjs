@@ -44,14 +44,32 @@ function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function isErrnoCode(error, code) {
+  return error instanceof Error && 'code' in error && error.code === code;
+}
+
 function isUnavailableError(error) {
   return (
-    error instanceof SelfUpdateAgentError && error.code === 'AGENT_UNAVAILABLE'
-  ) || (error instanceof Error && 'code' in error && ['ENOENT', 'ECONNREFUSED'].includes(error.code));
+    (error instanceof SelfUpdateAgentError &&
+      error.code === 'AGENT_UNAVAILABLE') ||
+    isErrnoCode(error, 'ENOENT') ||
+    isErrnoCode(error, 'ECONNREFUSED')
+  );
 }
 
 async function pingAgent(paths) {
-  const token = await readSelfUpdateAgentToken(paths);
+  let token;
+  try {
+    token = await readSelfUpdateAgentToken(paths);
+  } catch (error) {
+    if (isErrnoCode(error, 'ENOENT')) {
+      throw new SelfUpdateAgentError(
+        'AGENT_TOKEN_MISSING',
+        'Token local do self-update agent não foi encontrado.',
+      );
+    }
+    throw error;
+  }
   return await sendSelfUpdateAgentRequest('ping', { paths, token });
 }
 
@@ -104,15 +122,15 @@ export async function installAgent({ paths, sourceDirectory } = {}) {
 
 export async function startAgent({ paths, spawnProcess = spawn } = {}) {
   const activePaths = paths ?? resolveSelfUpdateAgentPaths();
+  const installation = await verifyInstalledSelfUpdateAgent(activePaths);
+  await getOrCreateSelfUpdateAgentToken(activePaths);
+
   try {
     const current = await pingAgent(activePaths);
     return { status: 'already-running', ...current };
   } catch (error) {
     if (!isUnavailableError(error)) throw error;
   }
-
-  const installation = await verifyInstalledSelfUpdateAgent(activePaths);
-  await getOrCreateSelfUpdateAgentToken(activePaths);
 
   const child = spawnProcess(process.execPath, [installation.entrypoint, 'serve'], {
     detached: true,
