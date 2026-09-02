@@ -233,6 +233,12 @@ export class ProductionCommandAdapter {
     if (step.id === 'provider-deploy') {
       return this.providerAdapter.run(project, step, signal, onOutput);
     }
+    if (step.id === 'self-update') {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'Self-update não pode ser executado pelo adapter de comandos; use o handoff fechado do domínio de deployment.',
+      );
+    }
 
     const expectedScript = SCRIPT_BY_COMMAND[step.id];
     if (

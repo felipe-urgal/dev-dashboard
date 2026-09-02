@@ -30,6 +30,7 @@ export type DeploymentScriptId = NonNullable<
 >;
 
 export type DeploymentStepId = ProductionCommandId | 'provider-deploy';
+export type DeploymentPlanStepId = DeploymentStepId | 'self-update';
 
 export interface DeploymentProviderTarget {
   externalProject: string;
@@ -55,8 +56,17 @@ export interface DeploymentProviderPlanStep {
   target: DeploymentProviderTarget;
 }
 
+export interface DeploymentSelfUpdatePlanStep {
+  id: 'self-update';
+  phase: Extract<DeploymentExecutionPhase, 'deploying'>;
+  mutating: true;
+  irreversible: true;
+}
+
 export type DeploymentPlanStep =
-  DeploymentCommandPlanStep | DeploymentProviderPlanStep;
+  | DeploymentCommandPlanStep
+  | DeploymentProviderPlanStep
+  | DeploymentSelfUpdatePlanStep;
 
 export interface DeploymentPlan {
   projectId: string;
@@ -99,7 +109,7 @@ export interface Deployment {
   createdAt: string;
   startedAt?: string;
   finishedAt?: string;
-  currentStepId?: DeploymentStepId;
+  currentStepId?: DeploymentPlanStepId;
   failurePoint?: DeploymentFailurePoint;
   errorCode?: string;
   errorMessage?: string;

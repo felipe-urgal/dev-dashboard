@@ -26,6 +26,7 @@ const stepIdSchema = {
     'rollback',
     'logs',
     'provider-deploy',
+    'self-update',
   ],
 } as const;
 
@@ -77,6 +78,7 @@ const commandPlanStepResponseSchema = {
   properties: {
     id: commandIdSchema,
     script: scriptIdSchema,
+    prepareScript: { type: 'string', enum: ['prod:prepare'] },
     phase: phaseSchema,
     mutating: { type: 'boolean' },
     irreversible: { type: 'boolean' },
@@ -97,8 +99,24 @@ const providerPlanStepResponseSchema = {
   },
 } as const;
 
+const selfUpdatePlanStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'phase', 'mutating', 'irreversible'],
+  properties: {
+    id: { type: 'string', enum: ['self-update'] },
+    phase: { type: 'string', enum: ['deploying'] },
+    mutating: { type: 'boolean', const: true },
+    irreversible: { type: 'boolean', const: true },
+  },
+} as const;
+
 export const deploymentPlanStepResponseSchema = {
-  oneOf: [commandPlanStepResponseSchema, providerPlanStepResponseSchema],
+  oneOf: [
+    commandPlanStepResponseSchema,
+    providerPlanStepResponseSchema,
+    selfUpdatePlanStepResponseSchema,
+  ],
 } as const;
 
 export const deploymentPlanResponseSchema = {
@@ -165,10 +183,24 @@ const providerExecutionTimelineStepResponseSchema = {
   },
 } as const;
 
+const selfUpdateExecutionTimelineStepResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'phase', 'mutating', 'irreversible', 'status'],
+  properties: {
+    ...selfUpdatePlanStepResponseSchema.properties,
+    status: stepStatusSchema,
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    exitCode: { type: 'integer' },
+  },
+} as const;
+
 export const deploymentTimelineStepResponseSchema = {
   oneOf: [
     commandTimelineStepResponseSchema,
     providerExecutionTimelineStepResponseSchema,
+    selfUpdateExecutionTimelineStepResponseSchema,
   ],
 } as const;
 
@@ -275,6 +307,7 @@ const providerSnapshotResponseSchema = {
   properties: {
     id: { type: 'string' },
     url: { type: 'string' },
+    inspectorUrl: { type: 'string' },
     state: {
       type: 'string',
       enum: ['queued', 'building', 'ready', 'error', 'cancelled', 'unknown'],

@@ -27,7 +27,6 @@ import type {
   DeploymentPlan,
   DeploymentPlanStep,
   DeploymentProviderAvailability,
-  DeploymentStepId,
   DeploymentStepStatus,
   DeploymentStatus,
   ProductionCommandId,
@@ -70,7 +69,7 @@ const TERMINAL_STATUSES = new Set<DeploymentStatus>([
   'cancelled',
 ]);
 
-const stepLabels: Record<DeploymentStepId, string> = {
+const stepLabels: Record<DeploymentPlanStep['id'], string> = {
   status: 'Status',
   check: 'Check',
   backup: 'Backup',
@@ -81,6 +80,7 @@ const stepLabels: Record<DeploymentStepId, string> = {
   rollback: 'Rollback',
   logs: 'Logs',
   'provider-deploy': 'Deploy Vercel',
+  'self-update': 'Self-update',
 };
 
 const stepStatusLabels: Record<DeploymentStepStatus, string> = {
