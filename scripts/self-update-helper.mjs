@@ -53,6 +53,12 @@ export async function runSelfUpdateHelper(
   const [command, ...args] = argv;
 
   try {
+    if (!command || command === 'help') {
+      if (args.length !== 0) throw new Error('help não aceita argumentos.');
+      stdout.write(`${usage()}\n`);
+      return 0;
+    }
+
     if (command === 'prepare') {
       const options = parseOptions(
         args,
