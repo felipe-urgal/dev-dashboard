@@ -26,7 +26,7 @@ export type DeploymentExecutionPhase = Extract<
 >;
 
 export type DeploymentScriptId = NonNullable<
-  ProductionCommands[ProductionCommandId]
+  ProductionCommands[keyof ProductionCommands]
 >;
 
 export type DeploymentStepId = ProductionCommandId | 'provider-deploy';
@@ -40,6 +40,7 @@ export interface DeploymentProviderTarget {
 export interface DeploymentCommandPlanStep {
   id: ProductionCommandId;
   script: DeploymentScriptId;
+  prepareScript?: 'prod:prepare';
   phase: DeploymentExecutionPhase;
   mutating: boolean;
   irreversible: boolean;
