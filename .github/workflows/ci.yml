@@ -16,6 +16,41 @@ permissions:
   contents: read
 
 jobs:
+  sync_api_reference:
+    name: Sync generated API reference
+    if: github.event_name == 'pull_request' && github.head_ref == 'feature/self-production-enable' && github.actor == 'felipe-urgal'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate and commit API reference
+        run: |
+          npm run docs:api
+          if git diff --quiet -- docs/architecture/api-reference.md; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/architecture/api-reference.md
+          git commit -m "docs(api): regenerate API reference"
+          git push origin HEAD:${{ github.head_ref }}
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -41,13 +76,6 @@ jobs:
         run: |
           npm run docs:api
           npm run format
-
-      - name: Upload generated API reference
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-api-reference
-          path: docs/architecture/api-reference.md
-          retention-days: 1
 
       - name: Typecheck
         run: npm run typecheck
