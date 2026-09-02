@@ -54,7 +54,7 @@ Listeners do produto devem permanecer em `127.0.0.1`.
 | --- | --- |
 | `DEV_DASHBOARD_CONFIG_DIR` | diretório de configuração |
 | `XDG_CONFIG_HOME` | base XDG alternativa de configuração |
-| `DEV_DASHBOARD_STATE_DIR` | diretório de estado/logs/históricos |
+| `DEV_DASHBOARD_STATE_DIR` | diretório de estado/logs/históricos, incluindo handoffs de self-update |
 | `XDG_STATE_HOME` | base XDG alternativa de estado |
 | `DEV_DASHBOARD_LOG_RETENTION_DAYS` | retenção padrão de logs |
 | `DEV_DASHBOARD_BACKUP_DIR` | destino de `dev-backup` |
@@ -95,13 +95,14 @@ Estado:
 ├── processes/
 ├── logs/
 ├── deployments/
+├── self-update/
 ├── históricos de testes/scripts
 └── snapshots de banco
 ```
 
 Diretórios privados usam `0700`; arquivos privados, `0600`.
 
-Deployments persistem timeline/log/histórico, mas **não** token de confirmação nem credenciais Vercel.
+Deployments persistem timeline/log/histórico, mas **não** token de confirmação nem credenciais Vercel. `self-update/` persiste somente handoff estruturado (`projectId`, revision, `planHash`, estado/timestamps e resultado terminal sanitizado); não contém shell, senha, unit ou path operacional.
 
 ## Diagnóstico inicial
 
@@ -196,7 +197,39 @@ Não inclua segredos no manifesto. Se o scan indicar `productionWarning`, corrij
 
 `strategy=disabled` é deliberado. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
 
-O próprio Dev Dashboard permanece nesse estado para self-production até existir helper externo de restart/handoff.
+O próprio Dev Dashboard permanece nesse estado para self-production. Já existe uma base de handoff/helper não privilegiado, mas ela ainda não aplica update, não reinicia a API e não executa readiness; o gate só pode abrir depois da instalação isolada, canal restrito, catálogo operacional e privilégio mínimo.
+
+## Helper de self-update atual
+
+O helper atual é uma ferramenta de engenharia separada do Fastify:
+
+```bash
+npm run self-update:helper --
+```
+
+Ele mostra o catálogo disponível (`prepare`, `claim`, `inspect`, `recover`). Nesta fase esses comandos servem para validar o protocolo persistente; nenhum deles atualiza o Dashboard.
+
+Os arquivos ficam em:
+
+```text
+${DEV_DASHBOARD_STATE_DIR:-~/.local/state/dev-dashboard}/self-update/
+```
+
+Para inspecionar um handoff conhecido sem modificar estado:
+
+```bash
+npm run self-update:helper -- inspect <handoff-id>
+```
+
+Se um processo do helper tiver assumido um handoff (`accepted` ou estado operacional posterior) e encerrado antes de persistir resultado terminal, o diagnóstico conservador é:
+
+```bash
+npm run self-update:helper -- recover
+```
+
+Isso marca o registro como `recovery_required`; não executa rollback, update ou restart.
+
+Se `inspect`/`recover` informar estado persistido inválido, não edite o JSON para forçar continuação. Revise o arquivo local, preserve uma cópia para diagnóstico quando necessário e corrija/remova o estado somente depois de entender a origem. Arquivos extras/campos de autoridade são recusados deliberadamente.
 
 ## Vercel: integração não configurada
 
