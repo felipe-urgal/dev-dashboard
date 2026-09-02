@@ -47,11 +47,21 @@ Esse preflight é somente leitura; ele não altera banco, Git ou provider. A pri
 
 A consulta remota Git possui timeout e pode ser interrompida pelo cancelamento do deployment. Falha de rede/autenticação/credential helper não cai para uma tracking ref local antiga.
 
+### Idempotência para revision já publicada
+
+Projetos ligados ao Git da Vercel podem ter o mesmo `origin/<branch>` publicado automaticamente antes de o usuário iniciar o fluxo no Dev Dashboard. Nesse caso, o preflight pode comprovar que o deployment de produção mais recente já está `READY` para **a mesma branch e o mesmo SHA** confirmados no plano.
+
+Quando essa prova existe, `provider-deploy` reutiliza o deployment já pronto em vez de criar outro deployment do mesmo commit. A etapa continua registrada na timeline e `prod:verify` continua obrigatório. `prod:migrate`, quando declarado pela política, também continua sendo executado conforme o plano; a idempotência elimina apenas a mutação externa duplicada.
+
+O reaproveitamento é fail-closed: estado `READY` sem branch ou SHA coincidentes não é reutilizado. Deployments `queued`, `building` ou com estado desconhecido continuam bloqueando uma nova promoção. Assim, o Dashboard não transforma semelhança de nome ou apenas uma branch móvel em prova de que a revisão confirmada já está em produção.
+
+Essa regra também evita consumir quota da API Vercel criando um deployment redundante quando a integração Git já publicou exatamente a revisão confirmada.
+
 ## Saída para a Vercel
 
 O adapter usa a API HTTPS fixa da Vercel. `external.project` participa como identificador explicitamente confirmado; o ID canônico retornado pelo provider é resolvido no preflight e reutilizado na promoção.
 
-A criação do deployment envia somente os campos necessários:
+Quando não existe uma revision `READY` idêntica comprovada no preflight, a criação do deployment envia somente os campos necessários:
 
 - projeto Vercel resolvido;
 - `target=production`;
@@ -79,7 +89,7 @@ Decisões de mutação consultam o remote real com `git ls-remote`; não usam a 
 
 A superfície de status compara a revision remota observável com a revision de produção e classifica apenas `in-sync`, `drift` ou `unknown`. O domínio não deduz `ahead`, `behind` ou ancestralidade sem análise Git específica.
 
-O Dashboard não executa `git push`, não cria commit artificial e não altera a branch para disparar a Vercel. A promoção é feita diretamente pelo adapter com o SHA confirmado.
+O Dashboard não executa `git push`, não cria commit artificial e não altera a branch para disparar a Vercel. A promoção é feita diretamente pelo adapter com o SHA confirmado quando uma promoção externa ainda é necessária.
 
 ## Health, migration e promoção
 
@@ -89,7 +99,7 @@ Quando `migrations=before-deploy`, o plano pode executar `prod:migrate` antes da
 
 Não existe `prod:deploy` local artificial. `prod:check`, `prod:migrate` e `prod:verify` continuam comandos canônicos do próprio projeto; `provider-deploy` é uma etapa externa tipada do domínio.
 
-Quota externa nunca é contornada com commit artificial ou redisparo automático.
+Quota externa nunca é contornada com commit artificial ou redisparo automático. Quando o mesmo SHA já está `READY`, o fluxo evita o redisparo redundante e segue para a validação declarada pelo projeto.
 
 ## Novas mutações
 
