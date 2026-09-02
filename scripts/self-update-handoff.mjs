@@ -196,6 +196,9 @@ function invalidStateError(fileName) {
 
 export class SelfUpdateHandoffStore {
   constructor(stateDirectory = defaultSelfUpdateStateDirectory()) {
+    if (!path.isAbsolute(stateDirectory)) {
+      throw new Error('Diretório de estado do self-update deve ser absoluto.');
+    }
     this.stateDirectory = stateDirectory;
     this.readyPromise = this.ensureStateDirectory();
   }
@@ -234,7 +237,11 @@ export class SelfUpdateHandoffStore {
     let parsed;
     try {
       const metadata = await lstat(filePath);
-      if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        (metadata.mode & 0o077) !== 0
+      ) {
         throw invalidStateError(path.basename(filePath));
       }
       const content = await readFile(filePath, 'utf8');
@@ -331,6 +338,10 @@ export class SelfUpdateHandoffStore {
 
   async ensureStateDirectory() {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
+    const metadata = await lstat(this.stateDirectory);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+      throw new Error('Diretório de estado do self-update não é um diretório real.');
+    }
     await chmod(this.stateDirectory, 0o700);
   }
 
