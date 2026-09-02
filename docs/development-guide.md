@@ -207,6 +207,8 @@ O produto prioriza experiência simples, ágil e funcional:
 - loading só durante trabalho;
 - linguagem direta em português;
 - risco/irreversibilidade explícitos sem dramatização;
+- use `--font-label` (11px) para labels e metadados compactos, `--font-control` (12px) para texto de controles e `--font-body` (13px) para corpo padrão;
+- 8–9px não são tamanho padrão de UI; 10px fica restrito a metadado técnico não interativo quando a densidade realmente justificar;
 - reutilize `EmptyState` para estados de página que compartilham a estrutura visual de ícone, título, descrição e ação opcional;
 - extraia novos componentes-base somente quando houver repetição real de estrutura e semântica; controles específicos da feature permanecem locais até essa repetição existir.
 

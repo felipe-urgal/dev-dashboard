@@ -31,13 +31,16 @@ describe('arquitetura de CSS', () => {
     );
   });
 
-  it('expõe tokens semânticos para interação, código e motion', () => {
+  it('expõe tokens semânticos para interação, tipografia, código e motion', () => {
     const tokens = lerEstilo('tokens.css');
     const base = lerEstilo('base.css');
     const layout = lerEstilo('layout.css');
     const componentes = lerComponentes();
     const tokensSemanticos = [
       '--font-family-mono:',
+      '--font-label:',
+      '--font-control:',
+      '--font-body:',
       '--control-height-sm:',
       '--control-height-md:',
       '--control-height-lg:',
@@ -58,6 +61,12 @@ describe('arquitetura de CSS', () => {
       expect(tokens).toContain(token);
     }
 
+    expect(tokens).toContain('--font-label: 11px;');
+    expect(tokens).toContain('--font-control: 12px;');
+    expect(tokens).toContain('--font-body: 13px;');
+    expect(tokens).toContain('--font-xs: var(--font-label);');
+    expect(tokens).toContain('--font-sm: var(--font-control);');
+    expect(tokens).toContain('--font-md: var(--font-body);');
     expect(base).toContain('opacity: var(--disabled-opacity);');
     expect(base).toContain('font-family: var(--font-family-mono);');
     expect(layout).toContain('min-height: var(--control-height-sm);');
@@ -70,6 +79,19 @@ describe('arquitetura de CSS', () => {
     expect(componentes).toContain('background: var(--code-surface);');
     expect(componentes).toContain('color: var(--code-text);');
     expect(componentes).toContain('line-height: var(--diff-line-height);');
+  });
+
+  it('mantém o shell e Processos acima da microtipografia legada', () => {
+    const estilosAuditados = [
+      lerEstilo('layout.css'),
+      lerEstilo('components/processes.css'),
+    ];
+
+    for (const estilo of estilosAuditados) {
+      expect(estilo).not.toMatch(/font-size:\s*(?:8|9|10)px/);
+      expect(estilo).toContain('font-size: var(--font-label);');
+      expect(estilo).toContain('font-size: var(--font-control);');
+    }
   });
 
   it('mantém CSS global dentro da árvore src/styles', () => {
