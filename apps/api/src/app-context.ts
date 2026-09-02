@@ -86,6 +86,12 @@ export interface CreateAppContextOptions {
   selfUpdateShutdownRequester?: SelfUpdateShutdownRequester;
 }
 
+function defaultSelfUpdateShutdownRequester(): void {
+  setImmediate(() => {
+    process.kill(process.pid, 'SIGTERM');
+  });
+}
+
 export function createAppContext(
   options: CreateAppContextOptions = {},
 ): AppContext {
@@ -166,9 +172,8 @@ export function createAppContext(
     projectLanguageServerService,
     projectTerminalService,
     selfUpdateHandoffService: new SelfUpdateHandoffService({
-      ...(options.selfUpdateShutdownRequester
-        ? { requestShutdown: options.selfUpdateShutdownRequester }
-        : {}),
+      requestShutdown:
+        options.selfUpdateShutdownRequester ?? defaultSelfUpdateShutdownRequester,
     }),
   };
 }
