@@ -12,7 +12,7 @@ function usage() {
     '  node scripts/self-update-helper.mjs inspect <handoff-id>',
     '  node scripts/self-update-helper.mjs recover',
     '',
-    'Este helper apenas persiste e consulta handoffs; a mutação pertence ao worker fechado do self-update agent.',
+    'Este helper não aplica atualização nem reinicia processos; apenas persiste e consulta handoffs. A mutação pertence ao worker fechado do self-update agent.',
   ].join('\n');
 }
 
