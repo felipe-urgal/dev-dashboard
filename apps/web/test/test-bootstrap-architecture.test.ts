@@ -19,6 +19,21 @@ describe('arquitetura do bootstrap de testes', () => {
     );
   });
 
+  it('não reinstala o Test Inspector baseado em MutationObserver', () => {
+    expect(entrada).not.toContain('installTestLogInspector');
+    expect(entrada).not.toContain('installTestLogInspectorMutationGuard');
+    expect(entrada).not.toContain("from './test-log-inspector'");
+    expect(entrada).not.toContain("import './test-log-inspector.css'");
+    expect(existsSync(resolve(raizWeb, 'src/test-log-inspector.ts'))).toBe(false);
+    expect(existsSync(resolve(raizWeb, 'src/test-log-inspector'))).toBe(false);
+    expect(
+      existsSync(resolve(raizWeb, 'src/test-log-inspector-mutation-guard.ts')),
+    ).toBe(false);
+    expect(existsSync(resolve(raizWeb, 'src/test-log-inspector.css'))).toBe(
+      false,
+    );
+  });
+
   it('mantém a execução atual de testes em Vue e xterm', () => {
     const panel = readFileSync(
       resolve(raizWeb, 'src/components/ProjectTestsPtyPanel.vue'),
