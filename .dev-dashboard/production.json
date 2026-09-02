@@ -6,14 +6,14 @@
     "provider": "none",
     "branch": "main",
     "documentation": "docs/architecture/self-production.md",
-    "reasonCode": "self-update-helper-required",
+    "reasonCode": "self-update-operational-integration-required",
     "commands": {
       "status": "prod:status",
       "check": "prod:check"
     },
     "blockedBy": [
-      "external-helper-not-implemented",
-      "self-restart-handoff-not-implemented",
+      "self-update-api-agent-integration-not-implemented",
+      "self-update-execution-not-implemented",
       "production-health-not-validated",
       "privilege-model-not-validated"
     ],
