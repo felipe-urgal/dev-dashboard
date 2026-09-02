@@ -1,8 +1,8 @@
 # Self-production do Dev Dashboard
 
-O Dev Dashboard opera produção de outros projetos, mas o próprio repositório permanece com self-production **fail-closed** enquanto a cadeia completa de handoff, update, restart, readiness, prova da revision e recovery não estiver comprovada end-to-end.
+O Dev Dashboard opera produção de outros projetos e agora possui uma cadeia operacional de self-update capaz de transferir ownership para um worker externo, parar a API antiga, aplicar `origin/main`, reiniciar o runtime e comprovar a revision que voltou.
 
-O contrato continua deliberadamente:
+Mesmo assim, o contrato do próprio repositório permanece deliberadamente **fail-closed**:
 
 ```text
 production.enabled=false
@@ -10,34 +10,43 @@ strategy=disabled
 provider=none
 ```
 
-Esse estado é uma decisão de segurança. A existência de tooling de self-update não habilita o planner nem cria um `prod:deploy` alternativo.
+A implementação do mecanismo não habilita o planner automaticamente. A habilitação fica para o PR D, depois da revisão final de segurança e do modelo de privilégio.
 
 ## Por que a API não pode ser a única coordenadora
 
-Um deployment normal é coordenado pela API local. No self-update, a API que coordena a operação também precisa parar para que a nova revision assuma a porta e o runtime.
+No self-update, a API que inicia a operação também precisa parar. Se o Fastify fosse o único dono da execução, desapareceriam junto com ele ownership, resultado terminal, readiness pós-restart e a prova de qual revision realmente voltou.
 
-Se o Fastify fosse o único dono da execução, desapareceriam junto com ele:
+Por isso o fluxo usa três camadas:
 
-- ownership do trabalho;
-- timeline/resultado terminal;
-- readiness pós-restart;
-- decisão entre falha simples e `recovery_required`;
-- prova de qual revision realmente voltou.
+```text
+API atual
+   ↓
+handoff persistente + agent local autenticado
+   ↓
+worker instalado fora da checkout
+```
 
-Por isso o fluxo usa handoff persistente + agent/worker externo.
+O worker continua executando quando a API antiga encerra.
 
 ## Contrato atual
 
-`.dev-dashboard/production.json` declara o gate de self-production e seus blockers.
+`.dev-dashboard/production.json` continua sendo a fonte do gate:
 
 ```bash
 npm run prod:status
 npm run prod:check
 ```
 
-`prod:check` falha de propósito enquanto o contrato estiver desabilitado. O domínio não deve contornar `strategy=disabled`.
+`prod:check` falha de propósito enquanto `strategy=disabled`.
 
-A frente é rastreada por #487, dentro da iniciativa #482.
+Depois do PR C, os blockers operacionais de integração/update/health deixam de ser descritos como não implementados. Permanecem:
+
+```text
+privilege-model-not-validated
+self-update-security-review-not-completed
+```
+
+A frente é rastreada pela #487, dentro da #482.
 
 ## PR A — handoff persistente
 
@@ -60,20 +69,18 @@ Os handoffs ficam sob:
 ${DEV_DASHBOARD_STATE_DIR:-~/.local/state/dev-dashboard}/self-update/
 ```
 
-O diretório usa `0700` e os arquivos JSON `0600`, com escrita atômica por temporário + `rename`. Shape, tamanho, tipo de arquivo, symlink, permissões e vínculo entre ID solicitado e ID persistido são validados de forma fail-closed.
+Diretório e arquivos usam permissões privadas (`0700`/`0600`), escrita atômica e validação fail-closed de shape, tamanho, symlink, owner e ID.
 
-Cada handoff registra somente metadados estruturados:
+Cada handoff contém somente:
 
 - `version=1`;
-- `id` gerado pelo helper;
+- ID gerado localmente;
 - `action=self-update` fixa;
 - `projectId`;
 - `targetRevision`;
 - `planHash`;
-- estado e timestamps;
-- resultado terminal sanitizado quando existir.
-
-O arquivo persistido não concede autorização por si só.
+- estado/timestamps;
+- resultado terminal sanitizado.
 
 ### Estados
 
@@ -91,13 +98,11 @@ verifying
 succeeded
 ```
 
-Falhas podem terminar em `failed` ou `recovery_required` conforme a etapa. Transições fora do grafo fechado são recusadas.
+Falhas podem terminar em `failed` ou `recovery_required` conforme a etapa.
 
 ## PR B — agent instalado, lifecycle e canal local
 
-`scripts/self-update-agent.mjs` adiciona uma cópia instalada fora da checkout, processo próprio e canal local autenticado.
-
-Fluxo operacional base:
+`scripts/self-update-agent.mjs` pode ser instalado fora da checkout:
 
 ```bash
 npm run self-update:agent -- install
@@ -113,31 +118,9 @@ A instalação padrão fica em:
 ~/.local/lib/dev-dashboard/self-update-agent/
 ```
 
-Cada release é identificada por SHA-256 dos arquivos conhecidos. `current.json` registra os hashes esperados; manifesto, diretórios e arquivos são revalidados antes do start.
+Releases são identificadas por SHA-256. Manifesto, diretórios, arquivos, permissões e hashes são revalidados antes do start. O modo `serve` só executa o entrypoint da release instalada.
 
-O modo interno `serve` só executa o entrypoint da release instalada apontada pelo manifesto. Assim, o processo de longa duração não roda diretamente o arquivo mutável da checkout.
-
-O agent é iniciado com `shell: false`, processo destacado e lifecycle independente do Fastify.
-
-### Canal Unix autenticado
-
-O agent não abre TCP. O socket padrão fica em:
-
-```text
-$XDG_RUNTIME_DIR/dev-dashboard/self-update-agent/agent.sock
-```
-
-Quando `XDG_RUNTIME_DIR` não existe, é usado um diretório privado sob o estado local. Diretório e socket usam permissões restritas (`0700`/`0600`).
-
-Existe um token próprio do agent em:
-
-```text
-${DEV_DASHBOARD_CONFIG_DIR:-~/.config/dev-dashboard}/self-update-agent-token
-```
-
-Esse token é separado do token HTTP, não entra no handoff, não retorna em resposta e é comparado em tempo constante.
-
-O catálogo remoto do socket continua fechado em:
+O agent é um processo user-space separado do Fastify e usa Unix socket local privado + token próprio. O catálogo remoto continua fechado em:
 
 ```text
 ping
@@ -146,49 +129,39 @@ claim
 recover
 ```
 
-Não existe ação remota genérica `execute`, shell, programa, args, path ou unit. `claim` e `recover` são serializados.
+Não existe `execute` remoto genérico no socket.
 
-## PR C — integração API → agent e worker operacional
+## PR C — API → agent → worker → restart → readiness
 
-O PR #523 adiciona a camada operacional sem habilitar o Production Contract.
+O PR #523 fecha a cadeia operacional mantendo o Production Contract desabilitado.
 
-### Integração no backend
+### 1. Handoff e ownership antes da parada
 
-`SelfUpdateHandoffService` é registrado no `AppContext` e executa uma sequência fixa:
+`SelfUpdateHandoffService` executa somente uma sequência fixa:
 
 ```text
-validar projectId/revision/planHash
+validar projectId + targetRevision + planHash
         ↓
-ping no agent autenticado
+ping autenticado no agent
         ↓
 helper prepare
         ↓
 agent claim do mesmo handoff
         ↓
-comando local execute do mesmo ID
+execute <handoff-id>
+        ↓
+provar execution.lock do PID/handoff esperado
+        ↓
+solicitar SIGTERM controlado da API
 ```
 
-Os caminhos dos scripts e os argumentos possíveis são resolvidos pelo backend. O browser não escolhe shell, programa, checkout, unit ou comando.
+O `execute` local faz o preflight antes de iniciar o worker externo. Depois do spawn, a API não considera “worker iniciado” suficiente: ela aguarda um lock privado com o mesmo PID e handoff ID e confirma que o processo continua vivo.
 
-A API também revalida que o handoff retornado por helper/agent pertence ao mesmo `projectId`, `targetRevision`, `planHash`, ID e timestamp de criação.
+Só depois dessa prova o `AppContext` agenda `SIGTERM` para a própria API. Em execução normal, o handler já existente do servidor fecha Fastify e seus recursos de forma controlada.
 
-Esta integração ainda não é uma rota pública de self-production nem um bypass do planner. `strategy=disabled` continua sendo a fonte de verdade do produto.
+O browser não escolhe shell, programa, revision, checkout, path, unit ou comando. O único argumento variável do `execute` é o ID do handoff previamente criado e validado.
 
-### Execução local fechada
-
-O comando local:
-
-```text
-self-update-agent execute <handoff-id>
-```
-
-aceita apenas um ID de handoff já assumido. Ele não recebe revision, path, comando ou unit em argv.
-
-Antes de iniciar o worker, a execução valida novamente a checkout e a revision alvo.
-
-O worker externo roda a partir da release instalada/verificada do agent, não diretamente da checkout, e recebe internamente somente o caminho de checkout que foi validado pela própria cópia confiável do tooling.
-
-### Preflight Git
+### 2. Preflight Git
 
 A checkout precisa:
 
@@ -196,141 +169,154 @@ A checkout precisa:
 2. pertencer ao usuário atual;
 3. possuir `package.json` com `name=dev-dashboard`;
 4. ter working tree completamente limpa, incluindo untracked;
-5. estar na branch `main`;
-6. conseguir executar `git fetch --no-tags origin main`;
+5. estar em `main`;
+6. conseguir `git fetch --no-tags origin main`;
 7. resolver `origin/main` exatamente para `targetRevision`;
-8. provar que a revision alvo é fast-forward do `HEAD` atual.
+8. provar fast-forward entre `HEAD` e a revision alvo.
 
-Nenhum reset forçado ou checkout destrutivo é usado.
+Não existe `reset --hard` ou checkout forçado para apagar estado local.
 
-### Exclusividade
+### 3. Aplicação e restart
 
-Antes da execução existe um lock privado em `self-update/execution.lock`.
-
-O lock contém apenas PID + handoff ID, usa `0600` e é validado contra tipo, symlink, owner, tamanho e PID vivo. Um segundo worker ativo é recusado.
-
-Lock stale só é removido depois de confirmar que o PID registrado não está vivo.
-
-### Parada, aplicação e restart
-
-Depois do handoff aceito, o worker instalado pode sobreviver ao Fastify antigo.
-
-O desenho implementado no #523 é:
+O worker instalado aguarda a API antiga deixar a porta. Depois:
 
 ```text
-worker instalado assume execução
-        ↓
-aguarda API antiga sair da porta
-        ↓
 applying
-        ↓
-repete preflight Git
-        ↓
+   ↓
+preflight Git novamente
+   ↓
 git merge --ff-only <targetRevision>
-        ↓
-confirma HEAD == targetRevision
-        ↓
+   ↓
+HEAD == targetRevision
+   ↓
 reinstala release do agent a partir da nova revision
-        ↓
+   ↓
 restarting
-        ↓
-inicia scripts/dev-web.mjs em processo destacado
-        ↓
+   ↓
+inicia scripts/dev-web.mjs destacado
+   ↓
 verifying
-        ↓
-readiness + prova de revision
 ```
 
-O restart atual é **user-space**. Não há `sudo`, `systemctl` ou unit configurável pelo cliente.
+O restart é user-space, sem `sudo`, `systemctl` ou unit configurável pelo cliente.
 
-### Resultado e recovery
+### 4. Readiness com prova de revision
 
-Se a operação falhar ainda em `accepted`, antes da mutação operacional, o handoff pode terminar em `failed`.
+A nova API continua respondendo o JSON público tradicional de `/api/health`:
 
-Depois que a execução entra em `applying`, uma falha passa a ser tratada conservadoramente como `recovery_required`, porque a checkout/runtime já podem ter sido alterados.
+```json
+{
+  "status": "ok",
+  "service": "dev-dashboard-api",
+  "timestamp": "..."
+}
+```
 
-O sucesso terminal só é aceitável quando a revision aplicada e a revision comprovada pela nova API coincidirem.
-
-O agent continua executando recovery conservador no startup para handoffs anteriormente assumidos e sem resultado terminal. Não existe rollback automático cego.
-
-## Readiness e prova de revision ainda pendentes no #523
-
-O worker já possui timeout bounded e exige conceitualmente:
+Quando o runtime foi iniciado pelo worker, `DEV_DASHBOARD_RUNTIME_REVISION` é validada como SHA hexadecimal e publicada somente no header:
 
 ```text
-GET /api/health
-status=ok
-service=dev-dashboard-api
-revision=<targetRevision>
+x-dev-dashboard-revision: <targetRevision>
 ```
 
-Entretanto, no estado atual da branch, `/api/health` ainda retorna apenas `status`, `service` e `timestamp`.
+Esse detalhe preserva o contrato JSON público e permite que o worker prove a revision sem aceitar um valor arbitrário do navegador.
 
-Isso significa que a cadeia **ainda não consegue comprovar a revision end-to-end** e não deve marcar self-update como pronto apenas porque o processo voltou à porta.
+O worker só termina em `succeeded` quando:
 
-Essa divergência precisa ser fechada no PR #523 junto com o teste real de interrupção/restart/readiness. Até lá, readiness e prova de revision permanecem blockers formais.
+- health retorna HTTP utilizável;
+- `status=ok`;
+- `service=dev-dashboard-api`;
+- o header contém exatamente a `targetRevision`;
+- a revision comprovada coincide com a revision que foi aplicada na checkout.
 
-`DEV_DASHBOARD_RUNTIME_REVISION` é tratado como detalhe interno do restart e não deve ser uma configuração manual de `.env.local`.
+Health sem header, header inválido ou revision diferente continua sendo “não pronto” até o timeout bounded e termina conservadoramente.
+
+`DEV_DASHBOARD_RUNTIME_REVISION` é variável interna do restart e não deve ser configurada manualmente em `.env.local`.
+
+### 5. Resultado e recovery
+
+Falha antes da mutação operacional pode terminar em `failed`.
+
+Depois que a execução entra em `applying`, uma falha vira `recovery_required`, porque checkout/runtime já podem ter sido alterados. Isso inclui nova API que volta com revision errada ou não comprova readiness dentro do limite.
+
+O agent também mantém recovery conservador no startup para handoffs anteriormente assumidos sem resultado terminal. Não há rollback automático cego.
+
+## Teste real de restart/recovery
+
+`scripts/self-update-restart.integration.test.mjs` exercita a cadeia com processos e Git reais, sem alterar a checkout do CI:
+
+1. cria repositório temporário `dev-dashboard` + bare remote `origin`;
+2. mantém a checkout local numa revision anterior e `origin/main` numa revision alvo;
+3. sobe uma API antiga real em processo Node separado;
+4. cria handoff aceito e inicia o worker;
+5. espera o lock de ownership;
+6. encerra a API antiga;
+7. executa fetch + fast-forward reais;
+8. inicia um novo runtime HTTP real;
+9. valida health + `x-dev-dashboard-revision`;
+10. confirma `succeeded` + `HEAD` alvo.
+
+O segundo cenário inicia deliberadamente o novo runtime com outra revision. O health responde, mas a prova de revision falha; o handoff termina em `recovery_required` com `SELF_UPDATE_READINESS_TIMEOUT`.
+
+Assim o teste diferencia “porta voltou” de “revision correta voltou”.
 
 ## Modelo de privilégio
 
-O PR C não introduz privilégio root.
+O mecanismo do PR C não usa privilégio root. Git, instalação user-space do agent e `dev-web` rodam com o mesmo usuário do Dev Dashboard.
 
-A aplicação atual de Git e o restart de `dev-web` são user-space. Fastify não recebe sudo amplo e a senha do modal de deployment não é reutilizada.
+Fastify não recebe sudo amplo e a senha do modal de deployment não é reutilizada.
 
-Se o desenho final do PR D exigir integração privilegiada, ela precisará ser uma nova fronteira de segurança, com ação mínima instalada fora da checkout e sem aceitar unit/path/comando livre.
-
-## Recovery após crash
-
-No startup, o agent marca de forma conservadora handoffs assumidos e sem resultado terminal como `recovery_required`.
-
-Um handoff apenas `prepared` não é considerado interrompido porque ownership ainda não foi transferido.
-
-A regra é preservar diagnóstico, não tentar “consertar” automaticamente uma checkout/runtime cujo estado real não foi provado.
+O PR D ainda precisa revisar formalmente se esse modelo user-space é suficiente para o modo final de operação. Se surgir necessidade de root/systemd, isso será uma nova fronteira de segurança e não poderá aceitar unit/path/comando livre.
 
 ## Configuração local
 
-Variáveis comuns para desenvolvimento estão documentadas em `.env.example` e `docs/operations-and-troubleshooting.md`.
+Variáveis comuns estão em `.env.example` e `docs/operations-and-troubleshooting.md`.
 
-Overrides do agent, como:
+Overrides avançados do agent:
 
 ```text
 DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR
 DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR
 ```
 
-são opções operacionais avançadas. `npm run self-update:agent` não carrega `.env.local` automaticamente; quando necessários, esses overrides devem ser exportados conscientemente no shell.
+não são carregados automaticamente por `npm run self-update:agent`; devem ser exportados conscientemente quando necessários.
 
-Variáveis internas como `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` e `DEV_DASHBOARD_RUNTIME_REVISION` não pertencem ao contrato público nem ao `.env.example` como configuração editável.
+Variáveis internas:
+
+```text
+DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT
+DEV_DASHBOARD_RUNTIME_REVISION
+```
+
+não pertencem ao contrato público nem são configuração editável do `.env.local`.
 
 ## Condições para habilitar
 
-`production.enabled=true` só pode ser considerado quando houver, no mínimo:
+A cadeia operacional agora cobre:
 
-1. helper/agent externo separado da API;
-2. agent instalado fora de caminho editável pelo repositório;
-3. catálogo fechado de ações/paths;
-4. canal local autenticado/restrito;
-5. handoff persistido antes de parar a API;
-6. ownership operacional comprovado antes da API antiga encerrar;
-7. aplicação/restart que não dependam da API antiga continuar viva;
-8. readiness pós-restart bounded;
-9. comprovação da revision realmente aplicada;
-10. resultado final persistido/recuperável;
-11. modelo de privilégio mínimo auditável;
-12. teste real de interrupção/restart/recovery;
-13. documentação de instalação, logs e troubleshooting;
-14. revisão de segurança específica.
+- [x] helper/agent externo separado da API;
+- [x] instalação fora da checkout;
+- [x] catálogo fechado e canal autenticado;
+- [x] handoff persistido antes da parada;
+- [x] ownership do worker comprovado antes do shutdown;
+- [x] aplicação/restart independente da API antiga;
+- [x] readiness bounded;
+- [x] comprovação da revision aplicada;
+- [x] resultado terminal persistido/recuperável;
+- [x] teste real de restart e recovery por revision divergente;
+- [x] documentação operacional do fluxo.
 
-Os itens 1–4 estão entregues em `main` pelos PRs #520/#521. O PR #523 implementa a base dos itens 5–10, mas a prova end-to-end ainda não está concluída.
+Antes de `production.enabled=true`, ainda faltam:
 
-## Relação com as issues/PRs
+- [ ] revisão formal do modelo de privilégio;
+- [ ] revisão de segurança específica do PR C/fluxo final;
+- [ ] PR D habilitando conscientemente o contrato e integrando-o ao planner/UI sem bypass.
+
+## Relação com issues/PRs
 
 - #482 — frente ampla de produção;
 - #487 — self-production/self-update;
 - #505 — contrato fail-closed;
 - #520 — handoff/helper;
 - #521 — instalação/lifecycle/canal local;
-- #523 — integração API→agent + worker de update/restart/readiness.
-
-O PR D só deve considerar habilitação depois que #523 fechar os blockers restantes e a revisão de segurança confirmar o modelo final.
+- #523 — integração API→agent, shutdown, update/restart/readiness e testes reais;
+- PR D — habilitação, somente após revisão final.
