@@ -34,6 +34,18 @@ describe('arquitetura do bootstrap de testes', () => {
     );
   });
 
+  it('não reinstala auto-follow nem tema da árvore de logs legada', () => {
+    expect(entrada).not.toContain('installTestLogAutoFollow');
+    expect(entrada).not.toContain("from './test-log-auto-follow'");
+    expect(entrada).not.toContain("import './test-log-theme-fix.css'");
+    expect(existsSync(resolve(raizWeb, 'src/test-log-auto-follow.ts'))).toBe(
+      false,
+    );
+    expect(existsSync(resolve(raizWeb, 'src/test-log-theme-fix.css'))).toBe(
+      false,
+    );
+  });
+
   it('mantém a execução atual de testes em Vue e xterm', () => {
     const panel = readFileSync(
       resolve(raizWeb, 'src/components/ProjectTestsPtyPanel.vue'),
@@ -43,5 +55,6 @@ describe('arquitetura do bootstrap de testes', () => {
     expect(panel).toContain('usePtyTerminalSocket');
     expect(panel).toContain('class="tests-pty-terminal"');
     expect(panel).not.toContain('tests-log-shell');
+    expect(panel).not.toContain('tests-log-output');
   });
 });
