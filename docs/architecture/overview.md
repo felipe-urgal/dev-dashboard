@@ -111,7 +111,7 @@ Responsabilidades incluem:
 
 A API escuta em `127.0.0.1`.
 
-O PR #523 adiciona `SelfUpdateHandoffService` como serviço interno do backend. Ele não cria uma rota pública de self-update nem ignora `strategy=disabled`; serve para preparar/transferir handoff e iniciar tooling fechado quando a futura integração do fluxo de self-production estiver autorizada.
+O PR #523 adiciona `SelfUpdateHandoffService` como serviço interno do backend. Ele prepara e transfere o handoff, exige prova de ownership do worker instalado e somente então agenda o `SIGTERM` controlado da própria API. Isso ainda não cria rota pública de self-update nem ignora `strategy=disabled`.
 
 ## Contratos compartilhados
 
@@ -221,7 +221,7 @@ O self-update agent possui ainda:
 - token local próprio em configuração privada;
 - runtime Unix socket `0600` em diretório `0700`;
 - releases instaladas por hash fora da árvore do repositório, por padrão em `~/.local/lib/dev-dashboard/self-update-agent/`;
-- lock privado para exclusividade da execução operacional.
+- lock privado para exclusividade e prova de ownership da execução operacional.
 
 Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos.
 
@@ -240,15 +240,13 @@ Princípios transversais:
 - provider externo tratado como input não confiável;
 - recovery conservador após mutação irreversível.
 
-No self-update, a mesma regra continua válida: o socket remoto não ganha um executor genérico. A execução operacional aceita somente um handoff ID já validado, revalida a checkout e usa Git/restart fixos definidos pelo backend/tooling.
+No self-update, o socket remoto não ganha executor genérico. A execução aceita somente handoff ID validado, revalida checkout/remote e usa Git/restart fixos. A API só encerra depois que o worker prova exclusividade por lock, e sucesso só existe quando a nova API comprova a revision alvo no header de health.
 
 Veja [security.md](security.md).
 
 ## Self-production
 
-O próprio Dev Dashboard possui contrato fail-closed `strategy=disabled`.
-
-### Base já entregue
+O próprio Dev Dashboard continua com contrato fail-closed `strategy=disabled`, mas a cadeia operacional do PR C já está implementada.
 
 Os PRs #520/#521 entregaram:
 
@@ -259,23 +257,21 @@ Os PRs #520/#521 entregaram:
 - Unix socket autenticado;
 - catálogo remoto fechado `ping`, `inspect`, `claim`, `recover`.
 
-### PR C em andamento
-
 O PR #523 adiciona:
 
 - integração interna API → helper/agent;
-- worker instalado independente da API antiga;
+- prova de ownership do worker antes do shutdown da API;
+- `SIGTERM` controlado somente depois desse handshake;
 - preflight de working tree limpa + `main` + `origin/main` exato + fast-forward;
 - aplicação por `git merge --ff-only` da revision confirmada;
 - reinstalação da release do agent após aplicar;
 - restart user-space por `scripts/dev-web.mjs`;
-- transições `applying/restarting/verifying` e resultado/recovery persistido.
+- readiness bounded;
+- prova da revision pelo header `x-dev-dashboard-revision` mantendo o JSON público de `/api/health` estável;
+- transições `applying/restarting/verifying` e resultado/recovery persistido;
+- teste real em repositório/processos temporários cobrindo sucesso e runtime que volta com revision errada.
 
-O gate ainda continua fechado.
-
-A prova end-to-end de readiness/revision não está concluída: o worker já exige que `/api/health` prove a `targetRevision`, mas a resposta HTTP pública atual ainda não expõe esse campo. O #523 precisa fechar essa divergência e executar o teste real de interrupção/restart/recovery antes de o PR D avaliar habilitação.
-
-O fluxo atual não usa `sudo` nem `systemctl`; o modelo final de privilégio precisa continuar auditável e mínimo.
+O gate continua fechado, agora somente para revisão final do modelo de privilégio/segurança e habilitação explícita no PR D. O fluxo atual não usa `sudo` nem `systemctl`.
 
 Veja [self-production.md](self-production.md).
 
