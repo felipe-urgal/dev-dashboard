@@ -11,20 +11,24 @@ const manifest = JSON.parse(
 );
 const gatePath = new URL('./production-gate.mjs', import.meta.url).pathname;
 
-test('self-production permanece desabilitada até existir helper externo', () => {
+test('self-production permanece desabilitada até fechar integração operacional', () => {
   assert.equal(manifest.version, 1);
   assert.equal(manifest.production.enabled, false);
   assert.equal(manifest.production.strategy, 'disabled');
   assert.equal(manifest.production.provider, 'none');
+  assert.equal(
+    manifest.production.reasonCode,
+    'self-update-operational-integration-required',
+  );
   assert.deepEqual(manifest.production.blockedBy, [
-    'external-helper-not-implemented',
-    'self-restart-handoff-not-implemented',
+    'self-update-api-agent-integration-not-implemented',
+    'self-update-execution-not-implemented',
     'production-health-not-validated',
     'privilege-model-not-validated',
   ]);
 });
 
-test('prod:status é somente leitura e expõe blockers', () => {
+test('prod:status é somente leitura e expõe blockers atuais', () => {
   const result = spawnSync(process.execPath, [gatePath, 'status'], {
     encoding: 'utf8',
   });
@@ -33,7 +37,11 @@ test('prod:status é somente leitura e expõe blockers', () => {
     result.stdout,
     /Self-production do Dev Dashboard ainda está bloqueada por contrato/,
   );
-  assert.match(result.stdout, /external-helper-not-implemented/);
+  assert.match(
+    result.stdout,
+    /self-update-api-agent-integration-not-implemented/,
+  );
+  assert.match(result.stdout, /self-update-execution-not-implemented/);
 });
 
 test('prod:check falha de propósito enquanto self-update não é seguro', () => {
