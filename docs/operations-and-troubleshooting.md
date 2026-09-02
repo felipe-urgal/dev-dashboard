@@ -36,6 +36,8 @@ npm run doctor
 
 Listeners do produto devem permanecer em `127.0.0.1`.
 
+O self-update agent não abre porta TCP; ele usa Unix socket local privado.
+
 ## Variáveis de ambiente
 
 ### API e distribuição
@@ -58,6 +60,11 @@ Listeners do produto devem permanecer em `127.0.0.1`.
 | `XDG_STATE_HOME` | base XDG alternativa de estado |
 | `DEV_DASHBOARD_LOG_RETENTION_DAYS` | retenção padrão de logs |
 | `DEV_DASHBOARD_BACKUP_DIR` | destino de `dev-backup` |
+| `DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR` | override local do diretório da cópia instalada do agent |
+| `DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR` | override local do diretório do Unix socket do agent |
+| `XDG_RUNTIME_DIR` | base preferida do Unix socket quando disponível |
+
+Os overrides do self-update agent são tooling local/operacional; não entram no Production Contract e não são enviados pelo browser.
 
 ### Vercel
 
@@ -85,6 +92,7 @@ Configuração:
 ~/.config/dev-dashboard/
 ├── config.json
 ├── api-token
+├── self-update-agent-token
 └── preferências locais
 ```
 
@@ -100,7 +108,18 @@ Estado:
 └── snapshots de banco
 ```
 
-Diretórios privados usam `0700`; arquivos privados, `0600`.
+Instalação user-space do self-update agent:
+
+```text
+~/.local/lib/dev-dashboard/self-update-agent/
+├── current.json
+└── releases/<sha256>/
+    ├── self-update-agent.mjs
+    ├── self-update-agent-runtime.mjs
+    └── self-update-handoff.mjs
+```
+
+Diretórios privados usam `0700`; arquivos privados de configuração/estado usam `0600`. Os arquivos executáveis da release instalada não concedem acesso a grupo/outros e são verificados por SHA-256 antes do start.
 
 Deployments persistem timeline/log/histórico, mas **não** token de confirmação nem credenciais Vercel. `self-update/` persiste somente handoff estruturado (`projectId`, revision, `planHash`, estado/timestamps e resultado terminal sanitizado); não contém shell, senha, unit ou path operacional.
 
@@ -197,39 +216,98 @@ Não inclua segredos no manifesto. Se o scan indicar `productionWarning`, corrij
 
 `strategy=disabled` é deliberado. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
 
-O próprio Dev Dashboard permanece nesse estado para self-production. Já existe uma base de handoff/helper não privilegiado, mas ela ainda não aplica update, não reinicia a API e não executa readiness; o gate só pode abrir depois da instalação isolada, canal restrito, catálogo operacional e privilégio mínimo.
+O próprio Dev Dashboard permanece nesse estado. Handoff, instalação isolada, lifecycle e canal local do agent existem, mas ainda não há aplicação de revision, restart, readiness nem privilégio mínimo auditado. Portanto o gate continua fechado.
 
-## Helper de self-update atual
+## Self-update helper e agent
 
-O helper atual é uma ferramenta de engenharia separada do Fastify:
+O helper de handoff continua disponível para inspeção direta de engenharia:
 
 ```bash
 npm run self-update:helper --
 ```
 
-Ele mostra o catálogo disponível (`prepare`, `claim`, `inspect`, `recover`). Nesta fase esses comandos servem para validar o protocolo persistente; nenhum deles atualiza o Dashboard.
+Ele expõe `prepare`, `claim`, `inspect` e `recover` diretamente sobre o estado persistido.
 
-Os arquivos ficam em:
+O agent adiciona uma cópia instalada fora do repositório e um processo independente do Fastify:
+
+```bash
+npm run self-update:agent -- install
+npm run self-update:agent -- start
+npm run self-update:agent -- status
+npm run self-update:agent -- ping
+npm run self-update:agent -- stop
+```
+
+`install`:
+
+- copia somente os três arquivos conhecidos do agent/handoff;
+- cria uma release por hash em `~/.local/lib/dev-dashboard/self-update-agent/releases/`;
+- publica `current.json` por escrita atômica;
+- cria/reutiliza `self-update-agent-token` privado;
+- não inicia update nem restart.
+
+`start` valida manifesto, tipo/permissão dos arquivos e SHA-256 antes de executar a release instalada com `shell: false` e processo destacado. O modo servidor recusa ser iniciado diretamente da checkout.
+
+`status` e `ping` consultam o Unix socket autenticado. O catálogo remoto atual é:
 
 ```text
-${DEV_DASHBOARD_STATE_DIR:-~/.local/state/dev-dashboard}/self-update/
+ping
+inspect
+claim
+recover
 ```
 
-Para inspecionar um handoff conhecido sem modificar estado:
+Para um handoff conhecido:
 
 ```bash
-npm run self-update:helper -- inspect <handoff-id>
+npm run self-update:agent -- inspect <handoff-id>
+npm run self-update:agent -- claim <handoff-id>
 ```
 
-Se um processo do helper tiver assumido um handoff (`accepted` ou estado operacional posterior) e encerrado antes de persistir resultado terminal, o diagnóstico conservador é:
+`claim` apenas transfere o handoff de `prepared` para `accepted`; não aplica código.
+
+Se o agent reiniciar e encontrar handoff já assumido sem resultado terminal, ele executa recovery conservador automaticamente. O diagnóstico manual equivalente é:
 
 ```bash
-npm run self-update:helper -- recover
+npm run self-update:agent -- recover
 ```
 
 Isso marca o registro como `recovery_required`; não executa rollback, update ou restart.
 
-Se `inspect`/`recover` informar estado persistido inválido, não edite o JSON para forçar continuação. Revise o arquivo local, preserve uma cópia para diagnóstico quando necessário e corrija/remova o estado somente depois de entender a origem. Arquivos extras/campos de autoridade são recusados deliberadamente.
+### Agent não inicia
+
+Primeiro confirme a instalação:
+
+```bash
+npm run self-update:agent -- install
+npm run self-update:agent -- start
+```
+
+Erros de hash, symlink, arquivo com permissões abertas ou manifesto inválido são fail-closed. Não edite `current.json` para contornar validação; reinstale a partir de uma checkout confiável e investigue a alteração inesperada.
+
+### Token do agent inválido
+
+O token fica em:
+
+```text
+~/.config/dev-dashboard/self-update-agent-token
+```
+
+Ele precisa ser arquivo regular, privado e `0600`. Não compartilhe esse conteúdo e não reutilize o token HTTP da API como substituto.
+
+Se o arquivo foi adulterado/perdido enquanto um agent antigo ainda roda, encerre conscientemente o processo antes de recriar credenciais; não trate ausência do token como prova de que o processo está parado.
+
+### Socket do agent
+
+Quando `XDG_RUNTIME_DIR` estiver disponível, o socket fica sob:
+
+```text
+$XDG_RUNTIME_DIR/dev-dashboard/self-update-agent/agent.sock
+```
+
+O diretório é privado e o socket usa `0600`. Um path existente que não seja socket real/pertencente ao usuário é recusado; o agent não remove arquivo arbitrário para “destravar” o start.
+
+Se `inspect`/`recover` informar estado persistido inválido, não edite o JSON para forçar continuação. Preserve uma cópia para diagnóstico quando necessário e corrija/remova o estado somente depois de entender a origem.
 
 ## Vercel: integração não configurada
 
