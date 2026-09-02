@@ -83,10 +83,10 @@ As variáveis abaixo são criadas ou controladas pelo próprio tooling e **não*
 | `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` | ativa frontend estático servido pela API |
 | `DEV_DASHBOARD_WEB_DIST` | aponta para o build web da distribuição local |
 | `DEV_DASHBOARD_BROWSER_BOOTSTRAP` | capacidade efêmera de bootstrap do navegador |
-| `DEV_DASHBOARD_RUNTIME_REVISION` | contexto interno usado pelo restart de self-update |
+| `DEV_DASHBOARD_RUNTIME_REVISION` | revision já validada/aplicada propagada pelo worker ao runtime reiniciado |
 | `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` | checkout já validada passada internamente ao worker instalado |
 
-Não exporte `DEV_DASHBOARD_RUNTIME_REVISION` para tentar “provar” uma atualização. Sucesso de self-update depende de verificação independente da revision realmente aplicada, não apenas de uma variável de ambiente.
+Não exporte `DEV_DASHBOARD_RUNTIME_REVISION` manualmente para tentar “provar” uma atualização. No fluxo real ela é derivada da revision do handoff revalidada/aplicada pelo worker e só é aceita no health quando possui formato de SHA válido.
 
 ### Overrides operacionais do self-update agent
 
@@ -144,6 +144,12 @@ Deployments persistem timeline/log/histórico, mas **não** token de confirmaç�
 ```bash
 npm run doctor
 curl -i http://127.0.0.1:4343/api/health
+```
+
+No runtime normal de desenvolvimento, o health continua com o JSON público padrão. Quando a API foi iniciada pelo worker de self-update, o header abaixo identifica a revision que o runtime recebeu do fluxo já validado:
+
+```text
+x-dev-dashboard-revision: <sha>
 ```
 
 Se a web estiver em desenvolvimento, abra `http://127.0.0.1:5173`.
@@ -232,9 +238,9 @@ Não inclua segredos no manifesto. Se o scan indicar `productionWarning`, corrij
 
 `strategy=disabled` é deliberado. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
 
-O próprio Dev Dashboard permanece nesse estado. Os PRs #520/#521 já entregaram handoff persistente, instalação isolada, lifecycle independente e canal Unix autenticado. O PR #523 implementa a base de integração API → agent, preflight/aplicação Git, restart user-space e recovery persistido.
+O próprio Dev Dashboard permanece nesse estado mesmo com a cadeia operacional do PR #523 implementada. Handoff, ownership antes do shutdown, aplicação/restart user-space, readiness com prova de revision e teste real de recovery já fazem parte da branch.
 
-Isso **não significa que self-production esteja pronta**. Ainda faltam fechar e provar end-to-end readiness com revision, interrupção/restart real e os requisitos finais de segurança/privilégio. Portanto o gate continua fechado.
+Os blockers atuais do contrato passam a ser a revisão final do modelo de privilégio e a revisão específica de segurança. A habilitação fica para o PR D; não use o tooling local como bypass do gate.
 
 ## Self-update helper e agent
 
@@ -305,13 +311,17 @@ Ele só aceita um handoff previamente `accepted` e revalida a checkout antes de 
 - relação fast-forward com o `HEAD` atual;
 - exclusividade por lock privado.
 
+Depois de spawnar o worker, a API ainda não encerra imediatamente. Ela aguarda `self-update/execution.lock`, exige o mesmo PID/handoff retornado pelo `execute` e confirma que o processo está vivo. Só então agenda `SIGTERM`; o handler normal da API executa `app.close()`.
+
 Depois que a API antiga deixa a porta, o worker repete o preflight, aplica somente `git merge --ff-only <revision>`, comprova `HEAD`, reinstala a release do agent e inicia `scripts/dev-web.mjs` em processo destacado.
 
 Não há `sudo`, `systemctl`, unit livre ou comando vindo do browser.
 
-### Readiness do self-update ainda não comprovada
+### Readiness e prova de revision
 
-No estado atual do #523, o worker exige que a nova API prove a revision alvo durante readiness, mas `/api/health` ainda retorna somente:
+O retorno da porta 4343 sozinho não é sucesso.
+
+O JSON público de `/api/health` permanece:
 
 ```text
 status
@@ -319,9 +329,34 @@ service
 timestamp
 ```
 
-Portanto a cadeia end-to-end ainda não consegue concluir a prova da revision. Não trate o retorno da porta 4343 como sucesso de self-update.
+No runtime reiniciado pelo worker, a API também devolve:
 
-Esse ponto precisa ser fechado no próprio #523, junto com o teste real de API antiga → parada → aplicação → restart → readiness → resultado persistido.
+```text
+x-dev-dashboard-revision: <targetRevision>
+```
+
+O worker exige `status=ok`, `service=dev-dashboard-api` e o header exatamente igual à revision aplicada. Header ausente, inválido ou diferente mantém readiness pendente até o timeout; depois de `applying`, isso termina como `recovery_required`.
+
+Para diagnóstico após um restart:
+
+```bash
+curl -i http://127.0.0.1:4343/api/health
+git rev-parse HEAD
+git ls-remote --heads origin main
+```
+
+As três evidências devem ser coerentes antes de considerar o estado saudável.
+
+### Teste real de restart/recovery
+
+`scripts/self-update-restart.integration.test.mjs` cria um repositório e `origin` temporários, sobe uma API antiga real, executa fetch/fast-forward reais, inicia um novo runtime HTTP e valida a revision.
+
+Há dois cenários:
+
+- revision correta volta → `succeeded` e resultado persistido;
+- porta volta com outra revision → readiness falha e o handoff fica `recovery_required`.
+
+Assim, o teste não trata “processo subiu” como prova de atualização correta.
 
 ### Recovery do self-update
 
