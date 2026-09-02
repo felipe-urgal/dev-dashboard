@@ -16,7 +16,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { createConnection, createServer } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { SelfUpdateHandoffStore } from './self-update-handoff.mjs';
@@ -118,7 +118,7 @@ function resolveInstallRoot() {
   );
 }
 
-function resolveRuntimeDirectory() {
+function resolveRuntimeDirectory(stateRoot) {
   const configured =
     process.env.DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR?.trim();
   if (configured) return path.resolve(configured);
@@ -132,12 +132,7 @@ function resolveRuntimeDirectory() {
     );
   }
 
-  const uid = currentUid();
-  return path.join(
-    tmpdir(),
-    `dev-dashboard-${uid ?? 'local'}`,
-    'self-update-agent',
-  );
+  return path.join(stateRoot, 'runtime', 'self-update-agent');
 }
 
 export function resolveSelfUpdateAgentPaths(overrides = {}) {
@@ -145,7 +140,7 @@ export function resolveSelfUpdateAgentPaths(overrides = {}) {
   const configDirectory = overrides.configDirectory ?? resolveConfigDirectory();
   const stateRoot = overrides.stateRoot ?? resolveStateRoot();
   const runtimeDirectory =
-    overrides.runtimeDirectory ?? resolveRuntimeDirectory();
+    overrides.runtimeDirectory ?? resolveRuntimeDirectory(stateRoot);
 
   for (const [label, value] of [
     ['Diretório de instalação', installRoot],
@@ -166,6 +161,26 @@ export function resolveSelfUpdateAgentPaths(overrides = {}) {
     runtimeDirectory,
     socketPath: path.join(runtimeDirectory, SOCKET_FILE),
   };
+}
+
+async function inspectPrivateDirectory(directory) {
+  assertAbsolutePath(directory, 'Diretório privado');
+  const metadata = await lstat(directory);
+  const uid = currentUid();
+
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    (uid !== null && metadata.uid !== uid) ||
+    (metadata.mode & 0o077) !== 0
+  ) {
+    throw new SelfUpdateAgentError(
+      'AGENT_DIRECTORY_UNSAFE',
+      'Diretório local do agent não é um diretório privado confiável.',
+    );
+  }
+
+  return metadata;
 }
 
 async function ensurePrivateDirectory(directory) {
@@ -217,15 +232,26 @@ function secureTokenEqual(candidate, expected) {
 }
 
 export async function readSelfUpdateAgentToken(paths) {
-  await assertPrivateRegularFile(paths.tokenPath, MAX_TOKEN_FILE_BYTES);
-  const token = (await readFile(paths.tokenPath, 'utf8')).trim();
-  if (!TOKEN_PATTERN.test(token)) {
-    throw new SelfUpdateAgentError(
-      'AGENT_TOKEN_INVALID',
-      'Token local do agent possui formato inválido.',
-    );
+  try {
+    await inspectPrivateDirectory(paths.configDirectory);
+    await assertPrivateRegularFile(paths.tokenPath, MAX_TOKEN_FILE_BYTES);
+    const token = (await readFile(paths.tokenPath, 'utf8')).trim();
+    if (!TOKEN_PATTERN.test(token)) {
+      throw new SelfUpdateAgentError(
+        'AGENT_TOKEN_INVALID',
+        'Token local do agent possui formato inválido.',
+      );
+    }
+    return token;
+  } catch (error) {
+    if (isErrnoCode(error, 'ENOENT')) {
+      throw new SelfUpdateAgentError(
+        'AGENT_TOKEN_MISSING',
+        'Token local do self-update agent não foi encontrado.',
+      );
+    }
+    throw error;
   }
-  return token;
 }
 
 export async function getOrCreateSelfUpdateAgentToken(paths) {
@@ -233,7 +259,12 @@ export async function getOrCreateSelfUpdateAgentToken(paths) {
   try {
     return await readSelfUpdateAgentToken(paths);
   } catch (error) {
-    if (!isErrnoCode(error, 'ENOENT')) throw error;
+    if (
+      !(error instanceof SelfUpdateAgentError) ||
+      error.code !== 'AGENT_TOKEN_MISSING'
+    ) {
+      throw error;
+    }
   }
 
   const token = randomBytes(32).toString('hex');
@@ -378,9 +409,23 @@ export async function installSelfUpdateAgent({ sourceDirectory, paths }) {
 }
 
 export async function verifyInstalledSelfUpdateAgent(paths) {
-  await ensurePrivateDirectory(paths.installRoot);
+  await inspectPrivateDirectory(paths.installRoot);
+  await inspectPrivateDirectory(paths.releasesDirectory);
   await assertPrivateRegularFile(paths.installManifestPath, 16 * 1024);
-  const parsed = JSON.parse(await readFile(paths.installManifestPath, 'utf8'));
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(paths.installManifestPath, 'utf8'));
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new SelfUpdateAgentError(
+        'AGENT_INSTALL_INVALID',
+        'Manifesto da instalação do agent contém JSON inválido.',
+      );
+    }
+    throw error;
+  }
+
   if (!isInstallManifest(parsed)) {
     throw new SelfUpdateAgentError(
       'AGENT_INSTALL_INVALID',
@@ -389,21 +434,9 @@ export async function verifyInstalledSelfUpdateAgent(paths) {
   }
 
   const releaseDirectory = path.join(paths.releasesDirectory, parsed.release);
-  const releaseMetadata = await lstat(releaseDirectory);
-  const uid = currentUid();
-  if (
-    !releaseMetadata.isDirectory() ||
-    releaseMetadata.isSymbolicLink() ||
-    (uid !== null && releaseMetadata.uid !== uid) ||
-    (releaseMetadata.mode & 0o077) !== 0
-  ) {
-    throw new SelfUpdateAgentError(
-      'AGENT_INSTALL_INVALID',
-      'Diretório da release instalada do agent é inválido.',
-    );
-  }
-
+  await inspectPrivateDirectory(releaseDirectory);
   const releaseRealPath = await realpath(releaseDirectory);
+
   for (const fileName of INSTALL_FILES) {
     const filePath = path.join(releaseDirectory, fileName);
     await assertPrivateRegularFile(filePath, 512 * 1024);
@@ -450,6 +483,7 @@ function parseAgentRequest(value) {
       'Request do agent precisa ser um objeto JSON.',
     );
   }
+
   if (
     !hasOnlyKeys(
       value,
@@ -517,10 +551,15 @@ function writeResponse(socket, response) {
 async function isSocketLive(socketPath) {
   return await new Promise((resolve, reject) => {
     const socket = createConnection(socketPath);
+    let settled = false;
+
     const finish = (value) => {
+      if (settled) return;
+      settled = true;
       socket.destroy();
       resolve(value);
     };
+
     socket.setTimeout(500);
     socket.once('connect', () => finish(true));
     socket.once('timeout', () => finish(true));
@@ -529,7 +568,10 @@ async function isSocketLive(socketPath) {
         finish(false);
         return;
       }
-      reject(error);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
     });
   });
 }
@@ -568,14 +610,20 @@ export async function startSelfUpdateAgentServer({
   store = new SelfUpdateHandoffStore(paths.stateDirectory),
   release = 'test',
 }) {
-  await store.ready();
-  await store.recoverInterrupted();
   await prepareSocketPath(paths);
 
   const instanceId = randomUUID();
   let mutationQueue = Promise.resolve();
+  let resolveInitialization;
+  let rejectInitialization;
+  const initialization = new Promise((resolve, reject) => {
+    resolveInitialization = resolve;
+    rejectInitialization = reject;
+  });
 
   const dispatch = async (request) => {
+    await initialization;
+
     if (!secureTokenEqual(request.token, token)) {
       throw new SelfUpdateAgentError(
         'AGENT_AUTH_FAILED',
@@ -646,7 +694,10 @@ export async function startSelfUpdateAgentServer({
     };
 
     socket.on('timeout', () => {
-      fail(null, new SelfUpdateAgentError('AGENT_REQUEST_TIMEOUT', 'Request expirou.'));
+      fail(
+        null,
+        new SelfUpdateAgentError('AGENT_REQUEST_TIMEOUT', 'Request expirou.'),
+      );
     });
 
     socket.on('data', async (chunk) => {
@@ -669,6 +720,7 @@ export async function startSelfUpdateAgentServer({
       const line = content.slice(0, newlineIndex);
       const remaining = content.slice(newlineIndex + 1).trim();
       let requestId = null;
+
       try {
         if (remaining) {
           throw new SelfUpdateAgentError(
@@ -700,11 +752,23 @@ export async function startSelfUpdateAgentServer({
     });
   });
 
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(paths.socketPath, resolve);
-  });
-  await chmod(paths.socketPath, 0o600);
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(paths.socketPath, resolve);
+    });
+    await chmod(paths.socketPath, 0o600);
+    await store.ready();
+    await store.recoverInterrupted();
+    resolveInitialization();
+  } catch (error) {
+    rejectInitialization(error);
+    await new Promise((resolve) => server.close(() => resolve())).catch(
+      () => undefined,
+    );
+    await rm(paths.socketPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
 
   let closed = false;
   const close = async () => {
