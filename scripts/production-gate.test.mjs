@@ -11,20 +11,18 @@ const manifest = JSON.parse(
 );
 const gatePath = new URL('./production-gate.mjs', import.meta.url).pathname;
 
-test('self-production permanece desabilitada até fechar integração operacional', () => {
+test('self-production permanece desabilitada até revisão final de segurança', () => {
   assert.equal(manifest.version, 1);
   assert.equal(manifest.production.enabled, false);
   assert.equal(manifest.production.strategy, 'disabled');
   assert.equal(manifest.production.provider, 'none');
   assert.equal(
     manifest.production.reasonCode,
-    'self-update-operational-integration-required',
+    'self-update-security-review-required',
   );
   assert.deepEqual(manifest.production.blockedBy, [
-    'self-update-api-agent-integration-not-implemented',
-    'self-update-execution-not-implemented',
-    'production-health-not-validated',
     'privilege-model-not-validated',
+    'self-update-security-review-not-completed',
   ]);
 });
 
@@ -37,11 +35,8 @@ test('prod:status é somente leitura e expõe blockers atuais', () => {
     result.stdout,
     /Self-production do Dev Dashboard ainda está bloqueada por contrato/,
   );
-  assert.match(
-    result.stdout,
-    /self-update-api-agent-integration-not-implemented/,
-  );
-  assert.match(result.stdout, /self-update-execution-not-implemented/);
+  assert.match(result.stdout, /privilege-model-not-validated/);
+  assert.match(result.stdout, /self-update-security-review-not-completed/);
 });
 
 test('prod:check falha de propósito enquanto self-update não é seguro', () => {
