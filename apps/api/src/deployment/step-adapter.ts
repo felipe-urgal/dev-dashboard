@@ -30,34 +30,68 @@ import {
 
 type DeploymentProviderTarget = DeploymentProviderPlanStep['target'];
 
+const DEFAULT_ADOPTED_DEPLOY_TIMEOUT_MS = 10 * 60_000;
+const DEFAULT_ADOPTED_DEPLOY_POLL_INTERVAL_MS = 2_000;
+
 export interface VercelProviderStepAdapterOptions {
   vercelAdapter?: VercelDeploymentAdapter;
   githubOriginResolver?: GitHubOriginResolver;
   originRevisionResolver?: DeploymentOriginRevisionResolver;
   revisionResolver?: DeploymentRevisionResolver;
   maskLog?: (content: string) => MaskedLogContent;
+  adoptedDeployTimeoutMs?: number;
+  adoptedDeployPollIntervalMs?: number;
+  sleep?: (milliseconds: number, signal: AbortSignal) => Promise<boolean>;
 }
 
 interface VercelPreflightResult {
   repository: GitHubRepositoryReference;
   providerProject: VercelResolvedProject;
-  readyDeployment?: VercelProductionDeployment;
+  existingDeployment?: VercelProductionDeployment;
 }
 
 function targetKey(target: DeploymentProviderTarget): string {
   return `${target.externalProject}\n${target.branch}\n${target.revision}`;
 }
 
-function matchesReadyDeployment(
+function matchesTargetDeployment(
   deployment: VercelProductionDeployment | undefined,
   target: DeploymentProviderTarget,
 ): deployment is VercelProductionDeployment {
   return Boolean(
     deployment &&
-      deployment.state === 'ready' &&
       deployment.branch === target.branch &&
       deployment.revision === target.revision,
   );
+}
+
+function isActiveDeployment(
+  deployment: VercelProductionDeployment | undefined,
+): deployment is VercelProductionDeployment {
+  return Boolean(
+    deployment && ['queued', 'building'].includes(deployment.state),
+  );
+}
+
+function defaultSleep(
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve(true);
+    }, milliseconds);
+    const abort = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    signal.addEventListener('abort', abort, { once: true });
+  });
 }
 
 export class VercelProviderStepAdapter {
@@ -66,6 +100,12 @@ export class VercelProviderStepAdapter {
   private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
   private readonly revisionResolver: DeploymentRevisionResolver;
   private readonly maskLog: (content: string) => MaskedLogContent;
+  private readonly adoptedDeployTimeoutMs: number;
+  private readonly adoptedDeployPollIntervalMs: number;
+  private readonly sleep: (
+    milliseconds: number,
+    signal: AbortSignal,
+  ) => Promise<boolean>;
   private readonly preflightCache = new Map<string, VercelPreflightResult>();
 
   public constructor(options: VercelProviderStepAdapterOptions = {}) {
@@ -78,6 +118,12 @@ export class VercelProviderStepAdapter {
     this.revisionResolver =
       options.revisionResolver ?? new GitDeploymentRevisionResolver();
     this.maskLog = options.maskLog ?? maskSensitiveLogContent;
+    this.adoptedDeployTimeoutMs =
+      options.adoptedDeployTimeoutMs ?? DEFAULT_ADOPTED_DEPLOY_TIMEOUT_MS;
+    this.adoptedDeployPollIntervalMs =
+      options.adoptedDeployPollIntervalMs ??
+      DEFAULT_ADOPTED_DEPLOY_POLL_INTERVAL_MS;
+    this.sleep = options.sleep ?? defaultSleep;
   }
 
   public async preflight(
@@ -125,6 +171,8 @@ export class VercelProviderStepAdapter {
       );
     }
 
+    const key = targetKey(target);
+    const previousPreflight = this.preflightCache.get(key);
     const [repository, snapshot] = await Promise.all([
       this.githubOriginResolver.resolve(project),
       this.vercelAdapter.readProduction(target.externalProject, signal),
@@ -132,9 +180,20 @@ export class VercelProviderStepAdapter {
     if (signal.aborted) {
       throw new DOMException('Deployment cancelado.', 'AbortError');
     }
+
+    const existingDeployment = matchesTargetDeployment(
+      snapshot.deployment,
+      target,
+    )
+      ? snapshot.deployment
+      : undefined;
+    const matchingDeploymentStartedDuringFlow = Boolean(
+      previousPreflight && isActiveDeployment(existingDeployment),
+    );
     if (
       snapshot.deployment &&
-      ['queued', 'building', 'unknown'].includes(snapshot.deployment.state)
+      ['queued', 'building', 'unknown'].includes(snapshot.deployment.state) &&
+      !matchingDeploymentStartedDuringFlow
     ) {
       throw new DeploymentError(
         'DEPLOYMENT_PROVIDER_DEPLOYMENT_ACTIVE',
@@ -142,18 +201,15 @@ export class VercelProviderStepAdapter {
       );
     }
 
-    const readyDeployment = matchesReadyDeployment(snapshot.deployment, target)
-      ? snapshot.deployment
-      : undefined;
     const result: VercelPreflightResult = {
       repository,
       providerProject: {
         id: snapshot.projectId,
         name: snapshot.projectName,
       },
-      ...(readyDeployment ? { readyDeployment } : {}),
+      ...(existingDeployment ? { existingDeployment } : {}),
     };
-    this.preflightCache.set(targetKey(target), result);
+    this.preflightCache.set(key, result);
     return result;
   }
 
@@ -181,13 +237,22 @@ export class VercelProviderStepAdapter {
       );
     }
 
-    if (preflight.readyDeployment) {
+    if (preflight.existingDeployment?.state === 'ready') {
       onOutput(
         this.maskLog(
-          `Vercel: a revisão confirmada já está READY em ${preflight.readyDeployment.url}; reutilizando o deployment ${preflight.readyDeployment.id}.\n`,
+          `Vercel: a revisão confirmada já está READY em ${preflight.existingDeployment.url}; reutilizando o deployment ${preflight.existingDeployment.id}.\n`,
         ),
       );
       return { exitCode: 0, cancelled: false };
+    }
+
+    if (isActiveDeployment(preflight.existingDeployment)) {
+      return this.waitForExistingDeployment(
+        step.target,
+        preflight.existingDeployment,
+        signal,
+        onOutput,
+      );
     }
 
     const result = await this.vercelAdapter.deployProduction(
@@ -203,5 +268,83 @@ export class VercelProviderStepAdapter {
     );
 
     return { exitCode: result.cancelled ? 1 : 0, cancelled: result.cancelled };
+  }
+
+  private async waitForExistingDeployment(
+    target: DeploymentProviderTarget,
+    initialDeployment: VercelProductionDeployment,
+    signal: AbortSignal,
+    onOutput: (output: MaskedLogContent) => void,
+  ): Promise<ProductionCommandResult> {
+    onOutput(
+      this.maskLog(
+        `Vercel: a revisão confirmada já iniciou o deployment ${initialDeployment.id}; acompanhando o deployment existente sem criar outro.\n`,
+      ),
+    );
+
+    const deadline = Date.now() + this.adoptedDeployTimeoutMs;
+    let deployment = initialDeployment;
+    let lastState: VercelProductionDeployment['state'] | undefined;
+
+    while (Date.now() < deadline) {
+      if (signal.aborted) return { exitCode: 1, cancelled: true };
+      if (!matchesTargetDeployment(deployment, target)) {
+        throw new DeploymentError(
+          'DEPLOYMENT_PROVIDER_DEPLOYMENT_ACTIVE',
+          'A Vercel passou a apontar para outro deployment durante a promoção. Atualize o status antes de continuar.',
+        );
+      }
+
+      if (deployment.state !== lastState) {
+        onOutput(this.maskLog(`Vercel: ${deployment.state}\n`));
+        lastState = deployment.state;
+      }
+
+      if (deployment.state === 'ready') {
+        onOutput(
+          this.maskLog(
+            `Vercel pronta: ${deployment.url}; deployment existente reutilizado.\n`,
+          ),
+        );
+        return { exitCode: 0, cancelled: false };
+      }
+      if (deployment.state === 'error' || deployment.state === 'cancelled') {
+        throw new DeploymentError(
+          'DEPLOYMENT_PROVIDER_UNAVAILABLE',
+          'O deployment de produção já iniciado para a revisão confirmada não concluiu com sucesso na Vercel.',
+        );
+      }
+      if (deployment.state === 'unknown') {
+        throw new DeploymentError(
+          'DEPLOYMENT_PROVIDER_UNAVAILABLE',
+          'A Vercel retornou estado incerto para o deployment já iniciado da revisão confirmada.',
+        );
+      }
+
+      const continued = await this.sleep(
+        this.adoptedDeployPollIntervalMs,
+        signal,
+      );
+      if (!continued || signal.aborted) {
+        return { exitCode: 1, cancelled: true };
+      }
+
+      const snapshot = await this.vercelAdapter.readProduction(
+        target.externalProject,
+        signal,
+      );
+      if (!snapshot.deployment) {
+        throw new DeploymentError(
+          'DEPLOYMENT_PROVIDER_UNAVAILABLE',
+          'A Vercel deixou de retornar o deployment de produção já iniciado para a revisão confirmada.',
+        );
+      }
+      deployment = snapshot.deployment;
+    }
+
+    throw new DeploymentError(
+      'DEPLOYMENT_PROVIDER_UNAVAILABLE',
+      'A Vercel não concluiu o deployment já iniciado dentro do tempo limite configurado.',
+    );
   }
 }
