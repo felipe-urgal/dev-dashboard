@@ -190,7 +190,9 @@ Estado padrão:
 ~/.local/state/dev-dashboard
 ```
 
-Subdomínios mantêm stores próprios sob essa raiz, incluindo `processes/`, `logs/` e `deployments/`. Arquivos privados usam permissões restritas.
+Subdomínios mantêm stores próprios sob essa raiz, incluindo `processes/`, `logs/`, `deployments/` e o protocolo inicial `self-update/`. Arquivos privados usam permissões restritas.
+
+O estado de self-update contém somente metadados estruturados de handoff/recovery; não persiste shell, unit/path de autoridade, senha ou credencial.
 
 Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos.
 
@@ -215,7 +217,9 @@ Veja [security.md](security.md).
 
 O próprio Dev Dashboard possui contrato fail-closed `strategy=disabled`. A API que coordena um deployment não pode reiniciar a si mesma e ainda provar o resultado final com segurança.
 
-Self-update exige helper externo/handoff/readiness/privilégio mínimo antes de ser habilitado. Veja [self-production.md](self-production.md).
+A primeira base externa existe em `scripts/self-update-helper.mjs`: ela persiste um handoff versionado, permite que um processo separado assuma ownership e marca execuções aceitas sem resultado terminal como `recovery_required`. O catálogo atual é apenas `prepare`, `claim`, `inspect` e `recover`; não existe aplicação, restart, readiness nem privilégio.
+
+Portanto o gate continua fechado. Antes de habilitar self-update, o helper ainda precisa ser instalado fora da árvore editável, receber canal local restrito, catálogo operacional mínimo, readiness bounded e modelo de privilégio auditável. Veja [self-production.md](self-production.md).
 
 ## Documentos relacionados
 
