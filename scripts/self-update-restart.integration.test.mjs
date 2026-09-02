@@ -253,7 +253,13 @@ test('restart real aplica origin/main e só conclui após health provar a revisi
     repositoryRoot: fixture.repositoryRoot,
     apiPort: port,
     spawnProcess(command, args, options) {
-      newRuntime = spawn(command, args, options);
+      newRuntime = spawn(command, args, {
+        ...options,
+        env: {
+          ...options.env,
+          DEV_DASHBOARD_API_PORT: String(port),
+        },
+      });
       return newRuntime;
     },
   });
@@ -313,6 +319,7 @@ test('restart real com runtime na revision errada persiste recovery_required', a
         ...options,
         env: {
           ...options.env,
+          DEV_DASHBOARD_API_PORT: String(port),
           DEV_DASHBOARD_RUNTIME_REVISION: WRONG_REVISION,
         },
       });
