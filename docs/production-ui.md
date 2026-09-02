@@ -176,6 +176,8 @@ Enquanto existe deployment ativo, a tela acompanha detalhe e log. O polling para
 - `cancelled`;
 - `recovery_required`.
 
+O viewer do log remove sequências ANSI de terminal antes de renderizar a saída, evitando que códigos de cor/formatação apareçam como texto. Durante uma execução ativa, ele acompanha automaticamente o final conforme novas linhas chegam. Se a pessoa subir manualmente para ler uma parte anterior, o auto-follow pausa; **Voltar ao final** retoma o acompanhamento. Esse comportamento pertence ao componente declarativo do log e não usa enhancer global de DOM.
+
 Existe um único deployment mutável globalmente. A UI detalhada desabilita ações concorrentes compatíveis com essa regra e o lote global espera o projeto atual chegar a estado terminal antes de criar a confirmação/iniciar o próximo. Não há loading artificial quando não existe trabalho real.
 
 ## Cancelamento

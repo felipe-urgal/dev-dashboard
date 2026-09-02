@@ -74,8 +74,8 @@
   font-weight: var(--font-weight-strong);
   text-decoration: none;
   transition:
-    color 160ms ease,
-    background 160ms ease;
+    color var(--motion-duration-fast) var(--motion-easing-standard),
+    background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .navigation-item::before {
@@ -134,8 +134,8 @@
   position: relative;
   z-index: 31;
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: var(--interactive-target-min);
+  height: var(--interactive-target-min);
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -146,9 +146,9 @@
   background: var(--surface-1);
   cursor: pointer;
   transition:
-    border-color 160ms ease,
-    color 160ms ease,
-    background 160ms ease;
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    color var(--motion-duration-fast) var(--motion-easing-standard),
+    background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .sidebar-workspace-add-icon:hover {
@@ -165,7 +165,7 @@
 .sidebar-workspace-select {
   min-width: 0;
   width: 100%;
-  min-height: 34px;
+  min-height: var(--control-height-md);
   padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -210,7 +210,7 @@
 
 .segmented-control button {
   display: inline-flex;
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
@@ -235,8 +235,8 @@
 }
 
 .segmented-control button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .main-content {
