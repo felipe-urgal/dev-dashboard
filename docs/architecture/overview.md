@@ -49,6 +49,22 @@ A arquitetura deve:
         locais                      (Vercel)
 ```
 
+Para self-update existe ainda uma fronteira separada da API:
+
+```text
+API atual
+   ↓
+handoff persistente
+   ↓
+self-update agent instalado + Unix socket autenticado
+   ↓
+worker instalado independente do Fastify
+   ↓
+Git/restart/readiness/recovery
+```
+
+Essa cadeia existe para permitir que a API antiga pare sem ser a única dona do estado da operação.
+
 ## Monorepo
 
 ```text
@@ -95,6 +111,8 @@ Responsabilidades incluem:
 
 A API escuta em `127.0.0.1`.
 
+O PR #523 adiciona `SelfUpdateHandoffService` como serviço interno do backend. Ele não cria uma rota pública de self-update nem ignora `strategy=disabled`; serve para preparar/transferir handoff e iniciar tooling fechado quando a futura integração do fluxo de self-production estiver autorizada.
+
 ## Contratos compartilhados
 
 `packages/contracts` contém tipos puros como `Workspace`, `Project`, processos, testes e contratos de deployment/produção.
@@ -116,6 +134,8 @@ Quando `.dev-dashboard/production.json` existe, o discovery valida o `Production
 `packages/process-manager` cuida de processos de desenvolvimento: comando reconhecido, `cwd`, porta, identidade, lifecycle e logs limitados.
 
 **Deployment não é um tipo de processo gerenciado.** Ele possui domínio próprio porque precisa de revision, plano, confirmação, irreversibilidade, provider externo e recovery.
+
+O self-update worker também não é representado como processo gerenciado comum: ele precisa sobreviver à API antiga, usa estado/handoff próprio e executa a partir da release instalada do agent.
 
 ## Domínio de deployment
 
@@ -172,7 +192,9 @@ VERCEL_TOKEN
 VERCEL_TEAM_ID   # opcional
 ```
 
-`npm run dev` carrega `.env.local` quando presente. O token não pertence ao Production Contract, não é persistido e não volta ao browser.
+`npm run dev` carrega `.env.local` quando presente. `.env.example` documenta as variáveis locais configuráveis sem conter segredo real.
+
+O token não pertence ao Production Contract, não é persistido e não volta ao browser.
 
 O adapter limita/valida respostas externas e transforma auth/quota/not-found/indisponibilidade/resposta inválida em códigos estáveis.
 
@@ -198,7 +220,8 @@ O self-update agent possui ainda:
 
 - token local próprio em configuração privada;
 - runtime Unix socket `0600` em diretório `0700`;
-- releases instaladas por hash fora da árvore do repositório, por padrão em `~/.local/lib/dev-dashboard/self-update-agent/`.
+- releases instaladas por hash fora da árvore do repositório, por padrão em `~/.local/lib/dev-dashboard/self-update-agent/`;
+- lock privado para exclusividade da execução operacional.
 
 Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos.
 
@@ -217,15 +240,44 @@ Princípios transversais:
 - provider externo tratado como input não confiável;
 - recovery conservador após mutação irreversível.
 
+No self-update, a mesma regra continua válida: o socket remoto não ganha um executor genérico. A execução operacional aceita somente um handoff ID já validado, revalida a checkout e usa Git/restart fixos definidos pelo backend/tooling.
+
 Veja [security.md](security.md).
 
 ## Self-production
 
-O próprio Dev Dashboard possui contrato fail-closed `strategy=disabled`. A API que coordena um deployment não pode reiniciar a si mesma e ainda provar o resultado final com segurança.
+O próprio Dev Dashboard possui contrato fail-closed `strategy=disabled`.
 
-O protocolo de handoff persiste ownership/resultados e um agent separado pode ser instalado fora da checkout, iniciar como processo independente do Fastify e receber somente `ping`, `inspect`, `claim` e `recover` por Unix socket autenticado/restrito. A release instalada é validada por hashes antes do start e o modo servidor recusa execução direta a partir da árvore do projeto.
+### Base já entregue
 
-O agent ainda é user-space e não possui update, restart, readiness ou sudo. Portanto o gate continua fechado até a etapa operacional provar aplicação/restart da revision, health pós-restart, resultado final e privilégio mínimo. Veja [self-production.md](self-production.md).
+Os PRs #520/#521 entregaram:
+
+- handoff persistente;
+- recovery conservador;
+- agent instalado fora da checkout;
+- lifecycle independente do Fastify;
+- Unix socket autenticado;
+- catálogo remoto fechado `ping`, `inspect`, `claim`, `recover`.
+
+### PR C em andamento
+
+O PR #523 adiciona:
+
+- integração interna API → helper/agent;
+- worker instalado independente da API antiga;
+- preflight de working tree limpa + `main` + `origin/main` exato + fast-forward;
+- aplicação por `git merge --ff-only` da revision confirmada;
+- reinstalação da release do agent após aplicar;
+- restart user-space por `scripts/dev-web.mjs`;
+- transições `applying/restarting/verifying` e resultado/recovery persistido.
+
+O gate ainda continua fechado.
+
+A prova end-to-end de readiness/revision não está concluída: o worker já exige que `/api/health` prove a `targetRevision`, mas a resposta HTTP pública atual ainda não expõe esse campo. O #523 precisa fechar essa divergência e executar o teste real de interrupção/restart/recovery antes de o PR D avaliar habilitação.
+
+O fluxo atual não usa `sudo` nem `systemctl`; o modelo final de privilégio precisa continuar auditável e mínimo.
+
+Veja [self-production.md](self-production.md).
 
 ## Documentos relacionados
 
@@ -233,5 +285,7 @@ O agent ainda é user-space e não possui update, restart, readiness ou sudo. Po
 - [Domínio de deployment](deployment-domain.md)
 - [Fluxos runtime](runtime-flows.md)
 - [Segurança](security.md)
+- [Self-production](self-production.md)
 - [Operação de deployments](../deployment-operations.md)
+- [Operação e troubleshooting](../operations-and-troubleshooting.md)
 - [Interface de Produção](../production-ui.md)
