@@ -174,9 +174,9 @@ Se o ticket não for delegável para a árvore real do deployment, o dashboard f
 
 ## Self-update agent
 
-Self-update é uma fronteira de segurança separada do deployment comum porque a API antiga precisa poder encerrar sem perder ownership da operação.
+Self-update é uma fronteira separada porque a API antiga precisa poder encerrar sem perder ownership.
 
-O Production Contract do próprio Dev Dashboard continua:
+O Production Contract continua fail-closed mesmo com a cadeia operacional implementada:
 
 ```text
 production.enabled=false
@@ -184,45 +184,25 @@ strategy=disabled
 provider=none
 ```
 
-A existência do agent/worker não autoriza o planner a ignorar esse gate.
+O PR D é responsável pela revisão/habilitação final; o PR C não cria rota pública nem bypass do planner.
 
 ### Handoff persistente
 
-O handoff contém somente:
+O handoff contém somente ID, `action=self-update`, `projectId`, `targetRevision`, `planHash`, estados/timestamps e resultado terminal sanitizado.
 
-- ID gerado localmente;
-- `action=self-update` fixa;
-- `projectId`;
-- `targetRevision`;
-- `planHash`;
-- estados/timestamps;
-- resultado terminal sanitizado.
-
-Ele não contém shell, programa, argumentos, checkout, unit ou credencial.
-
-Arquivos vivem em diretório privado, com shape/tamanho/tipo/symlink/permissões validados e escrita atômica.
+Ele não contém shell, programa, argumentos, checkout, unit ou credencial. Arquivos vivem em diretório privado e são revalidados na leitura.
 
 ### Instalação do agent
 
-A checkout não é o executável de longa duração.
+A checkout não é o executável de longa duração. `self-update:agent install` copia apenas arquivos conhecidos para uma release fora do projeto e calcula SHA-256.
 
-`self-update:agent install` copia apenas os arquivos conhecidos para uma release fora da árvore do projeto e calcula SHA-256 de cada arquivo.
-
-Antes do start:
-
-- `current.json` precisa ser arquivo privado regular e shape válido;
-- release precisa ser diretório real, privado e pertencente ao usuário atual;
-- cada arquivo precisa ser regular, não symlinkado e privado;
-- hash precisa coincidir com o manifesto;
-- o entrypoint do modo `serve` precisa ser exatamente a release instalada.
-
-Uma alteração na checkout depois da instalação não modifica o processo já instalado.
+Antes do start são validados manifesto, owner, permissões, symlinks, arquivos e hashes. O modo `serve` precisa apontar exatamente para a release instalada.
 
 ### Canal Unix local
 
-O agent usa Unix socket em diretório privado `0700`, socket `0600` e token próprio separado do token HTTP.
+O agent usa Unix socket em diretório `0700`, socket `0600` e token próprio separado do token HTTP.
 
-Cada conexão aceita uma única mensagem JSON limitada. O catálogo remoto permanece:
+O catálogo remoto permanece:
 
 ```text
 ping
@@ -231,86 +211,66 @@ claim
 recover
 ```
 
-Nenhuma request aceita programa, args, shell, unit, path de checkout, path de instalação, URL ou credencial.
+Nenhuma request aceita programa, args, shell, unit, checkout, instalação, URL ou credencial. O #523 **não adiciona `execute` remoto** ao socket.
 
-O PR #523 **não adiciona um `execute` remoto ao socket**.
+### Integração API → agent e shutdown
 
-### Integração API → agent no PR #523
-
-`SelfUpdateHandoffService` usa somente scripts e argv fixos resolvidos pelo backend:
+`SelfUpdateHandoffService` usa scripts/argv fixos:
 
 1. valida `projectId`, revision e `planHash`;
-2. executa `ping` no agent;
-3. persiste via helper `prepare`;
-4. transfere ownership via `claim` do mesmo handoff;
-5. inicia tooling local `execute <handoff-id>`.
+2. faz `ping` autenticado;
+3. persiste `prepare`;
+4. transfere ownership por `claim` do mesmo handoff;
+5. chama localmente `execute <handoff-id>`;
+6. exige `execution.lock` privado com o PID e handoff ID retornados;
+7. confirma que esse PID continua vivo;
+8. só então agenda `SIGTERM` para a API atual.
 
-O único valor variável passado ao comando de execução é o ID de handoff previamente criado/validado. Revision, checkout e `planHash` são lidos do estado já vinculado.
+O `execute` local faz preflight antes de spawnar o worker. Assim, “processo nasceu” não é tratado como prova suficiente de ownership.
 
-A integração está registrada no backend, mas ainda não é rota pública nem bypass do `strategy=disabled`.
+O lock é validado por tipo, symlink, owner, permissão, tamanho e conteúdo fechado. Lock de outro handoff/processo falha fechado.
 
-### Worker operacional instalado
+### Checkout e Git
 
-`execute` instala/inicia um worker destacado a partir da release verificada do agent.
+A checkout precisa ser diretório absoluto real, pertencente ao usuário, com `package.json` de `dev-dashboard`, working tree limpa e branch `main`.
 
-O worker usa um lock privado com PID + handoff ID para impedir duas execuções simultâneas. Lock suspeito (symlink, owner/permissão/tamanho inválidos) falha fechado; lock stale só é removido quando o PID não está vivo.
-
-A checkout operacional é validada como:
-
-- path absoluto real, sem symlink;
-- diretório pertencente ao usuário atual;
-- `package.json` com `name=dev-dashboard`;
-- working tree limpa, incluindo untracked;
-- branch `main`;
-- `origin/main` consultado por `git fetch --no-tags origin main`;
-- revision remota exatamente igual à `targetRevision` do handoff;
-- alvo fast-forward do `HEAD` atual.
-
-Não existe `reset --hard` nem checkout forçado para apagar estado local.
-
-### Aplicação e restart
-
-Depois que a API antiga deixa a porta, o worker repete o preflight e aplica somente:
+O executor consulta `origin/main` por fetch, exige igualdade com `targetRevision` e prova fast-forward. A aplicação é somente:
 
 ```text
 git merge --ff-only <targetRevision>
 ```
 
-Em seguida comprova `HEAD == targetRevision`, reinstala a release do agent a partir da nova revision e inicia `scripts/dev-web.mjs` em processo destacado.
+Depois comprova `HEAD == targetRevision`. Não há `reset --hard` nem descarte automático de estado local.
 
-Esse restart é user-space. O fluxo atual não usa `sudo`, `systemctl` nem unit configurável.
+### Restart e proof-of-revision
 
-`DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` é uma variável interna criada pelo tooling confiável para passar ao worker o checkout já validado; não é input do browser nem configuração pública.
+O worker aguarda a API antiga sair, aplica a revision, reinstala a release do agent e inicia `scripts/dev-web.mjs` destacado.
 
-### Readiness e prova de revision
+O restart é user-space: sem `sudo`, `systemctl` ou unit configurável.
 
-Sucesso não pode ser inferido apenas porque a porta 4343 voltou.
-
-O worker do #523 já exige semanticamente que `/api/health` prove:
+A API mantém o JSON público de `/api/health` estável. No runtime iniciado pelo worker, a revision validada é publicada no header:
 
 ```text
-status=ok
-service=dev-dashboard-api
-revision=<targetRevision>
+x-dev-dashboard-revision: <targetRevision>
 ```
 
-Entretanto, no estado atual do PR, `/api/health` ainda não expõe `revision`. Portanto a prova end-to-end de readiness/revision **continua pendente** e o gate não pode ser aberto.
+O worker só aceita readiness quando `status=ok`, `service=dev-dashboard-api` e esse header contém exatamente a revision alvo. O valor do body não pode substituir a prova do header.
 
-`DEV_DASHBOARD_RUNTIME_REVISION` é detalhe interno do restart; não deve ser aceito como prova isolada nem configurado manualmente para forjar sucesso.
+`DEV_DASHBOARD_RUNTIME_REVISION` é preenchida internamente pelo worker a partir da revision já validada/aplicada. Ela não é input do browser nem configuração manual suportada para autorizar self-update.
 
 ### Recovery
 
-Falha antes da mutação operacional pode terminar em `failed`. Depois que o worker entra em `applying`, falhas são tratadas conservadoramente como `recovery_required`.
+Falha antes da mutação pode terminar em `failed`. Depois de `applying`, falha vira `recovery_required`.
 
-No startup, o agent também marca handoffs anteriormente assumidos e sem resultado terminal como `recovery_required`.
+O teste de integração real cobre inclusive o caso em que a nova porta volta saudável, mas com revision diferente: health sem a prova exata não produz sucesso e o handoff termina em recovery.
 
-Não existe rollback automático cego.
+No startup, o agent também marca handoffs anteriormente assumidos e sem resultado terminal como `recovery_required`. Não há rollback automático cego.
 
 ### Privilégio
 
-Self-update não reutiliza a senha sudo do modal nem dá sudo amplo ao Fastify.
+O PR C usa somente privilégios do usuário atual. Fastify não recebe sudo amplo e a senha de deployment não é reutilizada.
 
-O desenho atual é user-space. Se o modelo final exigir operação root, isso cria nova fronteira e precisa usar ação mínima instalada fora da checkout, sem aceitar unit/path/comando livre.
+A revisão final ainda precisa confirmar se esse modelo user-space é suficiente para a habilitação. Se o PR D exigir root/systemd, isso será uma nova fronteira que deverá usar uma ação mínima instalada fora da checkout e sem unit/path/comando livre.
 
 ## Git
 
@@ -373,6 +333,6 @@ Tokens locais e arquivos sensíveis usam permissões privadas. Estado persistido
 
 ## Regra de fechamento
 
-Uma capacidade de produção/self-update só é considerada segura quando o comportamento real corresponde ao contrato documentado e aos testes.
+Uma capacidade de produção/self-update só é considerada segura quando comportamento, documentação e testes concordam.
 
-No caso do próprio Dev Dashboard, #523 ainda precisa fechar readiness + prova de revision + teste real de interrupção/restart/recovery antes que #487 possa avançar para o PR D de habilitação/revisão final.
+O PR #523 fecha a cadeia operacional e o teste real de restart/recovery. O contrato continua fechado até a revisão específica de privilégio/segurança e a habilitação explícita do PR D.
