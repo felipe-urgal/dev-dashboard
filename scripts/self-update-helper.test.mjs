@@ -43,6 +43,13 @@ function captureStream() {
   };
 }
 
+test('exige caminho absoluto para o diretório de estado', () => {
+  assert.throws(
+    () => new SelfUpdateHandoffStore('estado-relativo'),
+    /Diretório de estado do self-update deve ser absoluto/,
+  );
+});
+
 test('persiste handoff com diretório e arquivo privados', async (t) => {
   const { directory, store } = await createStore(t);
   const handoff = await store.prepare(
@@ -67,6 +74,22 @@ test('persiste handoff com diretório e arquivo privados', async (t) => {
 
   const restored = await store.get(handoff.id);
   assert.deepEqual(restored, handoff);
+});
+
+test('rejeita arquivo de handoff legível por grupo ou outros', async (t) => {
+  const { directory, store } = await createStore(t);
+  const handoff = await store.prepare({
+    projectId: 'dev-dashboard',
+    targetRevision: REVISION,
+    planHash: PLAN_HASH,
+  });
+  const filePath = path.join(directory, `${handoff.id}.json`);
+  await chmod(filePath, 0o644);
+
+  await assert.rejects(
+    () => store.get(handoff.id),
+    /Estado persistido de self-update inválido/,
+  );
 });
 
 test('rejeita estado adulterado em vez de aceitar campos de autoridade', async (t) => {
@@ -170,6 +193,20 @@ test('recovery marca somente handoffs aceitos sem resultado terminal', async (t)
   assert.equal(recovered[0].status, 'recovery_required');
   assert.equal(recovered[0].result.code, 'SELF_UPDATE_HELPER_INTERRUPTED');
   assert.equal((await store.get(pending.id)).status, 'prepared');
+});
+
+test('helper expõe ajuda somente leitura sem argumentos', async () => {
+  const stdout = captureStream();
+  const stderr = captureStream();
+  const exitCode = await runSelfUpdateHelper([], {
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.match(stdout.read(), /prepare/);
+  assert.match(stdout.read(), /não aplica atualização/);
+  assert.equal(stderr.read(), '');
 });
 
 test('helper expõe apenas comandos estruturados e não aceita opções desconhecidas', async (t) => {
