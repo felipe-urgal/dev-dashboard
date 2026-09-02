@@ -61,11 +61,9 @@ function hasOnlyKeys(value, allowedKeys) {
 }
 
 function isIsoTimestamp(value) {
-  return (
-    typeof value === 'string' &&
-    value.length <= 64 &&
-    !Number.isNaN(Date.parse(value))
-  );
+  if (typeof value !== 'string' || value.length > 64) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
 function isResult(value) {
@@ -236,14 +234,14 @@ export class SelfUpdateHandoffStore {
     let parsed;
     try {
       const metadata = await lstat(filePath);
-      if (
-        !metadata.isFile() ||
-        metadata.isSymbolicLink() ||
-        metadata.size > MAX_HANDOFF_BYTES
-      ) {
+      if (!metadata.isFile() || metadata.isSymbolicLink()) {
         throw invalidStateError(path.basename(filePath));
       }
-      parsed = JSON.parse(await readFile(filePath, 'utf8'));
+      const content = await readFile(filePath, 'utf8');
+      if (Buffer.byteLength(content, 'utf8') > MAX_HANDOFF_BYTES) {
+        throw invalidStateError(path.basename(filePath));
+      }
+      parsed = JSON.parse(content);
     } catch (error) {
       if (error && typeof error === 'object' && error.code === 'ENOENT') {
         return null;
@@ -251,7 +249,7 @@ export class SelfUpdateHandoffStore {
       throw error;
     }
 
-    if (!isSelfUpdateHandoff(parsed)) {
+    if (!isSelfUpdateHandoff(parsed) || parsed.id !== handoffId) {
       throw invalidStateError(path.basename(filePath));
     }
     return structuredClone(parsed);
