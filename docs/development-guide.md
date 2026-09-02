@@ -206,7 +206,9 @@ O produto prioriza experiência simples, ágil e funcional:
 - estado real em vez de animação artificial;
 - loading só durante trabalho;
 - linguagem direta em português;
-- risco/irreversibilidade explícitos sem dramatização.
+- risco/irreversibilidade explícitos sem dramatização;
+- reutilize `EmptyState` para estados de página que compartilham a estrutura visual de ícone, título, descrição e ação opcional;
+- extraia novos componentes-base somente quando houver repetição real de estrutura e semântica; controles específicos da feature permanecem locais até essa repetição existir.
 
 ## Documentação
 
