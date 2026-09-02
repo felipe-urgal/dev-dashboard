@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const TOOL_TIMEOUT_MS = 5_000;
+const TOOL_TIMEOUT_MS = 70_000;
 const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
 const HANDOFF_ID_PATTERN = /^self-update-[0-9a-f-]{36}$/;
 const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
@@ -45,6 +45,7 @@ export type SelfUpdateHandoffErrorCode =
   | 'SELF_UPDATE_AGENT_UNAVAILABLE'
   | 'SELF_UPDATE_HANDOFF_PREPARE_FAILED'
   | 'SELF_UPDATE_HANDOFF_CLAIM_FAILED'
+  | 'SELF_UPDATE_EXECUTION_START_FAILED'
   | 'SELF_UPDATE_HANDOFF_INVALID';
 
 export class SelfUpdateHandoffError extends Error {
@@ -142,6 +143,31 @@ function parseAgentPing(raw: string): void {
   }
 }
 
+function parseExecutionStart(raw: string, handoffId: string): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new SelfUpdateHandoffError(
+      'SELF_UPDATE_EXECUTION_START_FAILED',
+      'Worker de self-update retornou uma resposta inválida.',
+    );
+  }
+
+  if (
+    !isRecord(parsed) ||
+    parsed.status !== 'worker-started' ||
+    parsed.handoffId !== handoffId ||
+    !Number.isSafeInteger(parsed.pid) ||
+    Number(parsed.pid) <= 1
+  ) {
+    throw new SelfUpdateHandoffError(
+      'SELF_UPDATE_EXECUTION_START_FAILED',
+      'Worker externo não comprovou que iniciou o handoff confirmado.',
+    );
+  }
+}
+
 function safeToolMessage(stderr: string): string {
   const trimmed = stderr.trim().replaceAll(/\s+/g, ' ');
   return trimmed.slice(0, 500);
@@ -162,11 +188,12 @@ async function defaultToolRunner(
     let stdout = '';
     let stderr = '';
     let settled = false;
+    let timeout: NodeJS.Timeout | undefined;
 
     const finishError = (error: Error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
       child.kill('SIGTERM');
       reject(error);
     };
@@ -188,7 +215,7 @@ async function defaultToolRunner(
     });
     child.once('error', finishError);
 
-    const timeout = setTimeout(() => {
+    timeout = setTimeout(() => {
       finishError(new Error('Tooling de self-update excedeu o timeout.'));
     }, TOOL_TIMEOUT_MS);
     timeout.unref();
@@ -196,7 +223,7 @@ async function defaultToolRunner(
     child.once('close', (code) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
       resolve({ code: code ?? 1, stdout, stderr });
     });
   });
@@ -217,7 +244,7 @@ export class SelfUpdateHandoffService {
     this.agentPath = path.join(repositoryRoot, 'scripts/self-update-agent.mjs');
   }
 
-  async prepareAndClaim(input: PrepareInput): Promise<SelfUpdateHandoff> {
+  async prepareAndExecute(input: PrepareInput): Promise<SelfUpdateHandoff> {
     validateInput(input);
 
     let ping: ToolResult;
@@ -287,6 +314,25 @@ export class SelfUpdateHandoffService {
         'Self-update agent assumiu um handoff diferente daquele persistido pela API.',
       );
     }
+
+    let executionResult: ToolResult;
+    try {
+      executionResult = await this.runner(this.agentPath, ['execute', claimed.id]);
+    } catch {
+      throw new SelfUpdateHandoffError(
+        'SELF_UPDATE_EXECUTION_START_FAILED',
+        'Handoff foi aceito, mas o worker externo não pôde ser iniciado.',
+      );
+    }
+    if (executionResult.code !== 0) {
+      throw new SelfUpdateHandoffError(
+        'SELF_UPDATE_EXECUTION_START_FAILED',
+        safeToolMessage(executionResult.stderr) ||
+          'Handoff foi aceito, mas o worker externo não pôde ser iniciado.',
+      );
+    }
+    parseExecutionStart(executionResult.stdout, claimed.id);
+
     return claimed;
   }
 }
