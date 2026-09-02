@@ -1,20 +1,15 @@
 {
   "version": 1,
   "production": {
-    "enabled": false,
-    "strategy": "disabled",
+    "enabled": true,
+    "strategy": "self-update",
     "provider": "none",
     "branch": "main",
     "documentation": "docs/architecture/self-production.md",
-    "reasonCode": "self-update-security-review-required",
     "commands": {
       "status": "prod:status",
       "check": "prod:check"
     },
-    "blockedBy": [
-      "privilege-model-not-validated",
-      "self-update-security-review-not-completed"
-    ],
     "policies": {
       "backup": "not-configured",
       "migrations": "not-configured",

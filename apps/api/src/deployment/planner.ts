@@ -168,6 +168,33 @@ export class DeploymentPlanner {
         target,
       });
       steps.push(commandStep('verify', 'verifying'));
+    } else if (production.strategy === 'self-update') {
+      if (
+        production.provider !== 'none' ||
+        !commands.check ||
+        commands.prepare ||
+        commands.backup ||
+        commands.migrate ||
+        commands.deploy ||
+        commands.verify ||
+        commands.restoreCheck ||
+        commands.rollback ||
+        commands.logs ||
+        production.external
+      ) {
+        throw new DeploymentError(
+          'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+          'O contrato self-update precisa manter somente o check local e delegar a mutação ao worker fechado.',
+        );
+      }
+
+      steps.push(commandStep('check', 'preparing'));
+      steps.push({
+        id: 'self-update',
+        phase: 'deploying',
+        mutating: true,
+        irreversible: true,
+      });
     } else {
       throw new DeploymentError(
         'DEPLOYMENT_STRATEGY_UNSUPPORTED',

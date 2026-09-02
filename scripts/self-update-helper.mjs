@@ -7,12 +7,12 @@ import { SelfUpdateHandoffStore } from './self-update-handoff.mjs';
 function usage() {
   return [
     'Uso:',
-    '  node scripts/self-update-helper.mjs prepare --project-id <id> --revision <sha> --plan-hash <hash>',
+    '  node scripts/self-update-helper.mjs prepare --project-id <id> --revision <sha> --plan-hash <hash> [--handoff-id <id>]',
     '  node scripts/self-update-helper.mjs claim <handoff-id>',
     '  node scripts/self-update-helper.mjs inspect <handoff-id>',
     '  node scripts/self-update-helper.mjs recover',
     '',
-    'Este helper ainda não aplica atualização, não reinicia serviços e não executa ações privilegiadas.',
+    'Este helper apenas persiste e consulta handoffs; a mutação pertence ao worker fechado do self-update agent.',
   ].join('\n');
 }
 
@@ -63,18 +63,25 @@ export async function runSelfUpdateHelper(
     if (command === 'prepare') {
       const options = parseOptions(
         args,
-        new Set(['--project-id', '--revision', '--plan-hash']),
+        new Set([
+          '--project-id',
+          '--revision',
+          '--plan-hash',
+          '--handoff-id',
+        ]),
       );
       const projectId = options.get('--project-id');
       const targetRevision = options.get('--revision');
       const planHash = options.get('--plan-hash');
-      if (!projectId || !targetRevision || !planHash || options.size !== 3) {
+      const handoffId = options.get('--handoff-id');
+      if (!projectId || !targetRevision || !planHash) {
         throw new Error('prepare exige project-id, revision e plan-hash.');
       }
       const handoff = await getStore().prepare({
         projectId,
         targetRevision,
         planHash,
+        ...(handoffId ? { handoffId } : {}),
       });
       printJson(handoff, stdout);
       return 0;

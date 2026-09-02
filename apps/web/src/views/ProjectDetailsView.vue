@@ -53,6 +53,9 @@ const ProjectGitPanel = lazyTool(
 const ProjectProductionPanel = lazyTool(
   () => import('../components/ProjectProductionPanel.vue'),
 );
+const ProjectSelfUpdateProductionPanel = lazyTool(
+  () => import('../components/ProjectSelfUpdateProductionPanel.vue'),
+);
 const ProjectRailsRuntimePanel = lazyTool(
   () => import('../components/ProjectRailsRuntimePanel.vue'),
 );
@@ -321,9 +324,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
                 />
               </div>
               <div class="project-details-repository" :title="project.path">
-                <span class="project-details-repository-label"
-                  >Repositório</span
-                >
+                <span class="project-details-repository-label">Repositório</span>
                 <code>{{ project.path }}</code>
               </div>
             </div>
@@ -355,10 +356,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isServerRoute }"
               :aria-current="isServerRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-server',
-                params: { projectId: project.id },
-              }"
+              :to="{ name: 'project-server', params: { projectId: project.id } }"
             >
               <ServerStackIcon aria-hidden="true" />
               <span>Servidor</span>
@@ -402,10 +400,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isTerminalRoute }"
               :aria-current="isTerminalRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-terminal',
-                params: { projectId: project.id },
-              }"
+              :to="{ name: 'project-terminal', params: { projectId: project.id } }"
             >
               <CommandLineIcon aria-hidden="true" />
               <span>Terminal</span>
@@ -447,6 +442,14 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectTestsPanel
         v-else-if="isTestsRoute"
         :key="`tests-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectSelfUpdateProductionPanel
+        v-else-if="
+          isProductionRoute && project.production?.strategy === 'self-update'
+        "
+        :key="`production-self-update-${project.id}`"
         :project="project"
       />
 

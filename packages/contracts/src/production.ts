@@ -1,4 +1,8 @@
-export type ProductionStrategy = 'command' | 'git-managed' | 'disabled';
+export type ProductionStrategy =
+  | 'command'
+  | 'git-managed'
+  | 'self-update'
+  | 'disabled';
 
 export type ProductionProvider =
   'systemd' | 'docker-compose' | 'vercel' | 'none';

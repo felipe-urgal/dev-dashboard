@@ -19,7 +19,7 @@ const productionOverviewHealthSchema = {
 
 const productionStrategySchema = {
   type: 'string',
-  enum: ['command', 'git-managed', 'disabled'],
+  enum: ['command', 'git-managed', 'self-update', 'disabled'],
 } as const;
 
 const productionProviderSchema = {

@@ -108,15 +108,29 @@ function isTimelineStep(value: unknown): boolean {
       step.mutating === true &&
       step.irreversible === true &&
       step.script === undefined &&
+      step.prepareScript === undefined &&
       isProviderTarget(step.target)
     );
   }
 
+  if (step.id === 'self-update') {
+    return (
+      step.phase === 'deploying' &&
+      step.mutating === true &&
+      step.irreversible === true &&
+      step.script === undefined &&
+      step.prepareScript === undefined &&
+      step.providerPreflight === undefined &&
+      step.target === undefined
+    );
+  }
+
   const expectedScript = COMMAND_SCRIPTS[step.id as ProductionCommandId];
-  if (expectedScript === undefined || step.script !== expectedScript)
-    return false;
+  if (expectedScript === undefined || step.script !== expectedScript) return false;
   return (
     step.target === undefined &&
+    (step.prepareScript === undefined ||
+      (step.id === 'check' && step.prepareScript === 'prod:prepare')) &&
     (step.providerPreflight === undefined ||
       isProviderTarget(step.providerPreflight))
   );
@@ -144,6 +158,7 @@ export function isPersistedDeployment(value: unknown): value is Deployment {
     (deployment.currentStepId === undefined ||
       (typeof deployment.currentStepId === 'string' &&
         (deployment.currentStepId === 'provider-deploy' ||
+          deployment.currentStepId === 'self-update' ||
           deployment.currentStepId in COMMAND_SCRIPTS))) &&
     (deployment.failurePoint === undefined ||
       deployment.failurePoint === 'before-irreversible' ||

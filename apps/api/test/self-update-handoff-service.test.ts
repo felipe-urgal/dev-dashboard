@@ -34,6 +34,26 @@ function handoff(status: 'prepared' | 'accepted', overrides = {}) {
   });
 }
 
+function terminalHandoff() {
+  return JSON.stringify({
+    version: 1,
+    id: HANDOFF_ID,
+    action: 'self-update',
+    projectId: INPUT.projectId,
+    targetRevision: INPUT.targetRevision,
+    planHash: INPUT.planHash,
+    status: 'succeeded',
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
+    result: {
+      code: 'SELF_UPDATE_SUCCEEDED',
+      message: 'ok',
+      finishedAt: UPDATED_AT,
+      appliedRevision: REVISION,
+    },
+  });
+}
+
 function ping() {
   return JSON.stringify({
     status: 'ready',
@@ -62,6 +82,9 @@ function successfulRunner(calls: Array<{ scriptPath: string; args: string[] }>) 
     }
     if (args[0] === 'claim') {
       return { code: 0, stdout: handoff('accepted'), stderr: '' };
+    }
+    if (args[0] === 'inspect') {
+      return { code: 0, stdout: terminalHandoff(), stderr: '' };
     }
     return { code: 0, stdout: workerStarted(), stderr: '' };
   };
@@ -115,6 +138,40 @@ test('persiste, transfere ownership e só solicita shutdown após o worker prova
       args: ['execute', HANDOFF_ID],
     },
   ]);
+});
+
+test('usa handoff-id determinístico quando o domínio fornece correlação', async () => {
+  const calls: Array<{ scriptPath: string; args: string[] }> = [];
+  const service = new SelfUpdateHandoffService({
+    runner: successfulRunner(calls),
+    repositoryRoot: '/repo',
+    executionProbe: async () => undefined,
+    requestShutdown: () => undefined,
+  });
+
+  await service.prepareAndExecute({ ...INPUT, handoffId: HANDOFF_ID });
+  assert.deepEqual(calls[1]?.args, [
+    'prepare',
+    '--project-id',
+    INPUT.projectId,
+    '--revision',
+    INPUT.targetRevision,
+    '--plan-hash',
+    INPUT.planHash,
+    '--handoff-id',
+    HANDOFF_ID,
+  ]);
+});
+
+test('inspect valida o resultado terminal contra o contexto confirmado', async () => {
+  const service = new SelfUpdateHandoffService({
+    runner: successfulRunner([]),
+    repositoryRoot: '/repo',
+  });
+
+  const result = await service.inspect({ ...INPUT, handoffId: HANDOFF_ID });
+  assert.equal(result.status, 'succeeded');
+  assert.equal(result.result?.appliedRevision, REVISION);
 });
 
 test('não solicita shutdown quando o worker não comprova ownership', async () => {
@@ -198,7 +255,7 @@ test('falha fechado quando o agent não está disponível', async () => {
   );
 });
 
-test('não cria handoff se ping não provar suporte a claim', async () => {
+test('não cria handoff se ping não provar suporte a claim e inspect', async () => {
   let calls = 0;
   const service = new SelfUpdateHandoffService({
     runner: async () => {
@@ -208,7 +265,7 @@ test('não cria handoff se ping não provar suporte a claim', async () => {
         stdout: JSON.stringify({
           status: 'ready',
           instanceId: '22222222-2222-4222-8222-222222222222',
-          actions: ['ping', 'inspect'],
+          actions: ['ping', 'claim'],
         }),
         stderr: '',
       };
