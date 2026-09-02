@@ -168,7 +168,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
   animation: compact-action-spin 800ms linear infinite;
 }
 
-.dashboard-error-state p {
+.dashboard-error-state :deep(p) {
   max-width: 56ch;
 }
 
