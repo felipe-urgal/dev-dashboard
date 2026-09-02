@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
 import Card from '../components/Card.vue';
+import EmptyState from '../components/EmptyState.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import ProjectCard from '../components/ProjectCard.vue';
 import { dashboardStore } from '../stores/dashboard';
@@ -68,31 +69,31 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
         :rows="3"
       />
 
-      <div
+      <EmptyState
         v-else-if="errorMessage"
-        class="empty-state dashboard-error-state"
+        class="dashboard-error-state"
         role="alert"
+        icon="!"
+        title="Não foi possível carregar os projetos"
+        :description="errorMessage"
       >
-        <div class="empty-icon">!</div>
-        <h3>Não foi possível carregar os projetos</h3>
-        <p>{{ errorMessage }}</p>
-        <button
-          type="button"
-          class="dashboard-retry-button"
-          @click="ensureDashboardLoaded"
-        >
-          Tentar novamente
-        </button>
-      </div>
+        <template #actions>
+          <button
+            type="button"
+            class="dashboard-retry-button"
+            @click="ensureDashboardLoaded"
+          >
+            Tentar novamente
+          </button>
+        </template>
+      </EmptyState>
 
-      <div v-else-if="sortedProjects.length === 0" class="empty-state">
-        <div class="empty-icon">◇</div>
-        <h3>Nenhum projeto carregado</h3>
-        <p>
-          Cadastre ou selecione um workspace na barra lateral para detectar
-          aplicações Rails e Node.
-        </p>
-      </div>
+      <EmptyState
+        v-else-if="sortedProjects.length === 0"
+        icon="◇"
+        title="Nenhum projeto carregado"
+        description="Cadastre ou selecione um workspace na barra lateral para detectar aplicações Rails e Node."
+      />
 
       <ul v-else class="projects-list">
         <ProjectCard
@@ -167,7 +168,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
   animation: compact-action-spin 800ms linear infinite;
 }
 
-.dashboard-error-state p {
+.dashboard-error-state :deep(p) {
   max-width: 56ch;
 }
 
