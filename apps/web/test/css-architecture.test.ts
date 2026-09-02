@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const raizDosEstilos = resolve(import.meta.dirname, '../src/styles');
+const raizFonte = resolve(import.meta.dirname, '../src');
+const raizDosEstilos = resolve(raizFonte, 'styles');
 const lerEstilo = (arquivo: string) =>
   readFileSync(resolve(raizDosEstilos, arquivo), 'utf8');
 
@@ -28,6 +29,25 @@ describe('arquitetura de CSS', () => {
     expect(entrada).toMatch(
       /tokens\.css[\s\S]*base\.css[\s\S]*layout\.css[\s\S]*components\.css[\s\S]*utilities\.css/,
     );
+  });
+
+  it('mantém CSS global dentro da árvore src/styles', () => {
+    const cssNoRaiz = readdirSync(raizFonte, { withFileTypes: true })
+      .filter((entrada) => entrada.isFile() && entrada.name.endsWith('.css'))
+      .map((entrada) => entrada.name)
+      .sort();
+    const bootstrap = readFileSync(resolve(raizFonte, 'main.ts'), 'utf8');
+    const importsRelativosDeCss = [
+      ...bootstrap.matchAll(/import\s+'(\.\/[^']+\.css)'/g),
+    ].map((correspondencia) => correspondencia[1] ?? '');
+
+    expect(cssNoRaiz).toEqual(['styles.css']);
+    expect(importsRelativosDeCss[0]).toBe('./styles.css');
+    expect(
+      importsRelativosDeCss.slice(1).every((caminho) =>
+        caminho.startsWith('./styles/features/'),
+      ),
+    ).toBe(true);
   });
 
   it('preserva seletores estruturais das rotas principais', () => {

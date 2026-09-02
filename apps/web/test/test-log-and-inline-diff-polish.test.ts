@@ -9,7 +9,10 @@ function sourceFile(fileName: string): string {
 }
 
 test('usa o mesmo comportamento responsivo e semantico da pagina de diff nos diffs inline', async () => {
-  const css = await readFile(sourceFile('git-inline-diff-theme.css'), 'utf8');
+  const css = await readFile(
+    sourceFile('styles/features/git-inline-diff-theme.css'),
+    'utf8',
+  );
 
   assert.match(css, /git-inline-diff-unified[\s\S]*min-width:\s*0/);
   assert.match(css, /git-inline-diff-line[\s\S]*minmax\(0, 1fr\)/);

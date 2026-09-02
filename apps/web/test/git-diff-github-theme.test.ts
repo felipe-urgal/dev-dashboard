@@ -5,7 +5,13 @@ import { test } from 'vitest';
 
 test('aplica a paleta semântica a todas as visualizações de diff', async () => {
   const css = await readFile(
-    resolve(process.cwd(), 'src', 'git-diff-github-theme.css'),
+    resolve(
+      process.cwd(),
+      'src',
+      'styles',
+      'features',
+      'git-diff-github-theme.css',
+    ),
     'utf8',
   );
 

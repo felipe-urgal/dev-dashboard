@@ -1,0 +1,6 @@
+/* Explorador de scripts — mesma linguagem visual do explorador de banco. */
+@import '../../scripts-explorer/header.css';
+@import '../../scripts-explorer/overview.css';
+@import '../../scripts-explorer/catalog.css';
+@import '../../scripts-explorer/executions.css';
+@import '../../scripts-explorer/responsive.css';

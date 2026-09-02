@@ -10,13 +10,16 @@ function sourceFile(fileName: string): string {
 
 async function readDatabaseLayoutCss(): Promise<string> {
   const arquivoPrincipal = await readFile(
-    sourceFile('database-layout-polish.css'),
+    sourceFile('styles/features/database-layout-polish.css'),
     'utf8',
   );
   const importados = await Promise.all(
-    [...arquivoPrincipal.matchAll(/@import\s+'\.\/(database\/[^']+)'/g)].map(
-      (correspondencia) =>
-        readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
+    [
+      ...arquivoPrincipal.matchAll(
+        /@import\s+'\.\.\/\.\.\/(database\/[^']+)'/g,
+      ),
+    ].map((correspondencia) =>
+      readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
     ),
   );
   return [arquivoPrincipal, ...importados].join('\n');
@@ -65,9 +68,11 @@ test('implementa painéis, tabelas roláveis e adaptação responsiva', async ()
 test('carrega o polimento depois do redesign geral do detalhe', async () => {
   const main = await readFile(sourceFile('main.ts'), 'utf8');
   const redesignIndex = main.indexOf(
-    "import './project-details-redesign.css';",
+    "import './styles/features/project-details-redesign.css';",
   );
-  const databaseIndex = main.indexOf("import './database-layout-polish.css';");
+  const databaseIndex = main.indexOf(
+    "import './styles/features/database-layout-polish.css';",
+  );
 
   assert.ok(redesignIndex >= 0);
   assert.ok(databaseIndex > redesignIndex);
