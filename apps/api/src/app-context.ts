@@ -41,7 +41,10 @@ import { RailsMigrationPtyService } from './services/rails-migration-pty-service
 import { ProjectDependenciesPtyService } from './services/project-dependencies-pty-service.js';
 import { ProjectCoverageService } from './services/project-coverage-service.js';
 import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
-import { SelfUpdateHandoffService } from './services/self-update-handoff-service.js';
+import {
+  SelfUpdateHandoffService,
+  type SelfUpdateShutdownRequester,
+} from './services/self-update-handoff-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -80,6 +83,7 @@ export interface AppContext {
 
 export interface CreateAppContextOptions {
   languageServerLogger?: LanguageServerLogger;
+  selfUpdateShutdownRequester?: SelfUpdateShutdownRequester;
 }
 
 export function createAppContext(
@@ -161,6 +165,10 @@ export function createAppContext(
     projectWorkspaceEditService,
     projectLanguageServerService,
     projectTerminalService,
-    selfUpdateHandoffService: new SelfUpdateHandoffService(),
+    selfUpdateHandoffService: new SelfUpdateHandoffService({
+      ...(options.selfUpdateShutdownRequester
+        ? { requestShutdown: options.selfUpdateShutdownRequester }
+        : {}),
+    }),
   };
 }
