@@ -26,7 +26,6 @@ import type {
   DeploymentLog,
   DeploymentPlan,
   DeploymentPlanStep,
-  DeploymentPlanStepId,
   DeploymentProviderAvailability,
   DeploymentStepStatus,
   DeploymentStatus,
@@ -70,7 +69,7 @@ const TERMINAL_STATUSES = new Set<DeploymentStatus>([
   'cancelled',
 ]);
 
-const stepLabels: Record<DeploymentPlanStepId, string> = {
+const stepLabels: Record<DeploymentPlanStep['id'], string> = {
   status: 'Status',
   check: 'Check',
   backup: 'Backup',
