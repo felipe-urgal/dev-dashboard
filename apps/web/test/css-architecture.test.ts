@@ -81,6 +81,16 @@ describe('arquitetura de CSS', () => {
     expect(componentes).toContain('line-height: var(--diff-line-height);');
   });
 
+  it('aplica fallback global quando reduced motion está ativo', () => {
+    const base = lerEstilo('base.css');
+
+    expect(base).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(base).toContain('scroll-behavior: auto !important;');
+    expect(base).toContain('animation-duration: 0.01ms !important;');
+    expect(base).toContain('animation-iteration-count: 1 !important;');
+    expect(base).toContain('transition-duration: 0.01ms !important;');
+  });
+
   it('mantém o shell e Processos acima da microtipografia legada', () => {
     const estilosAuditados = [
       lerEstilo('layout.css'),

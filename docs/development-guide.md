@@ -209,6 +209,8 @@ O produto prioriza experiência simples, ágil e funcional:
 - risco/irreversibilidade explícitos sem dramatização;
 - use `--font-label` (11px) para labels e metadados compactos, `--font-control` (12px) para texto de controles e `--font-body` (13px) para corpo padrão;
 - 8–9px não são tamanho padrão de UI; 10px fica restrito a metadado técnico não interativo quando a densidade realmente justificar;
+- diálogos customizados precisam de `role="dialog"`/`aria-modal`, foco inicial previsível, trap de `Tab`, fechamento por `Escape` quando permitido e retorno de foco ao elemento que abriu o diálogo;
+- feedback assíncrono deve usar `role="status"`/`aria-live="polite"` quando informativo e `role="alert"` quando exigir anúncio imediato; animações e transições devem respeitar o fallback global de `prefers-reduced-motion`;
 - reutilize `EmptyState` para estados de página que compartilham a estrutura visual de ícone, título, descrição e ação opcional;
 - extraia novos componentes-base somente quando houver repetição real de estrutura e semântica; controles específicos da feature permanecem locais até essa repetição existir.
 

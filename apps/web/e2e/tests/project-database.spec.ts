@@ -20,6 +20,38 @@ test.describe('Banco de dados da máquina', () => {
     await expect(page.getByText('PostgreSQL', { exact: true })).toBeVisible();
   });
 
+  test('diálogo de conexão prende o foco, fecha com Escape e devolve foco ao gatilho', async ({
+    page,
+  }) => {
+    await gotoBootstrapped(page, '/database');
+
+    const trigger = page.getByRole('button', { name: 'Conectar a um serviço' });
+    await trigger.focus();
+    await trigger.press('Enter');
+
+    const connectionDialog = page.getByRole('dialog', {
+      name: 'Conectar a um serviço',
+    });
+    await expect(connectionDialog).toBeVisible();
+    await expect(connectionDialog).toHaveAttribute('aria-modal', 'true');
+    await expect(connectionDialog.locator('select').first()).toBeFocused();
+
+    const closeButton = connectionDialog.getByRole('button', { name: 'Fechar' });
+    const lastButton = connectionDialog.getByRole('button', {
+      name: 'Conectar e continuar',
+    });
+
+    await closeButton.focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastButton).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(closeButton).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(connectionDialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
   test('o projeto não oferece banco de dados como ferramenta local', async ({
     page,
   }) => {
@@ -140,9 +172,9 @@ test.describe('Banco de dados da máquina', () => {
     await connectionDialog
       .getByRole('button', { name: 'Testar conexão' })
       .click();
-    await expect(
-      connectionDialog.getByText('Conexão validada.', { exact: false }),
-    ).toBeVisible();
+    const testStatus = connectionDialog.getByRole('status');
+    await expect(testStatus).toHaveAttribute('aria-live', 'polite');
+    await expect(testStatus).toContainText('Conexão validada.');
     await connectionDialog
       .getByRole('button', { name: 'Salvar sem senha' })
       .click();

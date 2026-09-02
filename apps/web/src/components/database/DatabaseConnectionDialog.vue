@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import type { MachineDatabaseConnection } from '@dev-dashboard/contracts';
 
 import type { SavedDatabaseConnection } from '../../composables/useDatabaseSavedConnections';
@@ -24,6 +25,18 @@ const emit = defineEmits<{
   connect: [];
 }>();
 
+const dialog = ref<HTMLElement>();
+let previousFocus: HTMLElement | null = null;
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
 function inputValue(event: Event): string {
   return (event.target as HTMLInputElement).value;
 }
@@ -43,15 +56,83 @@ function updatePort(event: Event): void {
   else delete draft.port;
   emit('update:draft', draft);
 }
+
+function focusableElements(): HTMLElement[] {
+  return [
+    ...(dialog.value?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []),
+  ];
+}
+
+function focusDialogStart(): void {
+  const initial = dialog.value?.querySelector<HTMLElement>(
+    '[data-dialog-initial-focus]',
+  );
+  (initial ?? focusableElements()[0] ?? dialog.value)?.focus();
+}
+
+function handleDialogKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    emit('close');
+    return;
+  }
+  if (event.key !== 'Tab') return;
+
+  const focusable = focusableElements();
+  if (!focusable.length) {
+    event.preventDefault();
+    dialog.value?.focus();
+    return;
+  }
+
+  const active = document.activeElement as HTMLElement | null;
+  const index = active ? focusable.indexOf(active) : -1;
+
+  if (event.shiftKey && index <= 0) {
+    event.preventDefault();
+    focusable.at(-1)?.focus();
+  } else if (!event.shiftKey && index === focusable.length - 1) {
+    event.preventDefault();
+    focusable[0]?.focus();
+  }
+}
+
+watch(
+  () => props.open,
+  (open, wasOpen) => {
+    if (open && !wasOpen) {
+      previousFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      void nextTick(focusDialogStart);
+      return;
+    }
+
+    if (!open && wasOpen) {
+      const focusToRestore = previousFocus;
+      previousFocus = null;
+      void nextTick(() => focusToRestore?.focus());
+    }
+  },
+);
+
+onBeforeUnmount(() => {
+  if (props.open) previousFocus?.focus();
+});
 </script>
 
 <template>
   <div v-if="open" class="database-modal-backdrop" @click.self="emit('close')">
     <section
+      ref="dialog"
       class="database-connection-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="database-connection-title"
+      :aria-busy="loading"
+      tabindex="-1"
+      @keydown="handleDialogKeydown"
     >
       <div class="database-modal-heading">
         <div>
@@ -93,6 +174,7 @@ function updatePort(event: Event): void {
         </div>
         <label
           >Banco<select
+            data-dialog-initial-focus
             :value="draft.driver"
             @change="
               emit(
@@ -145,7 +227,12 @@ function updatePort(event: Event): void {
       <p v-if="error" class="database-machine-details-error" role="alert">
         {{ error }}
       </p>
-      <p v-if="testMessage" class="database-machine-success" role="status">
+      <p
+        v-if="testMessage"
+        class="database-machine-success"
+        role="status"
+        aria-live="polite"
+      >
         {{ testMessage }}
       </p>
       <div class="database-modal-actions">
