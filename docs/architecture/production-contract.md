@@ -101,7 +101,7 @@ Requisitos mínimos:
 
 `reasonCode` e `blockedBy` explicam o gate. O planner não cria deployment para produção desabilitada.
 
-O próprio Dev Dashboard usa essa estratégia enquanto #487 não conclui self-update seguro. Handoff/agent/worker internos não mudam essa regra: tooling existente não transforma um contrato `disabled` em deployment autorizado.
+O próprio Dev Dashboard usa essa estratégia enquanto #487 não conclui a revisão/habilitação final. A cadeia operacional de handoff/agent/worker já existir não muda essa regra: tooling interno não transforma um contrato `disabled` em deployment autorizado.
 
 ## Descoberta fail-closed
 
@@ -193,7 +193,7 @@ O adapter local usa scripts canônicos e `shell: false`. O adapter Vercel usa o 
 
 `documentation` aceita somente caminho relativo seguro. Health aceita apenas HTTP/HTTPS sem credenciais. O contrato não possui campos para tokens, connection strings ou valores secretos.
 
-Self-update possui uma fronteira adicional descrita em [self-production.md](self-production.md): o socket do agent permanece com catálogo remoto fechado, e a execução operacional em desenvolvimento só trabalha sobre handoff/revision previamente vinculados e revalidados. Enquanto `strategy=disabled`, essa infraestrutura não é uma autorização do Production Contract.
+Self-update possui uma fronteira adicional descrita em [self-production.md](self-production.md): o socket do agent permanece com catálogo remoto fechado, o worker só assume handoff previamente vinculado e a API só encerra depois de ownership comprovado. Enquanto `strategy=disabled`, essa infraestrutura não é autorização do Production Contract.
 
 Detalhes: [Segurança e modelo de ameaça](security.md).
 
@@ -216,17 +216,20 @@ A referência exata dos endpoints é gerada em [api-reference.md](api-reference.
 
 ## Self-production do Dev Dashboard
 
-A base de self-update já inclui:
+A cadeia de self-update agora inclui:
 
 - handoff persistente e recovery conservador (#520);
 - agent instalado fora da checkout, lifecycle independente e Unix socket autenticado (#521);
-- integração interna API → agent e worker com preflight Git/aplicação/restart user-space em implementação no #523.
+- integração interna API → agent;
+- prova de ownership do worker antes da parada;
+- aplicação `ff-only` da revision confirmada;
+- restart user-space independente da API antiga;
+- readiness bounded com prova da revision no header de `/api/health`;
+- resultado terminal persistido e teste real de restart/recovery (#523).
 
 Isso ainda **não** habilita o Production Contract do próprio Dashboard.
 
-No estado atual do #523, a cadeia de readiness exige prova da revision alvo, mas `/api/health` ainda não expõe essa revision. Teste real de interrupção/restart/recovery e revisão final de segurança/privilégio também continuam pendentes.
-
-Até esses blockers serem fechados e o PR D da #487 habilitar conscientemente o contrato, o planner continua recusando self-production.
+Depois do PR C, o gate permanece fechado para revisão formal do modelo de privilégio/segurança. O PR D da #487 deverá habilitar conscientemente o contrato e integrar o fluxo ao planner/UI sem bypass.
 
 ## Escopo atual
 
@@ -243,13 +246,14 @@ Incluído:
 - UI de Produção por projeto;
 - visão global do workspace e `Atualizar pendentes` sequencial;
 - contrato `strategy=disabled` para projetos bloqueados, incluindo o próprio Dev Dashboard;
-- infraestrutura de handoff/agent do self-update, ainda sem habilitação de produção.
+- infraestrutura operacional completa de handoff/agent/restart/readiness do self-update, ainda sem habilitação de produção.
 
 Fora de escopo/pendente:
 
 - rollback Vercel automático;
 - habilitação do self-update do Dev Dashboard antes de fechar #487;
 - interpretar tooling interno como bypass de `strategy=disabled`;
-- qualquer executor remoto genérico para o self-update agent.
+- qualquer executor remoto genérico para o self-update agent;
+- qualquer elevação privilegiada automática sem revisão específica.
 
 Self-production permanece documentada em [self-production.md](self-production.md); evolução multi-projeto e self-update permanecem rastreadas nas issues da frente de produção (#482/#487).
