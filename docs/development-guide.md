@@ -42,7 +42,6 @@ Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente 
 | `npm run self-update:agent -- ...` | tooling de instalação/lifecycle/inspeção do agent |
 | `npm run typecheck` | valida tipos |
 | `npm run lint` | ESLint |
-| `npm run format` | Prettier |
 | `npm run format:check` | verifica Prettier |
 | `npm run build` | compila packages/apps |
 | `npm test` | testes dos workspaces |
