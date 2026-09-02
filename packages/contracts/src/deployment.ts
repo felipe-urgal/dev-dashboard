@@ -26,7 +26,7 @@ export type DeploymentExecutionPhase = Extract<
 >;
 
 export type DeploymentScriptId = NonNullable<
-  ProductionCommands[keyof ProductionCommands]
+  ProductionCommands[ProductionCommandId]
 >;
 
 export type DeploymentStepId = ProductionCommandId | 'provider-deploy';
