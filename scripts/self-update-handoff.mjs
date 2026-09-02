@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { chmod, lstat, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -17,6 +26,7 @@ export const SELF_UPDATE_STATUSES = Object.freeze([
   'recovery_required',
 ]);
 
+const MAX_HANDOFF_BYTES = 16 * 1024;
 const ACTIVE_STATUSES = new Set([
   'accepted',
   'applying',
@@ -175,13 +185,7 @@ async function atomicJsonWrite(filePath, value) {
     });
     await rename(temporaryPath, filePath);
   } catch (error) {
-    try {
-      await import('node:fs/promises').then(({ rm }) =>
-        rm(temporaryPath, { force: true }),
-      );
-    } catch {
-      // O erro original continua sendo a causa relevante.
-    }
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
     throw error;
   }
 }
@@ -229,11 +233,14 @@ export class SelfUpdateHandoffStore {
     await this.readyPromise;
     const filePath = this.recordPath(handoffId);
 
-    let metadata;
     let parsed;
     try {
-      metadata = await lstat(filePath);
-      if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      const metadata = await lstat(filePath);
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        metadata.size > MAX_HANDOFF_BYTES
+      ) {
         throw invalidStateError(path.basename(filePath));
       }
       parsed = JSON.parse(await readFile(filePath, 'utf8'));
