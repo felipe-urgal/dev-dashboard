@@ -41,6 +41,8 @@ describe('DeploymentLogViewer', () => {
         open: true,
       },
     });
+    await flushRendering();
+
     const output = wrapper.get('pre');
     const element = output.element as HTMLElement;
     let scrollHeight = 300;
@@ -73,6 +75,8 @@ describe('DeploymentLogViewer', () => {
         open: true,
       },
     });
+    await flushRendering();
+
     const output = wrapper.get('pre');
     const element = output.element as HTMLElement;
     let scrollHeight = 300;
