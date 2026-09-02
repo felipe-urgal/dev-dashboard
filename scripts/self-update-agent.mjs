@@ -127,7 +127,7 @@ export async function startAgent({ paths, spawnProcess = spawn } = {}) {
 
   try {
     const current = await pingAgent(activePaths);
-    return { status: 'already-running', ...current };
+    return { ...current, status: 'already-running' };
   } catch (error) {
     if (!isUnavailableError(error)) throw error;
   }
@@ -148,7 +148,7 @@ export async function startAgent({ paths, spawnProcess = spawn } = {}) {
   try {
     const ready = await waitUntilReady(activePaths);
     child.unref();
-    return { status: 'started', ...ready };
+    return { ...ready, status: 'started' };
   } catch (error) {
     if (typeof child.pid === 'number') {
       try {
@@ -187,7 +187,7 @@ export async function agentStatus({ paths } = {}) {
   const activePaths = paths ?? resolveSelfUpdateAgentPaths();
   try {
     const current = await pingAgent(activePaths);
-    return { status: 'running', ...current };
+    return { ...current, status: 'running' };
   } catch (error) {
     if (isUnavailableError(error)) return { status: 'stopped' };
     throw error;
