@@ -93,11 +93,25 @@ npm run dev:web
 
 `npm run dev` compila os packages pelo `predev` e carrega `.env.local` na raiz quando presente.
 
+Para começar uma configuração local sem versionar segredos:
+
+```bash
+cp .env.example .env.local
+```
+
+O `.env.example` contém somente exemplos/defaults e deixa variáveis internas/efêmeras explicitamente fora da configuração manual.
+
 ## Configuração da Vercel
 
 Somente necessária para consultar/operar projetos com `strategy=git-managed` + `provider=vercel`.
 
-Crie `.env.local` na raiz do Dev Dashboard:
+Crie sua configuração local a partir do exemplo:
+
+```bash
+cp .env.example .env.local
+```
+
+Depois preencha em `.env.local`:
 
 ```dotenv
 VERCEL_TOKEN=...
@@ -181,9 +195,22 @@ Veja:
 
 ## Self-production
 
-O próprio Dev Dashboard declara um contrato de produção **desabilitado**. Ele não tenta reiniciar a API que está coordenando sua própria execução.
+O próprio Dev Dashboard continua declarando produção **desabilitada** (`production.enabled=false`, `strategy=disabled`, `provider=none`).
 
-Self-update só poderá ser habilitado quando existir um helper/agent externo com handoff persistente, readiness pós-restart e privilégio mínimo auditável. Veja [`docs/architecture/self-production.md`](docs/architecture/self-production.md).
+A base segura já existe: handoff persistente, agent instalado fora da checkout, lifecycle independente do Fastify e Unix socket autenticado foram entregues pelos PRs #520/#521.
+
+O PR #523 adiciona a integração interna API → agent e um worker instalado para preflight Git, aplicação fast-forward da revision confirmada, restart user-space e persistência de recovery. Isso **ainda não habilita** self-production.
+
+Antes de abrir o gate faltam fechar e provar end-to-end, no mínimo:
+
+- ownership operacional antes da API antiga parar;
+- readiness pós-restart com timeout bounded;
+- prova de que a nova API corresponde exatamente à revision confirmada;
+- resultado terminal recuperável após restart real;
+- teste real de interrupção/restart/recovery;
+- revisão final do modelo de privilégio/segurança.
+
+Veja [`docs/architecture/self-production.md`](docs/architecture/self-production.md).
 
 ## Segurança
 
@@ -207,6 +234,8 @@ A aplicação também aplica:
 - credenciais externas fora do manifesto e da API pública;
 - recovery conservador após etapa irreversível.
 
+O self-update mantém uma fronteira própria: o socket remoto não oferece executor genérico, e o worker operacional só aceita um handoff já validado, com checkout/revision revalidados antes da mutação.
+
 Leia [`docs/architecture/security.md`](docs/architecture/security.md) antes de adicionar novas rotas, comandos ou providers.
 
 ## Estado local
@@ -224,7 +253,13 @@ DEV_DASHBOARD_STATE_DIR
 XDG_STATE_HOME
 ```
 
-Deployments usam o subdiretório privado `deployments/`. Tokens de confirmação e credenciais Vercel não são persistidos ali.
+Deployments usam o subdiretório privado `deployments/`. Self-update usa `self-update/` para handoffs/resultados estruturados. Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos ali.
+
+A instalação padrão do self-update agent fica fora da checkout:
+
+```text
+~/.local/lib/dev-dashboard/self-update-agent
+```
 
 ## Distribuição local
 
@@ -275,6 +310,10 @@ npm run docs:api:check
 | `npm run doctor` | diagnostica Node/npm/Git/portas |
 | `npm run docs:api` | regenera a referência HTTP |
 | `npm run docs:api:check` | valida a referência gerada |
+| `npm run prod:status` | mostra o gate/estado do contrato do próprio Dashboard |
+| `npm run prod:check` | valida o gate; falha enquanto self-production estiver desabilitada |
+| `npm run self-update:helper -- ...` | tooling de engenharia do handoff persistente |
+| `npm run self-update:agent -- ...` | instala/controla/inspeciona o agent de self-update |
 | `npm run typecheck` | valida tipos |
 | `npm run lint` | executa ESLint |
 | `npm run format:check` | verifica formatação |
@@ -282,6 +321,8 @@ npm run docs:api:check
 | `npm test` | executa testes dos workspaces |
 | `npm run test:cli` | executa suíte Bash |
 | `npm run test:e2e` | executa smoke E2E da web |
+
+Os comandos de self-update continuam tooling de engenharia enquanto o contrato estiver `strategy=disabled`; não devem ser usados como atalho para contornar o fluxo de produção.
 
 ## Documentação
 
