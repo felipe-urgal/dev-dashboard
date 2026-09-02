@@ -1,12 +1,35 @@
 #!/usr/bin/env node
 
-const blockers = [
-  'external-helper-not-implemented',
-  'self-restart-handoff-not-implemented',
-  'production-health-not-validated',
-  'privilege-model-not-validated',
-];
+import { readFileSync } from 'node:fs';
 
+function loadBlockers() {
+  try {
+    const manifest = JSON.parse(
+      readFileSync(
+        new URL('../.dev-dashboard/production.json', import.meta.url),
+        'utf8',
+      ),
+    );
+    const blockers = manifest?.production?.blockedBy;
+    if (
+      !Array.isArray(blockers) ||
+      blockers.length === 0 ||
+      blockers.some(
+        (blocker) => typeof blocker !== 'string' || blocker.length === 0,
+      )
+    ) {
+      throw new Error('blockedBy inválido');
+    }
+    return blockers;
+  } catch {
+    console.error(
+      'Contrato de self-production inválido; habilitação permanece bloqueada.',
+    );
+    process.exit(1);
+  }
+}
+
+const blockers = loadBlockers();
 const mode = process.argv[2] ?? 'check';
 
 if (mode === 'status') {
