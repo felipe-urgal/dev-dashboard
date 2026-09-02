@@ -38,7 +38,9 @@ async function findAvailableFixedPort(): Promise<number> {
     }
   }
 
-  throw new Error('Não foi possível encontrar uma porta fixa fora da faixa automática.');
+  throw new Error(
+    'Não foi possível encontrar uma porta fixa fora da faixa automática.',
+  );
 }
 
 test('parses only LISTEN ports owned by the supplied socket inodes', () => {
@@ -111,7 +113,11 @@ test(
 
     let running = await manager.getServerProcess(project.id);
 
-    for (let attempt = 0; attempt < 100 && running?.status !== 'running'; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < 100 && running?.status !== 'running';
+      attempt += 1
+    ) {
       await new Promise((resolve) => setTimeout(resolve, 50));
       running = await manager.getServerProcess(project.id);
     }

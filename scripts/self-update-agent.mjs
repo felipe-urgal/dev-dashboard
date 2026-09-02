@@ -132,18 +132,22 @@ export async function startAgent({ paths, spawnProcess = spawn } = {}) {
     if (!isUnavailableError(error)) throw error;
   }
 
-  const child = spawnProcess(process.execPath, [installation.entrypoint, 'serve'], {
-    detached: true,
-    shell: false,
-    stdio: 'ignore',
-    env: {
-      ...process.env,
-      DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR: activePaths.installRoot,
-      DEV_DASHBOARD_CONFIG_DIR: activePaths.configDirectory,
-      DEV_DASHBOARD_STATE_DIR: path.dirname(activePaths.stateDirectory),
-      DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR: activePaths.runtimeDirectory,
+  const child = spawnProcess(
+    process.execPath,
+    [installation.entrypoint, 'serve'],
+    {
+      detached: true,
+      shell: false,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR: activePaths.installRoot,
+        DEV_DASHBOARD_CONFIG_DIR: activePaths.configDirectory,
+        DEV_DASHBOARD_STATE_DIR: path.dirname(activePaths.stateDirectory),
+        DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR: activePaths.runtimeDirectory,
+      },
     },
-  });
+  );
 
   try {
     const ready = await waitUntilReady(activePaths);

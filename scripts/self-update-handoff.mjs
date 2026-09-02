@@ -33,11 +33,7 @@ const ACTIVE_STATUSES = new Set([
   'restarting',
   'verifying',
 ]);
-const TERMINAL_STATUSES = new Set([
-  'succeeded',
-  'failed',
-  'recovery_required',
-]);
+const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'recovery_required']);
 const TRANSITIONS = new Map([
   ['prepared', new Set(['accepted'])],
   ['accepted', new Set(['applying', 'failed', 'recovery_required'])],
@@ -265,7 +261,9 @@ export class SelfUpdateHandoffStore {
   async transition(handoffId, nextStatus, result, now = Date.now()) {
     assertHandoffId(handoffId);
     if (!SELF_UPDATE_STATUSES.includes(nextStatus)) {
-      throw new Error(`Estado de self-update desconhecido: ${String(nextStatus)}.`);
+      throw new Error(
+        `Estado de self-update desconhecido: ${String(nextStatus)}.`,
+      );
     }
     const current = await this.get(handoffId);
     if (!current) throw new Error('Handoff de self-update não encontrado.');
@@ -340,7 +338,9 @@ export class SelfUpdateHandoffStore {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const metadata = await lstat(this.stateDirectory);
     if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-      throw new Error('Diretório de estado do self-update não é um diretório real.');
+      throw new Error(
+        'Diretório de estado do self-update não é um diretório real.',
+      );
     }
     await chmod(this.stateDirectory, 0o700);
   }

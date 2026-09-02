@@ -4,7 +4,14 @@ import {
   ArrowTopRightOnSquareIcon,
   PlayIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 
 import type {
   DeploymentProviderAvailability,
@@ -299,7 +306,8 @@ async function confirmPending(): Promise<void> {
       {
         signal: currentController.signal,
         onUpdate: (nextItems) => {
-          if (batchController === currentController) batchItems.value = nextItems;
+          if (batchController === currentController)
+            batchItems.value = nextItems;
         },
       },
     );
@@ -422,11 +430,16 @@ onBeforeUnmount(() => {
           </h2>
         </div>
         <StatusBadge v-if="batchPhase === 'preview'" tone="info">
-          {{ readyBatchCount }} {{ readyBatchCount === 1 ? 'projeto' : 'projetos' }}
+          {{ readyBatchCount }}
+          {{ readyBatchCount === 1 ? 'projeto' : 'projetos' }}
         </StatusBadge>
       </header>
 
-      <p v-if="batchPhase === 'planning'" class="production-batch-status" role="status">
+      <p
+        v-if="batchPhase === 'planning'"
+        class="production-batch-status"
+        role="status"
+      >
         Gerando os planos elegíveis antes de qualquer confirmação ou mutação.
       </p>
 
@@ -437,12 +450,17 @@ onBeforeUnmount(() => {
       <ol v-if="batchItems.length" class="production-batch-list">
         <li v-for="(item, index) in batchItems" :key="item.projectId">
           <div class="production-batch-row">
-            <span class="production-batch-order" aria-hidden="true">{{ index + 1 }}</span>
+            <span class="production-batch-order" aria-hidden="true">{{
+              index + 1
+            }}</span>
             <div class="production-batch-project">
               <strong>{{ item.projectName }}</strong>
               <small v-if="item.plan">
-                {{ providerLabel(item.plan.provider) }} · {{ item.plan.branch }} ·
-                <code :title="item.plan.revision">{{ shortRevision(item.plan.revision) }}</code>
+                {{ providerLabel(item.plan.provider) }} ·
+                {{ item.plan.branch }} ·
+                <code :title="item.plan.revision">{{
+                  shortRevision(item.plan.revision)
+                }}</code>
               </small>
             </div>
             <StatusBadge :tone="batchStatusTone(item.status)">
@@ -487,8 +505,13 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div v-else-if="batchPhase === 'finished'" class="production-batch-actions">
-        <button type="button" @click="resetBatch(false)">Fechar resultado</button>
+      <div
+        v-else-if="batchPhase === 'finished'"
+        class="production-batch-actions"
+      >
+        <button type="button" @click="resetBatch(false)">
+          Fechar resultado
+        </button>
       </div>
     </section>
 

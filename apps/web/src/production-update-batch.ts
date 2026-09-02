@@ -129,11 +129,7 @@ async function waitForTerminalDeployment(
     throwIfAborted(options.signal);
     await sleep(delay);
     throwIfAborted(options.signal);
-    current = await api.fetchDeployment(
-      projectId,
-      current.id,
-      options.signal,
-    );
+    current = await api.fetchDeployment(projectId, current.id, options.signal);
   }
 
   return current;
