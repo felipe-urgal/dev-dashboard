@@ -78,6 +78,20 @@ function defaultSpawnPty(
   return pty.spawn(file, [...args], options);
 }
 
+function executionEnvironment(
+  overrides: NodeJS.ProcessEnv | undefined,
+): Record<string, string> {
+  const merged: NodeJS.ProcessEnv = { ...process.env, ...overrides };
+  const environment: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(merged)) {
+    if (value !== undefined) environment[key] = value;
+  }
+
+  environment.TERM = 'xterm-256color';
+  return environment;
+}
+
 function utf8TailWithinByteLimit(value: string, limit: number): string {
   if (limit <= 0) return '';
   if (Buffer.byteLength(value, 'utf8') <= limit) return value;
@@ -149,7 +163,7 @@ export class DetachableExecutionService {
       cols: options.cols ?? DEFAULT_COLS,
       rows: options.rows ?? DEFAULT_ROWS,
       cwd: options.cwd,
-      env: { ...process.env, ...options.env, TERM: 'xterm-256color' },
+      env: executionEnvironment(options.env),
     });
 
     const record: ExecutionRecord = {

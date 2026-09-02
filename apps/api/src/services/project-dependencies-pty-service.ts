@@ -1,6 +1,7 @@
 import type { Project, ProjectScript } from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
+import { isolateProjectExecutionEnvironment } from '../security/project-execution-environment.js';
 import {
   DetachableExecutionError,
   DetachableExecutionService,
@@ -121,7 +122,7 @@ export class ProjectDependenciesPtyService {
         file: resolved.command,
         args: resolved.args,
         cwd: project.path,
-        ...(resolved.env ? { env: resolved.env } : {}),
+        env: isolateProjectExecutionEnvironment(project, resolved.env),
       });
       this.runningAction.set(project.id, {
         id: action.id,
