@@ -37,7 +37,8 @@ describe('guard arquitetural de Logs e Testes declarativos', () => {
       .filter((arquivo) => arquivo !== resolve(raizFonte, 'main.ts'))
       .flatMap((arquivo) => {
         const fonte = readFileSync(arquivo, 'utf8');
-        if (!seletorLegado.test(fonte) || !engineGlobalDeDom.test(fonte)) return [];
+        if (!seletorLegado.test(fonte) || !engineGlobalDeDom.test(fonte))
+          return [];
         return [relative(raizWeb, arquivo)];
       });
 

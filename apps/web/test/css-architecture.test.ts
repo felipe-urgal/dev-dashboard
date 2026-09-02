@@ -44,9 +44,9 @@ describe('arquitetura de CSS', () => {
     expect(cssNoRaiz).toEqual(['styles.css']);
     expect(importsRelativosDeCss[0]).toBe('./styles.css');
     expect(
-      importsRelativosDeCss.slice(1).every((caminho) =>
-        caminho.startsWith('./styles/features/'),
-      ),
+      importsRelativosDeCss
+        .slice(1)
+        .every((caminho) => caminho.startsWith('./styles/features/')),
     ).toBe(true);
   });
 
