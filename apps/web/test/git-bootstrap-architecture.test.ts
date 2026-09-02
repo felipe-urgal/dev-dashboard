@@ -90,6 +90,8 @@ describe('arquitetura do bootstrap Git', () => {
     expect(diffView).toContain("import('../utils/git-diff-syntax')");
     expect(diffView).toContain('syntax.syntaxRangesFor');
     expect(diffSyntax).toContain('export function syntaxRangesFor(');
-    expect(entrada).toContain("import './git-syntax-highlight.css';");
+    expect(entrada).toContain(
+      "import './styles/features/git-syntax-highlight.css';",
+    );
   });
 });

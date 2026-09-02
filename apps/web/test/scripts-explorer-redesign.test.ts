@@ -10,13 +10,13 @@ function sourceFile(fileName: string): string {
 
 async function readScriptsExplorerCss(): Promise<string> {
   const arquivoPrincipal = await readFile(
-    sourceFile('scripts-explorer-redesign.css'),
+    sourceFile('styles/features/scripts-explorer-redesign.css'),
     'utf8',
   );
   const importados = await Promise.all(
     [
       ...arquivoPrincipal.matchAll(
-        /@import\s+'\.\/(scripts-explorer\/[^']+)'/g,
+        /@import\s+'\.\.\/\.\.\/(scripts-explorer\/[^']+)'/g,
       ),
     ].map((correspondencia) =>
       readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
@@ -71,5 +71,8 @@ test('aplica layout responsivo usando os tokens dos temas claro e escuro', async
   assert.match(css, /scripts-executions-layout[\s\S]*grid-template-columns/);
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(main, /import '\.\/scripts-explorer-redesign\.css';/);
+  assert.match(
+    main,
+    /import '\.\/styles\/features\/scripts-explorer-redesign\.css';/,
+  );
 });
