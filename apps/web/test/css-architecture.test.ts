@@ -31,6 +31,47 @@ describe('arquitetura de CSS', () => {
     );
   });
 
+  it('expõe tokens semânticos para interação, código e motion', () => {
+    const tokens = lerEstilo('tokens.css');
+    const base = lerEstilo('base.css');
+    const layout = lerEstilo('layout.css');
+    const componentes = lerComponentes();
+    const tokensSemanticos = [
+      '--font-family-mono:',
+      '--control-height-sm:',
+      '--control-height-md:',
+      '--control-height-lg:',
+      '--interactive-target-min:',
+      '--disabled-opacity:',
+      '--focus-ring-width:',
+      '--focus-ring-color:',
+      '--focus-ring-offset:',
+      '--overlay-backdrop:',
+      '--code-surface:',
+      '--code-text:',
+      '--diff-line-height:',
+      '--motion-duration-fast:',
+      '--motion-easing-standard:',
+    ];
+
+    for (const token of tokensSemanticos) {
+      expect(tokens).toContain(token);
+    }
+
+    expect(base).toContain('opacity: var(--disabled-opacity);');
+    expect(base).toContain('font-family: var(--font-family-mono);');
+    expect(layout).toContain('min-height: var(--control-height-sm);');
+    expect(layout).toContain('min-height: var(--control-height-md);');
+    expect(layout).toContain('width: var(--interactive-target-min);');
+    expect(layout).toContain(
+      'outline: var(--focus-ring-width) solid var(--focus-ring-color);',
+    );
+    expect(layout).toContain('var(--motion-duration-fast)');
+    expect(componentes).toContain('background: var(--code-surface);');
+    expect(componentes).toContain('color: var(--code-text);');
+    expect(componentes).toContain('line-height: var(--diff-line-height);');
+  });
+
   it('mantém CSS global dentro da árvore src/styles', () => {
     const cssNoRaiz = readdirSync(raizFonte, { withFileTypes: true })
       .filter((entrada) => entrada.isFile() && entrada.name.endsWith('.css'))
