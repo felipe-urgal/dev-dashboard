@@ -130,3 +130,96 @@ test('provider-deploy reutiliza a mesma revision já READY sem criar deployment 
   assert.match(output.join(''), /já está READY/);
   assert.match(output.join(''), /dpl_ready/);
 });
+
+test('provider-deploy adota auto-deploy da mesma revision iniciado entre preflights', async () => {
+  let deploymentListReads = 0;
+  let createCalls = 0;
+  const adapter = new VercelDeploymentAdapter({
+    token: 'token-local',
+    fetchRequest: async (input, init) => {
+      const url = new URL(input);
+      if (url.pathname === '/v9/projects/portfolio-copilot') {
+        return response(200, {
+          id: 'prj_portfolio_copilot',
+          name: 'portfolio-copilot',
+        });
+      }
+      if (url.pathname === '/v7/deployments') {
+        deploymentListReads += 1;
+        if (deploymentListReads === 1) {
+          return response(200, { deployments: [] });
+        }
+        return response(200, {
+          deployments: [
+            {
+              id: 'dpl_auto',
+              url: 'portfolio-copilot.vercel.app',
+              created: Date.parse('2026-09-02T20:30:00Z'),
+              state: deploymentListReads === 2 ? 'BUILDING' : 'READY',
+              target: 'production',
+              meta: {
+                githubCommitRef: 'main',
+                githubCommitSha: REVISION,
+              },
+            },
+          ],
+        });
+      }
+      if (url.pathname === '/v13/deployments' && init.method === 'POST') {
+        createCalls += 1;
+        return response(200, { id: 'dpl_duplicado' });
+      }
+      return response(404, { error: { code: 'not_found' } });
+    },
+  });
+  const stepAdapter = new VercelProviderStepAdapter({
+    vercelAdapter: adapter,
+    adoptedDeployPollIntervalMs: 0,
+    sleep: async () => true,
+    revisionResolver: {
+      async resolve() {
+        return { branch: 'main', revision: REVISION };
+      },
+    },
+    originRevisionResolver: {
+      async resolve() {
+        return REVISION;
+      },
+    },
+    githubOriginResolver: {
+      async resolve() {
+        return { owner: 'felipe-urgal', repo: 'portfolio-copilot' };
+      },
+    },
+  });
+  const target = {
+    externalProject: 'portfolio-copilot',
+    branch: 'main',
+    revision: REVISION,
+  } as const;
+  const signal = new AbortController().signal;
+  const output: string[] = [];
+
+  await stepAdapter.preflight(project(), target, signal);
+  await stepAdapter.preflight(project(), target, signal);
+  const result = await stepAdapter.run(
+    project(),
+    {
+      id: 'provider-deploy',
+      phase: 'deploying',
+      mutating: true,
+      irreversible: true,
+      target,
+    },
+    signal,
+    (message) => output.push(message.content),
+  );
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.cancelled, false);
+  assert.equal(createCalls, 0);
+  assert.equal(deploymentListReads, 3);
+  assert.match(output.join(''), /já iniciou o deployment dpl_auto/);
+  assert.match(output.join(''), /Vercel: building/);
+  assert.match(output.join(''), /deployment existente reutilizado/);
+});
