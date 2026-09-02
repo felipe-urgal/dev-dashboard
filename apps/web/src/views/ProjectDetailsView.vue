@@ -22,6 +22,7 @@ import { RouterLink, useRoute } from 'vue-router';
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
+import EmptyState from '../components/EmptyState.vue';
 import ProjectDetailsMoreTools from '../components/ProjectDetailsMoreTools.vue';
 import ProjectGitUpdateIndicator from '../components/ProjectGitUpdateIndicator.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
@@ -274,32 +275,41 @@ onBeforeUnmount(stopGitOverviewRefresh);
         isRailsWebpackRoute,
     }"
   >
-    <div v-if="loading" class="empty-state page-empty-state">
-      <div class="empty-icon">•••</div>
-      <h3>Carregando projeto</h3>
-      <p>Localizando o repositório e suas configurações.</p>
-    </div>
+    <EmptyState
+      v-if="loading"
+      class="page-empty-state"
+      icon="•••"
+      title="Carregando projeto"
+      description="Localizando o repositório e suas configurações."
+    />
 
-    <div v-else-if="errorMessage" class="empty-state page-empty-state">
-      <div class="empty-icon">!</div>
-      <h3>Não foi possível carregar o projeto</h3>
-      <p>{{ errorMessage }}</p>
-      <button class="primary-button" type="button" @click="loadProject">
-        Tentar novamente
-      </button>
-    </div>
+    <EmptyState
+      v-else-if="errorMessage"
+      class="page-empty-state"
+      icon="!"
+      title="Não foi possível carregar o projeto"
+      :description="errorMessage"
+    >
+      <template #actions>
+        <button class="primary-button" type="button" @click="loadProject">
+          Tentar novamente
+        </button>
+      </template>
+    </EmptyState>
 
-    <div v-else-if="!project" class="empty-state page-empty-state">
-      <div class="empty-icon">◇</div>
-      <h3>Projeto não encontrado</h3>
-      <p>
-        O projeto pode ter sido removido ou o workspace ainda não contém esse
-        identificador.
-      </p>
-      <RouterLink class="primary-button link-button" to="/">
-        Voltar aos projetos
-      </RouterLink>
-    </div>
+    <EmptyState
+      v-else-if="!project"
+      class="page-empty-state"
+      icon="◇"
+      title="Projeto não encontrado"
+      description="O projeto pode ter sido removido ou o workspace ainda não contém esse identificador."
+    >
+      <template #actions>
+        <RouterLink class="primary-button link-button" to="/">
+          Voltar aos projetos
+        </RouterLink>
+      </template>
+    </EmptyState>
 
     <template v-else>
       <div class="project-details-sticky-header">
