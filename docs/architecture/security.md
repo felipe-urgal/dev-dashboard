@@ -196,6 +196,63 @@ Depois da validação inicial, a API executa `sudo -n -v` a partir de outro proc
 
 Se o ticket não for delegável, o dashboard falha fechado com `DEPLOYMENT_SUDO_TICKET_NOT_DELEGATED` e orienta uma regra `NOPASSWD` **limitada** ao helper necessário. O dashboard não edita sudoers, não desabilita políticas de timestamp e não repassa senha ao projeto.
 
+## Self-update agent
+
+O self-update agent é uma fronteira local separada da API HTTP. Ele existe para que um processo continue dono do handoff quando o Fastify precisar parar em uma futura atualização.
+
+### Instalação
+
+A checkout do repositório não é o executável de longa duração. `self-update:agent install` copia somente um conjunto fechado de arquivos para uma release fora da árvore do projeto e calcula SHA-256 de cada arquivo.
+
+Antes do start:
+
+- `current.json` precisa ser arquivo privado regular e shape válido;
+- release precisa ser diretório real, privado e pertencente ao usuário atual;
+- cada arquivo precisa ser regular, não symlinkado e sem permissão para grupo/outros;
+- hash precisa coincidir com o manifesto;
+- o entrypoint do modo `serve` precisa ser exatamente o entrypoint da release instalada.
+
+Uma alteração na checkout depois da instalação não modifica o processo já instalado. Esta propriedade ainda não equivale a isolamento root: o agent atual é user-space e não possui privilégio.
+
+### Canal Unix local
+
+O agent não abre TCP. O canal usa Unix socket em diretório privado `0700`, com o socket em `0600`.
+
+O socket sozinho não é tratado como autenticação suficiente. Existe um token específico do agent, aleatório, privado (`0600`) e separado do token HTTP da API. O token:
+
+- nunca entra em handoff;
+- não volta em resposta;
+- não deve aparecer em log;
+- é comparado em tempo constante;
+- não é fornecido pelo browser.
+
+Cada conexão aceita uma única mensagem JSON com limite de tamanho. Shape e ação são fechados. O catálogo atual é somente:
+
+```text
+ping
+inspect
+claim
+recover
+```
+
+Nenhuma request aceita programa, args, shell, unit, path de checkout, path de instalação, URL ou credencial.
+
+`claim` e `recover` são serializados dentro do agent para evitar corrida de escrita no estado persistido. `inspect` permanece somente leitura.
+
+### Lifecycle e identidade
+
+O processo instalado é iniciado com `process.execPath`, array fixo de argumentos, `shell: false` e `detached: true`. Reiniciar a API/web não encerra o agent.
+
+O controle de `stop` não confia em PID persistido isoladamente: primeiro executa `ping` autenticado no socket e recebe o PID/`instanceId` da instância viva; só então envia `SIGTERM` ao PID retornado.
+
+Socket stale só pode ser removido quando o path existente é um socket real pertencente ao usuário e não aceita conexões. Arquivo arbitrário/symlink no mesmo path falha fechado.
+
+### Recovery
+
+No startup, o agent marca conservadoramente handoffs anteriormente assumidos e sem resultado terminal como `recovery_required`. Ele não inventa sucesso e não executa rollback automático.
+
+O catálogo atual ainda não contém aplicação de revision, restart, readiness ou qualquer ação privilegiada. Esses itens exigem revisão adicional antes de alterar `production.enabled=false`.
+
 ## Git
 
 Nomes de branch e parâmetros passam por validação. Subcomandos usam `--` quando nomes/paths poderiam ser interpretados como flags.
@@ -253,6 +310,8 @@ Não persistir por conveniência:
 - respostas brutas de providers;
 - conteúdo de arquivos quando um ID/metadado basta.
 
+O token do self-update agent é uma credencial local persistente necessária para autenticar o canal Unix. Ele fica separado dos handoffs, privado e não é reutilizado como token HTTP da API.
+
 ## Banco de dados
 
 Snapshots/restores usam drivers conhecidos, paths internos e confirmação para restore.
@@ -286,7 +345,12 @@ Mudanças sensíveis devem cobrir o risco relevante, por exemplo:
 - interrupção/cancelamento depois de etapa irreversível;
 - retry de verify sem repetir mutação;
 - ticket sudo não delegável;
-- masking de log.
+- masking de log;
+- token/socket do self-update agent com permissões inválidas;
+- request do agent com campo/ação não catalogados;
+- release instalada adulterada, symlinkada ou com hash divergente;
+- concorrência de mutações do handoff;
+- restart do agent com handoff já assumido.
 
 ## Erros seguros
 
