@@ -147,6 +147,8 @@ snapshot estruturado
 
 A API não aceita path arbitrário de log vindo do browser.
 
+Na aba Servidor, o snapshot é passado diretamente ao `ProjectLogTerminal`/xterm. Não existe pós-processamento global do DOM para detalhes de log; quando uma superfície usa apresentação estruturada, classificação, busca e diagnóstico ficam em componentes/parsers Vue como `ProjectLogExperience`, `LogExperienceFlow` e `utils/log-experience.ts`.
+
 ## Git somente leitura
 
 ```text

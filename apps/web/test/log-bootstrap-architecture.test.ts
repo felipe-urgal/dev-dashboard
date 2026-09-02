@@ -15,6 +15,43 @@ describe('arquitetura do bootstrap de logs', () => {
     expect(existsSync(resolve(raizWeb, 'src/log-visual'))).toBe(false);
   });
 
+  it('não mantém o Log Detail Enhancer nem a superfície DOM antiga', () => {
+    expect(entrada).not.toContain('installLogDetailEnhancer');
+    expect(entrada).not.toContain("from './log-detail-enhancer'");
+    expect(entrada).not.toContain("import './log-detail-enhancer.css'");
+    expect(entrada).not.toContain("import './log-visual-enhancer.css'");
+    expect(entrada).not.toContain("import './log-stream-syntax.css'");
+    expect(existsSync(resolve(raizWeb, 'src/log-detail-enhancer.ts'))).toBe(
+      false,
+    );
+    expect(existsSync(resolve(raizWeb, 'src/log-detail-enhancer.css'))).toBe(
+      false,
+    );
+    expect(existsSync(resolve(raizWeb, 'src/log-detail'))).toBe(false);
+    expect(existsSync(resolve(raizWeb, 'src/log-visual-enhancer.css'))).toBe(
+      false,
+    );
+    expect(existsSync(resolve(raizWeb, 'src/log-stream-syntax.css'))).toBe(
+      false,
+    );
+  });
+
+  it('mantém o log do servidor como componente Vue sem decoração global', () => {
+    const serverTemplate = readFileSync(
+      resolve(raizWeb, 'src/components/ProjectServerPanel.template.html'),
+      'utf8',
+    );
+    const terminal = readFileSync(
+      resolve(raizWeb, 'src/components/ProjectLogTerminal.vue'),
+      'utf8',
+    );
+
+    expect(serverTemplate).toContain('<ProjectLogTerminal');
+    expect(serverTemplate).not.toContain('project-log-raw-lines');
+    expect(terminal).toContain("import { Terminal } from '@xterm/xterm'");
+    expect(terminal).toContain('watch(() => props.content, renderContent)');
+  });
+
   it('mantém classificação e apresentação visual no fluxo declarativo Vue', () => {
     const experience = readFileSync(
       resolve(raizWeb, 'src/components/ProjectLogExperience.vue'),
