@@ -145,46 +145,15 @@ export class ProductionCommandAdapter {
       options.providerAdapter ?? new VercelProviderStepAdapter();
   }
 
-  public async run(
+  private runScript(
     project: Project,
-    step: DeploymentPlanStep,
+    packageManager: PackageManager,
+    script: string,
+    environment: NodeJS.ProcessEnv,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
   ): Promise<ProductionCommandResult> {
-    if (step.id === 'provider-deploy') {
-      return this.providerAdapter.run(project, step, signal, onOutput);
-    }
-
-    const expectedScript = SCRIPT_BY_COMMAND[step.id];
-    if (
-      step.script !== expectedScript ||
-      project.production?.commands[step.id] !== expectedScript
-    ) {
-      throw new DeploymentError(
-        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
-        `A etapa ${step.id} não corresponde ao script canônico reconhecido no contrato.`,
-      );
-    }
-
-    if (step.providerPreflight) {
-      try {
-        await this.providerAdapter.preflight(
-          project,
-          step.providerPreflight,
-          signal,
-        );
-      } catch (error) {
-        if (signal.aborted) return { exitCode: 1, cancelled: true };
-        throw error;
-      }
-    }
-
-    const packageManager = await resolvePackageManager(project.path);
-    const environment = await projectEnvironment(
-      project.path,
-      step.id === 'check' ? 'check' : 'production',
-    );
-    const child = this.spawnProcess(packageManager, ['run', expectedScript], {
+    const child = this.spawnProcess(packageManager, ['run', script], {
       cwd: project.path,
       env: { ...process.env, ...environment },
       shell: false,
@@ -250,27 +219,99 @@ export class ProductionCommandAdapter {
           return;
         }
 
-        const finish = async () => {
-          if (!cancelled && (code ?? 1) === 0 && step.providerPreflight) {
-            try {
-              await this.providerAdapter.preflight(
-                project,
-                step.providerPreflight,
-                signal,
-              );
-            } catch (error) {
-              if (signal.aborted) {
-                resolve({ exitCode: 1, cancelled: true });
-                return;
-              }
-              reject(error);
-              return;
-            }
-          }
-          resolve({ exitCode: code ?? 1, cancelled });
-        };
-        void finish();
+        resolve({ exitCode: code ?? 1, cancelled });
       });
     });
+  }
+
+  public async run(
+    project: Project,
+    step: DeploymentPlanStep,
+    signal: AbortSignal,
+    onOutput: (output: MaskedLogContent) => void,
+  ): Promise<ProductionCommandResult> {
+    if (step.id === 'provider-deploy') {
+      return this.providerAdapter.run(project, step, signal, onOutput);
+    }
+
+    const expectedScript = SCRIPT_BY_COMMAND[step.id];
+    if (
+      step.script !== expectedScript ||
+      project.production?.commands[step.id] !== expectedScript
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        `A etapa ${step.id} não corresponde ao script canônico reconhecido no contrato.`,
+      );
+    }
+
+    if (
+      step.prepareScript &&
+      (step.id !== 'check' ||
+        step.prepareScript !== 'prod:prepare' ||
+        project.production?.commands.prepare !== step.prepareScript)
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+        'O hook prepare não corresponde ao script canônico reconhecido no contrato.',
+      );
+    }
+
+    const packageManager = await resolvePackageManager(project.path);
+    const environment = await projectEnvironment(
+      project.path,
+      step.id === 'check' ? 'check' : 'production',
+    );
+
+    if (step.prepareScript) {
+      const prepareResult = await this.runScript(
+        project,
+        packageManager,
+        step.prepareScript,
+        environment,
+        signal,
+        onOutput,
+      );
+      if (prepareResult.cancelled || prepareResult.exitCode !== 0) {
+        return prepareResult;
+      }
+    }
+
+    if (step.providerPreflight) {
+      try {
+        await this.providerAdapter.preflight(
+          project,
+          step.providerPreflight,
+          signal,
+        );
+      } catch (error) {
+        if (signal.aborted) return { exitCode: 1, cancelled: true };
+        throw error;
+      }
+    }
+
+    const result = await this.runScript(
+      project,
+      packageManager,
+      expectedScript,
+      environment,
+      signal,
+      onOutput,
+    );
+
+    if (!result.cancelled && result.exitCode === 0 && step.providerPreflight) {
+      try {
+        await this.providerAdapter.preflight(
+          project,
+          step.providerPreflight,
+          signal,
+        );
+      } catch (error) {
+        if (signal.aborted) return { exitCode: 1, cancelled: true };
+        throw error;
+      }
+    }
+
+    return result;
   }
 }
