@@ -85,8 +85,7 @@ describe('ambiente do servidor Node', () => {
       async (_projectId: string, input: Record<string, unknown>) => ({
         projectId: 'p1',
         ...input,
-        environment:
-          input.environment === null ? undefined : input.environment,
+        environment: input.environment === null ? undefined : input.environment,
       }),
     );
     startProjectProcess.mockResolvedValue({

@@ -105,8 +105,7 @@ function resolveStateRoot() {
 }
 
 function resolveInstallRoot() {
-  const configured =
-    process.env.DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR?.trim();
+  const configured = process.env.DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR?.trim();
   if (configured) return path.resolve(configured);
 
   return path.join(
@@ -119,8 +118,7 @@ function resolveInstallRoot() {
 }
 
 function resolveRuntimeDirectory(stateRoot) {
-  const configured =
-    process.env.DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR?.trim();
+  const configured = process.env.DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR?.trim();
   if (configured) return path.resolve(configured);
 
   const xdgRuntimeDirectory = process.env.XDG_RUNTIME_DIR?.trim();
