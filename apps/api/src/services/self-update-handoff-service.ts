@@ -1,9 +1,14 @@
 import { spawn } from 'node:child_process';
+import { lstat, readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const TOOL_TIMEOUT_MS = 70_000;
+const WORKER_READY_TIMEOUT_MS = 5_000;
+const WORKER_READY_POLL_MS = 50;
 const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
+const MAX_EXECUTION_LOCK_BYTES = 1024;
 const HANDOFF_ID_PATTERN = /^self-update-[0-9a-f-]{36}$/;
 const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
 const PLAN_HASH_PATTERN = /^[0-9a-f]{64}$/;
@@ -35,10 +40,29 @@ interface ToolResult {
   stderr: string;
 }
 
+interface ExecutionStart {
+  handoffId: string;
+  pid: number;
+}
+
 export type SelfUpdateToolRunner = (
   scriptPath: string,
   args: string[],
 ) => Promise<ToolResult>;
+
+export type SelfUpdateExecutionProbe = (
+  handoffId: string,
+  workerPid: number,
+) => Promise<void>;
+
+export type SelfUpdateShutdownRequester = () => void;
+
+export interface SelfUpdateHandoffServiceOptions {
+  runner?: SelfUpdateToolRunner;
+  repositoryRoot?: string;
+  executionProbe?: SelfUpdateExecutionProbe;
+  requestShutdown?: SelfUpdateShutdownRequester;
+}
 
 export type SelfUpdateHandoffErrorCode =
   | 'SELF_UPDATE_INPUT_INVALID'
@@ -46,6 +70,7 @@ export type SelfUpdateHandoffErrorCode =
   | 'SELF_UPDATE_HANDOFF_PREPARE_FAILED'
   | 'SELF_UPDATE_HANDOFF_CLAIM_FAILED'
   | 'SELF_UPDATE_EXECUTION_START_FAILED'
+  | 'SELF_UPDATE_SHUTDOWN_REQUEST_FAILED'
   | 'SELF_UPDATE_HANDOFF_INVALID';
 
 export class SelfUpdateHandoffError extends Error {
@@ -143,7 +168,7 @@ function parseAgentPing(raw: string): void {
   }
 }
 
-function parseExecutionStart(raw: string, handoffId: string): void {
+function parseExecutionStart(raw: string, handoffId: string): ExecutionStart {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -166,11 +191,96 @@ function parseExecutionStart(raw: string, handoffId: string): void {
       'Worker externo não comprovou que iniciou o handoff confirmado.',
     );
   }
+
+  return { handoffId, pid: Number(parsed.pid) };
 }
 
 function safeToolMessage(stderr: string): string {
   const trimmed = stderr.trim().replaceAll(/\s+/g, ' ');
   return trimmed.slice(0, 500);
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function resolveStateRoot(): string {
+  const configured = process.env.DEV_DASHBOARD_STATE_DIR?.trim();
+  if (configured) return path.resolve(configured);
+
+  const xdgStateHome = process.env.XDG_STATE_HOME?.trim();
+  if (xdgStateHome) {
+    return path.join(path.resolve(xdgStateHome), 'dev-dashboard');
+  }
+
+  return path.join(homedir(), '.local', 'state', 'dev-dashboard');
+}
+
+function workerIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+      return false;
+    }
+    return true;
+  }
+}
+
+async function defaultExecutionProbe(
+  handoffId: string,
+  workerPid: number,
+): Promise<void> {
+  const lockPath = path.join(resolveStateRoot(), 'self-update', 'execution.lock');
+  const deadline = Date.now() + WORKER_READY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    if (!workerIsAlive(workerPid)) {
+      throw new Error('Worker externo encerrou antes de adquirir ownership.');
+    }
+
+    try {
+      const metadata = await lstat(lockPath);
+      const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        (uid !== null && metadata.uid !== uid) ||
+        (metadata.mode & 0o077) !== 0 ||
+        metadata.size > MAX_EXECUTION_LOCK_BYTES
+      ) {
+        throw new Error('Lock de execução do self-update não é confiável.');
+      }
+
+      let lock: unknown;
+      try {
+        lock = JSON.parse(await readFile(lockPath, 'utf8'));
+      } catch {
+        await sleep(WORKER_READY_POLL_MS);
+        continue;
+      }
+
+      if (
+        isRecord(lock) &&
+        Object.keys(lock).length === 2 &&
+        lock.pid === workerPid &&
+        lock.handoffId === handoffId
+      ) {
+        return;
+      }
+
+      throw new Error('Lock de execução pertence a outro handoff ou processo.');
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        await sleep(WORKER_READY_POLL_MS);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error('Worker externo não adquiriu ownership dentro do limite.');
 }
 
 async function defaultToolRunner(
@@ -231,14 +341,17 @@ async function defaultToolRunner(
 export class SelfUpdateHandoffService {
   private readonly helperPath: string;
   private readonly agentPath: string;
+  private readonly runner: SelfUpdateToolRunner;
+  private readonly executionProbe: SelfUpdateExecutionProbe;
+  private readonly requestShutdown: SelfUpdateShutdownRequester;
 
-  constructor(
-    private readonly runner: SelfUpdateToolRunner = defaultToolRunner,
-    repositoryRoot = path.resolve(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '../../../..',
-    ),
-  ) {
+  constructor(options: SelfUpdateHandoffServiceOptions = {}) {
+    const repositoryRoot =
+      options.repositoryRoot ??
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+    this.runner = options.runner ?? defaultToolRunner;
+    this.executionProbe = options.executionProbe ?? defaultExecutionProbe;
+    this.requestShutdown = options.requestShutdown ?? (() => undefined);
     this.helperPath = path.join(repositoryRoot, 'scripts/self-update-helper.mjs');
     this.agentPath = path.join(repositoryRoot, 'scripts/self-update-agent.mjs');
   }
@@ -330,7 +443,25 @@ export class SelfUpdateHandoffService {
           'Handoff foi aceito, mas o worker externo não pôde ser iniciado.',
       );
     }
-    parseExecutionStart(executionResult.stdout, claimed.id);
+
+    const execution = parseExecutionStart(executionResult.stdout, claimed.id);
+    try {
+      await this.executionProbe(execution.handoffId, execution.pid);
+    } catch {
+      throw new SelfUpdateHandoffError(
+        'SELF_UPDATE_EXECUTION_START_FAILED',
+        'Worker externo não comprovou ownership exclusivo antes do shutdown da API.',
+      );
+    }
+
+    try {
+      this.requestShutdown();
+    } catch {
+      throw new SelfUpdateHandoffError(
+        'SELF_UPDATE_SHUTDOWN_REQUEST_FAILED',
+        'Worker assumiu a execução, mas a parada controlada da API não pôde ser solicitada.',
+      );
+    }
 
     return claimed;
   }
