@@ -34,24 +34,39 @@ Esses valores:
 
 ## Preflight antes de mutações
 
-Uma promoção `git-managed` é fail-closed. Antes de qualquer migration explícita e novamente imediatamente antes do POST de deployment, o backend valida:
+Uma promoção `git-managed` é fail-closed. Antes de qualquer migration explícita e novamente imediatamente antes da etapa externa de deployment, o backend valida:
 
 1. o contrato continua `git-managed` + `vercel` e aponta para o mesmo `external.project` confirmado;
 2. checkout local continua na branch/revision confirmadas;
 3. `git ls-remote origin refs/heads/<branch>` confirma o mesmo SHA no remote real;
 4. o remote `origin` resolve para um repositório GitHub reconhecível;
 5. a integração Vercel autentica e resolve o projeto confirmado;
-6. não existe deployment de produção Vercel em `queued`, `building` ou estado desconhecido que torne uma segunda promoção insegura.
+6. não existe deployment de produção Vercel conflitante em `queued`, `building` ou estado desconhecido que torne uma segunda promoção insegura.
 
 Esse preflight é somente leitura; ele não altera banco, Git ou provider. A primeira mudança irreversível só pode ocorrer depois que essas evidências tiverem sido aceitas para o alvo confirmado.
 
 A consulta remota Git possui timeout e pode ser interrompida pelo cancelamento do deployment. Falha de rede/autenticação/credential helper não cai para uma tracking ref local antiga.
 
+### Idempotência para revision já publicada ou já em deployment
+
+Projetos ligados ao Git da Vercel podem publicar automaticamente o mesmo `origin/<branch>` enquanto o fluxo confirmado do Dev Dashboard está em andamento. Existem dois casos seguros e comprováveis:
+
+- o deployment de produção mais recente já está `READY` para **a mesma branch e o mesmo SHA** confirmados no plano;
+- um preflight anterior do mesmo fluxo já tinha sido aceito e, em um preflight posterior, aparece um deployment `QUEUED`/`BUILDING` para **a mesma branch e o mesmo SHA**.
+
+No primeiro caso, `provider-deploy` reutiliza o deployment já pronto. No segundo, o Dashboard adota e acompanha o deployment já iniciado até `READY`, sem criar outro deployment do mesmo commit. Isso cobre o race em que `prod:migrate` conclui com sucesso enquanto a integração Git da Vercel começa automaticamente a publicar a mesma revisão.
+
+A etapa continua registrada na timeline e `prod:verify` continua obrigatório. `prod:migrate`, quando declarado pela política, também continua sendo executado conforme o plano; a idempotência elimina apenas a mutação externa duplicada.
+
+O reaproveitamento é fail-closed. Um deployment que já estava ativo **no primeiro preflight** continua bloqueando o início da mutação local, mesmo quando parece apontar para o mesmo SHA. Também não são reutilizados deployments sem branch/SHA coincidentes, deployments ativos de outra revisão ou estados desconhecidos. Assim, o Dashboard só adota um deployment concorrente quando consegue provar que ele surgiu dentro do mesmo fluxo já validado e corresponde exatamente ao alvo confirmado.
+
+Essa regra evita falso `recovery_required` depois de uma migration bem-sucedida e também evita consumir quota da API Vercel com um POST redundante.
+
 ## Saída para a Vercel
 
 O adapter usa a API HTTPS fixa da Vercel. `external.project` participa como identificador explicitamente confirmado; o ID canônico retornado pelo provider é resolvido no preflight e reutilizado na promoção.
 
-A criação do deployment envia somente os campos necessários:
+Quando não existe uma revision idêntica já `READY` nem um deployment idêntico iniciado durante o fluxo confirmado, a criação do deployment envia somente os campos necessários:
 
 - projeto Vercel resolvido;
 - `target=production`;
@@ -59,11 +74,11 @@ A criação do deployment envia somente os campos necessários:
 - branch confirmada;
 - SHA exato confirmado.
 
-Depois da criação, polling bounded acompanha **esse deployment específico** até estado terminal. `READY` conclui apenas a etapa `provider-deploy`; `prod:verify` permanece separado e decide a validação funcional declarada pelo projeto.
+Depois da criação, polling bounded acompanha o deployment criado até estado terminal. Quando um deployment idêntico foi iniciado automaticamente durante o fluxo, o mesmo princípio de polling bounded acompanha o deployment existente até `READY`. `READY` conclui apenas a etapa `provider-deploy`; `prod:verify` permanece separado e decide a validação funcional declarada pelo projeto.
 
 ## Cancelamento
 
-Cancelar a execução local interrompe o polling. Quando um deployment remoto já foi criado, o adapter tenta cancelá-lo na Vercel em modo best-effort e com timeout próprio.
+Cancelar a execução local interrompe o polling. Quando um deployment remoto foi criado pelo adapter, ele tenta cancelá-lo na Vercel em modo best-effort e com timeout próprio. Um deployment preexistente adotado apenas para acompanhamento não ganha automaticamente ownership remoto do Dashboard.
 
 Cancelamento remoto não é tratado como transação ou rollback. Se a promoção já pode ter produzido efeito, o domínio preserva a semântica conservadora de `recovery_required` e exige revisão do estado real antes de uma nova tentativa.
 
@@ -79,7 +94,7 @@ Decisões de mutação consultam o remote real com `git ls-remote`; não usam a 
 
 A superfície de status compara a revision remota observável com a revision de produção e classifica apenas `in-sync`, `drift` ou `unknown`. O domínio não deduz `ahead`, `behind` ou ancestralidade sem análise Git específica.
 
-O Dashboard não executa `git push`, não cria commit artificial e não altera a branch para disparar a Vercel. A promoção é feita diretamente pelo adapter com o SHA confirmado.
+O Dashboard não executa `git push`, não cria commit artificial e não altera a branch para disparar a Vercel. A promoção é feita diretamente pelo adapter com o SHA confirmado quando uma promoção externa ainda é necessária.
 
 ## Health, migration e promoção
 
@@ -89,7 +104,7 @@ Quando `migrations=before-deploy`, o plano pode executar `prod:migrate` antes da
 
 Não existe `prod:deploy` local artificial. `prod:check`, `prod:migrate` e `prod:verify` continuam comandos canônicos do próprio projeto; `provider-deploy` é uma etapa externa tipada do domínio.
 
-Quota externa nunca é contornada com commit artificial ou redisparo automático.
+Quota externa nunca é contornada com commit artificial ou redisparo automático. Quando o mesmo SHA já está `READY` ou começa a ser publicado automaticamente depois de um preflight aceito, o fluxo reutiliza o deployment comprovado e segue para a validação declarada pelo projeto.
 
 ## Novas mutações
 
