@@ -17,7 +17,13 @@ Dashboard:  http://127.0.0.1:5173
 API health: http://127.0.0.1:4343/api/health
 ```
 
-`npm run dev` carrega `.env.local` quando existir. Credenciais locais de integrações, como `VERCEL_TOKEN`, ficam nesse arquivo e nunca no repositório.
+`npm run dev` carrega `.env.local` quando existir. Quando precisar customizar o ambiente ou configurar integração externa, comece pelo template versionado:
+
+```bash
+cp .env.example .env.local
+```
+
+Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente do processo e nunca no repositório. Variáveis internas/efêmeras do runtime e do self-update não devem ser transformadas em configuração manual só porque existem em `process.env`; veja `docs/operations-and-troubleshooting.md`.
 
 ## Scripts principais
 
@@ -30,6 +36,10 @@ API health: http://127.0.0.1:4343/api/health
 | `npm run doctor` | diagnóstico local |
 | `npm run docs:api` | regenera referência HTTP |
 | `npm run docs:api:check` | verifica referência gerada |
+| `npm run prod:status` | mostra o gate/estado do contrato do próprio Dashboard |
+| `npm run prod:check` | valida o gate de self-production |
+| `npm run self-update:helper -- ...` | tooling de engenharia do handoff persistente |
+| `npm run self-update:agent -- ...` | tooling de instalação/lifecycle/inspeção do agent |
 | `npm run typecheck` | valida tipos |
 | `npm run lint` | ESLint |
 | `npm run format:check` | verifica Prettier |
@@ -37,6 +47,8 @@ API health: http://127.0.0.1:4343/api/health
 | `npm test` | testes dos workspaces |
 | `npm run test:cli` | suíte Bash |
 | `npm run test:e2e` | smoke E2E da web |
+
+Enquanto o próprio contrato permanecer `strategy=disabled`, os scripts `self-update:*` são tooling de engenharia e não um bypass suportado para produção.
 
 ## Como adicionar ou alterar uma funcionalidade
 
@@ -89,6 +101,16 @@ Para providers externos:
 - estado parcial/indisponível representado honestamente;
 - mutação externa dentro do mesmo domínio de confirmação/recovery quando aplicável.
 
+Para self-update:
+
+- não transforme o agent em executor remoto genérico;
+- handoff precisa existir antes de ownership externo;
+- checkout/revision são revalidadas antes da mutação;
+- worker que precisa sobreviver ao Fastify deve executar de uma cópia instalada/verificada, não da checkout mutável;
+- retorno da porta não basta: readiness precisa provar a revision aplicada;
+- falha após início de mutação deve preservar estado/recovery em vez de inventar rollback seguro;
+- `strategy=disabled` continua valendo até a cadeia inteira ser comprovada e explicitamente habilitada.
+
 ### 4. Rotas e schemas
 
 Toda rota deve possuir params/query/body/responses explícitos e `additionalProperties: false` quando apropriado. Traduza erros internos para códigos estáveis e cubra auth/origem nos testes relevantes.
@@ -122,6 +144,8 @@ Não use texto localizado da API como identificador de lógica.
 
 Testes que iniciam processo/repositório temporário devem ter cleanup garantido.
 
+Fluxos de self-update precisam cobrir não só helpers isolados, mas também ownership externo, concorrência, interrupção da API, restart, readiness/revision e recovery quando a entrega declarar essas capacidades.
+
 ## Mudanças no domínio de Produção
 
 Antes de alterar Production Contract, planner, adapters ou UI, leia:
@@ -129,6 +153,7 @@ Antes de alterar Production Contract, planner, adapters ou UI, leia:
 - [production-contract.md](architecture/production-contract.md)
 - [deployment-domain.md](architecture/deployment-domain.md)
 - [security.md](architecture/security.md)
+- [self-production.md](architecture/self-production.md) quando tocar o próprio Dashboard
 - [deployment-operations.md](deployment-operations.md)
 - [production-ui.md](production-ui.md)
 
@@ -144,7 +169,9 @@ Invariantes que não devem ser quebrados:
 8. provider READY é separado de `prod:verify`;
 9. etapas irreversíveis usam recovery conservador;
 10. retry de verify nunca repete mutação anterior;
-11. credenciais Vercel não entram em contratos, responses ou persistência.
+11. credenciais Vercel não entram em contratos, responses ou persistência;
+12. self-production não pode ignorar `strategy=disabled` por existir tooling interno;
+13. sucesso de self-update exige readiness e prova da revision, não apenas processo/porta disponível.
 
 ### Testes mínimos para Vercel
 
@@ -168,6 +195,8 @@ Arquivos privados usam `0700`/`0600` quando aplicável, formatos são validados 
 
 Não persista token de confirmação, senha, `VERCEL_TOKEN`, response bruta de provider ou conteúdo de projeto quando metadado/ID basta.
 
+Estado persistido de self-update não é autoridade executável: ele pode vincular ID/projeto/revision/`planHash`/estado/resultado, mas não deve carregar shell, unit, path ou credencial que transforme adulteração de arquivo em execução arbitrária.
+
 ## UI
 
 O produto prioriza experiência simples, ágil e funcional:
@@ -188,6 +217,7 @@ Atualize:
 - `README.md`/`getting-started.md` para primeiro uso;
 - `architecture/*` para contratos/fluxos/segurança;
 - `operations-and-troubleshooting.md` para variáveis/arquivos/diagnóstico;
+- `.env.example` quando configuração local versionável mudar;
 - `deployment-operations.md` e `production-ui.md` para produção;
 - `guia/*` para a experiência do usuário;
 - issues para backlog/roadmap que atravessa PRs.
@@ -218,12 +248,12 @@ quando o fluxo web alterado justificar.
 - [ ] responsabilidade na camada correta;
 - [ ] entradas, paths e provider data validados;
 - [ ] nenhum shell arbitrário;
-- [ ] mutação possui preview/confirmacão/revalidação apropriados;
+- [ ] mutação possui preview/confirmação/revalidação apropriados;
 - [ ] logs/respostas possuem limites e masking;
 - [ ] credenciais não vazam;
 - [ ] shutdown/cancelamento fecham recursos;
 - [ ] recovery representa efeitos parciais honestamente;
 - [ ] testes cobrem sucesso e falhas relevantes;
-- [ ] documentação e issues estão coerentes;
+- [ ] documentação, `.env.example` e issues estão coerentes;
 - [ ] gates completos passaram no head final;
 - [ ] auto-review foi executado depois do último commit.
