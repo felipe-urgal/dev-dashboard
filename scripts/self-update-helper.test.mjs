@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -11,7 +19,9 @@ const REVISION = 'a'.repeat(40);
 const PLAN_HASH = 'b'.repeat(64);
 
 async function createStore(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-self-update-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-self-update-'),
+  );
   t.after(async () => rm(directory, { recursive: true, force: true }));
   const store = new SelfUpdateHandoffStore(directory);
   await store.ready();
@@ -50,7 +60,10 @@ test('persiste handoff com diretório e arquivo privados', async (t) => {
 
   const files = await readdir(directory);
   assert.deepEqual(files, [`${handoff.id}.json`]);
-  assert.equal((await stat(path.join(directory, files[0]))).mode & 0o777, 0o600);
+  assert.equal(
+    (await stat(path.join(directory, files[0]))).mode & 0o777,
+    0o600,
+  );
 
   const restored = await store.get(handoff.id);
   assert.deepEqual(restored, handoff);
@@ -71,6 +84,32 @@ test('rejeita estado adulterado em vez de aceitar campos de autoridade', async (
 
   await assert.rejects(
     () => store.get(handoff.id),
+    /Estado persistido de self-update inválido/,
+  );
+});
+
+test('rejeita conteúdo cujo id não coincide com o arquivo solicitado', async (t) => {
+  const { directory, store } = await createStore(t);
+  const first = await store.prepare({
+    projectId: 'dev-dashboard',
+    targetRevision: REVISION,
+    planHash: PLAN_HASH,
+  });
+  const second = await store.prepare({
+    projectId: 'dev-dashboard',
+    targetRevision: 'c'.repeat(40),
+    planHash: 'd'.repeat(64),
+  });
+  const firstPath = path.join(directory, `${first.id}.json`);
+  const secondContent = await readFile(
+    path.join(directory, `${second.id}.json`),
+    'utf8',
+  );
+  await writeFile(firstPath, secondContent, 'utf8');
+  await chmod(firstPath, 0o600);
+
+  await assert.rejects(
+    () => store.get(first.id),
     /Estado persistido de self-update inválido/,
   );
 });
