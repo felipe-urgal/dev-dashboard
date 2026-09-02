@@ -197,18 +197,11 @@ Veja:
 
 O próprio Dev Dashboard continua declarando produção **desabilitada** (`production.enabled=false`, `strategy=disabled`, `provider=none`).
 
-A base segura já existe: handoff persistente, agent instalado fora da checkout, lifecycle independente do Fastify e Unix socket autenticado foram entregues pelos PRs #520/#521.
+Os PRs #520/#521 entregaram handoff persistente, agent instalado fora da checkout, lifecycle independente do Fastify e Unix socket autenticado.
 
-O PR #523 adiciona a integração interna API → agent e um worker instalado para preflight Git, aplicação fast-forward da revision confirmada, restart user-space e persistência de recovery. Isso **ainda não habilita** self-production.
+O PR #523 fecha a cadeia operacional: a API transfere o handoff, exige prova de ownership do worker antes de encerrar, o worker aplica apenas fast-forward da revision confirmada de `origin/main`, reinicia `scripts/dev-web.mjs` e só registra sucesso quando a nova API comprova a mesma revision no health. Há teste real com Git/processos temporários cobrindo sucesso e `recovery_required` quando o runtime volta com revision diferente.
 
-Antes de abrir o gate faltam fechar e provar end-to-end, no mínimo:
-
-- ownership operacional antes da API antiga parar;
-- readiness pós-restart com timeout bounded;
-- prova de que a nova API corresponde exatamente à revision confirmada;
-- resultado terminal recuperável após restart real;
-- teste real de interrupção/restart/recovery;
-- revisão final do modelo de privilégio/segurança.
+Isso **ainda não habilita** self-production. O gate permanece fechado para revisão formal do modelo de privilégio/segurança e habilitação consciente no PR D.
 
 Veja [`docs/architecture/self-production.md`](docs/architecture/self-production.md).
 
@@ -234,7 +227,7 @@ A aplicação também aplica:
 - credenciais externas fora do manifesto e da API pública;
 - recovery conservador após etapa irreversível.
 
-O self-update mantém uma fronteira própria: o socket remoto não oferece executor genérico, e o worker operacional só aceita um handoff já validado, com checkout/revision revalidados antes da mutação.
+O self-update mantém uma fronteira própria: o socket remoto não oferece executor genérico, a API só encerra depois de ownership comprovado e a nova API precisa provar a revision esperada para concluir sucesso.
 
 Leia [`docs/architecture/security.md`](docs/architecture/security.md) antes de adicionar novas rotas, comandos ou providers.
 
