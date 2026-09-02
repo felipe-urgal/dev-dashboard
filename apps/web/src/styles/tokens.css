@@ -38,9 +38,12 @@
   --font-family-mono:
     'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   --font-family-code: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-xs: 10px;
-  --font-sm: 11px;
-  --font-md: 13px;
+  --font-label: 11px;
+  --font-control: 12px;
+  --font-body: 13px;
+  --font-xs: var(--font-label);
+  --font-sm: var(--font-control);
+  --font-md: var(--font-body);
   --font-lg: 16px;
   --font-xl: 20px;
   --font-weight-body: 500;
