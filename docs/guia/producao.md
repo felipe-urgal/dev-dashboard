@@ -147,9 +147,9 @@ Só prepare novo deployment depois de entender o que já foi aplicado.
 
 `strategy=disabled` é um estado válido. A aba explica `reasonCode`/blockers, mas não oferece deploy.
 
-Isso é especialmente importante para o próprio Dev Dashboard. A infraestrutura externa já existe em etapas: #520 entregou handoff persistente e #521 entregou agent instalado/lifecycle/canal autenticado. O PR #523 implementa a base de integração API → agent, aplicação fast-forward e restart user-space.
+Isso é especialmente importante para o próprio Dev Dashboard. #520 entregou handoff persistente, #521 entregou agent instalado/lifecycle/canal autenticado e o PR #523 fecha a cadeia operacional: ownership do worker antes da parada, aplicação fast-forward, restart user-space, readiness bounded com prova da revision e recovery persistido/testado.
 
-Mesmo assim, o contrato continua bloqueado. Ainda é necessário provar end-to-end que ownership sobrevive à parada da API, que a nova API passa readiness bounded na **revision confirmada**, que o resultado final permanece recuperável após restart real e que o modelo final de segurança/privilégio é aceitável.
+Mesmo com esse mecanismo, o contrato continua bloqueado. Os blockers restantes são a revisão formal do modelo de privilégio/segurança e a habilitação explícita no PR D da #487.
 
 Não use os scripts `self-update:*` como atalho para contornar `strategy=disabled`.
 
