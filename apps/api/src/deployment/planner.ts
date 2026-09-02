@@ -32,6 +32,7 @@ function commandStep(
   options: {
     mutating?: boolean;
     irreversible?: boolean;
+    prepareScript?: 'prod:prepare';
     providerPreflight?: DeploymentProviderTarget;
   } = {},
 ): DeploymentCommandPlanStep {
@@ -41,6 +42,7 @@ function commandStep(
     phase,
     mutating: options.mutating ?? false,
     irreversible: options.irreversible ?? false,
+    ...(options.prepareScript ? { prepareScript: options.prepareScript } : {}),
     ...(options.providerPreflight
       ? { providerPreflight: options.providerPreflight }
       : {}),
@@ -118,7 +120,11 @@ export class DeploymentPlanner {
         );
       }
 
-      steps.push(commandStep('check', 'preparing'));
+      steps.push(
+        commandStep('check', 'preparing', {
+          ...(commands.prepare ? { prepareScript: commands.prepare } : {}),
+        }),
+      );
       addPreDeploySteps(project, steps);
       steps.push(
         commandStep('deploy', 'deploying', {
@@ -148,7 +154,10 @@ export class DeploymentPlanner {
       };
 
       steps.push(
-        commandStep('check', 'preparing', { providerPreflight: target }),
+        commandStep('check', 'preparing', {
+          ...(commands.prepare ? { prepareScript: commands.prepare } : {}),
+          providerPreflight: target,
+        }),
       );
       addPreDeploySteps(project, steps, target);
       steps.push({

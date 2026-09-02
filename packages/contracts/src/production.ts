@@ -15,6 +15,7 @@ export type ProductionCommandId =
   | 'logs';
 
 export interface ProductionCommands {
+  prepare?: 'prod:prepare';
   status?: 'prod:status';
   check?: 'prod:check';
   backup?: 'prod:backup';

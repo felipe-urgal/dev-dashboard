@@ -3,7 +3,6 @@ import path from 'node:path';
 
 import type {
   ProductionBackupPolicy,
-  ProductionCommandId,
   ProductionCommands,
   ProductionContractV1,
   ProductionContractWarning,
@@ -19,6 +18,7 @@ import type {
 const MANIFEST_RELATIVE_PATH = '.dev-dashboard/production.json' as const;
 
 const SCRIPT_BY_OPERATION = {
+  prepare: 'prod:prepare',
   status: 'prod:status',
   check: 'prod:check',
   backup: 'prod:backup',
@@ -28,7 +28,7 @@ const SCRIPT_BY_OPERATION = {
   restoreCheck: 'prod:restore-check',
   rollback: 'prod:rollback',
   logs: 'prod:logs',
-} as const satisfies Record<ProductionCommandId, string>;
+} as const satisfies Record<keyof ProductionCommands, string>;
 
 const STRATEGIES = ['command', 'git-managed', 'disabled'] as const;
 const PROVIDERS = ['systemd', 'docker-compose', 'vercel', 'none'] as const;
@@ -137,7 +137,9 @@ function parseCommands(
     );
   }
 
-  const operations = Object.keys(SCRIPT_BY_OPERATION) as ProductionCommandId[];
+  const operations = Object.keys(SCRIPT_BY_OPERATION) as Array<
+    keyof ProductionCommands
+  >;
   if (!hasOnlyKeys(value, operations)) {
     return parseFail(
       'PRODUCTION_CONTRACT_INVALID_SHAPE',
@@ -145,7 +147,7 @@ function parseCommands(
     );
   }
 
-  const normalized: Partial<Record<ProductionCommandId, string>> = {};
+  const normalized: Partial<Record<keyof ProductionCommands, string>> = {};
 
   for (const operation of operations) {
     if (!(operation in value)) {

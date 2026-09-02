@@ -40,6 +40,7 @@ export interface DeploymentProviderTarget {
 export interface DeploymentCommandPlanStep {
   id: ProductionCommandId;
   script: DeploymentScriptId;
+  prepareScript?: 'prod:prepare';
   phase: DeploymentExecutionPhase;
   mutating: boolean;
   irreversible: boolean;
