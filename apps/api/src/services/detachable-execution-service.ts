@@ -4,6 +4,8 @@ import type { IPty } from 'node-pty';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 const DEFAULT_BUFFER_LIMIT_BYTES = 262_144; // mesmo teto já usado em toda leitura de log do dashboard
+const DEFAULT_EXITED_TTL_MS = 30 * 60_000;
+const DEFAULT_MAX_RETAINED_EXITED = 32;
 const KILL_ESCALATION_MS = 1_000; // TERM → espera → KILL, mesmo padrão do `dev-stop` do CLI bash
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
@@ -41,8 +43,12 @@ export class DetachableExecutionError extends Error {
   }
 }
 
+interface Disposable {
+  dispose(): void;
+}
+
 interface ExecutionRecord {
-  proc: IPty;
+  proc: IPty | null;
   status: DetachableExecutionStatus;
   chunks: string[];
   bufferedBytes: number;
@@ -51,8 +57,15 @@ interface ExecutionRecord {
   exitSignal: number | null;
   startedAt: string;
   endedAt: string | null;
+  endedAtMs: number | null;
+  lastAccessedAtMs: number;
   dataListeners: Set<(chunk: string) => void>;
   exitListeners: Set<(snapshot: DetachableExecutionSnapshot) => void>;
+  dataSubscription: Disposable | null;
+  exitSubscription: Disposable | null;
+  killEscalation: ReturnType<typeof setTimeout> | null;
+  retentionExpiry: ReturnType<typeof setTimeout> | null;
+  shutdownWaiters: Set<() => void>;
 }
 
 export interface AttachHandle {
@@ -63,6 +76,8 @@ export interface AttachHandle {
 export interface DetachableExecutionServiceOptions {
   now?: () => number;
   bufferLimitBytes?: number;
+  exitedTtlMs?: number;
+  maxRetainedExited?: number;
   spawnPty?: (
     file: string,
     args: readonly string[],
@@ -114,27 +129,37 @@ function utf8TailWithinByteLimit(value: string, limit: number): string {
  * vinda do navegador) num PTY que continua rodando **independente de quem
  * está conectado**: desconectar (`detach`) não mata o processo, só para de
  * receber os eventos dele. Uma nova chamada a `attach` na mesma chave
- * reanexa ao processo em andamento (ou ao resultado final, se já tiver
- * terminado), recebendo o buffer acumulado antes de voltar a receber dados
- * ao vivo. É o oposto deliberado de `ProjectTerminalService`, que mata a
- * sessão de shell ao desconectar — aqui a chave é "posso fechar a aba e
- * voltar depois", não "é um shell de acesso total que não deve ficar
- * esquecido rodando".
+ * reanexa ao processo em andamento (ou ao resultado final, se ainda estiver
+ * retido), recebendo o buffer acumulado antes de voltar a receber dados ao
+ * vivo. Execuções finalizadas têm retenção limitada por TTL + LRU para que
+ * histórico transitório de PTY não cresça indefinidamente em memória.
  */
 export class DetachableExecutionService {
   private readonly executions = new Map<string, ExecutionRecord>();
   private readonly now: () => number;
   private readonly bufferLimitBytes: number;
+  private readonly exitedTtlMs: number;
+  private readonly maxRetainedExited: number;
   private readonly spawnPty: (
     file: string,
     args: readonly string[],
     options: pty.IPtyForkOptions,
   ) => IPty;
+  private closed = false;
+  private closePromise: Promise<void> | null = null;
 
   public constructor(options: DetachableExecutionServiceOptions = {}) {
     this.now = options.now ?? Date.now;
     this.bufferLimitBytes =
       options.bufferLimitBytes ?? DEFAULT_BUFFER_LIMIT_BYTES;
+    this.exitedTtlMs = Math.max(
+      0,
+      options.exitedTtlMs ?? DEFAULT_EXITED_TTL_MS,
+    );
+    this.maxRetainedExited = Math.max(
+      0,
+      Math.floor(options.maxRetainedExited ?? DEFAULT_MAX_RETAINED_EXITED),
+    );
     this.spawnPty = options.spawnPty ?? defaultSpawnPty;
   }
 
@@ -143,20 +168,30 @@ export class DetachableExecutionService {
   }
 
   public snapshotOf(key: string): DetachableExecutionSnapshot | undefined {
+    this.pruneExited();
     const record = this.executions.get(key);
-    return record ? this.toSnapshot(record) : undefined;
+    if (!record) return undefined;
+    this.touch(record);
+    return this.toSnapshot(record);
   }
 
   public start(
     key: string,
     options: StartExecutionOptions,
   ): DetachableExecutionSnapshot {
-    if (this.isRunning(key)) {
+    if (this.closed) {
+      throw new Error('O serviço de execuções destacáveis já foi encerrado.');
+    }
+
+    this.pruneExited();
+    const previous = this.executions.get(key);
+    if (previous?.status === 'running') {
       throw new DetachableExecutionError(
         'ALREADY_RUNNING',
         'Já existe uma execução em andamento para esta chave.',
       );
     }
+    if (previous) this.deleteRecord(key, previous);
 
     const proc = this.spawnPty(options.file, options.args, {
       name: 'xterm-256color',
@@ -165,6 +200,7 @@ export class DetachableExecutionService {
       cwd: options.cwd,
       env: executionEnvironment(options.env),
     });
+    const startedAtMs = this.now();
 
     const record: ExecutionRecord = {
       proc,
@@ -174,46 +210,44 @@ export class DetachableExecutionService {
       truncated: false,
       exitCode: null,
       exitSignal: null,
-      startedAt: new Date(this.now()).toISOString(),
+      startedAt: new Date(startedAtMs).toISOString(),
       endedAt: null,
+      endedAtMs: null,
+      lastAccessedAtMs: startedAtMs,
       dataListeners: new Set(),
       exitListeners: new Set(),
+      dataSubscription: null,
+      exitSubscription: null,
+      killEscalation: null,
+      retentionExpiry: null,
+      shutdownWaiters: new Set(),
     };
     this.executions.set(key, record);
 
-    proc.onData((data) => {
-      // Mesma máscara de segredos aplicada a toda leitura de log do
-      // dashboard (docs/architecture/security.md) — aplicada uma vez aqui,
-      // tanto o buffer armazenado quanto quem está ao vivo recebem a
-      // versão já mascarada.
+    record.dataSubscription = proc.onData((data) => {
       const masked = maskSensitiveLogContent(data).content;
       this.appendToBuffer(record, masked);
       for (const listener of record.dataListeners) listener(masked);
     });
 
-    proc.onExit(({ exitCode, signal }) => {
-      record.status = 'exited';
-      record.exitCode = exitCode ?? null;
-      record.exitSignal = signal ?? null;
-      record.endedAt = new Date(this.now()).toISOString();
-      const snapshot = this.toSnapshot(record);
-      for (const listener of record.exitListeners) listener(snapshot);
+    record.exitSubscription = proc.onExit(({ exitCode, signal }) => {
+      this.markExited(key, record, exitCode ?? null, signal ?? null);
     });
 
     return this.toSnapshot(record);
   }
 
   /**
-   * Reanexa a uma execução existente (rodando ou já terminada): entrega o
-   * buffer acumulado em `snapshot` e, a partir daí, chama `onData`/`onExit`
-   * para o que vier depois. `detach()` só remove os listeners — nunca mata
-   * o processo.
+   * Reanexa a uma execução existente (rodando ou terminada ainda retida):
+   * entrega o buffer acumulado em `snapshot` e, quando estiver rodando,
+   * passa a chamar `onData`/`onExit`. `detach()` só remove os listeners.
    */
   public attach(
     key: string,
     onData: (chunk: string) => void,
     onExit: (snapshot: DetachableExecutionSnapshot) => void,
   ): AttachHandle {
+    this.pruneExited();
     const record = this.executions.get(key);
     if (!record) {
       throw new DetachableExecutionError(
@@ -222,8 +256,11 @@ export class DetachableExecutionService {
       );
     }
 
-    record.dataListeners.add(onData);
-    record.exitListeners.add(onExit);
+    this.touch(record);
+    if (record.status === 'running') {
+      record.dataListeners.add(onData);
+      record.exitListeners.add(onExit);
+    }
 
     return {
       snapshot: this.toSnapshot(record),
@@ -237,20 +274,124 @@ export class DetachableExecutionService {
   /** Encerra a execução de propósito (ex. o usuário cancelou) — TERM, depois KILL se não sair a tempo. */
   public cancel(key: string): void {
     const record = this.executions.get(key);
-    if (!record || record.status !== 'running') return;
+    if (!record || record.status !== 'running' || !record.proc) return;
+    if (record.killEscalation) return;
 
     record.proc.kill('SIGTERM');
-    const escalation = setTimeout(() => {
-      if (record.status === 'running') record.proc.kill('SIGKILL');
+    record.killEscalation = setTimeout(() => {
+      record.killEscalation = null;
+      if (record.status === 'running') record.proc?.kill('SIGKILL');
     }, KILL_ESCALATION_MS);
-    escalation.unref();
+    record.killEscalation.unref();
   }
 
   /** Libera a entrada de uma execução já terminada (nada a fazer se ainda estiver rodando). */
   public remove(key: string): void {
+    this.pruneExited();
     const record = this.executions.get(key);
     if (!record || record.status === 'running') return;
-    this.executions.delete(key);
+    this.deleteRecord(key, record);
+  }
+
+  /**
+   * Fecha o serviço inteiro durante o shutdown da API. O fechamento é
+   * idempotente: remove listeners, dá uma janela curta de TERM aos PTYs ainda
+   * ativos, escala para KILL quando necessário e libera toda retenção.
+   */
+  public close(): Promise<void> {
+    if (this.closePromise) return this.closePromise;
+    this.closed = true;
+    this.closePromise = this.closeAll();
+    return this.closePromise;
+  }
+
+  private async closeAll(): Promise<void> {
+    const records = [...this.executions.values()];
+    for (const record of records) {
+      record.dataListeners.clear();
+      record.exitListeners.clear();
+    }
+
+    await Promise.all(
+      records
+        .filter((record) => record.status === 'running')
+        .map((record) => this.terminateForShutdown(record)),
+    );
+
+    for (const [key, record] of this.executions) {
+      this.deleteRecord(key, record);
+    }
+  }
+
+  private terminateForShutdown(record: ExecutionRecord): Promise<void> {
+    if (record.status !== 'running' || !record.proc) return Promise.resolve();
+
+    this.clearKillEscalation(record);
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(escalation);
+        record.shutdownWaiters.delete(finish);
+        resolve();
+      };
+      const escalation = setTimeout(() => {
+        if (record.status === 'running') record.proc?.kill('SIGKILL');
+        finish();
+      }, KILL_ESCALATION_MS);
+      escalation.unref();
+
+      record.shutdownWaiters.add(finish);
+      record.proc?.kill('SIGTERM');
+    });
+  }
+
+  private markExited(
+    key: string,
+    record: ExecutionRecord,
+    exitCode: number | null,
+    exitSignal: number | null,
+  ): void {
+    if (record.status !== 'running') return;
+
+    const endedAtMs = this.now();
+    record.status = 'exited';
+    record.exitCode = exitCode;
+    record.exitSignal = exitSignal;
+    record.endedAtMs = endedAtMs;
+    record.endedAt = new Date(endedAtMs).toISOString();
+    record.lastAccessedAtMs = endedAtMs;
+    this.clearKillEscalation(record);
+
+    const snapshot = this.toSnapshot(record);
+    for (const listener of record.exitListeners) listener(snapshot);
+    record.dataListeners.clear();
+    record.exitListeners.clear();
+
+    for (const waiter of [...record.shutdownWaiters]) waiter();
+    record.shutdownWaiters.clear();
+
+    this.releasePty(record);
+    this.scheduleExitedExpiry(key, record);
+    this.pruneExited();
+  }
+
+  private scheduleExitedExpiry(key: string, record: ExecutionRecord): void {
+    this.clearRetentionExpiry(record);
+    if (this.exitedTtlMs <= 0) return;
+
+    record.retentionExpiry = setTimeout(() => {
+      record.retentionExpiry = null;
+      if (
+        this.executions.get(key) === record &&
+        record.status === 'exited'
+      ) {
+        this.deleteRecord(key, record);
+      }
+    }, this.exitedTtlMs);
+    record.retentionExpiry.unref();
   }
 
   private appendToBuffer(record: ExecutionRecord, chunk: string): void {
@@ -273,6 +414,70 @@ export class DetachableExecutionService {
       record.bufferedBytes -= Buffer.byteLength(oldest, 'utf8');
       record.truncated = true;
     }
+  }
+
+  private touch(record: ExecutionRecord): void {
+    record.lastAccessedAtMs = this.now();
+  }
+
+  private pruneExited(): void {
+    const now = this.now();
+    for (const [key, record] of this.executions) {
+      if (
+        record.status === 'exited' &&
+        record.endedAtMs !== null &&
+        now - record.endedAtMs >= this.exitedTtlMs
+      ) {
+        this.deleteRecord(key, record);
+      }
+    }
+
+    const exited = [...this.executions.entries()]
+      .filter(([, record]) => record.status === 'exited')
+      .sort((left, right) => {
+        const byAccess = left[1].lastAccessedAtMs - right[1].lastAccessedAtMs;
+        if (byAccess !== 0) return byAccess;
+        return (left[1].endedAtMs ?? 0) - (right[1].endedAtMs ?? 0);
+      });
+
+    const excess = exited.length - this.maxRetainedExited;
+    for (let index = 0; index < excess; index += 1) {
+      const entry = exited[index];
+      if (!entry) break;
+      this.deleteRecord(entry[0], entry[1]);
+    }
+  }
+
+  private deleteRecord(key: string, record: ExecutionRecord): void {
+    if (this.executions.get(key) !== record) return;
+    this.clearKillEscalation(record);
+    this.clearRetentionExpiry(record);
+    record.dataListeners.clear();
+    record.exitListeners.clear();
+    for (const waiter of [...record.shutdownWaiters]) waiter();
+    record.shutdownWaiters.clear();
+    this.releasePty(record);
+    this.executions.delete(key);
+  }
+
+  private clearKillEscalation(record: ExecutionRecord): void {
+    if (!record.killEscalation) return;
+    clearTimeout(record.killEscalation);
+    record.killEscalation = null;
+  }
+
+  private clearRetentionExpiry(record: ExecutionRecord): void {
+    if (!record.retentionExpiry) return;
+    clearTimeout(record.retentionExpiry);
+    record.retentionExpiry = null;
+  }
+
+  private releasePty(record: ExecutionRecord): void {
+    record.dataSubscription?.dispose();
+    record.exitSubscription?.dispose();
+    record.dataSubscription = null;
+    record.exitSubscription = null;
+    record.proc = null;
   }
 
   private toSnapshot(record: ExecutionRecord): DetachableExecutionSnapshot {

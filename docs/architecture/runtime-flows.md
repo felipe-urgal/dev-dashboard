@@ -31,16 +31,23 @@ buildApp()
   ↓
 Fastify + WebSocket + segurança local
   ↓
-AppContext
-  ├── workspaces / ProjectStore
-  ├── Process Manager
-  ├── serviços Git/testes/banco
-  └── domínio de deployment + adapters
+createAppContext()
+  ├── foundation
+  ├── project
+  ├── execution
+  ├── database
+  └── self-update
+  ↓
+createAppComposition()
+  ├── recursos por instância Fastify
+  └── lifecycle coordenado
   ↓
 plugins de rota
   ↓
 listen 127.0.0.1:4343
 ```
+
+A interface `AppContext` consumida pelas rotas permanece estável; a separação por domínio existe no composition root para tornar dependências e ownership de recursos explícitos. `app.ts` continua registrando segurança e rotas na ordem existente.
 
 Serviços que mantêm recursos ativos precisam ser fechados no `onClose`.
 
@@ -186,16 +193,25 @@ Tokens não são genéricos nem reutilizáveis.
 ```text
 redetectar comando reconhecido
         ↓
-start em processo/PTy controlado
+start em processo/PTY controlado
         ↓
-estado + buffer/log limitado
+estado + buffer limitado
         ↓
 SSE/WS conforme superfície
         ↓
-conclusão persistida
+conclusão
+        ↓
+retenção transitória em memória
+  TTL 30 min + máx. 32 finalizadas
+        ↓
+expiração ou LRU
 ```
 
-Testes completos, Migration Rails e Dependências/Build podem sobreviver à desconexão do navegador sem ganhar stdin arbitrário.
+Testes completos, Migration Rails e Dependências/Build podem sobreviver à desconexão do navegador sem ganhar stdin arbitrário. O serviço compartilhado mantém o buffer já mascarado com teto de 256 KiB por execução.
+
+A política de retenção vale **somente** para execuções terminadas. O TTL é contado desde o término e acesso recente influencia somente qual registro finalizado sai primeiro quando o teto de 32 é excedido. Uma execução `running` nunca é removida por TTL/LRU e `detach()` continua significando apenas desconectar o observador.
+
+Ao terminar normalmente, o serviço libera as subscriptions internas do `node-pty` e mantém apenas o snapshot transitório necessário para reanexação tardia. Não existe persistência desse histórico em disco nem variável de ambiente para ampliar a retenção.
 
 ## Banco de dados
 
@@ -458,3 +474,5 @@ O domínio não assume que uma mutação interrompida “não aconteceu”.
 ## Shutdown coordenado
 
 Toda camada que inicia recurso duradouro precisa possuir fechamento explícito: servidores, SSE/WS, watchers, processos filhos, timers, PTYs, language servers e adapters com polling.
+
+No `onClose` do Fastify, o composition root fecha os serviços de execução/histórico, depois o serviço compartilhado de PTYs destacáveis, sessões de banco, language servers, terminais interativos e deployment. Para PTYs destacáveis ainda ativos, `close()` remove observadores, envia `SIGTERM`, aguarda a mesma janela de 1 segundo usada no cancelamento e escala para `SIGKILL` se necessário. A operação é idempotente e limpa também timers/subscriptions e snapshots retidos.
