@@ -15,7 +15,7 @@ Um projeto opta pelo contrato criando:
 O formato atual usa `version: 1` e um objeto `production` com:
 
 - `enabled`: informa se a produção está operacionalmente habilitada;
-- `strategy`: `command`, `git-managed` ou `disabled`;
+- `strategy`: `command`, `git-managed`, `self-update` ou `disabled`;
 - `provider`: `systemd`, `docker-compose`, `vercel` ou `none`;
 - `branch`: branch canônica de produção;
 - `commands`: referências para scripts npm canônicos `prod:*`;
@@ -95,6 +95,24 @@ Antes da mutação remota, o backend confirma que a revision planejada ainda é 
 
 A criação de deployment Vercel é suportada para origem GitHub reconhecida. A leitura de status continua normalizando metadados de GitHub, GitLab e Bitbucket quando o provider os retorna, mas isso não amplia automaticamente o executor mutável para essas origens.
 
+### `self-update`
+
+Usada pelo próprio Dev Dashboard para atualizar a checkout/runtime local sem depender do processo Fastify antigo como único owner da operação.
+
+Requisitos do contrato atual:
+
+- `enabled=true`;
+- `provider=none`;
+- `branch=main`;
+- `prod:status`;
+- `prod:check`;
+- ausência de `prod:deploy`, `prod:migrate`, `prod:backup`, `prod:rollback` e `prod:verify` locais;
+- políticas de backup/migrations/rollback em `not-configured`.
+
+O planner produz somente `check → self-update`. A revision alvo vem de `origin/main`, o handoff é criado pelo domínio de deployment e a execução operacional pertence ao agent/worker instalado fora da checkout. O browser não escolhe SHA, programa, argumentos, checkout, unit ou comando.
+
+A estratégia foi habilitada no #527 após a cadeia de handoff/agent/restart/readiness do #523 e a decisão final de privilégio user-space. Detalhes: [self-production.md](self-production.md).
+
 ### `disabled`
 
 Representa um projeto que declara produção, mas ainda não pode ser operado.
@@ -106,8 +124,6 @@ Requisitos mínimos:
 - operações de status/check quando declaradas pelo contrato do projeto.
 
 `reasonCode` e `blockedBy` explicam o gate. O planner não cria deployment para produção desabilitada.
-
-O próprio Dev Dashboard usa essa estratégia enquanto #487 não conclui a revisão/habilitação final. A cadeia operacional de handoff/agent/worker já existir não muda essa regra: tooling interno não transforma um contrato `disabled` em deployment autorizado.
 
 ## Descoberta fail-closed
 
@@ -141,6 +157,8 @@ Um contrato válido **não autoriza sozinho** uma mutação de produção.
 
 Para `command` e `git-managed`, o backend resolve branch, revision e working tree antes do plano. O working tree precisa estar limpo, inclusive arquivos não rastreados. O `planHash` cobre projeto, provider, branch, revision e etapas; quando `prod:prepare` está declarado, seu vínculo com o `check` também faz parte do plano confirmado.
 
+Para `self-update`, o backend também resolve a revision remota e mantém a confirmação vinculada a `projectId + revision + planHash`; a diferença é que a etapa operacional é transferida para o agent/worker depois das mesmas revalidações do domínio.
+
 ```text
 Production Contract válido
       ↓
@@ -159,6 +177,8 @@ A confirmação fica vinculada a `projectId + revision + planHash`, possui TTL c
 
 No `git-managed`, existe uma defesa adicional imediatamente antes de `provider-deploy`: a revision de `origin/<branch>` é consultada diretamente e precisa continuar igual ao SHA confirmado.
 
+No `self-update`, `origin/main` é novamente revalidada antes do handoff, e o worker exige working tree limpa, branch `main`, fast-forward e a mesma `targetRevision` confirmada.
+
 ## Políticas e irreversibilidade
 
 As políticas determinam a timeline. O hook opcional `prepare` é executado dentro da fase de preparação, imediatamente antes de `check`; ele não cria uma operação mutável independente na timeline. Exemplos:
@@ -172,9 +192,12 @@ prepare? → check → backup → migrate → deploy → verify
 
 git-managed/Vercel + migration separada:
 prepare? → check → migrate → provider-deploy → verify
+
+self-update:
+check → self-update
 ```
 
-Uma migration ou promoção externa já iniciada pode produzir efeito parcial. Falhas posteriores podem resultar em `recovery_required`; o dashboard não executa rollback cego.
+Uma migration, promoção externa ou aplicação de self-update já iniciada pode produzir efeito parcial. Falhas posteriores podem resultar em `recovery_required`; o dashboard não executa rollback cego.
 
 Quando a promoção já concluiu e somente o `verify` falhou, o domínio pode repetir **somente `prod:verify`** se a timeline, revision, contrato e ordem histórica provarem que o retry é seguro. Prepare, check, backup, migrate e provider-deploy não são repetidos nesse fluxo.
 
@@ -191,6 +214,8 @@ VERCEL_TEAM_ID   # opcional
 
 Tokens não são persistidos no domínio, não são retornados ao browser e não entram em logs sanitizados.
 
+O self-update usa token próprio do agent em configuração privada local; esse token também não pertence ao Production Contract nem ao browser.
+
 ## Segurança
 
 O navegador envia IDs, `planHash`, token de confirmação e ações tipadas. Ele não escolhe programa, argumentos, `cwd`, corpo de script, linha de shell, token Vercel ou SHA arbitrário para promoção.
@@ -199,7 +224,7 @@ O adapter local usa scripts canônicos e `shell: false`. `prod:prepare` segue a 
 
 `documentation` aceita somente caminho relativo seguro. Health aceita apenas HTTP/HTTPS sem credenciais. O contrato não possui campos para tokens, connection strings ou valores secretos.
 
-Self-update possui uma fronteira adicional descrita em [self-production.md](self-production.md): o socket do agent permanece com catálogo remoto fechado, o worker só assume handoff previamente vinculado e a API só encerra depois de ownership comprovado. Enquanto `strategy=disabled`, essa infraestrutura não é autorização do Production Contract.
+Self-update possui uma fronteira adicional descrita em [self-production.md](self-production.md): o socket do agent permanece com catálogo remoto fechado, o worker só assume handoff previamente vinculado e a API só encerra depois de ownership comprovado. O contrato `self-update` não cria executor remoto genérico nem bypass do planner/confirmação/revalidação.
 
 Detalhes: [Segurança e modelo de ameaça](security.md).
 
@@ -208,13 +233,13 @@ Detalhes: [Segurança e modelo de ameaça](security.md).
 A capability `production` só aparece quando o contrato é válido. Produção habilitada pode usar:
 
 - planejamento e confirmação;
-- início e cancelamento de deployment;
+- início e cancelamento de deployment quando a estratégia permitir;
 - histórico, detalhe e log;
 - status do provider;
 - retry seguro de verify quando elegível;
 - autorização temporária de sudo apenas no fluxo local `command` quando necessária.
 
-A superfície de Produção usa o mesmo domínio para `command` e `git-managed`; a diferença está em quem executa a etapa de promoção.
+A superfície de Produção usa o mesmo domínio para `command`, `git-managed` e `self-update`; a diferença está em quem executa a etapa de promoção/update e quais ações são permitidas depois que a etapa irreversível assume ownership.
 
 A visão global do workspace também usa esse mesmo domínio. **Atualizar pendentes** calcula os planos elegíveis antes da primeira confirmação e executa projetos sequencialmente, sem criar um motor paralelo de deployment. Projetos `strategy=disabled` ficam fora do lote mutável.
 
@@ -222,7 +247,7 @@ A referência exata dos endpoints é gerada em [api-reference.md](api-reference.
 
 ## Self-production do Dev Dashboard
 
-A cadeia de self-update agora inclui:
+A cadeia de self-update inclui:
 
 - handoff persistente e recovery conservador (#520);
 - agent instalado fora da checkout, lifecycle independente e Unix socket autenticado (#521);
@@ -233,9 +258,16 @@ A cadeia de self-update agora inclui:
 - readiness bounded com prova da revision no header de `/api/health`;
 - resultado terminal persistido e teste real de restart/recovery (#523).
 
-Isso ainda **não** habilita o Production Contract do próprio Dashboard.
+O #527 concluiu a revisão formal de privilégio/segurança e habilitou conscientemente o Production Contract do próprio Dashboard:
 
-Depois do PR C, o gate permanece fechado para revisão formal do modelo de privilégio/segurança. O PR D da #487 deverá habilitar conscientemente o contrato e integrar o fluxo ao planner/UI sem bypass.
+```text
+production.enabled=true
+strategy=self-update
+provider=none
+branch=main
+```
+
+A operação permanece user-space, sem `sudo`/`systemctl`, e usa o planner, confirmação, revalidação, timeline e recovery do domínio existente.
 
 ## Escopo atual
 
@@ -245,6 +277,7 @@ Incluído:
 - hook opcional e genérico `prod:prepare` executado antes de `prod:check`, com implementação pertencente ao projeto consumidor;
 - `strategy=command` para systemd/Docker Compose via scripts `prod:*`;
 - `strategy=git-managed` para deploy Vercel explícito;
+- `strategy=self-update` para o próprio Dev Dashboard com handoff/agent/worker;
 - status/drift Vercel;
 - planejamento, confirmação, timeline, histórico, logs, cancelamento e recovery;
 - revalidação de revision local e de `origin/<branch>`;
@@ -252,15 +285,14 @@ Incluído:
 - retry seguro de somente verify;
 - UI de Produção por projeto;
 - visão global do workspace e `Atualizar pendentes` sequencial;
-- contrato `strategy=disabled` para projetos bloqueados, incluindo o próprio Dev Dashboard;
-- infraestrutura operacional completa de handoff/agent/restart/readiness do self-update, ainda sem habilitação de produção.
+- contrato `strategy=disabled` para projetos bloqueados;
+- infraestrutura operacional de handoff/agent/restart/readiness do self-update com habilitação explícita.
 
-Fora de escopo/pendente:
+Fora de escopo:
 
 - rollback Vercel automático;
-- habilitação do self-update do Dev Dashboard antes de fechar #487;
-- interpretar tooling interno como bypass de `strategy=disabled`;
+- interpretar tooling interno como bypass do Production Contract;
 - qualquer executor remoto genérico para o self-update agent;
-- qualquer elevação privilegiada automática sem revisão específica.
+- elevação privilegiada automática ou serviço root/systemd para self-update sem uma nova decisão arquitetural explícita.
 
-Self-production permanece documentada em [self-production.md](self-production.md); evolução multi-projeto e self-update permanecem rastreadas nas issues da frente de produção (#482/#487).
+Self-production permanece documentada em [self-production.md](self-production.md); evolução multi-projeto e mudanças futuras de self-update permanecem rastreadas nas issues da frente de produção (#482).
