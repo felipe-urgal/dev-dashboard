@@ -82,7 +82,7 @@ export interface AppContext {
   detachableExecutionService?: DetachableExecutionService;
 }
 
-export interface CreateAppContextOptions extends AppContextDomainOptions {}
+export type CreateAppContextOptions = AppContextDomainOptions;
 
 export function createAppContext(
   options: CreateAppContextOptions = {},
