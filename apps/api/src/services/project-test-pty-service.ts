@@ -1,11 +1,11 @@
 import type { Project } from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
-import { isolateProjectExecutionEnvironment } from '../security/project-execution-environment.js';
 import {
   loadProjectLocalEnvironment,
   ProjectLocalEnvironmentError,
 } from '../security/project-local-environment.js';
+import { buildProjectTestEnvironment } from '../security/project-test-environment.js';
 import {
   DetachableExecutionError,
   DetachableExecutionService,
@@ -46,19 +46,8 @@ async function testEnvironment(project: Project): Promise<NodeJS.ProcessEnv> {
       project.path,
       'check',
     );
-    const checkDatabaseUrl = environment.CHECK_DATABASE_URL?.trim();
 
-    return isolateProjectExecutionEnvironment(project, {
-      ...environment,
-      // A aba Testes nunca deve herdar uma DATABASE_URL do processo da API.
-      // Projetos que precisam de banco usam explicitamente CHECK_DATABASE_URL;
-      // projetos sem banco recebem uma variável vazia em vez de um fallback.
-      DATABASE_URL: checkDatabaseUrl ?? '',
-      // Credenciais do provider pertencem ao Dev Dashboard e não ao processo
-      // de testes do projeto alvo.
-      VERCEL_TOKEN: '',
-      VERCEL_TEAM_ID: '',
-    });
+    return buildProjectTestEnvironment(project, environment);
   } catch (error) {
     if (!(error instanceof ProjectLocalEnvironmentError)) throw error;
     throw new ProjectTestPtyError(
