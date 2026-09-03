@@ -48,7 +48,7 @@ Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente 
 | `npm run test:cli` | suíte Bash |
 | `npm run test:e2e` | smoke E2E da web |
 
-Enquanto o próprio contrato permanecer `strategy=disabled`, os scripts `self-update:*` são tooling de engenharia e não um bypass suportado para produção.
+Os scripts `self-update:*` continuam sendo tooling de engenharia do handoff/agent. O fluxo suportado de self-production usa o Production Contract `strategy=self-update`, o planner e a confirmação do domínio de deployment; executar tooling interno manualmente não substitui essa fronteira.
 
 ## Como adicionar ou alterar uma funcionalidade
 
@@ -109,7 +109,7 @@ Para self-update:
 - worker que precisa sobreviver ao Fastify deve executar de uma cópia instalada/verificada, não da checkout mutável;
 - retorno da porta não basta: readiness precisa provar a revision aplicada;
 - falha após início de mutação deve preservar estado/recovery em vez de inventar rollback seguro;
-- `strategy=disabled` continua valendo até a cadeia inteira ser comprovada e explicitamente habilitada.
+- o fluxo suportado precisa passar pelo Production Contract `strategy=self-update`, planner, confirmação e revalidação; tooling interno não é bypass dessa autorização.
 
 ### 4. Rotas e schemas
 
@@ -129,6 +129,17 @@ A referência gerada não é editada manualmente.
 A interface precisa tratar loading real, vazio, erro, sucesso, ação em andamento, clique duplicado, confirmação, resposta stale, teclado/foco, responsividade e reduced motion.
 
 Não use texto localizado da API como identificador de lógica.
+
+#### Política HTTP do cliente web
+
+`requestJson()` diferencia leituras idempotentes de mutações para evitar estado ambíguo:
+
+- `GET` usa timeout interno de 10 segundos, retry bounded apenas para falhas transitórias e deduplicação quando não existe `AbortSignal` próprio;
+- `POST`, `PUT`, `PATCH` e `DELETE` não recebem timeout nem retry implícitos do cliente;
+- mutações podem receber um `AbortSignal` explícito quando a operação realmente suporta cancelamento ponta a ponta; o signal do chamador deve ser preservado;
+- abortar somente o `fetch` não prova que o servidor cancelou uma mutação já iniciada, portanto não use timeout genérico como substituto de lifecycle observável;
+- operações longas devem preferir os mecanismos do próprio domínio, como PTY/SSE, deployment com estado/timeline ou outro identificador observável, em vez de fingir semântica de request curto;
+- quando uma operação não é cancelável, descarte respostas obsoletas por `generation/latest-wins` em vez de abortar e assumir que o efeito remoto desapareceu.
 
 ### 6. Testes
 
@@ -170,7 +181,7 @@ Invariantes que não devem ser quebrados:
 9. etapas irreversíveis usam recovery conservador;
 10. retry de verify nunca repete mutação anterior;
 11. credenciais Vercel não entram em contratos, responses ou persistência;
-12. self-production não pode ignorar `strategy=disabled` por existir tooling interno;
+12. self-production usa `strategy=self-update` dentro do mesmo planner/confirmação/revalidação do domínio, sem rota paralela nem tooling interno como bypass;
 13. sucesso de self-update exige readiness e prova da revision, não apenas processo/porta disponível.
 
 ### Testes mínimos para Vercel

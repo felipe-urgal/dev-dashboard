@@ -281,14 +281,14 @@ async function requestJsonAttempt<T>(
   mayRenew: boolean,
   metric?: ApiRequestMetric,
 ): Promise<T> {
-  let response = await fetchWithTimeout(input, {
+  let response = await fetchWithRequestPolicy(input, {
     ...init,
     credentials: 'same-origin',
   });
   if (metric) metric.lastStatus = response.status;
   if (response.status === 401 && mayRenew) {
     await bootstrapBrowserSession();
-    response = await fetchWithTimeout(input, {
+    response = await fetchWithRequestPolicy(input, {
       ...init,
       credentials: 'same-origin',
     });
@@ -324,10 +324,18 @@ function apiStatusMessage(status: number): string {
   return `A API respondeu com HTTP ${status}`;
 }
 
-async function fetchWithTimeout(
+async function fetchWithRequestPolicy(
   input: RequestInfo | URL,
   init: RequestInit,
 ): Promise<Response> {
+  if (!isGetRequest(init)) {
+    try {
+      return await fetch(input, init);
+    } catch (error) {
+      throw networkError(error);
+    }
+  }
+
   const controller = new AbortController();
   const externalSignal = init.signal;
   const abortFromCaller = () => controller.abort();
