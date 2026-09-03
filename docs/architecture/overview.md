@@ -146,11 +146,27 @@ O package não deve importar infraestrutura, Fastify ou Vue.
 
 `packages/project-discovery` detecta projetos Rails/Node e capabilities. O scan pode ser direto ou recursivo opt-in com limites de profundidade, quantidade e tempo.
 
+A implementação mantém `discovery.ts` como fachada compatível e divide as responsabilidades internas em:
+
+```text
+discovery.ts
+  ├── project-detection.ts    # tipo, ID e montagem do Project
+  ├── project-capabilities.ts # capabilities Rails/Node/Git/webpack
+  ├── project-files.ts        # leituras tolerantes de Gemfile/package.json
+  └── workspace-walker.ts     # recursão, limites, symlinks e warnings
+```
+
+Essa separação não muda `detectProject`/`scanWorkspace`, IDs, ordenação de capabilities nem a política do scan; ela apenas torna cada regra testável e evoluível sem concentrar detecção e travessia no mesmo módulo.
+
 Quando `.dev-dashboard/production.json` existe, o discovery valida o `Production Contract v1` contra shape/estratégia/scripts reais. Contrato inválido gera `productionWarning` e não cria capability `production`.
 
 ## Process Manager
 
 `packages/process-manager` cuida de processos de desenvolvimento: comando reconhecido, `cwd`, porta, identidade, lifecycle e logs limitados.
+
+Os starts de `server`, `test`, `worker` e `webpack` compartilham `managed-process-start.ts` para o pipeline invariável: sweep best-effort, bloqueio de processo já ativo, diretórios privados, `spawn` detached com `shell:false`, log derivado do projeto/kind, persistência antes do retorno, rollback por `SIGKILL` se a persistência falhar, observação de exit e `unref`. `process-lifecycle.ts` mantém somente as diferenças por kind (porta/comando/env/status) e o fluxo de stop.
+
+O encerramento continua fail-closed: estado persistido → prova de identidade PID/cwd → `SIGTERM` no grupo → espera limitada → `SIGKILL` se necessário. A deduplicação do start não altera essa fronteira.
 
 **Deployment não é um tipo de processo gerenciado.** Ele possui domínio próprio porque precisa de revision, plano, confirmação, irreversibilidade, provider externo e recovery.
 
