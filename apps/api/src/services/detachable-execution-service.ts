@@ -64,6 +64,7 @@ interface ExecutionRecord {
   dataSubscription: Disposable | null;
   exitSubscription: Disposable | null;
   killEscalation: ReturnType<typeof setTimeout> | null;
+  retentionExpiry: ReturnType<typeof setTimeout> | null;
   shutdownWaiters: Set<() => void>;
 }
 
@@ -218,6 +219,7 @@ export class DetachableExecutionService {
       dataSubscription: null,
       exitSubscription: null,
       killEscalation: null,
+      retentionExpiry: null,
       shutdownWaiters: new Set(),
     };
     this.executions.set(key, record);
@@ -229,7 +231,7 @@ export class DetachableExecutionService {
     });
 
     record.exitSubscription = proc.onExit(({ exitCode, signal }) => {
-      this.markExited(record, exitCode ?? null, signal ?? null);
+      this.markExited(key, record, exitCode ?? null, signal ?? null);
     });
 
     return this.toSnapshot(record);
@@ -347,6 +349,7 @@ export class DetachableExecutionService {
   }
 
   private markExited(
+    key: string,
     record: ExecutionRecord,
     exitCode: number | null,
     exitSignal: number | null,
@@ -371,7 +374,24 @@ export class DetachableExecutionService {
     record.shutdownWaiters.clear();
 
     this.releasePty(record);
+    this.scheduleExitedExpiry(key, record);
     this.pruneExited();
+  }
+
+  private scheduleExitedExpiry(key: string, record: ExecutionRecord): void {
+    this.clearRetentionExpiry(record);
+    if (this.exitedTtlMs <= 0) return;
+
+    record.retentionExpiry = setTimeout(() => {
+      record.retentionExpiry = null;
+      if (
+        this.executions.get(key) === record &&
+        record.status === 'exited'
+      ) {
+        this.deleteRecord(key, record);
+      }
+    }, this.exitedTtlMs);
+    record.retentionExpiry.unref();
   }
 
   private appendToBuffer(record: ExecutionRecord, chunk: string): void {
@@ -431,6 +451,7 @@ export class DetachableExecutionService {
   private deleteRecord(key: string, record: ExecutionRecord): void {
     if (this.executions.get(key) !== record) return;
     this.clearKillEscalation(record);
+    this.clearRetentionExpiry(record);
     record.dataListeners.clear();
     record.exitListeners.clear();
     for (const waiter of [...record.shutdownWaiters]) waiter();
@@ -443,6 +464,12 @@ export class DetachableExecutionService {
     if (!record.killEscalation) return;
     clearTimeout(record.killEscalation);
     record.killEscalation = null;
+  }
+
+  private clearRetentionExpiry(record: ExecutionRecord): void {
+    if (!record.retentionExpiry) return;
+    clearTimeout(record.retentionExpiry);
+    record.retentionExpiry = null;
   }
 
   private releasePty(record: ExecutionRecord): void {
