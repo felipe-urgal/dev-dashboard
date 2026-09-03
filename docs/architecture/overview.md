@@ -130,7 +130,7 @@ createAppComposition()
 
 A API escuta em `127.0.0.1`.
 
-O PR #523 adiciona `SelfUpdateHandoffService` como serviço interno do backend. Ele prepara e transfere o handoff, exige prova de ownership do worker instalado e somente então agenda o `SIGTERM` controlado da própria API. Isso ainda não cria rota pública de self-update nem ignora `strategy=disabled`.
+`SelfUpdateHandoffService` é um serviço interno do backend. A cadeia operacional foi fechada no #523: ela prepara e transfere o handoff, exige prova de ownership do worker instalado e somente então agenda o `SIGTERM` controlado da própria API. O #527 integrou essa cadeia ao domínio normal de deployment e habilitou `strategy=self-update` sem criar rota paralela de autorização.
 
 ## Contratos compartilhados
 
@@ -283,7 +283,7 @@ Veja [security.md](security.md).
 
 ## Self-production
 
-O próprio Dev Dashboard continua com contrato fail-closed `strategy=disabled`, mas a cadeia operacional do PR C já está implementada.
+O próprio Dev Dashboard usa um Production Contract habilitado e fechado com `strategy=self-update`, `provider=none` e branch `main`.
 
 Os PRs #520/#521 entregaram:
 
@@ -294,7 +294,7 @@ Os PRs #520/#521 entregaram:
 - Unix socket autenticado;
 - catálogo remoto fechado `ping`, `inspect`, `claim`, `recover`.
 
-O PR #523 adiciona:
+O PR #523 fechou a cadeia operacional:
 
 - integração interna API → helper/agent;
 - prova de ownership do worker antes do shutdown da API;
@@ -308,7 +308,7 @@ O PR #523 adiciona:
 - transições `applying/restarting/verifying` e resultado/recovery persistido;
 - teste real em repositório/processos temporários cobrindo sucesso e runtime que volta com revision errada.
 
-O gate continua fechado, agora somente para revisão final do modelo de privilégio/segurança e habilitação explícita no PR D. O fluxo atual não usa `sudo` nem `systemctl`.
+O PR #527 concluiu a decisão arquitetural de privilégio user-space, integrou `self-update` ao planner/confirmação/revalidação normais e habilitou explicitamente `.dev-dashboard/production.json`. O fluxo atual não usa `sudo` nem `systemctl`.
 
 Veja [self-production.md](self-production.md).
 
