@@ -39,7 +39,8 @@ export function createAppComposition(
     options.now ?? Date.now,
   );
   const projectLanguageServerService =
-    options.projectLanguageServerService ?? context.projectLanguageServerService;
+    options.projectLanguageServerService ??
+    context.projectLanguageServerService;
   const projectTerminalService =
     options.projectTerminalService ?? context.projectTerminalService;
   const deploymentService =
