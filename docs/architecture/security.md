@@ -27,7 +27,23 @@ O self-update agent não abre TCP; ele usa Unix socket privado.
 
 ## Origem e autenticação
 
-A API mantém allowlist explícita de origens locais. A distribuição local usa uma capacidade efêmera de bootstrap para emitir sessão curta em cookie `HttpOnly`/`SameSite=Strict`. Clientes locais não navegador usam `X-Dev-Dashboard-Token`.
+A API mantém allowlist explícita de origens locais. A distribuição web não recebe o token HTTP persistente no bundle: o launcher entrega ao navegador uma capacidade de bootstrap pelo fragmento `#bootstrap=...`, que não faz parte da requisição HTTP inicial.
+
+O cliente web:
+
+1. lê a capacidade do fragmento;
+2. guarda a capacidade em `sessionStorage` apenas para a aba/sessão atual;
+3. remove o fragmento da URL visível com `history.replaceState`;
+4. chama `POST /api/auth/browser-session` com `Content-Type: application/json`, `credentials: same-origin` e `X-Dev-Dashboard-Browser-Bootstrap`;
+5. passa a usar o cookie curto de sessão nas chamadas privadas.
+
+O bootstrap só é aceito a partir da origem local exata configurada. A rota também aceita `X-Dev-Dashboard-Token` para clientes locais que precisam criar uma sessão sem usar a capacidade do navegador.
+
+A sessão é assinada no backend e emitida como cookie `dev_dashboard_session` com `Path=/api`, `HttpOnly` e `SameSite=Strict`. O TTL padrão é de 15 minutos. O JavaScript do frontend não lê nem escreve esse cookie.
+
+Quando uma chamada privada recebe `401`, o cliente web tenta renovar a sessão pelo mesmo fluxo de bootstrap e repete a chamada uma vez. A capacidade de bootstrap continua fora do bundle e do cookie; ela deve ser tratada como segredo efêmero da sessão do navegador.
+
+Clientes locais não navegador podem autenticar diretamente com `X-Dev-Dashboard-Token`. Para requisições autenticadas por cookie, métodos mutáveis (`POST`, `PUT`, `PATCH`, `DELETE`) exigem a origem local exata; uma origem apenas presente na allowlist não é suficiente para mutação com sessão de browser.
 
 Tokens persistentes e capacidades efêmeras:
 
@@ -72,6 +88,27 @@ Operações de filesystem devem preferir `projectId`/IDs internos e paths relati
 Uma comparação textual simples com `startsWith()` não é garantia suficiente.
 
 O browser não escolhe path absoluto de destino fora do contrato da rota.
+
+## Reveal de segredo de banco
+
+A listagem normal de ambientes de banco não deve transformar uma credencial completa em dado de navegação. Quando a pessoa usuária solicita explicitamente o valor sensível, existe a rota dedicada:
+
+```text
+POST /api/projects/:projectId/database/:environmentId/reveal
+```
+
+A resposta contém deliberadamente `secret.environmentId` e a `secret.databaseUrl` completa. Portanto esse endpoint é uma fronteira de exposição de segredo, não uma rota de metadata.
+
+Regras da fronteira atual:
+
+- a rota é privada e passa pela autenticação local normal;
+- em browser autenticado por cookie, por ser `POST`, a origem local exata continua obrigatória;
+- `projectId` e `environmentId` são validados pelo schema e o projeto precisa existir no `ProjectStore`;
+- a URL completa só é retornada na resposta do reveal explícito; ela não deve ser promovida para listagens, logs ou estado persistente do Dashboard;
+- consumidores devem tratar o valor retornado como segredo e mantê-lo apenas pelo tempo necessário para a ação de reveal/cópia;
+- ausência do ambiente retorna erro tipado em vez de inventar valor ou fazer fallback para outra configuração.
+
+Essa exceção é intencional: o produto permite revelar uma credencial local conhecida sob ação explícita, mas a política padrão continua sendo mascarar/omitir segredos das superfícies comuns.
 
 ## Confirmações
 
@@ -176,15 +213,16 @@ Se o ticket não for delegável para a árvore real do deployment, o dashboard f
 
 Self-update é uma fronteira separada porque a API antiga precisa poder encerrar sem perder ownership.
 
-O Production Contract continua fail-closed mesmo com a cadeia operacional implementada:
+O Production Contract atual do próprio Dev Dashboard está habilitado de forma explícita e fechada:
 
 ```text
-production.enabled=false
-strategy=disabled
+production.enabled=true
+strategy=self-update
 provider=none
+branch=main
 ```
 
-O PR D é responsável pela revisão/habilitação final; o PR C não cria rota pública nem bypass do planner.
+A habilitação foi entregue no #527 depois da cadeia operacional do #523 e da revisão final de privilégio/segurança. O fluxo usa o mesmo planner, confirmação e revalidação do domínio de deployment; não existe rota paralela para autorizar self-update.
 
 ### Handoff persistente
 
@@ -211,7 +249,7 @@ claim
 recover
 ```
 
-Nenhuma request aceita programa, args, shell, unit, checkout, instalação, URL ou credencial. O #523 **não adiciona `execute` remoto** ao socket.
+Nenhuma request aceita programa, args, shell, unit, checkout, instalação, URL ou credencial. `execute` não é uma ação remota do socket; ele é tooling local restrito a um handoff previamente persistido e aceito.
 
 ### Integração API → agent e shutdown
 
@@ -268,9 +306,9 @@ No startup, o agent também marca handoffs anteriormente assumidos e sem resulta
 
 ### Privilégio
 
-O PR C usa somente privilégios do usuário atual. Fastify não recebe sudo amplo e a senha de deployment não é reutilizada.
+A decisão final do self-update v1 usa somente privilégios do usuário atual. Fastify não recebe sudo amplo, a senha de deployment não é reutilizada e o restart não depende de root/systemd.
 
-A revisão final ainda precisa confirmar se esse modelo user-space é suficiente para a habilitação. Se o PR D exigir root/systemd, isso será uma nova fronteira que deverá usar uma ação mínima instalada fora da checkout e sem unit/path/comando livre.
+Esse modelo user-space é parte do contrato habilitado atual. Se no futuro surgir necessidade real de serviço de sistema, isso será uma nova fronteira de segurança e exigirá outra decisão explícita, com ação mínima instalada fora da checkout e sem unit/path/comando livre.
 
 ## Git
 
@@ -335,4 +373,4 @@ Tokens locais e arquivos sensíveis usam permissões privadas. Estado persistido
 
 Uma capacidade de produção/self-update só é considerada segura quando comportamento, documentação e testes concordam.
 
-O PR #523 fecha a cadeia operacional e o teste real de restart/recovery. O contrato continua fechado até a revisão específica de privilégio/segurança e a habilitação explícita do PR D.
+A cadeia operacional foi fechada no #523; o #527 confirmou o modelo user-space, integrou `strategy=self-update` ao domínio normal de deployment e habilitou explicitamente o contrato. Mudanças futuras nessa fronteira exigem nova revisão de segurança e documentação no mesmo PR.
