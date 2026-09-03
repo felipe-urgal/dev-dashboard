@@ -31,7 +31,6 @@ export interface ManagedProcessStartSpec {
   command: string;
   args: string[];
   env: NodeJS.ProcessEnv;
-  alreadyRunningMessage: string;
   missingPidMessage: string;
   metadata?: Pick<StoredProcess, 'port' | 'url' | 'urls'>;
 }
@@ -48,19 +47,23 @@ async function sweepStateBestEffort(stateDirectory: string): Promise<void> {
   }
 }
 
-async function ensureProcessCanStart(
-  statusReader: ProcessStatusReader,
-  spec: ManagedProcessStartSpec,
+export async function prepareManagedProcessStart(
+  dependencies: ManagedProcessStartDependencies,
+  project: Project,
+  kind: ManagedKind,
+  alreadyRunningMessage: string,
 ): Promise<void> {
-  const currentProcess = await statusReader.getManagedProcess(
-    spec.project.id,
-    spec.kind,
+  await sweepStateBestEffort(dependencies.stateDirectory);
+
+  const currentProcess = await dependencies.statusReader.getManagedProcess(
+    project.id,
+    kind,
   );
 
   if (isActiveStatus(currentProcess?.status)) {
     throw new ProcessManagerError(
       'PROCESS_ALREADY_RUNNING',
-      spec.alreadyRunningMessage,
+      alreadyRunningMessage,
     );
   }
 }
@@ -129,10 +132,7 @@ export async function startManagedProcess(
   dependencies: ManagedProcessStartDependencies,
   spec: ManagedProcessStartSpec,
 ): Promise<ManagedProcess> {
-  await sweepStateBestEffort(dependencies.stateDirectory);
-  await ensureProcessCanStart(dependencies.statusReader, spec);
   await ensureStateDirectories(dependencies.context);
-
   const { child, logPath } = await spawnManagedChild(dependencies.context, spec);
 
   if (!child.pid) {
