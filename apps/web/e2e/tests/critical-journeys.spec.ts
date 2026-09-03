@@ -116,14 +116,33 @@ test.describe('Jornadas críticas', () => {
       throw new Error('Link do projeto de fixture não foi encontrado.');
     }
 
-    const projectPath = new URL(projectHref, 'http://localhost').pathname;
-    let healthFailuresRemaining = 3;
-    let healthAttempts = 0;
+    const sourceProjectId = decodeURIComponent(
+      new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
+    );
+    const sourceResponse = await page.evaluate(async (projectId) => {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}`,
+      );
+      if (!response.ok) {
+        throw new Error(`Falha ao carregar projeto base: ${response.status}`);
+      }
+      return (await response.json()) as {
+        project: Record<string, unknown>;
+      };
+    }, sourceProjectId);
 
-    await page.route('**/api/health', async (route) => {
-      healthAttempts += 1;
-      if (healthFailuresRemaining > 0) {
-        healthFailuresRemaining -= 1;
+    const retryProjectId = 'e2e-retry-project';
+    const retryProject = {
+      ...sourceResponse.project,
+      id: retryProjectId,
+    };
+    let failuresRemaining = 3;
+    let projectAttempts = 0;
+
+    await page.route(`**/api/projects/${retryProjectId}`, async (route) => {
+      projectAttempts += 1;
+      if (failuresRemaining > 0) {
+        failuresRemaining -= 1;
         await route.fulfill({
           status: 503,
           contentType: 'application/json',
@@ -135,10 +154,14 @@ test.describe('Jornadas críticas', () => {
         return;
       }
 
-      await route.continue();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ project: retryProject }),
+      });
     });
 
-    await gotoBootstrapped(page, projectPath);
+    await gotoBootstrapped(page, `/projects/${retryProjectId}`);
 
     await expect(
       page.getByRole('heading', {
@@ -146,7 +169,7 @@ test.describe('Jornadas críticas', () => {
         name: 'Não foi possível carregar o projeto',
       }),
     ).toBeVisible();
-    expect(healthAttempts).toBe(3);
+    expect(projectAttempts).toBe(3);
 
     const retryButton = page.getByRole('button', { name: 'Tentar novamente' });
     await retryButton.focus();
@@ -159,6 +182,6 @@ test.describe('Jornadas críticas', () => {
     await expect(
       page.getByRole('link', { name: 'Servidor', exact: true }),
     ).toHaveAttribute('aria-current', 'page');
-    expect(healthAttempts).toBe(4);
+    expect(projectAttempts).toBe(4);
   });
 });
