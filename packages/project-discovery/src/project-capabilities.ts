@@ -27,7 +27,7 @@ function hasPackageDependency(
 ): boolean {
   return Boolean(
     manifest?.dependencies?.[dependencyName] ??
-      manifest?.devDependencies?.[dependencyName],
+    manifest?.devDependencies?.[dependencyName],
   );
 }
 

@@ -28,9 +28,9 @@ describe('browser API session', () => {
 
     await bootstrapBrowserSession();
 
-    expect(window.sessionStorage.getItem('dev-dashboard-browser-bootstrap')).toBe(
-      'one-time-token',
-    );
+    expect(
+      window.sessionStorage.getItem('dev-dashboard-browser-bootstrap'),
+    ).toBe('one-time-token');
     expect(window.location.hash).toBe('');
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/browser-session',
