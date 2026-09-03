@@ -31,12 +31,14 @@ O contrato público continua sendo o declarado em `package.json`: Node.js `^20.1
 
 O pipeline usa duas referências deliberadas:
 
-- **Node 20.19.0** é o runtime mínimo validado pelo job `Node mínimo`, que executa `npm ci`, reconstrói `node-pty`, compila packages/apps, roda typecheck e a suíte automatizada representativa;
+- **Node 20.19.0** é o runtime mínimo validado pelo job `Node mínimo`, que executa `npm ci`, reconstrói `node-pty`, compila packages/apps, roda typecheck e uma suíte de compatibilidade sobre os testes de scripts, API, web, core, process-manager e project-discovery;
 - **Node 24** continua sendo o runtime principal do job `Validate` e do smoke E2E.
 
 O job `Validate` depende do resultado do `Node mínimo` e falha explicitamente quando a compatibilidade mínima não passa. Assim, o required check existente continua sendo a fronteira de merge, enquanto o suporte ao menor runtime deixa de ser apenas documental.
 
-O projeto usa `@types/node` mais recente que o runtime mínimo, por isso a execução real no Node 20.19.0 funciona como gate de compatibilidade equivalente: mudanças que compilam com tipos recentes ainda precisam instalar, construir e executar a suíte no runtime mínimo suportado.
+O projeto usa `@types/node` mais recente que o runtime mínimo, por isso a execução real no Node 20.19.0 funciona como gate de compatibilidade equivalente: mudanças que compilam com tipos recentes ainda precisam instalar, construir e executar os testes no runtime mínimo suportado.
+
+Os scripts normais de teste da API e de alguns packages usam flags de threshold de cobertura do runner nativo do Node que não existem no Node 20.19.0. No job de compatibilidade, os **mesmos arquivos de teste** desses workspaces são executados diretamente com `node --test`, sem somente esses flags de cobertura. Os thresholds continuam sendo exigidos no `Validate` em Node 24; o job mínimo existe para validar compatibilidade de runtime, não para duplicar o gate de cobertura.
 
 ## CI e build dos packages
 
