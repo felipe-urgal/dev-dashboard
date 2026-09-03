@@ -85,6 +85,14 @@ quando migration é separada.
 
 com `cwd=Project.path`, `shell: false`, stdin fechado e stdout/stderr mascarados antes da persistência. O dashboard não precisa saber se `prod:deploy` usa systemd, Docker Compose ou outro mecanismo interno reconhecido pelo projeto.
 
+### Diagnóstico conhecido do `prod:check`
+
+O adapter mantém uma classificação fechada para o código estável `P1001` do Prisma quando ele aparece no stderr de `prod:check`. Nesse caso, a execução falha com `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE`, a etapa `check` permanece `failed` e o domínio persiste uma orientação produzida localmente para verificar a disponibilidade da dependência do ambiente de check.
+
+A classificação não copia host, porta, URL, nome do banco ou credenciais do stderr para `errorMessage` nem para a linha adicional gerada pelo Dev Dashboard. O stdout/stderr original continua seguindo o pipeline normal de masking e limite de log.
+
+Esse diagnóstico não altera ownership de infraestrutura: o Dashboard não inicia PostgreSQL, Docker, Compose ou outro serviço do projeto. Readiness, retries e lifecycle da dependência continuam pertencendo ao `prod:check`/projeto alvo. `P1001` fora de `prod:check` e outros textos de conexão permanecem no tratamento genérico, evitando inferência aberta de infraestrutura.
+
 ## Ambiente local de produção por projeto
 
 Para scripts locais que realmente consultam ou alteram o ambiente de produção, o `ProductionCommandAdapter` procura opcionalmente:
