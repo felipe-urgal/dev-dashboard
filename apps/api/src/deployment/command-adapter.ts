@@ -41,6 +41,9 @@ const PROJECT_ENV_LABEL = {
 } as const satisfies Record<ProjectLocalEnvironmentKind, string>;
 const SUDO_INTERACTIVE_PATTERN =
   /sudo:.*(?:terminal is required|no tty present|password is required|askpass|a terminal is required to read the password)/i;
+const PRISMA_DATABASE_UNAVAILABLE_PATTERN = /\bP1001\b/;
+const CHECK_DATABASE_UNAVAILABLE_MESSAGE =
+  'O check não conseguiu acessar o banco configurado para o ambiente de check. Verifique se essa dependência está pronta e tente novamente; o Dev Dashboard não inicia esse serviço automaticamente.';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
@@ -214,6 +217,22 @@ export class ProductionCommandAdapter {
             new DeploymentError(
               'DEPLOYMENT_PRIVILEGE_REQUIRED',
               'O comando de produção requer sudo interativo. O dashboard não fornece senha ou TTY; configure uma regra NOPASSWD limitada ao comando necessário ou remova o sudo do script automatizado.',
+            ),
+          );
+          return;
+        }
+
+        if (
+          !cancelled &&
+          (code ?? 1) !== 0 &&
+          script === 'prod:check' &&
+          PRISMA_DATABASE_UNAVAILABLE_PATTERN.test(stderrForClassification)
+        ) {
+          emit(`\n[Dev Dashboard] ${CHECK_DATABASE_UNAVAILABLE_MESSAGE}\n`);
+          reject(
+            new DeploymentError(
+              'DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE',
+              CHECK_DATABASE_UNAVAILABLE_MESSAGE,
             ),
           );
           return;
