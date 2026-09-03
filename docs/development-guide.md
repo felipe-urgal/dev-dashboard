@@ -50,7 +50,7 @@ Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente 
 
 Os scripts `self-update:*` continuam sendo tooling de engenharia do handoff/agent. O fluxo suportado de self-production usa o Production Contract `strategy=self-update`, o planner e a confirmação do domínio de deployment; executar tooling interno manualmente não substitui essa fronteira.
 
-O `package.json` raiz exige Node `^20.19.0 || >=22.12.0`. O CI valida explicitamente Node 20.19.0 como runtime mínimo, incluindo instalação, rebuild de `node-pty`, build, typecheck e testes, e mantém Node 24 como runtime principal do job `Validate` e do smoke E2E.
+O `package.json` raiz exige Node `^20.19.0 || >=22.12.0`. O CI valida explicitamente Node 20.19.0 como runtime mínimo, incluindo instalação, build, typecheck e testes, e mantém Node 24 como runtime principal do job `Validate` e do smoke E2E. Nos jobs Node, `npm ci --ignore-scripts` torna a preparação reproduzível e evita compilações implícitas duplicadas; em seguida, o pipeline executa uma única reconstrução explícita de `esbuild` e `node-pty`, os dois pacotes com binários necessários no Linux.
 
 ## Como adicionar ou alterar uma funcionalidade
 
