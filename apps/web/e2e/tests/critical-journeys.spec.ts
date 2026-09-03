@@ -96,7 +96,7 @@ test.describe('Jornadas críticas', () => {
     await expect(
       page.getByRole('heading', { level: 2, name: 'Tudo funcionando' }),
     ).toBeVisible();
-    await expect(page.getByText('Em execução', { exact: true })).toBeVisible();
+    await expect(page.locator('.server-running-badge')).toHaveText('Em execução');
     expect(startCalls).toBe(1);
 
     await page.getByRole('button', { name: 'Parar', exact: true }).click();
