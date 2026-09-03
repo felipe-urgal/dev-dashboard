@@ -118,6 +118,8 @@ conforme as políticas do projeto.
 
 A UI não conhece `systemctl` ou `docker compose`; ela mostra apenas as etapas do contrato e o resultado real do domínio.
 
+Quando `origin/<branch>` e a revision da última promoção local são conhecidas, a tela também compara os dois SHAs. Se eles divergem, o banner principal mostra **Produção está em revision diferente** / **Desatualizada**, mesmo que o último deployment registrado tenha terminado com sucesso. O resultado histórico continua visível na timeline e no histórico; estados ativos, falha, cancelamento e `recovery_required` continuam tendo prioridade sobre o drift.
+
 ## `strategy=git-managed` + Vercel
 
 A timeline usa uma etapa própria:
@@ -215,9 +217,9 @@ A tela não apresenta rollback automático como solução genérica. Ela orienta
 
 ## Status externo e drift
 
-Fora de uma execução mutável, a tela consulta o snapshot Vercel para mostrar provider, revision de produção e drift.
+Fora de uma execução mutável, projetos `strategy=command` com revisions conhecidas comparam a ref `origin/<branch>` já disponível no workspace Git com a revision da última promoção local registrada. Projetos `strategy=git-managed` consultam o snapshot Vercel para mostrar provider, revision de produção e drift.
 
-A consulta de status não faz `git fetch`. Por isso ausência de uma ref local pode produzir `drift=unknown`. A validação de segurança antes de um novo `provider-deploy` é mais forte: ela consulta o `origin` diretamente e exige igualdade com a revision confirmada.
+Essas leituras de status não fazem `git fetch`. Por isso ausência de uma ref local pode produzir drift desconhecido. A validação de segurança antes de um novo `provider-deploy` é mais forte: ela consulta o `origin` diretamente e exige igualdade com a revision confirmada.
 
 ## Troca de projeto
 
@@ -241,6 +243,6 @@ Estado do projeto anterior não pode sobrescrever a nova tela.
 
 ## Testes
 
-A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan, geração de todos os planos antes da primeira confirmação, execução sequencial/parada do lote e regressões do fluxo `command`.
+A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan, geração de todos os planos antes da primeira confirmação, execução sequencial/parada do lote e regressões do fluxo `command`, incluindo drift entre `origin/<branch>` e a última revision promovida.
 
 Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md).

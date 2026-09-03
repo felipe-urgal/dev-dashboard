@@ -70,6 +70,10 @@ check → backup → migrate → deploy → verify
 
 O Dev Dashboard não precisa conhecer os comandos internos de systemd ou Docker Compose.
 
+Quando a revision conhecida em `origin/<branch>` é diferente da revision da última promoção local concluída, o topo da aba mostra **Produção está em revision diferente** com o status **Desatualizada**. O último deployment pode continuar aparecendo como concluído na timeline e no histórico, porque esse resultado é histórico; o banner principal representa o estado atual de alinhamento com `origin`.
+
+A comparação usa a ref remota já conhecida pelo workspace Git e não executa `git fetch` só para abrir a tela. Se uma das revisions não estiver disponível, o Dev Dashboard não inventa um estado de drift.
+
 ## Projetos Vercel `strategy=git-managed`
 
 O fluxo não usa `prod:deploy` local. A promoção aparece como `provider-deploy`:

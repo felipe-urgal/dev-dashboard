@@ -221,6 +221,13 @@ const productionRevision = computed(
     providerStatus.value?.productionRevision ??
     lastSuccessfulDeployment.value?.revision,
 );
+const commandDrift = computed(() => {
+  if (!isCommand.value || !originRevision.value || !productionRevision.value)
+    return 'unknown';
+  return originRevision.value === productionRevision.value
+    ? 'in-sync'
+    : 'drift';
+});
 
 function applicationUrlFromHealth(value: string | undefined): string {
   if (!value) return '';
@@ -365,6 +372,16 @@ const statusView = computed(
           label: 'Cancelado',
           tone: 'neutral',
           icon: StopIcon,
+        };
+      }
+      if (isCommand.value && commandDrift.value === 'drift') {
+        return {
+          title: 'Produção está em revision diferente',
+          description:
+            'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
+          label: 'Desatualizada',
+          tone: 'warning',
+          icon: ExclamationTriangleIcon,
         };
       }
       if (isCommand.value) {

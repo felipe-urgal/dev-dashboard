@@ -556,6 +556,48 @@ describe('ProjectProductionPanel', () => {
     wrapper.unmount();
   });
 
+  it('marca produção command como desatualizada quando origin avançou', async () => {
+    resetApi();
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [successfulDeployment()],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+    api.fetchProjectGitWorkspace.mockResolvedValue({
+      branches: [
+        {
+          name: 'origin/main',
+          shortName: 'main',
+          kind: 'remote',
+          current: false,
+          remote: 'origin',
+          latestCommit: {
+            hash: REVISION_B,
+            shortHash: REVISION_B.slice(0, 8),
+            subject: 'feat: nova revision',
+            authorName: 'Dev',
+            authorEmail: 'dev@example.com',
+            authoredAt: '2026-08-31T13:00:00.000Z',
+          },
+        },
+      ],
+      remotes: [],
+    });
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: { project: commandProject() },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Produção está em revision diferente');
+    expect(wrapper.text()).toContain('Desatualizada');
+    expect(wrapper.text()).toContain(REVISION_B.slice(0, 8));
+    expect(wrapper.text()).toContain(REVISION_A.slice(0, 8));
+    expect(wrapper.text()).not.toContain('Último deployment concluído');
+    wrapper.unmount();
+  });
+
   it('representa drift Vercel sem oferecer mutação remota', async () => {
     resetApi();
     const project: Project = {
