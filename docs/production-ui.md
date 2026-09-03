@@ -120,6 +120,12 @@ A UI não conhece `systemctl` ou `docker compose`; ela mostra apenas as etapas d
 
 Quando `origin/<branch>` e a revision da última promoção local são conhecidas, a tela também compara os dois SHAs. Se eles divergem, o banner principal mostra **Produção está em revision diferente** / **Desatualizada**, mesmo que o último deployment registrado tenha terminado com sucesso. O resultado histórico continua visível na timeline e no histórico; estados ativos, falha, cancelamento e `recovery_required` continuam tendo prioridade sobre o drift.
 
+### Banco do ambiente de check indisponível
+
+Quando o backend classifica um `P1001` do Prisma ocorrido em `prod:check` como `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE`, o banner principal mostra **Banco de check indisponível** e a orientação sanitizada persistida pelo domínio. A timeline continua mostrando `check` como falha e o log preserva o diagnóstico gerado pelo Dev Dashboard.
+
+A interface não oferece botão para iniciar banco, Docker ou Compose. Depois que a dependência for corrigida pelo projeto/ambiente responsável, a pessoa pode preparar um novo deployment normalmente. Outros erros de `prod:check` continuam usando o estado de falha genérico.
+
 ## `strategy=git-managed` + Vercel
 
 A timeline usa uma etapa própria:
@@ -243,6 +249,6 @@ Estado do projeto anterior não pode sobrescrever a nova tela.
 
 ## Testes
 
-A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan, geração de todos os planos antes da primeira confirmação, execução sequencial/parada do lote e regressões do fluxo `command`, incluindo drift entre `origin/<branch>` e a última revision promovida.
+A cobertura da superfície inclui estados fail-closed, preview/confirmação, respostas stale, provider Vercel, timeline/log, retry de verify, agregação do workspace, troca de workspace após scan, geração de todos os planos antes da primeira confirmação, execução sequencial/parada do lote e regressões do fluxo `command`, incluindo drift entre `origin/<branch>` e a última revision promovida. Falhas tipadas de banco indisponível em `prod:check` também possuem regressão para garantir que a mensagem sanitizada apareça no estado principal sem substituir os demais erros genéricos.
 
 Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md).
