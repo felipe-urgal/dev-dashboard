@@ -229,7 +229,7 @@ export class DetachableExecutionService {
     });
 
     record.exitSubscription = proc.onExit(({ exitCode, signal }) => {
-      this.markExited(key, record, exitCode ?? null, signal ?? null);
+      this.markExited(record, exitCode ?? null, signal ?? null);
     });
 
     return this.toSnapshot(record);
@@ -350,7 +350,6 @@ export class DetachableExecutionService {
   }
 
   private markExited(
-    key: string,
     record: ExecutionRecord,
     exitCode: number | null,
     exitSignal: number | null,
@@ -376,8 +375,6 @@ export class DetachableExecutionService {
 
     this.releasePty(record);
     this.pruneExited();
-
-    if (!this.executions.has(key)) return;
   }
 
   private appendToBuffer(record: ExecutionRecord, chunk: string): void {
