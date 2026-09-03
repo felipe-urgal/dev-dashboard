@@ -27,7 +27,7 @@
     "lint": "eslint --max-warnings=0 \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
-    "format:check": "prettier --write \"apps/api/src/routes/database-explorer-sessions.ts\" && git diff --exit-code -- apps/api/src/routes/database-explorer-sessions.ts",
+    "format:check": "prettier --check \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "prod:status": "node scripts/production-gate.mjs status",
     "prod:check": "node scripts/production-gate.mjs check",
     "self-update:helper": "node scripts/self-update-helper.mjs",

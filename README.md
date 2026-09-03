@@ -60,7 +60,7 @@ Mais detalhes: [`docs/architecture/overview.md`](docs/architecture/overview.md).
 - npm;
 - Git.
 
-Projetos gerenciados precisam dos próprios runtimes e ferramentas. O desenvolvimento atual é validado com Node.js 24.
+O CI valida explicitamente o runtime mínimo Node.js 20.19.0 e mantém Node.js 24 como runtime principal de validação e E2E. Projetos gerenciados precisam dos próprios runtimes e ferramentas.
 
 ## Instalação
 
@@ -81,7 +81,7 @@ Serviços padrão:
 
 ```text
 API: http://127.0.0.1:4343
-Web: http://127.0.0.1:5173
+Web: http://127.0.0.1:5174
 ```
 
 Para executar separadamente:
@@ -195,13 +195,13 @@ Veja:
 
 ## Self-production
 
-O próprio Dev Dashboard continua declarando produção **desabilitada** (`production.enabled=false`, `strategy=disabled`, `provider=none`).
+O próprio Dev Dashboard declara produção **habilitada** (`production.enabled=true`, `strategy=self-update`, `provider=none`, branch `main`). O fluxo usa o mesmo planner, confirmação e revalidação do domínio normal de Produção; o tooling `self-update:*` não é um bypass dessa fronteira.
 
 Os PRs #520/#521 entregaram handoff persistente, agent instalado fora da checkout, lifecycle independente do Fastify e Unix socket autenticado.
 
-O PR #523 fecha a cadeia operacional: a API transfere o handoff, exige prova de ownership do worker antes de encerrar, o worker aplica apenas fast-forward da revision confirmada de `origin/main`, reinicia `scripts/dev-web.mjs` e só registra sucesso quando a nova API comprova a mesma revision no health. Há teste real com Git/processos temporários cobrindo sucesso e `recovery_required` quando o runtime volta com revision diferente.
+O PR #523 fechou a cadeia operacional: a API transfere o handoff, exige prova de ownership do worker antes de encerrar, o worker aplica apenas fast-forward da revision confirmada de `origin/main`, reinicia `scripts/dev-web.mjs` e só registra sucesso quando a nova API comprova a mesma revision no health. Há teste real com Git/processos temporários cobrindo sucesso e `recovery_required` quando o runtime volta com revision diferente.
 
-Isso **ainda não habilita** self-production. O gate permanece fechado para revisão formal do modelo de privilégio/segurança e habilitação consciente no PR D.
+O PR #527 integrou `strategy=self-update` ao domínio normal de deployment, manteve o modelo user-space sem `sudo`/`systemctl` e habilitou explicitamente o contrato versionado em `.dev-dashboard/production.json`.
 
 Veja [`docs/architecture/self-production.md`](docs/architecture/self-production.md).
 
@@ -304,18 +304,18 @@ npm run docs:api:check
 | `npm run docs:api` | regenera a referência HTTP |
 | `npm run docs:api:check` | valida a referência gerada |
 | `npm run prod:status` | mostra o gate/estado do contrato do próprio Dashboard |
-| `npm run prod:check` | valida o gate; falha enquanto self-production estiver desabilitada |
+| `npm run prod:check` | valida os preflights do contrato de self-production |
 | `npm run self-update:helper -- ...` | tooling de engenharia do handoff persistente |
 | `npm run self-update:agent -- ...` | instala/controla/inspeciona o agent de self-update |
 | `npm run typecheck` | valida tipos |
 | `npm run lint` | executa ESLint |
-| `npm run format:check` | verifica formatação |
+| `npm run format:check` | verifica formatação sem reescrever arquivos |
 | `npm run build` | compila packages e apps |
 | `npm test` | executa testes dos workspaces |
 | `npm run test:cli` | executa suíte Bash |
 | `npm run test:e2e` | executa smoke E2E da web |
 
-Os comandos de self-update continuam tooling de engenharia enquanto o contrato estiver `strategy=disabled`; não devem ser usados como atalho para contornar o fluxo de produção.
+Os comandos de self-update continuam sendo tooling de engenharia. O fluxo suportado de self-production passa pelo Production Contract `strategy=self-update`, planner, confirmação e revalidação do domínio de deployment.
 
 ## Documentação
 

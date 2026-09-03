@@ -121,7 +121,9 @@ test('classifica Prisma P1001 no prod:check sem repetir detalhes do stderr', asy
     },
   );
 
-  const diagnostic = outputs.find((content) => content.includes('[Dev Dashboard]'));
+  const diagnostic = outputs.find((content) =>
+    content.includes('[Dev Dashboard]'),
+  );
   assert.ok(diagnostic);
   assert.match(diagnostic, /ambiente de check/i);
   assert.doesNotMatch(diagnostic, /postgres-check\.internal|55432/i);

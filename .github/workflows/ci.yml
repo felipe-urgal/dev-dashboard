@@ -16,12 +16,59 @@ permissions:
   contents: read
 
 jobs:
+  node-minimum:
+    name: Node mínimo
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node mínimo
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.19.0
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Reconstruir dependência nativa de terminal
+        run: npm rebuild node-pty
+
+      - name: Compilar packages
+        run: npm run build:packages
+
+      - name: Validar tipos
+        run: npm --ignore-scripts run typecheck
+
+      - name: Compilar apps
+        run: npm run build:apps
+
+      - name: Executar suíte de compatibilidade
+        run: |
+          node --test scripts/*.test.mjs
+          (cd apps/api && node --import=tsx --test test/*.test.ts)
+          npm run test --workspace=@dev-dashboard/web
+          (cd packages/core && node --import=tsx --test test/*.test.ts)
+          (cd packages/process-manager && node --import=tsx --test test/*.test.ts)
+          (cd packages/project-discovery && node --import=tsx --test test/*.test.ts)
+
   validate:
     name: Validate
+    needs: node-minimum
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
+      - name: Exigir compatibilidade com Node mínimo
+        if: needs.node-minimum.result != 'success'
+        run: |
+          echo "A validação no Node mínimo suportado não passou."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -40,10 +87,8 @@ jobs:
       - name: Build packages once
         run: npm run build:packages
 
-      - name: Generate API docs and format
-        run: |
-          npm --ignore-scripts run docs:api
-          npm run format
+      - name: Generate API docs
+        run: npm --ignore-scripts run docs:api
 
       - name: Typecheck
         run: npm --ignore-scripts run typecheck

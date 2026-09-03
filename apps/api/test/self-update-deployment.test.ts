@@ -194,7 +194,10 @@ test('deployment entrega revision de origin/main ao handoff e reconcilia sucesso
 
   await waitUntil(async () => {
     const current = await store.get(started.id);
-    return current?.currentStepId === 'self-update';
+    return (
+      current?.currentStepId === 'self-update' &&
+      handoff.prepareCalls.length === 1
+    );
   });
 
   const handedOff = await store.get(started.id);
@@ -241,7 +244,9 @@ test('reconciliação mantém recovery_required quando worker não comprova conc
   );
 
   await waitUntil(
-    async () => (await store.get(started.id))?.currentStepId === 'self-update',
+    async () =>
+      (await store.get(started.id))?.currentStepId === 'self-update' &&
+      handoff.prepareCalls.length === 1,
   );
 
   handoff.status = 'recovery_required';
