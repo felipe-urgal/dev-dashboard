@@ -54,18 +54,14 @@ import { registerLocalSecurity } from './security/local-security.js';
 
 import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
-import { DeploymentService } from './deployment/service.js';
-import { ProductionOverviewService } from './deployment/production-overview.js';
-import { ProjectDoctorService } from './services/project-doctor-service.js';
-import { PortInspectorService } from './services/port-inspector-service.js';
-import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
-import { ProjectLanguageServerService } from './services/project-language-server-service.js';
-import { ProjectTerminalService } from './services/project-terminal-service.js';
-import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
-
+import {
+  createAppComposition,
+  registerAppLifecycle,
+  type AppCompositionOptions,
+} from './app-composition.js';
 import { createAppContext, type AppContext } from './app-context.js';
 
-export interface BuildAppOptions {
+export interface BuildAppOptions extends AppCompositionOptions {
   localToken?: string;
   allowedOrigins?: readonly string[];
   context?: AppContext;
@@ -75,12 +71,6 @@ export interface BuildAppOptions {
   sessionSecret?: string;
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
-  now?: () => number;
-  projectDoctorService?: ProjectDoctorService;
-  portInspectorService?: PortInspectorService;
-  projectLanguageServerService?: ProjectLanguageServerService;
-  projectTerminalService?: ProjectTerminalService;
-  deploymentService?: DeploymentService;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -106,41 +96,19 @@ export async function buildApp(options: BuildAppOptions = {}) {
     createAppContext({
       languageServerLogger: app.log,
     });
-  const databaseExplorerSessionStore = new DatabaseExplorerSessionStore(
-    options.now ? { now: options.now } : {},
-  );
-  const projectDoctorService =
-    options.projectDoctorService ??
-    new ProjectDoctorService(options.now ? { now: options.now } : {});
-  const portInspectorService =
-    options.portInspectorService ?? new PortInspectorService();
-  const projectFileMutationService = new ProjectFileMutationService(
-    options.now ?? Date.now,
-  );
-  const projectWorkspaceEditService = context.projectWorkspaceEditService;
-  const projectLanguageServerService =
-    options.projectLanguageServerService ??
-    context.projectLanguageServerService;
-  const projectTerminalService =
-    options.projectTerminalService ?? context.projectTerminalService;
-  const deploymentService =
-    options.deploymentService ??
-    new DeploymentService({
-      selfUpdateHandoffService: context.selfUpdateHandoffService,
-      ...(options.now ? { now: options.now } : {}),
-    });
-  const productionOverviewService = new ProductionOverviewService({
-    deploymentReader: deploymentService,
-    ...(options.now ? { now: options.now } : {}),
-  });
-  app.addHook('onClose', async () => {
-    context.scriptExecutionService.close();
-    context.testExecutionHistoryService.close();
-    databaseExplorerSessionStore.close();
-    projectLanguageServerService.close();
-    projectTerminalService.close();
-    deploymentService.close();
-  });
+  const composition = createAppComposition(context, options);
+  const {
+    databaseExplorerSessionStore,
+    projectDoctorService,
+    portInspectorService,
+    projectFileMutationService,
+    projectWorkspaceEditService,
+    projectLanguageServerService,
+    projectTerminalService,
+    deploymentService,
+    productionOverviewService,
+  } = composition;
+  registerAppLifecycle(app, context, composition);
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());
