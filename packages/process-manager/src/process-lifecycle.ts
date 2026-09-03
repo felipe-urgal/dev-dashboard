@@ -1,12 +1,12 @@
-import { spawn } from 'node:child_process';
-
-import { mkdir, open } from 'node:fs/promises';
-
 import type { ManagedProcess, Project } from '@dev-dashboard/contracts';
 
 import { resolveServerCommand } from './command-resolution.js';
 import { isErrnoException, ProcessManagerError } from './errors.js';
-import { sweepStaleProcesses } from './log-retention.js';
+import {
+  prepareManagedProcessStart,
+  startManagedProcess,
+  type ManagedProcessStartDependencies,
+} from './managed-process-start.js';
 import {
   canListen,
   findAvailablePort,
@@ -14,15 +14,14 @@ import {
   SERVER_BIND_HOST,
   validatePort,
 } from './port-utils.js';
+import type { ExitTracker } from './process-exit-tracking.js';
 import {
   isManagedProcessAlive,
   verifyProcessDirectory,
 } from './process-state.js';
-import type { ExitTracker } from './process-exit-tracking.js';
 import type { ProcessStatusReader } from './process-status.js';
 import {
   readStoredProcess,
-  resolveLogFile,
   terminalProcess,
   writeStoredProcess,
   type ManagedKind,
@@ -87,32 +86,31 @@ export function createProcessLifecycle(
     }
   }
 
+  function startDependencies(
+    stateDirectory: string,
+  ): ManagedProcessStartDependencies {
+    return {
+      context,
+      exitTracker,
+      statusReader,
+      stateDirectory,
+      sendSignal,
+    };
+  }
+
   async function startManagedServer(
     project: Project,
     options: StartServerOptions,
     stateDirectory: string,
   ): Promise<ManagedProcess> {
-    try {
-      await sweepStaleProcesses(stateDirectory);
-    } catch {
-      // A limpeza é best-effort: uma falha aqui nunca deve impedir o start.
-    }
+    const dependencies = startDependencies(stateDirectory);
 
-    const currentProcess = await statusReader.getManagedProcess(
-      project.id,
+    await prepareManagedProcessStart(
+      dependencies,
+      project,
       'server',
+      `O servidor de ${project.name} já está em execução.`,
     );
-
-    if (
-      currentProcess?.status === 'running' ||
-      currentProcess?.status === 'starting' ||
-      currentProcess?.status === 'stopping'
-    ) {
-      throw new ProcessManagerError(
-        'PROCESS_ALREADY_RUNNING',
-        `O servidor de ${project.name} já está em execução.`,
-      );
-    }
 
     const requestedPort = options.port ?? project.port;
 
@@ -128,94 +126,32 @@ export function createProcessLifecycle(
     }
 
     const port = requestedPort ?? (await findAvailablePort(SERVER_BIND_HOST));
-
     const resolvedCommand = await resolveServerCommand(
       project,
       SERVER_BIND_HOST,
       port,
     );
-
-    await Promise.all([
-      mkdir(context.processDirectory, {
-        recursive: true,
-        mode: 0o700,
-      }),
-      mkdir(context.logDirectory, {
-        recursive: true,
-        mode: 0o700,
-      }),
-    ]);
-
-    const logPath = resolveLogFile(context, project.id, 'server');
-
-    const logHandle = await open(logPath, 'a', 0o600);
-
-    let child: ReturnType<typeof spawn>;
-
-    try {
-      child = spawn(resolvedCommand.command, resolvedCommand.args, {
-        cwd: project.path,
-        detached: true,
-        shell: false,
-        windowsHide: true,
-        stdio: ['ignore', logHandle.fd, logHandle.fd],
-        env: {
-          ...process.env,
-          ...options.environment,
-          ...resolvedCommand.env,
-        },
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        child.once('spawn', resolve);
-        child.once('error', reject);
-      });
-    } finally {
-      await logHandle.close();
-    }
-
-    if (!child.pid) {
-      throw new Error(
-        `Não foi possível obter o PID do servidor de ${project.name}.`,
-      );
-    }
-
     const primaryUrl = `http://localhost:${port}`;
-    const urls = listServerUrls(port);
 
-    const managedProcess: StoredProcess = {
-      id: `${project.id}:server`,
-      projectId: project.id,
-      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
+    return startManagedProcess(dependencies, {
+      project,
       kind: 'server',
+      id: `${project.id}:server`,
       status: 'starting',
-      pid: child.pid,
-      port,
-      url: primaryUrl,
-      urls,
       command: resolvedCommand.command,
       args: resolvedCommand.args,
-      cwd: project.path,
-      logPath,
-      startedAt: new Date().toISOString(),
-    };
-
-    try {
-      await writeStoredProcess(context, managedProcess);
-    } catch (error) {
-      try {
-        sendSignal(child.pid, 'SIGKILL');
-      } catch {
-        // A falha de persistência original deve ser preservada.
-      }
-
-      throw error;
-    }
-
-    exitTracker.observeChild(child, managedProcess);
-    child.unref();
-
-    return managedProcess;
+      env: {
+        ...process.env,
+        ...options.environment,
+        ...resolvedCommand.env,
+      },
+      missingPidMessage: `Não foi possível obter o PID do servidor de ${project.name}.`,
+      metadata: {
+        port,
+        url: primaryUrl,
+        urls: listServerUrls(port),
+      },
+    });
   }
 
   async function startManagedTest(
@@ -223,102 +159,28 @@ export function createProcessLifecycle(
     command: { id: string; command: string; args: string[] },
     stateDirectory: string,
   ): Promise<ManagedProcess> {
-    try {
-      await sweepStaleProcesses(stateDirectory);
-    } catch {
-      // best-effort
-    }
+    const dependencies = startDependencies(stateDirectory);
 
-    const currentProcess = await statusReader.getManagedProcess(
-      project.id,
+    await prepareManagedProcessStart(
+      dependencies,
+      project,
       'test',
+      `Já existe uma execução de testes em andamento para ${project.name}.`,
     );
 
-    if (
-      currentProcess?.status === 'running' ||
-      currentProcess?.status === 'starting' ||
-      currentProcess?.status === 'stopping'
-    ) {
-      throw new ProcessManagerError(
-        'PROCESS_ALREADY_RUNNING',
-        `Já existe uma execução de testes em andamento para ${project.name}.`,
-      );
-    }
-
-    await Promise.all([
-      mkdir(context.processDirectory, {
-        recursive: true,
-        mode: 0o700,
-      }),
-      mkdir(context.logDirectory, {
-        recursive: true,
-        mode: 0o700,
-      }),
-    ]);
-
-    const logPath = resolveLogFile(context, project.id, 'test');
-
-    const logHandle = await open(logPath, 'a', 0o600);
-
-    let child: ReturnType<typeof spawn>;
-
-    try {
-      child = spawn(command.command, command.args, {
-        cwd: project.path,
-        detached: true,
-        shell: false,
-        windowsHide: true,
-        stdio: ['ignore', logHandle.fd, logHandle.fd],
-        env: {
-          ...process.env,
-          CI: 'true',
-        },
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        child.once('spawn', resolve);
-        child.once('error', reject);
-      });
-    } finally {
-      await logHandle.close();
-    }
-
-    if (!child.pid) {
-      throw new Error(
-        `Não foi possível obter o PID da execução de testes de ${project.name}.`,
-      );
-    }
-
-    const managedProcess: StoredProcess = {
-      id: `${project.id}:test:${command.id}`,
-      projectId: project.id,
-      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
+    return startManagedProcess(dependencies, {
+      project,
       kind: 'test',
+      id: `${project.id}:test:${command.id}`,
       status: 'running',
-      pid: child.pid,
       command: command.command,
       args: command.args,
-      cwd: project.path,
-      logPath,
-      startedAt: new Date().toISOString(),
-    };
-
-    try {
-      await writeStoredProcess(context, managedProcess);
-    } catch (error) {
-      try {
-        sendSignal(child.pid, 'SIGKILL');
-      } catch {
-        // preserva o erro original
-      }
-
-      throw error;
-    }
-
-    exitTracker.observeChild(child, managedProcess);
-    child.unref();
-
-    return managedProcess;
+      env: {
+        ...process.env,
+        CI: 'true',
+      },
+      missingPidMessage: `Não foi possível obter o PID da execução de testes de ${project.name}.`,
+    });
   }
 
   async function startManagedWorker(
@@ -327,101 +189,25 @@ export function createProcessLifecycle(
     command: StartWorkerCommand,
     stateDirectory: string,
   ): Promise<ManagedProcess> {
-    try {
-      await sweepStaleProcesses(stateDirectory);
-    } catch {
-      // best-effort
-    }
+    const dependencies = startDependencies(stateDirectory);
 
-    const currentProcess = await statusReader.getManagedProcess(
-      project.id,
+    await prepareManagedProcessStart(
+      dependencies,
+      project,
       kind,
+      `O worker de ${project.name} já está em execução.`,
     );
 
-    if (
-      currentProcess?.status === 'running' ||
-      currentProcess?.status === 'starting' ||
-      currentProcess?.status === 'stopping'
-    ) {
-      throw new ProcessManagerError(
-        'PROCESS_ALREADY_RUNNING',
-        `O worker de ${project.name} já está em execução.`,
-      );
-    }
-
-    await Promise.all([
-      mkdir(context.processDirectory, {
-        recursive: true,
-        mode: 0o700,
-      }),
-      mkdir(context.logDirectory, {
-        recursive: true,
-        mode: 0o700,
-      }),
-    ]);
-
-    const logPath = resolveLogFile(context, project.id, kind);
-
-    const logHandle = await open(logPath, 'a', 0o600);
-
-    let child: ReturnType<typeof spawn>;
-
-    try {
-      child = spawn(command.command, command.args, {
-        cwd: project.path,
-        detached: true,
-        shell: false,
-        windowsHide: true,
-        stdio: ['ignore', logHandle.fd, logHandle.fd],
-        env: {
-          ...process.env,
-        },
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        child.once('spawn', resolve);
-        child.once('error', reject);
-      });
-    } finally {
-      await logHandle.close();
-    }
-
-    if (!child.pid) {
-      throw new Error(
-        `Não foi possível obter o PID do worker de ${project.name}.`,
-      );
-    }
-
-    const managedProcess: StoredProcess = {
-      id: `${project.id}:${kind}:${command.id}`,
-      projectId: project.id,
-      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
+    return startManagedProcess(dependencies, {
+      project,
       kind,
+      id: `${project.id}:${kind}:${command.id}`,
       status: 'running',
-      pid: child.pid,
       command: command.command,
       args: command.args,
-      cwd: project.path,
-      logPath,
-      startedAt: new Date().toISOString(),
-    };
-
-    try {
-      await writeStoredProcess(context, managedProcess);
-    } catch (error) {
-      try {
-        sendSignal(child.pid, 'SIGKILL');
-      } catch {
-        // preserva o erro original
-      }
-
-      throw error;
-    }
-
-    exitTracker.observeChild(child, managedProcess);
-    child.unref();
-
-    return managedProcess;
+      env: { ...process.env },
+      missingPidMessage: `Não foi possível obter o PID do worker de ${project.name}.`,
+    });
   }
 
   async function stopManagedProcess(
@@ -443,9 +229,7 @@ export function createProcessLifecycle(
 
     if (!isManagedProcessAlive(storedProcess.pid)) {
       const stoppedProcess = terminalProcess(storedProcess, 'stopped');
-
       await writeStoredProcess(context, stoppedProcess);
-
       return stoppedProcess;
     }
 
@@ -464,7 +248,6 @@ export function createProcessLifecycle(
     };
 
     await writeStoredProcess(context, stoppingProcess);
-
     sendSignal(storedProcess.pid, 'SIGTERM');
 
     const exitedGracefully = await exitTracker.waitForManagedExit(
@@ -494,9 +277,7 @@ export function createProcessLifecycle(
     }
 
     const stoppedProcess = terminalProcess(storedProcess, 'stopped');
-
     await writeStoredProcess(context, stoppedProcess);
-
     return stoppedProcess;
   }
 
