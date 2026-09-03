@@ -14,7 +14,7 @@ function project(type: Project['type']): Project {
     type,
     source: 'standalone',
     enabled: true,
-    capabilities: type === 'rails' ? ['tests', 'bundler'] : ['tests', 'npm'],
+    capabilities: ['tests'],
   };
 }
 
