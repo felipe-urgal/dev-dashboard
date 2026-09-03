@@ -109,6 +109,25 @@ Responsabilidades incluem:
 - persistência de histórico/logs;
 - tradução de erros para contratos públicos seguros.
 
+A composição da API é dividida em duas camadas sem alterar a interface consumida pelas rotas:
+
+```text
+createAppContext()
+  ├── foundation: repositories / ProcessManager / ProjectStore
+  ├── project: Git / files / LSP / terminal / cobertura
+  ├── execution: scripts / testes / Rails / PTYs destacáveis
+  ├── database: detecção / snapshots / explorer
+  └── self-update: handoff
+        ↓
+createAppComposition()
+  ├── recursos por instância Fastify
+  ├── database sessions / doctor / port inspector
+  ├── file mutations / deployment
+  └── lifecycle coordenado no onClose
+```
+
+`app.ts` continua responsável por segurança e registro das rotas na ordem existente; construção de serviços e shutdown ficam fora desse arquivo para evitar um composition root monolítico. Serviços compartilhados que possuem recursos duradouros expõem fechamento explícito ao lifecycle do Fastify.
+
 A API escuta em `127.0.0.1`.
 
 O PR #523 adiciona `SelfUpdateHandoffService` como serviço interno do backend. Ele prepara e transfere o handoff, exige prova de ownership do worker instalado e somente então agenda o `SIGTERM` controlado da própria API. Isso ainda não cria rota pública de self-update nem ignora `strategy=disabled`.
@@ -136,6 +155,8 @@ Quando `.dev-dashboard/production.json` existe, o discovery valida o `Production
 **Deployment não é um tipo de processo gerenciado.** Ele possui domínio próprio porque precisa de revision, plano, confirmação, irreversibilidade, provider externo e recovery.
 
 O self-update worker também não é representado como processo gerenciado comum: ele precisa sobreviver à API antiga, usa estado/handoff próprio e executa a partir da release instalada do agent.
+
+As execuções PTY destacáveis de Testes, Migration Rails e Dependências/Build também possuem lifecycle próprio. Elas podem sobreviver à desconexão do browser, mas o resultado terminado é somente memória transitória: cada registro mantém buffer limitado, expira após 30 minutos e existe um teto de 32 execuções terminadas retidas por processo da API. Pressão de retenção remove a menos recentemente acessada; execuções ainda ativas nunca são evictadas por essa política. No shutdown, o serviço compartilhado fecha PTYs ativos com `SIGTERM` e escala para `SIGKILL` após a janela de tolerância.
 
 ## Domínio de deployment
 
