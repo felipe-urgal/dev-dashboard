@@ -46,8 +46,14 @@ jobs:
       - name: Compilar apps
         run: npm run build:apps
 
-      - name: Executar testes
-        run: npm --ignore-scripts test
+      - name: Executar suíte de compatibilidade
+        run: |
+          node --test scripts/*.test.mjs
+          (cd apps/api && node --import=tsx --test test/*.test.ts)
+          npm run test --workspace=@dev-dashboard/web
+          (cd packages/core && node --import=tsx --test test/*.test.ts)
+          (cd packages/process-manager && node --import=tsx --test test/*.test.ts)
+          (cd packages/project-discovery && node --import=tsx --test test/*.test.ts)
 
   validate:
     name: Validate
@@ -155,7 +161,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1
         with:
           name: playwright-report
           path: apps/web/e2e/.runtime/report
