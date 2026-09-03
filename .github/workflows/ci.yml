@@ -32,10 +32,10 @@ jobs:
           cache: npm
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      - name: Reconstruir dependência nativa de terminal
-        run: npm rebuild node-pty
+      - name: Preparar dependências com binários nativos
+        run: npm rebuild esbuild node-pty
 
       - name: Compilar packages
         run: npm run build:packages
@@ -79,10 +79,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      - name: Rebuild native terminal dependency
-        run: npm rebuild node-pty
+      - name: Prepare native binary dependencies
+        run: npm rebuild esbuild node-pty
 
       - name: Build packages once
         run: npm run build:packages
@@ -141,10 +141,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      - name: Rebuild native terminal dependency
-        run: npm rebuild node-pty
+      - name: Prepare native binary dependencies
+        run: npm rebuild esbuild node-pty
 
       - name: Cache Playwright browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
