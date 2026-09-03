@@ -242,9 +242,22 @@ Nunca commite:
 
 Use valores fictícios em testes/documentação.
 
+## Supply chain
+
+Dependências e workflows seguem o mesmo princípio de menor autoridade usado no código:
+
+- atualizações npm e GitHub Actions chegam semanalmente pelo Dependabot e devem passar pelo CI normal;
+- referências `uses:` versionadas no repositório devem usar SHA completo, mantendo a versão legível em comentário, por exemplo `# v7.0.1`;
+- não troque pins por tags mutáveis como `@v4` para facilitar manutenção; o Dependabot atualiza os SHAs;
+- Dependency Review bloqueia novas dependências com vulnerabilidade alta ou crítica em pull requests;
+- CodeQL cobre JavaScript/TypeScript sem substituir testes, lint ou revisão humana;
+- aumentos de permissão em `GITHUB_TOKEN` precisam ser locais ao job e justificados pela operação executada.
+
+A política e as exceções operacionais do workflow `Security` ficam registradas em [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
+
 ## Release
 
-O projeto é privado e usa SemVer para rastrear versão interna. O fluxo de release permanece nos workflows `release-prepare.yml` e `release-tag.yml`; releases passam pelo mesmo CI/revisão do restante do projeto.
+O projeto usa SemVer para rastrear versão. O fluxo de release permanece nos workflows `release-prepare.yml` e `release-tag.yml`; releases passam pelo mesmo CI/revisão do restante do projeto. Como esses workflows possuem permissão de escrita, suas actions também permanecem fixadas por SHA.
 
 ## Definição de pronto
 

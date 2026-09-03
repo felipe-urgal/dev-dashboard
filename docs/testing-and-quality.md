@@ -47,6 +47,19 @@ O Playwright protege poucos fluxos de alto valor em navegador real, evitando tra
 
 Mocks de rede são aceitáveis quando tornam um erro determinístico ou isolam um contrato de UI. Quando o risco é integração com filesystem/processo/Git, prefira a fixture real e mantenha cleanup explícito. O catálogo detalhado e as instruções de execução ficam em `apps/web/e2e/README.md`.
 
+## Supply chain
+
+A automação de supply chain é deliberadamente pequena e explícita:
+
+- Dependabot verifica semanalmente dependências npm e GitHub Actions, com limite de PRs abertos para evitar ruído;
+- todo uso de action externa nos workflows versionados é fixado por SHA completo; o comentário ao lado do SHA registra a versão humana e o Dependabot mantém o pin atualizado;
+- o workflow `Security` executa Dependency Review em pull requests e bloqueia a introdução de vulnerabilidades de severidade alta ou crítica;
+- CodeQL analisa JavaScript/TypeScript em PRs internos, em pushes para `main` e semanalmente;
+- CodeQL é omitido em PRs de forks e do Dependabot, onde o token de `pull_request` não possui autoridade de escrita para publicar SARIF; o mesmo código continua sendo analisado após chegar à `main`;
+- jobs normais mantêm `contents: read`; permissões de escrita permanecem limitadas aos workflows de release e ao envio de resultados de segurança que realmente exigem essa autoridade.
+
+Não substitua um SHA por uma tag mutável como `@v4`. Para atualizar uma action manualmente, resolva uma release confiável para o SHA correspondente e preserve o comentário de versão. Atualizações rotineiras devem preferencialmente chegar via Dependabot e passar pelos mesmos gates do restante do código.
+
 ## Cobertura da web
 
 A suíte web usa Vitest com provider V8. O escopo unitário é `src/**/*.{ts,vue}` e as exclusões explícitas ficam centralizadas em `apps/web/vitest.config.ts`.
