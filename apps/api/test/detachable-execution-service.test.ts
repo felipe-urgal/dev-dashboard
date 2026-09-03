@@ -116,7 +116,6 @@ test('detach() não mata o processo — reconectar reanexa e recebe o buffer acu
     'o processo continua rodando sem ninguém conectado',
   );
 
-  // Mais saída acontece enquanto ninguém está conectado.
   fakePty.emitData('enquanto ninguém olhava\n');
 
   const secondReceived: string[] = [];
@@ -303,4 +302,110 @@ test('remove() libera a entrada só depois que a execução termina', () => {
   fakePty.emitExit(0);
   service.remove('projeto-1:test');
   assert.equal(service.snapshotOf('projeto-1:test'), undefined);
+});
+
+test('execução terminada expira quando o TTL é atingido', () => {
+  let now = 0;
+  const fakePty = new FakePty();
+  const service = new DetachableExecutionService({
+    now: () => now,
+    exitedTtlMs: 1_000,
+    spawnPty: () => fakePty as never,
+  });
+
+  service.start('projeto-1:test', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  fakePty.emitExit(0);
+
+  now = 999;
+  assert.equal(service.snapshotOf('projeto-1:test')?.status, 'exited');
+
+  now = 1_000;
+  assert.equal(service.snapshotOf('projeto-1:test'), undefined);
+  assert.throws(
+    () =>
+      service.attach(
+        'projeto-1:test',
+        () => undefined,
+        () => undefined,
+      ),
+    (error: unknown) =>
+      error instanceof DetachableExecutionError && error.code === 'NOT_FOUND',
+  );
+});
+
+test('limite de retenção remove por LRU somente execuções terminadas', () => {
+  let now = 0;
+  const ptys = [new FakePty(), new FakePty(), new FakePty()];
+  let nextPty = 0;
+  const service = new DetachableExecutionService({
+    now: () => now,
+    exitedTtlMs: 60_000,
+    maxRetainedExited: 2,
+    spawnPty: () => ptys[nextPty++]! as never,
+  });
+
+  now = 1;
+  service.start('primeira', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  ptys[0]!.emitExit(0);
+
+  now = 2;
+  service.start('segunda', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  ptys[1]!.emitExit(0);
+
+  now = 3;
+  assert.equal(service.snapshotOf('primeira')?.status, 'exited');
+
+  now = 4;
+  service.start('terceira', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  ptys[2]!.emitExit(0);
+
+  assert.equal(service.snapshotOf('segunda'), undefined);
+  assert.equal(service.snapshotOf('primeira')?.status, 'exited');
+  assert.equal(service.snapshotOf('terceira')?.status, 'exited');
+});
+
+test('política de retenção nunca remove execução ainda em andamento', () => {
+  let now = 0;
+  const ptys = [new FakePty(), new FakePty(), new FakePty()];
+  let nextPty = 0;
+  const service = new DetachableExecutionService({
+    now: () => now,
+    exitedTtlMs: 60_000,
+    maxRetainedExited: 1,
+    spawnPty: () => ptys[nextPty++]! as never,
+  });
+
+  service.start('rodando', { file: 'npm', args: ['test'], cwd: '/tmp' });
+
+  now = 1;
+  service.start('finalizada-1', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  ptys[1]!.emitExit(0);
+
+  now = 2;
+  service.start('finalizada-2', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  ptys[2]!.emitExit(0);
+
+  assert.equal(service.isRunning('rodando'), true);
+  assert.equal(service.snapshotOf('finalizada-1'), undefined);
+  assert.equal(service.snapshotOf('finalizada-2')?.status, 'exited');
+});
+
+test('close() encerra PTYs ativos com TERM→KILL, limpa retenção e é idempotente', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fakePty = new FakePty();
+  const service = createService(fakePty);
+
+  service.start('projeto-1:test', { file: 'npm', args: ['test'], cwd: '/tmp' });
+  const closing = service.close();
+
+  assert.deepEqual(fakePty.kills, ['SIGTERM']);
+
+  t.mock.timers.tick(1_000);
+  await closing;
+
+  assert.deepEqual(fakePty.kills, ['SIGTERM', 'SIGKILL']);
+  assert.equal(service.snapshotOf('projeto-1:test'), undefined);
+
+  await service.close();
+  assert.deepEqual(fakePty.kills, ['SIGTERM', 'SIGKILL']);
 });
