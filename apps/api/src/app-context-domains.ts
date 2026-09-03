@@ -97,9 +97,13 @@ export function createExecutionContextDomain(processManager: ProcessManager) {
 
   return {
     scriptDetectionService,
-    scriptExecutionService: new ScriptExecutionService(scriptDetectionService),
+    scriptExecutionService: new ScriptExecutionService(
+      scriptDetectionService,
+    ),
     testDetectionService,
-    testExecutionHistoryService: new TestExecutionHistoryService(processManager),
+    testExecutionHistoryService: new TestExecutionHistoryService(
+      processManager,
+    ),
     detachableExecutionService,
     projectTestPtyService: new ProjectTestPtyService(
       detachableExecutionService,
