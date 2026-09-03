@@ -60,8 +60,8 @@ function matchesTargetDeployment(
 ): deployment is VercelProductionDeployment {
   return Boolean(
     deployment &&
-      deployment.branch === target.branch &&
-      deployment.revision === target.revision,
+    deployment.branch === target.branch &&
+    deployment.revision === target.revision,
   );
 }
 

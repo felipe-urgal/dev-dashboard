@@ -111,7 +111,7 @@ onMounted(() => {
       tabindex="0"
       aria-label="Saída do log do deployment"
       @scroll.passive="handleScroll"
-    >{{ content }}</pre>
+      >{{ content }}</pre>
   </details>
 </template>
 

@@ -223,7 +223,8 @@ function createWalkContext(
     maxDepth: options.maxDepth ?? DEFAULT_RECURSIVE_MAX_DEPTH,
     maxProjects: options.maxProjects ?? DEFAULT_RECURSIVE_MAX_PROJECTS,
     followSymlinks: options.followSymlinks ?? false,
-    deadlineAt: Date.now() + (options.timeoutMs ?? DEFAULT_RECURSIVE_TIMEOUT_MS),
+    deadlineAt:
+      Date.now() + (options.timeoutMs ?? DEFAULT_RECURSIVE_TIMEOUT_MS),
     projects: [],
     warnings: [],
     stopped: false,
