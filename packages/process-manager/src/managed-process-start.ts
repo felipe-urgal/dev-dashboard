@@ -68,7 +68,9 @@ export async function prepareManagedProcessStart(
   }
 }
 
-async function ensureStateDirectories(context: ProcessStoreContext): Promise<void> {
+async function ensureStateDirectories(
+  context: ProcessStoreContext,
+): Promise<void> {
   await Promise.all([
     mkdir(context.processDirectory, { recursive: true, mode: 0o700 }),
     mkdir(context.logDirectory, { recursive: true, mode: 0o700 }),
@@ -133,7 +135,10 @@ export async function startManagedProcess(
   spec: ManagedProcessStartSpec,
 ): Promise<ManagedProcess> {
   await ensureStateDirectories(dependencies.context);
-  const { child, logPath } = await spawnManagedChild(dependencies.context, spec);
+  const { child, logPath } = await spawnManagedChild(
+    dependencies.context,
+    spec,
+  );
 
   if (!child.pid) {
     throw new Error(spec.missingPidMessage);

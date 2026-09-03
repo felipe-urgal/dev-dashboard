@@ -2,7 +2,8 @@ import type { Project } from '@dev-dashboard/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/api', async () => {
-  const actual = await vi.importActual<typeof import('../src/api')>('../src/api');
+  const actual =
+    await vi.importActual<typeof import('../src/api')>('../src/api');
 
   return {
     ...actual,

@@ -36,7 +36,9 @@ test.describe('Banco de dados da máquina', () => {
     await expect(connectionDialog).toHaveAttribute('aria-modal', 'true');
     await expect(connectionDialog.locator('select').first()).toBeFocused();
 
-    const closeButton = connectionDialog.getByRole('button', { name: 'Fechar' });
+    const closeButton = connectionDialog.getByRole('button', {
+      name: 'Fechar',
+    });
     const lastButton = connectionDialog.getByRole('button', {
       name: 'Conectar e continuar',
     });

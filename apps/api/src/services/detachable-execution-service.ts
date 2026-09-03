@@ -384,10 +384,7 @@ export class DetachableExecutionService {
 
     record.retentionExpiry = setTimeout(() => {
       record.retentionExpiry = null;
-      if (
-        this.executions.get(key) === record &&
-        record.status === 'exited'
-      ) {
+      if (this.executions.get(key) === record && record.status === 'exited') {
         this.deleteRecord(key, record);
       }
     }, this.exitedTtlMs);

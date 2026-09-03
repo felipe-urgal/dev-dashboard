@@ -23,7 +23,9 @@ describe('DeploymentLogViewer', () => {
   it('remove sequências ANSI antes de exibir o log', () => {
     const wrapper = mount(DeploymentLogViewer, {
       props: {
-        log: deploymentLog('\u001b[1m\u001b[32m✓\u001b[39m\u001b[22m teste concluído'),
+        log: deploymentLog(
+          '\u001b[1m\u001b[32m✓\u001b[39m\u001b[22m teste concluído',
+        ),
         open: true,
       },
     });
