@@ -94,78 +94,69 @@ async function temporaryProject(t: test.TestContext): Promise<string> {
   return directory;
 }
 
-test(
-  'classifica Prisma P1001 no prod:check sem repetir detalhes do stderr',
-  async (t) => {
-    const projectPath = await temporaryProject(t);
-    const sensitiveHost = 'postgres-check.internal:55432';
-    const outputs: string[] = [];
-    const adapter = new ProductionCommandAdapter({
-      spawnProcess: spawnWithFailure(
-        `PrismaClientInitializationError: P1001: Can't reach database server at ${sensitiveHost}`,
-      ),
-    });
+test('classifica Prisma P1001 no prod:check sem repetir detalhes do stderr', async (t) => {
+  const projectPath = await temporaryProject(t);
+  const sensitiveHost = 'postgres-check.internal:55432';
+  const outputs: string[] = [];
+  const adapter = new ProductionCommandAdapter({
+    spawnProcess: spawnWithFailure(
+      `PrismaClientInitializationError: P1001: Can't reach database server at ${sensitiveHost}`,
+    ),
+  });
 
-    await assert.rejects(
-      adapter.run(
-        makeProject(projectPath),
-        checkStep(),
-        new AbortController().signal,
-        (output) => outputs.push(output.content),
-      ),
-      (error: unknown) => {
-        assert.ok(error instanceof DeploymentError);
-        assert.equal(error.code, 'DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE');
-        assert.match(error.message, /ambiente de check/i);
-        assert.match(error.message, /não inicia esse serviço automaticamente/i);
-        assert.doesNotMatch(error.message, /postgres-check\.internal|55432/i);
-        return true;
-      },
-    );
-
-    const diagnostic = outputs.find((content) =>
-      content.includes('[Dev Dashboard]'),
-    );
-    assert.ok(diagnostic);
-    assert.match(diagnostic, /ambiente de check/i);
-    assert.doesNotMatch(diagnostic, /postgres-check\.internal|55432/i);
-  },
-);
-
-test(
-  'não classifica erro genérico do prod:check como indisponibilidade de banco',
-  async (t) => {
-    const projectPath = await temporaryProject(t);
-    const adapter = new ProductionCommandAdapter({
-      spawnProcess: spawnWithFailure('RSpec: 2 examples, 1 failure', 7),
-    });
-
-    const result = await adapter.run(
+  await assert.rejects(
+    adapter.run(
       makeProject(projectPath),
       checkStep(),
       new AbortController().signal,
-      () => undefined,
-    );
+      (output) => outputs.push(output.content),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof DeploymentError);
+      assert.equal(error.code, 'DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE');
+      assert.match(error.message, /ambiente de check/i);
+      assert.match(error.message, /não inicia esse serviço automaticamente/i);
+      assert.doesNotMatch(error.message, /postgres-check\.internal|55432/i);
+      return true;
+    },
+  );
 
-    assert.deepEqual(result, { exitCode: 7, cancelled: false });
-  },
-);
+  const diagnostic = outputs.find((content) =>
+    content.includes('[Dev Dashboard]'),
+  );
+  assert.ok(diagnostic);
+  assert.match(diagnostic, /ambiente de check/i);
+  assert.doesNotMatch(diagnostic, /postgres-check\.internal|55432/i);
+});
 
-test(
-  'não promove P1001 fora do prod:check para diagnóstico de ambiente de check',
-  async (t) => {
-    const projectPath = await temporaryProject(t);
-    const adapter = new ProductionCommandAdapter({
-      spawnProcess: spawnWithFailure('P1001: database unavailable', 3),
-    });
+test('não classifica erro genérico do prod:check como indisponibilidade de banco', async (t) => {
+  const projectPath = await temporaryProject(t);
+  const adapter = new ProductionCommandAdapter({
+    spawnProcess: spawnWithFailure('RSpec: 2 examples, 1 failure', 7),
+  });
 
-    const result = await adapter.run(
-      makeProject(projectPath),
-      deployStep(),
-      new AbortController().signal,
-      () => undefined,
-    );
+  const result = await adapter.run(
+    makeProject(projectPath),
+    checkStep(),
+    new AbortController().signal,
+    () => undefined,
+  );
 
-    assert.deepEqual(result, { exitCode: 3, cancelled: false });
-  },
-);
+  assert.deepEqual(result, { exitCode: 7, cancelled: false });
+});
+
+test('não promove P1001 fora do prod:check para diagnóstico de ambiente de check', async (t) => {
+  const projectPath = await temporaryProject(t);
+  const adapter = new ProductionCommandAdapter({
+    spawnProcess: spawnWithFailure('P1001: database unavailable', 3),
+  });
+
+  const result = await adapter.run(
+    makeProject(projectPath),
+    deployStep(),
+    new AbortController().signal,
+    () => undefined,
+  );
+
+  assert.deepEqual(result, { exitCode: 3, cancelled: false });
+});
