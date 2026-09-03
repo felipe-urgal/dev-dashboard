@@ -15,6 +15,8 @@ npm test
 npm run test:cli
 ```
 
+`npm run format:check` é um gate somente leitura: ele usa `prettier --check` sobre a mesma superfície coberta por `npm run format` e falha quando o conteúdo versionado precisa ser reformatado. O check não reescreve arquivos para produzir um resultado verde.
+
 Quando a alteração afeta um fluxo web crítico, execute também:
 
 ```bash
@@ -23,6 +25,19 @@ npm run test:e2e
 
 O CI executa esses gates sobre o head do pull request. A cobertura unitária da web faz parte de `npm test` e, portanto, uma regressão abaixo do piso configurado bloqueia a entrega.
 
+## Compatibilidade de Node no CI
+
+O contrato público continua sendo o declarado em `package.json`: Node.js `^20.19.0 || >=22.12.0`.
+
+O pipeline usa duas referências deliberadas:
+
+- **Node 20.19.0** é o runtime mínimo validado pelo job `Node mínimo`, que executa `npm ci`, reconstrói `node-pty`, compila packages/apps, roda typecheck e a suíte automatizada representativa;
+- **Node 24** continua sendo o runtime principal do job `Validate` e do smoke E2E.
+
+O job `Validate` depende do resultado do `Node mínimo` e falha explicitamente quando a compatibilidade mínima não passa. Assim, o required check existente continua sendo a fronteira de merge, enquanto o suporte ao menor runtime deixa de ser apenas documental.
+
+O projeto usa `@types/node` mais recente que o runtime mínimo, por isso a execução real no Node 20.19.0 funciona como gate de compatibilidade equivalente: mudanças que compilam com tipos recentes ainda precisam instalar, construir e executar a suíte no runtime mínimo suportado.
+
 ## CI e build dos packages
 
 Os scripts locais que dependem dos packages preservam seus hooks `pre*` para garantir que `dist/` esteja atualizado antes de `docs:api`, `typecheck`, `test` e dos fluxos de desenvolvimento. Essa proteção é importante porque os apps consomem a saída compilada dos packages, não o TypeScript fonte diretamente.
@@ -30,8 +45,10 @@ Os scripts locais que dependem dos packages preservam seus hooks `pre*` para gar
 No job `Validate`, o CI evita repetir essa compilação em cada gate:
 
 1. executa `npm run build:packages` uma única vez após instalar as dependências e reconstruir `node-pty`;
-2. reutiliza esses artefatos nas etapas de documentação, typecheck e testes executando os scripts raiz com `--ignore-scripts`, o que ignora apenas os hooks `pre*`/`post*` e mantém o script principal;
-3. no step de build, executa `npm run build:apps`, pois os packages já foram compilados no início do job.
+2. gera a referência da API sem executar formatter mutável;
+3. reutiliza os artefatos compilados nas etapas de documentação, typecheck e testes executando os scripts raiz com `--ignore-scripts`, o que ignora apenas os hooks `pre*`/`post*` e mantém o script principal;
+4. valida formatação com `npm run format:check`, que apenas lê os arquivos;
+5. no step de build, executa `npm run build:apps`, pois os packages já foram compilados no início do job.
 
 Essa otimização é específica do pipeline. No desenvolvimento local, continue usando os comandos públicos normais sem `--ignore-scripts`, para não mascarar um `dist/` desatualizado.
 
