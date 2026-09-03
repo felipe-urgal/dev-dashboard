@@ -4,7 +4,7 @@ Este guia reúne portas, variáveis, persistência e procedimentos gerais para d
 
 ## Sistemas e runtimes
 
-O caminho principal é Linux, validado em CI com Node 24. macOS possui suporte parcial em áreas que usam `lsof`; Windows nativo não é suportado. O CLI Bash exige Bash 4+.
+O caminho principal é Linux. O CI valida Node 20.19.0 como runtime mínimo suportado e mantém Node 24 como runtime principal; macOS possui suporte parcial em áreas que usam `lsof` e Windows nativo não é suportado. O CLI Bash exige Bash 4+.
 
 Requisitos principais:
 
@@ -31,7 +31,7 @@ npm run doctor
 | Serviço | Porta padrão | Escopo |
 | --- | ---: | --- |
 | API | 4343 | regras, persistência e integrações |
-| Web | 5173 | frontend Vite |
+| Web | 5174 | frontend Vite |
 | Preview web | 4173 | validação de build |
 
 Listeners do produto devem permanecer em `127.0.0.1`.
@@ -152,7 +152,7 @@ No runtime normal de desenvolvimento, o health continua com o JSON público padr
 x-dev-dashboard-revision: <sha>
 ```
 
-Se a web estiver em desenvolvimento, abra `http://127.0.0.1:5173`.
+Se a web estiver em desenvolvimento, abra `http://127.0.0.1:5174`.
 
 ## `npm run dev` não inicia
 
@@ -170,7 +170,7 @@ npm run dev
 node --version
 ```
 
-Use uma versão compatível com `package.json`.
+Use uma versão compatível com `package.json`. O CI cobre explicitamente Node 20.19.0 como mínimo e Node 24 como runtime principal.
 
 ### Package compartilhado desatualizado
 
@@ -183,7 +183,7 @@ Depois rode o typecheck do workspace que falhou.
 ## Porta ocupada
 
 ```bash
-ss -ltnp | grep ':4343\|:5173'
+ss -ltnp | grep ':4343\|:5174'
 ```
 
 Não encerre um PID sem confirmar sua identidade.
@@ -193,7 +193,7 @@ Não encerre um PID sem confirmar sua identidade.
 Confira:
 
 1. API em `127.0.0.1:4343`;
-2. web em `127.0.0.1:5173` no modo Vite;
+2. web em `127.0.0.1:5174` no modo Vite;
 3. origem correta;
 4. token local legível pelo processo;
 5. request passando pelo proxy `/api`.
@@ -236,11 +236,9 @@ Não inclua segredos no manifesto. Se o scan indicar `productionWarning`, corrij
 
 ## Produção aparece como bloqueada
 
-`strategy=disabled` é deliberado. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
+`strategy=disabled` continua sendo um estado deliberado para projetos que optam por manter produção desabilitada. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
 
-O próprio Dev Dashboard permanece nesse estado mesmo com a cadeia operacional do PR #523 implementada. Handoff, ownership antes do shutdown, aplicação/restart user-space, readiness com prova de revision e teste real de recovery já fazem parte da branch.
-
-Os blockers atuais do contrato passam a ser a revisão final do modelo de privilégio e a revisão específica de segurança. A habilitação fica para o PR D; não use o tooling local como bypass do gate.
+O próprio Dev Dashboard **não** está nesse estado: `.dev-dashboard/production.json` declara `production.enabled=true`, `strategy=self-update`, `provider=none` e branch `main`. Desde o #527, esse fluxo passa pelo planner, confirmação e revalidação normais do domínio de deployment e usa a cadeia user-space fechada nos PRs #520/#521/#523.
 
 ## Self-update helper e agent
 
@@ -268,7 +266,7 @@ npm run self-update:agent -- stop
 - cria uma release por hash em `~/.local/lib/dev-dashboard/self-update-agent/releases/`;
 - publica `current.json` por escrita atômica;
 - cria/reutiliza `self-update-agent-token` privado;
-- não habilita o Production Contract.
+- não altera nem habilita automaticamente o Production Contract do projeto.
 
 `start` valida manifesto, tipo/permissão dos arquivos e SHA-256 antes de executar a release instalada com `shell: false` e processo destacado. O modo servidor recusa ser iniciado diretamente da checkout.
 
@@ -292,15 +290,15 @@ npm run self-update:agent -- claim <handoff-id>
 
 `claim` apenas transfere ownership de `prepared` para `accepted`.
 
-### Tooling local `execute` do PR #523
+### Tooling local `execute`
 
-A branch do PR #523 possui também:
+O tooling local possui também:
 
 ```bash
 npm run self-update:agent -- execute <handoff-id>
 ```
 
-Esse comando é **tooling local de engenharia**, não uma operação remota do socket e não um atalho suportado para contornar `strategy=disabled`.
+Esse comando é **tooling local de engenharia**, não uma operação remota do socket e não substitui o fluxo suportado pelo Production Contract, planner, confirmação e revalidação.
 
 Ele só aceita um handoff previamente `accepted` e revalida a checkout antes de iniciar um worker instalado. O worker exige:
 
