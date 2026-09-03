@@ -37,13 +37,16 @@ jobs:
       - name: Rebuild native terminal dependency
         run: npm rebuild node-pty
 
+      - name: Build packages once
+        run: npm run build:packages
+
       - name: Generate API docs and format
         run: |
-          npm run docs:api
+          npm --ignore-scripts run docs:api
           npm run format
 
       - name: Typecheck
-        run: npm run typecheck
+        run: npm --ignore-scripts run typecheck
 
       - name: Lint
         run: npm run lint
@@ -52,13 +55,13 @@ jobs:
         run: npm run format:check
 
       - name: Build
-        run: npm run build
+        run: npm run build:apps
 
       - name: Verify generated API reference
-        run: npm run docs:api:check
+        run: npm --ignore-scripts run docs:api:check
 
       - name: Test
-        run: npm test
+        run: npm --ignore-scripts test
 
   cli:
     name: CLI Bash

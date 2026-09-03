@@ -23,6 +23,18 @@ npm run test:e2e
 
 O CI executa esses gates sobre o head do pull request. A cobertura unitária da web faz parte de `npm test` e, portanto, uma regressão abaixo do piso configurado bloqueia a entrega.
 
+## CI e build dos packages
+
+Os scripts locais que dependem dos packages preservam seus hooks `pre*` para garantir que `dist/` esteja atualizado antes de `docs:api`, `typecheck`, `test` e dos fluxos de desenvolvimento. Essa proteção é importante porque os apps consomem a saída compilada dos packages, não o TypeScript fonte diretamente.
+
+No job `Validate`, o CI evita repetir essa compilação em cada gate:
+
+1. executa `npm run build:packages` uma única vez após instalar as dependências e reconstruir `node-pty`;
+2. reutiliza esses artefatos nas etapas de documentação, typecheck e testes executando os scripts raiz com `--ignore-scripts`, o que ignora apenas os hooks `pre*`/`post*` e mantém o script principal;
+3. no step de build, executa `npm run build:apps`, pois os packages já foram compilados no início do job.
+
+Essa otimização é específica do pipeline. No desenvolvimento local, continue usando os comandos públicos normais sem `--ignore-scripts`, para não mascarar um `dist/` desatualizado.
+
 ## Cobertura da web
 
 A suíte web usa Vitest com provider V8. O escopo unitário é `src/**/*.{ts,vue}` e as exclusões explícitas ficam centralizadas em `apps/web/vitest.config.ts`.

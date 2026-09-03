@@ -200,6 +200,10 @@ Para fluxos web críticos:
 npm run test:e2e
 ```
 
+Os comandos acima são a interface local suportada e mantêm os hooks `pre*` que recompilam os packages quando necessário. Isso evita validar apps contra `dist/` antigo.
+
+O job `Validate` do GitHub Actions faz uma otimização deliberada: compila os packages uma vez no início do job e reutiliza essa saída nos gates seguintes. Por isso, somente no CI, `docs:api`, `typecheck`, `docs:api:check` e `test` são executados com `--ignore-scripts`, enquanto o build executa `build:apps`. Não use essa forma otimizada como substituta dos comandos locais normais.
+
 Fixtures com filesystem/Git/processo/provider devem ser isoladas e possuir cleanup.
 
 Cobertura usa ratchet por workspace; não reduza thresholds silenciosamente para fazer CI passar.
