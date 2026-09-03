@@ -35,6 +35,18 @@ No job `Validate`, o CI evita repetir essa compilação em cada gate:
 
 Essa otimização é específica do pipeline. No desenvolvimento local, continue usando os comandos públicos normais sem `--ignore-scripts`, para não mascarar um `dist/` desatualizado.
 
+## Jornadas E2E críticas
+
+O Playwright protege poucos fluxos de alto valor em navegador real, evitando transformar o smoke em uma segunda suíte unitária lenta. A seleção atual cobre:
+
+- Git: criação/troca de branch, erro de mutação e commit real sobre a fixture;
+- Banco: conexão, navegação de catálogo/tabelas, leitura, isolamento da credencial e comportamento de foco do diálogo;
+- lifecycle: start/stop real do Sidekiq e start/stop da UI de servidor do projeto;
+- recuperação: falha de carga após esgotar os retries GET automáticos, estado de erro e sucesso ao executar `Tentar novamente`;
+- teclado: foco preso/retorno de foco em diálogo, `Escape` e ativação do retry com `Enter`.
+
+Mocks de rede são aceitáveis quando tornam um erro determinístico ou isolam um contrato de UI. Quando o risco é integração com filesystem/processo/Git, prefira a fixture real e mantenha cleanup explícito. O catálogo detalhado e as instruções de execução ficam em `apps/web/e2e/README.md`.
+
 ## Cobertura da web
 
 A suíte web usa Vitest com provider V8. O escopo unitário é `src/**/*.{ts,vue}` e as exclusões explícitas ficam centralizadas em `apps/web/vitest.config.ts`.
