@@ -37,6 +37,29 @@ Os testes navegam usando `#bootstrap=<token>` na primeira carga de cada
 página, replicando o fluxo real de sessão segura do navegador. Ao final da
 suíte, o servidor é encerrado e os diretórios temporários são removidos.
 
+## Jornadas críticas protegidas
+
+A suíte permanece intencionalmente pequena por fluxo, priorizando estados que
+podem quebrar uma tarefa real do usuário:
+
+- **Git:** `project-git-branches.spec.ts` cobre criação/troca de branch e erro
+  de nome duplicado; `project-git-commit.spec.ts` cobre estado vazio e commit
+  real sobre a fixture Git.
+- **Banco:** `project-database.spec.ts` cobre conexão, catálogo/tabelas,
+  leitura e garantia de que a credencial não é reenviada nas operações de
+  sessão. O mesmo arquivo protege foco preso no diálogo, `Escape` e retorno de
+  foco ao gatilho.
+- **Start/stop:** `rails-runtime.spec.ts` exercita start/stop real do Sidekiq;
+  `critical-journeys.spec.ts` protege também o fluxo da UI de servidor do
+  projeto, do estado parado até execução e parada.
+- **Erro/retry + teclado:** `critical-journeys.spec.ts` força falhas GET até
+  esgotar os retries automáticos, verifica o estado de erro e recupera a carga
+  acionando `Tentar novamente` com `Enter`.
+
+Mocks de rede são usados apenas quando o objetivo é isolar um contrato de UI
+ou tornar uma falha determinística. Mutações Git e o lifecycle do Sidekiq usam
+recursos reais da fixture.
+
 ## Cobertura responsiva
 
 `tests/responsive.spec.ts` exercita três faixas:
@@ -68,18 +91,6 @@ Baselines são gerados neste ambiente Linux/Chromium; a CI roda no mesmo par
 SO/motor (`ubuntu-latest` + Chromium), então não é necessário gerar variantes
 por plataforma.
 
-## Catálogo de scripts
-
-`tests/project-scripts.spec.ts` cobre o fluxo privilegiado de execução de
-scripts, com a matriz de carregamento/sucesso/erro/troca de projeto: um
-script somente leitura (`lint`, sem confirmação) até "Concluída", um script
-mutável (`format`, com confirmação explícita) até "Falhou", e a troca para
-`sample-rails-app` para confirmar que o catálogo (ações de Bundler) muda por
-projeto sem resquício do anterior — que também dá o estado vazio de brinde
-("Nenhuma ação encontrada"), já que `sample-rails-app` não tem nenhum script
-reconhecido no catálogo. Os scripts de fixture têm ~500ms de duração
-proposital para o estado "Em execução" ficar observável antes do desfecho.
-
 ## Mutações de branch Git
 
 `tests/project-git-branches.spec.ts` cobre criar branch (com confirmação),
@@ -99,7 +110,7 @@ de projeto.
 
 ## Fora do escopo desta base
 
-- Cobertura E2E de operações de banco de dados (snapshot/restore) — exige
-  um serviço de banco na fixture.
+- Validação de snapshot/restore contra um serviço de banco real externo à
+  fixture E2E.
 - Testes contra projetos reais do diretório pessoal do desenvolvedor.
 - Outros motores além do Chromium.
