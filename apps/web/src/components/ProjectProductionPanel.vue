@@ -350,6 +350,17 @@ const statusView = computed(
         };
       }
       if (deployment.status === 'failed') {
+        if (deployment.errorCode === 'DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE') {
+          return {
+            title: 'Banco de check indisponível',
+            description:
+              deployment.errorMessage ??
+              'O check não conseguiu acessar o banco configurado para o ambiente de check. Verifique a dependência e tente novamente.',
+            label: 'Falhou',
+            tone: 'danger',
+            icon: XCircleIcon,
+          };
+        }
         return {
           title: 'Último deployment falhou',
           description:
