@@ -146,6 +146,10 @@ Somente scripts `prod:*` canônicos reconhecidos no contrato podem virar etapas.
 
 O dashboard não interpreta comandos internos de systemd ou Docker Compose; essa implementação permanece no projeto alvo.
 
+Para `prod:check`, o adapter pode classificar o código estável `P1001` do Prisma como `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE`. A mensagem tipada e a linha adicional de diagnóstico são produzidas localmente e não reutilizam o trecho do stderr que pode conter host, porta, URL, nome do banco ou credenciais. A saída original do processo continua passando pelo masking normal; a classificação não concede ao Dashboard autoridade para iniciar a dependência nem amplia o catálogo de comandos.
+
+A regra é deliberadamente estreita: apenas `P1001` em `prod:check` recebe essa categoria. Outros textos de conexão e `P1001` em outras etapas permanecem genéricos para evitar que conteúdo de log se transforme em heurística de infraestrutura ou em gatilho de ação automática.
+
 ### Ambiente local de produção por projeto
 
 Etapas locais que realmente consultam ou alteram produção podem receber segredos específicos do projeto a partir do caminho fixo `<Project.path>/.dev-dashboard/.env.production.local`. O browser não escolhe esse path nem envia o conteúdo do arquivo.
@@ -350,10 +354,10 @@ A proteção exige:
 - tamanho limitado;
 - leitura apenas de arquivos derivados de IDs controlados;
 - masking antes de persistir/retornar conteúdo sensível;
-- mensagens externas produzidas localmente a partir de estados normalizados;
+- mensagens externas e diagnósticos tipados produzidos localmente a partir de estados/códigos reconhecidos, sem copiar detalhes sensíveis do texto bruto;
 - ausência de bodies brutos de providers.
 
-Novos padrões sensíveis devem ser centralizados e cobertos por testes.
+Novos padrões sensíveis devem ser centralizados e cobertos por testes. Classificação de erro não substitui masking: quando o stdout/stderr original é preservado no log, ele continua passando pelo pipeline de redaction existente.
 
 ## Persistência local
 

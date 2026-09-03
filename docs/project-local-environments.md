@@ -22,6 +22,14 @@ A aba Testes não usa `DATABASE_URL` herdada do processo da API como fallback: s
 
 O `prod:check` também pode receber o ambiente de check. Ele continua isolado de `.env.production.local` e, portanto, não ganha acesso ao banco de produção apenas por fazer parte de um plano de deployment.
 
+### Diagnóstico de dependência no `prod:check`
+
+Quando um `prod:check` termina com o código estável `P1001` do Prisma, o domínio de deployment classifica a falha como `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE`. A timeline continua marcando a etapa `check` como falha, enquanto o log e o estado principal da tela de Produção exibem uma orientação sanitizada para verificar se o banco do ambiente de check está pronto.
+
+O diagnóstico gerado pelo Dev Dashboard não copia host, porta, URL, nome do banco ou credenciais do stderr. O log original continua passando pelo mascaramento já existente.
+
+Essa classificação é apenas informativa: o Dev Dashboard não inicia PostgreSQL, Docker, Compose ou qualquer outro serviço específico do projeto. O próprio projeto continua responsável por readiness, retries e lifecycle das dependências usadas pelo `prod:check`. Outros erros de conexão e ocorrências de `P1001` fora de `prod:check` permanecem no tratamento genérico, evitando heurísticas amplas sobre infraestrutura do projeto.
+
 ## Produção
 
 Operações locais que realmente consultam ou alteram produção usam:
