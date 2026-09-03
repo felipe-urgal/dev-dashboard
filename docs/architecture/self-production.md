@@ -13,9 +13,9 @@ branch=main
 
 Não existe `prod:deploy` local, executor remoto genérico, unit systemd, path executável ou comando escolhido pelo browser. A mutação pertence exclusivamente ao protocolo de handoff + worker documentado aqui.
 
-## Decisão de privilégio do PR D
+## Decisão arquitetural: privilégio user-space
 
-A revisão final conclui que o modelo user-space existente é suficiente para a operação suportada.
+A revisão final concluiu que o modelo user-space existente é suficiente para a operação suportada. Essa decisão foi habilitada no #527 e faz parte do contrato `self-update` v1.
 
 O self-update precisa somente de:
 
@@ -28,7 +28,7 @@ O self-update precisa somente de:
 
 Por isso o fluxo final **não usa `sudo`, `systemctl` nem privilégio root**. A senha e o ticket de sudo usados por deployments locais de outros projetos não são reutilizados.
 
-Se no futuro surgir necessidade real de um serviço de sistema, isso será uma nova fronteira de segurança e exigirá outro contrato mínimo; não faz parte do `self-update` v1.
+Se no futuro surgir necessidade real de um serviço de sistema, isso será uma nova fronteira de segurança e exigirá outra decisão explícita e um contrato mínimo; não faz parte do `self-update` v1.
 
 ## Production Contract fechado
 
@@ -241,4 +241,4 @@ A cadeia possui testes para:
 - #520 — handoff/helper;
 - #521 — instalação/lifecycle/canal local;
 - #523 — API → agent → worker → restart/readiness;
-- PR D — revisão final de privilégio/segurança, integração ao deployment e habilitação do contrato.
+- #527 — revisão final de privilégio/segurança, integração ao deployment e habilitação do contrato.
