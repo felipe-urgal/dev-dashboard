@@ -13,7 +13,7 @@ npm run dev
 Abra:
 
 ```text
-Dashboard:  http://127.0.0.1:5173
+Dashboard:  http://127.0.0.1:5174
 API health: http://127.0.0.1:4343/api/health
 ```
 
@@ -42,7 +42,9 @@ Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente 
 | `npm run self-update:agent -- ...` | tooling de instalação/lifecycle/inspeção do agent |
 | `npm run typecheck` | valida tipos |
 | `npm run lint` | ESLint |
-| `npm run format:check` | verifica Prettier |
+| `npm run lint:fix` | ESLint com correções automáticas |
+| `npm run format` | reescreve arquivos com Prettier |
+| `npm run format:check` | verifica Prettier sem regravar arquivos |
 | `npm run build` | compila packages/apps |
 | `npm test` | testes dos workspaces |
 | `npm run test:cli` | suíte Bash |
@@ -50,227 +52,160 @@ Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente 
 
 Os scripts `self-update:*` continuam sendo tooling de engenharia do handoff/agent. O fluxo suportado de self-production usa o Production Contract `strategy=self-update`, o planner e a confirmação do domínio de deployment; executar tooling interno manualmente não substitui essa fronteira.
 
-## Como adicionar ou alterar uma funcionalidade
+## Runtime Node suportado
 
-### 1. Defina o contrato
+O `package.json` raiz exige Node `^20.19.0 || >=22.12.0`.
 
-Responda:
+O CI valida explicitamente Node 20.19.0 como runtime mínimo, incluindo instalação, rebuild de `node-pty`, build, typecheck e testes, e mantém Node 24 como runtime principal do job `Validate` e do smoke E2E. Alterar essa política exige manter `engines`, CI e documentação sincronizados.
 
-- qual problema é resolvido;
-- qual estado é público;
-- que entradas são aceitas;
-- quais erros possuem código estável;
-- leitura ou mutação;
-- risco destrutivo/irreversível;
-- persistência necessária;
-- dependência local ou provider externo.
+`.github/workflows/ci.yml` valida typecheck, lint, formatação, build, documentação gerada da API, testes e smoke E2E. As automações de release ficam em `.github/workflows/release-prepare.yml` e `release-tag.yml`; o projeto é `private: true` e não publica pacote em registro npm.
 
-Tipos compartilhados por web/API pertencem a `packages/contracts`.
+### Rodando um teste específico
 
-### 2. Escolha a camada correta
-
-- regra genérica: package compartilhado;
-- caso de uso/integração: serviço da API;
-- transporte: rota Fastify;
-- provider externo: adapter explícito;
-- apresentação: Vue;
-- tooling do repo: `scripts/`;
-- estado permanente do produto: `docs/`;
-- planejamento futuro/multi-PR: issue GitHub.
-
-Não coloque comportamento específico de um repositório alvo no Dev Dashboard.
-
-### 3. Defina a fronteira de segurança
-
-Para operações locais:
-
-- IDs conhecidos em vez de paths livres;
-- canonicalização e revalidação;
-- programa/args no backend;
-- `shell: false` quando aplicável;
-- timeout e limites;
-- masking;
-- confirmação para mutações sensíveis.
-
-Para providers externos:
-
-- credencial só no processo local;
-- browser não fornece token nem parâmetros de autoridade que possam ser derivados pelo backend;
-- request/response externos com timeout/tamanho/shape bounded;
-- mensagens externas sanitizadas;
-- estado parcial/indisponível representado honestamente;
-- mutação externa dentro do mesmo domínio de confirmação/recovery quando aplicável.
-
-Para self-update:
-
-- não transforme o agent em executor remoto genérico;
-- handoff precisa existir antes de ownership externo;
-- checkout/revision são revalidadas antes da mutação;
-- worker que precisa sobreviver ao Fastify deve executar de uma cópia instalada/verificada, não da checkout mutável;
-- retorno da porta não basta: readiness precisa provar a revision aplicada;
-- falha após início de mutação deve preservar estado/recovery em vez de inventar rollback seguro;
-- o fluxo suportado precisa passar pelo Production Contract `strategy=self-update`, planner, confirmação e revalidação; tooling interno não é bypass dessa autorização.
-
-### 4. Rotas e schemas
-
-Toda rota deve possuir params/query/body/responses explícitos e `additionalProperties: false` quando apropriado. Traduza erros internos para códigos estáveis e cubra auth/origem nos testes relevantes.
-
-Depois de alterar rotas:
+Cada workspace usa `node --test` com `tsx`, exceto `apps/web` (Vitest + Playwright):
 
 ```bash
-npm run docs:api
-npm run docs:api:check
+# API / packages
+npm run build --workspace=@dev-dashboard/contracts
+node --import=tsx --test apps/api/test/processes.test.ts
+
+# Web unitário/componente
+npm run test --workspace=@dev-dashboard/web -- run caminho/do/arquivo.test.ts
+
+# Web E2E, a partir de apps/web/
+npx playwright test --config=e2e/playwright.config.ts caminho/do/arquivo.spec.ts
 ```
 
-A referência gerada não é editada manualmente.
+## Monorepo do dashboard web
 
-### 5. Web
+- **`apps/api`** — Fastify + JSON Schema, escuta somente em `127.0.0.1`.
+  Rotas ficam em `apps/api/src/routes/*.ts`; cada rota declara `params`,
+  `querystring`, `body` e `response`. Erros públicos passam por
+  `ApiError`/`ApiErrorCode`. Schemas de resposta compartilhados ficam em
+  `apps/api/src/http/response-schemas.ts`.
+- **`apps/web`** — Vue 3 SFCs. Toda chamada HTTP passa por
+  `apps/web/src/api.ts`; o frontend não executa comandos locais nem acessa o
+  filesystem. Ao trocar de projeto, painéis invalidam estado assíncrono pelo
+  padrão `generation`.
+- **`packages/contracts`** — apenas tipos compartilhados; sem Fastify, Vue ou
+  dependências novas de infraestrutura.
+- **`packages/core`** — configuração de workspaces e armazenamento do token
+  local da API.
+- **`packages/project-discovery`** — descoberta de projetos Rails/Node.
+- **`packages/process-manager`** — ciclo de vida de processos conhecidos,
+  iniciado sem `shell: true`, com validação de PID/cwd e TERM antes de KILL.
 
-A interface precisa tratar loading real, vazio, erro, sucesso, ação em andamento, clique duplicado, confirmação, resposta stale, teclado/foco, responsividade e reduced motion.
+Os kinds gerenciados atuais são `'server'`, `'test'`, `'worker'` e
+`'webpack'`. `MANAGED_KINDS` em `process-store.ts` é a fonte de verdade para o
+store e retenção de logs. Execuções de scripts têm ciclo de vida próprio em
+`apps/api/src/services/script-execution/` e não fazem parte desse store.
 
-Não use texto localizado da API como identificador de lógica.
+Não existe adaptador compartilhado entre o CLI bash e o monorepo. Uma extração
+comum exige decisão arquitetural e modelo de ameaça próprios.
 
-#### Política HTTP do cliente web
+Narrativa completa: `docs/architecture/overview.md`.
 
-`requestJson()` diferencia leituras idempotentes de mutações para evitar estado ambíguo:
+## Modelo de segurança da API
 
-- `GET` usa timeout interno de 10 segundos, retry bounded apenas para falhas transitórias e deduplicação quando não existe `AbortSignal` próprio;
-- `POST`, `PUT`, `PATCH` e `DELETE` não recebem timeout nem retry implícitos do cliente;
-- mutações podem receber um `AbortSignal` explícito quando a operação realmente suporta cancelamento ponta a ponta; o signal do chamador deve ser preservado;
-- abortar somente o `fetch` não prova que o servidor cancelou uma mutação já iniciada, portanto não use timeout genérico como substituto de lifecycle observável;
-- operações longas devem preferir os mecanismos do próprio domínio, como PTY/SSE, deployment com estado/timeline ou outro identificador observável, em vez de fingir semântica de request curto;
-- quando uma operação não é cancelável, descarte respostas obsoletas por `generation/latest-wins` em vez de abortar e assumir que o efeito remoto desapareceu.
+A API é um processo local privilegiado. Leia `docs/architecture/security.md`
+antes de criar ou alterar endpoints.
 
-### 6. Testes
+- Escuta somente em `127.0.0.1`, nunca em `0.0.0.0`.
+- Catálogo fechado de ações; nenhuma linha de shell arbitrária vem do browser.
+- Token local aleatório é exigido em rotas privadas via
+  `X-Dev-Dashboard-Token`; `GET /api/health` é pública.
+- CORS usa lista fechada de origens locais.
+- Caminhos recebidos da interface não podem escapar do projeto/workspace
+  autorizado.
+- Leituras de log e arquivo possuem limites.
+- Schemas de resposta descartam campos não declarados antes da serialização.
+- Operações sensíveis exigem confirmação explícita quando aplicável.
 
-| Camada | Teste esperado |
-| --- | --- |
-| package | unidade |
-| serviço API | unidade/integração com fixtures |
-| adapter externo | transporte simulado, limites, erros e estados |
-| rota | Fastify inject + schemas/auth |
-| web | Vitest + Vue Test Utils |
-| fluxo crítico | Playwright E2E |
-| script raiz | `node:test` |
+## Padrões do frontend
 
-Testes que iniciam processo/repositório temporário devem ter cleanup garantido.
+- Estados de loading precisam refletir trabalho real.
+- Ações concorrentes devem ser bloqueadas apenas quando existe risco real de
+  corrida.
+- Respostas obsoletas precisam ser descartadas após troca de projeto/contexto.
+- Mantenha estados de vazio, erro, sucesso e progresso explícitos.
+- Revise foco, teclado, responsividade e movimento reduzido.
+- Prefira UI simples, ágil e funcional; remova redundância antes de adicionar
+  novos elementos.
 
-Fluxos de self-update precisam cobrir não só helpers isolados, mas também ownership externo, concorrência, interrupção da API, restart, readiness/revision e recovery quando a entrega declarar essas capacidades.
+## Internals do CLI bash
 
-## Mudanças no domínio de Produção
+As seções abaixo descrevem especificamente `lib/` + `init.sh`.
 
-Antes de alterar Production Contract, planner, adapters ou UI, leia:
+### Ordem de carregamento
 
-- [production-contract.md](architecture/production-contract.md)
-- [deployment-domain.md](architecture/deployment-domain.md)
-- [security.md](architecture/security.md)
-- [self-production.md](architecture/self-production.md) quando tocar o próprio Dashboard
-- [deployment-operations.md](deployment-operations.md)
-- [production-ui.md](production-ui.md)
+`init.sh` é o ponto de entrada e carrega módulos em ordem de dependência:
 
-Invariantes que não devem ser quebrados:
+1. `lib/core/init.sh`;
+2. `lib/projects/init.sh`;
+3. `lib/server/init.sh`;
+4. `lib/ui/init.sh`, `lib/actions/init.sh`, `lib/dashboard/init.sh`;
+5. `lib/doctor/init.sh`;
+6. `lib/git/init.sh`, `lib/rails/init.sh`, `lib/node/init.sh` como módulos
+   opcionais;
+7. `load_project_config` + `detect_projects`;
+8. exportação das funções públicas necessárias em subshells.
 
-1. manifesto/browser não enviam linha de shell arbitrária;
-2. plano usa branch/revision real e working tree limpa;
-3. confirmação é vinculada ao `planHash`;
-4. `strategy=command` executa somente aliases `prod:*` canônicos;
-5. `strategy=git-managed` não inventa `prod:deploy` local;
-6. Vercel recebe projeto/origem/revision derivados pelo backend;
-7. antes da promoção Vercel, `origin/<branch>` real precisa provar o SHA confirmado;
-8. provider READY é separado de `prod:verify`;
-9. etapas irreversíveis usam recovery conservador;
-10. retry de verify nunca repete mutação anterior;
-11. credenciais Vercel não entram em contratos, responses ou persistência;
-12. self-production usa `strategy=self-update` dentro do mesmo planner/confirmação/revalidação do domínio, sem rota paralela nem tooling interno como bypass;
-13. sucesso de self-update exige readiness e prova da revision, não apenas processo/porta disponível.
+Pastas de funcionalidade seguem a convenção existente:
 
-### Testes mínimos para Vercel
+- `init.sh` carrega os arquivos do módulo;
+- `helpers.sh` contém lógica privada;
+- `run.sh` ou arquivos por verbo (`start.sh`, `stop.sh`, `logs.sh`, `menu.sh`)
+  contêm ações públicas.
 
-Cubra quando relevante:
+Não invente uma nova convenção de carregamento sem necessidade arquitetural.
 
-- token ausente;
-- auth/escopo recusado;
-- projeto não encontrado;
-- quota/transport indisponível;
-- resposta inválida/acima do limite;
-- criação com branch + SHA exato;
-- revision remota divergente/indisponível;
-- polling BUILDING → READY;
-- ERROR/CANCELED;
-- cancelamento best-effort;
-- falha de verify depois de promoção sem repetir provider-deploy.
+### Convenção de nomes
 
-## Persistência
+- Comandos públicos: kebab-case, normalmente `dev-*`, `git-*` e `project-*`.
+- Helpers privados: prefixo `_`, snake_case, não exportados salvo dependência
+  explícita entre módulos.
 
-Arquivos privados usam `0700`/`0600` quando aplicável, formatos são validados na leitura e escrita deve ser atômica quando relevante.
+### Estado global
 
-Não persista token de confirmação, senha, `VERCEL_TOKEN`, response bruta de provider ou conteúdo de projeto quando metadado/ID basta.
+- `DEV_BASE` — raiz escaneada em busca de projetos.
+- `DEV_DASHBOARD_DIR` — localização resolvida desta instalação.
+- `DEV_RUN_DIR` — estado temporário de processos por UID.
+- `PROJECT_META` — metadados dos projetos detectados.
+- `PROJECT_CONFIG` — overrides de configuração de projetos.
+- `~/.dev-dashboard.secrets` — configuração opcional com permissões restritas.
 
-Estado persistido de self-update não é autoridade executável: ele pode vincular ID/projeto/revision/`planHash`/estado/resultado, mas não deve carregar shell, unit, path ou credencial que transforme adulteração de arquivo em execução arbitrária.
+### UI com `gum` e fallback
 
-## UI
+Funções interativas precisam manter os dois caminhos suportados:
 
-O produto prioriza experiência simples, ágil e funcional:
+- UI com `gum`, quando disponível;
+- fallback puro com `read -r -p`, menus numerados e `echo`.
 
-- ação no contexto onde é usada;
-- sem títulos/resumos redundantes;
-- estado real em vez de animação artificial;
-- loading só durante trabalho;
-- linguagem direta em português;
-- risco/irreversibilidade explícitos sem dramatização;
-- use `--font-label` (11px) para labels e metadados compactos, `--font-control` (12px) para texto de controles e `--font-body` (13px) para corpo padrão;
-- 8–9px não são tamanho padrão de UI; 10px fica restrito a metadado técnico não interativo quando a densidade realmente justificar;
-- diálogos customizados precisam de `role="dialog"`/`aria-modal`, foco inicial previsível, trap de `Tab`, fechamento por `Escape` quando permitido e retorno de foco ao elemento que abriu o diálogo;
-- feedback assíncrono deve usar `role="status"`/`aria-live="polite"` quando informativo e `role="alert"` quando exigir anúncio imediato; animações e transições devem respeitar o fallback global de `prefers-reduced-motion`;
-- reutilize `EmptyState` para estados de página que compartilham a estrutura visual de ícone, título, descrição e ação opcional;
-- extraia novos componentes-base somente quando houver repetição real de estrutura e semântica; controles específicos da feature permanecem locais até essa repetição existir.
+A ausência de `gum` é um aviso, não erro. Mudanças de UI do CLI devem validar
+ambos os ramos.
 
-## Documentação
+### Gerenciamento de processos
 
-Uma mudança está incompleta quando o comportamento mudou e os documentos correspondentes não.
+O CLI inicia servidores por `_dev_start_server`, registra PID/log em
+`DEV_RUN_DIR` e encerra com TERM antes de KILL. Rails e Node compartilham esse
+núcleo. Ao alterar esse fluxo, preserve cleanup, checagem de porta e identidade
+do processo.
 
-Atualize:
+### Fluxo de router/menu
 
-- `README.md`/`getting-started.md` para primeiro uso;
-- `architecture/*` para contratos/fluxos/segurança;
-- `operations-and-troubleshooting.md` para variáveis/arquivos/diagnóstico;
-- `.env.example` quando configuração local versionável mudar;
-- `deployment-operations.md` e `production-ui.md` para produção;
-- `guia/*` para a experiência do usuário;
-- issues para backlog/roadmap que atravessa PRs.
+`dev-tools` → `dev-dashboard` → `project-menu` → `dev-project-actions` →
+`dev-run-command`.
 
-Não recrie `tasks/`, `NEXT.md` ou roadmaps versionados.
+Uma nova ação de topo normalmente exige atualizar o menu, o `case` do router e,
+para sessões interativas longas, a regra que evita `_dev_pause` duplicado.
 
-## Validação final
+## Fechamento de uma entrega
 
-```bash
-npm run typecheck
-npm run lint
-npm run format:check
-npm run build
-npm test
-npm run test:cli
-```
-
-Rode também:
-
-```bash
-npm run test:e2e
-```
-
-quando o fluxo web alterado justificar.
-
-## Checklist de revisão
-
-- [ ] responsabilidade na camada correta;
-- [ ] entradas, paths e provider data validados;
-- [ ] nenhum shell arbitrário;
-- [ ] mutação possui preview/confirmação/revalidação apropriados;
-- [ ] logs/respostas possuem limites e masking;
-- [ ] credenciais não vazam;
-- [ ] shutdown/cancelamento fecham recursos;
-- [ ] recovery representa efeitos parciais honestamente;
-- [ ] testes cobrem sucesso e falhas relevantes;
-- [ ] documentação, `.env.example` e issues estão coerentes;
-- [ ] gates completos passaram no head final;
-- [ ] auto-review foi executado depois do último commit.
+1. Confirme a camada correta e o escopo real no código atual.
+2. Implemente com testes de regressão/regra quando suportado.
+3. Rode os gates relevantes e o conjunto completo antes do PR sempre que o
+   ambiente permitir.
+4. Atualize a documentação viva correspondente.
+5. Faça auto code review do diff e aplique os ajustes encontrados.
+6. Abra o PR com objetivo, riscos, validação e impacto visual.
+7. Não faça merge sem instrução explícita e sem os gates exigidos verdes.
