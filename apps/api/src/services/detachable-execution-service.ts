@@ -328,24 +328,21 @@ export class DetachableExecutionService {
 
     return new Promise((resolve) => {
       let settled = false;
-      let escalation: ReturnType<typeof setTimeout> | undefined;
       const finish = () => {
         if (settled) return;
         settled = true;
-        if (escalation) clearTimeout(escalation);
+        clearTimeout(escalation);
         record.shutdownWaiters.delete(finish);
         resolve();
       };
-
-      record.shutdownWaiters.add(finish);
-      record.proc?.kill('SIGTERM');
-      if (settled) return;
-
-      escalation = setTimeout(() => {
+      const escalation = setTimeout(() => {
         if (record.status === 'running') record.proc?.kill('SIGKILL');
         finish();
       }, KILL_ESCALATION_MS);
       escalation.unref();
+
+      record.shutdownWaiters.add(finish);
+      record.proc?.kill('SIGTERM');
     });
   }
 
