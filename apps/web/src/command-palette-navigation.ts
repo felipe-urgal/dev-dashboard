@@ -257,6 +257,34 @@ export function buildCommandPaletteNavigationItems(
   return [...globalItems, ...workspaceItems, ...projectItems, ...toolItems];
 }
 
+function tokenizeSearchText(value: string): string[] {
+  return normalizePaletteText(value)
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function scoreNavigationItem(searchText: string, queryValue: string): number {
+  const searchTokens = tokenizeSearchText(searchText);
+  const queryTokens = tokenizeSearchText(queryValue);
+  let totalScore = 0;
+
+  for (const queryToken of queryTokens) {
+    let bestScore = -1;
+
+    for (const searchToken of searchTokens) {
+      bestScore = Math.max(
+        bestScore,
+        paletteFuzzyScore(searchToken, queryToken),
+      );
+    }
+
+    if (bestScore < 0) return -1;
+    totalScore += bestScore;
+  }
+
+  return totalScore;
+}
+
 export function filterCommandPaletteNavigationItems(
   items: CommandPaletteNavigationItem[],
   query: ParsedPaletteQuery,
@@ -273,7 +301,7 @@ export function filterCommandPaletteNavigationItems(
   return candidates
     .map((navigationItem) => ({
       item: navigationItem,
-      score: paletteFuzzyScore(navigationItem.searchText, query.value),
+      score: scoreNavigationItem(navigationItem.searchText, query.value),
     }))
     .filter(({ score }) => score >= 0)
     .sort(
