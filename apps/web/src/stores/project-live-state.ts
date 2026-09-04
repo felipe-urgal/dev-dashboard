@@ -93,7 +93,10 @@ export function createProjectSnapshotRegistry(): ProjectSnapshotRegistry {
     notify(entry);
   }
 
-  async function refresh<T>(key: string, entry: SnapshotEntry<T>): Promise<void> {
+  async function refresh<T>(
+    key: string,
+    entry: SnapshotEntry<T>,
+  ): Promise<void> {
     if (entry.running || !entry.listeners.size) return;
     const generation = entry.generation;
     entry.running = true;

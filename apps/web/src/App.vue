@@ -49,12 +49,8 @@ nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
 });
 
-const {
-  knownProjects,
-  workspaces,
-  selectedWorkspaceId,
-  switchWorkspace,
-} = dashboardStore;
+const { knownProjects, workspaces, selectedWorkspaceId, switchWorkspace } =
+  dashboardStore;
 
 function openWorkspaceManager(): void {
   workspaceManagerOpen.value = true;

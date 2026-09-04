@@ -36,7 +36,10 @@ export function createProcessStatusReader(
     const detectedPorts = await detectListeningPortsForProcessTree(pid);
     const candidates =
       expectedPort !== undefined && detectedPorts.includes(expectedPort)
-        ? [expectedPort, ...detectedPorts.filter((port) => port !== expectedPort)]
+        ? [
+            expectedPort,
+            ...detectedPorts.filter((port) => port !== expectedPort),
+          ]
         : detectedPorts;
 
     for (const port of candidates) {

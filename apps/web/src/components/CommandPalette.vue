@@ -245,7 +245,8 @@ watch(activeIndex, () =>
 );
 watch(orderedItems, (items) => {
   if (!items.length) activeIndex.value = 0;
-  else if (activeIndex.value >= items.length) activeIndex.value = items.length - 1;
+  else if (activeIndex.value >= items.length)
+    activeIndex.value = items.length - 1;
 });
 
 onMounted(() => window.addEventListener('keydown', handleGlobalKeydown));
