@@ -66,7 +66,7 @@ O Playwright protege poucos fluxos de alto valor em navegador real, evitando tra
 
 Mocks de rede são aceitáveis quando tornam um erro determinístico ou isolam um contrato de UI. Quando o risco é integração com filesystem/processo/Git, prefira a fixture real e mantenha cleanup explícito. O catálogo detalhado e as instruções de execução ficam em `apps/web/e2e/README.md`.
 
-O baseline atual do harness web usa **jsdom 30.x**, **Vitest 4.1.11** e `@vitest/coverage-v8` **4.1.11** para a suíte unitária, e **Playwright 1.62.x** para o smoke E2E. `vitest` e o provider de cobertura devem permanecer na mesma versão compatível; upgrades de major do runner são entregas isoladas, para que breaking changes não sejam misturados com mudanças funcionais. No CI, a chave de cache dos browsers é derivada da versão de `@playwright/test` realmente instalada, evitando drift entre `package-lock.json` e o cache reutilizado.
+O baseline atual do harness web usa **jsdom 27.4.x**, **Vitest 4.1.11** e `@vitest/coverage-v8` **4.1.11** para a suíte unitária, e **Playwright 1.62.x** para o smoke E2E. A linha 27.4 do jsdom é a mais recente compatível com o Node 20.19.0 mínimo suportado pelo projeto; elevar o runtime mínimo somente para acompanhar uma dependência de teste exige decisão própria. `vitest` e o provider de cobertura devem permanecer na mesma versão compatível; upgrades de major do runner são entregas isoladas, para que breaking changes não sejam misturados com mudanças funcionais. No CI, a chave de cache dos browsers é derivada da versão de `@playwright/test` realmente instalada, evitando drift entre `package-lock.json` e o cache reutilizado.
 
 ## Supply chain
 
