@@ -175,6 +175,7 @@ O token não deve ser versionado.
 ### Dashboard web por aba
 
 - [Guia geral](guia/README.md)
+- [Command Palette global](product/command-palette.md): navegação rápida, atalhos e limites do MVP.
 - [README](guia/readme.md)
 - [Diagnóstico](guia/diagnostico.md)
 - [Servidor](guia/servidor.md)
