@@ -58,7 +58,7 @@ export function createProjectSnapshotRegistry(): ProjectSnapshotRegistry {
   const entries = new Map<string, SnapshotEntry<unknown>>();
 
   function isCurrent<T>(key: string, entry: SnapshotEntry<T>): boolean {
-    return entries.get(key) === entry;
+    return entries.get(key) === (entry as SnapshotEntry<unknown>);
   }
 
   function notify<T>(entry: SnapshotEntry<T>): void {
@@ -114,6 +114,7 @@ export function createProjectSnapshotRegistry(): ProjectSnapshotRegistry {
   }
 
   function stop<T>(key: string, entry: SnapshotEntry<T>): void {
+    if (!isCurrent(key, entry)) return;
     entry.generation += 1;
     if (entry.timer !== undefined) clearTimeout(entry.timer);
     entries.delete(key);
@@ -128,9 +129,14 @@ export function createProjectSnapshotRegistry(): ProjectSnapshotRegistry {
 
     entry.listeners.add(subscription.onChange);
     subscription.onChange(entry.snapshot);
-    if (!entry.running && entry.timer === undefined) void refresh(subscription.key, entry);
+    if (!entry.running && entry.timer === undefined) {
+      void refresh(subscription.key, entry);
+    }
 
+    let active = true;
     return () => {
+      if (!active) return;
+      active = false;
       entry.listeners.delete(subscription.onChange);
       if (!entry.listeners.size) stop(subscription.key, entry);
     };
