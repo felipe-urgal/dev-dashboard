@@ -126,11 +126,11 @@ test(
       capabilities: ['server'],
     };
     const manager = new ProcessManager(stateDirectory);
-    let unrelatedListener: ReturnType<typeof createServer> | undefined;
+    const unrelatedListeners: ReturnType<typeof createServer>[] = [];
 
     context.after(async () => {
-      if (unrelatedListener) {
-        await closeServer(unrelatedListener);
+      for (const server of unrelatedListeners) {
+        await closeServer(server);
       }
       await manager.stopServer(project.id).catch(() => undefined);
       await rm(fixtureRoot, { recursive: true, force: true });
@@ -141,7 +141,7 @@ test(
     assert.equal(started.port, expectedPort);
     assert.notEqual(started.port, fixedPort);
 
-    unrelatedListener = await listenOnPort(expectedPort);
+    unrelatedListeners.push(await listenOnPort(expectedPort));
 
     let running = await manager.getServerProcess(project.id);
 
