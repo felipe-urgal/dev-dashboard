@@ -21,6 +21,7 @@
     "release": "node scripts/release.mjs",
     "build": "npm run build:packages && npm run build:apps",
     "test": "node --test scripts/*.test.mjs && npm run test --workspaces --if-present",
+    "test:coverage": "node --test scripts/*.test.mjs && npm run test:coverage --workspaces --if-present",
     "test:cli": "bash tests/cli/run.sh",
     "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -37,6 +38,7 @@
     "predev": "npm run build:packages",
     "pretypecheck": "npm run build:packages",
     "pretest": "npm run build:packages",
+    "pretest:coverage": "npm run build:packages",
     "predev:api": "npm run build:packages",
     "predev:web": "npm run build:packages"
   },

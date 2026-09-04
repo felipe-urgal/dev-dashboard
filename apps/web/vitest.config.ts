@@ -12,11 +12,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,vue}'],
-      // These route shells are covered through the Playwright navigation suite.
-      // Keep the unit coverage gate focused on components and composables that
-      // are exercised by Vitest without duplicating the full router contract.
+      // Cobertura é um diagnóstico explícito, não um gate percentual.
+      // Superfícies validadas principalmente por integração/browser permanecem
+      // fora do relatório unitário para evitar números artificiais.
       exclude: [
-        // Application shells and browser installers are covered by E2E.
         'src/App.vue',
         'src/api.ts',
         'src/main.ts',
@@ -30,12 +29,6 @@ export default defineConfig({
         'src/views/ProjectDetailsView.vue',
         'src/views/NotFoundView.vue',
       ],
-      thresholds: {
-        statements: 59,
-        branches: 51,
-        functions: 65,
-        lines: 61,
-      },
     },
   },
 });

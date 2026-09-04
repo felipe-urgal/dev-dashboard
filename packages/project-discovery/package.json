@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import=tsx --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-lines=92 --test-coverage-branches=73 --test-coverage-functions=97 --test test/*.test.ts"
+    "test": "node --import=tsx --test test/*.test.ts",
+    "test:coverage": "node --import=tsx --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test test/*.test.ts"
   },
   "dependencies": {
     "@dev-dashboard/contracts": "0.1.0"

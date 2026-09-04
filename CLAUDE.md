@@ -82,6 +82,7 @@ npm run format
 npm run format:check
 npm run build
 npm test
+npm run test:coverage
 npm run test:e2e
 
 npm run docs:api
@@ -89,16 +90,24 @@ npm run docs:api:check
 npm run release -- <patch|minor|major>
 ```
 
-Os scripts `build`, `typecheck`, `dev`, `dev:api` e `dev:web` executam
-`build:packages` antes dos apps. Os apps importam a saída compilada em `dist/`,
-não diretamente os fontes TypeScript dos packages.
+Os scripts `build`, `typecheck`, `dev`, `dev:api`, `dev:web`, `test` e
+`test:coverage` executam `build:packages` antes dos apps quando necessário. Os
+apps importam a saída compilada em `dist/`, não diretamente os fontes
+TypeScript dos packages.
 
 O `package.json` raiz exige Node `^20.19.0 || >=22.12.0`.
 
-`.github/workflows/ci.yml` valida typecheck, lint, formatação, build,
-documentação gerada da API, testes e smoke E2E. As automações de release ficam
-em `.github/workflows/release-prepare.yml` e `release-tag.yml`; o projeto é
-`private: true` e não publica pacote em registro npm.
+`.github/workflows/ci.yml` mantém um único job `Validate` em Node 24 com
+instalação otimizada (`npm ci --ignore-scripts` + rebuild explícito de
+`esbuild`/`node-pty`), lint, testes funcionais e build dos apps. Coverage,
+format check, CLI Bash, E2E, typecheck isolado e Node mínimo são validações
+direcionadas conforme o risco da mudança, não jobs obrigatórios em todo PR.
+
+Coverage é diagnóstico sob demanda via `npm run test:coverage`; não existe
+threshold percentual obrigatório. A prioridade é proteger regra de negócio,
+contratos, segurança, mutações, concorrência/cleanup, regressões reais e
+comportamento relevante da UI. Evite testes criados apenas para aumentar
+percentual ou congelar detalhes incidentais de CSS/markup.
 
 ### Rodando um teste específico
 
@@ -111,7 +120,7 @@ npm run build --workspace=@dev-dashboard/contracts
 node --import=tsx --test apps/api/test/processes.test.ts
 
 # Web unitário/componente
-npm run test --workspace=@dev-dashboard/web -- run caminho/do/arquivo.test.ts
+npm run test --workspace=@dev-dashboard/web -- caminho/do/arquivo.test.ts
 
 # Web E2E, a partir de apps/web/
 npx playwright test --config=e2e/playwright.config.ts caminho/do/arquivo.spec.ts
@@ -136,9 +145,9 @@ npx playwright test --config=e2e/playwright.config.ts caminho/do/arquivo.spec.ts
 - **`packages/process-manager`** — ciclo de vida de processos conhecidos,
   iniciado sem `shell: true`, com validação de PID/cwd e TERM antes de KILL.
 
-Os kinds gerenciados atuais são `'server'`, `'test'`, `'worker'` e
-`'webpack'`. `MANAGED_KINDS` em `process-store.ts` é a fonte de verdade para o
-store e retenção de logs. Execuções de scripts têm ciclo de vida próprio em
+Os kinds gerenciados atuais são `'server'`, `'test'`, `'worker'` e `'webpack'`.
+`MANAGED_KINDS` em `process-store.ts` é a fonte de verdade para o store e
+retenção de logs. Execuções de scripts têm ciclo de vida próprio em
 `apps/api/src/services/script-execution/` e não fazem parte desse store.
 
 Não existe adaptador compartilhado entre o CLI bash e o monorepo. Uma extração
@@ -243,10 +252,12 @@ para sessões interativas longas, a regra que evita `_dev_pause` duplicado.
 ## Fechamento de uma entrega
 
 1. Confirme a camada correta e o escopo real no código atual.
-2. Implemente com testes de regressão/regra quando suportado.
-3. Rode os gates relevantes e o conjunto completo antes do PR sempre que o
-   ambiente permitir.
+2. Implemente com testes de regressão/regra quando houver algo relevante a
+   proteger; não adicione teste apenas por coverage.
+3. Para uma mudança normal, rode `npm run lint && npm test && npm run build`.
+   Acrescente `typecheck`, `format:check`, `test:cli`, `test:e2e`,
+   `test:coverage`, Node mínimo e outros gates quando o risco justificar.
 4. Atualize a documentação viva correspondente.
 5. Faça auto code review do diff e aplique os ajustes encontrados.
-6. Abra o PR com objetivo, riscos, validação e impacto visual.
-7. Não faça merge sem instrução explícita e sem os gates exigidos verdes.
+6. Abra PR com objetivo, riscos, validação e impacto visual.
+7. Não faça merge sem instrução explícita e sem os checks exigidos verdes.

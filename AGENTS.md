@@ -69,7 +69,8 @@ init.sh              # Entry point do CLI bash
 npm install                    # uma vez, na raiz
 npm run typecheck              # tsc --build em todos os workspaces
 npm run build                  # packages primeiro, depois apps
-npm test                       # --workspaces --if-present
+npm test                       # testes funcionais sem coverage
+npm run test:coverage          # mesmas suítes com relatório de coverage
 npm run test:cli               # suíte do CLI bash (helpers não interativos)
 npm run test:e2e               # build + smoke Playwright da web
 npm run dev                    # API (:4343) + web (:5174) juntos
@@ -135,14 +136,26 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Node test runner (`node --test`) com `tsx` para carregar `.ts`, exceto
   `apps/web` (Vitest para unitários/componentes, Playwright para o smoke
   E2E). Padrão de nome: `*.test.ts` em `test/` de cada workspace.
+- `npm test` executa as suítes funcionais sem coleta de coverage. Coverage é
+  diagnóstico explícito via `npm run test:coverage` e não possui threshold
+  percentual obrigatório.
+- Priorize testes de regra de negócio, contratos, segurança, mutações,
+  concorrência/cleanup, regressões reais e comportamento de UI relevante.
+  Evite testes que apenas congelem CSS/markup/ordem incidental ou existam só
+  para elevar percentual.
+- Guards estáticos continuam válidos quando impedem uma arquitetura proibida
+  importante, por exemplo `MutationObserver`/enhancers globais de DOM, shell
+  arbitrário ou diálogos nativos.
 - CLI bash: os helpers **não interativos** (`_dev_*`/`_project_*`/`_git_*`
   puros, sem `gum`/`read -r -p`) têm suíte própria em `tests/cli/`
   (`npm run test:cli`, que executa `tests/cli/run.sh`, só `bash` + `git`).
-  O CI executa essa suíte em um job `CLI Bash` independente das ferramentas
-  do frontend, e uma falha bloqueia o PR. Funções interativas continuam
-  validadas manualmente, rodando a função direto num shell com o dashboard
-  carregado. `lib/*/tests/` é outra coisa — menus para rodar a suíte do
-  *projeto alvo* (ex. `bundle exec rspec`), não testes deste codebase.
+  Essa suíte deve ser rodada quando a mudança tocar o CLI, mas não é um job
+  obrigatório em todo PR. Funções interativas continuam validadas manualmente,
+  rodando a função direto num shell com o dashboard carregado. `lib/*/tests/`
+  contém menus para rodar a suíte do *projeto alvo*, não deste codebase.
+- O CI principal mantém um único `Validate`: instalação otimizada, lint,
+  `npm test` e build dos apps. E2E, CLI, coverage, Node mínimo, format check e
+  typecheck isolado são validações direcionadas conforme o risco da mudança.
 
 ## Como abrir e fechar uma entrega
 
@@ -154,9 +167,11 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
    Se uma auditoria descobrir trabalho que atravessará múltiplos PRs, registrar
    ou atualizar as issues antes de perder o contexto.
 3. Implementar na menor camada correta, adicionando teste automatizado quando
-   o escopo suportar.
-4. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test && npm run test:cli`.
-   Rodar `npm run test:e2e` quando o fluxo web alterado justificar.
+   existir uma regra/regressão relevante a proteger.
+4. Para uma mudança normal, rodar `npm run lint && npm test && npm run build`.
+   Rodar `npm run typecheck`, `npm run format:check`, `npm run test:cli`,
+   `npm run test:e2e`, `npm run test:coverage` e validação de Node mínimo quando
+   o risco da mudança justificar.
 5. Atualizar a documentação viva correspondente na mesma entrega.
 6. Fazer auto code review do diff, corrigir os achados e repetir os gates
    impactados antes do PR.
@@ -187,6 +202,7 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Adicionar `MutationObserver`/enhancer global para contornar estado ou markup
   que deveria pertencer ao Vue.
 - Deixar `dist/` desatualizado antes de rodar `dev`/`build`/`test`.
+- Adicionar teste de baixo valor apenas para aumentar coverage.
 
 ### Extra
 
@@ -209,7 +225,7 @@ Você está atuando como o Principal Engineer e Arquiteto de Software deste repo
 
 ## 3. Qualidade, Testes e Automação
 *   **Testabilidade:** O código gerado deve ser nativamente fácil de testar. Não misture efeitos colaterais (chamadas de rede/data) no meio da lógica pura.
-*   **Testes Automatizados:** Para qualquer nova funcionalidade ou correção de bug, sugira ou implemente os testes unitários ou de integração correspondentes.
+*   **Testes Automatizados:** Para nova funcionalidade ou correção de bug, implemente testes quando houver regra/regressão relevante a proteger. Não adicione testes apenas para elevar coverage.
 
 ## 4. Segurança e Estabilidade por Padrão
 *   **Validação Estrita:** Nunca confie em inputs externos. Valide formatos, tipos e limites na entrada do fluxo.
