@@ -34,13 +34,14 @@ O backlog não é versionado. Não recrie `tasks/`, `NEXT.md`, `PENDENCIAS.md` o
 2. Não introduza execução arbitrária de comandos.
 3. Prefira IDs conhecidos a paths enviados pela interface.
 4. Mantenha API, contratos, web e docs sincronizados.
-5. Use preview/confirmacão/revalidação para mutações sensíveis.
+5. Use preview/confirmação/revalidação para mutações sensíveis.
 6. Aplique limites a arquivos, logs, streams e respostas externas.
 7. Não exponha tokens, `.env`, credenciais ou mensagens internas.
 8. Preserve o CLI Bash durante a evolução incremental.
-9. Teste regras e regressões, inclusive caminhos de falha.
-10. Atualize documentação e issues na mesma entrega.
-11. Para produção, represente irreversibilidade/recovery honestamente; não implemente rollback cego.
+9. Teste regras e regressões relevantes, inclusive caminhos de falha.
+10. Prefira testes de comportamento a testes de implementação.
+11. Atualize documentação e issues na mesma entrega.
+12. Para produção, represente irreversibilidade/recovery honestamente; não implemente rollback cego.
 
 ## Branches
 
@@ -77,7 +78,7 @@ A descrição deve registrar:
 - variáveis/persistência novas;
 - testes/gates executados;
 - documentação atualizada;
-- issue relacionada;
+- issue relacionada quando houver;
 - impacto visual quando houver.
 
 Se o trabalho partiu de plano antigo, confirme no código o comportamento atual e documente o resultado real, não apenas a intenção inicial.
@@ -85,16 +86,12 @@ Se o trabalho partiu de plano antigo, confirme no código o comportamento atual 
 ### Checklist sugerido
 
 - [ ] escopo coerente;
-- [ ] typecheck;
 - [ ] lint;
-- [ ] format check;
+- [ ] testes relevantes;
 - [ ] build;
-- [ ] testes;
-- [ ] CLI Bash;
-- [ ] E2E quando aplicável;
+- [ ] verificações adicionais proporcionais ao risco (`typecheck`, format, CLI, E2E, coverage);
 - [ ] API docs regeneradas quando necessário;
 - [ ] documentação viva atualizada;
-- [ ] issues/roadmap coerentes;
 - [ ] nenhum segredo no diff/log;
 - [ ] mutações/recovery revisados;
 - [ ] auto-review final no head definitivo;
@@ -183,30 +180,47 @@ Indicador de atividade só anima durante trabalho real.
 
 ## Testes
 
-Antes do PR:
+A validação padrão antes de um PR é:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+`npm test` executa as suítes funcionais sem coletar coverage. Isso mantém o feedback rápido e evita transformar percentual em objetivo de desenvolvimento.
+
+Use comandos adicionais quando o risco justificar:
 
 ```bash
 npm run typecheck
-npm run lint
 npm run format:check
-npm run build
-npm test
 npm run test:cli
-```
-
-Para fluxos web críticos:
-
-```bash
 npm run test:e2e
+npm run test:coverage
 ```
 
-Os comandos acima são a interface local suportada e mantêm os hooks `pre*` que recompilam os packages quando necessário. Isso evita validar apps contra `dist/` antigo.
+Critério prático para testes:
 
-O job `Validate` do GitHub Actions faz uma otimização deliberada: compila os packages uma vez no início do job e reutiliza essa saída nos gates seguintes. Por isso, somente no CI, `docs:api`, `typecheck`, `docs:api:check` e `test` são executados com `--ignore-scripts`, enquanto o build executa `build:apps`. Não use essa forma otimizada como substituta dos comandos locais normais.
+- mantenha regras de negócio, contratos, segurança, mutações, concorrência e regressões reais;
+- prefira unidade/função pura quando ela protege a mesma regra com menos custo;
+- evite testes que apenas congelem CSS, markup ou ordem incidental de implementação;
+- guards estáticos são aceitáveis quando impedem explicitamente uma arquitetura proibida e relevante;
+- não escreva testes somente para elevar coverage.
 
 Fixtures com filesystem/Git/processo/provider devem ser isoladas e possuir cleanup.
 
-Cobertura usa ratchet por workspace; não reduza thresholds silenciosamente para fazer CI passar.
+### Coverage
+
+Coverage é um relatório sob demanda, não um gate percentual de PR.
+
+```bash
+npm run test:coverage
+```
+
+Não existem thresholds mínimos obrigatórios. Use o relatório para encontrar regras críticas sem proteção, não para perseguir uniformidade de linhas cobertas.
+
+A política completa fica em [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
 
 ## Onde documentar
 
@@ -222,7 +236,7 @@ Cobertura usa ratchet por workspace; não reduza thresholds silenciosamente para
 | operação de deployment | `docs/deployment-operations.md` |
 | UI de Produção | `docs/production-ui.md`, `docs/guia/producao.md` |
 | endpoint | `docs/architecture/api-reference.md` gerada |
-| processo de engenharia | `docs/development-guide.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` |
+| processo de engenharia | `docs/development-guide.md`, `docs/testing-and-quality.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` |
 | backlog/roadmap | issues/PRs GitHub, nunca `tasks/` |
 
 `docs/` descreve estado implementado; histórico específico de uma entrega fica no PR, salvo quando virou arquitetura permanente.
@@ -246,14 +260,13 @@ Use valores fictícios em testes/documentação.
 
 Dependências e workflows seguem o mesmo princípio de menor autoridade usado no código:
 
-- atualizações npm e GitHub Actions chegam semanalmente pelo Dependabot e devem passar pelo CI normal;
-- referências `uses:` versionadas no repositório devem usar SHA completo, mantendo a versão legível em comentário, por exemplo `# v7.0.1`;
-- não troque pins por tags mutáveis como `@v4` para facilitar manutenção; o Dependabot atualiza os SHAs;
-- Dependency Review bloqueia novas dependências com vulnerabilidade alta ou crítica em pull requests;
-- CodeQL cobre JavaScript/TypeScript sem substituir testes, lint ou revisão humana;
-- aumentos de permissão em `GITHUB_TOKEN` precisam ser locais ao job e justificados pela operação executada.
+- atualizações npm e GitHub Actions chegam periodicamente pelo Dependabot e passam pelo CI normal;
+- referências `uses:` versionadas usam SHA completo, mantendo a versão legível em comentário;
+- não troque pins por tags mutáveis como `@v4`;
+- CodeQL roda semanalmente ou manualmente e não adiciona um job ao PR normal;
+- aumentos de permissão em `GITHUB_TOKEN` precisam ser locais ao job e justificados.
 
-A política e as exceções operacionais do workflow `Security` ficam registradas em [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
+A política do workflow `Security` fica registrada em [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
 
 ## Release
 
@@ -266,10 +279,10 @@ Uma contribuição está pronta quando:
 - resolve o problema declarado;
 - respeita os limites de segurança;
 - possui contratos/erros claros;
-- inclui testes suficientes;
+- inclui testes suficientes para os riscos reais;
 - fecha recursos corretamente;
 - representa estado/recovery honestamente;
 - atualiza docs/issues;
-- passa a validação completa no head final;
+- passa os gates relevantes no head final;
 - passou por auto-review final;
 - pode ser entendida por outra pessoa a partir do código, docs e PR.
