@@ -25,7 +25,7 @@ interface SnapshotEntry<T> {
   load: () => Promise<T>;
   running: boolean;
   snapshot: ProjectSnapshot<T>;
-  timer?: ReturnType<typeof setTimeout>;
+  timer: ReturnType<typeof setTimeout> | undefined;
 }
 
 export interface ProjectSnapshotRegistry {
@@ -51,6 +51,7 @@ function createEntry<T>(
     load: subscription.load,
     running: false,
     snapshot: initialSnapshot<T>(),
+    timer: undefined,
   };
 }
 
