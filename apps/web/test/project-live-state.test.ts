@@ -91,6 +91,39 @@ describe('estado vivo por projeto', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it('não deixa um disposer antigo remover uma assinatura nova', async () => {
+    vi.useFakeTimers();
+    const registry = createProjectSnapshotRegistry();
+    const oldLoad = vi.fn<() => Promise<string>>().mockResolvedValue('antigo');
+    const stopOld = registry.subscribe({
+      key: 'projeto-1:git-overview',
+      intervalMs: 3_000,
+      load: oldLoad,
+      onChange: vi.fn(),
+    });
+    await flushAsyncWork();
+    stopOld();
+
+    const newLoad = vi.fn<() => Promise<string>>().mockResolvedValue('novo');
+    const newListener = vi.fn();
+    const stopNew = registry.subscribe({
+      key: 'projeto-1:git-overview',
+      intervalMs: 3_000,
+      load: newLoad,
+      onChange: newListener,
+    });
+
+    stopOld();
+    await flushAsyncWork();
+
+    expect(newLoad).toHaveBeenCalledOnce();
+    expect(newListener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'ready', value: 'novo' }),
+    );
+
+    stopNew();
+  });
+
   it('mantém o ciclo ativo após erro temporário e publica a recuperação', async () => {
     vi.useFakeTimers();
     const registry = createProjectSnapshotRegistry();
