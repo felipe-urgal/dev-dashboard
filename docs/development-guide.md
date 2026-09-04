@@ -40,17 +40,20 @@ Credenciais locais, como `VERCEL_TOKEN`, ficam somente em `.env.local`/ambiente 
 | `npm run prod:check` | valida o gate de self-production |
 | `npm run self-update:helper -- ...` | tooling de engenharia do handoff persistente |
 | `npm run self-update:agent -- ...` | tooling de instalação/lifecycle/inspeção do agent |
-| `npm run typecheck` | valida tipos |
+| `npm run typecheck` | valida tipos isoladamente |
 | `npm run lint` | ESLint |
 | `npm run format:check` | verifica Prettier sem regravar arquivos |
 | `npm run build` | compila packages/apps |
-| `npm test` | testes dos workspaces |
+| `npm test` | testes funcionais dos workspaces, sem coverage |
+| `npm run test:coverage` | executa as suítes com relatório de coverage |
 | `npm run test:cli` | suíte Bash |
 | `npm run test:e2e` | smoke E2E da web |
 
 Os scripts `self-update:*` continuam sendo tooling de engenharia do handoff/agent. O fluxo suportado de self-production usa o Production Contract `strategy=self-update`, o planner e a confirmação do domínio de deployment; executar tooling interno manualmente não substitui essa fronteira.
 
-O `package.json` raiz exige Node `^20.19.0 || >=22.12.0`. O CI valida explicitamente Node 20.19.0 como runtime mínimo, incluindo instalação, build, typecheck e testes, e mantém Node 24 como runtime principal do job `Validate` e do smoke E2E. Nos jobs Node, `npm ci --ignore-scripts` torna a preparação reproduzível e evita compilações implícitas duplicadas; em seguida, o pipeline executa uma única reconstrução explícita de `esbuild` e `node-pty`, os dois pacotes com binários necessários no Linux.
+O `package.json` raiz exige Node `^20.19.0 || >=22.12.0`. O CI principal usa Node 24 e mantém um único job `Validate`. Mudanças que tocam runtime/dependências devem validar Node 20.19.0 de forma direcionada quando houver risco de incompatibilidade.
+
+No CI, `npm ci --ignore-scripts` evita compilações nativas implícitas e repetidas; em seguida `npm rebuild esbuild node-pty` prepara explicitamente os dois binários necessários no Linux.
 
 ## Como adicionar ou alterar uma funcionalidade
 
@@ -147,17 +150,42 @@ Não use texto localizado da API como identificador de lógica.
 
 | Camada | Teste esperado |
 | --- | --- |
-| package | unidade |
+| package | unidade sobre regra relevante |
 | serviço API | unidade/integração com fixtures |
 | adapter externo | transporte simulado, limites, erros e estados |
 | rota | Fastify inject + schemas/auth |
-| web | Vitest + Vue Test Utils |
-| fluxo crítico | Playwright E2E |
+| web | Vitest + Vue Test Utils para comportamento |
+| fluxo crítico | Playwright E2E quando necessário |
 | script raiz | `node:test` |
+
+A suíte não deve crescer por inércia. Antes de adicionar um teste, identifique a regressão importante que ele pretende detectar.
+
+Prefira manter testes de:
+
+- regras de negócio;
+- segurança e autorização;
+- mutações e recovery;
+- concorrência/cleanup;
+- regressões já observadas;
+- estados de UI relevantes.
+
+Evite testes que apenas comparem texto literal de CSS/markup, congelem detalhe de implementação ou existam para aumentar percentual de coverage. Guards estáticos continuam válidos quando protegem uma regra arquitetural explícita e importante, como impedir enhancers globais de DOM ou shell arbitrário.
 
 Testes que iniciam processo/repositório temporário devem ter cleanup garantido.
 
 Fluxos de self-update precisam cobrir não só helpers isolados, mas também ownership externo, concorrência, interrupção da API, restart, readiness/revision e recovery quando a entrega declarar essas capacidades.
+
+### Coverage
+
+Coverage é diagnóstico sob demanda:
+
+```bash
+npm run test:coverage
+```
+
+Ele executa as suítes com coleta de cobertura, mas não impõe thresholds mínimos globais. Use o relatório para encontrar regra crítica sem teste; não escreva teste só para elevar percentual.
+
+Veja [`testing-and-quality.md`](testing-and-quality.md) para a política completa.
 
 ## Mudanças no domínio de Produção
 
@@ -245,22 +273,23 @@ Não recrie `tasks/`, `NEXT.md` ou roadmaps versionados.
 
 ## Validação final
 
+Para uma mudança normal:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Acrescente conforme o risco:
+
 ```bash
 npm run typecheck
-npm run lint
 npm run format:check
-npm run build
-npm test
 npm run test:cli
-```
-
-Rode também:
-
-```bash
 npm run test:e2e
+npm run test:coverage
 ```
-
-quando o fluxo web alterado justificar.
 
 ## Checklist de revisão
 
@@ -274,5 +303,5 @@ quando o fluxo web alterado justificar.
 - [ ] recovery representa efeitos parciais honestamente;
 - [ ] testes cobrem sucesso e falhas relevantes;
 - [ ] documentação, `.env.example` e issues estão coerentes;
-- [ ] gates completos passaram no head final;
+- [ ] gates relevantes passaram no head final;
 - [ ] auto-review foi executado depois do último commit.
