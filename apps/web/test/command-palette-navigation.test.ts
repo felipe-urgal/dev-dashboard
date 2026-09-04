@@ -43,7 +43,9 @@ describe('catálogo de navegação da command palette', () => {
         (item) => item.projectId === project.id && item.group === 'Ferramentas',
       ),
     ).toHaveLength(0);
-    expect(items.find((item) => item.id === `project-${project.id}`)).toBeTruthy();
+    expect(
+      items.find((item) => item.id === `project-${project.id}`),
+    ).toBeTruthy();
   });
 
   it('encontra ferramenta por nome do projeto e termo da ferramenta', () => {
@@ -81,10 +83,16 @@ describe('catálogo de navegação da command palette', () => {
     expect(
       filterCommandPaletteNavigationItems(items, parsePaletteQuery('@ aplic')),
     ).toEqual([
-      expect.objectContaining({ id: 'project-p1', label: 'Aplicação principal' }),
+      expect.objectContaining({
+        id: 'project-p1',
+        label: 'Aplicação principal',
+      }),
     ]);
     expect(
-      filterCommandPaletteNavigationItems(items, parsePaletteQuery('> iniciar')),
+      filterCommandPaletteNavigationItems(
+        items,
+        parsePaletteQuery('> iniciar'),
+      ),
     ).toEqual([]);
   });
 });

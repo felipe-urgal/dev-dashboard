@@ -8,10 +8,7 @@ import {
 } from './utils/command-palette';
 
 export type CommandPaletteNavigationGroup =
-  | 'Páginas'
-  | 'Workspaces'
-  | 'Projetos'
-  | 'Ferramentas';
+  'Páginas' | 'Workspaces' | 'Projetos' | 'Ferramentas';
 
 export type CommandPaletteNavigationIcon =
   | 'home'
@@ -243,7 +240,9 @@ export function buildCommandPaletteNavigationItems(
       id: `project-${project.id}`,
       group: 'Projetos',
       label: project.name,
-      description: project.enabled ? project.path : `${project.path} · desativado`,
+      description: project.enabled
+        ? project.path
+        : `${project.path} · desativado`,
       icon: 'project',
       mode: 'project',
       to: { name: 'project-details', params: { projectId: project.id } },
