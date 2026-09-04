@@ -330,8 +330,11 @@ Processos gerenciados usam:
 - grupos de processo;
 - limites de logs;
 - validação de identidade antes de sinalizar PID;
+- no Linux, readiness de servidor baseada em porta exige que o socket em `LISTEN` pertença ao PID gerenciado ou a um descendente; conectividade de uma porta alheia não prova identidade do processo;
 - TERM antes de KILL;
 - cleanup em shutdown.
+
+Em plataformas sem `/proc`, a descoberta de ownership de porta não está disponível e o readiness mantém o fallback best-effort pela porta previamente registrada.
 
 O worker de self-update tem lifecycle/store próprios porque precisa sobreviver ao Fastify antigo.
 
