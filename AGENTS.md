@@ -146,7 +146,7 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Guards estáticos continuam válidos quando impedem uma arquitetura proibida
   importante, por exemplo `MutationObserver`/enhancers globais de DOM, shell
   arbitrário ou diálogos nativos.
-- CLI bash: os helpers **não interativos** (`_dev_*`/`_project_*`/`_git-*`
+- CLI bash: os helpers **não interativos** (`_dev_*`/`_project_*`/`_git_*`
   puros, sem `gum`/`read -r -p`) têm suíte própria em `tests/cli/`
   (`npm run test:cli`, que executa `tests/cli/run.sh`, só `bash` + `git`).
   Essa suíte deve ser rodada quando a mudança tocar o CLI, mas não é um job
