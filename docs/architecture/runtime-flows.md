@@ -118,6 +118,8 @@ persistir starting + PID + log
 running | failed
 ```
 
+No Linux, uma porta só confirma `running` quando o listener pertence ao PID gerenciado ou a um descendente da mesma árvore de processos. Um serviço alheio que passe a escutar na porta inicialmente reservada não é tratado como readiness do projeto; se o servidor ignorar `PORT` e abrir outra porta, o Process Manager adota a porta realmente pertencente à árvore. Em plataformas sem `/proc`, permanece o fallback best-effort pela porta registrada.
+
 O browser não envia a linha de comando final.
 
 ## Encerramento de processo

@@ -4,7 +4,7 @@ Este documento registra o estado implementado dos gates de qualidade do Dev Dash
 
 ## Gate principal
 
-Antes de uma mudança ser considerada pronta, o repositório valida a sequência definida pelos scripts raiz:
+Antes de uma mudança ser considerada pronta, a validação local completa continua sendo:
 
 ```bash
 npm run typecheck
@@ -23,36 +23,36 @@ Quando a alteração afeta um fluxo web crítico, execute também:
 npm run test:e2e
 ```
 
-O CI executa esses gates sobre o head do pull request. A cobertura unitária da web faz parte de `npm test` e, portanto, uma regressão abaixo do piso configurado bloqueia a entrega.
+O workflow `CI` foi simplificado e, no estado atual, executa em Node 24:
 
-## Compatibilidade de Node no CI
+```text
+npm ci → npm run lint → npm test → npm run build:apps
+```
 
-O contrato público continua sendo o declarado em `package.json`: Node.js `^20.19.0 || >=22.12.0`.
+`npm test` preserva o hook `pretest`, portanto os packages compartilhados são compilados antes da suíte. A cobertura unitária da web faz parte de `npm test` e uma regressão abaixo do piso configurado bloqueia esse gate.
 
-O pipeline usa duas referências deliberadas:
+Typecheck, formatação, CLI Bash, Node mínimo e smoke E2E continuam sendo verificações válidas para desenvolvimento/review quando o risco da mudança exigir, mas não são jobs separados do workflow simplificado atual.
 
-- **Node 20.19.0** é o runtime mínimo validado pelo job `Node mínimo`, que executa `npm ci`, reconstrói `node-pty`, compila packages/apps, roda typecheck e uma suíte de compatibilidade sobre os testes de scripts, API, web, core, process-manager e project-discovery;
-- **Node 24** continua sendo o runtime principal do job `Validate` e do smoke E2E.
+## Compatibilidade de Node
 
-O job `Validate` depende do resultado do `Node mínimo` e falha explicitamente quando a compatibilidade mínima não passa. Assim, o required check existente continua sendo a fronteira de merge, enquanto o suporte ao menor runtime deixa de ser apenas documental.
+O contrato público permanece o declarado em `package.json`: Node.js `^20.19.0 || >=22.12.0`.
 
-O projeto usa `@types/node` mais recente que o runtime mínimo, por isso a execução real no Node 20.19.0 funciona como gate de compatibilidade equivalente: mudanças que compilam com tipos recentes ainda precisam instalar, construir e executar os testes no runtime mínimo suportado.
+O CI principal usa Node 24. O runtime mínimo não possui um job dedicado no workflow atual, então mudanças de dependências e de runtime devem continuar respeitando explicitamente Node 20.19.0. Quando uma atualização declara engines incompatíveis com esse mínimo, elevar o runtime do projeto é uma decisão separada e não deve acontecer implicitamente por causa de uma devDependency.
 
-Os scripts normais de teste da API e de alguns packages usam flags de threshold de cobertura do runner nativo do Node que não existem no Node 20.19.0. No job de compatibilidade, os **mesmos arquivos de teste** desses workspaces são executados diretamente com `node --test`, sem somente esses flags de cobertura. Os thresholds continuam sendo exigidos no `Validate` em Node 24; o job mínimo existe para validar compatibilidade de runtime, não para duplicar o gate de cobertura.
+O projeto usa `@types/node` mais recente que o runtime mínimo. Por isso, em mudanças que tocam runtime, dependências ou APIs de plataforma, vale executar instalação, build e testes também no Node 20.19.0 para detectar incompatibilidades que o typecheck com tipos recentes não evidencia sozinho.
 
 ## CI e build dos packages
 
 Os scripts locais que dependem dos packages preservam seus hooks `pre*` para garantir que `dist/` esteja atualizado antes de `docs:api`, `typecheck`, `test` e dos fluxos de desenvolvimento. Essa proteção é importante porque os apps consomem a saída compilada dos packages, não o TypeScript fonte diretamente.
 
-No job `Validate`, o CI evita repetir essa compilação em cada gate:
+No workflow `CI` atual:
 
-1. executa `npm run build:packages` uma única vez após instalar as dependências e reconstruir `node-pty`;
-2. gera a referência da API sem executar formatter mutável;
-3. reutiliza os artefatos compilados nas etapas de documentação, typecheck e testes executando os scripts raiz com `--ignore-scripts`, o que ignora apenas os hooks `pre*`/`post*` e mantém o script principal;
-4. valida formatação com `npm run format:check`, que apenas lê os arquivos;
-5. no step de build, executa `npm run build:apps`, pois os packages já foram compilados no início do job.
+1. `npm ci` instala o lockfile versionado;
+2. `npm run lint` valida a superfície TypeScript/Vue;
+3. `npm test` dispara `pretest`, compila os packages e executa as suítes dos workspaces;
+4. `npm run build:apps` valida o build final das aplicações.
 
-Essa otimização é específica do pipeline. No desenvolvimento local, continue usando os comandos públicos normais sem `--ignore-scripts`, para não mascarar um `dist/` desatualizado.
+O pipeline deliberadamente evita duplicar toda a matriz de validações locais. Mudanças sensíveis devem complementar o CI com os comandos específicos aplicáveis antes do merge.
 
 ## Jornadas E2E críticas
 
@@ -66,16 +66,19 @@ O Playwright protege poucos fluxos de alto valor em navegador real, evitando tra
 
 Mocks de rede são aceitáveis quando tornam um erro determinístico ou isolam um contrato de UI. Quando o risco é integração com filesystem/processo/Git, prefira a fixture real e mantenha cleanup explícito. O catálogo detalhado e as instruções de execução ficam em `apps/web/e2e/README.md`.
 
+O baseline atual do harness web usa **jsdom 27.4.x**, **Vitest 4.1.11** e `@vitest/coverage-v8` **4.1.11** para a suíte unitária, e **Playwright 1.62.x** para o smoke E2E. A linha 27.4 do jsdom preserva o Node 20.19.0 mínimo suportado pelo projeto; elevar o runtime mínimo somente para acompanhar uma dependência de teste exige decisão própria. `vitest` e o provider de cobertura devem permanecer na mesma versão compatível; upgrades de major do runner são entregas isoladas, para que breaking changes não sejam misturados com mudanças funcionais.
+
+O workflow simplificado atual não mantém um job E2E nem um cache de browsers do Playwright. Se o E2E voltar ao CI, a chave de cache deve ser derivada da versão efetivamente resolvida no lockfile, e não de uma versão hard-coded paralela.
+
 ## Supply chain
 
 A automação de supply chain é deliberadamente pequena e explícita:
 
-- Dependabot verifica semanalmente dependências npm e GitHub Actions, com limite de PRs abertos para evitar ruído;
+- Dependabot verifica periodicamente dependências npm e GitHub Actions, com limite de PRs abertos para evitar ruído;
 - todo uso de action externa nos workflows versionados é fixado por SHA completo; o comentário ao lado do SHA registra a versão humana e o Dependabot mantém o pin atualizado;
-- o workflow `Security` executa Dependency Review em pull requests e bloqueia a introdução de vulnerabilidades de severidade alta ou crítica;
-- CodeQL analisa JavaScript/TypeScript em PRs internos, em pushes para `main` e semanalmente;
-- CodeQL é omitido em PRs de forks e do Dependabot, onde o token de `pull_request` não possui autoridade de escrita para publicar SARIF; o mesmo código continua sendo analisado após chegar à `main`;
-- jobs normais mantêm `contents: read`; permissões de escrita permanecem limitadas aos workflows de release e ao envio de resultados de segurança que realmente exigem essa autoridade.
+- o workflow `Security` executa CodeQL semanalmente e também pode ser disparado manualmente por `workflow_dispatch`;
+- a análise de segurança não roda em cada pull request no workflow atual;
+- jobs normais mantêm `contents: read`; permissões adicionais permanecem limitadas ao CodeQL e aos fluxos que realmente exigem essa autoridade.
 
 Não substitua um SHA por uma tag mutável como `@v4`. Para atualizar uma action manualmente, resolva uma release confiável para o SHA correspondente e preserve o comentário de versão. Atualizações rotineiras devem preferencialmente chegar via Dependabot e passar pelos mesmos gates do restante do código.
 
@@ -109,7 +112,7 @@ Ao elevar o piso:
 1. adicione testes de comportamento sobre lógica de produção relevante, incluindo sucesso, erro e caminhos condicionais quando aplicável;
 2. mantenha o escopo de cobertura honesto, sem criar exclusões para produzir ganho artificial;
 3. eleve os thresholds apenas até um valor sustentado pelo head do pull request;
-4. confirme o novo piso no CI junto com typecheck, lint, formatação, build e demais testes;
+4. confirme o novo piso no CI junto com os demais testes e validações aplicáveis;
 5. registre mudanças futuras de meta/roadmap em issues, mantendo este documento focado somente no estado implementado.
 
 A prioridade é aumentar confiança sobre comportamento crítico, não maximizar um número isolado.
