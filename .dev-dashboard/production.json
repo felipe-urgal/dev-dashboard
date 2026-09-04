@@ -5,7 +5,7 @@
     "strategy": "self-update",
     "provider": "none",
     "branch": "main",
-    "documentation": "docs/architecture/self-production.md",
+    "documentation": "docs/PRODUCTION.md",
     "commands": {
       "status": "prod:status",
       "check": "prod:check"

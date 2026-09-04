@@ -37,11 +37,5 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm test
-
-      - name: Build
-        run: npm run build:apps
+      - name: Quality gate
+        run: npm run check

@@ -21,6 +21,7 @@
     "release": "node scripts/release.mjs",
     "build": "npm run build:packages && npm run build:apps",
     "test": "node --test scripts/*.test.mjs && npm run test --workspaces --if-present",
+    "check": "npm run lint && npm test && npm run build:apps",
     "test:coverage": "node --test scripts/*.test.mjs && npm run test:coverage --workspaces --if-present",
     "test:cli": "bash tests/cli/run.sh",
     "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",
