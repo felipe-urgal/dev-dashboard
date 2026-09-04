@@ -37,7 +37,7 @@ jobs:
           cache: npm
 
       - name: Atualizar package-lock
-        run: npm install --package-lock-only --ignore-scripts
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
       - name: Persistir package-lock atualizado
         run: |
