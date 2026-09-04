@@ -30,6 +30,7 @@ import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.v
 import ProjectToolError from '../components/ProjectToolError.vue';
 import ProjectToolLoading from '../components/ProjectToolLoading.vue';
 import { dashboardStore } from '../stores/dashboard';
+import { subscribeProjectGitOverview } from '../stores/project-live-state';
 import { recordProjectVisit } from '../stores/project-recents';
 
 function lazyTool(loader: () => Promise<{ default: Component }>): Component {
@@ -115,63 +116,16 @@ const isConsoleRoute = computed(() => route.name === 'project-console');
 
 let activeProjectLoad:
   { projectId: string; promise: Promise<void> } | undefined;
+let stopGitOverviewSubscription: (() => void) | undefined;
 
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
   gitOverview.value = git;
 }
 
-let gitOverviewRefreshTimer: ReturnType<typeof setTimeout> | undefined;
-let gitOverviewRefreshGeneration = 0;
-
 function stopGitOverviewRefresh(): void {
-  gitOverviewRefreshGeneration += 1;
-  if (gitOverviewRefreshTimer !== undefined) {
-    clearTimeout(gitOverviewRefreshTimer);
-    gitOverviewRefreshTimer = undefined;
-  }
-}
-
-async function refreshGitOverviewWhileProduction(
-  requestedProjectId: string,
-  generation: number,
-): Promise<void> {
-  try {
-    const git = await fetchProjectGit(requestedProjectId);
-    if (
-      generation !== gitOverviewRefreshGeneration ||
-      projectId.value !== requestedProjectId ||
-      !isProductionRoute.value
-    ) {
-      return;
-    }
-    updateGitOverview(git);
-  } catch {
-    if (
-      generation === gitOverviewRefreshGeneration &&
-      projectId.value === requestedProjectId &&
-      isProductionRoute.value
-    ) {
-      gitOverview.value = null;
-    }
-  } finally {
-    if (
-      generation === gitOverviewRefreshGeneration &&
-      projectId.value === requestedProjectId &&
-      isProductionRoute.value &&
-      project.value?.id === requestedProjectId &&
-      project.value.capabilities.includes('git')
-    ) {
-      gitOverviewRefreshTimer = setTimeout(
-        () =>
-          void refreshGitOverviewWhileProduction(
-            requestedProjectId,
-            generation,
-          ),
-        3_000,
-      );
-    }
-  }
+  stopGitOverviewSubscription?.();
+  stopGitOverviewSubscription = undefined;
 }
 
 async function loadProject(): Promise<void> {
@@ -244,8 +198,17 @@ watch(
     ) {
       return;
     }
-    const generation = gitOverviewRefreshGeneration;
-    void refreshGitOverviewWhileProduction(requestedProjectId, generation);
+
+    stopGitOverviewSubscription = subscribeProjectGitOverview(
+      requestedProjectId,
+      (snapshot) => {
+        if (snapshot.status === 'ready' && snapshot.value) {
+          updateGitOverview(snapshot.value);
+        } else if (snapshot.status === 'error') {
+          gitOverview.value = null;
+        }
+      },
+    );
   },
   { immediate: true },
 );
