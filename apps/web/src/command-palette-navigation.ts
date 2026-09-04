@@ -76,7 +76,7 @@ function projectTool(
     to: value.to,
     projectId: project.id,
     ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
-    aliases: `${project.id} ${project.name} ${project.path} ${value.aliases ?? ''}`,
+    aliases: `${project.id} ${project.name} ${project.path} ${value.aliases ?? ''} ${project.name} ${value.label}`,
   });
 }
 
