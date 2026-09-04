@@ -16,6 +16,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import { useDashboardToastBridge } from './composables/useDashboardToastBridge';
+import CommandPalette from './components/CommandPalette.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 import { createNaiveThemeOverrides } from './utils/naive-theme';
@@ -48,7 +49,12 @@ nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
 });
 
-const { workspaces, selectedWorkspaceId, switchWorkspace } = dashboardStore;
+const {
+  knownProjects,
+  workspaces,
+  selectedWorkspaceId,
+  switchWorkspace,
+} = dashboardStore;
 
 function openWorkspaceManager(): void {
   workspaceManagerOpen.value = true;
@@ -195,6 +201,8 @@ onMounted(() => {
       <main class="main-content">
         <RouterView />
       </main>
+
+      <CommandPalette :projects="knownProjects" :workspaces="workspaces" />
 
       <WorkspaceManagerModal
         :open="workspaceManagerOpen"
