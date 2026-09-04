@@ -20,31 +20,22 @@ outro; o web reaproveita conceitos por trás de uma API HTTP local.
    `PENDENCIAS.md`, roadmaps versionados e arquivos equivalentes não são fonte
    de backlog. Quando um débito, auditoria ou plano precisar sobreviver à
    conversa atual ou atravessar múltiplos PRs, registre-o em issues do GitHub.
-   Para frentes amplas, prefira uma issue mestre com diagnóstico/ordem de
-   execução e issues temáticas acionáveis vinculadas a ela. `docs/` continua
-   descrevendo o estado vivo do produto e da engenharia, não o planejamento
-   futuro.
 3. **Documentação sempre atualizada**: todo ajuste, correção ou nova
    funcionalidade que muda comportamento, rota, capacidade ou fluxo
-   precisa atualizar o documento correspondente em `docs/` (arquitetura,
-   guias, segurança) na mesma entrega — não depois. Uma mudança que altera
-   comportamento sem atualizar `docs/` está incompleta (ver a tabela
-   "Onde documentar" em `CONTRIBUTING.md`).
+   precisa atualizar o documento correspondente em `docs/` na mesma entrega.
 4. **Segurança da API**: leia `docs/architecture/security.md` antes de
    adicionar qualquer rota. A API é um processo privilegiado local:
    nada de shell arbitrário, `cwd` sempre do `ProjectStore`, catálogo
    de ações fechado, autenticação/origem conforme a política vigente e
    schemas de resposta explícitos.
 5. **CLI bash e web são independentes**: mudanças em `lib/*` não
-   precisam tocar em `apps/`/`packages/` e vice-versa. Se precisar de
-   compartilhamento, decida deliberadamente e documente.
+   precisam tocar em `apps/`/`packages/` e vice-versa.
 6. **UI dupla no CLI bash**: qualquer função interativa deve suportar
    `gum` **e** o fallback puro (`read -r -p` + menu numerado).
 7. **Rastreabilidade de trabalho amplo**: uma issue de engenharia deve, quando
    aplicável, registrar problema, objetivo, escopo, prioridade, dependências e
    critérios de aceite. O PR correspondente referencia a issue e registra o
-   resultado real, decisões, riscos e validação. Não deixe auditorias ou
-   roadmaps relevantes existirem apenas em conversa.
+   resultado real, decisões, riscos e validação.
 
 ## Layout do repositório
 
@@ -59,7 +50,6 @@ packages/
   process-manager/   # Ciclo de vida de processos gerenciados
 lib/                 # CLI bash original (carregado pelo ~/.bashrc)
 docs/                # Documentação viva do produto e da engenharia
-  architecture/      # overview.md, security.md, api-reference.md etc.
 init.sh              # Entry point do CLI bash
 ```
 
@@ -67,37 +57,53 @@ init.sh              # Entry point do CLI bash
 
 ```bash
 npm install                    # uma vez, na raiz
-npm run typecheck              # tsc --build em todos os workspaces
+npm run lint                   # validação estática principal
+npm test                       # suítes funcionais sem coverage
 npm run build                  # packages primeiro, depois apps
-npm test                       # --workspaces --if-present
-npm run test:cli               # suíte do CLI bash (helpers não interativos)
-npm run test:e2e               # build + smoke Playwright da web
-npm run dev                    # API (:4343) + web (:5174) juntos
-npm run lint                   # ESLint em apps/, packages/ e scripts/
+npm run test:coverage          # relatório de coverage sob demanda
+npm run typecheck              # checagem de tipos isolada quando útil
 npm run format:check           # Prettier, sem regravar
+npm run test:cli               # suíte do CLI quando lib/init.sh mudar
+npm run test:e2e               # Playwright quando o fluxo crítico justificar
+npm run dev                    # API (:4343) + web (:5174) juntos
 ```
 
 `build:packages` roda `contracts → core → project-discovery →
 process-manager`. Os apps importam **`dist/`**, não o TS fonte — se
 esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 
+## Política de testes
+
+O padrão não é maximizar quantidade de testes nem percentual de coverage. O
+objetivo é proteger regressões relevantes com a camada mais simples possível.
+
+Mantenha testes para regras de negócio, contratos, segurança, mutações,
+concorrência/cleanup, regressões reais e comportamento de UI importante.
+Evite testes que apenas congelem detalhe incidental de CSS/markup/imports ou
+que existam só para elevar coverage.
+
+Guards estáticos continuam válidos quando impedem uma arquitetura explicitamente
+proibida e relevante, por exemplo `MutationObserver`/enhancers globais de DOM,
+shell arbitrário ou diálogos nativos.
+
+Coverage é diagnóstico sob demanda via `npm run test:coverage` e **não possui
+threshold percentual obrigatório**.
+
+O CI de PR mantém um único `Validate`: instalação otimizada, lint, `npm test` e
+build dos apps. CLI Bash, E2E, coverage, Node mínimo, format check e typecheck
+isolado são validações direcionadas conforme o risco da mudança.
+
 ## Convenções da API (backend `apps/api`)
 
 - Fastify + JSON Schema. Cada rota tem `params`, `body`, `querystring`
   e `response` declarados explicitamente.
 - Schemas de resposta ficam em `apps/api/src/http/response-schemas.ts` e
-  **descartam campos não listados na serialização** — é a última linha
-  de defesa para evitar vazamento.
-- Erros passam por `apps/api/src/http/api-error.ts` (`ApiError` e
-  `ApiErrorCode`). Adicionou um erro novo? Adicione o código na união.
-- Rotas privadas devem seguir integralmente a autenticação, sessão e checagem
-  de origem documentadas em `docs/architecture/security.md`; não crie bypass
-  local ou exceção ad hoc. `GET /api/health` é a única rota pública.
+  **descartam campos não listados na serialização**.
+- Erros passam por `apps/api/src/http/api-error.ts` (`ApiError` e `ApiErrorCode`).
+- Rotas privadas devem seguir integralmente autenticação, sessão e checagem
+  de origem; `GET /api/health` é a única rota pública.
 - Processos gerenciados usam `packages/process-manager`. Os kinds atuais
-  são `'server'`, `'test'`, `'worker'` e `'webpack'`; `MANAGED_KINDS` em
-  `process-store.ts` é a fonte de verdade compartilhada com a retenção de
-  logs. Processos de script têm ciclo de vida próprio em
-  `apps/api/src/services/script-execution/` e não pertencem a esse store.
+  são `'server'`, `'test'`, `'worker'` e `'webpack'`.
 
 ## Convenções do frontend (`apps/web`)
 
@@ -108,13 +114,10 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Ao trocar de projeto/contexto, requests canceláveis devem usar
   `AbortController`; operações que não podem ser canceladas devem descartar
   respostas obsoletas com `generation/latest-wins`.
-- Rotas ficam em `apps/web/src/router/index.ts`. A `ProjectDetailsView`
-  reaproveita o mesmo componente para as sub-rotas
-  (`project-details`, `project-git`, `project-tests`).
+- Rotas ficam em `apps/web/src/router/index.ts`.
 - Estados visuais precisam ser honestos: loading só durante trabalho real,
   ações concorrentes bloqueadas quando necessário, aborts esperados não
-  apresentados como erro e respostas obsoletas descartadas após troca de
-  contexto.
+  apresentados como erro e respostas obsoletas descartadas.
 - Prefira estado/componentes/composables Vue. Não adicione pós-processamento
   global de DOM, `MutationObserver` ou enhancer imperativo para corrigir uma
   feature que pode ser expressa declarativamente.
@@ -124,69 +127,54 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 - Comandos públicos: `dev-*`, `git-*`, `project-*` em kebab-case,
   exportados via `export -f`.
 - Helpers privados: prefixados com `_`, snake_case, não exportados.
-- Cada módulo de funcionalidade segue o trio
-  `init.sh` + `helpers.sh` + `run.sh` (ou `start.sh` / `stop.sh` /
-  `logs.sh` / `menu.sh`). Não invente convenção nova.
-- Módulos opcionais são carregados com `required=false`; sua ausência
-  emite aviso, não aborta.
+- Cada módulo segue o trio `init.sh` + `helpers.sh` + `run.sh` (ou arquivos
+  por verbo). Não invente convenção nova.
+- Módulos opcionais são carregados com `required=false`; sua ausência emite
+  aviso, não aborta.
 
-## Testes
+## Testes por camada
 
-- Node test runner (`node --test`) com `tsx` para carregar `.ts`, exceto
-  `apps/web` (Vitest para unitários/componentes, Playwright para o smoke
-  E2E). Padrão de nome: `*.test.ts` em `test/` de cada workspace.
-- CLI bash: os helpers **não interativos** (`_dev_*`/`_project_*`/`_git_*`
-  puros, sem `gum`/`read -r -p`) têm suíte própria em `tests/cli/`
-  (`npm run test:cli`, que executa `tests/cli/run.sh`, só `bash` + `git`).
-  O CI executa essa suíte em um job `CLI Bash` independente das ferramentas
-  do frontend, e uma falha bloqueia o PR. Funções interativas continuam
-  validadas manualmente, rodando a função direto num shell com o dashboard
-  carregado. `lib/*/tests/` é outra coisa — menus para rodar a suíte do
-  *projeto alvo* (ex. `bundle exec rspec`), não testes deste codebase.
+- Node test runner (`node --test`) com `tsx` para API/packages.
+- `apps/web`: Vitest para unitários/componentes e Playwright para E2E.
+- CLI bash: `tests/cli/run.sh` cobre helpers não interativos.
+- Funções interativas do CLI continuam validadas proporcionalmente ao escopo,
+  incluindo os caminhos com `gum` e fallback puro quando alterados.
+
+Antes de adicionar um teste, responda: **qual regressão importante ele detecta
+que tipos, lint ou outro teste mais simples não detectam melhor?**
 
 ## Como abrir e fechar uma entrega
 
 1. Ler `docs/architecture/overview.md`, `docs/development-guide.md` e a
-   documentação específica do domínio. Consultar também o contexto externo,
-   a issue mestre/temática aplicável e PRs relacionados quando existirem.
-2. Confirmar o comportamento atual no código antes de reaproveitar qualquer
-   débito ou plano antigo; não transformar histórico obsoleto em backlog novo.
-   Se uma auditoria descobrir trabalho que atravessará múltiplos PRs, registrar
-   ou atualizar as issues antes de perder o contexto.
+   documentação específica do domínio. Consultar issues e PRs relacionados.
+2. Confirmar o comportamento atual no código antes de reaproveitar débito ou
+   plano antigo.
 3. Implementar na menor camada correta, adicionando teste automatizado quando
-   o escopo suportar.
-4. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test && npm run test:cli`.
-   Rodar `npm run test:e2e` quando o fluxo web alterado justificar.
+   existir uma regressão/regra relevante a proteger.
+4. Para uma mudança normal, rodar `npm run lint && npm test && npm run build`.
+   Acrescentar `typecheck`, `format:check`, `test:cli`, `test:e2e`,
+   `test:coverage` e validação de Node mínimo quando o risco justificar.
 5. Atualizar a documentação viva correspondente na mesma entrega.
-6. Fazer auto code review do diff, corrigir os achados e repetir os gates
-   impactados antes do PR.
-7. Abrir PR pequeno e revisável, vinculando a issue quando houver, com objetivo,
-   alterações, decisões, riscos, validação e impacto visual.
-8. Merge exige autorização explícita do usuário. Essa autorização pode ser
-   **pontual** para um PR ou **contínua** para um fluxo/projeto já definido; uma
-   autorização contínua válida não precisa ser solicitada novamente a cada PR.
-   Mesmo autorizado, só mergear depois de todos os checks exigidos estarem
-   verdes e sem pendências de revisão conhecidas.
-9. Depois do merge, confirmar o estado da `main` e informar os comandos locais
-   exatos necessários para atualizar/reiniciar o ambiente quando aplicável.
+6. Fazer auto code review do diff e repetir os gates impactados.
+7. Abrir PR pequeno e revisável com objetivo, alterações, decisões, riscos,
+   validação e impacto visual.
+8. Merge exige autorização explícita do usuário. Mesmo autorizado, só mergear
+   depois de todos os checks exigidos estarem verdes e sem pendências conhecidas.
+9. Depois do merge, confirmar o estado da `main` e informar comandos locais
+   necessários quando aplicável.
 
 ## O que evitar
 
-- Recriar `tasks/`, `NEXT.md`, `PENDENCIAS.md` ou outro roadmap versionado como
-  fonte de backlog.
-- Deixar auditoria, débito relevante ou plano multi-PR apenas em conversa sem
-  issue rastreável.
+- Recriar `tasks/`, `NEXT.md`, `PENDENCIAS.md` ou outro roadmap versionado.
+- Deixar auditoria/débito relevante multi-PR apenas em conversa sem issue.
 - Usar `docs/` para registrar trabalho futuro em vez do estado implementado.
-- Executar `git` de escrita em nome do usuário sem instrução direta ou
-  autorização contínua previamente registrada para aquele fluxo.
-- Introduzir dependências novas em `packages/contracts` — ele é
-  intencionalmente puro (só tipos).
-- Aceitar caminhos absolutos vindos do navegador para operações de
-  filesystem ou processo.
-- Misturar convenções entre CLI bash e web sem discussão prévia.
-- Adicionar `MutationObserver`/enhancer global para contornar estado ou markup
-  que deveria pertencer ao Vue.
+- Executar `git` de escrita sem instrução direta ou autorização contínua válida.
+- Introduzir dependências novas em `packages/contracts`.
+- Aceitar caminhos absolutos vindos do navegador para operações privilegiadas.
+- Misturar convenções entre CLI bash e web sem decisão deliberada.
+- Adicionar `MutationObserver`/enhancer global para contornar estado/markup Vue.
 - Deixar `dist/` desatualizado antes de rodar `dev`/`build`/`test`.
+- Criar testes de baixo valor apenas para satisfazer coverage.
 
 ### Extra
 
@@ -195,30 +183,28 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 Você está atuando como o Principal Engineer e Arquiteto de Software deste repositório. Este arquivo define os padrões inegociáveis de engenharia, arquitetura e qualidade que devem ser aplicados a qualquer tecnologia, linguagem ou framework utilizado aqui.
 
 ## 1. Engenharia de Código e Manutenibilidade
-*   **Princípios Práticos:** Aplique KISS (mantenha simples), DRY (não se repita) e YAGNI (não crie o que não precisa agora).
-*   **SOLID Restrito:** 
-    *   Toda classe, função ou componente deve ter uma única responsabilidade.
-    *   Sistemas devem ser abertos para extensão e fechados para modificação.
-    *   Dependa de abstrações/interfaces, nunca de implementações concretas diretamente.
-*   **Legibilidade:** Código legível substitui comentários. Use nomes autoexplicativos para funções, variáveis e métodos. Funções não devem passar de 30 linhas.
+* **Princípios Práticos:** Aplique KISS, DRY e YAGNI.
+* **SOLID Restrito:** funções/componentes com responsabilidade clara e dependências explícitas.
+* **Legibilidade:** prefira nomes autoexplicativos e funções pequenas.
 
 ## 2. Paradigmas Arquiteturais
-*   **Separação de Conceitos (SoC):** Isole rigidamente a Lógica de Negócio (Domínio) dos detalhes técnicos (Bancos de dados, APIs externas, Interfaces de Usuário, Frameworks).
-*   **Desacoplamento:** Componentes ou serviços devem se comunicar por contratos claros. Evite acoplamento direto que impeça testes isolados.
-*   **Idempotência e Resiliência:** Operações que alteram estado devem ser seguras contra repetições (retries). Todo ponto de integração externa deve prever cenários de falha.
+* **Separação de Conceitos:** isole domínio de banco, APIs externas e UI.
+* **Desacoplamento:** use contratos claros entre componentes/serviços.
+* **Idempotência e Resiliência:** operações que alteram estado devem considerar retries e falhas parciais.
 
 ## 3. Qualidade, Testes e Automação
-*   **Testabilidade:** O código gerado deve ser nativamente fácil de testar. Não misture efeitos colaterais (chamadas de rede/data) no meio da lógica pura.
-*   **Testes Automatizados:** Para qualquer nova funcionalidade ou correção de bug, sugira ou implemente os testes unitários ou de integração correspondentes.
+* **Testabilidade:** separe lógica pura de efeitos colaterais.
+* **Testes Automatizados:** cubra funcionalidade/correção quando houver regra ou regressão relevante; não adicione teste apenas por percentual.
 
 ## 4. Segurança e Estabilidade por Padrão
-*   **Validação Estrita:** Nunca confie em inputs externos. Valide formatos, tipos e limites na entrada do fluxo.
-*   **Tratamento de Erros Eficiente:** Erros devem ser capturados na camada correta, gerando logs limpos sem expor segredos de infraestrutura ou stack traces para o cliente final.
-*   **Dados Sensíveis:** Certifique-se de que senhas, chaves de API, dados pessoais (LGPD/GDPR) ou tokens nunca sejam expostos em logs, URLs ou código aberto.
+* **Validação Estrita:** nunca confie em inputs externos.
+* **Tratamento de Erros:** erros devem ser capturados na camada correta sem expor segredos.
+* **Dados Sensíveis:** senhas, chaves, dados pessoais e tokens nunca entram em logs/URLs/código.
 
-## 5. Interfaces com Usuário (Front/Mobile - Se Aplicável)
-*   **Estados Visuais:** Garanta que toda interação tenha feedback claro (Loading, Vazio, Sucesso, Erro).
-*   **Consistência e Acessibilidade:** Siga rigorosamente o Design System ou os padrões visuais já existentes no projeto. Garanta contraste e tags de acessibilidade.
+## 5. Interfaces com Usuário
+* **Estados Visuais:** loading, vazio, sucesso e erro devem ser claros.
+* **Consistência e Acessibilidade:** siga os padrões visuais existentes e preserve acessibilidade.
 
 ---
-**Protocolo de Ação:** Antes de entregar qualquer código ou plano, valide mentalmente: *"Minha solução quebra o SOLID, duplica código ou mistura regras de negócio com infraestrutura?"*. Se sim, corrija-a antes de responder.
+**Protocolo de Ação:** antes de entregar, valide se a solução duplica código,
+mistura responsabilidades ou adiciona complexidade sem benefício real.
