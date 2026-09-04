@@ -27,7 +27,7 @@ O Dev Dashboard detecta aplicações Rails e Node em workspaces locais, centrali
 - retry seguro de somente `prod:verify` quando a promoção já concluiu;
 - histórico/log de deployment e `recovery_required` após risco irreversível;
 - API Fastify local, web Vue 3 e contratos TypeScript compartilhados;
-- testes unitários, componentes e smoke E2E.
+- testes unitários, componentes e smoke E2E sob demanda.
 
 ## Arquitetura
 
@@ -60,7 +60,7 @@ Mais detalhes: [`docs/architecture/overview.md`](docs/architecture/overview.md).
 - npm;
 - Git.
 
-O CI valida explicitamente o runtime mínimo Node.js 20.19.0 e mantém Node.js 24 como runtime principal de validação e E2E. Projetos gerenciados precisam dos próprios runtimes e ferramentas.
+O CI principal usa Node.js 24. O runtime mínimo continua sendo parte do contrato e deve ser validado de forma direcionada quando uma mudança tocar dependências ou APIs de plataforma.
 
 ## Instalação
 
@@ -266,21 +266,22 @@ O comando gera um bootstrap efêmero para a sessão do navegador e mantém a API
 
 ## Validação
 
-Antes de finalizar uma mudança relevante:
+Para uma mudança normal:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Use conforme o risco:
 
 ```bash
 npm run typecheck
-npm run lint
 npm run format:check
-npm run build
-npm test
 npm run test:cli
-```
-
-Para mudanças no fluxo web:
-
-```bash
 npm run test:e2e
+npm run test:coverage
 ```
 
 Quando rotas/schemas mudarem:
@@ -291,6 +292,8 @@ npm run docs:api:check
 ```
 
 `docs/architecture/api-reference.md` é gerada; não edite manualmente.
+
+Coverage é um relatório sob demanda, não um percentual mínimo para aprovar PR. Veja [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
 
 ## Scripts principais
 
@@ -307,11 +310,12 @@ npm run docs:api:check
 | `npm run prod:check` | valida os preflights do contrato de self-production |
 | `npm run self-update:helper -- ...` | tooling de engenharia do handoff persistente |
 | `npm run self-update:agent -- ...` | instala/controla/inspeciona o agent de self-update |
-| `npm run typecheck` | valida tipos |
+| `npm run typecheck` | valida tipos isoladamente |
 | `npm run lint` | executa ESLint |
 | `npm run format:check` | verifica formatação sem reescrever arquivos |
 | `npm run build` | compila packages e apps |
-| `npm test` | executa testes dos workspaces |
+| `npm test` | executa testes funcionais sem coverage |
+| `npm run test:coverage` | executa as suítes com relatório de coverage |
 | `npm run test:cli` | executa suíte Bash |
 | `npm run test:e2e` | executa smoke E2E da web |
 
