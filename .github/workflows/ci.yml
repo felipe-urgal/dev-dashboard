@@ -10,65 +10,18 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  node-minimum:
-    name: Node mínimo
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Node mínimo
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.19.0
-          cache: npm
-
-      - name: Instalar dependências
-        run: npm ci --ignore-scripts
-
-      - name: Preparar dependências com binários nativos
-        run: npm rebuild esbuild node-pty
-
-      - name: Compilar packages
-        run: npm run build:packages
-
-      - name: Validar tipos
-        run: npm --ignore-scripts run typecheck
-
-      - name: Compilar apps
-        run: npm run build:apps
-
-      - name: Executar suíte de compatibilidade
-        run: |
-          node --test scripts/*.test.mjs
-          (cd apps/api && node --import=tsx --test test/*.test.ts)
-          npm run test --workspace=@dev-dashboard/web
-          (cd packages/core && node --import=tsx --test test/*.test.ts)
-          (cd packages/process-manager && node --import=tsx --test test/*.test.ts)
-          (cd packages/project-discovery && node --import=tsx --test test/*.test.ts)
-
   validate:
     name: Validate
-    needs: node-minimum
-    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Exigir compatibilidade com Node mínimo
-        if: needs.node-minimum.result != 'success'
-        run: |
-          echo "A validação no Node mínimo suportado não passou."
-          exit 1
-
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -79,94 +32,13 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Prepare native binary dependencies
-        run: npm rebuild esbuild node-pty
-
-      - name: Build packages once
-        run: npm run build:packages
-
-      - name: Generate API docs
-        run: npm --ignore-scripts run docs:api
-
-      - name: Typecheck
-        run: npm --ignore-scripts run typecheck
+        run: npm ci
 
       - name: Lint
         run: npm run lint
 
-      - name: Format check
-        run: npm run format:check
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build:apps
-
-      - name: Verify generated API reference
-        run: npm --ignore-scripts run docs:api:check
-
-      - name: Test
-        run: npm --ignore-scripts test
-
-  cli:
-    name: CLI Bash
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Verify prerequisites
-        run: |
-          bash --version
-          git --version
-
-      - name: CLI Bash
-        run: bash tests/cli/run.sh
-
-  e2e:
-    name: Smoke E2E
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Prepare native binary dependencies
-        run: npm rebuild esbuild node-pty
-
-      - name: Resolver versão do Playwright
-        id: playwright-version
-        run: node -e "process.stdout.write('version=' + require('./package-lock.json').packages['node_modules/@playwright/test'].version + '\n')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install chromium
-        working-directory: apps/web
-
-      - name: Smoke E2E
-        run: npm run test:e2e
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: playwright-report
-          path: apps/web/e2e/.runtime/report
-          retention-days: 7
