@@ -23,7 +23,7 @@ Dependências aparece somente para projetos Rails ou Node. Variáveis de ambient
 
 ## Busca
 
-A busca é fuzzy e também considera nome, ID e caminho do projeto. Isso permite procurar, por exemplo, por um projeto junto da ferramenta desejada.
+A busca é fuzzy e também considera nome, ID, caminho e aliases do projeto. Consultas com mais de um termo usam combinação por tokens: cada termo precisa corresponder a algum token real do destino. Assim, `financeiro git` encontra a ferramenta Git do projeto financeiro sem aceitar resultados apenas porque as letras aparecem espalhadas pelo texto de busca.
 
 Prefixos opcionais:
 
