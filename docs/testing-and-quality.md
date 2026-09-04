@@ -1,118 +1,171 @@
 # Testes e qualidade
 
-Este documento registra o estado implementado dos gates de qualidade do Dev Dashboard e a política usada para cobertura automatizada.
+Este documento descreve o estado implementado dos gates de qualidade do Dev Dashboard e o critério para decidir quais testes devem existir.
 
-## Gate principal
+## Princípio
 
-Antes de uma mudança ser considerada pronta, a validação local completa continua sendo:
+A suíte deve maximizar confiança por tempo e manutenção investidos.
 
-```bash
-npm run typecheck
-npm run lint
-npm run format:check
-npm run build
-npm test
-npm run test:cli
-```
+Priorize testes que protegem:
 
-`npm run format:check` é um gate somente leitura: ele usa `prettier --check` sobre a mesma superfície coberta por `npm run format` e falha quando o conteúdo versionado precisa ser reformatado. O check não reescreve arquivos para produzir um resultado verde.
+- regras de negócio e contratos;
+- segurança, autorização e limites de entrada;
+- mutações Git/processo/banco/produção;
+- concorrência, cleanup e descarte de respostas obsoletas;
+- regressões já observadas;
+- comportamento de UI que o usuário realmente percebe.
 
-Quando a alteração afeta um fluxo web crítico, execute também:
+Evite testes que existam apenas para defender um percentual de cobertura ou congelar detalhes internos sem impacto funcional, como texto literal de CSS, ordem incidental de imports ou atalhos artificiais exclusivos do ambiente de teste.
 
-```bash
-npm run test:e2e
-```
+Guards estáticos continuam válidos quando protegem uma decisão arquitetural importante e difícil de expressar por lint/tipos, por exemplo impedir a reintrodução de `MutationObserver`, enhancers globais de DOM, shell arbitrário ou diálogos nativos proibidos.
 
-O workflow `CI` foi simplificado e, no estado atual, executa em Node 24:
+## Gate principal do pull request
+
+O workflow `CI` usa Node 24 e mantém um único job `Validate`:
 
 ```text
-npm ci → npm run lint → npm test → npm run build:apps
+npm ci --ignore-scripts
+npm rebuild esbuild node-pty
+npm run lint
+npm test
+npm run build:apps
 ```
 
-`npm test` preserva o hook `pretest`, portanto os packages compartilhados são compilados antes da suíte. A cobertura unitária da web faz parte de `npm test` e uma regressão abaixo do piso configurado bloqueia esse gate.
+`npm test` preserva o hook `pretest`, portanto os packages compartilhados são compilados antes da suíte. A cobertura não faz parte desse caminho obrigatório.
 
-Typecheck, formatação, CLI Bash, Node mínimo e smoke E2E continuam sendo verificações válidas para desenvolvimento/review quando o risco da mudança exigir, mas não são jobs separados do workflow simplificado atual.
+O objetivo do PR é responder rapidamente três perguntas:
+
+1. o código respeita as regras estáticas relevantes?
+2. os comportamentos automatizados continuam corretos?
+3. as aplicações continuam compilando?
+
+Typecheck isolado, formatação, CLI Bash, Node mínimo e Playwright continuam disponíveis como verificações direcionadas, mas não são jobs obrigatórios em todo PR.
+
+## Testes locais
+
+Validação padrão para uma mudança normal:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Use verificações adicionais conforme o risco:
+
+```bash
+npm run typecheck       # quando tipos/configuração de build merecem inspeção isolada
+npm run format:check    # antes de finalizar mudanças extensas de código/docs
+npm run test:cli        # quando lib/, init.sh ou fluxo Bash mudar
+npm run test:e2e        # quando uma jornada web crítica mudar
+npm run test:coverage   # quando for útil inspecionar lacunas de cobertura
+```
+
+Mudanças em rotas/schemas também devem validar a referência gerada:
+
+```bash
+npm run docs:api
+npm run docs:api:check
+```
+
+## Cobertura
+
+Cobertura é um diagnóstico, não um gate percentual.
+
+O comando raiz:
+
+```bash
+npm run test:coverage
+```
+
+executa as mesmas suítes automatizadas com coleta de cobertura nos workspaces que a suportam. API e packages usam a cobertura experimental do Node; a web usa Vitest + V8.
+
+Não existem thresholds mínimos globais bloqueando PR ou execução de coverage. Um percentual baixo pode indicar uma área que merece atenção, mas não justifica sozinho adicionar testes sem valor. Da mesma forma, um percentual alto não prova que os cenários relevantes estão protegidos.
+
+Ao revisar cobertura:
+
+- procure regras críticas sem teste;
+- prefira casos de sucesso, falha e condição relevantes a linhas triviais;
+- não adicione exclusões só para melhorar o número;
+- não escreva teste de implementação apenas para aumentar percentual;
+- trate regressões reais como prioridade maior que cobertura uniforme.
+
+A configuração web mantém exclusões explícitas em `apps/web/vitest.config.ts` para superfícies cuja medição unitária produziria sinal pouco útil. Essas exclusões devem continuar justificáveis por responsabilidade, não por percentual.
+
+## Critério para manter ou remover testes
+
+Mantenha um teste quando ele satisfizer pelo menos um destes pontos:
+
+- falharia diante de uma regressão plausível e relevante;
+- protege um contrato público ou regra de domínio;
+- protege uma fronteira de segurança;
+- cobre integração com filesystem, Git, processo, banco ou provider;
+- documenta um bug já ocorrido;
+- verifica um comportamento de UI difícil de garantir por tipos/lint.
+
+Considere remover ou reescrever quando:
+
+- testa somente detalhe de implementação sem contrato;
+- duplica outro teste em uma camada mais adequada;
+- lê código/CSS como texto para congelar detalhe visual incidental;
+- valida comportamento artificial criado apenas pelo próprio harness;
+- exige manutenção frequente sem ter encontrado regressões relevantes.
+
+Remover um teste não significa remover a regra. Quando a regra for importante, mova a proteção para a camada mais barata e estável possível: tipos, lint, schema, função pura, teste de unidade ou integração apropriada.
+
+## Jornadas E2E
+
+Playwright permanece reservado a poucos fluxos de alto valor em navegador real. Ele não roda automaticamente em todo PR.
+
+Use E2E quando a mudança depender da integração entre UI, router, API e ambiente real, especialmente para:
+
+- mutações Git;
+- exploração de banco;
+- lifecycle de processos;
+- recuperação após falhas;
+- foco/teclado em fluxos críticos.
+
+Evite duplicar em Playwright regras já bem cobertas por unidade/componente.
+
+## CLI Bash
+
+A suíte `npm run test:cli` continua disponível para helpers não interativos do CLI e deve ser executada quando mudanças tocarem `lib/`, `init.sh` ou contratos Bash relacionados.
+
+Funções interativas continuam exigindo validação proporcional ao escopo, incluindo fallback sem `gum` quando aplicável.
 
 ## Compatibilidade de Node
 
-O contrato público permanece o declarado em `package.json`: Node.js `^20.19.0 || >=22.12.0`.
+O contrato público permanece `^20.19.0 || >=22.12.0` no `package.json`.
 
-O CI principal usa Node 24. O runtime mínimo não possui um job dedicado no workflow atual, então mudanças de dependências e de runtime devem continuar respeitando explicitamente Node 20.19.0. Quando uma atualização declara engines incompatíveis com esse mínimo, elevar o runtime do projeto é uma decisão separada e não deve acontecer implicitamente por causa de uma devDependency.
+O CI principal usa Node 24. Mudanças que alterem dependências, APIs de plataforma ou runtime devem validar também Node 20.19.0 quando houver risco de incompatibilidade. Essa checagem é direcionada e não um job permanente em todo PR.
 
-O projeto usa `@types/node` mais recente que o runtime mínimo. Por isso, em mudanças que tocam runtime, dependências ou APIs de plataforma, vale executar instalação, build e testes também no Node 20.19.0 para detectar incompatibilidades que o typecheck com tipos recentes não evidencia sozinho.
+## Dependências nativas
 
-## CI e build dos packages
+No CI, a instalação usa:
 
-Os scripts locais que dependem dos packages preservam seus hooks `pre*` para garantir que `dist/` esteja atualizado antes de `docs:api`, `typecheck`, `test` e dos fluxos de desenvolvimento. Essa proteção é importante porque os apps consomem a saída compilada dos packages, não o TypeScript fonte diretamente.
+```bash
+npm ci --ignore-scripts
+npm rebuild esbuild node-pty
+```
 
-No workflow `CI` atual:
-
-1. `npm ci` instala o lockfile versionado;
-2. `npm run lint` valida a superfície TypeScript/Vue;
-3. `npm test` dispara `pretest`, compila os packages e executa as suítes dos workspaces;
-4. `npm run build:apps` valida o build final das aplicações.
-
-O pipeline deliberadamente evita duplicar toda a matriz de validações locais. Mudanças sensíveis devem complementar o CI com os comandos específicos aplicáveis antes do merge.
-
-## Jornadas E2E críticas
-
-O Playwright protege poucos fluxos de alto valor em navegador real, evitando transformar o smoke em uma segunda suíte unitária lenta. A seleção atual cobre:
-
-- Git: criação/troca de branch, erro de mutação e commit real sobre a fixture;
-- Banco: conexão, navegação de catálogo/tabelas, leitura, isolamento da credencial e comportamento de foco do diálogo;
-- lifecycle: start/stop real do Sidekiq e start/stop da UI de servidor do projeto;
-- recuperação: falha de carga após esgotar os retries GET automáticos, estado de erro e sucesso ao executar `Tentar novamente`;
-- teclado: foco preso/retorno de foco em diálogo, `Escape` e ativação do retry com `Enter`.
-
-Mocks de rede são aceitáveis quando tornam um erro determinístico ou isolam um contrato de UI. Quando o risco é integração com filesystem/processo/Git, prefira a fixture real e mantenha cleanup explícito. O catálogo detalhado e as instruções de execução ficam em `apps/web/e2e/README.md`.
-
-O baseline atual do harness web usa **jsdom 27.4.x**, **Vitest 4.1.11** e `@vitest/coverage-v8` **4.1.11** para a suíte unitária, e **Playwright 1.62.x** para o smoke E2E. A linha 27.4 do jsdom preserva o Node 20.19.0 mínimo suportado pelo projeto; elevar o runtime mínimo somente para acompanhar uma dependência de teste exige decisão própria. `vitest` e o provider de cobertura devem permanecer na mesma versão compatível; upgrades de major do runner são entregas isoladas, para que breaking changes não sejam misturados com mudanças funcionais.
-
-O workflow simplificado atual não mantém um job E2E nem um cache de browsers do Playwright. Se o E2E voltar ao CI, a chave de cache deve ser derivada da versão efetivamente resolvida no lockfile, e não de uma versão hard-coded paralela.
+Isso evita scripts nativos implícitos e repetidos durante `npm ci`, preparando explicitamente apenas os binários necessários no runner Linux.
 
 ## Supply chain
 
-A automação de supply chain é deliberadamente pequena e explícita:
+A automação de segurança permanece separada do caminho crítico dos PRs:
 
-- Dependabot verifica periodicamente dependências npm e GitHub Actions, com limite de PRs abertos para evitar ruído;
-- todo uso de action externa nos workflows versionados é fixado por SHA completo; o comentário ao lado do SHA registra a versão humana e o Dependabot mantém o pin atualizado;
-- o workflow `Security` executa CodeQL semanalmente e também pode ser disparado manualmente por `workflow_dispatch`;
-- a análise de segurança não roda em cada pull request no workflow atual;
-- jobs normais mantêm `contents: read`; permissões adicionais permanecem limitadas ao CodeQL e aos fluxos que realmente exigem essa autoridade.
+- Dependabot verifica dependências npm e GitHub Actions;
+- referências `uses:` permanecem fixadas por SHA completo;
+- CodeQL roda semanalmente ou manualmente;
+- o workflow de segurança não adiciona jobs ao pull request normal;
+- permissões do `GITHUB_TOKEN` permanecem mínimas por job.
 
-Não substitua um SHA por uma tag mutável como `@v4`. Para atualizar uma action manualmente, resolva uma release confiável para o SHA correspondente e preserve o comentário de versão. Atualizações rotineiras devem preferencialmente chegar via Dependabot e passar pelos mesmos gates do restante do código.
+Segurança não depende apenas de scanners: schemas, validação, catálogo fechado de ações, testes de fronteira e revisão continuam sendo as proteções principais do produto.
 
-## Cobertura da web
+## Regra prática
 
-A suíte web usa Vitest com provider V8. O escopo unitário é `src/**/*.{ts,vue}` e as exclusões explícitas ficam centralizadas em `apps/web/vitest.config.ts`.
+Antes de adicionar um novo teste, pergunte:
 
-Os pisos globais atuais são:
+> Qual regressão importante este teste detecta que outra camada não detecta melhor?
 
-| Métrica | Piso |
-| --- | ---: |
-| Statements | 59% |
-| Branches | 51% |
-| Functions | 65% |
-| Lines | 61% |
-
-Os shells de aplicação, router e superfícies explicitamente listadas no `exclude` do Vitest permanecem fora do gate unitário quando sua responsabilidade é validada pela suíte Playwright. A lista de exclusões não deve crescer apenas para melhorar percentuais.
-
-Para executar o mesmo gate de cobertura da web usado pelo workspace:
-
-```bash
-npm run test -w dev-dashboard-web
-```
-
-## Política de ratchet
-
-Cobertura funciona como ratchet: o piso pode permanecer estável ou subir, mas não deve ser reduzido para acomodar código novo sem uma justificativa técnica explícita.
-
-Ao elevar o piso:
-
-1. adicione testes de comportamento sobre lógica de produção relevante, incluindo sucesso, erro e caminhos condicionais quando aplicável;
-2. mantenha o escopo de cobertura honesto, sem criar exclusões para produzir ganho artificial;
-3. eleve os thresholds apenas até um valor sustentado pelo head do pull request;
-4. confirme o novo piso no CI junto com os demais testes e validações aplicáveis;
-5. registre mudanças futuras de meta/roadmap em issues, mantendo este documento focado somente no estado implementado.
-
-A prioridade é aumentar confiança sobre comportamento crítico, não maximizar um número isolado.
+Se a resposta não estiver clara, provavelmente o teste não precisa existir ainda.
