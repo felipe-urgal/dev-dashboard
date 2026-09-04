@@ -11,7 +11,9 @@ import type { Project } from '@dev-dashboard/contracts';
 import { ProcessManager } from '../src/index.js';
 import { parseListeningPortsFromProcNet } from '../src/listening-port-discovery.js';
 
-async function findAvailableFixedPort(): Promise<number> {
+async function findAvailableFixedPort(
+  excludedPorts: ReadonlySet<number> = new Set<number>(),
+): Promise<number> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const port = await new Promise<number>((resolve, reject) => {
       const server = createServer();
@@ -33,7 +35,7 @@ async function findAvailableFixedPort(): Promise<number> {
       });
     });
 
-    if (port > 3_999) {
+    if (port > 3_999 && !excludedPorts.has(port)) {
       return port;
     }
   }
@@ -41,6 +43,28 @@ async function findAvailableFixedPort(): Promise<number> {
   throw new Error(
     'Não foi possível encontrar uma porta fixa fora da faixa automática.',
   );
+}
+
+async function listenOnPort(
+  port: number,
+): Promise<ReturnType<typeof createServer>> {
+  const server = createServer();
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
+
+  return server;
+}
+
+async function closeServer(
+  server: ReturnType<typeof createServer>,
+): Promise<void> {
+  await new Promise<void>((resolve) => server.close(() => resolve()));
 }
 
 test('parses only LISTEN ports owned by the supplied socket inodes', () => {
@@ -70,6 +94,7 @@ test(
     const projectPath = path.join(fixtureRoot, 'project');
     const stateDirectory = path.join(fixtureRoot, 'state');
     const fixedPort = await findAvailableFixedPort();
+    const expectedPort = await findAvailableFixedPort(new Set([fixedPort]));
 
     await mkdir(projectPath, { recursive: true });
     await Promise.all([
@@ -101,15 +126,22 @@ test(
       capabilities: ['server'],
     };
     const manager = new ProcessManager(stateDirectory);
+    const unrelatedListeners: ReturnType<typeof createServer>[] = [];
 
     context.after(async () => {
+      for (const server of unrelatedListeners) {
+        await closeServer(server);
+      }
       await manager.stopServer(project.id).catch(() => undefined);
       await rm(fixtureRoot, { recursive: true, force: true });
     });
 
-    const started = await manager.startServer(project);
+    const started = await manager.startServer(project, { port: expectedPort });
 
+    assert.equal(started.port, expectedPort);
     assert.notEqual(started.port, fixedPort);
+
+    unrelatedListeners.push(await listenOnPort(expectedPort));
 
     let running = await manager.getServerProcess(project.id);
 

@@ -29,32 +29,39 @@ export function createProcessStatusReader(
   context: ProcessStoreContext,
   exitTracker: ExitTracker,
 ): ProcessStatusReader {
+  async function detectOwnedReadyServerPort(
+    pid: number,
+    expectedPort: number | undefined,
+  ): Promise<number | undefined> {
+    const detectedPorts = await detectListeningPortsForProcessTree(pid);
+    const candidates =
+      expectedPort !== undefined && detectedPorts.includes(expectedPort)
+        ? [expectedPort, ...detectedPorts.filter((port) => port !== expectedPort)]
+        : detectedPorts;
+
+    for (const port of candidates) {
+      if (await canConnect('127.0.0.1', port)) {
+        return port;
+      }
+    }
+
+    return undefined;
+  }
+
   async function detectReadyServerPort(
     storedProcess: StoredProcess,
   ): Promise<number | undefined> {
     const expectedPort = storedProcess.port;
+
+    if (storedProcess.pid !== undefined && process.platform === 'linux') {
+      return detectOwnedReadyServerPort(storedProcess.pid, expectedPort);
+    }
 
     if (
       expectedPort !== undefined &&
       (await canConnect('127.0.0.1', expectedPort))
     ) {
       return expectedPort;
-    }
-
-    if (storedProcess.pid === undefined) {
-      return undefined;
-    }
-
-    const detectedPorts = await detectListeningPortsForProcessTree(
-      storedProcess.pid,
-    );
-
-    for (const port of detectedPorts) {
-      if (port === expectedPort) continue;
-
-      if (await canConnect('127.0.0.1', port)) {
-        return port;
-      }
     }
 
     return undefined;
