@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import type { Dirent } from 'node:fs';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -108,7 +109,7 @@ function workflowJobs(
 async function discoverWorkflows(projectPath: string): Promise<LocalCiJobDescriptor[]> {
   const root = await realpath(projectPath);
   const directory = path.join(root, '.github', 'workflows');
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(directory, { withFileTypes: true });
   } catch {
