@@ -54,6 +54,10 @@ const coverageHistoryEntrySchema = {
     generatedAt: { type: 'string' },
     recordedAt: { type: 'string' },
     total: coverageTotalsSchema,
+    files: { type: 'array', items: coverageFileSummarySchema },
+    gitRevision: { type: 'string' },
+    gitDirtyFingerprint: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
   },
 } as const;
 

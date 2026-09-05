@@ -262,10 +262,19 @@ export type {
 } from './test.js';
 
 export type {
+  TestCoverageDeltaAnalysis,
+  TestCoverageDeltaUnknownReason,
+  TestCoverageFileDelta,
+  TestCoverageMetricDelta,
+  TestFlakinessAnalysis,
+  TestFlakinessEvidence,
+  TestFlakinessUnknownReason,
+  TestFlakyTest,
   TestIntelligenceEvidence,
   TestIntelligenceRecommendation,
   TestIntelligenceState,
   TestIntelligenceSuggestion,
+  TestOutcome,
 } from './test-intelligence.js';
 
 export type {

@@ -107,6 +107,24 @@ Ao revisar coverage:
 - prefira casos de sucesso/falha relevantes;
 - não adicione exclusões ou testes artificiais só para melhorar o número.
 
+### Evidência histórica do Test Intelligence
+
+Test Intelligence também pode usar coverage e resultados anteriores como **evidência**, sem transformar esses dados em um novo gate implícito.
+
+Para evitar comparações enganosas:
+
+- execuções de teste distinguem `full-suite` de `targeted`;
+- novos registros podem carregar revisão Git e fingerprint do working tree capturados no início da execução;
+- ausência de fingerprint não é tratada como working tree limpo;
+- snapshots de coverage guardam identidade do artifact e métricas por arquivo quando disponíveis;
+- delta de coverage só existe entre artifacts de contexto comprovadamente compatível;
+- resultados de revisões ou Environment Instances incompatíveis não são agrupados;
+- flakiness exige identidade granular do teste, outcomes estruturados e múltiplas tentativas comparáveis;
+- uma falha isolada, exit code da suíte ou texto de log nunca classifica um teste como flaky;
+- ausência/falha de provider produz `unknown`, não um estado verde.
+
+Históricos locais continuam bounded e não armazenam output completo para alimentar essas análises. O contrato detalhado está em [`architecture/test-intelligence.md`](architecture/test-intelligence.md).
+
 ## API docs
 
 Mudanças em rotas/schemas também devem validar a referência gerada:

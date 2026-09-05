@@ -18,6 +18,28 @@ const hiddenTestCount = computed(() =>
     (props.suggestion?.testFiles.length ?? 0) - visibleTests.value.length,
   ),
 );
+
+const coverageLabel = computed(() => {
+  const coverage = props.suggestion?.coverageDelta;
+  if (!coverage || coverage.state === 'unknown') {
+    return 'Coverage: sem baseline comparável';
+  }
+  const lines = coverage.total?.lines;
+  const delta =
+    lines === undefined ? '—' : `${lines > 0 ? '+' : ''}${lines} pp`;
+  return `Coverage: ${delta} em linhas · ${coverage.worsenedFiles.length} arquivo(s) pioraram`;
+});
+
+const flakinessLabel = computed(() => {
+  const flakiness = props.suggestion?.flakiness;
+  if (!flakiness || flakiness.state === 'unknown') {
+    return 'Instabilidade: sem resultados granulares comparáveis';
+  }
+  if (flakiness.tests.length === 0) {
+    return 'Instabilidade: nenhum sinal nas tentativas comparáveis';
+  }
+  return `Instabilidade: ${flakiness.tests.length} teste(s) com evidência de flakiness`;
+});
 </script>
 
 <template>
@@ -67,6 +89,11 @@ const hiddenTestCount = computed(() =>
         </li>
         <li v-if="hiddenTestCount > 0">+ {{ hiddenTestCount }} teste(s)</li>
       </ul>
+
+      <div class="test-intelligence-evidence" aria-label="Evidências históricas">
+        <small>{{ coverageLabel }}</small>
+        <small>{{ flakinessLabel }}</small>
+      </div>
 
       <small class="test-intelligence-context">
         {{ suggestion.baseBranch }} → {{ suggestion.currentBranch }} · estado
@@ -127,5 +154,16 @@ const hiddenTestCount = computed(() =>
 
 .test-intelligence-tests code {
   overflow-wrap: anywhere;
+}
+
+.test-intelligence-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--space-3);
+  color: var(--text-muted);
+}
+
+.test-intelligence-evidence small {
+  font-size: 10px;
 }
 </style>
