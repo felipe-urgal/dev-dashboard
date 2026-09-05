@@ -270,10 +270,7 @@ export async function detectProjectProfile(
     }
     diagnostics.push({
       provider: provider?.id ?? 'unknown',
-      message:
-        result.reason instanceof Error
-          ? result.reason.message
-          : 'Provider de profile falhou durante a detecção.',
+      message: 'Provider de profile falhou durante a detecção.',
     });
   });
 
