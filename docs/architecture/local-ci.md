@@ -13,7 +13,7 @@ Local CI usa `act` como provider opcional para reproduzir jobs do GitHub Actions
 - secrets do GitHub e `.env` não são importados automaticamente;
 - resultado local não satisfaz check remoto de Release Readiness.
 
-## Primeiro recorte implementado
+## Catálogo seguro
 
 `apps/api/src/services/local-ci-act.ts` estabelece o contrato interno de catálogo e a construção segura das intenções do provider.
 
@@ -21,7 +21,7 @@ Workflows aceitos precisam estar sob `.github/workflows/` e terminar em `.yml` o
 
 Job IDs e eventos usam tokens conservadores que não começam com `-`, impedindo que conteúdo do catálogo vire opção do CLI. Labels e versões são bounded; o catálogo retém no máximo 512 jobs e 64 eventos por job. A normalização monta o objeto final por allowlist, sem copiar propriedades externas extras por `spread`.
 
-O argv de execução é limitado à forma:
+O argv de execução continua limitado à forma:
 
 ```text
 act <evento> --job <job-id> --workflows <workflow-file>
@@ -29,13 +29,35 @@ act <evento> --job <job-id> --workflows <workflow-file>
 
 Nenhum parâmetro de secret, mount, path externo ou flag arbitrária é derivado da UI.
 
-## Descoberta
+## Discovery real
 
-Este recorte deliberadamente **não parseia por regex o output tabular do `act --list`**. O catálogo deve ser preenchido por uma fonte de discovery confiável em recorte posterior. Se a versão instalada não oferecer saída estável o suficiente, a integração deve manter estado `unsupported/unknown` em vez de inventar interpretação.
+`apps/api/src/services/local-ci-discovery-service.ts` passa a preencher o catálogo diretamente dos workflows do repositório, sem depender de parse do output tabular do `act --list`.
+
+A descoberta:
+
+- resolve a raiz real do projeto;
+- lê no máximo 64 arquivos `.yml|yaml` em `.github/workflows/`;
+- rejeita symlinks e arquivos acima de 256 KiB;
+- usa o parser `yaml` já presente no backend;
+- extrai somente nome do workflow, job id/nome e eventos declarados;
+- ignora workflow inválido/ilegível sem derrubar o catálogo inteiro.
+
+O serviço não edita YAML e não tenta interpretar steps, scripts, expressions ou secrets como contrato próprio.
+
+## Preflight de toolchain
+
+A disponibilidade usa comandos fechados:
+
+```text
+act --version
+docker info --format {{.ServerVersion}}
+```
+
+`act` ausente produz `act-missing`. Falha ao consultar o daemon Docker produz `docker-unavailable`. Quando ambos respondem, o catálogo fica `available` e preserva apenas versões curtas normalizadas; erro bruto, socket path ou stdout adicional não são transportados.
 
 ## Lifecycle futuro
 
-A execução real deve reutilizar a infraestrutura de job/PTY destacável já existente, com:
+A execução real ainda deve reutilizar a infraestrutura de job/PTY destacável já existente, com:
 
 - ownership explícito;
 - limite de concorrência;
@@ -44,3 +66,5 @@ A execução real deve reutilizar a infraestrutura de job/PTY destacável já ex
 - cleanup no shutdown;
 - logs bounded;
 - indicação visual permanente de aproximação local.
+
+Esse lifecycle não faz parte deste recorte de discovery/preflight e não deve ser simulado por processo ad-hoc.
