@@ -221,6 +221,13 @@ export type {
 } from './test.js';
 
 export type {
+  TestIntelligenceEvidence,
+  TestIntelligenceRecommendation,
+  TestIntelligenceState,
+  TestIntelligenceSuggestion,
+} from './test-intelligence.js';
+
+export type {
   ProjectCoverageFileSummary,
   ProjectCoverageHistory,
   ProjectCoverageHistoryEntry,
