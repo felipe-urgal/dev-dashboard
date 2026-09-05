@@ -58,11 +58,15 @@ export const projectTestFileResponseSchema = {
 export const testExecutionRecordResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'projectId', 'commandId', 'status', 'startedAt'],
+  required: ['id', 'projectId', 'commandId', 'scope', 'status', 'startedAt'],
   properties: {
     id: { type: 'string' },
     projectId: { type: 'string' },
     commandId: { type: 'string' },
+    scope: {
+      type: 'string',
+      enum: ['full-suite', 'targeted'],
+    },
     targetFile: { type: 'string' },
     status: {
       type: 'string',
