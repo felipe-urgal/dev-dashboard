@@ -145,6 +145,9 @@ export type {
 } from './process.js';
 
 export type {
+  DeclaredProjectPort,
+  DeclaredProjectPortConfidence,
+  DeclaredProjectPortSource,
   LocalPortEntry,
   LocalPortExpectation,
   LocalPortExternalProcess,
@@ -153,6 +156,15 @@ export type {
   LocalPortManagedProcess,
   LocalPortScope,
   LocalPortState,
+  ObservedPort,
+  ObservedPortOwner,
+  PortAllocationRequest,
+  PortAllocationResult,
+  PortReconciliation,
+  PortReconciliationEntry,
+  PortReconciliationState,
+  ReservedPort,
+  ReservedPortScope,
 } from './port.js';
 
 export type {

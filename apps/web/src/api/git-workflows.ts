@@ -128,19 +128,6 @@ export async function undoProjectGitFile(
   return response.file.path;
 }
 
-export async function getProjectGitPullRequestStatus(
-  projectId: string,
-  input: {
-    targetRemote: GitPullRequestTargetRemote;
-    baseBranch: string;
-  },
-): Promise<GitPullRequestLookup> {
-  const response = await requestJson<PullRequestLookupResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-status?${pullRequestLookupQuery(input)}`,
-  );
-  return response.lookup;
-}
-
 export async function getProjectGitPullRequestSummary(
   projectId: string,
   input: {
@@ -152,6 +139,20 @@ export async function getProjectGitPullRequestSummary(
     `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-summary?${pullRequestLookupQuery(input)}`,
   );
   return response.lookup;
+}
+
+/**
+ * Mantém o nome usado pela página de PR, mas usa o summary enriquecido para que
+ * o mesmo lookup retorne estado remoto/checks sem uma segunda consulta.
+ */
+export async function getProjectGitPullRequestStatus(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+  },
+): Promise<GitPullRequestLookup> {
+  return getProjectGitPullRequestSummary(projectId, input);
 }
 
 export async function composeProjectGitPullRequest(
