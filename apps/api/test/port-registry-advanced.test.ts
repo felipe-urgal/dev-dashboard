@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import type { PortRegistryConfiguration } from '@dev-dashboard/contracts';
 
+import { PortInspectorService } from '../src/services/port-inspector-service.js';
 import {
   exportPortRegistryConfiguration,
   importPortRegistryConfiguration,
@@ -54,6 +55,34 @@ test('Compose resolvido fornece declarations canônicas sem parser YAML no Regis
     reconciliation.entries.find((entry) => entry.port === 5_432)?.state,
     'reserved-by-other',
   );
+});
+
+test('Inspector trata porta livre reservada por outro owner como conflito e sugere alternativa', async () => {
+  const inspection = await new PortInspectorService({
+    platform: 'linux',
+    runSs: async () => '',
+    getUid: () => 1_000,
+  }).inspect({
+    expectedPorts: [
+      {
+        port: 5_173,
+        projectId: 'home-music',
+        projectName: 'Home Music',
+        service: 'server',
+      },
+    ],
+    reservedPorts: [
+      {
+        port: 5_173,
+        scope: 'infrastructure',
+        owner: 'shared-vite',
+      },
+    ],
+  });
+
+  assert.equal(inspection.entries[0]?.state, 'available');
+  assert.equal(inspection.entries[0]?.conflict, true);
+  assert.equal(inspection.entries[0]?.suggestedPort, 5_174);
 });
 
 test('allocator com lease não entrega a mesma porta a consumidores locais concorrentes', () => {
