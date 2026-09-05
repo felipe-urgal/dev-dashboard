@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { ManagedProcess } from '@dev-dashboard/contracts';
+import type {
+  ManagedProcess,
+  TestExecutionScope,
+} from '@dev-dashboard/contracts';
 
 import { TestExecutionHistoryService } from '../src/services/test-execution-history-service.js';
 
@@ -34,7 +37,7 @@ function finishedProcess(
   };
 }
 
-test('persiste full-suite e targeted como escopos explícitos', async (context) => {
+test('persiste full-suite e targeted sem confundir filtro com arquivo', async (context) => {
   const stateDirectory = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-test-scope-'),
   );
@@ -57,12 +60,33 @@ test('persiste full-suite e targeted como escopos explícitos', async (context) 
       'src/app.test.ts',
     ]),
   );
+  await service.recordStart(
+    'p1',
+    finishedProcess('node-script-test:file', [
+      'run',
+      'test',
+      '--',
+      'src/app.test.ts',
+      '-t',
+      'renders dashboard',
+    ]),
+  );
+  await service.recordStart(
+    'p1',
+    finishedProcess('rspec:file', ['spec/models/user_spec.rb:42']),
+  );
 
   const history = await service.history('p1');
-  assert.equal(history.items[0]?.scope, 'targeted');
-  assert.equal(history.items[0]?.targetFile, 'src/app.test.ts');
-  assert.equal(history.items[1]?.scope, 'full-suite');
-  assert.equal(history.items[1]?.targetFile, undefined);
+  const targetedScope: TestExecutionScope = 'targeted';
+
+  assert.equal(history.items[0]?.scope, targetedScope);
+  assert.equal(history.items[0]?.targetFile, 'spec/models/user_spec.rb');
+  assert.equal(history.items[1]?.scope, targetedScope);
+  assert.equal(history.items[1]?.targetFile, 'src/app.test.ts');
+  assert.equal(history.items[2]?.scope, targetedScope);
+  assert.equal(history.items[2]?.targetFile, 'src/app.test.ts');
+  assert.equal(history.items[3]?.scope, 'full-suite');
+  assert.equal(history.items[3]?.targetFile, undefined);
 });
 
 test('migra em leitura histórico v1 sem scope sem perder registros', async (context) => {
