@@ -29,6 +29,8 @@ A regra mais importante é conservadora: falha de `db:migrate:status` **não** e
 
 O overview contém somente identidade lógica do banco, IDs/nomes das migrations, timestamp, evidência e warnings. Connection strings, credenciais e environment values não fazem parte do contrato.
 
+A identidade de banco aceita somente um token lógico curto (`A-Z`, `a-z`, números, `_` e `-`). Entrada vazia ou malformada cai para `primary` antes de chegar ao inspector e não é ecoada no resultado.
+
 ## Próximos providers
 
 Prisma e providers custom entram incrementalmente atrás do mesmo contrato. O provider Prisma deverá usar inspeção estruturada do próprio CLI e distinguir indisponibilidade de schema atualizado; nenhum `migrate reset` pertence ao caminho padrão.
