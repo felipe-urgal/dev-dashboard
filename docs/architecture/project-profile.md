@@ -10,8 +10,8 @@ Os providers ficam em `packages/project-discovery/src/project-profile.ts` e impl
 - package manager;
 - frameworks;
 - container/Compose/devcontainer;
-- CI (`.github/workflows` e `.gitlab-ci.yml`);
-- arquivos de contrato de environment reconhecidos (`.env*.example`/`.env.sample`).
+- CI (ao menos um workflow YAML em `.github/workflows` ou `.gitlab-ci.yml`);
+- arquivos de contrato de environment reconhecidos (`.env.example`, `.env.sample`, `.env.production.example`, `.env.docker.example` e `.env.docker.sample`).
 
 Cada provider retorna `DetectedCapability[]` com `provider`, `confidence` e `evidence`. O discovery executa os providers com `Promise.allSettled`: falha de um provider gera diagnóstico sanitizado e não invalida os demais resultados.
 
@@ -25,7 +25,7 @@ Providers de profile são **read-only**. Eles podem consultar apenas evidência 
 - retornar valores de `.env` ou outros secrets;
 - propagar mensagens de erro internas que possam conter dados sensíveis.
 
-O provider de environment registra somente nomes dos arquivos reconhecidos como evidência. O conteúdo desses arquivos não faz parte do `ProjectProfile`.
+O provider de environment registra somente nomes dos arquivos reconhecidos como evidência. O conteúdo desses arquivos não faz parte do `ProjectProfile`. O provider de GitHub Actions só afirma a capability quando existe ao menos um arquivo `.yml`/`.yaml`; um diretório `.github/workflows` vazio não é tratado como CI configurado.
 
 ## Como adicionar um provider
 
