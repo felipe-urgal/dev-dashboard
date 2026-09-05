@@ -395,7 +395,7 @@ export class TestExecutionHistoryService {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
       if (
-        (![1, 2, HISTORY_VERSION] as const).includes(
+        !([1, 2, HISTORY_VERSION] as const).includes(
           parsed.version as 1 | 2 | 3,
         ) ||
         !Array.isArray(parsed.items)
