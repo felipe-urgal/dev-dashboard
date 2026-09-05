@@ -318,6 +318,13 @@ export type {
 } from './environment-profile.js';
 
 export type {
+  ProjectEnvironmentBaselineStatus,
+  ProjectEnvironmentContract,
+  ProjectEnvironmentContractAction,
+  ProjectEnvironmentContractScope,
+  ProjectEnvironmentContractSection,
+  ProjectEnvironmentContractVariable,
+  ProjectEnvironmentContractVariableStatus,
   ProjectEnvironmentFile,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
