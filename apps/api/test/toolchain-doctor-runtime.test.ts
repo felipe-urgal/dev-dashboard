@@ -27,6 +27,10 @@ test('avalia constraints comuns sem adivinhar aliases não numéricos', () => {
   assert.equal(evaluateVersionConstraint('20.19.1', '^20.19.0'), 'compatible');
   assert.equal(evaluateVersionConstraint('20.20.0', '~20.19.0'), 'incompatible');
   assert.equal(evaluateVersionConstraint('22.4.0', '20.x || 22.x'), 'compatible');
+  assert.equal(evaluateVersionConstraint('20.9.0', '>20'), 'incompatible');
+  assert.equal(evaluateVersionConstraint('21.0.0', '>20'), 'compatible');
+  assert.equal(evaluateVersionConstraint('20.1.9', '<=20.1'), 'compatible');
+  assert.equal(evaluateVersionConstraint('20.2.0', '<=20.1'), 'incompatible');
   assert.equal(evaluateVersionConstraint('22.4.0', 'lts/*'), 'unknown');
 });
 
