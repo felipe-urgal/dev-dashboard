@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -14,6 +14,22 @@ async function exists(projectPath: string, relativePath: string): Promise<boolea
   try {
     await access(path.join(projectPath, relativePath));
     return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hasYamlFile(
+  projectPath: string,
+  relativePath: string,
+): Promise<boolean> {
+  try {
+    const entries = await readdir(path.join(projectPath, relativePath), {
+      withFileTypes: true,
+    });
+    return entries.some(
+      (entry) => entry.isFile() && /\.ya?ml$/i.test(entry.name),
+    );
   } catch {
     return false;
   }
@@ -99,7 +115,9 @@ const runtimeProvider: ProjectProfileProvider = {
       );
     }
 
-    const rubyVersion = (await readText(context.projectPath, '.ruby-version'))?.trim();
+    const rubyVersion = (
+      await readText(context.projectPath, '.ruby-version')
+    )?.trim();
     if (rubyVersion) {
       detected.push(
         capability(
@@ -220,7 +238,12 @@ const containerProvider: ProjectProfileProvider = {
       );
     }
 
-    for (const file of ['compose.yml', 'compose.yaml', 'docker-compose.yml', 'docker-compose.yaml']) {
+    for (const file of [
+      'compose.yml',
+      'compose.yaml',
+      'docker-compose.yml',
+      'docker-compose.yaml',
+    ]) {
       if (!(await exists(context.projectPath, file))) continue;
       detected.push(
         capability('container/compose', this.id, [
@@ -241,11 +264,60 @@ const containerProvider: ProjectProfileProvider = {
   },
 };
 
+const ciProvider: ProjectProfileProvider = {
+  id: 'ci',
+  async detect(context) {
+    const detected: DetectedCapability[] = [];
+    if (await hasYamlFile(context.projectPath, '.github/workflows')) {
+      detected.push(
+        capability('ci/github-actions', this.id, [
+          { kind: 'config', source: '.github/workflows' },
+        ]),
+      );
+    }
+    if (await exists(context.projectPath, '.gitlab-ci.yml')) {
+      detected.push(
+        capability('ci/gitlab', this.id, [
+          { kind: 'file', source: '.gitlab-ci.yml' },
+        ]),
+      );
+    }
+    return detected;
+  },
+};
+
+const environmentProvider: ProjectProfileProvider = {
+  id: 'environment',
+  async detect(context) {
+    const files = [
+      '.env.example',
+      '.env.sample',
+      '.env.production.example',
+      '.env.docker.example',
+      '.env.docker.sample',
+    ];
+    const evidence: DetectionEvidence[] = [];
+    for (const file of files) {
+      if (await exists(context.projectPath, file)) {
+        evidence.push({ kind: 'file', source: file });
+      }
+    }
+    if (evidence.length === 0) return [];
+    return [
+      capability('environment/contract-files', this.id, evidence, {
+        files: evidence.map((entry) => entry.source),
+      }),
+    ];
+  },
+};
+
 export const DEFAULT_PROJECT_PROFILE_PROVIDERS: readonly ProjectProfileProvider[] = [
   runtimeProvider,
   packageManagerProvider,
   frameworkProvider,
   containerProvider,
+  ciProvider,
+  environmentProvider,
 ];
 
 export async function detectProjectProfile(
