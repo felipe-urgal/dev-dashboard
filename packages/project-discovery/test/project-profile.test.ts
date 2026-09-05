@@ -96,7 +96,7 @@ try {
   const failingProvider: ProjectProfileProvider = {
     id: 'failing',
     async detect() {
-      throw new Error('fixture provider failed');
+      throw new Error('secret-bearing provider detail');
     },
   };
 
@@ -108,8 +108,15 @@ try {
     'custom/good',
   ]);
   assert.deepEqual(partial.diagnostics, [
-    { provider: 'failing', message: 'fixture provider failed' },
+    {
+      provider: 'failing',
+      message: 'Provider de profile falhou durante a detecção.',
+    },
   ]);
+  assert.equal(
+    JSON.stringify(partial).includes('secret-bearing provider detail'),
+    false,
+  );
 } finally {
   await rm(root, { recursive: true, force: true });
 }
