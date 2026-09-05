@@ -36,7 +36,7 @@ O suggestion engine não executa testes. O MVP também não adiciona um caminho 
 
 ### Scope persistido do run
 
-O histórico de testes registra `scope` explicitamente em cada `TestExecutionRecord` interno:
+O histórico de testes registra `scope` explicitamente em cada registro interno normalizado:
 
 - `full-suite` quando o comando inteiro foi executado;
 - `targeted` quando a execução possui `targetFile` resolvido pelo provider existente.
@@ -45,7 +45,7 @@ Esse campo descreve somente **o escopo efetivamente executado**. Ele não transf
 
 O arquivo persistido do histórico foi evoluído para a versão 2. Históricos v1 continuam legíveis: quando um registro antigo não possui `scope`, a migração em leitura usa apenas a evidência já persistida (`targetFile` presente → `targeted`; ausente → `full-suite`). Nenhum resultado antigo é descartado e nenhuma heurística nova é aplicada ao output do teste.
 
-Neste recorte, `scope` já faz parte do contrato TypeScript e do histórico de backend para consumidores internos. O schema HTTP existente permanece inalterado; a exposição remota deve entrar junto com uma revisão formal da rota e da documentação gerada por `docs:api`, evitando duas versões divergentes do contrato público.
+Neste recorte, o backend usa um tipo interno que exige `scope` após a normalização. No contrato TypeScript compartilhado, o campo permanece opcional durante a migração porque o schema HTTP existente ainda não o serializa. A exposição remota e a obrigatoriedade pública devem entrar juntas com uma revisão formal da rota e da documentação gerada por `docs:api`, evitando prometer ao frontend um campo que ainda não existe no JSON.
 
 ## Próximas camadas com evidência
 
