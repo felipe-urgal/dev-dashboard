@@ -52,10 +52,13 @@ test('mostra estado remoto, review, mergeability e checks do cockpit existente',
   assert.match(wrapper.text(), /Review pendente/);
   assert.match(wrapper.text(), /Mergeável/);
   assert.match(wrapper.text(), /reviewer-a/);
-  assert.match(wrapper.text(), /Passou\s+Validate/);
-  assert.match(wrapper.text(), /Pendente\s+Security/);
 
-  const checkLink = wrapper.find('.git-pr-cockpit-checks a');
+  const checks = wrapper.findAll('.git-pr-cockpit-checks li');
+  assert.equal(checks.length, 2);
+  assert.match(checks[0]!.text(), /PassouValidate/);
+  assert.match(checks[1]!.text(), /PendenteSecurity/);
+
+  const checkLink = checks[0]!.find('a');
   assert.equal(checkLink.attributes('target'), '_blank');
   assert.equal(checkLink.attributes('rel'), 'noopener noreferrer');
 });
