@@ -80,12 +80,19 @@ export class ReleaseReadinessService {
 
   public constructor(
     private readonly gitService: Pick<GitService, 'getOverview'>,
-    private readonly testHistoryService: Pick<TestExecutionHistoryService, 'history'>,
-    private readonly projectDoctorService: Pick<ProjectDoctorService, 'getReport'>,
+    private readonly testHistoryService: Pick<
+      TestExecutionHistoryService,
+      'history'
+    >,
+    private readonly projectDoctorService: Pick<
+      ProjectDoctorService,
+      'getReport'
+    >,
     options: ReleaseReadinessServiceOptions = {},
   ) {
     this.now = options.now ?? Date.now;
-    this.captureIdentity = options.captureIdentity ?? captureTestExecutionGitIdentity;
+    this.captureIdentity =
+      options.captureIdentity ?? captureTestExecutionGitIdentity;
   }
 
   public async getSnapshot(
@@ -98,12 +105,13 @@ export class ReleaseReadinessService {
 
     const now = this.now();
     const observedAt = new Date(now).toISOString();
-    const [gitOverview, testHistory, identity, doctorReport] = await Promise.all([
-      safely(() => this.gitService.getOverview(project.path)),
-      safely(() => this.testHistoryService.history(project.id, 1, 50)),
-      safely(() => this.captureIdentity(project.path)),
-      safely(() => this.projectDoctorService.getReport(project)),
-    ]);
+    const [gitOverview, testHistory, identity, doctorReport] =
+      await Promise.all([
+        safely(() => this.gitService.getOverview(project.path)),
+        safely(() => this.testHistoryService.history(project.id, 1, 50)),
+        safely(() => this.captureIdentity(project.path)),
+        safely(() => this.projectDoctorService.getReport(project)),
+      ]);
 
     const checks: ReleaseReadinessCheck[] = [
       gitOverview

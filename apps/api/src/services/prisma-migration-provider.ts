@@ -28,7 +28,9 @@ export type PrismaStatusRunner = (
 
 function databaseIdentity(value: string | undefined): string {
   const normalized = value?.trim();
-  return normalized && SAFE_DATABASE_ID.test(normalized) ? normalized : 'primary';
+  return normalized && SAFE_DATABASE_ID.test(normalized)
+    ? normalized
+    : 'primary';
 }
 
 function safeSchema(projectPath: string): string | undefined {
@@ -94,7 +96,9 @@ function hasPrismaConnectionError(result: PrismaStatusResult): boolean {
 export class PrismaMigrationProvider implements MigrationProvider {
   public readonly id = 'prisma';
 
-  public constructor(private readonly runStatus: PrismaStatusRunner = defaultStatusRunner) {}
+  public constructor(
+    private readonly runStatus: PrismaStatusRunner = defaultStatusRunner,
+  ) {}
 
   public supports(project: Project): boolean {
     return project.type === 'node' && safeSchema(project.path) !== undefined;
@@ -106,7 +110,9 @@ export class PrismaMigrationProvider implements MigrationProvider {
     const observedAt = (context.now ?? (() => new Date()))().toISOString();
     const database = databaseIdentity(context.database);
     const schemaFile =
-      context.project.type === 'node' ? safeSchema(context.project.path) : undefined;
+      context.project.type === 'node'
+        ? safeSchema(context.project.path)
+        : undefined;
 
     if (!schemaFile) {
       return {

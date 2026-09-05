@@ -41,7 +41,11 @@ test('detecta schema Prisma conhecido e executa somente migrate status', async (
     const calls: Array<{ projectPath: string; schemaFile: string }> = [];
     const runner: PrismaStatusRunner = async (projectPath, schemaFile) => {
       calls.push({ projectPath, schemaFile });
-      return { exitCode: 0, stdout: 'Database schema is up to date!', stderr: '' };
+      return {
+        exitCode: 0,
+        stdout: 'Database schema is up to date!',
+        stderr: '',
+      };
     };
 
     const provider = new PrismaMigrationProvider(runner);
@@ -67,10 +71,12 @@ test('P1001 vira unavailable sem ecoar host, URL ou credencial', async () => {
       exitCode: 1,
       stdout: '',
       stderr:
-        'Error: P1001: Can\'t reach database server at `postgres://user:secret@db.internal:5432/app`',
+        "Error: P1001: Can't reach database server at `postgres://user:secret@db.internal:5432/app`",
     });
 
-    const result = await new PrismaMigrationProvider(runner).inspect({ project });
+    const result = await new PrismaMigrationProvider(runner).inspect({
+      project,
+    });
     const serialized = JSON.stringify(result);
 
     assert.equal(result.status, 'unavailable');
@@ -84,20 +90,28 @@ test('non-zero genérico permanece unknown em vez de inferir pending por texto l
   await withProject(async (project) => {
     const runner: PrismaStatusRunner = async () => ({
       exitCode: 1,
-      stdout: 'Following migration have not yet been applied: 20260905_secret_name',
+      stdout:
+        'Following migration have not yet been applied: 20260905_secret_name',
       stderr: '',
     });
 
-    const result = await new PrismaMigrationProvider(runner).inspect({ project });
+    const result = await new PrismaMigrationProvider(runner).inspect({
+      project,
+    });
 
     assert.equal(result.status, 'unknown');
     assert.deepEqual(result.pending, []);
-    assert.equal(JSON.stringify(result).includes('20260905_secret_name'), false);
+    assert.equal(
+      JSON.stringify(result).includes('20260905_secret_name'),
+      false,
+    );
   });
 });
 
 test('schema ausente e database identity malformada falham conservadoramente', async () => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-prisma-empty-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-prisma-empty-'),
+  );
   try {
     const project: Project = {
       id: 'project-2',

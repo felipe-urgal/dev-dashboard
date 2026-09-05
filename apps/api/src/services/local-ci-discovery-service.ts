@@ -88,7 +88,9 @@ function workflowJobs(
 ): LocalCiJobDescriptor[] {
   if (!isRecord(payload) || !isRecord(payload.jobs)) return [];
   const events = workflowEvents(payload.on);
-  const fallbackName = path.posix.basename(workflowFile).replace(/\.(?:yml|yaml)$/u, '');
+  const fallbackName = path.posix
+    .basename(workflowFile)
+    .replace(/\.(?:yml|yaml)$/u, '');
   const workflow = workflowName(payload.name, fallbackName);
   const jobs: LocalCiJobDescriptor[] = [];
 
@@ -106,7 +108,9 @@ function workflowJobs(
   return jobs;
 }
 
-async function discoverWorkflows(projectPath: string): Promise<LocalCiJobDescriptor[]> {
+async function discoverWorkflows(
+  projectPath: string,
+): Promise<LocalCiJobDescriptor[]> {
   const root = await realpath(projectPath);
   const directory = path.join(root, '.github', 'workflows');
   let entries: Dirent[];
@@ -127,7 +131,12 @@ async function discoverWorkflows(projectPath: string): Promise<LocalCiJobDescrip
     const absolute = path.join(directory, file);
     try {
       const stat = await lstat(absolute);
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_WORKFLOW_BYTES) continue;
+      if (
+        !stat.isFile() ||
+        stat.isSymbolicLink() ||
+        stat.size > MAX_WORKFLOW_BYTES
+      )
+        continue;
       const resolved = await realpath(absolute);
       if (!resolved.startsWith(`${root}${path.sep}`)) continue;
       const contents = await readFile(resolved, 'utf8');
@@ -151,7 +160,10 @@ export class LocalCiDiscoveryService {
     try {
       const output = await this.runCommand(
         { program: 'act', args: ['--version'] },
-        { timeoutMs: COMMAND_TIMEOUT_MS, maxBufferBytes: COMMAND_MAX_BUFFER_BYTES },
+        {
+          timeoutMs: COMMAND_TIMEOUT_MS,
+          maxBufferBytes: COMMAND_MAX_BUFFER_BYTES,
+        },
       );
       actVersion = shortVersion(output, /^act version\s+([^\s]+)$/iu);
     } catch {
@@ -162,7 +174,10 @@ export class LocalCiDiscoveryService {
     try {
       const output = await this.runCommand(
         { program: 'docker', args: ['info', '--format', '{{.ServerVersion}}'] },
-        { timeoutMs: COMMAND_TIMEOUT_MS, maxBufferBytes: COMMAND_MAX_BUFFER_BYTES },
+        {
+          timeoutMs: COMMAND_TIMEOUT_MS,
+          maxBufferBytes: COMMAND_MAX_BUFFER_BYTES,
+        },
       );
       dockerVersion = shortVersion(output, /^([^\s]+)$/u);
     } catch {

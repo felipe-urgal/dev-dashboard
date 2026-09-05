@@ -61,9 +61,9 @@ function defaultCommandRunner(
 function commandMissing(error: unknown): boolean {
   return Boolean(
     error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'ENOENT',
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT',
   );
 }
 
@@ -96,9 +96,7 @@ function scanCommand(): TrivyCommand {
   };
 }
 
-export class TrivySecurityProvider
-  implements SecurityScannerProvider<SecurityScanResult>
-{
+export class TrivySecurityProvider implements SecurityScannerProvider<SecurityScanResult> {
   public readonly id = 'trivy';
 
   public constructor(
@@ -133,7 +131,9 @@ export class TrivySecurityProvider
     }
   }
 
-  public async scan(project: Project): Promise<SecurityScanExecution<SecurityScanResult>> {
+  public async scan(
+    project: Project,
+  ): Promise<SecurityScanExecution<SecurityScanResult>> {
     const observedAt = this.now().toISOString();
     let stdout: string;
     try {

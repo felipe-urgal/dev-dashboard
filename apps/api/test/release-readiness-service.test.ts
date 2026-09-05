@@ -62,12 +62,17 @@ const doctorReport: ProjectDiagnosticReport = {
   checks: [],
 };
 
-function service(overrides: {
-  git?: () => Promise<ProjectGitOverview>;
-  tests?: () => Promise<TestExecutionHistory>;
-  doctor?: () => Promise<ProjectDiagnosticReport>;
-  identity?: () => Promise<{ gitRevision?: string; gitDirtyFingerprint?: string }>;
-} = {}) {
+function service(
+  overrides: {
+    git?: () => Promise<ProjectGitOverview>;
+    tests?: () => Promise<TestExecutionHistory>;
+    doctor?: () => Promise<ProjectDiagnosticReport>;
+    identity?: () => Promise<{
+      gitRevision?: string;
+      gitDirtyFingerprint?: string;
+    }>;
+  } = {},
+) {
   return new ReleaseReadinessService(
     { getOverview: overrides.git ?? (async () => gitOverview) },
     { history: overrides.tests ?? (async () => history) },
@@ -106,9 +111,18 @@ test('falha de uma fonte fica isolada como unknown sem apagar checks saudáveis'
   }).getSnapshot(project, { testMaxAgeMs: 60 * 60 * 1000 });
 
   assert.equal(snapshot.state, 'unknown');
-  assert.equal(snapshot.checks.find((check) => check.id === 'git')?.state, 'unknown');
-  assert.equal(snapshot.checks.find((check) => check.id === 'tests')?.state, 'pass');
-  assert.equal(snapshot.checks.find((check) => check.id === 'doctor')?.state, 'pass');
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'git')?.state,
+    'unknown',
+  );
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'tests')?.state,
+    'pass',
+  );
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'doctor')?.state,
+    'pass',
+  );
 });
 
 test('identidade Git incompleta nunca recicla resultado verde de testes', async () => {
@@ -118,7 +132,10 @@ test('identidade Git incompleta nunca recicla resultado verde de testes', async 
 
   const tests = snapshot.checks.find((check) => check.id === 'tests');
   assert.equal(tests?.state, 'unknown');
-  assert.match(tests?.evidence ?? '', /revisão\/fingerprint atual não foi fornecida/);
+  assert.match(
+    tests?.evidence ?? '',
+    /revisão\/fingerprint atual não foi fornecida/,
+  );
 });
 
 test('janela de freshness inválida falha antes de consultar providers', async () => {
