@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import type {
   Project,
+  ProjectEnvironmentBaselineStatus,
   ProjectEnvironmentContract,
   ProjectEnvironmentContractScope,
   ProjectEnvironmentContractSection,
@@ -112,10 +113,6 @@ function maskSensitiveValue(
   return variable;
 }
 
-function variableMetadata(variable: ParsedEnvironmentVariable) {
-  return { name: variable.name, sensitive: variable.sensitive };
-}
-
 function buildVariableIndex(
   files: Map<string, ParsedEnvironmentVariable[]>,
   selectedFiles: string[],
@@ -140,6 +137,12 @@ function buildVariableIndex(
   return index;
 }
 
+function getBaselineStatus(candidateCount: number): ProjectEnvironmentBaselineStatus {
+  if (candidateCount === 1) return 'resolved';
+  if (candidateCount > 1) return 'ambiguous';
+  return 'missing';
+}
+
 function buildContractSection(
   files: Map<string, ParsedEnvironmentVariable[]>,
   config: EnvironmentContractScopeConfig,
@@ -149,30 +152,29 @@ function buildContractSection(
 
   if (baselineCandidates.length === 0 && sourceFiles.length === 0) return null;
 
-  const baselineStatus =
-    baselineCandidates.length === 1
-      ? 'resolved'
-      : baselineCandidates.length > 1
-        ? 'ambiguous'
-        : 'missing';
-  const baseline = baselineStatus === 'resolved' ? baselineCandidates[0] ?? null : null;
+  const baselineStatus = getBaselineStatus(baselineCandidates.length);
+  const baseline =
+    baselineStatus === 'resolved' ? baselineCandidates[0] ?? null : null;
+  const candidateVariables = buildVariableIndex(files, baselineCandidates);
   const baselineVariables = baseline
     ? buildVariableIndex(files, [baseline])
     : new Map<string, { sensitive: boolean; files: string[] }>();
   const sourceVariables = buildVariableIndex(files, sourceFiles);
   const names = new Set<string>([
-    ...baselineVariables.keys(),
+    ...candidateVariables.keys(),
     ...sourceVariables.keys(),
   ]);
   const variables: ProjectEnvironmentContractVariable[] = [];
 
   for (const name of [...names].sort((left, right) => left.localeCompare(right))) {
+    const candidate = candidateVariables.get(name);
     const expected = baselineVariables.get(name);
     const actual = sourceVariables.get(name);
-    const sensitive =
-      expected?.sensitive ??
-      actual?.sensitive ??
-      isSensitiveEnvironmentProfileVariableName(name);
+    const sensitive = Boolean(
+      candidate?.sensitive ||
+        actual?.sensitive ||
+        isSensitiveEnvironmentProfileVariableName(name),
+    );
 
     if (baselineStatus !== 'resolved') {
       variables.push({
@@ -274,7 +276,9 @@ export class ProjectEnvironmentService {
     const files = await this.readRecognizedFiles(project);
     const sections = CONTRACT_SCOPES.map((config) =>
       buildContractSection(files, config),
-    ).filter((section): section is ProjectEnvironmentContractSection => section !== null);
+    ).filter(
+      (section): section is ProjectEnvironmentContractSection => section !== null,
+    );
 
     return { sections };
   }
@@ -299,10 +303,4 @@ export class ProjectEnvironmentService {
       sensitive: variable.sensitive,
     };
   }
-}
-
-export function getProjectEnvironmentFileVariableNames(
-  contents: string,
-): Array<{ name: string; sensitive: boolean }> {
-  return parseDotenv(contents).map(variableMetadata);
 }
