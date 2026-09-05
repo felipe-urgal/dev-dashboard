@@ -261,7 +261,8 @@ export function declaredPortsFromResolvedCompose(
   }
 
   return declarations.sort(
-    (left, right) => left.port - right.port || left.role.localeCompare(right.role),
+    (left, right) =>
+      left.port - right.port || left.role.localeCompare(right.role),
   );
 }
 
@@ -288,7 +289,8 @@ export class PortAllocationLeaseRegistry {
     request: PortAllocationLeaseRequest,
   ): PortAllocationLeaseResult | null {
     const leaseId = request.leaseId.trim();
-    if (!leaseId || !request.projectId.trim() || !request.role.trim()) return null;
+    if (!leaseId || !request.projectId.trim() || !request.role.trim())
+      return null;
 
     const current = this.leases.get(leaseId);
     if (current) {

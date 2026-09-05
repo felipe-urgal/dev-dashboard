@@ -140,7 +140,10 @@ test('explicita unknown quando não há baseline ou granularidade confiável', (
     wrapper.text(),
     /Instabilidade: sem resultados granulares comparáveis/,
   );
-  assert.doesNotMatch(wrapper.text(), /0 teste\(s\) com evidência de flakiness/);
+  assert.doesNotMatch(
+    wrapper.text(),
+    /0 teste\(s\) com evidência de flakiness/,
+  );
 });
 
 test('falha do suggestion engine degrada para recomendação segura', () => {

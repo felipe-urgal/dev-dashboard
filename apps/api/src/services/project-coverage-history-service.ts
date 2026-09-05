@@ -52,7 +52,9 @@ function isTotals(value: unknown): value is ProjectCoverageTotals {
 function isFileSummary(value: unknown): value is ProjectCoverageFileSummary {
   if (!value || typeof value !== 'object') return false;
   const file = value as Record<string, unknown>;
-  return typeof file.path === 'string' && file.path.length > 0 && isTotals(file);
+  return (
+    typeof file.path === 'string' && file.path.length > 0 && isTotals(file)
+  );
 }
 
 function isOptionalString(value: unknown): boolean {
@@ -105,8 +107,7 @@ export class ProjectCoverageHistoryService {
     stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() ||
       path.join(homedir(), '.local', 'state', 'dev-dashboard'),
     historyLimit = readHistoryLimit(),
-    private readonly captureIdentity: CoverageIdentityCapture =
-      captureTestExecutionGitIdentity,
+    private readonly captureIdentity: CoverageIdentityCapture = captureTestExecutionGitIdentity,
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'coverage-history');
     this.historyLimit = historyLimit;

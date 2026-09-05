@@ -1,6 +1,7 @@
 import path from 'node:path';
 
-export type LocalCiAvailabilityState = 'available' | 'act-missing' | 'docker-unavailable';
+export type LocalCiAvailabilityState =
+  'available' | 'act-missing' | 'docker-unavailable';
 
 export interface LocalCiAvailability {
   state: LocalCiAvailabilityState;
@@ -49,10 +50,12 @@ function boundedLabel(value: string): string | undefined {
 function normalizeWorkflowPath(value: string): string | undefined {
   if (value.length > MAX_WORKFLOW_PATH_LENGTH) return undefined;
   const normalized = value.replaceAll('\\', '/');
-  if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:\//u.test(normalized)) return undefined;
+  if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:\//u.test(normalized))
+    return undefined;
 
   const safe = path.posix.normalize(normalized).replace(/^\.\//, '');
-  if (safe.includes('\0') || safe === '..' || safe.startsWith('../')) return undefined;
+  if (safe.includes('\0') || safe === '..' || safe.startsWith('../'))
+    return undefined;
   if (!safe.startsWith('.github/workflows/')) return undefined;
   if (!/\.(?:yml|yaml)$/u.test(safe)) return undefined;
   return safe;
@@ -64,8 +67,12 @@ function safeCatalogToken(value: string): string | undefined {
 }
 
 function boundedAvailability(input: LocalCiAvailability): LocalCiAvailability {
-  const actVersion = input.actVersion ? boundedLabel(input.actVersion) : undefined;
-  const dockerVersion = input.dockerVersion ? boundedLabel(input.dockerVersion) : undefined;
+  const actVersion = input.actVersion
+    ? boundedLabel(input.actVersion)
+    : undefined;
+  const dockerVersion = input.dockerVersion
+    ? boundedLabel(input.dockerVersion)
+    : undefined;
   return {
     state: input.state,
     ...(actVersion ? { actVersion } : {}),
@@ -73,7 +80,10 @@ function boundedAvailability(input: LocalCiAvailability): LocalCiAvailability {
   };
 }
 
-function sameJob(job: LocalCiJobDescriptor, request: LocalCiJobRequest): boolean {
+function sameJob(
+  job: LocalCiJobDescriptor,
+  request: LocalCiJobRequest,
+): boolean {
   return (
     job.workflowFile === request.workflowFile &&
     job.jobId === request.jobId &&
@@ -139,7 +149,8 @@ export function buildActJobCommand(
   const safeJobId = safeCatalogToken(request.jobId);
   const safeEvent = safeCatalogToken(request.event);
   if (!safeFile) throw new Error('Workflow fora do catálogo permitido.');
-  if (!safeJobId || !safeEvent) throw new Error('Job/evento inválido para execução local.');
+  if (!safeJobId || !safeEvent)
+    throw new Error('Job/evento inválido para execução local.');
 
   const normalizedRequest = {
     workflowFile: safeFile,

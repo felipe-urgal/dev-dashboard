@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 export type SecurityFindingCategory = 'secret' | 'misconfiguration';
-export type SecurityFindingSeverity = 'unknown' | 'low' | 'medium' | 'high' | 'critical';
+export type SecurityFindingSeverity =
+  'unknown' | 'low' | 'medium' | 'high' | 'critical';
 
 export interface SecurityFinding {
   provider: 'trivy';
@@ -51,7 +52,9 @@ function safeRuleId(value: unknown): string | undefined {
 }
 
 function positiveInteger(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
 }
 
 function severity(value: unknown): SecurityFindingSeverity {
@@ -69,7 +72,8 @@ function severity(value: unknown): SecurityFindingSeverity {
 
 function safeRelativeFile(target: unknown): string | undefined {
   const value = boundedString(target, MAX_FILE_LENGTH)?.replaceAll('\\', '/');
-  if (!value || path.posix.isAbsolute(value) || /^[A-Za-z]:\//u.test(value)) return undefined;
+  if (!value || path.posix.isAbsolute(value) || /^[A-Za-z]:\//u.test(value))
+    return undefined;
 
   const normalized = path.posix.normalize(value).replace(/^\.\//, '');
   if (
@@ -89,7 +93,9 @@ function safeReference(value: unknown): string | undefined {
 
   try {
     const url = new URL(reference);
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : undefined;
+    return url.protocol === 'https:' || url.protocol === 'http:'
+      ? url.toString()
+      : undefined;
   } catch {
     return undefined;
   }
@@ -102,7 +108,9 @@ function fingerprint(input: {
   line?: number;
 }): string {
   return createHash('sha256')
-    .update(`${input.category}\0${input.ruleId}\0${input.file}\0${input.line ?? 0}`)
+    .update(
+      `${input.category}\0${input.ruleId}\0${input.file}\0${input.line ?? 0}`,
+    )
     .digest('hex');
 }
 
@@ -162,7 +170,9 @@ function parseMisconfigurations(
   observedAt: string,
   limit: number,
 ): SecurityFinding[] {
-  const items = Array.isArray(result.Misconfigurations) ? result.Misconfigurations : [];
+  const items = Array.isArray(result.Misconfigurations)
+    ? result.Misconfigurations
+    : [];
   const findings: SecurityFinding[] = [];
 
   for (const candidate of items) {
@@ -173,7 +183,10 @@ function parseMisconfigurations(
 
     const line = positiveInteger(candidate.StartLine);
     const title = boundedString(candidate.Title, MAX_TITLE_LENGTH);
-    const remediation = boundedString(candidate.Resolution, MAX_REMEDIATION_LENGTH);
+    const remediation = boundedString(
+      candidate.Resolution,
+      MAX_REMEDIATION_LENGTH,
+    );
     const reference = safeReference(candidate.PrimaryURL);
 
     findings.push(
@@ -196,7 +209,10 @@ function parseMisconfigurations(
   return findings;
 }
 
-export function parseTrivySecurityReport(payload: unknown, observedAt: string): SecurityScanResult {
+export function parseTrivySecurityReport(
+  payload: unknown,
+  observedAt: string,
+): SecurityScanResult {
   if (!isRecord(payload)) {
     throw new Error('Relatório Trivy inválido: objeto raiz ausente.');
   }
@@ -214,7 +230,12 @@ export function parseTrivySecurityReport(payload: unknown, observedAt: string): 
     findings.push(...parseSecrets(result, file, observedAt, remaining));
     if (findings.length >= MAX_FINDINGS) break;
     findings.push(
-      ...parseMisconfigurations(result, file, observedAt, MAX_FINDINGS - findings.length),
+      ...parseMisconfigurations(
+        result,
+        file,
+        observedAt,
+        MAX_FINDINGS - findings.length,
+      ),
     );
   }
 

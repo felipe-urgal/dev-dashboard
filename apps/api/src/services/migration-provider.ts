@@ -1,10 +1,7 @@
 import type { Project } from '@dev-dashboard/contracts';
 
 export type MigrationOverviewStatus =
-  | 'up-to-date'
-  | 'pending'
-  | 'unavailable'
-  | 'unknown';
+  'up-to-date' | 'pending' | 'unavailable' | 'unknown';
 
 export interface MigrationEntry {
   id: string;

@@ -31,7 +31,11 @@ test('preserva declarações ambíguas de .tool-versions como evidência unknown
   assert.deepEqual(
     parseToolVersions('node 20.19.0 22.0.0\nruby\npnpm 9.15.0 # local\n'),
     [
-      { tool: 'node', value: '<multiple:20.19.0,22.0.0>', source: '.tool-versions' },
+      {
+        tool: 'node',
+        value: '<multiple:20.19.0,22.0.0>',
+        source: '.tool-versions',
+      },
       { tool: 'ruby', value: '<missing>', source: '.tool-versions' },
       { tool: 'pnpm', value: '9.15.0', source: '.tool-versions' },
     ],
@@ -39,9 +43,14 @@ test('preserva declarações ambíguas de .tool-versions como evidência unknown
 });
 
 test('Node considera .tool-versions e não produz falso passed para versão incompatível', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-tools-node-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-doctor-tools-node-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
-  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'node-tools' }));
+  await writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({ name: 'node-tools' }),
+  );
   await writeFile(path.join(root, '.tool-versions'), 'node 999.0.0\n');
 
   const report = await new ProjectDoctorService({
@@ -56,11 +65,19 @@ test('Node considera .tool-versions e não produz falso passed para versão inco
 });
 
 test('múltiplos gerenciadores em .tool-versions ficam warning mesmo com lockfile', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-tools-pm-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-doctor-tools-pm-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
-  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'node-tools' }));
+  await writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({ name: 'node-tools' }),
+  );
   await writeFile(path.join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
-  await writeFile(path.join(root, '.tool-versions'), 'pnpm 9.15.0\nyarn 4.5.0\n');
+  await writeFile(
+    path.join(root, '.tool-versions'),
+    'pnpm 9.15.0\nyarn 4.5.0\n',
+  );
 
   const calls: string[] = [];
   const report = await new ProjectDoctorService({
@@ -81,7 +98,9 @@ test('múltiplos gerenciadores em .tool-versions ficam warning mesmo com lockfil
 });
 
 test('Ruby e Bundler validam Gemfile, lock e .tool-versions sem executar o Gemfile', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-tools-ruby-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-doctor-tools-ruby-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   await writeFile(
     path.join(root, 'Gemfile'),
@@ -105,26 +124,41 @@ test('Ruby e Bundler validam Gemfile, lock e .tool-versions sem executar o Gemfi
         return { stdout: 'Bundler version 2.4.22\n', stderr: '' };
       }
       if (command === 'bundle' && args[0] === 'check') {
-        return { stdout: 'The Gemfile dependencies are satisfied\n', stderr: '' };
+        return {
+          stdout: 'The Gemfile dependencies are satisfied\n',
+          stderr: '',
+        };
       }
       throw new Error(`Comando inesperado: ${command} ${args.join(' ')}`);
     },
   }).getReport(project(root, 'rails'));
 
   const ruby = report.checks.find((check) => check.id === 'ruby-runtime');
-  const bundler = report.checks.find((check) => check.id === 'bundler-dependencies');
+  const bundler = report.checks.find(
+    (check) => check.id === 'bundler-dependencies',
+  );
   assert.equal(ruby?.status, 'failed');
   assert.match(ruby?.summary ?? '', /Gemfile#ruby=3\.3\.0/);
   assert.match(ruby?.summary ?? '', /\.tool-versions#ruby=3\.3\.0/);
   assert.equal(bundler?.status, 'failed');
   assert.match(bundler?.summary ?? '', /Gemfile\.lock#BUNDLED WITH=2\.5\.6/);
   assert.match(bundler?.summary ?? '', /\.tool-versions#bundler=2\.5\.6/);
-  assert.equal(calls.some(([command]) => command === 'bash' || command === 'sh'), false);
-  assert.equal(calls.some(([command, args]) => command === 'bundle' && args[0] === 'check'), false);
+  assert.equal(
+    calls.some(([command]) => command === 'bash' || command === 'sh'),
+    false,
+  );
+  assert.equal(
+    calls.some(
+      ([command, args]) => command === 'bundle' && args[0] === 'check',
+    ),
+    false,
+  );
 });
 
 test('Compose explícito no Project Profile valida CLI e daemon Docker', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-compose-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-doctor-compose-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const calls: string[] = [];
   const report = await new ProjectDoctorService({
@@ -154,7 +188,9 @@ test('Compose explícito no Project Profile valida CLI e daemon Docker', async (
     }),
   );
 
-  const container = report.checks.find((check) => check.id === 'container-toolchain');
+  const container = report.checks.find(
+    (check) => check.id === 'container-toolchain',
+  );
   assert.equal(container?.status, 'passed');
   assert.match(container?.summary ?? '', /Docker 27\.1\.1/);
   assert.match(container?.summary ?? '', /Compose 2\.29\.1/);
@@ -166,7 +202,9 @@ test('Compose explícito no Project Profile valida CLI e daemon Docker', async (
 });
 
 test('Compose detectado com Docker ausente vira warning localizado', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-compose-missing-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-doctor-compose-missing-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const report = await new ProjectDoctorService({
     commandRunner: async () => {
@@ -186,7 +224,9 @@ test('Compose detectado com Docker ausente vira warning localizado', async (cont
     }),
   );
 
-  const container = report.checks.find((check) => check.id === 'container-toolchain');
+  const container = report.checks.find(
+    (check) => check.id === 'container-toolchain',
+  );
   assert.equal(container?.status, 'warning');
   assert.match(container?.summary ?? '', /Compose/);
   assert.match(container?.summary ?? '', /não está disponível/);

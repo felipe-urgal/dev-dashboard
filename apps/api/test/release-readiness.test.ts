@@ -239,5 +239,8 @@ test('snapshot usa o estado mais conservador sem score opaco', () => {
   );
 
   assert.equal(snapshot.state, 'unknown');
-  assert.deepEqual(snapshot.checks.map((check) => check.id), ['git', 'doctor', 'tests']);
+  assert.deepEqual(
+    snapshot.checks.map((check) => check.id),
+    ['git', 'doctor', 'tests'],
+  );
 });

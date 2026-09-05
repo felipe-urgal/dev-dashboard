@@ -12,11 +12,7 @@ export type ComposeServiceState =
   | 'unknown';
 
 export type ComposeServiceHealth =
-  | 'healthy'
-  | 'unhealthy'
-  | 'starting'
-  | 'none'
-  | 'unknown';
+  'healthy' | 'unhealthy' | 'starting' | 'none' | 'unknown';
 
 export type ComposePortProtocol = 'tcp' | 'udp' | 'unknown';
 
@@ -100,7 +96,10 @@ function protocol(value: unknown): ComposePortProtocol {
   return 'unknown';
 }
 
-function parsePortBindings(value: unknown, runtime = false): ComposePortBinding[] {
+function parsePortBindings(
+  value: unknown,
+  runtime = false,
+): ComposePortBinding[] {
   if (!Array.isArray(value)) return [];
   const bindings: ComposePortBinding[] = [];
 
@@ -108,8 +107,12 @@ function parsePortBindings(value: unknown, runtime = false): ComposePortBinding[
     if (bindings.length >= MAX_PORTS_PER_SERVICE) break;
     if (!isRecord(candidate)) continue;
 
-    const targetPort = portNumber(runtime ? candidate.TargetPort : candidate.target);
-    const publishedPort = portNumber(runtime ? candidate.PublishedPort : candidate.published);
+    const targetPort = portNumber(
+      runtime ? candidate.TargetPort : candidate.target,
+    );
+    const publishedPort = portNumber(
+      runtime ? candidate.PublishedPort : candidate.published,
+    );
     if (targetPort === undefined) continue;
 
     bindings.push({
@@ -217,7 +220,10 @@ export function parseComposeConfig(
 
     for (const binding of ports) {
       if (binding.publishedPort === undefined) continue;
-      publishedPorts.push({ service: name, publishedPort: binding.publishedPort });
+      publishedPorts.push({
+        service: name,
+        publishedPort: binding.publishedPort,
+      });
     }
   }
 
@@ -246,7 +252,10 @@ export function parseComposePs(
     if (!service) continue;
 
     const containerId = boundedString(candidate.ID, MAX_NAME_LENGTH);
-    const containerName = boundedString(candidate.Name, MAX_CONTAINER_NAME_LENGTH);
+    const containerName = boundedString(
+      candidate.Name,
+      MAX_CONTAINER_NAME_LENGTH,
+    );
     const code = exitCode(candidate.ExitCode);
     services.push({
       service,

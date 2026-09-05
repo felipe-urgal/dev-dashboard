@@ -54,11 +54,10 @@ test('coverage delta compara somente artifact com identidade compatível', () =>
     ],
   });
 
-  const delta = buildCoverageDelta(
-    [current, baseline],
-    current.generatedAt,
-    ['src/auth.ts', 'src/missing.ts'],
-  );
+  const delta = buildCoverageDelta([current, baseline], current.generatedAt, [
+    'src/auth.ts',
+    'src/missing.ts',
+  ]);
 
   assert.equal(delta.state, 'available');
   assert.equal(delta.total?.lines, -5);
@@ -80,11 +79,9 @@ test('coverage delta não compara revisão diferente', () => {
     gitRevision: 'different',
   });
 
-  const delta = buildCoverageDelta(
-    [current, baseline],
-    current.generatedAt,
-    ['src/auth.ts'],
-  );
+  const delta = buildCoverageDelta([current, baseline], current.generatedAt, [
+    'src/auth.ts',
+  ]);
 
   assert.equal(delta.state, 'unknown');
   assert.equal(delta.reason, 'no-compatible-baseline');
@@ -99,11 +96,9 @@ test('coverage delta não compara fingerprint dirty diferente', () => {
     gitDirtyFingerprint: 'dirty-baseline',
   });
 
-  const delta = buildCoverageDelta(
-    [current, baseline],
-    current.generatedAt,
-    ['src/auth.ts'],
-  );
+  const delta = buildCoverageDelta([current, baseline], current.generatedAt, [
+    'src/auth.ts',
+  ]);
 
   assert.equal(delta.state, 'unknown');
   assert.equal(delta.reason, 'no-compatible-baseline');

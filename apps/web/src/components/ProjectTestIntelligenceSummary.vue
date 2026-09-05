@@ -90,7 +90,10 @@ const flakinessLabel = computed(() => {
         <li v-if="hiddenTestCount > 0">+ {{ hiddenTestCount }} teste(s)</li>
       </ul>
 
-      <div class="test-intelligence-evidence" aria-label="Evidências históricas">
+      <div
+        class="test-intelligence-evidence"
+        aria-label="Evidências históricas"
+      >
         <small>{{ coverageLabel }}</small>
         <small>{{ flakinessLabel }}</small>
       </div>

@@ -4,7 +4,10 @@ import type { DoctorCommandRunner } from './check-types.js';
 import { createDiagnosticCheck } from './check-types.js';
 
 function hasCapability(project: Project, id: string): boolean {
-  return project.profile?.capabilities.some((capability) => capability.id === id) ?? false;
+  return (
+    project.profile?.capabilities.some((capability) => capability.id === id) ??
+    false
+  );
 }
 
 function firstVersion(output: string): string | undefined {
@@ -32,7 +35,8 @@ export async function checkContainerToolchain(
       category: 'runtime',
       label: 'Docker / Compose',
       status: 'skipped',
-      summary: 'O Project Profile não detectou uma capability de container para este projeto.',
+      summary:
+        'O Project Profile não detectou uma capability de container para este projeto.',
     });
   }
 
