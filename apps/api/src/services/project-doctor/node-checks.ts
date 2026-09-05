@@ -5,6 +5,7 @@ import type { Project, ProjectDiagnosticCheck } from '@dev-dashboard/contracts';
 import type { DoctorCommandRunner } from './check-types.js';
 import { createDiagnosticCheck } from './check-types.js';
 import { directoryExists, pathExists, readLimitedText } from './file-utils.js';
+import { readToolVersion, readToolVersions } from './tool-versions.js';
 import { evaluateVersionConstraint } from './version-constraint.js';
 
 interface NodeManifestInfo {
@@ -27,6 +28,7 @@ interface VersionDeclaration {
 interface PackageManagerDeclaration {
   manager: string;
   version?: string;
+  source: string;
 }
 
 const SUPPORTED_PACKAGE_MANAGERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
@@ -59,12 +61,29 @@ async function readNodeManifest(project: Project): Promise<NodeManifestInfo> {
 
 function parsePackageManagerDeclaration(
   value: string,
+  source = 'package.json#packageManager',
 ): PackageManagerDeclaration | null {
   const match = value.trim().match(/^([a-zA-Z0-9._-]+)(?:@([^+\s]+)(?:\+\S+)?)?$/);
   if (!match) return null;
   return {
     manager: match[1]!.toLowerCase(),
     ...(match[2] ? { version: match[2] } : {}),
+    source,
+  };
+}
+
+async function detectToolVersionsPackageManager(
+  project: Project,
+): Promise<PackageManagerDeclaration | null> {
+  const declarations = (await readToolVersions(project)).filter((entry) =>
+    SUPPORTED_PACKAGE_MANAGERS.has(entry.tool),
+  );
+  if (declarations.length !== 1) return null;
+  const declaration = declarations[0]!;
+  return {
+    manager: declaration.tool,
+    version: declaration.value,
+    source: `${declaration.source}#${declaration.tool}`,
   };
 }
 
@@ -122,8 +141,18 @@ export async function checkNodeRuntime(
     )?.trim();
     if (value) declarations.push({ source: fileName, value });
   }
+  const toolVersion = await readToolVersion(project, ['node', 'nodejs']);
+  if (toolVersion) {
+    declarations.push({
+      source: `${toolVersion.source}#${toolVersion.tool}`,
+      value: toolVersion.value,
+    });
+  }
   if (manifest.enginesNode) {
-    declarations.push({ source: 'package.json#engines.node', value: manifest.enginesNode });
+    declarations.push({
+      source: 'package.json#engines.node',
+      value: manifest.enginesNode,
+    });
   }
 
   if (declarations.length === 0) {
@@ -208,11 +237,12 @@ export async function checkNodePackageManager(
   }
 
   const detection = await detectPackageManager(project);
-  const declared = manifest.packageManager
+  const manifestDeclaration = manifest.packageManager
     ? parsePackageManagerDeclaration(manifest.packageManager)
     : null;
+  const toolVersionsDeclaration = await detectToolVersionsPackageManager(project);
 
-  if (manifest.packageManager && !declared) {
+  if (manifest.packageManager && !manifestDeclaration) {
     return createDiagnosticCheck({
       id: 'node-package-manager',
       category: 'dependencies',
@@ -225,6 +255,24 @@ export async function checkNodePackageManager(
     });
   }
 
+  if (
+    manifestDeclaration &&
+    toolVersionsDeclaration &&
+    manifestDeclaration.manager !== toolVersionsDeclaration.manager
+  ) {
+    return createDiagnosticCheck({
+      id: 'node-package-manager',
+      category: 'dependencies',
+      label: 'Gerenciador Node',
+      status: 'warning',
+      summary: `${manifestDeclaration.source} declara ${manifestDeclaration.manager}, mas ${toolVersionsDeclaration.source} declara ${toolVersionsDeclaration.manager}.`,
+      recommendation:
+        'Alinhe as fontes versionadas antes de instalar dependências; o Doctor não escolhe silenciosamente entre declarações conflitantes.',
+      action: { label: 'Abrir dependências', target: 'dependencies' },
+    });
+  }
+
+  const declared = manifestDeclaration ?? toolVersionsDeclaration;
   const manager = declared?.manager ?? detection.manager;
   if (!manager) {
     return createDiagnosticCheck({
@@ -235,7 +283,7 @@ export async function checkNodePackageManager(
       summary:
         detection.lockfiles.length > 0
           ? `Há lockfiles conflitantes: ${detection.lockfiles.join(', ')}.`
-          : 'Nenhum packageManager ou lockfile Node foi encontrado.',
+          : 'Nenhum packageManager, .tool-versions ou lockfile Node foi encontrado.',
       recommendation:
         'Declare packageManager e mantenha somente o lockfile do gerenciador adotado pelo projeto.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
@@ -248,7 +296,7 @@ export async function checkNodePackageManager(
       category: 'dependencies',
       label: 'Gerenciador Node',
       status: 'warning',
-      summary: `${manager} foi declarado em package.json#packageManager, mas ainda não possui detector suportado.`,
+      summary: `${manager} foi declarado, mas ainda não possui detector suportado.`,
       recommendation:
         'Use npm, pnpm, yarn ou bun, ou adicione um provider explícito antes de validar esse gerenciador.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
@@ -268,7 +316,7 @@ export async function checkNodePackageManager(
       category: 'dependencies',
       label: 'Gerenciador Node',
       status: 'warning',
-      summary: `${manager} foi indicado por ${declared ? 'package.json#packageManager' : detection.lockfiles[0]}, mas não está disponível para a API.`,
+      summary: `${manager} foi indicado por ${declared?.source ?? detection.lockfiles[0]}, mas não está disponível para a API.`,
       recommendation: `Disponibilize ${manager} no ambiente que executa o Dev Dashboard; o Doctor não instala ferramentas automaticamente.`,
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
@@ -283,7 +331,7 @@ export async function checkNodePackageManager(
         category: 'dependencies',
         label: 'Gerenciador Node',
         status: 'failed',
-        summary: `${manager} ${version} não atende package.json#packageManager=${manifest.packageManager}.`,
+        summary: `${manager} ${version} não atende ${declared.source}=${manager}@${declared.version}.`,
         recommendation: `Use ${manager} ${declared.version} ou alinhe a declaração versionada do projeto.`,
         action: { label: 'Abrir dependências', target: 'dependencies' },
       });
@@ -294,9 +342,9 @@ export async function checkNodePackageManager(
         category: 'dependencies',
         label: 'Gerenciador Node',
         status: 'warning',
-        summary: `${manager} ${version} está disponível, mas a versão declarada em package.json#packageManager não pôde ser comparada com segurança.`,
+        summary: `${manager} ${version} está disponível, mas ${declared.source}=${declared.version} não pôde ser comparado com segurança.`,
         recommendation:
-          'Use uma versão numérica explícita em packageManager para permitir validação determinística.',
+          'Use uma versão numérica explícita para permitir validação determinística.',
         action: { label: 'Abrir dependências', target: 'dependencies' },
       });
     }
@@ -310,7 +358,7 @@ export async function checkNodePackageManager(
       status: 'warning',
       summary: `${manager}${version ? ` ${version}` : ''} está disponível, mas os lockfiles não correspondem de forma única à declaração: ${detection.lockfiles.join(', ')}.`,
       recommendation:
-        'Mantenha apenas o lockfile correspondente a package.json#packageManager.',
+        'Mantenha apenas o lockfile correspondente ao gerenciador declarado.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
@@ -321,7 +369,7 @@ export async function checkNodePackageManager(
     label: 'Gerenciador Node',
     status: 'passed',
     summary: declared
-      ? `${manager}${version ? ` ${version}` : ''} atende package.json#packageManager=${manifest.packageManager}${detection.lockfiles[0] ? ` e corresponde a ${detection.lockfiles[0]}` : ''}.`
+      ? `${manager}${version ? ` ${version}` : ''} atende ${declared.source}=${manager}${declared.version ? `@${declared.version}` : ''}${detection.lockfiles[0] ? ` e corresponde a ${detection.lockfiles[0]}` : ''}.`
       : `${manager}${version ? ` ${version}` : ''} está disponível e corresponde a ${detection.lockfiles[0]}.`,
   });
 }
