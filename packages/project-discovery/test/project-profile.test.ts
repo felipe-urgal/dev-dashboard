@@ -12,10 +12,13 @@ const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-profile-'));
 try {
   const nodePath = path.join(root, 'node-monorepo');
   await mkdir(path.join(nodePath, '.git'), { recursive: true });
+  await mkdir(path.join(nodePath, '.github', 'workflows'), { recursive: true });
   await writeFile(path.join(nodePath, '.nvmrc'), '22.12.0\n');
   await writeFile(path.join(nodePath, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
   await writeFile(path.join(nodePath, 'Dockerfile'), 'FROM node:22\n');
   await writeFile(path.join(nodePath, 'compose.yaml'), 'services: {}\n');
+  await writeFile(path.join(nodePath, '.env.example'), 'TOKEN=super-secret\n');
+  await writeFile(path.join(nodePath, '.env.test.example'), 'DATABASE_URL=test-secret\n');
   await writeFile(
     path.join(nodePath, 'package.json'),
     JSON.stringify({
@@ -34,8 +37,10 @@ try {
   assert.deepEqual(
     nodeProfile.capabilities.map((entry) => entry.id),
     [
+      'ci/github-actions',
       'container/compose',
       'container/docker',
+      'environment/contract-files',
       'framework/fastify',
       'framework/turbo',
       'framework/vite',
@@ -49,6 +54,15 @@ try {
       ?.metadata?.declaredVersion,
     '22.12.0',
   );
+  const environmentCapability = nodeProfile.capabilities.find(
+    (entry) => entry.id === 'environment/contract-files',
+  );
+  assert.deepEqual(environmentCapability?.metadata?.files, [
+    '.env.example',
+    '.env.test.example',
+  ]);
+  assert.equal(JSON.stringify(environmentCapability).includes('super-secret'), false);
+  assert.equal(JSON.stringify(environmentCapability).includes('test-secret'), false);
 
   const detectedNode = await detectProject(nodePath);
   assert.ok(detectedNode);
@@ -61,6 +75,7 @@ try {
   await mkdir(railsPath, { recursive: true });
   await writeFile(path.join(railsPath, '.ruby-version'), '3.4.1\n');
   await writeFile(path.join(railsPath, 'Gemfile.lock'), 'BUNDLED WITH\n   2.6.2\n');
+  await writeFile(path.join(railsPath, '.gitlab-ci.yml'), 'test:\n  script: bundle exec rspec\n');
   const railsProfile = await detectProjectProfile({
     projectPath: railsPath,
     projectType: 'rails',
@@ -77,6 +92,10 @@ try {
     railsProfile.capabilities.some(
       (entry) => entry.id === 'package-manager/bundler',
     ),
+    true,
+  );
+  assert.equal(
+    railsProfile.capabilities.some((entry) => entry.id === 'ci/gitlab'),
     true,
   );
 
