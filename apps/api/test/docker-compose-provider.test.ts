@@ -49,7 +49,9 @@ test('executa somente os dois comandos estruturados no cwd do projeto', async ()
     return command.args.includes('config') ? configPayload : runtimePayload;
   };
 
-  const result = await new DockerComposeProvider(runner, () => NOW).inspect(project);
+  const result = await new DockerComposeProvider(runner, () => NOW).inspect(
+    project,
+  );
 
   assert.equal(result.state, 'available');
   assert.deepEqual(calls, [
@@ -76,7 +78,9 @@ test('Docker ausente vira estado suportado sem ecoar erro bruto', async () => {
     throw error;
   };
 
-  const result = await new DockerComposeProvider(runner, () => NOW).inspect(project);
+  const result = await new DockerComposeProvider(runner, () => NOW).inspect(
+    project,
+  );
 
   assert.equal(result.state, 'docker-missing');
   assert.equal(JSON.stringify(result).includes('/secret/path'), false);
@@ -88,7 +92,9 @@ test('daemon indisponível preserva config resolvida e não inventa runtime', as
     throw new Error('cannot connect to daemon at unix:///secret/docker.sock');
   };
 
-  const result = await new DockerComposeProvider(runner, () => NOW).inspect(project);
+  const result = await new DockerComposeProvider(runner, () => NOW).inspect(
+    project,
+  );
 
   assert.equal(result.state, 'runtime-unavailable');
   assert.equal(result.config?.services.length, 1);
@@ -98,7 +104,9 @@ test('daemon indisponível preserva config resolvida e não inventa runtime', as
 
 test('JSON inválido falha fechado sem transportar stdout', async () => {
   const runner: ComposeCommandRunner = async () => '{"secret":"token"';
-  const result = await new DockerComposeProvider(runner, () => NOW).inspect(project);
+  const result = await new DockerComposeProvider(runner, () => NOW).inspect(
+    project,
+  );
 
   assert.equal(result.state, 'invalid-output');
   assert.equal(JSON.stringify(result).includes('token'), false);

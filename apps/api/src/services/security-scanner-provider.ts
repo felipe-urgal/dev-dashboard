@@ -1,9 +1,7 @@
 import type { Project } from '@dev-dashboard/contracts';
 
 export type SecurityScannerAvailabilityState =
-  | 'available'
-  | 'missing'
-  | 'unavailable';
+  'available' | 'missing' | 'unavailable';
 
 export interface SecurityScannerAvailability {
   state: SecurityScannerAvailabilityState;
@@ -13,9 +11,7 @@ export interface SecurityScannerAvailability {
 }
 
 export type SecurityScanExecutionState =
-  | 'completed'
-  | 'failed'
-  | 'invalid-output';
+  'completed' | 'failed' | 'invalid-output';
 
 export interface SecurityScanExecution<TResult> {
   state: SecurityScanExecutionState;

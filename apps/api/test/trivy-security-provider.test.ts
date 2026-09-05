@@ -25,7 +25,10 @@ test('availability detecta versão sem transportar saída arbitrária', async ()
     return 'Version: 0.68.1\nsecret-token-que-nao-deve-voltar';
   };
 
-  const result = await new TrivySecurityProvider(runner, () => NOW).availability();
+  const result = await new TrivySecurityProvider(
+    runner,
+    () => NOW,
+  ).availability();
 
   assert.deepEqual(result, {
     state: 'available',
@@ -60,7 +63,9 @@ test('scan usa argv fixo, cwd do projeto e sanitiza secret pelo parser existente
     });
   };
 
-  const result = await new TrivySecurityProvider(runner, () => NOW).scan(project);
+  const result = await new TrivySecurityProvider(runner, () => NOW).scan(
+    project,
+  );
 
   assert.equal(result.state, 'completed');
   assert.deepEqual(calls[0], {
@@ -84,7 +89,10 @@ test('scan usa argv fixo, cwd do projeto e sanitiza secret pelo parser existente
     cwd: project.path,
   });
   assert.equal(result.result?.findings[0]?.file, 'scripts/deploy.sh');
-  assert.equal(JSON.stringify(result).includes('ghp_SUPER_SECRET_VALUE'), false);
+  assert.equal(
+    JSON.stringify(result).includes('ghp_SUPER_SECRET_VALUE'),
+    false,
+  );
 });
 
 test('Trivy ausente é estado suportado e não ecoa path do erro', async () => {
@@ -102,12 +110,17 @@ test('Trivy ausente é estado suportado e não ecoa path do erro', async () => {
 
   assert.equal(availability.state, 'missing');
   assert.equal(scan.state, 'failed');
-  assert.equal(JSON.stringify({ availability, scan }).includes('/secret/path'), false);
+  assert.equal(
+    JSON.stringify({ availability, scan }).includes('/secret/path'),
+    false,
+  );
 });
 
 test('JSON inválido falha fechado sem transportar stdout', async () => {
   const runner: TrivyCommandRunner = async () => '{"Match":"SUPER_SECRET"';
-  const result = await new TrivySecurityProvider(runner, () => NOW).scan(project);
+  const result = await new TrivySecurityProvider(runner, () => NOW).scan(
+    project,
+  );
 
   assert.equal(result.state, 'invalid-output');
   assert.equal(JSON.stringify(result).includes('SUPER_SECRET'), false);

@@ -70,9 +70,9 @@ function defaultCommandRunner(
 function commandMissing(error: unknown): boolean {
   return Boolean(
     error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'ENOENT',
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT',
   );
 }
 
@@ -115,18 +115,26 @@ export class DockerComposeProvider {
 
     let config: ComposeConfigSnapshot;
     try {
-      config = parseComposeConfig(parseJson(configOutput), project.id, observedAt);
+      config = parseComposeConfig(
+        parseJson(configOutput),
+        project.id,
+        observedAt,
+      );
     } catch {
       return {
         state: 'invalid-output',
         observedAt,
-        diagnostic: 'Docker Compose retornou uma configuração estruturada inválida.',
+        diagnostic:
+          'Docker Compose retornou uma configuração estruturada inválida.',
       };
     }
 
     let runtimeOutput: string;
     try {
-      runtimeOutput = await this.runCommand(buildComposePsCommand(), commandOptions);
+      runtimeOutput = await this.runCommand(
+        buildComposePsCommand(),
+        commandOptions,
+      );
     } catch {
       return {
         state: 'runtime-unavailable',
@@ -145,7 +153,8 @@ export class DockerComposeProvider {
         state: 'invalid-output',
         observedAt,
         config,
-        diagnostic: 'Docker Compose retornou um estado de runtime estruturado inválido.',
+        diagnostic:
+          'Docker Compose retornou um estado de runtime estruturado inválido.',
       };
     }
 

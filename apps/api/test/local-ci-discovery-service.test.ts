@@ -45,7 +45,9 @@ test('descobre workflow/jobs/eventos via YAML sem editar o arquivo', async () =>
   const workflow = `name: CI\non:\n  push:\n  pull_request:\njobs:\n  build:\n    name: Build and test\n    runs-on: ubuntu-latest\n    steps: []\n`;
 
   await withProject(workflow, async (project) => {
-    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(
+      project,
+    );
 
     assert.equal(catalog.provider, 'act');
     assert.equal(catalog.approximation, true);
@@ -68,7 +70,9 @@ test('descobre workflow/jobs/eventos via YAML sem editar o arquivo', async () =>
 
 test('projeto sem workflows produz catálogo vazio sem erro genérico', async () => {
   await withProject(null, async (project) => {
-    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(
+      project,
+    );
     assert.equal(catalog.availability.state, 'available');
     assert.deepEqual(catalog.jobs, []);
   });
@@ -89,7 +93,9 @@ test('act ausente é estado suportado e não impede discovery dos workflows', as
   await withProject(
     `name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps: []\n`,
     async (project) => {
-      const catalog = await new LocalCiDiscoveryService(runner).discover(project);
+      const catalog = await new LocalCiDiscoveryService(runner).discover(
+        project,
+      );
       assert.equal(catalog.availability.state, 'act-missing');
       assert.equal(catalog.jobs.length, 1);
       assert.equal(JSON.stringify(catalog).includes('/secret/path'), false);
@@ -107,13 +113,18 @@ test('Docker daemon indisponível gera preflight acionável sem ecoar erro bruto
     const catalog = await new LocalCiDiscoveryService(runner).discover(project);
     assert.equal(catalog.availability.state, 'docker-unavailable');
     assert.equal(catalog.availability.actVersion, '0.2.82');
-    assert.equal(JSON.stringify(catalog).includes('/secret/docker.sock'), false);
+    assert.equal(
+      JSON.stringify(catalog).includes('/secret/docker.sock'),
+      false,
+    );
   });
 });
 
 test('workflow inválido fica fora do catálogo sem derrubar os demais domínios', async () => {
   await withProject('name: [yaml inválido', async (project) => {
-    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(
+      project,
+    );
     assert.equal(catalog.availability.state, 'available');
     assert.deepEqual(catalog.jobs, []);
   });
