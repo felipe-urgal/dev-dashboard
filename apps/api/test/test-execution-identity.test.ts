@@ -70,6 +70,19 @@ test('não cria fingerprint parcial quando há untracked demais', async () => {
   assert.deepEqual(identity, { gitRevision: 'abc123' });
 });
 
+test('preserva HEAD conhecido quando captura do dirty state falha', async () => {
+  const identity = await captureTestExecutionGitIdentity(
+    '/workspace/project',
+    async (_projectPath, args) => {
+      if (args[0] === 'rev-parse') return 'abc123\n';
+      throw new Error('status indisponível');
+    },
+  );
+
+  assert.deepEqual(identity, { gitRevision: 'abc123' });
+  assert.equal(identity.gitDirtyFingerprint, undefined);
+});
+
 test('falha de Git degrada para identidade desconhecida sem bloquear testes', async () => {
   const identity = await captureTestExecutionGitIdentity(
     '/workspace/not-a-repo',
