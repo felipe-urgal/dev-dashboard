@@ -62,17 +62,6 @@ export function evaluateGitReadiness(
     };
   }
 
-  if (overview.behind > 0) {
-    return {
-      id: 'git',
-      state: 'block',
-      summary: 'Branch está atrás da referência remota',
-      evidence: `${overview.behind} commit(s) atrás do upstream configurado.`,
-      observedAt,
-      action,
-    };
-  }
-
   if (overview.detached || !overview.branch) {
     return {
       id: 'git',
@@ -84,11 +73,55 @@ export function evaluateGitReadiness(
     };
   }
 
+  if (!overview.upstream) {
+    return {
+      id: 'git',
+      state: 'unknown',
+      summary: 'Branch sem referência remota comparável',
+      evidence: `${overview.branch} não possui upstream configurado; não é possível provar sincronização remota.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (overview.ahead > 0 && overview.behind > 0) {
+    return {
+      id: 'git',
+      state: 'block',
+      summary: 'Branch divergiu da referência remota',
+      evidence: `${overview.ahead} commit(s) à frente e ${overview.behind} atrás de ${overview.upstream}.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (overview.behind > 0) {
+    return {
+      id: 'git',
+      state: 'block',
+      summary: 'Branch está atrás da referência remota',
+      evidence: `${overview.behind} commit(s) atrás de ${overview.upstream}.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (overview.ahead > 0) {
+    return {
+      id: 'git',
+      state: 'block',
+      summary: 'Existem commits locais ainda não publicados',
+      evidence: `${overview.ahead} commit(s) à frente de ${overview.upstream}.`,
+      observedAt,
+      action,
+    };
+  }
+
   return {
     id: 'git',
     state: 'pass',
     summary: 'Git pronto para entrega',
-    evidence: `${overview.branch} limpa e sem commits remotos pendentes.`,
+    evidence: `${overview.branch} está limpa e sincronizada com ${overview.upstream}.`,
     observedAt,
     action,
   };
@@ -206,9 +239,11 @@ export function buildReleaseReadinessSnapshot(
   checks: ReleaseReadinessCheck[],
   generatedAt: string,
 ): ReleaseReadinessSnapshot {
-  const state = checks.reduce<ReleaseReadinessState>((current, check) =>
-    STATE_PRIORITY[check.state] > STATE_PRIORITY[current] ? check.state : current,
-  'pass');
+  const state = checks.reduce<ReleaseReadinessState>(
+    (current, check) =>
+      STATE_PRIORITY[check.state] > STATE_PRIORITY[current] ? check.state : current,
+    'pass',
+  );
 
   return { state, generatedAt, checks };
 }
