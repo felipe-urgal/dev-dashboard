@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
-import type { Project, ProjectTestOverview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ProjectTestOverview,
+  TestIntelligenceSuggestion,
+} from '@dev-dashboard/contracts';
 
 import {
   cancelProjectTestPty,
+  fetchProjectTestIntelligence,
   fetchProjectTestPtyStatus,
   fetchProjectTests,
   projectTestPtyWebSocketUrl,
@@ -12,7 +17,9 @@ import {
   type ProjectTestPtyStatusSnapshot,
 } from '../api';
 import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
+import { RequestGeneration } from '../utils/request-generation';
 import Card from './Card.vue';
+import ProjectTestIntelligenceSummary from './ProjectTestIntelligenceSummary.vue';
 
 const props = defineProps<{ project: Project }>();
 
@@ -23,6 +30,10 @@ const snapshot = ref<ProjectTestPtyStatusSnapshot | null>(null);
 const starting = ref(false);
 const cancelling = ref(false);
 const errorMessage = ref('');
+const intelligence = ref<TestIntelligenceSuggestion | null>(null);
+const loadingIntelligence = ref(false);
+const intelligenceErrorMessage = ref('');
+const intelligenceRequests = new RequestGeneration();
 
 const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
   usePtyTerminalSocket<ProjectTestPtyStatusSnapshot & { buffer: string }>({
@@ -50,6 +61,7 @@ const selectedCommand = computed(() =>
     (command) => command.id === selectedCommandId.value,
   ),
 );
+
 async function loadOverview(): Promise<void> {
   loadingOverview.value = true;
   try {
@@ -64,6 +76,51 @@ async function loadOverview(): Promise<void> {
         : 'Não foi possível carregar os comandos de teste.';
   } finally {
     loadingOverview.value = false;
+  }
+}
+
+async function loadIntelligence(): Promise<void> {
+  const projectId = props.project.id;
+  const commandId = selectedCommandId.value;
+  intelligenceRequests.invalidate();
+  intelligence.value = null;
+  intelligenceErrorMessage.value = '';
+
+  if (!commandId) {
+    loadingIntelligence.value = false;
+    return;
+  }
+
+  const generation = intelligenceRequests.capture();
+  loadingIntelligence.value = true;
+  try {
+    const suggestion = await fetchProjectTestIntelligence(projectId, commandId);
+    if (
+      props.project.id === projectId &&
+      selectedCommandId.value === commandId &&
+      intelligenceRequests.isCurrent(generation)
+    ) {
+      intelligence.value = suggestion;
+    }
+  } catch (error) {
+    if (
+      props.project.id === projectId &&
+      selectedCommandId.value === commandId &&
+      intelligenceRequests.isCurrent(generation)
+    ) {
+      intelligenceErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível calcular a recomendação de testes.';
+    }
+  } finally {
+    if (
+      props.project.id === projectId &&
+      selectedCommandId.value === commandId &&
+      intelligenceRequests.isCurrent(generation)
+    ) {
+      loadingIntelligence.value = false;
+    }
   }
 }
 
@@ -137,6 +194,16 @@ watch(
   },
   { immediate: true },
 );
+
+watch(
+  [() => props.project.id, selectedCommandId],
+  () => {
+    void loadIntelligence();
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => intelligenceRequests.invalidate());
 </script>
 
 <template>
@@ -206,6 +273,12 @@ watch(
         </div>
       </div>
     </template>
+
+    <ProjectTestIntelligenceSummary
+      :suggestion="intelligence"
+      :loading="loadingIntelligence"
+      :error-message="intelligenceErrorMessage"
+    />
 
     <p v-if="connecting" class="tests-pty-status">Conectando…</p>
     <p v-if="errorMessage" class="tests-pty-error" role="alert">

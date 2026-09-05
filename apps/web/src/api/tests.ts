@@ -5,6 +5,7 @@ import type {
   ProjectTestOverview,
   TestExecutionEvent,
   TestExecutionHistory,
+  TestIntelligenceSuggestion,
 } from '@dev-dashboard/contracts';
 
 import { followEventStream, requestJson } from './core';
@@ -19,6 +20,10 @@ interface ProcessLogResponse {
 
 interface ProjectTestsResponse {
   tests: ProjectTestOverview;
+}
+
+interface ProjectTestIntelligenceResponse {
+  suggestion: TestIntelligenceSuggestion;
 }
 
 export interface ProjectRelatedTests {
@@ -41,6 +46,16 @@ export async function fetchProjectTests(
     `/api/projects/${encodeURIComponent(projectId)}/tests${query}`,
   );
   return response.tests;
+}
+
+export async function fetchProjectTestIntelligence(
+  projectId: string,
+  commandId: string,
+): Promise<TestIntelligenceSuggestion> {
+  const response = await requestJson<ProjectTestIntelligenceResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/intelligence`,
+  );
+  return response.suggestion;
 }
 
 export async function fetchProjectTestProcess(
