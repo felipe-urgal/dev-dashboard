@@ -7,7 +7,10 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
 
-import type { AttentionItem, WorkspaceAttention } from '@dev-dashboard/contracts';
+import type {
+  AttentionItem,
+  WorkspaceAttention,
+} from '@dev-dashboard/contracts';
 
 import { fetchWorkspaceAttention } from '../api';
 import Card from '../components/Card.vue';

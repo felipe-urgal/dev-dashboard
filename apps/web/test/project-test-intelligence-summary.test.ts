@@ -62,7 +62,10 @@ test('mantém recomendação de suíte completa quando existe arquivo sem mapeam
 
   assert.match(wrapper.text(), /Suíte completa recomendada/);
   assert.match(wrapper.text(), /1 arquivo\(s\).*sem mapeamento direto/);
-  assert.doesNotMatch(wrapper.text(), /equivalente à suíte completa.*direcionados/s);
+  assert.doesNotMatch(
+    wrapper.text(),
+    /equivalente à suíte completa.*direcionados/s,
+  );
 });
 
 test('falha do suggestion engine degrada para recomendação segura', () => {

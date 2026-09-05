@@ -298,7 +298,11 @@ export class AttentionCenterService {
         }
 
         if (testResult.status === 'fulfilled') {
-          const item = testAttentionItem(project, testResult.value, generatedAt);
+          const item = testAttentionItem(
+            project,
+            testResult.value,
+            generatedAt,
+          );
           if (item) items.push(item);
         } else {
           pushUnavailable(unavailableSources, {

@@ -23,7 +23,9 @@ function validPort(port: number): boolean {
   return Number.isInteger(port) && port >= 1 && port <= MAX_PORT;
 }
 
-function groupByPort<T extends { port: number }>(items: readonly T[]): Map<number, T[]> {
+function groupByPort<T extends { port: number }>(
+  items: readonly T[],
+): Map<number, T[]> {
   const grouped = new Map<number, T[]>();
   for (const item of items) {
     if (!validPort(item.port)) continue;
@@ -44,12 +46,15 @@ function chooseState(
   observed: readonly ObservedPort[],
 ): { state: PortReconciliationState; explanation: string } {
   const activeDeclarations = declared.filter((item) => item.active !== false);
-  const distinctDeclarations = new Set(activeDeclarations.map(declarationIdentity));
+  const distinctDeclarations = new Set(
+    activeDeclarations.map(declarationIdentity),
+  );
 
   if (distinctDeclarations.size > 1) {
     return {
       state: 'duplicate-declaration',
-      explanation: 'Mais de um projeto/role declara a mesma porta no host local.',
+      explanation:
+        'Mais de um projeto/role declara a mesma porta no host local.',
     };
   }
 
@@ -59,13 +64,15 @@ function chooseState(
       return !activeDeclarations.some(
         (declaration) =>
           declaration.projectId === reservation.owner &&
-          (reservation.role === undefined || declaration.role === reservation.role),
+          (reservation.role === undefined ||
+            declaration.role === reservation.role),
       );
     });
     if (reservedByOther) {
       return {
         state: 'reserved-by-other',
-        explanation: 'A porta está reservada para outro owner ou para infraestrutura.',
+        explanation:
+          'A porta está reservada para outro owner ou para infraestrutura.',
       };
     }
   }
@@ -73,7 +80,8 @@ function chooseState(
   if (declared.length > 0 && activeDeclarations.length === 0) {
     return {
       state: 'stale-declaration',
-      explanation: 'A declaração perdeu a capability/configuração que a sustentava.',
+      explanation:
+        'A declaração perdeu a capability/configuração que a sustentava.',
     };
   }
 
@@ -88,9 +96,13 @@ function chooseState(
   }
 
   if (activeDeclarations.length > 0) {
-    const declaredOwners = new Set(activeDeclarations.map((item) => item.projectId));
+    const declaredOwners = new Set(
+      activeDeclarations.map((item) => item.projectId),
+    );
     const allExpected = observed.every(
-      (item) => item.owner.kind === 'project' && declaredOwners.has(item.owner.projectId),
+      (item) =>
+        item.owner.kind === 'project' &&
+        declaredOwners.has(item.owner.projectId),
     );
     if (allExpected) {
       return {
@@ -117,7 +129,9 @@ function chooseState(
   };
 }
 
-export function reconcilePorts(input: ReconcilePortsInput = {}): PortReconciliation {
+export function reconcilePorts(
+  input: ReconcilePortsInput = {},
+): PortReconciliation {
   const reservedByPort = groupByPort(input.reserved ?? []);
   const declaredByPort = groupByPort(input.declared ?? []);
   const observedByPort = groupByPort(input.observed ?? []);
@@ -157,7 +171,8 @@ export function allocatePort(
   );
   if (!validPort(preferredPort)) return null;
 
-  const requestedMax = request.maxPort ?? preferredPort + DEFAULT_ALLOCATION_WINDOW;
+  const requestedMax =
+    request.maxPort ?? preferredPort + DEFAULT_ALLOCATION_WINDOW;
   const maxPort = Math.min(
     MAX_PORT,
     Math.max(preferredPort, Math.trunc(requestedMax)),
@@ -173,7 +188,11 @@ export function allocatePort(
 
     const reservedByOther = (input.reserved ?? []).some((item) => {
       if (item.port !== port) return false;
-      if (!request.projectId || !item.owner || item.owner !== request.projectId) {
+      if (
+        !request.projectId ||
+        !item.owner ||
+        item.owner !== request.projectId
+      ) {
         return true;
       }
       return item.role !== undefined && item.role !== request.role;

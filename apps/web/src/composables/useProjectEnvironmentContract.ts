@@ -47,11 +47,7 @@ export function useProjectEnvironmentContract(getProject: () => Project) {
     void refresh();
   }
 
-  watch(
-    () => getProject().id,
-    initialize,
-    { immediate: true },
-  );
+  watch(() => getProject().id, initialize, { immediate: true });
 
   onBeforeUnmount(() => requests.invalidate());
 

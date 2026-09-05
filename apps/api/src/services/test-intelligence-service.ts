@@ -77,7 +77,9 @@ export function buildTestIntelligenceSuggestion(
 export class TestIntelligenceService {
   private readonly relatedTestService: RelatedTestService;
 
-  public constructor(private readonly testDetectionService: TestDetectionService) {
+  public constructor(
+    private readonly testDetectionService: TestDetectionService,
+  ) {
     this.relatedTestService = new RelatedTestService(testDetectionService);
   }
 
@@ -87,13 +89,15 @@ export class TestIntelligenceService {
   ): Promise<TestIntelligenceSuggestion> {
     const overview = await this.testDetectionService.getOverview(project);
     const command = overview.commands.find((entry) => entry.id === commandId);
-    if (!command || !command.supportsFileTarget) return unknownSuggestion(commandId);
+    if (!command || !command.supportsFileTarget)
+      return unknownSuggestion(commandId);
 
     let selection: RelatedTestSelection;
     try {
       selection = await this.relatedTestService.resolve(project, commandId);
     } catch (error) {
-      if (error instanceof RelatedTestError) return unknownSuggestion(commandId);
+      if (error instanceof RelatedTestError)
+        return unknownSuggestion(commandId);
       throw error;
     }
 

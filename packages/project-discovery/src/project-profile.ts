@@ -10,7 +10,10 @@ import type {
   ProjectProfileProviderContext,
 } from '@dev-dashboard/contracts';
 
-async function exists(projectPath: string, relativePath: string): Promise<boolean> {
+async function exists(
+  projectPath: string,
+  relativePath: string,
+): Promise<boolean> {
   try {
     await access(path.join(projectPath, relativePath));
     return true;
@@ -88,12 +91,9 @@ const runtimeProvider: ProjectProfileProvider = {
       const value = (await readText(context.projectPath, file))?.trim();
       if (!value) continue;
       detected.push(
-        capability(
-          'runtime/node',
-          this.id,
-          [{ kind: 'file', source: file }],
-          { declaredVersion: value },
-        ),
+        capability('runtime/node', this.id, [{ kind: 'file', source: file }], {
+          declaredVersion: value,
+        }),
       );
       break;
     }
@@ -109,7 +109,13 @@ const runtimeProvider: ProjectProfileProvider = {
         capability(
           'runtime/node',
           this.id,
-          [{ kind: 'manifest', source: 'package.json', detail: 'engines.node' }],
+          [
+            {
+              kind: 'manifest',
+              source: 'package.json',
+              detail: 'engines.node',
+            },
+          ],
           { declaredVersion: engineNode },
         ),
       );
@@ -311,14 +317,15 @@ const environmentProvider: ProjectProfileProvider = {
   },
 };
 
-export const DEFAULT_PROJECT_PROFILE_PROVIDERS: readonly ProjectProfileProvider[] = [
-  runtimeProvider,
-  packageManagerProvider,
-  frameworkProvider,
-  containerProvider,
-  ciProvider,
-  environmentProvider,
-];
+export const DEFAULT_PROJECT_PROFILE_PROVIDERS: readonly ProjectProfileProvider[] =
+  [
+    runtimeProvider,
+    packageManagerProvider,
+    frameworkProvider,
+    containerProvider,
+    ciProvider,
+    environmentProvider,
+  ];
 
 export async function detectProjectProfile(
   context: ProjectProfileProviderContext,
