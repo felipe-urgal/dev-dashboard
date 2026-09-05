@@ -44,7 +44,11 @@ export interface TestExecutionSubscriber {
   close: () => void;
 }
 
-type StoredTestExecutionRecord = Omit<TestExecutionRecord, 'scope'> & {
+type ScopedTestExecutionRecord = Omit<TestExecutionRecord, 'scope'> & {
+  scope: TestExecutionScope;
+};
+
+type StoredTestExecutionRecord = Omit<ScopedTestExecutionRecord, 'scope'> & {
   scope?: TestExecutionScope;
 };
 
@@ -79,7 +83,9 @@ function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
   );
 }
 
-function normalizeRecord(record: StoredTestExecutionRecord): TestExecutionRecord {
+function normalizeRecord(
+  record: StoredTestExecutionRecord,
+): ScopedTestExecutionRecord {
   return {
     ...record,
     scope: record.scope ?? (record.targetFile ? 'targeted' : 'full-suite'),
@@ -310,7 +316,7 @@ export class TestExecutionHistoryService {
   ): Promise<void> {
     const items = await this.load(projectId);
     const { commandId, targetFile } = deriveTarget(managedProcess);
-    const record: TestExecutionRecord = {
+    const record: ScopedTestExecutionRecord = {
       id: randomUUID(),
       projectId,
       commandId,
@@ -358,7 +364,7 @@ export class TestExecutionHistoryService {
     );
   }
 
-  private async load(projectId: string): Promise<TestExecutionRecord[]> {
+  private async load(projectId: string): Promise<ScopedTestExecutionRecord[]> {
     try {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
@@ -376,7 +382,7 @@ export class TestExecutionHistoryService {
 
   private async save(
     projectId: string,
-    items: TestExecutionRecord[],
+    items: ScopedTestExecutionRecord[],
   ): Promise<void> {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const target = this.filePath(projectId);
