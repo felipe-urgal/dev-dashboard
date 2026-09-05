@@ -15,7 +15,7 @@ Permitir que a interface responda, sem reinterpretar payloads do provedor:
 
 ## Contrato
 
-O endpoint já existente `GET /api/projects/:projectId/git/pull-request-summary` mantém os campos anteriores e, para PRs GitHub que podem ser correlacionados, acrescenta `cockpit`.
+Os endpoints existentes de lookup/summary de Pull Request mantêm os campos anteriores e, para PRs GitHub que podem ser correlacionados, acrescentam `cockpit` ao `GitOpenPullRequest`.
 
 O bloco contém:
 
@@ -28,9 +28,26 @@ O bloco contém:
 
 O `ciStatus` agregado anterior continua existindo para compatibilidade.
 
+## Apresentação no fluxo de Pull Request
+
+A página de Pull Request reutiliza o mesmo lookup que já decide se existe PR aberta. Quando `cockpit` está disponível, o status do PR mostra no próprio card:
+
+- SHA curto do head remoto;
+- draft/pronta para review;
+- estado normalizado de review;
+- mergeability quando conhecida;
+- reviewers solicitados;
+- checks individuais e deep-link para o detalhe do provider.
+
+Não existe um segundo fetch só para preencher a UI. Isso evita duas fontes remotas com freshness diferente para o mesmo PR.
+
+`detailsUrl` é navegação explícita do usuário e abre em novo contexto com `noopener noreferrer`. A UI não interpreta a página do check nem transforma esse link em autorização para mutação.
+
 ## Degradação segura
 
 Falha da API remota não vira falha do Git local. Quando o GitHub não pode ser consultado, o PR básico continua sendo retornado e o `cockpit.remoteStatus` explica o estado remoto. Isso evita que rate limit, ausência de autenticação ou indisponibilidade de rede derrubem as ferramentas locais.
+
+Na interface, a degradação aparece dentro do bloco remoto; branch, diff, commits e demais operações Git locais continuam representando o estado real do repositório.
 
 A leitura pública da API é tentada primeiro. Quando necessário, o backend pode reutilizar a sessão local autenticada do `gh`, sempre por `execFile` e argumentos estruturados, sem shell arbitrário.
 
@@ -39,9 +56,9 @@ A leitura pública da API é tentada primeiro. Quando necessário, o backend pod
 - nenhum token ou credencial é retornado ao navegador;
 - nenhuma credencial é persistida no projeto;
 - URLs de detalhes vêm do payload do GitHub e servem apenas para navegação;
-- o MVP não executa mutações remotas;
+- este slice não adiciona nenhuma nova mutação remota às ações já existentes da ferramenta Git;
 - o SHA é tratado como evidência para impedir que a UI confunda checks de uma revisão anterior com o estado atual do PR.
 
-## Limites do MVP
+## Limites atuais
 
 O estado de review é derivado das reviews disponíveis e das solicitações de reviewer. Regras avançadas de branch protection e approvals obrigatórios não são reinterpretadas localmente. `mergeable` também permanece a leitura do GitHub, inclusive quando estiver temporariamente `null` enquanto o provedor calcula o resultado.
