@@ -5,7 +5,7 @@ import { parseTrivySecurityReport } from '../src/services/trivy-security-scanner
 
 const OBSERVED_AT = '2026-09-05T18:00:00.000Z';
 
-test('normaliza secret sem transportar match, código ou valor bruto', () => {
+test('normaliza secret sem transportar match, título remoto, código ou valor bruto', () => {
   const secretValue = 'super-secret-token-value';
   const result = parseTrivySecurityReport(
     {
@@ -15,7 +15,7 @@ test('normaliza secret sem transportar match, código ou valor bruto', () => {
           Secrets: [
             {
               RuleID: 'generic-api-key',
-              Title: 'Generic API Key',
+              Title: `Título com ${secretValue}`,
               Severity: 'HIGH',
               StartLine: 18,
               Match: secretValue,
@@ -34,7 +34,7 @@ test('normaliza secret sem transportar match, código ou valor bruto', () => {
     category: 'secret',
     ruleId: 'generic-api-key',
     severity: 'high',
-    title: 'Generic API Key',
+    title: 'Secret detectado (generic-api-key)',
     file: 'scripts/deploy.sh',
     line: 18,
     fingerprint: result.findings[0]?.fingerprint,
@@ -75,11 +75,12 @@ test('normaliza misconfiguration somente com campos públicos allowlisted', () =
   assert.equal(JSON.stringify(result).includes('ENV TOKEN=secret'), false);
 });
 
-test('rejeita targets absolutos ou que escapem do projeto', () => {
+test('rejeita targets absolutos, Windows ou que escapem do projeto', () => {
   const result = parseTrivySecurityReport(
     {
       Results: [
         { Target: '/etc/passwd', Secrets: [{ RuleID: 'x', Severity: 'HIGH' }] },
+        { Target: 'C:\\Users\\outside.txt', Secrets: [{ RuleID: 'w', Severity: 'HIGH' }] },
         { Target: '../outside.txt', Secrets: [{ RuleID: 'y', Severity: 'HIGH' }] },
         { Target: './inside.txt', Secrets: [{ RuleID: 'z', Severity: 'LOW' }] },
       ],
@@ -88,6 +89,25 @@ test('rejeita targets absolutos ou que escapem do projeto', () => {
   );
 
   assert.deepEqual(result.findings.map((finding) => finding.file), ['inside.txt']);
+});
+
+test('limita quantidade de findings vindos do provider', () => {
+  const result = parseTrivySecurityReport(
+    {
+      Results: [
+        {
+          Target: 'secrets.txt',
+          Secrets: Array.from({ length: 1_100 }, (_, index) => ({
+            RuleID: `rule-${index}`,
+            Severity: 'LOW',
+          })),
+        },
+      ],
+    },
+    OBSERVED_AT,
+  );
+
+  assert.equal(result.findings.length, 1_000);
 });
 
 test('payload inválido falha fechado sem inventar finding', () => {
