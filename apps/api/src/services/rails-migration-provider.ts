@@ -9,6 +9,13 @@ import type {
   MigrationProvider,
 } from './migration-provider.js';
 
+const SAFE_DATABASE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u;
+
+function databaseIdentity(value: string | undefined): string {
+  const normalized = value?.trim();
+  return normalized && SAFE_DATABASE_ID.test(normalized) ? normalized : 'primary';
+}
+
 export interface RailsMigrationsInspector {
   getMigrationsOverview(
     project: Project,
@@ -29,7 +36,7 @@ export class RailsMigrationProvider implements MigrationProvider {
     context: MigrationInspectionContext,
   ): Promise<MigrationOverview> {
     const observedAt = (context.now ?? (() => new Date()))().toISOString();
-    const database = context.database?.trim() || 'primary';
+    const database = databaseIdentity(context.database);
 
     if (!this.supports(context.project)) {
       return {
@@ -48,7 +55,7 @@ export class RailsMigrationProvider implements MigrationProvider {
       context.project,
       database,
     );
-    const selectedDatabase = overview.database ?? database;
+    const selectedDatabase = databaseIdentity(overview.database ?? database);
 
     if (!overview.supported) {
       return {
