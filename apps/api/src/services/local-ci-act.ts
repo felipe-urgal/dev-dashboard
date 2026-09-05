@@ -34,15 +34,22 @@ export interface StructuredCommand {
   args: string[];
 }
 
+const SAFE_CATALOG_TOKEN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u;
+
 function normalizeWorkflowPath(value: string): string | undefined {
   const normalized = value.replaceAll('\\', '/');
-  if (path.posix.isAbsolute(normalized)) return undefined;
+  if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:\//u.test(normalized)) return undefined;
 
   const safe = path.posix.normalize(normalized).replace(/^\.\//, '');
   if (safe.includes('\0') || safe === '..' || safe.startsWith('../')) return undefined;
   if (!safe.startsWith('.github/workflows/')) return undefined;
   if (!/\.(?:yml|yaml)$/u.test(safe)) return undefined;
   return safe;
+}
+
+function safeCatalogToken(value: string): string | undefined {
+  const token = value.trim();
+  return SAFE_CATALOG_TOKEN.test(token) ? token : undefined;
 }
 
 function sameJob(job: LocalCiJobDescriptor, request: LocalCiJobRequest): boolean {
@@ -59,14 +66,24 @@ export function createLocalCiCatalog(input: {
 }): LocalCiCatalog {
   const jobs = input.jobs.flatMap((job) => {
     const workflowFile = normalizeWorkflowPath(job.workflowFile);
-    if (!workflowFile || !job.jobId.trim() || !job.events.length) return [];
+    const jobId = safeCatalogToken(job.jobId);
+    const events = [
+      ...new Set(
+        job.events.flatMap((event) => {
+          const safeEvent = safeCatalogToken(event);
+          return safeEvent ? [safeEvent] : [];
+        }),
+      ),
+    ];
+
+    if (!workflowFile || !jobId || !events.length) return [];
 
     return [
       {
         ...job,
         workflowFile,
-        jobId: job.jobId.trim(),
-        events: [...new Set(job.events.map((event) => event.trim()).filter(Boolean))],
+        jobId,
+        events,
       },
     ];
   });
@@ -98,15 +115,22 @@ export function buildActJobCommand(
   }
 
   const safeFile = normalizeWorkflowPath(request.workflowFile);
+  const safeJobId = safeCatalogToken(request.jobId);
+  const safeEvent = safeCatalogToken(request.event);
   if (!safeFile) throw new Error('Workflow fora do catálogo permitido.');
+  if (!safeJobId || !safeEvent) throw new Error('Job/evento inválido para execução local.');
 
-  const normalizedRequest = { ...request, workflowFile: safeFile };
+  const normalizedRequest = {
+    workflowFile: safeFile,
+    jobId: safeJobId,
+    event: safeEvent,
+  };
   if (!catalog.jobs.some((job) => sameJob(job, normalizedRequest))) {
     throw new Error('Job/evento não pertence ao catálogo detectado.');
   }
 
   return {
     program: 'act',
-    args: [request.event, '--job', request.jobId, '--workflows', safeFile],
+    args: [safeEvent, '--job', safeJobId, '--workflows', safeFile],
   };
 }
