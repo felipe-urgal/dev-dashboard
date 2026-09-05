@@ -45,3 +45,79 @@ export interface LocalPortInspection {
   truncated: boolean;
   warning?: string;
 }
+
+export type ReservedPortScope = 'work' | 'infrastructure' | 'user';
+
+export interface ReservedPort {
+  port: number;
+  scope: ReservedPortScope;
+  owner?: string;
+  role?: string;
+  description?: string;
+}
+
+export type DeclaredProjectPortSource =
+  | 'config'
+  | 'package-script'
+  | 'compose'
+  | 'project-profile'
+  | 'manual';
+
+export type DeclaredProjectPortConfidence = 'certain' | 'strong' | 'weak';
+
+export interface DeclaredProjectPort {
+  projectId: string;
+  port: number;
+  role: string;
+  source: DeclaredProjectPortSource;
+  confidence: DeclaredProjectPortConfidence;
+  /** `false` permite representar uma declaration que perdeu sua capability de origem. */
+  active?: boolean;
+}
+
+export type ObservedPortOwner =
+  | { kind: 'project'; projectId: string; processId?: string }
+  | { kind: 'external'; pid: number; name?: string }
+  | { kind: 'unknown' };
+
+export interface ObservedPort {
+  port: number;
+  owner: ObservedPortOwner;
+  address?: string;
+  protocol?: 'tcp' | 'udp';
+}
+
+export type PortReconciliationState =
+  | 'available'
+  | 'expected'
+  | 'conflict'
+  | 'reserved-by-other'
+  | 'unexpected'
+  | 'unknown-owner'
+  | 'duplicate-declaration'
+  | 'stale-declaration';
+
+export interface PortReconciliationEntry {
+  port: number;
+  state: PortReconciliationState;
+  reserved: ReservedPort[];
+  declared: DeclaredProjectPort[];
+  observed: ObservedPort[];
+  explanation: string;
+}
+
+export interface PortReconciliation {
+  entries: PortReconciliationEntry[];
+}
+
+export interface PortAllocationRequest {
+  preferredPort: number;
+  maxPort?: number;
+  projectId?: string;
+  role?: string;
+}
+
+export interface PortAllocationResult {
+  port: number;
+  explanation: string;
+}
