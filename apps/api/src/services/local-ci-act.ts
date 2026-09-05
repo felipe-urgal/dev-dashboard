@@ -34,9 +34,20 @@ export interface StructuredCommand {
   args: string[];
 }
 
+const MAX_WORKFLOW_PATH_LENGTH = 1_024;
+const MAX_LABEL_LENGTH = 240;
+const MAX_JOBS = 512;
+const MAX_EVENTS_PER_JOB = 64;
 const SAFE_CATALOG_TOKEN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u;
 
+function boundedLabel(value: string): string | undefined {
+  const label = value.trim();
+  if (!label || label.length > MAX_LABEL_LENGTH) return undefined;
+  return label;
+}
+
 function normalizeWorkflowPath(value: string): string | undefined {
+  if (value.length > MAX_WORKFLOW_PATH_LENGTH) return undefined;
   const normalized = value.replaceAll('\\', '/');
   if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:\//u.test(normalized)) return undefined;
 
@@ -52,6 +63,16 @@ function safeCatalogToken(value: string): string | undefined {
   return SAFE_CATALOG_TOKEN.test(token) ? token : undefined;
 }
 
+function boundedAvailability(input: LocalCiAvailability): LocalCiAvailability {
+  const actVersion = input.actVersion ? boundedLabel(input.actVersion) : undefined;
+  const dockerVersion = input.dockerVersion ? boundedLabel(input.dockerVersion) : undefined;
+  return {
+    state: input.state,
+    ...(actVersion ? { actVersion } : {}),
+    ...(dockerVersion ? { dockerVersion } : {}),
+  };
+}
+
 function sameJob(job: LocalCiJobDescriptor, request: LocalCiJobRequest): boolean {
   return (
     job.workflowFile === request.workflowFile &&
@@ -64,34 +85,34 @@ export function createLocalCiCatalog(input: {
   availability: LocalCiAvailability;
   jobs: LocalCiJobDescriptor[];
 }): LocalCiCatalog {
-  const jobs = input.jobs.flatMap((job) => {
-    const workflowFile = normalizeWorkflowPath(job.workflowFile);
-    const jobId = safeCatalogToken(job.jobId);
-    const events = [
-      ...new Set(
-        job.events.flatMap((event) => {
-          const safeEvent = safeCatalogToken(event);
-          return safeEvent ? [safeEvent] : [];
-        }),
-      ),
-    ];
+  const jobs: LocalCiJobDescriptor[] = [];
 
-    if (!workflowFile || !jobId || !events.length) return [];
+  for (const candidate of input.jobs) {
+    if (jobs.length >= MAX_JOBS) break;
+    const workflowFile = normalizeWorkflowPath(candidate.workflowFile);
+    const jobId = safeCatalogToken(candidate.jobId);
+    const workflow = boundedLabel(candidate.workflow);
+    const job = boundedLabel(candidate.job);
+    if (!workflowFile || !jobId || !workflow || !job) continue;
 
-    return [
-      {
-        ...job,
-        workflowFile,
-        jobId,
-        events,
-      },
-    ];
-  });
+    const events: string[] = [];
+    const seenEvents = new Set<string>();
+    for (const event of candidate.events) {
+      if (events.length >= MAX_EVENTS_PER_JOB) break;
+      const safeEvent = safeCatalogToken(event);
+      if (!safeEvent || seenEvents.has(safeEvent)) continue;
+      seenEvents.add(safeEvent);
+      events.push(safeEvent);
+    }
+    if (!events.length) continue;
+
+    jobs.push({ workflowFile, workflow, jobId, job, events });
+  }
 
   return {
     provider: 'act',
     approximation: true,
-    availability: input.availability,
+    availability: boundedAvailability(input.availability),
     jobs,
   };
 }
