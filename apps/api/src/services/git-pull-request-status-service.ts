@@ -3,7 +3,11 @@ import { promisify } from 'node:util';
 
 import type {
   GitOpenPullRequest,
+  GitPullRequestCheck,
   GitPullRequestCiStatus,
+  GitPullRequestCockpit,
+  GitPullRequestRemoteStatus,
+  GitPullRequestReviewState,
 } from '@dev-dashboard/contracts';
 
 const execFileAsync = promisify(execFile);
@@ -13,6 +17,10 @@ type ProviderCli = (
   args: readonly string[],
   cwd: string,
 ) => Promise<string | null>;
+
+type EnrichedPullRequest = GitOpenPullRequest & {
+  cockpit?: GitPullRequestCockpit;
+};
 
 export interface GitPullRequestStatusServiceOptions {
   fetchImpl?: typeof fetch;
@@ -30,6 +38,11 @@ interface GithubLocation {
 interface GitlabLocation {
   projectPath: string;
   number: number;
+}
+
+interface RemoteJsonResult {
+  data: unknown | null;
+  remoteStatus: GitPullRequestRemoteStatus;
 }
 
 async function runProviderCli(
@@ -55,7 +68,7 @@ async function runProviderCli(
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object'
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
@@ -183,6 +196,92 @@ function gitlabPipelineStatus(payload: unknown): GitPullRequestCiStatus {
   return 'unknown';
 }
 
+function checkStatus(run: Record<string, unknown>): GitPullRequestCiStatus {
+  if (run.status !== 'completed') return 'pending';
+  const conclusion = run.conclusion;
+  if (
+    conclusion === 'success' ||
+    conclusion === 'neutral' ||
+    conclusion === 'skipped'
+  ) {
+    return 'success';
+  }
+  if (conclusion === null || conclusion === undefined) return 'pending';
+  return 'failure';
+}
+
+function githubChecks(payload: unknown): GitPullRequestCheck[] {
+  const record = asRecord(payload);
+  const runs = Array.isArray(record?.check_runs) ? record.check_runs : [];
+  const checks: GitPullRequestCheck[] = [];
+
+  for (const rawRun of runs) {
+    const run = asRecord(rawRun);
+    const name = run?.name;
+    if (!run || typeof name !== 'string' || name.length === 0) continue;
+    const detailsUrl = run.details_url;
+    checks.push({
+      name,
+      status: checkStatus(run),
+      ...(typeof detailsUrl === 'string' && detailsUrl.length > 0
+        ? { detailsUrl }
+        : {}),
+    });
+  }
+
+  return checks;
+}
+
+function githubRequestedReviewers(payload: Record<string, unknown>): string[] {
+  const reviewers = Array.isArray(payload.requested_reviewers)
+    ? payload.requested_reviewers
+    : [];
+  return reviewers
+    .map((reviewer) => asRecord(reviewer)?.login)
+    .filter(
+      (login): login is string =>
+        typeof login === 'string' && login.length > 0,
+    );
+}
+
+function githubReviewState(
+  payload: unknown,
+  requestedReviewers: string[],
+): GitPullRequestReviewState {
+  const reviews = Array.isArray(payload) ? payload : [];
+  const latestStateByReviewer = new Map<string, string>();
+
+  reviews.forEach((rawReview, index) => {
+    const review = asRecord(rawReview);
+    const state = review?.state;
+    if (typeof state !== 'string') return;
+
+    const login = asRecord(review?.user)?.login;
+    const reviewer =
+      typeof login === 'string' && login.length > 0
+        ? login
+        : `anonymous-${index}`;
+    latestStateByReviewer.set(reviewer, state);
+  });
+
+  const states = [...latestStateByReviewer.values()];
+  if (states.includes('CHANGES_REQUESTED')) return 'changes-requested';
+  if (requestedReviewers.length > 0) return 'review-required';
+  if (states.includes('APPROVED')) return 'approved';
+  return 'unknown';
+}
+
+function remoteStatusForHttpResponse(response: Response): GitPullRequestRemoteStatus {
+  if (response.status === 401) return 'unauthenticated';
+  if (
+    response.status === 429 ||
+    (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0')
+  ) {
+    return 'rate-limited';
+  }
+  return 'unavailable';
+}
+
 export class GitPullRequestStatusService {
   private readonly fetchImpl: typeof fetch;
   private readonly providerCliImpl: ProviderCli;
@@ -190,7 +289,7 @@ export class GitPullRequestStatusService {
   private readonly cacheTtlMs: number;
   private readonly cache = new Map<
     string,
-    { expiresAt: number; pullRequest: GitOpenPullRequest }
+    { expiresAt: number; pullRequest: EnrichedPullRequest }
   >();
 
   public constructor(options: GitPullRequestStatusServiceOptions = {}) {
@@ -203,7 +302,7 @@ export class GitPullRequestStatusService {
   public async enrich(
     projectPath: string,
     pullRequest: GitOpenPullRequest,
-  ): Promise<GitOpenPullRequest> {
+  ): Promise<EnrichedPullRequest> {
     const cached = this.cache.get(pullRequest.url);
     if (cached && cached.expiresAt > Date.now()) return cached.pullRequest;
 
@@ -222,14 +321,24 @@ export class GitPullRequestStatusService {
   private async enrichGithub(
     projectPath: string,
     pullRequest: GitOpenPullRequest,
-  ): Promise<GitOpenPullRequest> {
+  ): Promise<EnrichedPullRequest> {
     const location = parseGithubLocation(pullRequest.url);
     if (!location) return pullRequest;
 
     const endpoint = `repos/${location.owner}/${location.repo}/pulls/${location.number}`;
-    const details = await this.githubJson(projectPath, endpoint);
-    const detailsRecord = asRecord(details);
-    if (!detailsRecord) return pullRequest;
+    const detailsResult = await this.githubJson(projectPath, endpoint);
+    const detailsRecord = asRecord(detailsResult.data);
+    if (!detailsRecord) {
+      return {
+        ...pullRequest,
+        cockpit: {
+          remoteStatus: detailsResult.remoteStatus,
+          reviewState: 'unknown',
+          requestedReviewers: [],
+          checks: [],
+        },
+      };
+    }
 
     const issueComments = asNonNegativeInteger(detailsRecord.comments);
     const reviewComments = asNonNegativeInteger(detailsRecord.review_comments);
@@ -238,33 +347,63 @@ export class GitPullRequestStatusService {
         ? undefined
         : (issueComments ?? 0) + (reviewComments ?? 0);
     const headSha = asRecord(detailsRecord.head)?.sha;
+    const requestedReviewers = githubRequestedReviewers(detailsRecord);
 
-    const [commitStatus, checkRuns, unresolvedConversationsCount] =
+    const [commitStatus, checkRuns, reviews, unresolvedConversationsCount] =
       await Promise.all([
         typeof headSha === 'string'
           ? this.githubJson(
               projectPath,
               `repos/${location.owner}/${location.repo}/commits/${headSha}/status`,
             )
-          : Promise.resolve(null),
+          : Promise.resolve<RemoteJsonResult>({
+              data: null,
+              remoteStatus: 'unavailable',
+            }),
         typeof headSha === 'string'
           ? this.githubJson(
               projectPath,
               `repos/${location.owner}/${location.repo}/commits/${headSha}/check-runs`,
             )
-          : Promise.resolve(null),
+          : Promise.resolve<RemoteJsonResult>({
+              data: null,
+              remoteStatus: 'unavailable',
+            }),
+        this.githubJson(
+          projectPath,
+          `repos/${location.owner}/${location.repo}/pulls/${location.number}/reviews`,
+        ),
         (reviewComments ?? 0) > 0
           ? this.githubUnresolvedConversations(projectPath, location)
           : Promise.resolve(0),
       ]);
 
     const ciStatus = combineCiStatuses([
-      githubCommitStatus(commitStatus),
-      githubCheckRunStatus(checkRuns),
+      githubCommitStatus(commitStatus.data),
+      githubCheckRunStatus(checkRuns.data),
     ]);
+    const checks = githubChecks(checkRuns.data);
+    const reviewState = githubReviewState(reviews.data, requestedReviewers);
+    const mergeable = detailsRecord.mergeable;
+    const mergeableState = detailsRecord.mergeable_state;
+    const draft = detailsRecord.draft;
+
+    const cockpit: GitPullRequestCockpit = {
+      remoteStatus: 'available',
+      ...(typeof headSha === 'string' ? { headSha } : {}),
+      ...(typeof draft === 'boolean' ? { draft } : {}),
+      ...(typeof mergeable === 'boolean' || mergeable === null
+        ? { mergeable: mergeable as boolean | null }
+        : {}),
+      ...(typeof mergeableState === 'string' ? { mergeableState } : {}),
+      reviewState,
+      requestedReviewers,
+      checks,
+    };
 
     return {
       ...pullRequest,
+      cockpit,
       ...(ciStatus !== 'unknown' ? { ciStatus } : {}),
       ...(commentsCount !== undefined ? { commentsCount } : {}),
       ...(unresolvedConversationsCount !== null
@@ -275,7 +414,7 @@ export class GitPullRequestStatusService {
 
   private async enrichGitlab(
     pullRequest: GitOpenPullRequest,
-  ): Promise<GitOpenPullRequest> {
+  ): Promise<EnrichedPullRequest> {
     const location = parseGitlabLocation(pullRequest.url);
     if (!location) return pullRequest;
 
@@ -301,26 +440,29 @@ export class GitPullRequestStatusService {
   private async githubJson(
     projectPath: string,
     endpoint: string,
-  ): Promise<unknown | null> {
-    const publicResult = await this.fetchJson(
+  ): Promise<RemoteJsonResult> {
+    const publicResult = await this.fetchGithubJson(
       new URL(`https://api.github.com/${endpoint}`),
       {
         Accept: 'application/vnd.github+json',
         'User-Agent': 'dev-dashboard',
       },
     );
-    if (publicResult !== null) return publicResult;
+    if (publicResult.data !== null) return publicResult;
 
     const output = await this.providerCliImpl(
       'gh',
       ['api', '--hostname', 'github.com', endpoint],
       projectPath,
     );
-    if (!output) return null;
+    if (!output) return publicResult;
     try {
-      return JSON.parse(output) as unknown;
+      return {
+        data: JSON.parse(output) as unknown,
+        remoteStatus: 'available',
+      };
     } catch {
-      return null;
+      return publicResult;
     }
   }
 
@@ -372,10 +514,10 @@ export class GitPullRequestStatusService {
     }
   }
 
-  private async fetchJson(
+  private async fetchGithubJson(
     url: URL,
     headers: Record<string, string>,
-  ): Promise<unknown | null> {
+  ): Promise<RemoteJsonResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -384,12 +526,28 @@ export class GitPullRequestStatusService {
         headers,
         signal: controller.signal,
       });
-      if (!response.ok) return null;
-      return (await response.json()) as unknown;
+      if (!response.ok) {
+        return {
+          data: null,
+          remoteStatus: remoteStatusForHttpResponse(response),
+        };
+      }
+      return {
+        data: (await response.json()) as unknown,
+        remoteStatus: 'available',
+      };
     } catch {
-      return null;
+      return { data: null, remoteStatus: 'unavailable' };
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async fetchJson(
+    url: URL,
+    headers: Record<string, string>,
+  ): Promise<unknown | null> {
+    const result = await this.fetchGithubJson(url, headers);
+    return result.data;
   }
 }
