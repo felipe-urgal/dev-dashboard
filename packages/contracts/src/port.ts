@@ -121,3 +121,30 @@ export interface PortAllocationResult {
   port: number;
   explanation: string;
 }
+
+/**
+ * Reserva process-local para um consumidor concreto (worktree, stack, Compose).
+ * `leaseId` deve ser uma identidade estável do ambiente/decisão enquanto a
+ * porta estiver reservada antes de iniciar o processo.
+ */
+export interface PortAllocationLeaseRequest extends PortAllocationRequest {
+  leaseId: string;
+  projectId: string;
+  role: string;
+}
+
+export interface PortAllocationLeaseResult extends PortAllocationResult {
+  leaseId: string;
+}
+
+/**
+ * Formato normalizado e versionado de import/export do Port Registry.
+ * `ignoredProjectPaths` é carregado junto para setup de workspace, mas não é
+ * interpretado pelo domínio de portas.
+ */
+export interface PortRegistryConfiguration {
+  version: 1;
+  reserved: ReservedPort[];
+  declared: DeclaredProjectPort[];
+  ignoredProjectPaths?: string[];
+}
