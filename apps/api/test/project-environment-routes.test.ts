@@ -151,7 +151,9 @@ test('lista variáveis e cria contrato secret-safe sem quebrar leitura explícit
   );
   assert.ok(exampleFile);
   assert.equal(
-    exampleFile.variables.some((variable) => variable.name === 'MISSING_REQUIRED'),
+    exampleFile.variables.some(
+      (variable) => variable.name === 'MISSING_REQUIRED',
+    ),
     true,
   );
 
@@ -215,8 +217,9 @@ test('lista variáveis e cria contrato secret-safe sem quebrar leitura explícit
   assert.ok(productionSection);
   assert.equal(productionSection.baseline, '.env.production.example');
   assert.equal(
-    productionSection.variables.find((entry) => entry.name === 'PRODUCTION_ONLY')
-      ?.status,
+    productionSection.variables.find(
+      (entry) => entry.name === 'PRODUCTION_ONLY',
+    )?.status,
     'missing',
   );
 
@@ -268,9 +271,8 @@ test('não escolhe baseline silenciosamente quando example e sample coexistem', 
   await writeFile(path.join(projectPath, '.env.sample'), 'BAR=sample\n');
   await writeFile(path.join(projectPath, '.env.local'), 'FOO=local\n');
 
-  const { ProjectEnvironmentService } = await import(
-    '../src/services/project-environment-service.js'
-  );
+  const { ProjectEnvironmentService } =
+    await import('../src/services/project-environment-service.js');
   const service = new ProjectEnvironmentService();
   const project: Project = {
     id: 'p2',

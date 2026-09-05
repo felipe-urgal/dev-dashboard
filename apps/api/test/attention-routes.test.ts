@@ -77,10 +77,7 @@ test('exposes workspace attention through the authenticated API', async (context
     headers,
   });
   assert.equal(missing.statusCode, 404);
-  assert.equal(
-    missing.json<{ error: string }>().error,
-    'WORKSPACE_NOT_FOUND',
-  );
+  assert.equal(missing.json<{ error: string }>().error, 'WORKSPACE_NOT_FOUND');
 
   const createResponse = await app.inject({
     method: 'POST',

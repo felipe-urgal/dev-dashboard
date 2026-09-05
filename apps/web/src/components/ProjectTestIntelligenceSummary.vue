@@ -9,9 +9,14 @@ const props = defineProps<{
   errorMessage: string;
 }>();
 
-const visibleTests = computed(() => props.suggestion?.testFiles.slice(0, 4) ?? []);
+const visibleTests = computed(
+  () => props.suggestion?.testFiles.slice(0, 4) ?? [],
+);
 const hiddenTestCount = computed(() =>
-  Math.max(0, (props.suggestion?.testFiles.length ?? 0) - visibleTests.value.length),
+  Math.max(
+    0,
+    (props.suggestion?.testFiles.length ?? 0) - visibleTests.value.length,
+  ),
 );
 </script>
 
@@ -33,31 +38,39 @@ const hiddenTestCount = computed(() =>
       Cruzando arquivos alterados com testes conhecidos…
     </p>
     <p v-else-if="errorMessage" class="test-intelligence-note">
-      Não foi possível calcular a sugestão. Execute a suíte completa para manter a cobertura segura.
+      Não foi possível calcular a sugestão. Execute a suíte completa para manter
+      a cobertura segura.
     </p>
 
     <template v-else-if="suggestion">
       <p class="test-intelligence-note">
         <template v-if="suggestion.recommendation === 'targeted'">
-          Todos os {{ suggestion.changedFiles.length }} arquivo(s) alterado(s) possuem mapeamento direto. A sugestão é informativa e não inicia testes automaticamente.
+          Todos os {{ suggestion.changedFiles.length }} arquivo(s) alterado(s)
+          possuem mapeamento direto. A sugestão é informativa e não inicia
+          testes automaticamente.
         </template>
         <template v-else>
           <template v-if="suggestion.unmappedFiles.length > 0">
-            {{ suggestion.unmappedFiles.length }} arquivo(s) alterado(s) ficaram sem mapeamento direto.
+            {{ suggestion.unmappedFiles.length }} arquivo(s) alterado(s) ficaram
+            sem mapeamento direto.
           </template>
           <template v-else>
-            Não há evidência suficiente para tratar um subconjunto como equivalente à suíte completa.
+            Não há evidência suficiente para tratar um subconjunto como
+            equivalente à suíte completa.
           </template>
         </template>
       </p>
 
       <ul v-if="visibleTests.length > 0" class="test-intelligence-tests">
-        <li v-for="file in visibleTests" :key="file"><code>{{ file }}</code></li>
+        <li v-for="file in visibleTests" :key="file">
+          <code>{{ file }}</code>
+        </li>
         <li v-if="hiddenTestCount > 0">+ {{ hiddenTestCount }} teste(s)</li>
       </ul>
 
       <small class="test-intelligence-context">
-        {{ suggestion.baseBranch }} → {{ suggestion.currentBranch }} · estado {{ suggestion.state }}
+        {{ suggestion.baseBranch }} → {{ suggestion.currentBranch }} · estado
+        {{ suggestion.state }}
       </small>
     </template>
   </aside>
