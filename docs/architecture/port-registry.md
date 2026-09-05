@@ -25,6 +25,8 @@ Não se converte uma fonte na outra por heurística. Em especial, nome de proces
 - `duplicate-declaration`;
 - `stale-declaration`.
 
+Reservas com `role` são reconciliadas pela identidade `projectId + role`. Uma reserva `home-music/api`, por exemplo, não é considerada pertencente a uma declaration `home-music/web` apenas porque compartilha o mesmo projeto. Reservas do projeto sem `role` continuam valendo no escopo do owner inteiro.
+
 O serviço não executa shell, não consulta processos e não mata nada. O Port Inspector continuará responsável pela observação do host; uma integração posterior deve apenas adaptar sua saída para `ObservedPort` e apresentar owner esperado versus atual na tela existente.
 
 ## Allocator
