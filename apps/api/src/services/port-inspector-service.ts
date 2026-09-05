@@ -2,17 +2,20 @@ import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 
 import type {
+  DeclaredProjectPort,
   LocalPortEntry,
   LocalPortExpectation,
   LocalPortExternalProcess,
   LocalPortInspection,
   ManagedProcess,
+  ObservedPort,
 } from '@dev-dashboard/contracts';
+
+import { allocatePort, reconcilePorts } from './port-registry-service.js';
 
 const COMMAND_TIMEOUT_MS = 1_500;
 const MAX_OUTPUT_BYTES = 256 * 1_024;
 const DEFAULT_MAX_ENTRIES = 100;
-const MAX_SUGGESTION_DISTANCE = 100;
 
 const ACTIVE_STATUSES = new Set(['starting', 'running', 'stopping']);
 
@@ -28,6 +31,11 @@ interface PendingEntry {
   entry: LocalPortEntry;
   externalPid?: number;
   externalName?: string;
+}
+
+interface ObservedSocket {
+  socket: ParsedSocket;
+  managed: ManagedProcess | undefined;
 }
 
 export interface ExpectedLocalPort extends LocalPortExpectation {
@@ -195,19 +203,6 @@ function chooseManagedProcess(
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 
-function nextSuggestedPort(
-  port: number,
-  occupiedPorts: ReadonlySet<number>,
-): number | undefined {
-  const finalPort = Math.min(65_535, port + MAX_SUGGESTION_DISTANCE);
-
-  for (let candidate = port + 1; candidate <= finalPort; candidate += 1) {
-    if (!occupiedPorts.has(candidate)) return candidate;
-  }
-
-  return undefined;
-}
-
 function groupExpectations(
   expectedPorts: readonly ExpectedLocalPort[],
 ): Map<number, LocalPortExpectation[]> {
@@ -241,6 +236,40 @@ function groupExpectations(
   }
 
   return grouped;
+}
+
+function declaredPorts(
+  expectedPorts: readonly ExpectedLocalPort[],
+): DeclaredProjectPort[] {
+  return expectedPorts
+    .filter(
+      (expected) =>
+        Number.isInteger(expected.port) &&
+        expected.port >= 1_024 &&
+        expected.port <= 65_535,
+    )
+    .map((expected) => ({
+      projectId: expected.projectId,
+      port: expected.port,
+      role: expected.service,
+      source: 'config',
+      confidence: 'certain',
+    }));
+}
+
+function observedPorts(observedSockets: readonly ObservedSocket[]): ObservedPort[] {
+  return observedSockets.map(({ socket, managed }) => ({
+    port: socket.port,
+    owner: managed
+      ? {
+          kind: 'project' as const,
+          projectId: managed.projectId,
+          processId: managed.id,
+        }
+      : { kind: 'unknown' as const },
+    address: socket.address,
+    protocol: 'tcp',
+  }));
 }
 
 export class PortInspectorService {
@@ -333,23 +362,45 @@ export class PortInspectorService {
     }
 
     const sockets = parseSockets(output);
-    const occupiedPorts = new Set(sockets.map((socket) => socket.port));
     const managedProcesses = input.managedProcesses ?? [];
+    const expectedPorts = input.expectedPorts ?? [];
     const projectNames = input.projectNames ?? {};
-    const expectations = groupExpectations(input.expectedPorts ?? []);
+    const expectations = groupExpectations(expectedPorts);
+    const declarations = declaredPorts(expectedPorts);
+    const observedSockets: ObservedSocket[] = sockets.map((socket) => ({
+      socket,
+      managed: chooseManagedProcess(socket, managedProcesses),
+    }));
+    const observations = observedPorts(observedSockets);
+    const reconciliation = reconcilePorts({
+      declared: declarations,
+      observed: observations,
+    });
+    const reconciliationByPort = new Map(
+      reconciliation.entries.map((entry) => [entry.port, entry]),
+    );
+    const occupiedPorts = new Set(sockets.map((socket) => socket.port));
     const pending: PendingEntry[] = [];
 
-    for (const socket of sockets) {
+    for (const { socket, managed } of observedSockets) {
       const expected = expectations.get(socket.port) ?? [];
-      const managed = chooseManagedProcess(socket, managedProcesses);
+      const reconciled = reconciliationByPort.get(socket.port);
       const conflict =
-        expected.length > 0 &&
-        expected.some(
-          (candidate) => managed?.projectId !== candidate.projectId,
-        );
-      const suggestedPort = conflict
-        ? nextSuggestedPort(socket.port, occupiedPorts)
-        : undefined;
+        reconciled?.state === 'conflict' ||
+        reconciled?.state === 'reserved-by-other' ||
+        reconciled?.state === 'duplicate-declaration';
+      const expectedOwner = expected.length === 1 ? expected[0] : undefined;
+      const allocation =
+        conflict && expectedOwner
+          ? allocatePort(
+              { declared: declarations, observed: observations },
+              {
+                preferredPort: socket.port,
+                projectId: expectedOwner.projectId,
+                role: expectedOwner.service,
+              },
+            )
+          : null;
 
       const entry: LocalPortEntry = {
         port: socket.port,
@@ -370,7 +421,7 @@ export class PortInspectorService {
               },
             }
           : {}),
-        ...(suggestedPort !== undefined ? { suggestedPort } : {}),
+        ...(allocation ? { suggestedPort: allocation.port } : {}),
       };
 
       pending.push({
