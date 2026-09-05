@@ -45,6 +45,27 @@ test('normaliza secret sem transportar match, título remoto, código ou valor b
   assert.equal(JSON.stringify(result).includes('TOKEN='), false);
 });
 
+test('rule id malformado não vira canal alternativo para conteúdo sensível', () => {
+  const secretValue = 'secret injected through rule id';
+  const result = parseTrivySecurityReport(
+    {
+      Results: [
+        {
+          Target: 'scripts/deploy.sh',
+          Secrets: [
+            { RuleID: secretValue, Severity: 'HIGH', Match: 'another-secret' },
+            { RuleID: 'valid-rule/id:1', Severity: 'LOW' },
+          ],
+        },
+      ],
+    },
+    OBSERVED_AT,
+  );
+
+  assert.deepEqual(result.findings.map((finding) => finding.ruleId), ['valid-rule/id:1']);
+  assert.equal(JSON.stringify(result).includes(secretValue), false);
+});
+
 test('normaliza misconfiguration somente com campos públicos allowlisted', () => {
   const result = parseTrivySecurityReport(
     {
