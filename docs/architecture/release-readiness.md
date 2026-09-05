@@ -31,9 +31,19 @@ O núcleo puro em `apps/api/src/services/release-readiness.ts` normaliza três f
 
 ### Testes
 
-Somente uma execução com `scope=full-suite` pode produzir `pass`.
+Somente uma execução com `scope=full-suite` e identidade compatível com o contexto atual pode produzir `pass`.
 
-Uma execução `targeted`, mesmo verde, não equivale à suíte completa. Resultado stale ou sem conclusão vira `unknown`; suíte completa recente com falha vira `block`.
+A identidade comparável segue o contrato do Test Intelligence:
+
+- mesma `gitRevision`;
+- mesmo `gitDirtyFingerprint`;
+- mesmo `environmentInstanceId` quando houver identidade explícita de ambiente.
+
+O Readiness recebe a identidade atual já resolvida pelo consumidor; ele não a inventa a partir de path/branch. Se a identidade atual estiver ausente, se a execução não possuir revisão/fingerprint compatíveis ou se não existir full suite comparável, o check fica `unknown`.
+
+Quando existem execuções de outros contextos, o núcleo procura a full suite mais recente que seja realmente comparável. Um run mais novo de outra revisão não invalida uma evidência compatível ainda fresca, mas também nunca é usado como substituto.
+
+Uma execução `targeted`, mesmo verde, não equivale à suíte completa. Resultado comparável stale ou sem conclusão vira `unknown`; suíte completa comparável recente com falha vira `block`.
 
 A janela de freshness é fornecida pelo consumidor da regra. O núcleo não inventa uma política global de idade.
 
