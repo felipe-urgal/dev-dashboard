@@ -39,7 +39,9 @@ interface ToolVersionsPackageManagerDetection {
 const SUPPORTED_PACKAGE_MANAGERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
 
 async function readNodeManifest(project: Project): Promise<NodeManifestInfo> {
-  const content = await readLimitedText(path.join(project.path, 'package.json'));
+  const content = await readLimitedText(
+    path.join(project.path, 'package.json'),
+  );
   if (content === null) return { exists: false, valid: false };
 
   try {
@@ -48,7 +50,9 @@ async function readNodeManifest(project: Project): Promise<NodeManifestInfo> {
       packageManager?: unknown;
     };
     const enginesNode =
-      typeof parsed.engines?.node === 'string' ? parsed.engines.node.trim() : '';
+      typeof parsed.engines?.node === 'string'
+        ? parsed.engines.node.trim()
+        : '';
     const packageManager =
       typeof parsed.packageManager === 'string'
         ? parsed.packageManager.trim()
@@ -240,7 +244,8 @@ export async function checkNodePackageManager(
       category: 'dependencies',
       label: 'Gerenciador Node',
       status: project.type === 'rails' ? 'skipped' : 'warning',
-      summary: 'package.json não foi encontrado; a parte Node não será verificada.',
+      summary:
+        'package.json não foi encontrado; a parte Node não será verificada.',
     });
   }
   if (!manifest.valid) {
@@ -408,7 +413,9 @@ export async function checkNodePackageManager(
 export async function checkNodeDependencies(
   project: Project,
 ): Promise<ProjectDiagnosticCheck> {
-  const packageJsonExists = await pathExists(path.join(project.path, 'package.json'));
+  const packageJsonExists = await pathExists(
+    path.join(project.path, 'package.json'),
+  );
   if (!packageJsonExists) {
     return createDiagnosticCheck({
       id: 'node-dependencies',
@@ -419,7 +426,9 @@ export async function checkNodeDependencies(
     });
   }
 
-  const installed = await directoryExists(path.join(project.path, 'node_modules'));
+  const installed = await directoryExists(
+    path.join(project.path, 'node_modules'),
+  );
   return createDiagnosticCheck({
     id: 'node-dependencies',
     category: 'dependencies',
@@ -430,7 +439,8 @@ export async function checkNodeDependencies(
       : 'O diretório node_modules não foi encontrado.',
     ...(!installed
       ? {
-          recommendation: 'Instale as dependências usando o gerenciador detectado.',
+          recommendation:
+            'Instale as dependências usando o gerenciador detectado.',
           action: {
             label: 'Abrir dependências',
             target: 'dependencies' as const,

@@ -340,7 +340,9 @@ export class TestExecutionHistoryService {
   ): Promise<void> {
     const items = await this.load(projectId);
     const { commandId, scope, targetFile } = deriveTarget(managedProcess);
-    const gitIdentity = await captureTestExecutionGitIdentity(managedProcess.cwd);
+    const gitIdentity = await captureTestExecutionGitIdentity(
+      managedProcess.cwd,
+    );
     const record: ScopedTestExecutionRecord = {
       id: randomUUID(),
       projectId,

@@ -7,7 +7,11 @@ import {
   createLocalCiCatalog,
 } from '../src/services/local-ci-act.js';
 
-const available = { state: 'available' as const, actVersion: '0.2.0', dockerVersion: '28.0.0' };
+const available = {
+  state: 'available' as const,
+  actVersion: '0.2.0',
+  dockerVersion: '28.0.0',
+};
 
 function catalog() {
   return createLocalCiCatalog({
@@ -150,8 +154,14 @@ test('catálogo limita jobs, eventos, labels, versions e paths', () => {
   assert.equal(result.jobs[0]?.events.length, 64);
   assert.equal(result.availability.actVersion, undefined);
   assert.equal(result.availability.dockerVersion, '28.0.0');
-  assert.equal(result.jobs.some((job) => job.jobId === 'long-path'), false);
-  assert.equal(result.jobs.some((job) => job.jobId === 'long-label'), false);
+  assert.equal(
+    result.jobs.some((job) => job.jobId === 'long-path'),
+    false,
+  );
+  assert.equal(
+    result.jobs.some((job) => job.jobId === 'long-label'),
+    false,
+  );
 });
 
 test('não constrói execução quando act ou Docker estão indisponíveis', () => {

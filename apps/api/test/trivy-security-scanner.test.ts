@@ -62,7 +62,10 @@ test('rule id malformado não vira canal alternativo para conteúdo sensível', 
     OBSERVED_AT,
   );
 
-  assert.deepEqual(result.findings.map((finding) => finding.ruleId), ['valid-rule/id:1']);
+  assert.deepEqual(
+    result.findings.map((finding) => finding.ruleId),
+    ['valid-rule/id:1'],
+  );
   assert.equal(JSON.stringify(result).includes(secretValue), false);
 });
 
@@ -80,7 +83,9 @@ test('normaliza misconfiguration somente com campos públicos allowlisted', () =
               StartLine: 12,
               Resolution: 'Defina um usuário não-root.',
               PrimaryURL: 'https://example.test/rules/DS002',
-              CauseMetadata: { Code: { Lines: [{ Content: 'ENV TOKEN=secret' }] } },
+              CauseMetadata: {
+                Code: { Lines: [{ Content: 'ENV TOKEN=secret' }] },
+              },
             },
           ],
         },
@@ -92,7 +97,10 @@ test('normaliza misconfiguration somente com campos públicos allowlisted', () =
   assert.equal(result.findings[0]?.category, 'misconfiguration');
   assert.equal(result.findings[0]?.severity, 'medium');
   assert.equal(result.findings[0]?.remediation, 'Defina um usuário não-root.');
-  assert.equal(result.findings[0]?.reference, 'https://example.test/rules/DS002');
+  assert.equal(
+    result.findings[0]?.reference,
+    'https://example.test/rules/DS002',
+  );
   assert.equal(JSON.stringify(result).includes('ENV TOKEN=secret'), false);
 });
 
@@ -101,15 +109,24 @@ test('rejeita targets absolutos, Windows ou que escapem do projeto', () => {
     {
       Results: [
         { Target: '/etc/passwd', Secrets: [{ RuleID: 'x', Severity: 'HIGH' }] },
-        { Target: 'C:\\Users\\outside.txt', Secrets: [{ RuleID: 'w', Severity: 'HIGH' }] },
-        { Target: '../outside.txt', Secrets: [{ RuleID: 'y', Severity: 'HIGH' }] },
+        {
+          Target: 'C:\\Users\\outside.txt',
+          Secrets: [{ RuleID: 'w', Severity: 'HIGH' }],
+        },
+        {
+          Target: '../outside.txt',
+          Secrets: [{ RuleID: 'y', Severity: 'HIGH' }],
+        },
         { Target: './inside.txt', Secrets: [{ RuleID: 'z', Severity: 'LOW' }] },
       ],
     },
     OBSERVED_AT,
   );
 
-  assert.deepEqual(result.findings.map((finding) => finding.file), ['inside.txt']);
+  assert.deepEqual(
+    result.findings.map((finding) => finding.file),
+    ['inside.txt'],
+  );
 });
 
 test('limita quantidade de findings vindos do provider', () => {

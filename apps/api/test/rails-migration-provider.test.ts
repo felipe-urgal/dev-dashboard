@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { Project, RailsMigrationsOverview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  RailsMigrationsOverview,
+} from '@dev-dashboard/contracts';
 
 import { RailsMigrationProvider } from '../src/services/rails-migration-provider.js';
 
@@ -70,7 +73,10 @@ test('falha da inspeção vira unavailable e nunca falso up-to-date', async () =
   }).inspect({ project: project(), now: () => NOW });
 
   assert.equal(result.status, 'unavailable');
-  assert.match(result.warnings[0] ?? '', /não equivale a zero migrations pendentes/);
+  assert.match(
+    result.warnings[0] ?? '',
+    /não equivale a zero migrations pendentes/,
+  );
 });
 
 test('identidade de banco inválida não é ecoada nem repassada ao inspector', async () => {
@@ -94,11 +100,18 @@ test('identidade de banco inválida não é ecoada nem repassada ao inspector', 
 });
 
 test('provider Rails declara suporte somente para projeto Rails', async () => {
-  const instance = provider({ supported: true, databases: ['primary'], migrations: [] });
+  const instance = provider({
+    supported: true,
+    databases: ['primary'],
+    migrations: [],
+  });
 
   assert.equal(instance.supports(project('rails')), true);
   assert.equal(instance.supports(project('node')), false);
 
-  const result = await instance.inspect({ project: project('node'), now: () => NOW });
+  const result = await instance.inspect({
+    project: project('node'),
+    now: () => NOW,
+  });
   assert.equal(result.status, 'unavailable');
 });

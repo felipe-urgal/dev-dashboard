@@ -141,20 +141,26 @@ test('lease é idempotente por identidade e pode ser liberado pelo lifecycle con
 test('leaseId não pode ser reutilizado por outro owner/role', () => {
   const registry = new PortAllocationLeaseRegistry();
   assert.ok(
-    registry.reserve({}, {
-      leaseId: 'environment-1:web',
-      projectId: 'project-a',
-      role: 'web',
-      preferredPort: 3_000,
-    }),
+    registry.reserve(
+      {},
+      {
+        leaseId: 'environment-1:web',
+        projectId: 'project-a',
+        role: 'web',
+        preferredPort: 3_000,
+      },
+    ),
   );
   assert.equal(
-    registry.reserve({}, {
-      leaseId: 'environment-1:web',
-      projectId: 'project-b',
-      role: 'web',
-      preferredPort: 3_001,
-    }),
+    registry.reserve(
+      {},
+      {
+        leaseId: 'environment-1:web',
+        projectId: 'project-b',
+        role: 'web',
+        preferredPort: 3_001,
+      },
+    ),
     null,
   );
 });

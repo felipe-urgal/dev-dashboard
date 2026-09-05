@@ -145,7 +145,9 @@ export function analyzeStructuredFlakiness(
   }
 
   const complete = attempts.filter(
-    (attempt): attempt is StructuredTestAttempt & {
+    (
+      attempt,
+    ): attempt is StructuredTestAttempt & {
       testIdentity: string;
       outcome: TestOutcome;
       gitRevision: string;
@@ -183,7 +185,9 @@ export function analyzeStructuredFlakiness(
   }
 
   const tests = comparableGroups.flatMap((group) => {
-    const passed = group.filter((attempt) => attempt.outcome === 'passed').length;
+    const passed = group.filter(
+      (attempt) => attempt.outcome === 'passed',
+    ).length;
     const failed = group.length - passed;
     if (passed === 0 || failed === 0) return [];
     const evidence: TestFlakinessEvidence[] = group.map((attempt) => ({

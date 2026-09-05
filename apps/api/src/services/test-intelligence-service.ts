@@ -145,7 +145,8 @@ export class TestIntelligenceService {
     try {
       selection = await this.relatedTestService.resolve(project, commandId);
     } catch (error) {
-      if (error instanceof RelatedTestError) return unknownSuggestion(commandId);
+      if (error instanceof RelatedTestError)
+        return unknownSuggestion(commandId);
       throw error;
     }
 

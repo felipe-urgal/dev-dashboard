@@ -19,7 +19,10 @@ test('captura revisão e marca working tree limpo sem heurística', async () => 
     gitRevision: 'abc123',
     gitDirtyFingerprint: 'clean',
   });
-  assert.equal(calls.some((args) => args[0] === 'diff'), false);
+  assert.equal(
+    calls.some((args) => args[0] === 'diff'),
+    false,
+  );
 });
 
 test('fingerprint dirty muda quando conteúdo tracked ou untracked muda', async () => {
@@ -45,7 +48,10 @@ test('fingerprint dirty muda quando conteúdo tracked ou untracked muda', async 
 
   assert.equal(first.gitRevision, 'abc123');
   assert.match(first.gitDirtyFingerprint ?? '', /^[a-f0-9]{64}$/);
-  assert.notEqual(first.gitDirtyFingerprint, trackedChanged.gitDirtyFingerprint);
+  assert.notEqual(
+    first.gitDirtyFingerprint,
+    trackedChanged.gitDirtyFingerprint,
+  );
   assert.notEqual(
     first.gitDirtyFingerprint,
     untrackedChanged.gitDirtyFingerprint,

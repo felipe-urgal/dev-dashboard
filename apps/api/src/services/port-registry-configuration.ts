@@ -60,7 +60,9 @@ function optionalText(value: unknown, field: string): string | undefined {
 
 function normalizedPort(value: unknown, field: string): number {
   if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 65_535) {
-    throw new PortRegistryConfigurationError(`${field} deve ser uma porta válida.`);
+    throw new PortRegistryConfigurationError(
+      `${field} deve ser uma porta válida.`,
+    );
   }
   return Number(value);
 }
@@ -68,10 +70,14 @@ function normalizedPort(value: unknown, field: string): number {
 function normalizeReserved(value: unknown, index: number): ReservedPort {
   const record = asRecord(value);
   if (!record) {
-    throw new PortRegistryConfigurationError(`reserved[${index}] deve ser objeto.`);
+    throw new PortRegistryConfigurationError(
+      `reserved[${index}] deve ser objeto.`,
+    );
   }
   if (!RESERVED_SCOPES.has(record.scope as ReservedPortScope)) {
-    throw new PortRegistryConfigurationError(`reserved[${index}].scope é inválido.`);
+    throw new PortRegistryConfigurationError(
+      `reserved[${index}].scope é inválido.`,
+    );
   }
   const owner = optionalText(record.owner, `reserved[${index}].owner`);
   const role = optionalText(record.role, `reserved[${index}].role`);
@@ -95,10 +101,14 @@ function normalizeDeclaration(
 ): DeclaredProjectPort {
   const record = asRecord(value);
   if (!record) {
-    throw new PortRegistryConfigurationError(`declared[${index}] deve ser objeto.`);
+    throw new PortRegistryConfigurationError(
+      `declared[${index}] deve ser objeto.`,
+    );
   }
   if (!DECLARATION_SOURCES.has(record.source as DeclaredProjectPortSource)) {
-    throw new PortRegistryConfigurationError(`declared[${index}].source é inválido.`);
+    throw new PortRegistryConfigurationError(
+      `declared[${index}].source é inválido.`,
+    );
   }
   if (
     !DECLARATION_CONFIDENCES.has(
@@ -110,7 +120,9 @@ function normalizeDeclaration(
     );
   }
   if (record.active !== undefined && typeof record.active !== 'boolean') {
-    throw new PortRegistryConfigurationError(`declared[${index}].active é inválido.`);
+    throw new PortRegistryConfigurationError(
+      `declared[${index}].active é inválido.`,
+    );
   }
 
   return {
@@ -125,7 +137,9 @@ function normalizeDeclaration(
 
 function normalizedItems(value: unknown, field: string): unknown[] {
   if (!Array.isArray(value) || value.length > MAX_ITEMS) {
-    throw new PortRegistryConfigurationError(`${field} deve ser uma lista válida.`);
+    throw new PortRegistryConfigurationError(
+      `${field} deve ser uma lista válida.`,
+    );
   }
   return value;
 }

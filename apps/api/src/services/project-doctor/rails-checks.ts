@@ -22,24 +22,34 @@ function parseGemfileRubyVersion(content: string): string | undefined {
 }
 
 function parseBundledWith(content: string): string | undefined {
-  const match = content.match(/(?:^|\n)BUNDLED WITH\s*\n\s+([^\s]+)\s*(?:\n|$)/);
+  const match = content.match(
+    /(?:^|\n)BUNDLED WITH\s*\n\s+([^\s]+)\s*(?:\n|$)/,
+  );
   return match?.[1]?.trim() || undefined;
 }
 
 function versionFromRubyOutput(output: string): string {
-  return output.trim().replace(/^ruby\s+/, '').split(/\s+/)[0] ?? '';
+  return (
+    output
+      .trim()
+      .replace(/^ruby\s+/, '')
+      .split(/\s+/)[0] ?? ''
+  );
 }
 
 function versionFromBundlerOutput(output: string): string {
   return output.match(/\d+(?:\.\d+){1,3}/)?.[0] ?? '';
 }
 
-async function rubyDeclarations(project: Project): Promise<VersionDeclaration[]> {
+async function rubyDeclarations(
+  project: Project,
+): Promise<VersionDeclaration[]> {
   const declarations: VersionDeclaration[] = [];
   const rubyVersion = (
     await readLimitedText(path.join(project.path, '.ruby-version'))
   )?.trim();
-  if (rubyVersion) declarations.push({ source: '.ruby-version', value: rubyVersion });
+  if (rubyVersion)
+    declarations.push({ source: '.ruby-version', value: rubyVersion });
 
   const toolVersion = await readToolVersion(project, ['ruby']);
   if (toolVersion) {
@@ -67,7 +77,9 @@ export async function checkRubyRuntime(
   let availableVersion: string;
   try {
     const result = await commandRunner('ruby', ['--version']);
-    availableVersion = versionFromRubyOutput(`${result.stdout}\n${result.stderr}`);
+    availableVersion = versionFromRubyOutput(
+      `${result.stdout}\n${result.stderr}`,
+    );
   } catch {
     return createDiagnosticCheck({
       id: 'ruby-runtime',
@@ -77,7 +89,9 @@ export async function checkRubyRuntime(
       summary:
         declarations.length > 0
           ? `Ruby não está disponível para a API; o projeto declara ${declarations
-              .map((declaration) => `${declaration.source}=${declaration.value}`)
+              .map(
+                (declaration) => `${declaration.source}=${declaration.value}`,
+              )
               .join(', ')}.`
           : 'Ruby não está disponível para a API.',
       recommendation:
@@ -98,7 +112,10 @@ export async function checkRubyRuntime(
 
   const results = declarations.map((declaration) => ({
     declaration,
-    compatibility: evaluateVersionConstraint(availableVersion, declaration.value),
+    compatibility: evaluateVersionConstraint(
+      availableVersion,
+      declaration.value,
+    ),
   }));
   const incompatible = results.filter(
     (item) => item.compatibility === 'incompatible',
@@ -149,7 +166,9 @@ export async function checkBundlerDependencies(
   project: Project,
   commandRunner: DoctorCommandRunner,
 ): Promise<ProjectDiagnosticCheck> {
-  const lockContent = await readLimitedText(path.join(project.path, 'Gemfile.lock'));
+  const lockContent = await readLimitedText(
+    path.join(project.path, 'Gemfile.lock'),
+  );
   if (lockContent === null) {
     return createDiagnosticCheck({
       id: 'bundler-dependencies',
@@ -166,7 +185,10 @@ export async function checkBundlerDependencies(
   const declarations: VersionDeclaration[] = [];
   const bundledWith = parseBundledWith(lockContent);
   if (bundledWith) {
-    declarations.push({ source: 'Gemfile.lock#BUNDLED WITH', value: bundledWith });
+    declarations.push({
+      source: 'Gemfile.lock#BUNDLED WITH',
+      value: bundledWith,
+    });
   }
   const toolVersion = await readToolVersion(project, ['bundler']);
   if (toolVersion) {
@@ -181,7 +203,9 @@ export async function checkBundlerDependencies(
     const result = await commandRunner('bundle', ['--version'], {
       cwd: project.path,
     });
-    bundlerVersion = versionFromBundlerOutput(`${result.stdout}\n${result.stderr}`);
+    bundlerVersion = versionFromBundlerOutput(
+      `${result.stdout}\n${result.stderr}`,
+    );
   } catch {
     return createDiagnosticCheck({
       id: 'bundler-dependencies',
@@ -191,7 +215,9 @@ export async function checkBundlerDependencies(
       summary:
         declarations.length > 0
           ? `Bundler não está disponível para a API; o projeto declara ${declarations
-              .map((declaration) => `${declaration.source}=${declaration.value}`)
+              .map(
+                (declaration) => `${declaration.source}=${declaration.value}`,
+              )
               .join(', ')}.`
           : 'Bundler não está disponível para a API.',
       recommendation:
@@ -248,7 +274,9 @@ export async function checkBundlerDependencies(
       summary:
         declarations.length > 0
           ? `Bundler ${bundlerVersion || 'disponível'} atende ${declarations
-              .map((declaration) => `${declaration.source}=${declaration.value}`)
+              .map(
+                (declaration) => `${declaration.source}=${declaration.value}`,
+              )
               .join(', ')} e confirmou as dependências instaladas.`
           : `Bundler ${bundlerVersion || 'disponível'} confirmou que as dependências estão instaladas.`,
     });

@@ -280,7 +280,8 @@ function observedPorts(
 }
 
 function isConflictState(
-  state: ReturnType<typeof reconcilePorts>['entries'][number]['state'] | undefined,
+  state:
+    ReturnType<typeof reconcilePorts>['entries'][number]['state'] | undefined,
 ): boolean {
   return (
     state === 'conflict' ||

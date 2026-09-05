@@ -139,7 +139,10 @@ test('listas vindas do provider são bounded', () => {
     {
       services: {
         api: {
-          profiles: Array.from({ length: 200 }, (_, index) => `profile-${index}`),
+          profiles: Array.from(
+            { length: 200 },
+            (_, index) => `profile-${index}`,
+          ),
           depends_on: Object.fromEntries(
             Array.from({ length: 200 }, (_, index) => [`service-${index}`, {}]),
           ),
@@ -170,5 +173,8 @@ test('payload estrutural inválido falha fechado', () => {
     () => parseComposeConfig({ services: null }, 'project-1', OBSERVED_AT),
     /Configuração resolvida/,
   );
-  assert.throws(() => parseComposePs({}, OBSERVED_AT), /Estado do Docker Compose/);
+  assert.throws(
+    () => parseComposePs({}, OBSERVED_AT),
+    /Estado do Docker Compose/,
+  );
 });

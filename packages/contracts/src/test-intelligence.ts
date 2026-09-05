@@ -19,9 +19,7 @@ export interface TestCoverageFileDelta extends TestCoverageMetricDelta {
 }
 
 export type TestCoverageDeltaUnknownReason =
-  | 'no-current-artifact'
-  | 'identity-incomplete'
-  | 'no-compatible-baseline';
+  'no-current-artifact' | 'identity-incomplete' | 'no-compatible-baseline';
 
 export interface TestCoverageDeltaAnalysis {
   state: 'available' | 'unknown';

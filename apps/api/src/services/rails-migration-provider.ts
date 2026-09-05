@@ -13,7 +13,9 @@ const SAFE_DATABASE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u;
 
 function databaseIdentity(value: string | undefined): string {
   const normalized = value?.trim();
-  return normalized && SAFE_DATABASE_ID.test(normalized) ? normalized : 'primary';
+  return normalized && SAFE_DATABASE_ID.test(normalized)
+    ? normalized
+    : 'primary';
 }
 
 export interface RailsMigrationsInspector {

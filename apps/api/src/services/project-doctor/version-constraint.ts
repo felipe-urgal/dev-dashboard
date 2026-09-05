@@ -1,7 +1,4 @@
-export type VersionConstraintResult =
-  | 'compatible'
-  | 'incompatible'
-  | 'unknown';
+export type VersionConstraintResult = 'compatible' | 'incompatible' | 'unknown';
 
 interface Version {
   major: number;
