@@ -21,10 +21,15 @@ export function parseToolVersions(content: string): ToolVersionDeclaration[] {
 
     const commentIndex = line.indexOf(' #');
     const withoutComment = commentIndex >= 0 ? line.slice(0, commentIndex) : line;
-    const [tool, value, ...extra] = withoutComment.trim().split(/\s+/);
-    if (!tool || !value || extra.length > 0 || !TOOL_NAME_PATTERN.test(tool)) {
-      continue;
-    }
+    const [tool, ...values] = withoutComment.trim().split(/\s+/);
+    if (!tool || !TOOL_NAME_PATTERN.test(tool)) continue;
+
+    const value =
+      values.length === 1
+        ? values[0]!
+        : values.length === 0
+          ? '<missing>'
+          : `<multiple:${values.join(',')}>`;
     declarations.push({
       tool: tool.toLowerCase(),
       value,
