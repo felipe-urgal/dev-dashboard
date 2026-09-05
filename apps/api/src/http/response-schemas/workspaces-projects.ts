@@ -130,6 +130,63 @@ const productionWarningResponseSchema = {
   },
 } as const;
 
+const projectProfileEvidenceResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['kind', 'source'],
+  properties: {
+    kind: { type: 'string', enum: ['file', 'manifest', 'config'] },
+    source: { type: 'string' },
+    detail: { type: 'string' },
+  },
+} as const;
+
+const projectProfileCapabilityResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'provider', 'confidence', 'evidence'],
+  properties: {
+    id: { type: 'string' },
+    provider: { type: 'string' },
+    confidence: {
+      type: 'string',
+      enum: ['certain', 'strong', 'weak'],
+    },
+    evidence: {
+      type: 'array',
+      items: projectProfileEvidenceResponseSchema,
+    },
+    metadata: {
+      type: 'object',
+      additionalProperties: true,
+    },
+  },
+} as const;
+
+const projectProfileResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['capabilities', 'diagnostics'],
+  properties: {
+    capabilities: {
+      type: 'array',
+      items: projectProfileCapabilityResponseSchema,
+    },
+    diagnostics: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['provider', 'message'],
+        properties: {
+          provider: { type: 'string' },
+          message: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const;
+
 export const projectResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -169,6 +226,7 @@ export const projectResponseSchema = {
         ],
       },
     },
+    profile: projectProfileResponseSchema,
     production: productionResponseSchema,
     productionWarning: productionWarningResponseSchema,
   },

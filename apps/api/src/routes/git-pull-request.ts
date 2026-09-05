@@ -64,6 +64,42 @@ const pullRequestLookupQuerySchema = {
   },
 } as const;
 
+const pullRequestCheckSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'status'],
+  properties: {
+    name: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['success', 'pending', 'failure', 'unknown'],
+    },
+    detailsUrl: { type: 'string' },
+  },
+} as const;
+
+const pullRequestCockpitSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['remoteStatus', 'reviewState', 'requestedReviewers', 'checks'],
+  properties: {
+    remoteStatus: {
+      type: 'string',
+      enum: ['available', 'unauthenticated', 'rate-limited', 'unavailable'],
+    },
+    headSha: { type: 'string' },
+    draft: { type: 'boolean' },
+    mergeable: { type: ['boolean', 'null'] },
+    mergeableState: { type: 'string' },
+    reviewState: {
+      type: 'string',
+      enum: ['approved', 'changes-requested', 'review-required', 'unknown'],
+    },
+    requestedReviewers: { type: 'array', items: { type: 'string' } },
+    checks: { type: 'array', items: pullRequestCheckSchema },
+  },
+} as const;
+
 const openPullRequestSchema = {
   type: 'object',
   additionalProperties: false,
@@ -88,6 +124,7 @@ const openPullRequestSchema = {
     },
     commentsCount: { type: 'integer', minimum: 0 },
     unresolvedConversationsCount: { type: 'integer', minimum: 0 },
+    cockpit: pullRequestCockpitSchema,
   },
 } as const;
 

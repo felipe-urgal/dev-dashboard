@@ -2,10 +2,13 @@
 
 O Dev Dashboard opera arquivos, processos, Git, bancos, runtimes locais e, quando um projeto opta pelo Production Contract, deployments de produção. Mudanças precisam preservar simplicidade de uso, limites de autoridade e documentação viva.
 
+Agentes de IA devem usar [`AGENTS.md`](AGENTS.md) como referência canônica de decisões para trabalhar neste repositório. Este documento complementa o guia com convenções de contribuição e revisão.
+
 ## Antes de começar
 
 Leia:
 
+- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md);
 - [`docs/index.md`](docs/index.md);
 - [`docs/architecture/overview.md`](docs/architecture/overview.md);
 - [`docs/architecture/security.md`](docs/architecture/security.md);
@@ -21,7 +24,7 @@ Se a mudança tocar produção, leia também:
 Prepare o ambiente:
 
 ```bash
-npm install
+npm ci
 npm run doctor
 npm run dev
 ```
@@ -86,9 +89,7 @@ Se o trabalho partiu de plano antigo, confirme no código o comportamento atual 
 ### Checklist sugerido
 
 - [ ] escopo coerente;
-- [ ] lint;
-- [ ] testes relevantes;
-- [ ] build;
+- [ ] `npm run check`;
 - [ ] verificações adicionais proporcionais ao risco (`typecheck`, format, CLI, E2E, coverage);
 - [ ] API docs regeneradas quando necessário;
 - [ ] documentação viva atualizada;
@@ -183,12 +184,10 @@ Indicador de atividade só anima durante trabalho real.
 A validação padrão antes de um PR é:
 
 ```bash
-npm run lint
-npm test
-npm run build
+npm run check
 ```
 
-`npm test` executa as suítes funcionais sem coletar coverage. Isso mantém o feedback rápido e evita transformar percentual em objetivo de desenvolvimento.
+O gate canônico executa `lint -> test -> build:apps`, a mesma interface usada pelo CI após a preparação nativa. `npm test` executa as suítes funcionais sem coletar coverage.
 
 Use comandos adicionais quando o risco justificar:
 
@@ -236,7 +235,7 @@ A política completa fica em [`docs/testing-and-quality.md`](docs/testing-and-qu
 | operação de deployment | `docs/deployment-operations.md` |
 | UI de Produção | `docs/production-ui.md`, `docs/guia/producao.md` |
 | endpoint | `docs/architecture/api-reference.md` gerada |
-| processo de engenharia | `docs/development-guide.md`, `docs/testing-and-quality.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` |
+| processo de engenharia | `docs/development-guide.md`, `docs/testing-and-quality.md`, `AGENTS.md`, `CONTRIBUTING.md` |
 | backlog/roadmap | issues/PRs GitHub, nunca `tasks/` |
 
 `docs/` descreve estado implementado; histórico específico de uma entrega fica no PR, salvo quando virou arquitetura permanente.

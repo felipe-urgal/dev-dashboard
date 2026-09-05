@@ -1,6 +1,16 @@
 export type { Workspace } from './workspace.js';
 
 export type {
+  AttentionAction,
+  AttentionCategory,
+  AttentionDestination,
+  AttentionItem,
+  AttentionSeverity,
+  AttentionUnavailableSource,
+  WorkspaceAttention,
+} from './attention.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
@@ -12,6 +22,17 @@ export type {
   ProjectSource,
   ProjectType,
 } from './project.js';
+
+export type {
+  DetectedCapability,
+  DetectionConfidence,
+  DetectionEvidence,
+  DetectionEvidenceKind,
+  ProjectProfile,
+  ProjectProfileDiagnostic,
+  ProjectProfileProvider,
+  ProjectProfileProviderContext,
+} from './project-profile.js';
 
 export type { NodeServerScriptName } from './server-script-catalog.js';
 export { NODE_SERVER_SCRIPT_CANDIDATES } from './server-script-catalog.js';
@@ -124,6 +145,9 @@ export type {
 } from './process.js';
 
 export type {
+  DeclaredProjectPort,
+  DeclaredProjectPortConfidence,
+  DeclaredProjectPortSource,
   LocalPortEntry,
   LocalPortExpectation,
   LocalPortExternalProcess,
@@ -132,6 +156,15 @@ export type {
   LocalPortManagedProcess,
   LocalPortScope,
   LocalPortState,
+  ObservedPort,
+  ObservedPortOwner,
+  PortAllocationRequest,
+  PortAllocationResult,
+  PortReconciliation,
+  PortReconciliationEntry,
+  PortReconciliationState,
+  ReservedPort,
+  ReservedPortScope,
 } from './port.js';
 
 export type {
@@ -183,6 +216,13 @@ export type {
 } from './git.js';
 
 export type {
+  GitPullRequestCheck,
+  GitPullRequestCockpit,
+  GitPullRequestRemoteStatus,
+  GitPullRequestReviewState,
+} from './git-pull-request-cockpit.js';
+
+export type {
   GitMutationCatalogEntry,
   GitMutationRiskLevel,
 } from './git-mutation-catalog.js';
@@ -219,6 +259,13 @@ export type {
   TestExecutionRecord,
   TestExecutionStatus,
 } from './test.js';
+
+export type {
+  TestIntelligenceEvidence,
+  TestIntelligenceRecommendation,
+  TestIntelligenceState,
+  TestIntelligenceSuggestion,
+} from './test-intelligence.js';
 
 export type {
   ProjectCoverageFileSummary,
@@ -311,6 +358,13 @@ export type {
 } from './environment-profile.js';
 
 export type {
+  ProjectEnvironmentBaselineStatus,
+  ProjectEnvironmentContract,
+  ProjectEnvironmentContractAction,
+  ProjectEnvironmentContractScope,
+  ProjectEnvironmentContractSection,
+  ProjectEnvironmentContractVariable,
+  ProjectEnvironmentContractVariableStatus,
   ProjectEnvironmentFile,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,

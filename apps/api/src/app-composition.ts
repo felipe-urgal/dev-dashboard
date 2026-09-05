@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppContext } from './app-context.js';
 import { DeploymentService } from './deployment/service.js';
 import { ProductionOverviewService } from './deployment/production-overview.js';
+import { AttentionCenterService } from './services/attention-center-service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
@@ -53,6 +54,14 @@ export function createAppComposition(
     deploymentReader: deploymentService,
     ...(options.now ? { now: options.now } : {}),
   });
+  const attentionCenterService = new AttentionCenterService({
+    processReader: context.processManager,
+    gitReader: context.gitService,
+    testHistoryReader: context.testExecutionHistoryService,
+    doctorReader: projectDoctorService,
+    productionReader: productionOverviewService,
+    ...(options.now ? { now: options.now } : {}),
+  });
 
   return {
     databaseExplorerSessionStore,
@@ -64,6 +73,7 @@ export function createAppComposition(
     projectTerminalService,
     deploymentService,
     productionOverviewService,
+    attentionCenterService,
   };
 }
 

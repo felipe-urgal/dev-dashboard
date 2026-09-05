@@ -3,10 +3,14 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
+  projectEnvironmentContractResponseSchema,
   projectEnvironmentOverviewResponseSchema,
   projectEnvironmentVariableValueResponseSchema,
 } from '../http/response-schemas.js';
-import type { ProjectEnvironmentService } from '../services/project-environment-service.js';
+import {
+  PROJECT_ENVIRONMENT_FILES,
+  type ProjectEnvironmentService,
+} from '../services/project-environment-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
@@ -37,13 +41,7 @@ const valueQuerystringSchema = {
   properties: {
     file: {
       type: 'string',
-      enum: [
-        '.env',
-        '.env.local',
-        '.env.development',
-        '.env.test',
-        '.env.production',
-      ],
+      enum: PROJECT_ENVIRONMENT_FILES,
     },
     name: {
       type: 'string',
@@ -89,6 +87,31 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => ({
       environment: await options.projectEnvironmentService.getOverview(
+        requireProject(options.projectStore, request.params.projectId),
+      ),
+    }),
+  );
+
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/environment-contract',
+    {
+      schema: {
+        params: paramsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['contract'],
+            properties: {
+              contract: projectEnvironmentContractResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => ({
+      contract: await options.projectEnvironmentService.getContract(
         requireProject(options.projectStore, request.params.projectId),
       ),
     }),

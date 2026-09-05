@@ -1,4 +1,5 @@
 import type {
+  ProjectEnvironmentContract,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariableValue,
 } from '@dev-dashboard/contracts';
@@ -7,6 +8,9 @@ import { requestJson } from './core';
 
 interface ProjectEnvironmentResponse {
   environment: ProjectEnvironmentOverview;
+}
+interface ProjectEnvironmentContractResponse {
+  contract: ProjectEnvironmentContract;
 }
 interface ProjectEnvironmentVariableValueResponse {
   variable: ProjectEnvironmentVariableValue;
@@ -19,6 +23,15 @@ export async function fetchProjectEnvironmentVariables(
     `/api/projects/${encodeURIComponent(projectId)}/environment-variables`,
   );
   return response.environment;
+}
+
+export async function fetchProjectEnvironmentContract(
+  projectId: string,
+): Promise<ProjectEnvironmentContract> {
+  const response = await requestJson<ProjectEnvironmentContractResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/environment-contract`,
+  );
+  return response.contract;
 }
 
 export async function fetchProjectEnvironmentVariableValue(
