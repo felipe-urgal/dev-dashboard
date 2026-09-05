@@ -5,6 +5,7 @@ import type {
   ProjectDiagnosticReport,
   ProjectGitOverview,
   TestExecutionHistory,
+  TestExecutionRecord,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -12,9 +13,14 @@ import {
   evaluateDoctorReadiness,
   evaluateGitReadiness,
   evaluateTestsReadiness,
+  type ReleaseReadinessTestIdentity,
 } from '../src/services/release-readiness.js';
 
 const NOW = Date.parse('2026-09-05T18:00:00.000Z');
+const IDENTITY: ReleaseReadinessTestIdentity = {
+  gitRevision: 'abc123',
+  gitDirtyFingerprint: 'clean',
+};
 
 function git(input: Partial<ProjectGitOverview> = {}): ProjectGitOverview {
   return {
@@ -38,6 +44,24 @@ function history(items: TestExecutionHistory['items']): TestExecutionHistory {
     pageSize: 20,
     total: items.length,
     totalPages: items.length > 0 ? 1 : 0,
+  };
+}
+
+function fullSuite(
+  input: Partial<TestExecutionRecord> = {},
+): TestExecutionRecord {
+  return {
+    id: 'run-full',
+    projectId: 'p1',
+    commandId: 'test',
+    scope: 'full-suite',
+    status: 'stopped',
+    startedAt: '2026-09-05T17:50:00.000Z',
+    finishedAt: '2026-09-05T17:55:00.000Z',
+    exitCode: 0,
+    gitRevision: IDENTITY.gitRevision,
+    gitDirtyFingerprint: IDENTITY.gitDirtyFingerprint,
+    ...input,
   };
 }
 
@@ -119,10 +143,13 @@ test('execução targeted nunca comprova suíte completa', () => {
         startedAt: '2026-09-05T17:55:00.000Z',
         finishedAt: '2026-09-05T17:56:00.000Z',
         exitCode: 0,
+        gitRevision: IDENTITY.gitRevision,
+        gitDirtyFingerprint: IDENTITY.gitDirtyFingerprint,
       },
     ]),
     NOW,
     60 * 60 * 1000,
+    IDENTITY,
   );
 
   assert.equal(result.state, 'unknown');
@@ -130,29 +157,69 @@ test('execução targeted nunca comprova suíte completa', () => {
 });
 
 test('suíte completa recente distingue sucesso, falha e evidência stale', () => {
-  const passed = history([
-    {
-      id: 'run-full',
-      projectId: 'p1',
-      commandId: 'test',
-      scope: 'full-suite',
-      status: 'stopped',
-      startedAt: '2026-09-05T17:50:00.000Z',
-      finishedAt: '2026-09-05T17:55:00.000Z',
-      exitCode: 0,
-    },
-  ]);
+  const passed = history([fullSuite()]);
 
-  assert.equal(evaluateTestsReadiness(passed, NOW, 60 * 60 * 1000).state, 'pass');
+  assert.equal(
+    evaluateTestsReadiness(passed, NOW, 60 * 60 * 1000, IDENTITY).state,
+    'pass',
+  );
   assert.equal(
     evaluateTestsReadiness(
-      history([{ ...passed.items[0]!, id: 'failed', status: 'failed', exitCode: 1 }]),
+      history([fullSuite({ id: 'failed', status: 'failed', exitCode: 1 })]),
       NOW,
       60 * 60 * 1000,
+      IDENTITY,
     ).state,
     'block',
   );
-  assert.equal(evaluateTestsReadiness(passed, NOW, 60 * 1000).state, 'unknown');
+  assert.equal(
+    evaluateTestsReadiness(passed, NOW, 60 * 1000, IDENTITY).state,
+    'unknown',
+  );
+});
+
+test('Readiness só usa suíte full com identidade compatível', () => {
+  const result = evaluateTestsReadiness(
+    history([
+      fullSuite({
+        id: 'other-revision',
+        gitRevision: 'different',
+        finishedAt: '2026-09-05T17:59:00.000Z',
+      }),
+      fullSuite({ id: 'compatible', finishedAt: '2026-09-05T17:57:00.000Z' }),
+    ]),
+    NOW,
+    60 * 60 * 1000,
+    IDENTITY,
+  );
+
+  assert.equal(result.state, 'pass');
+  assert.match(result.evidence, /compatible/);
+});
+
+test('identidade ausente ou incompatível nunca produz pass', () => {
+  assert.equal(
+    evaluateTestsReadiness(history([fullSuite()]), NOW, 60 * 60 * 1000).state,
+    'unknown',
+  );
+  assert.equal(
+    evaluateTestsReadiness(
+      history([fullSuite({ gitDirtyFingerprint: 'different' })]),
+      NOW,
+      60 * 60 * 1000,
+      IDENTITY,
+    ).state,
+    'unknown',
+  );
+  assert.equal(
+    evaluateTestsReadiness(
+      history([fullSuite({ environmentInstanceId: 'env-a' })]),
+      NOW,
+      60 * 60 * 1000,
+      IDENTITY,
+    ).state,
+    'unknown',
+  );
 });
 
 test('Doctor mantém warning separado de block', () => {
@@ -166,7 +233,7 @@ test('snapshot usa o estado mais conservador sem score opaco', () => {
     [
       evaluateGitReadiness(git(), '2026-09-05T18:00:00.000Z'),
       evaluateDoctorReadiness(doctor('attention')),
-      evaluateTestsReadiness(history([]), NOW, 60 * 60 * 1000),
+      evaluateTestsReadiness(history([]), NOW, 60 * 60 * 1000, IDENTITY),
     ],
     '2026-09-05T18:00:00.000Z',
   );
