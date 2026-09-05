@@ -37,7 +37,7 @@ O snapshot de `compose ps` preserva:
 - exit code;
 - portas publicadas.
 
-Estado/health não reconhecido vira `unknown`; nunca é promovido para um estado saudável por heurística.
+Estado/health não reconhecido vira `unknown`; nunca é promovido para um estado saudável por heurística. Protocolo de porta ausente usa o default Compose `tcp`, enquanto valor explícito não reconhecido vira `unknown` em vez de ser convertido silenciosamente.
 
 Campos como `Command` e endereço bruto do publisher não são transportados pelo normalizador.
 
@@ -47,7 +47,7 @@ Campos como `Command` e endereço bruto do publisher não são transportados pel
 - comandos de inspeção possuem argv fixo;
 - nenhum `down --volumes`, prune ou operação global;
 - nenhuma credencial/environment value volta no snapshot;
-- config/ps externos são tratados como input não confiável, com limites de serviços, nomes e portas;
+- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências;
 - a execução futura deve resolver `cwd` a partir do Project validado no backend.
 
 ## Próximos recortes
