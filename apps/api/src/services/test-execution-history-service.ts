@@ -8,6 +8,7 @@ import type {
   TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
+  TestExecutionScope,
   TestExecutionStatus,
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
@@ -20,6 +21,7 @@ const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'stopping',
 ];
 const FILE_SUFFIX = ':file';
+const NAME_PATTERN_FLAGS = new Set(['-t', '--test-name-pattern']);
 
 const SUBSCRIBER_LIMIT_PER_PROJECT = 5;
 const SUBSCRIBER_LIMIT_TOTAL = 20;
@@ -42,8 +44,6 @@ export interface TestExecutionSubscriber {
   send: (event: TestExecutionEvent) => void;
   close: () => void;
 }
-
-type TestExecutionScope = NonNullable<TestExecutionRecord['scope']>;
 
 type ScopedTestExecutionRecord = Omit<TestExecutionRecord, 'scope'> & {
   scope: TestExecutionScope;
@@ -93,8 +93,22 @@ function normalizeRecord(
   };
 }
 
+function deriveTargetFile(args: readonly string[]): string | undefined {
+  if (args.length === 0) return undefined;
+
+  const penultimate = args.at(-2);
+  const rawTarget =
+    penultimate && NAME_PATTERN_FLAGS.has(penultimate)
+      ? args.at(-3)
+      : args.at(-1);
+
+  if (!rawTarget) return undefined;
+  return rawTarget.replace(/:\d+$/, '');
+}
+
 function deriveTarget(managedProcess: ManagedProcess): {
   commandId: string;
+  scope: TestExecutionScope;
   targetFile?: string;
 } {
   const prefix = `${managedProcess.projectId}:${managedProcess.kind}:`;
@@ -103,12 +117,16 @@ function deriveTarget(managedProcess: ManagedProcess): {
     : managedProcess.id;
 
   if (!rawId.endsWith(FILE_SUFFIX)) {
-    return { commandId: rawId };
+    return { commandId: rawId, scope: 'full-suite' };
   }
+
   const commandId = rawId.slice(0, -FILE_SUFFIX.length);
-  const args = managedProcess.args ?? [];
-  const targetFile = args[args.length - 1];
-  return { commandId, ...(targetFile ? { targetFile } : {}) };
+  const targetFile = deriveTargetFile(managedProcess.args ?? []);
+  return {
+    commandId,
+    scope: 'targeted',
+    ...(targetFile ? { targetFile } : {}),
+  };
 }
 
 function sanitizeProjectId(projectId: string): string {
@@ -316,12 +334,12 @@ export class TestExecutionHistoryService {
     managedProcess: ManagedProcess,
   ): Promise<void> {
     const items = await this.load(projectId);
-    const { commandId, targetFile } = deriveTarget(managedProcess);
+    const { commandId, scope, targetFile } = deriveTarget(managedProcess);
     const record: ScopedTestExecutionRecord = {
       id: randomUUID(),
       projectId,
       commandId,
-      scope: targetFile ? 'targeted' : 'full-suite',
+      scope,
       ...(targetFile ? { targetFile } : {}),
       status: managedProcess.status,
       startedAt: managedProcess.startedAt ?? new Date().toISOString(),
