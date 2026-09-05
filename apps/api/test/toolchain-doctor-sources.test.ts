@@ -55,6 +55,31 @@ test('Node considera .tool-versions e não produz falso passed para versão inco
   assert.match(runtime?.summary ?? '', /\.tool-versions#node=999\.0\.0/);
 });
 
+test('múltiplos gerenciadores em .tool-versions ficam warning mesmo com lockfile', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-tools-pm-'));
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'node-tools' }));
+  await writeFile(path.join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  await writeFile(path.join(root, '.tool-versions'), 'pnpm 9.15.0\nyarn 4.5.0\n');
+
+  const calls: string[] = [];
+  const report = await new ProjectDoctorService({
+    commandRunner: async (command) => {
+      calls.push(command);
+      return { stdout: '9.15.0\n', stderr: '' };
+    },
+  }).getReport(project(root, 'node'));
+
+  const manager = report.checks.find(
+    (check) => check.id === 'node-package-manager',
+  );
+  assert.equal(manager?.status, 'warning');
+  assert.match(manager?.summary ?? '', /múltiplos gerenciadores/);
+  assert.match(manager?.summary ?? '', /pnpm/);
+  assert.match(manager?.summary ?? '', /yarn/);
+  assert.deepEqual(calls, []);
+});
+
 test('Ruby e Bundler validam Gemfile, lock e .tool-versions sem executar o Gemfile', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-doctor-tools-ruby-'));
   context.after(async () => rm(root, { recursive: true, force: true }));
