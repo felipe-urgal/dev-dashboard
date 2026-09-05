@@ -277,6 +277,16 @@ function observedPorts(observedSockets: readonly ObservedSocket[]): ObservedPort
   }));
 }
 
+function isConflictState(
+  state: ReturnType<typeof reconcilePorts>['entries'][number]['state'] | undefined,
+): boolean {
+  return (
+    state === 'conflict' ||
+    state === 'reserved-by-other' ||
+    state === 'duplicate-declaration'
+  );
+}
+
 export class PortInspectorService {
   private readonly platform: NodeJS.Platform;
   private readonly now: () => Date;
@@ -395,10 +405,7 @@ export class PortInspectorService {
     for (const { socket, managed } of observedSockets) {
       const expected = expectations.get(socket.port) ?? [];
       const reconciled = reconciliationByPort.get(socket.port);
-      const conflict =
-        reconciled?.state === 'conflict' ||
-        reconciled?.state === 'reserved-by-other' ||
-        reconciled?.state === 'duplicate-declaration';
+      const conflict = isConflictState(reconciled?.state);
       const expectedOwner = expected.length === 1 ? expected[0] : undefined;
       const allocation =
         conflict && expectedOwner
@@ -452,14 +459,34 @@ export class PortInspectorService {
     for (const [port, expected] of expectations) {
       if (occupiedPorts.has(port)) continue;
 
+      const reconciled = reconciliationByPort.get(port);
+      const conflict = isConflictState(reconciled?.state);
+      const expectedOwner = expected.length === 1 ? expected[0] : undefined;
+      const allocation =
+        conflict && expectedOwner
+          ? allocatePort(
+              {
+                reserved: reservations,
+                declared: declarations,
+                observed: observations,
+              },
+              {
+                preferredPort: port,
+                projectId: expectedOwner.projectId,
+                role: expectedOwner.service,
+              },
+            )
+          : null;
+
       pending.push({
         entry: {
           port,
           address: '127.0.0.1',
           scope: 'loopback',
           state: 'available',
-          conflict: false,
+          conflict,
           expected: [...expected],
+          ...(allocation ? { suggestedPort: allocation.port } : {}),
         },
       });
     }
