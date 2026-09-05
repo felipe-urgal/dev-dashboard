@@ -35,6 +35,12 @@ test('inspeciona loopback, associa processo gerenciado e limita processo externo
       service: 'server',
     },
     {
+      port: 5_433,
+      projectId: 'p4',
+      projectName: 'Outra aplicação',
+      service: 'server',
+    },
+    {
       port: 4_000,
       projectId: 'p3',
       projectName: 'Livre',
@@ -88,7 +94,11 @@ test('inspeciona loopback, associa processo gerenciado e limita processo externo
   assert.equal(conflict?.conflict, true);
   assert.equal(conflict?.externalProcess?.pid, 5_000);
   assert.equal(conflict?.externalProcess?.name, 'postgres');
-  assert.equal(conflict?.suggestedPort, 5_433);
+  assert.equal(conflict?.suggestedPort, 5_434);
+
+  const declaredButFree = result.entries.find((entry) => entry.port === 5_433);
+  assert.equal(declaredButFree?.state, 'available');
+  assert.equal(declaredButFree?.expected[0]?.projectId, 'p4');
 
   const otherUser = result.entries.find((entry) => entry.port === 6_379);
   assert.equal(otherUser?.externalProcess, undefined);
