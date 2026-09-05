@@ -13,7 +13,9 @@ import type {
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
 
-const HISTORY_VERSION = 2;
+import { captureTestExecutionGitIdentity } from './test-execution-identity.js';
+
+const HISTORY_VERSION = 3;
 const DEFAULT_HISTORY_LIMIT = 50;
 const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'starting',
@@ -54,8 +56,12 @@ type StoredTestExecutionRecord = Omit<ScopedTestExecutionRecord, 'scope'> & {
 };
 
 interface StoredHistory {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   items: StoredTestExecutionRecord[];
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string';
 }
 
 function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
@@ -71,7 +77,10 @@ function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
     (item.scope === undefined ||
       item.scope === 'full-suite' ||
       item.scope === 'targeted') &&
-    (item.targetFile === undefined || typeof item.targetFile === 'string') &&
+    isOptionalString(item.targetFile) &&
+    isOptionalString(item.gitRevision) &&
+    isOptionalString(item.gitDirtyFingerprint) &&
+    isOptionalString(item.environmentInstanceId) &&
     ['starting', 'running', 'stopping', 'stopped', 'failed'].includes(
       String(item.status),
     ) &&
@@ -331,12 +340,14 @@ export class TestExecutionHistoryService {
   ): Promise<void> {
     const items = await this.load(projectId);
     const { commandId, scope, targetFile } = deriveTarget(managedProcess);
+    const gitIdentity = await captureTestExecutionGitIdentity(managedProcess.cwd);
     const record: ScopedTestExecutionRecord = {
       id: randomUUID(),
       projectId,
       commandId,
       scope,
       ...(targetFile ? { targetFile } : {}),
+      ...gitIdentity,
       status: managedProcess.status,
       startedAt: managedProcess.startedAt ?? new Date().toISOString(),
     };
@@ -384,7 +395,9 @@ export class TestExecutionHistoryService {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
       if (
-        (parsed.version !== 1 && parsed.version !== HISTORY_VERSION) ||
+        (![1, 2, HISTORY_VERSION] as const).includes(
+          parsed.version as 1 | 2 | 3,
+        ) ||
         !Array.isArray(parsed.items)
       ) {
         return [];
