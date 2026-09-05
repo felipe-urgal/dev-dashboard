@@ -232,6 +232,13 @@ export type {
 } from './test.js';
 
 export type {
+  TestIntelligenceEvidence,
+  TestIntelligenceRecommendation,
+  TestIntelligenceState,
+  TestIntelligenceSuggestion,
+} from './test-intelligence.js';
+
+export type {
   ProjectCoverageFileSummary,
   ProjectCoverageHistory,
   ProjectCoverageHistoryEntry,
@@ -322,6 +329,13 @@ export type {
 } from './environment-profile.js';
 
 export type {
+  ProjectEnvironmentBaselineStatus,
+  ProjectEnvironmentContract,
+  ProjectEnvironmentContractAction,
+  ProjectEnvironmentContractScope,
+  ProjectEnvironmentContractSection,
+  ProjectEnvironmentContractVariable,
+  ProjectEnvironmentContractVariableStatus,
   ProjectEnvironmentFile,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
