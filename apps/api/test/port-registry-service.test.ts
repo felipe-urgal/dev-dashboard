@@ -78,6 +78,30 @@ test('diagnostica declaração duplicada e reserva alheia antes de observar a po
   assert.equal(conflict.entries[0]?.state, 'reserved-by-other');
 });
 
+test('reconciliação respeita role quando a reserva pertence ao mesmo projeto', () => {
+  const apiReservation: ReservedPort = {
+    port: 5_173,
+    scope: 'user',
+    owner: 'home-music',
+    role: 'api',
+  };
+  const conflict = reconcilePorts({
+    reserved: [apiReservation],
+    declared: [HOME_MUSIC_WEB],
+  });
+  assert.equal(conflict.entries[0]?.state, 'reserved-by-other');
+
+  const matchingReservation: ReservedPort = {
+    ...apiReservation,
+    role: 'web',
+  };
+  const available = reconcilePorts({
+    reserved: [matchingReservation],
+    declared: [HOME_MUSIC_WEB],
+  });
+  assert.equal(available.entries[0]?.state, 'available');
+});
+
 test('distingue uso inesperado, owner desconhecido e declaration stale', () => {
   const unexpected = reconcilePorts({
     observed: [
