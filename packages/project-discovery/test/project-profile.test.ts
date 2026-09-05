@@ -13,12 +13,19 @@ try {
   const nodePath = path.join(root, 'node-monorepo');
   await mkdir(path.join(nodePath, '.git'), { recursive: true });
   await mkdir(path.join(nodePath, '.github', 'workflows'), { recursive: true });
+  await writeFile(
+    path.join(nodePath, '.github', 'workflows', 'ci.yml'),
+    'name: CI\n',
+  );
   await writeFile(path.join(nodePath, '.nvmrc'), '22.12.0\n');
   await writeFile(path.join(nodePath, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
   await writeFile(path.join(nodePath, 'Dockerfile'), 'FROM node:22\n');
   await writeFile(path.join(nodePath, 'compose.yaml'), 'services: {}\n');
   await writeFile(path.join(nodePath, '.env.example'), 'TOKEN=super-secret\n');
-  await writeFile(path.join(nodePath, '.env.test.example'), 'DATABASE_URL=test-secret\n');
+  await writeFile(
+    path.join(nodePath, '.env.docker.example'),
+    'DATABASE_URL=docker-secret\n',
+  );
   await writeFile(
     path.join(nodePath, 'package.json'),
     JSON.stringify({
@@ -59,10 +66,16 @@ try {
   );
   assert.deepEqual(environmentCapability?.metadata?.files, [
     '.env.example',
-    '.env.test.example',
+    '.env.docker.example',
   ]);
-  assert.equal(JSON.stringify(environmentCapability).includes('super-secret'), false);
-  assert.equal(JSON.stringify(environmentCapability).includes('test-secret'), false);
+  assert.equal(
+    JSON.stringify(environmentCapability).includes('super-secret'),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(environmentCapability).includes('docker-secret'),
+    false,
+  );
 
   const detectedNode = await detectProject(nodePath);
   assert.ok(detectedNode);
@@ -71,11 +84,29 @@ try {
   assert.equal(detectedNode.capabilities.includes('git'), true);
   assert.equal(detectedNode.capabilities.includes('tests'), true);
 
+  const emptyActionsPath = path.join(root, 'empty-actions');
+  await mkdir(path.join(emptyActionsPath, '.github', 'workflows'), {
+    recursive: true,
+  });
+  const emptyActionsProfile = await detectProjectProfile({
+    projectPath: emptyActionsPath,
+    projectType: 'unknown',
+  });
+  assert.equal(
+    emptyActionsProfile.capabilities.some(
+      (entry) => entry.id === 'ci/github-actions',
+    ),
+    false,
+  );
+
   const railsPath = path.join(root, 'rails-app');
   await mkdir(railsPath, { recursive: true });
   await writeFile(path.join(railsPath, '.ruby-version'), '3.4.1\n');
   await writeFile(path.join(railsPath, 'Gemfile.lock'), 'BUNDLED WITH\n   2.6.2\n');
-  await writeFile(path.join(railsPath, '.gitlab-ci.yml'), 'test:\n  script: bundle exec rspec\n');
+  await writeFile(
+    path.join(railsPath, '.gitlab-ci.yml'),
+    'test:\n  script: bundle exec rspec\n',
+  );
   const railsProfile = await detectProjectProfile({
     projectPath: railsPath,
     projectType: 'rails',
