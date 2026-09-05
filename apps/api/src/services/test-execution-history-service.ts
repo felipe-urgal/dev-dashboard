@@ -8,7 +8,6 @@ import type {
   TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
-  TestExecutionScope,
   TestExecutionStatus,
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
@@ -43,6 +42,8 @@ export interface TestExecutionSubscriber {
   send: (event: TestExecutionEvent) => void;
   close: () => void;
 }
+
+type TestExecutionScope = NonNullable<TestExecutionRecord['scope']>;
 
 type ScopedTestExecutionRecord = Omit<TestExecutionRecord, 'scope'> & {
   scope: TestExecutionScope;
