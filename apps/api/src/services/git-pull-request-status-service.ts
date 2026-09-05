@@ -239,8 +239,7 @@ function githubRequestedReviewers(payload: Record<string, unknown>): string[] {
   return reviewers
     .map((reviewer) => asRecord(reviewer)?.login)
     .filter(
-      (login): login is string =>
-        typeof login === 'string' && login.length > 0,
+      (login): login is string => typeof login === 'string' && login.length > 0,
     );
 }
 
@@ -271,11 +270,14 @@ function githubReviewState(
   return 'unknown';
 }
 
-function remoteStatusForHttpResponse(response: Response): GitPullRequestRemoteStatus {
+function remoteStatusForHttpResponse(
+  response: Response,
+): GitPullRequestRemoteStatus {
   if (response.status === 401) return 'unauthenticated';
   if (
     response.status === 429 ||
-    (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0')
+    (response.status === 403 &&
+      response.headers.get('x-ratelimit-remaining') === '0')
   ) {
     return 'rate-limited';
   }

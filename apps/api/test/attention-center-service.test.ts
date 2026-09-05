@@ -54,10 +54,7 @@ function testHistory(
   };
 }
 
-function doctorReport(
-  projectId: string,
-  failed = 0,
-): ProjectDiagnosticReport {
+function doctorReport(projectId: string, failed = 0): ProjectDiagnosticReport {
   return {
     projectId,
     generatedAt: '2026-09-05T11:58:00.000Z',
@@ -119,7 +116,11 @@ test('agrega múltiplos projetos, prioriza severidade e preserva falha parcial',
         ];
       },
     },
-    productionReader: { async read() { return production; } },
+    productionReader: {
+      async read() {
+        return production;
+      },
+    },
     gitReader: {
       async getOverview(projectPath) {
         if (projectPath.endsWith('/p2')) throw new Error('git indisponível');
@@ -178,7 +179,10 @@ test('agrega múltiplos projetos, prioriza severidade e preserva falha parcial',
       ['p1', 'git', 'warning'],
     ],
   );
-  assert.equal(result.items.some((item) => item.projectId === disabled.id), false);
+  assert.equal(
+    result.items.some((item) => item.projectId === disabled.id),
+    false,
+  );
 });
 
 test('condições resolvidas desaparecem e parada normal não gera ruído', async () => {
@@ -198,7 +202,11 @@ test('condições resolvidas desaparecem e parada normal não gera ruído', asyn
         ];
       },
     },
-    gitReader: { async getOverview() { return gitOverview(); } },
+    gitReader: {
+      async getOverview() {
+        return gitOverview();
+      },
+    },
     testHistoryReader: {
       async history() {
         return testHistory([
@@ -214,7 +222,11 @@ test('condições resolvidas desaparecem e parada normal não gera ruído', asyn
         ]);
       },
     },
-    doctorReader: { async getReport() { return doctorReport(alpha.id); } },
+    doctorReader: {
+      async getReport() {
+        return doctorReport(alpha.id);
+      },
+    },
     productionReader: {
       async read() {
         return {
@@ -242,14 +254,26 @@ test('git divergente é crítico por regra explícita', async () => {
   const alpha = project('p1', 'Alpha');
   const service = new AttentionCenterService({
     now: () => NOW,
-    processReader: { async listProcesses() { return []; } },
+    processReader: {
+      async listProcesses() {
+        return [];
+      },
+    },
     gitReader: {
       async getOverview() {
         return gitOverview({ ahead: 2, behind: 3 });
       },
     },
-    testHistoryReader: { async history() { return testHistory(); } },
-    doctorReader: { async getReport() { return doctorReport(alpha.id); } },
+    testHistoryReader: {
+      async history() {
+        return testHistory();
+      },
+    },
+    doctorReader: {
+      async getReport() {
+        return doctorReport(alpha.id);
+      },
+    },
     productionReader: {
       async read() {
         return { generatedAt: '2026-09-05T12:00:00.000Z', items: [] };

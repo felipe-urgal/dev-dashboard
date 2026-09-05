@@ -257,7 +257,9 @@ function declaredPorts(
     }));
 }
 
-function observedPorts(observedSockets: readonly ObservedSocket[]): ObservedPort[] {
+function observedPorts(
+  observedSockets: readonly ObservedSocket[],
+): ObservedPort[] {
   return observedSockets.map(({ socket, managed }) => ({
     port: socket.port,
     owner: managed
