@@ -69,7 +69,11 @@ export interface TestExecutionRecord {
   id: string;
   projectId: string;
   commandId: string;
-  scope: TestExecutionScope;
+  /**
+   * Opcional no contrato público durante a migração do schema HTTP. O serviço
+   * de histórico normaliza e persiste este campo para todos os registros.
+   */
+  scope?: TestExecutionScope;
   targetFile?: string;
   status: TestExecutionStatus;
   startedAt: string;
