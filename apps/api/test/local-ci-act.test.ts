@@ -58,7 +58,7 @@ test('rejeita job, evento e workflow arbitrários', () => {
         jobId: 'shell --secret-file /tmp/x',
         event: 'pull_request',
       }),
-    /catálogo detectado/,
+    /inválido/,
   );
 
   assert.throws(
@@ -76,10 +76,42 @@ test('rejeita job, evento e workflow arbitrários', () => {
       buildActJobCommand(catalog(), {
         workflowFile: '.github/workflows/ci.yml',
         jobId: 'validate',
-        event: '--secret TOKEN=value',
+        event: '--secret',
       }),
-    /catálogo detectado/,
+    /inválido/,
   );
+});
+
+test('descarta tokens de catálogo que poderiam ser interpretados como opções do act', () => {
+  const result = createLocalCiCatalog({
+    availability: available,
+    jobs: [
+      {
+        workflowFile: '.github/workflows/ci.yml',
+        workflow: 'CI',
+        jobId: '--secret',
+        job: 'Malicioso',
+        events: ['pull_request'],
+      },
+      {
+        workflowFile: '.github/workflows/security.yml',
+        workflow: 'Security',
+        jobId: 'scan',
+        job: 'Scan',
+        events: ['--secret', 'workflow_dispatch'],
+      },
+    ],
+  });
+
+  assert.deepEqual(result.jobs, [
+    {
+      workflowFile: '.github/workflows/security.yml',
+      workflow: 'Security',
+      jobId: 'scan',
+      job: 'Scan',
+      events: ['workflow_dispatch'],
+    },
+  ]);
 });
 
 test('não constrói execução quando act ou Docker estão indisponíveis', () => {
@@ -108,4 +140,5 @@ test('listagem usa somente workflow relativo conhecido pela convenção GitHub',
     args: ['--list', '--workflows', '.github/workflows/security.yaml'],
   });
   assert.throws(() => buildActListCommand('/tmp/ci.yml'), /Workflow fora/);
+  assert.throws(() => buildActListCommand('C:\\tmp\\ci.yml'), /Workflow fora/);
 });
