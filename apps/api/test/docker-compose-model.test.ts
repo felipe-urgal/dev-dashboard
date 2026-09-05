@@ -114,14 +114,44 @@ test('normaliza ps com state, health, exit code e publishers estruturados', () =
   assert.equal(JSON.stringify(result).includes('0.0.0.0'), false);
 });
 
-test('estado externo desconhecido permanece unknown em vez de falso running', () => {
+test('estado, health e protocolo desconhecidos permanecem unknown', () => {
   const result = parseComposePs(
-    [{ Service: 'worker', State: 'mystery', Health: 'mystery', Publishers: [] }],
+    [
+      {
+        Service: 'worker',
+        State: 'mystery',
+        Health: 'mystery',
+        Publishers: [
+          { TargetPort: 9000, PublishedPort: 9001, Protocol: 'sctp' },
+        ],
+      },
+    ],
     OBSERVED_AT,
   );
 
   assert.equal(result.services[0]?.state, 'unknown');
   assert.equal(result.services[0]?.health, 'unknown');
+  assert.equal(result.services[0]?.ports[0]?.protocol, 'unknown');
+});
+
+test('listas vindas do provider são bounded', () => {
+  const result = parseComposeConfig(
+    {
+      services: {
+        api: {
+          profiles: Array.from({ length: 200 }, (_, index) => `profile-${index}`),
+          depends_on: Object.fromEntries(
+            Array.from({ length: 200 }, (_, index) => [`service-${index}`, {}]),
+          ),
+        },
+      },
+    },
+    'project-1',
+    OBSERVED_AT,
+  );
+
+  assert.equal(result.services[0]?.profiles.length, 128);
+  assert.equal(result.services[0]?.dependsOn.length, 128);
 });
 
 test('comandos de inspeção são fixos e somente leitura', () => {
