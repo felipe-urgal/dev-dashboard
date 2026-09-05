@@ -8,6 +8,7 @@ Agentes de IA devem usar [`AGENTS.md`](AGENTS.md) como referência canônica de 
 
 Leia:
 
+- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md);
 - [`docs/index.md`](docs/index.md);
 - [`docs/architecture/overview.md`](docs/architecture/overview.md);
 - [`docs/architecture/security.md`](docs/architecture/security.md);
@@ -23,7 +24,7 @@ Se a mudança tocar produção, leia também:
 Prepare o ambiente:
 
 ```bash
-npm install
+npm ci
 npm run doctor
 npm run dev
 ```
@@ -88,9 +89,7 @@ Se o trabalho partiu de plano antigo, confirme no código o comportamento atual 
 ### Checklist sugerido
 
 - [ ] escopo coerente;
-- [ ] lint;
-- [ ] testes relevantes;
-- [ ] build;
+- [ ] `npm run check`;
 - [ ] verificações adicionais proporcionais ao risco (`typecheck`, format, CLI, E2E, coverage);
 - [ ] API docs regeneradas quando necessário;
 - [ ] documentação viva atualizada;
@@ -185,12 +184,10 @@ Indicador de atividade só anima durante trabalho real.
 A validação padrão antes de um PR é:
 
 ```bash
-npm run lint
-npm test
-npm run build
+npm run check
 ```
 
-`npm test` executa as suítes funcionais sem coletar coverage. Isso mantém o feedback rápido e evita transformar percentual em objetivo de desenvolvimento.
+O gate canônico executa `lint -> test -> build:apps`, a mesma interface usada pelo CI após a preparação nativa. `npm test` executa as suítes funcionais sem coletar coverage.
 
 Use comandos adicionais quando o risco justificar:
 
