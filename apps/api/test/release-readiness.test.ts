@@ -98,10 +98,10 @@ test('Git dirty, ahead, behind ou divergente bloqueia readiness', () => {
 });
 
 test('Git sem upstream não produz falso pass de sincronização', () => {
-  const result = evaluateGitReadiness(
-    git({ upstream: undefined }),
-    '2026-09-05T18:00:00.000Z',
-  );
+  const overview = git();
+  delete overview.upstream;
+
+  const result = evaluateGitReadiness(overview, '2026-09-05T18:00:00.000Z');
 
   assert.equal(result.state, 'unknown');
   assert.match(result.evidence, /não é possível provar sincronização remota/);
