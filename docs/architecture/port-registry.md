@@ -27,7 +27,9 @@ Não se converte uma fonte na outra por heurística. Em especial, nome de proces
 
 Reservas com `role` são reconciliadas pela identidade `projectId + role`. Uma reserva `home-music/api`, por exemplo, não é considerada pertencente a uma declaration `home-music/web` apenas porque compartilha o mesmo projeto. Reservas do projeto sem `role` continuam valendo no escopo do owner inteiro.
 
-O serviço não executa shell, não consulta processos e não mata nada. O Port Inspector continuará responsável pela observação do host; uma integração posterior deve apenas adaptar sua saída para `ObservedPort` e apresentar owner esperado versus atual na tela existente.
+O serviço não executa shell, não consulta processos e não mata nada. O Port Inspector permanece responsável pela observação do host e adapta somente evidência já validada pelo Process Manager: server settings conhecidos viram `DeclaredProjectPort`, processos gerenciados associados por PID viram `ObservedPort` com owner de projeto e sockets sem associação verificável continuam com owner `unknown`.
+
+A resposta pública de `GET /api/ports` continua compatível neste recorte. A integração usa a reconciliação canônica internamente para decidir `conflict` e usa o allocator canônico para `suggestedPort`; não foi criada uma segunda tela nem uma segunda heurística de colisão.
 
 ## Allocator
 
@@ -43,12 +45,15 @@ O serviço não executa shell, não consulta processos e não mata nada. O Port 
 
 Essa distinção impede que dois serviços do mesmo projeto — por exemplo `web` e `api` — sejam alocados na mesma porta só porque compartilham `projectId`.
 
+No Port Inspector, a sugestão de uma porta alternativa agora passa pelo mesmo allocator. Isso significa que uma porta livre, mas já declarada por outro projeto, também é pulada — comportamento que a antiga busca baseada apenas em sockets ocupados não conseguia garantir.
+
 O allocator apenas **sugere** uma porta. Ele não edita `.env`, Compose, scripts ou configuração do projeto e ainda não persiste a decisão. Reserva transacional/lifecycle para ambientes paralelos deve ser adicionada quando existir um consumidor real (#570/#588/#592), evitando uma persistência abstrata sem owner definido.
 
 ## Segurança e próximos passos
 
 - nenhuma resolução automática usa `kill`;
 - `reserved` não autoriza firewall/network mutation;
-- associações de processo/projeto devem vir de evidência verificável do Process Manager/Inspector;
-- import/export de configuração e integração visual ficam na issue #597 até terem contrato de ownership estável;
-- API/rotas não foram adicionadas neste primeiro recorte, portanto não existe superfície remota nova para proteger.
+- associações de processo/projeto continuam vindo de evidência verificável do Process Manager/Inspector;
+- sockets sem processo gerenciado não ganham ownership de projeto pelo nome do executável;
+- import/export de configuração e exposição visual completa da reconciliação permanecem na issue #597 até terem contrato de ownership estável;
+- este recorte não adiciona rota nem altera schema HTTP, portanto não cria superfície remota nova para proteger.
