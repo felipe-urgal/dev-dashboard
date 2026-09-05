@@ -17,7 +17,9 @@ Local CI usa `act` como provider opcional para reproduzir jobs do GitHub Actions
 
 `apps/api/src/services/local-ci-act.ts` estabelece o contrato interno de catálogo e a construção segura das intenções do provider.
 
-Workflows aceitos precisam estar sob `.github/workflows/` e terminar em `.yml` ou `.yaml`. A execução de um job só pode ser construída se a combinação workflow/job/evento já existir no catálogo fornecido pelo discovery.
+Workflows aceitos precisam estar sob `.github/workflows/` e terminar em `.yml` ou `.yaml`. Paths absolutos, paths que escapam do diretório permitido e paths excessivamente longos são rejeitados. A execução de um job só pode ser construída se a combinação workflow/job/evento já existir no catálogo fornecido pelo discovery.
+
+Job IDs e eventos usam tokens conservadores que não começam com `-`, impedindo que conteúdo do catálogo vire opção do CLI. Labels e versões são bounded; o catálogo retém no máximo 512 jobs e 64 eventos por job. A normalização monta o objeto final por allowlist, sem copiar propriedades externas extras por `spread`.
 
 O argv de execução é limitado à forma:
 
