@@ -241,11 +241,61 @@ const containerProvider: ProjectProfileProvider = {
   },
 };
 
+const ciProvider: ProjectProfileProvider = {
+  id: 'ci',
+  async detect(context) {
+    const detected: DetectedCapability[] = [];
+    if (await exists(context.projectPath, '.github/workflows')) {
+      detected.push(
+        capability('ci/github-actions', this.id, [
+          { kind: 'config', source: '.github/workflows' },
+        ]),
+      );
+    }
+    if (await exists(context.projectPath, '.gitlab-ci.yml')) {
+      detected.push(
+        capability('ci/gitlab', this.id, [
+          { kind: 'file', source: '.gitlab-ci.yml' },
+        ]),
+      );
+    }
+    return detected;
+  },
+};
+
+const environmentProvider: ProjectProfileProvider = {
+  id: 'environment',
+  async detect(context) {
+    const files = [
+      '.env.example',
+      '.env.sample',
+      '.env.development.example',
+      '.env.test.example',
+      '.env.production.example',
+      '.env.docker.example',
+    ];
+    const evidence: DetectionEvidence[] = [];
+    for (const file of files) {
+      if (await exists(context.projectPath, file)) {
+        evidence.push({ kind: 'file', source: file });
+      }
+    }
+    if (evidence.length === 0) return [];
+    return [
+      capability('environment/contract-files', this.id, evidence, {
+        files: evidence.map((entry) => entry.source),
+      }),
+    ];
+  },
+};
+
 export const DEFAULT_PROJECT_PROFILE_PROVIDERS: readonly ProjectProfileProvider[] = [
   runtimeProvider,
   packageManagerProvider,
   frameworkProvider,
   containerProvider,
+  ciProvider,
+  environmentProvider,
 ];
 
 export async function detectProjectProfile(
