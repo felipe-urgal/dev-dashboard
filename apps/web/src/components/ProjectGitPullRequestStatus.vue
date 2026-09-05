@@ -37,7 +37,9 @@ const checkLabels: Record<GitPullRequestCiStatus, string> = {
   unknown: 'Desconhecido',
 };
 
-function remoteStatusLabel(status: NonNullable<typeof cockpit.value>['remoteStatus']): string {
+function remoteStatusLabel(
+  status: NonNullable<typeof cockpit.value>['remoteStatus'],
+): string {
   switch (status) {
     case 'unauthenticated':
       return 'GitHub sem autenticação para carregar os detalhes remotos.';
@@ -90,7 +92,9 @@ function remoteStatusLabel(status: NonNullable<typeof cockpit.value>['remoteStat
           <dl class="git-pr-cockpit-facts">
             <div v-if="cockpit.headSha">
               <dt>Head</dt>
-              <dd><code>{{ cockpit.headSha.slice(0, 8) }}</code></dd>
+              <dd>
+                <code>{{ cockpit.headSha.slice(0, 8) }}</code>
+              </dd>
             </div>
             <div>
               <dt>Estado</dt>
@@ -122,7 +126,10 @@ function remoteStatusLabel(status: NonNullable<typeof cockpit.value>['remoteStat
           </p>
 
           <ul v-if="cockpit.checks.length > 0" class="git-pr-cockpit-checks">
-            <li v-for="check in cockpit.checks" :key="`${check.name}:${check.detailsUrl ?? ''}`">
+            <li
+              v-for="check in cockpit.checks"
+              :key="`${check.name}:${check.detailsUrl ?? ''}`"
+            >
               <span
                 class="git-pr-check-state"
                 :class="`git-pr-check-state-${check.status}`"
@@ -223,7 +230,8 @@ function remoteStatusLabel(status: NonNullable<typeof cockpit.value>['remoteStat
   gap: var(--space-2);
   margin-top: var(--space-2);
   padding-top: var(--space-2);
-  border-top: 1px solid color-mix(in srgb, var(--success-text) 18%, var(--border));
+  border-top: 1px solid
+    color-mix(in srgb, var(--success-text) 18%, var(--border));
   color: var(--text);
 }
 

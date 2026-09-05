@@ -6,7 +6,9 @@ import type { GitOpenPullRequest } from '@dev-dashboard/contracts';
 
 import ProjectGitPullRequestStatus from '../src/components/ProjectGitPullRequestStatus.vue';
 
-function pullRequest(overrides: Partial<GitOpenPullRequest> = {}): GitOpenPullRequest {
+function pullRequest(
+  overrides: Partial<GitOpenPullRequest> = {},
+): GitOpenPullRequest {
   return {
     provider: 'github',
     number: 604,
@@ -38,7 +40,8 @@ test('mostra estado remoto, review, mergeability e checks do cockpit existente',
             {
               name: 'Validate',
               status: 'success',
-              detailsUrl: 'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
+              detailsUrl:
+                'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
             },
             { name: 'Security', status: 'pending' },
           ],

@@ -6,6 +6,8 @@ import type { TestExecutionEvent } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../../http/api-error.js';
 import type { ProjectStore } from '../../store/project-store.js';
+import type { ProjectCoverageHistoryService } from '../../services/project-coverage-history-service.js';
+import type { ProjectCoverageService } from '../../services/project-coverage-service.js';
 import type { ProjectTestPtyService } from '../../services/project-test-pty-service.js';
 import {
   TestFileError,
@@ -49,6 +51,8 @@ export interface TestRouteOptions {
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   projectTestPtyService: ProjectTestPtyService;
+  projectCoverageService?: ProjectCoverageService;
+  projectCoverageHistoryService?: ProjectCoverageHistoryService;
 }
 
 export const projectParamsSchema = {

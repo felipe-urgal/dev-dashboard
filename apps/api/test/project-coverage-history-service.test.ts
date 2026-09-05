@@ -59,7 +59,7 @@ test('record() ignora relatórios indisponíveis ou sem generatedAt', async () =
   });
 });
 
-test('record() grava um snapshot com só os totais agregados', async () => {
+test('record() grava um snapshot com os totais agregados', async () => {
   await withTempStateDir(async (stateDirectory) => {
     const service = new ProjectCoverageHistoryService(stateDirectory);
     await service.record('p1', makeSummary());
@@ -70,6 +70,40 @@ test('record() grava um snapshot com só os totais agregados', async () => {
     assert.deepEqual(history.items[0]!.total, makeSummary().total);
     assert.ok(history.items[0]!.id);
     assert.ok(history.items[0]!.recordedAt);
+  });
+});
+
+test('record() persiste arquivos e identidade Git quando disponíveis', async () => {
+  await withTempStateDir(async (stateDirectory) => {
+    const service = new ProjectCoverageHistoryService(
+      stateDirectory,
+      50,
+      async (projectPath) => {
+        assert.equal(projectPath, '/workspace/sample');
+        return {
+          gitRevision: 'abc123',
+          gitDirtyFingerprint: 'clean',
+        };
+      },
+    );
+    const file = {
+      path: 'src/auth.ts',
+      statements: { total: 10, covered: 8, pct: 80 },
+      branches: { total: 4, covered: 2, pct: 50 },
+      functions: { total: 2, covered: 2, pct: 100 },
+      lines: { total: 10, covered: 8, pct: 80 },
+    };
+
+    await service.record(
+      'p1',
+      makeSummary({ files: [file] }),
+      '/workspace/sample',
+    );
+
+    const history = await service.history('p1');
+    assert.equal(history.items[0]!.gitRevision, 'abc123');
+    assert.equal(history.items[0]!.gitDirtyFingerprint, 'clean');
+    assert.deepEqual(history.items[0]!.files, [file]);
   });
 });
 

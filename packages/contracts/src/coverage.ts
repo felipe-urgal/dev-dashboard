@@ -27,6 +27,10 @@ export interface ProjectCoverageHistoryEntry {
   generatedAt: string;
   recordedAt: string;
   total: ProjectCoverageTotals;
+  files?: ProjectCoverageFileSummary[];
+  gitRevision?: string;
+  gitDirtyFingerprint?: string;
+  environmentInstanceId?: string;
 }
 
 export interface ProjectCoverageHistory {

@@ -72,6 +72,9 @@ test('mantém falha do contrato isolada da leitura tradicional de arquivos', () 
   });
 
   assert.match(wrapper.text(), /contrato não pôde ser carregado/i);
-  assert.match(wrapper.text(), /leitura dos arquivos abaixo continua disponível/i);
+  assert.match(
+    wrapper.text(),
+    /leitura dos arquivos abaixo continua disponível/i,
+  );
   assert.doesNotMatch(wrapper.text(), /detalhe interno/);
 });

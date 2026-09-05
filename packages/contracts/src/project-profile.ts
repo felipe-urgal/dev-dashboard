@@ -32,7 +32,5 @@ export interface ProjectProfileProviderContext {
 
 export interface ProjectProfileProvider {
   id: string;
-  detect(
-    context: ProjectProfileProviderContext,
-  ): Promise<DetectedCapability[]>;
+  detect(context: ProjectProfileProviderContext): Promise<DetectedCapability[]>;
 }
