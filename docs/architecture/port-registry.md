@@ -1,6 +1,6 @@
 # Port Registry e Allocator
 
-O Port Registry complementa o `PortInspectorService`. O Inspector responde ao estado **observed** da máquina; o registry modela também o que foi **reserved** e **declared** para permitir reconciliação explícita antes de futuras integrações com Compose, Worktrees e Stacks.
+O Port Registry complementa o `PortInspectorService`. O Inspector responde ao estado **observed** da máquina; o Registry modela também o que foi **reserved** e **declared** para permitir reconciliação explícita entre projetos, infraestrutura, Compose, Worktrees e Stacks.
 
 ## Fontes separadas
 
@@ -14,7 +14,7 @@ Não se converte uma fonte na outra por heurística. Em especial, nome de proces
 
 ## Reconciliação
 
-`apps/api/src/services/port-registry-service.ts` é uma regra pura: recebe snapshots das três fontes e produz estados explícitos:
+`apps/api/src/services/port-registry-service.ts` é a regra canônica: recebe snapshots das três fontes e produz estados explícitos:
 
 - `available`;
 - `expected`;
@@ -29,9 +29,24 @@ Reservas com `role` são reconciliadas pela identidade `projectId + role`. Uma r
 
 O serviço não executa shell, não consulta processos e não mata nada. O Port Inspector permanece responsável pela observação do host e adapta somente evidência já validada pelo Process Manager: server settings conhecidos viram `DeclaredProjectPort`, processos gerenciados associados por PID viram `ObservedPort` com owner de projeto e sockets sem associação verificável continuam com owner `unknown`.
 
-A resposta pública de `GET /api/ports` continua compatível neste recorte. A integração usa a reconciliação canônica internamente para decidir `conflict` e usa o allocator canônico para `suggestedPort`; não foi criada uma segunda tela nem uma segunda heurística de colisão.
+A resposta pública de `GET /api/ports` continua compatível. A integração usa a reconciliação canônica internamente para decidir `conflict` e usa o allocator canônico para `suggestedPort`; não foi criada uma segunda tela nem uma segunda heurística de colisão.
 
-## Allocator
+O Inspector também aceita `reservedPorts` e `declaredPorts` adicionais. Isso permite que configuração importada, Project Profile e providers como Compose usem o mesmo pipeline. Uma porta pode estar sem socket e ainda assim ser conflito quando estiver reservada para outro owner; nesse caso o Inspector mantém `state=available` como observação física, marca `conflict=true` e sugere a próxima porta realmente alocável.
+
+## Docker Compose
+
+O Registry não implementa parser YAML e não chama Docker. `declaredPortsFromResolvedCompose` recebe somente a projeção mínima de portas **já resolvidas** pelo provider que usa `docker compose config --format json` (#588): serviço + porta publicada.
+
+Cada porta resolvida vira `DeclaredProjectPort` com:
+
+- `projectId` do projeto Compose;
+- `role` igual ao nome do serviço;
+- `source=compose`;
+- `confidence=certain`.
+
+Entradas inválidas e duplicatas idênticas são descartadas de forma determinística. Conflitos entre um serviço Compose e uma reserva/declaração de outro owner são então tratados pela mesma reconciliação do restante do produto.
+
+## Allocator puro
 
 `allocatePort` é determinístico e trabalha sobre o mesmo snapshot. Ele:
 
@@ -45,15 +60,49 @@ A resposta pública de `GET /api/ports` continua compatível neste recorte. A in
 
 Essa distinção impede que dois serviços do mesmo projeto — por exemplo `web` e `api` — sejam alocados na mesma porta só porque compartilham `projectId`.
 
-No Port Inspector, a sugestão de uma porta alternativa agora passa pelo mesmo allocator. Isso significa que uma porta livre, mas já declarada por outro projeto, também é pulada — comportamento que a antiga busca baseada apenas em sockets ocupados não conseguia garantir.
+No Port Inspector, a sugestão de uma porta alternativa passa pelo mesmo allocator. Uma porta livre, mas já declarada ou reservada por outro owner, também é pulada.
 
-O allocator apenas **sugere** uma porta. Ele não edita `.env`, Compose, scripts ou configuração do projeto e ainda não persiste a decisão. Reserva transacional/lifecycle para ambientes paralelos deve ser adicionada quando existir um consumidor real (#570/#588/#592), evitando uma persistência abstrata sem owner definido.
+## Lease local antes de iniciar processos
 
-## Segurança e próximos passos
+Uma sugestão pura não é suficiente quando dois ambientes são criados quase ao mesmo tempo. `PortAllocationLeaseRegistry` adiciona uma etapa process-local de **escolher + registrar** sem `await` entre as operações.
+
+O contrato `PortAllocationLeaseRequest` exige:
+
+- `leaseId` estável do ambiente/decisão;
+- `projectId`;
+- `role`;
+- porta preferida/janela herdadas de `PortAllocationRequest`.
+
+Enquanto um lease estiver ativo, sua porta é considerada indisponível para todos os outros leases, inclusive outro worktree do mesmo projeto. Repetir o mesmo `leaseId + projectId + role` é idempotente; reutilizar o mesmo `leaseId` com outro owner/role falha; o lifecycle consumidor chama `release` quando deixa de precisar da reserva.
+
+Essa API é reutilizável diretamente por Worktrees (#570), Stacks (#592) e Compose (#588). Ela reduz race conditions dentro da instância da API, mas **não é um lock distribuído** e não sobrevive a restart. Persistência/distribuição só deve ser adicionada se existir um lifecycle multi-processo real que consiga liberar reservas de forma segura.
+
+## Import e export de configuração
+
+`PortRegistryConfiguration` é um formato versionado (`version=1`) com:
+
+- `reserved`;
+- `declared`;
+- `ignoredProjectPaths` opcional para transportar, no mesmo setup de workspace, as regras de ignore já pertencentes ao discovery.
+
+`port-registry-configuration.ts` fornece codec JSON de import/export com:
+
+- limite de tamanho e de quantidade de entradas;
+- enums fechados para scope/source/confidence;
+- validação de portas e campos textuais;
+- saída ordenada e determinística;
+- deduplicação apenas de `ignoredProjectPaths` — declarações de porta duplicadas são preservadas para a reconciliação diagnosticá-las.
+
+O Registry deliberadamente **não escolhe um path de arquivo**. Persistência/localização pertencem ao Workspace/Profile, evitando paths hardcoded e evitando que o domínio de portas passe a reimplementar regras de project discovery. O codec pode ser usado por import/export de workspace, arquivo configurado pelo usuário ou outra superfície sem mudar o contrato interno.
+
+## Segurança e limites
 
 - nenhuma resolução automática usa `kill`;
 - `reserved` não autoriza firewall/network mutation;
 - associações de processo/projeto continuam vindo de evidência verificável do Process Manager/Inspector;
 - sockets sem processo gerenciado não ganham ownership de projeto pelo nome do executável;
-- import/export de configuração e exposição visual completa da reconciliação permanecem na issue #597 até terem contrato de ownership estável;
-- este recorte não adiciona rota nem altera schema HTTP, portanto não cria superfície remota nova para proteger.
+- o adapter Compose recebe modelo resolvido e nunca lê environment/secrets;
+- import não executa conteúdo e descarta campos desconhecidos em vez de promovê-los a evidência;
+- leases são process-local e exigem owner/lifecycle explícitos;
+- a configuração transporta regras de ignore sem interpretá-las, preservando a separação com `project-discovery`;
+- este recorte não altera o schema HTTP de `/api/ports`.
