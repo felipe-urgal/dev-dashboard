@@ -9,6 +9,7 @@ import type {
   LocalPortInspection,
   ManagedProcess,
   ObservedPort,
+  ReservedPort,
 } from '@dev-dashboard/contracts';
 
 import { allocatePort, reconcilePorts } from './port-registry-service.js';
@@ -46,6 +47,10 @@ export interface InspectLocalPortsInput {
   managedProcesses?: readonly ManagedProcess[];
   expectedPorts?: readonly ExpectedLocalPort[];
   projectNames?: Readonly<Record<string, string>>;
+  /** Reservas globais/importadas que devem participar da reconciliação. */
+  reservedPorts?: readonly ReservedPort[];
+  /** Declarações adicionais vindas de Compose/Profile/configuração importada. */
+  declaredPorts?: readonly DeclaredProjectPort[];
 }
 
 export interface PortInspectorServiceOptions {
@@ -366,13 +371,18 @@ export class PortInspectorService {
     const expectedPorts = input.expectedPorts ?? [];
     const projectNames = input.projectNames ?? {};
     const expectations = groupExpectations(expectedPorts);
-    const declarations = declaredPorts(expectedPorts);
+    const declarations = [
+      ...declaredPorts(expectedPorts),
+      ...(input.declaredPorts ?? []),
+    ];
+    const reservations = input.reservedPorts ?? [];
     const observedSockets: ObservedSocket[] = sockets.map((socket) => ({
       socket,
       managed: chooseManagedProcess(socket, managedProcesses),
     }));
     const observations = observedPorts(observedSockets);
     const reconciliation = reconcilePorts({
+      reserved: reservations,
       declared: declarations,
       observed: observations,
     });
@@ -393,7 +403,11 @@ export class PortInspectorService {
       const allocation =
         conflict && expectedOwner
           ? allocatePort(
-              { declared: declarations, observed: observations },
+              {
+                reserved: reservations,
+                declared: declarations,
+                observed: observations,
+              },
               {
                 preferredPort: socket.port,
                 projectId: expectedOwner.projectId,
