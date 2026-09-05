@@ -55,8 +55,23 @@ A janela de freshness é fornecida pelo consumidor da regra. O núcleo não inve
 
 Cada check preserva evidência, timestamp e uma ação de navegação. O serviço não executa a ação.
 
-## Limites deste recorte
+## Segundo recorte: agregação das fontes reais
 
-Este primeiro slice estabelece contrato e regras testáveis sem UI/HTTP. Ainda não inclui migrations, Production Contract, CI remoto nem uma tela dedicada. Essas fontes entram incrementalmente sem alterar a semântica dos estados acima.
+`ReleaseReadinessService` conecta o núcleo às fontes já existentes do backend:
+
+- `GitService.getOverview()`;
+- `TestExecutionHistoryService.history()`;
+- `captureTestExecutionGitIdentity()`;
+- `ProjectDoctorService.getReport()`.
+
+As quatro consultas são independentes e uma indisponibilidade não apaga as demais evidências. Se Git, histórico ou Doctor falhar, somente o check correspondente fica `unknown`. Falha ao capturar revisão/fingerprint atual também mantém Testes em `unknown`; uma execução verde antiga nunca é promovida por fallback.
+
+A janela de freshness continua sendo fornecida pelo consumidor em `testMaxAgeMs` e precisa ser positiva. O serviço não escolhe silenciosamente uma política global.
+
+Este recorte ainda não cria rota HTTP nem UI. A fronteira de agregação fica testável isoladamente antes de expor um contrato público.
+
+## Limites atuais
+
+Ainda não inclui migrations, Production Contract, CI remoto nem uma tela dedicada. Essas fontes entram incrementalmente sem alterar a semântica dos estados acima.
 
 Falha ou ausência de uma fonte deve continuar produzindo `unknown` para aquela regra, e nunca um falso `pass`.
