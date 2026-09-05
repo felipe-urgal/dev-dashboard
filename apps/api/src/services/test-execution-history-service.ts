@@ -8,11 +8,12 @@ import type {
   TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
+  TestExecutionScope,
   TestExecutionStatus,
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
 
-const HISTORY_VERSION = 1;
+const HISTORY_VERSION = 2;
 const DEFAULT_HISTORY_LIMIT = 50;
 const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'starting',
@@ -43,12 +44,16 @@ export interface TestExecutionSubscriber {
   close: () => void;
 }
 
+type StoredTestExecutionRecord = Omit<TestExecutionRecord, 'scope'> & {
+  scope?: TestExecutionScope;
+};
+
 interface StoredHistory {
-  version: 1;
-  items: TestExecutionRecord[];
+  version: 1 | 2;
+  items: StoredTestExecutionRecord[];
 }
 
-function isValidRecord(value: unknown): value is TestExecutionRecord {
+function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
   return (
@@ -58,6 +63,9 @@ function isValidRecord(value: unknown): value is TestExecutionRecord {
     item.projectId.length > 0 &&
     typeof item.commandId === 'string' &&
     item.commandId.length > 0 &&
+    (item.scope === undefined ||
+      item.scope === 'full-suite' ||
+      item.scope === 'targeted') &&
     (item.targetFile === undefined || typeof item.targetFile === 'string') &&
     ['starting', 'running', 'stopping', 'stopped', 'failed'].includes(
       String(item.status),
@@ -69,6 +77,13 @@ function isValidRecord(value: unknown): value is TestExecutionRecord {
         Number.isFinite(Date.parse(item.finishedAt)))) &&
     (item.exitCode === undefined || Number.isInteger(item.exitCode))
   );
+}
+
+function normalizeRecord(record: StoredTestExecutionRecord): TestExecutionRecord {
+  return {
+    ...record,
+    scope: record.scope ?? (record.targetFile ? 'targeted' : 'full-suite'),
+  };
 }
 
 function deriveTarget(managedProcess: ManagedProcess): {
@@ -299,6 +314,7 @@ export class TestExecutionHistoryService {
       id: randomUUID(),
       projectId,
       commandId,
+      scope: targetFile ? 'targeted' : 'full-suite',
       ...(targetFile ? { targetFile } : {}),
       status: managedProcess.status,
       startedAt: managedProcess.startedAt ?? new Date().toISOString(),
@@ -346,9 +362,13 @@ export class TestExecutionHistoryService {
     try {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
-      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.items))
+      if (
+        (parsed.version !== 1 && parsed.version !== HISTORY_VERSION) ||
+        !Array.isArray(parsed.items)
+      ) {
         return [];
-      return parsed.items.filter(isValidRecord);
+      }
+      return parsed.items.filter(isValidRecord).map(normalizeRecord);
     } catch {
       return [];
     }
