@@ -21,6 +21,7 @@ function git(input: Partial<ProjectGitOverview> = {}): ProjectGitOverview {
     repository: true,
     branch: 'feature/example',
     detached: false,
+    upstream: 'origin/feature/example',
     ahead: 0,
     behind: 0,
     clean: true,
@@ -57,9 +58,26 @@ function doctor(
   };
 }
 
-test('Git dirty ou atrás bloqueia readiness sem autorizar mutação', () => {
+test('Git dirty, ahead, behind ou divergente bloqueia readiness', () => {
   assert.equal(
-    evaluateGitReadiness(git({ clean: false, files: [{} as never] }), '2026-09-05T18:00:00.000Z').state,
+    evaluateGitReadiness(
+      git({
+        clean: false,
+        files: [
+          {
+            path: 'src/example.ts',
+            indexStatus: ' ',
+            worktreeStatus: 'M',
+            status: 'modified',
+          },
+        ],
+      }),
+      '2026-09-05T18:00:00.000Z',
+    ).state,
+    'block',
+  );
+  assert.equal(
+    evaluateGitReadiness(git({ ahead: 1 }), '2026-09-05T18:00:00.000Z').state,
     'block',
   );
   assert.equal(
@@ -67,9 +85,26 @@ test('Git dirty ou atrás bloqueia readiness sem autorizar mutação', () => {
     'block',
   );
   assert.equal(
+    evaluateGitReadiness(
+      git({ ahead: 1, behind: 2 }),
+      '2026-09-05T18:00:00.000Z',
+    ).state,
+    'block',
+  );
+  assert.equal(
     evaluateGitReadiness(git(), '2026-09-05T18:00:00.000Z').state,
     'pass',
   );
+});
+
+test('Git sem upstream não produz falso pass de sincronização', () => {
+  const result = evaluateGitReadiness(
+    git({ upstream: undefined }),
+    '2026-09-05T18:00:00.000Z',
+  );
+
+  assert.equal(result.state, 'unknown');
+  assert.match(result.evidence, /não é possível provar sincronização remota/);
 });
 
 test('execução targeted nunca comprova suíte completa', () => {
