@@ -75,6 +75,16 @@ export interface TestExecutionRecord {
    */
   scope?: TestExecutionScope;
   targetFile?: string;
+  /** Commit HEAD capturado no início da execução, quando o projeto é Git. */
+  gitRevision?: string;
+  /**
+   * `clean` para working tree limpo ou SHA-256 do estado dirty capturado no
+   * início. Ausente significa que não houve evidência suficiente para comparar
+   * o working tree com segurança.
+   */
+  gitDirtyFingerprint?: string;
+  /** Reservado para a identidade explícita de Environment Instance (#598). */
+  environmentInstanceId?: string;
   status: TestExecutionStatus;
   startedAt: string;
   finishedAt?: string;
