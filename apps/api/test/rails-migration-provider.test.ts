@@ -73,6 +73,26 @@ test('falha da inspeção vira unavailable e nunca falso up-to-date', async () =
   assert.match(result.warnings[0] ?? '', /não equivale a zero migrations pendentes/);
 });
 
+test('identidade de banco inválida não é ecoada nem repassada ao inspector', async () => {
+  let inspectedDatabase = '';
+  const instance = new RailsMigrationProvider({
+    async getMigrationsOverview(_project, database) {
+      inspectedDatabase = database ?? '';
+      return { supported: true, databases: ['primary'], migrations: [] };
+    },
+  });
+
+  const result = await instance.inspect({
+    project: project(),
+    database: '../../DATABASE_URL=secret',
+    now: () => NOW,
+  });
+
+  assert.equal(inspectedDatabase, 'primary');
+  assert.equal(result.database, 'primary');
+  assert.equal(JSON.stringify(result).includes('DATABASE_URL'), false);
+});
+
 test('provider Rails declara suporte somente para projeto Rails', async () => {
   const instance = provider({ supported: true, databases: ['primary'], migrations: [] });
 
