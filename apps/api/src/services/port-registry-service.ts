@@ -54,10 +54,14 @@ function chooseState(
   }
 
   if (activeDeclarations.length > 0) {
-    const declaredOwners = new Set(activeDeclarations.map((item) => item.projectId));
-    const reservedByOther = reserved.some(
-      (reservation) => !reservation.owner || !declaredOwners.has(reservation.owner),
-    );
+    const reservedByOther = reserved.some((reservation) => {
+      if (!reservation.owner) return true;
+      return !activeDeclarations.some(
+        (declaration) =>
+          declaration.projectId === reservation.owner &&
+          (reservation.role === undefined || declaration.role === reservation.role),
+      );
+    });
     if (reservedByOther) {
       return {
         state: 'reserved-by-other',
