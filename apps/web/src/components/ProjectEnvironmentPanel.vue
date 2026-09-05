@@ -4,14 +4,17 @@ import { watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { Project } from '@dev-dashboard/contracts';
 
+import { useProjectEnvironmentContract } from '../composables/useProjectEnvironmentContract';
 import { useProjectEnvironmentVariables } from '../composables/useProjectEnvironmentVariables';
 import LoadingSkeleton from './LoadingSkeleton.vue';
 import Card from './Card.vue';
+import ProjectEnvironmentContractSummary from './ProjectEnvironmentContractSummary.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
 const environment = useProjectEnvironmentVariables(() => props.project);
+const contract = useProjectEnvironmentContract(() => props.project);
 
 watch(environment.errorMessage, (value) => {
   if (!value) return;
@@ -22,8 +25,14 @@ watch(environment.errorMessage, (value) => {
 <template>
   <section
     class="project-environment-panel"
-    :aria-busy="environment.loading.value"
+    :aria-busy="environment.loading.value || contract.loading.value"
   >
+    <ProjectEnvironmentContractSummary
+      :contract="contract.contract.value"
+      :loading="contract.loading.value"
+      :error-message="contract.errorMessage.value"
+    />
+
     <LoadingSkeleton
       v-if="environment.loading.value && !environment.overview.value"
       label="Carregando variáveis de ambiente…"
