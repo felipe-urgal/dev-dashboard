@@ -15,7 +15,7 @@ Permitir que a interface responda, sem reinterpretar payloads do provedor:
 
 ## Contrato
 
-Os endpoints existentes de lookup/summary de Pull Request mantêm os campos anteriores e, para PRs GitHub que podem ser correlacionados, acrescentam `cockpit` ao `GitOpenPullRequest`.
+O endpoint `GET /api/projects/:projectId/git/pull-request-summary` reutiliza o lookup de PR aberta e enriquece `GitOpenPullRequest` com `cockpit`. O endpoint leve `pull-request-status` continua existindo para descoberta sem enriquecimento remoto.
 
 O bloco contém:
 
@@ -30,7 +30,9 @@ O `ciStatus` agregado anterior continua existindo para compatibilidade.
 
 ## Apresentação no fluxo de Pull Request
 
-A página de Pull Request reutiliza o mesmo lookup que já decide se existe PR aberta. Quando `cockpit` está disponível, o status do PR mostra no próprio card:
+A página de Pull Request mantém o helper `getProjectGitPullRequestStatus` por compatibilidade interna, mas esse helper delega ao endpoint `pull-request-summary`. Assim, o mesmo lookup que decide se existe PR aberta já retorna os detalhes do cockpit, sem uma segunda consulta.
+
+Quando `cockpit` está disponível, o status do PR mostra no próprio card:
 
 - SHA curto do head remoto;
 - draft/pronta para review;
