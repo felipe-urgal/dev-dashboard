@@ -147,31 +147,44 @@ export function allocatePort(
   input: ReconcilePortsInput,
   request: PortAllocationRequest,
 ): PortAllocationResult | null {
-  const preferredPort = Math.max(MIN_ALLOCATABLE_PORT, Math.trunc(request.preferredPort));
+  const preferredPort = Math.max(
+    MIN_ALLOCATABLE_PORT,
+    Math.trunc(request.preferredPort),
+  );
   if (!validPort(preferredPort)) return null;
 
   const requestedMax = request.maxPort ?? preferredPort + DEFAULT_ALLOCATION_WINDOW;
-  const maxPort = Math.min(MAX_PORT, Math.max(preferredPort, Math.trunc(requestedMax)));
+  const maxPort = Math.min(
+    MAX_PORT,
+    Math.max(preferredPort, Math.trunc(requestedMax)),
+  );
   const observedPorts = new Set(
-    (input.observed ?? []).filter((item) => validPort(item.port)).map((item) => item.port),
+    (input.observed ?? [])
+      .filter((item) => validPort(item.port))
+      .map((item) => item.port),
   );
 
   for (let port = preferredPort; port <= maxPort; port += 1) {
     if (observedPorts.has(port)) continue;
 
-    const reservedByOther = (input.reserved ?? []).some(
-      (item) =>
-        item.port === port &&
-        (!request.projectId || !item.owner || item.owner !== request.projectId),
-    );
+    const reservedByOther = (input.reserved ?? []).some((item) => {
+      if (item.port !== port) return false;
+      if (!request.projectId || !item.owner || item.owner !== request.projectId) {
+        return true;
+      }
+      return item.role !== undefined && item.role !== request.role;
+    });
     if (reservedByOther) continue;
 
-    const declaredByOther = (input.declared ?? []).some(
-      (item) =>
-        item.port === port &&
-        item.active !== false &&
-        (!request.projectId || item.projectId !== request.projectId),
-    );
+    const declaredByOther = (input.declared ?? []).some((item) => {
+      if (item.port !== port || item.active === false) return false;
+      return !(
+        request.projectId !== undefined &&
+        request.role !== undefined &&
+        item.projectId === request.projectId &&
+        item.role === request.role
+      );
+    });
     if (declaredByOther) continue;
 
     return {
