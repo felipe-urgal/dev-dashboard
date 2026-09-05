@@ -22,9 +22,12 @@ O núcleo puro em `apps/api/src/services/release-readiness.ts` normaliza três f
 ### Git
 
 - working tree dirty: `block`;
-- branch atrás da referência remota: `block`;
 - detached HEAD/branch desconhecida: `warning`;
-- branch limpa e sem commits remotos pendentes: `pass`.
+- branch sem upstream: `unknown`, porque `ahead=0/behind=0` sem referência remota não prova sincronização;
+- branch com commits locais ainda não publicados (`ahead > 0`): `block`;
+- branch atrás da referência remota (`behind > 0`): `block`;
+- branch divergente (`ahead > 0` e `behind > 0`): `block`;
+- `pass` somente quando há upstream conhecido, working tree limpa e `ahead=0/behind=0`.
 
 ### Testes
 
