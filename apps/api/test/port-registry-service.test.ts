@@ -104,7 +104,12 @@ test('allocator pula reserved, declared e observed e escolhe deterministicamente
   const result = allocatePort(
     {
       reserved: [
-        { port: 5_300, scope: 'user', owner: 'portfolio-copilot', role: 'web' },
+        {
+          port: 5_300,
+          scope: 'user',
+          owner: 'portfolio-copilot',
+          role: 'web',
+        },
       ],
       declared: [
         {
@@ -116,23 +121,63 @@ test('allocator pula reserved, declared e observed e escolhe deterministicamente
         },
       ],
       observed: [
-        { port: 5_302, owner: { kind: 'external', pid: 42, name: 'node' } },
+        {
+          port: 5_302,
+          owner: { kind: 'external', pid: 42, name: 'node' },
+        },
       ],
     },
-    { preferredPort: 5_300, maxPort: 5_304, projectId: 'novo-worktree', role: 'web' },
+    {
+      preferredPort: 5_300,
+      maxPort: 5_304,
+      projectId: 'novo-worktree',
+      role: 'web',
+    },
   );
 
   assert.equal(result?.port, 5_303);
   assert.match(result?.explanation ?? '', /primeira livre/);
 });
 
-test('allocator permite reserva/declaration do próprio projeto e nunca escolhe porta privilegiada', () => {
+test('allocator não reaproveita porta de outro role do mesmo projeto', () => {
+  const input = {
+    reserved: [
+      { port: 5_173, scope: 'user' as const, owner: 'home-music', role: 'web' },
+    ],
+    declared: [HOME_MUSIC_WEB],
+  };
+
+  const api = allocatePort(input, {
+    preferredPort: 5_173,
+    maxPort: 5_174,
+    projectId: 'home-music',
+    role: 'api',
+  });
+  assert.equal(api?.port, 5_174);
+
+  const web = allocatePort(input, {
+    preferredPort: 5_173,
+    maxPort: 5_174,
+    projectId: 'home-music',
+    role: 'web',
+  });
+  assert.equal(web?.port, 5_173);
+});
+
+test('allocator permite reserva/declaration do próprio role e nunca escolhe porta privilegiada', () => {
   const result = allocatePort(
     {
-      reserved: [{ port: 5_173, scope: 'user', owner: 'home-music', role: 'web' }],
+      reserved: [
+        { port: 5_173, scope: 'user', owner: 'home-music', role: 'web' },
+      ],
       declared: [HOME_MUSIC_WEB],
     },
-    { preferredPort: 443, maxPort: 5_173, projectId: 'home-music', role: 'web' },
+    {
+      preferredPort: 443,
+      maxPort: 5_173,
+      projectId: 'home-music',
+      role: 'web',
+    },
   );
 
   assert.equal(result?.port, 1_024);
