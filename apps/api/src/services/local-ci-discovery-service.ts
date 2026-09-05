@@ -59,15 +59,6 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function commandMissing(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'ENOENT',
-  );
-}
-
 function shortVersion(value: string, pattern: RegExp): string | undefined {
   const firstLine = value.split(/\r?\n/u)[0]?.trim() ?? '';
   const match = firstLine.match(pattern);
@@ -95,7 +86,7 @@ function workflowJobs(
   workflowFile: string,
 ): LocalCiJobDescriptor[] {
   if (!isRecord(payload) || !isRecord(payload.jobs)) return [];
-  const events = workflowEvents(payload.on ?? payload['on']);
+  const events = workflowEvents(payload.on);
   const fallbackName = path.posix.basename(workflowFile).replace(/\.(?:yml|yaml)$/u, '');
   const workflow = workflowName(payload.name, fallbackName);
   const jobs: LocalCiJobDescriptor[] = [];
@@ -162,11 +153,8 @@ export class LocalCiDiscoveryService {
         { timeoutMs: COMMAND_TIMEOUT_MS, maxBufferBytes: COMMAND_MAX_BUFFER_BYTES },
       );
       actVersion = shortVersion(output, /^act version\s+([^\s]+)$/iu);
-    } catch (error) {
-      return {
-        state: 'act-missing',
-        ...(commandMissing(error) ? {} : {}),
-      };
+    } catch {
+      return { state: 'act-missing' };
     }
 
     let dockerVersion: string | undefined;
