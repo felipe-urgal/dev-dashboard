@@ -1,3 +1,4 @@
+import type { GitPullRequestCockpit } from './git-pull-request-cockpit.js';
 import type { ProjectChangeImpact } from './project-change-impact.js';
 
 export type GitFileStatus =
@@ -262,6 +263,7 @@ export interface GitOpenPullRequest {
   ciStatus?: GitPullRequestCiStatus;
   commentsCount?: number;
   unresolvedConversationsCount?: number;
+  cockpit?: GitPullRequestCockpit;
 }
 
 export interface GitPullRequestLookup {
