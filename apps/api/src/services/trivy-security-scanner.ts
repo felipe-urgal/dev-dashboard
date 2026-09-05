@@ -24,14 +24,24 @@ export interface SecurityScanResult {
   findings: SecurityFinding[];
 }
 
+const MAX_FINDINGS = 1_000;
+const MAX_RULE_ID_LENGTH = 128;
+const MAX_FILE_LENGTH = 1_024;
+const MAX_TITLE_LENGTH = 240;
+const MAX_REMEDIATION_LENGTH = 1_000;
+const MAX_REFERENCE_LENGTH = 2_048;
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function stringValue(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+function boundedString(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength) return undefined;
+  return normalized;
 }
 
 function positiveInteger(value: unknown): number | undefined {
@@ -39,7 +49,7 @@ function positiveInteger(value: unknown): number | undefined {
 }
 
 function severity(value: unknown): SecurityFindingSeverity {
-  const normalized = stringValue(value)?.toLowerCase();
+  const normalized = boundedString(value, 16)?.toLowerCase();
   switch (normalized) {
     case 'low':
     case 'medium':
@@ -52,16 +62,23 @@ function severity(value: unknown): SecurityFindingSeverity {
 }
 
 function safeRelativeFile(target: unknown): string | undefined {
-  const value = stringValue(target)?.replaceAll('\\', '/');
-  if (!value || path.posix.isAbsolute(value)) return undefined;
+  const value = boundedString(target, MAX_FILE_LENGTH)?.replaceAll('\\', '/');
+  if (!value || path.posix.isAbsolute(value) || /^[A-Za-z]:\//u.test(value)) return undefined;
 
-  const normalized = path.posix.normalize(value);
-  if (normalized === '..' || normalized.startsWith('../')) return undefined;
-  return normalized.replace(/^\.\//, '');
+  const normalized = path.posix.normalize(value).replace(/^\.\//, '');
+  if (
+    normalized === '.' ||
+    normalized === '..' ||
+    normalized.startsWith('../') ||
+    normalized.includes('\0')
+  ) {
+    return undefined;
+  }
+  return normalized;
 }
 
 function safeReference(value: unknown): string | undefined {
-  const reference = stringValue(value);
+  const reference = boundedString(value, MAX_REFERENCE_LENGTH);
   if (!reference) return undefined;
 
   try {
@@ -99,13 +116,19 @@ function buildFinding(
   };
 }
 
-function parseSecrets(result: UnknownRecord, file: string, observedAt: string): SecurityFinding[] {
+function parseSecrets(
+  result: UnknownRecord,
+  file: string,
+  observedAt: string,
+  limit: number,
+): SecurityFinding[] {
   const secrets = Array.isArray(result.Secrets) ? result.Secrets : [];
   const findings: SecurityFinding[] = [];
 
   for (const candidate of secrets) {
+    if (findings.length >= limit) break;
     if (!isRecord(candidate)) continue;
-    const ruleId = stringValue(candidate.RuleID);
+    const ruleId = boundedString(candidate.RuleID, MAX_RULE_ID_LENGTH);
     if (!ruleId) continue;
 
     const line = positiveInteger(candidate.StartLine);
@@ -115,7 +138,7 @@ function parseSecrets(result: UnknownRecord, file: string, observedAt: string): 
           category: 'secret',
           ruleId,
           severity: severity(candidate.Severity),
-          title: stringValue(candidate.Title) ?? `Secret detectado (${ruleId})`,
+          title: `Secret detectado (${ruleId})`,
           file,
           ...(line === undefined ? {} : { line }),
         },
@@ -131,17 +154,22 @@ function parseMisconfigurations(
   result: UnknownRecord,
   file: string,
   observedAt: string,
+  limit: number,
 ): SecurityFinding[] {
   const items = Array.isArray(result.Misconfigurations) ? result.Misconfigurations : [];
   const findings: SecurityFinding[] = [];
 
   for (const candidate of items) {
+    if (findings.length >= limit) break;
     if (!isRecord(candidate)) continue;
-    const ruleId = stringValue(candidate.ID) ?? stringValue(candidate.AVDID);
+    const ruleId =
+      boundedString(candidate.ID, MAX_RULE_ID_LENGTH) ??
+      boundedString(candidate.AVDID, MAX_RULE_ID_LENGTH);
     if (!ruleId) continue;
 
     const line = positiveInteger(candidate.StartLine);
-    const remediation = stringValue(candidate.Resolution);
+    const title = boundedString(candidate.Title, MAX_TITLE_LENGTH);
+    const remediation = boundedString(candidate.Resolution, MAX_REMEDIATION_LENGTH);
     const reference = safeReference(candidate.PrimaryURL);
 
     findings.push(
@@ -150,7 +178,7 @@ function parseMisconfigurations(
           category: 'misconfiguration',
           ruleId,
           severity: severity(candidate.Severity),
-          title: stringValue(candidate.Title) ?? `Misconfiguration detectada (${ruleId})`,
+          title: title ?? `Misconfiguration detectada (${ruleId})`,
           file,
           ...(line === undefined ? {} : { line }),
           ...(remediation === undefined ? {} : { remediation }),
@@ -173,12 +201,17 @@ export function parseTrivySecurityReport(payload: unknown, observedAt: string): 
   const findings: SecurityFinding[] = [];
 
   for (const result of results) {
+    if (findings.length >= MAX_FINDINGS) break;
     if (!isRecord(result)) continue;
     const file = safeRelativeFile(result.Target);
     if (!file) continue;
 
-    findings.push(...parseSecrets(result, file, observedAt));
-    findings.push(...parseMisconfigurations(result, file, observedAt));
+    const remaining = MAX_FINDINGS - findings.length;
+    findings.push(...parseSecrets(result, file, observedAt, remaining));
+    if (findings.length >= MAX_FINDINGS) break;
+    findings.push(
+      ...parseMisconfigurations(result, file, observedAt, MAX_FINDINGS - findings.length),
+    );
   }
 
   return { provider: 'trivy', observedAt, findings };
