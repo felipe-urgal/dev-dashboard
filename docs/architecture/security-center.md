@@ -19,21 +19,23 @@ Para secrets, somente estes dados podem sobreviver à normalização:
 
 - provider;
 - categoria;
-- rule ID;
+- rule ID validado;
 - severidade;
-- título;
+- título local derivado do rule ID;
 - path relativo do arquivo;
 - linha quando disponível;
 - fingerprint derivado de metadados não secretos;
 - timestamp da observação.
 
-Campos como `Match`, conteúdo de código, trechos, valores detectados e estruturas não reconhecidas são descartados por construção. Isso evita depender de masking visual ou de sanitização tardia.
+Campos como `Match`, título remoto, conteúdo de código, trechos, valores detectados e estruturas não reconhecidas são descartados por construção. Isso evita depender de masking visual ou de sanitização tardia.
 
-## Paths e referências
+O rule ID também passa por allowlist curta de caracteres. Assim um provider malformado não consegue usar esse campo como canal alternativo para transportar conteúdo livre/sensível.
 
-Findings com target absoluto ou path que escape por `..` são descartados. A futura execução do provider ainda deve resolver o `cwd` a partir do projeto validado pelo backend; um path presente no relatório não concede autoridade de filesystem.
+## Paths, limites e referências
 
-Referências externas só são preservadas quando usam `http` ou `https`.
+Findings com target absoluto, path Windows absoluto ou path que escape por `..` são descartados. A futura execução do provider ainda deve resolver o `cwd` a partir do projeto validado pelo backend; um path presente no relatório não concede autoridade de filesystem.
+
+Strings públicas são bounded e o parser retém no máximo 1.000 findings por relatório normalizado. Referências externas só são preservadas quando usam `http` ou `https`.
 
 ## Fingerprint
 
