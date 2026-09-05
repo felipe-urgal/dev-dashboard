@@ -30,6 +30,7 @@ const MAX_FILE_LENGTH = 1_024;
 const MAX_TITLE_LENGTH = 240;
 const MAX_REMEDIATION_LENGTH = 1_000;
 const MAX_REFERENCE_LENGTH = 2_048;
+const SAFE_RULE_ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/u;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -42,6 +43,11 @@ function boundedString(value: unknown, maxLength: number): string | undefined {
   const normalized = value.trim();
   if (!normalized || normalized.length > maxLength) return undefined;
   return normalized;
+}
+
+function safeRuleId(value: unknown): string | undefined {
+  const ruleId = boundedString(value, MAX_RULE_ID_LENGTH);
+  return ruleId && SAFE_RULE_ID.test(ruleId) ? ruleId : undefined;
 }
 
 function positiveInteger(value: unknown): number | undefined {
@@ -128,7 +134,7 @@ function parseSecrets(
   for (const candidate of secrets) {
     if (findings.length >= limit) break;
     if (!isRecord(candidate)) continue;
-    const ruleId = boundedString(candidate.RuleID, MAX_RULE_ID_LENGTH);
+    const ruleId = safeRuleId(candidate.RuleID);
     if (!ruleId) continue;
 
     const line = positiveInteger(candidate.StartLine);
@@ -162,9 +168,7 @@ function parseMisconfigurations(
   for (const candidate of items) {
     if (findings.length >= limit) break;
     if (!isRecord(candidate)) continue;
-    const ruleId =
-      boundedString(candidate.ID, MAX_RULE_ID_LENGTH) ??
-      boundedString(candidate.AVDID, MAX_RULE_ID_LENGTH);
+    const ruleId = safeRuleId(candidate.ID) ?? safeRuleId(candidate.AVDID);
     if (!ruleId) continue;
 
     const line = positiveInteger(candidate.StartLine);
