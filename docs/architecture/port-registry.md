@@ -34,9 +34,12 @@ O serviço não executa shell, não consulta processos e não mata nada. O Port 
 1. nunca escolhe porta privilegiada abaixo de `1024`;
 2. pula qualquer porta observada como ocupada;
 3. pula reserva sem owner ou pertencente a outro projeto;
-4. pula declaration ativa de outro projeto;
-5. permite reservation/declaration do próprio projeto;
-6. procura em ordem crescente dentro da janela solicitada e retorna uma explicação da escolha.
+4. quando uma reserva tem `role`, só a considera própria se `projectId + role` coincidirem com a solicitação;
+5. pula declaration ativa que não pertença ao mesmo `projectId + role` solicitado;
+6. permite reutilizar somente reservation/declaration do próprio owner/role;
+7. procura em ordem crescente dentro da janela solicitada e retorna uma explicação da escolha.
+
+Essa distinção impede que dois serviços do mesmo projeto — por exemplo `web` e `api` — sejam alocados na mesma porta só porque compartilham `projectId`.
 
 O allocator apenas **sugere** uma porta. Ele não edita `.env`, Compose, scripts ou configuração do projeto e ainda não persiste a decisão. Reserva transacional/lifecycle para ambientes paralelos deve ser adicionada quando existir um consumidor real (#570/#588/#592), evitando uma persistência abstrata sem owner definido.
 
