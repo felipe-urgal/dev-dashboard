@@ -14,6 +14,10 @@ import type {
 } from './project-doctor/check-types.js';
 import { createDiagnosticCheck } from './project-doctor/check-types.js';
 import {
+  checkContainerToolchain,
+  projectRequiresContainerToolchain,
+} from './project-doctor/container-checks.js';
+import {
   checkNodeDependencies,
   checkNodePackageManager,
   checkNodeRuntime,
@@ -193,6 +197,15 @@ export class ProjectDoctorService {
           run: () => checkBundlerDependencies(project, this.commandRunner),
         },
       );
+    }
+
+    if (projectRequiresContainerToolchain(project)) {
+      definitions.push({
+        id: 'container-toolchain',
+        category: 'runtime',
+        label: 'Docker / Compose',
+        run: () => checkContainerToolchain(project, this.commandRunner),
+      });
     }
 
     return definitions;
