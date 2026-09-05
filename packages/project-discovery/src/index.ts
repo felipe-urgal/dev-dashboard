@@ -10,15 +10,21 @@ import type {
   WorkspaceScanResult,
 } from './discovery.js';
 import { enrichProjectProduction } from './production-discovery.js';
+import { enrichProjectProfile } from './project-profile.js';
 
 const DEFAULT_RECURSIVE_TIMEOUT_MS = 5000;
+
+async function enrichProject(project: Project): Promise<Project> {
+  const production = await enrichProjectProduction(project);
+  return enrichProjectProfile(production);
+}
 
 export async function detectProject(
   projectPath: string,
   options: DetectProjectOptions = {},
 ): Promise<Project | null> {
   const project = await detectBaseProject(projectPath, options);
-  return project ? enrichProjectProduction(project) : null;
+  return project ? enrichProject(project) : null;
 }
 
 export async function scanWorkspace(
@@ -31,7 +37,7 @@ export async function scanWorkspace(
   if (!options.recursive) {
     return {
       ...result,
-      projects: await Promise.all(result.projects.map(enrichProjectProduction)),
+      projects: await Promise.all(result.projects.map(enrichProject)),
     };
   }
 
@@ -51,7 +57,7 @@ export async function scanWorkspace(
           path: result.workspacePath,
           code: 'SCAN_TIMEOUT',
           message:
-            'Tempo limite da varredura recursiva atingido durante a descoberta do contrato de produção; resultado parcial.',
+            'Tempo limite da varredura recursiva atingido durante o enriquecimento do projeto; resultado parcial.',
         },
       ],
     };
@@ -61,7 +67,7 @@ export async function scanWorkspace(
 
   try {
     const enrichedProjects = await Promise.race([
-      Promise.all(result.projects.map(enrichProjectProduction)),
+      Promise.all(result.projects.map(enrichProject)),
       new Promise<null>((resolve) => {
         timeoutHandle = setTimeout(() => resolve(null), remainingMs);
         timeoutHandle.unref?.();
@@ -83,7 +89,7 @@ export async function scanWorkspace(
           path: result.workspacePath,
           code: 'SCAN_TIMEOUT',
           message:
-            'Tempo limite da varredura recursiva atingido durante a descoberta do contrato de produção; resultado parcial.',
+            'Tempo limite da varredura recursiva atingido durante o enriquecimento do projeto; resultado parcial.',
         },
       ],
     };
@@ -93,6 +99,12 @@ export async function scanWorkspace(
     }
   }
 }
+
+export {
+  DEFAULT_PROJECT_PROFILE_PROVIDERS,
+  detectProjectProfile,
+  enrichProjectProfile,
+} from './project-profile.js';
 
 export type {
   DetectProjectOptions,

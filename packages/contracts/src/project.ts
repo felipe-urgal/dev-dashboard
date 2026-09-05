@@ -2,6 +2,7 @@ import type {
   ProductionContractV1,
   ProductionContractWarning,
 } from './production.js';
+import type { ProjectProfile } from './project-profile.js';
 
 export type ProjectType = 'rails' | 'node' | 'unknown';
 
@@ -30,6 +31,7 @@ export interface Project {
   enabled: boolean;
   lastAccessedAt?: string;
   capabilities: ProjectCapability[];
+  profile?: ProjectProfile;
   production?: ProductionContractV1;
   productionWarning?: ProductionContractWarning;
 }
