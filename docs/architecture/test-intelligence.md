@@ -39,7 +39,7 @@ O suggestion engine não executa testes. O MVP também não adiciona um caminho 
 O histórico de testes registra `scope` explicitamente em cada registro interno normalizado:
 
 - `full-suite` quando o comando inteiro foi executado;
-- `targeted` quando a execução veio do fluxo estruturado de arquivo/caso (`:file`). O `targetFile` continua representando o arquivo concreto mesmo quando o provider acrescenta `arquivo:linha` ou filtros como `-t`/`--test-name-pattern` ao comando.
+- `targeted` quando a execução veio do fluxo estruturado de arquivo/caso (`:file`). O `targetFile` preserva o alvo estruturado já usado pelo histórico: arquivo simples para execução por arquivo e `arquivo:linha` para execução de caso. Quando o provider acrescenta filtros como `-t`/`--test-name-pattern`, o padrão não é confundido com o alvo.
 
 Esse campo descreve somente **o escopo efetivamente executado**. Ele não transforma um run targeted em equivalente à suíte completa e não representa sozinho um gate verde de Readiness.
 
