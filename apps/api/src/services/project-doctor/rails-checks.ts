@@ -5,6 +5,7 @@ import type { Project, ProjectDiagnosticCheck } from '@dev-dashboard/contracts';
 import type { DoctorCommandRunner } from './check-types.js';
 import { createDiagnosticCheck } from './check-types.js';
 import { pathExists, readLimitedText } from './file-utils.js';
+import { evaluateVersionConstraint } from './version-constraint.js';
 
 export async function checkRubyRuntime(
   project: Project,
@@ -21,14 +22,52 @@ export async function checkRubyRuntime(
         .trim()
         .replace(/^ruby\s+/, '')
         .split(/\s+/)[0] ?? '';
+
+    if (!requiredVersion) {
+      return createDiagnosticCheck({
+        id: 'ruby-runtime',
+        category: 'runtime',
+        label: 'Runtime Ruby',
+        status: 'passed',
+        summary: `Ruby ${availableVersion || 'está disponível'} para a API; o projeto não declara .ruby-version.`,
+      });
+    }
+
+    const compatibility = evaluateVersionConstraint(
+      availableVersion,
+      requiredVersion,
+    );
+    if (compatibility === 'incompatible') {
+      return createDiagnosticCheck({
+        id: 'ruby-runtime',
+        category: 'runtime',
+        label: 'Runtime Ruby',
+        status: 'failed',
+        summary: `Ruby ${availableVersion || 'detectado'} não atende .ruby-version=${requiredVersion}.`,
+        recommendation:
+          'Use a versão Ruby declarada pelo projeto ou alinhe .ruby-version com a toolchain suportada.',
+        action: { label: 'Abrir dependências', target: 'dependencies' },
+      });
+    }
+    if (compatibility === 'unknown') {
+      return createDiagnosticCheck({
+        id: 'ruby-runtime',
+        category: 'runtime',
+        label: 'Runtime Ruby',
+        status: 'warning',
+        summary: `Ruby ${availableVersion || 'detectado'} está disponível, mas .ruby-version=${requiredVersion} não pôde ser comparado com segurança.`,
+        recommendation:
+          'Use uma versão numérica explícita em .ruby-version para permitir validação determinística.',
+        action: { label: 'Abrir dependências', target: 'dependencies' },
+      });
+    }
+
     return createDiagnosticCheck({
       id: 'ruby-runtime',
       category: 'runtime',
       label: 'Runtime Ruby',
       status: 'passed',
-      summary: requiredVersion
-        ? `Ruby ${availableVersion || 'disponível'} está acessível; o projeto declara ${requiredVersion}.`
-        : `Ruby ${availableVersion || 'está disponível'} para a API.`,
+      summary: `Ruby ${availableVersion || 'disponível'} atende .ruby-version=${requiredVersion}.`,
     });
   } catch {
     return createDiagnosticCheck({
@@ -37,7 +76,7 @@ export async function checkRubyRuntime(
       label: 'Runtime Ruby',
       status: 'warning',
       summary: requiredVersion
-        ? `Ruby não está disponível para a API; o projeto declara ${requiredVersion}.`
+        ? `Ruby não está disponível para a API; o projeto declara .ruby-version=${requiredVersion}.`
         : 'Ruby não está disponível para a API.',
       recommendation:
         'Disponibilize Ruby no ambiente que executa o Dev Dashboard ou use o fluxo em container do projeto.',
