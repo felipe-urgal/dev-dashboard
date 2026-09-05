@@ -7,10 +7,28 @@ import type {
 
 import {
   findRelatedTestFiles,
+  RelatedTestError,
   RelatedTestService,
   type RelatedTestSelection,
 } from './related-test-service.js';
 import type { TestDetectionService } from './test-detection-service.js';
+
+function unknownSuggestion(
+  commandId: string,
+  selection?: Partial<RelatedTestSelection>,
+): TestIntelligenceSuggestion {
+  return {
+    commandId,
+    state: 'unknown',
+    recommendation: 'full-suite',
+    baseBranch: selection?.baseBranch ?? 'unknown',
+    currentBranch: selection?.currentBranch ?? 'unknown',
+    changedFiles: selection?.changedFiles ?? [],
+    testFiles: selection?.testFiles ?? [],
+    unmappedFiles: selection?.changedFiles ?? [],
+    evidence: [],
+  };
+}
 
 export function buildTestIntelligenceSuggestion(
   commandId: string,
@@ -69,23 +87,21 @@ export class TestIntelligenceService {
   ): Promise<TestIntelligenceSuggestion> {
     const overview = await this.testDetectionService.getOverview(project);
     const command = overview.commands.find((entry) => entry.id === commandId);
-    if (!command) {
-      return {
-        commandId,
-        state: 'unknown',
-        recommendation: 'full-suite',
-        baseBranch: 'unknown',
-        currentBranch: 'unknown',
-        changedFiles: [],
-        testFiles: [],
-        unmappedFiles: [],
-        evidence: [],
-      };
+    if (!command || !command.supportsFileTarget) return unknownSuggestion(commandId);
+
+    let selection: RelatedTestSelection;
+    try {
+      selection = await this.relatedTestService.resolve(project, commandId);
+    } catch (error) {
+      if (error instanceof RelatedTestError) return unknownSuggestion(commandId);
+      throw error;
     }
 
-    const selection = await this.relatedTestService.resolve(project, commandId);
-    const available =
-      (await this.testDetectionService.listTestFiles(project, commandId)) ?? [];
+    const available = await this.testDetectionService.listTestFiles(
+      project,
+      commandId,
+    );
+    if (!available) return unknownSuggestion(commandId, selection);
 
     return buildTestIntelligenceSuggestion(
       commandId,
