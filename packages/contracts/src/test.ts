@@ -59,10 +59,21 @@ export interface TestFailure {
 export type TestExecutionStatus =
   'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
+/**
+ * Escopo efetivamente executado. `targeted` não equivale a uma suíte completa
+ * para gates de readiness; ele apenas registra que houve um alvo específico.
+ */
+export type TestExecutionScope = 'full-suite' | 'targeted';
+
 export interface TestExecutionRecord {
   id: string;
   projectId: string;
   commandId: string;
+  /**
+   * Opcional no contrato público durante a migração do schema HTTP. O serviço
+   * de histórico normaliza e persiste este campo para todos os registros.
+   */
+  scope?: TestExecutionScope;
   targetFile?: string;
   status: TestExecutionStatus;
   startedAt: string;

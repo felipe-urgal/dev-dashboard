@@ -257,6 +257,7 @@ export type {
   TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
+  TestExecutionScope,
   TestExecutionStatus,
 } from './test.js';
 

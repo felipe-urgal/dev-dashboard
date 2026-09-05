@@ -8,11 +8,12 @@ import type {
   TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
+  TestExecutionScope,
   TestExecutionStatus,
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
 
-const HISTORY_VERSION = 1;
+const HISTORY_VERSION = 2;
 const DEFAULT_HISTORY_LIMIT = 50;
 const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'starting',
@@ -20,6 +21,7 @@ const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'stopping',
 ];
 const FILE_SUFFIX = ':file';
+const NAME_PATTERN_FLAGS = new Set(['-t', '--test-name-pattern']);
 
 const SUBSCRIBER_LIMIT_PER_PROJECT = 5;
 const SUBSCRIBER_LIMIT_TOTAL = 20;
@@ -43,12 +45,20 @@ export interface TestExecutionSubscriber {
   close: () => void;
 }
 
+type ScopedTestExecutionRecord = Omit<TestExecutionRecord, 'scope'> & {
+  scope: TestExecutionScope;
+};
+
+type StoredTestExecutionRecord = Omit<ScopedTestExecutionRecord, 'scope'> & {
+  scope?: TestExecutionScope;
+};
+
 interface StoredHistory {
-  version: 1;
-  items: TestExecutionRecord[];
+  version: 1 | 2;
+  items: StoredTestExecutionRecord[];
 }
 
-function isValidRecord(value: unknown): value is TestExecutionRecord {
+function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
   return (
@@ -58,6 +68,9 @@ function isValidRecord(value: unknown): value is TestExecutionRecord {
     item.projectId.length > 0 &&
     typeof item.commandId === 'string' &&
     item.commandId.length > 0 &&
+    (item.scope === undefined ||
+      item.scope === 'full-suite' ||
+      item.scope === 'targeted') &&
     (item.targetFile === undefined || typeof item.targetFile === 'string') &&
     ['starting', 'running', 'stopping', 'stopped', 'failed'].includes(
       String(item.status),
@@ -71,8 +84,27 @@ function isValidRecord(value: unknown): value is TestExecutionRecord {
   );
 }
 
+function normalizeRecord(
+  record: StoredTestExecutionRecord,
+): ScopedTestExecutionRecord {
+  return {
+    ...record,
+    scope: record.scope ?? (record.targetFile ? 'targeted' : 'full-suite'),
+  };
+}
+
+function deriveTargetFile(args: readonly string[]): string | undefined {
+  if (args.length === 0) return undefined;
+
+  const penultimate = args.at(-2);
+  return penultimate && NAME_PATTERN_FLAGS.has(penultimate)
+    ? args.at(-3)
+    : args.at(-1);
+}
+
 function deriveTarget(managedProcess: ManagedProcess): {
   commandId: string;
+  scope: TestExecutionScope;
   targetFile?: string;
 } {
   const prefix = `${managedProcess.projectId}:${managedProcess.kind}:`;
@@ -81,12 +113,16 @@ function deriveTarget(managedProcess: ManagedProcess): {
     : managedProcess.id;
 
   if (!rawId.endsWith(FILE_SUFFIX)) {
-    return { commandId: rawId };
+    return { commandId: rawId, scope: 'full-suite' };
   }
+
   const commandId = rawId.slice(0, -FILE_SUFFIX.length);
-  const args = managedProcess.args ?? [];
-  const targetFile = args[args.length - 1];
-  return { commandId, ...(targetFile ? { targetFile } : {}) };
+  const targetFile = deriveTargetFile(managedProcess.args ?? []);
+  return {
+    commandId,
+    scope: 'targeted',
+    ...(targetFile ? { targetFile } : {}),
+  };
 }
 
 function sanitizeProjectId(projectId: string): string {
@@ -294,11 +330,12 @@ export class TestExecutionHistoryService {
     managedProcess: ManagedProcess,
   ): Promise<void> {
     const items = await this.load(projectId);
-    const { commandId, targetFile } = deriveTarget(managedProcess);
-    const record: TestExecutionRecord = {
+    const { commandId, scope, targetFile } = deriveTarget(managedProcess);
+    const record: ScopedTestExecutionRecord = {
       id: randomUUID(),
       projectId,
       commandId,
+      scope,
       ...(targetFile ? { targetFile } : {}),
       status: managedProcess.status,
       startedAt: managedProcess.startedAt ?? new Date().toISOString(),
@@ -342,13 +379,17 @@ export class TestExecutionHistoryService {
     );
   }
 
-  private async load(projectId: string): Promise<TestExecutionRecord[]> {
+  private async load(projectId: string): Promise<ScopedTestExecutionRecord[]> {
     try {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
-      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.items))
+      if (
+        (parsed.version !== 1 && parsed.version !== HISTORY_VERSION) ||
+        !Array.isArray(parsed.items)
+      ) {
         return [];
-      return parsed.items.filter(isValidRecord);
+      }
+      return parsed.items.filter(isValidRecord).map(normalizeRecord);
     } catch {
       return [];
     }
@@ -356,7 +397,7 @@ export class TestExecutionHistoryService {
 
   private async save(
     projectId: string,
-    items: TestExecutionRecord[],
+    items: ScopedTestExecutionRecord[],
   ): Promise<void> {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const target = this.filePath(projectId);

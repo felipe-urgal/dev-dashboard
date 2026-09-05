@@ -34,7 +34,24 @@ Isso é intencional: um subconjunto conhecido de testes pode continuar sendo exi
 
 O suggestion engine não executa testes. O MVP também não adiciona um caminho novo de shell: qualquer execução continua passando pelo catálogo e pelos providers estruturados já existentes.
 
+### Scope persistido do run
+
+O histórico de testes registra `scope` explicitamente em cada registro interno normalizado:
+
+- `full-suite` quando o comando inteiro foi executado;
+- `targeted` quando a execução veio do fluxo estruturado de arquivo/caso (`:file`). O `targetFile` preserva o alvo estruturado já usado pelo histórico: arquivo simples para execução por arquivo e `arquivo:linha` para execução de caso. Quando o provider acrescenta filtros como `-t`/`--test-name-pattern`, o padrão não é confundido com o alvo.
+
+Esse campo descreve somente **o escopo efetivamente executado**. Ele não transforma um run targeted em equivalente à suíte completa e não representa sozinho um gate verde de Readiness.
+
+O arquivo persistido do histórico foi evoluído para a versão 2. Históricos v1 continuam legíveis: quando um registro antigo não possui `scope`, a migração em leitura usa apenas a evidência já persistida (`targetFile` presente → `targeted`; ausente → `full-suite`). Nenhum resultado antigo é descartado e nenhuma heurística nova é aplicada ao output do teste.
+
+Neste recorte, o backend usa um tipo interno que exige `scope` após a normalização. No contrato TypeScript compartilhado, o campo permanece opcional durante a migração porque o schema HTTP existente ainda não o serializa. A exposição remota e a obrigatoriedade pública devem entrar juntas com uma revisão formal da rota e da documentação gerada por `docs:api`, evitando prometer ao frontend um campo que ainda não existe no JSON.
+
 ## Próximas camadas com evidência
+
+### Run identity
+
+O próximo passo antes de comparar resultados é capturar revisão Git/dirty fingerprint e environment instance quando existir. `scope` resolve apenas a dimensão full-suite vs targeted; resultados de revisões ou ambientes diferentes ainda não devem ser tratados como comparáveis.
 
 ### Impacted tests
 
