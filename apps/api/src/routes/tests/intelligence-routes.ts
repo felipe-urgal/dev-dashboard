@@ -72,7 +72,10 @@ export function registerTestIntelligenceRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       return {
         suggestion: await service.suggest(project, request.params.commandId),
       };

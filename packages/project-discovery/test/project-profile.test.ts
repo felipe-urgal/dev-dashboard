@@ -18,7 +18,10 @@ try {
     'name: CI\n',
   );
   await writeFile(path.join(nodePath, '.nvmrc'), '22.12.0\n');
-  await writeFile(path.join(nodePath, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  await writeFile(
+    path.join(nodePath, 'pnpm-lock.yaml'),
+    'lockfileVersion: 9\n',
+  );
   await writeFile(path.join(nodePath, 'Dockerfile'), 'FROM node:22\n');
   await writeFile(path.join(nodePath, 'compose.yaml'), 'services: {}\n');
   await writeFile(path.join(nodePath, '.env.example'), 'TOKEN=super-secret\n');
@@ -102,7 +105,10 @@ try {
   const railsPath = path.join(root, 'rails-app');
   await mkdir(railsPath, { recursive: true });
   await writeFile(path.join(railsPath, '.ruby-version'), '3.4.1\n');
-  await writeFile(path.join(railsPath, 'Gemfile.lock'), 'BUNDLED WITH\n   2.6.2\n');
+  await writeFile(
+    path.join(railsPath, 'Gemfile.lock'),
+    'BUNDLED WITH\n   2.6.2\n',
+  );
   await writeFile(
     path.join(railsPath, '.gitlab-ci.yml'),
     'test:\n  script: bundle exec rspec\n',
@@ -154,9 +160,10 @@ try {
     { projectPath: root, projectType: 'unknown' },
     [goodProvider, failingProvider],
   );
-  assert.deepEqual(partial.capabilities.map((entry) => entry.id), [
-    'custom/good',
-  ]);
+  assert.deepEqual(
+    partial.capabilities.map((entry) => entry.id),
+    ['custom/good'],
+  );
   assert.deepEqual(partial.diagnostics, [
     {
       provider: 'failing',

@@ -21,15 +21,10 @@ export interface ProjectEnvironmentOverview {
 }
 
 export type ProjectEnvironmentContractScope =
-  | 'default'
-  | 'test'
-  | 'production'
-  | 'docker';
+  'default' | 'test' | 'production' | 'docker';
 
 export type ProjectEnvironmentBaselineStatus =
-  | 'resolved'
-  | 'ambiguous'
-  | 'missing';
+  'resolved' | 'ambiguous' | 'missing';
 
 export type ProjectEnvironmentContractVariableStatus =
   | 'present'
@@ -41,11 +36,7 @@ export type ProjectEnvironmentContractVariableStatus =
   | 'unknown';
 
 export type ProjectEnvironmentContractAction =
-  | 'none'
-  | 'configure'
-  | 'document'
-  | 'review-source'
-  | 'choose-baseline';
+  'none' | 'configure' | 'document' | 'review-source' | 'choose-baseline';
 
 export interface ProjectEnvironmentContractVariable {
   name: string;

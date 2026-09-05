@@ -1,18 +1,10 @@
 export type AttentionCategory =
-  | 'git'
-  | 'process'
-  | 'test'
-  | 'production'
-  | 'doctor';
+  'git' | 'process' | 'test' | 'production' | 'doctor';
 
 export type AttentionSeverity = 'critical' | 'warning';
 
 export type AttentionDestination =
-  | 'processes'
-  | 'git'
-  | 'tests'
-  | 'production'
-  | 'doctor';
+  'processes' | 'git' | 'tests' | 'production' | 'doctor';
 
 export interface AttentionAction {
   destination: AttentionDestination;

@@ -137,7 +137,9 @@ function buildVariableIndex(
   return index;
 }
 
-function getBaselineStatus(candidateCount: number): ProjectEnvironmentBaselineStatus {
+function getBaselineStatus(
+  candidateCount: number,
+): ProjectEnvironmentBaselineStatus {
   if (candidateCount === 1) return 'resolved';
   if (candidateCount > 1) return 'ambiguous';
   return 'missing';
@@ -147,14 +149,16 @@ function buildContractSection(
   files: Map<string, ParsedEnvironmentVariable[]>,
   config: EnvironmentContractScopeConfig,
 ): ProjectEnvironmentContractSection | null {
-  const baselineCandidates = config.baselineFiles.filter((file) => files.has(file));
+  const baselineCandidates = config.baselineFiles.filter((file) =>
+    files.has(file),
+  );
   const sourceFiles = config.sourceFiles.filter((file) => files.has(file));
 
   if (baselineCandidates.length === 0 && sourceFiles.length === 0) return null;
 
   const baselineStatus = getBaselineStatus(baselineCandidates.length);
   const baseline =
-    baselineStatus === 'resolved' ? baselineCandidates[0] ?? null : null;
+    baselineStatus === 'resolved' ? (baselineCandidates[0] ?? null) : null;
   const candidateVariables = buildVariableIndex(files, baselineCandidates);
   const baselineVariables = baseline
     ? buildVariableIndex(files, [baseline])
@@ -166,14 +170,16 @@ function buildContractSection(
   ]);
   const variables: ProjectEnvironmentContractVariable[] = [];
 
-  for (const name of [...names].sort((left, right) => left.localeCompare(right))) {
+  for (const name of [...names].sort((left, right) =>
+    left.localeCompare(right),
+  )) {
     const candidate = candidateVariables.get(name);
     const expected = baselineVariables.get(name);
     const actual = sourceVariables.get(name);
     const sensitive = Boolean(
       candidate?.sensitive ||
-        actual?.sensitive ||
-        isSensitiveEnvironmentProfileVariableName(name),
+      actual?.sensitive ||
+      isSensitiveEnvironmentProfileVariableName(name),
     );
 
     if (baselineStatus !== 'resolved') {
@@ -272,12 +278,15 @@ export class ProjectEnvironmentService {
     return { files };
   }
 
-  public async getContract(project: Project): Promise<ProjectEnvironmentContract> {
+  public async getContract(
+    project: Project,
+  ): Promise<ProjectEnvironmentContract> {
     const files = await this.readRecognizedFiles(project);
     const sections = CONTRACT_SCOPES.map((config) =>
       buildContractSection(files, config),
     ).filter(
-      (section): section is ProjectEnvironmentContractSection => section !== null,
+      (section): section is ProjectEnvironmentContractSection =>
+        section !== null,
     );
 
     return { sections };

@@ -56,7 +56,8 @@ test('enriquece PR do GitHub com revisão, SHA, mergeability e checks acionávei
             name: 'test',
             status: 'completed',
             conclusion: 'failure',
-            details_url: 'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
+            details_url:
+              'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
           },
           {
             name: 'lint',
