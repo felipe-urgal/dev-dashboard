@@ -25,18 +25,28 @@ export function parseToolVersions(content: string): ToolVersionDeclaration[] {
     if (!tool || !value || extra.length > 0 || !TOOL_NAME_PATTERN.test(tool)) {
       continue;
     }
-    declarations.push({ tool: tool.toLowerCase(), value, source: '.tool-versions' });
+    declarations.push({
+      tool: tool.toLowerCase(),
+      value,
+      source: '.tool-versions',
+    });
   }
 
   return declarations;
+}
+
+export async function readToolVersions(
+  project: Project,
+): Promise<ToolVersionDeclaration[]> {
+  const content = await readLimitedText(path.join(project.path, '.tool-versions'));
+  return content ? parseToolVersions(content) : [];
 }
 
 export async function readToolVersion(
   project: Project,
   aliases: readonly string[],
 ): Promise<ToolVersionDeclaration | undefined> {
-  const content = await readLimitedText(path.join(project.path, '.tool-versions'));
-  if (!content) return undefined;
+  const declarations = await readToolVersions(project);
   const normalizedAliases = new Set(aliases.map((alias) => alias.toLowerCase()));
-  return parseToolVersions(content).find((entry) => normalizedAliases.has(entry.tool));
+  return declarations.find((entry) => normalizedAliases.has(entry.tool));
 }
