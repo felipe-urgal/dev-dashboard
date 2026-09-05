@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -74,11 +74,12 @@ function defaultStatusRunner(
           reject(error);
           return;
         }
-        const code = error && typeof (error as { code?: unknown }).code === 'number'
-          ? (error as { code: number }).code
-          : error
-            ? 1
-            : 0;
+        const code =
+          error && typeof (error as { code?: unknown }).code === 'number'
+            ? (error as { code: number }).code
+            : error
+              ? 1
+              : 0;
         resolve({ exitCode: code, stdout, stderr });
       },
     );
@@ -104,9 +105,8 @@ export class PrismaMigrationProvider implements MigrationProvider {
   ): Promise<MigrationOverview> {
     const observedAt = (context.now ?? (() => new Date()))().toISOString();
     const database = databaseIdentity(context.database);
-    const schemaFile = context.project.type === 'node'
-      ? safeSchema(context.project.path)
-      : undefined;
+    const schemaFile =
+      context.project.type === 'node' ? safeSchema(context.project.path) : undefined;
 
     if (!schemaFile) {
       return {
@@ -177,7 +177,3 @@ export class PrismaMigrationProvider implements MigrationProvider {
     };
   }
 }
-
-// Mantém o módulo sem efeitos colaterais de criação de diretório; referência usada
-// apenas para impedir otimizações/tooling de sugerirem filesystem mutável neste provider.
-void mkdirSync;
