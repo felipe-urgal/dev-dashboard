@@ -2,6 +2,8 @@
 
 O Dev Dashboard opera arquivos, processos, Git, bancos, runtimes locais e, quando um projeto opta pelo Production Contract, deployments de produção. Mudanças precisam preservar simplicidade de uso, limites de autoridade e documentação viva.
 
+Agentes de IA devem usar [`AGENTS.md`](AGENTS.md) como referência canônica de decisões para trabalhar neste repositório. Este documento complementa o guia com convenções de contribuição e revisão.
+
 ## Antes de começar
 
 Leia:
@@ -236,7 +238,7 @@ A política completa fica em [`docs/testing-and-quality.md`](docs/testing-and-qu
 | operação de deployment | `docs/deployment-operations.md` |
 | UI de Produção | `docs/production-ui.md`, `docs/guia/producao.md` |
 | endpoint | `docs/architecture/api-reference.md` gerada |
-| processo de engenharia | `docs/development-guide.md`, `docs/testing-and-quality.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` |
+| processo de engenharia | `docs/development-guide.md`, `docs/testing-and-quality.md`, `AGENTS.md`, `CONTRIBUTING.md` |
 | backlog/roadmap | issues/PRs GitHub, nunca `tasks/` |
 
 `docs/` descreve estado implementado; histórico específico de uma entrega fica no PR, salvo quando virou arquitetura permanente.
