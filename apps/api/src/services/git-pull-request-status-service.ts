@@ -68,7 +68,7 @@ async function runProviderCli(
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object'
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
@@ -120,10 +120,9 @@ function parseGitlabLocation(url: string): GitlabLocation | null {
 }
 
 function githubCheckRunStatus(payload: unknown): GitPullRequestCiStatus | null {
-  const runs = Array.isArray(asRecord(payload)?.check_runs)
-    ? asRecord(payload)?.check_runs
-    : [];
-  if (!runs || runs.length === 0) return null;
+  const record = asRecord(payload);
+  const runs = Array.isArray(record?.check_runs) ? record.check_runs : [];
+  if (runs.length === 0) return null;
 
   let hasPending = false;
   for (const rawRun of runs) {
@@ -239,7 +238,10 @@ function githubRequestedReviewers(payload: Record<string, unknown>): string[] {
     : [];
   return reviewers
     .map((reviewer) => asRecord(reviewer)?.login)
-    .filter((login): login is string => typeof login === 'string' && login.length > 0);
+    .filter(
+      (login): login is string =>
+        typeof login === 'string' && login.length > 0,
+    );
 }
 
 function githubReviewState(
@@ -247,13 +249,25 @@ function githubReviewState(
   requestedReviewers: string[],
 ): GitPullRequestReviewState {
   const reviews = Array.isArray(payload) ? payload : [];
-  const states = reviews
-    .map((review) => asRecord(review)?.state)
-    .filter((state): state is string => typeof state === 'string');
+  const latestStateByReviewer = new Map<string, string>();
 
+  reviews.forEach((rawReview, index) => {
+    const review = asRecord(rawReview);
+    const state = review?.state;
+    if (typeof state !== 'string') return;
+
+    const login = asRecord(review?.user)?.login;
+    const reviewer =
+      typeof login === 'string' && login.length > 0
+        ? login
+        : `anonymous-${index}`;
+    latestStateByReviewer.set(reviewer, state);
+  });
+
+  const states = [...latestStateByReviewer.values()];
   if (states.includes('CHANGES_REQUESTED')) return 'changes-requested';
-  if (states.includes('APPROVED')) return 'approved';
   if (requestedReviewers.length > 0) return 'review-required';
+  if (states.includes('APPROVED')) return 'approved';
   return 'unknown';
 }
 
