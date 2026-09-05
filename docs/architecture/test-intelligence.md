@@ -34,7 +34,24 @@ Isso é intencional: um subconjunto conhecido de testes pode continuar sendo exi
 
 O suggestion engine não executa testes. O MVP também não adiciona um caminho novo de shell: qualquer execução continua passando pelo catálogo e pelos providers estruturados já existentes.
 
+### Scope persistido do run
+
+O histórico de testes agora registra `scope` explicitamente em cada `TestExecutionRecord`:
+
+- `full-suite` quando o comando inteiro foi executado;
+- `targeted` quando a execução possui `targetFile` resolvido pelo provider existente.
+
+Esse campo descreve somente **o escopo efetivamente executado**. Ele não transforma um run targeted em equivalente à suíte completa e não representa sozinho um gate verde de Readiness.
+
+O arquivo persistido do histórico foi evoluído para a versão 2. Históricos v1 continuam legíveis: quando um registro antigo não possui `scope`, a migração em leitura usa apenas a evidência já persistida (`targetFile` presente → `targeted`; ausente → `full-suite`). Nenhum resultado antigo é descartado e nenhuma heurística nova é aplicada ao output do teste.
+
+O endpoint existente de histórico expõe o mesmo campo estruturado para consumidores que precisem distinguir os dois escopos sem reparse/inferência.
+
 ## Próximas camadas com evidência
+
+### Run identity
+
+O próximo passo antes de comparar resultados é capturar revisão Git/dirty fingerprint e environment instance quando existir. `scope` resolve apenas a dimensão full-suite vs targeted; resultados de revisões ou ambientes diferentes ainda não devem ser tratados como comparáveis.
 
 ### Impacted tests
 
