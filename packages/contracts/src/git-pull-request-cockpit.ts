@@ -1,16 +1,10 @@
 import type { GitPullRequestCiStatus } from './git.js';
 
 export type GitPullRequestRemoteStatus =
-  | 'available'
-  | 'unauthenticated'
-  | 'rate-limited'
-  | 'unavailable';
+  'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
 
 export type GitPullRequestReviewState =
-  | 'approved'
-  | 'changes-requested'
-  | 'review-required'
-  | 'unknown';
+  'approved' | 'changes-requested' | 'review-required' | 'unknown';
 
 export interface GitPullRequestCheck {
   name: string;

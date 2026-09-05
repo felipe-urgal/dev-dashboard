@@ -62,7 +62,85 @@ test('mantém recomendação de suíte completa quando existe arquivo sem mapeam
 
   assert.match(wrapper.text(), /Suíte completa recomendada/);
   assert.match(wrapper.text(), /1 arquivo\(s\).*sem mapeamento direto/);
-  assert.doesNotMatch(wrapper.text(), /equivalente à suíte completa.*direcionados/s);
+  assert.doesNotMatch(
+    wrapper.text(),
+    /equivalente à suíte completa.*direcionados/s,
+  );
+});
+
+test('mostra coverage e flakiness apenas como evidência explícita', () => {
+  const wrapper = mount(ProjectTestIntelligenceSummary, {
+    props: {
+      suggestion: suggestion({
+        coverageDelta: {
+          state: 'available',
+          total: {
+            statements: -1,
+            branches: 0,
+            functions: 2,
+            lines: -2.5,
+          },
+          worsenedFiles: [
+            {
+              path: 'src/foo.ts',
+              statements: -1,
+              branches: 0,
+              functions: 2,
+              lines: -2.5,
+            },
+          ],
+          missingFiles: [],
+        },
+        flakiness: {
+          state: 'available',
+          tests: [
+            {
+              testIdentity: 'test/foo.test.ts > foo',
+              attempts: 3,
+              passed: 2,
+              failed: 1,
+              evidence: [],
+            },
+          ],
+        },
+      }),
+      loading: false,
+      errorMessage: '',
+    },
+  });
+
+  assert.match(wrapper.text(), /Coverage: -2\.5 pp em linhas/);
+  assert.match(wrapper.text(), /1 arquivo\(s\) pioraram/);
+  assert.match(wrapper.text(), /1 teste\(s\) com evidência de flakiness/);
+});
+
+test('explicita unknown quando não há baseline ou granularidade confiável', () => {
+  const wrapper = mount(ProjectTestIntelligenceSummary, {
+    props: {
+      suggestion: suggestion({
+        coverageDelta: {
+          state: 'unknown',
+          reason: 'no-compatible-baseline',
+          worsenedFiles: [],
+          missingFiles: [],
+        },
+        flakiness: {
+          state: 'unknown',
+          reason: 'no-granular-results',
+          tests: [],
+        },
+      }),
+      loading: false,
+      errorMessage: '',
+    },
+  });
+
+  assert.match(wrapper.text(), /Coverage: sem baseline comparável/);
+  assert.match(
+    wrapper.text(),
+    /Instabilidade: sem resultados granulares comparáveis/,
+  );
+  assert.doesNotMatch(wrapper.text(), /0 teste\(s\) com evidência de flakiness/);
 });
 
 test('falha do suggestion engine degrada para recomendação segura', () => {

@@ -305,6 +305,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     testDetectionService: context.testDetectionService,
     testExecutionHistoryService: context.testExecutionHistoryService,
     projectTestPtyService: context.projectTestPtyService,
+    projectCoverageService: context.projectCoverageService,
+    projectCoverageHistoryService: context.projectCoverageHistoryService,
   });
   app.register(testRelatedRoutes, {
     prefix: '/api',

@@ -57,11 +57,7 @@ export interface ReservedPort {
 }
 
 export type DeclaredProjectPortSource =
-  | 'config'
-  | 'package-script'
-  | 'compose'
-  | 'project-profile'
-  | 'manual';
+  'config' | 'package-script' | 'compose' | 'project-profile' | 'manual';
 
 export type DeclaredProjectPortConfidence = 'certain' | 'strong' | 'weak';
 

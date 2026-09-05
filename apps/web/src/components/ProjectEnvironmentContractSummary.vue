@@ -20,7 +20,10 @@ const scopeLabels: Record<ProjectEnvironmentContractScope, string> = {
   docker: 'Docker',
 };
 
-const statusLabels: Record<ProjectEnvironmentContractVariable['status'], string> = {
+const statusLabels: Record<
+  ProjectEnvironmentContractVariable['status'],
+  string
+> = {
   present: 'Presente',
   missing: 'Ausente',
   undocumented: 'Não documentada',
@@ -30,7 +33,10 @@ const statusLabels: Record<ProjectEnvironmentContractVariable['status'], string>
   unknown: 'Revisar',
 };
 
-const actionLabels: Record<ProjectEnvironmentContractVariable['suggestedAction'], string> = {
+const actionLabels: Record<
+  ProjectEnvironmentContractVariable['suggestedAction'],
+  string
+> = {
   none: '',
   configure: 'Configurar',
   document: 'Documentar',
@@ -38,13 +44,9 @@ const actionLabels: Record<ProjectEnvironmentContractVariable['suggestedAction']
   'choose-baseline': 'Escolher baseline',
 };
 
-const actionableStatuses = new Set<ProjectEnvironmentContractVariable['status']>([
-  'missing',
-  'undocumented',
-  'duplicate',
-  'conflicting-source',
-  'unknown',
-]);
+const actionableStatuses = new Set<
+  ProjectEnvironmentContractVariable['status']
+>(['missing', 'undocumented', 'duplicate', 'conflicting-source', 'unknown']);
 
 const sections = computed(() =>
   (props.contract?.sections ?? [])
@@ -63,7 +65,9 @@ const sections = computed(() =>
 const issueCount = computed(() =>
   sections.value.reduce(
     (total, section) =>
-      total + section.variables.length + Number(section.baselineStatus !== 'resolved'),
+      total +
+      section.variables.length +
+      Number(section.baselineStatus !== 'resolved'),
     0,
   ),
 );
@@ -84,10 +88,18 @@ const issueCount = computed(() =>
     <p v-if="loading && !contract" class="environment-contract-note">
       Comparando nomes e origens das variáveis…
     </p>
-    <p v-else-if="errorMessage" class="environment-contract-error" role="status">
-      O contrato não pôde ser carregado. A leitura dos arquivos abaixo continua disponível.
+    <p
+      v-else-if="errorMessage"
+      class="environment-contract-error"
+      role="status"
+    >
+      O contrato não pôde ser carregado. A leitura dos arquivos abaixo continua
+      disponível.
     </p>
-    <p v-else-if="contract && sections.length === 0" class="environment-contract-ok">
+    <p
+      v-else-if="contract && sections.length === 0"
+      class="environment-contract-ok"
+    >
       Os baselines reconhecidos não possuem diferenças estruturais acionáveis.
     </p>
 
@@ -98,7 +110,10 @@ const issueCount = computed(() =>
           <span v-if="section.baselineStatus === 'resolved'">
             baseline <code>{{ section.baseline }}</code>
           </span>
-          <span v-else-if="section.baselineStatus === 'ambiguous'" class="warning">
+          <span
+            v-else-if="section.baselineStatus === 'ambiguous'"
+            class="warning"
+          >
             baseline ambíguo: {{ section.baselineCandidates.join(', ') }}
           </span>
           <span v-else class="warning">baseline ausente</span>
@@ -216,7 +231,8 @@ const issueCount = computed(() =>
   display: grid;
   gap: 2px;
   padding-left: var(--space-3);
-  border-left: 2px solid color-mix(in srgb, var(--warning-text) 35%, var(--border));
+  border-left: 2px solid
+    color-mix(in srgb, var(--warning-text) 35%, var(--border));
 }
 
 .environment-contract-sections li > div {
