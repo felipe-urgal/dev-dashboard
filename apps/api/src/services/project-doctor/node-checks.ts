@@ -31,6 +31,11 @@ interface PackageManagerDeclaration {
   source: string;
 }
 
+interface ToolVersionsPackageManagerDetection {
+  declaration?: PackageManagerDeclaration;
+  ambiguousSources?: string[];
+}
+
 const SUPPORTED_PACKAGE_MANAGERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
 
 async function readNodeManifest(project: Project): Promise<NodeManifestInfo> {
@@ -63,7 +68,9 @@ function parsePackageManagerDeclaration(
   value: string,
   source = 'package.json#packageManager',
 ): PackageManagerDeclaration | null {
-  const match = value.trim().match(/^([a-zA-Z0-9._-]+)(?:@([^+\s]+)(?:\+\S+)?)?$/);
+  const match = value
+    .trim()
+    .match(/^([a-zA-Z0-9._-]+)(?:@([^+\s]+)(?:\+\S+)?)?$/);
   if (!match) return null;
   return {
     manager: match[1]!.toLowerCase(),
@@ -74,16 +81,26 @@ function parsePackageManagerDeclaration(
 
 async function detectToolVersionsPackageManager(
   project: Project,
-): Promise<PackageManagerDeclaration | null> {
+): Promise<ToolVersionsPackageManagerDetection> {
   const declarations = (await readToolVersions(project)).filter((entry) =>
     SUPPORTED_PACKAGE_MANAGERS.has(entry.tool),
   );
-  if (declarations.length !== 1) return null;
+  if (declarations.length === 0) return {};
+  if (declarations.length > 1) {
+    return {
+      ambiguousSources: declarations.map(
+        (entry) => `${entry.source}#${entry.tool}=${entry.value}`,
+      ),
+    };
+  }
+
   const declaration = declarations[0]!;
   return {
-    manager: declaration.tool,
-    version: declaration.value,
-    source: `${declaration.source}#${declaration.tool}`,
+    declaration: {
+      manager: declaration.tool,
+      version: declaration.value,
+      source: `${declaration.source}#${declaration.tool}`,
+    },
   };
 }
 
@@ -240,7 +257,8 @@ export async function checkNodePackageManager(
   const manifestDeclaration = manifest.packageManager
     ? parsePackageManagerDeclaration(manifest.packageManager)
     : null;
-  const toolVersionsDeclaration = await detectToolVersionsPackageManager(project);
+  const toolVersionsDetection = await detectToolVersionsPackageManager(project);
+  const toolVersionsDeclaration = toolVersionsDetection.declaration;
 
   if (manifest.packageManager && !manifestDeclaration) {
     return createDiagnosticCheck({
@@ -251,6 +269,19 @@ export async function checkNodePackageManager(
       summary: `package.json#packageManager não pôde ser interpretado: ${manifest.packageManager}.`,
       recommendation:
         'Declare packageManager no formato gerenciador@versão para tornar a toolchain reproduzível.',
+      action: { label: 'Abrir dependências', target: 'dependencies' },
+    });
+  }
+
+  if (toolVersionsDetection.ambiguousSources) {
+    return createDiagnosticCheck({
+      id: 'node-package-manager',
+      category: 'dependencies',
+      label: 'Gerenciador Node',
+      status: 'warning',
+      summary: `.tool-versions declara múltiplos gerenciadores Node suportados: ${toolVersionsDetection.ambiguousSources.join(', ')}.`,
+      recommendation:
+        'Mantenha uma única declaração de gerenciador Node em .tool-versions ou torne packageManager e as fontes versionadas consistentes.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
