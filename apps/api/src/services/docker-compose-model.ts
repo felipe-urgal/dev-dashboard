@@ -138,28 +138,29 @@ function dependsOn(value: unknown): string[] {
 }
 
 function serviceState(value: unknown): ComposeServiceState {
-  switch (boundedString(value, 32)?.toLowerCase()) {
+  const normalized = boundedString(value, 32)?.toLowerCase();
+  switch (normalized) {
     case 'running':
     case 'exited':
     case 'restarting':
     case 'created':
     case 'paused':
     case 'dead':
-      return boundedString(value, 32)!.toLowerCase() as ComposeServiceState;
+      return normalized;
     default:
       return 'unknown';
   }
 }
 
 function serviceHealth(value: unknown): ComposeServiceHealth {
-  switch (boundedString(value, 32)?.toLowerCase()) {
+  const normalized = boundedString(value, 32)?.toLowerCase();
+  switch (normalized) {
     case 'healthy':
       return 'healthy';
     case 'unhealthy':
       return 'unhealthy';
     case 'starting':
       return 'starting';
-    case '':
     case undefined:
       return 'none';
     default:
@@ -190,12 +191,11 @@ export function parseComposeConfig(
     const name = boundedString(rawName, MAX_NAME_LENGTH);
     if (!name || !isRecord(rawService)) continue;
 
+    const image = boundedString(rawService.image, MAX_IMAGE_LENGTH);
     const ports = parsePortBindings(rawService.ports);
     services.push({
       name,
-      ...(boundedString(rawService.image, MAX_IMAGE_LENGTH)
-        ? { image: boundedString(rawService.image, MAX_IMAGE_LENGTH) }
-        : {}),
+      ...(image ? { image } : {}),
       profiles: stringList(rawService.profiles),
       dependsOn: dependsOn(rawService.depends_on),
       ports,
