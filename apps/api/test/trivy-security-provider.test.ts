@@ -38,7 +38,10 @@ test('availability detecta versão sem transportar saída arbitrária', async ()
 test('scan usa argv fixo, cwd do projeto e sanitiza secret pelo parser existente', async () => {
   const calls: Array<{ args: string[]; cwd?: string }> = [];
   const runner: TrivyCommandRunner = async (command, options) => {
-    calls.push({ args: [...command.args], cwd: options.cwd });
+    calls.push({
+      args: [...command.args],
+      ...(options.cwd ? { cwd: options.cwd } : {}),
+    });
     return JSON.stringify({
       Results: [
         {
