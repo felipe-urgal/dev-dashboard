@@ -18,10 +18,12 @@ export type ComposeServiceHealth =
   | 'none'
   | 'unknown';
 
+export type ComposePortProtocol = 'tcp' | 'udp' | 'unknown';
+
 export interface ComposePortBinding {
   targetPort: number;
   publishedPort?: number;
-  protocol: 'tcp' | 'udp';
+  protocol: ComposePortProtocol;
 }
 
 export interface ComposeServiceDefinition {
@@ -61,6 +63,7 @@ export interface ComposeStructuredCommand {
 
 const MAX_SERVICES = 256;
 const MAX_PORTS_PER_SERVICE = 64;
+const MAX_LIST_ITEMS = 128;
 const MAX_NAME_LENGTH = 128;
 const MAX_IMAGE_LENGTH = 512;
 const MAX_CONTAINER_NAME_LENGTH = 256;
@@ -90,8 +93,11 @@ function portNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-function protocol(value: unknown): 'tcp' | 'udp' {
-  return boundedString(value, 8)?.toLowerCase() === 'udp' ? 'udp' : 'tcp';
+function protocol(value: unknown): ComposePortProtocol {
+  const normalized = boundedString(value, 8)?.toLowerCase();
+  if (normalized === undefined || normalized === 'tcp') return 'tcp';
+  if (normalized === 'udp') return 'udp';
+  return 'unknown';
 }
 
 function parsePortBindings(value: unknown, runtime = false): ComposePortBinding[] {
@@ -118,23 +124,31 @@ function parsePortBindings(value: unknown, runtime = false): ComposePortBinding[
 
 function stringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return [
-    ...new Set(
-      value.flatMap((candidate) => {
-        const item = boundedString(candidate, MAX_NAME_LENGTH);
-        return item ? [item] : [];
-      }),
-    ),
-  ];
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of value) {
+    if (result.length >= MAX_LIST_ITEMS) break;
+    const item = boundedString(candidate, MAX_NAME_LENGTH);
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
+  }
+
+  return result;
 }
 
 function dependsOn(value: unknown): string[] {
   if (Array.isArray(value)) return stringList(value);
   if (!isRecord(value)) return [];
-  return Object.keys(value)
-    .map((item) => boundedString(item, MAX_NAME_LENGTH))
-    .filter((item): item is string => item !== undefined)
-    .sort();
+
+  const result: string[] = [];
+  for (const item of Object.keys(value).sort()) {
+    if (result.length >= MAX_LIST_ITEMS) break;
+    const normalized = boundedString(item, MAX_NAME_LENGTH);
+    if (normalized) result.push(normalized);
+  }
+  return result;
 }
 
 function serviceState(value: unknown): ComposeServiceState {
