@@ -97,13 +97,9 @@ function deriveTargetFile(args: readonly string[]): string | undefined {
   if (args.length === 0) return undefined;
 
   const penultimate = args.at(-2);
-  const rawTarget =
-    penultimate && NAME_PATTERN_FLAGS.has(penultimate)
-      ? args.at(-3)
-      : args.at(-1);
-
-  if (!rawTarget) return undefined;
-  return rawTarget.replace(/:\d+$/, '');
+  return penultimate && NAME_PATTERN_FLAGS.has(penultimate)
+    ? args.at(-3)
+    : args.at(-1);
 }
 
 function deriveTarget(managedProcess: ManagedProcess): {
