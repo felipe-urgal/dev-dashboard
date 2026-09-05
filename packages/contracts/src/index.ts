@@ -1,6 +1,16 @@
 export type { Workspace } from './workspace.js';
 
 export type {
+  AttentionAction,
+  AttentionCategory,
+  AttentionDestination,
+  AttentionItem,
+  AttentionSeverity,
+  AttentionUnavailableSource,
+  WorkspaceAttention,
+} from './attention.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,

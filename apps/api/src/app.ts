@@ -4,6 +4,7 @@ import websocket from '@fastify/websocket';
 import { directoryRoutes } from './routes/directories.js';
 
 import { healthRoutes } from './routes/health.js';
+import { attentionRoutes } from './routes/attention.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -107,6 +108,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectTerminalService,
     deploymentService,
     productionOverviewService,
+    attentionCenterService,
   } = composition;
   registerAppLifecycle(app, context, composition);
 
@@ -139,6 +141,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     processManager: context.processManager,
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
+  });
+
+  app.register(attentionRoutes, {
+    prefix: '/api',
+    workspaceRepository: context.workspaceRepository,
+    projectStore: context.projectStore,
+    attentionCenterService,
   });
 
   app.register(projectRoutes, {
