@@ -43,15 +43,24 @@ O histórico de testes registra `scope` explicitamente em cada registro interno 
 
 Esse campo descreve somente **o escopo efetivamente executado**. Ele não transforma um run targeted em equivalente à suíte completa e não representa sozinho um gate verde de Readiness.
 
-O arquivo persistido do histórico foi evoluído para a versão 2. Históricos v1 continuam legíveis: quando um registro antigo não possui `scope`, a migração em leitura usa apenas a evidência já persistida (`targetFile` presente → `targeted`; ausente → `full-suite`). Nenhum resultado antigo é descartado e nenhuma heurística nova é aplicada ao output do teste.
+### Identidade Git do run
 
-Neste recorte, o backend usa um tipo interno que exige `scope` após a normalização. No contrato TypeScript compartilhado, o campo permanece opcional durante a migração porque o schema HTTP existente ainda não o serializa. A exposição remota e a obrigatoriedade pública devem entrar juntas com uma revisão formal da rota e da documentação gerada por `docs:api`, evitando prometer ao frontend um campo que ainda não existe no JSON.
+No início da execução, quando o `ManagedProcess` possui `cwd` em um repositório Git, o histórico captura:
+
+- `gitRevision`: o `HEAD` verificado naquele instante;
+- `gitDirtyFingerprint`: `clean` para working tree limpo ou um SHA-256 derivado de status, diff tracked/staged e hashes dos arquivos untracked.
+
+A captura usa somente comandos Git estruturados via `execFile`, com timeout/buffer menores que os defaults do serviço Git. Se a revisão não puder ser obtida, a execução continua sem identidade Git. Se o estado dirty não puder ser capturado por inteiro — por exemplo, mais de 100 arquivos untracked — o histórico preserva a revisão, mas **não** grava um fingerprint parcial. Ausência de fingerprint significa “não comparável com segurança”, nunca “clean”.
+
+O arquivo persistido do histórico foi evoluído para a versão 3. Históricos v1/v2 continuam legíveis: `scope` ausente ainda é normalizado somente a partir de `targetFile`, e os campos de identidade permanecem opcionais para registros antigos.
+
+No contrato TypeScript compartilhado, `scope`, `gitRevision`, `gitDirtyFingerprint` e `environmentInstanceId` permanecem opcionais durante a migração porque o schema HTTP existente ainda não os serializa. A exposição remota e a obrigatoriedade pública devem entrar juntas com uma revisão formal da rota e da documentação gerada por `docs:api`.
 
 ## Próximas camadas com evidência
 
-### Run identity
+### Environment identity
 
-O próximo passo antes de comparar resultados é capturar revisão Git/dirty fingerprint e environment instance quando existir. `scope` resolve apenas a dimensão full-suite vs targeted; resultados de revisões ou ambientes diferentes ainda não devem ser tratados como comparáveis.
+`environmentInstanceId` já está reservado no contrato, mas só deve ser preenchido quando a identidade explícita de Environment Instance (#598) estiver disponível no fluxo de execução. Worktrees/instances sem essa identidade não devem ser misturados por heurística de path.
 
 ### Impacted tests
 
@@ -59,7 +68,7 @@ Só deve ser emitido quando houver relação estruturada por imports/dependency 
 
 ### Coverage delta
 
-Deve comparar artifacts com revisão e contexto compatíveis. Percentual global isolado não é suficiente e artifacts de revisões diferentes não devem produzir delta.
+Deve comparar artifacts com `gitRevision`, `gitDirtyFingerprint` e contexto de ambiente compatíveis. Percentual global isolado não é suficiente e artifacts sem identidade compatível não devem produzir delta.
 
 ### Flakiness
 
@@ -71,4 +80,5 @@ Uma falha única nunca classifica um teste como flaky. A classificação `suspec
 - ausência de provider ou parser produz `unknown`, não `pass`;
 - a recomendação não altera readiness por conta própria;
 - targeted e full suite permanecem semanticamente diferentes;
+- revisão sem fingerprint dirty não é considerada contexto suficiente para comparação;
 - worktrees/environment instances só poderão compartilhar histórico quando a identidade de contexto permitir comparação explícita.
