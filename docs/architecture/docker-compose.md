@@ -9,7 +9,7 @@ O domínio Docker Compose usa o **Docker Compose CLI como adapter**. O Dashboard
 - `docker compose config --format json`;
 - `docker compose ps --all --format json`.
 
-O serviço deste recorte apenas modela/valida dados e constrói argv fixo de inspeção. Ele ainda não inicia ou encerra containers.
+O serviço deste recorte modela/valida dados e constrói argv fixo de inspeção.
 
 ## Configuração resolvida
 
@@ -41,17 +41,32 @@ Estado/health não reconhecido vira `unknown`; nunca é promovido para um estado
 
 Campos como `Command` e endereço bruto do publisher não são transportados pelo normalizador.
 
+## Segundo recorte: provider executável read-only
+
+`DockerComposeProvider` executa somente os dois comandos de inspeção conhecidos, sempre com `cwd=Project.path`, timeout de 5 segundos e limite de 2 MiB por saída. O provider não recebe programa, argumentos ou path do browser.
+
+Estados de disponibilidade são explícitos:
+
+- `available`: config e runtime válidos;
+- `runtime-unavailable`: a configuração foi resolvida, mas o estado dos containers não pôde ser consultado;
+- `docker-missing`: o executável Docker não está no PATH da API;
+- `compose-unavailable`: o adapter Compose não conseguiu resolver a configuração;
+- `invalid-output`: a saída estruturada não pôde ser validada.
+
+Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon está indisponível, a configuração já validada pode continuar sendo apresentada sem inventar runtime.
+
 ## Segurança
 
 - nenhum shell livre;
 - comandos de inspeção possuem argv fixo;
+- `cwd` vem do `Project` conhecido pelo backend;
+- timeout e limite de output são aplicados antes da normalização;
 - nenhum `down --volumes`, prune ou operação global;
 - nenhuma credencial/environment value volta no snapshot;
-- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências;
-- a execução futura deve resolver `cwd` a partir do Project validado no backend.
+- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências.
 
 ## Próximos recortes
 
-A próxima etapa conecta o modelo a um provider executável com disponibilidade do Docker/Compose, timeout e limite de output; depois entram preflight com Port Registry e ações explícitas `up/stop/restart/logs` com ownership do Compose project.
+A próxima etapa adiciona preflight com Port Registry e ações explícitas `up/stop/restart/logs` com ownership do Compose project e lifecycle adequado.
 
 Nenhuma ação destrutiva entra implicitamente nesse caminho.

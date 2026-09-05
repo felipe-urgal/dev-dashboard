@@ -11,7 +11,7 @@ O primeiro recorte define em `apps/api/src/services/migration-provider.ts`:
 - `MigrationOverview`;
 - estados `up-to-date`, `pending`, `unavailable` e `unknown`.
 
-Inspeção é separada de mutação. Este contrato inicial não expõe `reset`, `drop`, `prepare` ou qualquer ação destrutiva.
+Inspeção é separada de mutação. O contrato atual não expõe `reset`, `drop`, `prepare` ou qualquer ação destrutiva.
 
 ## Provider Rails
 
@@ -31,12 +31,36 @@ O overview contém somente identidade lógica do banco, IDs/nomes das migrations
 
 A identidade de banco aceita somente um token lógico curto (`A-Z`, `a-z`, números, `_` e `-`). Entrada vazia ou malformada cai para `primary` antes de chegar ao inspector e não é ecoada no resultado.
 
+## Provider Prisma
+
+`PrismaMigrationProvider` detecta somente schemas em convenções conhecidas dentro da raiz real do projeto:
+
+- `prisma/schema.prisma`;
+- `schema.prisma`.
+
+Symlink de schema não é aceito. A inspeção executa apenas argv fixo equivalente a:
+
+```text
+npx --no-install prisma migrate status --schema <schema-conhecido>
+```
+
+O provider é deliberadamente conservador:
+
+- exit code `0` produz `up-to-date`;
+- erro estável `P1001` produz `unavailable` sem transportar host, URL, credencial ou stderr para o contrato;
+- falha de execução do CLI produz `unavailable`;
+- outros non-zero produzem `unknown`.
+
+Texto livre do `prisma migrate status` **não** é parseado para inventar a lista de migrations pendentes. Até existir uma fonte estável/estruturada para esse detalhe, `pending` permanece vazio em respostas Prisma inconclusivas. Isso evita transformar mensagens versionáveis do CLI em contrato de domínio.
+
+Este recorte continua somente leitura: não existe `migrate deploy`, `migrate reset` ou `generate` neste provider.
+
 ## Próximos providers
 
-Prisma e providers custom entram incrementalmente atrás do mesmo contrato. O provider Prisma deverá usar inspeção estruturada do próprio CLI e distinguir indisponibilidade de schema atualizado; nenhum `migrate reset` pertence ao caminho padrão.
+Providers custom entram incrementalmente atrás do mesmo contrato e só podem usar ações conhecidas/declaradas. Texto livre de script nunca deve ser interpretado por heurística como prova de que o schema está atualizado.
 
-Providers custom só podem usar ações conhecidas/declaradas. Texto livre de script nunca deve ser interpretado por heurística como prova de que o schema está atualizado.
+Uma etapa posterior pode adicionar plano/execução local estruturada por provider, com confirmação e preflight próprios. Produção continua pertencendo ao domínio Production.
 
-## Limites deste recorte
+## Limites atuais
 
-Ainda não há rota HTTP nova, UI ou mutação comum de migrations. O fluxo Rails existente continua intacto enquanto o contrato comum é introduzido de forma compatível.
+Ainda não há rota HTTP nova ou UI comum de migrations. O fluxo Rails existente continua intacto enquanto o contrato comum e os providers de inspeção são introduzidos de forma compatível.
