@@ -35,6 +35,8 @@ const attention = ref<WorkspaceAttention | null>(null);
 const loadingAttention = ref(false);
 const attentionError = ref('');
 let attentionRequestId = 0;
+let attentionWorkspaceId: string | null = null;
+let attentionWasScanning = false;
 
 async function loadAttention(): Promise<void> {
   const workspaceId = selectedWorkspaceId.value;
@@ -73,11 +75,15 @@ async function loadAttention(): Promise<void> {
 
 watch(
   [selectedWorkspaceId, scanningWorkspace],
-  ([workspaceId, scanning], [previousWorkspaceId, previousScanning]) => {
+  ([workspaceId, scanning]) => {
+    const workspaceChanged = workspaceId !== attentionWorkspaceId;
+    const scanFinished = attentionWasScanning && !scanning;
+
+    attentionWorkspaceId = workspaceId;
+    attentionWasScanning = scanning;
+
     if (!workspaceId || scanning) return;
-    if (workspaceId !== previousWorkspaceId || previousScanning) {
-      void loadAttention();
-    }
+    if (workspaceChanged || scanFinished) void loadAttention();
   },
   { immediate: true },
 );
