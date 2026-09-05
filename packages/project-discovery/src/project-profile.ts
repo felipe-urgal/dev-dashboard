@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -14,6 +14,22 @@ async function exists(projectPath: string, relativePath: string): Promise<boolea
   try {
     await access(path.join(projectPath, relativePath));
     return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hasYamlFile(
+  projectPath: string,
+  relativePath: string,
+): Promise<boolean> {
+  try {
+    const entries = await readdir(path.join(projectPath, relativePath), {
+      withFileTypes: true,
+    });
+    return entries.some(
+      (entry) => entry.isFile() && /\.ya?ml$/i.test(entry.name),
+    );
   } catch {
     return false;
   }
@@ -99,7 +115,9 @@ const runtimeProvider: ProjectProfileProvider = {
       );
     }
 
-    const rubyVersion = (await readText(context.projectPath, '.ruby-version'))?.trim();
+    const rubyVersion = (
+      await readText(context.projectPath, '.ruby-version')
+    )?.trim();
     if (rubyVersion) {
       detected.push(
         capability(
@@ -220,7 +238,12 @@ const containerProvider: ProjectProfileProvider = {
       );
     }
 
-    for (const file of ['compose.yml', 'compose.yaml', 'docker-compose.yml', 'docker-compose.yaml']) {
+    for (const file of [
+      'compose.yml',
+      'compose.yaml',
+      'docker-compose.yml',
+      'docker-compose.yaml',
+    ]) {
       if (!(await exists(context.projectPath, file))) continue;
       detected.push(
         capability('container/compose', this.id, [
@@ -245,7 +268,7 @@ const ciProvider: ProjectProfileProvider = {
   id: 'ci',
   async detect(context) {
     const detected: DetectedCapability[] = [];
-    if (await exists(context.projectPath, '.github/workflows')) {
+    if (await hasYamlFile(context.projectPath, '.github/workflows')) {
       detected.push(
         capability('ci/github-actions', this.id, [
           { kind: 'config', source: '.github/workflows' },
@@ -269,10 +292,9 @@ const environmentProvider: ProjectProfileProvider = {
     const files = [
       '.env.example',
       '.env.sample',
-      '.env.development.example',
-      '.env.test.example',
       '.env.production.example',
       '.env.docker.example',
+      '.env.docker.sample',
     ];
     const evidence: DetectionEvidence[] = [];
     for (const file of files) {
