@@ -228,6 +228,16 @@ function sortItems(items: AttentionItem[]): AttentionItem[] {
   });
 }
 
+function sortUnavailableSources(
+  sources: AttentionUnavailableSource[],
+): AttentionUnavailableSource[] {
+  return [...sources].sort((left, right) => {
+    const categoryOrder = left.category.localeCompare(right.category);
+    if (categoryOrder !== 0) return categoryOrder;
+    return (left.projectId ?? '').localeCompare(right.projectId ?? '');
+  });
+}
+
 export class AttentionCenterService {
   private readonly now: () => number;
 
@@ -313,7 +323,7 @@ export class AttentionCenterService {
       workspaceId,
       generatedAt,
       partial: unavailableSources.length > 0,
-      unavailableSources,
+      unavailableSources: sortUnavailableSources(unavailableSources),
       items: sortItems(items),
     };
   }
