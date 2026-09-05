@@ -12,15 +12,22 @@ function jsonResponse(payload: unknown): Response {
   });
 }
 
-test('enriquece PR do GitHub com CI, comentários e conversas não resolvidas', async () => {
+test('enriquece PR do GitHub com revisão, SHA, mergeability e checks acionáveis', async () => {
   const fetchImpl: typeof fetch = async (input) => {
     const url = String(input);
     if (url.endsWith('/pulls/151')) {
       return jsonResponse({
         comments: 2,
         review_comments: 1,
+        draft: false,
+        mergeable: true,
+        mergeable_state: 'clean',
+        requested_reviewers: [{ login: 'reviewer-a' }],
         head: { sha: 'abc123' },
       });
+    }
+    if (url.endsWith('/pulls/151/reviews')) {
+      return jsonResponse([{ state: 'APPROVED' }]);
     }
     if (url.endsWith('/commits/abc123/status')) {
       return jsonResponse({
@@ -30,8 +37,20 @@ test('enriquece PR do GitHub com CI, comentários e conversas não resolvidas', 
     }
     if (url.endsWith('/commits/abc123/check-runs')) {
       return jsonResponse({
-        total_count: 1,
-        check_runs: [{ status: 'completed', conclusion: 'failure' }],
+        total_count: 2,
+        check_runs: [
+          {
+            name: 'test',
+            status: 'completed',
+            conclusion: 'failure',
+            details_url: 'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
+          },
+          {
+            name: 'lint',
+            status: 'completed',
+            conclusion: 'success',
+          },
+        ],
       });
     }
     return new Response(null, { status: 404 });
@@ -73,9 +92,27 @@ test('enriquece PR do GitHub com CI, comentários e conversas não resolvidas', 
   assert.equal(result.ciStatus, 'failure');
   assert.equal(result.commentsCount, 3);
   assert.equal(result.unresolvedConversationsCount, 2);
+  assert.deepEqual(result.cockpit, {
+    remoteStatus: 'available',
+    headSha: 'abc123',
+    draft: false,
+    mergeable: true,
+    mergeableState: 'clean',
+    reviewState: 'approved',
+    requestedReviewers: ['reviewer-a'],
+    checks: [
+      {
+        name: 'test',
+        status: 'failure',
+        detailsUrl:
+          'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
+      },
+      { name: 'lint', status: 'success' },
+    ],
+  });
 });
 
-test('mantém o resumo básico quando o provedor não entrega detalhes', async () => {
+test('mantém Git local utilizável e explicita indisponibilidade remota', async () => {
   const service = new GitPullRequestStatusService({
     fetchImpl: async () => new Response(null, { status: 404 }),
     providerCliImpl: async () => null,
@@ -89,8 +126,36 @@ test('mantém o resumo básico quando o provedor não entrega detalhes', async (
     baseBranch: 'main',
   };
 
-  assert.deepEqual(
-    await service.enrich('/tmp/project', pullRequest),
-    pullRequest,
-  );
+  assert.deepEqual(await service.enrich('/tmp/project', pullRequest), {
+    ...pullRequest,
+    cockpit: {
+      remoteStatus: 'unavailable',
+      reviewState: 'unknown',
+      requestedReviewers: [],
+      checks: [],
+    },
+  });
+});
+
+test('distingue rate limit sem transformar falha remota em erro local', async () => {
+  const service = new GitPullRequestStatusService({
+    fetchImpl: async () =>
+      new Response(null, {
+        status: 403,
+        headers: { 'x-ratelimit-remaining': '0' },
+      }),
+    providerCliImpl: async () => null,
+  });
+  const pullRequest: GitOpenPullRequest = {
+    provider: 'github',
+    number: 8,
+    title: 'feat: rate limit',
+    url: 'https://github.com/acme/example/pull/8',
+    sourceBranch: 'feat/rate-limit',
+    baseBranch: 'main',
+  };
+
+  const result = await service.enrich('/tmp/project', pullRequest);
+  assert.equal(result.cockpit?.remoteStatus, 'rate-limited');
+  assert.equal(result.cockpit?.reviewState, 'unknown');
 });
