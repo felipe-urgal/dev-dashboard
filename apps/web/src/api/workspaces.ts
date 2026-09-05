@@ -1,4 +1,8 @@
-import type { Project, Workspace } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  Workspace,
+  WorkspaceAttention,
+} from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
 
@@ -26,6 +30,10 @@ interface ProjectResponse {
 
 interface WorkspacesResponse {
   workspaces: Workspace[];
+}
+
+interface WorkspaceAttentionResponse {
+  attention: WorkspaceAttention;
 }
 
 export interface DirectoryEntry {
@@ -91,6 +99,16 @@ export async function fetchWorkspaces(): Promise<Workspace[]> {
   const response = await requestJson<WorkspacesResponse>('/api/workspaces');
 
   return response.workspaces;
+}
+
+export async function fetchWorkspaceAttention(
+  workspaceId: string,
+): Promise<WorkspaceAttention> {
+  const response = await requestJson<WorkspaceAttentionResponse>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/attention`,
+  );
+
+  return response.attention;
 }
 
 export function createWorkspace(input: {
