@@ -21,6 +21,8 @@ Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) pode apresentar as se
 
 Antes de abrir um projeto, o seletor de workspace permite cadastrar, renomear, remover e trocar a pasta ativa. A seleção e o scan inicial são automáticos; veja [workspaces.md](workspaces.md).
 
+A home também apresenta a **Central de Atenção**, que agrega sinais de Processos, Git, Testes, Produção e Project Doctor sem executar correções automaticamente. Veja [central-de-atencao.md](central-de-atencao.md).
+
 As abas condicionais aparecem apenas quando a capability existe. Em especial, **Produção** depende de um `Production Contract v1` válido. Um contrato `strategy=disabled` pode explicar o bloqueio, mas não libera uma execução mutável.
 
 ## Princípio comum das ações estruturadas
