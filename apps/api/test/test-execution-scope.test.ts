@@ -80,7 +80,7 @@ test('persiste full-suite e targeted sem confundir filtro com arquivo', async (c
   const targetedScope: TestExecutionScope = 'targeted';
 
   assert.equal(history.items[0]?.scope, targetedScope);
-  assert.equal(history.items[0]?.targetFile, 'spec/models/user_spec.rb');
+  assert.equal(history.items[0]?.targetFile, 'spec/models/user_spec.rb:42');
   assert.equal(history.items[1]?.scope, targetedScope);
   assert.equal(history.items[1]?.targetFile, 'src/app.test.ts');
   assert.equal(history.items[2]?.scope, targetedScope);
