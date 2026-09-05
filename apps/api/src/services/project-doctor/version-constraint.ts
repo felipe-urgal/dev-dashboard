@@ -40,9 +40,7 @@ function parseNumericRequirement(raw: string): ParsedRequirement | null {
   const patchToken = match[3];
 
   if (minorToken === undefined || /^(?:x|\*)$/i.test(minorToken)) {
-    return {
-      test: (version) => version.major === major,
-    };
+    return { test: (version) => version.major === major };
   }
 
   const minor = Number.parseInt(minorToken, 10);
@@ -57,14 +55,21 @@ function parseNumericRequirement(raw: string): ParsedRequirement | null {
   return { test: (version) => compare(version, expected) === 0 };
 }
 
+function upperBoundForPartial(base: Version, segments: number): Version {
+  if (segments <= 1) return { major: base.major + 1, minor: 0, patch: 0 };
+  if (segments === 2) {
+    return { major: base.major, minor: base.minor + 1, patch: 0 };
+  }
+  return { major: base.major, minor: base.minor, patch: base.patch + 1 };
+}
+
 function upperBoundForCaret(base: Version): Version {
   if (base.major > 0) return { major: base.major + 1, minor: 0, patch: 0 };
   if (base.minor > 0) return { major: 0, minor: base.minor + 1, patch: 0 };
   return { major: 0, minor: 0, patch: base.patch + 1 };
 }
 
-function upperBoundForTilde(base: Version, raw: string): Version {
-  const segments = raw.split('.').length;
+function upperBoundForTilde(base: Version, segments: number): Version {
   if (segments <= 1) return { major: base.major + 1, minor: 0, patch: 0 };
   return { major: base.major, minor: base.minor + 1, patch: 0 };
 }
@@ -75,24 +80,32 @@ function parseComparator(raw: string): ParsedRequirement | null {
 
   const operator = match[1] ?? '';
   const value = match[2]!;
+  const normalizedValue = value.replace(/^v/i, '');
+  const segments = normalizedValue.split('.').length;
   const expected = parseVersion(value);
   if (!expected) return null;
 
-  if (operator === '') return parseNumericRequirement(value);
-  if (operator === '=') {
-    return { test: (version) => compare(version, expected) === 0 };
-  }
-  if (operator === '>') {
-    return { test: (version) => compare(version, expected) > 0 };
-  }
+  if (operator === '') return parseNumericRequirement(normalizedValue);
+  if (operator === '=') return parseNumericRequirement(normalizedValue);
   if (operator === '>=') {
     return { test: (version) => compare(version, expected) >= 0 };
   }
   if (operator === '<') {
     return { test: (version) => compare(version, expected) < 0 };
   }
+  if (operator === '>') {
+    if (segments === 3) {
+      return { test: (version) => compare(version, expected) > 0 };
+    }
+    const lower = upperBoundForPartial(expected, segments);
+    return { test: (version) => compare(version, lower) >= 0 };
+  }
   if (operator === '<=') {
-    return { test: (version) => compare(version, expected) <= 0 };
+    if (segments === 3) {
+      return { test: (version) => compare(version, expected) <= 0 };
+    }
+    const upper = upperBoundForPartial(expected, segments);
+    return { test: (version) => compare(version, upper) < 0 };
   }
   if (operator === '^') {
     const upper = upperBoundForCaret(expected);
@@ -102,7 +115,7 @@ function parseComparator(raw: string): ParsedRequirement | null {
     };
   }
 
-  const upper = upperBoundForTilde(expected, value.replace(/^v/i, ''));
+  const upper = upperBoundForTilde(expected, segments);
   return {
     test: (version) =>
       compare(version, expected) >= 0 && compare(version, upper) < 0,
