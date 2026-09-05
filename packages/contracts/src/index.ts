@@ -194,6 +194,13 @@ export type {
 } from './git.js';
 
 export type {
+  GitPullRequestCheck,
+  GitPullRequestCockpit,
+  GitPullRequestRemoteStatus,
+  GitPullRequestReviewState,
+} from './git-pull-request-cockpit.js';
+
+export type {
   GitMutationCatalogEntry,
   GitMutationRiskLevel,
 } from './git-mutation-catalog.js';
