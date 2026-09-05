@@ -4,17 +4,27 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 
 import type {
+  ProjectCoverageFileSummary,
   ProjectCoverageHistory,
   ProjectCoverageHistoryEntry,
   ProjectCoverageSummary,
   ProjectCoverageTotals,
 } from '@dev-dashboard/contracts';
 
-const HISTORY_VERSION = 1;
+import {
+  captureTestExecutionGitIdentity,
+  type TestExecutionGitIdentity,
+} from './test-execution-identity.js';
+
+const HISTORY_VERSION = 2;
 const DEFAULT_HISTORY_LIMIT = 50;
 
+type CoverageIdentityCapture = (
+  projectPath: string,
+) => Promise<TestExecutionGitIdentity>;
+
 interface StoredHistory {
-  version: 1;
+  version: 1 | 2;
   items: ProjectCoverageHistoryEntry[];
 }
 
@@ -39,6 +49,16 @@ function isTotals(value: unknown): value is ProjectCoverageTotals {
   );
 }
 
+function isFileSummary(value: unknown): value is ProjectCoverageFileSummary {
+  if (!value || typeof value !== 'object') return false;
+  const file = value as Record<string, unknown>;
+  return typeof file.path === 'string' && file.path.length > 0 && isTotals(file);
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string';
+}
+
 function isValidEntry(value: unknown): value is ProjectCoverageHistoryEntry {
   if (!value || typeof value !== 'object') return false;
   const entry = value as Record<string, unknown>;
@@ -49,7 +69,12 @@ function isValidEntry(value: unknown): value is ProjectCoverageHistoryEntry {
     Number.isFinite(Date.parse(entry.generatedAt)) &&
     typeof entry.recordedAt === 'string' &&
     Number.isFinite(Date.parse(entry.recordedAt)) &&
-    isTotals(entry.total)
+    isTotals(entry.total) &&
+    (entry.files === undefined ||
+      (Array.isArray(entry.files) && entry.files.every(isFileSummary))) &&
+    isOptionalString(entry.gitRevision) &&
+    isOptionalString(entry.gitDirtyFingerprint) &&
+    isOptionalString(entry.environmentInstanceId)
   );
 }
 
@@ -68,10 +93,9 @@ function readHistoryLimit(): number {
 }
 
 /**
- * Grava um snapshot (só os totais agregados, não o detalhamento por arquivo)
- * toda vez que um relatório de cobertura com um `generatedAt` ainda não
- * registrado é lido — não é uma ação separada do usuário nem uma flag nova
- * no comando de teste, é só "lembrar o que já foi lido em disco".
+ * Grava um snapshot do artifact de coverage já lido pelo dashboard. A v2
+ * preserva totais, arquivos e identidade Git suficiente para permitir um
+ * delta posterior somente quando a comparação for comprovadamente segura.
  */
 export class ProjectCoverageHistoryService {
   private readonly stateDirectory: string;
@@ -81,6 +105,8 @@ export class ProjectCoverageHistoryService {
     stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() ||
       path.join(homedir(), '.local', 'state', 'dev-dashboard'),
     historyLimit = readHistoryLimit(),
+    private readonly captureIdentity: CoverageIdentityCapture =
+      captureTestExecutionGitIdentity,
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'coverage-history');
     this.historyLimit = historyLimit;
@@ -89,6 +115,7 @@ export class ProjectCoverageHistoryService {
   public async record(
     projectId: string,
     summary: ProjectCoverageSummary,
+    projectPath?: string,
   ): Promise<void> {
     if (!summary.available || !summary.total || !summary.generatedAt) return;
 
@@ -97,11 +124,16 @@ export class ProjectCoverageHistoryService {
       return;
     }
 
+    const identity = projectPath
+      ? await this.captureIdentity(projectPath).catch(() => ({}))
+      : {};
     const entry: ProjectCoverageHistoryEntry = {
       id: randomUUID(),
       generatedAt: summary.generatedAt,
       recordedAt: new Date().toISOString(),
       total: summary.total,
+      ...(summary.files ? { files: summary.files } : {}),
+      ...identity,
     };
     items.unshift(entry);
     await this.save(projectId, items.slice(0, this.historyLimit));
@@ -125,8 +157,12 @@ export class ProjectCoverageHistoryService {
     try {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
-      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.items))
+      if (
+        !([1, HISTORY_VERSION] as const).includes(parsed.version as 1 | 2) ||
+        !Array.isArray(parsed.items)
+      ) {
         return [];
+      }
       return parsed.items.filter(isValidEntry);
     } catch {
       return [];
