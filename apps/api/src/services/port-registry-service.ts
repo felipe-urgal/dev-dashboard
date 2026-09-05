@@ -1,6 +1,8 @@
 import type {
   DeclaredProjectPort,
   ObservedPort,
+  PortAllocationLeaseRequest,
+  PortAllocationLeaseResult,
   PortAllocationRequest,
   PortAllocationResult,
   PortReconciliation,
@@ -17,6 +19,17 @@ export interface ReconcilePortsInput {
   reserved?: readonly ReservedPort[];
   declared?: readonly DeclaredProjectPort[];
   observed?: readonly ObservedPort[];
+}
+
+/**
+ * Entrada mínima produzida por um adapter de `docker compose config --format json`.
+ * O Port Registry não lê YAML nem executa Compose; ele recebe somente a porta
+ * publicada já resolvida pelo provider de Compose.
+ */
+export interface ResolvedComposePublishedPort {
+  service: string;
+  publishedPort: number;
+  active?: boolean;
 }
 
 function validPort(port: number): boolean {
@@ -220,4 +233,113 @@ export function allocatePort(
   }
 
   return null;
+}
+
+export function declaredPortsFromResolvedCompose(
+  projectId: string,
+  ports: readonly ResolvedComposePublishedPort[],
+): DeclaredProjectPort[] {
+  const normalizedProjectId = projectId.trim();
+  if (!normalizedProjectId) return [];
+
+  const seen = new Set<string>();
+  const declarations: DeclaredProjectPort[] = [];
+  for (const item of ports) {
+    const service = item.service.trim();
+    if (!service || !validPort(item.publishedPort)) continue;
+    const identity = `${service}:${item.publishedPort}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    declarations.push({
+      projectId: normalizedProjectId,
+      port: item.publishedPort,
+      role: service,
+      source: 'compose',
+      confidence: 'certain',
+      ...(item.active === false ? { active: false } : {}),
+    });
+  }
+
+  return declarations.sort(
+    (left, right) => left.port - right.port || left.role.localeCompare(right.role),
+  );
+}
+
+interface StoredPortAllocationLease extends PortAllocationLeaseResult {
+  projectId: string;
+  role: string;
+}
+
+/**
+ * Coordena decisões de porta dentro do processo da API. A operação `reserve`
+ * é síncrona de propósito: escolher + registrar acontece sem um `await` entre
+ * as duas etapas, então consumidores locais concorrentes não recebem a mesma
+ * porta antes de iniciar seus processos.
+ *
+ * Não é um lock distribuído e não sobrevive a restart. Essa responsabilidade
+ * pertence ao lifecycle do ambiente consumidor; o Registry não persiste uma
+ * reserva sem owner/lifecycle explícitos.
+ */
+export class PortAllocationLeaseRegistry {
+  private readonly leases = new Map<string, StoredPortAllocationLease>();
+
+  public reserve(
+    input: ReconcilePortsInput,
+    request: PortAllocationLeaseRequest,
+  ): PortAllocationLeaseResult | null {
+    const leaseId = request.leaseId.trim();
+    if (!leaseId || !request.projectId.trim() || !request.role.trim()) return null;
+
+    const current = this.leases.get(leaseId);
+    if (current) {
+      if (
+        current.projectId !== request.projectId ||
+        current.role !== request.role
+      ) {
+        return null;
+      }
+      return {
+        leaseId: current.leaseId,
+        port: current.port,
+        explanation: current.explanation,
+      };
+    }
+
+    const leasedObserved: ObservedPort[] = [...this.leases.values()].map(
+      (lease) => ({
+        port: lease.port,
+        owner: { kind: 'unknown' },
+      }),
+    );
+    const allocated = allocatePort(
+      {
+        ...input,
+        observed: [...(input.observed ?? []), ...leasedObserved],
+      },
+      request,
+    );
+    if (!allocated) return null;
+
+    const stored: StoredPortAllocationLease = {
+      leaseId,
+      projectId: request.projectId,
+      role: request.role,
+      port: allocated.port,
+      explanation: `${allocated.explanation} Reserva local ${leaseId} registrada até o consumidor liberar o lease.`,
+    };
+    this.leases.set(leaseId, stored);
+    return {
+      leaseId: stored.leaseId,
+      port: stored.port,
+      explanation: stored.explanation,
+    };
+  }
+
+  public release(leaseId: string): boolean {
+    return this.leases.delete(leaseId.trim());
+  }
+
+  public clear(): void {
+    this.leases.clear();
+  }
 }
