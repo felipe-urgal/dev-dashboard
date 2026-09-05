@@ -109,29 +109,32 @@ test('exposes workspace attention through the authenticated API', async (context
   assert.equal(response.statusCode, 200);
 
   const body = response.json<{
-    workspaceId: string;
-    generatedAt: string;
-    partial: boolean;
-    unavailableSources: unknown[];
-    items: Array<{
-      id: string;
-      projectId: string;
-      projectName: string;
-      category: string;
-      severity: string;
-      message: string;
-      observedAt: string;
-      action: { destination: string; projectId?: string };
-    }>;
+    attention: {
+      workspaceId: string;
+      generatedAt: string;
+      partial: boolean;
+      unavailableSources: unknown[];
+      items: Array<{
+        id: string;
+        projectId: string;
+        projectName: string;
+        category: string;
+        severity: string;
+        message: string;
+        observedAt: string;
+        action: { destination: string; projectId?: string };
+      }>;
+    };
   }>();
+  const { attention } = body;
 
-  assert.equal(body.workspaceId, workspaceId);
-  assert.match(body.generatedAt, /^\d{4}-\d{2}-\d{2}T/);
-  assert.equal(typeof body.partial, 'boolean');
-  assert.ok(Array.isArray(body.unavailableSources));
-  assert.ok(Array.isArray(body.items));
+  assert.equal(attention.workspaceId, workspaceId);
+  assert.match(attention.generatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(typeof attention.partial, 'boolean');
+  assert.ok(Array.isArray(attention.unavailableSources));
+  assert.ok(Array.isArray(attention.items));
 
-  for (const item of body.items) {
+  for (const item of attention.items) {
     assert.ok(item.id.length > 0);
     assert.ok(item.projectId.length > 0);
     assert.ok(item.projectName.length > 0);
