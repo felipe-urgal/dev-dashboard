@@ -35,7 +35,7 @@ interface PendingEntry {
 
 interface ObservedSocket {
   socket: ParsedSocket;
-  managed?: ManagedProcess;
+  managed: ManagedProcess | undefined;
 }
 
 export interface ExpectedLocalPort extends LocalPortExpectation {
