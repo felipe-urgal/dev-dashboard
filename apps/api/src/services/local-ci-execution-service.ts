@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
 
 import type { Project } from '@dev-dashboard/contracts';
 
-import {
-  DetachableExecutionError,
-  type DetachableExecutionService,
-  type DetachableExecutionSnapshot,
+import type {
+  DetachableExecutionService,
+  DetachableExecutionSnapshot,
 } from './detachable-execution-service.js';
 import { buildActJobCommand, type LocalCiJobRequest } from './local-ci-act.js';
 import type { LocalCiDiscoveryService } from './local-ci-discovery-service.js';
@@ -26,7 +25,9 @@ const SAFE_ENV_KEYS = [
 ] as const;
 
 export type LocalCiExecutionErrorCode =
-  'LOCAL_CI_BUSY' | 'LOCAL_CI_NOT_FOUND' | 'LOCAL_CI_NOT_RUNNING';
+  | 'LOCAL_CI_BUSY'
+  | 'LOCAL_CI_NOT_FOUND'
+  | 'LOCAL_CI_NOT_RUNNING';
 
 export class LocalCiExecutionError extends Error {
   public constructor(
