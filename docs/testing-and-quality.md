@@ -30,7 +30,8 @@ npm run check
 Hoje ela executa:
 
 ```text
-lint
+format:check
+-> lint
 -> test
 -> build:apps
 ```
@@ -45,25 +46,27 @@ npm ci --ignore-scripts
 
 `npm test` preserva o hook `pretest`, portanto os packages compartilhados são compilados antes da suíte. A cobertura não faz parte desse caminho obrigatório.
 
-O objetivo do PR é responder rapidamente três perguntas:
+O objetivo do PR é responder rapidamente quatro perguntas:
 
-1. o código respeita as regras estáticas relevantes?
-2. os comportamentos automatizados continuam corretos?
-3. as aplicações continuam compilando?
+1. o código está formatado de acordo com a política do repositório?
+2. o código respeita as regras estáticas relevantes?
+3. os comportamentos automatizados continuam corretos?
+4. as aplicações continuam compilando?
 
-Não mantenha uma segunda lista de `lint`, `test` e build no workflow ou na documentação: altere primeiro `npm run check` quando o contrato obrigatório realmente mudar.
+Não mantenha uma segunda lista de `format`, `lint`, `test` e build no workflow ou na documentação: altere primeiro `npm run check` quando o contrato obrigatório realmente mudar.
 
 ## Checks direcionados
 
-Typecheck isolado, formatação, CLI Bash, Node mínimo, Playwright e coverage continuam disponíveis conforme o risco:
+Typecheck isolado, CLI Bash, Node mínimo, Playwright e coverage continuam disponíveis conforme o risco:
 
 ```bash
 npm run typecheck
-npm run format:check
 npm run test:cli
 npm run test:e2e
 npm run test:coverage
 ```
+
+`npm run format:check` também pode ser executado isoladamente para diagnóstico rápido, mas já faz parte de `npm run check`.
 
 ### Typecheck
 
@@ -71,7 +74,7 @@ Use `npm run typecheck` quando tipos/configuração de build merecerem inspeçã
 
 ### Formatação
 
-Use `npm run format:check` antes de finalizar mudanças extensas ou quando houver risco de drift de Prettier.
+`npm run format:check` faz parte do gate obrigatório. Use a execução isolada apenas para diagnosticar drift de Prettier sem esperar o restante do check.
 
 ### CLI Bash
 
@@ -79,7 +82,7 @@ Use `npm run format:check` antes de finalizar mudanças extensas ou quando houve
 
 ### E2E
 
-Playwright permanece reservado a poucos fluxos de alto valor em navegador real. Ele não roda automaticamente em todo PR.
+Playwright permanece reservado a poucos fluxos de alto valor em navegador real. Ele não roda automaticamente em todo PR no workflow atual.
 
 Use E2E quando a mudança depender da integração entre UI, router, API e ambiente real, especialmente para:
 
@@ -127,14 +130,14 @@ Históricos locais continuam bounded e não armazenam output completo para alime
 
 ## API docs
 
-Mudanças em rotas/schemas também devem validar a referência gerada:
+Mudanças em rotas/schemas devem validar a referência gerada:
 
 ```bash
 npm run docs:api
 npm run docs:api:check
 ```
 
-A referência gerada em `docs/architecture/api-reference.md` não é editada manualmente.
+A referência gerada em `docs/architecture/api-reference.md` não é editada manualmente. Esse gate é direcionado a mudanças de API; hoje não existe um step separado de `docs:api:check` no job `Validate`.
 
 ## Compatibilidade de Node
 
@@ -162,6 +165,8 @@ A automação de segurança permanece separada do caminho crítico dos PRs:
 - CodeQL roda semanalmente ou manualmente;
 - o workflow de segurança não adiciona jobs ao pull request normal;
 - permissões do `GITHUB_TOKEN` permanecem mínimas por job.
+
+O repositório **não possui hoje um job de Dependency Review em PR**; a antiga issue que tratava esse check como já existente foi encerrada por estar obsoleta. Caso essa política volte, workflow e ruleset devem ser introduzidos de forma coerente na mesma frente.
 
 Segurança não depende apenas de scanners: schemas, validação, catálogo fechado de ações, testes de fronteira e review continuam sendo as proteções principais.
 
