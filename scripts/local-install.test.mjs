@@ -8,6 +8,7 @@ import {
   LOCAL_SERVICE_NAME,
   MANAGED_UNIT_MARKER,
   buildLocalOrigin,
+  buildRuntimeEnvironment,
   buildSystemdUnit,
   installLocal,
   localStatus,
@@ -47,7 +48,7 @@ test('escapa valores da unit sem permitir quebra de diretiva', () => {
   assert.throws(() => systemdQuote('a\nb'), /systemd/);
 });
 
-test('unit usa Node absoluto, loopback nominal e reinício somente em falha', () => {
+test('unit carrega ambiente local antes do ambiente gerenciado', () => {
   const unit = buildSystemdUnit({
     repositoryRoot: '/home/test/.dev-dashboard',
     nodePath: '/home/test/.nvm/node/bin/node',
@@ -61,17 +62,44 @@ test('unit usa Node absoluto, loopback nominal e reinício somente em falha', ()
   assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
   assert.match(unit, /ExecStart="\/home\/test\/\.nvm\/node\/bin\/node"/);
   assert.match(unit, /scripts\/dev-web\.mjs" --installed/);
-  assert.match(
-    unit,
-    /DEV_DASHBOARD_LOCAL_ORIGIN=http:\/\/dev-dashboard\.localhost:4343/,
+  const localEnvironmentIndex = unit.indexOf(
+    'EnvironmentFile=-"/home/test/.dev-dashboard/.env.local"',
   );
-  assert.match(
-    unit,
-    /EnvironmentFile=-"\/home\/test\/\.dev-dashboard\/\.env\.local"/,
+  const managedEnvironmentIndex = unit.indexOf(
+    'EnvironmentFile="/home/test/.config/dev-dashboard/local-runtime.env"',
   );
+  assert.ok(localEnvironmentIndex >= 0);
+  assert.ok(managedEnvironmentIndex > localEnvironmentIndex);
   assert.match(unit, /Restart=on-failure/);
   assert.match(unit, /WantedBy=default\.target/);
   assert.doesNotMatch(unit, /sudo|0\.0\.0\.0/);
+});
+
+test('ambiente gerenciado fixa paths, porta e origem sem persistir secrets', () => {
+  const runtimeEnvironment = buildRuntimeEnvironment({
+    port: 4343,
+    origin: 'http://dev-dashboard.localhost:4343',
+    configDirectory: '/home/test/.config/dev-dashboard',
+    stateDirectory: '/home/test/.local/state/dev-dashboard',
+    runtimePath: '/opt/node/bin:/usr/bin:/bin',
+  });
+
+  assert.match(runtimeEnvironment, /^PATH="\/opt\/node\/bin:\/usr\/bin:\/bin"/m);
+  assert.match(runtimeEnvironment, /^DEV_DASHBOARD_API_PORT=4343$/m);
+  assert.match(
+    runtimeEnvironment,
+    /^DEV_DASHBOARD_LOCAL_ORIGIN="http:\/\/dev-dashboard\.localhost:4343"$/m,
+  );
+  assert.match(
+    runtimeEnvironment,
+    /^DEV_DASHBOARD_CONFIG_DIR="\/home\/test\/\.config\/dev-dashboard"$/m,
+  );
+  assert.match(
+    runtimeEnvironment,
+    /^DEV_DASHBOARD_STATE_DIR="\/home\/test\/\.local\/state\/dev-dashboard"$/m,
+  );
+  assert.match(runtimeEnvironment, /^DEV_DASHBOARD_RUNTIME_REVISION=$/m);
+  assert.doesNotMatch(runtimeEnvironment, /TOKEN|SECRET|VERCEL/);
 });
 
 test('install é idempotente, grava apenas metadados não sensíveis e habilita a unit', async (t) => {
@@ -95,9 +123,17 @@ test('install é idempotente, grava apenas metadados não sensíveis e habilita 
   assert.equal(second.unit, LOCAL_SERVICE_NAME);
   const paths = resolveLocalInstallPaths(environment, home);
   const unit = await readFile(paths.unitPath, 'utf8');
+  const runtimeEnvironment = await readFile(paths.runtimeEnvironmentPath, 'utf8');
   const metadata = await readFile(paths.metadataPath, 'utf8');
   assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
+  assert.match(unit, /local-runtime\.env/);
+  assert.match(runtimeEnvironment, /DEV_DASHBOARD_API_PORT=4343/);
+  assert.match(
+    runtimeEnvironment,
+    /DEV_DASHBOARD_LOCAL_ORIGIN="http:\/\/dev-dashboard\.localhost:4343"/,
+  );
   assert.doesNotMatch(unit, /TOKEN|SECRET|VERCEL_TOKEN=/);
+  assert.doesNotMatch(runtimeEnvironment, /TOKEN|SECRET|VERCEL/);
   assert.doesNotMatch(metadata, /TOKEN|SECRET|VERCEL/);
   assert.equal(
     calls.filter((entry) => entry.args.join(' ') === 'run build').length,
@@ -137,7 +173,7 @@ test('install recusa sobrescrever unit não gerenciada', async (t) => {
   assert.equal(calls, 0);
 });
 
-test('status combina unit, systemd e health reais da instalação', async (t) => {
+test('status combina unit, ambiente gerenciado, systemd e health reais da instalação', async (t) => {
   const { repositoryRoot, home, environment } = await fixture(t);
   await installLocal({
     platform: 'linux',
@@ -186,6 +222,35 @@ test('status combina unit, systemd e health reais da instalação', async (t) =>
   );
 });
 
+test('status considera incompleta instalação sem ambiente gerenciado', async (t) => {
+  const { repositoryRoot, home, environment } = await fixture(t);
+  await installLocal({
+    platform: 'linux',
+    rootDirectory: repositoryRoot,
+    homeDirectory: home,
+    environment,
+    nodePath: '/opt/node/bin/node',
+    resolveRealpath: async (value) => value,
+    runCommand: successfulRunner([]),
+  });
+  const paths = resolveLocalInstallPaths(environment, home);
+  await rm(paths.runtimeEnvironmentPath);
+
+  const status = await localStatus({
+    homeDirectory: home,
+    environment,
+    runCommand: successfulRunner([]),
+    fetchImpl: async () => ({
+      ok: true,
+      async json() {
+        return { status: 'ok', service: 'dev-dashboard-api' };
+      },
+    }),
+  });
+
+  assert.equal(status.installed, false);
+});
+
 test('open usa xdg-open sem shell e uninstall preserva checkout/config funcional', async (t) => {
   const { repositoryRoot, home, environment } = await fixture(t);
   await installLocal({
@@ -218,6 +283,7 @@ test('open usa xdg-open sem shell e uninstall preserva checkout/config funcional
     runCommand: successfulRunner(uninstallCalls),
   });
   await assert.rejects(readFile(paths.unitPath, 'utf8'), /ENOENT/);
+  await assert.rejects(readFile(paths.runtimeEnvironmentPath, 'utf8'), /ENOENT/);
   await assert.rejects(readFile(paths.metadataPath, 'utf8'), /ENOENT/);
   assert.equal(await readFile(preserved, 'utf8'), 'segredo-local');
   assert.ok(
