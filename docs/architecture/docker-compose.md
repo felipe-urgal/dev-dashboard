@@ -61,9 +61,11 @@ Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon
 
 O resultado possui três estados:
 
-- `ready`: todas as portas publicadas estão comprovadamente disponíveis ou já pertencem a um serviço ativo do mesmo runtime Compose;
+- `ready`: todas as portas TCP publicadas estão comprovadamente disponíveis ou já pertencem a um serviço ativo do mesmo runtime Compose;
 - `blocked`: existe conflito de listener, reserva incompatível ou declaração Compose duplicada;
 - `unavailable`: o Dashboard não conseguiu provar a situação das portas com segurança.
+
+O inspetor local atual observa sockets TCP. Por isso qualquer porta publicada com protocolo `udp` ou protocolo `unknown` mantém o preflight em `unavailable` **antes** de consultar disponibilidade. O Dashboard não converte ausência de evidência UDP em falso `ready`.
 
 Os bloqueios são classificados por motivo:
 
@@ -98,6 +100,7 @@ O preflight **não** mata processos, não remapeia portas, não altera Compose e
 - nenhum `down --volumes`, prune ou operação global;
 - nenhuma credencial/environment value volta no snapshot;
 - config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências;
+- protocolo sem observabilidade suportada nunca é promovido para preflight seguro;
 - indisponibilidade/truncamento do Port Inspector nunca é promovida para preflight seguro;
 - reservas e declarações participam da reconciliação mesmo quando não existe listener ativo;
 - ownership de porta só é assumido quando existe evidência positiva do runtime Compose atual.
