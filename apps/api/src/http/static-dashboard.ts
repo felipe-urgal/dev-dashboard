@@ -14,7 +14,6 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const BROWSER_BOOTSTRAP_PATTERN = /^[a-f0-9]{64}$/;
-const BROWSER_BOOTSTRAP_META = 'dev-dashboard-browser-bootstrap';
 
 export interface StaticDashboardOptions {
   browserBootstrapToken?: string;
@@ -54,19 +53,18 @@ export async function validateDashboardBuild(
   return root;
 }
 
-function injectBrowserBootstrap(
-  html: string,
-  token: string | undefined,
-): string {
+function injectBrowserBootstrap(html: string, token: string | undefined): string {
   if (!token) return html;
   if (!BROWSER_BOOTSTRAP_PATTERN.test(token)) {
     throw new Error('Bootstrap de navegador inválido para o frontend local.');
   }
 
-  const meta = `<meta name="${BROWSER_BOOTSTRAP_META}" content="${token}">`;
+  // O fragmento não é enviado ao servidor. O cliente existente o consome,
+  // move a capacidade para sessionStorage e limpa a URL antes de usar a API.
+  const bootstrapScript = `<script>window.location.hash="bootstrap=${token}"</script>`;
   return html.includes('</head>')
-    ? html.replace('</head>', `${meta}</head>`)
-    : `${meta}${html}`;
+    ? html.replace('</head>', `${bootstrapScript}</head>`)
+    : `${bootstrapScript}${html}`;
 }
 
 export async function registerStaticDashboard(
