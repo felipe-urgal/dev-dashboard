@@ -1,11 +1,18 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { access, readFile, readdir } from 'node:fs/promises';
+import { access, readFile, readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { diagnose } from './doctor.mjs';
+import {
+  LOCAL_SERVICE_NAME,
+  isManagedUnit,
+  readLocalInstallMetadata,
+  resolveLocalInstallPaths,
+  runCommand,
+} from './local-install.mjs';
 
 export const ROOT_DIRECTORY = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -98,6 +105,60 @@ export function readGitRevision(rootDirectory, options = {}) {
   });
 }
 
+export async function delegateManagedSelfUpdate(options = {}) {
+  const environment = options.environment ?? process.env;
+  const targetRevision = environment.DEV_DASHBOARD_RUNTIME_REVISION?.trim();
+  const selfUpdateRoot =
+    environment.DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT?.trim();
+  if (!REVISION_PATTERN.test(targetRevision ?? '') || !selfUpdateRoot) {
+    return null;
+  }
+
+  let root;
+  let handoffRoot;
+  try {
+    root = await (options.resolveRealpath ?? realpath)(
+      options.rootDirectory ?? ROOT_DIRECTORY,
+    );
+    handoffRoot = await (options.resolveRealpath ?? realpath)(selfUpdateRoot);
+  } catch {
+    return null;
+  }
+  if (root !== handoffRoot) return null;
+
+  const paths = resolveLocalInstallPaths(
+    environment,
+    options.homeDirectory ?? homedir(),
+  );
+  const metadata = await readLocalInstallMetadata(paths.metadataPath);
+  if (
+    !metadata ||
+    metadata.repositoryRoot !== root ||
+    metadata.unit !== LOCAL_SERVICE_NAME ||
+    !(await isManagedUnit(paths.unitPath))
+  ) {
+    return null;
+  }
+
+  const run = options.runServiceCommand ?? runCommand;
+  const result = await run(
+    'systemctl',
+    ['--user', 'start', LOCAL_SERVICE_NAME],
+    { cwd: root, env: environment },
+  );
+  if (result.code !== 0) {
+    const detail = result.stderr.trim() || result.stdout.trim();
+    throw new Error(
+      detail
+        ? `Falha ao reiniciar runtime local via systemd: ${detail}`
+        : 'Falha ao reiniciar runtime local via systemd.',
+    );
+  }
+
+  console.info('Restart do self-update delegado ao systemd do usuário.');
+  return { code: 0, manager: 'systemd-user' };
+}
+
 async function collectFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(
@@ -146,6 +207,26 @@ export async function orchestrate(options = {}) {
   const checker = options.fileChecker ?? access;
   const environment = options.environment ?? process.env;
   const installed = options.installed ?? process.argv.includes('--installed');
+
+  if (!installed) {
+    const delegated = await (
+      options.delegateSelfUpdate ?? delegateManagedSelfUpdate
+    )({
+      rootDirectory: root,
+      environment,
+      ...(options.homeDirectory
+        ? { homeDirectory: options.homeDirectory }
+        : {}),
+      ...(options.resolveRealpath
+        ? { resolveRealpath: options.resolveRealpath }
+        : {}),
+      ...(options.runServiceCommand
+        ? { runServiceCommand: options.runServiceCommand }
+        : {}),
+    });
+    if (delegated) return delegated.code;
+  }
+
   const results = await diagnoseEnvironment({
     rootDirectory: root,
     mode: 'distribution',
@@ -170,8 +251,7 @@ export async function orchestrate(options = {}) {
   let runtimeRevision = environment.DEV_DASHBOARD_RUNTIME_REVISION;
   if (installed && !runtimeRevision) {
     runtimeRevision = await (
-      options.resolveRuntimeRevision ??
-      ((directory) => readGitRevision(directory))
+      options.resolveRuntimeRevision ?? ((directory) => readGitRevision(directory))
     )(root);
   }
   console.info(`Abra o dashboard por esta URL:\n${localOrigin}`);
