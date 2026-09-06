@@ -175,6 +175,19 @@ export async function delegateManagedSelfUpdate(options = {}) {
   }
 
   const run = options.runServiceCommand ?? runCommand;
+  const build = await run(npmCommand, ['run', 'build'], {
+    cwd: root,
+    env: environment,
+  });
+  if (build.code !== 0) {
+    const detail = build.stderr.trim() || build.stdout.trim();
+    throw new Error(
+      detail
+        ? `Build do self-update falhou antes do restart gerenciado: ${detail}`
+        : 'Build do self-update falhou antes do restart gerenciado.',
+    );
+  }
+
   const result = await run(
     'systemctl',
     ['--user', 'start', LOCAL_SERVICE_NAME],
@@ -281,11 +294,15 @@ export async function orchestrate(options = {}) {
   });
   if (results.some((item) => item.status === 'error'))
     throw new Error('Diagnóstico encontrou erros; inicialização abortada.');
-  const build = await runner(npmCommand, ['run', 'build'], {
-    cwd: root,
-    env: environment,
-  });
-  if (build.code !== 0) return build.code;
+
+  if (!installed) {
+    const build = await runner(npmCommand, ['run', 'build'], {
+      cwd: root,
+      env: environment,
+    });
+    if (build.code !== 0) return build.code;
+  }
+
   const webDist = path.join(root, 'apps/web/dist');
   await checker(webDist);
   await (options.buildScanner ?? assertBuildHasNoCredentials)(webDist);
