@@ -57,7 +57,8 @@ npm run check
 `npm run check` representa tudo que é sempre exigido pelo CI funcional atual:
 
 ```text
-lint
+format:check
+-> lint
 -> test
 -> build:apps
 ```
@@ -66,7 +67,7 @@ lint
 
 ## Checks direcionados
 
-Use somente quando o risco/escopo justificar.
+Use quando o risco/escopo justificar uma validação adicional ou quando quiser diagnosticar uma etapa isoladamente.
 
 ### Typecheck isolado
 
@@ -76,13 +77,13 @@ npm run typecheck
 
 Útil quando tipos/configuração de build merecem inspeção separada. Não é repetido como etapa fixa do CI atual.
 
-### Formatação
+### Formatação isolada
 
 ```bash
 npm run format:check
 ```
 
-Use antes de finalizar mudanças extensas de código ou quando houver risco de drift de Prettier.
+`format:check` **já faz parte de `npm run check`**. Rode isoladamente quando quiser diagnosticar rapidamente drift de Prettier antes do gate completo.
 
 ### CLI Bash
 
@@ -98,7 +99,7 @@ Execute quando `lib/`, `init.sh` ou contratos Bash relacionados mudarem.
 npm run test:e2e
 ```
 
-Reserve para jornadas web críticas em que unidade/componente não provam a integração real entre UI, router, API e ambiente.
+Reserve para jornadas web críticas em que unidade/componente não provam a integração real entre UI, router, API e ambiente. O E2E não é um segundo job obrigatório do CI atual.
 
 ### Coverage
 
@@ -117,7 +118,7 @@ npm run docs:api
 npm run docs:api:check
 ```
 
-`docs/architecture/api-reference.md` é gerada e não deve ser editada manualmente.
+`docs/architecture/api-reference.md` é gerada e não deve ser editada manualmente. `docs:api:check` é um check direcionado para mudanças de API; ele não é hoje uma etapa automática separada do job `Validate`.
 
 ## Modos de execução
 
@@ -142,9 +143,17 @@ npm run dev-web
 
 `dev-web` é um modo real de distribuição local e também compartilha implementação com o runtime usado pelo self-update. Ele não deve ser confundido com o servidor HMR comum.
 
+Instalação permanente no Linux:
+
+```bash
+npm run local:install
+```
+
+Esse fluxo recompila a distribuição, mantém uma unit fixa `systemd --user`, reinicia `dev-dashboard.service` e aguarda a API ficar saudável antes de concluir.
+
 ## CI
 
-O workflow `.github/workflows/ci.yml` executa:
+O workflow `.github/workflows/ci.yml` possui hoje um único job **Validate**:
 
 ```text
 npm ci --ignore-scripts
@@ -154,7 +163,7 @@ npm ci --ignore-scripts
 
 A preparação explícita dos binários nativos evita scripts de instalação implícitos/repetidos durante `npm ci`.
 
-O objetivo é manter uma única interface para o gate obrigatório, em vez de duplicar `lint`, `test` e build no YAML.
+O objetivo é manter uma única interface para o gate obrigatório, em vez de duplicar `format`, `lint`, `test` e build no YAML.
 
 ## Fluxo recomendado
 
