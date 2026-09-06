@@ -213,9 +213,11 @@ export class CustomMigrationProvider implements MigrationProvider {
   }
 
   public supports(project: Project): boolean {
-    return (
-      this.projectIds.has(project.id) || this.projectTypes.has(project.type)
-    );
+    const projectIdMatches =
+      this.projectIds.size === 0 || this.projectIds.has(project.id);
+    const projectTypeMatches =
+      this.projectTypes.size === 0 || this.projectTypes.has(project.type);
+    return projectIdMatches && projectTypeMatches;
   }
 
   private statusForExitCode(exitCode: number): MigrationOverviewStatus {
