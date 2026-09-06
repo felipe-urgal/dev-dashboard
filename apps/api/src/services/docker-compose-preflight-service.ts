@@ -69,7 +69,9 @@ function servicesByPublishedPort(
   return grouped;
 }
 
-function hasUnsupportedPublishedProtocol(config: ComposeConfigSnapshot): boolean {
+function hasUnsupportedPublishedProtocol(
+  config: ComposeConfigSnapshot,
+): boolean {
   return config.services.some((service) =>
     service.ports.some(
       (binding) =>
