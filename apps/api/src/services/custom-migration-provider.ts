@@ -73,7 +73,9 @@ function normalizedExitCodes(
   return result;
 }
 
-function validateCommand(command: CustomMigrationCommand): CustomMigrationCommand {
+function validateCommand(
+  command: CustomMigrationCommand,
+): CustomMigrationCommand {
   const program = command.program.trim();
   if (
     !SAFE_PROGRAM.test(program) ||
