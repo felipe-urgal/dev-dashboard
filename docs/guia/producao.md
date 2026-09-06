@@ -159,38 +159,25 @@ Quando o Dashboard foi instalado por:
 npm run local:install
 ```
 
-o caminho esperado depois do fast-forward é devolver o runtime à unit fixa:
+o handoff carrega a revision alvo e a raiz canônica da checkout já validada. `dev-web.mjs` só devolve o runtime à unit fixa quando checkout real, metadados de instalação e marcador de ownership convergem:
 
 ```text
 systemctl --user restart dev-dashboard.service
 ```
 
-O browser não escolhe a unit.
+O browser não escolhe a unit, path ou comando.
 
-### Limitação conhecida do redeploy — #659
+Durante o restart a API pode ficar indisponível por alguns instantes. A UI retoma polling/reconciliação quando a nova instância volta, e sucesso só é aceito com `/api/health` + `x-dev-dashboard-revision` iguais ao alvo.
 
-Em 2026-09-06 há um bug confirmado no handoff do self-update gerenciado: a API antiga pode encerrar e o runtime não voltar sozinho para `dev-dashboard.service`.
-
-Sintoma:
-
-```text
-Self-update em execução
-→ API cai
-→ navegador mostra ERR_CONNECTION_REFUSED
-→ serviço só volta após restart manual
-```
-
-Enquanto #659 estiver aberto, evite repetir redeploy em sequência.
-
-Para recuperação operacional:
+Se a API não voltar, não repita redeploy no escuro. Diagnostique com:
 
 ```bash
-systemctl --user restart dev-dashboard.service
 npm run local:status
+journalctl --user -u dev-dashboard.service -n 120 --no-pager
 curl -i http://127.0.0.1:4343/api/health
 ```
 
-O health voltar prova que o runtime foi recuperado; não inventa sucesso para um handoff que ficou incompleto. Revise o estado do deployment/self-update antes de tentar novamente.
+Um restart manual pode recuperar o runtime, mas não substitui a reconciliação do handoff nem fabrica `succeeded`.
 
 ## Durante o deployment
 
