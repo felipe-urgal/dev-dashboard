@@ -103,6 +103,21 @@ test('normaliza main, linked, detached, locked e prunable sem depender de campo 
   );
 });
 
+test('preserva espaços significativos no path reportado pelo formato -z', () => {
+  const parsed = parseGitWorktreePorcelain(
+    project.path,
+    porcelain([
+      [
+        'worktree /workspace/projeto com espaco ',
+        `HEAD ${MAIN_HEAD}`,
+        'branch refs/heads/main',
+      ],
+    ]),
+  );
+
+  assert.equal(parsed?.[0]?.path, '/workspace/projeto com espaco ');
+});
+
 test('identidade é estável mesmo se a ordem da saída e HEAD mudarem', async () => {
   const first = new GitWorktreeObserver(async (_projectPath, args) => {
     if (args[0] === 'rev-parse') return '/workspace/projeto/.git\n';
@@ -135,11 +150,18 @@ test('identidade é estável mesmo se a ordem da saída e HEAD mudarem', async (
 });
 
 test('saída estruturalmente inválida falha fechada', async () => {
-  const parsed = parseGitWorktreePorcelain(
+  const missingHead = parseGitWorktreePorcelain(
     project.path,
     porcelain([['worktree /workspace/projeto', 'branch refs/heads/main']]),
   );
-  assert.equal(parsed, null);
+  const abbreviatedHead = parseGitWorktreePorcelain(
+    project.path,
+    porcelain([
+      ['worktree /workspace/projeto', 'HEAD abc1234', 'branch refs/heads/main'],
+    ]),
+  );
+  assert.equal(missingHead, null);
+  assert.equal(abbreviatedHead, null);
 
   const result = await new GitWorktreeObserver(async (_projectPath, args) => {
     if (args[0] === 'rev-parse') return '/workspace/projeto/.git\n';
