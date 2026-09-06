@@ -1,10 +1,10 @@
 # Operação e troubleshooting
 
-Este guia reúne portas, variáveis, persistência e procedimentos gerais para diagnosticar o ambiente local. Para falhas específicas de deployment, use também [deployment-operations.md](deployment-operations.md).
+Este guia reúne portas, variáveis, persistência e procedimentos para diagnosticar o ambiente local. Para falhas específicas de deployment, use também [deployment-operations.md](deployment-operations.md). Para a instalação permanente, veja [local-installation.md](local-installation.md).
 
 ## Sistemas e runtimes
 
-O caminho principal é Linux. O CI valida Node 20.19.0 como runtime mínimo suportado e mantém Node 24 como runtime principal; macOS possui suporte parcial em áreas que usam `lsof` e Windows nativo não é suportado. O CLI Bash exige Bash 4+.
+O caminho principal é Linux. O CI usa Node 24 como runtime principal; Node 20.19.0 permanece no contrato público e deve ser validado de forma direcionada quando uma mudança tocar runtime/dependências. O CLI Bash exige Bash 4+.
 
 Requisitos principais:
 
@@ -17,7 +17,7 @@ Requisitos principais:
 | Ruby/Bundler/Rails | projetos Rails | quando aplicável |
 | MySQL/PostgreSQL/Docker | projetos alvo | quando aplicável |
 | `pg_dump`/`mysqldump` | snapshot via CLI | quando aplicável |
-| `gh` | recursos GitHub do CLI | opcional |
+| `gh` | Cockpit/recursos GitHub quando necessário | opcional |
 | `gum` | UX do CLI | opcional, há fallback |
 
 Rode:
@@ -26,79 +26,81 @@ Rode:
 npm run doctor
 ```
 
-## Serviços locais
+## Serviços e portas
 
 | Serviço | Porta padrão | Escopo |
 | --- | ---: | --- |
 | API | 4343 | regras, persistência e integrações |
-| Web | 5174 | frontend Vite |
+| Web Vite | 5174 | frontend de desenvolvimento |
 | Preview web | 4173 | validação de build |
 
 Listeners do produto devem permanecer em `127.0.0.1`.
 
+A instalação permanente publica por padrão:
+
+```text
+http://dev-dashboard.localhost:4343
+```
+
 O self-update agent não abre porta TCP; ele usa Unix socket local privado.
 
-## Configuração local e `.env.example`
-
-Para configuração local do processo de desenvolvimento:
+## Configuração local e `.env.local`
 
 ```bash
 cp .env.example .env.local
 ```
 
-`npm run dev` carrega `.env.local` automaticamente. O arquivo real é ignorado pelo Git; `.env.example` é o template versionado e não deve conter credenciais reais.
+`npm run dev` carrega `.env.local` automaticamente. A unit criada por `local:install` também lê `.env.local` como arquivo opcional, preservando porta/origem gerenciadas nos metadados próprios da instalação.
 
-### Variáveis configuráveis no desenvolvimento
+O arquivo real é ignorado pelo Git; `.env.example` é o template versionado e não deve conter credenciais reais.
+
+### Variáveis configuráveis
 
 | Variável | Finalidade |
 | --- | --- |
-| `DEV_DASHBOARD_API_PORT` | porta da API, padrão `4343` |
+| `DEV_DASHBOARD_API_PORT` | porta da API, padrão `4343`; em instalação permanente exige reinstalação para alterar o contrato gerenciado |
 | `LOG_LEVEL` | nível do logger Fastify |
 | `DEV_DASHBOARD_CONFIG_DIR` | diretório de configuração |
 | `XDG_CONFIG_HOME` | base XDG alternativa de configuração |
-| `DEV_DASHBOARD_STATE_DIR` | diretório de estado/logs/históricos, incluindo handoffs de self-update |
+| `DEV_DASHBOARD_STATE_DIR` | diretório de estado/logs/históricos |
 | `XDG_STATE_HOME` | base XDG alternativa de estado |
 | `DEV_DASHBOARD_LOG_RETENTION_DAYS` | retenção padrão de logs |
 | `DEV_DASHBOARD_BACKUP_DIR` | destino de `dev-backup` |
-| `VERCEL_TOKEN` | autentica leitura e deployment de projetos `git-managed`/Vercel |
-| `VERCEL_TEAM_ID` | escopo opcional de time quando necessário |
+| `VERCEL_TOKEN` | autentica leitura/deployment Vercel |
+| `VERCEL_TEAM_ID` | escopo opcional de time |
 
-Exemplo mínimo para Vercel:
+Exemplo:
 
 ```dotenv
 VERCEL_TOKEN=...
 # VERCEL_TEAM_ID=team_...
 ```
 
-Reinicie `npm run dev` depois de mudar `.env.local`.
-
-Nunca publique o conteúdo de `.env.local`. `VERCEL_TOKEN` não pertence a `.dev-dashboard/production.json` e não deve aparecer em issue, PR, screenshot ou log.
+Nunca publique `.env.local` nem copie um token real para issue, PR, screenshot ou log. Se um segredo for exposto, revogue/rotacione no provider e substitua o valor local.
 
 ### Variáveis internas/efêmeras
 
-As variáveis abaixo são criadas ou controladas pelo próprio tooling e **não** devem ser tratadas como configuração manual em `.env.local`:
+Não trate como configuração manual:
 
 | Variável | Uso interno |
 | --- | --- |
 | `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` | ativa frontend estático servido pela API |
 | `DEV_DASHBOARD_WEB_DIST` | aponta para o build web da distribuição local |
 | `DEV_DASHBOARD_BROWSER_BOOTSTRAP` | capacidade efêmera de bootstrap do navegador |
-| `DEV_DASHBOARD_RUNTIME_REVISION` | revision já validada/aplicada propagada pelo worker ao runtime reiniciado |
-| `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` | checkout já validada passada internamente ao worker instalado |
+| `DEV_DASHBOARD_RUNTIME_REVISION` | revision validada/aplicada propagada ao runtime reiniciado |
+| `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` | checkout canônica já validada usada no handoff gerenciado |
 
-Não exporte `DEV_DASHBOARD_RUNTIME_REVISION` manualmente para tentar “provar” uma atualização. No fluxo real ela é derivada da revision do handoff revalidada/aplicada pelo worker e só é aceita no health quando possui formato de SHA válido.
+Não exporte essas variáveis para tentar contornar validações de self-update.
 
-### Overrides operacionais do self-update agent
+### Overrides operacionais do agent
 
 | Variável | Finalidade |
 | --- | --- |
-| `DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR` | override do diretório da cópia instalada do agent |
-| `DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR` | override do diretório do Unix socket |
-| `XDG_RUNTIME_DIR` | base preferida do Unix socket quando disponível |
+| `DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR` | diretório da cópia instalada do agent |
+| `DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR` | diretório do Unix socket |
+| `XDG_RUNTIME_DIR` | base preferida do socket |
 
-Esses overrides são tooling local/operacional e não entram no Production Contract nem são enviados pelo browser.
-
-`npm run self-update:agent` **não carrega `.env.local` automaticamente**. Quando precisar desses overrides, exporte-os conscientemente no shell antes do comando.
+`npm run self-update:agent` não carrega `.env.local` automaticamente para esses overrides; exporte conscientemente no shell quando necessário.
 
 ## Arquivos locais
 
@@ -109,7 +111,7 @@ Configuração:
 ├── config.json
 ├── api-token
 ├── self-update-agent-token
-└── preferências locais
+└── local-install.json / local-runtime.env quando instalado
 ```
 
 Estado:
@@ -120,46 +122,49 @@ Estado:
 ├── logs/
 ├── deployments/
 ├── self-update/
-├── históricos de testes/scripts
-└── snapshots de banco
+└── snapshots/históricos locais
 ```
 
-Instalação user-space do self-update agent:
+Agent:
 
 ```text
 ~/.local/lib/dev-dashboard/self-update-agent/
 ├── current.json
 └── releases/<sha256>/
-    ├── self-update-agent.mjs
-    ├── self-update-agent-runtime.mjs
-    └── self-update-handoff.mjs
 ```
 
-Diretórios privados usam `0700`; arquivos privados de configuração/estado usam `0600`. Os arquivos executáveis da release instalada não concedem acesso a grupo/outros e são verificados por SHA-256 antes do start.
-
-Deployments persistem timeline/log/histórico, mas **não** token de confirmação nem credenciais Vercel. `self-update/` persiste somente handoff estruturado (`projectId`, revision, `planHash`, estado/timestamps e resultado terminal sanitizado) e o lock operacional; não contém shell, senha ou unit configurável.
+Diretórios privados usam permissões restritas; tokens/arquivos sensíveis permanecem fora do repositório.
 
 ## Diagnóstico inicial
+
+Desenvolvimento/manual:
 
 ```bash
 npm run doctor
 curl -i http://127.0.0.1:4343/api/health
 ```
 
-No runtime normal de desenvolvimento, o health continua com o JSON público padrão. Quando a API foi iniciada pelo worker de self-update, o header abaixo identifica a revision que o runtime recebeu do fluxo já validado:
+Instalação permanente:
+
+```bash
+npm run local:status
+systemctl --user status dev-dashboard.service --no-pager -l
+journalctl --user -u dev-dashboard.service -n 120 --no-pager
+curl -i http://dev-dashboard.localhost:4343/api/health
+```
+
+Quando a API está associada a uma revision de self-update, o response inclui:
 
 ```text
 x-dev-dashboard-revision: <sha>
 ```
-
-Se a web estiver em desenvolvimento, abra `http://127.0.0.1:5174`.
 
 ## `npm run dev` não inicia
 
 ### Dependências ausentes
 
 ```bash
-npm install
+npm ci
 npm run doctor
 npm run dev
 ```
@@ -170,7 +175,7 @@ npm run dev
 node --version
 ```
 
-Use uma versão compatível com `package.json`. O CI cobre explicitamente Node 20.19.0 como mínimo e Node 24 como runtime principal.
+Use uma versão compatível com `package.json`.
 
 ### Package compartilhado desatualizado
 
@@ -178,7 +183,7 @@ Use uma versão compatível com `package.json`. O CI cobre explicitamente Node 2
 npm run build:packages
 ```
 
-Depois rode o typecheck do workspace que falhou.
+Depois rode o check/workspace que falhou.
 
 ## Porta ocupada
 
@@ -195,8 +200,8 @@ Confira:
 1. API em `127.0.0.1:4343`;
 2. web em `127.0.0.1:5174` no modo Vite;
 3. origem correta;
-4. token local legível pelo processo;
-5. request passando pelo proxy `/api`.
+4. token/sessão local;
+5. request passando pelo proxy `/api` quando em desenvolvimento.
 
 Rota privada via curl:
 
@@ -207,9 +212,53 @@ curl -H "X-Dev-Dashboard-Token: $TOKEN" http://127.0.0.1:4343/api/workspaces
 
 Não publique o token.
 
+## URL amigável responde health, mas `curl -I /` retorna 404
+
+O fallback da SPA considera o header `Accept`. Um `HEAD` genérico com `Accept: */*` pode resultar em `404` mesmo com frontend saudável.
+
+Teste como navegador:
+
+```bash
+curl -I -H 'Accept: text/html' http://dev-dashboard.localhost:4343/
+```
+
+O esperado é `200` + `content-type: text/html`.
+
+Também é possível testar o body:
+
+```bash
+curl -sS -H 'Accept: text/html' http://dev-dashboard.localhost:4343/ | head
+```
+
+## Bootstrap aparece na URL
+
+O servidor atual não deve gerar `#bootstrap=...`.
+
+A capacidade é injetada no HTML servido em runtime e gravada diretamente no `sessionStorage` antes do bundle iniciar.
+
+Se a URL permanecer com um fragmento de bootstrap após atualizar para uma revision que inclui #656:
+
+1. confirme a revision em `git rev-parse HEAD`;
+2. execute `npm run local:install` para rebuild + restart;
+3. abra `http://dev-dashboard.localhost:4343` em nova aba;
+4. confira o journal se o runtime ainda estiver servindo código antigo.
+
+Não copie o token manualmente.
+
+## `local:install` diz serviço ativo, mas health ainda não responde
+
+O instalador atual espera `/api/health` antes de retornar sucesso. Se ele falhar:
+
+```bash
+npm run local:status
+journalctl --user -u dev-dashboard.service -n 120 --no-pager
+```
+
+Se você executar `systemctl --user restart` manualmente e consultar `local:status` imediatamente, existe uma pequena janela em que a unit já está `active` mas a API ainda não terminou de subir. Repita o health depois de alguns segundos; `local:install` evita essa corrida aguardando readiness internamente.
+
 ## Erro de origem/CORS
 
-A aplicação aceita uma lista fechada de origens locais. Não use IP de LAN, `0.0.0.0`, túnel público ou iframe em origem externa como atalho.
+A aplicação aceita uma lista fechada de origens locais. Não use IP de LAN, `0.0.0.0`, túnel público ou iframe externo como atalho.
 
 ## Projeto não aparece
 
@@ -218,41 +267,49 @@ Confira:
 - workspace correto;
 - scan executado;
 - `package.json` para Node ou `Gemfile` Rails;
-- limites do scan recursivo, quando habilitado;
+- limites do scan recursivo;
 - warnings retornados pelo discovery.
 
 ## Aba Produção não aparece
 
 A capability `production` só existe quando `.dev-dashboard/production.json` é válido.
 
-Confira no projeto alvo:
-
 ```bash
 cat .dev-dashboard/production.json
 cat package.json
 ```
 
-Não inclua segredos no manifesto. Se o scan indicar `productionWarning`, corrija shape/versão/scripts declarados e faça novo scan.
+Não inclua segredos no manifesto.
 
-## Produção aparece como bloqueada
+O próprio Dev Dashboard possui contrato ativo `strategy=self-update`, `provider=none`, branch `main`.
 
-`strategy=disabled` continua sendo um estado deliberado para projetos que optam por manter produção desabilitada. Leia `reasonCode`, `blockedBy` e o documento indicado pelo contrato.
+## Produção aparece bloqueada/não configurada
 
-O próprio Dev Dashboard **não** está nesse estado: `.dev-dashboard/production.json` declara `production.enabled=true`, `strategy=self-update`, `provider=none` e branch `main`. Desde o #527, esse fluxo passa pelo planner, confirmação e revalidação normais do domínio de deployment e usa a cadeia user-space fechada nos PRs #520/#521/#523.
+- `strategy=disabled` é bloqueio deliberado do projeto alvo;
+- Vercel sem `VERCEL_TOKEN` aparece `not-configured`;
+- self-production exige agent pronto para `prod:check`.
+
+Para o próprio Dashboard:
+
+```bash
+npm run self-update:agent -- status
+npm run prod:status
+npm run prod:check
+```
+
+Se o agent ainda não estiver instalado:
+
+```bash
+npm run self-update:agent -- install
+npm run self-update:agent -- start
+```
 
 ## Self-update helper e agent
 
-O helper de handoff continua disponível para inspeção direta de engenharia:
+Tooling de engenharia:
 
 ```bash
 npm run self-update:helper --
-```
-
-Ele expõe `prepare`, `claim`, `inspect` e `recover` diretamente sobre o estado persistido.
-
-O agent adiciona uma cópia instalada fora do repositório e um processo independente do Fastify:
-
-```bash
 npm run self-update:agent -- install
 npm run self-update:agent -- start
 npm run self-update:agent -- status
@@ -260,17 +317,7 @@ npm run self-update:agent -- ping
 npm run self-update:agent -- stop
 ```
 
-`install`:
-
-- copia somente os arquivos conhecidos do agent/handoff;
-- cria uma release por hash em `~/.local/lib/dev-dashboard/self-update-agent/releases/`;
-- publica `current.json` por escrita atômica;
-- cria/reutiliza `self-update-agent-token` privado;
-- não altera nem habilita automaticamente o Production Contract do projeto.
-
-`start` valida manifesto, tipo/permissão dos arquivos e SHA-256 antes de executar a release instalada com `shell: false` e processo destacado. O modo servidor recusa ser iniciado diretamente da checkout.
-
-`status` e `ping` consultam o Unix socket autenticado. O catálogo **remoto** atual continua:
+O catálogo remoto do socket continua fechado:
 
 ```text
 ping
@@ -279,63 +326,52 @@ claim
 recover
 ```
 
-Não existe executor remoto genérico no socket.
+`execute <handoff-id>` é tooling local, não operação remota do browser.
 
-Para um handoff conhecido:
+O worker exige checkout confiável, working tree limpa, `main`, `origin/main` exato, fast-forward e lock privado.
 
-```bash
-npm run self-update:agent -- inspect <handoff-id>
-npm run self-update:agent -- claim <handoff-id>
-```
+## Redeploy/self-update derruba a API e não volta — #659
 
-`claim` apenas transfere ownership de `prepared` para `accepted`.
+Esta é uma limitação conhecida confirmada em 2026-09-06 para a instalação gerenciada.
 
-### Tooling local `execute`
-
-O tooling local possui também:
-
-```bash
-npm run self-update:agent -- execute <handoff-id>
-```
-
-Esse comando é **tooling local de engenharia**, não uma operação remota do socket e não substitui o fluxo suportado pelo Production Contract, planner, confirmação e revalidação.
-
-Ele só aceita um handoff previamente `accepted` e revalida a checkout antes de iniciar um worker instalado. O worker exige:
-
-- checkout real do `dev-dashboard`, sem symlink;
-- working tree limpa, incluindo untracked;
-- branch `main`;
-- `origin/main` exatamente igual à revision do handoff;
-- relação fast-forward com o `HEAD` atual;
-- exclusividade por lock privado.
-
-Depois de spawnar o worker, a API ainda não encerra imediatamente. Ela aguarda `self-update/execution.lock`, exige o mesmo PID/handoff retornado pelo `execute` e confirma que o processo está vivo. Só então agenda `SIGTERM`; o handler normal da API executa `app.close()`.
-
-Depois que a API antiga deixa a porta, o worker repete o preflight, aplica somente `git merge --ff-only <revision>`, comprova `HEAD`, reinstala a release do agent e inicia `scripts/dev-web.mjs` em processo destacado.
-
-Não há `sudo`, `systemctl`, unit livre ou comando vindo do browser.
-
-### Readiness e prova de revision
-
-O retorno da porta 4343 sozinho não é sucesso.
-
-O JSON público de `/api/health` permanece:
+Sintoma:
 
 ```text
-status
-service
-timestamp
+self-update/redeploy
+→ API antiga recebe SIGTERM
+→ browser mostra ERR_CONNECTION_REFUSED
+→ `local:status` pode ficar sem health
 ```
 
-No runtime reiniciado pelo worker, a API também devolve:
+A reprodução mostrou que build/checkouts estavam corretos: o serviço voltou imediatamente com restart manual e `/api/health` respondeu a nova revision.
 
-```text
-x-dev-dashboard-revision: <targetRevision>
+Recuperação operacional:
+
+```bash
+systemctl --user restart dev-dashboard.service
+npm run local:status
+curl -i http://127.0.0.1:4343/api/health
 ```
 
-O worker exige `status=ok`, `service=dev-dashboard-api` e o header exatamente igual à revision aplicada. Header ausente, inválido ou diferente mantém readiness pendente até o timeout; depois de `applying`, isso termina como `recovery_required`.
+Se `local:status` for executado imediatamente após o restart e ainda mostrar `✗ API saudável`, aguarde alguns segundos e valide com `curl`/journal.
 
-Para diagnóstico após um restart:
+Esse workaround apenas recupera o runtime. Ele não deve converter um handoff incompleto em `succeeded` por inferência. Revise o estado do deployment/agent antes de tentar outro redeploy.
+
+A correção rastreada em #659 é propagar ao `dev-web.mjs` a raiz canônica já validada do repositório, permitindo que o handoff prove a instalação gerenciada e delegue `systemctl --user restart dev-dashboard.service` sem ampliar autoridade.
+
+Enquanto #659 estiver aberta, evite redeploy repetido em sequência.
+
+## Readiness e prova de revision
+
+O retorno da porta 4343 sozinho não é sucesso de self-update.
+
+O worker exige:
+
+- `status=ok`;
+- `service=dev-dashboard-api`;
+- header `x-dev-dashboard-revision` exatamente igual à revision alvo.
+
+Diagnóstico:
 
 ```bash
 curl -i http://127.0.0.1:4343/api/health
@@ -343,246 +379,67 @@ git rev-parse HEAD
 git ls-remote --heads origin main
 ```
 
-As três evidências devem ser coerentes antes de considerar o estado saudável.
+As evidências precisam ser coerentes.
 
-### Teste real de restart/recovery
-
-`scripts/self-update-restart.integration.test.mjs` cria um repositório e `origin` temporários, sobe uma API antiga real, executa fetch/fast-forward reais, inicia um novo runtime HTTP e valida a revision.
-
-Há dois cenários:
-
-- revision correta volta → `succeeded` e resultado persistido;
-- porta volta com outra revision → readiness falha e o handoff fica `recovery_required`.
-
-Assim, o teste não trata “processo subiu” como prova de atualização correta.
-
-### Recovery do self-update
-
-Se o agent reiniciar e encontrar handoff já assumido sem resultado terminal, ele executa recovery conservador automaticamente. O diagnóstico manual equivalente é:
+## Recovery do self-update
 
 ```bash
 npm run self-update:agent -- recover
 ```
 
-Isso marca o registro como `recovery_required`; não executa rollback cego.
+Recovery marca situação incerta como `recovery_required`; não executa rollback cego.
 
-No worker do #523, falha antes de iniciar mutação pode terminar em `failed`; depois de entrar em `applying`, falha é tratada conservadoramente como `recovery_required`.
+Falha antes da mutação pode terminar em `failed`; depois de `applying`, incerteza relevante permanece conservadora.
 
-### Agent não inicia
-
-Primeiro confirme a instalação:
+## Agent não inicia
 
 ```bash
 npm run self-update:agent -- install
 npm run self-update:agent -- start
 ```
 
-Erros de hash, symlink, arquivo com permissões abertas ou manifesto inválido são fail-closed. Não edite `current.json` para contornar validação; reinstale a partir de uma checkout confiável e investigue a alteração inesperada.
+Erros de hash, symlink, permissões abertas ou manifesto inválido são fail-closed. Reinstale a release a partir de checkout confiável em vez de editar `current.json` manualmente.
 
-### Token do agent inválido
+## Token/socket do agent
 
-O token fica em:
+Token:
 
 ```text
 ~/.config/dev-dashboard/self-update-agent-token
 ```
 
-Ele precisa ser arquivo regular, privado e `0600`. Não compartilhe esse conteúdo e não reutilize o token HTTP da API como substituto.
-
-Se o arquivo foi adulterado/perdido enquanto um agent antigo ainda roda, encerre conscientemente o processo antes de recriar credenciais; não trate ausência do token como prova de que o processo está parado.
-
-### Socket do agent
-
-Quando `XDG_RUNTIME_DIR` estiver disponível, o socket fica sob:
+Socket preferencial:
 
 ```text
 $XDG_RUNTIME_DIR/dev-dashboard/self-update-agent/agent.sock
 ```
 
-O diretório é privado e o socket usa `0600`. Um path existente que não seja socket real/pertencente ao usuário é recusado; o agent não remove arquivo arbitrário para “destravar” o start.
+O token é separado do token HTTP e o socket/diretório possuem permissões privadas.
 
-Se `inspect`/`recover` informar estado persistido inválido, não edite o JSON para forçar continuação. Preserve uma cópia para diagnóstico quando necessário e corrija/remova o estado somente depois de entender a origem.
+## CI local / CI do repositório
 
-### Execução já em andamento
+O gate obrigatório do PR é:
 
-O worker usa `self-update/execution.lock` para exclusividade.
+```bash
+npm run check
+```
 
-Se receber `SELF_UPDATE_EXECUTION_ALREADY_RUNNING`, não remova o lock manualmente sem confirmar se o PID registrado está vivo. O próprio tooling remove lock stale somente quando comprova ausência do processo.
-
-Se o lock for symlink, tiver owner/permissões inadequados ou conteúdo inválido, a execução falha fechado com erro de lock inseguro.
-
-## Vercel: integração não configurada
-
-Sintoma na UI:
+Hoje ele executa:
 
 ```text
-Integração Vercel não configurada
+format:check -> lint -> test -> build:apps
 ```
 
-Prepare a configuração sem imprimir o token:
+O workflow CI possui um único job `Validate` depois de `npm ci --ignore-scripts` e `npm rebuild esbuild node-pty`.
 
-```bash
-cd /caminho/do/dev-dashboard
-cp -n .env.example .env.local
-test -f .env.local && echo '.env.local existe'
-```
+E2E, typecheck, API docs e coverage são checks direcionados conforme o risco. Veja [testing-and-quality.md](testing-and-quality.md) e [ci-fix-playbook.md](ci-fix-playbook.md).
 
-Preencha `VERCEL_TOKEN` localmente e reinicie:
+## Regra operacional
 
-```bash
-npm run dev
-```
+Ao diagnosticar:
 
-Se você exporta a variável diretamente no shell:
-
-```bash
-test -n "$VERCEL_TOKEN" && echo 'VERCEL_TOKEN presente' || echo 'VERCEL_TOKEN ausente'
-```
-
-## Vercel: autenticação falhou
-
-`DEPLOYMENT_PROVIDER_AUTH_FAILED` indica token/escopo recusado.
-
-- gere/use token válido na Vercel;
-- confirme `VERCEL_TEAM_ID` somente quando o projeto estiver sob esse time;
-- reinicie o processo após ajustar `.env.local`;
-- não cole a credencial no diagnóstico.
-
-## Vercel: projeto não encontrado
-
-`DEPLOYMENT_PROVIDER_PROJECT_NOT_FOUND` normalmente significa que `production.external.project` não existe no escopo do token/team.
-
-Confira o manifesto do projeto alvo e o nome/ID do projeto Vercel. Não tente contornar alterando o nome da pasta local.
-
-## Vercel: revision remota não pôde ser confirmada
-
-Antes de `provider-deploy`, o dashboard exige que a revision confirmada seja exatamente a revision atual de `origin/<production.branch>`.
-
-Diagnóstico somente leitura:
-
-```bash
-git status --short --branch
-git remote -v
-git rev-parse HEAD
-git ls-remote --heads origin main
-```
-
-Troque `main` pela branch declarada.
-
-Casos comuns:
-
-- commit local ainda não foi enviado;
-- remote indisponível;
-- branch remota mudou após o preview;
-- origin aponta para outro repositório.
-
-Corrija o Git conscientemente e **gere novo plano**; não force o dashboard a usar uma ref stale.
-
-## Vercel: deployment BUILDING por muito tempo
-
-O polling do dashboard é bounded. Se o provider não chegar a estado terminal dentro da janela, o domínio não inventa sucesso.
-
-Abra o deployment na Vercel para investigar build/log do provider e mantenha a execução local como falha/indeterminada conforme a timeline registrada.
-
-## Vercel READY, mas verify falhou
-
-`READY` não é health da aplicação.
-
-Se a UI oferecer **Verificar novamente**, use essa ação. Ela repete somente `prod:verify` quando o backend comprova que o caso é seguro.
-
-Não dispare um segundo deployment apenas para repetir readiness.
-
-## `recovery_required`
-
-Esse estado significa que uma etapa potencialmente irreversível já começou.
-
-Antes de qualquer rollback/retry:
-
-1. revise timeline e log;
-2. confira provider/aplicação;
-3. confira schema/migration;
-4. valide backup/checkpoint;
-5. leia `production.policies.rollback`.
-
-No self-update, confira também `git status`, `git rev-parse HEAD`, `origin/main`, estado do agent e handoff persistido antes de qualquer ação manual.
-
-Não promova deployment antigo nem reverta a checkout cegamente se o estado já mudou.
-
-## Deployment já em andamento
-
-Existe um único deployment mutável ativo globalmente. Status Vercel somente leitura não ocupa esse slot.
-
-Acompanhe/cancele o deployment atual; não mate a API para contornar a trava.
-
-## Logs vazios/truncados
-
-Logs são deliberadamente limitados e mascarados. Abra o arquivo local somente em máquina confiável se precisar de detalhe adicional e revise o conteúdo antes de compartilhar.
-
-## Git mostra estado inesperado
-
-```bash
-git status --short --branch
-git remote -v
-git branch -vv
-```
-
-A UI deve representar estado real e não mostrar atividade quando não há trabalho em execução.
-
-Para self-update, uma working tree suja, branch diferente de `main` ou `origin/main` divergente bloqueia a execução por design. Corrija conscientemente o repositório; não use reset destrutivo para satisfazer o preflight.
-
-## Banco/snapshot falha
-
-Confira cliente (`pg_dump`/`mysqldump`), host/porta, permissão, espaço em disco, serviço e limites. Senhas não devem aparecer em argv/log.
-
-## Build/typecheck
-
-Web:
-
-```bash
-npm run typecheck --workspace=@dev-dashboard/web
-npm run build --workspace=@dev-dashboard/web
-```
-
-API:
-
-```bash
-npm run build:packages
-npm run typecheck --workspace=@dev-dashboard/api
-npm run build --workspace=@dev-dashboard/api
-```
-
-## Referência da API desatualizada
-
-```bash
-npm run docs:api
-npm run docs:api:check
-```
-
-`docs/architecture/api-reference.md` é gerada; não edite manualmente.
-
-## Validação completa
-
-```bash
-npm run typecheck
-npm run lint
-npm run format:check
-npm run build
-npm test
-npm run test:cli
-npm run test:e2e
-```
-
-Use a suíte completa antes de concluir mudanças de fluxo crítico.
-
-## Backup/restauração do estado local
-
-O CLI `dev-backup` pode empacotar configuração/estado local. O token da API não é incluído; segredos só entram quando a opção explícita correspondente for usada.
-
-Esse backup local é diferente dos backups dos **projetos em produção**. O Production Contract de cada projeto continua responsável por declarar sua política real de backup/recovery.
-
-## Mais detalhes
-
-- [Guia de Produção](guia/producao.md)
-- [Operação de deployments](deployment-operations.md)
-- [Segurança](architecture/security.md)
-- [Self-production](architecture/self-production.md)
+1. prove o estado com comandos read-only;
+2. diferencie serviço, API, frontend, provider e handoff;
+3. não copie segredos para logs/issues;
+4. não use restart/retry cego como substituto da causa raiz;
+5. depois da recuperação, confirme health/revision/estado persistido antes de nova mutação.
