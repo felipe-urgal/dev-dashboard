@@ -109,8 +109,32 @@ Campos internos das fontes, paths do projeto, comandos, stdout/stderr e objetos 
 
 A API continua **somente leitura**. Um snapshot `pass` não autoriza merge, push ou deploy. Qualquer mutação futura continua obrigada a executar seu próprio preflight/revalidation no momento da ação.
 
+## Quarto recorte: superfície de projeto
+
+A UI expõe Release Readiness em `/projects/:projectId/readiness`, dentro do mesmo contexto e navegação das demais ferramentas do projeto.
+
+`ProjectReleaseReadinessPanel.vue` é deliberadamente um consumidor do contrato HTTP. Ele não recalcula prioridade, não reinterpreta freshness e não transforma `unknown` em sucesso.
+
+A tela apresenta:
+
+- estado agregado com linguagem explícita para `pass`, `warning`, `block` e `unknown`;
+- summary, evidence e `observedAt` de cada check;
+- `generatedAt` do snapshot;
+- falha de carregamento como estado visível com retry;
+- aviso permanente de que Readiness não autoriza merge, push ou deploy.
+
+As ações continuam sendo navegação para o domínio responsável:
+
+```text
+synchronization -> /projects/:projectId/git?tab=sync
+tests           -> /projects/:projectId/tests
+doctor          -> /projects/:projectId/doctor
+```
+
+A UI não executa correções automaticamente. O backend continua sendo a única autoridade das regras e dos estados do snapshot.
+
 ## Limites atuais
 
-Ainda não inclui migrations, Production Contract, CI remoto nem uma tela dedicada. Essas fontes entram incrementalmente sem alterar a semântica dos estados acima.
+Ainda não inclui migrations, Production Contract nem CI remoto. Essas fontes entram incrementalmente sem alterar a semântica dos estados acima nem exigir que a UI conheça regras específicas de provider/framework.
 
 Falha ou ausência de uma fonte deve continuar produzindo `unknown` para aquela regra, e nunca um falso `pass`.
