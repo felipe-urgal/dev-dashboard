@@ -55,11 +55,31 @@ Texto livre do `prisma migrate status` **não** é parseado para inventar a list
 
 Este recorte continua somente leitura: não existe `migrate deploy`, `migrate reset` ou `generate` neste provider.
 
-## Próximos providers
+## Provider custom explícito
 
-Providers custom entram incrementalmente atrás do mesmo contrato e só podem usar ações conhecidas/declaradas. Texto livre de script nunca deve ser interpretado por heurística como prova de que o schema está atualizado.
+`CustomMigrationProvider` permite integrar um status de migrations específico sem transformar stdout/stderr em protocolo implícito. Cada instância nasce de configuração confiável no backend e precisa declarar:
 
-Uma etapa posterior pode adicionar plano/execução local estruturada por provider, com confirmação e preflight próprios. Produção continua pertencendo ao domínio Production.
+- `id` estável do provider;
+- programa e argv estruturado de status;
+- pelo menos um seletor de projeto (`projectIds` e/ou `projectTypes`);
+- códigos de saída que significam `up-to-date`;
+- opcionalmente códigos de saída que significam `pending` e `unavailable`.
+
+Os grupos de exit codes precisam ser disjuntos. Código sem semântica declarada vira `unknown`, nunca `pending` ou `up-to-date` por texto de terminal.
+
+O runner padrão usa `execFile` sem shell, sempre com `cwd=Project.path`, timeout de 10 segundos e limite de output. O programa precisa ser um nome de executável simples resolvido pelo PATH; paths e shells conhecidos (`sh`, `bash`, `zsh`, `fish`, PowerShell e `cmd`) são rejeitados. O adapter também limita quantidade/tamanho dos argumentos e rejeita NUL/quebras de linha.
+
+A saída do processo não faz parte de `MigrationOverview`. Mesmo quando o comando imprime detalhes, credenciais ou paths, o provider conserva apenas o exit code. A evidência pública é lógica (`custom:<id>:status`).
+
+Quando o exit code prova `pending`, o overview pode informar o estado sem fabricar nomes individuais de migrations; nesse caso a lista permanece vazia e um warning explica a limitação.
+
+Configuração custom não vem de request HTTP neste recorte. Expor configuração dinâmica no futuro exige validação/allowlist própria e não pode abrir caminho para shell livre.
+
+## Próximos providers e execução
+
+Novos providers devem continuar atrás do mesmo contrato e só podem usar ações conhecidas/declaradas. Texto livre de script nunca deve ser interpretado por heurística como prova de que o schema está atualizado.
+
+Uma etapa posterior pode adicionar plano/execução local estruturada por provider, com confirmação, environment guard e preflight próprios. Produção continua pertencendo ao domínio Production. O contrato de mutação deve ser comum aos providers; não deve surgir primeiro como endpoint especial de Rails, Prisma ou custom.
 
 ## Limites atuais
 
