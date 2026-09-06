@@ -18,14 +18,10 @@ import { reconcilePorts } from './port-registry-service.js';
 const ACTIVE_RUNTIME_STATES = new Set(['running', 'restarting', 'paused']);
 
 export type DockerComposePortPreflightState =
-  | 'ready'
-  | 'blocked'
-  | 'unavailable';
+  'ready' | 'blocked' | 'unavailable';
 
 export type DockerComposePortConflictReason =
-  | 'occupied'
-  | 'reserved'
-  | 'duplicate-declaration';
+  'occupied' | 'reserved' | 'duplicate-declaration';
 
 export interface DockerComposePortConflict {
   port: number;
