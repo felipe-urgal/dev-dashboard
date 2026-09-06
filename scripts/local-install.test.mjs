@@ -63,10 +63,10 @@ test('unit carrega ambiente local antes do ambiente gerenciado', () => {
   assert.match(unit, /ExecStart="\/home\/test\/\.nvm\/node\/bin\/node"/);
   assert.match(unit, /scripts\/dev-web\.mjs" --installed/);
   const localEnvironmentIndex = unit.indexOf(
-    'EnvironmentFile=-"/home/test/.dev-dashboard/.env.local"',
+    'EnvironmentFile=-/home/test/.dev-dashboard/.env.local',
   );
   const managedEnvironmentIndex = unit.indexOf(
-    'EnvironmentFile="/home/test/.config/dev-dashboard/local-runtime.env"',
+    'EnvironmentFile=/home/test/.config/dev-dashboard/local-runtime.env',
   );
   assert.ok(localEnvironmentIndex >= 0);
   assert.ok(managedEnvironmentIndex > localEnvironmentIndex);
