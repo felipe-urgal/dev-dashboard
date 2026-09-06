@@ -6,10 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { test } from 'node:test';
 
-import {
-  buildSystemdUnit,
-  systemdPathValue,
-} from './local-install.mjs';
+import { buildSystemdUnit, systemdPathValue } from './local-install.mjs';
 
 test('serializa paths de diretivas systemd sem aspas literais', () => {
   assert.equal(
@@ -26,10 +23,7 @@ test('serializa paths de diretivas systemd sem aspas literais', () => {
     runtimePath: '/opt/node/bin:/usr/bin:/bin',
   });
 
-  assert.match(
-    unit,
-    /^WorkingDirectory=\/home\/test\/dev\\x20dashboard$/m,
-  );
+  assert.match(unit, /^WorkingDirectory=\/home\/test\/dev\\x20dashboard$/m);
   assert.match(
     unit,
     /^EnvironmentFile=-\/home\/test\/dev\\x20dashboard\/\.env\.local$/m,
