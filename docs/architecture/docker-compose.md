@@ -55,6 +55,34 @@ Estados de disponibilidade são explícitos:
 
 Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon está indisponível, a configuração já validada pode continuar sendo apresentada sem inventar runtime.
 
+## Terceiro recorte: preflight de portas
+
+`DockerComposePreflightService` faz uma verificação **somente leitura** antes de qualquer futuro `docker compose up`. Ele recebe o `ComposeConfigSnapshot` já validado e reutiliza `config.declaredPorts` no `PortInspectorService`, mantendo o Port Registry como autoridade canônica sobre declarações e conflitos de portas.
+
+O resultado possui três estados:
+
+- `ready`: todas as portas publicadas que precisam ser usadas estão comprovadamente disponíveis ou já pertencem a um serviço ativo do mesmo runtime Compose;
+- `blocked`: pelo menos uma porta publicada está ocupada sem evidência de que pertence ao runtime Compose atual;
+- `unavailable`: o Dashboard não conseguiu provar a situação das portas com segurança.
+
+Uma porta ocupada por processo externo, outro projeto ou owner desconhecido **bloqueia** o preflight. O serviço não depende apenas do booleano `conflict` da tela geral de portas: para iniciar Compose, ausência de ownership comprovado é suficiente para impedir um falso `ready`.
+
+Quando o runtime já mostra um serviço ativo (`running`, `restarting` ou `paused`) usando a mesma porta publicada pelo mesmo serviço Compose, essa ocupação é tratada como esperada. Isso permite revalidar uma stack já ativa sem classificá-la como conflito contra si própria.
+
+O preflight também falha fechado quando a inspeção de portas está `unsupported`, `unavailable` ou truncada. Nesses casos, o Dashboard não tenta adivinhar disponibilidade.
+
+### Evidência de conflito
+
+Para cada bloqueio, o resultado mantém somente o necessário para diagnóstico:
+
+- porta;
+- serviço(s) Compose que a publicam;
+- endereço observado;
+- owner conhecido como projeto/processo gerenciado, processo externo ou `unknown`;
+- sugestão de porta quando o Port Registry conseguir fornecê-la.
+
+O preflight **não** mata processos, não remapeia portas, não altera Compose e não inicia/para containers.
+
 ## Segurança
 
 - nenhum shell livre;
@@ -63,10 +91,12 @@ Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon
 - timeout e limite de output são aplicados antes da normalização;
 - nenhum `down --volumes`, prune ou operação global;
 - nenhuma credencial/environment value volta no snapshot;
-- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências.
+- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências;
+- indisponibilidade/truncamento do Port Inspector nunca é promovida para preflight seguro;
+- ownership de porta só é assumido quando existe evidência positiva do runtime Compose atual.
 
 ## Próximos recortes
 
-A próxima etapa adiciona preflight com Port Registry e ações explícitas `up/stop/restart/logs` com ownership do Compose project e lifecycle adequado.
+As próximas etapas podem adicionar ações explícitas `up/stop/restart/logs`, desde que cada mutação tenha ownership do Compose project, confirmação adequada, lifecycle idempotente e observabilidade. HTTP/UI só devem consumir contratos estáveis já comprovados pelo domínio.
 
 Nenhuma ação destrutiva entra implicitamente nesse caminho.
