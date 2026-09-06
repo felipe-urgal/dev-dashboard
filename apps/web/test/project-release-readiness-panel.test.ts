@@ -86,10 +86,11 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
 
     const links = wrapper.findAll('.router-link-stub');
-    expect(links[0].attributes('data-name')).toBe('project-git');
-    expect(links[0].attributes('data-tab')).toBe('sync');
-    expect(links[1].attributes('data-name')).toBe('project-tests');
-    expect(links[2].attributes('data-name')).toBe('project-doctor');
+    expect(links).toHaveLength(3);
+    expect(links[0]?.attributes('data-name')).toBe('project-git');
+    expect(links[0]?.attributes('data-tab')).toBe('sync');
+    expect(links[1]?.attributes('data-name')).toBe('project-tests');
+    expect(links[2]?.attributes('data-name')).toBe('project-doctor');
   });
 
   it('mantém falha de carregamento explícita e permite retry', async () => {
