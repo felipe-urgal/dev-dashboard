@@ -25,9 +25,7 @@ const SAFE_ENV_KEYS = [
 ] as const;
 
 export type LocalCiExecutionErrorCode =
-  | 'LOCAL_CI_BUSY'
-  | 'LOCAL_CI_NOT_FOUND'
-  | 'LOCAL_CI_NOT_RUNNING';
+  'LOCAL_CI_BUSY' | 'LOCAL_CI_NOT_FOUND' | 'LOCAL_CI_NOT_RUNNING';
 
 export class LocalCiExecutionError extends Error {
   public constructor(
