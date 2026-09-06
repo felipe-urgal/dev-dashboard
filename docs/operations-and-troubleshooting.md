@@ -330,36 +330,29 @@ recover
 
 O worker exige checkout confiável, working tree limpa, `main`, `origin/main` exato, fast-forward e lock privado.
 
-## Redeploy/self-update derruba a API e não volta — #659
+## Redeploy/self-update não volta após o restart
 
-Esta é uma limitação conhecida confirmada em 2026-09-06 para a instalação gerenciada.
+O fluxo gerenciado atual propaga a revision alvo e a raiz canônica da checkout já validada para `dev-web.mjs`. A delegação ao systemd só ocorre quando a raiz real coincide com a instalação registrada e a unit fixa possui ownership válido.
 
-Sintoma:
-
-```text
-self-update/redeploy
-→ API antiga recebe SIGTERM
-→ browser mostra ERR_CONNECTION_REFUSED
-→ `local:status` pode ficar sem health
-```
-
-A reprodução mostrou que build/checkouts estavam corretos: o serviço voltou imediatamente com restart manual e `/api/health` respondeu a nova revision.
-
-Recuperação operacional:
+Se o browser ficar sem conexão além da janela normal de restart, diagnostique antes de repetir o deployment:
 
 ```bash
-systemctl --user restart dev-dashboard.service
 npm run local:status
+systemctl --user status dev-dashboard.service --no-pager -l
+journalctl --user -u dev-dashboard.service -n 120 --no-pager
 curl -i http://127.0.0.1:4343/api/health
 ```
 
-Se `local:status` for executado imediatamente após o restart e ainda mostrar `✗ API saudável`, aguarde alguns segundos e valide com `curl`/journal.
+Confira também a revision aplicada:
 
-Esse workaround apenas recupera o runtime. Ele não deve converter um handoff incompleto em `succeeded` por inferência. Revise o estado do deployment/agent antes de tentar outro redeploy.
+```bash
+git rev-parse HEAD
+git ls-remote --heads origin main
+```
 
-A correção rastreada em #659 é propagar ao `dev-web.mjs` a raiz canônica já validada do repositório, permitindo que o handoff prove a instalação gerenciada e delegue `systemctl --user restart dev-dashboard.service` sem ampliar autoridade.
+Um restart manual da unit pode recuperar a disponibilidade, mas **não deve converter um handoff incerto em `succeeded` por inferência**. Revise o estado persistido do deployment/agent antes de nova tentativa.
 
-Enquanto #659 estiver aberta, evite redeploy repetido em sequência.
+Falhas típicas a investigar incluem unit não gerenciada/marker inválido, metadados de `local:install` inconsistentes, checkout real divergente, erro de bootstrap/build do runtime ou health/revision que não atingem a prova esperada.
 
 ## Readiness e prova de revision
 
