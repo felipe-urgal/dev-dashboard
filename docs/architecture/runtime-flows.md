@@ -1,6 +1,6 @@
 # Fluxos de execução
 
-Esta página resume os principais fluxos runtime do Dev Dashboard, as camadas envolvidas e os controles que precisam permanecer presentes.
+Esta página resume os principais fluxos runtime do Dev Dashboard e os controles que precisam permanecer presentes. Ela descreve o estado atual; planejamento futuro permanece em issues.
 
 ## Inicialização de desenvolvimento
 
@@ -11,7 +11,7 @@ predev compila packages/*
         ↓
 scripts/dev.mjs carrega .env.local quando existir
         ↓
-API Fastify :4343 + Vite :5173
+API Fastify :4343 + Vite :5174
         ↓
 um filho encerra inesperadamente
         ↓
@@ -20,7 +20,31 @@ orquestrador encerra os demais
 
 No Linux, filhos usam grupos próprios. Shutdown envia `SIGTERM` e só escala para `SIGKILL` após a janela de tolerância.
 
-`.env.local` é configuração local do Dev Dashboard. É onde integrações como Vercel podem receber `VERCEL_TOKEN`/`VERCEL_TEAM_ID` sem versionar segredo.
+`.env.local` é configuração local do Dev Dashboard. Integrações como Vercel podem receber `VERCEL_TOKEN`/`VERCEL_TEAM_ID` sem versionar segredo.
+
+## Inicialização permanente no Linux
+
+```text
+npm run local:install
+        ↓
+build da distribuição
+        ↓
+unit + metadados privados
+        ↓
+systemctl --user daemon-reload
+        ↓
+enable dev-dashboard.service
+        ↓
+restart dev-dashboard.service
+        ↓
+aguardar /api/health
+        ↓
+sucesso somente com API saudável
+```
+
+A URL instalada padrão é `http://dev-dashboard.localhost:4343`, mas o listener continua em `127.0.0.1:4343`.
+
+Reinstalação não usa apenas `enable --now`: o processo existente é reiniciado explicitamente para que HTML/assets/build e processo em memória correspondam à mesma revision.
 
 ## Inicialização da API
 
@@ -47,8 +71,6 @@ plugins de rota
 listen 127.0.0.1:4343
 ```
 
-A interface `AppContext` consumida pelas rotas permanece estável; a separação por domínio existe no composition root para tornar dependências e ownership de recursos explícitos. `app.ts` continua registrando segurança e rotas na ordem existente.
-
 Serviços que mantêm recursos ativos precisam ser fechados no `onClose`.
 
 ## Requisição do navegador
@@ -56,7 +78,7 @@ Serviços que mantêm recursos ativos precisam ser fechados no `onClose`.
 ### Desenvolvimento com Vite
 
 ```text
-Vue :5173
+Vue :5174
    ↓ fetch /api/...
 proxy Vite adiciona autenticação local
    ↓
@@ -69,19 +91,29 @@ resposta estruturada
 
 ### Distribuição local
 
+O bootstrap efêmero **não é colocado na URL**.
+
 ```text
-URL com bootstrap efêmero no fragmento
-        ↓
-frontend move para sessionStorage
-        ↓
+GET /
+  ↓
+API serve index.html em runtime
+  ↓
+injeta script mínimo com capacidade efêmera
+  ↓
+script grava diretamente em sessionStorage
+  ↓
+Vue inicia com URL limpa
+  ↓
 POST /api/auth/browser-session
-        ↓
+  ↓
 cookie HttpOnly + SameSite=Strict
-        ↓
-requests autenticados
+  ↓
+requests privadas autenticadas
 ```
 
-Origem e JSON são defesas adicionais, não substitutos da autenticação.
+A capacidade não é gravada no bundle em disco, query string, pathname ou `#bootstrap`.
+
+Origem e JSON Schema são defesas adicionais, não substitutos da autenticação.
 
 ## Workspace e descoberta
 
@@ -102,7 +134,7 @@ se existir .dev-dashboard/production.json:
 ProjectStore recebe snapshot
 ```
 
-Manifesto de produção inválido gera warning no projeto e não cria capability falsa.
+Manifesto de produção inválido gera warning e não cria capability falsa.
 
 ## Servidor de desenvolvimento
 
@@ -118,7 +150,7 @@ persistir starting + PID + log
 running | failed
 ```
 
-No Linux, uma porta só confirma `running` quando o listener pertence ao PID gerenciado ou a um descendente da mesma árvore de processos. Um serviço alheio que passe a escutar na porta inicialmente reservada não é tratado como readiness do projeto; se o servidor ignorar `PORT` e abrir outra porta, o Process Manager adota a porta realmente pertencente à árvore. Em plataformas sem `/proc`, permanece o fallback best-effort pela porta registrada.
+No Linux, uma porta só confirma `running` quando o listener pertence ao PID gerenciado ou descendente da mesma árvore. Um processo alheio na porta não é promovido para readiness do projeto.
 
 O browser não envia a linha de comando final.
 
@@ -156,8 +188,6 @@ snapshot estruturado
 
 A API não aceita path arbitrário de log vindo do browser.
 
-Na aba Servidor, o snapshot é passado diretamente ao `ProjectLogTerminal`/xterm. Não existe pós-processamento global do DOM para detalhes de log; quando uma superfície usa apresentação estruturada, classificação, busca e diagnóstico ficam em componentes/parsers Vue como `ProjectLogExperience`, `LogExperienceFlow` e `utils/log-experience.ts`.
-
 ## Git somente leitura
 
 ```text
@@ -190,6 +220,24 @@ registrar resultado
 
 Tokens não são genéricos nem reutilizáveis.
 
+## Worktrees
+
+O recorte atual é read-only:
+
+```text
+Project.path
+  ↓
+git rev-parse --git-common-dir
+  +
+git worktree list --porcelain -z
+  ↓
+normalização bounded
+  ↓
+worktree.id estável por common-dir + path
+```
+
+Criação/remoção e integração com Environment Instance permanecem na #570/#598.
+
 ## Testes e execuções destacáveis
 
 ```text
@@ -199,21 +247,12 @@ start em processo/PTY controlado
         ↓
 estado + buffer limitado
         ↓
-SSE/WS conforme superfície
-        ↓
 conclusão
         ↓
-retenção transitória em memória
-  TTL 30 min + máx. 32 finalizadas
-        ↓
-expiração ou LRU
+retenção transitória bounded
 ```
 
-Testes completos, Migration Rails e Dependências/Build podem sobreviver à desconexão do navegador sem ganhar stdin arbitrário. O serviço compartilhado mantém o buffer já mascarado com teto de 256 KiB por execução.
-
-A política de retenção vale **somente** para execuções terminadas. O TTL é contado desde o término e acesso recente influencia somente qual registro finalizado sai primeiro quando o teto de 32 é excedido. Uma execução `running` nunca é removida por TTL/LRU e `detach()` continua significando apenas desconectar o observador.
-
-Ao terminar normalmente, o serviço libera as subscriptions internas do `node-pty` e mantém apenas o snapshot transitório necessário para reanexação tardia. Não existe persistência desse histórico em disco nem variável de ambiente para ampliar a retenção.
+Execuções terminadas podem permanecer em memória para reanexação tardia; execuções ativas não são removidas por TTL/LRU. Shutdown precisa liberar subscriptions/timers e encerrar PTYs ativos de forma controlada.
 
 ## Banco de dados
 
@@ -226,9 +265,9 @@ resolver conexão reconhecida
         ↓
 pg_dump/mysqldump sem shell
         ↓
-credencial por canal próprio do driver/cliente
+credencial por canal próprio
         ↓
-arquivo 0600 em estado privado
+arquivo privado em estado local
 ```
 
 ### Restore
@@ -261,6 +300,40 @@ leitura ou preview de mutação
 revalidar versão/confirmar quando aplicável
 ```
 
+## Docker Compose
+
+O recorte implementado é read-only + preflight:
+
+```text
+docker compose config --format json
++
+docker compose ps --all --format json
+        ↓
+normalização sem secrets
+        ↓
+Port Registry / Port Inspector
+        ↓
+ready | blocked | unavailable
+```
+
+Lifecycle mutável (`up/stop/restart/logs`) permanece na #588.
+
+## Local CI com act
+
+O recorte implementado descobre catálogo/preflight sem executar jobs ainda:
+
+```text
+.github/workflows/*.yml|yaml
+        ↓
+catálogo workflow/job/evento
+        ↓
+act --version + docker info
+        ↓
+available | act-missing | docker-unavailable
+```
+
+Quando a execução real entrar, o resultado continuará marcado como aproximação local e não substituirá o CI remoto.
+
 ## Production Contract
 
 Durante o scan, um manifesto válido produz `Project.production` e capability `production`. O manifesto declara estratégia/provider/scripts/políticas, mas não executa nada.
@@ -290,7 +363,7 @@ montar etapas conforme contrato/políticas
         ↓
 planHash
         ↓
-DeploymentPlan (sem execução)
+DeploymentPlan
 ```
 
 ### Start
@@ -312,61 +385,22 @@ prod:verify
 succeeded | failed | cancelled | recovery_required
 ```
 
-Cada `prod:*` é resolvido pelo backend e executado com package manager reconhecido, `cwd=Project.path`, `shell:false` e log mascarado.
+Cada `prod:*` é resolvido pelo backend, com `cwd=Project.path`, argumentos estruturados e log mascarado.
 
 ## Deployment `strategy=git-managed` + Vercel
-
-O fluxo usa o mesmo planner/confirmacão/store/timeline, mas a promoção é uma etapa externa tipada `provider-deploy`.
-
-### Preview
 
 ```text
 Preparar deployment
         ↓
-branch + HEAD + working tree limpa
-        ↓
-contrato exige vercel + external.project + check/verify
-        ↓
-migrate incluído quando migrations=before-deploy
-        ↓
-provider-deploy incluído no plano
-        ↓
 planHash + confirmação
-```
-
-### Revalidação antes da promoção
-
-Depois das etapas locais anteriores e **imediatamente antes** de criar o deployment Vercel:
-
-```text
-revision confirmada
         ↓
-git ls-remote origin production.branch
+etapas locais anteriores
         ↓
-SHA remoto existe e é igual?
-   ├── não/indisponível → falhar fechado
-   └── sim
+revalidar origin/<production.branch>
         ↓
-resolver remote GitHub no backend
-```
-
-Uma ref local `refs/remotes/origin/...` não substitui essa prova remota para autorizar a mutação.
-
-### Criação e polling
-
-```text
-VercelDeploymentAdapter
+provider-deploy para SHA exato
         ↓
-resolver production.external.project
-        ↓
-POST deployment target=production
-  gitSource = GitHub resolvido
-  ref       = production.branch
-  sha       = revision confirmada
-        ↓
-acompanhar deployment específico
-        ↓
-QUEUED/INITIALIZING → BUILDING → READY | ERROR | CANCELED
+polling bounded
         ↓
 READY
         ↓
@@ -375,27 +409,61 @@ prod:verify
 succeeded
 ```
 
-O browser não informa owner/repo/ref/sha nem token Vercel. `READY` termina a etapa do provider, não o health da aplicação.
+`READY` do provider não é health funcional.
 
-## Status Vercel
+## Deployment `strategy=self-update`
 
-A leitura de status é separada da mutação:
+O próprio Dev Dashboard usa:
 
 ```text
-GET /deployments/status
-        ↓
-external.project
-        ↓
-Vercel API
-        ↓
-production deployment + revision + state
-        ↓
-ref local conhecida de origin/<branch>
-        ↓
-in-sync | drift | unknown
+check → self-update
 ```
 
-A leitura não faz `git fetch`. A prova remota forte acontece somente quando um novo `provider-deploy` vai começar.
+Fluxo de ownership:
+
+```text
+plan + confirmation
+        ↓
+prepare/claim no agent
+        ↓
+worker instalado + execution.lock comprovado
+        ↓
+SIGTERM da API antiga
+        ↓
+preflight Git + merge --ff-only
+        ↓
+reinstalar release do agent
+        ↓
+startRuntime(targetRevision)
+        ↓
+health + x-dev-dashboard-revision
+        ↓
+reconciliação
+```
+
+### Runtime não gerenciado
+
+`dev-web.mjs` pode iniciar diretamente o runtime.
+
+### Runtime gerenciado por `local:install`
+
+O caminho esperado é:
+
+```text
+dev-web prova checkout + metadados + unit gerenciada
+        ↓
+systemctl --user restart dev-dashboard.service
+        ↓
+health/revision
+```
+
+A unit é fixa e não vem do browser.
+
+### Limitação conhecida #659
+
+Em 2026-09-06 o worker ainda não propaga `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` ao `dev-web.mjs` iniciado no handoff. Na reprodução real, a API antiga encerrou e o serviço não voltou sozinho até um `systemctl --user restart dev-dashboard.service` manual.
+
+A correção deve manter a raiz canônica já validada no handoff e permitir que `dev-web` delegue o restart ao systemd sem ampliar autoridade.
 
 ## Cancelamento de deployment
 
@@ -421,43 +489,23 @@ tentar cancelamento remoto best-effort
 persistir estado conservador
 ```
 
-Depois de migration/promoção iniciada, cancelamento pode exigir `recovery_required`.
+### Self-update
+
+Depois que o ownership passou ao worker externo e a API antiga agenda shutdown, não existe cancelamento simples pela API antiga. Incerteza posterior pode virar `recovery_required`.
 
 ## Retry de verify
 
-Quando a timeline prova que toda mutação anterior terminou e somente o `verify` final falhou:
+Quando toda mutação anterior terminou e somente `verify` falhou:
 
 ```text
 Verificar novamente
         ↓
 revalidar projeto + contrato + branch/revision + ordem histórica
         ↓
-caso seguro?
-   ├── não → recusar / novo plano
-   └── sim
-        ↓
 executar somente prod:verify
 ```
 
-Não repete backup, migration, `prod:deploy` ou `provider-deploy`.
-
-## Sudo em deployment local
-
-```text
-senha no modal local
-        ↓
-sudo -S -v
-        ↓
-outro processo pai
-        ↓
-sudo -n -v
-        ↓
-ticket reutilizável?
-  ├── não → fail-closed + orientar NOPASSWD mínima
-  └── sim → etapa local pode prosseguir
-```
-
-A senha não é persistida, não entra no ambiente e não é encaminhada ao script de produção.
+Não repete backup, migration, deploy local ou provider-deploy.
 
 ## Crash e recovery
 
@@ -471,10 +519,10 @@ etapa irreversível já iniciou?
   └── sim → recovery_required
 ```
 
-O domínio não assume que uma mutação interrompida “não aconteceu”.
+No self-update, a nova API consulta o handoff determinístico para reconciliar `accepted/applying/restarting/verifying/succeeded/failed/recovery_required` sem inventar sucesso.
 
 ## Shutdown coordenado
 
 Toda camada que inicia recurso duradouro precisa possuir fechamento explícito: servidores, SSE/WS, watchers, processos filhos, timers, PTYs, language servers e adapters com polling.
 
-No `onClose` do Fastify, o composition root fecha os serviços de execução/histórico, depois o serviço compartilhado de PTYs destacáveis, sessões de banco, language servers, terminais interativos e deployment. Para PTYs destacáveis ainda ativos, `close()` remove observadores, envia `SIGTERM`, aguarda a mesma janela de 1 segundo usada no cancelamento e escala para `SIGKILL` se necessário. A operação é idempotente e limpa também timers/subscriptions e snapshots retidos.
+No `onClose` do Fastify, o composition root coordena o fechamento dos serviços e escala TERM → KILL quando necessário. A operação deve ser idempotente e limpar timers/subscriptions/snapshots retidos.
