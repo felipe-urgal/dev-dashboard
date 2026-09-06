@@ -147,7 +147,6 @@ export function buildLocalOrigin(port) {
 export function buildSystemdUnit({
   repositoryRoot,
   nodePath,
-  port,
   origin,
   configDirectory,
   stateDirectory,
