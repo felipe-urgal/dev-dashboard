@@ -118,17 +118,18 @@ function defaultStatusRunner(
         windowsHide: true,
       },
       (error) => {
-        if (error && typeof (error as { code?: unknown }).code === 'string') {
-          reject(error);
+        if (!error) {
+          resolve({ exitCode: 0 });
           return;
         }
-        const exitCode =
-          error && typeof (error as { code?: unknown }).code === 'number'
-            ? (error as { code: number }).code
-            : error
-              ? 1
-              : 0;
-        resolve({ exitCode });
+
+        const exitCode = (error as { code?: unknown }).code;
+        if (typeof exitCode === 'number') {
+          resolve({ exitCode });
+          return;
+        }
+
+        reject(error);
       },
     );
   });
