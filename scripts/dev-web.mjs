@@ -117,9 +117,9 @@ export async function resolveInstalledEnvironment(options = {}) {
   const metadata = await (
     options.readInstallMetadata ?? readLocalInstallMetadata
   )(paths.metadataPath);
-  const managedUnit = await (
-    options.checkManagedUnit ?? isManagedUnit
-  )(paths.unitPath);
+  const managedUnit = await (options.checkManagedUnit ?? isManagedUnit)(
+    paths.unitPath,
+  );
 
   if (
     !metadata ||
