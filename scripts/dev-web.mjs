@@ -13,6 +13,7 @@ import {
   resolveLocalInstallPaths,
   runCommand,
 } from './local-install.mjs';
+import { SelfUpdateHandoffStore } from './self-update-handoff.mjs';
 
 export const ROOT_DIRECTORY = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -20,6 +21,7 @@ export const ROOT_DIRECTORY = path.resolve(
 );
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
+const LEGACY_HANDOFF_MAX_AGE_MS = 5 * 60 * 1000;
 
 export function runChild(command, args, options = {}) {
   const spawnProcess = options.spawnProcess ?? spawn;
@@ -139,26 +141,74 @@ export async function resolveInstalledEnvironment(options = {}) {
   };
 }
 
+export async function proveLegacyManagedSelfUpdate(options = {}) {
+  const targetRevision = options.targetRevision?.trim();
+  const root = options.rootDirectory ?? ROOT_DIRECTORY;
+  const stateDirectory = options.stateDirectory;
+  if (
+    !REVISION_PATTERN.test(targetRevision ?? '') ||
+    typeof stateDirectory !== 'string' ||
+    !path.isAbsolute(stateDirectory)
+  ) {
+    return false;
+  }
+
+  let currentRevision;
+  try {
+    currentRevision = await (
+      options.resolveRuntimeRevision ?? readGitRevision
+    )(root);
+  } catch {
+    return false;
+  }
+  if (currentRevision !== targetRevision) return false;
+
+  try {
+    await (options.checkStateDirectory ?? access)(stateDirectory);
+    const store =
+      options.handoffStore ?? new SelfUpdateHandoffStore(stateDirectory);
+    const matches = await store.findRuntimeHandoffs(targetRevision);
+    if (matches.length !== 1) return false;
+
+    const updatedAt = Date.parse(matches[0].updatedAt);
+    const now = options.now ?? Date.now();
+    return (
+      Number.isFinite(updatedAt) &&
+      now >= updatedAt &&
+      now - updatedAt <= LEGACY_HANDOFF_MAX_AGE_MS
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function delegateManagedSelfUpdate(options = {}) {
   const environment = options.environment ?? process.env;
   const targetRevision = environment.DEV_DASHBOARD_RUNTIME_REVISION?.trim();
   const selfUpdateRoot =
     environment.DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT?.trim();
-  if (!REVISION_PATTERN.test(targetRevision ?? '') || !selfUpdateRoot) {
+  if (!REVISION_PATTERN.test(targetRevision ?? '')) {
     return null;
   }
 
   let root;
-  let handoffRoot;
   try {
     root = await (options.resolveRealpath ?? realpath)(
       options.rootDirectory ?? ROOT_DIRECTORY,
     );
-    handoffRoot = await (options.resolveRealpath ?? realpath)(selfUpdateRoot);
   } catch {
     return null;
   }
-  if (root !== handoffRoot) return null;
+
+  if (selfUpdateRoot) {
+    let handoffRoot;
+    try {
+      handoffRoot = await (options.resolveRealpath ?? realpath)(selfUpdateRoot);
+    } catch {
+      return null;
+    }
+    if (root !== handoffRoot) return null;
+  }
 
   const paths = resolveLocalInstallPaths(
     environment,
@@ -172,6 +222,25 @@ export async function delegateManagedSelfUpdate(options = {}) {
     !(await isManagedUnit(paths.unitPath))
   ) {
     return null;
+  }
+
+  if (!selfUpdateRoot) {
+    const legacyProof = await (
+      options.proveLegacySelfUpdate ?? proveLegacyManagedSelfUpdate
+    )({
+      rootDirectory: root,
+      targetRevision,
+      stateDirectory: path.join(paths.stateDirectory, 'self-update'),
+      ...(options.resolveRuntimeRevision
+        ? { resolveRuntimeRevision: options.resolveRuntimeRevision }
+        : {}),
+      ...(options.checkStateDirectory
+        ? { checkStateDirectory: options.checkStateDirectory }
+        : {}),
+      ...(options.handoffStore ? { handoffStore: options.handoffStore } : {}),
+      ...(options.now !== undefined ? { now: options.now } : {}),
+    });
+    if (!legacyProof) return null;
   }
 
   const run = options.runServiceCommand ?? runCommand;
