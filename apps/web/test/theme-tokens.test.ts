@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const tokens = readFileSync(resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8');
+const tokens = readFileSync(
+  resolve(process.cwd(), 'src/styles/tokens.css'),
+  'utf8',
+);
 
 describe('tokens de tema', () => {
   it('mantém aliases legados ligados aos tokens canônicos', () => {
