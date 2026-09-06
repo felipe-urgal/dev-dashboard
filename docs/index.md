@@ -80,7 +80,7 @@ O próprio Dashboard usa:
 check -> self-update
 ```
 
-Self-update passa por confirmação, handoff/agent, fast-forward, restart e proof-of-revision. A instalação permanente pode delegar o runtime à unit fixa `dev-dashboard.service` em `systemd --user`. A limitação operacional atual de redeploy gerenciado está em #659.
+Self-update passa por confirmação, handoff/agent, fast-forward, restart e proof-of-revision. Na instalação permanente, o handoff validado pode delegar o runtime à unit fixa `dev-dashboard.service` em `systemd --user` quando checkout, metadados e ownership convergem.
 
 ## Mapa da documentação
 

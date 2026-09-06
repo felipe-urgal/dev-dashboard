@@ -257,7 +257,7 @@ npm run prod:check
 
 Não existe `npm run prod:deploy` para o próprio Dashboard. A mutação ocorre pela aba Produção, usando planner, confirmação vinculada ao `planHash`, handoff para agent externo, fast-forward da revision confirmada, restart e prova de readiness + revision.
 
-Em uma instalação gerenciada, o restart esperado usa a unit fixa `dev-dashboard.service` via `systemctl --user restart`. Existe atualmente uma limitação conhecida do handoff do redeploy gerenciado rastreada em **#659**; consulte `docs/PRODUCTION.md` antes de testar self-update local.
+Em uma instalação gerenciada, o handoff propaga revision alvo e raiz canônica da checkout; `dev-web.mjs` só delega o restart para a unit fixa `dev-dashboard.service` quando metadados e ownership da mesma instalação são comprovados.
 
 Os scripts `self-update:*` são tooling de engenharia; não constituem bypass da autorização normal do domínio.
 

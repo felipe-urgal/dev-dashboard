@@ -196,10 +196,12 @@ A instalação local não substitui o protocolo seguro de self-update.
 
 A mutação continua passando por planner, confirmação, handoff, worker externo, fast-forward e prova da revision final.
 
-O contrato pretendido para uma instalação gerenciada é:
+O contrato de uma instalação gerenciada é:
 
 ```text
 self-update aplica revision confirmada
+        ↓
+handoff propaga revision + raiz canônica validada
         ↓
 dev-web reconhece a mesma checkout instalada
         ↓
@@ -212,39 +214,11 @@ header x-dev-dashboard-revision comprova a revision alvo
 succeeded
 ```
 
-A delegação só pode usar a unit fixa `dev-dashboard.service` e exige metadados válidos + marcador de ownership da instalação. O browser não escolhe nome de serviço, path ou comando.
+A delegação só pode usar a unit fixa `dev-dashboard.service` e exige simultaneamente raiz real coincidente, metadados válidos e marcador de ownership da instalação. O browser não escolhe nome de serviço, path ou comando.
 
 Sem instalação local gerenciada, o self-update mantém o comportamento de runtime direto previsto pelo protocolo.
 
-### Limitação conhecida do redeploy gerenciado — #659
-
-Em 2026-09-06 existe uma falha conhecida no handoff do redeploy local: o worker aplica a revision e encerra a API antiga, mas pode não propagar a raiz da checkout necessária para `dev-web.mjs` reconhecer a instalação gerenciada e delegar o restart ao systemd.
-
-Sintoma observado:
-
-```text
-redeploy/self-update
-→ API antiga recebe SIGTERM
-→ navegador recebe ERR_CONNECTION_REFUSED
-→ runtime não volta sozinho
-```
-
-Workaround operacional enquanto #659 estiver aberto:
-
-```bash
-systemctl --user restart dev-dashboard.service
-npm run local:status
-```
-
-Depois confirme:
-
-```bash
-curl -i http://127.0.0.1:4343/api/health
-```
-
-O workaround recupera o runtime, mas **não transforma um handoff incompleto em sucesso do deployment**. Revise o estado do self-update/recovery antes de iniciar nova tentativa.
-
-Não faça redeploy repetido para “ver se volta” enquanto #659 estiver aberto.
+Se o runtime não voltar, use `local:status`, `journalctl` e `/api/health` para diagnosticar antes de repetir o deployment. Um restart manual pode recuperar a disponibilidade, mas não deve fabricar sucesso de um handoff que ainda precise de reconciliação.
 
 ## Desinstalar
 

@@ -169,14 +169,13 @@ dev-dashboard.service
 
 A integração é `systemd --user`, sem `sudo`, e só aceita a unit marcada/registrada pelo instalador.
 
-Existe uma pendência operacional atual rastreada em **#659**: no redeploy gerenciado, o handoff pode atualizar a checkout e encerrar a API antiga sem devolver automaticamente o runtime à unit. Enquanto essa correção não estiver mergeada, a recuperação conhecida é:
+O handoff do worker propaga a revision alvo e a raiz canônica da checkout já validada. `dev-web.mjs` só delega o restart quando a raiz real coincide com a instalação registrada e o marcador de ownership da unit é válido:
 
-```bash
+```text
 systemctl --user restart dev-dashboard.service
-npm run local:status
 ```
 
-Depois confirme `/api/health` e a revision. Isso é uma limitação conhecida, não um estado de sucesso do deployment.
+Depois do restart, `/api/health` e `x-dev-dashboard-revision` continuam sendo obrigatórios. Se o runtime não voltar, diagnostique a causa antes de repetir o deployment; um restart manual pode recuperar a disponibilidade, mas não deve fabricar `succeeded` sem reconciliação do handoff.
 
 ## Cancelamento e irreversibilidade
 
@@ -246,5 +245,3 @@ O domínio não:
 - executa rollback Vercel cego;
 - transforma `self-update:*` em executor remoto genérico;
 - oferece atualização transacional global entre providers.
-
-A limitação específica do retorno ao systemd durante redeploy do próprio Dashboard permanece em #659 até ser corrigida.

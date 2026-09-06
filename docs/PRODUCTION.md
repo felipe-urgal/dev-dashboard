@@ -125,13 +125,20 @@ Sem instalação local válida para a mesma checkout, o worker inicia a distribu
 
 ### Runtime gerenciado por `local:install`
 
-Quando `dev-web.mjs` consegue provar metadados/ownership da mesma instalação local, o handoff deve delegar para:
+O handoff para `dev-web.mjs` propaga duas evidências internas derivadas do contexto já validado:
+
+```text
+DEV_DASHBOARD_RUNTIME_REVISION=<targetRevision>
+DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT=<canonicalRepositoryRoot>
+```
+
+`dev-web.mjs` só delega para:
 
 ```text
 systemctl --user restart dev-dashboard.service
 ```
 
-A unit é fixa; nome/path/comando não vêm do browser.
+quando a raiz real do handoff coincide com a checkout instalada, os metadados de `local:install` são válidos e a unit fixa possui o marcador de ownership do instalador. Nome de unit, path e comando não vêm do browser.
 
 Em ambos os caminhos, sucesso exige duas provas:
 
@@ -139,25 +146,6 @@ Em ambos os caminhos, sucesso exige duas provas:
 2. header `x-dev-dashboard-revision` exatamente igual à revision alvo.
 
 Uma porta que voltou com código antigo não é considerada sucesso.
-
-## Limitação conhecida — #659
-
-Em 2026-09-06 o redeploy do **runtime gerenciado** ainda possui um bug de handoff: `SelfUpdateExecutor.startRuntime()` inicia `dev-web.mjs` com a revision alvo, mas não propaga a raiz da checkout necessária para o novo `dev-web` reconhecer a instalação gerenciada e devolver o runtime ao systemd.
-
-Na reprodução real, a API antiga recebeu `SIGTERM`, a checkout foi atualizada, mas o serviço só voltou depois de:
-
-```bash
-systemctl --user restart dev-dashboard.service
-```
-
-Depois do restart manual, `/api/health` voltou com a nova revision, provando que instalação/build estavam íntegros. O defeito restante é o handoff automático do redeploy, rastreado em **#659**.
-
-Enquanto #659 estiver aberto:
-
-- não trate `prod:check` verde como prova de que o redeploy gerenciado já volta sozinho;
-- evite repetir redeploy em sequência;
-- se a API cair após self-update, use o restart manual apenas como recuperação operacional e confira o estado persistido do handoff/deployment;
-- um runtime recuperado manualmente não deve ser promovido automaticamente para `succeeded` sem reconciliação/prova do handoff.
 
 ## Recovery
 
@@ -170,6 +158,8 @@ recovery_required
 ```
 
 Não existe rollback automático cego.
+
+Se um runtime gerenciado não voltar, diagnostique a causa antes de repetir o deployment. Um restart manual da unit pode recuperar a disponibilidade, mas o estado do handoff/deployment ainda precisa ser reconciliado; recuperação operacional não fabrica `succeeded`.
 
 ## Produção de projetos gerenciados pelo Dashboard
 
@@ -190,5 +180,4 @@ Consulte [`architecture/production-contract.md`](architecture/production-contrac
 - plano aponta para a revision correta de `origin/main`;
 - confirmação corresponde ao `planHash` atual;
 - resultado final comprova readiness + revision;
-- qualquer estado `recovery_required` foi tratado antes de nova tentativa destrutiva;
-- enquanto #659 estiver aberto, redeploy gerenciado foi tratado com a limitação conhecida em mente.
+- qualquer estado `recovery_required` foi tratado antes de nova tentativa destrutiva.
