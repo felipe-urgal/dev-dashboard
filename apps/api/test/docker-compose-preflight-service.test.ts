@@ -20,7 +20,6 @@ const project: Project = {
 };
 
 const config: ComposeConfigSnapshot = {
-  projectId: project.id,
   projectName: 'stack',
   observedAt: '2026-09-06T12:00:00.000Z',
   services: [
@@ -80,7 +79,7 @@ function inspection(
   };
 }
 
-test('fica ready quando nenhuma porta publicada está ocupada', async () => {
+test('fica ready quando nenhuma porta publicada está ocupada ou reservada por outro owner', async () => {
   const calls: unknown[] = [];
   const service = new DockerComposePreflightService({
     inspect: async (input) => {
@@ -125,6 +124,7 @@ test('bloqueia porta Compose ocupada mesmo quando owner não é conhecido', asyn
     {
       port: 3000,
       services: ['web'],
+      reason: 'occupied',
       address: '127.0.0.1',
       owner: { kind: 'unknown' },
       suggestedPort: 3001,
@@ -153,6 +153,7 @@ test('preserva owner externo conhecido sem transportar outros detalhes do proces
   const result = await service.inspect(project, config);
 
   assert.equal(result.state, 'blocked');
+  assert.equal(result.conflicts[0]?.reason, 'occupied');
   assert.deepEqual(result.conflicts[0]?.owner, {
     kind: 'external',
     pid: 42,
@@ -160,9 +161,79 @@ test('preserva owner externo conhecido sem transportar outros detalhes do proces
   });
 });
 
+test('bloqueia reserva incompatível mesmo quando a porta ainda está livre', async () => {
+  const service = new DockerComposePreflightService({
+    inspect: async () => inspection(),
+  });
+
+  const result = await service.inspect(project, config, undefined, {
+    reservedPorts: [
+      {
+        port: 3000,
+        scope: 'infrastructure',
+        owner: 'infra-local',
+        role: 'proxy',
+      },
+    ],
+  });
+
+  assert.equal(result.state, 'blocked');
+  assert.deepEqual(result.conflicts, [
+    {
+      port: 3000,
+      services: ['web'],
+      reason: 'reserved',
+    },
+  ]);
+});
+
+test('bloqueia dois serviços Compose que publicam a mesma porta', async () => {
+  const duplicateConfig: ComposeConfigSnapshot = {
+    ...config,
+    services: [
+      config.services[0]!,
+      {
+        name: 'admin',
+        profiles: [],
+        dependsOn: [],
+        ports: [
+          {
+            targetPort: 3001,
+            publishedPort: 3000,
+            protocol: 'tcp',
+          },
+        ],
+      },
+    ],
+    declaredPorts: [
+      config.declaredPorts[0]!,
+      {
+        projectId: project.id,
+        port: 3000,
+        role: 'admin',
+        source: 'compose',
+        confidence: 'certain',
+      },
+    ],
+  };
+  const service = new DockerComposePreflightService({
+    inspect: async () => inspection(),
+  });
+
+  const result = await service.inspect(project, duplicateConfig);
+
+  assert.equal(result.state, 'blocked');
+  assert.deepEqual(result.conflicts, [
+    {
+      port: 3000,
+      services: ['admin', 'web'],
+      reason: 'duplicate-declaration',
+    },
+  ]);
+});
+
 test('não bloqueia uma porta já comprovada pelo runtime ativo do mesmo Compose', async () => {
   const runtime: ComposeRuntimeSnapshot = {
-    projectId: project.id,
     observedAt: '2026-09-06T12:00:30.000Z',
     services: [
       {
