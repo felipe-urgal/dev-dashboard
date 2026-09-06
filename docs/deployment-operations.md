@@ -1,34 +1,18 @@
 # Operação de deployments
 
-Este guia cobre a operação do Dev Dashboard para projetos com `Production Contract v1` válido e `production.enabled=true`.
+Este guia cobre a operação de projetos com `Production Contract v1` válido e `production.enabled=true`.
 
-O domínio suporta duas estratégias mutáveis:
+O domínio suporta três estratégias operacionais:
 
-- `strategy=command`: executa scripts `prod:*` canônicos do projeto;
-- `strategy=git-managed` + `provider=vercel`: executa as etapas locais do contrato e cria/acompanha o deployment de produção na Vercel.
+- `strategy=command`: scripts `prod:*` canônicos do projeto;
+- `strategy=git-managed` + `provider=vercel`: etapas locais + `provider-deploy` na Vercel;
+- `strategy=self-update`: fluxo fechado usado somente pelo próprio Dev Dashboard.
 
-Detalhes arquiteturais: [Production Contract v1](architecture/production-contract.md), [Domínio de deployment](architecture/deployment-domain.md) e [Segurança](architecture/security.md).
-
-## Pré-requisitos comuns
-
-Antes de preparar um deployment, confira no projeto alvo:
-
-```bash
-git status --short --branch
-```
-
-O motor exige:
-
-- repositório Git válido;
-- HEAD em uma branch;
-- branch atual igual a `production.branch`;
-- working tree limpa, incluindo arquivos não rastreados;
-- manifesto de produção válido;
-- scripts `prod:*` exigidos pela estratégia/política.
-
-Não limpe alterações automaticamente apenas para liberar produção. Faça commit, stash fora do fluxo de deployment ou descarte conscientemente.
+Detalhes: [Production Contract](architecture/production-contract.md), [Domínio de deployment](architecture/deployment-domain.md) e [Segurança](architecture/security.md).
 
 ## Fluxo comum
+
+Preparar um plano não executa mutação.
 
 ```text
 Preparar deployment
@@ -37,58 +21,53 @@ revisar projeto + branch + revision + etapas
         ↓
 Confirmar e iniciar
         ↓
-check / backup / migrate quando aplicáveis
+revalidar plano/revision
         ↓
-deploy local OU provider-deploy Vercel
-        ↓
-verify
+executar a estratégia
         ↓
 succeeded | failed | cancelled | recovery_required
 ```
 
-Preparar o plano não executa mutações. A confirmação é vinculada ao plano, expira e só pode ser usada uma vez.
+A confirmação é de uso único e vinculada a `projectId + revision + planHash`. Mudança de checkout, contrato, revision ou plano invalida a confirmação anterior.
 
-## Ambiente local de produção por projeto
+Não limpe working tree, descarte arquivos ou force branch apenas para liberar produção.
 
-Quando uma etapa local que realmente consulta ou altera produção precisa de segredos específicos do projeto, crie localmente:
+## Ambientes locais do projeto
+
+Há duas fronteiras distintas:
 
 ```text
+<projeto>/.dev-dashboard/.env.check.local
 <projeto>/.dev-dashboard/.env.production.local
 ```
 
-Exemplo:
+### `.env.check.local`
 
-```dotenv
-DATABASE_URL=postgresql://usuario:senha@host/banco
-```
+É usado pelo ambiente de check/testes. Quando `CHECK_DATABASE_URL` existe, o backend pode promovê-lo para `DATABASE_URL` no processo filho correspondente.
 
-Esse arquivo é opcional e não faz parte de `.dev-dashboard/production.json`. O `ProductionCommandAdapter` o carrega para as etapas locais que operam o ambiente de produção, mesclando os valores sobre o ambiente herdado do processo do Dev Dashboard. Assim, uma `DATABASE_URL` definida nesse arquivo pode ser usada por `prod:migrate`, `prod:verify` e outras operações de produção sem alterar `process.env` do dashboard.
+`prod:check` pode receber esse ambiente de check, mas continua isolado de `.env.production.local`. Assim o preflight não ganha credenciais de produção apenas porque faz parte de um deployment.
 
-**`prod:check` não recebe `.env.production.local`.** O check deve validar lint, typecheck, testes e build sem ganhar credenciais de produção. Se a suíte do projeto usa banco de dados, ela continua usando o ambiente normal do projeto/processo, e não a `DATABASE_URL` de produção apenas porque o deployment foi iniciado.
+### `.env.production.local`
 
-Regras operacionais:
+É opcional e destinado às etapas locais que realmente consultam ou alteram produção, como migration/verify conforme o contrato.
 
-- mantenha `.dev-dashboard/.env.production.local` fora do Git; adicione-o ao `.gitignore` quando o projeto ainda não ignorar arquivos `.env*`;
-- prefira permissões locais restritas, por exemplo `chmod 600 .dev-dashboard/.env.production.local`;
-- não cole o conteúdo em issue, PR ou log;
-- o arquivo deve ser regular e ter no máximo 64 KiB;
-- ausência do arquivo é válida e mantém somente o ambiente herdado nas etapas que o consomem;
-- arquivo inválido, ilegível ou acima do limite bloqueia a primeira etapa que precisa do ambiente de produção antes de iniciar o processo;
-- `prod:check` e `provider-deploy` não usam esse arquivo.
+Regras:
 
-Credenciais do provider continuam centralizadas no ambiente do Dev Dashboard. Para Vercel, `VERCEL_TOKEN` permanece em `dev-dashboard/.env.local`; não o duplique no projeto alvo.
+- path fixo derivado de `Project.path`;
+- somente arquivo regular;
+- limite de 64 KiB;
+- conteúdo não é retornado pela API;
+- mantenha fora do Git e com permissões locais restritas;
+- `provider-deploy` não recebe esse arquivo;
+- `prod:check` não recebe esse arquivo.
 
-Como o deployment exige working tree limpa, confirme que o arquivo está realmente ignorado:
+Credenciais do provider continuam no ambiente do Dev Dashboard. `VERCEL_TOKEN`, por exemplo, não pertence ao projeto alvo nem ao `production.json`.
 
-```bash
-git status --short
-```
-
-O arquivo não deve aparecer na saída.
+Mais detalhes: [project-local-environments.md](project-local-environments.md).
 
 ## `strategy=command`
 
-Providers locais como systemd e Docker Compose continuam encapsulados pelo próprio projeto. O dashboard executa apenas aliases canônicos como:
+Providers locais como systemd ou Docker Compose ficam encapsulados pelos scripts do próprio projeto. O Dashboard executa somente aliases canônicos reconhecidos, por exemplo:
 
 ```text
 prod:check
@@ -98,265 +77,174 @@ prod:deploy
 prod:verify
 ```
 
-A sequência depende das políticas. Exemplos:
+A timeline depende das políticas declaradas:
 
 ```text
-check → backup → deploy → verify
+check → backup? → migrate? → deploy → verify
 ```
 
-ou:
+O Dashboard não interpreta os comandos internos de `systemctl`, `docker compose` ou outro mecanismo do projeto.
 
-```text
-check → backup → migrate → deploy → verify
-```
-
-O dashboard não interpreta internamente `systemctl` nem `docker compose`; isso pertence aos scripts do projeto.
+Se `prod:check` falhar com o código estável `P1001` do Prisma, o domínio pode classificá-lo como `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE` e mostrar orientação sanitizada. O Dashboard não inicia o banco automaticamente.
 
 ## `strategy=git-managed` + Vercel
 
-Projetos Vercel não possuem `prod:deploy` local. A promoção externa é uma etapa explícita `provider-deploy`.
-
-Exemplo sem migration separada:
+Não existe `prod:deploy` local artificial. A promoção é uma etapa explícita:
 
 ```text
-prod:check
-→ provider-deploy
-→ prod:verify
+check → migrate? → provider-deploy → verify
 ```
 
-Exemplo com `migrations=before-deploy`:
+Antes de criar o deployment, o backend consulta diretamente `origin/<production.branch>` e exige que o SHA continue igual à revision confirmada.
 
-```text
-prod:check
-→ prod:migrate
-→ provider-deploy
-→ prod:verify
-```
-
-Backup/checkpoint continua sendo responsabilidade do contrato/política do projeto quando aplicável.
-
-### Segurança da revision
-
-No preview, o dashboard resolve a revision local e exige working tree limpa. Antes da mutação remota, ele consulta diretamente `origin/<production.branch>` e exige que o SHA continue igual à revision confirmada.
-
-A promoção é recusada se:
-
-- o remote não puder ser consultado;
-- a branch remota não existir;
-- a revision local não estiver publicada em `origin`;
-- `origin/<branch>` tiver avançado depois do preview.
-
-A Vercel recebe o **SHA exato confirmado**, além da branch. O dashboard não promove apenas uma ref móvel.
-
-### Credenciais Vercel
-
-Crie um `.env.local` na raiz do Dev Dashboard, fora do Git:
-
-```dotenv
-VERCEL_TOKEN=seu_token_local
-# Somente quando o projeto estiver sob um time/escopo que exija:
-VERCEL_TEAM_ID=team_xxx
-```
-
-`npm run dev` carrega `.env.local` automaticamente.
-
-`VERCEL_TOKEN`:
-
-- não pertence a `.dev-dashboard/production.json`;
-- não deve ser colado em issue, PR ou log;
-- não é persistido pelo domínio;
-- não é retornado pela API;
-- não é enviado pelo browser.
-
-Depois de alterar `.env.local`, reinicie o Dev Dashboard para garantir que o processo da API recebeu a configuração.
-
-### O que o adapter cria
-
-O provider usa `production.external.project` para resolver o projeto Vercel. Para a mutação, o backend também resolve a origem GitHub do projeto local e envia à Vercel:
+A Vercel recebe:
 
 ```text
 target = production
-project = external.project
-repo = origem GitHub resolvida
+project = production.external.project
+repo = origem GitHub resolvida pelo backend
 ref = production.branch
 sha = revision confirmada
 ```
 
-O browser não escolhe esses valores.
+O browser não escolhe owner/repo/ref/SHA nem recebe o token.
 
-### Acompanhamento
+### Credenciais Vercel
 
-Após criar o deployment, o dashboard acompanha o deployment específico com polling bounded:
+Na configuração local do Dev Dashboard:
 
-```text
-QUEUED / INITIALIZING
-        ↓
-BUILDING
-        ↓
-READY | ERROR | CANCELED
+```dotenv
+VERCEL_TOKEN=...
+# opcional quando necessário
+VERCEL_TEAM_ID=team_...
 ```
 
-`READY` conclui `provider-deploy`, mas não conclui o deployment inteiro. `prod:verify` ainda precisa validar a aplicação.
+Sem token, a integração fica `not-configured` e a mutação permanece bloqueada.
 
-## Status, revision e drift
+### `READY` não é health
 
-A tela consulta também:
+Estados do provider são normalizados e acompanhados até terminal. `READY` conclui `provider-deploy`, mas `prod:verify` continua sendo a prova funcional quando declarada.
+
+A leitura de status/drift não faz `git fetch`; a prova forte da revision ocorre imediatamente antes da mutação externa.
+
+## `strategy=self-update`
+
+É exclusiva da produção do próprio Dev Dashboard:
 
 ```text
-GET /api/projects/:projectId/deployments/status
+production.enabled=true
+strategy=self-update
+provider=none
+branch=main
 ```
 
-O snapshot externo pode mostrar:
+O plano é:
 
-- projeto Vercel resolvido;
-- último deployment de produção;
-- URL e estado;
-- branch/revision informadas pelo provider;
-- revision local conhecida de `origin/<production.branch>`;
-- `in-sync`, `drift` ou `unknown`;
-- timeline normalizada do provider.
+```text
+check → self-update
+```
 
-A consulta de status não executa `git fetch`. Por isso `drift=unknown` pode significar apenas que a ref remota ainda não está disponível localmente. Isso é diferente da prova remota feita imediatamente antes de um **novo** `provider-deploy`, que consulta o `origin` diretamente e falha fechado.
+A mutação:
 
-## Estados do provider
+1. resolve e confirma `origin/main`;
+2. prepara handoff persistente;
+3. transfere ownership para o agent/worker instalado fora da checkout;
+4. encerra a API antiga somente após ownership comprovado;
+5. aplica `git merge --ff-only <targetRevision>`;
+6. reinicia o runtime;
+7. exige `/api/health` saudável e `x-dev-dashboard-revision` igual à revision alvo;
+8. reconcilia o deployment após o restart.
 
-`providerAvailability` diferencia:
+Não existe `npm run prod:deploy` para essa estratégia. `self-update:*` é tooling de engenharia e não bypass da confirmação normal.
 
-- `available`;
-- `not-configured`;
-- `auth-error`;
-- `quota-limited`;
-- `project-not-found`;
-- `unavailable`;
-- `invalid-response`.
+A operação completa está em [PRODUCTION.md](PRODUCTION.md) e [architecture/self-production.md](architecture/self-production.md).
 
-Erros externos são convertidos para códigos `DEPLOYMENT_PROVIDER_*`. Resposta bruta da Vercel não é repassada ao navegador.
+### Instalação local gerenciada por systemd
 
-## Cancelamento
+Quando `local:install` está ativo para a mesma checkout, o runtime permanente pertence à unit fixa:
 
-### `command`
+```text
+dev-dashboard.service
+```
 
-O processo local recebe `SIGTERM`; se necessário, há escalada para `SIGKILL` depois do período de tolerância.
+A integração é `systemd --user`, sem `sudo`, e só aceita a unit marcada/registrada pelo instalador.
 
-### Vercel
+Existe uma pendência operacional atual rastreada em **#659**: no redeploy gerenciado, o handoff pode atualizar a checkout e encerrar a API antiga sem devolver automaticamente o runtime à unit. Enquanto essa correção não estiver mergeada, a recuperação conhecida é:
 
-Durante `provider-deploy`, o cancelamento:
+```bash
+systemctl --user restart dev-dashboard.service
+npm run local:status
+```
 
-1. interrompe o polling local;
-2. tenta cancelar o deployment remoto em andamento quando suportado;
-3. persiste o resultado de forma conservadora.
+Depois confirme `/api/health` e a revision. Isso é uma limitação conhecida, não um estado de sucesso do deployment.
 
-Cancelamento remoto é best-effort. Se uma etapa irreversível já iniciou, o estado pode terminar em `recovery_required`.
+## Cancelamento e irreversibilidade
 
-## Verify falhou depois do deploy
+Antes de qualquer etapa irreversível, falha/cancelamento pode terminar normalmente como `failed`/`cancelled`.
 
-Se a promoção terminou e apenas `prod:verify` falhou, **não prepare outro deployment imediatamente**.
+Depois que migration, promoção externa ou self-update iniciou efeito real, incerteza relevante pode resultar em:
 
-Quando a timeline e a revision ainda provam um caso seguro, a UI oferece **Verificar novamente**. Esse fluxo repete somente `prod:verify`.
+```text
+recovery_required
+```
 
-Ele não repete:
+Não existe rollback cego genérico.
 
-- check;
-- backup;
-- migrate;
-- `prod:deploy`;
-- `provider-deploy` Vercel.
+No self-update, depois que o worker assume ownership, a API antiga não oferece cancelamento como se ainda fosse dona da operação.
 
-Se o backend considerar o snapshot stale, a UI volta ao fluxo de um novo plano.
+## Verify falhou depois da promoção
 
-## `recovery_required`
+Para `command`/`git-managed`, quando somente o `verify` final falhou e o backend comprova que o contexto continua seguro, a UI pode oferecer **Verificar novamente**.
 
-Esse estado pede investigação manual. Não significa “faça rollback automaticamente”.
-
-Procedimento:
-
-1. identifique a primeira etapa irreversível na timeline;
-2. leia o log mascarado;
-3. confira provider/aplicação/schema reais;
-4. consulte `production.policies.rollback`;
-5. valide backup/checkpoint quando houver;
-6. gere novo plano somente depois de entender o estado atual.
-
-Para Vercel, não promova cegamente um deployment antigo quando migration/schema já avançou.
+Esse fluxo repete apenas `prod:verify`; não repete check, backup, migration, deploy local ou `provider-deploy`.
 
 ## Concorrência
 
-Existe no máximo um deployment mutável ativo globalmente. A regra vale para `command` e `git-managed`.
+Existe no máximo um deployment mutável ativo globalmente. Leituras de status não ocupam esse slot.
 
-Leituras de status Vercel são somente leitura e não ocupam esse slot.
-
-Não encerre a API apenas para contornar a concorrência: uma interrupção no meio de uma etapa irreversível pode produzir `recovery_required`.
+Não encerre a API para contornar concorrência: uma mutação interrompida pode exigir recovery.
 
 ## Persistência
 
-Deployments são registrados em:
+Deployments ficam sob:
 
 ```text
 ${DEV_DASHBOARD_STATE_DIR:-~/.local/state/dev-dashboard}/deployments/
 ```
 
-O diretório é privado e contém histórico/timeline/logs limitados. Tokens de confirmação e `VERCEL_TOKEN` não são persistidos.
+O estado é privado e limitado. Tokens de confirmação, senha sudo e `VERCEL_TOKEN` não são persistidos.
 
-## Reinício ou crash
+Self-update mantém também handoff/locks sob o estado privado do Dashboard e agent instalado fora da checkout.
 
-Na inicialização, execuções que estavam ativas são recuperadas conservadoramente.
+## Diagnóstico rápido
 
-- sem etapa irreversível iniciada: falha/interrupção comum;
-- com etapa irreversível iniciada ou concluída: `recovery_required`.
-
-Não repita automaticamente um deployment interrompido.
-
-## Códigos de erro comuns
-
-| Código | Significado | Ação |
-| --- | --- | --- |
-| `DEPLOYMENT_PRODUCTION_UNAVAILABLE` | contrato/capability ou ambiente local de produção não permite a operação | valide `.dev-dashboard/production.json`, `.dev-dashboard/.env.production.local` e faça novo scan quando necessário |
-| `DEPLOYMENT_BRANCH_MISMATCH` | branch atual difere da branch de produção | troque para a branch declarada |
-| `DEPLOYMENT_WORKTREE_DIRTY` | existem mudanças locais | commit/stash/descarte conscientemente |
-| `DEPLOYMENT_REVISION_UNAVAILABLE` | Git/HEAD ou revision necessária não pôde ser resolvida | verifique repositório, remote e branch |
-| `DEPLOYMENT_PLAN_STALE` | revision/plano mudou depois do preview | gere novo plano e confirmação |
-| `DEPLOYMENT_CONFIRMATION_REQUIRED` | token ausente/expirado/usado/incompatível | gere nova confirmação |
-| `DEPLOYMENT_ALREADY_RUNNING` | já existe deployment ativo | acompanhe/cancele o atual |
-| `DEPLOYMENT_COMMAND_FAILED` | `prod:*` local terminou com erro | leia timeline/log e respeite `failurePoint` |
-| `DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE` | `VERCEL_TOKEN` ausente | configure `.env.local` e reinicie o dashboard |
-| `DEPLOYMENT_PROVIDER_AUTH_FAILED` | token/escopo recusado | valide token e `VERCEL_TEAM_ID` localmente |
-| `DEPLOYMENT_PROVIDER_QUOTA_EXCEEDED` | limite externo | aguarde; não crie commits artificiais |
-| `DEPLOYMENT_PROVIDER_PROJECT_NOT_FOUND` | `external.project` não existe no escopo | corrija contrato/escopo |
-| `DEPLOYMENT_PROVIDER_UNAVAILABLE` | provider/transporte indisponível | tente novamente sem inferir sucesso |
-| `DEPLOYMENT_PROVIDER_RESPONSE_INVALID` | resposta Vercel não passou na validação | investigue mudança de API/provider |
-
-## Diagnóstico rápido Vercel
-
-Se a tela mostrar integração não configurada:
-
-```bash
-cd /caminho/do/dev-dashboard
-printf 'VERCEL_TOKEN configurado? '; test -n "$VERCEL_TOKEN" && echo sim || echo nao
-```
-
-Se você usa `.env.local`, não use `cat` em uma sessão que possa ser capturada. Apenas confirme que o arquivo existe e reinicie `npm run dev`.
-
-Se autenticação funcionar, mas o projeto não for encontrado, confira `production.external.project` no projeto alvo e o escopo do token/team.
-
-Se o plano for recusado por revision remota, confira sem alterar nada:
+Para projetos comuns:
 
 ```bash
 git status --short --branch
 git remote -v
-git ls-remote --heads origin main
 ```
 
-Troque `main` pela `production.branch` do contrato.
+Para Vercel, valide configuração local sem imprimir o token e, quando necessário, confira a branch remota com `git ls-remote`.
+
+Para o próprio Dashboard instalado:
+
+```bash
+npm run local:status
+npm run prod:status
+npm run prod:check
+curl -i http://127.0.0.1:4343/api/health
+```
 
 ## Limites atuais
 
-O domínio ainda não:
+O domínio não:
 
-- faz `git push` em nome do usuário;
-- cria commit artificial para disparar Vercel;
-- executa rollback Vercel automático;
+- faz `git push` automaticamente para liberar um plano;
+- cria commit artificial para disparar provider;
 - considera `READY` equivalente a health;
-- atualiza o próprio Dev Dashboard durante o restart da API;
-- oferece atualização global/transacional entre providers distintos.
+- executa rollback Vercel cego;
+- transforma `self-update:*` em executor remoto genérico;
+- oferece atualização transacional global entre providers.
 
-Esses limites são deliberados.
+A limitação específica do retorno ao systemd durante redeploy do próprio Dashboard permanece em #659 até ser corrigida.
