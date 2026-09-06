@@ -27,30 +27,35 @@ O self-update agent não abre TCP; ele usa Unix socket privado.
 
 ## Origem e autenticação
 
-A API mantém allowlist explícita de origens locais. A distribuição web não recebe o token HTTP persistente no bundle: o launcher entrega ao navegador uma capacidade de bootstrap pelo fragmento `#bootstrap=...`, que não faz parte da requisição HTTP inicial.
+A API mantém allowlist explícita de origens locais. A distribuição web não recebe o token HTTP persistente no bundle.
 
-O cliente web:
+No modo distribuído atual, o servidor gera uma capacidade efêmera de bootstrap por processo e a injeta **somente no HTML servido em runtime**. Um script mínimo executado antes do bundle da aplicação grava essa capacidade diretamente no `sessionStorage` da aba.
 
-1. lê a capacidade do fragmento;
-2. guarda a capacidade em `sessionStorage` apenas para a aba/sessão atual;
-3. remove o fragmento da URL visível com `history.replaceState`;
-4. chama `POST /api/auth/browser-session` com `Content-Type: application/json`, `credentials: same-origin` e `X-Dev-Dashboard-Browser-Bootstrap`;
+O fluxo atual é:
+
+1. servidor serve `index.html` já com o script efêmero in-memory;
+2. o script grava `dev-dashboard-browser-bootstrap` no `sessionStorage`;
+3. a aplicação inicia com a URL limpa — sem `#bootstrap=...`, query ou pathname sensível;
+4. o cliente chama `POST /api/auth/browser-session` com `Content-Type: application/json`, `credentials: same-origin` e `X-Dev-Dashboard-Browser-Bootstrap`;
 5. passa a usar o cookie curto de sessão nas chamadas privadas.
+
+O cliente ainda pode manter compatibilidade de leitura com formatos legados, mas o servidor atual **não gera** bootstrap no fragmento da URL.
 
 O bootstrap só é aceito a partir da origem local exata configurada. A rota também aceita `X-Dev-Dashboard-Token` para clientes locais que precisam criar uma sessão sem usar a capacidade do navegador.
 
 A sessão é assinada no backend e emitida como cookie `dev_dashboard_session` com `Path=/api`, `HttpOnly` e `SameSite=Strict`. O TTL padrão é de 15 minutos. O JavaScript do frontend não lê nem escreve esse cookie.
 
-Quando uma chamada privada recebe `401`, o cliente web tenta renovar a sessão pelo mesmo fluxo de bootstrap e repete a chamada uma vez. A capacidade de bootstrap continua fora do bundle e do cookie; ela deve ser tratada como segredo efêmero da sessão do navegador.
+Quando uma chamada privada recebe `401`, o cliente web pode renovar a sessão pelo fluxo de bootstrap e repetir a chamada uma vez. A capacidade continua fora do bundle persistido, do cookie e da URL; ela deve ser tratada como segredo efêmero da sessão do navegador.
 
 Clientes locais não navegador podem autenticar diretamente com `X-Dev-Dashboard-Token`. Para requisições autenticadas por cookie, métodos mutáveis (`POST`, `PUT`, `PATCH`, `DELETE`) exigem a origem local exata; uma origem apenas presente na allowlist não é suficiente para mutação com sessão de browser.
 
 Tokens persistentes e capacidades efêmeras:
 
-- não entram no bundle web;
+- não entram no bundle web em disco;
 - não devem aparecer em logs;
 - não são enviados a providers externos;
-- permanecem fora do repositório.
+- permanecem fora do repositório;
+- não devem ser copiados para issue, PR ou screenshot.
 
 `GET /api/health` é a única rota HTTP pública.
 
@@ -144,30 +149,23 @@ Para `strategy=command` e `strategy=git-managed`:
 
 Somente scripts `prod:*` canônicos reconhecidos no contrato podem virar etapas. Package manager, argumentos e `cwd=Project.path` são resolvidos no backend. Execuções usam `shell: false`, stdin fechado e encerramento controlado com TERM antes de KILL.
 
-O dashboard não interpreta comandos internos de systemd ou Docker Compose; essa implementação permanece no projeto alvo.
+O Dashboard não interpreta comandos internos de systemd ou Docker Compose do projeto alvo; essa implementação permanece no próprio projeto.
 
-Para `prod:check`, o adapter pode classificar o código estável `P1001` do Prisma como `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE`. A mensagem tipada e a linha adicional de diagnóstico são produzidas localmente e não reutilizam o trecho do stderr que pode conter host, porta, URL, nome do banco ou credenciais. A saída original do processo continua passando pelo masking normal; a classificação não concede ao Dashboard autoridade para iniciar a dependência nem amplia o catálogo de comandos.
+Para `prod:check`, o adapter pode classificar o código estável `P1001` do Prisma como `DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE`. A mensagem tipada é produzida localmente e não reutiliza host, porta, URL, nome de banco ou credenciais do stderr bruto. A saída original continua passando pelo masking normal.
 
-A regra é deliberadamente estreita: apenas `P1001` em `prod:check` recebe essa categoria. Outros textos de conexão e `P1001` em outras etapas permanecem genéricos para evitar que conteúdo de log se transforme em heurística de infraestrutura ou em gatilho de ação automática.
+A regra é deliberadamente estreita: apenas `P1001` em `prod:check` recebe essa categoria. Outros textos de conexão e `P1001` em outras etapas permanecem genéricos.
 
 ### Ambiente local de produção por projeto
 
-Etapas locais que realmente consultam ou alteram produção podem receber segredos específicos do projeto a partir do caminho fixo `<Project.path>/.dev-dashboard/.env.production.local`. O browser não escolhe esse path nem envia o conteúdo do arquivo.
+Etapas locais que realmente consultam ou alteram produção podem receber segredos específicos do projeto a partir do caminho fixo:
 
-`prod:check` é isolado dessa configuração por design.
+```text
+<Project.path>/.dev-dashboard/.env.production.local
+```
 
-O backend trata esse arquivo como configuração local sensível:
+O browser não escolhe esse path nem envia seu conteúdo. `prod:check` é isolado dessa configuração.
 
-- ausência é aceita;
-- somente arquivo regular é aceito;
-- tamanho máximo é 64 KiB;
-- conteúdo inválido/ilegível falha fechado;
-- mensagem de erro não inclui o conteúdo;
-- valores entram somente no ambiente do processo filho correspondente;
-- conteúdo não é persistido nem retornado pela API;
-- `prod:check` e `provider-deploy` não leem esse arquivo.
-
-Credenciais de provider continuam fora desse arquivo.
+O backend exige arquivo regular, aplica limite de 64 KiB, falha fechado para conteúdo inválido/ilegível e usa os valores somente no ambiente do processo filho correspondente. O conteúdo não é persistido nem retornado pela API. Credenciais de provider continuam fora desse arquivo.
 
 ### `strategy=git-managed` + Vercel
 
@@ -181,7 +179,7 @@ A Vercel recebe `target=production`, projeto declarado no contrato, branch e SHA
 
 ### Credenciais Vercel
 
-`VERCEL_TOKEN` e o opcional `VERCEL_TEAM_ID` existem somente no ambiente local do Dev Dashboard. `npm run dev` pode carregá-los de `.env.local`; `.env.example` documenta o formato sem conter segredo.
+`VERCEL_TOKEN` e o opcional `VERCEL_TEAM_ID` existem somente no ambiente local do Dev Dashboard. `npm run dev` pode carregá-los de `.env.local`; a instalação via `local:install` também lê `.env.local` pela unit gerenciada.
 
 Essas credenciais:
 
@@ -201,7 +199,7 @@ Se somente o verify final falhar depois de promoção concluída, o backend pode
 
 ## Sudo em deployment local
 
-A autorização temporária de sudo existe apenas para etapas locais que realmente exigem privilégio.
+A autorização temporária de sudo existe apenas para etapas locais de **projetos gerenciados** que realmente exigem privilégio.
 
 A senha:
 
@@ -211,7 +209,9 @@ A senha:
 - não é colocada no ambiente;
 - não é encaminhada ao stdin do `prod:*`.
 
-Se o ticket não for delegável para a árvore real do deployment, o dashboard falha fechado e orienta privilégio mínimo específico. O dashboard não edita sudoers e não desabilita políticas de timestamp.
+Se o ticket não for delegável para a árvore real do deployment, o Dashboard falha fechado e orienta privilégio mínimo específico. O Dashboard não edita sudoers e não desabilita políticas de timestamp.
+
+O self-update do próprio Dev Dashboard **não reutiliza** esse mecanismo de sudo.
 
 ## Self-update agent
 
@@ -226,13 +226,13 @@ provider=none
 branch=main
 ```
 
-A habilitação foi entregue no #527 depois da cadeia operacional do #523 e da revisão final de privilégio/segurança. O fluxo usa o mesmo planner, confirmação e revalidação do domínio de deployment; não existe rota paralela para autorizar self-update.
+O fluxo usa o mesmo planner, confirmação e revalidação do domínio de deployment; não existe rota paralela para autorizar self-update.
 
 ### Handoff persistente
 
 O handoff contém somente ID, `action=self-update`, `projectId`, `targetRevision`, `planHash`, estados/timestamps e resultado terminal sanitizado.
 
-Ele não contém shell, programa, argumentos, checkout, unit ou credencial. Arquivos vivem em diretório privado e são revalidados na leitura.
+Ele não contém shell, programa, argumentos, unit configurável ou credencial. Arquivos vivem em diretório privado e são revalidados na leitura.
 
 ### Instalação do agent
 
@@ -253,7 +253,7 @@ claim
 recover
 ```
 
-Nenhuma request aceita programa, args, shell, unit, checkout, instalação, URL ou credencial. `execute` não é uma ação remota do socket; ele é tooling local restrito a um handoff previamente persistido e aceito.
+Nenhuma request aceita programa, args, shell, unit, checkout, instalação, URL ou credencial. `execute` não é ação remota do socket; é tooling local restrito a handoff previamente persistido e aceito.
 
 ### Integração API → agent e shutdown
 
@@ -286,33 +286,50 @@ Depois comprova `HEAD == targetRevision`. Não há `reset --hard` nem descarte a
 
 ### Restart e proof-of-revision
 
-O worker aguarda a API antiga sair, aplica a revision, reinstala a release do agent e inicia `scripts/dev-web.mjs` destacado.
+O worker aguarda a API antiga sair, aplica a revision, reinstala a release do agent e inicia `scripts/dev-web.mjs` destacado com a revision alvo.
 
-O restart é user-space: sem `sudo`, `systemctl` ou unit configurável.
+Existem dois modos:
 
-A API mantém o JSON público de `/api/health` estável. No runtime iniciado pelo worker, a revision validada é publicada no header:
+- sem instalação local gerenciada, `dev-web` mantém runtime direto user-space;
+- com instalação válida da mesma checkout, `dev-web` pode delegar somente para a unit fixa:
+
+```text
+systemctl --user restart dev-dashboard.service
+```
+
+Essa delegação exige metadados locais válidos, checkout real correspondente, unit exata e marcador de ownership. O browser não escolhe nome de serviço, path ou comando.
+
+A API mantém o JSON público de `/api/health` estável. A revision validada é publicada no header:
 
 ```text
 x-dev-dashboard-revision: <targetRevision>
 ```
 
-O worker só aceita readiness quando `status=ok`, `service=dev-dashboard-api` e esse header contém exatamente a revision alvo. O valor do body não pode substituir a prova do header.
+O worker só aceita readiness quando `status=ok`, `service=dev-dashboard-api` e o header contém exatamente a revision alvo.
 
-`DEV_DASHBOARD_RUNTIME_REVISION` é preenchida internamente pelo worker a partir da revision já validada/aplicada. Ela não é input do browser nem configuração manual suportada para autorizar self-update.
+`DEV_DASHBOARD_RUNTIME_REVISION` é preenchida internamente pelo worker a partir da revision já validada/aplicada. `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` transporta internamente a checkout canônica já validada para o handoff gerenciado; nenhuma das duas é input do browser.
+
+### Limitação conhecida #659
+
+Existe em 2026-09-06 um bug no caminho gerenciado: `startRuntime()` ainda não propaga `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` ao `dev-web.mjs` de handoff. A reprodução real mostrou a API antiga encerrando, a checkout chegando à nova revision e a porta permanecendo indisponível até um restart manual da unit.
+
+Esse defeito não justifica ampliar autoridade ou aceitar unit/path do browser. A correção deve apenas preservar a raiz canônica já validada e permitir que o `dev-web` prove a instalação antes do `systemctl --user restart`.
+
+Um restart manual recupera o serviço, mas não deve fabricar `succeeded` para um handoff sem resultado terminal confiável.
 
 ### Recovery
 
 Falha antes da mutação pode terminar em `failed`. Depois de `applying`, falha vira `recovery_required`.
 
-O teste de integração real cobre inclusive o caso em que a nova porta volta saudável, mas com revision diferente: health sem a prova exata não produz sucesso e o handoff termina em recovery.
+O teste de integração cobre inclusive o caso em que a porta volta saudável, mas com revision diferente: health sem a prova exata não produz sucesso.
 
 No startup, o agent também marca handoffs anteriormente assumidos e sem resultado terminal como `recovery_required`. Não há rollback automático cego.
 
 ### Privilégio
 
-A decisão final do self-update v1 usa somente privilégios do usuário atual. Fastify não recebe sudo amplo, a senha de deployment não é reutilizada e o restart não depende de root/systemd.
+A decisão do self-update v1 usa somente privilégios do usuário atual. Fastify não recebe sudo amplo, a senha de deployment não é reutilizada e a integração opcional com systemd é `systemd --user`, não serviço root/system-wide.
 
-Esse modelo user-space é parte do contrato habilitado atual. Se no futuro surgir necessidade real de serviço de sistema, isso será uma nova fronteira de segurança e exigirá outra decisão explícita, com ação mínima instalada fora da checkout e sem unit/path/comando livre.
+Se no futuro surgir necessidade real de serviço de sistema, isso será uma nova fronteira de segurança e exigirá decisão explícita separada.
 
 ## Git
 
@@ -330,11 +347,11 @@ Processos gerenciados usam:
 - grupos de processo;
 - limites de logs;
 - validação de identidade antes de sinalizar PID;
-- no Linux, readiness de servidor baseada em porta exige que o socket em `LISTEN` pertença ao PID gerenciado ou a um descendente; conectividade de uma porta alheia não prova identidade do processo;
+- no Linux, readiness de servidor baseada em porta exige que o socket em `LISTEN` pertença ao PID gerenciado ou a descendente;
 - TERM antes de KILL;
 - cleanup em shutdown.
 
-Em plataformas sem `/proc`, a descoberta de ownership de porta não está disponível e o readiness mantém o fallback best-effort pela porta previamente registrada.
+Em plataformas sem `/proc`, a descoberta de ownership de porta não está disponível e o readiness mantém fallback best-effort pela porta registrada.
 
 O worker de self-update tem lifecycle/store próprios porque precisa sobreviver ao Fastify antigo.
 
@@ -357,10 +374,10 @@ A proteção exige:
 - tamanho limitado;
 - leitura apenas de arquivos derivados de IDs controlados;
 - masking antes de persistir/retornar conteúdo sensível;
-- mensagens externas e diagnósticos tipados produzidos localmente a partir de estados/códigos reconhecidos, sem copiar detalhes sensíveis do texto bruto;
+- mensagens externas e diagnósticos tipados produzidos localmente a partir de estados/códigos reconhecidos;
 - ausência de bodies brutos de providers.
 
-Novos padrões sensíveis devem ser centralizados e cobertos por testes. Classificação de erro não substitui masking: quando o stdout/stderr original é preservado no log, ele continua passando pelo pipeline de redaction existente.
+Novos padrões sensíveis devem ser centralizados e cobertos por testes. Classificação de erro não substitui masking.
 
 ## Persistência local
 
@@ -380,4 +397,4 @@ Tokens locais e arquivos sensíveis usam permissões privadas. Estado persistido
 
 Uma capacidade de produção/self-update só é considerada segura quando comportamento, documentação e testes concordam.
 
-A cadeia operacional foi fechada no #523; o #527 confirmou o modelo user-space, integrou `strategy=self-update` ao domínio normal de deployment e habilitou explicitamente o contrato. Mudanças futuras nessa fronteira exigem nova revisão de segurança e documentação no mesmo PR.
+Mudanças futuras nessa fronteira exigem nova revisão de segurança e documentação no mesmo PR. A #659 deve ser fechada com teste de regressão do handoff real do runtime gerenciado, sem relaxar os invariantes de authority/ownership acima.
