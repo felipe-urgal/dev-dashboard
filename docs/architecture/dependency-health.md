@@ -1,6 +1,6 @@
 # Dependency Health
 
-Dependency Health evolui a leitura de dependências para separar **fatos locais comprováveis** de metadata externa que pode estar stale ou indisponível. O primeiro recorte é deliberadamente offline e somente leitura.
+Dependency Health evolui a leitura de dependências para separar **fatos locais comprováveis** de metadata externa que pode estar stale ou indisponível. O domínio continua somente leitura nestes primeiros recortes.
 
 ## Primeiro recorte: inventário Node/npm local
 
@@ -21,6 +21,46 @@ Para cada dependência direta, o snapshot preserva:
 
 Range declarado e versão resolvida são fatos diferentes e não são colapsados em um único campo.
 
+## Segundo recorte: metadata externa npm
+
+`NpmDependencyMetadataService` enriquece um inventário local já produzido sem alterá-lo. O retorno mantém o objeto `inventory` como fonte dos fatos locais e acrescenta uma coleção separada `metadata`.
+
+Cada evidência externa informa:
+
+- pacote consultado;
+- estado `available | unavailable | invalid`;
+- fonte fixa `npm-registry`;
+- `observedAt` da consulta;
+- `latestVersion` somente quando a resposta é válida;
+- classificação `none | patch | minor | major | unknown`.
+
+A consulta é somente leitura e usa exclusivamente o endpoint conhecido `https://registry.npmjs.org/<pacote>/latest`. O browser não fornece registry, URL, headers, token ou parâmetros livres.
+
+A classificação só ocorre quando a versão resolvida local e a versão `latest` externa são versões comparáveis. Versão local ausente, formato inválido ou prerelease ambíguo permanece `unknown`; o Dashboard não inventa a magnitude de uma atualização.
+
+### Degradação offline
+
+Falha de DNS/rede, timeout, HTTP não bem-sucedido ou payload inválido afeta apenas a metadata daquele pacote. O inventário local permanece integralmente disponível.
+
+Isso preserva a fronteira:
+
+```text
+fato local -> range declarado / versão resolvida
+metadata externa -> latest / origem / freshness / classificação
+```
+
+Um registry indisponível nunca transforma uma versão local conhecida em `unknown` nem apaga dependências declaradas.
+
+### Limites da consulta externa
+
+- timeout por pacote;
+- concorrência limitada por workers;
+- payload limitado a 256 KiB, inclusive durante leitura do stream;
+- redirects não são aceitos;
+- nenhum package manager é executado;
+- nenhum `.npmrc`, token ou secret é transportado pela API do serviço;
+- respostas externas entram apenas pelo shape mínimo necessário para `version`.
+
 ## Package lock
 
 O parser aceita `lockfileVersion` 1, 2 e 3.
@@ -35,32 +75,30 @@ O inventário continua `ready` quando o `package.json` é válido e o lockfile e
 
 `package.json` ausente, ilegível ou estruturalmente inválido faz a inspeção falhar fechada como `invalid`.
 
-## Segurança e limites
+## Segurança e limites locais
 
 - nenhum processo é executado;
-- nenhum acesso de rede ocorre;
 - a raiz usada é o `realpath` de `Project.path` conhecido pelo backend;
 - `package.json` e `package-lock.json` precisam ser arquivos regulares, não symlinks;
 - limites de tamanho são aplicados antes do parse;
 - no máximo 5.000 dependências diretas entram no snapshot;
 - nomes e ranges possuem limites de tamanho;
-- conteúdo externo, stdout e secrets não fazem parte deste domínio.
+- stdout e secrets não fazem parte deste domínio.
 
-## O que este recorte não afirma
+## O que estes recortes ainda não afirmam
 
-Sem metadata externa, o Dashboard **não** marca uma dependência como:
+O enriquecimento de `latest` não é evidência suficiente para marcar uma dependência como:
 
-- desatualizada;
-- patch/minor/major disponível;
 - vulnerável;
-- incompatível com runtime;
-- parte de um grupo de upgrade obrigatório.
+- compatível ou incompatível com o runtime do projeto;
+- parte de um grupo/lockstep de upgrade obrigatório;
+- segura para atualização automática.
 
-Esses sinais exigem fonte própria, timestamp/freshness e evidência explícita. Falha de registry no futuro não deve apagar o inventário local produzido por este serviço.
+Advisories e compatibilidade exigem providers/fontes próprias com origem e freshness. O Upgrade Planner deve ser construído sobre essas evidências sem misturá-las ao inventário local.
 
 ## Próximos recortes
 
-A evolução pode enriquecer este inventário com metadata externa e então construir o Upgrade Planner. O enriquecimento deve preservar a distinção entre:
+A evolução seguinte pode adicionar advisories e runtime compatibility, e então construir o Upgrade Planner:
 
 ```text
 fato local -> range declarado / versão resolvida
@@ -68,4 +106,4 @@ metadata externa -> latest / advisory / compatibilidade / freshness
 plano -> alvo / tipo de mudança / arquivos / gates / grupos relacionados
 ```
 
-Mutação automática continua fora do MVP inicial e deve exigir plano, confirmação e rollback adequados antes de alterar manifest ou lockfile.
+Mutação automática continua fora do MVP e deve exigir plano, confirmação e rollback adequados antes de alterar manifest ou lockfile.
