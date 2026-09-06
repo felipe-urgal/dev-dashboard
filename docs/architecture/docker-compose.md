@@ -57,7 +57,7 @@ Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon
 
 ## Terceiro recorte: preflight de portas
 
-`DockerComposePreflightService` faz uma verificação **somente leitura** antes de qualquer futuro `docker compose up`. Ele recebe o `ComposeConfigSnapshot` já validado, reutiliza `config.declaredPorts` no `PortInspectorService` e reconcilia `reserved/declared/observed` pelo Port Registry.
+`DockerComposePreflightService` faz uma verificação **somente leitura** antes de qualquer `docker compose up`. Ele recebe o `ComposeConfigSnapshot` já validado, reutiliza `config.declaredPorts` no `PortInspectorService` e reconcilia `reserved/declared/observed` pelo Port Registry.
 
 O resultado possui três estados:
 
@@ -89,12 +89,51 @@ Todo bloqueio preserva:
 
 Para conflitos realmente observados no host, o snapshot também pode incluir endereço, owner conhecido como projeto/processo gerenciado, processo externo ou `unknown`, e sugestão de porta quando já fornecida pelo Port Inspector.
 
-O preflight **não** mata processos, não remapeia portas, não altera Compose e não inicia/para containers.
+## Quarto recorte: lifecycle seguro de start
+
+`DockerComposeLifecycleService` introduz a primeira mutação do domínio: iniciar a stack conhecida do projeto. O serviço não recebe nome de serviço, flag ou comando do browser.
+
+A sequência é fixa:
+
+```text
+DockerComposeProvider.inspect(project)
+        ↓
+DockerComposePreflightService.inspect(...)
+        ↓
+preflight precisa ser ready
+        ↓
+docker compose up --detach [--wait]
+        ↓
+DockerComposeProvider.inspect(project)
+```
+
+A inspeção e o preflight são refeitos imediatamente antes da mutação. Um snapshot antigo de portas nunca autoriza `up`.
+
+O comando permitido é somente:
+
+```text
+docker compose up --detach
+```
+
+`--wait` só é acrescentado quando uma capability externa do backend comprova suporte. Na ausência dessa prova, o default é não usar a flag; o lifecycle não adivinha versão do Compose.
+
+A execução usa `execFile`, `cwd=Project.path`, timeout de dois minutos e buffer limitado. Não existe `shell`, seleção de serviço, `--env-file`, `--project-directory`, `down`, volume/prune ou parâmetro arbitrário.
+
+### Pós-start conservador
+
+Depois de `up`, o provider reinspeciona a stack. Quando config + runtime continuam observáveis, o resultado é `started`.
+
+Se a mutação terminou mas a reinspeção falhar ou não produzir runtime comprovável, o resultado é `started-unverified`. Isso evita dois erros opostos:
+
+- inventar sucesso observado sem evidência;
+- tratar uma mutação já executada como se nada tivesse acontecido e induzir um workflow destrutivo de recovery.
+
+Reexecutar `start` continua usando o comportamento idempotente do próprio `docker compose up --detach` e passa novamente pelo mesmo preflight. A ocupação por serviços ativos da própria stack já é reconhecida pelo terceiro recorte, então a stack não conflita consigo mesma.
 
 ## Segurança
 
 - nenhum shell livre;
-- comandos de inspeção possuem argv fixo;
+- comandos possuem argv fixo;
 - `cwd` vem do `Project` conhecido pelo backend;
 - timeout e limite de output são aplicados antes da normalização;
 - nenhum `down --volumes`, prune ou operação global;
@@ -103,10 +142,10 @@ O preflight **não** mata processos, não remapeia portas, não altera Compose e
 - protocolo sem observabilidade suportada nunca é promovido para preflight seguro;
 - indisponibilidade/truncamento do Port Inspector nunca é promovida para preflight seguro;
 - reservas e declarações participam da reconciliação mesmo quando não existe listener ativo;
-- ownership de porta só é assumido quando existe evidência positiva do runtime Compose atual.
+- ownership de porta só é assumido quando existe evidência positiva do runtime Compose atual;
+- `start` revalida inspeção/preflight imediatamente antes de mutar;
+- falha de observação pós-start permanece explícita como `started-unverified`.
 
 ## Próximos recortes
 
-As próximas etapas podem adicionar ações explícitas `up/stop/restart/logs`, desde que cada mutação tenha ownership do Compose project, confirmação adequada, lifecycle idempotente e observabilidade. HTTP/UI só devem consumir contratos estáveis já comprovados pelo domínio.
-
-Nenhuma ação destrutiva entra implicitamente nesse caminho.
+As próximas etapas podem adicionar `stop/restart/logs`, ownership persistente do Compose project e depois HTTP/UI. Operações destrutivas continuam exigindo confirmação explícita e contrato próprio; não entram implicitamente no lifecycle de start.
