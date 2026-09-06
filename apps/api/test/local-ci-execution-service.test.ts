@@ -54,15 +54,18 @@ class FakeExecutions {
     };
   }> = [];
   public readonly cancels: string[] = [];
-  private readonly snapshots = new Map<string, {
-    status: 'running' | 'exited';
-    buffer: string;
-    truncated: boolean;
-    exitCode: number | null;
-    exitSignal: number | null;
-    startedAt: string;
-    endedAt: string | null;
-  }>();
+  private readonly snapshots = new Map<
+    string,
+    {
+      status: 'running' | 'exited';
+      buffer: string;
+      truncated: boolean;
+      exitCode: number | null;
+      exitSignal: number | null;
+      startedAt: string;
+      endedAt: string | null;
+    }
+  >();
   private readonly exits = new Map<string, (snapshot: never) => void>();
 
   public start(key: string, options: never) {

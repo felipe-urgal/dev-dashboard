@@ -7,10 +7,7 @@ import {
   type DetachableExecutionService,
   type DetachableExecutionSnapshot,
 } from './detachable-execution-service.js';
-import {
-  buildActJobCommand,
-  type LocalCiJobRequest,
-} from './local-ci-act.js';
+import { buildActJobCommand, type LocalCiJobRequest } from './local-ci-act.js';
 import type { LocalCiDiscoveryService } from './local-ci-discovery-service.js';
 
 const DEFAULT_TIMEOUT_MS = 30 * 60_000;
@@ -29,9 +26,7 @@ const SAFE_ENV_KEYS = [
 ] as const;
 
 export type LocalCiExecutionErrorCode =
-  | 'LOCAL_CI_BUSY'
-  | 'LOCAL_CI_NOT_FOUND'
-  | 'LOCAL_CI_NOT_RUNNING';
+  'LOCAL_CI_BUSY' | 'LOCAL_CI_NOT_FOUND' | 'LOCAL_CI_NOT_RUNNING';
 
 export class LocalCiExecutionError extends Error {
   public constructor(
