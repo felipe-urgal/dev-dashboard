@@ -1,0 +1,16 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const tokensPath = resolve(process.cwd(), 'src/styles/tokens.css');
+const tokens = readFileSync(tokensPath, 'utf8');
+
+describe('tokens de tema', () => {
+  it('mantém aliases legados ligados aos tokens canônicos', () => {
+    expect(tokens).toContain('--surface-color: var(--surface-1);');
+    expect(tokens).toContain('--surface-muted: var(--surface-2);');
+    expect(tokens).toContain('--border-color: var(--border);');
+    expect(tokens).toContain('--text-color: var(--text);');
+    expect(tokens).toContain('--text-secondary: var(--text-muted);');
+  });
+});

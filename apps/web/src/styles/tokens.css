@@ -7,14 +7,21 @@
   --surface-2: #0b1d2d;
   --surface-3: #10283b;
 
+  /* Compatibilidade para componentes que ainda usam os aliases legados. */
+  --surface-color: var(--surface-1);
+  --surface-muted: var(--surface-2);
+
   /* Borders */
   --border: #17334a;
   --border-strong: #24506a;
+  --border-color: var(--border);
 
   /* Text */
   --text: #e8f5fb;
   --text-muted: #8ba6b7;
   --text-dim: #7ea6b8;
+  --text-color: var(--text);
+  --text-secondary: var(--text-muted);
 
   /* Accents */
   --accent: #32d6ee;

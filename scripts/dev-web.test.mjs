@@ -171,7 +171,7 @@ test('self-update builda antes de delegar restart para instalação local gerenc
   assert.equal(calls[0].command, 'npm');
   assert.deepEqual(calls[0].args, ['run', 'build']);
   assert.equal(calls[1].command, 'systemctl');
-  assert.deepEqual(calls[1].args, ['--user', 'start', LOCAL_SERVICE_NAME]);
+  assert.deepEqual(calls[1].args, ['--user', 'restart', LOCAL_SERVICE_NAME]);
 });
 
 test('verificação do bundle detecta o valor real sem confundir apenas o nome do header', async () => {
