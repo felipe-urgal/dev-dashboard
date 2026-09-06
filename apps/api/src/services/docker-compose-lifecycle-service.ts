@@ -134,6 +134,7 @@ export class DockerComposeLifecycleService {
       );
     }
 
+    // `--wait` is opt-in only after capability detection; unknown support stays compatible.
     let wait = false;
     try {
       wait = await this.supportsWait();
