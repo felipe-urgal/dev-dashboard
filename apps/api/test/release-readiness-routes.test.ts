@@ -88,7 +88,7 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
     await context.test(`serializa estado ${state}`, async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/projects/project-${state}/release-readiness`,
+        url: `/api/projects/project-${state}/readiness`,
       });
       assert.equal(response.statusCode, 200);
       const body = response.json<{ readiness: ReleaseReadinessSnapshot }>();
@@ -102,7 +102,7 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
 
   const customFreshness = await app.inject({
     method: 'GET',
-    url: '/api/projects/project-pass/release-readiness?testMaxAgeSeconds=60',
+    url: '/api/projects/project-pass/readiness?testMaxAgeSeconds=60',
   });
   assert.equal(customFreshness.statusCode, 200);
   assert.equal(calls.at(-1)?.testMaxAgeMs, 60_000);
@@ -110,14 +110,14 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
   for (const invalidValue of ['0', '59', '86401', 'abc']) {
     const response = await app.inject({
       method: 'GET',
-      url: `/api/projects/project-pass/release-readiness?testMaxAgeSeconds=${invalidValue}`,
+      url: `/api/projects/project-pass/readiness?testMaxAgeSeconds=${invalidValue}`,
     });
     assert.equal(response.statusCode, 400);
   }
 
   const missing = await app.inject({
     method: 'GET',
-    url: '/api/projects/missing/release-readiness',
+    url: '/api/projects/missing/readiness',
   });
   assert.equal(missing.statusCode, 404);
   assert.equal(missing.json<{ error: string }>().error, 'PROJECT_NOT_FOUND');
