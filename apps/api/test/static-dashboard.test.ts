@@ -80,7 +80,7 @@ test('serve HTML, asset versionado e fallback com caches distintos', async (cont
   );
 });
 
-test('injeta bootstrap somente na resposta HTML e não altera o build em disco', async (context) => {
+test('injeta bootstrap somente na resposta HTML, sem usar a URL ou alterar o build em disco', async (context) => {
   const root = await fixture();
   const token = 'e'.repeat(64);
   const app = Fastify({ logger: false });
@@ -96,14 +96,19 @@ test('injeta bootstrap somente na resposta HTML e não altera o build em disco',
   });
   assert.match(
     rootResponse.body,
-    new RegExp(`window\\.location\\.hash="bootstrap=${token}"`),
+    new RegExp(
+      `window\\.sessionStorage\\.setItem\\("dev-dashboard-browser-bootstrap","${token}"\\)`,
+    ),
   );
+  assert.doesNotMatch(rootResponse.body, /window\.location\.hash/u);
+  assert.doesNotMatch(rootResponse.body, /#bootstrap=/u);
 
   const indexResponse = await app.inject({
     url: '/index.html',
     headers: { accept: 'text/html' },
   });
   assert.match(indexResponse.body, new RegExp(token));
+  assert.doesNotMatch(indexResponse.body, /window\.location\.hash/u);
 
   const diskIndex = await readFile(path.join(root, 'index.html'), 'utf8');
   assert.doesNotMatch(diskIndex, new RegExp(token));

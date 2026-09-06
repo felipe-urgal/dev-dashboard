@@ -88,14 +88,16 @@ Para mudar a porta instalada, execute novamente `local:install` com a nova confi
 
 Cada processo de distribuição continua gerando uma capacidade de bootstrap aleatória e efêmera.
 
-No modo distribuído, o servidor injeta essa capacidade somente no HTML servido em memória. O valor:
+No modo distribuído, o servidor injeta essa capacidade somente no HTML servido em memória. Um script mínimo executado antes da aplicação guarda a capacidade diretamente no `sessionStorage` da aba atual. A URL permanece limpa, sem `#bootstrap=...`.
+
+O valor:
 
 - não é gravado no bundle em disco;
 - não é versionado;
 - não é persistido nos metadados da instalação;
 - não precisa ser consultado em `journalctl`;
-- é convertido pelo frontend no fragmento `#bootstrap=...` antes da inicialização da aplicação;
-- é movido para `sessionStorage` e removido da URL visível;
+- não é colocado no fragmento, query string ou pathname da URL;
+- existe somente no HTML servido em runtime e no `sessionStorage` da sessão atual;
 - é usado para criar o cookie curto e `HttpOnly` da sessão do browser.
 
 A rota de bootstrap continua exigindo a origem local exata configurada. Mutações autenticadas por cookie continuam exigindo sessão válida e origem exata.
