@@ -84,7 +84,10 @@ test('ambiente gerenciado fixa paths, porta e origem sem persistir secrets', () 
     runtimePath: '/opt/node/bin:/usr/bin:/bin',
   });
 
-  assert.match(runtimeEnvironment, /^PATH="\/opt\/node\/bin:\/usr\/bin:\/bin"/m);
+  assert.match(
+    runtimeEnvironment,
+    /^PATH="\/opt\/node\/bin:\/usr\/bin:\/bin"/m,
+  );
   assert.match(runtimeEnvironment, /^DEV_DASHBOARD_API_PORT=4343$/m);
   assert.match(
     runtimeEnvironment,
@@ -123,7 +126,10 @@ test('install é idempotente, grava apenas metadados não sensíveis e habilita 
   assert.equal(second.unit, LOCAL_SERVICE_NAME);
   const paths = resolveLocalInstallPaths(environment, home);
   const unit = await readFile(paths.unitPath, 'utf8');
-  const runtimeEnvironment = await readFile(paths.runtimeEnvironmentPath, 'utf8');
+  const runtimeEnvironment = await readFile(
+    paths.runtimeEnvironmentPath,
+    'utf8',
+  );
   const metadata = await readFile(paths.metadataPath, 'utf8');
   assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
   assert.match(unit, /local-runtime\.env/);
@@ -283,7 +289,10 @@ test('open usa xdg-open sem shell e uninstall preserva checkout/config funcional
     runCommand: successfulRunner(uninstallCalls),
   });
   await assert.rejects(readFile(paths.unitPath, 'utf8'), /ENOENT/);
-  await assert.rejects(readFile(paths.runtimeEnvironmentPath, 'utf8'), /ENOENT/);
+  await assert.rejects(
+    readFile(paths.runtimeEnvironmentPath, 'utf8'),
+    /ENOENT/,
+  );
   await assert.rejects(readFile(paths.metadataPath, 'utf8'), /ENOENT/);
   assert.equal(await readFile(preserved, 'utf8'), 'segredo-local');
   assert.ok(
