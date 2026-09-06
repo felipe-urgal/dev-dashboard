@@ -170,7 +170,8 @@ export async function orchestrate(options = {}) {
   let runtimeRevision = environment.DEV_DASHBOARD_RUNTIME_REVISION;
   if (installed && !runtimeRevision) {
     runtimeRevision = await (
-      options.resolveRuntimeRevision ?? ((directory) => readGitRevision(directory))
+      options.resolveRuntimeRevision ??
+      ((directory) => readGitRevision(directory))
     )(root);
   }
   console.info(`Abra o dashboard por esta URL:\n${localOrigin}`);
