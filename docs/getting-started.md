@@ -19,7 +19,7 @@ Projetos gerenciados continuam responsáveis pelos próprios runtimes: Ruby/Bund
 ```bash
 git clone git@github.com:felipe-urgal/dev-dashboard.git ~/.dev-dashboard
 cd ~/.dev-dashboard
-npm install
+npm ci
 npm run doctor
 ```
 
@@ -33,7 +33,7 @@ URLs padrão:
 
 ```text
 API:           http://127.0.0.1:4343
-Dashboard web: http://127.0.0.1:5173
+Dashboard web: http://127.0.0.1:5174
 ```
 
 `predev` compila os pacotes compartilhados. `scripts/dev.mjs` também carrega `.env.local` na raiz quando o arquivo existe.
@@ -49,7 +49,7 @@ npm run dev:web
 
 ## Primeiro uso
 
-1. Abra `http://127.0.0.1:5173`.
+1. Abra `http://127.0.0.1:5174`.
 2. Cadastre um workspace, como `/home/usuario/Projetos`.
 3. Execute o scan.
 4. Abra um projeto detectado.
@@ -74,6 +74,24 @@ production
 
 `production` só aparece quando `.dev-dashboard/production.json` existe e passa pela validação fail-closed do Production Contract v1.
 
+## Instalação permanente no Linux
+
+Para usar o Dashboard depois do login sem iniciar `npm run dev-web` manualmente:
+
+```bash
+npm run local:install
+```
+
+A instalação gerenciada usa `systemd --user`, mantém o listener em loopback e publica:
+
+```text
+http://dev-dashboard.localhost:4343
+```
+
+Ao reinstalar, o comando recompila a distribuição, reinicia `dev-dashboard.service` e só conclui depois que `/api/health` fica saudável.
+
+Veja [local-installation.md](local-installation.md).
+
 ## Configuração opcional da Vercel
 
 Você só precisa configurar Vercel no **Dev Dashboard** se quiser consultar ou executar deployments de projetos cujo contrato declare:
@@ -91,7 +109,7 @@ VERCEL_TOKEN=...
 VERCEL_TEAM_ID=team_...
 ```
 
-Depois reinicie `npm run dev`.
+Depois reinicie o processo correspondente. No modo instalado, `dev-dashboard.service` lê `.env.local`; para aplicar mudanças de configuração com segurança, execute `npm run local:install` novamente.
 
 Regras:
 
@@ -120,17 +138,19 @@ acompanhar timeline/log
 
 Em providers locais `strategy=command`, a promoção usa `prod:deploy` do próprio projeto. Em Vercel `git-managed`, a promoção aparece como `provider-deploy`: o backend confirma a revision real de `origin/<branch>` e envia o SHA exato à Vercel, depois roda `prod:verify`.
 
-Veja [guia/producao.md](guia/producao.md) antes da primeira operação real.
+O próprio Dev Dashboard usa `strategy=self-update`, com planner/confirmation/handoff próprios. Veja [PRODUCTION.md](PRODUCTION.md) antes de operar a self-production.
 
 ## Autenticação local
 
-A API gera um token em:
+A API gera um token persistente em:
 
 ```text
 ~/.config/dev-dashboard/api-token
 ```
 
 Em desenvolvimento, o proxy Vite o lê no processo Node e autentica requests para `/api`; o token não entra no bundle web.
+
+Na distribuição local, o servidor injeta uma capacidade efêmera apenas no HTML servido em runtime. Um script mínimo grava essa capacidade diretamente no `sessionStorage` da aba antes da aplicação iniciar; a URL permanece limpa, sem `#bootstrap=...`.
 
 Clientes de linha de comando precisam fornecer `X-Dev-Dashboard-Token` nas rotas privadas. `/api/health` permanece público.
 
@@ -174,21 +194,28 @@ Esse modo executa diagnóstico/build, serve o frontend estático pela API e usa 
 
 ## Validação
 
-Antes de finalizar uma mudança relevante:
+O gate canônico antes de um PR é:
+
+```bash
+npm run check
+```
+
+Hoje ele executa:
+
+```text
+format:check
+-> lint
+-> test
+-> build:apps
+```
+
+Checks direcionados permanecem disponíveis quando o risco justificar:
 
 ```bash
 npm run typecheck
-npm run lint
-npm run format:check
-npm run build
-npm test
 npm run test:cli
-```
-
-Quando o fluxo web justificar:
-
-```bash
 npm run test:e2e
+npm run test:coverage
 ```
 
 Rotas/schemas alterados também exigem:
