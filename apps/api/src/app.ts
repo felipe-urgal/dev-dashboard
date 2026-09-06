@@ -8,6 +8,7 @@ import { attentionRoutes } from './routes/attention.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
+import { releaseReadinessRoutes } from './routes/release-readiness.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
 import { productionOverviewRoutes } from './routes/production-overview.js';
@@ -61,6 +62,7 @@ import {
   type AppCompositionOptions,
 } from './app-composition.js';
 import { createAppContext, type AppContext } from './app-context.js';
+import { ReleaseReadinessService } from './services/release-readiness-service.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   localToken?: string;
@@ -110,6 +112,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     productionOverviewService,
     attentionCenterService,
   } = composition;
+  const releaseReadinessService = new ReleaseReadinessService(
+    context.gitService,
+    context.testExecutionHistoryService,
+    projectDoctorService,
+    options.now ? { now: options.now } : {},
+  );
   registerAppLifecycle(app, context, composition);
 
   const localToken =
@@ -161,6 +169,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectDoctorService,
+  });
+
+  app.register(releaseReadinessRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    releaseReadinessService,
   });
 
   app.register(projectCoverageRoutes, {
