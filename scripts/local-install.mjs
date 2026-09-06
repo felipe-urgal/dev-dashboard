@@ -30,9 +30,15 @@ export const ROOT_DIRECTORY = path.resolve(
 const DEFAULT_API_PORT = 4343;
 const DEFAULT_SYSTEM_PATH = '/usr/local/bin:/usr/bin:/bin';
 const MAX_COMMAND_OUTPUT_BYTES = 128 * 1024;
+const INSTALL_READINESS_ATTEMPTS = 60;
+const INSTALL_READINESS_INTERVAL_MS = 500;
 
 function isErrnoCode(error, code) {
   return error instanceof Error && 'code' in error && error.code === code;
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function assertSafeSystemdValue(value, label) {
@@ -320,6 +326,43 @@ export async function readLocalInstallMetadata(metadataPath) {
   }
 }
 
+async function checkHealth(port, fetchImpl) {
+  try {
+    const response = await fetchImpl(`http://127.0.0.1:${port}/api/health`, {
+      signal: AbortSignal.timeout(1_500),
+      headers: { accept: 'application/json' },
+    });
+    if (!response.ok) return false;
+    const payload = await response.json();
+    return payload?.status === 'ok' && payload?.service === 'dev-dashboard-api';
+  } catch {
+    return false;
+  }
+}
+
+export async function waitForHealth(port, options = {}) {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleepImpl = options.sleepImpl ?? sleep;
+  const attempts = options.attempts ?? INSTALL_READINESS_ATTEMPTS;
+  const intervalMs = options.intervalMs ?? INSTALL_READINESS_INTERVAL_MS;
+
+  if (!Number.isInteger(attempts) || attempts < 1) {
+    throw new Error('Tentativas de readiness inválidas para a instalação local.');
+  }
+  if (!Number.isFinite(intervalMs) || intervalMs < 0) {
+    throw new Error('Intervalo de readiness inválido para a instalação local.');
+  }
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await checkHealth(port, fetchImpl)) return;
+    if (attempt < attempts - 1) await sleepImpl(intervalMs);
+  }
+
+  throw new Error(
+    `Dev Dashboard foi reiniciado, mas a API não ficou saudável. Execute npm run local:status e journalctl --user -u ${LOCAL_SERVICE_NAME} -n 80 --no-pager.`,
+  );
+}
+
 export async function installLocal(options = {}) {
   const platform = options.platform ?? process.platform;
   if (platform !== 'linux') {
@@ -408,10 +451,24 @@ export async function installLocal(options = {}) {
 
   const enable = await run(
     'systemctl',
-    ['--user', 'enable', '--now', LOCAL_SERVICE_NAME],
+    ['--user', 'enable', LOCAL_SERVICE_NAME],
     { cwd: root, env: environment },
   );
   assertCommandSuccess(enable, 'Falha ao habilitar o Dev Dashboard no login');
+
+  const restart = await run(
+    'systemctl',
+    ['--user', 'restart', LOCAL_SERVICE_NAME],
+    { cwd: root, env: environment },
+  );
+  assertCommandSuccess(restart, 'Falha ao reiniciar o Dev Dashboard local');
+
+  await waitForHealth(port, {
+    fetchImpl: options.fetchImpl ?? fetch,
+    sleepImpl: options.sleepImpl ?? sleep,
+    attempts: options.readinessAttempts ?? INSTALL_READINESS_ATTEMPTS,
+    intervalMs: options.readinessIntervalMs ?? INSTALL_READINESS_INTERVAL_MS,
+  });
 
   return { ...localInstall, unitPath: paths.unitPath };
 }
@@ -429,20 +486,6 @@ async function systemdState(run, args, options) {
       ok: false,
       value: error instanceof Error ? error.message : 'indisponível',
     };
-  }
-}
-
-async function checkHealth(port, fetchImpl) {
-  try {
-    const response = await fetchImpl(`http://127.0.0.1:${port}/api/health`, {
-      signal: AbortSignal.timeout(1_500),
-      headers: { accept: 'application/json' },
-    });
-    if (!response.ok) return false;
-    const payload = await response.json();
-    return payload?.status === 'ok' && payload?.service === 'dev-dashboard-api';
-  } catch {
-    return false;
   }
 }
 
