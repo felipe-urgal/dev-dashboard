@@ -69,6 +69,15 @@ function servicesByPublishedPort(
   return grouped;
 }
 
+function hasUnsupportedPublishedProtocol(config: ComposeConfigSnapshot): boolean {
+  return config.services.some((service) =>
+    service.ports.some(
+      (binding) =>
+        binding.publishedPort !== undefined && binding.protocol !== 'tcp',
+    ),
+  );
+}
+
 function activeRuntimeServicesByPort(
   runtime: ComposeRuntimeSnapshot | undefined,
 ): Map<number, Set<string>> {
@@ -203,6 +212,16 @@ export class DockerComposePreflightService {
     runtime?: ComposeRuntimeSnapshot,
     input: DockerComposePortPreflightInput = {},
   ): Promise<DockerComposePortPreflight> {
+    if (hasUnsupportedPublishedProtocol(config)) {
+      return {
+        state: 'unavailable',
+        inspectedAt: config.observedAt,
+        conflicts: [],
+        diagnostic:
+          'O preflight atual comprova somente portas TCP; protocolo UDP/desconhecido permanece indisponível.',
+      };
+    }
+
     const composeServicesByPort = servicesByPublishedPort(config);
     const runtimeServicesByPort = activeRuntimeServicesByPort(runtime);
 
