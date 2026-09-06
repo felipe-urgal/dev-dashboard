@@ -55,6 +55,42 @@ Estados de disponibilidade são explícitos:
 
 Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon está indisponível, a configuração já validada pode continuar sendo apresentada sem inventar runtime.
 
+## Terceiro recorte: preflight de portas
+
+`DockerComposePreflightService` faz uma verificação **somente leitura** antes de qualquer futuro `docker compose up`. Ele recebe o `ComposeConfigSnapshot` já validado, reutiliza `config.declaredPorts` no `PortInspectorService` e reconcilia `reserved/declared/observed` pelo Port Registry.
+
+O resultado possui três estados:
+
+- `ready`: todas as portas TCP publicadas estão comprovadamente disponíveis ou já pertencem a um serviço ativo do mesmo runtime Compose;
+- `blocked`: existe conflito de listener, reserva incompatível ou declaração Compose duplicada;
+- `unavailable`: o Dashboard não conseguiu provar a situação das portas com segurança.
+
+O inspetor local atual observa sockets TCP. Por isso qualquer porta publicada com protocolo `udp` ou protocolo `unknown` mantém o preflight em `unavailable` **antes** de consultar disponibilidade. O Dashboard não converte ausência de evidência UDP em falso `ready`.
+
+Os bloqueios são classificados por motivo:
+
+- `occupied`: existe listener local e não há evidência positiva de que ele pertence ao runtime Compose atual;
+- `reserved`: a porta foi reservada para outro owner/role, mesmo que ainda esteja livre no sistema operacional;
+- `duplicate-declaration`: mais de um serviço Compose do mesmo projeto declara a mesma porta publicada.
+
+Assim, uma reserva não deixa de ser conflito apenas porque nenhum processo abriu a porta ainda. Da mesma forma, dois serviços não recebem um falso `ready` para disputar a mesma porta no futuro `up`.
+
+Quando o runtime já mostra um serviço ativo (`running`, `restarting` ou `paused`) usando a mesma porta publicada pelo mesmo serviço Compose, essa ocupação é tratada como esperada. Isso permite revalidar uma stack já ativa sem classificá-la como conflito contra si própria.
+
+O preflight também falha fechado quando a inspeção de portas está `unsupported`, `unavailable` ou truncada. Nesses casos, o Dashboard não tenta adivinhar disponibilidade.
+
+### Evidência de conflito
+
+Todo bloqueio preserva:
+
+- porta;
+- serviço(s) Compose que a publicam;
+- motivo (`occupied`, `reserved` ou `duplicate-declaration`).
+
+Para conflitos realmente observados no host, o snapshot também pode incluir endereço, owner conhecido como projeto/processo gerenciado, processo externo ou `unknown`, e sugestão de porta quando já fornecida pelo Port Inspector.
+
+O preflight **não** mata processos, não remapeia portas, não altera Compose e não inicia/para containers.
+
 ## Segurança
 
 - nenhum shell livre;
@@ -63,10 +99,14 @@ Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon
 - timeout e limite de output são aplicados antes da normalização;
 - nenhum `down --volumes`, prune ou operação global;
 - nenhuma credencial/environment value volta no snapshot;
-- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências.
+- config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências;
+- protocolo sem observabilidade suportada nunca é promovido para preflight seguro;
+- indisponibilidade/truncamento do Port Inspector nunca é promovida para preflight seguro;
+- reservas e declarações participam da reconciliação mesmo quando não existe listener ativo;
+- ownership de porta só é assumido quando existe evidência positiva do runtime Compose atual.
 
 ## Próximos recortes
 
-A próxima etapa adiciona preflight com Port Registry e ações explícitas `up/stop/restart/logs` com ownership do Compose project e lifecycle adequado.
+As próximas etapas podem adicionar ações explícitas `up/stop/restart/logs`, desde que cada mutação tenha ownership do Compose project, confirmação adequada, lifecycle idempotente e observabilidade. HTTP/UI só devem consumir contratos estáveis já comprovados pelo domínio.
 
 Nenhuma ação destrutiva entra implicitamente nesse caminho.
