@@ -12,6 +12,7 @@ export const ROOT_DIRECTORY = path.resolve(
   '..',
 );
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
 
 export function runChild(command, args, options = {}) {
   const spawnProcess = options.spawnProcess ?? spawn;
@@ -64,6 +65,39 @@ export function runChild(command, args, options = {}) {
   });
 }
 
+export function readGitRevision(rootDirectory, options = {}) {
+  const spawnProcess = options.spawnProcess ?? spawn;
+  return new Promise((resolve, reject) => {
+    const child = spawnProcess('git', ['rev-parse', '--verify', 'HEAD'], {
+      cwd: rootDirectory,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.once('error', reject);
+    child.once('close', (code) => {
+      const revision = stdout.trim();
+      if (code === 0 && REVISION_PATTERN.test(revision)) {
+        resolve(revision);
+        return;
+      }
+      reject(
+        new Error(
+          stderr.trim() ||
+            'Não foi possível resolver a revision atual do Dev Dashboard.',
+        ),
+      );
+    });
+  });
+}
+
 async function collectFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(
@@ -110,13 +144,19 @@ export async function orchestrate(options = {}) {
   const diagnoseEnvironment = options.diagnoseEnvironment ?? diagnose;
   const runner = options.runner ?? runChild;
   const checker = options.fileChecker ?? access;
+  const environment = options.environment ?? process.env;
+  const installed = options.installed ?? process.argv.includes('--installed');
   const results = await diagnoseEnvironment({
     rootDirectory: root,
     mode: 'distribution',
+    apiPort: environment.DEV_DASHBOARD_API_PORT,
   });
   if (results.some((item) => item.status === 'error'))
     throw new Error('Diagnóstico encontrou erros; inicialização abortada.');
-  const build = await runner(npmCommand, ['run', 'build'], { cwd: root });
+  const build = await runner(npmCommand, ['run', 'build'], {
+    cwd: root,
+    env: environment,
+  });
   if (build.code !== 0) return build.code;
   const webDist = path.join(root, 'apps/web/dist');
   await checker(webDist);
@@ -124,20 +164,29 @@ export async function orchestrate(options = {}) {
   const browserBootstrap = (
     options.createBootstrapToken ?? (() => randomBytes(32).toString('hex'))
   )();
-  const port = process.env.DEV_DASHBOARD_API_PORT ?? '4343';
-  console.info(
-    `Abra o dashboard por esta URL:\nhttp://127.0.0.1:${port}/#bootstrap=${browserBootstrap}`,
-  );
+  const port = environment.DEV_DASHBOARD_API_PORT ?? '4343';
+  const localOrigin =
+    environment.DEV_DASHBOARD_LOCAL_ORIGIN ?? `http://127.0.0.1:${port}`;
+  let runtimeRevision = environment.DEV_DASHBOARD_RUNTIME_REVISION;
+  if (installed && !runtimeRevision) {
+    runtimeRevision = await (
+      options.resolveRuntimeRevision ?? ((directory) => readGitRevision(directory))
+    )(root);
+  }
+  console.info(`Abra o dashboard por esta URL:\n${localOrigin}`);
   const server = await runner(
     process.execPath,
     [path.join(root, 'apps/api/dist/server.js')],
     {
       cwd: root,
       env: {
-        ...process.env,
+        ...environment,
         DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1',
         DEV_DASHBOARD_WEB_DIST: webDist,
         DEV_DASHBOARD_BROWSER_BOOTSTRAP: browserBootstrap,
+        ...(runtimeRevision
+          ? { DEV_DASHBOARD_RUNTIME_REVISION: runtimeRevision }
+          : {}),
       },
       forwardSignals: true,
     },
