@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AdjustmentsHorizontalIcon,
+  CheckBadgeIcon,
   CodeBracketIcon,
   CommandLineIcon,
   CubeIcon,
@@ -76,6 +77,14 @@ const route = useRoute();
   >
     <AdjustmentsHorizontalIcon aria-hidden="true" />
     <span>Variáveis de ambiente</span>
+  </RouterLink>
+  <RouterLink
+    class="project-details-tab"
+    :class="{ 'project-details-tab-active': route.name === 'project-readiness' }"
+    :to="{ name: 'project-readiness', params: { projectId: project.id } }"
+  >
+    <CheckBadgeIcon aria-hidden="true" />
+    <span>Readiness</span>
   </RouterLink>
   <RouterLink
     class="project-details-tab"
