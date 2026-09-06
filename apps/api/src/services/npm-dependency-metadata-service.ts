@@ -210,6 +210,7 @@ export class NpmDependencyMetadataService {
     try {
       const response = await this.fetcher(registryUrl(dependency.name), {
         method: 'GET',
+        credentials: 'omit',
         headers: { Accept: 'application/json' },
         redirect: 'error',
         signal: controller.signal,
