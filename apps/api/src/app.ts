@@ -62,7 +62,6 @@ import {
   type AppCompositionOptions,
 } from './app-composition.js';
 import { createAppContext, type AppContext } from './app-context.js';
-import { ReleaseReadinessService } from './services/release-readiness-service.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   localToken?: string;
@@ -111,13 +110,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     deploymentService,
     productionOverviewService,
     attentionCenterService,
+    releaseReadinessService,
   } = composition;
-  const releaseReadinessService = new ReleaseReadinessService(
-    context.gitService,
-    context.testExecutionHistoryService,
-    projectDoctorService,
-    options.now ? { now: options.now } : {},
-  );
   registerAppLifecycle(app, context, composition);
 
   const localToken =
