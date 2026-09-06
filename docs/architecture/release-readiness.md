@@ -73,7 +73,7 @@ A janela de freshness continua sendo fornecida pelo consumidor em `testMaxAgeMs`
 A API expõe o snapshot agregado em:
 
 ```text
-GET /api/projects/:projectId/readiness
+GET /api/projects/:projectId/release-readiness
 ```
 
 A resposta possui schema fechado e retorna:
