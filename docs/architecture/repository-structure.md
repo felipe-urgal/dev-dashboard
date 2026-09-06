@@ -1,11 +1,13 @@
 # Estrutura do repositório e responsabilidades
 
-O Dev Dashboard é um monorepo npm que mantém aplicações, bibliotecas, scripts de desenvolvimento, documentação e o CLI Bash legado no mesmo histórico.
+O Dev Dashboard é um monorepo npm com aplicação web/API, packages compartilhados, tooling do próprio projeto, documentação e o CLI Bash original.
 
 ## Árvore de alto nível
 
 ```text
 dev-dashboard/
+├── .dev-dashboard/        # Production Contract do próprio Dashboard
+├── .github/               # CI, segurança, release e automações
 ├── apps/
 │   ├── api/
 │   └── web/
@@ -16,22 +18,22 @@ dev-dashboard/
 │   └── project-discovery/
 ├── scripts/
 ├── docs/
-│   └── architecture/
-├── tasks/
-├── shared/
 ├── tests/
 │   └── cli/
 ├── config/
 ├── lib/
+├── AGENTS.md
+├── CONTRIBUTING.md
+├── README.md
 ├── init.sh
 ├── package.json
 ├── package-lock.json
 └── tsconfig.base.json
 ```
 
-## Regras de dependência
+Não existe diretório `tasks/` nem roadmap versionado. Planejamento, débitos e trabalho multi-PR vivem nas issues/PRs do GitHub.
 
-A direção desejada é:
+## Direção de dependências
 
 ```text
 apps/web ───────────────┐
@@ -42,286 +44,210 @@ apps/api ───────────────┤
    └───────────────────┴──> packages/process-manager
 ```
 
-Os pacotes compartilhados não devem depender de Vue ou Fastify. A web não deve acessar filesystem ou iniciar processos. A API coordena infraestrutura local e traduz resultados para contratos HTTP.
+Packages compartilhados não dependem de Vue ou Fastify. A web não acessa filesystem/processos diretamente; a API é a fronteira entre navegador, máquina local e providers externos.
 
-## Comandos por módulo
+## Comandos principais
 
-Referência rápida do que cada workspace npm aceita rodar isoladamente. `build`,
-`typecheck`, `dev` e `dev:api`/`dev:web` da raiz já disparam
-`build:packages` antes (`contracts` → `core` → `project-discovery` →
-`process-manager`, nessa ordem) — os apps importam a saída compilada em
-`dist/` desses pacotes, não os fontes TS diretamente.
+Na raiz:
 
-| Módulo                       | Dev                               | Build                                                        | Typecheck                                                        | Teste                                                                                               |
-| ---------------------------- | --------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| raiz (todos)                 | `npm run dev`                     | `npm run build`                                              | `npm run typecheck`                                              | `npm test`                                                                                          |
-| `apps/api`                   | `npm run dev:api`                 | `npm run build --workspace=@dev-dashboard/api`               | `npm run typecheck --workspace=@dev-dashboard/api`               | `node --import=tsx --test apps/api/test/<arquivo>.test.ts`                                          |
-| `apps/web`                   | `npm run dev:web`                 | `npm run build --workspace=@dev-dashboard/web`               | `npm run typecheck --workspace=@dev-dashboard/web`               | `npm run test --workspace=@dev-dashboard/web -- run <caminho>.spec.ts` (Vitest)                     |
-| `apps/web` (E2E)             | —                                 | —                                                            | —                                                                | `npx playwright test --config=e2e/playwright.config.ts <caminho>.spec.ts` (a partir de `apps/web/`) |
-| `packages/contracts`         | —                                 | `npm run build --workspace=@dev-dashboard/contracts`         | `npm run typecheck --workspace=@dev-dashboard/contracts`         | sem testes próprios (só tipos)                                                                      |
-| `packages/core`              | —                                 | `npm run build --workspace=@dev-dashboard/core`              | `npm run typecheck --workspace=@dev-dashboard/core`              | `node --import=tsx --test packages/core/test/<arquivo>.test.ts`                                     |
-| `packages/project-discovery` | —                                 | `npm run build --workspace=@dev-dashboard/project-discovery` | `npm run typecheck --workspace=@dev-dashboard/project-discovery` | `node --import=tsx --test packages/project-discovery/test/<arquivo>.test.ts`                        |
-| `packages/process-manager`   | —                                 | `npm run build --workspace=@dev-dashboard/process-manager`   | `npm run typecheck --workspace=@dev-dashboard/process-manager`   | `node --import=tsx --test packages/process-manager/test/<arquivo>.test.ts`                          |
-| `scripts` (automação raiz)   | —                                 | —                                                            | —                                                                | `node --test scripts/<arquivo>.test.mjs`                                                            |
-| CLI Bash (`lib/`, `init.sh`) | `source ~/.dev-dashboard/init.sh` | —                                                            | —                                                                | `tests/cli/run.sh`                                                                                  |
+```bash
+npm run dev
+npm run build
+npm run typecheck
+npm test
+npm run check
+```
 
-Workspaces sob `packages/*`/`apps/*` usam o runner nativo do Node
-(`node --test`) com `tsx` para carregar `.ts`, exceto `apps/web`, que usa
-Vitest para testes de unidade/componente e Playwright para o smoke E2E.
+`predev`, `pretypecheck`, `pretest`, `predev:api` e `predev:web` compilam `packages/*` antes do consumidor correspondente. `npm run build` também inclui `build:packages` antes de `build:apps`.
+
+O gate canônico é:
+
+```text
+format:check -> lint -> test -> build:apps
+```
+
+Comandos direcionados por workspace continuam disponíveis quando uma investigação precisa isolar API, web ou package específico.
 
 ## `apps/api`
 
-Aplicação Node.js, TypeScript e Fastify.
+Aplicação Fastify/TypeScript e principal fronteira de segurança.
 
-### Responsabilidades
+Responsabilidades:
 
-- inicializar o servidor local;
-- aplicar autenticação, origem e CORS;
-- validar requests com JSON Schema;
-- registrar rotas por domínio;
-- construir serviços e repositórios no `AppContext`;
-- traduzir falhas internas em erros HTTP estáveis;
-- acompanhar recursos que precisam ser encerrados no shutdown;
-- servir o frontend estático no modo de distribuição local.
+- listener local e configuração do servidor;
+- autenticação/origem;
+- schemas HTTP;
+- workspaces/projetos;
+- Git, processos, testes, scripts, banco, arquivos e Rails;
+- Production Contract/deployment/self-update;
+- integrações externas;
+- persistência de estado/histórico;
+- shutdown coordenado de recursos.
 
-### Pontos de entrada
+### Composição
 
-| Arquivo                | Função                                                   |
-| ---------------------- | -------------------------------------------------------- |
-| `src/server.ts`        | Lê configuração, cria a aplicação e inicia o listener.   |
-| `src/app.ts`           | Monta o Fastify, segurança, rotas e frontend estático.   |
-| `src/app-context.ts`   | Constrói repositórios, stores e serviços compartilhados. |
-| `src/server-config.ts` | Resolve porta, origem e modo de distribuição.            |
+A API mantém a interface `AppContext` usada pelas rotas, mas a construção real é dividida por domínios e composição para evitar um root monolítico.
 
-### Organização interna
+Pontos centrais:
+
+```text
+server.ts
+  ↓
+app.ts                    # Fastify, segurança e registro de rotas
+  ↓
+app-context.ts            # interface/fachada de contexto
+app-context-domains.ts    # construção por domínio
+app-composition.ts        # recursos por instância e lifecycle/onClose
+```
+
+Serviços com processos, PTYs, streams, timers, sessions, locks ou outros recursos duradouros precisam participar do lifecycle adequado.
+
+### Organização
 
 ```text
 apps/api/src/
-├── routes/       # contratos HTTP e adaptação request/response
-├── services/     # casos de uso e integrações locais
-├── store/        # estado em memória de projetos detectados
-├── security/     # autenticação e política local
-├── http/         # erros, schemas e frontend estático
+├── deployment/    # planner, adapters, confirmação, timeline/recovery
+├── http/          # schemas/erros/infra HTTP
+├── routes/        # transporte HTTP por domínio
+├── security/      # autenticação/origem
+├── services/      # casos de uso e integrações locais
+├── store/         # stores específicos
 ├── app-context.ts
+├── app-context-domains.ts
+├── app-composition.ts
 ├── app.ts
 └── server.ts
 ```
 
-### Rotas
-
-Cada plugin de rota recebe dependências explicitamente. Isso permite:
-
-- testes com implementações isoladas;
-- ausência de singletons globais ocultos;
-- encerramento consistente de recursos;
-- leitura clara das capacidades usadas por cada endpoint.
-
-Os domínios incluem workspaces, projetos, processos, Git, testes, scripts, banco, Rails, ambiente, arquivos e navegador.
-
-### Serviços
-
-O `AppContext` instancia componentes como:
-
-- `WorkspaceRepository`;
-- `ProjectStore`;
-- `ProcessManager`;
-- `DashboardGitService`;
-- `GitMutationHistoryService`;
-- `TestDetectionService`;
-- `TestExecutionHistoryService`;
-- `DatabaseDetectionService`;
-- `DatabaseSnapshotService`;
-- `RailsInspectionService`;
-- `RailsRuntimeService`;
-- `ScriptDetectionService`;
-- `ScriptExecutionService`;
-- `ProjectFileService`;
-- `ProjectWorkspaceEditService`;
-- `ProjectLanguageServerService`.
-
-Uma nova dependência de aplicação deve entrar no contexto quando precisar ser compartilhada, substituída em teste ou encerrada no shutdown.
+A lista exata de endpoints é gerada em [`api-reference.md`](api-reference.md).
 
 ## `apps/web`
 
-Aplicação Vue 3, TypeScript, Vite e Vue Router.
-
-### Responsabilidades
-
-- apresentar dados estruturados;
-- organizar navegação global e por projeto;
-- chamar a API por `fetch`;
-- acompanhar SSE ou WebSocket quando necessário;
-- controlar estados de carregamento, erro e confirmação;
-- descartar respostas obsoletas quando o projeto muda;
-- manter preferências visuais locais;
-- oferecer acessibilidade por teclado e movimento reduzido.
-
-### Entrada e rotas
-
-`src/main.ts` instala preferências e aprimoramentos visuais antes de montar `App.vue`.
-
-O router organiza:
-
-- visão geral;
-- processos;
-- detalhes do projeto;
-- diagnóstico;
-- servidor e logs;
-- Git;
-- testes;
-- banco de dados;
-- dependências;
-- terminal e console;
-- runtime Rails;
-- variáveis de ambiente.
-
-### Limite da camada
-
-A web não deve:
-
-- ler arquivos do sistema diretamente;
-- receber o token persistente no bundle;
-- construir comandos de shell;
-- escolher caminhos de estado;
-- considerar mensagens internas do runtime como contrato público.
-
-## `packages/contracts`
-
-Biblioteca de tipos públicos compartilhados.
-
-### Deve conter
-
-- entidades e DTOs consumidos por mais de uma camada;
-- unions de estados públicos;
-- formatos de respostas e eventos;
-- identificadores e metadados serializáveis.
-
-### Não deve conter
-
-- acesso a filesystem;
-- dependência de Fastify ou Vue;
-- criação de processos;
-- decisões específicas de interface;
-- valores secretos.
-
-Mudanças incompatíveis em contratos precisam ser coordenadas entre API, web e testes.
-
-## `packages/core`
-
-Regras centrais e persistência de configuração local.
-
-Responsabilidades típicas:
-
-- workspaces;
-- favoritos;
-- configurações de retenção;
-- perfis de ambiente;
-- token local;
-- validação e canonicalização de caminhos;
-- gravação atômica de arquivos de configuração.
-
-O pacote deve permanecer independente das interfaces.
-
-## `packages/project-discovery`
-
-Responsável por transformar um workspace em uma coleção estruturada de projetos.
-
-Fluxo esperado:
-
-1. receber workspace validado;
-2. listar diretórios candidatos;
-3. ignorar dependências e diretórios internos;
-4. identificar Rails ou Node;
-5. detectar capacidades;
-6. gerar identificador estável;
-7. retornar projetos e warnings.
-
-O scanner não deve abrir prompts ou executar uma interface interativa.
-
-## `packages/process-manager`
-
-Camada de execução e acompanhamento de processos locais.
+Aplicação Vue 3 + TypeScript + Vite.
 
 Responsabilidades:
 
-- selecionar comandos conhecidos;
-- preparar ambiente de servidor;
-- escolher portas;
-- iniciar sem shell arbitrário;
-- persistir PID, comando, porta e estado;
-- armazenar logs;
-- validar identidade antes de sinalizar;
-- encerrar gradualmente;
-- limpar estado e logs obsoletos;
-- aplicar limites e mascaramento nas leituras.
+- navegação/apresentação;
+- estado visual;
+- consumo de contratos HTTP/SSE/WS;
+- descarte de respostas stale;
+- confirmação/feedback de mutações;
+- acessibilidade e responsividade.
 
-O pacote não deve aceitar uma linha de comando livre enviada pelo navegador.
+A web não escolhe `cwd`, paths de autoridade, programa/argv, token de provider ou credencial local.
+
+### Rotas globais atuais
+
+```text
+/             Visão geral
+/processes    Processos
+/production   Produção global
+/database     Banco de dados global
+```
+
+O detalhe de projeto possui rotas para README, Diagnóstico, Servidor, Git, Testes, Produção, Dependências, Sidekiq/Webpack, Terminal, Console e Ambiente conforme capability. A antiga rota de Logs redireciona para Servidor; banco por projeto redireciona para a superfície global.
+
+O servidor Vite padrão usa `127.0.0.1:5174`; a API usa `127.0.0.1:4343`.
+
+## `packages/contracts`
+
+Tipos e contratos serializáveis compartilhados entre camadas.
+
+Não deve conter:
+
+- Fastify/Vue;
+- filesystem;
+- processos;
+- credenciais;
+- infraestrutura específica de app.
+
+## `packages/core`
+
+Configuração/IDs/token local e regras compartilháveis sem dependência das aplicações.
+
+## `packages/project-discovery`
+
+Detecta Projects/capabilities e valida contratos de descoberta de forma read-only/fail-closed. Project Profile/providers também pertencem a essa fronteira quando a responsabilidade é descoberta estática/estruturada.
+
+Discovery não deve iniciar runtime ou executar mutações.
+
+## `packages/process-manager`
+
+Lifecycle de processos de desenvolvimento conhecidos. Preserva:
+
+- comando reconhecido;
+- `cwd` validado;
+- `shell: false`;
+- identidade/ownership;
+- porta e logs limitados;
+- persistência coerente;
+- TERM antes de KILL;
+- cleanup.
+
+`Deployment`, `Script Execution` e `Self Update` não são kinds genéricos do Process Manager; possuem domínios próprios.
 
 ## `scripts`
 
-Automação de desenvolvimento e manutenção do repositório.
+Tooling do próprio repositório. Entre os scripts atuais:
 
-| Script                   | Responsabilidade                                       |
-| ------------------------ | ------------------------------------------------------ |
-| `dev.mjs`                | Orquestra API e web.                                   |
-| `dev-web.mjs`            | Diagnostica, compila e inicia a distribuição local.    |
-| `doctor.mjs`             | Verifica ferramentas, dependências e portas.           |
-| `generate-api-docs.mjs`  | Gera a referência HTTP a partir dos schemas das rotas. |
-| `generate-changelog.mjs` | Gera changelog conforme a estratégia do projeto.       |
-| `*.test.mjs`             | Testes unitários da automação raiz.                    |
+| Script | Responsabilidade |
+| --- | --- |
+| `dev.mjs` | orquestra API + Vite |
+| `dev-web.mjs` | inicia distribuição compilada e participa do restart de self-update |
+| `doctor.mjs` | diagnóstico local |
+| `local-install.mjs` | instalação permanente via `systemd --user` |
+| `production-gate.mjs` | `prod:status` / `prod:check` do próprio Dashboard |
+| `self-update-agent.mjs` | instalação/lifecycle/tooling do agent |
+| `self-update-helper.mjs` | operações de handoff para engenharia |
+| `generate-api-docs.mjs` | gera referência HTTP |
+| `*.test.mjs` | regressões da automação raiz |
 
-Scripts devem funcionar a partir da raiz, evitar shell desnecessário e possuir testes quando contêm regras.
+Scripts com regra relevante devem possuir teste; nenhum deles deve virar caminho oculto para shell arbitrário vindo da UI.
 
 ## `docs`
 
-Documentação versionada — documentação de produto, arquitetura, operação e
-desenvolvimento. Planejamento e histórico de entregas vivem nas issues e pull
-requests do GitHub.
+Documentação viva de produto, arquitetura, operação e desenvolvimento.
 
 ```text
 docs/
-├── index.md                         # porta de entrada
-├── getting-started.md               # instalação e primeiro uso
-├── development-guide.md             # processo de desenvolvimento
+├── index.md
+├── DEVELOPMENT.md
+├── PRODUCTION.md
+├── getting-started.md
+├── local-installation.md
+├── development-guide.md
 ├── operations-and-troubleshooting.md
-├── ci-fix-playbook.md               # diagnóstico de CI vermelho
-├── architecture/                    # decisões e referências técnicas
-├── guia/                            # guia passo a passo do dashboard web, aba por aba
+├── deployment-operations.md
+├── testing-and-quality.md
+├── architecture/
+├── guia/
 ├── design/
 ├── product/
 └── prototypes/
 ```
 
+Documentos explicitamente marcados como históricos podem registrar decisões removidas; eles não devem ser confundidos com comportamento atual. Backlog não vive em `docs/`.
+
 ## `lib`, `config` e `init.sh`
 
-Representam a implementação Bash original e sua configuração. Ela continua suportada durante a migração incremental.
-
-A estratégia é extrair comportamentos reutilizáveis para operações não interativas e pacotes testáveis, sem interromper o CLI antes de existir paridade suficiente.
+Representam o CLI Bash original e sua configuração. O CLI continua uma interface válida e independente da web. Compartilhamento entre CLI e web só deve acontecer quando houver benefício e fronteira clara; não existe obrigação de reescrever tudo em TypeScript.
 
 ## Onde colocar código novo
 
-| Necessidade                        | Local recomendado            |
-| ---------------------------------- | ---------------------------- |
-| Novo tipo compartilhado            | `packages/contracts`         |
-| Persistência/configuração genérica | `packages/core`              |
-| Detecção de projeto/capacidade     | `packages/project-discovery` |
-| Processo e estado operacional      | `packages/process-manager`   |
-| Caso de uso local específico       | `apps/api/src/services`      |
-| Endpoint HTTP                      | `apps/api/src/routes`        |
-| Experiência visual                 | `apps/web/src`               |
-| Automação do monorepo              | `scripts`                    |
-| Decisão ou guia                    | `docs`                       |
+| Necessidade | Local esperado |
+| --- | --- |
+| tipo compartilhado | `packages/contracts` |
+| configuração/ID genérico | `packages/core` |
+| discovery/profile | `packages/project-discovery` |
+| processo de desenvolvimento conhecido | `packages/process-manager` |
+| caso de uso backend | `apps/api/src/services` ou domínio específico |
+| endpoint HTTP | `apps/api/src/routes` |
+| deployment | `apps/api/src/deployment` |
+| UI/estado visual | `apps/web/src` |
+| tooling do repo | `scripts` / `.github` |
+| comportamento implementado | `docs` |
+| backlog/roadmap | issue/PR GitHub |
 
-## Critérios para um módulo novo
+## Critérios para uma nova camada
 
-Um módulo novo deve:
-
-- possuir responsabilidade clara;
-- aceitar e retornar dados estruturados;
-- validar entradas em sua fronteira;
-- evitar estado global implícito;
-- ser testável isoladamente;
-- não executar shell arbitrário;
-- não aceitar caminhos fora do escopo autorizado;
-- expor erros identificáveis;
-- documentar persistência, riscos e contratos públicos.
+Uma nova camada/módulo precisa de responsabilidade real: domínio próprio, fronteira de segurança, lifecycle independente, reutilização concreta ou isolamento necessário para teste. Evite abstrações preventivas.
