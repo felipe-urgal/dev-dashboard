@@ -143,7 +143,9 @@ test('saída estruturalmente inválida falha fechada', async () => {
 
   const result = await new GitWorktreeObserver(async (_projectPath, args) => {
     if (args[0] === 'rev-parse') return '/workspace/projeto/.git\n';
-    return porcelain([['worktree /workspace/projeto', 'branch refs/heads/main']]);
+    return porcelain([
+      ['worktree /workspace/projeto', 'branch refs/heads/main'],
+    ]);
   }).inspect(project);
 
   assert.equal(result.state, 'invalid-output');

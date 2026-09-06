@@ -12,9 +12,7 @@ const MAX_FIELD_LENGTH = 8 * 1024;
 const SAFE_HEAD = /^[0-9a-f]{4,64}$/u;
 
 export type GitWorktreeInspectionState =
-  | 'ready'
-  | 'unavailable'
-  | 'invalid-output';
+  'ready' | 'unavailable' | 'invalid-output';
 
 export type GitWorktreeKind = 'main' | 'linked' | 'unknown';
 
@@ -147,10 +145,7 @@ export function parseGitWorktreePorcelain(
       } else if (field === 'locked' || field.startsWith('locked ')) {
         locked = true;
         lockReason = normalizeReason(field.slice(6));
-      } else if (
-        field === 'prunable' ||
-        field.startsWith('prunable ')
-      ) {
+      } else if (field === 'prunable' || field.startsWith('prunable ')) {
         prunable = true;
         pruneReason = normalizeReason(field.slice(8));
       }
