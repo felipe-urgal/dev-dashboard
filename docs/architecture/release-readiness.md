@@ -68,7 +68,46 @@ As quatro consultas são independentes e uma indisponibilidade não apaga as dem
 
 A janela de freshness continua sendo fornecida pelo consumidor em `testMaxAgeMs` e precisa ser positiva. O serviço não escolhe silenciosamente uma política global.
 
-Este recorte ainda não cria rota HTTP nem UI. A fronteira de agregação fica testável isoladamente antes de expor um contrato público.
+## Terceiro recorte: contrato HTTP
+
+A API expõe o snapshot agregado em:
+
+```text
+GET /api/projects/:projectId/release-readiness
+```
+
+A resposta possui schema fechado e retorna:
+
+```text
+{ readiness: ReleaseReadinessSnapshot }
+```
+
+A rota não replica regras de Git/Testes/Doctor. Ela apenas resolve o projeto conhecido pelo `ProjectStore`, valida a política de freshness e delega ao `ReleaseReadinessService` real.
+
+### Freshness na borda HTTP
+
+O consumidor pode informar:
+
+```text
+?testMaxAgeSeconds=<segundos>
+```
+
+A janela é bounded entre **60 segundos e 24 horas**. Quando omitida, a política documentada da API usa **30 minutos**. A conversão para `testMaxAgeMs` acontece apenas na borda; o domínio continua recebendo a janela explicitamente.
+
+Valores fora do intervalo ou malformados produzem `400`. Projeto inexistente produz `404 PROJECT_NOT_FOUND`.
+
+### Contrato de resposta
+
+O schema HTTP aceita somente:
+
+- estados `pass`, `warning`, `block`, `unknown`;
+- checks `git`, `tests`, `doctor`;
+- ações para `synchronization`, `tests` e `doctor`;
+- summary/evidence/timestamps já produzidos pelo domínio.
+
+Campos internos das fontes, paths do projeto, comandos, stdout/stderr e objetos de implementação não fazem parte da resposta.
+
+A API continua **somente leitura**. Um snapshot `pass` não autoriza merge, push ou deploy. Qualquer mutação futura continua obrigada a executar seu próprio preflight/revalidation no momento da ação.
 
 ## Limites atuais
 
