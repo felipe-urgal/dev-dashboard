@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -96,9 +96,7 @@ test('injeta bootstrap somente na resposta HTML e não altera o build em disco',
   });
   assert.match(
     rootResponse.body,
-    new RegExp(
-      `<meta name="dev-dashboard-browser-bootstrap" content="${token}">`,
-    ),
+    new RegExp(`window\\.location\\.hash="bootstrap=${token}"`),
   );
 
   const indexResponse = await app.inject({
@@ -107,9 +105,7 @@ test('injeta bootstrap somente na resposta HTML e não altera o build em disco',
   });
   assert.match(indexResponse.body, new RegExp(token));
 
-  const diskIndex = await import('node:fs/promises').then(({ readFile }) =>
-    readFile(path.join(root, 'index.html'), 'utf8'),
-  );
+  const diskIndex = await readFile(path.join(root, 'index.html'), 'utf8');
   assert.doesNotMatch(diskIndex, new RegExp(token));
 });
 
