@@ -73,9 +73,7 @@ function normalizedExitCodes(
   return result;
 }
 
-function validateCommand(
-  command: CustomMigrationCommand,
-): CustomMigrationCommand {
+function validateCommand(command: CustomMigrationCommand): CustomMigrationCommand {
   const program = command.program.trim();
   if (
     !SAFE_PROGRAM.test(program) ||
@@ -213,9 +211,7 @@ export class CustomMigrationProvider implements MigrationProvider {
   }
 
   public supports(project: Project): boolean {
-    return (
-      this.projectIds.has(project.id) || this.projectTypes.has(project.type)
-    );
+    return this.projectIds.has(project.id) || this.projectTypes.has(project.type);
   }
 
   private statusForExitCode(exitCode: number): MigrationOverviewStatus {
