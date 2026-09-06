@@ -105,6 +105,40 @@ export function readGitRevision(rootDirectory, options = {}) {
   });
 }
 
+export async function resolveInstalledEnvironment(options = {}) {
+  const environment = options.environment ?? process.env;
+  const root = await (options.resolveRealpath ?? realpath)(
+    options.rootDirectory ?? ROOT_DIRECTORY,
+  );
+  const paths = resolveLocalInstallPaths(
+    environment,
+    options.homeDirectory ?? homedir(),
+  );
+  const metadata = await (
+    options.readInstallMetadata ?? readLocalInstallMetadata
+  )(paths.metadataPath);
+  const managedUnit = await (
+    options.checkManagedUnit ?? isManagedUnit
+  )(paths.unitPath);
+
+  if (
+    !metadata ||
+    metadata.repositoryRoot !== root ||
+    metadata.unit !== LOCAL_SERVICE_NAME ||
+    !managedUnit
+  ) {
+    throw new Error(
+      'Instalação local inválida ou inconsistente. Execute npm run local:install novamente.',
+    );
+  }
+
+  return {
+    ...environment,
+    DEV_DASHBOARD_API_PORT: String(metadata.port),
+    DEV_DASHBOARD_LOCAL_ORIGIN: metadata.origin,
+  };
+}
+
 export async function delegateManagedSelfUpdate(options = {}) {
   const environment = options.environment ?? process.env;
   const targetRevision = environment.DEV_DASHBOARD_RUNTIME_REVISION?.trim();
@@ -205,8 +239,8 @@ export async function orchestrate(options = {}) {
   const diagnoseEnvironment = options.diagnoseEnvironment ?? diagnose;
   const runner = options.runner ?? runChild;
   const checker = options.fileChecker ?? access;
-  const environment = options.environment ?? process.env;
   const installed = options.installed ?? process.argv.includes('--installed');
+  let environment = options.environment ?? process.env;
 
   if (!installed) {
     const delegated = await (
@@ -225,6 +259,19 @@ export async function orchestrate(options = {}) {
         : {}),
     });
     if (delegated) return delegated.code;
+  } else {
+    environment = await (
+      options.resolveInstalledEnvironment ?? resolveInstalledEnvironment
+    )({
+      rootDirectory: root,
+      environment,
+      ...(options.homeDirectory
+        ? { homeDirectory: options.homeDirectory }
+        : {}),
+      ...(options.resolveRealpath
+        ? { resolveRealpath: options.resolveRealpath }
+        : {}),
+    });
   }
 
   const results = await diagnoseEnvironment({
