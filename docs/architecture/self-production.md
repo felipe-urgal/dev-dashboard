@@ -11,11 +11,13 @@ provider=none
 branch=main
 ```
 
-Não existe `prod:deploy` local, executor remoto genérico, unit, path executável ou comando escolhido pelo browser. A mutação pertence exclusivamente ao protocolo de handoff + worker documentado aqui. Quando a instalação local opcional está ativa, o restart pode ser delegado somente à unit fixa `dev-dashboard.service` criada e marcada pelo próprio `local:install`.
+Não existe `prod:deploy` local, executor remoto genérico, unit, path executável ou comando escolhido pelo browser. A mutação pertence exclusivamente ao protocolo de handoff + worker documentado aqui.
+
+Quando a instalação local opcional está ativa, o restart pode ser delegado somente à unit fixa `dev-dashboard.service` criada e marcada pelo próprio `local:install`.
 
 ## Decisão arquitetural: privilégio user-space
 
-A revisão final concluiu que o modelo user-space existente é suficiente para a operação suportada. Essa decisão foi habilitada no #527 e faz parte do contrato `self-update` v1.
+O modelo suportado é user-space.
 
 O self-update precisa somente de:
 
@@ -24,8 +26,8 @@ O self-update precisa somente de:
 - estado privado em `~/.local/state/dev-dashboard`;
 - configuração/token privado em `~/.config/dev-dashboard`;
 - instalação do agent em `~/.local/lib/dev-dashboard/self-update-agent`;
-- start do runtime `scripts/dev-web.mjs` com o mesmo usuário;
-- opcionalmente, `systemctl --user start dev-dashboard.service` quando a instalação local gerenciada estiver comprovada.
+- start/restart do runtime com o mesmo usuário;
+- opcionalmente, `systemctl --user restart dev-dashboard.service` quando a instalação local gerenciada estiver comprovada.
 
 O fluxo **não usa `sudo`, unit system-wide nem privilégio root**. A senha e o ticket de sudo usados por deployments locais de outros projetos não são reutilizados.
 
@@ -55,7 +57,7 @@ A integração opcional com systemd permanece no escopo da sessão do usuário. 
 
 O parser rejeita `deploy`, `migrate`, `backup`, `rollback`, `verify` local, provider externo, `blockedBy` residual ou políticas que ampliem a autoridade dessa estratégia.
 
-`npm run prod:check` não é mais um bloqueio estático. Ele valida o contrato acima e só passa quando o self-update agent responde `ready` e comprova suporte a `claim` + `inspect`.
+`npm run prod:check` valida o contrato acima e só passa quando o self-update agent responde `ready` e comprova as capacidades necessárias de ownership/inspeção.
 
 `npm run prod:status` é somente leitura: informa se o contrato está habilitado e se o agent está pronto.
 
@@ -71,7 +73,7 @@ self-update
 
 A revision do plano é resolvida diretamente de `origin/main`, não do HEAD local. Assim a operação pode atualizar uma checkout local anterior sem permitir que o browser escolha o SHA.
 
-O fluxo continua usando a confirmação normal do domínio de deployment:
+O fluxo usa a confirmação normal do domínio de deployment:
 
 1. resolve `origin/main` no backend;
 2. monta plano determinístico;
@@ -89,8 +91,6 @@ A etapa `self-update` não passa pelo adapter de comandos. O domínio de deploym
 ```text
 self-update-<deployment UUID>
 ```
-
-Esse vínculo permite que a nova API reconcilie o resultado depois do próprio restart sem adicionar outro identificador controlado pelo browser nem migrar o formato persistido do deployment.
 
 O handoff contém somente:
 
@@ -154,18 +154,56 @@ Não existe `reset --hard`, checkout forçado ou descarte automático de mudanç
 Depois da aplicação o worker:
 
 1. reinstala a release conhecida do self-update agent a partir da nova revision;
-2. inicia `scripts/dev-web.mjs` em processo destacado;
-3. `dev-web.mjs` verifica se existe uma instalação local gerenciada para a mesma checkout;
-4. se existir, delega o start somente para `systemctl --user start dev-dashboard.service`; se não existir, mantém o start direto anterior;
-5. aguarda `/api/health`;
-6. exige `status=ok` e `service=dev-dashboard-api`;
-7. exige o header `x-dev-dashboard-revision` exatamente igual à revision alvo.
+2. inicia `scripts/dev-web.mjs` em processo destacado, propagando a revision alvo;
+3. `dev-web.mjs` decide entre runtime direto e handoff para instalação local gerenciada;
+4. aguarda `/api/health`;
+5. exige `status=ok` e `service=dev-dashboard-api`;
+6. exige o header `x-dev-dashboard-revision` exatamente igual à revision alvo.
 
-No modo instalado, `dev-web.mjs --installed` deriva a revision atual da checkout e trata os metadados de `local:install` como autoridade para porta e origem. Assim alterações posteriores em `.env.local` não fazem a unit subir em uma origem diferente da registrada pela instalação.
+### Sem instalação gerenciada
 
-Somente então o handoff termina em `succeeded`.
+Sem uma instalação local válida para a mesma checkout, `dev-web.mjs` inicia o runtime diretamente como no fluxo anterior.
+
+### Com instalação gerenciada
+
+Quando a mesma checkout possui metadados válidos de `local:install` e a unit contém o marcador de ownership, o handoff deve executar somente:
+
+```text
+systemctl --user restart dev-dashboard.service
+```
+
+A unit é uma constante interna, não um campo do handoff ou payload do browser.
+
+No modo `--installed`, `dev-web.mjs` deriva a revision atual da checkout e trata os metadados de `local:install` como autoridade para porta e origem. Alterações posteriores em `.env.local` não podem fazer a unit subir em uma origem diferente da registrada pela instalação.
+
+Somente depois de health + revision comprovados o handoff termina em `succeeded`.
 
 Uma porta HTTP que voltou sem a revision correta não é sucesso.
+
+## Limitação conhecida do handoff gerenciado — #659
+
+Em 2026-09-06 existe um defeito confirmado no caminho gerenciado: `SelfUpdateExecutor.startRuntime()` propaga `DEV_DASHBOARD_RUNTIME_REVISION`, mas não propaga `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` ao `dev-web.mjs` iniciado pelo worker.
+
+Sem essa raiz, `dev-web.mjs` não reconhece o contexto do handoff da instalação gerenciada e o runtime pode não retornar automaticamente a `dev-dashboard.service` depois que a API antiga é encerrada.
+
+Reprodução observada:
+
+```text
+self-update confirmado
+→ API antiga recebe SIGTERM
+→ checkout chega à revision alvo
+→ porta 4343 fica sem listener
+→ systemctl --user restart dev-dashboard.service recupera a API
+→ health comprova a nova revision
+```
+
+Portanto:
+
+- instalação local, build e health podem estar corretos mesmo quando o redeploy fica indisponível;
+- o workaround manual recupera o runtime, mas não deve fabricar `succeeded` no handoff;
+- enquanto #659 estiver aberto, o fluxo gerenciado não deve ser considerado autossuficiente após o shutdown.
+
+A correção esperada é propagar a raiz canônica já validada para o `dev-web` de handoff, permitindo que ele prove a instalação e delegue o `restart` ao systemd.
 
 ## Reconciliação depois do restart
 
@@ -195,6 +233,8 @@ A tela:
 - durante o restart, trata a indisponibilidade temporária da API como reconexão e continua polling;
 - exibe o resultado reconciliado e o log local do deployment.
 
+Enquanto #659 estiver aberto, uma indisponibilidade que não se resolve sozinha pode exigir recuperação manual do serviço e inspeção do handoff.
+
 ## Segurança do canal local
 
 O agent instalado vive fora da checkout e usa Unix socket privado + token próprio. O catálogo remoto permanece fechado:
@@ -217,7 +257,7 @@ Quando o runtime está instalado com `local:install`, a delegação ao systemd e
 - unit exatamente `dev-dashboard.service`;
 - arquivo de unit marcado como gerenciado pelo instalador.
 
-Falha em qualquer uma dessas provas não amplia autoridade; o fluxo volta ao comportamento direto anterior ou falha de forma conservadora.
+Falha em qualquer prova não amplia autoridade.
 
 ## Recovery
 
@@ -247,15 +287,21 @@ A cadeia possui testes para:
 - mapeamento conservador para `recovery_required`;
 - executor real com Git, restart, health e prova de revision;
 - delegação ao systemd somente para instalação local comprovadamente gerenciada;
-- porta/origem instaladas prevalecendo sobre ambiente divergente.
+- porta/origem instaladas prevalecendo sobre ambiente divergente;
+- reinstalação local com restart + espera de health.
+
+A #659 existe justamente porque a reprodução real mostrou uma lacuna entre os testes atuais e o handoff completo do runtime gerenciado.
 
 ## Relação com issues/PRs
 
-- #482 — frente ampla de produção;
-- #487 — self-production/self-update;
-- #505 — contrato fail-closed inicial;
+- #487 — frente de self-production/self-update;
 - #520 — handoff/helper;
-- #521 — instalação/lifecycle/canal local;
+- #521 — instalação/lifecycle/canal local do agent;
 - #523 — API → agent → worker → restart/readiness;
-- #527 — revisão final de privilégio/segurança, integração ao deployment e habilitação do contrato;
-- #646 — instalação local, autostart user-space e URL amigável.
+- #527 — revisão final de privilégio/segurança e habilitação do contrato;
+- #646 — instalação local, autostart user-space e URL amigável;
+- #648/#650 — correção da unit systemd gerada;
+- #651/#658 — reinstalação com restart e readiness comprovado;
+- #655/#656 — bootstrap efêmero fora da URL;
+- #652/#654 — aliases de tema da Produção e `restart` no handoff gerenciado;
+- #659 — bug aberto do redeploy gerenciado não retornar automaticamente ao systemd.
