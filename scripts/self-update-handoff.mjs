@@ -33,6 +33,7 @@ const ACTIVE_STATUSES = new Set([
   'restarting',
   'verifying',
 ]);
+const RUNTIME_HANDOFF_STATUSES = new Set(['restarting', 'verifying']);
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'recovery_required']);
 const TRANSITIONS = new Map([
   ['prepared', new Set(['accepted'])],
@@ -316,6 +317,28 @@ export class SelfUpdateHandoffStore {
 
   async claim(handoffId, now = Date.now()) {
     return this.transition(handoffId, 'accepted', undefined, now);
+  }
+
+  async findRuntimeHandoffs(targetRevision) {
+    assertRevision(targetRevision);
+    await this.readyPromise;
+    const entries = await readdir(this.stateDirectory, { withFileTypes: true });
+    const matches = [];
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      const handoffId = entry.name.slice(0, -'.json'.length);
+      assertHandoffId(handoffId);
+      const current = await this.get(handoffId);
+      if (
+        current?.targetRevision === targetRevision &&
+        RUNTIME_HANDOFF_STATUSES.has(current.status)
+      ) {
+        matches.push(current);
+      }
+    }
+
+    return matches;
   }
 
   async recoverInterrupted(now = Date.now()) {

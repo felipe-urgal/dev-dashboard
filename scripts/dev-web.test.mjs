@@ -4,6 +4,7 @@ import {
   assertBuildHasNoCredentials,
   delegateManagedSelfUpdate,
   orchestrate,
+  proveLegacyManagedSelfUpdate,
   resolveInstalledEnvironment,
 } from './dev-web.mjs';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -14,6 +15,23 @@ import {
   MANAGED_UNIT_MARKER,
   resolveLocalInstallPaths,
 } from './local-install.mjs';
+import { SelfUpdateHandoffStore } from './self-update-handoff.mjs';
+
+const REVISION = 'a'.repeat(40);
+const PLAN_HASH = 'b'.repeat(64);
+
+async function createRuntimeHandoff(stateDirectory, revision = REVISION) {
+  const store = new SelfUpdateHandoffStore(stateDirectory);
+  const handoff = await store.prepare({
+    projectId: 'dev-dashboard',
+    targetRevision: revision,
+    planHash: PLAN_HASH,
+  });
+  await store.claim(handoff.id);
+  await store.transition(handoff.id, 'applying');
+  await store.transition(handoff.id, 'restarting');
+  return store;
+}
 
 test('orquestrador aborta antes do build quando o diagnóstico falha', async () => {
   let executions = 0;
@@ -131,7 +149,7 @@ test('self-update builda antes de delegar restart para instalação local gerenc
   const environment = {
     XDG_CONFIG_HOME: path.join(home, '.config'),
     XDG_STATE_HOME: path.join(home, '.state'),
-    DEV_DASHBOARD_RUNTIME_REVISION: 'a'.repeat(40),
+    DEV_DASHBOARD_RUNTIME_REVISION: REVISION,
     DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT: repositoryRoot,
   };
   const paths = resolveLocalInstallPaths(environment, home);
@@ -172,6 +190,133 @@ test('self-update builda antes de delegar restart para instalação local gerenc
   assert.deepEqual(calls[0].args, ['run', 'build']);
   assert.equal(calls[1].command, 'systemctl');
   assert.deepEqual(calls[1].args, ['--user', 'restart', LOCAL_SERVICE_NAME]);
+});
+
+test('bootstrap legado aceita apenas revision atual com handoff recente em restart', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-web-legacy-proof-'));
+  const stateDirectory = path.join(root, 'state', 'self-update');
+  t.after(async () => rm(root, { recursive: true, force: true }));
+
+  const store = await createRuntimeHandoff(stateDirectory);
+  const proof = await proveLegacyManagedSelfUpdate({
+    rootDirectory: root,
+    targetRevision: REVISION,
+    stateDirectory,
+    resolveRuntimeRevision: async () => REVISION,
+    handoffStore: store,
+  });
+
+  assert.equal(proof, true);
+
+  assert.equal(
+    await proveLegacyManagedSelfUpdate({
+      rootDirectory: root,
+      targetRevision: REVISION,
+      stateDirectory,
+      resolveRuntimeRevision: async () => 'c'.repeat(40),
+      handoffStore: store,
+    }),
+    false,
+  );
+
+  assert.equal(
+    await proveLegacyManagedSelfUpdate({
+      rootDirectory: root,
+      targetRevision: REVISION,
+      stateDirectory,
+      resolveRuntimeRevision: async () => REVISION,
+      handoffStore: store,
+      now: Date.now() + 6 * 60 * 1000,
+    }),
+    false,
+  );
+});
+
+test('self-update legado sem raiz delega somente quando handoff persistido comprova o bootstrap', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-web-legacy-delegate-'));
+  const home = path.join(root, 'home');
+  const repositoryRoot = path.join(root, 'repo');
+  await mkdir(repositoryRoot, { recursive: true });
+  await mkdir(home, { recursive: true });
+  t.after(async () => rm(root, { recursive: true, force: true }));
+
+  const environment = {
+    XDG_CONFIG_HOME: path.join(home, '.config'),
+    XDG_STATE_HOME: path.join(home, '.state'),
+    DEV_DASHBOARD_RUNTIME_REVISION: REVISION,
+  };
+  const paths = resolveLocalInstallPaths(environment, home);
+  await mkdir(paths.configDirectory, { recursive: true });
+  await mkdir(paths.unitDirectory, { recursive: true });
+  await writeFile(
+    paths.metadataPath,
+    `${JSON.stringify({
+      version: 1,
+      runtimeManager: 'systemd-user',
+      unit: LOCAL_SERVICE_NAME,
+      repositoryRoot,
+      nodePath: '/opt/node/bin/node',
+      port: 4343,
+      origin: 'http://dev-dashboard.localhost:4343',
+    })}\n`,
+  );
+  await writeFile(
+    paths.unitPath,
+    `${MANAGED_UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n`,
+  );
+  await createRuntimeHandoff(path.join(paths.stateDirectory, 'self-update'));
+
+  const calls = [];
+  const result = await delegateManagedSelfUpdate({
+    rootDirectory: repositoryRoot,
+    homeDirectory: home,
+    environment,
+    resolveRealpath: async (value) => value,
+    resolveRuntimeRevision: async () => REVISION,
+    runServiceCommand: async (command, args, options) => {
+      calls.push({ command, args, options });
+      return { code: 0, stdout: '', stderr: '' };
+    },
+  });
+
+  assert.deepEqual(result, { code: 0, manager: 'systemd-user' });
+  assert.deepEqual(
+    calls.map(({ command, args }) => ({ command, args })),
+    [
+      { command: 'npm', args: ['run', 'build'] },
+      {
+        command: 'systemctl',
+        args: ['--user', 'restart', LOCAL_SERVICE_NAME],
+      },
+    ],
+  );
+});
+
+test('raiz explícita divergente nunca cai no fallback legado', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-web-root-mismatch-'));
+  const home = path.join(root, 'home');
+  const repositoryRoot = path.join(root, 'repo');
+  await mkdir(repositoryRoot, { recursive: true });
+  await mkdir(home, { recursive: true });
+  t.after(async () => rm(root, { recursive: true, force: true }));
+
+  let legacyProofCalls = 0;
+  const result = await delegateManagedSelfUpdate({
+    rootDirectory: repositoryRoot,
+    homeDirectory: home,
+    environment: {
+      DEV_DASHBOARD_RUNTIME_REVISION: REVISION,
+      DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT: path.join(root, 'other'),
+    },
+    resolveRealpath: async (value) => value,
+    proveLegacySelfUpdate: async () => {
+      legacyProofCalls += 1;
+      return true;
+    },
+  });
+
+  assert.equal(result, null);
+  assert.equal(legacyProofCalls, 0);
 });
 
 test('verificação do bundle detecta o valor real sem confundir apenas o nome do header', async () => {
