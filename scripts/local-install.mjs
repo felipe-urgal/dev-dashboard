@@ -347,7 +347,9 @@ export async function waitForHealth(port, options = {}) {
   const intervalMs = options.intervalMs ?? INSTALL_READINESS_INTERVAL_MS;
 
   if (!Number.isInteger(attempts) || attempts < 1) {
-    throw new Error('Tentativas de readiness inválidas para a instalação local.');
+    throw new Error(
+      'Tentativas de readiness inválidas para a instalação local.',
+    );
   }
   if (!Number.isFinite(intervalMs) || intervalMs < 0) {
     throw new Error('Intervalo de readiness inválido para a instalação local.');
