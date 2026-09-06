@@ -9,6 +9,7 @@ Esta documentação descreve o estado vivo do produto e da engenharia. Planejame
 ## Entradas canônicas
 
 - [`DEVELOPMENT.md`](DEVELOPMENT.md): setup, execução local, gate de PR e checks direcionados;
+- [`local-installation.md`](local-installation.md): instalação permanente no Linux, autostart, URL amigável e troubleshooting;
 - [`PRODUCTION.md`](PRODUCTION.md): produção do próprio Dev Dashboard via self-update;
 - [`../README.md`](../README.md): visão geral e quickstart;
 - [`guia/README.md`](guia/README.md): uso por funcionalidade.
@@ -120,6 +121,8 @@ npm run dev
 | API | `http://127.0.0.1:4343` |
 | Web | `http://127.0.0.1:5174` |
 
+Para a instalação permanente no desktop Linux, use [`local-installation.md`](local-installation.md).
+
 Gate antes do PR:
 
 ```bash
@@ -133,6 +136,7 @@ Detalhes em [`DEVELOPMENT.md`](DEVELOPMENT.md) e [`testing-and-quality.md`](test
 ### Comece por aqui
 
 - [Desenvolvimento](DEVELOPMENT.md)
+- [Instalação local automática](local-installation.md)
 - [Produção do próprio Dashboard](PRODUCTION.md)
 - [Primeiros passos](getting-started.md)
 - [Visão geral da arquitetura](architecture/overview.md)
