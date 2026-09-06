@@ -2,9 +2,11 @@
 
 ## Contexto
 
-O Dev Dashboard nasceu como scripts Bash carregados no shell e evoluiu para uma segunda interface web local. As duas interfaces continuam válidas: o CLI preserva fluxos existentes e a aplicação web concentra operações estruturadas por uma API Fastify.
+O Dev Dashboard nasceu como scripts Bash carregados no shell e evoluiu para uma aplicação web local. As duas interfaces continuam válidas: o CLI preserva fluxos existentes e a web concentra operações estruturadas por uma API Fastify.
 
-Além do desenvolvimento local, a arquitetura atual inclui um domínio próprio de **deployment de produção** baseado em `Production Contract v1`. Cada projeto continua dono de sua infraestrutura física; o Dashboard padroniza contrato, plano, confirmação, timeline, provider e recovery.
+Além do desenvolvimento local, a arquitetura inclui um domínio próprio de **deployment de produção** baseado em `Production Contract v1`. Cada projeto continua dono de sua infraestrutura física; o Dashboard padroniza contrato, plano, confirmação, timeline, provider e recovery.
+
+O próprio Dev Dashboard usa `strategy=self-update` e pode ser instalado permanentemente no Linux via `systemd --user`.
 
 ## Objetivos arquiteturais
 
@@ -17,7 +19,7 @@ A arquitetura deve:
 - compartilhar contratos entre frontend/backend;
 - acompanhar processos/logs/estado de forma limitada;
 - usar confirmação/revalidação para mutações sensíveis;
-- operar produção sem hard-code por nome de repositório;
+- operar produção sem hard-code por nome de repositório do projeto alvo;
 - representar provider, revision, health e recovery de forma honesta;
 - permitir testes isolados de regras, adapters e fluxos críticos.
 
@@ -39,17 +41,17 @@ A arquitetura deve:
               │                               │
               ▼                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ packages/contracts │ core │ project-discovery              │
-│ process-manager │ Git │ deployment │ testes │ banco         │
+│ contracts │ core │ project-discovery │ process-manager     │
+│ Git │ deployment │ testes │ banco │ arquivos │ providers   │
 └─────────────────────────────┬───────────────────────────────┘
                               │
                   ┌───────────┴────────────┐
                   ▼                        ▼
         sistema/repositórios        providers explícitos
-        locais                      (Vercel)
+        locais                      (Vercel, Trivy, act...)
 ```
 
-Para self-update existe ainda uma fronteira separada da API:
+Para self-update existe uma fronteira separada da API:
 
 ```text
 API atual
@@ -63,7 +65,7 @@ worker instalado independente do Fastify
 Git/restart/readiness/recovery
 ```
 
-Essa cadeia existe para permitir que a API antiga pare sem ser a única dona do estado da operação.
+Essa cadeia permite que a API antiga pare sem ser a única dona do estado da operação.
 
 ## Monorepo
 
@@ -109,32 +111,52 @@ Responsabilidades incluem:
 - persistência de histórico/logs;
 - tradução de erros para contratos públicos seguros.
 
-A composição da API é dividida em duas camadas sem alterar a interface consumida pelas rotas:
-
-```text
-createAppContext()
-  ├── foundation: repositories / ProcessManager / ProjectStore
-  ├── project: Git / files / LSP / terminal / cobertura
-  ├── execution: scripts / testes / Rails / PTYs destacáveis
-  ├── database: detecção / snapshots / explorer
-  └── self-update: handoff
-        ↓
-createAppComposition()
-  ├── recursos por instância Fastify
-  ├── database sessions / doctor / port inspector
-  ├── file mutations / deployment
-  └── lifecycle coordenado no onClose
-```
-
-`app.ts` continua responsável por segurança e registro das rotas na ordem existente; construção de serviços e shutdown ficam fora desse arquivo para evitar um composition root monolítico. Serviços compartilhados que possuem recursos duradouros expõem fechamento explícito ao lifecycle do Fastify.
+A composição da API separa construção por domínio de lifecycle/registro de rotas para evitar um composition root monolítico. Serviços com recursos duradouros precisam de fechamento explícito.
 
 A API escuta em `127.0.0.1`.
 
-`SelfUpdateHandoffService` é um serviço interno do backend. A cadeia operacional foi fechada no #523: ela prepara e transfere o handoff, exige prova de ownership do worker instalado e somente então agenda o `SIGTERM` controlado da própria API. O #527 integrou essa cadeia ao domínio normal de deployment e habilitou `strategy=self-update` sem criar rota paralela de autorização.
+## Desenvolvimento vs instalação local
+
+Desenvolvimento:
+
+```text
+npm run dev
+→ API :4343
+→ Vite :5174
+```
+
+Instalação permanente:
+
+```text
+npm run local:install
+→ build
+→ unit systemd --user
+→ restart dev-dashboard.service
+→ aguardar /api/health
+→ http://dev-dashboard.localhost:4343
+```
+
+A unit usa caminho absoluto do Node e metadados privados de porta/origem. Não existe serviço root/system-wide.
+
+## Autenticação da distribuição local
+
+O token HTTP persistente não entra no bundle web.
+
+Na distribuição compilada:
+
+```text
+API serve index.html em runtime
+→ injeta capacidade efêmera somente no HTML in-memory
+→ script grava diretamente em sessionStorage
+→ aplicação cria browser-session
+→ cookie HttpOnly
+```
+
+A URL permanece limpa; o servidor não gera `#bootstrap=...`.
 
 ## Contratos compartilhados
 
-`packages/contracts` contém tipos puros como `Workspace`, `Project`, processos, testes e contratos de deployment/produção.
+`packages/contracts` contém tipos puros de Workspace, Project, processos, testes e contratos de deployment/produção.
 
 O package não deve importar infraestrutura, Fastify ou Vue.
 
@@ -144,35 +166,89 @@ O package não deve importar infraestrutura, Fastify ou Vue.
 
 ## Project Discovery
 
-`packages/project-discovery` detecta projetos Rails/Node e capabilities. O scan pode ser direto ou recursivo opt-in com limites de profundidade, quantidade e tempo.
+`packages/project-discovery` detecta Rails/Node e capabilities. O scan pode ser direto ou recursivo opt-in com limites.
 
-A implementação mantém `discovery.ts` como fachada compatível e divide as responsabilidades internas em:
+Quando `.dev-dashboard/production.json` existe, o discovery valida o `Production Contract v1` fail-closed. Contrato inválido gera `productionWarning` e não cria capability `production`.
 
-```text
-discovery.ts
-  ├── project-detection.ts    # tipo, ID e montagem do Project
-  ├── project-capabilities.ts # capabilities Rails/Node/Git/webpack
-  ├── project-files.ts        # leituras tolerantes de Gemfile/package.json
-  └── workspace-walker.ts     # recursão, limites, symlinks e warnings
-```
-
-Essa separação não muda `detectProject`/`scanWorkspace`, IDs, ordenação de capabilities nem a política do scan; ela apenas torna cada regra testável e evoluível sem concentrar detecção e travessia no mesmo módulo.
-
-Quando `.dev-dashboard/production.json` existe, o discovery valida o `Production Contract v1` contra shape/estratégia/scripts reais. Contrato inválido gera `productionWarning` e não cria capability `production`.
+Discovery deve permanecer read-only; providers podem enriquecer fatos sem executar mutação escondida.
 
 ## Process Manager
 
 `packages/process-manager` cuida de processos de desenvolvimento: comando reconhecido, `cwd`, porta, identidade, lifecycle e logs limitados.
 
-Os starts de `server`, `test`, `worker` e `webpack` compartilham `managed-process-start.ts` para o pipeline invariável: sweep best-effort, bloqueio de processo já ativo, diretórios privados, `spawn` detached com `shell:false`, log derivado do projeto/kind, persistência antes do retorno, rollback por `SIGKILL` se a persistência falhar, observação de exit e `unref`. `process-lifecycle.ts` mantém somente as diferenças por kind (porta/comando/env/status) e o fluxo de stop.
+Invariantes:
 
-O encerramento continua fail-closed: estado persistido → prova de identidade PID/cwd → `SIGTERM` no grupo → espera limitada → `SIGKILL` se necessário. A deduplicação do start não altera essa fronteira.
+- catálogo fechado;
+- `shell:false` quando aplicável;
+- persistência antes do retorno;
+- validação de identidade antes de sinalizar PID;
+- TERM antes de KILL;
+- readiness de porta vinculada à árvore do processo no Linux;
+- cleanup de recursos.
 
-**Deployment não é um tipo de processo gerenciado.** Ele possui domínio próprio porque precisa de revision, plano, confirmação, irreversibilidade, provider externo e recovery.
+**Deployment não é processo gerenciado.** Ele possui domínio próprio porque precisa de revision, plano, confirmação, irreversibilidade, provider e recovery.
 
-O self-update worker também não é representado como processo gerenciado comum: ele precisa sobreviver à API antiga, usa estado/handoff próprio e executa a partir da release instalada do agent.
+Self-update também possui lifecycle/store próprios porque o worker precisa sobreviver à API antiga.
 
-As execuções PTY destacáveis de Testes, Migration Rails e Dependências/Build também possuem lifecycle próprio. Elas podem sobreviver à desconexão do browser, mas o resultado terminado é somente memória transitória: cada registro mantém buffer limitado, expira após 30 minutos e existe um teto de 32 execuções terminadas retidas por processo da API. Pressão de retenção remove a menos recentemente acessada; execuções ainda ativas nunca são evictadas por essa política. No shutdown, o serviço compartilhado fecha PTYs ativos com `SIGTERM` e escala para `SIGKILL` após a janela de tolerância.
+## Execuções destacáveis
+
+Testes completos, Migration Rails e Dependências/Build podem sobreviver à desconexão do navegador usando PTYs controlados. O resultado terminado permanece memória transitória bounded; execuções ativas não são evictadas por TTL/LRU.
+
+## GitHub Cockpit
+
+O resumo de PR é enriquecido sem criar uma segunda integração GitHub:
+
+- `headSha`;
+- draft/mergeability;
+- reviews/reviewers;
+- checks individuais;
+- degradação explícita por auth/rate-limit/indisponibilidade.
+
+Git local continua funcional se o provider remoto não puder ser consultado.
+
+## Worktrees
+
+O recorte atual de #570 é read-only: um observer usa Git estruturado para listar worktrees e gerar identidade estável por `git-common-dir + path`.
+
+Criação/remoção e integração completa com runtime/ports/Environment Instance permanecem pendentes.
+
+## Docker Compose
+
+A #588 já possui modelo normalizado de configuração/runtime, provider read-only e preflight de portas integrado ao Port Registry.
+
+Lifecycle mutável (`up/stop/restart/logs`), ownership e UI ainda são escopo aberto.
+
+## Dependency Health
+
+A #572 já possui inventário Node/npm local read-only, distinguindo range declarado de versão resolvida e tratando resolução ausente como `unknown`.
+
+Metadata externa, advisories/compatibilidade e Upgrade Planner permanecem pendentes.
+
+## Migration Providers
+
+A #589 já possui contrato comum e providers de inspeção Rails, Prisma e custom.
+
+API/UI comum e mutações compartilhadas permanecem pendentes.
+
+## Security Center
+
+A #593 já possui boundary de provider e adapter Trivy para secrets/misconfiguration com sanitização forte.
+
+HTTP, persistência e UI ainda estão pendentes.
+
+## Local CI com act
+
+A #594 já possui discovery/catálogo/preflight de `act` + Docker com argv fechado.
+
+Execução real, lifecycle, logs e UI permanecem pendentes. Qualquer resultado futuro continuará marcado como aproximação local, nunca CI remoto oficial.
+
+## Release Readiness
+
+A #571 já possui núcleo, agregação Git/Testes/Project Doctor e endpoint read-only por projeto.
+
+Migrations, Production Contract, CI remoto e UI dedicada permanecem pendentes.
+
+Readiness é evidência, não autorização para merge/deploy.
 
 ## Domínio de deployment
 
@@ -196,44 +272,27 @@ DeploymentService
 
 ### `strategy=command`
 
-Providers locais como systemd/Docker Compose expõem scripts canônicos `prod:*` e o projeto esconde os detalhes físicos.
-
 ```text
 check → backup? → migrate? → deploy → verify
 ```
 
 ### `strategy=git-managed` + Vercel
 
-Não existe `prod:deploy` local. O plano usa uma etapa externa:
-
 ```text
 check → migrate? → provider-deploy → verify
 ```
 
-Antes da promoção, o backend consulta diretamente `origin/<production.branch>` e exige o mesmo SHA confirmado no plano. A Vercel recebe o SHA exato e a origem GitHub resolvida no backend.
+Antes da promoção, o backend exige `origin/<production.branch>` igual ao SHA confirmado. A Vercel recebe a revision exata; `READY` não substitui `prod:verify`.
 
-`READY` do provider não substitui `prod:verify`.
+### `strategy=self-update`
 
-### Estado/recovery
-
-Timeline/histórico/log são compartilhados pelas estratégias. Se uma etapa irreversível já iniciou, falha/cancelamento/crash pode terminar em `recovery_required`.
-
-Quando a promoção concluiu e somente `verify` falhou, existe retry fail-closed de apenas `prod:verify`, sem repetir mutação.
-
-## Integração Vercel
-
-Credenciais são locais ao processo:
+O próprio Dev Dashboard usa:
 
 ```text
-VERCEL_TOKEN
-VERCEL_TEAM_ID   # opcional
+check → self-update
 ```
 
-`npm run dev` carrega `.env.local` quando presente. `.env.example` documenta as variáveis locais configuráveis sem conter segredo real.
-
-O token não pertence ao Production Contract, não é persistido e não volta ao browser.
-
-O adapter limita/valida respostas externas e transforma auth/quota/not-found/indisponibilidade/resposta inválida em códigos estáveis.
+A etapa transfere ownership para agent/worker externo, aplica apenas fast-forward e exige health + revision exata depois do restart.
 
 ## Persistência
 
@@ -249,18 +308,15 @@ Estado padrão:
 ~/.local/state/dev-dashboard
 ```
 
-Subdomínios mantêm stores próprios sob essa raiz, incluindo `processes/`, `logs/`, `deployments/` e `self-update/`. Arquivos privados usam permissões restritas.
+Subdomínios mantêm stores próprios sob essa raiz, incluindo `processes/`, `logs/`, `deployments/` e `self-update/`.
 
-O estado de self-update contém somente metadados estruturados de handoff/recovery; não persiste shell, unit/path de autoridade, senha ou credencial.
+O agent possui ainda:
 
-O self-update agent possui ainda:
+```text
+~/.local/lib/dev-dashboard/self-update-agent
+```
 
-- token local próprio em configuração privada;
-- runtime Unix socket `0600` em diretório `0700`;
-- releases instaladas por hash fora da árvore do repositório, por padrão em `~/.local/lib/dev-dashboard/self-update-agent/`;
-- lock privado para exclusividade e prova de ownership da execução operacional.
-
-Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos.
+Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos no estado de deployment.
 
 ## Segurança
 
@@ -277,40 +333,32 @@ Princípios transversais:
 - provider externo tratado como input não confiável;
 - recovery conservador após mutação irreversível.
 
-No self-update, o socket remoto não ganha executor genérico. A execução aceita somente handoff ID validado, revalida checkout/remote e usa Git/restart fixos. A API só encerra depois que o worker prova exclusividade por lock, e sucesso só existe quando a nova API comprova a revision alvo no header de health.
+No self-update, o socket remoto não ganha executor genérico. O browser não escolhe checkout, unit ou comando.
 
-Veja [security.md](security.md).
+## Self-production e systemd user
 
-## Self-production
+O próprio Dashboard pode rodar de duas formas após self-update:
 
-O próprio Dev Dashboard usa um Production Contract habilitado e fechado com `strategy=self-update`, `provider=none` e branch `main`.
+- runtime direto user-space;
+- runtime gerenciado por `local:install`.
 
-Os PRs #520/#521 entregaram:
+No segundo caso, o handoff pode usar somente:
 
-- handoff persistente;
-- recovery conservador;
-- agent instalado fora da checkout;
-- lifecycle independente do Fastify;
-- Unix socket autenticado;
-- catálogo remoto fechado `ping`, `inspect`, `claim`, `recover`.
+```text
+systemctl --user restart dev-dashboard.service
+```
 
-O PR #523 fechou a cadeia operacional:
+Isso exige metadados e marcador de ownership válidos. Não existe `sudo`/root nem unit configurável pelo browser.
 
-- integração interna API → helper/agent;
-- prova de ownership do worker antes do shutdown da API;
-- `SIGTERM` controlado somente depois desse handshake;
-- preflight de working tree limpa + `main` + `origin/main` exato + fast-forward;
-- aplicação por `git merge --ff-only` da revision confirmada;
-- reinstalação da release do agent após aplicar;
-- restart user-space por `scripts/dev-web.mjs`;
-- readiness bounded;
-- prova da revision pelo header `x-dev-dashboard-revision` mantendo o JSON público de `/api/health` estável;
-- transições `applying/restarting/verifying` e resultado/recovery persistido;
-- teste real em repositório/processos temporários cobrindo sucesso e runtime que volta com revision errada.
+A #654 trocou o handoff gerenciado de `start` para `restart`; #658 fez `local:install` reiniciar sempre após build e aguardar health; #656 removeu bootstrap da URL.
 
-O PR #527 concluiu a decisão arquitetural de privilégio user-space, integrou `self-update` ao planner/confirmação/revalidação normais e habilitou explicitamente `.dev-dashboard/production.json`. O fluxo atual não usa `sudo` nem `systemctl`.
+### Limitação conhecida #659
 
-Veja [self-production.md](self-production.md).
+O redeploy gerenciado ainda possui um bug de propagação da raiz da checkout para `dev-web.mjs`. Na reprodução real, a API antiga encerrou e o serviço só voltou após restart manual, apesar de build e nova revision estarem corretos.
+
+Enquanto #659 estiver aberta, esse caminho não deve ser considerado autossuficiente depois do shutdown. A correção precisa manter authority user-space e a unit fixa.
+
+Veja [self-production.md](self-production.md), [../PRODUCTION.md](../PRODUCTION.md) e [../local-installation.md](../local-installation.md).
 
 ## Documentos relacionados
 
@@ -319,6 +367,10 @@ Veja [self-production.md](self-production.md).
 - [Fluxos runtime](runtime-flows.md)
 - [Segurança](security.md)
 - [Self-production](self-production.md)
+- [GitHub Cockpit](github-cockpit.md)
+- [Release Readiness](release-readiness.md)
+- [Docker Compose](docker-compose.md)
+- [Worktrees](git-worktrees.md)
 - [Operação de deployments](../deployment-operations.md)
 - [Operação e troubleshooting](../operations-and-troubleshooting.md)
 - [Interface de Produção](../production-ui.md)
