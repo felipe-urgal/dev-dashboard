@@ -9,7 +9,7 @@ const COMMAND_TIMEOUT_MS = 5_000;
 const COMMAND_MAX_BUFFER_BYTES = 1024 * 1024;
 const MAX_WORKTREES = 256;
 const MAX_FIELD_LENGTH = 8 * 1024;
-const SAFE_HEAD = /^[0-9a-f]{4,64}$/u;
+const SAFE_HEAD = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 
 export type GitWorktreeInspectionState =
   'ready' | 'unavailable' | 'invalid-output';
@@ -65,13 +65,27 @@ function defaultRunner(
   });
 }
 
-function normalizedPath(basePath: string, value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > MAX_FIELD_LENGTH || trimmed.includes('\0')) {
+function stripCommandLineEnding(value: string): string {
+  if (value.endsWith('\r\n')) return value.slice(0, -2);
+  if (value.endsWith('\n')) return value.slice(0, -1);
+  return value;
+}
+
+function normalizedPath(
+  basePath: string,
+  value: string,
+  lineTerminated = false,
+): string | undefined {
+  const candidate = lineTerminated ? stripCommandLineEnding(value) : value;
+  if (
+    !candidate ||
+    candidate.length > MAX_FIELD_LENGTH ||
+    candidate.includes('\0')
+  ) {
     return undefined;
   }
   return path.normalize(
-    path.isAbsolute(trimmed) ? trimmed : path.resolve(basePath, trimmed),
+    path.isAbsolute(candidate) ? candidate : path.resolve(basePath, candidate),
   );
 }
 
@@ -219,7 +233,7 @@ export class GitWorktreeObserver {
       };
     }
 
-    const commonDir = normalizedPath(project.path, commonDirOutput);
+    const commonDir = normalizedPath(project.path, commonDirOutput, true);
     const parsed = parseGitWorktreePorcelain(project.path, listOutput);
     if (!commonDir || !parsed) {
       return {
