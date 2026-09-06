@@ -56,6 +56,10 @@ function bounded(value: string, maxLength: number): string | undefined {
   return normalized && normalized.length <= maxLength ? normalized : undefined;
 }
 
+function boundedPath(value: string): string | undefined {
+  return value.length > 0 && value.length <= MAX_PATH_LENGTH ? value : undefined;
+}
+
 function stableWorktreeId(path: string): string {
   const digest = createHash('sha256').update(path).digest('hex').slice(0, 20);
   return `worktree-${digest}`;
@@ -76,7 +80,7 @@ function applyToken(record: ParsedRecord, token: string): void {
 
   switch (key) {
     case 'worktree':
-      record.path = bounded(value, MAX_PATH_LENGTH);
+      record.path = boundedPath(value);
       break;
     case 'HEAD':
       record.head = /^[0-9a-f]{40,64}$/u.test(value) ? value : undefined;
@@ -120,35 +124,38 @@ export function parseGitWorktreeList(payload: string): {
   let current = emptyRecord();
 
   const flush = () => {
-    if (current.path) records.push(current);
+    if (current.path && records.length <= MAX_WORKTREES) records.push(current);
     current = emptyRecord();
   };
 
   for (const token of payload.split('\0')) {
     if (token === '') {
       flush();
-      if (records.length >= MAX_WORKTREES) break;
+      if (records.length > MAX_WORKTREES) break;
       continue;
     }
     applyToken(current, token);
   }
 
-  if (records.length < MAX_WORKTREES && current.path) flush();
+  if (records.length <= MAX_WORKTREES && current.path) flush();
 
-  const truncated = records.length >= MAX_WORKTREES && payload.split('\0').length > 0;
-  const worktrees = records.slice(0, MAX_WORKTREES).map((record, index) => ({
-    id: stableWorktreeId(record.path as string),
-    path: record.path as string,
-    ...(record.head ? { head: record.head } : {}),
-    ...(record.branch ? { branch: record.branch } : {}),
-    main: index === 0,
-    detached: record.detached,
-    bare: record.bare,
-    locked: record.locked,
-    ...(record.lockReason ? { lockReason: record.lockReason } : {}),
-    prunable: record.prunable,
-    ...(record.pruneReason ? { pruneReason: record.pruneReason } : {}),
-  }));
+  const truncated = records.length > MAX_WORKTREES;
+  const worktrees = records.slice(0, MAX_WORKTREES).map((record, index) => {
+    const path = record.path as string;
+    return {
+      id: stableWorktreeId(path),
+      path,
+      ...(record.head ? { head: record.head } : {}),
+      ...(record.branch ? { branch: record.branch } : {}),
+      main: index === 0,
+      detached: record.detached,
+      bare: record.bare,
+      locked: record.locked,
+      ...(record.lockReason ? { lockReason: record.lockReason } : {}),
+      prunable: record.prunable,
+      ...(record.pruneReason ? { pruneReason: record.pruneReason } : {}),
+    };
+  });
 
   return { worktrees, truncated };
 }
