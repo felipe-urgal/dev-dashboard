@@ -65,6 +65,8 @@ Este recorte continua somente leitura: não existe `migrate deploy`, `migrate re
 - códigos de saída que significam `up-to-date`;
 - opcionalmente códigos de saída que significam `pending` e `unavailable`.
 
+Os seletores reduzem autoridade. Quando apenas um grupo é informado, ele precisa corresponder; quando `projectIds` e `projectTypes` são informados juntos, **ambos** precisam corresponder ao projeto. Assim adicionar um filtro mais específico nunca amplia silenciosamente o conjunto de projetos em que o comando pode executar.
+
 Os grupos de exit codes precisam ser disjuntos. Código sem semântica declarada vira `unknown`, nunca `pending` ou `up-to-date` por texto de terminal.
 
 O runner padrão usa `execFile` sem shell, sempre com `cwd=Project.path`, timeout de 10 segundos e limite de output. O programa precisa ser um nome de executável simples resolvido pelo PATH; paths e shells conhecidos (`sh`, `bash`, `zsh`, `fish`, PowerShell e `cmd`) são rejeitados. O adapter também limita quantidade/tamanho dos argumentos e rejeita NUL/quebras de linha.
