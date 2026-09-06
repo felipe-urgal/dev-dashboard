@@ -178,6 +178,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(productionOverviewRoutes, {
     prefix: '/api',
+    workspaceRepository: context.workspaceRepository,
     projectStore: context.projectStore,
     productionOverviewService,
   });
@@ -185,163 +186,146 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(deploymentSudoRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    deploymentService,
   });
 
   app.register(gitMutationRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
-    gitMutationService: context.gitMutationService,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
-
   app.register(gitMutationHistoryRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitWorkspaceRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitSyncRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitPullRequestRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+  app.register(gitPullRequestMutationRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitUndoRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitCommitDetailsRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+  app.register(gitCurrentBranchHistoryRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+  app.register(gitExclusiveBranchHistoryRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+  app.register(gitBranchDeleteRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitBranchRenameRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitFileMutationRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitService: context.gitService,
     gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(projectReadmeRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    projectReadmeService: context.projectReadmeService,
+    projectFileService: context.projectFileService,
   });
-
   app.register(projectFileRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     projectFileService: context.projectFileService,
   });
-
   app.register(projectFileMutationRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     projectFileMutationService,
   });
-
   app.register(projectWorkspaceEditRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     projectWorkspaceEditService,
   });
-
   app.register(projectLanguageServerRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     projectLanguageServerService,
   });
-
   app.register(projectTerminalRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     projectTerminalService,
   });
-
-  app.register(gitWorkspaceRoutes, {
+  app.register(projectBrowserRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    gitService: context.gitService,
-    gitWorkspaceService: context.gitWorkspaceService,
-  });
-
-  app.register(gitSyncRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitSyncService: context.gitSyncService,
-  });
-
-  app.register(gitPullRequestRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitPullRequestService: context.gitPullRequestService,
-  });
-
-  app.register(gitPullRequestMutationRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitPullRequestService: context.gitPullRequestService,
-    gitPullRequestMutationService: context.gitPullRequestMutationService,
-  });
-
-  app.register(gitUndoRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitUndoService: context.gitUndoService,
-  });
-
-  app.register(gitCommitDetailsRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitService: context.gitService,
-  });
-
-  app.register(gitCurrentBranchHistoryRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitService: context.gitService,
-  });
-
-  app.register(gitExclusiveBranchHistoryRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitService: context.gitService,
-  });
-
-  app.register(gitBranchDeleteRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitService: context.gitService,
-    gitBranchDeleteService: context.gitBranchDeleteService,
-  });
-
-  app.register(gitBranchRenameRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitBranchRenameService: context.gitBranchRenameService,
-  });
-
-  app.register(gitFileMutationRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitFileMutationService: context.gitFileMutationService,
+    processManager: context.processManager,
+    projectBrowserService: context.projectBrowserService,
   });
 
   app.register(processRoutes, {
     prefix: '/api',
-    projectStore: context.projectStore,
     processManager: context.processManager,
-    portInspectorService,
-  });
-
-  app.register(projectBrowserRoutes, {
-    prefix: '/api',
+    serverSettingsRepository: context.serverSettingsRepository,
+    serverHealthCheckService: context.serverHealthCheckService,
     projectStore: context.projectStore,
-    projectBrowserService: context.projectBrowserService,
+    portInspectorService,
   });
 
   app.register(testRoutes, {
     prefix: '/api',
+    processManager: context.processManager,
     projectStore: context.projectStore,
-    testService: context.testService,
-    testRunService: context.testRunService,
-    testHistoryService: context.testHistoryService,
+    testDetectionService: context.testDetectionService,
+    testExecutionHistoryService: context.testExecutionHistoryService,
+    projectTestPtyService: context.projectTestPtyService,
+    projectCoverageService: context.projectCoverageService,
+    projectCoverageHistoryService: context.projectCoverageHistoryService,
   });
-
   app.register(testRelatedRoutes, {
     prefix: '/api',
+    processManager: context.processManager,
     projectStore: context.projectStore,
-    testRelatedService: context.testRelatedService,
+    testDetectionService: context.testDetectionService,
+    testExecutionHistoryService: context.testExecutionHistoryService,
   });
 
   app.register(databaseRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    databaseService: context.databaseService,
+    databaseDetectionService: context.databaseDetectionService,
+    databaseSnapshotService: context.databaseSnapshotService,
+    databaseExplorerService: context.databaseExplorerService,
   });
-
   app.register(databaseExplorerSessionRoutes, {
     prefix: '/api',
-    projectStore: context.projectStore,
+    databaseExplorerService: context.databaseExplorerService,
     databaseExplorerSessionStore,
   });
 
@@ -349,8 +333,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     railsInspectionService: context.railsInspectionService,
+    railsRuntimeService: context.railsRuntimeService,
+    railsMigrationPtyService: context.railsMigrationPtyService,
   });
-
   app.register(bundlerRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
