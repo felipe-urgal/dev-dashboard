@@ -57,15 +57,21 @@ Erros brutos, stderr e stdout inválido não entram no snapshot. Quando o daemon
 
 ## Terceiro recorte: preflight de portas
 
-`DockerComposePreflightService` faz uma verificação **somente leitura** antes de qualquer futuro `docker compose up`. Ele recebe o `ComposeConfigSnapshot` já validado e reutiliza `config.declaredPorts` no `PortInspectorService`, mantendo o Port Registry como autoridade canônica sobre declarações e conflitos de portas.
+`DockerComposePreflightService` faz uma verificação **somente leitura** antes de qualquer futuro `docker compose up`. Ele recebe o `ComposeConfigSnapshot` já validado, reutiliza `config.declaredPorts` no `PortInspectorService` e reconcilia `reserved/declared/observed` pelo Port Registry.
 
 O resultado possui três estados:
 
-- `ready`: todas as portas publicadas que precisam ser usadas estão comprovadamente disponíveis ou já pertencem a um serviço ativo do mesmo runtime Compose;
-- `blocked`: pelo menos uma porta publicada está ocupada sem evidência de que pertence ao runtime Compose atual;
+- `ready`: todas as portas publicadas estão comprovadamente disponíveis ou já pertencem a um serviço ativo do mesmo runtime Compose;
+- `blocked`: existe conflito de listener, reserva incompatível ou declaração Compose duplicada;
 - `unavailable`: o Dashboard não conseguiu provar a situação das portas com segurança.
 
-Uma porta ocupada por processo externo, outro projeto ou owner desconhecido **bloqueia** o preflight. O serviço não depende apenas do booleano `conflict` da tela geral de portas: para iniciar Compose, ausência de ownership comprovado é suficiente para impedir um falso `ready`.
+Os bloqueios são classificados por motivo:
+
+- `occupied`: existe listener local e não há evidência positiva de que ele pertence ao runtime Compose atual;
+- `reserved`: a porta foi reservada para outro owner/role, mesmo que ainda esteja livre no sistema operacional;
+- `duplicate-declaration`: mais de um serviço Compose do mesmo projeto declara a mesma porta publicada.
+
+Assim, uma reserva não deixa de ser conflito apenas porque nenhum processo abriu a porta ainda. Da mesma forma, dois serviços não recebem um falso `ready` para disputar a mesma porta no futuro `up`.
 
 Quando o runtime já mostra um serviço ativo (`running`, `restarting` ou `paused`) usando a mesma porta publicada pelo mesmo serviço Compose, essa ocupação é tratada como esperada. Isso permite revalidar uma stack já ativa sem classificá-la como conflito contra si própria.
 
@@ -73,13 +79,13 @@ O preflight também falha fechado quando a inspeção de portas está `unsupport
 
 ### Evidência de conflito
 
-Para cada bloqueio, o resultado mantém somente o necessário para diagnóstico:
+Todo bloqueio preserva:
 
 - porta;
 - serviço(s) Compose que a publicam;
-- endereço observado;
-- owner conhecido como projeto/processo gerenciado, processo externo ou `unknown`;
-- sugestão de porta quando o Port Registry conseguir fornecê-la.
+- motivo (`occupied`, `reserved` ou `duplicate-declaration`).
+
+Para conflitos realmente observados no host, o snapshot também pode incluir endereço, owner conhecido como projeto/processo gerenciado, processo externo ou `unknown`, e sugestão de porta quando já fornecida pelo Port Inspector.
 
 O preflight **não** mata processos, não remapeia portas, não altera Compose e não inicia/para containers.
 
@@ -93,6 +99,7 @@ O preflight **não** mata processos, não remapeia portas, não altera Compose e
 - nenhuma credencial/environment value volta no snapshot;
 - config/ps externos são tratados como input não confiável, com limites de serviços, nomes, portas e listas de profiles/dependências;
 - indisponibilidade/truncamento do Port Inspector nunca é promovida para preflight seguro;
+- reservas e declarações participam da reconciliação mesmo quando não existe listener ativo;
 - ownership de porta só é assumido quando existe evidência positiva do runtime Compose atual.
 
 ## Próximos recortes
