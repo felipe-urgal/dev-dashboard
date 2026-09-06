@@ -175,33 +175,17 @@ Depois que o ownership foi entregue ao worker, a API antiga não oferece um canc
 
 ### Runtime local gerenciado
 
-Quando o Dev Dashboard foi instalado por `npm run local:install`, o caminho esperado é devolver o runtime à unit fixa:
+Quando o Dev Dashboard foi instalado por `npm run local:install`, o handoff propagado ao novo runtime inclui revision alvo e raiz canônica da checkout já validada. O restart só pode ser delegado para:
 
 ```text
 systemctl --user restart dev-dashboard.service
 ```
 
-Esse comando não vem da UI; a delegação depende de metadados/ownership locais válidos.
+quando a raiz real coincide com a instalação registrada e a unit fixa possui o marcador de ownership do instalador. Esse comando não vem da UI.
 
-### Limitação conhecida — #659
+A UI pode perder temporariamente a conexão durante o restart; isso é esperado. O deployment só termina em sucesso depois que o backend reconciliado comprova `/api/health` e `x-dev-dashboard-revision` iguais ao alvo.
 
-Em 2026-09-06 existe um bug confirmado no handoff do redeploy gerenciado: a API antiga pode encerrar e a nova instância não voltar automaticamente sob `dev-dashboard.service`.
-
-A reprodução real mostrou:
-
-```text
-self-update iniciado
-→ API cai
-→ ERR_CONNECTION_REFUSED
-→ restart manual da unit recupera a API
-→ health comprova a nova revision
-```
-
-Enquanto #659 estiver aberto:
-
-- a UI pode permanecer em `Self-update em execução`/`running` se a API não voltar sozinha;
-- recuperar o serviço manualmente não deve fabricar um `succeeded` sem inspeção/reconciliação do handoff;
-- a orientação operacional fica em `docs/local-installation.md` e `docs/PRODUCTION.md`.
+Se o runtime não voltar, a superfície deve tratar o caso como falha/recovery e não sugerir que um restart manual isolado prova sucesso do handoff.
 
 ## Acompanhamento e concorrência
 
@@ -269,6 +253,6 @@ A cobertura da superfície deve proteger:
 - retry de verify;
 - overview/lote sequencial;
 - self-update/reconciliação;
-- regressões reais como #659 após a correção do handoff gerenciado.
+- regressões de handoff gerenciado, incluindo a raiz canônica exigida para delegação ao systemd.
 
 Guia de uso: [guia/producao.md](guia/producao.md). Operação detalhada: [deployment-operations.md](deployment-operations.md). Self-production: [architecture/self-production.md](architecture/self-production.md).
