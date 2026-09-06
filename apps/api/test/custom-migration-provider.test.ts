@@ -67,6 +67,16 @@ test('executa argv estruturado no cwd do projeto e classifica códigos declarado
   ]);
 });
 
+test('pendingExitCodes pode ser omitido sem inventar pending', async () => {
+  const { pendingExitCodes: _pendingExitCodes, ...withoutPending } = config();
+  const provider = new CustomMigrationProvider(withoutPending, async () => ({
+    exitCode: 2,
+  }));
+
+  const result = await provider.inspect({ project });
+  assert.equal(result.status, 'unknown');
+});
+
 test('exit code sem semântica declarada permanece unknown', async () => {
   const provider = new CustomMigrationProvider(config(), async () => ({
     exitCode: 17,
