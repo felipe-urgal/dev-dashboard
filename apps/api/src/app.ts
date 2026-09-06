@@ -8,6 +8,7 @@ import { attentionRoutes } from './routes/attention.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
+import { releaseReadinessRoutes } from './routes/release-readiness.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
 import { productionOverviewRoutes } from './routes/production-overview.js';
@@ -109,6 +110,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     deploymentService,
     productionOverviewService,
     attentionCenterService,
+    releaseReadinessService,
   } = composition;
   registerAppLifecycle(app, context, composition);
 
@@ -161,6 +163,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectDoctorService,
+  });
+
+  app.register(releaseReadinessRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    releaseReadinessService,
   });
 
   app.register(projectCoverageRoutes, {

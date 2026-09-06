@@ -55,6 +55,170 @@ sempre o mesmo:
 
 Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de repetir o schema.
 
+## Attention
+
+### `GET /api/workspaces/:workspaceId/attention`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "attention"
+    ],
+    "properties": {
+      "attention": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "workspaceId",
+          "generatedAt",
+          "partial",
+          "unavailableSources",
+          "items"
+        ],
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "unavailableSources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "category"
+              ],
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "git",
+                    "process",
+                    "test",
+                    "production",
+                    "doctor"
+                  ]
+                },
+                "projectId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "projectId",
+                "projectName",
+                "category",
+                "severity",
+                "message",
+                "observedAt",
+                "action"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "projectId": {
+                  "type": "string"
+                },
+                "projectName": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "git",
+                    "process",
+                    "test",
+                    "production",
+                    "doctor"
+                  ]
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "critical",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                },
+                "observedAt": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "destination"
+                  ],
+                  "properties": {
+                    "destination": {
+                      "type": "string",
+                      "enum": [
+                        "processes",
+                        "git",
+                        "tests",
+                        "production",
+                        "doctor"
+                      ]
+                    },
+                    "projectId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Bundler
 
 ### `GET /api/projects/:projectId/bundler`
@@ -8442,6 +8606,85 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "unresolvedConversationsCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "cockpit": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "remoteStatus",
+                  "reviewState",
+                  "requestedReviewers",
+                  "checks"
+                ],
+                "properties": {
+                  "remoteStatus": {
+                    "type": "string",
+                    "enum": [
+                      "available",
+                      "unauthenticated",
+                      "rate-limited",
+                      "unavailable"
+                    ]
+                  },
+                  "headSha": {
+                    "type": "string"
+                  },
+                  "draft": {
+                    "type": "boolean"
+                  },
+                  "mergeable": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "mergeableState": {
+                    "type": "string"
+                  },
+                  "reviewState": {
+                    "type": "string",
+                    "enum": [
+                      "approved",
+                      "changes-requested",
+                      "review-required",
+                      "unknown"
+                    ]
+                  },
+                  "requestedReviewers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "checks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "status"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "success",
+                            "pending",
+                            "failure",
+                            "unknown"
+                          ]
+                        },
+                        "detailsUrl": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -8577,6 +8820,85 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "unresolvedConversationsCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "cockpit": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "remoteStatus",
+                  "reviewState",
+                  "requestedReviewers",
+                  "checks"
+                ],
+                "properties": {
+                  "remoteStatus": {
+                    "type": "string",
+                    "enum": [
+                      "available",
+                      "unauthenticated",
+                      "rate-limited",
+                      "unavailable"
+                    ]
+                  },
+                  "headSha": {
+                    "type": "string"
+                  },
+                  "draft": {
+                    "type": "boolean"
+                  },
+                  "mergeable": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "mergeableState": {
+                    "type": "string"
+                  },
+                  "reviewState": {
+                    "type": "string",
+                    "enum": [
+                      "approved",
+                      "changes-requested",
+                      "review-required",
+                      "unknown"
+                    ]
+                  },
+                  "requestedReviewers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "checks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "status"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "success",
+                            "pending",
+                            "failure",
+                            "unknown"
+                          ]
+                        },
+                        "detailsUrl": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -13460,6 +13782,130 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                       }
                     }
                   }
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "statements",
+                      "branches",
+                      "functions",
+                      "lines"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "statements": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "total",
+                          "covered",
+                          "pct"
+                        ],
+                        "properties": {
+                          "total": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "covered": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "pct": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          }
+                        }
+                      },
+                      "branches": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "total",
+                          "covered",
+                          "pct"
+                        ],
+                        "properties": {
+                          "total": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "covered": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "pct": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          }
+                        }
+                      },
+                      "functions": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "total",
+                          "covered",
+                          "pct"
+                        ],
+                        "properties": {
+                          "total": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "covered": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "pct": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          }
+                        }
+                      },
+                      "lines": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "total",
+                          "covered",
+                          "pct"
+                        ],
+                        "properties": {
+                          "total": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "covered": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "pct": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "gitRevision": {
+                  "type": "string"
+                },
+                "gitDirtyFingerprint": {
+                  "type": "string"
+                },
+                "environmentInstanceId": {
+                  "type": "string"
                 }
               }
             }
@@ -13666,6 +14112,173 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 
 ## Project Environment
 
+### `GET /api/projects/:projectId/environment-contract`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "contract"
+    ],
+    "properties": {
+      "contract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sections"
+        ],
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "scope",
+                "baselineStatus",
+                "baseline",
+                "baselineCandidates",
+                "sourceFiles",
+                "variables"
+              ],
+              "properties": {
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "default",
+                    "test",
+                    "production",
+                    "docker"
+                  ]
+                },
+                "baselineStatus": {
+                  "type": "string",
+                  "enum": [
+                    "resolved",
+                    "ambiguous",
+                    "missing"
+                  ]
+                },
+                "baseline": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "baselineCandidates": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "sourceFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "variables": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "sensitive",
+                      "status",
+                      "baseline",
+                      "sources",
+                      "required",
+                      "suggestedAction"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "sensitive": {
+                        "type": "boolean"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "present",
+                          "missing",
+                          "undocumented",
+                          "duplicate",
+                          "conflicting-source",
+                          "optional",
+                          "unknown"
+                        ]
+                      },
+                      "baseline": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sources": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "required": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "suggestedAction": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "configure",
+                          "document",
+                          "review-source",
+                          "choose-baseline"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `GET /api/projects/:projectId/environment-variables`
 
 **Parâmetros de rota (`params`)**
@@ -13793,7 +14406,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         ".env.local",
         ".env.development",
         ".env.test",
-        ".env.production"
+        ".env.production",
+        ".env.example",
+        ".env.sample",
+        ".env.production.example",
+        ".env.docker.example",
+        ".env.docker.sample"
       ]
     },
     "name": {
@@ -15675,6 +16293,95 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                 ]
               }
             },
+            "profile": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "capabilities",
+                "diagnostics"
+              ],
+              "properties": {
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "provider",
+                      "confidence",
+                      "evidence"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "type": "string",
+                        "enum": [
+                          "certain",
+                          "strong",
+                          "weak"
+                        ]
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "source"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "file",
+                                "manifest",
+                                "config"
+                              ]
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "detail": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                },
+                "diagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "provider",
+                      "message"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
             "production": {
               "type": "object",
               "additionalProperties": false,
@@ -16000,6 +16707,95 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                 "docker",
                 "production"
               ]
+            }
+          },
+          "profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capabilities",
+              "diagnostics"
+            ],
+            "properties": {
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "provider",
+                    "confidence",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "certain",
+                        "strong",
+                        "weak"
+                      ]
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "source"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "file",
+                              "manifest",
+                              "config"
+                            ]
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              },
+              "diagnostics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "message"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           },
           "production": {
@@ -16336,6 +17132,95 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                 "docker",
                 "production"
               ]
+            }
+          },
+          "profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capabilities",
+              "diagnostics"
+            ],
+            "properties": {
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "provider",
+                    "confidence",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "certain",
+                        "strong",
+                        "weak"
+                      ]
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "source"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "file",
+                              "manifest",
+                              "config"
+                            ]
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              },
+              "diagnostics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "message"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           },
           "production": {
@@ -16679,6 +17564,95 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                 "docker",
                 "production"
               ]
+            }
+          },
+          "profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capabilities",
+              "diagnostics"
+            ],
+            "properties": {
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "provider",
+                    "confidence",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "certain",
+                        "strong",
+                        "weak"
+                      ]
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "source"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "file",
+                              "manifest",
+                              "config"
+                            ]
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              },
+              "diagnostics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "message"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           },
           "production": {
@@ -19502,6 +20476,153 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Release Readiness
+
+### `GET /api/projects/:projectId/release-readiness`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "testMaxAgeSeconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 86400
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "readiness"
+    ],
+    "properties": {
+      "readiness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "generatedAt",
+          "checks"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warning",
+              "block",
+              "unknown"
+            ]
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "state",
+                "summary",
+                "evidence",
+                "observedAt",
+                "action"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "git",
+                    "tests",
+                    "doctor"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "warning",
+                    "block",
+                    "unknown"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string"
+                },
+                "observedAt": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "label",
+                    "target"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string",
+                      "enum": [
+                        "synchronization",
+                        "tests",
+                        "doctor"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Script History
 
 ### `DELETE /api/projects/:projectId/scripts/executions`
@@ -21507,6 +22628,341 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `GET /api/projects/:projectId/tests/:commandId/intelligence`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "commandId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "commandId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "suggestion"
+    ],
+    "properties": {
+      "suggestion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commandId",
+          "state",
+          "recommendation",
+          "baseBranch",
+          "currentBranch",
+          "changedFiles",
+          "testFiles",
+          "unmappedFiles",
+          "evidence",
+          "coverageDelta",
+          "flakiness"
+        ],
+        "properties": {
+          "commandId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "impacted",
+              "unknown"
+            ]
+          },
+          "recommendation": {
+            "type": "string",
+            "enum": [
+              "targeted",
+              "full-suite"
+            ]
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "currentBranch": {
+            "type": "string"
+          },
+          "changedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "testFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unmappedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "changedFile",
+                "testFiles"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "direct-file-match"
+                  ]
+                },
+                "changedFile": {
+                  "type": "string"
+                },
+                "testFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "coverageDelta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "worsenedFiles",
+              "missingFiles"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unknown"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "no-current-artifact",
+                  "identity-incomplete",
+                  "no-compatible-baseline"
+                ]
+              },
+              "currentGeneratedAt": {
+                "type": "string"
+              },
+              "baselineGeneratedAt": {
+                "type": "string"
+              },
+              "total": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "statements",
+                  "branches",
+                  "functions",
+                  "lines"
+                ],
+                "properties": {
+                  "statements": {
+                    "type": "number"
+                  },
+                  "branches": {
+                    "type": "number"
+                  },
+                  "functions": {
+                    "type": "number"
+                  },
+                  "lines": {
+                    "type": "number"
+                  }
+                }
+              },
+              "worsenedFiles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "statements",
+                    "branches",
+                    "functions",
+                    "lines"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "statements": {
+                      "type": "number"
+                    },
+                    "branches": {
+                      "type": "number"
+                    },
+                    "functions": {
+                      "type": "number"
+                    },
+                    "lines": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "missingFiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "flakiness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "tests"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unknown"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "no-granular-results",
+                  "identity-incomplete",
+                  "insufficient-compatible-attempts"
+                ]
+              },
+              "tests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "testIdentity",
+                    "attempts",
+                    "passed",
+                    "failed",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "testIdentity": {
+                      "type": "string"
+                    },
+                    "attempts": {
+                      "type": "integer",
+                      "minimum": 2
+                    },
+                    "passed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "failed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "executionId",
+                          "testIdentity",
+                          "outcome",
+                          "gitRevision",
+                          "gitDirtyFingerprint"
+                        ],
+                        "properties": {
+                          "executionId": {
+                            "type": "string"
+                          },
+                          "testIdentity": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "passed",
+                              "failed"
+                            ]
+                          },
+                          "gitRevision": {
+                            "type": "string"
+                          },
+                          "gitDirtyFingerprint": {
+                            "type": "string"
+                          },
+                          "environmentInstanceId": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `POST /api/projects/:projectId/tests/:commandId/start`
 
 **Parâmetros de rota (`params`)**
@@ -22946,6 +24402,95 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                   "docker",
                   "production"
                 ]
+              }
+            },
+            "profile": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "capabilities",
+                "diagnostics"
+              ],
+              "properties": {
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "provider",
+                      "confidence",
+                      "evidence"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "type": "string",
+                        "enum": [
+                          "certain",
+                          "strong",
+                          "weak"
+                        ]
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "source"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "file",
+                                "manifest",
+                                "config"
+                              ]
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "detail": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                },
+                "diagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "provider",
+                      "message"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
               }
             },
             "production": {
