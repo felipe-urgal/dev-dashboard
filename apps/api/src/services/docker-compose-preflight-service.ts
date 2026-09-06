@@ -16,9 +16,7 @@ import type {
 const ACTIVE_RUNTIME_STATES = new Set(['running', 'restarting', 'paused']);
 
 export type DockerComposePortPreflightState =
-  | 'ready'
-  | 'blocked'
-  | 'unavailable';
+  'ready' | 'blocked' | 'unavailable';
 
 export interface DockerComposePortConflict {
   port: number;
@@ -90,10 +88,14 @@ function isOwnedByCurrentCompose(
   runtimeServices: ReadonlyMap<number, Set<string>>,
 ): boolean {
   const owners = runtimeServices.get(port);
-  return Boolean(owners && expectedServices.some((service) => owners.has(service)));
+  return Boolean(
+    owners && expectedServices.some((service) => owners.has(service)),
+  );
 }
 
-function conflictOwner(entry: LocalPortEntry): DockerComposePortConflict['owner'] {
+function conflictOwner(
+  entry: LocalPortEntry,
+): DockerComposePortConflict['owner'] {
   if (entry.managedProcess) {
     return {
       kind: 'project',
@@ -153,7 +155,8 @@ export class DockerComposePreflightService {
         state: 'unavailable',
         inspectedAt: config.observedAt,
         conflicts: [],
-        diagnostic: 'O inspetor de portas falhou durante o preflight do Compose.',
+        diagnostic:
+          'O inspetor de portas falhou durante o preflight do Compose.',
       };
     }
 
@@ -169,7 +172,9 @@ export class DockerComposePreflightService {
     for (const entry of inspection.entries) {
       const services = composeServicesByPort.get(entry.port);
       if (!services || entry.state !== 'occupied') continue;
-      if (isOwnedByCurrentCompose(entry.port, services, runtimeServicesByPort)) {
+      if (
+        isOwnedByCurrentCompose(entry.port, services, runtimeServicesByPort)
+      ) {
         continue;
       }
 
