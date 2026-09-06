@@ -24,7 +24,7 @@ A instalação é deliberadamente user-space:
 - não habilita `linger`;
 - inicia após o login do usuário, via `default.target`.
 
-## Instalar
+## Instalar/reinstalar
 
 Na checkout do Dashboard:
 
@@ -37,14 +37,18 @@ O comando:
 1. valida Linux e acesso ao user manager do systemd;
 2. resolve a checkout real e o caminho absoluto do Node atual;
 3. executa o build da distribuição;
-4. cria `~/.config/systemd/user/dev-dashboard.service`;
-5. grava metadados privados da instalação;
+4. cria/atualiza `~/.config/systemd/user/dev-dashboard.service`;
+5. grava metadados privados da instalação e ambiente runtime gerenciado;
 6. executa `systemctl --user daemon-reload`;
-7. habilita e inicia `dev-dashboard.service`.
+7. habilita `dev-dashboard.service` para o login;
+8. executa `systemctl --user restart dev-dashboard.service`, inclusive quando a unit já estava ativa;
+9. aguarda `/api/health` ficar saudável antes de declarar sucesso.
 
-A operação é idempotente: executar `local:install` novamente atualiza somente a unit gerenciada e os metadados da instalação.
+A operação é idempotente. Reexecutar `local:install` recompila a distribuição, atualiza somente os arquivos que pertencem ao instalador, reinicia o runtime gerenciado e comprova readiness.
 
 Se já existir `dev-dashboard.service` sem o marcador do instalador, a operação falha sem sobrescrever o arquivo.
+
+Se o restart acontecer mas a API não ficar saudável dentro da janela limitada, o instalador falha e orienta o diagnóstico por `local:status`/`journalctl` em vez de anunciar uma instalação saudável sem prova.
 
 ## URL e listener
 
@@ -80,15 +84,17 @@ http://dev-dashboard.localhost:5000
 
 No modo instalado, os metadados criados por `local:install` são a autoridade para **porta e origem**. Isso impede que uma alteração posterior em `.env.local` faça a unit e a política de origem divergirem.
 
-Outras variáveis úteis do ambiente continuam disponíveis ao runtime, incluindo configuração opcional de providers como `VERCEL_TOKEN`.
+A unit lê `.env.local` como arquivo opcional para outras configurações do processo, incluindo providers como `VERCEL_TOKEN`. Segredos continuam fora dos metadados da instalação e fora da unit versionada.
 
 Para mudar a porta instalada, execute novamente `local:install` com a nova configuração.
 
+Para aplicar com segurança alterações de `.env.local` ao runtime permanente, reexecute `npm run local:install` ou reinicie conscientemente a unit depois de garantir que build/configuração permanecem coerentes.
+
 ## Bootstrap seguro do navegador
 
-Cada processo de distribuição continua gerando uma capacidade de bootstrap aleatória e efêmera.
+Cada processo de distribuição gera uma capacidade de bootstrap aleatória e efêmera.
 
-No modo distribuído, o servidor injeta essa capacidade somente no HTML servido em memória. Um script mínimo executado antes da aplicação guarda a capacidade diretamente no `sessionStorage` da aba atual. A URL permanece limpa, sem `#bootstrap=...`.
+No modo distribuído, o servidor injeta essa capacidade somente no HTML servido em memória. Um script mínimo executado antes da aplicação grava a capacidade diretamente no `sessionStorage` da aba atual. A URL permanece limpa, sem `#bootstrap=...`.
 
 O valor:
 
@@ -118,6 +124,8 @@ O comando informa:
 
 O status não considera apenas a existência de um arquivo: metadados e marcador da unit precisam ser coerentes.
 
+Depois de um restart manual isolado, o processo pode levar cerca de um segundo para terminar o bootstrap da API; por isso uma consulta feita imediatamente após `systemctl restart` pode observar transitoriamente serviço ativo antes do health. `local:install`, ao contrário, espera readiness antes de retornar sucesso.
+
 ## Abrir no navegador
 
 ```bash
@@ -125,6 +133,14 @@ npm run local:open
 ```
 
 O comando usa `xdg-open` quando disponível. Se o ambiente gráfico não oferecer o comando, a URL instalada é exibida para abertura manual.
+
+Também é seguro abrir diretamente:
+
+```text
+http://dev-dashboard.localhost:4343
+```
+
+Não monte nem copie manualmente fragmentos de bootstrap.
 
 ## Logs e diagnóstico
 
@@ -137,19 +153,31 @@ npm run local:status
 Status direto da unit:
 
 ```bash
-systemctl --user status dev-dashboard.service
+systemctl --user status dev-dashboard.service --no-pager -l
 ```
 
-Logs:
+Logs recentes:
 
 ```bash
-journalctl --user -u dev-dashboard.service
+journalctl --user -u dev-dashboard.service -n 120 --no-pager
 ```
 
 Health sem autenticação:
 
 ```bash
 curl -i http://127.0.0.1:4343/api/health
+```
+
+Health pela URL amigável:
+
+```bash
+curl -i http://dev-dashboard.localhost:4343/api/health
+```
+
+Para testar o HTML como um navegador, envie `Accept: text/html`; uma requisição `HEAD` genérica com `Accept: */*` pode receber `404` pela política do fallback estático:
+
+```bash
+curl -I -H 'Accept: text/html' http://dev-dashboard.localhost:4343/
 ```
 
 Se o serviço não iniciar depois do login, confira primeiro:
@@ -168,15 +196,55 @@ A instalação local não substitui o protocolo seguro de self-update.
 
 A mutação continua passando por planner, confirmação, handoff, worker externo, fast-forward e prova da revision final.
 
-Depois da aplicação da nova revision, `scripts/dev-web.mjs` verifica se existe uma instalação local válida para a mesma checkout. Somente nesse caso o restart é delegado para a unit fixa:
+O contrato pretendido para uma instalação gerenciada é:
 
 ```text
-dev-dashboard.service
+self-update aplica revision confirmada
+        ↓
+dev-web reconhece a mesma checkout instalada
+        ↓
+systemctl --user restart dev-dashboard.service
+        ↓
+/api/health volta
+        ↓
+header x-dev-dashboard-revision comprova a revision alvo
+        ↓
+succeeded
 ```
 
-A delegação exige metadados válidos e o marcador de ownership da unit. O browser não escolhe nome de serviço, path ou comando.
+A delegação só pode usar a unit fixa `dev-dashboard.service` e exige metadados válidos + marcador de ownership da instalação. O browser não escolhe nome de serviço, path ou comando.
 
-Sem instalação local gerenciada, o self-update mantém o comportamento anterior de iniciar o runtime diretamente.
+Sem instalação local gerenciada, o self-update mantém o comportamento de runtime direto previsto pelo protocolo.
+
+### Limitação conhecida do redeploy gerenciado — #659
+
+Em 2026-09-06 existe uma falha conhecida no handoff do redeploy local: o worker aplica a revision e encerra a API antiga, mas pode não propagar a raiz da checkout necessária para `dev-web.mjs` reconhecer a instalação gerenciada e delegar o restart ao systemd.
+
+Sintoma observado:
+
+```text
+redeploy/self-update
+→ API antiga recebe SIGTERM
+→ navegador recebe ERR_CONNECTION_REFUSED
+→ runtime não volta sozinho
+```
+
+Workaround operacional enquanto #659 estiver aberto:
+
+```bash
+systemctl --user restart dev-dashboard.service
+npm run local:status
+```
+
+Depois confirme:
+
+```bash
+curl -i http://127.0.0.1:4343/api/health
+```
+
+O workaround recupera o runtime, mas **não transforma um handoff incompleto em sucesso do deployment**. Revise o estado do self-update/recovery antes de iniciar nova tentativa.
+
+Não faça redeploy repetido para “ver se volta” enquanto #659 estiver aberto.
 
 ## Desinstalar
 
