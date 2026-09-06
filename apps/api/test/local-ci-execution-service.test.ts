@@ -3,6 +3,11 @@ import test from 'node:test';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import type {
+  AttachHandle,
+  DetachableExecutionSnapshot,
+  StartExecutionOptions,
+} from '../src/services/detachable-execution-service.js';
 import {
   LocalCiExecutionError,
   LocalCiExecutionService,
@@ -46,32 +51,22 @@ function catalog() {
 class FakeExecutions {
   public readonly starts: Array<{
     key: string;
-    options: {
-      file: string;
-      args: readonly string[];
-      cwd: string;
-      env?: NodeJS.ProcessEnv;
-    };
+    options: StartExecutionOptions;
   }> = [];
   public readonly cancels: string[] = [];
-  private readonly snapshots = new Map<
+  private readonly snapshots = new Map<string, DetachableExecutionSnapshot>();
+  private readonly exits = new Map<
     string,
-    {
-      status: 'running' | 'exited';
-      buffer: string;
-      truncated: boolean;
-      exitCode: number | null;
-      exitSignal: number | null;
-      startedAt: string;
-      endedAt: string | null;
-    }
+    (snapshot: DetachableExecutionSnapshot) => void
   >();
-  private readonly exits = new Map<string, (snapshot: never) => void>();
 
-  public start(key: string, options: never) {
+  public start(
+    key: string,
+    options: StartExecutionOptions,
+  ): DetachableExecutionSnapshot {
     this.starts.push({ key, options });
-    const snapshot = {
-      status: 'running' as const,
+    const snapshot: DetachableExecutionSnapshot = {
+      status: 'running',
       buffer: '',
       truncated: false,
       exitCode: null,
@@ -86,8 +81,8 @@ class FakeExecutions {
   public attach(
     key: string,
     _onData: (chunk: string) => void,
-    onExit: (snapshot: never) => void,
-  ) {
+    onExit: (snapshot: DetachableExecutionSnapshot) => void,
+  ): AttachHandle {
     this.exits.set(key, onExit);
     return {
       snapshot: this.snapshots.get(key)!,
@@ -95,7 +90,7 @@ class FakeExecutions {
     };
   }
 
-  public snapshotOf(key: string) {
+  public snapshotOf(key: string): DetachableExecutionSnapshot | undefined {
     return this.snapshots.get(key);
   }
 
@@ -106,14 +101,14 @@ class FakeExecutions {
   public exit(key: string, exitCode = 0): void {
     const current = this.snapshots.get(key);
     if (!current) throw new Error('snapshot ausente');
-    const snapshot = {
+    const snapshot: DetachableExecutionSnapshot = {
       ...current,
-      status: 'exited' as const,
+      status: 'exited',
       exitCode,
       endedAt: '2026-09-06T17:01:00.000Z',
     };
     this.snapshots.set(key, snapshot);
-    this.exits.get(key)?.(snapshot as never);
+    this.exits.get(key)?.(snapshot);
   }
 }
 
