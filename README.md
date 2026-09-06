@@ -64,6 +64,32 @@ npm ci
 npm run doctor
 ```
 
+### Instalação local automática no Linux
+
+Para deixar o Dashboard disponível após o login, sem iniciar o processo manualmente:
+
+```bash
+npm run local:install
+```
+
+O instalador cria uma unit `systemd --user`, mantém o listener exclusivamente em `127.0.0.1` e publica a distribuição local em:
+
+```text
+http://dev-dashboard.localhost:4343
+```
+
+Comandos de operação:
+
+```bash
+npm run local:status
+npm run local:open
+npm run local:uninstall
+```
+
+`local:install` é idempotente, não exige `sudo`, usa o caminho absoluto do Node ativo e não depende do shell profile no login. `local:uninstall` remove somente a integração gerenciada; checkout, configuração e estado do Dashboard são preservados.
+
+No modo instalado, porta e origem são congeladas nos metadados da instalação para evitar divergência com a unit. Outras variáveis úteis do `.env.local`, como credenciais opcionais da Vercel, continuam disponíveis ao runtime. Para mudar a porta instalada, ajuste o ambiente e execute `npm run local:install` novamente.
+
 ## Desenvolvimento
 
 A receita canônica está em [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
@@ -281,6 +307,10 @@ Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos n
 | `npm run dev:api` | somente API |
 | `npm run dev:web` | somente Vite |
 | `npm run dev-web` | distribuição local compilada |
+| `npm run local:install` | instala/reinstala o runtime local via systemd user |
+| `npm run local:status` | mostra estado da instalação, serviço, health e URL |
+| `npm run local:open` | abre a URL amigável instalada |
+| `npm run local:uninstall` | remove apenas a integração local gerenciada |
 | `npm run doctor` | diagnóstico local |
 | `npm run check` | gate obrigatório do PR/CI |
 | `npm run docs:api` | regenera referência HTTP |
