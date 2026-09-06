@@ -55,16 +55,34 @@ docker info --format {{.ServerVersion}}
 
 `act` ausente produz `act-missing`. Falha ao consultar o daemon Docker produz `docker-unavailable`. Quando ambos respondem, o catálogo fica `available` e preserva apenas versões curtas normalizadas; erro bruto, socket path ou stdout adicional não são transportados.
 
-## Lifecycle futuro
+## Lifecycle de execução controlada
 
-A execução real ainda deve reutilizar a infraestrutura de job/PTY destacável já existente, com:
+`apps/api/src/services/local-ci-execution-service.ts` executa somente uma seleção que continue pertencendo ao catálogo obtido imediatamente antes do start. O comando final continua vindo de `buildActJobCommand()`; o serviço de lifecycle não recebe shell nem argv livre.
 
-- ownership explícito;
-- limite de concorrência;
-- timeout;
-- cancelamento;
-- cleanup no shutdown;
-- logs bounded;
-- indicação visual permanente de aproximação local.
+Cada run recebe uma chave de ownership interna:
 
-Esse lifecycle não faz parte deste recorte de discovery/preflight e não deve ser simulado por processo ad-hoc.
+```text
+local-ci:<projectId>:<runId>
+```
+
+Consulta e cancelamento exigem `projectId + runId`, impedindo que um run seja operado por outro projeto. A concorrência padrão é limitada a duas execuções simultâneas e cada run possui timeout de 30 minutos. Timeout e shutdown cancelam somente as chaves pertencentes ao Local CI.
+
+A execução reutiliza `DetachableExecutionService`, portanto:
+
+- desconexão de cliente não mata o processo;
+- reattach recupera o buffer retido;
+- logs passam pela máscara central de segredos;
+- o buffer é bounded e sinaliza `truncated`;
+- cancelamento segue TERM → KILL do lifecycle compartilhado.
+
+### Ambiente isolado
+
+Para Local CI, herdar todo `process.env` seria autoridade excessiva. Antes do start o serviço sobrescreve as variáveis ambientais herdadas e mantém apenas um allowlist operacional mínimo (`PATH`, `HOME`, usuário/shell, runtime temporário e contexto Docker), além de `CI=true`.
+
+Variáveis como `GITHUB_TOKEN`, `DATABASE_URL` e demais entradas arbitrárias do processo não são propagadas. O serviço também não lê `.env`, GitHub Secrets ou parâmetros de secret da UI.
+
+Essa barreira não transforma workflows não confiáveis em seguros: `act` ainda executa código definido no repositório com as permissões do usuário local. A UI futura deve deixar essa aproximação e esse boundary explícitos antes do start.
+
+## Próximo recorte
+
+Ainda faltam contrato HTTP/streaming e UI para selecionar, acompanhar, reanexar e cancelar runs. Esses consumidores devem compor o lifecycle acima, preservar permanentemente `provider=act` / `approximation=true` e não ampliar o catálogo de argv ou de ambiente.
