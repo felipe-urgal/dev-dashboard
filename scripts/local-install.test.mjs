@@ -42,6 +42,19 @@ function successfulRunner(calls) {
   };
 }
 
+function healthyResponse() {
+  return {
+    ok: true,
+    async json() {
+      return { status: 'ok', service: 'dev-dashboard-api' };
+    },
+  };
+}
+
+function healthyFetch() {
+  return async () => healthyResponse();
+}
+
 test('escapa valores da unit sem permitir quebra de diretiva', () => {
   assert.equal(systemdQuote('/tmp/a b'), '"/tmp/a b"');
   assert.equal(systemdQuote('/tmp/100%'), '"/tmp/100%%"');
@@ -105,7 +118,7 @@ test('ambiente gerenciado fixa paths, porta e origem sem persistir secrets', () 
   assert.doesNotMatch(runtimeEnvironment, /TOKEN|SECRET|VERCEL/);
 });
 
-test('install é idempotente, grava apenas metadados não sensíveis e habilita a unit', async (t) => {
+test('install é idempotente, reinicia a unit e grava apenas metadados não sensíveis', async (t) => {
   const { repositoryRoot, home, environment } = await fixture(t);
   const calls = [];
   const run = successfulRunner(calls);
@@ -117,6 +130,10 @@ test('install é idempotente, grava apenas metadados não sensíveis e habilita 
     nodePath: '/opt/node/bin/node',
     resolveRealpath: async (value) => value,
     runCommand: run,
+    fetchImpl: healthyFetch(),
+    sleepImpl: async () => undefined,
+    readinessAttempts: 1,
+    readinessIntervalMs: 0,
   };
 
   const first = await installLocal(options);
@@ -148,9 +165,87 @@ test('install é idempotente, grava apenas metadados não sensíveis e habilita 
   assert.equal(
     calls.filter(
       (entry) =>
-        entry.args.join(' ') === `--user enable --now ${LOCAL_SERVICE_NAME}`,
+        entry.args.join(' ') === `--user enable ${LOCAL_SERVICE_NAME}`,
     ).length,
     2,
+  );
+  assert.equal(
+    calls.filter(
+      (entry) =>
+        entry.args.join(' ') === `--user restart ${LOCAL_SERVICE_NAME}`,
+    ).length,
+    2,
+  );
+  assert.equal(
+    calls.some((entry) => entry.args.includes('--now')),
+    false,
+  );
+});
+
+test('install aguarda readiness transitória depois do restart', async (t) => {
+  const { repositoryRoot, home, environment } = await fixture(t);
+  const calls = [];
+  let healthChecks = 0;
+  let sleeps = 0;
+
+  await installLocal({
+    platform: 'linux',
+    rootDirectory: repositoryRoot,
+    homeDirectory: home,
+    environment,
+    nodePath: '/opt/node/bin/node',
+    resolveRealpath: async (value) => value,
+    runCommand: successfulRunner(calls),
+    fetchImpl: async () => {
+      healthChecks += 1;
+      return healthChecks < 3 ? { ok: false } : healthyResponse();
+    },
+    sleepImpl: async () => {
+      sleeps += 1;
+    },
+    readinessAttempts: 3,
+    readinessIntervalMs: 0,
+  });
+
+  assert.equal(healthChecks, 3);
+  assert.equal(sleeps, 2);
+  const restartIndex = calls.findIndex(
+    (entry) => entry.args.join(' ') === `--user restart ${LOCAL_SERVICE_NAME}`,
+  );
+  assert.ok(restartIndex >= 0);
+});
+
+test('install falha com diagnóstico quando API não fica saudável', async (t) => {
+  const { repositoryRoot, home, environment } = await fixture(t);
+  const calls = [];
+  let healthChecks = 0;
+
+  await assert.rejects(
+    installLocal({
+      platform: 'linux',
+      rootDirectory: repositoryRoot,
+      homeDirectory: home,
+      environment,
+      nodePath: '/opt/node/bin/node',
+      resolveRealpath: async (value) => value,
+      runCommand: successfulRunner(calls),
+      fetchImpl: async () => {
+        healthChecks += 1;
+        return { ok: false };
+      },
+      sleepImpl: async () => undefined,
+      readinessAttempts: 2,
+      readinessIntervalMs: 0,
+    }),
+    /API não ficou saudável.*local:status.*journalctl/,
+  );
+
+  assert.equal(healthChecks, 2);
+  assert.ok(
+    calls.some(
+      (entry) =>
+        entry.args.join(' ') === `--user restart ${LOCAL_SERVICE_NAME}`,
+    ),
   );
 });
 
@@ -189,6 +284,9 @@ test('status combina unit, ambiente gerenciado, systemd e health reais da instal
     nodePath: '/opt/node/bin/node',
     resolveRealpath: async (value) => value,
     runCommand: successfulRunner([]),
+    fetchImpl: healthyFetch(),
+    readinessAttempts: 1,
+    readinessIntervalMs: 0,
   });
 
   const status = await localStatus({
@@ -201,12 +299,7 @@ test('status combina unit, ambiente gerenciado, systemd e health reais da instal
     }),
     fetchImpl: async (url) => {
       assert.equal(url, 'http://127.0.0.1:4343/api/health');
-      return {
-        ok: true,
-        async json() {
-          return { status: 'ok', service: 'dev-dashboard-api' };
-        },
-      };
+      return healthyResponse();
     },
   });
 
@@ -238,6 +331,9 @@ test('status considera incompleta instalação sem ambiente gerenciado', async (
     nodePath: '/opt/node/bin/node',
     resolveRealpath: async (value) => value,
     runCommand: successfulRunner([]),
+    fetchImpl: healthyFetch(),
+    readinessAttempts: 1,
+    readinessIntervalMs: 0,
   });
   const paths = resolveLocalInstallPaths(environment, home);
   await rm(paths.runtimeEnvironmentPath);
@@ -246,12 +342,7 @@ test('status considera incompleta instalação sem ambiente gerenciado', async (
     homeDirectory: home,
     environment,
     runCommand: successfulRunner([]),
-    fetchImpl: async () => ({
-      ok: true,
-      async json() {
-        return { status: 'ok', service: 'dev-dashboard-api' };
-      },
-    }),
+    fetchImpl: async () => healthyResponse(),
   });
 
   assert.equal(status.installed, false);
@@ -267,6 +358,9 @@ test('open usa xdg-open sem shell e uninstall preserva checkout/config funcional
     nodePath: '/opt/node/bin/node',
     resolveRealpath: async (value) => value,
     runCommand: successfulRunner([]),
+    fetchImpl: healthyFetch(),
+    readinessAttempts: 1,
+    readinessIntervalMs: 0,
   });
   const paths = resolveLocalInstallPaths(environment, home);
   const preserved = path.join(paths.configDirectory, 'api-token');
