@@ -164,8 +164,7 @@ test('install é idempotente, reinicia a unit e grava apenas metadados não sens
   );
   assert.equal(
     calls.filter(
-      (entry) =>
-        entry.args.join(' ') === `--user enable ${LOCAL_SERVICE_NAME}`,
+      (entry) => entry.args.join(' ') === `--user enable ${LOCAL_SERVICE_NAME}`,
     ).length,
     2,
   );
