@@ -99,6 +99,48 @@ test('fica ready quando nenhuma porta publicada está ocupada ou reservada por o
   );
 });
 
+test('falha fechado para porta publicada UDP porque o inspetor atual comprova apenas TCP', async () => {
+  let called = false;
+  const service = new DockerComposePreflightService({
+    inspect: async () => {
+      called = true;
+      return inspection();
+    },
+  });
+  const udpConfig: ComposeConfigSnapshot = {
+    ...config,
+    services: [
+      {
+        name: 'dns',
+        profiles: [],
+        dependsOn: [],
+        ports: [
+          {
+            targetPort: 53,
+            publishedPort: 5353,
+            protocol: 'udp',
+          },
+        ],
+      },
+    ],
+    declaredPorts: [
+      {
+        projectId: project.id,
+        port: 5353,
+        role: 'dns',
+        source: 'compose',
+        confidence: 'certain',
+      },
+    ],
+  };
+
+  const result = await service.inspect(project, udpConfig);
+
+  assert.equal(result.state, 'unavailable');
+  assert.equal(called, false);
+  assert.match(result.diagnostic ?? '', /somente portas TCP/u);
+});
+
 test('bloqueia porta Compose ocupada mesmo quando owner não é conhecido', async () => {
   const service = new DockerComposePreflightService({
     inspect: async () =>
