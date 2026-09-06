@@ -13,6 +13,13 @@ const CONTENT_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
+const BROWSER_BOOTSTRAP_PATTERN = /^[a-f0-9]{64}$/;
+const BROWSER_BOOTSTRAP_META = 'dev-dashboard-browser-bootstrap';
+
+export interface StaticDashboardOptions {
+  browserBootstrapToken?: string;
+}
+
 export async function validateDashboardBuild(
   directory: string,
 ): Promise<string> {
@@ -47,12 +54,29 @@ export async function validateDashboardBuild(
   return root;
 }
 
+function injectBrowserBootstrap(html: string, token: string | undefined): string {
+  if (!token) return html;
+  if (!BROWSER_BOOTSTRAP_PATTERN.test(token)) {
+    throw new Error('Bootstrap de navegador inválido para o frontend local.');
+  }
+
+  const meta = `<meta name="${BROWSER_BOOTSTRAP_META}" content="${token}">`;
+  return html.includes('</head>')
+    ? html.replace('</head>', `${meta}</head>`)
+    : `${meta}${html}`;
+}
+
 export async function registerStaticDashboard(
   app: FastifyInstance,
   directory: string,
+  options: StaticDashboardOptions = {},
 ): Promise<void> {
   const root = await validateDashboardBuild(directory);
-  const index = await readFile(path.join(root, 'index.html'));
+  const indexPath = path.join(root, 'index.html');
+  const index = injectBrowserBootstrap(
+    await readFile(indexPath, 'utf8'),
+    options.browserBootstrapToken,
+  );
 
   app.setNotFoundHandler(async (request, reply) => {
     const rawPathname = request.url.split('?', 1)[0] ?? '/';
@@ -81,7 +105,6 @@ export async function registerStaticDashboard(
           canonical.startsWith(`${root}${path.sep}`) &&
           (await stat(canonical)).isFile()
         ) {
-          const body = await readFile(canonical);
           const extension = path.extname(canonical).toLowerCase();
           reply.type(CONTENT_TYPES[extension] ?? 'application/octet-stream');
           reply.header(
@@ -90,7 +113,10 @@ export async function registerStaticDashboard(
               ? 'public, max-age=31536000, immutable'
               : 'no-cache',
           );
-          return request.method === 'HEAD' ? reply.send() : reply.send(body);
+          if (request.method === 'HEAD') return reply.send();
+          return canonical === indexPath
+            ? reply.send(index)
+            : reply.send(await readFile(canonical));
         }
       } catch {
         /* arquivo ausente segue para fallback ou 404 */
