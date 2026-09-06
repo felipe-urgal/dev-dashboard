@@ -94,8 +94,7 @@ export class DockerComposeLifecycleService {
   public constructor(
     private readonly provider: Pick<DockerComposeProvider, 'inspect'>,
     private readonly preflight: Pick<DockerComposePreflightService, 'inspect'>,
-    private readonly runStart: DockerComposeStartCommandRunner =
-      defaultStartCommandRunner,
+    private readonly runStart: DockerComposeStartCommandRunner = defaultStartCommandRunner,
     options: DockerComposeLifecycleServiceOptions = {},
   ) {
     this.supportsWait = options.supportsWait ?? (async () => false);
