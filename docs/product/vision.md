@@ -2,205 +2,165 @@
 
 ## Resumo
 
-O Dev Dashboard é uma central local de desenvolvimento para organizar projetos, iniciar serviços, acompanhar processos e executar tarefas recorrentes sem depender de múltiplos terminais e comandos memorizados.
+O Dev Dashboard é um **control plane local de desenvolvimento** para descobrir projetos, entender o ambiente, operar runtimes e Git, executar testes/diagnósticos e trabalhar com Produção por contratos explícitos.
 
-O produto combina a velocidade do CLI existente com uma interface web profissional, preservando o controle local e a segurança do ambiente do desenvolvedor.
+A meta não é substituir terminal, IDE, Docker Desktop, GitHub ou providers externos. O valor está em reunir contexto e operações recorrentes numa superfície local, simples, ágil e funcional, com guardrails consistentes.
 
 ## Problema
 
-Desenvolvedores que trabalham com múltiplos projetos Rails e Node geralmente precisam:
+Quem mantém vários projetos Rails/Node costuma alternar entre:
 
-- localizar repositórios em diferentes pastas;
-- lembrar comandos específicos de cada projeto;
-- iniciar vários processos;
-- acompanhar portas e PIDs;
-- consultar logs;
-- alternar entre terminal, navegador e editor;
-- repetir operações Git, testes e banco;
-- manter contexto sobre quais serviços estão ativos.
+- pastas/workspaces;
+- processos e portas;
+- logs;
+- Git/branches/PRs;
+- testes;
+- banco/migrations;
+- dependências/toolchain/environment;
+- CI e produção.
 
-Essas tarefas são simples isoladamente, mas geram fricção quando se repetem durante todo o dia.
+A informação existe, mas fica espalhada e exige lembrar comandos, contexto e estado de cada ferramenta.
 
 ## Proposta de valor
 
-O Dev Dashboard oferece uma única interface para:
+O Dashboard deve permitir um fluxo próximo de:
 
-- encontrar projetos locais;
-- entender as capacidades de cada projeto;
-- iniciar e parar servidores;
-- visualizar estados e logs;
-- abrir aplicações no navegador;
-- alternar entre workspaces;
-- executar ações de desenvolvimento conhecidas;
-- preservar a opção de uso pelo terminal.
+```text
+descobrir projeto
+  ↓
+validar ambiente/toolchain
+  ↓
+entender blockers/atenções
+  ↓
+subir e acompanhar runtime
+  ↓
+Git + testes + banco/dependências
+  ↓
+readiness
+  ↓
+produção com confirmação/recovery
+```
 
-## Público inicial
+Sempre preservando a possibilidade de abrir a ferramenta especializada quando ela for a melhor interface.
 
-O público inicial é composto por desenvolvedores que:
+## Princípios
 
-- utilizam Linux;
-- trabalham com Rails, Node ou ambos;
-- mantêm vários repositórios locais;
-- preferem ferramentas locais;
-- usam terminal diariamente;
-- precisam reduzir tarefas repetitivas;
-- valorizam transparência sobre comandos e processos.
+### Local por padrão
 
-## Princípios do produto
+A API e os runtimes do Dashboard permanecem locais/loopback por padrão. Operações básicas não dependem de um serviço cloud do próprio produto.
 
-### Local primeiro
-
-O produto deve funcionar integralmente no computador do usuário.
-
-A API deve permanecer restrita ao ambiente local e não depender de um serviço externo para executar operações básicas.
+Providers externos são integrações explícitas e degradáveis; sua indisponibilidade não deve derrubar capacidades locais sem relação.
 
 ### CLI e Web complementares
 
-A interface web não substitui o terminal.
+O CLI Bash original continua válido. A web oferece descoberta, contexto visual, acompanhamento e operações estruturadas. Não existe objetivo de migrar tudo para TypeScript apenas por uniformidade.
 
-O CLI continua sendo a opção mais rápida para usuários que preferem teclado e comandos. O navegador oferece contexto visual, descoberta, monitoramento e ações organizadas.
+### Autoridade mínima
 
-### Transparência
+O browser trabalha com IDs/contratos, não com shell, `cwd`, paths absolutos ou credenciais livres.
 
-Antes de executar uma ação relevante, o usuário deve conseguir entender:
+Mutações sensíveis usam preview/confirmação/revalidação proporcionais ao risco. Depois de uma etapa irreversível, o produto representa recovery honestamente em vez de prometer rollback cego.
 
-- qual projeto será afetado;
-- qual ação será executada;
-- qual comando está associado;
-- qual processo foi criado;
-- qual porta está sendo utilizada;
-- onde os logs estão armazenados.
+### Evidência antes de inferência
 
-### Segurança por padrão
+Estados importantes devem indicar de onde vieram e, quando necessário, freshness/contexto. Ausência de evidência não vira falso estado saudável.
 
-A aplicação não deve aceitar comandos livres enviados pelo navegador.
+### Domínios pequenos, não uma engine universal
 
-Ações devem vir de um catálogo fechado, com validação de parâmetros, caminhos e permissões.
+Process Manager, Script Execution, Deployment, Self Update, Git, banco e outros lifecycles continuam separados quando possuem ownership/recovery distintos.
 
-### Evolução incremental
+Novas features devem reutilizar contratos existentes antes de criar uma segunda identidade, allocator, executor ou integração remota.
 
-A migração do código Bash para pacotes TypeScript deve acontecer somente quando trouxer benefício mensurável.
+### UI simples
 
-O funcionamento existente não deve ser quebrado apenas para perseguir uma arquitetura ideal.
+Priorizar:
 
-### Feedback imediato
+- pouco atrito;
+- hierarquia clara;
+- ações no contexto onde são usadas;
+- loading somente durante trabalho real;
+- mensagens diretas;
+- acessibilidade e responsividade;
+- sem dashboards densos apenas porque há dados disponíveis.
 
-Toda ação deve comunicar seu estado:
+## Estado atual do produto
 
-```text
-aguardando
-executando
-concluída
-falhou
-cancelada
-```
+Capacidades já presentes incluem, entre outras:
 
-Operações longas devem exibir logs e progresso.
+- workspaces e discovery de projetos;
+- Project Profile/provider de discovery;
+- Project Doctor e Toolchain Doctor;
+- Central de Atenção;
+- Process Manager, logs e runtimes Rails reconhecidos;
+- Git com diff/histórico/branches/commits/sincronização/PRs;
+- Cockpit GitHub read-only com checks/reviews/mergeability;
+- testes e histórico/Test Intelligence;
+- banco, snapshots e operações reconhecidas;
+- Environment Contract;
+- Port Registry + Allocator;
+- dependências com inventário local confiável;
+- Production Contract com `command`, `git-managed`/Vercel e `self-update`;
+- instalação permanente do próprio Dashboard via `systemd --user`;
+- fundamentos read-only para Worktrees, Docker Compose, Migration Providers, Security Center, Release Readiness e Local CI/`act`.
 
-## Objetivos da primeira versão
+Esses últimos fundamentos **não significam lifecycle/UI completos**. O status detalhado do trabalho futuro fica nas issues abertas.
 
-A primeira versão web deve permitir:
+## Capacidades removidas
 
-1. cadastrar workspaces;
-2. detectar projetos Rails e Node;
-3. visualizar as capacidades dos projetos;
-4. iniciar e parar servidores;
-5. consultar PID, porta e estado;
-6. abrir aplicações no navegador;
-7. acompanhar logs;
-8. manter o CLI existente funcional;
-9. executar toda a solução com um único comando;
-10. possuir testes e documentação básicos.
+Algumas experiências foram construídas e depois removidas por não justificarem complexidade/posição no produto:
 
-## Fora do escopo inicial
+- IDE embutida/Monaco;
+- abertura de editor externo pelo Dashboard;
+- Assistente IA e Code Review por IA;
+- páginas globais que não justificaram navegação própria.
 
-Não fazem parte da primeira versão:
+Documentos históricos explicitamente marcados como removidos podem registrar essas decisões, mas não descrevem capacidade atual.
 
-- acesso remoto;
-- múltiplos usuários;
-- hospedagem em nuvem;
-- terminal arbitrário no navegador;
-- edição de código;
-- substituição de IDE;
-- suporte oficial completo a Windows e macOS;
-- Docker ou Kubernetes como requisitos;
-- sincronização de configurações entre computadores;
-- automações destrutivas sem confirmação.
+## Direção atual
 
-## Direção de longo prazo
+O roadmap vivo está na issue **#596**. As frentes abertas devem ser lidas pelo estado real de cada issue, não por listas versionadas neste documento.
 
-Já entregue no dashboard web (ver o histórico de issues e PRs para o
-detalhamento por task): status e operações Git (leitura e mutações com
-confirmação), execução de testes, scripts Node, banco e tarefas Rails de
-baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette,
-notificações locais e serviços Docker Compose (start/stop/logs/build).
-Uma IDE embutida com Monaco e LSP chegou a ser construída (tasks 076–083) e
-foi depois removida (PR #262); um assistente de IA local em painel próprio
-(chat, catálogo de ferramentas somente leitura e aplicação de edições
-propostas via preview/confirmação), junto com toda a infraestrutura de
-seleção de provider/consentimento cloud, também chegou a existir e foi
-removido na task 238 — a Code review por IA que a task 238 manteve (Ollama
-fixo, na aba **Git**) foi removida depois também, num commit sem task
-numerada (ver
-[`../architecture/ai-multi-provider.md`](../architecture/ai-multi-provider.md)).
-"Edição de código" e "substituição de IDE" seguem fora do escopo, como já
-listado abaixo.
+A sequência estrutural atual prioriza:
 
-O Dev Dashboard poderá evoluir ainda mais para uma plataforma local
-extensível com:
+1. corrigir o redeploy local/self-update gerenciado (#659);
+2. criar uma identidade operacional comum de Development Environment Instance (#598);
+3. evoluir Worktrees/Compose/Dev Containers/Stacks sem identidades paralelas;
+4. levar fundamentos de Readiness, Dependency Health, Migrations, Security e Local CI às superfícies de produto;
+5. conectar Task Context e Activity/Jobs usando as integrações/lifecycles já existentes.
 
-- histórico de jobs unificado (Git, Rails e processos numa única linha do
-  tempo);
-- GitHub CLI (`git-pr` e além);
-- plugins;
-- perfis de workspace;
-- automações configuráveis;
-- métricas locais de desenvolvimento.
+Essa ordem pode mudar; #596 é a fonte de planejamento, enquanto `docs/` continua descrevendo comportamento implementado e princípios permanentes.
 
-## Métricas de sucesso
+## O que não priorizar agora
 
-### Adoção
-
-- quantidade de workspaces cadastrados;
-- quantidade de projetos detectados;
-- frequência de abertura do dashboard;
-- projetos acessados por sessão.
-
-### Utilidade
-
-- servidores iniciados pelo dashboard;
-- logs consultados;
-- ações executadas por projeto;
-- tempo entre abrir o dashboard e iniciar um projeto;
-- redução do uso de comandos repetitivos.
-
-### Confiabilidade
-
-- taxa de sucesso ao iniciar processos;
-- taxa de encerramento correto;
-- scans sem warnings;
-- erros por ação;
-- processos órfãos;
-- falhas de identificação de PID.
-
-### Qualidade
-
-- typecheck sem erros;
-- build reproduzível;
-- suíte de testes aprovada;
-- endpoints com validação;
-- documentação atualizada;
-- regressões no CLI.
+- acesso remoto genérico à máquina;
+- serviço cloud obrigatório do Dev Dashboard;
+- Kubernetes dashboard;
+- marketplace genérico de plugins;
+- cloud IDE;
+- agent autônomo que execute mutações sem confirmação;
+- editor visual genérico de pipelines;
+- executor universal que apague fronteiras de ownership;
+- suporte amplo a frameworks/providers sem demanda concreta.
 
 ## Critério para novas funcionalidades
 
-Uma nova funcionalidade deve responder positivamente a pelo menos uma destas perguntas:
+Uma proposta deve melhorar pelo menos uma dimensão concreta:
 
-- reduz uma tarefa repetitiva?
-- melhora visibilidade do ambiente?
-- reduz risco operacional?
-- elimina a necessidade de lembrar um comando?
-- aproxima o CLI e o navegador de um núcleo comum?
-- melhora a confiabilidade ou testabilidade?
+- reduzir uma tarefa repetitiva;
+- melhorar visibilidade/diagnóstico;
+- reduzir risco operacional;
+- preservar contexto entre ferramentas;
+- tornar uma operação local mais verificável;
+- reutilizar uma fundação existente de forma útil.
 
-Caso contrário, deve permanecer fora do escopo imediato.
+E deve responder também:
+
+- qual domínio é owner?
+- qual evidência sustenta o estado?
+- qual lifecycle/cleanup existe?
+- qual autoridade nova é realmente necessária?
+- isso simplifica a experiência ou apenas adiciona superfície?
+
+## Métrica qualitativa de sucesso
+
+O produto está evoluindo na direção certa quando a pessoa consegue chegar de **“qual projeto precisa de atenção?”** a **“qual ação segura devo executar?”** com menos navegação, menos comandos memorizados e sem perder transparência sobre o que realmente aconteceu.
