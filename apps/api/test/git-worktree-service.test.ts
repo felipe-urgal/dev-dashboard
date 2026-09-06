@@ -69,7 +69,9 @@ test('executa somente git worktree list estruturado no cwd conhecido', async () 
     return payload;
   };
 
-  const result = await new GitWorktreeService(runner, () => NOW).inspect(project);
+  const result = await new GitWorktreeService(runner, () => NOW).inspect(
+    project,
+  );
 
   assert.equal(result.status, 'ready');
   assert.equal(result.observedAt, NOW.toISOString());
@@ -86,7 +88,9 @@ test('falha de Git retorna estado indisponível sem ecoar erro bruto', async () 
     throw new Error('fatal: token=/segredo/path');
   };
 
-  const result = await new GitWorktreeService(runner, () => NOW).inspect(project);
+  const result = await new GitWorktreeService(runner, () => NOW).inspect(
+    project,
+  );
 
   assert.equal(result.status, 'unavailable');
   assert.deepEqual(result.worktrees, []);

@@ -57,7 +57,9 @@ function bounded(value: string, maxLength: number): string | undefined {
 }
 
 function boundedPath(value: string): string | undefined {
-  return value.length > 0 && value.length <= MAX_PATH_LENGTH ? value : undefined;
+  return value.length > 0 && value.length <= MAX_PATH_LENGTH
+    ? value
+    : undefined;
 }
 
 function stableWorktreeId(path: string): string {
