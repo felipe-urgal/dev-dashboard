@@ -19,7 +19,7 @@ export interface AppCompositionOptions {
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
   deploymentService?: DeploymentService;
-  releaseReadinessService?: ReleaseReadinessService;
+  releaseReadinessService?: Pick<ReleaseReadinessService, 'getSnapshot'>;
 }
 
 /**
