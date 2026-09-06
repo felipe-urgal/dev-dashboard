@@ -551,6 +551,7 @@ export class SelfUpdateExecutor {
       env: {
         ...process.env,
         DEV_DASHBOARD_RUNTIME_REVISION: targetRevision,
+        DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT: this.repositoryRoot,
       },
       shell: false,
       detached: true,

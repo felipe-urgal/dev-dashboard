@@ -189,6 +189,41 @@ test('executor usa somente comandos Git fixos e exige fast-forward de origin/mai
   );
 });
 
+test('executor propaga revision e raiz canônica para o handoff do runtime', async () => {
+  let spawned;
+  let unrefCalls = 0;
+  const executor = new SelfUpdateExecutor({
+    repositoryRoot: ROOT_DIRECTORY,
+    runProcess: async () => ({ code: 0, stdout: '', stderr: '' }),
+    spawnProcess: (command, args, options) => {
+      spawned = { command, args, options };
+      return {
+        pid: 4242,
+        unref() {
+          unrefCalls += 1;
+        },
+      };
+    },
+    apiPort: 4343,
+  });
+
+  const result = await executor.startRuntime(REVISION);
+
+  assert.deepEqual(result, { pid: 4242 });
+  assert.equal(spawned.command, process.execPath);
+  assert.match(spawned.args[0], /scripts\/dev-web\.mjs$/);
+  assert.equal(spawned.options.cwd, ROOT_DIRECTORY);
+  assert.equal(spawned.options.env.DEV_DASHBOARD_RUNTIME_REVISION, REVISION);
+  assert.equal(
+    spawned.options.env.DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT,
+    ROOT_DIRECTORY,
+  );
+  assert.equal(spawned.options.shell, false);
+  assert.equal(spawned.options.detached, true);
+  assert.equal(spawned.options.stdio, 'ignore');
+  assert.equal(unrefCalls, 1);
+});
+
 test('readiness só aceita a revision comprovada pelo header do runtime', async () => {
   let calls = 0;
   const fetchImpl = async () => {
