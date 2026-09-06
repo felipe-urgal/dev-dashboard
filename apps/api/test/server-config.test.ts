@@ -16,10 +16,7 @@ test('porta usa default e rejeita valores parciais ou fora da faixa', () => {
 });
 
 test('origem local aceita apenas HTTP local na mesma porta da API', () => {
-  assert.equal(
-    parseLocalOrigin(undefined, 4343),
-    'http://127.0.0.1:4343',
-  );
+  assert.equal(parseLocalOrigin(undefined, 4343), 'http://127.0.0.1:4343');
   assert.equal(
     parseLocalOrigin('http://dev-dashboard.localhost:4343', 4343),
     'http://dev-dashboard.localhost:4343',

@@ -54,7 +54,10 @@ export async function validateDashboardBuild(
   return root;
 }
 
-function injectBrowserBootstrap(html: string, token: string | undefined): string {
+function injectBrowserBootstrap(
+  html: string,
+  token: string | undefined,
+): string {
   if (!token) return html;
   if (!BROWSER_BOOTSTRAP_PATTERN.test(token)) {
     throw new Error('Bootstrap de navegador inválido para o frontend local.');
