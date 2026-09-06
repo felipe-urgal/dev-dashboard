@@ -1,91 +1,98 @@
 # Experiência compartilhada de logs
 
-O dashboard adota duas camadas para saídas de processos e comandos:
+## Estado atual
 
-- **Fluxo / Execução / Saída**: leitura normal, densa e cronológica, com o evento mais recente no final e acompanhamento automático enquanto a pessoa permanece próxima ao fim.
-- **Diagnóstico**: triagem de sinais que merecem atenção antes de mostrar os detalhes completos. Erros, avisos, lentidão, retries e padrões repetidos são apresentados como problemas investigáveis.
+A experiência de log do Dev Dashboard prioriza **saída real, legível e limitada**, usando componentes Vue/terminal declarativos. A antiga proposta de transformar todas as saídas em uma camada comum de “Fluxo + Diagnóstico” não é mais a arquitetura geral do produto.
 
-A regra de produto é **conclusão antes de evidência**: o dashboard destaca primeiro o que parece errado e só então expõe stack trace, SQL, parâmetros, renderização ou o trecho bruto relacionado.
+Não use este documento para justificar enhancer global de DOM, `MutationObserver` ou parsing genérico obrigatório sobre toda saída.
 
-## Aplicação por ferramenta
+## Princípios
 
-| Ferramenta               | Visão normal          | Diagnóstico                                         |
-| ------------------------ | --------------------- | --------------------------------------------------- |
-| Logs do servidor         | Fluxo HTTP/Rails/Node | 5xx/exceptions, requests lentas, N+1 e SQL repetido |
-| Sidekiq                  | Fluxo de jobs         | falhas, retries e jobs lentos                       |
-| Webpack                  | Fluxo de compilação   | erros, warnings e builds lentos                     |
-| Testes                   | Execução              | falhas, warnings e contexto do runner               |
-| Scripts                  | Saída                 | erros, warnings e execução lenta                    |
-| Dependências/build       | Saída                 | erros, warnings e build lento                       |
-| Operações Rails de banco | Saída                 | erros e warnings do comando pontual                 |
+1. **Log pertence ao domínio que produz a execução.** Servidor, Sidekiq/Webpack, Testes, Dependências, banco e Deployment mantêm seus lifecycles/contratos próprios.
+2. **Saída bruta continua sendo evidência.** Não esconda o log real atrás de uma classificação que pode errar.
+3. **Diagnóstico tipado só quando existe regra confiável.** Ex.: `P1001` em `prod:check` pode virar um erro estável; texto livre arbitrário não vira protocolo.
+4. **Mascaramento acontece antes da exposição.** UI não é a fronteira principal para esconder secrets.
+5. **Limites são obrigatórios.** Buffers, arquivos, streams e respostas precisam de teto conhecido.
+6. **Auto-follow respeita leitura humana.** Se a pessoa rola para cima, não force o viewport de volta ao final até ela pedir.
+7. **Estado visual é real.** Terminal parado não finge streaming; loading só existe com trabalho em andamento.
 
-O suporte a Docker Compose não faz parte desta entrega porque essa integração não existe mais no produto atual.
+## Servidor
 
-## Fluxo normal
+Logs do servidor ficam dentro da aba **Servidor**. A antiga aba separada Logs foi removida; sua rota histórica redireciona para Servidor.
 
-- Uma linha por evento sempre que possível: para requests Rails, horário, método, rota, status e
-  duração bastam na leitura inicial.
-- Controller, quantidade de queries, SQL, parâmetros e o trecho completo do log aparecem somente
-  após selecionar o evento. SQL começa recolhida para não dominar o fluxo.
-- Pausar é a ação direta; atualizar, exportar e limpar ficam em um menu de mais ações.
-- Busca e filtros sem transformar cada linha em um card.
-- Auto-follow pelo final da saída, como em um terminal.
-- Rolagem manual pausa o acompanhamento; voltar ao final permite retomar.
-- Segredos continuam respeitando o mascaramento aplicado pela API.
-- Logs grandes continuam limitados para preservar responsividade.
+O snapshot é entregue ao componente de terminal/log atual. A UI oferece leitura cronológica e acompanhamento do final sem pós-processamento global do DOM.
 
-## Diagnóstico
+A identidade/status do processo não é inferida pelo conteúdo do log. Processo, PID/ownership, porta e lifecycle vêm do Process Manager.
 
-O diagnóstico não tenta interpretar qualquer mensagem como certeza. Ele usa sinais conservadores e específicos do domínio, preservando o conteúdo original como evidência.
+## Sidekiq e Webpack
 
-### Servidor Rails
+Runtimes Rails reconhecidos combinam status/lifecycle e terminal de saída na própria superfície. Eles não precisam passar por uma engine universal de diagnóstico para serem úteis.
 
-A estrutura do log permite um diagnóstico mais rico:
+## Testes e Dependências
 
-- status 5xx e exceptions;
-- request acima de 1 segundo;
-- SQL agrupado por padrão;
-- possível N+1;
-- consulta repetida;
-- tempos de Active Record, views e GC.
+Execuções longas podem usar PTY destacável e continuar no backend após a navegação da página. O buffer é bounded e o frontend pode reanexar enquanto o registro ainda existir.
 
-SQL, parâmetros, renderização e log completo começam recolhidos para que uma consulta extensa não domine a tela.
+Não classifique uma suíte como flaky apenas por texto de log; Test Intelligence possui contratos próprios para evidência histórica.
 
-### Sidekiq
+## Banco e migrations
 
-A visualização procura eventos de job, falhas, retries e duração elevada. JID, classe e fila continuam pesquisáveis no fluxo original.
+Operações Rails/migrations também podem usar execução destacável. Erros específicos só devem ganhar diagnóstico tipado quando existe código/condição estável reconhecida.
 
-### Webpack
+O Database Explorer trabalha com resultados estruturados do driver; não converta tabela/consulta em “log” apenas para reutilizar UI.
 
-Compilação, conclusão, warnings e errors recebem classificação sem alterar a saída original. Builds acima do limiar configurado pelo parser aparecem como lentos.
+## Deployment
 
-### Testes
+Deployment mantém timeline + log operacional próprios.
 
-**Descrição histórica, hoje não exposta pela aba Testes** (ver `docs/guia/testes.md`): o modo normal acompanha a execução. O modo Diagnóstico combina a classificação compartilhada com o navegador especializado de falhas já existente, mantendo expected/actual, arquivo, linha e contexto do runner quando disponíveis. Desde o PoC de terminal PTY (task 234, item 1) a aba Testes roda a suíte completa como saída de terminal cru (`xterm.js`), sem essa classificação — reconstruí-la sobre o novo modelo é trabalho futuro.
+- stdout/stderr local passa por masking/limites;
+- mensagens de provider são normalizadas;
+- corpo bruto externo não é persistido como log por padrão;
+- timeline é estado de domínio, não parsing visual da saída.
 
-### Scripts, dependências e comandos pontuais
+## Docker Compose e Local CI
 
-**Scripts, como ferramenta com aba própria, foi removido do produto** (não existe mais rota nem
-componente para a antiga aba Scripts); a saída de Dependências continua exposta, hoje via terminal
-PTY (ver `docs/guia/dependencias.md`), não pela composição descrita aqui. Como a saída pode
-pertencer a ferramentas arbitrárias, o diagnóstico é propositalmente conservador: erros, warnings e
-lentidão evidente. Não há tentativa de inferir semântica específica quando o formato não é
-conhecido.
+Existem fundações read-only para Docker Compose e `act`, mas seus lifecycles completos de produto ainda estão abertos nas issues #588/#594.
 
-## Implementação
+Quando logs forem adicionados, eles devem reutilizar a infraestrutura de execução/stream adequada sem criar uma segunda identidade/lifecycle.
 
-`ProjectLogExperience.vue` fornece a composição compartilhada e `utils/log-experience.ts` concentra a classificação genérica. Ferramentas com estrutura própria podem manter um diagnóstico especializado, como o inspetor Rails dos logs do servidor, sem duplicar a linguagem visual e o comportamento do fluxo.
+## Transporte
 
-A implementação deve continuar respeitando os limites de renderização, cancelamento/streaming existentes e os contratos de segurança de cada ferramenta.
+Não existe regra única de que todo log precisa de polling ou SSE.
 
-### Transporte: push via SSE, não polling
+Use a fonte apropriada:
 
-Logs do servidor e dos workers Rails (Sidekiq/webpack) chegam por push (Server-Sent Events), não
-por polling do navegador — `apps/api/src/http/log-event-stream.ts` (`streamLogSnapshots`) reaproveita
-a mesma leitura de arquivo já usada pelas rotas de leitura avulsa (`readManagedLog`/`readWorkerLog`),
-só que o próprio servidor reconsulta a cada 1s e só emite um evento novo quando o conteúdo muda —
-mesmo padrão que Testes/Scripts já usam (`apps/api/src/routes/scripts.ts`,
-`apps/api/src/routes/tests/events-route.ts`). No frontend, `useProjectLogsPolling.ts` (servidor) e
-`useProjectRailsWorker.ts` (Sidekiq/webpack) assinam esse stream via `followEventStream` em vez de
-reconsultar em intervalo fixo; a ação manual "Atualizar" continua fazendo uma busca avulsa
-(`fetchProjectProcessLog`/`fetchProjectRailsWorkerLog`), independente do stream.
+- snapshot para leitura pontual;
+- SSE/WS quando o backend já oferece evento adequado;
+- polling somente como fallback explícito e com cleanup;
+- PTY para execuções que realmente precisam de semântica de terminal.
+
+A política geral de estado vivo está em [`../architecture/frontend-live-state.md`](../architecture/frontend-live-state.md).
+
+## Segurança
+
+O browser não escolhe path absoluto de log. A API deriva a fonte a partir de projeto/execução conhecidos e aplica limites/masking antes de devolver conteúdo.
+
+Secrets reconhecidos podem ser mascarados, mas isso não autoriza o projeto alvo a imprimir credenciais deliberadamente.
+
+Não inclua em logs públicos:
+
+- tokens;
+- cookies/sessões;
+- URLs de banco com credencial;
+- conteúdo de `.env`;
+- bodies brutos de providers;
+- paths internos desnecessários.
+
+## Implementação visual
+
+Prefira componentes Vue/composables declarativos. A antiga camada de enhancers vanilla-DOM foi removida/refatorada; novas features não devem reintroduzi-la.
+
+Quando uma superfície precisar de diagnóstico rico, implemente-o como parser/componente do domínio, com testes próprios e acesso ao log original como evidência.
+
+## Guia de uso
+
+- [Servidor](../guia/servidor.md)
+- [Logs integrados](../guia/logs.md)
+- [Testes](../guia/testes.md)
+- [Dependências](../guia/dependencias.md)
+- [Produção](../production-ui.md)

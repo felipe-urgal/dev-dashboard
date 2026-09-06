@@ -1,79 +1,20 @@
 # Dev Dashboard — documentação do projeto
 
-O **Dev Dashboard** é uma aplicação local para organizar, inspecionar e operar projetos Rails e Node por uma interface web, mantendo o CLI Bash como interface complementar.
+O Dev Dashboard é uma aplicação local para organizar, inspecionar e operar projetos Rails/Node, mantendo o CLI Bash como interface complementar.
 
-Projetos que optam por um `Production Contract v1` podem expor uma superfície de **Produção** com revision, health, drift, planejamento, confirmação, timeline e recovery. Providers locais usam `strategy=command`; Vercel usa `strategy=git-managed`; o próprio Dashboard usa `strategy=self-update` habilitado e fechado.
-
-Esta documentação descreve o estado vivo do produto e da engenharia. Planejamento futuro permanece em issues/PRs.
+`docs/` descreve **comportamento implementado, arquitetura e operação permanente**. Planejamento futuro, débitos e acompanhamento multi-PR vivem em issues/PRs.
 
 ## Entradas canônicas
 
-- [`DEVELOPMENT.md`](DEVELOPMENT.md): setup, execução local, gate de PR e checks direcionados;
-- [`local-installation.md`](local-installation.md): instalação permanente no Linux, autostart, URL amigável e troubleshooting;
-- [`PRODUCTION.md`](PRODUCTION.md): produção do próprio Dev Dashboard via self-update;
-- [`../README.md`](../README.md): visão geral e quickstart;
-- [`guia/README.md`](guia/README.md): uso por funcionalidade.
+- [`DEVELOPMENT.md`](DEVELOPMENT.md) — setup, desenvolvimento e gate de PR;
+- [`local-installation.md`](local-installation.md) — instalação permanente via `systemd --user`;
+- [`PRODUCTION.md`](PRODUCTION.md) — produção/self-update do próprio Dashboard;
+- [`../README.md`](../README.md) — visão geral/quickstart;
+- [`guia/README.md`](guia/README.md) — uso cotidiano por funcionalidade.
 
-## Para quem esta documentação existe
+## Estado geral
 
-| Público | O que encontrará aqui |
-| --- | --- |
-| Pessoa usuária | instalação, recursos, guias por aba e troubleshooting |
-| Pessoa desenvolvedora | arquitetura, contratos, padrões e testes |
-| Pessoa revisora | limites de segurança, mutações e critérios de qualidade |
-| Pessoa mantenedora | operação, persistência, providers e evolução do monorepo |
-
-## Capacidades principais
-
-### Workspaces e projetos
-
-- cadastro persistente de workspaces;
-- scan de projetos Rails/Node;
-- capabilities detectadas;
-- discovery fail-closed de `.dev-dashboard/production.json`;
-- favoritos/navegação e diagnóstico do ambiente.
-
-### Desenvolvimento local
-
-- processos em background;
-- seleção de porta/ambiente;
-- logs limitados/mascarados;
-- testes e histórico;
-- Rails migrations/routes, dependências e banco;
-- terminal/console com salvaguardas próprias.
-
-### Git
-
-- status, diff, histórico e commits;
-- CRUD de branches;
-- sincronização, pull/push e PRs;
-- mutações destrutivas sob confirmação.
-
-### Produção
-
-`strategy=command`:
-
-```text
-check -> backup? -> migrate? -> deploy -> verify
-```
-
-`strategy=git-managed` + Vercel:
-
-```text
-check -> backup? -> migrate? -> provider-deploy -> verify
-```
-
-`strategy=self-update` do próprio Dashboard:
-
-```text
-check -> self-update
-```
-
-O domínio oferece preview, confirmação vinculada ao `planHash`, revalidação da revision, timeline, logs, estados terminais e recovery conservador.
-
-Credenciais de providers são configuração local do processo e nunca fazem parte do manifesto.
-
-## Arquitetura em uma página
+A arquitetura atual combina:
 
 ```text
 CLI Bash                        Dashboard Vue 3
@@ -84,114 +25,152 @@ CLI Bash                        Dashboard Vue 3
    └──────────────┬──────────────────┘
                   ▼
  contracts │ core │ project-discovery │ process-manager
- Git │ deployment │ testes │ banco │ Rails │ arquivos
+ Git │ testes │ banco │ scripts │ deployment │ self-update
                   │
           ┌───────┴────────┐
           ▼                ▼
  sistema/repositórios   providers explícitos
- locais                (Vercel)
+ locais                (ex.: Vercel)
 ```
 
-A API é a fronteira de segurança. O navegador trabalha com IDs/contratos; não recebe permissão para enviar comandos livres, paths arbitrários ou credenciais de provider.
+A API é a fronteira de segurança. Ações estruturadas usam IDs/contratos, não shell/path/credencial livres enviados pelo browser.
 
-## Princípios arquiteturais
+## Serviços locais
 
-1. **Local por padrão.** API e desenvolvimento escutam em loopback.
-2. **Catálogo fechado.** Ações estruturadas são resolvidas pelo backend.
-3. **Sem shell arbitrário.** Programa e argumentos são separados quando possível.
-4. **IDs em vez de paths.** Operações usam identificadores controlados.
-5. **Contratos compartilhados.** Frontend/backend reutilizam `packages/contracts`.
-6. **Persistência mínima.** Configuração/estado ficam fora do repo e com permissões restritas.
-7. **Confirmação forte.** Mutações sensíveis são vinculadas a contexto/target.
-8. **Revision é evidência.** Produção exige prova do código confirmado.
-9. **Provider não é health.** READY externo não substitui verificação funcional.
-10. **Recovery conservador.** Não há rollback cego após etapa irreversível.
-11. **Documentação junto do código.** Mudança de comportamento atualiza docs na mesma entrega.
-
-## Desenvolvimento rápido
-
-```bash
-npm ci
-npm run doctor
-npm run dev
-```
-
-| Serviço | Endereço |
+| Serviço | Endereço padrão |
 | --- | --- |
 | API | `http://127.0.0.1:4343` |
-| Web | `http://127.0.0.1:5174` |
+| Web/Vite | `http://127.0.0.1:5174` |
+| Preview | `http://127.0.0.1:4173` |
+| Instalação permanente | `http://dev-dashboard.localhost:4343` |
 
-Para a instalação permanente no desktop Linux, use [`local-installation.md`](local-installation.md).
-
-Gate antes do PR:
+## Gate de engenharia
 
 ```bash
 npm run check
 ```
 
-Detalhes em [`DEVELOPMENT.md`](DEVELOPMENT.md) e [`testing-and-quality.md`](testing-and-quality.md).
+Hoje significa:
+
+```text
+format:check -> lint -> test -> build:apps
+```
+
+O CI usa essa interface depois de preparar dependências nativas.
+
+## Produção
+
+### `strategy=command`
+
+```text
+prepare? -> check -> backup? -> migrate? -> deploy -> verify
+```
+
+### `strategy=git-managed` + Vercel
+
+```text
+prepare? -> check -> migrate? -> provider-deploy -> verify
+```
+
+### `strategy=self-update`
+
+O próprio Dashboard usa:
+
+```text
+check -> self-update
+```
+
+Self-update passa por confirmação, handoff/agent, fast-forward, restart e proof-of-revision. A instalação permanente pode delegar o runtime à unit fixa `dev-dashboard.service` em `systemd --user`. A limitação operacional atual de redeploy gerenciado está em #659.
 
 ## Mapa da documentação
 
-### Comece por aqui
+### Comece aqui
 
 - [Desenvolvimento](DEVELOPMENT.md)
+- [Primeiros passos](getting-started.md)
 - [Instalação local automática](local-installation.md)
 - [Produção do próprio Dashboard](PRODUCTION.md)
-- [Primeiros passos](getting-started.md)
 - [Visão geral da arquitetura](architecture/overview.md)
+- [Estrutura do repositório](architecture/repository-structure.md)
 - [Segurança](architecture/security.md)
+- [Fluxos runtime](architecture/runtime-flows.md)
 
-### Produção
+### Produção/deployment
 
 - [Production Contract v1](architecture/production-contract.md)
 - [Domínio de deployment](architecture/deployment-domain.md)
 - [Retry de verify](architecture/deployment-verify-retry.md)
 - [Self-production](architecture/self-production.md)
+- [Security review de self-production](architecture/self-production-security-review.md)
 - [Operação de deployments](deployment-operations.md)
 - [Interface de Produção](production-ui.md)
-- [Guia da aba Produção](guia/producao.md)
+- [Guia de Produção](guia/producao.md)
+- [Ambientes locais por projeto](project-local-environments.md)
 
-### Dashboard web por aba
+### Fundações arquiteturais atuais
+
+- [Frontend live state](architecture/frontend-live-state.md)
+- [Project Profile](architecture/project-profile.md)
+- [Project Profile providers](architecture/project-profile-providers.md)
+- [Toolchain Doctor](architecture/toolchain-doctor.md)
+- [Port Registry](architecture/port-registry.md)
+- [Git Worktrees](architecture/git-worktrees.md)
+- [Docker Compose](architecture/docker-compose.md)
+- [GitHub Cockpit](architecture/github-cockpit.md)
+- [Release Readiness](architecture/release-readiness.md)
+- [Dependency Health](architecture/dependency-health.md)
+- [Migration Providers](architecture/migration-providers.md)
+- [Security Center](architecture/security-center.md)
+- [Local CI com act](architecture/local-ci.md)
+- [Test Intelligence](architecture/test-intelligence.md)
+
+Algumas dessas fundações possuem apenas recortes read-only/backend. O escopo restante fica na issue correspondente; o documento arquitetural descreve o que já existe.
+
+### Guia de uso
 
 - [Guia geral](guia/README.md)
-- [Command Palette](product/command-palette.md)
-- [README](guia/readme.md)
-- [Diagnóstico](guia/diagnostico.md)
 - [Servidor](guia/servidor.md)
-- [Logs](guia/logs.md)
+- [Logs integrados](guia/logs.md)
 - [Git](guia/git.md)
 - [Testes](guia/testes.md)
 - [Banco](guia/banco-de-dados.md)
 - [Dependências](guia/dependencias.md)
 - [Produção](guia/producao.md)
 - [Terminal/Console](guia/terminal.md)
-- [Variáveis](guia/variaveis-de-ambiente.md)
+- [Variáveis de ambiente](guia/variaveis-de-ambiente.md)
+- [Diagnóstico](guia/diagnostico.md)
+- [README do projeto](guia/readme.md)
 - [Workspaces](guia/workspaces.md)
+- [Central de Atenção](guia/central-de-atencao.md)
+- [Command Palette](product/command-palette.md)
 
 ### Engenharia e operação
 
 - [Guia de engenharia](development-guide.md)
 - [Testes e qualidade](testing-and-quality.md)
 - [Contribuindo](../CONTRIBUTING.md)
+- [AGENTS](../AGENTS.md)
 - [Playbook de CI](ci-fix-playbook.md)
 - [Operação e troubleshooting](operations-and-troubleshooting.md)
-- [Referência da API](architecture/api-reference.md)
+- [Referência gerada da API](architecture/api-reference.md)
 
-## Planejamento
+## Documentos históricos
 
-Roadmaps, débitos e acompanhamento multi-PR vivem nas issues e PRs do GitHub. `docs/` descreve comportamento implementado e procedimentos permanentes; não recrie `tasks/`, `NEXT.md` ou arquivos equivalentes.
+Algumas decisões removidas ainda possuem documento para contexto histórico, como IDE/IA/editor local. Esses arquivos precisam estar explicitamente marcados como **removidos/históricos** e não podem ser usados como prova de capability atual.
+
+O antigo plano de refatoração de arquivos grandes também foi reduzido a um registro histórico concluído.
+
+## Regra de planejamento
+
+Não recrie `tasks/`, `NEXT.md`, `PENDENCIAS.md` ou roadmap versionado. O roadmap vivo é a issue #596 e o trabalho específico pertence à sua issue/PR.
 
 ## Critério de documentação completa
 
-Uma funcionalidade está documentada quando é possível responder:
+Uma funcionalidade está documentada quando outra pessoa consegue descobrir:
 
-- o que é e por que existe;
-- onde está implementada;
-- quais entradas/saídas aceita;
-- que comando/provider pode acionar;
-- que estado persiste;
-- quais riscos e limites possui;
-- como é testada;
-- como diagnosticar falhas;
-- como alterá-la sem quebrar contratos existentes.
+- o que existe hoje;
+- onde está a fonte de verdade;
+- quais entradas/saídas/lifecycles existem;
+- quais riscos e limites são relevantes;
+- como validar/diagnosticar;
+- qual trabalho ainda está aberto sem confundir proposta com implementação.

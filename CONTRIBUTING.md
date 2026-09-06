@@ -21,6 +21,8 @@ Se a mudança tocar produção, leia também:
 - [`docs/deployment-operations.md`](docs/deployment-operations.md);
 - [`docs/production-ui.md`](docs/production-ui.md).
 
+Quando tocar a produção do próprio Dashboard, leia também [`docs/PRODUCTION.md`](docs/PRODUCTION.md), [`docs/architecture/self-production.md`](docs/architecture/self-production.md) e [`docs/local-installation.md`](docs/local-installation.md).
+
 Prepare o ambiente:
 
 ```bash
@@ -90,7 +92,7 @@ Se o trabalho partiu de plano antigo, confirme no código o comportamento atual 
 
 - [ ] escopo coerente;
 - [ ] `npm run check`;
-- [ ] verificações adicionais proporcionais ao risco (`typecheck`, format, CLI, E2E, coverage);
+- [ ] verificações adicionais proporcionais ao risco (`typecheck`, CLI, E2E, coverage, API docs);
 - [ ] API docs regeneradas quando necessário;
 - [ ] documentação viva atualizada;
 - [ ] nenhum segredo no diff/log;
@@ -155,7 +157,8 @@ Atualize [`docs/architecture/security.md`](docs/architecture/security.md) quando
 - banco/snapshot;
 - logs/masking;
 - provider externo;
-- Production Contract/deployment/recovery.
+- Production Contract/deployment/recovery;
+- self-update/runtime gerenciado.
 
 ## Produção
 
@@ -169,9 +172,13 @@ Mudanças em `Production Contract`, planner, adapters ou UI precisam manter:
 - prova remota antes de promoção Vercel;
 - SHA exato enviado ao provider;
 - provider `READY` separado de `prod:verify`;
+- `strategy=self-update` sem executor remoto genérico;
+- restart do self-update gerenciado limitado à unit fixa comprovada;
 - recovery conservador;
 - retry de verify sem repetir mutação;
 - credenciais fora de contratos/responses/persistência.
+
+Enquanto #659 estiver aberto, qualquer mudança em self-update/redeploy deve considerar a regressão real em que a API antiga encerra e o runtime gerenciado não volta automaticamente ao systemd.
 
 ## Web
 
@@ -187,16 +194,24 @@ A validação padrão antes de um PR é:
 npm run check
 ```
 
-O gate canônico executa `lint -> test -> build:apps`, a mesma interface usada pelo CI após a preparação nativa. `npm test` executa as suítes funcionais sem coletar coverage.
+O gate canônico executa:
+
+```text
+format:check -> lint -> test -> build:apps
+```
+
+Essa é a mesma interface usada pelo único job `Validate` do CI depois da preparação nativa. `npm test` executa as suítes funcionais sem coletar coverage.
+
+`format:check` já faz parte do gate obrigatório; execute-o isoladamente somente quando quiser diagnóstico rápido.
 
 Use comandos adicionais quando o risco justificar:
 
 ```bash
 npm run typecheck
-npm run format:check
 npm run test:cli
 npm run test:e2e
 npm run test:coverage
+npm run docs:api:check
 ```
 
 Critério prático para testes:
@@ -230,6 +245,8 @@ A política completa fica em [`docs/testing-and-quality.md`](docs/testing-and-qu
 | fluxo runtime | `docs/architecture/runtime-flows.md` |
 | segurança | `docs/architecture/security.md` |
 | variável/porta/persistência | `docs/operations-and-troubleshooting.md` |
+| instalação local | `docs/local-installation.md` |
+| self-production | `docs/PRODUCTION.md`, `docs/architecture/self-production.md` |
 | Production Contract | `docs/architecture/production-contract.md` |
 | planner/adapter/recovery | `docs/architecture/deployment-domain.md` |
 | operação de deployment | `docs/deployment-operations.md` |
@@ -265,7 +282,7 @@ Dependências e workflows seguem o mesmo princípio de menor autoridade usado no
 - CodeQL roda semanalmente ou manualmente e não adiciona um job ao PR normal;
 - aumentos de permissão em `GITHUB_TOKEN` precisam ser locais ao job e justificados.
 
-A política do workflow `Security` fica registrada em [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
+O repositório não possui atualmente um job de Dependency Review no PR. Se essa política voltar, workflow e ruleset devem ser introduzidos juntos.
 
 ## Release
 

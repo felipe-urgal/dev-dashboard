@@ -1,40 +1,77 @@
 # Guia passo a passo do dashboard web
 
-Este guia documenta, aba por aba, o que a interface do dashboard web mostra, o que cada botão faz e qual operação existe por trás. É voltado ao uso cotidiano; arquitetura e contratos vivem em [`docs/architecture/overview.md`](../architecture/overview.md) e [`docs/architecture/api-reference.md`](../architecture/api-reference.md).
+Este guia documenta as superfícies atuais do dashboard web e o que existe por trás delas. Arquitetura e contratos vivem em [`../architecture/overview.md`](../architecture/overview.md) e [`../architecture/api-reference.md`](../architecture/api-reference.md).
 
-Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) pode apresentar as seguintes abas, conforme suas capabilities:
+No modo de desenvolvimento, a web fica em:
 
-| Aba | O que faz | Guia |
+```text
+http://127.0.0.1:5174
+```
+
+Na instalação permanente do próprio Dashboard:
+
+```text
+http://dev-dashboard.localhost:4343
+```
+
+## Superfícies por projeto
+
+As ferramentas aparecem conforme capabilities/tipo do projeto.
+
+| Superfície | O que faz | Guia |
 |---|---|---|
-| README | Mostra a documentação Markdown que já existe no projeto. | [readme.md](readme.md) |
-| Diagnóstico | Checa a saúde do ambiente local do projeto. | [diagnostico.md](diagnostico.md) |
-| Servidor | Liga, desliga e monitora o servidor de desenvolvimento. | [servidor.md](servidor.md) |
-| Logs | Acompanha a saída do servidor em tempo quase real. | [logs.md](logs.md) |
-| Git | Sincronização, branches, diff, commit, desfazer, pull request e histórico. | [git.md](git.md) |
-| Testes | Executa testes reconhecidos pelo projeto. | [testes.md](testes.md) |
-| Banco de dados | Detecta bancos/serviços e oferece operações reconhecidas. | [banco-de-dados.md](banco-de-dados.md) |
-| Dependências | Instala/atualiza dependências Ruby e Node reconhecidas. | [dependencias.md](dependencias.md) |
-| Produção | Mostra revision/health/drift e prepara deployments `command` ou Vercel `git-managed`. | [producao.md](producao.md) |
-| Terminal / Console | Shell interativo e, para Rails, `rails console`. | [terminal.md](terminal.md) |
-| Sidekiq/webpack | Acompanha processos Rails reconhecidos. | — |
-| Variáveis de ambiente | Mostra variáveis configuradas sem persistir valores sensíveis. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
+| Servidor | Lifecycle do servidor e terminal de log integrado. | [servidor.md](servidor.md), [logs.md](logs.md) |
+| Git | Sincronização, branches, diff, commit, desfazer, Pull Request e histórico. | [git.md](git.md) |
+| Testes | Executa testes reconhecidos e acompanha o resultado. | [testes.md](testes.md) |
+| Banco de dados | Detecta ambientes/serviços e oferece operações reconhecidas. | [banco-de-dados.md](banco-de-dados.md) |
+| Dependências | Ações reconhecidas de Bundler/Node e build. | [dependencias.md](dependencias.md) |
+| Produção | Opera Production Contracts `command`, `git-managed`/Vercel ou o `self-update` fechado do próprio Dashboard. | [producao.md](producao.md) |
+| Terminal / Console | Sessões interativas locais; Rails Console quando aplicável. | [terminal.md](terminal.md) |
+| Variáveis de ambiente | Inspeção/configuração estrutural do environment sem promover secrets para superfícies comuns. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
+| Diagnóstico | Project Doctor/diagnósticos locais somente leitura. | [diagnostico.md](diagnostico.md) |
+| README | Renderiza a documentação Markdown do projeto. | [readme.md](readme.md) |
+| Sidekiq/webpack | Lifecycle/log dos runtimes Rails reconhecidos. | — |
 
-Antes de abrir um projeto, o seletor de workspace permite cadastrar, renomear, remover e trocar a pasta ativa. A seleção e o scan inicial são automáticos; veja [workspaces.md](workspaces.md).
+**Logs não é mais uma aba separada.** O log do servidor fica dentro de **Servidor**; a rota histórica de Logs redireciona para essa superfície.
 
-A home também apresenta a **Central de Atenção**, que agrega sinais de Processos, Git, Testes, Produção e Project Doctor sem executar correções automaticamente. Veja [central-de-atencao.md](central-de-atencao.md).
+Banco de dados possui também uma superfície global `/database`; a rota histórica por projeto pode redirecionar para ela.
 
-As abas condicionais aparecem apenas quando a capability existe. Em especial, **Produção** depende de um `Production Contract v1` válido. Um contrato `strategy=disabled` pode explicar o bloqueio, mas não libera uma execução mutável.
+## Workspaces e home
 
-## Princípio comum das ações estruturadas
+O seletor de workspace permite cadastrar, renomear, remover e trocar a raiz ativa. Remover um workspace do Dashboard não apaga a pasta local. Veja [workspaces.md](workspaces.md).
 
-O navegador não envia linha de shell arbitrária para as operações estruturadas do dashboard. A interface escolhe uma ação de catálogo/contrato e a API resolve programa, argumentos e `cwd`.
+A home apresenta a **Central de Atenção**, que agrega sinais acionáveis de domínios já conhecidos sem executar correções automaticamente. Veja [central-de-atencao.md](central-de-atencao.md).
 
-Mutações sensíveis usam confirmação vinculada ao alvo. No caso de Produção, o preview gera um `DeploymentPlan`; somente depois da revisão a UI solicita uma confirmação de uso único vinculada a projeto, revision e `planHash`.
+## Regra das ações estruturadas
 
-A exceção deliberada é **Terminal / Console**: ali existe uma sessão de shell interativa real, cercada por salvaguardas próprias. Veja [terminal.md](terminal.md) e [`security.md`](../architecture/security.md#terminal-e-console-do-projeto).
+O navegador escolhe uma ação/ID previsto pelo contrato; a API resolve programa, argumentos, `cwd` e ownership.
+
+Mutações sensíveis usam confirmação/revalidação apropriadas. Terminal/Console são exceções deliberadas porque oferecem sessão interativa real e possuem salvaguardas próprias.
 
 ## Produção Vercel
 
-Para `strategy=git-managed` + Vercel, a promoção remota também passa pelo domínio de deployment. A UI não inventa `prod:deploy`; ela mostra `provider-deploy` na timeline, enquanto `prod:check`, `prod:migrate` e `prod:verify` permanecem etapas locais quando declaradas.
+Em `strategy=git-managed` + Vercel:
 
-A integração usa `VERCEL_TOKEN` no processo local do Dev Dashboard e, opcionalmente, `VERCEL_TEAM_ID`. Credenciais nunca pertencem ao manifesto do projeto nem são pedidas pela interface. Veja [producao.md](producao.md).
+```text
+check → migrate? → provider-deploy → verify
+```
+
+Não existe `prod:deploy` local artificial. Antes da promoção, o backend comprova a revision remota e envia o SHA exato ao provider.
+
+`VERCEL_TOKEN`/`VERCEL_TEAM_ID` permanecem na configuração local do processo do Dev Dashboard, nunca no manifesto do projeto.
+
+## Self-production do Dev Dashboard
+
+O próprio Dashboard usa:
+
+```text
+strategy=self-update
+provider=none
+branch=main
+```
+
+A operação passa por planner, confirmação, handoff/agent, fast-forward, restart e proof-of-revision. Não existe `prod:deploy` local.
+
+Na instalação `systemd --user`, o runtime permanente pertence à unit fixa `dev-dashboard.service`. A limitação atual do redeploy gerenciado está rastreada em #659.
+
+Veja [producao.md](producao.md) e [`../PRODUCTION.md`](../PRODUCTION.md).
