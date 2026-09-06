@@ -67,6 +67,7 @@ test('consulta somente endpoint latest do npm registry e preserva origem/freshne
     'https://registry.npmjs.org/@scope%2Fpackage/latest',
   );
   assert.equal(requestedInit?.method, 'GET');
+  assert.equal(requestedInit?.credentials, 'omit');
   assert.equal(requestedInit?.redirect, 'error');
   assert.deepEqual(result.metadata, [
     {
