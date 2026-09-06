@@ -12,6 +12,7 @@ import type { LocalCiDiscoveryService } from './local-ci-discovery-service.js';
 const DEFAULT_TIMEOUT_MS = 30 * 60_000;
 const DEFAULT_MAX_CONCURRENT = 2;
 const MAX_RETAINED_RUNS = 64;
+// Local CI inherits only runtime essentials; arbitrary host variables may contain secrets.
 const SAFE_ENV_KEYS = [
   'PATH',
   'HOME',
