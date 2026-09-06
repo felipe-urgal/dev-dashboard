@@ -4,6 +4,7 @@ import {
   assertBuildHasNoCredentials,
   delegateManagedSelfUpdate,
   orchestrate,
+  resolveInstalledEnvironment,
 } from './dev-web.mjs';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -56,13 +57,18 @@ test('orquestrador constrói e inicia somente a API distribuída', async () => {
 test('modo instalado deriva e publica a revision atual no runtime', async () => {
   const calls = [];
   const revision = 'a'.repeat(40);
+  const installedEnvironment = {
+    DEV_DASHBOARD_API_PORT: '4343',
+    DEV_DASHBOARD_LOCAL_ORIGIN: 'http://dev-dashboard.localhost:4343',
+  };
   const code = await orchestrate({
     rootDirectory: '/repo',
     installed: true,
     environment: {
-      DEV_DASHBOARD_API_PORT: '4343',
-      DEV_DASHBOARD_LOCAL_ORIGIN: 'http://dev-dashboard.localhost:4343',
+      DEV_DASHBOARD_API_PORT: '9999',
+      DEV_DASHBOARD_LOCAL_ORIGIN: 'http://127.0.0.1:9999',
     },
+    resolveInstalledEnvironment: async () => installedEnvironment,
     diagnoseEnvironment: async () => [],
     resolveRuntimeRevision: async () => revision,
     createBootstrapToken: () => 'e'.repeat(64),
@@ -75,11 +81,41 @@ test('modo instalado deriva e publica a revision atual no runtime', async () => 
   });
 
   assert.equal(calls[1].options.env.DEV_DASHBOARD_RUNTIME_REVISION, revision);
+  assert.equal(calls[1].options.env.DEV_DASHBOARD_API_PORT, '4343');
   assert.equal(
     calls[1].options.env.DEV_DASHBOARD_LOCAL_ORIGIN,
     'http://dev-dashboard.localhost:4343',
   );
   assert.equal(code, 7);
+});
+
+test('metadata instalada é autoridade para porta e origem mesmo com ambiente divergente', async () => {
+  const environment = await resolveInstalledEnvironment({
+    rootDirectory: '/repo',
+    environment: {
+      DEV_DASHBOARD_API_PORT: '9999',
+      DEV_DASHBOARD_LOCAL_ORIGIN: 'http://127.0.0.1:9999',
+      VERCEL_TOKEN: 'token-preservado',
+    },
+    resolveRealpath: async (value) => value,
+    readInstallMetadata: async () => ({
+      version: 1,
+      runtimeManager: 'systemd-user',
+      unit: LOCAL_SERVICE_NAME,
+      repositoryRoot: '/repo',
+      nodePath: '/opt/node/bin/node',
+      port: 4343,
+      origin: 'http://dev-dashboard.localhost:4343',
+    }),
+    checkManagedUnit: async () => true,
+  });
+
+  assert.equal(environment.DEV_DASHBOARD_API_PORT, '4343');
+  assert.equal(
+    environment.DEV_DASHBOARD_LOCAL_ORIGIN,
+    'http://dev-dashboard.localhost:4343',
+  );
+  assert.equal(environment.VERCEL_TOKEN, 'token-preservado');
 });
 
 test('self-update delega restart somente para instalação local gerenciada', async (t) => {
