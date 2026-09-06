@@ -11,7 +11,7 @@ provider=none
 branch=main
 ```
 
-Não existe `prod:deploy` local, executor remoto genérico, unit systemd, path executável ou comando escolhido pelo browser. A mutação pertence exclusivamente ao protocolo de handoff + worker documentado aqui.
+Não existe `prod:deploy` local, executor remoto genérico, unit, path executável ou comando escolhido pelo browser. A mutação pertence exclusivamente ao protocolo de handoff + worker documentado aqui. Quando a instalação local opcional está ativa, o restart pode ser delegado somente à unit fixa `dev-dashboard.service` criada e marcada pelo próprio `local:install`.
 
 ## Decisão arquitetural: privilégio user-space
 
@@ -24,11 +24,12 @@ O self-update precisa somente de:
 - estado privado em `~/.local/state/dev-dashboard`;
 - configuração/token privado em `~/.config/dev-dashboard`;
 - instalação do agent em `~/.local/lib/dev-dashboard/self-update-agent`;
-- start do runtime `scripts/dev-web.mjs` com o mesmo usuário.
+- start do runtime `scripts/dev-web.mjs` com o mesmo usuário;
+- opcionalmente, `systemctl --user start dev-dashboard.service` quando a instalação local gerenciada estiver comprovada.
 
-Por isso o fluxo final **não usa `sudo`, `systemctl` nem privilégio root**. A senha e o ticket de sudo usados por deployments locais de outros projetos não são reutilizados.
+O fluxo **não usa `sudo`, unit system-wide nem privilégio root**. A senha e o ticket de sudo usados por deployments locais de outros projetos não são reutilizados.
 
-Se no futuro surgir necessidade real de um serviço de sistema, isso será uma nova fronteira de segurança e exigirá outra decisão explícita e um contrato mínimo; não faz parte do `self-update` v1.
+A integração opcional com systemd permanece no escopo da sessão do usuário. Ela não amplia o catálogo remoto do self-update: o worker não recebe nome de unit, path ou comando do browser. A única unit aceita é a constante `dev-dashboard.service`, com metadados locais válidos e marcador de ownership do instalador.
 
 ## Production Contract fechado
 
@@ -154,9 +155,13 @@ Depois da aplicação o worker:
 
 1. reinstala a release conhecida do self-update agent a partir da nova revision;
 2. inicia `scripts/dev-web.mjs` em processo destacado;
-3. aguarda `/api/health`;
-4. exige `status=ok` e `service=dev-dashboard-api`;
-5. exige o header `x-dev-dashboard-revision` exatamente igual à revision alvo.
+3. `dev-web.mjs` verifica se existe uma instalação local gerenciada para a mesma checkout;
+4. se existir, delega o start somente para `systemctl --user start dev-dashboard.service`; se não existir, mantém o start direto anterior;
+5. aguarda `/api/health`;
+6. exige `status=ok` e `service=dev-dashboard-api`;
+7. exige o header `x-dev-dashboard-revision` exatamente igual à revision alvo.
+
+No modo instalado, `dev-web.mjs --installed` deriva a revision atual da checkout e trata os metadados de `local:install` como autoridade para porta e origem. Assim alterações posteriores em `.env.local` não fazem a unit subir em uma origem diferente da registrada pela instalação.
 
 Somente então o handoff termina em `succeeded`.
 
@@ -205,6 +210,15 @@ Não existe ação remota que receba shell, programa, argv, checkout, unit, URL 
 
 `execute <handoff-id>` é uma chamada local com um único identificador previamente persistido e validado.
 
+Quando o runtime está instalado com `local:install`, a delegação ao systemd exige simultaneamente:
+
+- metadados locais válidos;
+- mesma checkout real do handoff;
+- unit exatamente `dev-dashboard.service`;
+- arquivo de unit marcado como gerenciado pelo instalador.
+
+Falha em qualquer uma dessas provas não amplia autoridade; o fluxo volta ao comportamento direto anterior ou falha de forma conservadora.
+
 ## Recovery
 
 Falha antes da aplicação pode terminar em `failed`.
@@ -231,7 +245,9 @@ A cadeia possui testes para:
 - entrega do handoff sem passar pelo adapter de comandos;
 - restart/reconciliação para `succeeded`;
 - mapeamento conservador para `recovery_required`;
-- executor real com Git, restart, health e prova de revision.
+- executor real com Git, restart, health e prova de revision;
+- delegação ao systemd somente para instalação local comprovadamente gerenciada;
+- porta/origem instaladas prevalecendo sobre ambiente divergente.
 
 ## Relação com issues/PRs
 
@@ -241,4 +257,5 @@ A cadeia possui testes para:
 - #520 — handoff/helper;
 - #521 — instalação/lifecycle/canal local;
 - #523 — API → agent → worker → restart/readiness;
-- #527 — revisão final de privilégio/segurança, integração ao deployment e habilitação do contrato.
+- #527 — revisão final de privilégio/segurança, integração ao deployment e habilitação do contrato;
+- #646 — instalação local, autostart user-space e URL amigável.

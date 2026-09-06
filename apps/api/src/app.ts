@@ -373,7 +373,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
         'O diretório do frontend é obrigatório para distribuição local.',
       );
     }
-    await registerStaticDashboard(app, options.frontendDirectory);
+    await registerStaticDashboard(app, options.frontendDirectory, {
+      ...(options.browserBootstrapToken
+        ? { browserBootstrapToken: options.browserBootstrapToken }
+        : {}),
+    });
   }
 
   return app;
