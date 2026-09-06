@@ -154,11 +154,20 @@ Não existe `reset --hard`, checkout forçado ou descarte automático de mudanç
 Depois da aplicação o worker:
 
 1. reinstala a release conhecida do self-update agent a partir da nova revision;
-2. inicia `scripts/dev-web.mjs` em processo destacado, propagando a revision alvo;
+2. inicia `scripts/dev-web.mjs` em processo destacado, propagando a revision alvo e a raiz canônica da checkout do handoff;
 3. `dev-web.mjs` decide entre runtime direto e handoff para instalação local gerenciada;
 4. aguarda `/api/health`;
 5. exige `status=ok` e `service=dev-dashboard-api`;
 6. exige o header `x-dev-dashboard-revision` exatamente igual à revision alvo.
+
+O processo destacado recebe duas variáveis internas vinculadas ao mesmo handoff validado:
+
+```text
+DEV_DASHBOARD_RUNTIME_REVISION=<targetRevision>
+DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT=<canonicalRepositoryRoot>
+```
+
+A segunda variável não amplia autoridade: `dev-web.mjs` resolve ambos os paths para caminhos reais e só delega ao systemd quando a raiz do handoff é exatamente a checkout local instalada.
 
 ### Sem instalação gerenciada
 
@@ -180,30 +189,23 @@ Somente depois de health + revision comprovados o handoff termina em `succeeded`
 
 Uma porta HTTP que voltou sem a revision correta não é sucesso.
 
-## Limitação conhecida do handoff gerenciado — #659
+## Contrato do handoff gerenciado
 
-Em 2026-09-06 existe um defeito confirmado no caminho gerenciado: `SelfUpdateExecutor.startRuntime()` propaga `DEV_DASHBOARD_RUNTIME_REVISION`, mas não propaga `DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT` ao `dev-web.mjs` iniciado pelo worker.
+O handoff do worker para `dev-web.mjs` preserva explicitamente a raiz canônica que já foi validada antes da mutação. Isso é necessário porque a revision alvo, isoladamente, não prova que o processo destacado pertence à mesma instalação local gerenciada.
 
-Sem essa raiz, `dev-web.mjs` não reconhece o contexto do handoff da instalação gerenciada e o runtime pode não retornar automaticamente a `dev-dashboard.service` depois que a API antiga é encerrada.
-
-Reprodução observada:
+O `dev-web.mjs` só delega o restart quando todas as provas convergem:
 
 ```text
-self-update confirmado
-→ API antiga recebe SIGTERM
-→ checkout chega à revision alvo
-→ porta 4343 fica sem listener
-→ systemctl --user restart dev-dashboard.service recupera a API
-→ health comprova a nova revision
+revision alvo válida
++ raiz do handoff presente
++ raiz real do processo == raiz real do handoff
++ metadata de local:install para a mesma checkout
++ unit fixa dev-dashboard.service
++ marcador de ownership do instalador
+= restart permitido via systemd --user
 ```
 
-Portanto:
-
-- instalação local, build e health podem estar corretos mesmo quando o redeploy fica indisponível;
-- o workaround manual recupera o runtime, mas não deve fabricar `succeeded` no handoff;
-- enquanto #659 estiver aberto, o fluxo gerenciado não deve ser considerado autossuficiente após o shutdown.
-
-A correção esperada é propagar a raiz canônica já validada para o `dev-web` de handoff, permitindo que ele prove a instalação e delegue o `restart` ao systemd.
+Se qualquer uma dessas provas falhar, a delegação retorna ao comportamento não instalado existente. O worker continua responsável por validar health e revision depois do restart; nenhuma delegação bem-sucedida fabrica `succeeded` sem essa comprovação.
 
 ## Reconciliação depois do restart
 
@@ -233,8 +235,6 @@ A tela:
 - durante o restart, trata a indisponibilidade temporária da API como reconexão e continua polling;
 - exibe o resultado reconciliado e o log local do deployment.
 
-Enquanto #659 estiver aberto, uma indisponibilidade que não se resolve sozinha pode exigir recuperação manual do serviço e inspeção do handoff.
-
 ## Segurança do canal local
 
 O agent instalado vive fora da checkout e usa Unix socket privado + token próprio. O catálogo remoto permanece fechado:
@@ -258,50 +258,3 @@ Quando o runtime está instalado com `local:install`, a delegação ao systemd e
 - arquivo de unit marcado como gerenciado pelo instalador.
 
 Falha em qualquer prova não amplia autoridade.
-
-## Recovery
-
-Falha antes da aplicação pode terminar em `failed`.
-
-Depois que o worker entra em `applying`, qualquer incerteza relevante termina em `recovery_required`, incluindo:
-
-- falha ao aplicar o fast-forward;
-- runtime que não volta;
-- readiness que expira;
-- revision diferente da confirmada;
-- execução assumida sem resultado terminal confiável.
-
-Não há rollback automático cego.
-
-## Testes de regressão
-
-A cadeia possui testes para:
-
-- shape fechado do Production Contract;
-- gate positivo/negativo do agent;
-- handoff ID determinístico e proteção contra sobrescrita;
-- planner `check → self-update`;
-- target vindo de `origin/main`;
-- entrega do handoff sem passar pelo adapter de comandos;
-- restart/reconciliação para `succeeded`;
-- mapeamento conservador para `recovery_required`;
-- executor real com Git, restart, health e prova de revision;
-- delegação ao systemd somente para instalação local comprovadamente gerenciada;
-- porta/origem instaladas prevalecendo sobre ambiente divergente;
-- reinstalação local com restart + espera de health.
-
-A #659 existe justamente porque a reprodução real mostrou uma lacuna entre os testes atuais e o handoff completo do runtime gerenciado.
-
-## Relação com issues/PRs
-
-- #487 — frente de self-production/self-update;
-- #520 — handoff/helper;
-- #521 — instalação/lifecycle/canal local do agent;
-- #523 — API → agent → worker → restart/readiness;
-- #527 — revisão final de privilégio/segurança e habilitação do contrato;
-- #646 — instalação local, autostart user-space e URL amigável;
-- #648/#650 — correção da unit systemd gerada;
-- #651/#658 — reinstalação com restart e readiness comprovado;
-- #655/#656 — bootstrap efêmero fora da URL;
-- #652/#654 — aliases de tema da Produção e `restart` no handoff gerenciado;
-- #659 — bug aberto do redeploy gerenciado não retornar automaticamente ao systemd.
