@@ -10,15 +10,9 @@ const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_VERSION_LENGTH = 256;
 
 export type DependencyUpdateKind =
-  | 'none'
-  | 'patch'
-  | 'minor'
-  | 'major'
-  | 'unknown';
+  'none' | 'patch' | 'minor' | 'major' | 'unknown';
 export type NpmDependencyMetadataState =
-  | 'available'
-  | 'unavailable'
-  | 'invalid';
+  'available' | 'unavailable' | 'invalid';
 
 export interface NpmDependencyMetadata {
   name: string;

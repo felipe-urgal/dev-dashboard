@@ -62,7 +62,10 @@ test('consulta somente endpoint latest do npm registry e preserva origem/freshne
   }).enrich(local);
 
   assert.equal(result.inventory, local);
-  assert.equal(requestedUrl, 'https://registry.npmjs.org/@scope%2Fpackage/latest');
+  assert.equal(
+    requestedUrl,
+    'https://registry.npmjs.org/@scope%2Fpackage/latest',
+  );
   assert.equal(requestedInit?.method, 'GET');
   assert.equal(requestedInit?.redirect, 'error');
   assert.deepEqual(result.metadata, [
