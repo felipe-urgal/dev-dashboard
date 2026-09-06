@@ -49,6 +49,24 @@ export function systemdQuote(value) {
     .replaceAll('%', '%%')}"`;
 }
 
+export function systemdPathValue(value, label = 'Caminho') {
+  assertSafeSystemdValue(value, label);
+  let escaped = '';
+  for (const byte of Buffer.from(value, 'utf8')) {
+    const isAlphaNumeric =
+      (byte >= 0x30 && byte <= 0x39) ||
+      (byte >= 0x41 && byte <= 0x5a) ||
+      (byte >= 0x61 && byte <= 0x7a);
+    const isSafePunctuation =
+      byte === 0x2f || byte === 0x2e || byte === 0x5f || byte === 0x2d;
+    escaped +=
+      isAlphaNumeric || isSafePunctuation
+        ? String.fromCharCode(byte)
+        : `\\x${byte.toString(16).padStart(2, '0')}`;
+  }
+  return escaped;
+}
+
 function environmentFileQuote(value, label) {
   assertSafeSystemdValue(value, label);
   return `"${value
@@ -176,9 +194,9 @@ Description=Dev Dashboard local
 
 [Service]
 Type=simple
-WorkingDirectory=${systemdQuote(repositoryRoot)}
-EnvironmentFile=-${systemdQuote(environmentFile)}
-EnvironmentFile=${systemdQuote(runtimeEnvironmentFile)}
+WorkingDirectory=${systemdPathValue(repositoryRoot, 'Checkout')}
+EnvironmentFile=-${systemdPathValue(environmentFile, 'EnvironmentFile')}
+EnvironmentFile=${systemdPathValue(runtimeEnvironmentFile, 'EnvironmentFile')}
 ExecStart=${systemdQuote(nodePath)} ${systemdQuote(entrypoint)} --installed
 Restart=on-failure
 RestartSec=3
