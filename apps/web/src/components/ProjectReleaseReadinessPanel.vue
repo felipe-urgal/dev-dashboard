@@ -93,7 +93,11 @@ async function load(): Promise<void> {
   }
 }
 
-watch(() => props.project.id, () => void load(), { immediate: true });
+watch(
+  () => props.project.id,
+  () => void load(),
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -103,7 +107,8 @@ watch(() => props.project.id, () => void load(), { immediate: true });
         <span class="readiness-eyebrow">Evidência de entrega</span>
         <h3 id="readiness-title">Release Readiness</h3>
         <p>
-          Leitura verificável do estado atual. Não autoriza merge, push ou deploy.
+          Leitura verificável do estado atual. Não autoriza merge, push ou
+          deploy.
         </p>
       </div>
       <StatusBadge v-if="snapshot" :tone="stateTone[snapshot.state]" size="md">
@@ -138,7 +143,11 @@ watch(() => props.project.id, () => void load(), { immediate: true });
       </div>
 
       <ul class="readiness-checks" aria-label="Checks de Release Readiness">
-        <li v-for="check in snapshot.checks" :key="check.id" class="readiness-check">
+        <li
+          v-for="check in snapshot.checks"
+          :key="check.id"
+          class="readiness-check"
+        >
           <div class="readiness-check-main">
             <StatusBadge :tone="stateTone[check.state]">
               {{ stateLabel[check.state] }}
@@ -149,7 +158,10 @@ watch(() => props.project.id, () => void load(), { immediate: true });
               <small>Observado em {{ formatDate(check.observedAt) }}</small>
             </div>
           </div>
-          <RouterLink class="secondary-button link-button" :to="actionRoute(check.action.target)">
+          <RouterLink
+            class="secondary-button link-button"
+            :to="actionRoute(check.action.target)"
+          >
             {{ check.action.label }}
           </RouterLink>
         </li>

@@ -80,7 +80,9 @@ const route = useRoute();
   </RouterLink>
   <RouterLink
     class="project-details-tab"
-    :class="{ 'project-details-tab-active': route.name === 'project-readiness' }"
+    :class="{
+      'project-details-tab-active': route.name === 'project-readiness',
+    }"
     :to="{ name: 'project-readiness', params: { projectId: project.id } }"
   >
     <CheckBadgeIcon aria-hidden="true" />
