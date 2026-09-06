@@ -39,7 +39,7 @@ export interface CustomMigrationProviderConfig {
   projectIds?: readonly string[];
   projectTypes?: readonly ProjectType[];
   upToDateExitCodes: readonly number[];
-  pendingExitCodes: readonly number[];
+  pendingExitCodes?: readonly number[];
   unavailableExitCodes?: readonly number[];
 }
 
