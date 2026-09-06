@@ -14,7 +14,7 @@ async function fixture() {
   await mkdir(path.join(root, 'assets'));
   await writeFile(
     path.join(root, 'index.html'),
-    '<script src="/assets/app-abc123.js"></script>',
+    '<html><head></head><body><script src="/assets/app-abc123.js"></script></body></html>',
   );
   await writeFile(path.join(root, 'assets/app-abc123.js'), 'console.log("ok")');
   return root;
@@ -78,6 +78,39 @@ test('serve HTML, asset versionado e fallback com caches distintos', async (cont
     ).json().ok,
     true,
   );
+});
+
+test('injeta bootstrap somente na resposta HTML e não altera o build em disco', async (context) => {
+  const root = await fixture();
+  const token = 'e'.repeat(64);
+  const app = Fastify({ logger: false });
+  await registerStaticDashboard(app, root, { browserBootstrapToken: token });
+  context.after(async () => {
+    await app.close();
+    await rm(root, { recursive: true });
+  });
+
+  const rootResponse = await app.inject({
+    url: '/',
+    headers: { accept: 'text/html' },
+  });
+  assert.match(
+    rootResponse.body,
+    new RegExp(
+      `<meta name="dev-dashboard-browser-bootstrap" content="${token}">`,
+    ),
+  );
+
+  const indexResponse = await app.inject({
+    url: '/index.html',
+    headers: { accept: 'text/html' },
+  });
+  assert.match(indexResponse.body, new RegExp(token));
+
+  const diskIndex = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(path.join(root, 'index.html'), 'utf8'),
+  );
+  assert.doesNotMatch(diskIndex, new RegExp(token));
 });
 
 test('rejeita URI malformada sem converter erro de cliente em 500', async (context) => {
