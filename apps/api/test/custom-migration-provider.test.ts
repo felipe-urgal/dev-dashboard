@@ -119,6 +119,26 @@ test('provider não declarado para o projeto não executa runner', async () => {
   assert.equal(JSON.stringify(result).includes('secret'), false);
 });
 
+test('quando id e tipo são declarados, ambos precisam corresponder', () => {
+  const wrongId = new CustomMigrationProvider({
+    ...config(),
+    projectIds: ['outro-projeto'],
+  });
+  const wrongType = new CustomMigrationProvider({
+    ...config(),
+    projectIds: [project.id],
+    projectTypes: ['rails'],
+  });
+  const exact = new CustomMigrationProvider({
+    ...config(),
+    projectIds: [project.id],
+  });
+
+  assert.equal(wrongId.supports(project), false);
+  assert.equal(wrongType.supports(project), false);
+  assert.equal(exact.supports(project), true);
+});
+
 test('configuração ambígua ou capaz de abrir shell falha na construção', () => {
   assert.throws(
     () =>
