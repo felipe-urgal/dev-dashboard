@@ -2,7 +2,9 @@
 
 Este é o ponto de entrada canônico para a produção do **próprio Dev Dashboard**.
 
-O projeto usa `strategy=self-update`, `provider=none` e branch `main`. Não existe `prod:deploy` local, provider externo para o próprio Dashboard, `sudo`/`systemctl` ou executor remoto genérico.
+O projeto usa `strategy=self-update`, `provider=none` e branch `main`. Não existe `prod:deploy` local, provider externo para o próprio Dashboard, executor remoto genérico ou privilégio root/sudo no fluxo suportado.
+
+Quando existe uma instalação local gerenciada por `local:install`, o self-update pode delegar o restart somente à unit fixa `dev-dashboard.service` via `systemctl --user restart`; esse detalhe operacional é resolvido pelo backend e nunca é escolhido pelo browser.
 
 Documentação aprofundada:
 
@@ -11,7 +13,8 @@ Documentação aprofundada:
 - [`architecture/deployment-domain.md`](architecture/deployment-domain.md): planner, confirmação, estados e recovery;
 - [`deployment-operations.md`](deployment-operations.md): operação dos deployments;
 - [`production-ui.md`](production-ui.md): experiência na aba Produção;
-- [`architecture/security.md`](architecture/security.md): fronteiras de segurança.
+- [`architecture/security.md`](architecture/security.md): fronteiras de segurança;
+- [`local-installation.md`](local-installation.md): instalação `systemd --user`, URL e troubleshooting.
 
 ## Contrato ativo
 
@@ -112,16 +115,49 @@ git merge --ff-only <targetRevision>
 
 Não existe `reset --hard`, descarte automático de mudanças locais ou checkout forçado.
 
-## Restart e verify da revision
+## Restart e prova da revision
 
-Depois de aplicar a revision, o worker inicia a distribuição compilada usando `scripts/dev-web.mjs` e espera a API voltar.
+Depois de aplicar a revision, existem dois caminhos controlados:
 
-Sucesso exige duas provas:
+### Runtime não gerenciado
+
+Sem instalação local válida para a mesma checkout, o worker inicia a distribuição por `scripts/dev-web.mjs` em processo destacado e aguarda readiness.
+
+### Runtime gerenciado por `local:install`
+
+Quando `dev-web.mjs` consegue provar metadados/ownership da mesma instalação local, o handoff deve delegar para:
+
+```text
+systemctl --user restart dev-dashboard.service
+```
+
+A unit é fixa; nome/path/comando não vêm do browser.
+
+Em ambos os caminhos, sucesso exige duas provas:
 
 1. `/api/health` saudável;
 2. header `x-dev-dashboard-revision` exatamente igual à revision alvo.
 
 Uma porta que voltou com código antigo não é considerada sucesso.
+
+## Limitação conhecida — #659
+
+Em 2026-09-06 o redeploy do **runtime gerenciado** ainda possui um bug de handoff: `SelfUpdateExecutor.startRuntime()` inicia `dev-web.mjs` com a revision alvo, mas não propaga a raiz da checkout necessária para o novo `dev-web` reconhecer a instalação gerenciada e devolver o runtime ao systemd.
+
+Na reprodução real, a API antiga recebeu `SIGTERM`, a checkout foi atualizada, mas o serviço só voltou depois de:
+
+```bash
+systemctl --user restart dev-dashboard.service
+```
+
+Depois do restart manual, `/api/health` voltou com a nova revision, provando que instalação/build estavam íntegros. O defeito restante é o handoff automático do redeploy, rastreado em **#659**.
+
+Enquanto #659 estiver aberto:
+
+- não trate `prod:check` verde como prova de que o redeploy gerenciado já volta sozinho;
+- evite repetir redeploy em sequência;
+- se a API cair após self-update, use o restart manual apenas como recuperação operacional e confira o estado persistido do handoff/deployment;
+- um runtime recuperado manualmente não deve ser promovido automaticamente para `succeeded` sem reconciliação/prova do handoff.
 
 ## Recovery
 
@@ -154,4 +190,5 @@ Consulte [`architecture/production-contract.md`](architecture/production-contrac
 - plano aponta para a revision correta de `origin/main`;
 - confirmação corresponde ao `planHash` atual;
 - resultado final comprova readiness + revision;
-- qualquer estado `recovery_required` foi tratado antes de nova tentativa destrutiva.
+- qualquer estado `recovery_required` foi tratado antes de nova tentativa destrutiva;
+- enquanto #659 estiver aberto, redeploy gerenciado foi tratado com a limitação conhecida em mente.
