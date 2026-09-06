@@ -190,7 +190,7 @@ export async function delegateManagedSelfUpdate(options = {}) {
 
   const result = await run(
     'systemctl',
-    ['--user', 'start', LOCAL_SERVICE_NAME],
+    ['--user', 'restart', LOCAL_SERVICE_NAME],
     { cwd: root, env: environment },
   );
   if (result.code !== 0) {
