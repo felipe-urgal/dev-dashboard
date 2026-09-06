@@ -10,6 +10,7 @@ import { ProjectFileMutationService } from './services/project-file-mutation-ser
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
+import { ReleaseReadinessService } from './services/release-readiness-service.js';
 
 export interface AppCompositionOptions {
   now?: () => number;
@@ -18,6 +19,7 @@ export interface AppCompositionOptions {
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
   deploymentService?: DeploymentService;
+  releaseReadinessService?: ReleaseReadinessService;
 }
 
 /**
@@ -62,6 +64,14 @@ export function createAppComposition(
     productionReader: productionOverviewService,
     ...(options.now ? { now: options.now } : {}),
   });
+  const releaseReadinessService =
+    options.releaseReadinessService ??
+    new ReleaseReadinessService(
+      context.gitService,
+      context.testExecutionHistoryService,
+      projectDoctorService,
+      options.now ? { now: options.now } : {},
+    );
 
   return {
     databaseExplorerSessionStore,
@@ -74,6 +84,7 @@ export function createAppComposition(
     deploymentService,
     productionOverviewService,
     attentionCenterService,
+    releaseReadinessService,
   };
 }
 
