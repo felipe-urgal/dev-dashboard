@@ -24,6 +24,44 @@ export function parseApiPort(value: string | undefined): number {
   return port;
 }
 
+export function parseLocalOrigin(
+  value: string | undefined,
+  port: number,
+): string {
+  if (!value?.trim()) return `http://${API_HOST}:${port}`;
+
+  let origin: URL;
+  try {
+    origin = new URL(value.trim());
+  } catch {
+    throw new Error(`DEV_DASHBOARD_LOCAL_ORIGIN inválida: ${value}`);
+  }
+
+  const hostname = origin.hostname.toLowerCase();
+  const localHostname =
+    hostname === API_HOST ||
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost');
+  const effectivePort = origin.port ? Number(origin.port) : 80;
+
+  if (
+    origin.protocol !== 'http:' ||
+    !localHostname ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== '/' ||
+    origin.search ||
+    origin.hash ||
+    effectivePort !== port
+  ) {
+    throw new Error(
+      'DEV_DASHBOARD_LOCAL_ORIGIN deve usar HTTP, hostname local (.localhost/localhost/127.0.0.1), a mesma porta da API e não pode conter credenciais, path, query ou fragmento.',
+    );
+  }
+
+  return origin.origin;
+}
+
 export async function resolveWebDist(
   value: string | undefined,
   cwd = process.cwd(),
@@ -42,6 +80,10 @@ export async function readServerConfig(
   cwd = process.cwd(),
 ): Promise<ServerConfig> {
   const port = parseApiPort(environment.DEV_DASHBOARD_API_PORT);
+  const localOrigin = parseLocalOrigin(
+    environment.DEV_DASHBOARD_LOCAL_ORIGIN,
+    port,
+  );
   const staticDashboardEnabled =
     environment.DEV_DASHBOARD_LOCAL_DISTRIBUTION === '1';
   if (environment.DEV_DASHBOARD_LOCAL_DISTRIBUTION && !staticDashboardEnabled) {
@@ -72,7 +114,7 @@ export async function readServerConfig(
   return {
     host: API_HOST,
     port,
-    localOrigin: `http://${API_HOST}:${port}`,
+    localOrigin,
     staticDashboardEnabled,
     ...(frontendDirectory ? { frontendDirectory } : {}),
     ...(browserBootstrapToken ? { browserBootstrapToken } : {}),
