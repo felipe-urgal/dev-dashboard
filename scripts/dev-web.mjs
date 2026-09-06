@@ -155,9 +155,9 @@ export async function proveLegacyManagedSelfUpdate(options = {}) {
 
   let currentRevision;
   try {
-    currentRevision = await (
-      options.resolveRuntimeRevision ?? readGitRevision
-    )(root);
+    currentRevision = await (options.resolveRuntimeRevision ?? readGitRevision)(
+      root,
+    );
   } catch {
     return false;
   }
