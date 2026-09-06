@@ -55,6 +55,9 @@ const ProjectGitPanel = lazyTool(
 const ProjectProductionPanel = lazyTool(
   () => import('../components/ProjectProductionPanel.vue'),
 );
+const ProjectReadinessPanel = lazyTool(
+  () => import('../components/ProjectReleaseReadinessPanel.vue'),
+);
 const ProjectSelfUpdateProductionPanel = lazyTool(
   () => import('../components/ProjectSelfUpdateProductionPanel.vue'),
 );
@@ -95,6 +98,7 @@ const projectId = computed(() => {
 
 const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
+const isReadinessRoute = computed(() => route.name === 'project-readiness');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
@@ -404,6 +408,12 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectDoctorPanel
         v-else-if="isDoctorRoute"
         :key="`doctor-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectReadinessPanel
+        v-else-if="isReadinessRoute"
+        :key="`readiness-${project.id}`"
         :project="project"
       />
 
