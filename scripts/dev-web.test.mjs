@@ -30,7 +30,7 @@ test('orquestrador aborta antes do build quando o diagnóstico falha', async () 
   assert.equal(executions, 0);
 });
 
-test('orquestrador constrói e inicia somente a API distribuída', async () => {
+test('orquestrador manual constrói e inicia somente a API distribuída', async () => {
   const calls = [];
   const code = await orchestrate({
     rootDirectory: '/repo',
@@ -54,7 +54,7 @@ test('orquestrador constrói e inicia somente a API distribuída', async () => {
   assert.equal(code, 7);
 });
 
-test('modo instalado deriva e publica a revision atual no runtime', async () => {
+test('modo instalado não rebuilda no login e publica a revision atual', async () => {
   const calls = [];
   const revision = 'a'.repeat(40);
   const installedEnvironment = {
@@ -76,14 +76,16 @@ test('modo instalado deriva e publica a revision atual no runtime', async () => 
     buildScanner: async () => undefined,
     runner: async (command, args, options) => {
       calls.push({ command, args, options });
-      return { code: calls.length === 2 ? 7 : 0 };
+      return { code: 7 };
     },
   });
 
-  assert.equal(calls[1].options.env.DEV_DASHBOARD_RUNTIME_REVISION, revision);
-  assert.equal(calls[1].options.env.DEV_DASHBOARD_API_PORT, '4343');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].args[0], /apps\/api\/dist\/server\.js$/);
+  assert.equal(calls[0].options.env.DEV_DASHBOARD_RUNTIME_REVISION, revision);
+  assert.equal(calls[0].options.env.DEV_DASHBOARD_API_PORT, '4343');
   assert.equal(
-    calls[1].options.env.DEV_DASHBOARD_LOCAL_ORIGIN,
+    calls[0].options.env.DEV_DASHBOARD_LOCAL_ORIGIN,
     'http://dev-dashboard.localhost:4343',
   );
   assert.equal(code, 7);
@@ -118,7 +120,7 @@ test('metadata instalada é autoridade para porta e origem mesmo com ambiente di
   assert.equal(environment.VERCEL_TOKEN, 'token-preservado');
 });
 
-test('self-update delega restart somente para instalação local gerenciada', async (t) => {
+test('self-update builda antes de delegar restart para instalação local gerenciada', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-web-self-update-'));
   const home = path.join(root, 'home');
   const repositoryRoot = path.join(root, 'repo');
@@ -165,9 +167,11 @@ test('self-update delega restart somente para instalação local gerenciada', as
   });
 
   assert.deepEqual(result, { code: 0, manager: 'systemd-user' });
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, 'systemctl');
-  assert.deepEqual(calls[0].args, ['--user', 'start', LOCAL_SERVICE_NAME]);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].command, 'npm');
+  assert.deepEqual(calls[0].args, ['run', 'build']);
+  assert.equal(calls[1].command, 'systemctl');
+  assert.deepEqual(calls[1].args, ['--user', 'start', LOCAL_SERVICE_NAME]);
 });
 
 test('verificação do bundle detecta o valor real sem confundir apenas o nome do header', async () => {
