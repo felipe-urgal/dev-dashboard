@@ -18,7 +18,9 @@ import {
 } from './local-install.mjs';
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-local-install-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-local-install-'),
+  );
   const repositoryRoot = path.join(root, 'repo');
   const home = path.join(root, 'home');
   await mkdir(repositoryRoot, { recursive: true });
@@ -59,8 +61,14 @@ test('unit usa Node absoluto, loopback nominal e reinício somente em falha', ()
   assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
   assert.match(unit, /ExecStart="\/home\/test\/\.nvm\/node\/bin\/node"/);
   assert.match(unit, /scripts\/dev-web\.mjs" --installed/);
-  assert.match(unit, /DEV_DASHBOARD_LOCAL_ORIGIN=http:\/\/dev-dashboard\.localhost:4343/);
-  assert.match(unit, /EnvironmentFile=-"\/home\/test\/\.dev-dashboard\/\.env\.local"/);
+  assert.match(
+    unit,
+    /DEV_DASHBOARD_LOCAL_ORIGIN=http:\/\/dev-dashboard\.localhost:4343/,
+  );
+  assert.match(
+    unit,
+    /EnvironmentFile=-"\/home\/test\/\.dev-dashboard\/\.env\.local"/,
+  );
   assert.match(unit, /Restart=on-failure/);
   assert.match(unit, /WantedBy=default\.target/);
   assert.doesNotMatch(unit, /sudo|0\.0\.0\.0/);
@@ -91,10 +99,14 @@ test('install é idempotente, grava apenas metadados não sensíveis e habilita 
   assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
   assert.doesNotMatch(unit, /TOKEN|SECRET|VERCEL_TOKEN=/);
   assert.doesNotMatch(metadata, /TOKEN|SECRET|VERCEL/);
-  assert.equal(calls.filter((entry) => entry.args.join(' ') === 'run build').length, 2);
+  assert.equal(
+    calls.filter((entry) => entry.args.join(' ') === 'run build').length,
+    2,
+  );
   assert.equal(
     calls.filter(
-      (entry) => entry.args.join(' ') === `--user enable --now ${LOCAL_SERVICE_NAME}`,
+      (entry) =>
+        entry.args.join(' ') === `--user enable --now ${LOCAL_SERVICE_NAME}`,
     ).length,
     2,
   );

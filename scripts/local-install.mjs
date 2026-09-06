@@ -146,9 +146,7 @@ EnvironmentFile=-${systemdQuote(environmentFile)}
 Environment=${systemdQuote(`PATH=${runtimePath}`)}
 Environment=${systemdQuote(`DEV_DASHBOARD_API_PORT=${port}`)}
 Environment=${systemdQuote(`DEV_DASHBOARD_LOCAL_ORIGIN=${origin}`)}
-Environment=${systemdQuote(
-    `DEV_DASHBOARD_CONFIG_DIR=${configDirectory}`,
-  )}
+Environment=${systemdQuote(`DEV_DASHBOARD_CONFIG_DIR=${configDirectory}`)}
 Environment=${systemdQuote(`DEV_DASHBOARD_STATE_DIR=${stateDirectory}`)}
 ExecStart=${systemdQuote(nodePath)} ${systemdQuote(entrypoint)} --installed
 Restart=on-failure
@@ -250,7 +248,9 @@ export async function readLocalInstallMetadata(metadataPath) {
     throw error;
   }
   if (!metadata.isFile() || metadata.isSymbolicLink()) {
-    throw new Error('Metadados da instalação local não são um arquivo regular.');
+    throw new Error(
+      'Metadados da instalação local não são um arquivo regular.',
+    );
   }
   try {
     const parsed = JSON.parse(await readFile(metadataPath, 'utf8'));
@@ -274,7 +274,9 @@ export async function readLocalInstallMetadata(metadataPath) {
 export async function installLocal(options = {}) {
   const platform = options.platform ?? process.platform;
   if (platform !== 'linux') {
-    throw new Error('A instalação local automática está disponível somente no Linux.');
+    throw new Error(
+      'A instalação local automática está disponível somente no Linux.',
+    );
   }
 
   const environment = options.environment ?? process.env;
@@ -361,7 +363,8 @@ async function systemdState(run, args, options) {
     const result = await run('systemctl', ['--user', ...args], options);
     return {
       ok: result.code === 0,
-      value: (result.stdout.trim() || result.stderr.trim()).split('\n')[0] || '',
+      value:
+        (result.stdout.trim() || result.stderr.trim()).split('\n')[0] || '',
     };
   } catch (error) {
     return {
@@ -400,7 +403,11 @@ export async function localStatus(options = {}) {
   };
 
   const enabled = managedUnit
-    ? await systemdState(run, ['is-enabled', LOCAL_SERVICE_NAME], commandOptions)
+    ? await systemdState(
+        run,
+        ['is-enabled', LOCAL_SERVICE_NAME],
+        commandOptions,
+      )
     : { ok: false, value: 'não instalado' };
   const active = managedUnit
     ? await systemdState(run, ['is-active', LOCAL_SERVICE_NAME], commandOptions)
@@ -430,7 +437,9 @@ export async function openLocal(options = {}) {
   );
   const metadata = await readLocalInstallMetadata(paths.metadataPath);
   if (!metadata) {
-    throw new Error('Dev Dashboard local não está instalado. Execute npm run local:install.');
+    throw new Error(
+      'Dev Dashboard local não está instalado. Execute npm run local:install.',
+    );
   }
 
   try {
@@ -460,11 +469,10 @@ export async function uninstallLocal(options = {}) {
   }
 
   if (contents !== null) {
-    await run(
-      'systemctl',
-      ['--user', 'disable', '--now', LOCAL_SERVICE_NAME],
-      { cwd: options.rootDirectory ?? ROOT_DIRECTORY, env: environment },
-    ).catch(() => undefined);
+    await run('systemctl', ['--user', 'disable', '--now', LOCAL_SERVICE_NAME], {
+      cwd: options.rootDirectory ?? ROOT_DIRECTORY,
+      env: environment,
+    }).catch(() => undefined);
   }
 
   await rm(paths.unitPath, { force: true });
@@ -510,13 +518,17 @@ export async function main(args = process.argv.slice(2)) {
   if (command === 'open') {
     const result = await openLocal();
     if (!result.opened) {
-      console.log(`Não foi possível abrir o navegador automaticamente.\n${result.origin}`);
+      console.log(
+        `Não foi possível abrir o navegador automaticamente.\n${result.origin}`,
+      );
     }
     return 0;
   }
   if (command === 'uninstall') {
     await uninstallLocal();
-    console.log('Integração local removida. Configuração, estado e checkout foram preservados.');
+    console.log(
+      'Integração local removida. Configuração, estado e checkout foram preservados.',
+    );
     return 0;
   }
 
