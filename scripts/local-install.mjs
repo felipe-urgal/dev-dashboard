@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 export const LOCAL_INSTALL_VERSION = 1;
 export const LOCAL_SERVICE_NAME = 'dev-dashboard.service';
 export const LOCAL_INSTALL_FILE = 'local-install.json';
+export const LOCAL_RUNTIME_ENV_FILE = 'local-runtime.env';
 export const LOCAL_ORIGIN_HOSTNAME = 'dev-dashboard.localhost';
 export const MANAGED_UNIT_MARKER = '# Managed by dev-dashboard local:install';
 
@@ -46,6 +47,36 @@ export function systemdQuote(value) {
     .replaceAll('\\', '\\\\')
     .replaceAll('"', '\\"')
     .replaceAll('%', '%%')}"`;
+}
+
+function environmentFileQuote(value, label) {
+  assertSafeSystemdValue(value, label);
+  return `"${value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('$', '\\$')
+    .replaceAll('`', '\\`')}"`;
+}
+
+export function buildRuntimeEnvironment({
+  port,
+  origin,
+  configDirectory,
+  stateDirectory,
+  runtimePath,
+}) {
+  return [
+    `PATH=${environmentFileQuote(runtimePath, 'PATH')}`,
+    `DEV_DASHBOARD_API_PORT=${port}`,
+    `DEV_DASHBOARD_LOCAL_ORIGIN=${environmentFileQuote(origin, 'Origem')}`,
+    `DEV_DASHBOARD_CONFIG_DIR=${environmentFileQuote(
+      configDirectory,
+      'Configuração',
+    )}`,
+    `DEV_DASHBOARD_STATE_DIR=${environmentFileQuote(stateDirectory, 'Estado')}`,
+    'DEV_DASHBOARD_RUNTIME_REVISION=',
+    '',
+  ].join('\n');
 }
 
 export function parseInstallPort(value) {
@@ -95,6 +126,7 @@ export function resolveLocalInstallPaths(
     configDirectory,
     stateDirectory,
     metadataPath: path.join(configDirectory, LOCAL_INSTALL_FILE),
+    runtimeEnvironmentPath: path.join(configDirectory, LOCAL_RUNTIME_ENV_FILE),
     unitDirectory,
     unitPath: path.join(unitDirectory, LOCAL_SERVICE_NAME),
   };
@@ -134,6 +166,10 @@ export function buildSystemdUnit({
 
   const entrypoint = path.join(repositoryRoot, 'scripts', 'dev-web.mjs');
   const environmentFile = path.join(repositoryRoot, '.env.local');
+  const runtimeEnvironmentFile = path.join(
+    configDirectory,
+    LOCAL_RUNTIME_ENV_FILE,
+  );
 
   return `${MANAGED_UNIT_MARKER}
 [Unit]
@@ -143,11 +179,7 @@ Description=Dev Dashboard local
 Type=simple
 WorkingDirectory=${systemdQuote(repositoryRoot)}
 EnvironmentFile=-${systemdQuote(environmentFile)}
-Environment=${systemdQuote(`PATH=${runtimePath}`)}
-Environment=${systemdQuote(`DEV_DASHBOARD_API_PORT=${port}`)}
-Environment=${systemdQuote(`DEV_DASHBOARD_LOCAL_ORIGIN=${origin}`)}
-Environment=${systemdQuote(`DEV_DASHBOARD_CONFIG_DIR=${configDirectory}`)}
-Environment=${systemdQuote(`DEV_DASHBOARD_STATE_DIR=${stateDirectory}`)}
+EnvironmentFile=${systemdQuote(runtimeEnvironmentFile)}
 ExecStart=${systemdQuote(nodePath)} ${systemdQuote(entrypoint)} --installed
 Restart=on-failure
 RestartSec=3
@@ -317,6 +349,15 @@ export async function installLocal(options = {}) {
   await mkdir(paths.unitDirectory, { recursive: true, mode: 0o700 });
   await mkdir(paths.configDirectory, { recursive: true, mode: 0o700 });
 
+  const runtimeEnvironment = buildRuntimeEnvironment({
+    port,
+    origin,
+    configDirectory: paths.configDirectory,
+    stateDirectory: paths.stateDirectory,
+    runtimePath,
+  });
+  await writePrivateFile(paths.runtimeEnvironmentPath, runtimeEnvironment);
+
   const unit = buildSystemdUnit({
     repositoryRoot: root,
     nodePath,
@@ -397,6 +438,7 @@ export async function localStatus(options = {}) {
   );
   const metadata = await readLocalInstallMetadata(paths.metadataPath);
   const managedUnit = await isManagedUnit(paths.unitPath);
+  const runtimeEnvironment = await readTextIfExists(paths.runtimeEnvironmentPath);
   const commandOptions = {
     cwd: metadata?.repositoryRoot ?? options.rootDirectory ?? ROOT_DIRECTORY,
     env: environment,
@@ -417,7 +459,7 @@ export async function localStatus(options = {}) {
     : false;
 
   return {
-    installed: Boolean(metadata && managedUnit),
+    installed: Boolean(metadata && managedUnit && runtimeEnvironment !== null),
     enabled: enabled.ok,
     active: active.ok,
     healthy,
@@ -476,6 +518,7 @@ export async function uninstallLocal(options = {}) {
   }
 
   await rm(paths.unitPath, { force: true });
+  await rm(paths.runtimeEnvironmentPath, { force: true });
   await rm(paths.metadataPath, { force: true });
 
   if (contents !== null) {
