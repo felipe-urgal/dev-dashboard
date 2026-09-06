@@ -438,7 +438,9 @@ export async function localStatus(options = {}) {
   );
   const metadata = await readLocalInstallMetadata(paths.metadataPath);
   const managedUnit = await isManagedUnit(paths.unitPath);
-  const runtimeEnvironment = await readTextIfExists(paths.runtimeEnvironmentPath);
+  const runtimeEnvironment = await readTextIfExists(
+    paths.runtimeEnvironmentPath,
+  );
   const commandOptions = {
     cwd: metadata?.repositoryRoot ?? options.rootDirectory ?? ROOT_DIRECTORY,
     env: environment,
