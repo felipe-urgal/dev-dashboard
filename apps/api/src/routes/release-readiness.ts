@@ -66,7 +66,7 @@ export const releaseReadinessRoutes: FastifyPluginAsync<Options> = async (
     Params: Params;
     Querystring: Querystring;
   }>(
-    '/projects/:projectId/readiness',
+    '/projects/:projectId/release-readiness',
     {
       schema: {
         params: paramsSchema,
