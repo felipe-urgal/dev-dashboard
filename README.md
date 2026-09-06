@@ -86,9 +86,11 @@ npm run local:open
 npm run local:uninstall
 ```
 
-`local:install` é idempotente, não exige `sudo`, usa o caminho absoluto do Node ativo e não depende do shell profile no login. `local:uninstall` remove somente a integração gerenciada; checkout, configuração e estado do Dashboard são preservados.
+`local:install` é idempotente, não exige `sudo`, usa o caminho absoluto do Node ativo e não depende do shell profile no login. Ao reinstalar, ele recompila a distribuição, executa `systemctl --user restart dev-dashboard.service` e só conclui depois que `/api/health` fica saudável. `local:uninstall` remove somente a integração gerenciada; checkout, configuração e estado do Dashboard são preservados.
 
 No modo instalado, porta e origem são congeladas nos metadados da instalação para evitar divergência com a unit. Outras variáveis úteis do `.env.local`, como credenciais opcionais da Vercel, continuam disponíveis ao runtime. Para mudar a porta instalada, ajuste o ambiente e execute `npm run local:install` novamente.
+
+Guia completo: [`docs/local-installation.md`](docs/local-installation.md).
 
 ## Desenvolvimento
 
@@ -134,7 +136,8 @@ npm run check
 O gate canônico atual executa:
 
 ```text
-lint
+format:check
+-> lint
 -> test
 -> build:apps
 ```
@@ -145,11 +148,12 @@ Checks direcionados:
 
 ```bash
 npm run typecheck
-npm run format:check
 npm run test:cli
 npm run test:e2e
 npm run test:coverage
 ```
+
+`npm run format:check` também pode ser executado isoladamente para diagnóstico, mas já faz parte de `npm run check`.
 
 Coverage é diagnóstico, não percentual mínimo de aprovação. Veja [`docs/testing-and-quality.md`](docs/testing-and-quality.md).
 
@@ -253,6 +257,8 @@ npm run prod:check
 
 Não existe `npm run prod:deploy` para o próprio Dashboard. A mutação ocorre pela aba Produção, usando planner, confirmação vinculada ao `planHash`, handoff para agent externo, fast-forward da revision confirmada, restart e prova de readiness + revision.
 
+Em uma instalação gerenciada, o restart esperado usa a unit fixa `dev-dashboard.service` via `systemctl --user restart`. Existe atualmente uma limitação conhecida do handoff do redeploy gerenciado rastreada em **#659**; consulte `docs/PRODUCTION.md` antes de testar self-update local.
+
 Os scripts `self-update:*` são tooling de engenharia; não constituem bypass da autorização normal do domínio.
 
 Detalhes: [`docs/architecture/self-production.md`](docs/architecture/self-production.md).
@@ -264,6 +270,8 @@ A API escuta somente em `127.0.0.1` e rotas privadas exigem autenticação local
 ```text
 ~/.config/dev-dashboard/api-token
 ```
+
+Na distribuição compilada, a capacidade efêmera de bootstrap é injetada apenas no HTML servido em runtime e gravada diretamente no `sessionStorage` da aba; a URL não contém `#bootstrap=...`.
 
 Guardrails principais:
 
@@ -307,7 +315,7 @@ Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos n
 | `npm run dev:api` | somente API |
 | `npm run dev:web` | somente Vite |
 | `npm run dev-web` | distribuição local compilada |
-| `npm run local:install` | instala/reinstala o runtime local via systemd user |
+| `npm run local:install` | instala/reinstala o runtime local via systemd user, reinicia e espera health |
 | `npm run local:status` | mostra estado da instalação, serviço, health e URL |
 | `npm run local:open` | abre a URL amigável instalada |
 | `npm run local:uninstall` | remove apenas a integração local gerenciada |
@@ -321,22 +329,22 @@ Tokens de confirmação, senha sudo e credenciais Vercel não são persistidos n
 | `npm run self-update:agent -- ...` | tooling do agent |
 | `npm run typecheck` | validação isolada de tipos |
 | `npm run lint` | ESLint |
-| `npm run format:check` | Prettier sem rewrite |
+| `npm run format:check` | Prettier sem rewrite; também faz parte de `check` |
 | `npm run build` | packages + apps |
 | `npm test` | suítes funcionais sem coverage |
 | `npm run test:coverage` | coverage sob demanda |
 | `npm run test:cli` | suíte Bash |
-| `npm run test:e2e` | smoke E2E web |
+| `npm run test:e2e` | E2E web direcionado |
 
 ## Documentação
 
 Comece por:
 
 - [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — setup, desenvolvimento e gate de PR;
+- [`docs/local-installation.md`](docs/local-installation.md) — runtime permanente no Linux;
 - [`docs/PRODUCTION.md`](docs/PRODUCTION.md) — produção do próprio Dashboard;
 - [`docs/index.md`](docs/index.md) — mapa geral;
 - [`docs/guia/README.md`](docs/guia/README.md) — guia por funcionalidade;
-- [`docs/development-guide.md`](docs/development-guide.md) — engenharia detalhada;
 - [`docs/testing-and-quality.md`](docs/testing-and-quality.md) — política de testes.
 
 Planejamento futuro vive em issues/PRs; `docs/` descreve comportamento implementado.
