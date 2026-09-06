@@ -14,6 +14,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const BROWSER_BOOTSTRAP_PATTERN = /^[a-f0-9]{64}$/;
+const BROWSER_BOOTSTRAP_STORAGE_KEY = 'dev-dashboard-browser-bootstrap';
 
 export interface StaticDashboardOptions {
   browserBootstrapToken?: string;
@@ -62,9 +63,9 @@ function injectBrowserBootstrap(
     throw new Error('Bootstrap de navegador inválido para o frontend local.');
   }
 
-  // O fragmento não é enviado ao servidor. O cliente existente o consome,
-  // move a capacidade para sessionStorage e limpa a URL antes de usar a API.
-  const bootstrapScript = `<script>window.location.hash="bootstrap=${token}"</script>`;
+  // A capacidade existe apenas no HTML servido em runtime e na sessão desta aba.
+  // Evitar o fragmento mantém o segredo fora da URL e fora da navegação do router.
+  const bootstrapScript = `<script>window.sessionStorage.setItem("${BROWSER_BOOTSTRAP_STORAGE_KEY}","${token}")</script>`;
   return html.includes('</head>')
     ? html.replace('</head>', `${bootstrapScript}</head>`)
     : `${bootstrapScript}${html}`;
