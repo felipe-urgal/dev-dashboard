@@ -14,10 +14,7 @@ export type NodeDependencyKind = 'dependency' | 'devDependency';
 export type NodeDependencyResolution = 'resolved' | 'unknown';
 export type NodeDependencyInventoryStatus = 'ready' | 'unavailable' | 'invalid';
 export type NodeDependencyLockfileState =
-  | 'present'
-  | 'missing'
-  | 'unsupported'
-  | 'invalid';
+  'present' | 'missing' | 'unsupported' | 'invalid';
 
 export interface NodeDependencyInventoryEntry {
   name: string;
@@ -51,10 +48,17 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function safeText(value: unknown, maxLength = MAX_VERSION_TEXT_LENGTH): string | undefined {
+function safeText(
+  value: unknown,
+  maxLength = MAX_VERSION_TEXT_LENGTH,
+): string | undefined {
   if (typeof value !== 'string') return undefined;
   const normalized = value.trim();
-  if (!normalized || normalized.length > maxLength || normalized.includes('\0')) {
+  if (
+    !normalized ||
+    normalized.length > maxLength ||
+    normalized.includes('\0')
+  ) {
     return undefined;
   }
   return normalized;
@@ -85,7 +89,9 @@ async function readJsonFile(
 
 function declaredDependencies(
   packageJson: JsonObject,
-): Array<Pick<NodeDependencyInventoryEntry, 'name' | 'kind' | 'declaredRange'>> | null {
+): Array<
+  Pick<NodeDependencyInventoryEntry, 'name' | 'kind' | 'declaredRange'>
+> | null {
   const result: Array<
     Pick<NodeDependencyInventoryEntry, 'name' | 'kind' | 'declaredRange'>
   > = [];
@@ -172,7 +178,9 @@ export class NodeDependencyInventoryService {
         status: 'unavailable',
         lockfile: 'missing',
         dependencies: [],
-        warnings: ['O inventário npm só se aplica a projetos Node neste recorte.'],
+        warnings: [
+          'O inventário npm só se aplica a projetos Node neste recorte.',
+        ],
       };
     }
 
@@ -238,7 +246,10 @@ export class NodeDependencyInventoryService {
         );
       } else {
         version = lockfileVersion(lockResult.value);
-        if (version === undefined || !SUPPORTED_LOCKFILE_VERSIONS.has(version)) {
+        if (
+          version === undefined ||
+          !SUPPORTED_LOCKFILE_VERSIONS.has(version)
+        ) {
           lockfile = 'unsupported';
           warnings.push(
             'A versão do package-lock não é suportada por este inventário local.',
