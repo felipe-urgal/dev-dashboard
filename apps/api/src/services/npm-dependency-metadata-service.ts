@@ -102,7 +102,9 @@ function stableRuntimeVersion(value: string | undefined): string | undefined {
 
 function parseEngineVersion(value: string): ParsedEngineVersion | undefined {
   const match =
-    /^(?:v)?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?$/u.exec(value);
+    /^(?:v)?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?$/u.exec(
+      value,
+    );
   if (!match?.[1]) return undefined;
 
   const precision: 1 | 2 | 3 = match[3] ? 3 : match[2] ? 2 : 1;
@@ -164,17 +166,16 @@ function evaluateBareVersion(
 function evaluateCaret(
   runtime: ParsedVersion,
   target: ParsedEngineVersion,
-): boolean | undefined {
-  if (target.precision !== 3) return undefined;
+): boolean {
   let upper: ParsedVersion;
-  if (target.version.major > 0n) {
+  if (target.precision === 1 || target.version.major > 0n) {
     upper = {
       major: target.version.major + 1n,
       minor: 0n,
       patch: 0n,
       prerelease: false,
     };
-  } else if (target.version.minor > 0n) {
+  } else if (target.precision === 2 || target.version.minor > 0n) {
     upper = {
       major: 0n,
       minor: target.version.minor + 1n,
@@ -198,14 +199,21 @@ function evaluateCaret(
 function evaluateTilde(
   runtime: ParsedVersion,
   target: ParsedEngineVersion,
-): boolean | undefined {
-  if (target.precision !== 3) return undefined;
-  const upper: ParsedVersion = {
-    major: target.version.major,
-    minor: target.version.minor + 1n,
-    patch: 0n,
-    prerelease: false,
-  };
+): boolean {
+  const upper: ParsedVersion =
+    target.precision === 1
+      ? {
+          major: target.version.major + 1n,
+          minor: 0n,
+          patch: 0n,
+          prerelease: false,
+        }
+      : {
+          major: target.version.major,
+          minor: target.version.minor + 1n,
+          patch: 0n,
+          prerelease: false,
+        };
   return (
     compareVersion(runtime, target.version) >= 0 &&
     compareVersion(runtime, upper) < 0
@@ -226,17 +234,26 @@ function evaluateComparator(
 
   if (operator === '^') return evaluateCaret(runtime, target);
   if (operator === '~') return evaluateTilde(runtime, target);
-  if (!operator || operator === '=')
-    return evaluateBareVersion(runtime, target);
+  if (!operator || operator === '=') return evaluateBareVersion(runtime, target);
 
   const comparison = compareVersion(runtime, target.version);
   switch (operator) {
     case '>=':
       return comparison >= 0;
     case '>':
-      return comparison > 0;
+      return target.precision === 3
+        ? comparison > 0
+        : compareVersion(
+            runtime,
+            incrementForPrecision(target.version, target.precision),
+          ) >= 0;
     case '<=':
-      return comparison <= 0;
+      return target.precision === 3
+        ? comparison <= 0
+        : compareVersion(
+            runtime,
+            incrementForPrecision(target.version, target.precision),
+          ) < 0;
     case '<':
       return comparison < 0;
     default:
@@ -251,13 +268,9 @@ function evaluateAndClause(
   const tokens = clause.trim().split(/\s+/u).filter(Boolean);
   if (tokens.length === 0) return undefined;
 
-  let unknown = false;
-  for (const token of tokens) {
-    const result = evaluateComparator(runtime, token);
-    if (result === false) return false;
-    if (result === undefined) unknown = true;
-  }
-  return unknown ? undefined : true;
+  const results = tokens.map((token) => evaluateComparator(runtime, token));
+  if (results.some((result) => result === undefined)) return undefined;
+  return results.every((result) => result === true);
 }
 
 export function evaluateNodeRuntimeCompatibility(
