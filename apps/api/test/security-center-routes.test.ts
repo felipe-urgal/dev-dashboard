@@ -15,9 +15,7 @@ import type { SecurityScanResult } from '../src/services/trivy-security-scanner.
 const TOKEN = 's'.repeat(64);
 const OBSERVED_AT = '2026-09-07T12:00:00.000Z';
 
-class StubSecurityScannerProvider
-  implements SecurityScannerProvider<SecurityScanResult>
-{
+class StubSecurityScannerProvider implements SecurityScannerProvider<SecurityScanResult> {
   public readonly id = 'trivy';
   public availabilityResult: SecurityScannerAvailability = {
     state: 'available',
@@ -112,7 +110,8 @@ test('Security Center preserva scanner ausente como capability opcional', async 
   fixture.provider.availabilityResult = {
     state: 'missing',
     observedAt: OBSERVED_AT,
-    diagnostic: 'Trivy não está instalado ou não está disponível no PATH da API.',
+    diagnostic:
+      'Trivy não está instalado ou não está disponível no PATH da API.',
   };
 
   const response = await fixture.app.inject({
