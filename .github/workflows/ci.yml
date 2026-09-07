@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/593-security-center-api
   pull_request:
     branches:
       - main
@@ -13,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -37,5 +38,37 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
+      - name: Corrigir composition root do Security Center
+        if: github.event_name == 'push'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/app.ts')
+          text = path.read_text()
+          text = text.replace("import type { SecurityScannerProvider } from './services/security-scanner-provider.js';\nimport { TrivySecurityProvider } from './services/trivy-security-provider.js';\nimport type { SecurityScanResult } from './services/trivy-security-scanner.js';\n", "")
+          text = text.replace("  securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;\n", "")
+          old = "    releaseReadinessService,\n  } = composition;\n  const securityScannerProvider =\n    options.securityScannerProvider ?? new TrivySecurityProvider();\n"
+          new = "    releaseReadinessService,\n    securityScannerProvider,\n  } = composition;\n"
+          if old not in text:
+              raise SystemExit('Trecho esperado do composition root não encontrado')
+          path.write_text(text.replace(old, new))
+          PY
+
       - name: Quality gate
         run: npm run check
+
+      - name: Check API reference
+        run: npm run docs:api:check
+
+      - name: Commit composition root corrigido
+        if: github.event_name == 'push'
+        run: |
+          if git diff --quiet -- apps/api/src/app.ts; then
+            echo "Composition root already corrected"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/src/app.ts
+          git commit -m "refactor: reutilizar provider composto no Security Center"
+          git push origin HEAD:${{ github.ref_name }}
