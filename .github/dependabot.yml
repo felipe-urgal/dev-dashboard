@@ -10,12 +10,36 @@ updates:
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
     ignore:
-      # Vitest 5 exige Node >=22.12.0; o projeto ainda suporta Node 20.19.
-      # Remova estes ignores quando a política de engines for elevada para Node 22+.
+      # Vitest 5 remove suporte ao baseline Node 20 mantido pelo projeto.
+      # Remova estes ignores junto de uma migração explícita do baseline de runtime/testes.
       - dependency-name: vitest
         update-types:
           - version-update:semver-major
       - dependency-name: '@vitest/coverage-v8'
+        update-types:
+          - version-update:semver-major
+
+      # jsdom 30 exige Node ^22.22.2 || ^24.15.0 || >=26.0.0.
+      # O projeto ainda suporta Node 20.19, então o major precisa esperar uma decisão de runtime.
+      - dependency-name: jsdom
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@types/jsdom'
+        update-types:
+          - version-update:semver-major
+
+      # ESLint 10 exige ^20.19.0 || ^22.13.0 || >=24, enquanto o contrato atual ainda aceita Node 22.12.
+      # Adote o major somente junto da atualização explícita do intervalo de engines/documentação.
+      - dependency-name: eslint
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@eslint/js'
+        update-types:
+          - version-update:semver-major
+
+      # TypeScript 7 é uma migração de toolchain; o bump automático atual falha já no npm ci.
+      # Remova o ignore quando a migração coordenada de TypeScript/ecossistema estiver preparada.
+      - dependency-name: typescript
         update-types:
           - version-update:semver-major
 
