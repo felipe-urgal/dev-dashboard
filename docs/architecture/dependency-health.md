@@ -59,7 +59,34 @@ Um registry indisponível nunca transforma uma versão local conhecida em `unkno
 - redirects não são aceitos;
 - nenhum package manager é executado;
 - nenhum `.npmrc`, token ou secret é transportado pela API do serviço;
-- respostas externas entram apenas pelo shape mínimo necessário para `version`.
+- respostas externas entram apenas pelo shape mínimo necessário.
+
+## Terceiro recorte: compatibilidade do alvo `latest` com Node
+
+A mesma resposta autenticada pelo contrato fixo do npm registry pode declarar `engines.node` para a versão `latest`. O serviço preserva esse valor como `latestNodeEngine` e calcula `latestRuntimeCompatibility` somente quando também recebe uma versão de runtime do projeto previamente comprovada pelo chamador.
+
+O resultado possui três estados:
+
+- `compatible`: o runtime comprovado satisfaz um range suportado da versão `latest`;
+- `incompatible`: o runtime comprovado não satisfaz nenhum ramo conhecido do range;
+- `unknown`: falta runtime comprovado, falta `engines.node` ou a sintaxe não pode ser avaliada com segurança.
+
+O runtime comparado aparece como `runtimeVersion` somente quando é uma versão estável válida. **Não existe fallback para `process.versions.node`**: o processo que executa a API pode usar um Node diferente daquele selecionado pelo projeto via nvm, asdf, Volta, container ou outra ferramenta. Confundir esses dois runtimes produziria uma evidência falsa.
+
+A compatibilidade deste recorte se refere explicitamente ao **alvo `latest` retornado pelo registry**, não à versão atualmente instalada. O Dashboard não reutiliza o `engines.node` de `latest` para afirmar compatibilidade da versão resolvida local.
+
+### Avaliação conservadora de ranges
+
+O avaliador aceita apenas construções que consegue interpretar deterministicamente, incluindo versões exatas/parciais, comparadores, `^`, `~`, conjunção por espaço e alternativas por `||` dentro do subconjunto suportado.
+
+Se uma cláusula contém sintaxe desconhecida, a cláusula inteira é tratada como não comprovável. Hyphen ranges, tags, protocolos ou outras formas não reconhecidas não são reduzidos a tokens independentes para fabricar `compatible` ou `incompatible`; o resultado degrada para `unknown` quando nenhuma alternativa conhecida prova compatibilidade.
+
+Isso preserva a regra:
+
+```text
+runtime comprovado + engines.node do latest + range suportado -> compatible | incompatible
+qualquer evidência insuficiente/ambígua                         -> unknown
+```
 
 ## Package lock
 
@@ -87,23 +114,26 @@ O inventário continua `ready` quando o `package.json` é válido e o lockfile e
 
 ## O que estes recortes ainda não afirmam
 
-O enriquecimento de `latest` não é evidência suficiente para marcar uma dependência como:
+O enriquecimento de `latest` e a compatibilidade conservadora do alvo não são evidência suficiente para marcar uma dependência como:
 
 - vulnerável;
-- compatível ou incompatível com o runtime do projeto;
+- compatível ou incompatível na **versão atualmente instalada** sem metadata correspondente a essa versão;
 - parte de um grupo/lockstep de upgrade obrigatório;
 - segura para atualização automática.
 
-Advisories e compatibilidade exigem providers/fontes próprias com origem e freshness. O Upgrade Planner deve ser construído sobre essas evidências sem misturá-las ao inventário local.
+Este recorte também não descobre sozinho qual runtime o projeto realmente usa. Essa evidência deve vir de uma fonte backend confiável antes de ser passada ao serviço.
+
+Advisories exigem origem/freshness próprias. O Upgrade Planner deve ser construído sobre essas evidências sem misturá-las ao inventário local.
 
 ## Próximos recortes
 
-A evolução seguinte pode adicionar advisories e runtime compatibility, e então construir o Upgrade Planner:
+A evolução seguinte pode adicionar advisories e descoberta confiável do runtime do projeto, e então construir o Upgrade Planner:
 
 ```text
 fato local -> range declarado / versão resolvida
-metadata externa -> latest / advisory / compatibilidade / freshness
-plano -> alvo / tipo de mudança / arquivos / gates / grupos relacionados
+metadata externa -> latest / advisory / engines / origem / freshness
+runtime comprovado -> versão / origem / freshness
+plano -> alvo / tipo de mudança / compatibilidade / arquivos / gates / grupos relacionados
 ```
 
 Mutação automática continua fora do MVP e deve exigir plano, confirmação e rollback adequados antes de alterar manifest ou lockfile.
