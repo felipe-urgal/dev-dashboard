@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/593-security-center-api
   pull_request:
     branches:
       - main
@@ -44,6 +45,7 @@ jobs:
         run: npm run docs:api
 
       - name: Commit generated API reference
+        if: github.event_name == 'push'
         run: |
           if git diff --quiet -- docs/architecture/api-reference.md; then
             echo "API reference already up to date"
@@ -53,4 +55,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/architecture/api-reference.md
           git commit -m "docs: atualizar referência da API do Security Center"
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin HEAD:${{ github.ref_name }}
