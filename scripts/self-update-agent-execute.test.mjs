@@ -22,7 +22,9 @@ const PLAN_HASH = 'b'.repeat(64);
 const SOURCE_DIRECTORY = path.join(ROOT_DIRECTORY, 'scripts');
 
 async function createTestPaths(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-agent-execute-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-agent-execute-'),
+  );
   t.after(async () => rm(root, { recursive: true, force: true }));
   return resolveSelfUpdateAgentPaths({
     installRoot: path.join(root, 'install'),
