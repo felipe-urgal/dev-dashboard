@@ -218,11 +218,12 @@ function parseAgentPing(raw: string): void {
     !Array.isArray(parsed.actions) ||
     !parsed.actions.includes('claim') ||
     !parsed.actions.includes('inspect') ||
+    !parsed.actions.includes('execute') ||
     typeof parsed.instanceId !== 'string'
   ) {
     throw new SelfUpdateHandoffError(
       'SELF_UPDATE_AGENT_UNAVAILABLE',
-      'Self-update agent não está pronto para assumir e reconciliar handoffs.',
+      'Self-update agent não está pronto para assumir, executar e reconciliar handoffs.',
     );
   }
 }
@@ -411,6 +412,7 @@ async function defaultToolRunner(
 export class SelfUpdateHandoffService {
   private readonly helperPath: string;
   private readonly agentPath: string;
+  private readonly executionPath: string;
   private readonly runner: SelfUpdateToolRunner;
   private readonly executionProbe: SelfUpdateExecutionProbe;
   private readonly requestShutdown: SelfUpdateShutdownRequester;
@@ -427,6 +429,10 @@ export class SelfUpdateHandoffService {
       'scripts/self-update-helper.mjs',
     );
     this.agentPath = path.join(repositoryRoot, 'scripts/self-update-agent.mjs');
+    this.executionPath = path.join(
+      repositoryRoot,
+      'scripts/self-update-agent-execute.mjs',
+    );
   }
 
   async inspect(
@@ -533,10 +539,7 @@ export class SelfUpdateHandoffService {
 
     let executionResult: ToolResult;
     try {
-      executionResult = await this.runner(this.agentPath, [
-        'execute',
-        claimed.id,
-      ]);
+      executionResult = await this.runner(this.executionPath, [claimed.id]);
     } catch {
       throw new SelfUpdateHandoffError(
         'SELF_UPDATE_EXECUTION_START_FAILED',
