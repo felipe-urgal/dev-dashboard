@@ -56,6 +56,7 @@ import { LocalTokenStore } from '@dev-dashboard/core';
 import { registerLocalSecurity } from './security/local-security.js';
 
 import { registerApiErrorHandling } from './http/api-error.js';
+import { handleMalformedUrl } from './http/router-options.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
 import {
   createAppComposition,
@@ -80,6 +81,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
+    },
+    routerOptions: {
+      onBadUrl: handleMalformedUrl,
     },
   });
 

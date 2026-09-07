@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import Fastify from 'fastify';
+import { handleMalformedUrl } from '../src/http/router-options.js';
 import {
   registerStaticDashboard,
   validateDashboardBuild,
@@ -116,7 +117,12 @@ test('injeta bootstrap somente na resposta HTML, sem usar a URL ou alterar o bui
 
 test('rejeita URI malformada sem converter erro de cliente em 500', async (context) => {
   const root = await fixture();
-  const app = Fastify({ logger: false });
+  const app = Fastify({
+    logger: false,
+    routerOptions: {
+      onBadUrl: handleMalformedUrl,
+    },
+  });
   await registerStaticDashboard(app, root);
   context.after(async () => {
     await app.close();
