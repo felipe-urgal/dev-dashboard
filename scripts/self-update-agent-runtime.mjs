@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import {
   createHash,
   randomBytes,
@@ -26,6 +27,7 @@ export const SELF_UPDATE_AGENT_ACTIONS = Object.freeze([
   'ping',
   'inspect',
   'claim',
+  'execute',
   'recover',
 ]);
 
@@ -485,7 +487,14 @@ function parseAgentRequest(value) {
   if (
     !hasOnlyKeys(
       value,
-      new Set(['version', 'requestId', 'token', 'action', 'handoffId']),
+      new Set([
+        'version',
+        'requestId',
+        'token',
+        'action',
+        'handoffId',
+        'repositoryRoot',
+      ]),
     ) ||
     value.version !== SELF_UPDATE_AGENT_PROTOCOL_VERSION ||
     typeof value.requestId !== 'string' ||
@@ -501,7 +510,10 @@ function parseAgentRequest(value) {
     );
   }
 
-  const needsHandoff = value.action === 'inspect' || value.action === 'claim';
+  const needsHandoff =
+    value.action === 'inspect' ||
+    value.action === 'claim' ||
+    value.action === 'execute';
   if (
     needsHandoff !== (value.handoffId !== undefined) ||
     (needsHandoff &&
@@ -511,6 +523,19 @@ function parseAgentRequest(value) {
     throw new SelfUpdateAgentError(
       'AGENT_REQUEST_INVALID',
       'Request do agent possui parâmetros incompatíveis com a ação.',
+    );
+  }
+
+  const needsRepositoryRoot = value.action === 'execute';
+  if (
+    needsRepositoryRoot !== (value.repositoryRoot !== undefined) ||
+    (needsRepositoryRoot &&
+      (typeof value.repositoryRoot !== 'string' ||
+        !path.isAbsolute(value.repositoryRoot)))
+  ) {
+    throw new SelfUpdateAgentError(
+      'AGENT_REQUEST_INVALID',
+      'Request do agent possui checkout incompatível com a ação.',
     );
   }
 
@@ -602,11 +627,90 @@ async function prepareSocketPath(paths) {
   }
 }
 
+async function assertExecutionRepositoryRoot(repositoryRoot) {
+  assertAbsolutePath(repositoryRoot, 'Checkout do self-update');
+  const metadata = await lstat(repositoryRoot);
+  const uid = currentUid();
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    (uid !== null && metadata.uid !== uid)
+  ) {
+    throw new SelfUpdateAgentError(
+      'AGENT_EXECUTION_REPOSITORY_INVALID',
+      'Checkout do self-update não é um diretório local confiável.',
+    );
+  }
+
+  const canonical = await realpath(repositoryRoot);
+  if (canonical !== path.resolve(repositoryRoot)) {
+    throw new SelfUpdateAgentError(
+      'AGENT_EXECUTION_REPOSITORY_INVALID',
+      'Checkout do self-update não pode depender de symlink.',
+    );
+  }
+
+  let packageJson;
+  try {
+    packageJson = JSON.parse(
+      await readFile(path.join(repositoryRoot, 'package.json'), 'utf8'),
+    );
+  } catch {
+    throw new SelfUpdateAgentError(
+      'AGENT_EXECUTION_REPOSITORY_INVALID',
+      'Checkout do self-update não possui package.json válido.',
+    );
+  }
+  if (packageJson?.name !== 'dev-dashboard') {
+    throw new SelfUpdateAgentError(
+      'AGENT_EXECUTION_REPOSITORY_INVALID',
+      'Checkout registrada não pertence ao Dev Dashboard.',
+    );
+  }
+  return canonical;
+}
+
+async function spawnExecutionWorker({
+  handoffId,
+  repositoryRoot,
+  paths,
+  spawnProcess,
+}) {
+  const root = await assertExecutionRepositoryRoot(repositoryRoot);
+  const installation = await verifyInstalledSelfUpdateAgent(paths);
+
+  return await new Promise((resolve, reject) => {
+    const child = spawnProcess(
+      process.execPath,
+      [installation.entrypoint, 'execute-worker', handoffId],
+      {
+        detached: true,
+        shell: false,
+        stdio: 'ignore',
+        env: {
+          ...process.env,
+          DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR: paths.installRoot,
+          DEV_DASHBOARD_CONFIG_DIR: paths.configDirectory,
+          DEV_DASHBOARD_STATE_DIR: path.dirname(paths.stateDirectory),
+          DEV_DASHBOARD_SELF_UPDATE_RUNTIME_DIR: paths.runtimeDirectory,
+          DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT: root,
+        },
+      },
+    );
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve({ status: 'worker-started', handoffId, pid: child.pid });
+    });
+  });
+}
+
 export async function startSelfUpdateAgentServer({
   paths,
   token,
   store = new SelfUpdateHandoffStore(paths.stateDirectory),
   release = 'test',
+  spawnProcess = spawn,
 }) {
   await prepareSocketPath(paths);
 
@@ -653,6 +757,21 @@ export async function startSelfUpdateAgentServer({
     const mutate = async () => {
       if (request.action === 'claim') {
         return await store.claim(request.handoffId);
+      }
+      if (request.action === 'execute') {
+        const handoff = await store.get(request.handoffId);
+        if (!handoff || handoff.status !== 'accepted') {
+          throw new SelfUpdateAgentError(
+            'AGENT_HANDOFF_NOT_ACCEPTED',
+            'Worker só pode iniciar para handoff previamente aceito.',
+          );
+        }
+        return await spawnExecutionWorker({
+          handoffId: handoff.id,
+          repositoryRoot: request.repositoryRoot,
+          paths,
+          spawnProcess,
+        });
       }
       if (request.action === 'recover') {
         const recovered = await store.recoverInterrupted();
@@ -796,7 +915,13 @@ function validateAgentResponse(value, requestId) {
 
 export async function sendSelfUpdateAgentRequest(
   action,
-  { handoffId, paths, token, timeoutMs = REQUEST_TIMEOUT_MS } = {},
+  {
+    handoffId,
+    repositoryRoot,
+    paths,
+    token,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  } = {},
 ) {
   if (!SELF_UPDATE_AGENT_ACTIONS.includes(action)) {
     throw new SelfUpdateAgentError(
@@ -804,16 +929,27 @@ export async function sendSelfUpdateAgentRequest(
       'Ação local do agent não é suportada.',
     );
   }
-  if ((action === 'inspect' || action === 'claim') && !handoffId) {
+
+  const needsHandoff =
+    action === 'inspect' || action === 'claim' || action === 'execute';
+  if (needsHandoff !== (handoffId !== undefined)) {
     throw new SelfUpdateAgentError(
       'AGENT_REQUEST_INVALID',
-      'Ação exige handoffId.',
+      needsHandoff ? 'Ação exige handoffId.' : 'Ação não aceita handoffId.',
     );
   }
-  if (action !== 'inspect' && action !== 'claim' && handoffId !== undefined) {
+
+  const needsRepositoryRoot = action === 'execute';
+  if (
+    needsRepositoryRoot !== (repositoryRoot !== undefined) ||
+    (needsRepositoryRoot &&
+      (typeof repositoryRoot !== 'string' || !path.isAbsolute(repositoryRoot)))
+  ) {
     throw new SelfUpdateAgentError(
       'AGENT_REQUEST_INVALID',
-      'Ação não aceita handoffId.',
+      needsRepositoryRoot
+        ? 'Ação execute exige repositoryRoot absoluto.'
+        : 'Ação não aceita repositoryRoot.',
     );
   }
 
@@ -826,6 +962,7 @@ export async function sendSelfUpdateAgentRequest(
     token: activeToken,
     action,
     ...(handoffId ? { handoffId } : {}),
+    ...(repositoryRoot ? { repositoryRoot } : {}),
   };
 
   return await new Promise((resolve, reject) => {

@@ -60,7 +60,7 @@ function ping() {
     pid: 1234,
     instanceId: '22222222-2222-4222-8222-222222222222',
     release: 'test-release',
-    actions: ['ping', 'inspect', 'claim', 'recover'],
+    actions: ['ping', 'inspect', 'claim', 'execute', 'recover'],
   });
 }
 
@@ -136,8 +136,8 @@ test('persiste, transfere ownership e só solicita shutdown após o worker prova
       args: ['claim', HANDOFF_ID],
     },
     {
-      scriptPath: path.join('/repo', 'scripts/self-update-agent.mjs'),
-      args: ['execute', HANDOFF_ID],
+      scriptPath: path.join('/repo', 'scripts/self-update-agent-execute.mjs'),
+      args: [HANDOFF_ID],
     },
   ]);
 });
@@ -257,7 +257,7 @@ test('falha fechado quando o agent não está disponível', async () => {
   );
 });
 
-test('não cria handoff se ping não provar suporte a claim e inspect', async () => {
+test('não cria handoff se ping não provar suporte a claim, inspect e execute', async () => {
   let calls = 0;
   const service = new SelfUpdateHandoffService({
     runner: async () => {
@@ -267,7 +267,7 @@ test('não cria handoff se ping não provar suporte a claim e inspect', async ()
         stdout: JSON.stringify({
           status: 'ready',
           instanceId: '22222222-2222-4222-8222-222222222222',
-          actions: ['ping', 'claim'],
+          actions: ['ping', 'claim', 'inspect'],
         }),
         stderr: '',
       };
