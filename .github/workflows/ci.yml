@@ -31,11 +31,20 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
+      - name: Install coordinated ESLint 10 toolchain
+        run: npm install --ignore-scripts --save-dev eslint@10.0.1 @eslint/js@10.0.1
 
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
       - name: Quality gate
         run: npm run check
+
+      - name: Upload coordinated dependency manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-10-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
