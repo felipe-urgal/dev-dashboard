@@ -47,6 +47,7 @@ import { scriptHistoryRoutes } from './routes/script-history.js';
 import { dependenciesPtyRoutes } from './routes/dependencies-pty-routes.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectBrowserRoutes } from './routes/project-browser.js';
+import { securityCenterRoutes } from './routes/security-center.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -62,6 +63,9 @@ import {
   type AppCompositionOptions,
 } from './app-composition.js';
 import { createAppContext, type AppContext } from './app-context.js';
+import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
+import { TrivySecurityProvider } from './services/trivy-security-provider.js';
+import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   localToken?: string;
@@ -73,6 +77,7 @@ export interface BuildAppOptions extends AppCompositionOptions {
   sessionSecret?: string;
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
+  securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -112,6 +117,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     attentionCenterService,
     releaseReadinessService,
   } = composition;
+  const securityScannerProvider =
+    options.securityScannerProvider ?? new TrivySecurityProvider();
   registerAppLifecycle(app, context, composition);
 
   const localToken =
@@ -373,6 +380,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(settingsRoutes, {
     prefix: '/api',
     environmentProfileRepository: context.environmentProfileRepository,
+  });
+  app.register(securityCenterRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    securityScannerProvider,
   });
 
   if (options.staticDashboardEnabled) {
