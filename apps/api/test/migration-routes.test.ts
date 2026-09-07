@@ -47,7 +47,7 @@ test('Migrations HTTP exp√µe contrato comum, database validado e erros determin√
     warnings: [],
   });
 
-  const calls: Array<{ projectId: string; database?: string }> = [];
+  const calls: Array<{ projectId: string; database: string | undefined }> = [];
   const service = {
     inspect: async (selectedProject: Project, database?: string) => {
       calls.push({ projectId: selectedProject.id, database });
