@@ -63,9 +63,6 @@ import {
   type AppCompositionOptions,
 } from './app-composition.js';
 import { createAppContext, type AppContext } from './app-context.js';
-import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
-import { TrivySecurityProvider } from './services/trivy-security-provider.js';
-import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
 export interface BuildAppOptions extends AppCompositionOptions {
   localToken?: string;
@@ -77,7 +74,6 @@ export interface BuildAppOptions extends AppCompositionOptions {
   sessionSecret?: string;
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
-  securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -116,9 +112,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     productionOverviewService,
     attentionCenterService,
     releaseReadinessService,
+    securityScannerProvider,
   } = composition;
-  const securityScannerProvider =
-    options.securityScannerProvider ?? new TrivySecurityProvider();
   registerAppLifecycle(app, context, composition);
 
   const localToken =
