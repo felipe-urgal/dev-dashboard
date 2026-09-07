@@ -47,6 +47,7 @@ import { scriptHistoryRoutes } from './routes/script-history.js';
 import { dependenciesPtyRoutes } from './routes/dependencies-pty-routes.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectBrowserRoutes } from './routes/project-browser.js';
+import { securityCenterRoutes } from './routes/security-center.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -111,6 +112,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     productionOverviewService,
     attentionCenterService,
     releaseReadinessService,
+    securityScannerProvider,
   } = composition;
   registerAppLifecycle(app, context, composition);
 
@@ -373,6 +375,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(settingsRoutes, {
     prefix: '/api',
     environmentProfileRepository: context.environmentProfileRepository,
+  });
+  app.register(securityCenterRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    securityScannerProvider,
   });
 
   if (options.staticDashboardEnabled) {
