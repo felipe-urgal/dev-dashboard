@@ -9,6 +9,15 @@ updates:
       time: '09:00'
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 5
+    ignore:
+      # Vitest 5 exige Node >=22.12.0; o projeto ainda suporta Node 20.19.
+      # Remova estes ignores quando a política de engines for elevada para Node 22+.
+      - dependency-name: vitest
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@vitest/coverage-v8'
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
