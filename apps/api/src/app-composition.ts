@@ -11,6 +11,9 @@ import type { ProjectLanguageServerService } from './services/project-language-s
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
 import { ReleaseReadinessService } from './services/release-readiness-service.js';
+import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
+import { TrivySecurityProvider } from './services/trivy-security-provider.js';
+import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
 export interface AppCompositionOptions {
   now?: () => number;
@@ -20,6 +23,7 @@ export interface AppCompositionOptions {
   projectTerminalService?: ProjectTerminalService;
   deploymentService?: DeploymentService;
   releaseReadinessService?: Pick<ReleaseReadinessService, 'getSnapshot'>;
+  securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
 
 /**
@@ -72,6 +76,8 @@ export function createAppComposition(
       projectDoctorService,
       options.now ? { now: options.now } : {},
     );
+  const securityScannerProvider =
+    options.securityScannerProvider ?? new TrivySecurityProvider();
 
   return {
     databaseExplorerSessionStore,
@@ -85,6 +91,7 @@ export function createAppComposition(
     productionOverviewService,
     attentionCenterService,
     releaseReadinessService,
+    securityScannerProvider,
   };
 }
 
