@@ -39,3 +39,13 @@ jobs:
 
       - name: Quality gate
         run: npm run check
+
+      - name: Generate API reference artifact
+        run: npm run docs:api
+
+      - name: Upload generated API reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-reference
+          path: docs/architecture/api-reference.md
+          if-no-files-found: error
