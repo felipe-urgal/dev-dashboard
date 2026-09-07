@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -40,11 +40,14 @@ jobs:
       - name: Quality gate
         run: npm run check
 
-      - name: Upload coordinated dependency manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: eslint-10-manifests
-          path: |
-            package.json
-            package-lock.json
-          if-no-files-found: error
+      - name: Commit coordinated dependency manifests
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "Dependency manifests already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(deps-dev): alinhar ESLint 10"
+          git push origin HEAD:${{ github.head_ref }}
