@@ -167,7 +167,11 @@ watch(
         <strong>{{ overview.evidence }}</strong>
       </div>
 
-      <div v-if="overview.warnings.length" class="migrations-warning" role="note">
+      <div
+        v-if="overview.warnings.length"
+        class="migrations-warning"
+        role="note"
+      >
         <strong>Atenção</strong>
         <ul>
           <li v-for="warning in overview.warnings" :key="warning">

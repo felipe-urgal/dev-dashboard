@@ -1,10 +1,7 @@
 import { requestJson } from './core';
 
 export type MigrationOverviewStatus =
-  | 'up-to-date'
-  | 'pending'
-  | 'unavailable'
-  | 'unknown';
+  'up-to-date' | 'pending' | 'unavailable' | 'unknown';
 
 export interface MigrationEntry {
   id: string;
@@ -30,9 +27,7 @@ export async function fetchMigrationOverview(
   projectId: string,
   database?: string,
 ): Promise<MigrationOverview> {
-  const query = database
-    ? `?database=${encodeURIComponent(database)}`
-    : '';
+  const query = database ? `?database=${encodeURIComponent(database)}` : '';
   const response = await requestJson<MigrationOverviewResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/migrations${query}`,
   );
