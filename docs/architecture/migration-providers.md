@@ -1,17 +1,68 @@
 # Migration Providers
 
-Migration Providers separam o estado de migrations do framework que produz a evidência. O objetivo é permitir que consumidores como Release Readiness consultem um `MigrationOverview` sem conhecer Rails, Prisma ou scripts específicos.
+Migration Providers separam o estado de migrations do framework que produz a evidência. O objetivo é permitir que consumidores como a UI comum e, futuramente, Release Readiness consultem um `MigrationOverview` sem conhecer Rails, Prisma ou scripts específicos.
 
 ## Contrato interno
 
-O primeiro recorte define em `apps/api/src/services/migration-provider.ts`:
+O contrato em `apps/api/src/services/migration-provider.ts` define:
 
 - `MigrationProvider`;
 - `MigrationInspectionContext`;
 - `MigrationOverview`;
 - estados `up-to-date`, `pending`, `unavailable` e `unknown`.
 
-Inspeção é separada de mutação. O contrato atual não expõe `reset`, `drop`, `prepare` ou qualquer ação destrutiva.
+Inspeção é separada de mutação. O contrato atual não expõe `reset`, `drop`, `prepare`, `migrate` ou qualquer ação destrutiva.
+
+`MigrationOverviewService` é o agregador da superfície comum. Ele percorre providers em ordem determinística e usa o primeiro que declara suporte ao projeto. Providers configurados explicitamente são avaliados antes dos built-ins; Rails e Prisma permanecem como fallbacks conhecidos.
+
+Falha em `supports()` não derruba a inspeção dos providers seguintes. Falha inesperada em `inspect()` vira `unavailable` sanitizado: exception message, stack, stdout, stderr, connection strings e environment values nunca são transportados para o contrato público.
+
+Se nenhum provider for compatível, o resultado também é `unavailable`. Ausência de provider ou falha de inspeção **nunca** significam `up-to-date`.
+
+## Rota HTTP comum
+
+A API expõe somente leitura em:
+
+```text
+GET /api/projects/:projectId/migrations
+GET /api/projects/:projectId/migrations?database=<identidade-lógica>
+```
+
+A resposta possui formato estável:
+
+```json
+{
+  "migration": {
+    "provider": "rails",
+    "status": "pending",
+    "database": "primary",
+    "applied": [{ "id": "20260901010101", "name": "Create users" }],
+    "pending": [{ "id": "20260902020202", "name": "Add index" }],
+    "observedAt": "2026-09-07T16:00:00.000Z",
+    "evidence": "Rails db:migrate:status",
+    "warnings": []
+  }
+}
+```
+
+`database` é opcional e representa somente uma identidade lógica. A rota aceita no máximo 128 caracteres e apenas `A-Z`, `a-z`, números, `_` e `-`, começando por caractere alfanumérico. Entrada inválida é rejeitada com `400` antes de chegar ao provider. Projeto inexistente retorna `PROJECT_NOT_FOUND` com `404`.
+
+O schema HTTP é fechado (`additionalProperties: false`) e a rota não expõe nenhuma mutation.
+
+## UI comum
+
+A ferramenta `Migrations`, em `/projects/:projectId/migrations`, consome exclusivamente a rota comum. Ela não conhece comandos Rails, Prisma ou custom.
+
+A UI apresenta:
+
+- estado normalizado (`Atualizado`, `Pendente`, `Indisponível` ou `Inconclusivo`);
+- provider e identidade lógica do banco;
+- contagem de migrations aplicadas e pendentes;
+- evidência e warnings sanitizados;
+- migrations pendentes retornadas pelo provider;
+- no máximo as 20 migrations aplicadas mais recentes, preservando a contagem total para evitar renderização excessiva em históricos grandes.
+
+A tela é deliberadamente read-only. Não existe botão de `migrate`, `reset`, `deploy` ou equivalente. Erro de transporte permanece explícito e oferece retry; `unavailable`/`unknown` vindos do backend continuam visíveis como estado de domínio e não são convertidos em sucesso.
 
 ## Provider Rails
 
@@ -75,7 +126,7 @@ A saída do processo não faz parte de `MigrationOverview`. Mesmo quando o coman
 
 Quando o exit code prova `pending`, o overview pode informar o estado sem fabricar nomes individuais de migrations; nesse caso a lista permanece vazia e um warning explica a limitação.
 
-Configuração custom não vem de request HTTP neste recorte. Expor configuração dinâmica no futuro exige validação/allowlist própria e não pode abrir caminho para shell livre.
+Configuração custom não vem de request HTTP. Expor configuração dinâmica no futuro exige validação/allowlist própria e não pode abrir caminho para shell livre.
 
 ## Próximos providers e execução
 
@@ -83,6 +134,8 @@ Novos providers devem continuar atrás do mesmo contrato e só podem usar açõe
 
 Uma etapa posterior pode adicionar plano/execução local estruturada por provider, com confirmação, environment guard e preflight próprios. Produção continua pertencendo ao domínio Production. O contrato de mutação deve ser comum aos providers; não deve surgir primeiro como endpoint especial de Rails, Prisma ou custom.
 
+A integração com Release Readiness também permanece separada. A rota/UI comum entregam evidência read-only; só um slice próprio deve definir como essa evidência influencia `pass`, `warning`, `block` ou `unknown`.
+
 ## Limites atuais
 
-Ainda não há rota HTTP nova ou UI comum de migrations. O fluxo Rails existente continua intacto enquanto o contrato comum e os providers de inspeção são introduzidos de forma compatível.
+A rota e a UI comuns são somente leitura. O fluxo Rails/PTY existente continua intacto e é a superfície responsável por execução Rails até existir um contrato de mutation comum e explicitamente aprovado.

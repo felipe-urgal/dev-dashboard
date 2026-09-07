@@ -10,6 +10,10 @@ import { ProjectFileMutationService } from './services/project-file-mutation-ser
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
+import { MigrationOverviewService } from './services/migration-overview-service.js';
+import type { MigrationProvider } from './services/migration-provider.js';
+import { PrismaMigrationProvider } from './services/prisma-migration-provider.js';
+import { RailsMigrationProvider } from './services/rails-migration-provider.js';
 import { ReleaseReadinessService } from './services/release-readiness-service.js';
 import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
 import { TrivySecurityProvider } from './services/trivy-security-provider.js';
@@ -23,6 +27,7 @@ export interface AppCompositionOptions {
   projectTerminalService?: ProjectTerminalService;
   deploymentService?: DeploymentService;
   releaseReadinessService?: Pick<ReleaseReadinessService, 'getSnapshot'>;
+  migrationProviders?: readonly MigrationProvider[];
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
 
@@ -76,6 +81,15 @@ export function createAppComposition(
       projectDoctorService,
       options.now ? { now: options.now } : {},
     );
+  const now = options.now;
+  const migrationOverviewService = new MigrationOverviewService(
+    [
+      ...(options.migrationProviders ?? []),
+      new RailsMigrationProvider(context.railsInspectionService),
+      new PrismaMigrationProvider(),
+    ],
+    now ? { now: () => new Date(now()) } : {},
+  );
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
@@ -91,6 +105,7 @@ export function createAppComposition(
     productionOverviewService,
     attentionCenterService,
     releaseReadinessService,
+    migrationOverviewService,
     securityScannerProvider,
   };
 }
