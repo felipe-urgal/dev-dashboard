@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/593-security-center-api
   pull_request:
     branches:
       - main
@@ -14,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -40,19 +39,3 @@ jobs:
 
       - name: Quality gate
         run: npm run check
-
-      - name: Generate API reference
-        run: npm run docs:api
-
-      - name: Commit generated API reference
-        if: github.event_name == 'push'
-        run: |
-          if git diff --quiet -- docs/architecture/api-reference.md; then
-            echo "API reference already up to date"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/architecture/api-reference.md
-          git commit -m "docs: atualizar referência da API do Security Center"
-          git push origin HEAD:${{ github.ref_name }}
