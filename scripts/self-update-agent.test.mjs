@@ -24,6 +24,7 @@ import { SelfUpdateHandoffStore } from './self-update-handoff.mjs';
 const SOURCE_DIRECTORY = path.dirname(
   fileURLToPath(new URL('./self-update-agent.mjs', import.meta.url)),
 );
+const REPOSITORY_ROOT = path.resolve(SOURCE_DIRECTORY, '..');
 const REVISION = 'a'.repeat(40);
 const PLAN_HASH = 'b'.repeat(64);
 
@@ -103,7 +104,13 @@ test('socket é privado e exige token local válido', async (t) => {
 
   const ping = await sendSelfUpdateAgentRequest('ping', { paths, token });
   assert.equal(ping.status, 'ready');
-  assert.deepEqual(ping.actions, ['ping', 'inspect', 'claim', 'recover']);
+  assert.deepEqual(ping.actions, [
+    'ping',
+    'inspect',
+    'claim',
+    'execute',
+    'recover',
+  ]);
 
   await assert.rejects(
     () =>
@@ -178,6 +185,108 @@ test('serializa claims concorrentes do mesmo handoff', async (t) => {
     handoffId: handoff.id,
   });
   assert.equal(inspected.status, 'accepted');
+});
+
+test('execute faz o agent persistente iniciar o worker instalado', async (t) => {
+  const paths = await createTestPaths(t);
+  const token = await getOrCreateSelfUpdateAgentToken(paths);
+  const store = new SelfUpdateHandoffStore(paths.stateDirectory);
+  const installation = await installAgent({
+    paths,
+    sourceDirectory: SOURCE_DIRECTORY,
+  });
+  let spawned;
+  let unrefCalls = 0;
+
+  const runtime = await startSelfUpdateAgentServer({
+    paths,
+    token,
+    store,
+    release: 'test-release',
+    spawnProcess(command, args, options) {
+      spawned = { command, args, options };
+      const child = {
+        pid: 4242,
+        once(event, callback) {
+          if (event === 'spawn') queueMicrotask(callback);
+          return child;
+        },
+        unref() {
+          unrefCalls += 1;
+        },
+      };
+      return child;
+    },
+  });
+  t.after(() => runtime.close());
+
+  const prepared = await prepareHandoff(store);
+  await sendSelfUpdateAgentRequest('claim', {
+    paths,
+    token,
+    handoffId: prepared.id,
+  });
+
+  const result = await sendSelfUpdateAgentRequest('execute', {
+    paths,
+    token,
+    handoffId: prepared.id,
+    repositoryRoot: REPOSITORY_ROOT,
+  });
+
+  assert.deepEqual(result, {
+    status: 'worker-started',
+    handoffId: prepared.id,
+    pid: 4242,
+  });
+  assert.equal(spawned.command, process.execPath);
+  assert.deepEqual(spawned.args, [
+    installation.entrypoint,
+    'execute-worker',
+    prepared.id,
+  ]);
+  assert.equal(spawned.options.detached, true);
+  assert.equal(spawned.options.shell, false);
+  assert.equal(spawned.options.stdio, 'ignore');
+  assert.equal(
+    spawned.options.env.DEV_DASHBOARD_SELF_UPDATE_REPOSITORY_ROOT,
+    REPOSITORY_ROOT,
+  );
+  assert.equal(unrefCalls, 1);
+});
+
+test('execute recusa checkout ausente ou handoff não aceito', async (t) => {
+  const paths = await createTestPaths(t);
+  const token = await getOrCreateSelfUpdateAgentToken(paths);
+  const store = new SelfUpdateHandoffStore(paths.stateDirectory);
+  const runtime = await startSelfUpdateAgentServer({
+    paths,
+    token,
+    store,
+    release: 'test-release',
+  });
+  t.after(() => runtime.close());
+
+  const handoff = await prepareHandoff(store);
+  await assert.rejects(
+    () =>
+      sendSelfUpdateAgentRequest('execute', {
+        paths,
+        token,
+        handoffId: handoff.id,
+      }),
+    (error) => error?.code === 'AGENT_REQUEST_INVALID',
+  );
+  await assert.rejects(
+    () =>
+      sendSelfUpdateAgentRequest('execute', {
+        paths,
+        token,
+        handoffId: handoff.id,
+        repositoryRoot: REPOSITORY_ROOT,
+      }),
+    (error) => error?.code === 'AGENT_HANDOFF_NOT_ACCEPTED',
+  );
 });
 
 test('startup recupera handoff assumido por execução anterior', async (t) => {
