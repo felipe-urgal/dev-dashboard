@@ -2,6 +2,7 @@
 import {
   AdjustmentsHorizontalIcon,
   CheckBadgeIcon,
+  CircleStackIcon,
   CodeBracketIcon,
   CommandLineIcon,
   CubeIcon,
@@ -77,6 +78,16 @@ const route = useRoute();
   >
     <AdjustmentsHorizontalIcon aria-hidden="true" />
     <span>Variáveis de ambiente</span>
+  </RouterLink>
+  <RouterLink
+    class="project-details-tab"
+    :class="{
+      'project-details-tab-active': route.name === 'project-migrations',
+    }"
+    :to="{ name: 'project-migrations', params: { projectId: project.id } }"
+  >
+    <CircleStackIcon aria-hidden="true" />
+    <span>Migrations</span>
   </RouterLink>
   <RouterLink
     class="project-details-tab"
