@@ -101,9 +101,8 @@ function stableRuntimeVersion(value: string | undefined): string | undefined {
 }
 
 function parseEngineVersion(value: string): ParsedEngineVersion | undefined {
-  const match = /^(?:v)?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?$/u.exec(
-    value,
-  );
+  const match =
+    /^(?:v)?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?$/u.exec(value);
   if (!match?.[1]) return undefined;
 
   const precision: 1 | 2 | 3 = match[3] ? 3 : match[2] ? 2 : 1;
@@ -227,7 +226,8 @@ function evaluateComparator(
 
   if (operator === '^') return evaluateCaret(runtime, target);
   if (operator === '~') return evaluateTilde(runtime, target);
-  if (!operator || operator === '=') return evaluateBareVersion(runtime, target);
+  if (!operator || operator === '=')
+    return evaluateBareVersion(runtime, target);
 
   const comparison = compareVersion(runtime, target.version);
   switch (operator) {
