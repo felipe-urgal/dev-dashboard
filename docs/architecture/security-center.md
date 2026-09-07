@@ -66,6 +66,28 @@ Diretórios gerados/pesados conhecidos (`node_modules`, `dist`, `build`, `covera
 
 O fingerprint usa SHA-256 sobre categoria, rule ID, arquivo e linha. Ele serve para deduplicação sem persistir conteúdo do finding.
 
+## API autenticada
+
+O primeiro contrato HTTP público do domínio reutiliza a autenticação local global da API e expõe somente operações fechadas:
+
+- `GET /api/security-center/availability` consulta a disponibilidade do provider configurado;
+- `POST /api/projects/:projectId/security-center/scan` executa um scan manual para o projeto conhecido pelo backend.
+
+O endpoint de scan não aceita target, path, executável, argumentos ou opções do scanner enviados pelo browser. O corpo é vazio e qualquer propriedade adicional é rejeitada pela validação da rota.
+
+`projectId` é apenas um identificador de domínio. A API resolve o `Project` no `ProjectStore`; somente então o provider recebe o `Project.path` confiável. Projeto inexistente retorna `PROJECT_NOT_FOUND` sem executar o scanner.
+
+Essa fronteira preserva a regra:
+
+```text
+browser -> intenção: scan do projectId
+API -> resolve Project confiável -> provider com argv fechado -> DTO sanitizado
+```
+
+Scanner ausente continua retornando estado `missing` em availability. Ele não bloqueia outras ferramentas nem dispara instalação automática.
+
 ## Limites atuais
 
-Este recorte adiciona disponibilidade e scan manual executável, mas ainda não cria rota HTTP, persistência ou UI. Também não existe instalação automática do binário nem política de bloquear Release Readiness por finding; qualquer integração futura precisa preservar freshness e política explícita.
+A API de availability/scan já existe, porém este recorte ainda não adiciona persistência, histórico nem UI do Security Center. Também não existe instalação automática do binário nem política de bloquear Release Readiness por finding.
+
+Qualquer evolução de persistência deve armazenar apenas o DTO sanitizado e metadados necessários. Integração futura com Release Readiness precisa preservar freshness e aplicar política explícita, em vez de transformar qualquer finding antigo em bloqueio implícito.
