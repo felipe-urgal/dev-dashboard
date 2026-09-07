@@ -70,10 +70,7 @@ export function createServerShutdown(
         exit(0);
       } catch (error) {
         deadline.clear();
-        app.log.error(
-          { error, signal },
-          'Falha ao encerrar Dev Dashboard API',
-        );
+        app.log.error({ error, signal }, 'Falha ao encerrar Dev Dashboard API');
         exit(1);
       }
     })();
