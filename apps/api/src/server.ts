@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { readServerConfig } from './server-config.js';
+import { createServerShutdown } from './server-shutdown.js';
 
 const config = await readServerConfig();
 const app = await buildApp({
@@ -13,34 +14,11 @@ const app = await buildApp({
     : {}),
 });
 const port = config.port;
-
-async function shutdown(signal: string): Promise<void> {
-  app.log.info(
-    {
-      signal,
-    },
-    'Encerrando Dev Dashboard API',
-  );
-
-  try {
-    await app.close();
-    process.exit(0);
-  } catch (error) {
-    app.log.error(
-      {
-        error,
-      },
-      'Falha ao encerrar Dev Dashboard API',
-    );
-
-    process.exit(1);
-  }
-}
+const shutdown = createServerShutdown(app);
 
 process.once('SIGINT', () => {
   void shutdown('SIGINT');
 });
-
 process.once('SIGTERM', () => {
   void shutdown('SIGTERM');
 });
