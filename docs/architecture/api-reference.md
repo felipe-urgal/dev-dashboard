@@ -21641,6 +21641,230 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Security Center
+
+### `POST /api/projects/:projectId/security-center/scan`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "provider",
+      "execution"
+    ],
+    "properties": {
+      "provider": {
+        "type": "string"
+      },
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "observedAt"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "invalid-output"
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "provider",
+              "observedAt",
+              "findings"
+            ],
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "trivy"
+                ]
+              },
+              "observedAt": {
+                "type": "string"
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "category",
+                    "ruleId",
+                    "severity",
+                    "title",
+                    "file",
+                    "fingerprint",
+                    "observedAt"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "trivy"
+                      ]
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "secret",
+                        "misconfiguration"
+                      ]
+                    },
+                    "ruleId": {
+                      "type": "string"
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "low",
+                        "medium",
+                        "high",
+                        "critical"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "file": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "remediation": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "fingerprint": {
+                      "type": "string"
+                    },
+                    "observedAt": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "diagnostic": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/security-center/availability`
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "provider",
+      "availability"
+    ],
+    "properties": {
+      "provider": {
+        "type": "string"
+      },
+      "availability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "observedAt"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "available",
+              "missing",
+              "unavailable"
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "diagnostic": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Settings
 
 ### `GET /api/settings/environment-profiles`
