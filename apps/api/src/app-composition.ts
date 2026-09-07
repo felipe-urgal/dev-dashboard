@@ -81,13 +81,14 @@ export function createAppComposition(
       projectDoctorService,
       options.now ? { now: options.now } : {},
     );
+  const now = options.now;
   const migrationOverviewService = new MigrationOverviewService(
     [
       ...(options.migrationProviders ?? []),
       new RailsMigrationProvider(context.railsInspectionService),
       new PrismaMigrationProvider(),
     ],
-    options.now ? { now: () => new Date(options.now!()) } : {},
+    now ? { now: () => new Date(now()) } : {},
   );
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
