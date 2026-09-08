@@ -9,6 +9,7 @@ import {
   ProjectServerSettingsRepository,
 } from '@dev-dashboard/process-manager';
 
+import { DevelopmentEnvironmentInstanceStore } from './store/development-environment-instance-store.js';
 import { ProjectStore } from './store/project-store.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
 import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
@@ -50,6 +51,8 @@ export interface AppContextDomainOptions {
 }
 
 export function createFoundationContextDomain() {
+  const projectStore = new ProjectStore();
+
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository: new RetentionSettingsRepository(),
@@ -57,7 +60,9 @@ export function createFoundationContextDomain() {
     projectDisabledRepository: new ProjectDisabledRepository(),
     processManager: new ProcessManager(),
     serverSettingsRepository: new ProjectServerSettingsRepository(),
-    projectStore: new ProjectStore(),
+    projectStore,
+    developmentEnvironmentInstanceStore:
+      new DevelopmentEnvironmentInstanceStore(projectStore),
   };
 }
 
