@@ -15,6 +15,7 @@ test('inspeciona loopback, associa processo gerenciado e limita processo externo
     {
       id: 'server-p1',
       projectId: 'p1',
+      environmentInstanceId: 'environment:primary:p1',
       kind: 'server',
       status: 'running',
       pid: 4_242,
@@ -87,6 +88,10 @@ test('inspeciona loopback, associa processo gerenciado e limita processo externo
 
   const managed = result.entries.find((entry) => entry.port === 3_000);
   assert.equal(managed?.managedProcess?.projectName, 'Aplicação');
+  assert.equal(
+    managed?.managedProcess?.environmentInstanceId,
+    'environment:primary:p1',
+  );
   assert.equal(managed?.conflict, false);
 
   const conflict = result.entries.find((entry) => entry.port === 5_432);
