@@ -271,6 +271,9 @@ function observedPorts(
       ? {
           kind: 'project' as const,
           projectId: managed.projectId,
+          ...(managed.environmentInstanceId
+            ? { environmentInstanceId: managed.environmentInstanceId }
+            : {}),
           processId: managed.id,
         }
       : { kind: 'unknown' as const },
@@ -438,6 +441,9 @@ export class PortInspectorService {
               managedProcess: {
                 id: managed.id,
                 projectId: managed.projectId,
+                ...(managed.environmentInstanceId
+                  ? { environmentInstanceId: managed.environmentInstanceId }
+                  : {}),
                 projectName:
                   projectNames[managed.projectId] ?? managed.projectId,
                 kind: managed.kind,
