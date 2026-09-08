@@ -9,6 +9,7 @@ export type LocalPortScope = 'loopback' | 'all-interfaces';
 export interface LocalPortManagedProcess {
   id: string;
   projectId: string;
+  environmentInstanceId?: string;
   projectName: string;
   kind: ManagedProcessKind;
   status: ManagedProcessStatus;
@@ -72,7 +73,12 @@ export interface DeclaredProjectPort {
 }
 
 export type ObservedPortOwner =
-  | { kind: 'project'; projectId: string; processId?: string }
+  | {
+      kind: 'project';
+      projectId: string;
+      environmentInstanceId?: string;
+      processId?: string;
+    }
   | { kind: 'external'; pid: number; name?: string }
   | { kind: 'unknown' };
 
@@ -120,17 +126,20 @@ export interface PortAllocationResult {
 
 /**
  * Reserva process-local para um consumidor concreto (worktree, stack, Compose).
- * `leaseId` deve ser uma identidade estável do ambiente/decisão enquanto a
- * porta estiver reservada antes de iniciar o processo.
+ * `leaseId` deve ser uma identidade estável da decisão. Novos consumidores
+ * devem informar `environmentInstanceId`; a opcionalidade existe apenas para
+ * manter compatibilidade durante a migração de consumidores legados.
  */
 export interface PortAllocationLeaseRequest extends PortAllocationRequest {
   leaseId: string;
   projectId: string;
   role: string;
+  environmentInstanceId?: string;
 }
 
 export interface PortAllocationLeaseResult extends PortAllocationResult {
   leaseId: string;
+  environmentInstanceId?: string;
 }
 
 /**
