@@ -24,6 +24,16 @@ export type {
 } from './project.js';
 
 export type {
+  DevelopmentEnvironmentInstance,
+  DevelopmentEnvironmentLifecycle,
+  DevelopmentEnvironmentRuntime,
+  DevelopmentEnvironmentRuntimeKind,
+  DevelopmentEnvironmentSource,
+  DevelopmentEnvironmentSourceKind,
+  ExecutionContext,
+} from './development-environment-instance.js';
+
+export type {
   DetectedCapability,
   DetectionConfidence,
   DetectionEvidence,
