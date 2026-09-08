@@ -14,12 +14,7 @@ export interface DevelopmentEnvironmentRuntime {
 }
 
 export type DevelopmentEnvironmentLifecycle =
-  | 'stopped'
-  | 'starting'
-  | 'ready'
-  | 'degraded'
-  | 'stopping'
-  | 'failed';
+  'stopped' | 'starting' | 'ready' | 'degraded' | 'stopping' | 'failed';
 
 export interface DevelopmentEnvironmentInstance {
   id: string;
