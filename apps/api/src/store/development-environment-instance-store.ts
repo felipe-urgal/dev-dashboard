@@ -80,4 +80,20 @@ export class DevelopmentEnvironmentInstanceStore {
       runtime: instance.runtime.kind,
     };
   }
+
+  /**
+   * Resolve a instance pedida somente quando ela pertence ao projeto. Sem um
+   * id explícito, preserva a UX atual escolhendo a `primary` determinística.
+   * Nenhum path/runtime vindo do browser participa desta resolução.
+   */
+  public resolveForProject(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): ExecutionContext | null {
+    const instance = environmentInstanceId
+      ? this.findById(environmentInstanceId)
+      : this.findPrimaryByProjectId(projectId);
+    if (!instance || instance.projectId !== projectId) return null;
+    return this.resolveExecutionContext(instance.id);
+  }
 }
