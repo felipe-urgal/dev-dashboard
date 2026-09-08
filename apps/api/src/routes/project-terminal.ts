@@ -110,7 +110,8 @@ export const projectTerminalRoutes: FastifyPluginAsync<
       throw new ApiError({
         statusCode: 404,
         code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-        message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+        message:
+          'Ambiente de desenvolvimento não encontrado para este projeto.',
       });
     }
     return executionContext;
