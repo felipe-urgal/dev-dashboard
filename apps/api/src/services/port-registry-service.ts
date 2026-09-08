@@ -289,19 +289,26 @@ export class PortAllocationLeaseRegistry {
     request: PortAllocationLeaseRequest,
   ): PortAllocationLeaseResult | null {
     const leaseId = request.leaseId.trim();
+    const environmentInstanceId = request.environmentInstanceId?.trim();
     if (!leaseId || !request.projectId.trim() || !request.role.trim())
+      return null;
+    if (request.environmentInstanceId !== undefined && !environmentInstanceId)
       return null;
 
     const current = this.leases.get(leaseId);
     if (current) {
       if (
         current.projectId !== request.projectId ||
-        current.role !== request.role
+        current.role !== request.role ||
+        current.environmentInstanceId !== environmentInstanceId
       ) {
         return null;
       }
       return {
         leaseId: current.leaseId,
+        ...(current.environmentInstanceId
+          ? { environmentInstanceId: current.environmentInstanceId }
+          : {}),
         port: current.port,
         explanation: current.explanation,
       };
@@ -326,17 +333,40 @@ export class PortAllocationLeaseRegistry {
       leaseId,
       projectId: request.projectId,
       role: request.role,
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
       port: allocated.port,
       explanation: `${allocated.explanation} Reserva local ${leaseId} registrada até o consumidor liberar o lease.`,
     };
     this.leases.set(leaseId, stored);
     return {
       leaseId: stored.leaseId,
+      ...(stored.environmentInstanceId
+        ? { environmentInstanceId: stored.environmentInstanceId }
+        : {}),
       port: stored.port,
       explanation: stored.explanation,
     };
   }
 
+  /**
+   * Caminho seguro para cleanup de Environment Instance: um ambiente só pode
+   * liberar leases cuja ownership operacional seja verificável pelo mesmo id.
+   */
+  public releaseOwned(
+    leaseId: string,
+    environmentInstanceId: string,
+  ): boolean {
+    const normalizedLeaseId = leaseId.trim();
+    const normalizedEnvironmentId = environmentInstanceId.trim();
+    if (!normalizedLeaseId || !normalizedEnvironmentId) return false;
+    const current = this.leases.get(normalizedLeaseId);
+    if (current?.environmentInstanceId !== normalizedEnvironmentId) {
+      return false;
+    }
+    return this.leases.delete(normalizedLeaseId);
+  }
+
+  /** Compatibilidade para consumidores legados sem Environment Instance. */
   public release(leaseId: string): boolean {
     return this.leases.delete(leaseId.trim());
   }
