@@ -34,11 +34,8 @@ jobs:
       - name: Format
         run: npm run format
 
-      - name: Generate API reference
-        run: npm run docs:api
-
-      - name: Validate generated API reference
-        run: node --import=tsx scripts/generate-api-docs.mjs --check
+      - name: Validate API reference
+        run: npm run docs:api:check
 
       - name: Commit formatted files
         run: |
@@ -49,6 +46,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps packages scripts eslint.config.js docs/architecture/api-reference.md
+          git add apps packages scripts eslint.config.js
           git commit -m "chore: format code"
           git push
