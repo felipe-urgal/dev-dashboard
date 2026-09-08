@@ -9,6 +9,7 @@ import type {
   ProjectServerSettingsRepository,
 } from '@dev-dashboard/process-manager';
 
+import type { DevelopmentEnvironmentInstanceStore } from './store/development-environment-instance-store.js';
 import type { ProjectStore } from './store/project-store.js';
 import type { GitService } from './services/git-service.js';
 import type { GitMutationHistoryService } from './services/git-mutation-history-service.js';
@@ -53,6 +54,7 @@ export interface AppContext {
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   gitService: GitService;
   gitMutationHistoryService: GitMutationHistoryService;
   testDetectionService: TestDetectionService;
