@@ -45,7 +45,7 @@ describe('DeploymentLogViewer', () => {
     });
     await flushRendering();
 
-    const output = wrapper.get('pre');
+    const output = wrapper.get('.project-log-viewer-output');
     const element = output.element as HTMLElement;
     let scrollHeight = 300;
 
@@ -79,7 +79,7 @@ describe('DeploymentLogViewer', () => {
     });
     await flushRendering();
 
-    const output = wrapper.get('pre');
+    const output = wrapper.get('.project-log-viewer-output');
     const element = output.element as HTMLElement;
     let scrollHeight = 300;
 
@@ -103,7 +103,7 @@ describe('DeploymentLogViewer', () => {
     expect(element.scrollTop).toBe(40);
     expect(wrapper.text()).toContain('Voltar ao final');
 
-    await wrapper.get('.deployment-log-follow').trigger('click');
+    await wrapper.get('.project-log-viewer-follow').trigger('click');
     await flushRendering();
 
     expect(element.scrollTop).toBe(400);

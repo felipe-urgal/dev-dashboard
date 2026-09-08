@@ -209,6 +209,7 @@ function handleExportLog(): void {
             <ProjectLogExperience
               :content="executionLog"
               source="script"
+              title="Saída e diagnóstico"
               flow-label="Saída"
               :running="execution.status === 'running'"
               :masked-count="maskedLogEntries"

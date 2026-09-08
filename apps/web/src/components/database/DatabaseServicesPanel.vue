@@ -15,6 +15,7 @@ import type {
   MachineDatabaseService,
   MachineDatabaseServiceDetails,
 } from '@dev-dashboard/contracts';
+import ProjectLogViewer from '../ProjectLogViewer.vue';
 
 type PendingDatabaseServiceAction = {
   serviceId: string;
@@ -297,16 +298,13 @@ function isPending(
             >
               {{ detailsErrors[service.id] }}
             </p>
-            <div class="database-machine-log">
-              <div class="database-machine-log-heading">
-                <span>Logs recentes</span>
-                <small>últimas 40 linhas</small>
-              </div>
-              <pre v-if="serviceDetails(service.id)?.logs.length">{{
-                serviceDetails(service.id)?.logs.join('\n')
-              }}</pre>
-              <p v-else>Não há logs recentes disponíveis.</p>
-            </div>
+            <ProjectLogViewer
+              class="database-machine-log-viewer"
+              :content="serviceDetails(service.id)?.logs.join('\n') ?? ''"
+              title="Logs recentes"
+              empty-label="Não há logs recentes disponíveis."
+              :follow="false"
+            />
           </template>
         </div>
       </article>

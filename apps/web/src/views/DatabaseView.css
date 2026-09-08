@@ -933,8 +933,7 @@
   display: grid;
   gap: 4px;
 }
-.database-machine-details-grid span,
-.database-machine-log-heading small {
+.database-machine-details-grid span {
   color: var(--muted-text);
   font-size: 11px;
 }
@@ -971,42 +970,12 @@
   color: var(--error-text);
   font-size: 11px;
 }
-.database-machine-log {
+.database-machine-log-viewer {
   margin-top: 14px;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--surface-2);
 }
-.database-machine-log-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 600;
-}
-.database-machine-log pre {
+
+.database-machine-log-viewer .project-log-viewer-output {
   max-height: 220px;
-  margin: 0;
-  overflow: auto;
-  padding: 10px;
-  color: var(--text-muted);
-  font:
-    11px/1.5 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.database-machine-log > p {
-  margin: 0;
-  padding: 12px 10px;
-  color: var(--muted-text);
-  font-size: 11px;
 }
 .database-machine-actions .danger {
   color: var(--error-text);
