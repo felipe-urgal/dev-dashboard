@@ -7,6 +7,7 @@ import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
 
 import type {
+  ExecutionContext,
   Project,
   ProjectTerminalConfirmation,
   ProjectTerminalKind,
@@ -33,6 +34,7 @@ interface TerminalSession {
   id: number;
   project: Project;
   kind: ProjectTerminalKind;
+  environmentInstanceId?: string;
   proc: IPty;
   socket: WebSocket;
 }
@@ -41,6 +43,7 @@ interface ConfirmationRecord {
   token: string;
   projectId: string;
   kind: ProjectTerminalKind;
+  environmentInstanceId?: string;
   expiresAt: number;
 }
 
@@ -60,8 +63,15 @@ export interface ProjectTerminalServiceOptions {
 
 export class ProjectTerminalError extends Error {}
 
-function sessionKey(projectId: string, kind: ProjectTerminalKind): string {
-  return `${projectId}:${kind}`;
+function sessionKey(
+  projectId: string,
+  kind: ProjectTerminalKind,
+  environmentInstanceId?: string,
+): string {
+  const owner = environmentInstanceId
+    ? `environment:${environmentInstanceId}`
+    : `project:${projectId}`;
+  return `${owner}:${kind}`;
 }
 
 function sendJson(socket: WebSocket, message: unknown): void {
@@ -126,6 +136,20 @@ async function defaultResolveCommand(
   return undefined;
 }
 
+function executionContextMessage(
+  project: Project,
+  executionContext?: ExecutionContext,
+): string | undefined {
+  if (!executionContext) return undefined;
+  if (executionContext.projectId !== project.id) {
+    return 'O ambiente selecionado não pertence a este projeto.';
+  }
+  if (executionContext.runtime !== 'host') {
+    return 'O Terminal ainda não executa diretamente em runtime Dev Container.';
+  }
+  return undefined;
+}
+
 export class ProjectTerminalService {
   private readonly sessions = new Map<string, TerminalSession>();
   private readonly confirmations = new Map<string, ConfirmationRecord>();
@@ -155,35 +179,55 @@ export class ProjectTerminalService {
   public status(
     project: Project,
     kind: ProjectTerminalKind,
+    executionContext?: ExecutionContext,
   ): ProjectTerminalStatus {
-    const supported = this.supports(project, kind);
-    const activeSessions = this.countActive(project.id, kind);
+    const contextMessage = executionContextMessage(project, executionContext);
+    const supported = this.supports(project, kind) && !contextMessage;
+    const environmentInstanceId = executionContext?.environmentInstanceId;
+    const activeSessions = this.countActive(
+      project.id,
+      kind,
+      environmentInstanceId,
+    );
     return {
       kind,
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
       supported,
       activeSessions,
-      message: !supported
-        ? 'Este projeto não é reconhecido como Rails, então o console não está disponível.'
-        : kind === 'shell'
-          ? 'Terminal disponível. Abre um shell interativo na raiz do projeto.'
-          : 'Console Rails disponível. Abre `bin/rails console` (ou `bundle exec rails console`) na raiz do projeto.',
+      message: contextMessage
+        ? contextMessage
+        : !this.supports(project, kind)
+          ? 'Este projeto não é reconhecido como Rails, então o console não está disponível.'
+          : kind === 'shell'
+            ? 'Terminal disponível. Abre um shell interativo no ambiente selecionado.'
+            : 'Console Rails disponível. Abre `bin/rails console` (ou `bundle exec rails console`) no ambiente selecionado.',
     };
   }
 
   public prepareConfirmation(
     project: Project,
     kind: ProjectTerminalKind,
+    executionContext?: ExecutionContext,
   ): ProjectTerminalConfirmation {
+    const contextMessage = executionContextMessage(project, executionContext);
+    if (contextMessage) throw new ProjectTerminalError(contextMessage);
+
     this.sweepConfirmations();
     const token = randomBytes(32).toString('hex');
     const expiresAt = this.now() + CONFIRMATION_TTL_MS;
+    const environmentInstanceId = executionContext?.environmentInstanceId;
     this.confirmations.set(token, {
       token,
       projectId: project.id,
       kind,
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
       expiresAt,
     });
-    return { token, expiresAt: new Date(expiresAt).toISOString() };
+    return {
+      token,
+      expiresAt: new Date(expiresAt).toISOString(),
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
+    };
   }
 
   public async attach(
@@ -191,12 +235,26 @@ export class ProjectTerminalService {
     kind: ProjectTerminalKind,
     confirmationToken: string | undefined,
     socket: WebSocket,
+    executionContext?: ExecutionContext,
   ): Promise<void> {
+    const contextMessage = executionContextMessage(project, executionContext);
+    if (contextMessage) {
+      sendJson(socket, { type: 'error', message: contextMessage });
+      socket.close(1008, 'Ambiente inválido');
+      return;
+    }
+
     this.sweepConfirmations();
     const record = confirmationToken
       ? this.confirmations.get(confirmationToken)
       : undefined;
-    if (!record || record.projectId !== project.id || record.kind !== kind) {
+    const environmentInstanceId = executionContext?.environmentInstanceId;
+    if (
+      !record ||
+      record.projectId !== project.id ||
+      record.kind !== kind ||
+      record.environmentInstanceId !== environmentInstanceId
+    ) {
       sendJson(socket, {
         type: 'error',
         message: 'Confirmação ausente, inválida ou expirada.',
@@ -209,7 +267,7 @@ export class ProjectTerminalService {
     if (!this.supports(project, kind)) {
       sendJson(socket, {
         type: 'error',
-        message: this.status(project, kind).message,
+        message: this.status(project, kind, executionContext).message,
       });
       socket.close(1000, 'Indisponível para este projeto');
       return;
@@ -217,7 +275,8 @@ export class ProjectTerminalService {
 
     if (
       this.sessions.size >= MAX_TOTAL_SESSIONS ||
-      this.countActive(project.id, kind) >= MAX_SESSIONS_PER_KEY
+      this.countActive(project.id, kind, environmentInstanceId) >=
+        MAX_SESSIONS_PER_KEY
     ) {
       sendJson(socket, {
         type: 'error',
@@ -228,7 +287,8 @@ export class ProjectTerminalService {
       return;
     }
 
-    const root = await realpath(project.path).catch(() => project.path);
+    const requestedRoot = executionContext?.cwd ?? project.path;
+    const root = await realpath(requestedRoot).catch(() => requestedRoot);
     const command = await this.resolveCommand(project, root, kind);
     if (!command) {
       sendJson(socket, {
@@ -261,8 +321,15 @@ export class ProjectTerminalService {
     }
 
     const id = this.nextSessionId++;
-    const key = sessionKey(project.id, kind);
-    const session: TerminalSession = { id, project, kind, proc: child, socket };
+    const key = sessionKey(project.id, kind, environmentInstanceId);
+    const session: TerminalSession = {
+      id,
+      project,
+      kind,
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
+      proc: child,
+      socket,
+    };
     this.sessions.set(`${key}:${id}`, session);
 
     child.onData((data) => sendJson(socket, { type: 'output', data }));
@@ -273,7 +340,10 @@ export class ProjectTerminalService {
         socket.close(1000, 'Processo encerrado');
     });
 
-    sendJson(socket, { type: 'ready' });
+    sendJson(socket, {
+      type: 'ready',
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
+    });
 
     socket.on('message', (data: RawData) =>
       this.handleClientMessage(session, data),
@@ -291,8 +361,12 @@ export class ProjectTerminalService {
     this.confirmations.clear();
   }
 
-  private countActive(projectId: string, kind: ProjectTerminalKind): number {
-    const key = sessionKey(projectId, kind);
+  private countActive(
+    projectId: string,
+    kind: ProjectTerminalKind,
+    environmentInstanceId?: string,
+  ): number {
+    const key = sessionKey(projectId, kind, environmentInstanceId);
     let count = 0;
     for (const existingKey of this.sessions.keys()) {
       if (existingKey.startsWith(`${key}:`)) count += 1;
