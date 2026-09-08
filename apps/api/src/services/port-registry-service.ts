@@ -352,10 +352,7 @@ export class PortAllocationLeaseRegistry {
    * Caminho seguro para cleanup de Environment Instance: um ambiente só pode
    * liberar leases cuja ownership operacional seja verificável pelo mesmo id.
    */
-  public releaseOwned(
-    leaseId: string,
-    environmentInstanceId: string,
-  ): boolean {
+  public releaseOwned(leaseId: string, environmentInstanceId: string): boolean {
     const normalizedLeaseId = leaseId.trim();
     const normalizedEnvironmentId = environmentInstanceId.trim();
     if (!normalizedLeaseId || !normalizedEnvironmentId) return false;
