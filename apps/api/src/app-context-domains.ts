@@ -52,17 +52,20 @@ export interface AppContextDomainOptions {
 
 export function createFoundationContextDomain() {
   const projectStore = new ProjectStore();
+  const processManager = new ProcessManager();
 
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository: new RetentionSettingsRepository(),
     environmentProfileRepository: new EnvironmentProfileRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
-    processManager: new ProcessManager(),
+    processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
     developmentEnvironmentInstanceStore:
-      new DevelopmentEnvironmentInstanceStore(projectStore),
+      new DevelopmentEnvironmentInstanceStore(projectStore, {
+        stateDirectory: processManager.stateDirectory,
+      }),
   };
 }
 
