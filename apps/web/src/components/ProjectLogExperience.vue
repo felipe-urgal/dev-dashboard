@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import LogExperienceDiagnostic from './LogExperienceDiagnostic.vue';
 import LogExperienceFlow from './LogExperienceFlow.vue';
 import LogExperienceToolbar from './LogExperienceToolbar.vue';
+import ProjectLogViewer from './ProjectLogViewer.vue';
 
 import type {
   LogExperienceIssue,
@@ -33,6 +34,7 @@ const props = withDefaults(
     running?: boolean;
     maskedCount?: number;
     compact?: boolean;
+    title?: string;
   }>(),
   {
     flowLabel: 'Fluxo',
@@ -41,6 +43,7 @@ const props = withDefaults(
     running: false,
     maskedCount: 0,
     compact: false,
+    title: 'Log',
   },
 );
 
@@ -116,9 +119,14 @@ watch(issues, (nextIssues) => {
 </script>
 
 <template>
-  <section
+  <ProjectLogViewer
     class="log-experience"
     :class="{ 'log-experience--compact': compact }"
+    :content="content"
+    :title="title"
+    :running="running"
+    :masked-count="maskedCount"
+    :follow="false"
   >
     <LogExperienceToolbar
       v-model:mode="mode"
@@ -126,8 +134,6 @@ watch(issues, (nextIssues) => {
       :flow-label="flowLabel"
       :diagnostic-label="diagnosticLabel"
       :issue-count="issues.length"
-      :running="running"
-      :masked-count="maskedCount"
     />
 
     <LogExperienceFlow
@@ -150,7 +156,7 @@ watch(issues, (nextIssues) => {
         <slot name="diagnostic-extra" />
       </template>
     </LogExperienceDiagnostic>
-  </section>
+  </ProjectLogViewer>
 </template>
 
 <style scoped>
@@ -176,8 +182,12 @@ watch(issues, (nextIssues) => {
 
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
   background: var(--surface-1);
   color-scheme: dark;
+}
+
+.log-experience :deep(.project-log-viewer-output) {
+  max-height: none;
+  overflow: visible;
 }
 </style>

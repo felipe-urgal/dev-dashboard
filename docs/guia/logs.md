@@ -1,8 +1,8 @@
-# Logs do servidor
+# Logs no Dashboard
 
 > Parte do [Guia passo a passo do dashboard web](README.md).
 
-**Logs não é mais uma aba própria.** A saída do servidor de desenvolvimento aparece dentro da aba **Servidor**, junto do estado e das ações do processo.
+**Logs não é mais uma aba própria.** Cada saída aparece no contexto da operação correspondente, como Servidor, Rails, Testes, Scripts, Produção e Banco de dados.
 
 A rota antiga `/projects/:projectId/logs` permanece apenas como redirecionamento para Servidor.
 
@@ -18,7 +18,11 @@ A experiência prioriza:
 - ação para voltar ao final;
 - leitura limitada e mascarada pelo backend.
 
-O componente atual usa a superfície de terminal/log compartilhada do Dashboard; não existe enhancer global do DOM reconstruindo o log depois da renderização Vue.
+Logs não interativos usam o mesmo viewer do Dashboard. Ele mantém o texto selecionável para copiar com `Ctrl+C`/`Cmd+C` ou pelo menu nativo do botão direito e oferece **Copiar tudo** quando for necessário levar a saída completa. O cabeçalho também padroniza estado ao vivo, quantidade de linhas e avisos de truncamento ou conteúdo mascarado.
+
+Terminal e Console permanecem superfícies próprias porque aceitam entrada interativa. Diff, README e resultados tabulares também não são tratados como log.
+
+Não existe enhancer global do DOM reconstruindo o conteúdo depois da renderização Vue.
 
 ## Segurança
 

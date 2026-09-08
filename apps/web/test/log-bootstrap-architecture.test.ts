@@ -36,7 +36,7 @@ describe('arquitetura do bootstrap de logs', () => {
     );
   });
 
-  it('mantém o log do servidor como componente Vue sem decoração global', () => {
+  it('mantém o log do servidor no viewer Vue compartilhado sem decoração global', () => {
     const serverTemplate = readFileSync(
       resolve(raizWeb, 'src/components/ProjectServerPanel.template.html'),
       'utf8',
@@ -48,8 +48,10 @@ describe('arquitetura do bootstrap de logs', () => {
 
     expect(serverTemplate).toContain('<ProjectLogTerminal');
     expect(serverTemplate).not.toContain('project-log-raw-lines');
-    expect(terminal).toContain("import { Terminal } from '@xterm/xterm'");
-    expect(terminal).toContain('watch(() => props.content, renderContent)');
+    expect(terminal).toContain(
+      "import ProjectLogViewer from './ProjectLogViewer.vue'",
+    );
+    expect(terminal).toContain('<ProjectLogViewer');
   });
 
   it('mantém classificação e apresentação visual no fluxo declarativo Vue', () => {

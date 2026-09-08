@@ -22,6 +22,7 @@ import {
   fetchDeploymentPlan,
   startDeployment,
 } from '../api';
+import ProjectLogViewer from './ProjectLogViewer.vue';
 
 interface Props {
   project: Project;
@@ -397,7 +398,15 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <pre v-if="log?.content" class="self-update-log">{{ log.content }}</pre>
+      <ProjectLogViewer
+        v-if="log"
+        class="self-update-log"
+        :content="log.content"
+        title="Log da atualização"
+        :running="shouldPoll(latest)"
+        :masked-count="log.redactionCount"
+        :truncated="log.truncated"
+      />
     </section>
   </div>
 </template>
@@ -546,14 +555,11 @@ onBeforeUnmount(() => {
 }
 
 .self-update-log {
-  max-height: 220px;
-  overflow: auto;
   margin: 14px 0 0;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--surface-muted, rgba(127, 127, 127, 0.08));
-  white-space: pre-wrap;
-  font-size: 12px;
+}
+
+.self-update-log :deep(.project-log-viewer-output) {
+  max-height: 220px;
 }
 
 .self-update-error {

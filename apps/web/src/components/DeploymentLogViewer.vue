@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed } from 'vue';
 
 import type { DeploymentLog } from '@dev-dashboard/contracts';
+import ProjectLogViewer from './ProjectLogViewer.vue';
 
 interface Props {
   log: DeploymentLog;
@@ -14,9 +15,6 @@ const props = withDefaults(defineProps<Props>(), {
   open: false,
 });
 
-const output = ref<HTMLElement | null>(null);
-const autoFollow = ref(true);
-
 const ANSI_CSI_PATTERN = new RegExp('\\u001B\\[[0-?]*[ -/]*[@-~]', 'g');
 const ANSI_OSC_PATTERN = new RegExp(
   '\\u001B\\][^\\u0007]*(?:\\u0007|\\u001B\\\\)',
@@ -27,55 +25,14 @@ function stripAnsi(value: string): string {
   return value.replace(ANSI_OSC_PATTERN, '').replace(ANSI_CSI_PATTERN, '');
 }
 
-const content = computed(
-  () => stripAnsi(props.log.content || '') || 'Nenhuma saída registrada.',
+const content = computed(() => stripAnsi(props.log.content || ''));
+const lineCount = computed(() =>
+  content.value ? content.value.split('\n').length : 0,
 );
-const lineCount = computed(() => content.value.split('\n').length);
-
-function isNearBottom(element: HTMLElement): boolean {
-  return element.scrollHeight - element.scrollTop - element.clientHeight <= 32;
-}
-
-function handleScroll(): void {
-  const element = output.value;
-  if (!element) return;
-  autoFollow.value = isNearBottom(element);
-}
-
-async function scrollToEnd(force = false): Promise<void> {
-  if (!force && !autoFollow.value) return;
-  await nextTick();
-  const element = output.value;
-  if (!element) return;
-  element.scrollTop = element.scrollHeight;
-}
-
-function resumeAutoFollow(): void {
-  autoFollow.value = true;
-  void scrollToEnd(true);
-}
-
-function handleToggle(event: Event): void {
-  const details = event.currentTarget as HTMLDetailsElement;
-  if (details.open && autoFollow.value) void scrollToEnd(true);
-}
-
-watch(
-  () => content.value,
-  (nextContent, previousContent) => {
-    if (nextContent === previousContent) return;
-    void scrollToEnd();
-  },
-  { flush: 'post' },
-);
-
-onMounted(() => {
-  if (props.open) void scrollToEnd(true);
-});
 </script>
 
 <template>
-  <details class="deployment-log" :open="open" @toggle="handleToggle">
+  <details class="deployment-log" :open="open">
     <summary>
       <span class="deployment-log-title">
         <span
@@ -90,28 +47,14 @@ onMounted(() => {
       </span>
     </summary>
 
-    <div class="deployment-log-toolbar">
-      <div class="deployment-log-meta">
-        <span v-if="log.masked">Conteúdo sensível mascarado</span>
-        <span v-if="log.truncated">Log limitado à cauda disponível</span>
-        <span v-if="active && autoFollow">Acompanhando o final</span>
-      </div>
-      <button
-        v-if="!autoFollow"
-        class="deployment-log-follow"
-        type="button"
-        @click="resumeAutoFollow"
-      >
-        Voltar ao final
-      </button>
-    </div>
-
-    <pre
-      ref="output"
-      tabindex="0"
-      aria-label="Saída do log do deployment"
-      @scroll.passive="handleScroll"
-      >{{ content }}</pre>
+    <ProjectLogViewer
+      :content="content"
+      title="Saída do deployment"
+      :running="active"
+      :masked-count="log.redactionCount"
+      :truncated="log.truncated"
+      embedded
+    />
   </details>
 </template>
 
