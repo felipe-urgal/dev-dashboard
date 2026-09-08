@@ -107,10 +107,7 @@ test('maps linked worktree to one deterministic instance and degrades it when it
     path: '/workspace/project-a-feature',
     kind: 'linked' as const,
   };
-  const environmentId = worktreeEnvironmentInstanceId(
-    'project-a',
-    worktree.id,
-  );
+  const environmentId = worktreeEnvironmentInstanceId('project-a', worktree.id);
 
   const first = store.reconcileWorktrees('project-a', [
     {
@@ -144,7 +141,10 @@ test('maps linked worktree to one deterministic instance and degrades it when it
   store.reconcileWorktrees('project-a', [worktree]);
   assert.equal(store.findById(environmentId)?.id, environmentId);
   assert.equal(store.findById(environmentId)?.lifecycle, 'ready');
-  assert.equal(store.resolveExecutionContext(environmentId)?.cwd, worktree.path);
+  assert.equal(
+    store.resolveExecutionContext(environmentId)?.cwd,
+    worktree.path,
+  );
 });
 
 test('persists identity/runtime outside the project tree and reconciles restart fail-closed', () => {
