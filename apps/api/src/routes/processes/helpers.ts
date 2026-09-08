@@ -6,6 +6,7 @@ import type {
 } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../../http/api-error.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../../store/project-store.js';
 import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';
 import type { PortInspectorService } from '../../services/port-inspector-service.js';
@@ -24,6 +25,7 @@ export interface ProcessRouteOptions {
   serverSettingsRepository: ProjectServerSettingsRepository;
   serverHealthCheckService: ServerHealthCheckService;
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   portInspectorService?: PortInspectorService;
 }
 
@@ -33,6 +35,7 @@ export interface ProjectParams {
 
 export interface StartProcessBody {
   port?: number | null;
+  environmentInstanceId?: string;
 }
 
 export interface SaveServerSettingsBody {
@@ -58,6 +61,8 @@ export function processManagerApiError(error: ProcessManagerError): ApiError {
     case 'PROCESS_IDENTITY_MISMATCH':
     case 'PROCESS_STOP_TIMEOUT':
     case 'PORT_NOT_AVAILABLE':
+    case 'INVALID_EXECUTION_CONTEXT':
+    case 'UNSUPPORTED_RUNTIME':
       return new ApiError({
         statusCode: 409,
         code: error.code,
@@ -112,6 +117,25 @@ export function requireEnabledProject(
   }
 
   return project;
+}
+
+export function requireExecutionContext(
+  store: DevelopmentEnvironmentInstanceStore,
+  projectId: string,
+  environmentInstanceId?: string,
+) {
+  const executionContext = store.resolveForProject(
+    projectId,
+    environmentInstanceId,
+  );
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+  return executionContext;
 }
 
 export const projectParamsSchema = {

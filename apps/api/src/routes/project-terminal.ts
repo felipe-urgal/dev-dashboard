@@ -3,12 +3,17 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import { withWebSocketMessageRateLimit } from '../security/rate-limited-websocket.js';
-import type { ProjectTerminalService } from '../services/project-terminal-service.js';
+import {
+  ProjectTerminalError,
+  type ProjectTerminalService,
+} from '../services/project-terminal-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type { ProjectParams } from './projects/helpers.js';
 
 interface ProjectTerminalRouteOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   projectTerminalService: ProjectTerminalService;
 }
 
@@ -18,7 +23,11 @@ interface KindParams extends ProjectParams {
   kind: (typeof TERMINAL_KINDS)[number];
 }
 
-interface ConnectQuery {
+interface EnvironmentQuery {
+  environmentInstanceId?: string;
+}
+
+interface ConnectQuery extends EnvironmentQuery {
   confirmationToken?: string;
 }
 
@@ -32,11 +41,20 @@ const kindParamsSchema = {
   },
 } as const;
 
+const environmentQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+  },
+} as const;
+
 const connectQuerySchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
     confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
   },
 } as const;
 
@@ -46,6 +64,7 @@ const statusSchema = {
   required: ['kind', 'supported', 'activeSessions', 'message'],
   properties: {
     kind: { type: 'string', enum: [...TERMINAL_KINDS] },
+    environmentInstanceId: { type: 'string' },
     supported: { type: 'boolean' },
     activeSessions: { type: 'integer', minimum: 0 },
     message: { type: 'string' },
@@ -59,6 +78,7 @@ const confirmationSchema = {
   properties: {
     token: { type: 'string' },
     expiresAt: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
   },
 } as const;
 
@@ -77,29 +97,58 @@ export const projectTerminalRoutes: FastifyPluginAsync<
     return project;
   }
 
-  app.get<{ Params: KindParams }>(
+  function executionContextFor(
+    projectId: string,
+    environmentInstanceId?: string,
+  ) {
+    const executionContext =
+      options.developmentEnvironmentInstanceStore.resolveForProject(
+        projectId,
+        environmentInstanceId,
+      );
+    if (!executionContext) {
+      throw new ApiError({
+        statusCode: 404,
+        code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+        message:
+          'Ambiente de desenvolvimento não encontrado para este projeto.',
+      });
+    }
+    return executionContext;
+  }
+
+  app.get<{ Params: KindParams; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/terminal/:kind',
     {
       schema: {
         params: kindParamsSchema,
+        querystring: environmentQuerySchema,
         response: {
           200: statusSchema,
           ...commonErrorResponseSchemas,
         },
       },
     },
-    async (request) =>
-      options.projectTerminalService.status(
-        projectFor(request.params.projectId),
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      const executionContext = executionContextFor(
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      return options.projectTerminalService.status(
+        project,
         request.params.kind,
-      ),
+        executionContext,
+      );
+    },
   );
 
-  app.post<{ Params: KindParams }>(
+  app.post<{ Params: KindParams; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/terminal/:kind/confirmations',
     {
       schema: {
         params: kindParamsSchema,
+        querystring: environmentQuerySchema,
         response: {
           201: {
             type: 'object',
@@ -113,12 +162,28 @@ export const projectTerminalRoutes: FastifyPluginAsync<
     },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
-      return reply.code(201).send({
-        confirmation: options.projectTerminalService.prepareConfirmation(
-          project,
-          request.params.kind,
-        ),
-      });
+      const executionContext = executionContextFor(
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      try {
+        return reply.code(201).send({
+          confirmation: options.projectTerminalService.prepareConfirmation(
+            project,
+            request.params.kind,
+            executionContext,
+          ),
+        });
+      } catch (error) {
+        if (error instanceof ProjectTerminalError) {
+          throw new ApiError({
+            statusCode: 409,
+            code: 'TERMINAL_ENVIRONMENT_UNAVAILABLE',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
     },
   );
 
@@ -132,8 +197,18 @@ export const projectTerminalRoutes: FastifyPluginAsync<
       const project = options.projectStore.findProject(
         request.params.projectId,
       );
+      const executionContext = project
+        ? options.developmentEnvironmentInstanceStore.resolveForProject(
+            project.id,
+            request.query.environmentInstanceId,
+          )
+        : null;
       if (!project) {
         socket.close(1008, 'Projeto não encontrado');
+        return;
+      }
+      if (!executionContext) {
+        socket.close(1008, 'Ambiente não encontrado');
         return;
       }
 
@@ -144,12 +219,14 @@ export const projectTerminalRoutes: FastifyPluginAsync<
           request.params.kind,
           request.query.confirmationToken,
           limitedSocket,
+          executionContext,
         )
         .catch((error: unknown) => {
           request.log.error(
             {
               err: error,
               projectId: request.params.projectId,
+              environmentInstanceId: executionContext.environmentInstanceId,
               kind: request.params.kind,
             },
             'Falha ao anexar o WebSocket à sessão de terminal.',

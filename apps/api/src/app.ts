@@ -302,6 +302,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectTerminalRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     projectTerminalService,
   });
   app.register(projectBrowserRoutes, {
@@ -317,6 +319,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     serverSettingsRepository: context.serverSettingsRepository,
     serverHealthCheckService: context.serverHealthCheckService,
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     portInspectorService,
   });
 

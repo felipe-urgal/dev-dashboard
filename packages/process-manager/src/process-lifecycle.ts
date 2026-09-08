@@ -1,4 +1,8 @@
-import type { ManagedProcess, Project } from '@dev-dashboard/contracts';
+import type {
+  ExecutionContext,
+  ManagedProcess,
+  Project,
+} from '@dev-dashboard/contracts';
 
 import { resolveServerCommand } from './command-resolution.js';
 import { isErrnoException, ProcessManagerError } from './errors.js';
@@ -32,6 +36,7 @@ import type { StoredProcess } from './process-state.js';
 export interface StartServerOptions {
   port?: number;
   environment?: NodeJS.ProcessEnv;
+  executionContext?: ExecutionContext;
 }
 
 export interface StartWorkerCommand {
@@ -50,12 +55,14 @@ export interface ProcessLifecycle {
     project: Project,
     command: { id: string; command: string; args: string[] },
     stateDirectory: string,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess>;
   startManagedWorker(
     project: Project,
     kind: Extract<ManagedKind, 'worker' | 'webpack'>,
     command: StartWorkerCommand,
     stateDirectory: string,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess>;
   stopManagedProcess(
     projectId: string,
@@ -135,6 +142,9 @@ export function createProcessLifecycle(
 
     return startManagedProcess(dependencies, {
       project,
+      ...(options.executionContext
+        ? { executionContext: options.executionContext }
+        : {}),
       kind: 'server',
       id: `${project.id}:server`,
       status: 'starting',
@@ -158,6 +168,7 @@ export function createProcessLifecycle(
     project: Project,
     command: { id: string; command: string; args: string[] },
     stateDirectory: string,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess> {
     const dependencies = startDependencies(stateDirectory);
 
@@ -170,6 +181,7 @@ export function createProcessLifecycle(
 
     return startManagedProcess(dependencies, {
       project,
+      ...(executionContext ? { executionContext } : {}),
       kind: 'test',
       id: `${project.id}:test:${command.id}`,
       status: 'running',
@@ -188,6 +200,7 @@ export function createProcessLifecycle(
     kind: Extract<ManagedKind, 'worker' | 'webpack'>,
     command: StartWorkerCommand,
     stateDirectory: string,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess> {
     const dependencies = startDependencies(stateDirectory);
 
@@ -200,6 +213,7 @@ export function createProcessLifecycle(
 
     return startManagedProcess(dependencies, {
       project,
+      ...(executionContext ? { executionContext } : {}),
       kind,
       id: `${project.id}:${kind}:${command.id}`,
       status: 'running',

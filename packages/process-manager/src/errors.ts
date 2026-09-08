@@ -7,7 +7,9 @@ export type ProcessManagerErrorCode =
   | 'INVALID_PORT'
   | 'PORT_NOT_AVAILABLE'
   | 'INVALID_LOG_LIMIT'
-  | 'PROCESS_STOP_TIMEOUT';
+  | 'PROCESS_STOP_TIMEOUT'
+  | 'INVALID_EXECUTION_CONTEXT'
+  | 'UNSUPPORTED_RUNTIME';
 
 export class ProcessManagerError extends Error {
   public readonly code: ProcessManagerErrorCode;

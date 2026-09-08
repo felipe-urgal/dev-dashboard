@@ -11781,6 +11781,146 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Migrations
+
+### `GET /api/projects/:projectId/migrations`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "database": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "migration"
+    ],
+    "properties": {
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "status",
+          "database",
+          "applied",
+          "pending",
+          "observedAt",
+          "evidence",
+          "warnings"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "up-to-date",
+              "pending",
+              "unavailable",
+              "unknown"
+            ]
+          },
+          "database": {
+            "type": "string"
+          },
+          "applied": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "pending": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Processes
 
 ### `GET /api/ports`
@@ -12045,6 +12185,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "projectId": {
               "type": "string"
             },
+            "environmentInstanceId": {
+              "type": "string"
+            },
             "workspaceId": {
               "type": "string"
             },
@@ -12207,6 +12350,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {
@@ -12539,6 +12685,11 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "type": "null"
         }
       ]
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -12570,6 +12721,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {
@@ -12686,6 +12840,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {
@@ -15614,6 +15771,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -15635,6 +15808,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "shell",
           "rails-console"
         ]
+      },
+      "environmentInstanceId": {
+        "type": "string"
       },
       "supported": {
         "type": "boolean"
@@ -15684,6 +15860,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **201**:
@@ -15708,6 +15900,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "type": "string"
           },
           "expiresAt": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           }
         }
@@ -15761,6 +15956,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "type": "string",
       "minLength": 64,
       "maxLength": 64
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -19786,6 +19986,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
               "projectId": {
                 "type": "string"
               },
+              "environmentInstanceId": {
+                "type": "string"
+              },
               "workspaceId": {
                 "type": "string"
               },
@@ -20160,6 +20363,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "projectId": {
             "type": "string"
           },
+          "environmentInstanceId": {
+            "type": "string"
+          },
           "workspaceId": {
             "type": "string"
           },
@@ -20284,6 +20490,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "projectId": {
             "type": "string"
           },
+          "environmentInstanceId": {
+            "type": "string"
+          },
           "workspaceId": {
             "type": "string"
           },
@@ -20406,6 +20615,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {
@@ -22413,6 +22625,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "projectId": {
             "type": "string"
           },
+          "environmentInstanceId": {
+            "type": "string"
+          },
           "workspaceId": {
             "type": "string"
           },
@@ -22782,6 +22997,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {
@@ -23261,6 +23479,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "projectId": {
             "type": "string"
           },
+          "environmentInstanceId": {
+            "type": "string"
+          },
           "workspaceId": {
             "type": "string"
           },
@@ -23577,6 +23798,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {
@@ -23931,6 +24155,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "type": "string"
           },
           "projectId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
             "type": "string"
           },
           "workspaceId": {

@@ -12,6 +12,8 @@ Os contratos compartilhados em `packages/contracts/src/port.ts` mantêm três fo
 
 Não se converte uma fonte na outra por heurística. Em especial, nome de processo externo não prova ownership de projeto.
 
+Declarações estáticas continuam pertencendo ao `Project + role`. Quando a ocupação vem de um `ManagedProcess` que possui `environmentInstanceId`, o Inspector preserva essa identidade na observação. Assim a intenção estática do projeto e a ownership operacional da execução concreta permanecem separadas.
+
 ## Reconciliação
 
 `apps/api/src/services/port-registry-service.ts` é a regra canônica: recebe snapshots das três fontes e produz estados explícitos:
@@ -27,7 +29,7 @@ Não se converte uma fonte na outra por heurística. Em especial, nome de proces
 
 Reservas com `role` são reconciliadas pela identidade `projectId + role`. Uma reserva `home-music/api`, por exemplo, não é considerada pertencente a uma declaration `home-music/web` apenas porque compartilha o mesmo projeto. Reservas do projeto sem `role` continuam valendo no escopo do owner inteiro.
 
-O serviço não executa shell, não consulta processos e não mata nada. O Port Inspector permanece responsável pela observação do host e adapta somente evidência já validada pelo Process Manager: server settings conhecidos viram `DeclaredProjectPort`, processos gerenciados associados por PID viram `ObservedPort` com owner de projeto e sockets sem associação verificável continuam com owner `unknown`.
+O serviço não executa shell, não consulta processos e não mata nada. O Port Inspector permanece responsável pela observação do host e adapta somente evidência já validada pelo Process Manager: server settings conhecidos viram `DeclaredProjectPort`, processos gerenciados associados por PID viram `ObservedPort` com owner de projeto, `processId` e `environmentInstanceId` quando disponível; sockets sem associação verificável continuam com owner `unknown`.
 
 A resposta pública de `GET /api/ports` continua compatível. A integração usa a reconciliação canônica internamente para decidir `conflict` e usa o allocator canônico para `suggestedPort`; não foi criada uma segunda tela nem uma segunda heurística de colisão.
 
@@ -68,14 +70,19 @@ Uma sugestão pura não é suficiente quando dois ambientes são criados quase a
 
 O contrato `PortAllocationLeaseRequest` exige:
 
-- `leaseId` estável do ambiente/decisão;
+- `leaseId` estável da decisão;
 - `projectId`;
 - `role`;
-- porta preferida/janela herdadas de `PortAllocationRequest`.
+- porta preferida/janela herdadas de `PortAllocationRequest`;
+- `environmentInstanceId` para consumidores já migrados ao modelo de Environment Instance.
 
-Enquanto um lease estiver ativo, sua porta é considerada indisponível para todos os outros leases, inclusive outro worktree do mesmo projeto. Repetir o mesmo `leaseId + projectId + role` é idempotente; reutilizar o mesmo `leaseId` com outro owner/role falha; o lifecycle consumidor chama `release` quando deixa de precisar da reserva.
+Enquanto um lease estiver ativo, sua porta é considerada indisponível para todos os outros leases, inclusive outro worktree do mesmo projeto. Repetir o mesmo `leaseId + projectId + role + environmentInstanceId` é idempotente; reutilizar o mesmo `leaseId` com outra ownership falha.
 
-Essa API é reutilizável diretamente por Worktrees (#570), Stacks (#592) e Compose (#588). Ela reduz race conditions dentro da instância da API, mas **não é um lock distribuído** e não sobrevive a restart. Persistência/distribuição só deve ser adicionada se existir um lifecycle multi-processo real que consiga liberar reservas de forma segura.
+O caminho de cleanup de Environment Instance usa `releaseOwned(leaseId, environmentInstanceId)`. A liberação só acontece se o lease estiver registrado para a mesma instance. `release` permanece apenas para compatibilidade com consumidores legados durante a migração incremental.
+
+Essa API é reutilizável diretamente por Worktrees (#570), Stacks (#592) e Compose (#588). Ela reduz race conditions dentro da instância da API, mas **não é um lock distribuído** e não sobrevive a restart. Persistência da Environment Instance não transforma lease process-local em reserva durável: após restart, recursos reais precisam ser reconciliados pelo domínio dono antes de qualquer cleanup.
+
+Veja [Development Environment Instances](development-environment-instances.md).
 
 ## Import e export de configuração
 
@@ -101,6 +108,8 @@ O Registry deliberadamente **não escolhe um path de arquivo**. Persistência/lo
 - `reserved` não autoriza firewall/network mutation;
 - associações de processo/projeto continuam vindo de evidência verificável do Process Manager/Inspector;
 - sockets sem processo gerenciado não ganham ownership de projeto pelo nome do executável;
+- `environmentInstanceId` observado só é propagado de processo gerenciado já conhecido;
+- cleanup de lease por Environment Instance exige ownership verificável via `releaseOwned`;
 - o adapter Compose recebe modelo resolvido e nunca lê environment/secrets;
 - import não executa conteúdo e descarta campos desconhecidos em vez de promovê-los a evidência;
 - leases são process-local e exigem owner/lifecycle explícitos;

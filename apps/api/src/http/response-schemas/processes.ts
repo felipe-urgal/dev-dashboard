@@ -5,6 +5,7 @@ export const managedProcessResponseSchema = {
   properties: {
     id: { type: 'string' },
     projectId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
     workspaceId: { type: 'string' },
     kind: {
       type: 'string',

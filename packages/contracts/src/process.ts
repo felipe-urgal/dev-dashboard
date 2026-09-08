@@ -7,6 +7,8 @@ export type ManagedProcessStatus =
 export interface ManagedProcess {
   id: string;
   projectId: string;
+  /** Identidade operacional que possui este processo. Opcional durante a migração de estados legados. */
+  environmentInstanceId?: string;
   workspaceId?: string;
   kind: ManagedProcessKind;
   status: ManagedProcessStatus;

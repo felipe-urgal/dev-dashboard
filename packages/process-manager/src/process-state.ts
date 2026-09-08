@@ -82,6 +82,7 @@ export function isStoredProcess(value: unknown): value is StoredProcess {
     candidate.id.length > 0 &&
     typeof candidate.projectId === 'string' &&
     candidate.projectId.length > 0 &&
+    isOptionalString(candidate.environmentInstanceId) &&
     isOptionalString(candidate.workspaceId) &&
     typeof candidate.kind === 'string' &&
     managedProcessKinds.has(candidate.kind as ManagedProcessKind) &&

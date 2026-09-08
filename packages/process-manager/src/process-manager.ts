@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import type {
+  ExecutionContext,
   ManagedProcess,
   ProcessLogSnapshot,
   Project,
@@ -149,9 +150,15 @@ export class ProcessManager {
   public startTest(
     project: Project,
     command: { id: string; command: string; args: string[] },
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess> {
     return this.withStartLock(project.id, 'test', () =>
-      this.lifecycle.startManagedTest(project, command, this.stateDirectory),
+      this.lifecycle.startManagedTest(
+        project,
+        command,
+        this.stateDirectory,
+        executionContext,
+      ),
     );
   }
 
@@ -159,6 +166,7 @@ export class ProcessManager {
     project: Project,
     kind: WorkerKind,
     command: StartWorkerCommand,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess> {
     return this.withStartLock(project.id, kind, () =>
       this.lifecycle.startManagedWorker(
@@ -166,6 +174,7 @@ export class ProcessManager {
         kind,
         command,
         this.stateDirectory,
+        executionContext,
       ),
     );
   }

@@ -1,7 +1,11 @@
 import { spawn } from 'node:child_process';
 import { mkdir, open } from 'node:fs/promises';
 
-import type { ManagedProcess, Project } from '@dev-dashboard/contracts';
+import type {
+  ExecutionContext,
+  ManagedProcess,
+  Project,
+} from '@dev-dashboard/contracts';
 
 import { ProcessManagerError } from './errors.js';
 import { sweepStaleProcesses } from './log-retention.js';
@@ -25,6 +29,7 @@ export interface ManagedProcessStartDependencies {
 
 export interface ManagedProcessStartSpec {
   project: Project;
+  executionContext?: ExecutionContext;
   kind: ManagedKind;
   id: string;
   status: Extract<StoredProcess['status'], 'starting' | 'running'>;
@@ -37,6 +42,25 @@ export interface ManagedProcessStartSpec {
 
 function isActiveStatus(status: ManagedProcess['status'] | undefined): boolean {
   return status === 'running' || status === 'starting' || status === 'stopping';
+}
+
+function executionCwd(spec: ManagedProcessStartSpec): string {
+  const context = spec.executionContext;
+  if (!context) return spec.project.path;
+
+  if (context.projectId !== spec.project.id) {
+    throw new ProcessManagerError(
+      'INVALID_EXECUTION_CONTEXT',
+      'O contexto de execução não pertence ao projeto informado.',
+    );
+  }
+  if (context.runtime !== 'host') {
+    throw new ProcessManagerError(
+      'UNSUPPORTED_RUNTIME',
+      'Este Process Manager ainda não executa processos diretamente em Dev Container.',
+    );
+  }
+  return context.cwd;
 }
 
 async function sweepStateBestEffort(stateDirectory: string): Promise<void> {
@@ -80,15 +104,16 @@ async function ensureStateDirectories(
 async function spawnManagedChild(
   context: ProcessStoreContext,
   spec: ManagedProcessStartSpec,
-): Promise<{ child: ReturnType<typeof spawn>; logPath: string }> {
+): Promise<{ child: ReturnType<typeof spawn>; logPath: string; cwd: string }> {
   const logPath = resolveLogFile(context, spec.project.id, spec.kind);
   const logHandle = await open(logPath, 'a', 0o600);
+  const cwd = executionCwd(spec);
 
   let child: ReturnType<typeof spawn>;
 
   try {
     child = spawn(spec.command, spec.args, {
-      cwd: spec.project.path,
+      cwd,
       detached: true,
       shell: false,
       windowsHide: true,
@@ -104,17 +129,21 @@ async function spawnManagedChild(
     await logHandle.close();
   }
 
-  return { child, logPath };
+  return { child, logPath, cwd };
 }
 
 function toStoredProcess(
   spec: ManagedProcessStartSpec,
   pid: number,
   logPath: string,
+  cwd: string,
 ): StoredProcess {
   return {
     id: spec.id,
     projectId: spec.project.id,
+    ...(spec.executionContext
+      ? { environmentInstanceId: spec.executionContext.environmentInstanceId }
+      : {}),
     ...(spec.project.workspaceId
       ? { workspaceId: spec.project.workspaceId }
       : {}),
@@ -123,7 +152,7 @@ function toStoredProcess(
     pid,
     command: spec.command,
     args: spec.args,
-    cwd: spec.project.path,
+    cwd,
     logPath,
     startedAt: new Date().toISOString(),
     ...(spec.metadata ?? {}),
@@ -135,7 +164,7 @@ export async function startManagedProcess(
   spec: ManagedProcessStartSpec,
 ): Promise<ManagedProcess> {
   await ensureStateDirectories(dependencies.context);
-  const { child, logPath } = await spawnManagedChild(
+  const { child, logPath, cwd } = await spawnManagedChild(
     dependencies.context,
     spec,
   );
@@ -144,7 +173,7 @@ export async function startManagedProcess(
     throw new Error(spec.missingPidMessage);
   }
 
-  const managedProcess = toStoredProcess(spec, child.pid, logPath);
+  const managedProcess = toStoredProcess(spec, child.pid, logPath, cwd);
 
   try {
     await writeStoredProcess(dependencies.context, managedProcess);
