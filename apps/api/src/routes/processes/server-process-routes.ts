@@ -20,6 +20,7 @@ import {
   processManagerApiError,
   projectParamsSchema,
   requireEnabledProject,
+  requireExecutionContext,
   requireProject,
   serverSettingsApiError,
   type ProcessLogQuery,
@@ -32,7 +33,12 @@ export function registerServerProcessRoutes(
   app: FastifyInstance,
   options: ProcessRouteOptions,
 ): void {
-  const { processManager, serverSettingsRepository, projectStore } = options;
+  const {
+    processManager,
+    serverSettingsRepository,
+    projectStore,
+    developmentEnvironmentInstanceStore,
+  } = options;
 
   app.get<{
     Params: ProjectParams;
@@ -224,6 +230,11 @@ export function registerServerProcessRoutes(
                 },
               ],
             },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
           },
         },
         response: {
@@ -236,6 +247,11 @@ export function registerServerProcessRoutes(
       const project = requireEnabledProject(
         projectStore,
         request.params.projectId,
+      );
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.body.environmentInstanceId,
       );
 
       try {
@@ -258,12 +274,13 @@ export function registerServerProcessRoutes(
         const processEnvironment =
           project.type === 'node'
             ? await prepareNodeServerEnvironment(
-                project.path,
+                executionContext.cwd,
                 settings.environment,
               )
             : undefined;
 
         const managedProcess = await processManager.startServer(project, {
+          executionContext,
           ...(settings.port !== undefined
             ? {
                 port: settings.port,
@@ -290,6 +307,7 @@ export function registerServerProcessRoutes(
           {
             err: error,
             projectId: project.id,
+            environmentInstanceId: executionContext.environmentInstanceId,
           },
           'Server start failed',
         );
