@@ -1,9 +1,4 @@
-import {
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import type {
@@ -162,7 +157,10 @@ function sameInstance(
 }
 
 export class DevelopmentEnvironmentInstanceStore {
-  private readonly instances = new Map<string, DevelopmentEnvironmentInstance>();
+  private readonly instances = new Map<
+    string,
+    DevelopmentEnvironmentInstance
+  >();
   private readonly stateFilePath: string | undefined;
 
   public constructor(
@@ -213,7 +211,9 @@ export class DevelopmentEnvironmentInstanceStore {
    */
   public upsert(instance: DevelopmentEnvironmentInstance): void {
     if (!isPersistedInstance(instance)) {
-      throw new Error('Development Environment Instance inválida para persistência.');
+      throw new Error(
+        'Development Environment Instance inválida para persistência.',
+      );
     }
     this.instances.set(instance.id, instance);
     this.persistState();
@@ -367,7 +367,10 @@ export class DevelopmentEnvironmentInstanceStore {
   private persistState(): void {
     if (!this.stateFilePath) return;
 
-    mkdirSync(path.dirname(this.stateFilePath), { recursive: true, mode: 0o700 });
+    mkdirSync(path.dirname(this.stateFilePath), {
+      recursive: true,
+      mode: 0o700,
+    });
     const tempPath = `${this.stateFilePath}.${process.pid}.tmp`;
     const state: PersistedEnvironmentInstanceState = {
       version: 1,
