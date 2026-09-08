@@ -15,7 +15,7 @@ const ANSI_OSC_PATTERN = new RegExp(
   'g',
 );
 
-function stripAnsi(value: string): string {
+function stripAnsiSequences(value: string): string {
   return value.replace(ANSI_OSC_PATTERN, '').replace(ANSI_CSI_PATTERN, '');
 }
 
@@ -51,7 +51,7 @@ const copyMessage = ref('');
 let copyMessageTimer: number | undefined;
 
 const normalizedContent = computed(() =>
-  props.stripAnsi ? stripAnsi(props.content) : props.content,
+  props.stripAnsi ? stripAnsiSequences(props.content) : props.content,
 );
 const displayedContent = computed(
   () => normalizedContent.value || props.emptyLabel,
