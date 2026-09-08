@@ -1,6 +1,6 @@
 # Git Worktrees
 
-Git worktrees serão a base de ambientes locais paralelos do Dashboard. O domínio começa por **observação confiável e read-only**; criação, remoção, portas e processos só entram depois que a identidade de cada worktree estiver estável.
+Git worktrees serão a base de ambientes locais paralelos do Dashboard. O domínio começa por **observação confiável e read-only**; criação e remoção continuam em um lifecycle posterior. A identidade operacional de execução já pertence a `DevelopmentEnvironmentInstance`.
 
 ## Primeiro recorte: observer read-only
 
@@ -31,17 +31,34 @@ Para cada worktree, o observer preserva somente:
 
 Campos futuros do formato porcelain são ignorados, mas campos essenciais (`worktree` e `HEAD`) continuam obrigatórios. Saída sem estrutura suficiente vira `invalid-output`; não é convertida em lista vazia saudável.
 
-## Identidade do ambiente
+## Identidade Git
 
-A identidade não usa branch nem HEAD. Ela é derivada por hash de:
+A identidade do worktree não usa branch nem HEAD. Ela é derivada por hash de:
 
 ```text
 <git-common-dir> + NUL + <worktree-path-normalizado>
 ```
 
-Isso mantém o mesmo `id` quando o usuário troca/renomeia branch ou produz novos commits dentro do mesmo worktree. A ordem retornada pelo Git também não altera a identidade; a coleção normalizada é ordenada por path apenas para determinismo de consumo/teste.
+Isso mantém o mesmo `worktree.id` quando o usuário troca/renomeia branch ou produz novos commits dentro do mesmo worktree. A ordem retornada pelo Git também não altera a identidade; a coleção normalizada é ordenada por path apenas para determinismo de consumo/teste.
 
 Para repositórios Git tradicionais, o worktree principal é identificado a partir do parent de `<repo>/.git`. Se o `git-common-dir` não permitir provar essa relação (por exemplo, layouts incomuns/bare), o observer usa `kind=unknown` em vez de inventar `main`.
+
+## Relação com Development Environment Instance
+
+`worktree.id` continua sendo a identidade Git da origem. Processos, terminais, portas e runtimes usam `DevelopmentEnvironmentInstance` como identidade operacional.
+
+A reconciliação segue estas regras:
+
+- o checkout principal continua sendo `environment:primary:<projectId>` e não ganha uma segunda instance;
+- linked worktrees usam `environment:worktree:<projectId>:<worktreeId>`;
+- branch/HEAD mudarem não trocam a Environment Instance;
+- worktree ausente não apaga a instance: ela fica `degraded`;
+- o mesmo linked worktree host reaparecendo restaura a mesma identidade;
+- observar a origem Git não é suficiente para considerar um runtime `devcontainer` saudável.
+
+O observer não persiste lifecycle nem cria/remove recursos. Ele apenas produz a evidência read-only que a Environment Instance pode reconciliar.
+
+Veja [Development Environment Instances](development-environment-instances.md).
 
 ## Estados da inspeção
 
@@ -64,6 +81,6 @@ Erros brutos, stderr e paths presentes na mensagem de erro não são transportad
 
 ## Próximos recortes
 
-Criação/remoção de worktrees deve ser adicionada somente depois de existir plano/confirmation/guard apropriado. Portas, processos e PTYs precisam ser associados ao `worktree.id` estável e integrados ao Port Registry; não devem criar identidade paralela própria.
+Criação/remoção de worktrees deve ser adicionada somente depois de existir plano/confirmation/guard apropriado. Esse lifecycle futuro (#570) deve criar/reconciliar a mesma `DevelopmentEnvironmentInstance`, usar o Port Registry existente e liberar recursos somente quando ownership da instance puder ser provada.
 
-A superfície HTTP/UI também deve consumir esse domínio normalizado em vez de parsear Git diretamente.
+A superfície HTTP/UI também deve consumir os domínios normalizados em vez de parsear Git diretamente.
