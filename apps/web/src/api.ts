@@ -19,3 +19,4 @@ export * from './api/project-files';
 export * from './api/project-readme';
 export * from './api/terminal';
 export * from './api/deployments';
+export * from './api/security-center';

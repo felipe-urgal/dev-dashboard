@@ -49,6 +49,11 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
+      path: '/projects/:projectId/security',
+      name: 'project-security-center',
+      component: () => import('../views/ProjectSecurityCenterView.vue'),
+    },
+    {
       path: '/projects/:projectId/server',
       name: 'project-server',
       component: () => import('../views/ProjectDetailsView.vue'),
