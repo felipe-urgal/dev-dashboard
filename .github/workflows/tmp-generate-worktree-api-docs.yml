@@ -6,11 +6,11 @@ on:
       - feature/570-worktree-http-create
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  generate:
-    name: Generate API docs
+  verify:
+    name: Verify API docs
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -30,15 +30,5 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
-      - name: Generate and commit API reference
-        run: |
-          npm run docs:api
-          if git diff --quiet -- docs/architecture/api-reference.md; then
-            npm run docs:api:check
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/architecture/api-reference.md
-          git commit -m "docs: atualizar referência da API"
-          git push
+      - name: Verify API reference
+        run: npm run docs:api:check
