@@ -23,6 +23,7 @@ import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js'
 import { projectLanguageServerRoutes } from './routes/project-language-server.js';
 import { projectTerminalRoutes } from './routes/project-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
+import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
 import { gitPullRequestMutationRoutes } from './routes/git-pull-request-mutations.js';
@@ -225,6 +226,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(gitWorktreeRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitWorktreeObserver: context.gitWorktreeObserver,
+    gitWorktreeLifecycleService: context.gitWorktreeLifecycleService,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
   });
   app.register(gitSyncRoutes, {
     prefix: '/api',
