@@ -109,13 +109,7 @@ const createResultSchema = {
   properties: {
     state: {
       type: 'string',
-      enum: [
-        'created',
-        'already-present',
-        'blocked',
-        'failed',
-        'unverified',
-      ],
+      enum: ['created', 'already-present', 'blocked', 'failed', 'unverified'],
     },
     path: { type: 'string' },
     branch: { type: 'string' },
