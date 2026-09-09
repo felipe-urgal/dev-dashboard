@@ -34,17 +34,20 @@ npm run local:install
 
 O comando:
 
-1. valida Linux e acesso ao user manager do systemd;
-2. resolve a checkout real e o caminho absoluto do Node atual;
-3. executa o build da distribuição;
-4. cria/atualiza `~/.config/systemd/user/dev-dashboard.service`;
-5. grava metadados privados da instalação e ambiente runtime gerenciado;
-6. executa `systemctl --user daemon-reload`;
-7. habilita `dev-dashboard.service` para o login;
-8. executa `systemctl --user restart dev-dashboard.service`, inclusive quando a unit já estava ativa;
-9. aguarda `/api/health` ficar saudável antes de declarar sucesso.
+1. prepara automaticamente a release local do self-update agent e garante que ela esteja `ready`;
+2. valida Linux e acesso ao user manager do systemd;
+3. resolve a checkout real e o caminho absoluto do Node atual;
+4. executa o build da distribuição;
+5. cria/atualiza `~/.config/systemd/user/dev-dashboard.service`;
+6. grava metadados privados da instalação e ambiente runtime gerenciado;
+7. executa `systemctl --user daemon-reload`;
+8. habilita `dev-dashboard.service` para o login;
+9. executa `systemctl --user restart dev-dashboard.service`, inclusive quando a unit já estava ativa;
+10. aguarda `/api/health` ficar saudável antes de declarar sucesso.
 
-A operação é idempotente. Reexecutar `local:install` recompila a distribuição, atualiza somente os arquivos que pertencem ao instalador, reinicia o runtime gerenciado e comprova readiness.
+A operação é idempotente. Reexecutar `local:install` prepara novamente o agent se necessário, recompila a distribuição, atualiza somente os arquivos que pertencem ao instalador, reinicia o runtime gerenciado e comprova readiness.
+
+O preparo do agent continua em user-space e usa somente a checkout atual e os paths privados do próprio self-update. Não solicita `sudo` nem amplia o catálogo de ações remotas do agent.
 
 Se já existir `dev-dashboard.service` sem o marcador do instalador, a operação falha sem sobrescrever o arquivo.
 
@@ -194,7 +197,7 @@ Se o Node foi removido ou trocado por uma instalação diferente de `nvm`, `asdf
 
 A instalação local não substitui o protocolo seguro de self-update.
 
-A mutação continua passando por planner, confirmação, handoff, worker externo, fast-forward e prova da revision final.
+A mutação continua passando por planner, confirmação, handoff, worker externo, fast-forward e prova da revision final. O bootstrap do agent é automático tanto em `local:install` quanto ao gerar um plano do próprio Dashboard; os comandos manuais de `self-update:agent install/start` ficam reservados a diagnóstico de baixo nível.
 
 O contrato de uma instalação gerenciada é:
 
