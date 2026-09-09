@@ -13,6 +13,8 @@ import { DevelopmentEnvironmentInstanceStore } from './store/development-environ
 import { ProjectStore } from './store/project-store.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
 import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
+import { GitWorktreeLifecycleService } from './services/git-worktree-lifecycle-service.js';
+import { GitWorktreeObserver } from './services/git-worktree-observer.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
@@ -82,10 +84,16 @@ export function createProjectContextDomain(
       ? { logger: options.languageServerLogger }
       : {}),
   });
+  const gitWorktreeObserver = new GitWorktreeObserver();
 
   return {
     gitService: new DashboardGitService(),
     gitMutationHistoryService: new GitMutationHistoryService(),
+    gitWorktreeObserver,
+    gitWorktreeLifecycleService: new GitWorktreeLifecycleService(
+      undefined,
+      gitWorktreeObserver,
+    ),
     projectCoverageService: new ProjectCoverageService(),
     projectCoverageHistoryService: new ProjectCoverageHistoryService(),
     projectEnvironmentService: new ProjectEnvironmentService(),
