@@ -35,22 +35,25 @@ O parser rejeita `deploy`, `migrate`, `backup`, `verify` local ou provider exter
 
 ## Fluxo canônico
 
-Antes de uma atualização do próprio Dashboard:
+O gate normal de engenharia continua sendo:
 
 ```bash
 npm run check
-npm run prod:status
-npm run prod:check
 ```
 
-Depois, a mutação suportada ocorre pela própria aba **Produção**:
+A operação do self-update acontece pela própria aba **Produção** sem exigir bootstrap manual do agent:
 
 ```text
-Preparar deployment
+Gerar plano
+-> instalar/atualizar a release local do agent
+-> iniciar o agent se estiver parado
+-> reiniciar o agent se a release em execução estiver antiga
 -> resolver origin/main
 -> revisar revision + plano check -> self-update
 -> confirmar planHash
 -> executar
+-> revalidar revision + readiness antes de cada etapa
+-> check somente valida
 -> handoff para agent externo
 -> fast-forward da revision confirmada
 -> restart
@@ -59,6 +62,22 @@ Preparar deployment
 ```
 
 Não existe comando `npm run prod:deploy` para substituir esse fluxo.
+
+## Bootstrap automático do agent
+
+`Gerar plano` prepara o self-update agent antes de consultar `origin/main`. O backend resolve uma única operação local fixa, `scripts/self-update-agent-bootstrap.mjs ensure`, a partir da checkout registrada do projeto; o browser não fornece programa, `argv`, path, unit ou credencial.
+
+O bootstrap é idempotente e executa somente o necessário para deixar a release local coerente:
+
+1. instala/atualiza a release do agent a partir da checkout atual;
+2. consulta o agent pelo canal local autenticado;
+3. se estiver ausente/parado, inicia a release instalada;
+4. se estiver executando uma release antiga, encerra esse agent e inicia a release instalada;
+5. exige novo `ping` com `status=ready` e a mesma release preparada.
+
+Falhas de ownership, permissões, token, instalação, start ou readiness continuam falhando fechado. O bootstrap não adiciona ações ao catálogo remoto do agent e não aceita shell/programa/argumentos arbitrários vindos da UI.
+
+`npm run local:install` também prepara o agent automaticamente. Durante a execução de um plano `self-update`, a revalidação da revision volta a executar o mesmo `ensure` antes de cada etapa, inclusive imediatamente antes do handoff. Assim a operação normal não exige `self-update:agent install/start` manual, enquanto `prod:check` permanece estritamente de leitura/validação.
 
 ## `prod:status`
 
@@ -74,12 +93,12 @@ npm run prod:status
 npm run prod:check
 ```
 
-É o preflight específico da self-production. Ele valida o contrato fechado e exige que o self-update agent esteja `ready`, com suporte às capacidades necessárias de ownership/inspeção.
+É o preflight específico da self-production e permanece somente leitura. Ele valida o contrato fechado e as capacidades necessárias de ownership/inspeção, incluindo a disponibilidade/readiness atual do agent, sem instalar, iniciar, reiniciar ou alterar a release local.
 
 `prod:check` é diferente de `npm run check`:
 
 - `npm run check` é o gate normal de engenharia/CI;
-- `npm run prod:check` valida a infraestrutura de self-update instalada nesta máquina.
+- `npm run prod:check` valida a infraestrutura local de self-update nesta máquina sem mutá-la.
 
 Um não substitui o outro.
 
@@ -88,9 +107,12 @@ Um não substitui o outro.
 Os scripts abaixo são tooling de engenharia, não uma segunda interface pública de deploy:
 
 ```bash
+npm run self-update:ensure
 npm run self-update:helper -- ...
 npm run self-update:agent -- ...
 ```
+
+`self-update:ensure` existe para diagnóstico/engenharia; o uso normal pela UI chama o mesmo bootstrap automaticamente.
 
 O fluxo suportado sempre passa pelo Production Contract, planner, confirmação vinculada ao `planHash` e revalidação da revision.
 
@@ -175,7 +197,7 @@ Consulte [`architecture/production-contract.md`](architecture/production-contrac
 
 - `npm run check` verde no código que será promovido;
 - `prod:status` coerente;
-- `prod:check` verde;
+- `prod:check` verde quando executado para diagnóstico;
 - working tree limpa;
 - plano aponta para a revision correta de `origin/main`;
 - confirmação corresponde ao `planHash` atual;
