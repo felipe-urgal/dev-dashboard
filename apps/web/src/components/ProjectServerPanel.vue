@@ -10,8 +10,6 @@ import {
   PlayIcon,
   ServerStackIcon,
   StopIcon,
-  ArrowsPointingInIcon,
-  ArrowsPointingOutIcon,
 } from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
@@ -44,6 +42,7 @@ const {
   supportsServer,
   processStatus,
   canStop,
+  hasManagedProcess,
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
 
@@ -60,7 +59,7 @@ const {
   clearLogView,
 } = useProjectLogsPolling(
   () => props.project,
-  canStop,
+  hasManagedProcess,
   supportsServer,
   logContainer,
 );
@@ -73,12 +72,6 @@ const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
 const settingsOpen = ref(false);
-const logOpen = ref(false);
-const logMaximized = ref(false);
-
-function toggleLogMaximized(): void {
-  logMaximized.value = !logMaximized.value;
-}
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
@@ -368,7 +361,6 @@ function resetPanelState(): void {
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
-  logOpen.value = false;
 }
 
 async function initializeProject(): Promise<void> {
@@ -418,3 +410,10 @@ onBeforeUnmount(() => {
 <template src="./ProjectServerPanel.template.html"></template>
 
 <style scoped src="./ProjectServerPanel.css"></style>
+
+<style scoped>
+.server-log-panel-persistent {
+  width: 100%;
+  margin: 16px 0 0;
+}
+</style>

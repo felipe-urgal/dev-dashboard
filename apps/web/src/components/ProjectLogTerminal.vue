@@ -8,8 +8,17 @@ withDefaults(
     maskedCount?: number;
     clearable?: boolean;
     clearing?: boolean;
+    title?: string;
+    emptyLabel?: string;
   }>(),
-  { running: false, maskedCount: 0, clearable: true, clearing: false },
+  {
+    running: false,
+    maskedCount: 0,
+    clearable: true,
+    clearing: false,
+    title: 'Log do servidor',
+    emptyLabel: 'Nenhuma saída registrada.',
+  },
 );
 
 const emit = defineEmits<{ clear: [] }>();
@@ -19,9 +28,10 @@ const emit = defineEmits<{ clear: [] }>();
   <ProjectLogViewer
     class="project-log-terminal"
     :content="content"
-    title="Log do servidor"
+    :title="title"
     :running="running"
     :masked-count="maskedCount"
+    :empty-label="emptyLabel"
     :wrap="false"
     embedded
   >

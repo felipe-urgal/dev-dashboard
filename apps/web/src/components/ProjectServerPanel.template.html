@@ -146,14 +146,6 @@
           <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
 
           <footer class="server-status-actions">
-            <button
-              type="button"
-              class="server-secondary-button server-log-button"
-              @click="logOpen = !logOpen"
-            >
-              <CommandLineIcon aria-hidden="true" />
-              {{ logOpen ? 'Ocultar log' : 'Ver log' }}
-            </button>
             <button type="button" class="server-danger-button" :disabled="executingAction" @click="handleStop">
               <StopIcon aria-hidden="true" />{{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
             </button>
@@ -161,50 +153,20 @@
               <ArrowPathIcon aria-hidden="true" />{{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
             </button>
           </footer>
-
-          <section
-            v-if="logOpen"
-            class="server-log-panel"
-            :class="{ 'server-log-panel-expanded': logMaximized }"
-            aria-labelledby="server-log-title"
-          >
-            <header class="server-log-panel-header">
-              <div>
-                <span>Observabilidade</span>
-                <h3 id="server-log-title">Log do servidor</h3>
-              </div>
-              <div class="server-log-panel-actions">
-                <button
-                  type="button"
-                  class="server-log-panel-button"
-                  :aria-label="logMaximized ? 'Restaurar log' : 'Expandir log'"
-                  @click="toggleLogMaximized"
-                >
-                  <ArrowsPointingInIcon v-if="logMaximized" aria-hidden="true" />
-                  <ArrowsPointingOutIcon v-else aria-hidden="true" />
-                  {{ logMaximized ? 'Restaurar' : 'Expandir' }}
-                </button>
-                <button
-                  type="button"
-                  class="server-log-close-button"
-                  aria-label="Fechar log do servidor"
-                  @click="logOpen = false"
-                >
-                  Fechar
-                </button>
-              </div>
-            </header>
-            <div class="server-log-panel-body">
-              <ProjectLogTerminal
-                :content="logSnapshot?.content ?? ''"
-                :running="processStatus === 'running'"
-                :masked-count="logSnapshot?.redactionCount ?? 0"
-                :clearing="clearingLog"
-                @clear="clearLogView"
-              />
-            </div>
-          </section>
         </section>
       </div>
+
+      <section class="server-log-panel server-log-panel-persistent" aria-label="Logs do servidor">
+        <ProjectLogTerminal
+          :content="logSnapshot?.content ?? ''"
+          title="Logs do servidor"
+          empty-label="Os logs do servidor aparecerão aqui."
+          :running="processStatus === 'running'"
+          :masked-count="logSnapshot?.redactionCount ?? 0"
+          :clearable="hasManagedProcess"
+          :clearing="clearingLog"
+          @clear="clearLogView"
+        />
+      </section>
     </template>
   </div>
