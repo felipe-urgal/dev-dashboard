@@ -17,7 +17,7 @@ O estado agregado usa a ordem conservadora `block > unknown > warning > pass`. N
 
 ## Fontes implementadas
 
-O núcleo em `apps/api/src/services/release-readiness.ts` normaliza quatro fontes já existentes.
+O núcleo em `apps/api/src/services/release-readiness.ts` normaliza quatro fontes já existentes. A integração de Migrations conecta os recortes das issues #571 e #589 sem ampliar a autoridade do Readiness.
 
 ### Git
 
