@@ -124,7 +124,7 @@ Qualquer saída significa dirty state e bloqueia a remoção. Falha ao consultar
 - HEAD;
 - branch quando existe.
 
-`remove` consome a confirmação uma única vez e reinspeciona tudo. Mudança de HEAD, branch ou path desde a confirmação exige nova preparação. Isso impede que uma confirmação antiga autorize remoção sobre um estado diferente.
+`remove` consome a confirmação uma única vez e reinspeciona tudo. Mudança de HEAD, branch ou path desde a confirmação exige nova preparação. Isso impede que uma confirmação antiga autorize remoção sobre um estado diferente. Confirmação expirada ou inválida nunca executa a mutação.
 
 ### Ownership e cleanup
 
