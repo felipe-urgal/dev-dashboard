@@ -123,7 +123,11 @@ test('CLI expõe somente ensure como ação de bootstrap', () => {
   let stderr = '';
   const exitCode = runSelfUpdateAgentBootstrap(['start'], {
     stdout: { write() {} },
-    stderr: { write(chunk) { stderr += chunk; } },
+    stderr: {
+      write(chunk) {
+        stderr += chunk;
+      },
+    },
     ensure() {
       throw new Error('não deveria executar');
     },

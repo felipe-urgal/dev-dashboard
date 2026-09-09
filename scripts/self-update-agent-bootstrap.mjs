@@ -132,7 +132,11 @@ export function ensureSelfUpdateAgentReady({
 
 export function runSelfUpdateAgentBootstrap(
   argv,
-  { stdout = process.stdout, stderr = process.stderr, ensure = ensureSelfUpdateAgentReady } = {},
+  {
+    stdout = process.stdout,
+    stderr = process.stderr,
+    ensure = ensureSelfUpdateAgentReady,
+  } = {},
 ) {
   const [command, ...args] = argv;
   if (command !== 'ensure' || args.length !== 0) {
