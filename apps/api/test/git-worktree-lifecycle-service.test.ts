@@ -46,12 +46,11 @@ function createRunner(options: {
   existing?: Array<{ path: string; branch: string }>;
   failAdd?: boolean;
 }) {
-  const calls: readonly string[][] = [];
-  const mutableCalls = calls as string[][];
+  const calls: string[][] = [];
   let created: { path: string; branch: string } | undefined;
 
   const runner: GitWorktreeCommandRunner = async (_projectPath, args) => {
-    mutableCalls.push([...args]);
+    calls.push([...args]);
 
     if (args[0] === 'rev-parse') return '/workspace/projeto/.git\n';
     if (args[0] === 'check-ref-format') return `${args[2]}\n`;
