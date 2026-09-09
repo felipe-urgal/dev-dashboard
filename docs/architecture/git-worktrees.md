@@ -1,6 +1,6 @@
 # Git Worktrees
 
-Git worktrees serão a base de ambientes locais paralelos do Dashboard. O domínio começa por **observação confiável e read-only**; criação e remoção evoluem em slices separados para manter guardrails explícitos. A identidade operacional de execução já pertence a `DevelopmentEnvironmentInstance`.
+Git worktrees são a base de ambientes locais paralelos do Dashboard. O domínio evolui em slices pequenos: observação read-only, criação estruturada e remoção segura. A identidade operacional de execução pertence a `DevelopmentEnvironmentInstance`.
 
 ## Observer read-only
 
@@ -70,7 +70,7 @@ Erros brutos, stderr e paths presentes na mensagem de erro não são transportad
 
 ## Lifecycle de criação
 
-`GitWorktreeLifecycleService` introduz o primeiro slice mutável do domínio: criação estruturada de linked worktrees para uma branch existente ou criação de branch + worktree no mesmo fluxo.
+`GitWorktreeLifecycleService` cria linked worktrees para uma branch existente ou cria branch + worktree no mesmo fluxo.
 
 A ação recebe somente:
 
@@ -89,22 +89,78 @@ git worktree add -b <new-branch> -- <target>
 
 `--force` não faz parte do fluxo. Depois do comando, o serviço observa novamente o repositório e só retorna `created` quando path e branch aparecem no snapshot confirmado. Reexecução do mesmo target/branch retorna `already-present`; falha de confirmação vira `unverified` em vez de inventar sucesso. Erros brutos do Git não atravessam o contrato.
 
-Remoção continua fora deste slice porque precisa de guard específico para dirty state, confirmation e ownership de recursos da `DevelopmentEnvironmentInstance`.
+## Lifecycle de remoção
+
+A remoção é deliberadamente mais restritiva que a criação.
+
+O caller informa somente o `worktreeId` produzido pelo observer. O serviço resolve o path no backend e só aceita um worktree que continue sendo:
+
+- `kind=linked`;
+- não bare;
+- irmão direto do checkout principal;
+- não `locked`;
+- não `prunable`.
+
+O checkout principal, worktrees `unknown` e origens observadas fora da área gerenciada não podem ser removidos por esse lifecycle.
+
+### Dirty guard
+
+Antes de emitir confirmação e novamente imediatamente antes da mutação, o serviço executa no próprio worktree observado:
+
+```text
+git status --porcelain=v1 -z --untracked-files=all
+```
+
+Qualquer saída significa dirty state e bloqueia a remoção. Falha ao consultar o status também bloqueia; ausência de evidência nunca é tratada como `clean`.
+
+### Confirmação e TOCTOU
+
+`prepareRemoval` emite uma confirmação curta, com TTL de 60 segundos, vinculada a:
+
+- projeto;
+- `worktreeId`;
+- `environmentInstanceId` derivada;
+- path observado;
+- HEAD;
+- branch quando existe.
+
+`remove` consome a confirmação uma única vez e reinspeciona tudo. Mudança de HEAD, branch ou path desde a confirmação exige nova preparação. Isso impede que uma confirmação antiga autorize remoção sobre um estado diferente. Confirmação expirada ou inválida nunca executa a mutação.
+
+### Ownership e cleanup
+
+A remoção exige um `GitWorktreeRemovalResourceGuard`. Sem guard configurado, o fluxo falha fechado e nem emite confirmação.
+
+O guard recebe exclusivamente a `environmentInstanceId` derivada de `projectId + worktreeId` e precisa:
+
+1. provar que não existem recursos ativos que impeçam a remoção;
+2. após o Git confirmar que a origem desapareceu, limpar somente recursos cuja ownership pertença exatamente à mesma Environment Instance.
+
+O lifecycle nunca recebe um owner arbitrário do browser e não ganha autoridade para limpar recursos de outra instância.
+
+A mutação usa apenas:
+
+```text
+git worktree remove -- <path-observado>
+```
+
+Não existe `--force`. Depois do comando, o observer precisa confirmar que o mesmo `worktreeId` desapareceu. Se a remoção Git for confirmada mas o cleanup posterior falhar, o resultado é `cleanup-required`: o sistema não inventa rollback do diretório nem declara cleanup concluído.
 
 ## Segurança e limites
 
 - nenhum shell livre;
 - argv fixo no domínio;
-- `cwd` sempre é o path do projeto já conhecido pelo backend;
+- `cwd` de criação sempre parte do projeto conhecido;
+- remoção resolve target pelo snapshot do Git, nunca por path vindo do caller;
 - limite de 256 worktrees por snapshot;
 - limite por campo e no output total;
 - HEAD precisa ter formato hexadecimal plausível;
 - campos desconhecidos não promovem estado saudável;
 - criação não aceita path arbitrário nem `--force`;
-- remoção/move/prune/unlock ainda não são expostos pelo lifecycle.
+- remoção exige clean state, confirmação curta, revalidação e ownership fail-closed;
+- `move`, `prune`, `unlock` e remoção forçada continuam fora do lifecycle.
 
 ## Próximos recortes
 
-A criação precisa ser conectada à superfície HTTP/UI e reconciliar a mesma `DevelopmentEnvironmentInstance`. A remoção deve ser adicionada somente com preflight/confirmation apropriados, bloqueio de dirty state e cleanup verificável por ownership. O Port Registry existente continua sendo a autoridade para portas por ambiente.
+A criação e a remoção ainda precisam ser conectadas à superfície HTTP/UI. A composição da API deve fornecer um `GitWorktreeRemovalResourceGuard` concreto sobre os domínios que já possuem ownership da mesma `DevelopmentEnvironmentInstance`, sem criar um executor/cleanup paralelo.
 
-A superfície HTTP/UI deve consumir os domínios normalizados em vez de parsear Git diretamente.
+O Port Registry existente continua sendo a autoridade para portas por ambiente. A superfície HTTP/UI deve consumir os domínios normalizados em vez de parsear Git diretamente.
