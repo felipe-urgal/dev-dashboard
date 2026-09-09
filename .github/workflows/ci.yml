@@ -37,5 +37,10 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
+      - name: Format diagnostics
+        run: |
+          npx prettier --write apps/api/src/services/docker-compose-ownership-store.ts apps/api/test/docker-compose-ownership-store.test.ts
+          git diff -- apps/api/src/services/docker-compose-ownership-store.ts apps/api/test/docker-compose-ownership-store.test.ts
+
       - name: Quality gate
         run: npm run check
