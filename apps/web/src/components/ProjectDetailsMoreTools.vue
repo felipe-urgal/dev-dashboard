@@ -7,6 +7,7 @@ import {
   CommandLineIcon,
   CubeIcon,
   DocumentTextIcon,
+  LockClosedIcon,
   QueueListIcon,
   ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
@@ -98,6 +99,16 @@ const route = useRoute();
   >
     <CheckBadgeIcon aria-hidden="true" />
     <span>Readiness</span>
+  </RouterLink>
+  <RouterLink
+    class="project-details-tab"
+    :class="{
+      'project-details-tab-active': route.name === 'project-security-center',
+    }"
+    :to="{ name: 'project-security-center', params: { projectId: project.id } }"
+  >
+    <LockClosedIcon aria-hidden="true" />
+    <span>Segurança</span>
   </RouterLink>
   <RouterLink
     class="project-details-tab"
