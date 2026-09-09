@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -64,13 +64,8 @@ test('não transfere ownership quando o mesmo projectId aponta para outro path',
 
 test('estado corrompido falha fechado e não concede ownership implícito', async (context) => {
   const setup = await fixture(context);
-  await writeFile(setup.statePath, '{not-json', { recursive: false }).catch(
-    async () => {
-      const { mkdir } = await import('node:fs/promises');
-      await mkdir(path.dirname(setup.statePath), { recursive: true });
-      await writeFile(setup.statePath, '{not-json');
-    },
-  );
+  await mkdir(path.dirname(setup.statePath), { recursive: true });
+  await writeFile(setup.statePath, '{not-json');
 
   const store = new DockerComposeOwnershipStore(setup.statePath);
   assert.equal(await store.get(setup.project), undefined);
