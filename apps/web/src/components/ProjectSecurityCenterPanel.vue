@@ -30,13 +30,16 @@ const availabilityTone = computed<StatusBadgeTone>(() => {
 });
 
 const availabilityLabel = computed(() => {
-  if (availability.value?.availability.state === 'available') return 'Disponível';
-  if (availability.value?.availability.state === 'missing') return 'Não instalado';
+  if (availability.value?.availability.state === 'available')
+    return 'Disponível';
+  if (availability.value?.availability.state === 'missing')
+    return 'Não instalado';
   return 'Indisponível';
 });
 
 const canScan = computed(
-  () => availability.value?.availability.state === 'available' && !scanning.value,
+  () =>
+    availability.value?.availability.state === 'available' && !scanning.value,
 );
 
 const findings = computed<SecurityFinding[]>(
@@ -135,14 +138,17 @@ watch(
 </script>
 
 <template>
-  <section class="security-center-panel dd-card" aria-labelledby="security-center-title">
+  <section
+    class="security-center-panel dd-card"
+    aria-labelledby="security-center-title"
+  >
     <header class="security-center-header">
       <div>
         <span class="security-center-eyebrow">Segurança local</span>
         <h3 id="security-center-title">Security Center</h3>
         <p>
-          Scan manual e somente leitura de secrets e misconfigurations. O navegador
-          não envia path, executável ou argumentos do scanner.
+          Scan manual e somente leitura de secrets e misconfigurations. O
+          navegador não envia path, executável ou argumentos do scanner.
         </p>
       </div>
       <StatusBadge v-if="availability" :tone="availabilityTone" size="md">
@@ -178,7 +184,10 @@ watch(
             {{ availability.availability.version }}
           </span>
         </div>
-        <span>Observado em {{ formatDate(availability.availability.observedAt) }}</span>
+        <span
+          >Observado em
+          {{ formatDate(availability.availability.observedAt) }}</span
+        >
       </div>
 
       <p
@@ -197,7 +206,9 @@ watch(
         >
           {{ scanning ? 'Escaneando…' : 'Executar scan' }}
         </button>
-        <span>Execução manual; nenhum resultado é persistido neste recorte.</span>
+        <span
+          >Execução manual; nenhum resultado é persistido neste recorte.</span
+        >
       </div>
 
       <p v-if="errorMessage" class="security-center-error" role="alert">
@@ -215,13 +226,21 @@ watch(
         v-else-if="scan && scan.execution.state !== 'completed'"
         icon="!"
         title="Scan inconclusivo"
-        :description="scan.execution.diagnostic ?? 'O provider não conseguiu produzir um resultado confiável.'"
+        :description="
+          scan.execution.diagnostic ??
+          'O provider não conseguiu produzir um resultado confiável.'
+        "
       />
 
-      <div v-else-if="sortedFindings.length > 0" class="security-center-results">
+      <div
+        v-else-if="sortedFindings.length > 0"
+        class="security-center-results"
+      >
         <div class="security-center-results-header">
           <strong>{{ sortedFindings.length }} finding(s)</strong>
-          <span v-if="scan">Atualizado em {{ formatDate(scan.execution.observedAt) }}</span>
+          <span v-if="scan"
+            >Atualizado em {{ formatDate(scan.execution.observedAt) }}</span
+          >
         </div>
 
         <ul class="security-center-findings" aria-label="Findings de segurança">
@@ -238,9 +257,16 @@ watch(
                 <strong>{{ finding.title }}</strong>
                 <p>
                   {{ categoryLabel(finding.category) }} · {{ finding.ruleId }} ·
-                  <code>{{ finding.file }}<template v-if="finding.line">:{{ finding.line }}</template></code>
+                  <code
+                    >{{ finding.file
+                    }}<template v-if="finding.line"
+                      >:{{ finding.line }}</template
+                    ></code
+                  >
                 </p>
-                <small v-if="finding.remediation">{{ finding.remediation }}</small>
+                <small v-if="finding.remediation">{{
+                  finding.remediation
+                }}</small>
               </div>
             </div>
           </li>

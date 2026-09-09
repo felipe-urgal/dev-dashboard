@@ -28,7 +28,8 @@ async function loadProject(): Promise<void> {
   project.value = null;
 
   try {
-    const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
+    const loadedProject =
+      await dashboardStore.ensureProject(requestedProjectId);
     if (requestGeneration !== generation) return;
     project.value = loadedProject;
     if (loadedProject) void recordProjectVisit(loadedProject.id);
