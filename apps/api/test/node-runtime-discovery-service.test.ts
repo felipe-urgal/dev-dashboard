@@ -19,7 +19,7 @@ function project(projectPath: string): Project {
     source: 'workspace',
     workspaceId: 'workspace-1',
     enabled: true,
-    capabilities: ['dependencies'],
+    capabilities: [],
   };
 }
 
