@@ -117,10 +117,12 @@ export class GitDeploymentOriginRevisionResolver implements DeploymentOriginRevi
     signal?: AbortSignal,
   ): Promise<string | undefined> {
     try {
-      await this.prepareAgent(project, {
-        timeoutMs: this.agentTimeoutMs,
-        ...(signal ? { signal } : {}),
-      });
+      if (project.production?.strategy === 'self-update') {
+        await this.prepareAgent(project, {
+          timeoutMs: this.agentTimeoutMs,
+          ...(signal ? { signal } : {}),
+        });
+      }
       const { stdout } = await this.execGit(
         ['ls-remote', '--heads', 'origin', `refs/heads/${branch}`],
         {
