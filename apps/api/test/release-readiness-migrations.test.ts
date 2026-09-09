@@ -4,9 +4,7 @@ import test from 'node:test';
 import type { MigrationOverview } from '../src/services/migration-provider.js';
 import { evaluateMigrationsReadiness } from '../src/services/release-readiness.js';
 
-function overview(
-  status: MigrationOverview['status'],
-): MigrationOverview {
+function overview(status: MigrationOverview['status']): MigrationOverview {
   return {
     provider: 'provider-de-teste',
     status,
@@ -36,5 +34,8 @@ test('MigrationOverview unavailable ou unknown permanece inconclusivo', () => {
     evaluateMigrationsReadiness(overview('unavailable')).state,
     'unknown',
   );
-  assert.equal(evaluateMigrationsReadiness(overview('unknown')).state, 'unknown');
+  assert.equal(
+    evaluateMigrationsReadiness(overview('unknown')).state,
+    'unknown',
+  );
 });
