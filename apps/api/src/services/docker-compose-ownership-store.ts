@@ -33,7 +33,8 @@ function validText(value: unknown, maxLength: number): value is string {
 }
 
 function parseRecord(value: unknown): DockerComposeOwnershipRecord | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
   const record = value as Record<string, unknown>;
   if (
     !validText(record.projectId, 256) ||
@@ -119,7 +120,9 @@ export class DockerComposeOwnershipStore {
     await this.ensureLoaded();
     const record = this.records.get(project.id);
     if (!record) return undefined;
-    return record.projectPath === path.resolve(project.path) ? record : undefined;
+    return record.projectPath === path.resolve(project.path)
+      ? record
+      : undefined;
   }
 
   public async owns(
@@ -133,7 +136,8 @@ export class DockerComposeOwnershipStore {
   public async release(project: Project): Promise<boolean> {
     await this.ensureLoaded();
     const record = this.records.get(project.id);
-    if (!record || record.projectPath !== path.resolve(project.path)) return false;
+    if (!record || record.projectPath !== path.resolve(project.path))
+      return false;
     this.records.delete(project.id);
     await this.persist();
     return true;
@@ -167,7 +171,9 @@ export class DockerComposeOwnershipStore {
     };
     const content = `${JSON.stringify(state, null, 2)}\n`;
     if (Buffer.byteLength(content, 'utf8') > MAX_STATE_BYTES) {
-      throw new Error('Estado de ownership do Compose excedeu o limite seguro.');
+      throw new Error(
+        'Estado de ownership do Compose excedeu o limite seguro.',
+      );
     }
 
     const temporary = `${this.statePath}.${process.pid}.${randomUUID()}.tmp`;

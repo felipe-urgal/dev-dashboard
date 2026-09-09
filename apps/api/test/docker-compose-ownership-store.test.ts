@@ -46,7 +46,10 @@ test('persiste ownership e permite reabrir o estado após restart da API', async
 
   const reopened = new DockerComposeOwnershipStore(setup.statePath);
   assert.equal(await reopened.owns(setup.project, 'workspace-project'), true);
-  assert.equal((await reopened.get(setup.project))?.startedAt, NOW.toISOString());
+  assert.equal(
+    (await reopened.get(setup.project))?.startedAt,
+    NOW.toISOString(),
+  );
 });
 
 test('não transfere ownership quando o mesmo projectId aponta para outro path', async (context) => {
