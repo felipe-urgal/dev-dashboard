@@ -12,7 +12,6 @@ import type { LocalCiDiscoveryService } from './local-ci-discovery-service.js';
 const DEFAULT_TIMEOUT_MS = 30 * 60_000;
 const DEFAULT_MAX_CONCURRENT = 2;
 const MAX_RETAINED_RUNS = 64;
-// Local CI inherits only runtime essentials; arbitrary host variables may contain secrets.
 const SAFE_ENV_KEYS = [
   'PATH',
   'HOME',
@@ -52,6 +51,11 @@ export interface LocalCiExecutionSnapshot {
   timedOut: boolean;
   startedAt: string;
   endedAt: string | null;
+}
+
+export interface LocalCiExecutionAttachment {
+  snapshot: LocalCiExecutionSnapshot;
+  detach: () => void;
 }
 
 interface RunRecord {
@@ -169,6 +173,35 @@ export class LocalCiExecutionService {
       );
     }
     return this.toSnapshot(record, snapshot);
+  }
+
+  /**
+   * Reanexa a uma execução pertencente ao projeto. O buffer atual vem no
+   * snapshot; novos chunks e o exit são encaminhados sem criar outro processo.
+   * Detach remove somente os listeners deste consumidor.
+   */
+  public reattach(
+    projectId: string,
+    id: string,
+    onData: (chunk: string) => void,
+    onExit: (snapshot: LocalCiExecutionSnapshot) => void,
+  ): LocalCiExecutionAttachment {
+    const record = this.ownedRun(projectId, id);
+    try {
+      const handle = this.executions.attach(record.key, onData, (snapshot) => {
+        onExit(this.toSnapshot(record, snapshot));
+      });
+      return {
+        snapshot: this.toSnapshot(record, handle.snapshot),
+        detach: handle.detach,
+      };
+    } catch {
+      this.deleteRun(record);
+      throw new LocalCiExecutionError(
+        'LOCAL_CI_NOT_FOUND',
+        'Execução local não está mais disponível.',
+      );
+    }
   }
 
   public cancel(projectId: string, id: string): LocalCiExecutionSnapshot {
