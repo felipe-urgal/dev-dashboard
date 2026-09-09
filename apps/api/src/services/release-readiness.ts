@@ -8,9 +8,16 @@ import type {
 import type { MigrationOverview } from './migration-provider.js';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
-export type ReleaseReadinessCheckId = 'git' | 'tests' | 'doctor' | 'migrations';
+export type ReleaseReadinessCheckId =
+  | 'git'
+  | 'tests'
+  | 'doctor'
+  | 'migrations';
 export type ReleaseReadinessActionTarget =
-  'synchronization' | 'tests' | 'doctor' | 'migrations';
+  | 'synchronization'
+  | 'tests'
+  | 'doctor'
+  | 'migrations';
 
 export interface ReleaseReadinessCheck {
   id: ReleaseReadinessCheckId;
@@ -48,7 +55,7 @@ export function evaluateGitReadiness(
     label: 'Abrir Sincronização',
     target: 'synchronization' as const,
   };
-  if (!overview.repository)
+  if (!overview.repository) {
     return {
       id: 'git',
       state: 'unknown',
@@ -57,7 +64,8 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
-  if (!overview.clean)
+  }
+  if (!overview.clean) {
     return {
       id: 'git',
       state: 'block',
@@ -66,7 +74,8 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
-  if (overview.detached || !overview.branch)
+  }
+  if (overview.detached || !overview.branch) {
     return {
       id: 'git',
       state: 'warning',
@@ -76,7 +85,8 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
-  if (!overview.upstream)
+  }
+  if (!overview.upstream) {
     return {
       id: 'git',
       state: 'unknown',
@@ -85,7 +95,8 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
-  if (overview.ahead > 0 && overview.behind > 0)
+  }
+  if (overview.ahead > 0 && overview.behind > 0) {
     return {
       id: 'git',
       state: 'block',
@@ -94,7 +105,8 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
-  if (overview.behind > 0)
+  }
+  if (overview.behind > 0) {
     return {
       id: 'git',
       state: 'block',
@@ -103,7 +115,8 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
-  if (overview.ahead > 0)
+  }
+  if (overview.ahead > 0) {
     return {
       id: 'git',
       state: 'block',
@@ -112,6 +125,7 @@ export function evaluateGitReadiness(
       observedAt,
       action,
     };
+  }
   return {
     id: 'git',
     state: 'pass',
@@ -150,7 +164,7 @@ export function evaluateTestsReadiness(
   expectedIdentity?: ReleaseReadinessTestIdentity,
 ): ReleaseReadinessCheck {
   const action = { label: 'Abrir Testes', target: 'tests' as const };
-  if (!expectedIdentity)
+  if (!expectedIdentity) {
     return {
       id: 'tests',
       state: 'unknown',
@@ -159,6 +173,8 @@ export function evaluateTestsReadiness(
       observedAt: new Date(now).toISOString(),
       action,
     };
+  }
+
   const fullSuites = history.items.filter(
     (item) => item.scope === 'full-suite',
   );
@@ -179,9 +195,10 @@ export function evaluateTestsReadiness(
       action,
     };
   }
+
   const observedAt = latest.finishedAt ?? latest.startedAt;
   const age = now - Date.parse(observedAt);
-  if (!Number.isFinite(age) || age < 0 || age > maxAgeMs)
+  if (!Number.isFinite(age) || age < 0 || age > maxAgeMs) {
     return {
       id: 'tests',
       state: 'unknown',
@@ -190,10 +207,11 @@ export function evaluateTestsReadiness(
       observedAt,
       action,
     };
+  }
   if (
     latest.status === 'failed' ||
     (latest.exitCode !== undefined && latest.exitCode !== 0)
-  )
+  ) {
     return {
       id: 'tests',
       state: 'block',
@@ -202,7 +220,8 @@ export function evaluateTestsReadiness(
       observedAt,
       action,
     };
-  if (latest.status !== 'stopped' || latest.exitCode !== 0)
+  }
+  if (latest.status !== 'stopped' || latest.exitCode !== 0) {
     return {
       id: 'tests',
       state: 'unknown',
@@ -211,6 +230,7 @@ export function evaluateTestsReadiness(
       observedAt,
       action,
     };
+  }
   return {
     id: 'tests',
     state: 'pass',
@@ -225,7 +245,7 @@ export function evaluateDoctorReadiness(
   report: ProjectDiagnosticReport,
 ): ReleaseReadinessCheck {
   const action = { label: 'Abrir Doctor', target: 'doctor' as const };
-  if (report.overallStatus === 'blocked')
+  if (report.overallStatus === 'blocked') {
     return {
       id: 'doctor',
       state: 'block',
@@ -234,7 +254,8 @@ export function evaluateDoctorReadiness(
       observedAt: report.generatedAt,
       action,
     };
-  if (report.overallStatus === 'attention')
+  }
+  if (report.overallStatus === 'attention') {
     return {
       id: 'doctor',
       state: 'warning',
@@ -243,6 +264,7 @@ export function evaluateDoctorReadiness(
       observedAt: report.generatedAt,
       action,
     };
+  }
   return {
     id: 'doctor',
     state: 'pass',
@@ -257,7 +279,7 @@ export function evaluateMigrationsReadiness(
   overview: MigrationOverview,
 ): ReleaseReadinessCheck {
   const action = { label: 'Abrir Migrations', target: 'migrations' as const };
-  if (overview.status === 'up-to-date')
+  if (overview.status === 'up-to-date') {
     return {
       id: 'migrations',
       state: 'pass',
@@ -266,7 +288,8 @@ export function evaluateMigrationsReadiness(
       observedAt: overview.observedAt,
       action,
     };
-  if (overview.status === 'pending')
+  }
+  if (overview.status === 'pending') {
     return {
       id: 'migrations',
       state: 'block',
@@ -275,6 +298,7 @@ export function evaluateMigrationsReadiness(
       observedAt: overview.observedAt,
       action,
     };
+  }
   return {
     id: 'migrations',
     state: 'unknown',
