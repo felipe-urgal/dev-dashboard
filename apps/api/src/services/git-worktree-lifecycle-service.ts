@@ -26,11 +26,7 @@ export interface CreateGitWorktreeInput {
 }
 
 export type CreateGitWorktreeState =
-  | 'created'
-  | 'already-present'
-  | 'blocked'
-  | 'failed'
-  | 'unverified';
+  'created' | 'already-present' | 'blocked' | 'failed' | 'unverified';
 
 export interface CreateGitWorktreeResult {
   state: CreateGitWorktreeState;
@@ -440,7 +436,8 @@ export class GitWorktreeLifecycleService {
       return {
         state: 'blocked',
         worktreeId: worktreeId ?? input.worktreeId.trim(),
-        diagnostic: 'A confirmação de remoção está ausente, inválida ou expirada.',
+        diagnostic:
+          'A confirmação de remoção está ausente, inválida ou expirada.',
       };
     }
     this.removalConfirmations.delete(token);
