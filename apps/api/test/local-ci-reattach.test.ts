@@ -33,7 +33,10 @@ const request: LocalCiJobRequest = {
 class FakeExecutions {
   public starts = 0;
   private readonly snapshots = new Map<string, DetachableExecutionSnapshot>();
-  private readonly dataListeners = new Map<string, Set<(chunk: string) => void>>();
+  private readonly dataListeners = new Map<
+    string,
+    Set<(chunk: string) => void>
+  >();
   private readonly exitListeners = new Map<
     string,
     Set<(snapshot: DetachableExecutionSnapshot) => void>
@@ -160,7 +163,13 @@ test('reattach mantém ownership por projectId e não revela run de outro projet
   const run = await service.start(project, request);
 
   assert.throws(
-    () => service.reattach('outro-projeto', run.id, () => undefined, () => undefined),
+    () =>
+      service.reattach(
+        'outro-projeto',
+        run.id,
+        () => undefined,
+        () => undefined,
+      ),
     (error: unknown) =>
       error instanceof LocalCiExecutionError &&
       error.code === 'LOCAL_CI_NOT_FOUND',
