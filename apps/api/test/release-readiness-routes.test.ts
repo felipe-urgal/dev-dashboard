@@ -41,6 +41,14 @@ function snapshot(state: ReleaseReadinessState): ReleaseReadinessSnapshot {
         observedAt: GENERATED_AT,
         action: { label: 'Abrir Sincronização', target: 'synchronization' },
       },
+      {
+        id: 'migrations',
+        state: 'unknown',
+        summary: 'Estado de migrations inconclusivo',
+        evidence: 'migration-provider:status',
+        observedAt: GENERATED_AT,
+        action: { label: 'Abrir Migrations', target: 'migrations' },
+      },
     ],
   };
 }
@@ -95,6 +103,8 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
       assert.equal(body.readiness.state, state);
       assert.equal(body.readiness.checks[0]?.state, state);
       assert.equal(body.readiness.checks[0]?.action.target, 'synchronization');
+      assert.equal(body.readiness.checks[1]?.id, 'migrations');
+      assert.equal(body.readiness.checks[1]?.action.target, 'migrations');
     });
   }
 
