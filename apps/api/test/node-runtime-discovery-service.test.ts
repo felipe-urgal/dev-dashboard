@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -24,7 +24,7 @@ function project(projectPath: string): Project {
 }
 
 async function withProject(
-  context: test.TestContext,
+  context: TestContext,
 ): Promise<{ path: string; project: Project }> {
   const projectPath = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-node-runtime-'),
