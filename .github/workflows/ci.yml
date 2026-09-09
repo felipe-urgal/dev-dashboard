@@ -37,5 +37,10 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
+      - name: Format diagnostics
+        run: |
+          npx prettier --write apps/api/src/services/local-ci-execution-service.ts apps/api/test/local-ci-reattach.test.ts
+          git diff -- apps/api/src/services/local-ci-execution-service.ts apps/api/test/local-ci-reattach.test.ts
+
       - name: Quality gate
         run: npm run check
