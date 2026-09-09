@@ -113,14 +113,19 @@ export class ReleaseReadinessService {
 
     const now = this.now();
     const observedAt = new Date(now).toISOString();
-    const [gitOverview, testHistory, identity, doctorReport, migrationOverview] =
-      await Promise.all([
-        safely(() => this.gitService.getOverview(project.path)),
-        safely(() => this.testHistoryService.history(project.id, 1, 50)),
-        safely(() => this.captureIdentity(project.path)),
-        safely(() => this.projectDoctorService.getReport(project)),
-        safely(() => this.migrationOverviewService.inspect(project)),
-      ]);
+    const [
+      gitOverview,
+      testHistory,
+      identity,
+      doctorReport,
+      migrationOverview,
+    ] = await Promise.all([
+      safely(() => this.gitService.getOverview(project.path)),
+      safely(() => this.testHistoryService.history(project.id, 1, 50)),
+      safely(() => this.captureIdentity(project.path)),
+      safely(() => this.projectDoctorService.getReport(project)),
+      safely(() => this.migrationOverviewService.inspect(project)),
+    ]);
 
     const checks: ReleaseReadinessCheck[] = [
       gitOverview
