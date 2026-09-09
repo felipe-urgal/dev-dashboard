@@ -86,8 +86,24 @@ API -> resolve Project confiável -> provider com argv fechado -> DTO sanitizado
 
 Scanner ausente continua retornando estado `missing` em availability. Ele não bloqueia outras ferramentas nem dispara instalação automática.
 
+## UI do projeto
+
+A primeira UI do Security Center é uma ferramenta explícita do projeto em `/projects/:projectId/security`.
+
+Ela mantém a mesma fronteira de autoridade da API:
+
+- consulta somente availability do provider;
+- dispara scan manual enviando apenas `projectId` e body vazio;
+- não expõe controles para path, executável, scanner args ou filtros livres;
+- mostra somente o DTO sanitizado já produzido pelo backend;
+- ordena findings por severidade/path para leitura determinística;
+- scanner ausente ou indisponível desabilita a ação sem afetar outras ferramentas;
+- resultados ficam somente em memória da tela neste recorte.
+
+A UI não tenta mascarar segredo bruto porque esse conteúdo não deve chegar ao browser. Também não transforma `reference` retornada pelo provider em navegação automática; o MVP prioriza leitura local do finding sanitizado.
+
 ## Limites atuais
 
-A API de availability/scan já existe, porém este recorte ainda não adiciona persistência, histórico nem UI do Security Center. Também não existe instalação automática do binário nem política de bloquear Release Readiness por finding.
+Availability, scan manual e UI básica já existem, porém este recorte ainda não adiciona persistência/histórico, instalação automática do binário nem política de bloquear Release Readiness por finding.
 
 Qualquer evolução de persistência deve armazenar apenas o DTO sanitizado e metadados necessários. Integração futura com Release Readiness precisa preservar freshness e aplicar política explícita, em vez de transformar qualquer finding antigo em bloqueio implícito.
