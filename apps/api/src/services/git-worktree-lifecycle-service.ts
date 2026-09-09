@@ -22,11 +22,7 @@ export interface CreateGitWorktreeInput {
 }
 
 export type CreateGitWorktreeState =
-  | 'created'
-  | 'already-present'
-  | 'blocked'
-  | 'failed'
-  | 'unverified';
+  'created' | 'already-present' | 'blocked' | 'failed' | 'unverified';
 
 export interface CreateGitWorktreeResult {
   state: CreateGitWorktreeState;
@@ -132,7 +128,8 @@ export class GitWorktreeLifecycleService {
     }
 
     const atTarget = before.worktrees.find(
-      (worktree) => path.normalize(worktree.path) === path.normalize(targetPath),
+      (worktree) =>
+        path.normalize(worktree.path) === path.normalize(targetPath),
     );
     if (atTarget) {
       if (atTarget.branch === branch) {
@@ -203,7 +200,8 @@ export class GitWorktreeLifecycleService {
     }
 
     const created = after.worktrees.find(
-      (worktree) => path.normalize(worktree.path) === path.normalize(targetPath),
+      (worktree) =>
+        path.normalize(worktree.path) === path.normalize(targetPath),
     );
     if (!created || created.branch !== branch) {
       return {

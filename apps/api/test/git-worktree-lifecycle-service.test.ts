@@ -56,7 +56,10 @@ function createRunner(options: {
     if (args[0] === 'rev-parse') return '/workspace/projeto/.git\n';
     if (args[0] === 'check-ref-format') return `${args[2]}\n`;
     if (args[0] === 'worktree' && args[1] === 'list') {
-      const linked = [...(options.existing ?? []), ...(created ? [created] : [])];
+      const linked = [
+        ...(options.existing ?? []),
+        ...(created ? [created] : []),
+      ];
       return porcelain([
         mainRecord(),
         ...linked.map((item) => linkedRecord(item.path, item.branch)),
@@ -70,10 +73,7 @@ function createRunner(options: {
           branchFlagIndex >= 0
             ? String(args[branchFlagIndex + 1])
             : String(args.at(-1)),
-        path:
-          branchFlagIndex >= 0
-            ? String(args.at(-1))
-            : String(args.at(-2)),
+        path: branchFlagIndex >= 0 ? String(args.at(-1)) : String(args.at(-2)),
       };
       return '';
     }
@@ -113,7 +113,10 @@ test('cria worktree para branch existente com argv fechado e confirma snapshot',
         'worktree add -- /workspace/projeto-demo feature/demo',
     ),
   );
-  assert.equal(calls.some((args) => args.includes('--force')), false);
+  assert.equal(
+    calls.some((args) => args.includes('--force')),
+    false,
+  );
 });
 
 test('cria branch e worktree no mesmo comando sem aceitar opções livres', async () => {
@@ -137,9 +140,7 @@ test('reexecução do mesmo alvo é idempotente e não executa mutação', async
   const { result, calls } = await createWith(
     { branch: 'feature/demo', directoryName: 'projeto-demo' },
     {
-      existing: [
-        { path: '/workspace/projeto-demo', branch: 'feature/demo' },
-      ],
+      existing: [{ path: '/workspace/projeto-demo', branch: 'feature/demo' }],
     },
   );
 
@@ -154,9 +155,7 @@ test('bloqueia branch já ocupada por outro worktree', async () => {
   const { result, calls } = await createWith(
     { branch: 'feature/demo', directoryName: 'projeto-outro' },
     {
-      existing: [
-        { path: '/workspace/projeto-demo', branch: 'feature/demo' },
-      ],
+      existing: [{ path: '/workspace/projeto-demo', branch: 'feature/demo' }],
     },
   );
 
