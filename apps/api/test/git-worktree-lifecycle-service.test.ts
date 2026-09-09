@@ -199,9 +199,7 @@ test('reexecução do mesmo alvo é idempotente e não executa mutação', async
 
   assert.equal(result.state, 'already-present');
   assert.equal(
-    calls.some(
-      ({ args }) => args[0] === 'worktree' && args[1] === 'add',
-    ),
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'add'),
     false,
   );
 });
@@ -217,9 +215,7 @@ test('bloqueia branch já ocupada por outro worktree', async () => {
   assert.equal(result.state, 'blocked');
   assert.match(result.diagnostic ?? '', /branch já está vinculada/u);
   assert.equal(
-    calls.some(
-      ({ args }) => args[0] === 'worktree' && args[1] === 'add',
-    ),
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'add'),
     false,
   );
 });
@@ -309,9 +305,7 @@ test('bloqueia remoção quando o worktree possui alterações locais', async ()
   assert.match(prepared.diagnostic ?? '', /alterações locais/u);
   assert.deepEqual(inspected, []);
   assert.equal(
-    calls.some(
-      ({ args }) => args[0] === 'worktree' && args[1] === 'remove',
-    ),
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'remove'),
     false,
   );
 });
@@ -330,9 +324,7 @@ test('guard de ownership ausente falha fechado antes de emitir confirmação', a
   assert.match(prepared.diagnostic ?? '', /ownership/u);
   assert.equal(prepared.confirmationToken, undefined);
   assert.equal(
-    calls.some(
-      ({ args }) => args[0] === 'worktree' && args[1] === 'remove',
-    ),
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'remove'),
     false,
   );
 });
@@ -413,9 +405,7 @@ test('confirmação inválida não executa git worktree remove', async () => {
 
   assert.equal(removed.state, 'blocked');
   assert.equal(
-    calls.some(
-      ({ args }) => args[0] === 'worktree' && args[1] === 'remove',
-    ),
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'remove'),
     false,
   );
 });
