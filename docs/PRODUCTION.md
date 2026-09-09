@@ -52,7 +52,8 @@ Gerar plano
 -> revisar revision + plano check -> self-update
 -> confirmar planHash
 -> executar
--> check revalida/prepara o agent
+-> revalidar revision + readiness antes de cada etapa
+-> check somente valida
 -> handoff para agent externo
 -> fast-forward da revision confirmada
 -> restart
@@ -76,7 +77,7 @@ O bootstrap é idempotente e executa somente o necessário para deixar a release
 
 Falhas de ownership, permissões, token, instalação, start ou readiness continuam falhando fechado. O bootstrap não adiciona ações ao catálogo remoto do agent e não aceita shell/programa/argumentos arbitrários vindos da UI.
 
-`npm run local:install` também prepara o agent automaticamente, e a etapa `prod:check` repete o `ensure` antes do handoff para reduzir a janela entre o plano e a execução. Assim a operação normal não exige `self-update:agent install/start` manual.
+`npm run local:install` também prepara o agent automaticamente. Durante a execução de um plano `self-update`, a revalidação da revision volta a executar o mesmo `ensure` antes de cada etapa, inclusive imediatamente antes do handoff. Assim a operação normal não exige `self-update:agent install/start` manual, enquanto `prod:check` permanece estritamente de leitura/validação.
 
 ## `prod:status`
 
@@ -92,12 +93,12 @@ npm run prod:status
 npm run prod:check
 ```
 
-É o preflight específico da self-production. Primeiro garante de forma idempotente que o self-update agent local esteja na release instalada e `ready`; em seguida valida o contrato fechado e as capacidades necessárias de ownership/inspeção.
+É o preflight específico da self-production e permanece somente leitura. Ele valida o contrato fechado e as capacidades necessárias de ownership/inspeção, incluindo a disponibilidade/readiness atual do agent, sem instalar, iniciar, reiniciar ou alterar a release local.
 
 `prod:check` é diferente de `npm run check`:
 
 - `npm run check` é o gate normal de engenharia/CI;
-- `npm run prod:check` prepara e valida a infraestrutura local de self-update nesta máquina.
+- `npm run prod:check` valida a infraestrutura local de self-update nesta máquina sem mutá-la.
 
 Um não substitui o outro.
 
