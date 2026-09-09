@@ -86,9 +86,7 @@ test('Node runtime discovery não usa aliases nem o runtime da API como prova', 
 
   assert.equal(result.state, 'invalid');
   assert.equal(result.version, undefined);
-  assert.deepEqual(result.declarations, [
-    { source: '.nvmrc', raw: 'lts/*' },
-  ]);
+  assert.deepEqual(result.declarations, [{ source: '.nvmrc', raw: 'lts/*' }]);
 });
 
 test('Node runtime discovery explicita ausência de evidência versionada', async (context) => {

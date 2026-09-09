@@ -8,16 +8,10 @@ import { readToolVersions } from './project-doctor/tool-versions.js';
 const MAX_RUNTIME_DECLARATION_LENGTH = 64;
 
 export type NodeRuntimeDiscoveryState =
-  | 'declared'
-  | 'missing'
-  | 'invalid'
-  | 'conflict';
+  'declared' | 'missing' | 'invalid' | 'conflict';
 
 export type NodeRuntimeDeclarationSource =
-  | '.node-version'
-  | '.nvmrc'
-  | '.tool-versions#node'
-  | '.tool-versions#nodejs';
+  '.node-version' | '.nvmrc' | '.tool-versions#node' | '.tool-versions#nodejs';
 
 export interface NodeRuntimeDeclaration {
   source: NodeRuntimeDeclarationSource;
@@ -47,9 +41,7 @@ function normalizeExactNodeVersion(value: string): string | undefined {
     return undefined;
   }
 
-  return /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(
-    normalized,
-  )
+  return /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(normalized)
     ? normalized
     : undefined;
 }
