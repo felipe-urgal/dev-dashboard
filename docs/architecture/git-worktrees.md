@@ -145,6 +145,33 @@ git worktree remove -- <path-observado>
 
 Não existe `--force`. Depois do comando, o observer precisa confirmar que o mesmo `worktreeId` desapareceu. Se a remoção Git for confirmada mas o cleanup posterior falhar, o resultado é `cleanup-required`: o sistema não inventa rollback do diretório nem declara cleanup concluído.
 
+## API HTTP
+
+A primeira superfície HTTP expõe somente inspeção e criação:
+
+```text
+GET  /api/projects/:projectId/worktrees
+POST /api/projects/:projectId/worktrees
+```
+
+O `GET` executa o observer e devolve o snapshot normalizado. Somente quando o estado é `ready` o backend reconcilia o snapshot completo com `DevelopmentEnvironmentInstance`; `unavailable` e `invalid-output` continuam explícitos e não criam estado operacional saudável.
+
+Cada worktree conhecido recebe `environmentInstanceId` derivada pelo backend quando a relação é comprovável:
+
+- `main` aponta para a `primary` do projeto;
+- `linked` aponta para `environment:worktree:<projectId>:<worktreeId>`;
+- `unknown` não recebe identidade operacional inventada.
+
+O `POST` aceita um body fechado com apenas:
+
+- `branch`;
+- `directoryName`;
+- `createBranch` opcional.
+
+Campos extras como `path`, `cwd`, programa ou argv não participam da mutação. O lifecycle continua responsável por derivar o target e construir o comando Git. Depois de `created` ou `already-present`, a rota reinspeciona a lista completa e somente então reconcilia a Environment Instance e devolve sua identidade.
+
+A remoção **não** é exposta por HTTP neste recorte. O domínio já possui confirmação/dirty guard, mas a composição ainda precisa fornecer um `GitWorktreeRemovalResourceGuard` concreto que prove ownership dos recursos ativos antes de abrir essa mutação ao browser.
+
 ## Segurança e limites
 
 - nenhum shell livre;
@@ -161,6 +188,6 @@ Não existe `--force`. Depois do comando, o observer precisa confirmar que o mes
 
 ## Próximos recortes
 
-A criação e a remoção ainda precisam ser conectadas à superfície HTTP/UI. A composição da API deve fornecer um `GitWorktreeRemovalResourceGuard` concreto sobre os domínios que já possuem ownership da mesma `DevelopmentEnvironmentInstance`, sem criar um executor/cleanup paralelo.
+A próxima etapa é criar a UI de worktrees sobre os contratos HTTP existentes e, separadamente, conectar um `GitWorktreeRemovalResourceGuard` concreto aos domínios que já possuem ownership da mesma `DevelopmentEnvironmentInstance` antes de expor remoção pela API.
 
-O Port Registry existente continua sendo a autoridade para portas por ambiente. A superfície HTTP/UI deve consumir os domínios normalizados em vez de parsear Git diretamente.
+O Port Registry existente continua sendo a autoridade para portas por ambiente. A superfície web deve consumir os domínios normalizados em vez de parsear Git diretamente.

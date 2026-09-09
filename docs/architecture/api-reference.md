@@ -11744,6 +11744,295 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Git Worktrees
+
+### `GET /api/projects/:projectId/worktrees`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "inspection"
+    ],
+    "properties": {
+      "inspection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "observedAt",
+          "worktrees"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "unavailable",
+              "invalid-output"
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "worktrees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "path",
+                "head",
+                "detached",
+                "bare",
+                "kind",
+                "locked",
+                "prunable"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "head": {
+                  "type": "string"
+                },
+                "branch": {
+                  "type": "string"
+                },
+                "detached": {
+                  "type": "boolean"
+                },
+                "bare": {
+                  "type": "boolean"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "main",
+                    "linked",
+                    "unknown"
+                  ]
+                },
+                "locked": {
+                  "type": "boolean"
+                },
+                "lockReason": {
+                  "type": "string"
+                },
+                "prunable": {
+                  "type": "boolean"
+                },
+                "pruneReason": {
+                  "type": "string"
+                },
+                "environmentInstanceId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "diagnostic": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/worktrees`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "branch",
+    "directoryName"
+  ],
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "directoryName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "createBranch": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "path",
+          "branch"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "created",
+              "already-present",
+              "blocked",
+              "failed",
+              "unverified"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "worktree": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "path",
+              "head",
+              "detached",
+              "bare",
+              "kind",
+              "locked",
+              "prunable"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "head": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "detached": {
+                "type": "boolean"
+              },
+              "bare": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "main",
+                  "linked",
+                  "unknown"
+                ]
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "lockReason": {
+                "type": "string"
+              },
+              "prunable": {
+                "type": "boolean"
+              },
+              "pruneReason": {
+                "type": "string"
+              },
+              "environmentInstanceId": {
+                "type": "string"
+              }
+            }
+          },
+          "environmentInstanceId": {
+            "type": "string"
+          },
+          "diagnostic": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Health
 
 ### `GET /api/health`
@@ -20778,7 +21067,8 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                   "enum": [
                     "git",
                     "tests",
-                    "doctor"
+                    "doctor",
+                    "migrations"
                   ]
                 },
                 "state": {
@@ -20815,7 +21105,8 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                       "enum": [
                         "synchronization",
                         "tests",
-                        "doctor"
+                        "doctor",
+                        "migrations"
                       ]
                     }
                   }

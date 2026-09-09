@@ -13,6 +13,8 @@ import type { DevelopmentEnvironmentInstanceStore } from './store/development-en
 import type { ProjectStore } from './store/project-store.js';
 import type { GitService } from './services/git-service.js';
 import type { GitMutationHistoryService } from './services/git-mutation-history-service.js';
+import type { GitWorktreeLifecycleService } from './services/git-worktree-lifecycle-service.js';
+import type { GitWorktreeObserver } from './services/git-worktree-observer.js';
 import type { TestDetectionService } from './services/test-detection-service.js';
 import type { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import type { DatabaseDetectionService } from './services/database-detection-service.js';
@@ -57,6 +59,8 @@ export interface AppContext {
   developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   gitService: GitService;
   gitMutationHistoryService: GitMutationHistoryService;
+  gitWorktreeObserver: GitWorktreeObserver;
+  gitWorktreeLifecycleService: GitWorktreeLifecycleService;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   projectTestPtyService: ProjectTestPtyService;
