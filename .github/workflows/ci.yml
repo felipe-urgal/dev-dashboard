@@ -37,10 +37,5 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
-      - name: Format diagnostics
-        run: |
-          npx prettier --write apps/api/src/services/node-runtime-discovery-service.ts apps/api/test/node-runtime-discovery-service.test.ts
-          git diff -- apps/api/src/services/node-runtime-discovery-service.ts apps/api/test/node-runtime-discovery-service.test.ts
-
       - name: Quality gate
         run: npm run check
