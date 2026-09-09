@@ -1,8 +1,8 @@
 # Git Worktrees
 
-Git worktrees serão a base de ambientes locais paralelos do Dashboard. O domínio começa por **observação confiável e read-only**; criação e remoção continuam em um lifecycle posterior. A identidade operacional de execução já pertence a `DevelopmentEnvironmentInstance`.
+Git worktrees serão a base de ambientes locais paralelos do Dashboard. O domínio começa por **observação confiável e read-only**; criação e remoção evoluem em slices separados para manter guardrails explícitos. A identidade operacional de execução já pertence a `DevelopmentEnvironmentInstance`.
 
-## Primeiro recorte: observer read-only
+## Observer read-only
 
 `GitWorktreeObserver` usa exclusivamente comandos Git estruturados, delegando a execução ao runner canônico do backend:
 
@@ -68,6 +68,29 @@ Veja [Development Environment Instances](development-environment-instances.md).
 
 Erros brutos, stderr e paths presentes na mensagem de erro não são transportados ao snapshot.
 
+## Lifecycle de criação
+
+`GitWorktreeLifecycleService` introduz o primeiro slice mutável do domínio: criação estruturada de linked worktrees para uma branch existente ou criação de branch + worktree no mesmo fluxo.
+
+A ação recebe somente:
+
+- branch;
+- nome simples do diretório irmão ao checkout principal;
+- flag explícita para criar a branch.
+
+O caller não fornece shell, argv livre nem path absoluto. O path final é derivado pelo backend como irmão de `Project.path`; nomes absolutos, traversal, separadores e caracteres de controle são rejeitados antes de qualquer comando Git.
+
+Antes da mutação, o serviço exige um snapshot `ready`, bloqueia diretório já ocupado por outro worktree e bloqueia branch já vinculada a outra worktree. O nome da branch passa por `git check-ref-format --branch` e a criação usa somente argv fechado:
+
+```text
+git worktree add -- <target> <branch>
+git worktree add -b <new-branch> -- <target>
+```
+
+`--force` não faz parte do fluxo. Depois do comando, o serviço observa novamente o repositório e só retorna `created` quando path e branch aparecem no snapshot confirmado. Reexecução do mesmo target/branch retorna `already-present`; falha de confirmação vira `unverified` em vez de inventar sucesso. Erros brutos do Git não atravessam o contrato.
+
+Remoção continua fora deste slice porque precisa de guard específico para dirty state, confirmation e ownership de recursos da `DevelopmentEnvironmentInstance`.
+
 ## Segurança e limites
 
 - nenhum shell livre;
@@ -77,10 +100,11 @@ Erros brutos, stderr e paths presentes na mensagem de erro não são transportad
 - limite por campo e no output total;
 - HEAD precisa ter formato hexadecimal plausível;
 - campos desconhecidos não promovem estado saudável;
-- nenhuma mutação (`add`, `remove`, `move`, `prune`, `unlock`) existe neste recorte.
+- criação não aceita path arbitrário nem `--force`;
+- remoção/move/prune/unlock ainda não são expostos pelo lifecycle.
 
 ## Próximos recortes
 
-Criação/remoção de worktrees deve ser adicionada somente depois de existir plano/confirmation/guard apropriado. Esse lifecycle futuro (#570) deve criar/reconciliar a mesma `DevelopmentEnvironmentInstance`, usar o Port Registry existente e liberar recursos somente quando ownership da instance puder ser provada.
+A criação precisa ser conectada à superfície HTTP/UI e reconciliar a mesma `DevelopmentEnvironmentInstance`. A remoção deve ser adicionada somente com preflight/confirmation apropriados, bloqueio de dirty state e cleanup verificável por ownership. O Port Registry existente continua sendo a autoridade para portas por ambiente.
 
-A superfície HTTP/UI também deve consumir os domínios normalizados em vez de parsear Git diretamente.
+A superfície HTTP/UI deve consumir os domínios normalizados em vez de parsear Git diretamente.
