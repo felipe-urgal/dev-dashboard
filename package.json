@@ -35,7 +35,7 @@
     "format": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "format:check": "prettier --check \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "prod:status": "node scripts/production-gate.mjs status",
-    "prod:check": "node scripts/self-update-agent-bootstrap.mjs ensure && node scripts/production-gate.mjs check",
+    "prod:check": "node scripts/production-gate.mjs check",
     "self-update:ensure": "node scripts/self-update-agent-bootstrap.mjs ensure",
     "self-update:helper": "node scripts/self-update-helper.mjs",
     "self-update:agent": "node scripts/self-update-agent.mjs",
