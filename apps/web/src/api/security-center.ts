@@ -1,9 +1,7 @@
 import { requestJson } from './core';
 
 export type SecurityScannerAvailabilityState =
-  | 'available'
-  | 'missing'
-  | 'unavailable';
+  'available' | 'missing' | 'unavailable';
 
 export interface SecurityScannerAvailability {
   state: SecurityScannerAvailabilityState;
