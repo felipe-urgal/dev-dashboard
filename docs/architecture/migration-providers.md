@@ -1,6 +1,6 @@
 # Migration Providers
 
-Migration Providers separam o estado de migrations do framework que produz a evidência. O objetivo é permitir que consumidores como a UI comum e, futuramente, Release Readiness consultem um `MigrationOverview` sem conhecer Rails, Prisma ou scripts específicos.
+Migration Providers separam o estado de migrations do framework que produz a evidência. O objetivo é permitir que consumidores como a UI comum e Release Readiness consultem um `MigrationOverview` sem conhecer Rails, Prisma ou scripts específicos.
 
 ## Contrato interno
 
@@ -128,14 +128,23 @@ Quando o exit code prova `pending`, o overview pode informar o estado sem fabric
 
 Configuração custom não vem de request HTTP. Expor configuração dinâmica no futuro exige validação/allowlist própria e não pode abrir caminho para shell livre.
 
+## Consumo pelo Release Readiness
+
+Release Readiness consome `MigrationOverview` diretamente e permanece independente do provider/framework. O mapeamento é deliberadamente conservador:
+
+- `up-to-date` -> `pass`;
+- `pending` -> `block`;
+- `unavailable` -> `unknown`;
+- `unknown` -> `unknown`.
+
+A evidência e o timestamp normalizados são reutilizados no check. O Readiness não parseia Rails/Prisma/custom, não executa migrations e não transforma ausência de evidência em sucesso.
+
 ## Próximos providers e execução
 
 Novos providers devem continuar atrás do mesmo contrato e só podem usar ações conhecidas/declaradas. Texto livre de script nunca deve ser interpretado por heurística como prova de que o schema está atualizado.
 
 Uma etapa posterior pode adicionar plano/execução local estruturada por provider, com confirmação, environment guard e preflight próprios. Produção continua pertencendo ao domínio Production. O contrato de mutação deve ser comum aos providers; não deve surgir primeiro como endpoint especial de Rails, Prisma ou custom.
 
-A integração com Release Readiness também permanece separada. A rota/UI comum entregam evidência read-only; só um slice próprio deve definir como essa evidência influencia `pass`, `warning`, `block` ou `unknown`.
-
 ## Limites atuais
 
-A rota e a UI comuns são somente leitura. O fluxo Rails/PTY existente continua intacto e é a superfície responsável por execução Rails até existir um contrato de mutation comum e explicitamente aprovado.
+A rota, a UI comum e o consumo pelo Release Readiness são somente leitura. O fluxo Rails/PTY existente continua intacto e é a superfície responsável por execução Rails até existir um contrato de mutation comum e explicitamente aprovado.

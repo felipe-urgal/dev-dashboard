@@ -6,7 +6,7 @@ export const releaseReadinessActionResponseSchema = {
     label: { type: 'string' },
     target: {
       type: 'string',
-      enum: ['synchronization', 'tests', 'doctor'],
+      enum: ['synchronization', 'tests', 'doctor', 'migrations'],
     },
   },
 } as const;
@@ -16,7 +16,7 @@ export const releaseReadinessCheckResponseSchema = {
   additionalProperties: false,
   required: ['id', 'state', 'summary', 'evidence', 'observedAt', 'action'],
   properties: {
-    id: { type: 'string', enum: ['git', 'tests', 'doctor'] },
+    id: { type: 'string', enum: ['git', 'tests', 'doctor', 'migrations'] },
     state: {
       type: 'string',
       enum: ['pass', 'warning', 'block', 'unknown'],

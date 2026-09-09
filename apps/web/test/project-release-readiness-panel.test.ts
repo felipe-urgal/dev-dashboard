@@ -72,6 +72,14 @@ describe('ProjectReleaseReadinessPanel', () => {
           observedAt: '2026-09-06T16:59:00.000Z',
           action: { label: 'Abrir Doctor', target: 'doctor' },
         },
+        {
+          id: 'migrations',
+          state: 'block',
+          summary: 'Existem migrations pendentes',
+          evidence: 'Migration provider encontrou pendências.',
+          observedAt: '2026-09-06T16:59:30.000Z',
+          action: { label: 'Abrir Migrations', target: 'migrations' },
+        },
       ],
     });
 
@@ -83,14 +91,16 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('Inconclusivo');
     expect(wrapper.text()).toContain('Pronto');
+    expect(wrapper.text()).toContain('Existem migrations pendentes');
     expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
 
     const links = wrapper.findAll('.router-link-stub');
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(4);
     expect(links[0]?.attributes('data-name')).toBe('project-git');
     expect(links[0]?.attributes('data-tab')).toBe('sync');
     expect(links[1]?.attributes('data-name')).toBe('project-tests');
     expect(links[2]?.attributes('data-name')).toBe('project-doctor');
+    expect(links[3]?.attributes('data-name')).toBe('project-migrations');
   });
 
   it('mantém falha de carregamento explícita e permite retry', async () => {

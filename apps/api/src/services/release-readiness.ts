@@ -5,10 +5,12 @@ import type {
   TestExecutionRecord,
 } from '@dev-dashboard/contracts';
 
+import type { MigrationOverview } from './migration-provider.js';
+
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
-export type ReleaseReadinessCheckId = 'git' | 'tests' | 'doctor';
+export type ReleaseReadinessCheckId = 'git' | 'tests' | 'doctor' | 'migrations';
 export type ReleaseReadinessActionTarget =
-  'synchronization' | 'tests' | 'doctor';
+  'synchronization' | 'tests' | 'doctor' | 'migrations';
 
 export interface ReleaseReadinessCheck {
   id: ReleaseReadinessCheckId;
@@ -262,6 +264,43 @@ export function evaluateDoctorReadiness(
     summary: 'Project Doctor saudável',
     evidence: `${report.summary.passed} check(s) passaram sem bloqueadores.`,
     observedAt: report.generatedAt,
+    action,
+  };
+}
+
+export function evaluateMigrationsReadiness(
+  overview: MigrationOverview,
+): ReleaseReadinessCheck {
+  const action = { label: 'Abrir Migrations', target: 'migrations' as const };
+  if (overview.status === 'up-to-date') {
+    return {
+      id: 'migrations',
+      state: 'pass',
+      summary: 'Migrations estão atualizadas',
+      evidence: overview.evidence,
+      observedAt: overview.observedAt,
+      action,
+    };
+  }
+  if (overview.status === 'pending') {
+    return {
+      id: 'migrations',
+      state: 'block',
+      summary: 'Existem migrations pendentes',
+      evidence: overview.evidence,
+      observedAt: overview.observedAt,
+      action,
+    };
+  }
+  return {
+    id: 'migrations',
+    state: 'unknown',
+    summary:
+      overview.status === 'unavailable'
+        ? 'Estado de migrations indisponível'
+        : 'Estado de migrations inconclusivo',
+    evidence: overview.evidence,
+    observedAt: overview.observedAt,
     action,
   };
 }

@@ -69,7 +69,13 @@ function actionRoute(target: ReleaseReadinessActionTarget) {
   if (target === 'tests') {
     return { name: 'project-tests', params: { projectId: props.project.id } };
   }
-  return { name: 'project-doctor', params: { projectId: props.project.id } };
+  if (target === 'doctor') {
+    return { name: 'project-doctor', params: { projectId: props.project.id } };
+  }
+  return {
+    name: 'project-migrations',
+    params: { projectId: props.project.id },
+  };
 }
 
 async function load(): Promise<void> {
@@ -120,7 +126,7 @@ watch(
       v-if="loading"
       icon="•••"
       title="Verificando readiness"
-      description="Consultando Git, suíte completa comparável e Project Doctor."
+      description="Consultando Git, suíte completa comparável, Project Doctor e Migrations."
     />
 
     <EmptyState
