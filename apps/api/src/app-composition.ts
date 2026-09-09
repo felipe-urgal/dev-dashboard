@@ -73,14 +73,6 @@ export function createAppComposition(
     productionReader: productionOverviewService,
     ...(options.now ? { now: options.now } : {}),
   });
-  const releaseReadinessService =
-    options.releaseReadinessService ??
-    new ReleaseReadinessService(
-      context.gitService,
-      context.testExecutionHistoryService,
-      projectDoctorService,
-      options.now ? { now: options.now } : {},
-    );
   const now = options.now;
   const migrationOverviewService = new MigrationOverviewService(
     [
@@ -90,6 +82,15 @@ export function createAppComposition(
     ],
     now ? { now: () => new Date(now()) } : {},
   );
+  const releaseReadinessService =
+    options.releaseReadinessService ??
+    new ReleaseReadinessService(
+      context.gitService,
+      context.testExecutionHistoryService,
+      projectDoctorService,
+      migrationOverviewService,
+      options.now ? { now: options.now } : {},
+    );
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
