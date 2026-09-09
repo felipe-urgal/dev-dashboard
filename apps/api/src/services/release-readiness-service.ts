@@ -1,11 +1,13 @@
 import type { Project } from '@dev-dashboard/contracts';
 
 import type { GitService } from './git-service.js';
+import type { MigrationOverviewService } from './migration-overview-service.js';
 import type { ProjectDoctorService } from './project-doctor-service.js';
 import {
   buildReleaseReadinessSnapshot,
   evaluateDoctorReadiness,
   evaluateGitReadiness,
+  evaluateMigrationsReadiness,
   evaluateTestsReadiness,
   type ReleaseReadinessCheck,
   type ReleaseReadinessCheckId,
@@ -37,11 +39,13 @@ function unavailableCheck(
     git: { label: 'Abrir Sincronização', target: 'synchronization' as const },
     tests: { label: 'Abrir Testes', target: 'tests' as const },
     doctor: { label: 'Abrir Doctor', target: 'doctor' as const },
+    migrations: { label: 'Abrir Migrations', target: 'migrations' as const },
   };
   const summaryById = {
     git: 'Estado Git indisponível',
     tests: 'Histórico de testes indisponível',
     doctor: 'Project Doctor indisponível',
+    migrations: 'Estado de migrations indisponível',
   };
 
   return {
@@ -88,6 +92,10 @@ export class ReleaseReadinessService {
       ProjectDoctorService,
       'getReport'
     >,
+    private readonly migrationOverviewService: Pick<
+      MigrationOverviewService,
+      'inspect'
+    >,
     options: ReleaseReadinessServiceOptions = {},
   ) {
     this.now = options.now ?? Date.now;
@@ -105,12 +113,13 @@ export class ReleaseReadinessService {
 
     const now = this.now();
     const observedAt = new Date(now).toISOString();
-    const [gitOverview, testHistory, identity, doctorReport] =
+    const [gitOverview, testHistory, identity, doctorReport, migrationOverview] =
       await Promise.all([
         safely(() => this.gitService.getOverview(project.path)),
         safely(() => this.testHistoryService.history(project.id, 1, 50)),
         safely(() => this.captureIdentity(project.path)),
         safely(() => this.projectDoctorService.getReport(project)),
+        safely(() => this.migrationOverviewService.inspect(project)),
       ]);
 
     const checks: ReleaseReadinessCheck[] = [
@@ -128,6 +137,9 @@ export class ReleaseReadinessService {
       doctorReport
         ? evaluateDoctorReadiness(doctorReport)
         : unavailableCheck('doctor', observedAt),
+      migrationOverview
+        ? evaluateMigrationsReadiness(migrationOverview)
+        : unavailableCheck('migrations', observedAt),
     ];
 
     return buildReleaseReadinessSnapshot(checks, observedAt);
