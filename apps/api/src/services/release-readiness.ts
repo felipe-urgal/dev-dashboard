@@ -8,16 +8,9 @@ import type {
 import type { MigrationOverview } from './migration-provider.js';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
-export type ReleaseReadinessCheckId =
-  | 'git'
-  | 'tests'
-  | 'doctor'
-  | 'migrations';
+export type ReleaseReadinessCheckId = 'git' | 'tests' | 'doctor' | 'migrations';
 export type ReleaseReadinessActionTarget =
-  | 'synchronization'
-  | 'tests'
-  | 'doctor'
-  | 'migrations';
+  'synchronization' | 'tests' | 'doctor' | 'migrations';
 
 export interface ReleaseReadinessCheck {
   id: ReleaseReadinessCheckId;
