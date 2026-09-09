@@ -120,7 +120,7 @@ describe('cards dos painéis de detalhe', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
 
-  it('exibe somente a configuração quando o servidor está parado', async () => {
+  it('exibe configuração e logs quando o servidor está parado', async () => {
     fetchProjectProcess.mockResolvedValueOnce(null);
 
     const wrapper = mountServerPanel();
@@ -130,7 +130,8 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(false);
-    expect(wrapper.find('.server-logs').exists()).toBe(false);
+    expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Os logs do servidor aparecerão aqui.');
     expect(wrapper.text()).toContain('Iniciar servidor');
     expect(wrapper.text()).not.toContain('Atividade recente');
     expect(wrapper.text()).not.toContain('Health check');
@@ -138,7 +139,7 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('exibe configuração durante a execução do servidor', async () => {
+  it('exibe configuração e logs durante a execução do servidor', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-running',
       projectId: project.id,
@@ -155,9 +156,9 @@ describe('cards dos painéis de detalhe', () => {
 
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(true);
-    expect(wrapper.find('.server-logs').exists()).toBe(false);
-    expect(wrapper.find('.project-log-terminal').exists()).toBe(false);
-    expect(wrapper.find('.server-log-button').exists()).toBe(true);
+    expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
+    expect(wrapper.find('.server-log-button').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Logs do servidor');
     expect(wrapper.text()).toContain('http://localhost:3000');
     expect(wrapper.text()).toContain('http://192.168.1.10:3000');
     expect(wrapper.text()).not.toContain('Configuração do processo');
