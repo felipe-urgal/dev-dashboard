@@ -93,7 +93,10 @@ function shouldPoll(deployment: Deployment | null): boolean {
 
 function executionTone(deployment: Deployment): Tone {
   if (deployment.status === 'succeeded') return 'success';
-  if (deployment.status === 'failed' || deployment.status === 'recovery_required') {
+  if (
+    deployment.status === 'failed' ||
+    deployment.status === 'recovery_required'
+  ) {
     return 'danger';
   }
   if (deployment.status === 'cancelled') return 'warning';
@@ -101,9 +104,11 @@ function executionTone(deployment: Deployment): Tone {
 }
 
 function executionTitle(deployment: Deployment): string {
-  if (deployment.status === 'succeeded') return 'Self-update aplicado com sucesso.';
+  if (deployment.status === 'succeeded')
+    return 'Self-update aplicado com sucesso.';
   if (deployment.status === 'failed') return 'Self-update não foi aplicado.';
-  if (deployment.status === 'recovery_required') return 'Self-update requer revisão.';
+  if (deployment.status === 'recovery_required')
+    return 'Self-update requer revisão.';
   if (deployment.status === 'cancelled') return 'Self-update cancelado.';
   return 'Self-update em execução.';
 }
@@ -328,7 +333,11 @@ onBeforeUnmount(() => {
   <section class="self-update-panel" aria-labelledby="self-update-title">
     <article class="self-update-hero">
       <div class="self-update-hero-main">
-        <div class="self-update-hero-icon" :class="`is-${status.tone}`" aria-hidden="true">
+        <div
+          class="self-update-hero-icon"
+          :class="`is-${status.tone}`"
+          aria-hidden="true"
+        >
           <ArrowPathIcon />
         </div>
         <div class="self-update-hero-copy">
@@ -351,7 +360,10 @@ onBeforeUnmount(() => {
           :disabled="loading || Boolean(operation) || shouldPoll(latest)"
           @click="load"
         >
-          <ArrowPathIcon :class="{ 'self-update-spin': loading }" aria-hidden="true" />
+          <ArrowPathIcon
+            :class="{ 'self-update-spin': loading }"
+            aria-hidden="true"
+          />
           {{ loading ? 'Verificando…' : 'Verificar novamente' }}
         </button>
       </div>
@@ -365,30 +377,57 @@ onBeforeUnmount(() => {
     <div class="self-update-facts">
       <article>
         <ArrowPathIcon aria-hidden="true" />
-        <div><span>Estratégia</span><strong>self-update</strong><small>Atualização automática</small></div>
+        <div>
+          <span>Estratégia</span><strong>self-update</strong
+          ><small>Atualização automática</small>
+        </div>
       </article>
       <article>
         <RocketLaunchIcon aria-hidden="true" />
-        <div><span>Branch</span><strong>{{ props.project.production?.branch ?? 'main' }}</strong><small>Ramo de produção</small></div>
+        <div>
+          <span>Branch</span
+          ><strong>{{ props.project.production?.branch ?? 'main' }}</strong
+          ><small>Ramo de produção</small>
+        </div>
       </article>
       <article>
         <ShieldCheckIcon aria-hidden="true" />
-        <div><span>Privilégio</span><strong>user-space</strong><small>Execução sem root</small></div>
+        <div>
+          <span>Privilégio</span><strong>user-space</strong
+          ><small>Execução sem root</small>
+        </div>
       </article>
       <article>
         <CheckCircleIcon aria-hidden="true" />
-        <div><span>Revision atual</span><strong :title="currentRevision">{{ shortRevision(currentRevision) }}</strong><small>Última comprovada</small></div>
+        <div>
+          <span>Revision atual</span
+          ><strong :title="currentRevision">{{
+            shortRevision(currentRevision)
+          }}</strong
+          ><small>Última comprovada</small>
+        </div>
       </article>
       <article>
         <ClockIcon aria-hidden="true" />
-        <div><span>Última execução</span><strong>{{ formatDate(latest?.createdAt) }}</strong><small>Histórico real</small></div>
+        <div>
+          <span>Última execução</span
+          ><strong>{{ formatDate(latest?.createdAt) }}</strong
+          ><small>Histórico real</small>
+        </div>
       </article>
     </div>
 
-    <article class="self-update-ready" :class="{ 'is-running': shouldPoll(latest) }">
+    <article
+      class="self-update-ready"
+      :class="{ 'is-running': shouldPoll(latest) }"
+    >
       <InformationCircleIcon aria-hidden="true" />
       <div>
-        <strong>{{ shouldPoll(latest) ? 'Self-update em andamento.' : 'Self-update pronto para uso.' }}</strong>
+        <strong>{{
+          shouldPoll(latest)
+            ? 'Self-update em andamento.'
+            : 'Self-update pronto para uso.'
+        }}</strong>
         <p>
           {{
             shouldPoll(latest)
@@ -403,7 +442,11 @@ onBeforeUnmount(() => {
         :disabled="loading || Boolean(operation) || shouldPoll(latest)"
         @click="preparePlan"
       >
-        <ArrowPathIcon v-if="operation === 'planning'" class="self-update-spin" aria-hidden="true" />
+        <ArrowPathIcon
+          v-if="operation === 'planning'"
+          class="self-update-spin"
+          aria-hidden="true"
+        />
         <RocketLaunchIcon v-else aria-hidden="true" />
         {{ operation === 'planning' ? 'Gerando…' : 'Gerar plano' }}
       </button>
@@ -434,7 +477,11 @@ onBeforeUnmount(() => {
           <span class="self-update-step-dot" aria-hidden="true"></span>
           <div>
             <strong>{{ stepLabel(step.id) }}</strong>
-            <small>{{ step.id === 'self-update' ? 'reinicia a própria API' : 'somente leitura' }}</small>
+            <small>{{
+              step.id === 'self-update'
+                ? 'reinicia a própria API'
+                : 'somente leitura'
+            }}</small>
           </div>
         </li>
       </ol>
@@ -442,19 +489,36 @@ onBeforeUnmount(() => {
       <div class="self-update-warning">
         <ShieldCheckIcon aria-hidden="true" />
         <p>
-          A confirmação vale somente para este plano e SHA. Depois do handoff, o worker exige working tree limpa,
-          fast-forward de origin/main e readiness da nova API antes de concluir.
+          A confirmação vale somente para este plano e SHA. Depois do handoff, o
+          worker exige working tree limpa, fast-forward de origin/main e
+          readiness da nova API antes de concluir.
         </p>
       </div>
 
       <div class="self-update-plan-actions">
-        <button class="secondary-button" type="button" :disabled="Boolean(operation)" @click="plan = null">
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="Boolean(operation)"
+          @click="plan = null"
+        >
           Cancelar
         </button>
-        <button class="primary-button" type="button" :disabled="Boolean(operation)" @click="confirmAndStart">
-          <ArrowPathIcon v-if="operation === 'starting'" class="self-update-spin" aria-hidden="true" />
+        <button
+          class="primary-button"
+          type="button"
+          :disabled="Boolean(operation)"
+          @click="confirmAndStart"
+        >
+          <ArrowPathIcon
+            v-if="operation === 'starting'"
+            class="self-update-spin"
+            aria-hidden="true"
+          />
           <RocketLaunchIcon v-else aria-hidden="true" />
-          {{ operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar' }}
+          {{
+            operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar'
+          }}
         </button>
       </div>
     </article>
@@ -469,17 +533,29 @@ onBeforeUnmount(() => {
           <span class="self-update-count">{{ history.length }}</span>
         </div>
         <div v-if="history.length" class="self-update-history-list">
-          <div v-for="item in history" :key="item.id" class="self-update-history-row">
-            <span class="self-update-history-icon" :class="`is-${executionTone(item)}`" aria-hidden="true">
+          <div
+            v-for="item in history"
+            :key="item.id"
+            class="self-update-history-row"
+          >
+            <span
+              class="self-update-history-icon"
+              :class="`is-${executionTone(item)}`"
+              aria-hidden="true"
+            >
               <CheckCircleIcon v-if="executionTone(item) === 'success'" />
-              <ExclamationTriangleIcon v-else-if="executionTone(item) === 'danger'" />
+              <ExclamationTriangleIcon
+                v-else-if="executionTone(item) === 'danger'"
+              />
               <ClockIcon v-else />
             </span>
             <div class="self-update-history-copy">
               <strong>{{ executionTitle(item) }}</strong>
               <small>{{ formatDate(item.createdAt) }}</small>
             </div>
-            <code :title="item.revision">{{ shortRevision(item.revision) }}</code>
+            <code :title="item.revision">{{
+              shortRevision(item.revision)
+            }}</code>
           </div>
         </div>
         <p v-else class="self-update-empty">Nenhuma execução registrada.</p>
@@ -491,7 +567,9 @@ onBeforeUnmount(() => {
             <span class="self-update-eyebrow">Log</span>
             <h3>Log da última execução</h3>
           </div>
-          <span v-if="latest" class="self-update-log-state">{{ shouldPoll(latest) ? 'Ao vivo' : 'Finalizado' }}</span>
+          <span v-if="latest" class="self-update-log-state">{{
+            shouldPoll(latest) ? 'Ao vivo' : 'Finalizado'
+          }}</span>
         </div>
         <ProjectLogViewer
           v-if="log"
@@ -503,7 +581,9 @@ onBeforeUnmount(() => {
           :truncated="log.truncated"
           embedded
         />
-        <p v-else class="self-update-empty">O log aparecerá aqui depois da primeira execução.</p>
+        <p v-else class="self-update-empty">
+          O log aparecerá aqui depois da primeira execução.
+        </p>
       </article>
     </div>
 
@@ -511,7 +591,10 @@ onBeforeUnmount(() => {
       <ShieldCheckIcon aria-hidden="true" />
       <div>
         <strong>Operação segura</strong>
-        <p>O self-update é executado em modo user-space, sem privilégio de root, seguindo as políticas de segurança do projeto.</p>
+        <p>
+          O self-update é executado em modo user-space, sem privilégio de root,
+          seguindo as políticas de segurança do projeto.
+        </p>
       </div>
     </article>
   </section>
