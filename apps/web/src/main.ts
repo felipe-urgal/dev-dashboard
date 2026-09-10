@@ -16,6 +16,7 @@ import './styles/features/git-diff-github-theme.css';
 import './styles/features/git-syntax-highlight.css';
 import './styles/features/sidebar-collapse.css';
 import './styles/features/shell-option3.css';
+import './styles/features/dashboard-mission-control.css';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
