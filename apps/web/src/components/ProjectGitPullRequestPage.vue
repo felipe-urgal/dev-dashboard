@@ -163,7 +163,10 @@ const branchState = computed(() => {
 
 const pullRequestState = computed(() => {
   if (checkingExisting.value) {
-    return { value: 'Verificando…', detail: 'Consultando o destino selecionado' };
+    return {
+      value: 'Verificando…',
+      detail: 'Consultando o destino selecionado',
+    };
   }
   if (existingPullRequest.value) {
     return {
@@ -172,12 +175,21 @@ const pullRequestState = computed(() => {
     };
   }
   if (lookupUnavailable.value) {
-    return { value: 'Indisponível', detail: 'Não foi possível consultar o remoto' };
+    return {
+      value: 'Indisponível',
+      detail: 'Não foi possível consultar o remoto',
+    };
   }
   if (!branchPublished.value) {
-    return { value: 'Não disponível', detail: 'Publique a branch antes de criar o PR' };
+    return {
+      value: 'Não disponível',
+      detail: 'Publique a branch antes de criar o PR',
+    };
   }
-  return { value: 'Nenhuma aberta', detail: 'A branch está pronta para comparação' };
+  return {
+    value: 'Nenhuma aberta',
+    detail: 'A branch está pronta para comparação',
+  };
 });
 
 const destinationLabel = computed(
