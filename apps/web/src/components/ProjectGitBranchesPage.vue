@@ -159,8 +159,8 @@ function stateLabel(row: BranchRow): string {
     }
     return 'Em dia';
   }
-  if (row.local) return 'Apenas local';
-  return 'Apenas remota';
+  if (row.local) return 'Somente local';
+  return 'Somente remota';
 }
 
 function stateTone(row: BranchRow): string {
