@@ -74,7 +74,7 @@ const currentBranchName = computed(
   () => currentLocalBranch.value?.name ?? props.overview.branch ?? 'HEAD',
 );
 
-const currentBranchUpstream = computed(
+const currentBranchRemote = computed(
   () => currentLocalBranch.value?.upstream ?? props.overview.upstream,
 );
 
@@ -90,25 +90,19 @@ const hasOriginRemote = computed(() =>
   (props.workspace?.remotes ?? []).some((remote) => remote.name === 'origin'),
 );
 
-const hasUpstreamRemote = computed(() =>
+const hasPrimaryRemote = computed(() =>
   (props.workspace?.remotes ?? []).some((remote) => remote.name === 'upstream'),
 );
-
-const syncRemote = computed(() =>
-  hasUpstreamRemote.value ? 'upstream' : 'origin',
-);
-
-const syncReference = computed(() => `${syncRemote.value}/main`);
 
 const synchronized = computed(() => {
   const localHash = localMain.value?.latestCommit?.hash;
   const originHash = originMain.value?.latestCommit?.hash;
   if (!localHash || !originHash || localHash !== originHash) return false;
 
-  if (!hasUpstreamRemote.value) return true;
+  if (!hasPrimaryRemote.value) return true;
 
-  const upstreamHash = upstreamMain.value?.latestCommit?.hash;
-  return Boolean(upstreamHash && localHash === upstreamHash);
+  const primaryHash = upstreamMain.value?.latestCommit?.hash;
+  return Boolean(primaryHash && localHash === primaryHash);
 });
 
 const available = computed(
@@ -124,19 +118,19 @@ const status = computed(() => {
   }
   if (!available.value) {
     return {
-      label: 'Indisponível',
+      label: 'Sincronização indisponível',
       tone: 'warning',
     };
   }
   if (synchronized.value) {
     return {
-      label: 'Atualizado',
+      label: 'Tudo sincronizado',
       tone: 'success',
     };
   }
   if (!props.overview.clean) {
     return {
-      label: 'Alterações locais',
+      label: 'Alterações locais pendentes',
       tone: 'warning',
     };
   }
@@ -147,13 +141,13 @@ const status = computed(() => {
 });
 
 const statusDescription = computed(() => {
-  if (props.checking) return 'Atualizando referências remotas.';
-  if (!available.value) return 'Main local ou origin não disponível.';
+  if (props.checking) return 'Atualizando as referências remotas.';
+  if (!available.value) return 'A main local ou origin/main não está disponível.';
   if (!props.overview.clean)
     return 'Guarde ou confirme as alterações antes de sincronizar.';
   if (synchronized.value)
-    return `main alinhada com ${syncReference.value} e origin/main.`;
-  return `Há diferenças entre main, ${syncReference.value} e origin/main.`;
+    return 'A main local e origin/main estão alinhadas com a origem principal.';
+  return 'Há atualizações pendentes entre a origem principal, main e origin/main.';
 });
 
 const currentBranchStatus = computed(() => {
@@ -163,9 +157,9 @@ const currentBranchStatus = computed(() => {
       tone: 'loading',
     };
   }
-  if (!currentBranchUpstream.value) {
+  if (!currentBranchRemote.value) {
     return {
-      label: 'Upstream não configurado',
+      label: 'Remoto não configurado',
       tone: 'warning',
     };
   }
@@ -205,7 +199,11 @@ const buttonLabel = computed(() =>
 
 const buttonDisabled = computed(
   () =>
-    props.busy || props.checking || !props.overview.clean || !available.value,
+    props.busy ||
+    props.checking ||
+    synchronized.value ||
+    !props.overview.clean ||
+    !available.value,
 );
 
 const currentBranchButtonDisabled = computed(
@@ -213,7 +211,7 @@ const currentBranchButtonDisabled = computed(
     props.busy ||
     props.checking ||
     !props.overview.clean ||
-    !currentBranchUpstream.value ||
+    !currentBranchRemote.value ||
     currentBranchBehind.value <= 0,
 );
 
@@ -229,10 +227,6 @@ const lastSynchronizationLabel = computed(() => {
   }).format(date);
 });
 
-const lastSynchronizationDetail = computed(() =>
-  props.lastSynchronizationAt ? 'Nesta sessão' : 'Nesta sessão',
-);
-
 const consoleState = computed(() => {
   if (props.checking) return { label: 'Verificando', tone: 'loading' };
   if (props.busy) return { label: 'Executando', tone: 'loading' };
@@ -242,16 +236,16 @@ const consoleState = computed(() => {
   return { label: 'Pronto', tone: 'idle' };
 });
 
-const consoleSteps = computed(() => [
-  `git fetch --prune ${syncRemote.value}`,
-  'git checkout main',
-  `git merge --no-edit ${syncReference.value}`,
-  'git push origin main:main',
-]);
+const consoleSteps = [
+  'Verificar referências remotas',
+  'Preparar a branch main',
+  'Integrar atualizações da origem principal',
+  'Publicar main em origin/main',
+];
 
 const consoleResult = computed(() => {
   if (props.checking) return 'Verificando as referências remotas…';
-  if (props.busy) return 'Executando o fluxo de sincronização no repositório…';
+  if (props.busy) return 'Executando a sincronização da main…';
   if (props.synchronizationError) return props.synchronizationError;
   if (props.lastSynchronizationAt) {
     return (
@@ -259,12 +253,12 @@ const consoleResult = computed(() => {
     );
   }
   if (synchronized.value) {
-    return `Estado atual verificado: main alinhada com ${syncReference.value} e origin/main.`;
+    return 'Estado atual verificado: main e origin/main estão sincronizadas.';
   }
   if (!props.overview.clean) {
     return 'Aguardando uma árvore de trabalho limpa para iniciar.';
   }
-  return 'Pronto para sincronizar a main.';
+  return 'Pronto para sincronizar a main e publicar em origin/main.';
 });
 
 function statusIcon(tone: string) {
@@ -284,9 +278,7 @@ function statusIcon(tone: string) {
         <div>
           <span>Branch atual</span>
           <strong>{{ currentBranchName }}</strong>
-          <small>{{
-            currentBranchUpstream ?? 'Sem upstream configurado'
-          }}</small>
+          <small>{{ currentBranchRemote ?? 'Sem remoto configurado' }}</small>
         </div>
       </article>
 
@@ -310,9 +302,37 @@ function statusIcon(tone: string) {
         <div>
           <span>Última sincronização</span>
           <strong>{{ lastSynchronizationLabel }}</strong>
-          <small>{{ lastSynchronizationDetail }}</small>
+          <small>Nesta sessão</small>
         </div>
       </article>
+    </section>
+
+    <section class="git-sync-main-card" aria-label="Sincronização da main">
+      <div class="git-sync-main-copy">
+        <span class="git-sync-main-icon" :class="`is-${status.tone}`">
+          <component :is="statusIcon(status.tone)" aria-hidden="true" />
+        </span>
+        <div>
+          <span>Fluxo principal</span>
+          <strong>
+            <span>main</span>
+            <span aria-hidden="true">→</span>
+            <span>origin/main</span>
+          </strong>
+          <small :class="`is-${status.tone}`">{{ status.label }}</small>
+        </div>
+      </div>
+
+      <button
+        class="primary-button git-sync-button git-sync-primary-button"
+        :class="{ 'is-busy': busy }"
+        type="button"
+        :disabled="buttonDisabled"
+        @click="emit('synchronize')"
+      >
+        <ArrowPathIcon aria-hidden="true" />
+        {{ buttonLabel }}
+      </button>
     </section>
 
     <section
@@ -324,10 +344,7 @@ function statusIcon(tone: string) {
           <CommandLineIcon aria-hidden="true" />
           <div>
             <h2 id="git-sync-console-title">Console de sincronização</h2>
-            <p>
-              Atualiza a main a partir do repositório principal e publica em
-              origin.
-            </p>
+            <p>Acompanha as etapas reais do fluxo sem expor detalhes desnecessários.</p>
           </div>
         </div>
 
@@ -362,9 +379,9 @@ function statusIcon(tone: string) {
         aria-label="Etapas da sincronização da main"
       >
         <div class="git-sync-terminal-intro">
-          <span class="git-sync-terminal-prompt">$</span>
+          <span class="git-sync-terminal-prompt">›</span>
           <span>sincronizar main</span>
-          <small>fonte: {{ syncReference }}</small>
+          <small>destino: origin/main</small>
         </div>
 
         <ol class="git-sync-terminal-steps">
@@ -378,7 +395,7 @@ function statusIcon(tone: string) {
             }"
           >
             <span class="git-sync-step-marker" aria-hidden="true"></span>
-            <code>$ {{ step }}</code>
+            <span>{{ step }}</span>
           </li>
         </ol>
 
@@ -403,17 +420,6 @@ function statusIcon(tone: string) {
 
       <footer class="git-sync-console-actions">
         <button
-          class="primary-button git-sync-button git-sync-primary-button"
-          :class="{ 'is-busy': busy }"
-          type="button"
-          :disabled="buttonDisabled"
-          @click="emit('synchronize')"
-        >
-          <ArrowPathIcon aria-hidden="true" />
-          {{ buttonLabel }}
-        </button>
-
-        <button
           type="button"
           class="secondary-button git-sync-settings-button"
           :aria-expanded="settingsOpen"
@@ -437,15 +443,15 @@ function statusIcon(tone: string) {
         aria-label="Configuração detectada da sincronização"
       >
         <div>
-          <span>Fonte principal</span>
-          <strong>{{ syncReference }}</strong>
+          <span>Origem principal</span>
+          <strong>Detectada automaticamente</strong>
         </div>
         <div>
           <span>Destino</span>
           <strong>origin/main</strong>
         </div>
         <div>
-          <span>Estratégia</span>
+          <span>Método</span>
           <strong>merge</strong>
         </div>
         <div>
@@ -469,7 +475,7 @@ function statusIcon(tone: string) {
           <strong>
             <span>{{ currentBranchName }}</span>
             <span aria-hidden="true">←</span>
-            <span>{{ currentBranchUpstream ?? 'sem upstream' }}</span>
+            <span>{{ currentBranchRemote ?? 'sem remoto' }}</span>
           </strong>
           <small :class="`is-${currentBranchStatus.tone}`">
             {{ currentBranchStatus.label }}
@@ -498,20 +504,18 @@ function statusIcon(tone: string) {
           <CheckCircleIcon aria-hidden="true" />
           <div>
             <h3 id="git-sync-next-title">Próximos passos</h3>
-            <p>O que manter em ordem antes de continuar o trabalho.</p>
+            <p>O que precisa estar em ordem para sincronizar.</p>
           </div>
         </header>
 
         <ul>
           <li :class="{ 'is-ready': overview.clean }">
             <i aria-hidden="true"></i>
-            <span
-              >Manter a árvore de trabalho limpa antes da sincronização</span
-            >
+            <span>Manter a árvore de trabalho limpa</span>
           </li>
           <li :class="{ 'is-ready': synchronized }">
             <i aria-hidden="true"></i>
-            <span>Manter a main alinhada com o repositório principal</span>
+            <span>Manter a main alinhada com a origem principal</span>
           </li>
           <li :class="{ 'is-ready': hasOriginRemote }">
             <i aria-hidden="true"></i>
@@ -528,19 +532,14 @@ function statusIcon(tone: string) {
           <InformationCircleIcon aria-hidden="true" />
           <div>
             <h3 id="git-sync-tip-title">Dicas</h3>
-            <p>Como este fluxo escolhe a origem da main.</p>
+            <p>O fluxo escolhe a origem correta automaticamente.</p>
           </div>
         </header>
 
-        <p v-if="hasUpstreamRemote">
-          O remote <strong>upstream</strong> está configurado. A sincronização
-          busca <code>upstream/main</code>, integra na sua <code>main</code> e
-          publica o resultado em <code>origin/main</code>.
-        </p>
-        <p v-else>
-          Sem <strong>upstream</strong>, a sincronização usa
-          <code>origin/main</code> como fonte e mantém sua
-          <code>main</code> alinhada com o origin.
+        <p>
+          Você trabalha apenas com <strong>main</strong> e <strong>origin/main</strong>
+          nesta tela. A origem principal é resolvida internamente antes da
+          atualização e não exige configuração manual durante o fluxo.
         </p>
       </section>
     </div>
@@ -562,6 +561,16 @@ function statusIcon(tone: string) {
   gap: 12px;
 }
 
+.git-sync-summary-card,
+.git-sync-main-card,
+.git-sync-console-card,
+.git-sync-current-card,
+.git-sync-support-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
 .git-sync-summary-card {
   display: flex;
   min-width: 0;
@@ -569,33 +578,46 @@ function statusIcon(tone: string) {
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
 }
 
-.git-sync-summary-icon {
+.git-sync-summary-icon,
+.git-sync-main-icon,
+.git-sync-current-icon {
   display: grid;
-  width: 36px;
-  height: 36px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 10px;
   color: var(--accent);
   background: var(--accent-soft);
 }
 
-.git-sync-summary-icon svg {
+.git-sync-summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.git-sync-main-icon,
+.git-sync-current-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.git-sync-summary-icon svg,
+.git-sync-main-icon svg,
+.git-sync-current-icon svg {
   width: 18px;
   height: 18px;
 }
 
-.git-sync-summary-icon.is-success {
+.git-sync-summary-icon.is-success,
+.git-sync-main-icon.is-success {
   color: var(--success-text);
   background: var(--success-surface);
 }
 
-.git-sync-summary-icon.is-warning {
+.git-sync-summary-icon.is-warning,
+.git-sync-main-icon.is-warning {
   color: var(--warning-text);
   background: var(--warning-surface);
 }
@@ -643,13 +665,69 @@ function statusIcon(tone: string) {
   color: var(--accent);
 }
 
-.git-sync-console-card,
-.git-sync-current-card,
-.git-sync-support-card {
+.git-sync-main-card,
+.git-sync-current-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 14px;
+}
+
+.git-sync-main-copy,
+.git-sync-current-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.git-sync-main-copy > div,
+.git-sync-current-copy > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.git-sync-main-copy > div > span:first-child,
+.git-sync-current-copy > div > span:first-child {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
+}
+
+.git-sync-main-copy strong,
+.git-sync-current-copy strong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.git-sync-main-copy small,
+.git-sync-current-copy small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.git-sync-main-copy small.is-success,
+.git-sync-current-copy small.is-success {
+  color: var(--success-text);
+}
+
+.git-sync-main-copy small.is-warning,
+.git-sync-current-copy small.is-warning {
+  color: var(--warning-text);
+}
+
+.git-sync-main-copy small.is-pending,
+.git-sync-current-copy small.is-pending {
+  color: var(--accent);
+}
+
+.git-sync-console-card {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
 }
 
 .git-sync-console-header {
@@ -765,7 +843,7 @@ function statusIcon(tone: string) {
 }
 
 .git-sync-terminal {
-  min-height: 290px;
+  min-height: 250px;
   padding: 18px 20px 20px;
   color: #c9d1d9;
   background: #0d1117;
@@ -807,6 +885,7 @@ function statusIcon(tone: string) {
   align-items: center;
   gap: 10px;
   color: #8b949e;
+  font-size: 12px;
 }
 
 .git-sync-step-marker {
@@ -814,12 +893,6 @@ function statusIcon(tone: string) {
   height: 7px;
   border: 1px solid #6e7681;
   border-radius: 999px;
-}
-
-.git-sync-terminal-steps code {
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
 }
 
 .git-sync-terminal-steps li.is-complete {
@@ -879,9 +952,8 @@ function statusIcon(tone: string) {
 }
 
 .git-sync-console-actions {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto;
-  gap: 10px;
+  display: flex;
+  justify-content: flex-end;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
 }
@@ -902,7 +974,11 @@ function statusIcon(tone: string) {
 }
 
 .git-sync-primary-button {
-  min-width: 220px;
+  min-width: 190px;
+}
+
+.git-sync-current-button {
+  min-width: 140px;
 }
 
 .git-sync-settings-chevron {
@@ -941,78 +1017,6 @@ function statusIcon(tone: string) {
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.git-sync-current-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 13px 14px;
-}
-
-.git-sync-current-copy {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 11px;
-}
-
-.git-sync-current-icon {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.git-sync-current-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.git-sync-current-copy > div {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.git-sync-current-copy > div > span:first-child {
-  color: var(--text-dim);
-  font-size: 9px;
-  font-weight: var(--font-weight-strong);
-}
-
-.git-sync-current-copy strong {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  color: var(--text);
-  font-size: 12px;
-}
-
-.git-sync-current-copy small {
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.git-sync-current-copy small.is-success {
-  color: var(--success-text);
-}
-
-.git-sync-current-copy small.is-warning {
-  color: var(--warning-text);
-}
-
-.git-sync-current-copy small.is-pending {
-  color: var(--accent);
-}
-
-.git-sync-current-button {
-  min-width: 140px;
 }
 
 .git-sync-support-grid {
@@ -1095,11 +1099,6 @@ function statusIcon(tone: string) {
   color: var(--text);
 }
 
-.git-sync-tip-card code {
-  color: var(--accent);
-  font-family: var(--font-family-code);
-}
-
 @keyframes git-sync-spin {
   to {
     transform: rotate(360deg);
@@ -1131,10 +1130,7 @@ function statusIcon(tone: string) {
 
 @media (max-width: 960px) {
   .git-sync-summary,
-  .git-sync-settings {
-    grid-template-columns: 1fr;
-  }
-
+  .git-sync-settings,
   .git-sync-support-grid {
     grid-template-columns: 1fr;
   }
@@ -1150,6 +1146,7 @@ function statusIcon(tone: string) {
   }
 
   .git-sync-console-header,
+  .git-sync-main-card,
   .git-sync-current-card {
     align-items: stretch;
     flex-direction: column;
@@ -1160,7 +1157,7 @@ function statusIcon(tone: string) {
   }
 
   .git-sync-terminal {
-    min-height: 240px;
+    min-height: 220px;
     padding: 16px;
   }
 
@@ -1172,10 +1169,6 @@ function statusIcon(tone: string) {
   .git-sync-terminal-intro small {
     width: 100%;
     margin-left: 17px;
-  }
-
-  .git-sync-console-actions {
-    grid-template-columns: 1fr;
   }
 
   .git-sync-primary-button,
