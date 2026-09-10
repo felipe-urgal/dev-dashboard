@@ -81,6 +81,7 @@
       :push-branch="pendingPushBranch"
       @submit="runCommit"
       @push="runPublishBranch"
+      @open-history="openTab('history')"
     />
 
     <ProjectGitUndoPage
