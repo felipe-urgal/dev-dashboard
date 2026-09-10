@@ -38,8 +38,12 @@
       :workspace="workspace"
       :busy="mutationRunning"
       :checking="remoteRefreshRunning"
+      :last-synchronization-at="lastMainSynchronizationAt"
+      :synchronization-message="lastMainSynchronizationMessage"
+      :synchronization-error="lastMainSynchronizationError"
       @update-current-branch="runUpdateCurrentBranch"
-      @synchronize="runMainSynchronization"
+      @synchronize="handleMainSynchronization"
+      @clear-console="clearMainSynchronizationConsole"
     />
 
     <ProjectGitBranchesPage
