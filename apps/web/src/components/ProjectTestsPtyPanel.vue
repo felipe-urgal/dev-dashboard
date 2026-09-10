@@ -130,7 +130,8 @@ const latestDuration = computed(() => {
 
 const coverageDeltaLabel = computed(() => {
   const coverage = intelligence.value?.coverageDelta;
-  const lines = coverage?.state === 'available' ? coverage.total?.lines : undefined;
+  const lines =
+    coverage?.state === 'available' ? coverage.total?.lines : undefined;
   if (lines === undefined) return '—';
   return `${lines > 0 ? '+' : ''}${lines} pp`;
 });
@@ -145,8 +146,8 @@ const coverageDeltaDetail = computed(() => {
 
 function commandLabel(commandId: string): string {
   return (
-    overview.value?.commands.find((command) => command.id === commandId)?.label ??
-    commandId
+    overview.value?.commands.find((command) => command.id === commandId)
+      ?.label ?? commandId
   );
 }
 
@@ -187,7 +188,11 @@ function formatDateTime(value: string): string {
 function formatDuration(startedAt: string, finishedAt: string): string {
   const started = new Date(startedAt).getTime();
   const finished = new Date(finishedAt).getTime();
-  if (!Number.isFinite(started) || !Number.isFinite(finished) || finished < started) {
+  if (
+    !Number.isFinite(started) ||
+    !Number.isFinite(finished) ||
+    finished < started
+  ) {
     return '—';
   }
 
@@ -195,7 +200,9 @@ function formatDuration(startedAt: string, finishedAt: string): string {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  return remainingSeconds > 0
+    ? `${minutes}m ${remainingSeconds}s`
+    : `${minutes}m`;
 }
 
 function historyDuration(record: TestExecutionRecord): string {
@@ -396,7 +403,10 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           :class="{
             'tests-pty-state-running': isRunning,
             'tests-pty-state-success': !isRunning && snapshot?.exitCode === 0,
-            'tests-pty-state-danger': !isRunning && snapshot?.exitCode !== null && snapshot?.exitCode !== 0,
+            'tests-pty-state-danger':
+              !isRunning &&
+              snapshot?.exitCode !== null &&
+              snapshot?.exitCode !== 0,
           }"
         >
           {{ isRunning ? 'Em execução' : snapshot ? 'Finalizado' : 'Pronto' }}
@@ -407,18 +417,24 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
     <section class="tests-overview" aria-label="Resumo dos testes">
       <article class="tests-overview-card">
         <span>Última execução</span>
-        <strong :class="`is-${latestExecution.tone}`">{{ latestExecution.label }}</strong>
+        <strong :class="`is-${latestExecution.tone}`">{{
+          latestExecution.label
+        }}</strong>
         <small>{{ latestExecution.detail }}</small>
       </article>
       <article class="tests-overview-card">
         <span>Histórico</span>
-        <strong>{{ loadingHistory && !history ? '…' : (history?.total ?? 0) }}</strong>
+        <strong>{{
+          loadingHistory && !history ? '…' : (history?.total ?? 0)
+        }}</strong>
         <small>execuções registradas</small>
       </article>
       <article class="tests-overview-card">
         <span>Tempo da última</span>
         <strong>{{ latestDuration }}</strong>
-        <small>{{ isRunning ? 'Execução em andamento' : 'Duração registrada' }}</small>
+        <small>{{
+          isRunning ? 'Execução em andamento' : 'Duração registrada'
+        }}</small>
       </article>
       <article class="tests-overview-card">
         <span>Variação de cobertura</span>
@@ -470,7 +486,9 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
               {{ command.label }}
             </option>
           </select>
-          <small>{{ selectedCommand?.description ?? 'Selecione um comando disponível.' }}</small>
+          <small>{{
+            selectedCommand?.description ?? 'Selecione um comando disponível.'
+          }}</small>
         </label>
 
         <div class="tests-control-field">
@@ -483,7 +501,9 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           <button
             type="button"
             class="primary-button"
-            :disabled="loadingOverview || !selectedCommand || isRunning || starting"
+            :disabled="
+              loadingOverview || !selectedCommand || isRunning || starting
+            "
             @click="start"
           >
             {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
@@ -531,11 +551,18 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
 
       <div v-else class="tests-local-note">
         <strong>Os testes são executados localmente no projeto.</strong>
-        <span>O dashboard utiliza o comando configurado acima e mantém a saída em tempo real.</span>
+        <span
+          >O dashboard utiliza o comando configurado acima e mantém a saída em
+          tempo real.</span
+        >
       </div>
     </section>
 
-    <section v-show="activeTab === 'history'" class="tests-history-pane" aria-label="Histórico de testes">
+    <section
+      v-show="activeTab === 'history'"
+      class="tests-history-pane"
+      aria-label="Histórico de testes"
+    >
       <div class="tests-history-heading">
         <div>
           <strong>Últimas execuções</strong>
@@ -556,8 +583,15 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
       </p>
 
       <div v-if="history?.items.length" class="tests-history-list">
-        <article v-for="record in history.items" :key="record.id" class="tests-history-row">
-          <span class="tests-history-status" :class="`is-${recordTone(record)}`">
+        <article
+          v-for="record in history.items"
+          :key="record.id"
+          class="tests-history-row"
+        >
+          <span
+            class="tests-history-status"
+            :class="`is-${recordTone(record)}`"
+          >
             {{ recordStatusLabel(record) }}
           </span>
           <div class="tests-history-main">
@@ -573,7 +607,9 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           </div>
           <div class="tests-history-metric">
             <span>Saída</span>
-            <strong>{{ record.exitCode === undefined ? '—' : `exit ${record.exitCode}` }}</strong>
+            <strong>{{
+              record.exitCode === undefined ? '—' : `exit ${record.exitCode}`
+            }}</strong>
           </div>
         </article>
       </div>
