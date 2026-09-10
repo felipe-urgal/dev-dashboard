@@ -557,8 +557,11 @@ function commandScript(id: ProductionCommandId): string {
   if (id === 'restoreCheck') return 'prod:restore-check';
   return `prod:${id}`;
 }
-function stepScript(step: DeploymentPlanStep): string {
-  return 'script' in step ? step.script : 'Provider API';
+function stepScript(step: {
+  id: DeploymentPlanStep['id'];
+  script?: string;
+}): string {
+  return step.script ?? 'Provider API';
 }
 function authorFor(item: Deployment): string {
   const commit = props.gitOverview?.latestCommit;
@@ -967,7 +970,15 @@ onBeforeUnmount(() => {
         class="production-card production-prepare"
       >
         <header>
-          <div>
+          <div v-if="canRetryLatestVerify">
+            <span class="production-eyebrow">Verificação</span>
+            <h4>Verificar deployment</h4>
+            <p>
+              Repita somente a validação de leitura, sem executar uma nova
+              promoção.
+            </p>
+          </div>
+          <div v-else>
             <span class="production-eyebrow">Preparar deployment</span>
             <h4>Preparar novo deployment</h4>
             <p>
@@ -990,7 +1001,7 @@ onBeforeUnmount(() => {
           </button>
         </header>
 
-        <div class="production-target-grid">
+        <div v-if="!canRetryLatestVerify" class="production-target-grid">
           <label>
             <span>Branch</span>
             <select :value="branch" disabled>
