@@ -43,6 +43,10 @@ Quando `cockpit` está disponível, o status do PR mostra no próprio card:
 
 Não existe um segundo fetch só para preencher a UI. Isso evita duas fontes remotas com freshness diferente para o mesmo PR.
 
+A visão operacional da página separa **Pull Request** e **Criar Pull Request**. O resumo superior usa somente dados já carregados do Git local e do lookup da branch atual: branch/upstream, PR aberta quando encontrada e destino selecionado. A aba de acompanhamento continua limitada ao PR da branch atual; ela não inventa totais, histórico de PRs fechados ou revisões que o contrato não fornece.
+
+A criação reutiliza o fluxo existente de comparação, abertura no provedor e ações explícitas via `gh`. A troca de apresentação não adiciona mutações remotas nem altera o contrato HTTP.
+
 `detailsUrl` é navegação explícita do usuário e abre em novo contexto com `noopener noreferrer`. A UI não interpreta a página do check nem transforma esse link em autorização para mutação.
 
 ## Degradação segura
