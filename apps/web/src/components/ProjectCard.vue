@@ -104,7 +104,9 @@ const statusClass = computed(() => {
         :aria-label="`Ver detalhes de ${project.name}`"
       >
         <h3>{{ project.name }}</h3>
-        <code class="project-card-path" :title="project.path">{{ project.path }}</code>
+        <code class="project-card-path" :title="project.path">{{
+          project.path
+        }}</code>
       </RouterLink>
 
       <div class="project-card-meta">
