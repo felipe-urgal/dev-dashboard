@@ -40,7 +40,7 @@ test('avalia constraints comuns sem adivinhar aliases não numéricos', () => {
   assert.equal(evaluateVersionConstraint('22.4.0', 'lts/*'), 'unknown');
 });
 
-test('Project Doctor bloqueia versões Node incompatíveis com evidência explícita', async (context) => {
+test('Project Doctor bloqueia Node incompatível e alerta para versão divergente do gerenciador', async (context) => {
   const root = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-toolchain-node-'),
   );
@@ -51,7 +51,7 @@ test('Project Doctor bloqueia versões Node incompatíveis com evidência explí
     JSON.stringify({
       name: 'node-toolchain',
       engines: { node: '>=999.0.0' },
-      packageManager: 'pnpm@9.15.0',
+      packageManager: 'pnpm@10.34.5',
     }),
   );
   await writeFile(path.join(root, '.nvmrc'), '>=999.0.0\n');
@@ -59,7 +59,7 @@ test('Project Doctor bloqueia versões Node incompatíveis com evidência explí
 
   const report = await new ProjectDoctorService({
     commandRunner: async (command) => {
-      if (command === 'pnpm') return { stdout: '8.15.0\n', stderr: '' };
+      if (command === 'pnpm') return { stdout: '11.24.0\n', stderr: '' };
       throw new Error(`Comando inesperado: ${command}`);
     },
   }).getReport(project(root, 'node'));
@@ -76,11 +76,14 @@ test('Project Doctor bloqueia versões Node incompatíveis com evidência explí
     /package\.json#engines\.node=>?=999\.0\.0/,
   );
   assert.match(nodeRuntime?.summary ?? '', /\.nvmrc=>?=999\.0\.0/);
-  assert.equal(packageManager?.status, 'failed');
-  assert.match(packageManager?.summary ?? '', /pnpm 8\.15\.0/);
-  assert.match(
-    packageManager?.summary ?? '',
-    /package\.json#packageManager=pnpm@9\.15\.0/,
+  assert.equal(packageManager?.status, 'warning');
+  assert.equal(
+    packageManager?.summary,
+    'pnpm 11.24.0 difere da versão declarada pelo projeto: pnpm 10.34.5.',
+  );
+  assert.equal(
+    packageManager?.recommendation,
+    'Use pnpm 10.34.5 ou atualize package.json#packageManager se pnpm 11.24.0 for intencional.',
   );
 });
 
