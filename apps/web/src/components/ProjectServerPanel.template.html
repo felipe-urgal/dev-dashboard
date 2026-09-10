@@ -243,19 +243,6 @@
               <CommandLineIcon aria-hidden="true" />
               Logs
             </span>
-            <span class="server-console-tab is-disabled" aria-disabled="true">
-              Eventos
-            </span>
-            <span class="server-console-tab is-disabled" aria-disabled="true">
-              Saúde
-            </span>
-            <span
-              class="server-terminal-state"
-              :class="{ 'is-running': processStatus === 'running' }"
-            >
-              <i aria-hidden="true"></i>
-              {{ processStatus === 'running' ? 'Terminal' : 'Aguardando' }}
-            </span>
           </div>
 
           <ProjectLogTerminal
