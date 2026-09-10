@@ -92,6 +92,7 @@ test('renderiza o protótipo 1 de commit com resumo, formulário e histórico re
   assert.equal(wrapper.findAll('.git-commit-history-row').length, 2);
   assert.match(wrapper.text(), /chore: ajusta testes/);
   assert.match(wrapper.text(), /Felipe/);
+  assert.match(wrapper.text(), /Ver histórico completo/);
 
   const submit = wrapper.find('.git-commit-submit');
   assert.equal((submit.element as HTMLButtonElement).disabled, true);
