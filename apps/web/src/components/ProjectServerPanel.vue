@@ -48,7 +48,7 @@ const {
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
 
-const { commandLabel, startedAtLabel, uptimeLabel } = useProjectServerMetrics(
+const { commandLabel } = useProjectServerMetrics(
   () => props.project,
   managedProcess,
   processStatus,
@@ -148,34 +148,6 @@ const localAccessUrl = computed(() => {
 const localAccessLabel = computed(
   () => localAccessUrl.value || 'Disponível após iniciar',
 );
-
-const ipProcessUrl = computed(() => {
-  const additionalUrl = processUrls.value.slice(1).find((url) => {
-    try {
-      const hostname = new URL(url).hostname;
-      return hostname !== 'localhost' && hostname !== '127.0.0.1';
-    } catch {
-      return false;
-    }
-  });
-
-  if (additionalUrl) return additionalUrl;
-
-  const host = managedProcess.value?.host;
-  const port = managedProcess.value?.port;
-  if (
-    host &&
-    port &&
-    host !== 'localhost' &&
-    host !== '127.0.0.1' &&
-    host !== '0.0.0.0' &&
-    host !== '::'
-  ) {
-    return `http://${host}:${port}`;
-  }
-
-  return '';
-});
 
 const statusDescription = computed(() => {
   if (!supportsServer.value)
