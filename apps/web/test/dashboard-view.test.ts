@@ -1,5 +1,5 @@
-import { nextTick } from 'vue';
-import { mount } from '@vue/test-utils';
+import { computed, nextTick } from 'vue';
+import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Project, Workspace } from '@dev-dashboard/contracts';
@@ -7,6 +7,11 @@ import type { Project, Workspace } from '@dev-dashboard/contracts';
 const actions = vi.hoisted(() => ({
   escanear: vi.fn(),
   desativar: vi.fn(),
+  atencao: vi.fn(),
+}));
+
+vi.mock('../src/api', () => ({
+  fetchWorkspaceAttention: actions.atencao,
 }));
 
 vi.mock('../src/stores/dashboard', async () => {
@@ -14,12 +19,18 @@ vi.mock('../src/stores/dashboard', async () => {
   const projects = ref<Project[]>([]);
   const workspaces = ref<Workspace[]>([]);
   const selectedWorkspaceId = ref('');
+  const selectedWorkspace = computed(() =>
+    workspaces.value.find(
+      (workspace) => workspace.id === selectedWorkspaceId.value,
+    ),
+  );
 
   return {
     dashboardStore: {
       projects,
       workspaces,
       selectedWorkspaceId,
+      selectedWorkspace,
       loadingProjects: ref(false),
       scanningWorkspace: ref(false),
       enabledUpdatingIds: ref<string[]>([]),
@@ -31,6 +42,7 @@ vi.mock('../src/stores/dashboard', async () => {
       processSummaryError: ref(''),
       loadProcessSummary: vi.fn(),
       lastScannedPath: ref(''),
+      ensureDashboardLoaded: vi.fn(),
       rescanSelectedWorkspace: actions.escanear,
       toggleProjectEnabled: actions.desativar,
     },
@@ -39,6 +51,14 @@ vi.mock('../src/stores/dashboard', async () => {
 
 import { dashboardStore } from '../src/stores/dashboard';
 import DashboardView from '../src/views/DashboardView.vue';
+
+const workspace: Workspace = {
+  id: 'w1',
+  name: 'Projetos Pessoais',
+  path: '/home/ubuntu/Caiena/Projetos',
+  enabled: true,
+  recursiveScan: false,
+};
 
 const project: Project = {
   id: 'p1',
@@ -73,6 +93,15 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  actions.escanear.mockResolvedValue(undefined);
+  actions.atencao.mockResolvedValue({
+    workspaceId: 'w1',
+    generatedAt: new Date(0).toISOString(),
+    partial: false,
+    unavailableSources: [],
+    items: [],
+  });
+
   dashboardStore.projects.value = [];
   dashboardStore.workspaces.value = [];
   dashboardStore.selectedWorkspaceId.value = '';
@@ -94,45 +123,45 @@ beforeEach(() => {
 });
 
 describe('dashboard principal', () => {
-  it('renderiza a lista de repositórios sem indicadores redundantes', () => {
+  it('renderiza a estrutura Mission Control e o estado vazio', () => {
     const wrapper = mountView();
 
+    expect(wrapper.find('.dashboard-layout').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-primary').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-rail').exists()).toBe(true);
     expect(wrapper.find('.overview-summary-card').exists()).toBe(false);
-    expect(wrapper.find('.repositories-section').classes()).toContain(
-      'dd-card',
-    );
-    expect(wrapper.text()).toContain('Repositórios');
+    expect(wrapper.text()).toContain('Projetos pessoais');
     expect(wrapper.text()).toContain('Nenhum projeto carregado');
   });
 
-  it('remove filtros, contagem, título redundante e ações globais de servidor', () => {
+  it('renderiza busca, contagem e lista de projetos conforme o protótipo', () => {
     dashboardStore.projects.value = [project];
     const wrapper = mountView();
 
-    expect(wrapper.find('.project-search').exists()).toBe(false);
-    expect(wrapper.find('.project-filter-menu').exists()).toBe(false);
-    expect(wrapper.find('.section-count').exists()).toBe(false);
-    expect(wrapper.text()).not.toContain('Projetos detectados');
+    expect(wrapper.find('.dashboard-search input').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-filter-button').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Todos os projetos (1)');
     expect(wrapper.find('[aria-label="Iniciar servidores"]').exists()).toBe(
       false,
     );
     expect(wrapper.find('[aria-label="Parar servidores"]').exists()).toBe(
       false,
     );
-    expect(
-      wrapper.find('[aria-label="Controles dos servidores"]').exists(),
-    ).toBe(false);
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
   });
 
   it('aciona a atualização do workspace pelo cabeçalho', async () => {
-    dashboardStore.lastScannedPath.value = '/home/ubuntu/Caiena/Projetos';
+    dashboardStore.workspaces.value = [workspace];
+    dashboardStore.selectedWorkspaceId.value = workspace.id;
+    dashboardStore.lastScannedPath.value = workspace.path;
     const wrapper = mountView();
 
-    await wrapper
-      .get('[aria-label="Escanear novamente e restaurar projetos removidos"]')
-      .trigger('click');
+    await flushPromises();
+    await wrapper.get('.dashboard-refresh-button').trigger('click');
+    await flushPromises();
+
     expect(actions.escanear).toHaveBeenCalledOnce();
+    expect(actions.atencao).toHaveBeenCalled();
     expect(wrapper.find('[aria-label="Remover workspace"]').exists()).toBe(
       false,
     );
@@ -145,7 +174,7 @@ describe('dashboard principal', () => {
     dashboardStore.projects.value = [project];
     await nextTick();
 
-    expect(wrapper.find('.projects-list').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-project-list').exists()).toBe(true);
     expect(wrapper.get('.project-stub').text()).toContain('Projeto Node');
   });
 
