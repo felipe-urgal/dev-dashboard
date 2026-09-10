@@ -340,7 +340,7 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
   assert.doesNotMatch(text, /Histórico recente/);
   assert.doesNotMatch(text, /upstream\//);
   assert.match(text, /main\s*→\s*origin\/main/);
-  assert.match(text, /Sincronizar/);
+  assert.match(text, /Iniciar sincronização/);
   assert.ok(
     mounted.wrapper
       .findAll('.git-subtabs button')
