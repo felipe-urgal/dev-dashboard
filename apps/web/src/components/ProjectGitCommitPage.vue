@@ -191,18 +191,27 @@ function formatCommitDate(value: string): string {
           <strong>Novo commit pronto para enviar</strong>
           <p>
             Envie os commits novos de <code>{{ pushBranch }}</code> para
-            <code>origin/{{ pushBranch }}</code>. Se já existir uma Pull Request,
-            ela será atualizada automaticamente pelo GitHub.
+            <code>origin/{{ pushBranch }}</code
+            >. Se já existir uma Pull Request, ela será atualizada
+            automaticamente pelo GitHub.
           </p>
         </div>
-        <button type="button" :disabled="busy" @click="emit('push', pushBranch)">
+        <button
+          type="button"
+          :disabled="busy"
+          @click="emit('push', pushBranch)"
+        >
           Push
         </button>
       </section>
 
       <header class="git-commit-heading">
         <div>
-          <h2>{{ mode === 'create' ? 'Criar novo commit' : 'Alterar último commit' }}</h2>
+          <h2>
+            {{
+              mode === 'create' ? 'Criar novo commit' : 'Alterar último commit'
+            }}
+          </h2>
           <p v-if="mode === 'create'">
             Salve todas as alterações rastreadas no repositório local.
           </p>
@@ -268,7 +277,10 @@ function formatCommitDate(value: string): string {
       </div>
     </form>
 
-    <section class="git-commit-history" aria-labelledby="git-commit-history-title">
+    <section
+      class="git-commit-history"
+      aria-labelledby="git-commit-history-title"
+    >
       <header>
         <div>
           <h2 id="git-commit-history-title">Últimos commits</h2>
@@ -298,10 +310,14 @@ function formatCommitDate(value: string): string {
           <code>{{ commit.shortHash }}</code>
           <strong>{{ commit.subject }}</strong>
           <span>{{ commit.authorName }}</span>
-          <time :datetime="commit.authoredAt">{{ formatCommitDate(commit.authoredAt) }}</time>
+          <time :datetime="commit.authoredAt">{{
+            formatCommitDate(commit.authoredAt)
+          }}</time>
         </div>
       </div>
-      <p v-else class="git-commit-history-empty">Nenhum commit recente disponível.</p>
+      <p v-else class="git-commit-history-empty">
+        Nenhum commit recente disponível.
+      </p>
     </section>
   </section>
 </template>
