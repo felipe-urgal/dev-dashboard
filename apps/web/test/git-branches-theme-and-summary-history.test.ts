@@ -78,7 +78,7 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
   assert.match(branchesTemplate, /\{\{ squashSubmitLabel \}\}/);
   assert.match(
     branchesTemplate,
-    /squash também reenviará a branch para o origin com lease/,
+    /squash também reenviará a branch\s+para o origin com lease/,
   );
   assert.match(
     branchesCss,
