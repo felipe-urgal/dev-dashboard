@@ -1,0 +1,103 @@
+/*
+ * Keep deployment execution content inside the production page and make the
+ * horizontal timeline read as one connected progress path.
+ */
+
+.production-panel.production-panel .production-execution,
+.production-panel.production-panel .deployment-log,
+.production-panel.production-panel .project-log-viewer,
+.production-panel.production-panel .project-log-viewer-output {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.production-panel.production-panel .deployment-log,
+.production-panel.production-panel .project-log-viewer {
+  width: 100%;
+  overflow: hidden;
+}
+
+.production-panel.production-panel .project-log-viewer-output > pre {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.production-panel.production-panel .production-timeline-horizontal li {
+  position: relative;
+  display: block;
+  min-width: 0;
+  min-height: 72px;
+  padding: 20px 12px 0 0;
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:not(:last-child)::after {
+  position: absolute;
+  top: 5px;
+  right: -5px;
+  left: 5px;
+  z-index: 0;
+  width: auto;
+  height: 1px;
+  background: var(--border-strong);
+  content: '';
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  .production-step-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  justify-self: auto;
+}
+
+.production-panel.production-panel .production-timeline-horizontal li > div {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 600px) {
+  .production-panel.production-panel .production-timeline-horizontal li {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px 0 0;
+  }
+
+  .production-panel.production-panel
+    .production-timeline-horizontal
+    .production-step-marker {
+    position: relative;
+    top: auto;
+    left: auto;
+    justify-self: center;
+  }
+
+  .production-panel.production-panel
+    .production-timeline-horizontal
+    li:not(:last-child)::after {
+    top: 5px;
+    right: auto;
+    bottom: -8px;
+    left: 8px;
+    width: 1px;
+    height: auto;
+  }
+
+  .production-panel.production-panel .production-timeline-horizontal li > div {
+    padding: 0 5px;
+  }
+}
