@@ -73,7 +73,7 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
   );
   assert.match(
     branchesTemplate,
-    /branch-squash-submit" :disabled="actionsBusy \|\| !canSubmitSquash"/,
+    /class="danger-button branch-squash-submit"[^>]*:disabled="actionsBusy \|\| !canSubmitSquash"/,
   );
   assert.match(branchesTemplate, /\{\{ squashSubmitLabel \}\}/);
   assert.match(
