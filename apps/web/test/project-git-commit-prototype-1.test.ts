@@ -6,15 +6,17 @@ import type { ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import ProjectGitCommitPage from '../src/components/ProjectGitCommitPage.vue';
 
+const latestCommit = {
+  hash: 'abcdef1234567890',
+  shortHash: 'abcdef1',
+  subject: 'feat: melhora commit',
+  authorName: 'Felipe',
+  authorEmail: 'felipe@example.com',
+  authoredAt: '2026-09-10T10:00:00.000Z',
+};
+
 const commits = [
-  {
-    hash: 'abcdef1234567890',
-    shortHash: 'abcdef1',
-    subject: 'feat: melhora commit',
-    authorName: 'Felipe',
-    authorEmail: 'felipe@example.com',
-    authoredAt: '2026-09-10T10:00:00.000Z',
-  },
+  latestCommit,
   {
     hash: '1234567890abcdef',
     shortHash: '1234567',
@@ -53,7 +55,7 @@ const overview: ProjectGitOverview = {
       status: 'untracked',
     },
   ],
-  latestCommit: commits[0],
+  latestCommit,
   recentCommits: commits,
 };
 
