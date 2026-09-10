@@ -142,7 +142,8 @@ const status = computed(() => {
 
 const statusDescription = computed(() => {
   if (props.checking) return 'Atualizando as referências remotas.';
-  if (!available.value) return 'A main local ou origin/main não está disponível.';
+  if (!available.value)
+    return 'A main local ou origin/main não está disponível.';
   if (!props.overview.clean)
     return 'Guarde ou confirme as alterações antes de sincronizar.';
   if (synchronized.value)
@@ -344,7 +345,10 @@ function statusIcon(tone: string) {
           <CommandLineIcon aria-hidden="true" />
           <div>
             <h2 id="git-sync-console-title">Console de sincronização</h2>
-            <p>Acompanha as etapas reais do fluxo sem expor detalhes desnecessários.</p>
+            <p>
+              Acompanha as etapas reais do fluxo sem expor detalhes
+              desnecessários.
+            </p>
           </div>
         </div>
 
@@ -537,7 +541,8 @@ function statusIcon(tone: string) {
         </header>
 
         <p>
-          Você trabalha apenas com <strong>main</strong> e <strong>origin/main</strong>
+          Você trabalha apenas com <strong>main</strong> e
+          <strong>origin/main</strong>
           nesta tela. A origem principal é resolvida internamente antes da
           atualização e não exige configuração manual durante o fluxo.
         </p>
