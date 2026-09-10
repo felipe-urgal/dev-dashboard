@@ -81,6 +81,7 @@ test('renderiza o protótipo 1 com resumo e contexto recente verdadeiro', async 
   assert.match(wrapper.text(), /Commits recentes/);
   assert.match(wrapper.text(), /Alterações locais/);
   assert.equal(wrapper.findAll('.git-undo-history-row').length, 2);
+  assert.equal(wrapper.findAll('.git-undo-danger').length, 1);
   assert.match(wrapper.text(), /Último commit/);
   assert.match(wrapper.text(), /Somente histórico/);
   assert.match(wrapper.text(), /mantém o histórico publicado intacto/);
