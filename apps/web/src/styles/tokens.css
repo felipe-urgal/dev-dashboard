@@ -1,47 +1,47 @@
 :root {
   color-scheme: dark;
 
-  /* Surfaces */
-  --surface-0: #020b14;
-  --surface-1: #061522;
-  --surface-2: #0b1d2d;
-  --surface-3: #10283b;
+  /* Surfaces — GitHub-inspired neutral dark system. */
+  --surface-0: #0d1117;
+  --surface-1: #161b22;
+  --surface-2: #21262d;
+  --surface-3: #30363d;
 
   /* Compatibilidade para componentes que ainda usam os aliases legados. */
   --surface-color: var(--surface-1);
   --surface-muted: var(--surface-2);
 
   /* Borders */
-  --border: #17334a;
-  --border-strong: #24506a;
+  --border: #30363d;
+  --border-strong: #484f58;
   --border-color: var(--border);
 
   /* Text */
-  --text: #e8f5fb;
-  --text-muted: #8ba6b7;
-  --text-dim: #7ea6b8;
+  --text: #f0f6fc;
+  --text-muted: #8b949e;
+  --text-dim: #7d8590;
   --text-color: var(--text);
   --text-secondary: var(--text-muted);
 
   /* Accents */
-  --accent: #32d6ee;
-  --accent-strong: #00b9d4;
-  --accent-soft: #07364a;
+  --accent: #2f81f7;
+  --accent-strong: #1f6feb;
+  --accent-soft: #0d2d56;
 
   /* Status pairs (fundo + texto) */
-  --success-surface: #073b32;
-  --success-text: #45e39b;
-  --warning-surface: #443b0a;
-  --warning-text: #f3c94f;
-  --danger-surface: #481d2b;
-  --danger-text: #ff7181;
-  --info-surface: #07364a;
-  --info-text: #5bdff1;
+  --success-surface: #0f3d26;
+  --success-text: #3fb950;
+  --warning-surface: #4b3200;
+  --warning-text: #d29922;
+  --danger-surface: #3d1719;
+  --danger-text: #f85149;
+  --info-surface: #0d2d56;
+  --info-text: #58a6ff;
 
   /* Tipografia */
   --font-family:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    'Noto Sans', sans-serif;
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
   --font-family-mono:
     'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   --font-family-code: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -69,7 +69,7 @@
   --focus-ring-offset: 2px;
 
   /* Overlay */
-  --overlay-backdrop: rgb(8 12 20 / 68%);
+  --overlay-backdrop: rgb(1 4 9 / 72%);
 
   /* Código e diff */
   --code-surface: var(--surface-0);
@@ -92,36 +92,40 @@
   /* Raios e sombras */
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 14px;
-  --shadow-1: 0 10px 30px rgb(0 0 0 / 24%);
-  --shadow-2: 0 24px 70px rgb(0 0 0 / 42%);
+  --radius-lg: 12px;
+  --shadow-1: 0 8px 24px rgb(1 4 9 / 24%);
+  --shadow-2: 0 20px 54px rgb(1 4 9 / 40%);
 }
 
 [data-theme='light'] {
   color-scheme: light;
 
-  --surface-0: #f5f8fa;
+  --surface-0: #f7f8fa;
   --surface-1: #ffffff;
-  --surface-2: #edf3f6;
-  --surface-3: #e0ebef;
+  --surface-2: #f6f8fa;
+  --surface-3: #eef1f4;
 
-  --border: #d4e1e7;
-  --border-strong: #aac5d0;
+  --border: #d8dee4;
+  --border-strong: #b8c1cc;
 
-  --text: #102332;
-  --text-muted: #5b7280;
-  --text-dim: #5f697d;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #6b7280;
 
-  --accent: #058ca4;
-  --accent-strong: #00758c;
-  --accent-soft: #d9f4f8;
+  --accent: #4f46e5;
+  --accent-strong: #4338ca;
+  --accent-soft: #eef2ff;
 
-  --success-surface: #dff4e9;
-  --success-text: #16734d;
-  --warning-surface: #fff4cc;
-  --warning-text: #8f6b06;
-  --danger-surface: #ffe1e5;
-  --danger-text: #a32d42;
-  --info-surface: #d9f4f8;
-  --info-text: #087b91;
+  --success-surface: #eaf8ef;
+  --success-text: #1a7f37;
+  --warning-surface: #fff8c5;
+  --warning-text: #9a6700;
+  --danger-surface: #ffebe9;
+  --danger-text: #cf222e;
+  --info-surface: #eef2ff;
+  --info-text: #4f46e5;
+
+  --overlay-backdrop: rgb(31 35 40 / 34%);
+  --shadow-1: 0 8px 24px rgb(140 149 159 / 16%);
+  --shadow-2: 0 20px 54px rgb(140 149 159 / 24%);
 }
