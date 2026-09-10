@@ -25,7 +25,6 @@ import Card from './Card.vue';
 import ProjectTestIntelligenceSummary from './ProjectTestIntelligenceSummary.vue';
 
 type TestsTab = 'execute' | 'history';
-
 type ExecutionTone = 'neutral' | 'running' | 'success' | 'danger';
 
 const props = defineProps<{ project: Project }>();
@@ -404,6 +403,7 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
             'tests-pty-state-running': isRunning,
             'tests-pty-state-success': !isRunning && snapshot?.exitCode === 0,
             'tests-pty-state-danger':
+              Boolean(snapshot) &&
               !isRunning &&
               snapshot?.exitCode !== null &&
               snapshot?.exitCode !== 0,
@@ -417,24 +417,20 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
     <section class="tests-overview" aria-label="Resumo dos testes">
       <article class="tests-overview-card">
         <span>Última execução</span>
-        <strong :class="`is-${latestExecution.tone}`">{{
-          latestExecution.label
-        }}</strong>
+        <strong :class="`is-${latestExecution.tone}`">
+          {{ latestExecution.label }}
+        </strong>
         <small>{{ latestExecution.detail }}</small>
       </article>
       <article class="tests-overview-card">
         <span>Histórico</span>
-        <strong>{{
-          loadingHistory && !history ? '…' : (history?.total ?? 0)
-        }}</strong>
+        <strong>{{ loadingHistory && !history ? '…' : (history?.total ?? 0) }}</strong>
         <small>execuções registradas</small>
       </article>
       <article class="tests-overview-card">
         <span>Tempo da última</span>
         <strong>{{ latestDuration }}</strong>
-        <small>{{
-          isRunning ? 'Execução em andamento' : 'Duração registrada'
-        }}</small>
+        <small>{{ isRunning ? 'Execução em andamento' : 'Duração registrada' }}</small>
       </article>
       <article class="tests-overview-card">
         <span>Variação de cobertura</span>
@@ -486,9 +482,9 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
               {{ command.label }}
             </option>
           </select>
-          <small>{{
-            selectedCommand?.description ?? 'Selecione um comando disponível.'
-          }}</small>
+          <small>
+            {{ selectedCommand?.description ?? 'Selecione um comando disponível.' }}
+          </small>
         </label>
 
         <div class="tests-control-field">
@@ -551,10 +547,10 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
 
       <div v-else class="tests-local-note">
         <strong>Os testes são executados localmente no projeto.</strong>
-        <span
-          >O dashboard utiliza o comando configurado acima e mantém a saída em
-          tempo real.</span
-        >
+        <span>
+          O dashboard utiliza o comando configurado acima e mantém a saída em
+          tempo real.
+        </span>
       </div>
     </section>
 
@@ -588,10 +584,7 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           :key="record.id"
           class="tests-history-row"
         >
-          <span
-            class="tests-history-status"
-            :class="`is-${recordTone(record)}`"
-          >
+          <span class="tests-history-status" :class="`is-${recordTone(record)}`">
             {{ recordStatusLabel(record) }}
           </span>
           <div class="tests-history-main">
@@ -607,9 +600,7 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           </div>
           <div class="tests-history-metric">
             <span>Saída</span>
-            <strong>{{
-              record.exitCode === undefined ? '—' : `exit ${record.exitCode}`
-            }}</strong>
+            <strong>{{ record.exitCode === undefined ? '—' : `exit ${record.exitCode}` }}</strong>
           </div>
         </article>
       </div>
