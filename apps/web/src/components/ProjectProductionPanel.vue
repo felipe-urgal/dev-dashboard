@@ -54,12 +54,7 @@ const props = withDefaults(defineProps<Props>(), { gitOverview: null });
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 type Operation =
-  | ''
-  | 'planning'
-  | 'starting'
-  | 'verifying'
-  | 'cancelling'
-  | 'refreshing';
+  '' | 'planning' | 'starting' | 'verifying' | 'cancelling' | 'refreshing';
 
 const TERMINAL_STATUSES = new Set<DeploymentStatus>([
   'succeeded',
@@ -167,14 +162,14 @@ const hasRetryableLatestVerifyTimeline = computed(() => {
   const verify = deployment.timeline[verifyIndex];
   return Boolean(
     verify &&
-      verifyIndex === deployment.timeline.length - 1 &&
-      !verify.mutating &&
-      !verify.irreversible &&
-      (verify.status === 'failed' || verify.status === 'cancelled') &&
-      mutationStepSucceeded(deployment) &&
-      deployment.timeline
-        .slice(0, verifyIndex)
-        .every((step) => step.status === 'succeeded'),
+    verifyIndex === deployment.timeline.length - 1 &&
+    !verify.mutating &&
+    !verify.irreversible &&
+    (verify.status === 'failed' || verify.status === 'cancelled') &&
+    mutationStepSucceeded(deployment) &&
+    deployment.timeline
+      .slice(0, verifyIndex)
+      .every((step) => step.status === 'succeeded'),
   );
 });
 
@@ -184,8 +179,8 @@ const latestVerifySnapshotIsCurrent = computed(() => {
   const deployment = latestDeployment.value;
   return Boolean(
     deployment &&
-      props.gitOverview?.branch === deployment.branch &&
-      localRevision.value === deployment.revision,
+    props.gitOverview?.branch === deployment.branch &&
+    localRevision.value === deployment.revision,
   );
 });
 const canRetryLatestVerify = computed(
@@ -197,9 +192,9 @@ const needsSudoAuthorization = computed(() => {
   const deployment = latestDeployment.value;
   return Boolean(
     isCommand.value &&
-      deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
-      (deployment.status === 'failed' || canRetryLatestVerify.value) &&
-      !sudoAuthorized.value,
+    deployment?.errorCode === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
+    (deployment.status === 'failed' || canRetryLatestVerify.value) &&
+    !sudoAuthorized.value,
   );
 });
 
@@ -257,7 +252,8 @@ const deploymentInspectorUrl = computed(
     '',
 );
 const visibleTimeline = computed(
-  () => latestDeployment.value?.timeline ?? providerStatus.value?.timeline ?? [],
+  () =>
+    latestDeployment.value?.timeline ?? providerStatus.value?.timeline ?? [],
 );
 const latestAuthor = computed(() => {
   const commit = props.gitOverview?.latestCommit;
@@ -281,218 +277,224 @@ function providerAvailabilityLabel(
   return labels[availability];
 }
 
-const statusView = computed((): {
-  title: string;
-  description: string;
-  label: string;
-  tone: Tone;
-  icon: typeof InformationCircleIcon;
-} => {
-  if (!hasProductionCapability.value) {
-    if (props.project.productionWarning) {
-      return {
-        title: 'Contrato de produção inválido',
-        description: props.project.productionWarning.message,
-        label: 'Bloqueado',
-        tone: 'danger',
-        icon: XCircleIcon,
-      };
-    }
-    return {
-      title: 'Produção não configurada',
-      description:
-        'Este projeto não possui um Production Contract válido e nenhuma ação de produção está disponível.',
-      label: 'Indisponível',
-      tone: 'neutral',
-      icon: InformationCircleIcon,
-    };
-  }
-
-  if (!production.value || !production.value.enabled) {
-    return {
-      title: 'Produção bloqueada por contrato',
-      description: production.value?.blockedBy?.length
-        ? `Bloqueadores: ${production.value.blockedBy.join(', ')}.`
-        : 'O contrato existe, mas mantém operações de produção desabilitadas.',
-      label: 'Bloqueada',
-      tone: 'warning',
-      icon: NoSymbolIcon,
-    };
-  }
-
-  const deployment = latestDeployment.value;
-  if (deployment && canExecuteDeployment.value) {
-    if (!TERMINAL_STATUSES.has(deployment.status)) {
-      return {
-        title: 'Deployment em execução',
-        description:
-          'Acompanhe as etapas reais da execução e o log do deployment abaixo.',
-        label: 'Executando',
-        tone: 'info',
-        icon: ClockIcon,
-      };
-    }
-    if (deployment.status === 'recovery_required') {
-      if (canRetryLatestVerify.value) {
+const statusView = computed(
+  (): {
+    title: string;
+    description: string;
+    label: string;
+    tone: Tone;
+    icon: typeof InformationCircleIcon;
+  } => {
+    if (!hasProductionCapability.value) {
+      if (props.project.productionWarning) {
         return {
-          title: 'Deploy concluído · verificação falhou',
-          description:
-            'A mutação terminou e somente o verify falhou. Você pode verificar novamente sem repetir a promoção.',
-          label: 'Verificar',
-          tone: 'warning',
-          icon: ExclamationTriangleIcon,
-        };
-      }
-      return {
-        title: 'Produção requer recuperação',
-        description:
-          'Uma etapa irreversível pode ter produzido efeito parcial. Revise timeline, log e política de rollback antes de repetir o deployment.',
-        label: 'Recuperação',
-        tone: 'danger',
-        icon: ShieldExclamationIcon,
-      };
-    }
-    if (deployment.status === 'failed') {
-      if (deployment.errorCode === 'DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE') {
-        return {
-          title: 'Banco de check indisponível',
-          description:
-            deployment.errorMessage ??
-            'O check não conseguiu acessar o banco configurado para o ambiente de check.',
-          label: 'Falhou',
+          title: 'Contrato de produção inválido',
+          description: props.project.productionWarning.message,
+          label: 'Bloqueado',
           tone: 'danger',
           icon: XCircleIcon,
         };
       }
       return {
-        title: 'Último deployment falhou',
+        title: 'Produção não configurada',
         description:
-          deployment.errorMessage ??
-          'Revise a execução antes de preparar um novo deployment.',
-        label: 'Falhou',
-        tone: 'danger',
-        icon: XCircleIcon,
-      };
-    }
-    if (deployment.status === 'cancelled') {
-      return {
-        title: 'Último deployment foi cancelado',
-        description:
-          'Nenhuma execução está ativa. Prepare um novo deployment quando quiser tentar novamente.',
-        label: 'Cancelado',
-        tone: 'neutral',
-        icon: StopIcon,
-      };
-    }
-    if (isCommand.value && commandDrift.value === 'drift') {
-      return {
-        title: 'Produção está em revision diferente',
-        description:
-          'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
-        label: 'Desatualizada',
-        tone: 'warning',
-        icon: ExclamationTriangleIcon,
-      };
-    }
-    if (isCommand.value) {
-      return {
-        title: 'Último deployment concluído',
-        description:
-          'A aplicação está em produção e o último deployment terminou com sucesso.',
-        label: 'Concluído',
-        tone: 'success',
-        icon: CheckCircleIcon,
-      };
-    }
-  }
-
-  if (isCommand.value) {
-    return {
-      title: 'Produção pronta para planejar',
-      description:
-        'Prepare um deployment para revisar revision e etapas antes de confirmar qualquer mutação.',
-      label: 'Pronta',
-      tone: 'info',
-      icon: InformationCircleIcon,
-    };
-  }
-
-  if (isGitManaged.value) {
-    const status = providerStatus.value;
-    if (!status) {
-      return {
-        title: 'Status externo ainda não disponível',
-        description: 'Atualize o snapshot para comparar origin e produção.',
-        label: 'Desconhecido',
+          'Este projeto não possui um Production Contract válido e nenhuma ação de produção está disponível.',
+        label: 'Indisponível',
         tone: 'neutral',
         icon: InformationCircleIcon,
       };
     }
-    if (status.providerAvailability !== 'available') {
+
+    if (!production.value || !production.value.enabled) {
       return {
-        title: 'Provider externo indisponível',
-        description:
-          status.errorMessage ??
-          providerAvailabilityLabel(status.providerAvailability),
-        label: providerAvailabilityLabel(status.providerAvailability),
-        tone: status.providerAvailability === 'auth-error' ? 'danger' : 'warning',
-        icon: ExclamationTriangleIcon,
-      };
-    }
-    if (['queued', 'building'].includes(status.deployment?.state ?? '')) {
-      return {
-        title: 'Deployment externo em andamento',
-        description: 'O provider está construindo ou promovendo a revision atual.',
-        label: 'Executando',
-        tone: 'info',
-        icon: ClockIcon,
-      };
-    }
-    if (status.deployment?.state === 'error') {
-      return {
-        title: 'Deployment externo falhou',
-        description: 'O provider informou erro no deployment atual.',
-        label: 'Falhou',
-        tone: 'danger',
-        icon: XCircleIcon,
-      };
-    }
-    if (status.drift === 'drift') {
-      return {
-        title: 'Produção está em revision diferente',
-        description:
-          'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
-        label: 'Desatualizada',
+        title: 'Produção bloqueada por contrato',
+        description: production.value?.blockedBy?.length
+          ? `Bloqueadores: ${production.value.blockedBy.join(', ')}.`
+          : 'O contrato existe, mas mantém operações de produção desabilitadas.',
+        label: 'Bloqueada',
         tone: 'warning',
-        icon: ExclamationTriangleIcon,
+        icon: NoSymbolIcon,
       };
     }
-    if (status.drift === 'in-sync' && status.deployment?.state === 'ready') {
+
+    const deployment = latestDeployment.value;
+    if (deployment && canExecuteDeployment.value) {
+      if (!TERMINAL_STATUSES.has(deployment.status)) {
+        return {
+          title: 'Deployment em execução',
+          description:
+            'Acompanhe as etapas reais da execução e o log do deployment abaixo.',
+          label: 'Executando',
+          tone: 'info',
+          icon: ClockIcon,
+        };
+      }
+      if (deployment.status === 'recovery_required') {
+        if (canRetryLatestVerify.value) {
+          return {
+            title: 'Deploy concluído · verificação falhou',
+            description:
+              'A mutação terminou e somente o verify falhou. Você pode verificar novamente sem repetir a promoção.',
+            label: 'Verificar',
+            tone: 'warning',
+            icon: ExclamationTriangleIcon,
+          };
+        }
+        return {
+          title: 'Produção requer recuperação',
+          description:
+            'Uma etapa irreversível pode ter produzido efeito parcial. Revise timeline, log e política de rollback antes de repetir o deployment.',
+          label: 'Recuperação',
+          tone: 'danger',
+          icon: ShieldExclamationIcon,
+        };
+      }
+      if (deployment.status === 'failed') {
+        if (deployment.errorCode === 'DEPLOYMENT_CHECK_DATABASE_UNAVAILABLE') {
+          return {
+            title: 'Banco de check indisponível',
+            description:
+              deployment.errorMessage ??
+              'O check não conseguiu acessar o banco configurado para o ambiente de check.',
+            label: 'Falhou',
+            tone: 'danger',
+            icon: XCircleIcon,
+          };
+        }
+        return {
+          title: 'Último deployment falhou',
+          description:
+            deployment.errorMessage ??
+            'Revise a execução antes de preparar um novo deployment.',
+          label: 'Falhou',
+          tone: 'danger',
+          icon: XCircleIcon,
+        };
+      }
+      if (deployment.status === 'cancelled') {
+        return {
+          title: 'Último deployment foi cancelado',
+          description:
+            'Nenhuma execução está ativa. Prepare um novo deployment quando quiser tentar novamente.',
+          label: 'Cancelado',
+          tone: 'neutral',
+          icon: StopIcon,
+        };
+      }
+      if (isCommand.value && commandDrift.value === 'drift') {
+        return {
+          title: 'Produção está em revision diferente',
+          description:
+            'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
+          label: 'Desatualizada',
+          tone: 'warning',
+          icon: ExclamationTriangleIcon,
+        };
+      }
+      if (isCommand.value) {
+        return {
+          title: 'Último deployment concluído',
+          description:
+            'A aplicação está em produção e o último deployment terminou com sucesso.',
+          label: 'Concluído',
+          tone: 'success',
+          icon: CheckCircleIcon,
+        };
+      }
+    }
+
+    if (isCommand.value) {
       return {
-        title: 'Produção alinhada com origin',
-        description: 'A revision coincide e o provider está READY.',
-        label: 'Atualizada',
-        tone: 'success',
-        icon: CheckCircleIcon,
+        title: 'Produção pronta para planejar',
+        description:
+          'Prepare um deployment para revisar revision e etapas antes de confirmar qualquer mutação.',
+        label: 'Pronta',
+        tone: 'info',
+        icon: InformationCircleIcon,
       };
     }
+
+    if (isGitManaged.value) {
+      const status = providerStatus.value;
+      if (!status) {
+        return {
+          title: 'Status externo ainda não disponível',
+          description: 'Atualize o snapshot para comparar origin e produção.',
+          label: 'Desconhecido',
+          tone: 'neutral',
+          icon: InformationCircleIcon,
+        };
+      }
+      if (status.providerAvailability !== 'available') {
+        return {
+          title: 'Provider externo indisponível',
+          description:
+            status.errorMessage ??
+            providerAvailabilityLabel(status.providerAvailability),
+          label: providerAvailabilityLabel(status.providerAvailability),
+          tone:
+            status.providerAvailability === 'auth-error' ? 'danger' : 'warning',
+          icon: ExclamationTriangleIcon,
+        };
+      }
+      if (['queued', 'building'].includes(status.deployment?.state ?? '')) {
+        return {
+          title: 'Deployment externo em andamento',
+          description:
+            'O provider está construindo ou promovendo a revision atual.',
+          label: 'Executando',
+          tone: 'info',
+          icon: ClockIcon,
+        };
+      }
+      if (status.deployment?.state === 'error') {
+        return {
+          title: 'Deployment externo falhou',
+          description: 'O provider informou erro no deployment atual.',
+          label: 'Falhou',
+          tone: 'danger',
+          icon: XCircleIcon,
+        };
+      }
+      if (status.drift === 'drift') {
+        return {
+          title: 'Produção está em revision diferente',
+          description:
+            'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
+          label: 'Desatualizada',
+          tone: 'warning',
+          icon: ExclamationTriangleIcon,
+        };
+      }
+      if (status.drift === 'in-sync' && status.deployment?.state === 'ready') {
+        return {
+          title: 'Produção alinhada com origin',
+          description: 'A revision coincide e o provider está READY.',
+          label: 'Atualizada',
+          tone: 'success',
+          icon: CheckCircleIcon,
+        };
+      }
+      return {
+        title: 'Produção pronta para planejar',
+        description:
+          'O provider está disponível para preparar um novo deployment.',
+        label: 'Pronta',
+        tone: 'info',
+        icon: InformationCircleIcon,
+      };
+    }
+
     return {
-      title: 'Produção pronta para planejar',
-      description: 'O provider está disponível para preparar um novo deployment.',
-      label: 'Pronta',
-      tone: 'info',
+      title: 'Estratégia de produção sem operação nesta tela',
+      description:
+        'O contrato foi reconhecido, mas não há ação compatível disponível.',
+      label: 'Indisponível',
+      tone: 'neutral',
       icon: InformationCircleIcon,
     };
-  }
-
-  return {
-    title: 'Estratégia de produção sem operação nesta tela',
-    description: 'O contrato foi reconhecido, mas não há ação compatível disponível.',
-    label: 'Indisponível',
-    tone: 'neutral',
-    icon: InformationCircleIcon,
-  };
-});
+  },
+);
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
@@ -631,7 +633,9 @@ function scheduleRelevantPoll(current: number): void {
   }
   if (
     isGitManaged.value &&
-    ['queued', 'building'].includes(providerStatus.value?.deployment?.state ?? '')
+    ['queued', 'building'].includes(
+      providerStatus.value?.deployment?.state ?? '',
+    )
   ) {
     schedulePoll(() => void pollProviderStatus(current), 3_000);
   }
@@ -926,7 +930,9 @@ onBeforeUnmount(() => {
         <span class="production-eyebrow">Produção</span>
         <div class="production-title-row">
           <h3 id="production-title">{{ statusView.title }}</h3>
-          <StatusBadge :tone="statusView.tone">{{ statusView.label }}</StatusBadge>
+          <StatusBadge :tone="statusView.tone">{{
+            statusView.label
+          }}</StatusBadge>
         </div>
         <p>{{ statusView.description }}</p>
       </div>
@@ -964,7 +970,10 @@ onBeforeUnmount(() => {
           <div>
             <span class="production-eyebrow">Preparar deployment</span>
             <h4>Preparar novo deployment</h4>
-            <p>Selecione o alvo confirmado pelo contrato antes de revisar o plano.</p>
+            <p>
+              Selecione o alvo confirmado pelo contrato antes de revisar o
+              plano.
+            </p>
           </div>
           <button
             v-if="isGitManaged"
@@ -1020,15 +1029,20 @@ onBeforeUnmount(() => {
               :class="{ 'production-spin': operation === 'verifying' }"
               aria-hidden="true"
             />
-            {{ operation === 'verifying' ? 'Verificando' : 'Verificar novamente' }}
+            {{
+              operation === 'verifying' ? 'Verificando' : 'Verificar novamente'
+            }}
           </button>
           <button
             v-if="!hasActiveDeployment && !canRetryLatestVerify"
-            :class="needsSudoAuthorization ? 'secondary-button' : 'primary-button'"
+            :class="
+              needsSudoAuthorization ? 'secondary-button' : 'primary-button'
+            "
             type="button"
             :disabled="
               Boolean(operation) ||
-              (isGitManaged && providerStatus?.providerAvailability !== 'available')
+              (isGitManaged &&
+                providerStatus?.providerAvailability !== 'available')
             "
             @click="preparePlan"
           >
@@ -1054,7 +1068,9 @@ onBeforeUnmount(() => {
             @click="cancelActiveDeployment"
           >
             <StopIcon aria-hidden="true" />
-            {{ operation === 'cancelling' ? 'Cancelando' : 'Cancelar deployment' }}
+            {{
+              operation === 'cancelling' ? 'Cancelando' : 'Cancelar deployment'
+            }}
           </button>
           <a
             v-if="productionUrl"
@@ -1073,7 +1089,9 @@ onBeforeUnmount(() => {
         <header>
           <div>
             <span class="production-eyebrow">Confirmação</span>
-            <h4 ref="planHeading" tabindex="-1">Revise o plano antes de executar</h4>
+            <h4 ref="planHeading" tabindex="-1">
+              Revise o plano antes de executar
+            </h4>
           </div>
           <StatusBadge tone="warning">Ação de produção</StatusBadge>
         </header>
@@ -1086,7 +1104,9 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <span>Revision alvo</span>
-            <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
+            <code :title="plan.revision">{{
+              shortRevision(plan.revision)
+            }}</code>
           </div>
         </div>
         <ol class="production-timeline production-plan-steps">
@@ -1097,17 +1117,23 @@ onBeforeUnmount(() => {
               <code>{{ stepScript(step) }}</code>
             </div>
             <div class="production-step-flags">
-              <StatusBadge v-if="step.mutating" tone="warning">Muda estado</StatusBadge>
-              <StatusBadge v-if="step.irreversible" tone="danger">Irreversível</StatusBadge>
-              <StatusBadge v-if="!step.mutating" tone="neutral">Leitura/validação</StatusBadge>
+              <StatusBadge v-if="step.mutating" tone="warning"
+                >Muda estado</StatusBadge
+              >
+              <StatusBadge v-if="step.irreversible" tone="danger"
+                >Irreversível</StatusBadge
+              >
+              <StatusBadge v-if="!step.mutating" tone="neutral"
+                >Leitura/validação</StatusBadge
+              >
             </div>
           </li>
         </ol>
         <div class="production-plan-warning">
           <ShieldExclamationIcon aria-hidden="true" />
           <p>
-            A confirmação fica vinculada a este projeto, revision e planHash. Se branch,
-            working tree ou revision mudar, o backend recusa a execução.
+            A confirmação fica vinculada a este projeto, revision e planHash. Se
+            branch, working tree ou revision mudar, o backend recusa a execução.
           </p>
         </div>
         <footer class="production-plan-actions">
@@ -1156,7 +1182,9 @@ onBeforeUnmount(() => {
         <div class="production-latest-grid">
           <div>
             <span>Commit</span>
-            <code :title="latestDeployment.revision">{{ shortRevision(latestDeployment.revision) }}</code>
+            <code :title="latestDeployment.revision">{{
+              shortRevision(latestDeployment.revision)
+            }}</code>
           </div>
           <div>
             <span>Autor</span>
@@ -1164,7 +1192,11 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <span>Data e hora</span>
-            <strong>{{ formatDate(latestDeployment.startedAt ?? latestDeployment.createdAt) }}</strong>
+            <strong>{{
+              formatDate(
+                latestDeployment.startedAt ?? latestDeployment.createdAt,
+              )
+            }}</strong>
           </div>
           <div>
             <span>Duração</span>
@@ -1187,7 +1219,11 @@ onBeforeUnmount(() => {
             <StatusBadge :tone="deploymentTone(latestDeployment.status)">
               {{ deploymentStatusLabel(latestDeployment.status) }}
             </StatusBadge>
-            <span>{{ formatDate(latestDeployment.startedAt ?? latestDeployment.createdAt) }}</span>
+            <span>{{
+              formatDate(
+                latestDeployment.startedAt ?? latestDeployment.createdAt,
+              )
+            }}</span>
           </div>
         </header>
         <ol class="production-timeline production-timeline-horizontal">
@@ -1211,18 +1247,27 @@ onBeforeUnmount(() => {
           <ShieldExclamationIcon aria-hidden="true" />
           <div v-if="canRetryLatestVerify">
             <strong>O deploy terminou; não repita a mutação</strong>
-            <p>Use “Verificar novamente” para repetir apenas a validação de leitura.</p>
+            <p>
+              Use “Verificar novamente” para repetir apenas a validação de
+              leitura.
+            </p>
           </div>
           <div v-else>
             <strong>Não faça rollback cego</strong>
-            <p>Confira log, schema, backup e a política do projeto antes de qualquer recuperação manual.</p>
+            <p>
+              Confira log, schema, backup e a política do projeto antes de
+              qualquer recuperação manual.
+            </p>
           </div>
         </div>
         <DeploymentLogViewer
           v-if="latestDeployment && deploymentLog"
           :log="deploymentLog"
           :active="hasActiveDeployment"
-          :open="hasActiveDeployment || latestDeployment.status === 'recovery_required'"
+          :open="
+            hasActiveDeployment ||
+            latestDeployment.status === 'recovery_required'
+          "
         />
       </article>
 
@@ -1237,7 +1282,11 @@ onBeforeUnmount(() => {
             <p>Últimos deployments registrados em produção.</p>
           </div>
         </header>
-        <div class="production-history-table" role="table" aria-label="Execuções recentes">
+        <div
+          class="production-history-table"
+          role="table"
+          aria-label="Execuções recentes"
+        >
           <div class="production-history-head" role="row">
             <span role="columnheader">Commit</span>
             <span role="columnheader">Data e hora</span>
@@ -1245,9 +1294,18 @@ onBeforeUnmount(() => {
             <span role="columnheader">Duração</span>
             <span role="columnheader">Status</span>
           </div>
-          <div v-for="item in history" :key="item.id" class="production-history-row" role="row">
-            <code role="cell" :title="item.revision">{{ shortRevision(item.revision) }}</code>
-            <span role="cell">{{ formatDate(item.startedAt ?? item.createdAt) }}</span>
+          <div
+            v-for="item in history"
+            :key="item.id"
+            class="production-history-row"
+            role="row"
+          >
+            <code role="cell" :title="item.revision">{{
+              shortRevision(item.revision)
+            }}</code>
+            <span role="cell">{{
+              formatDate(item.startedAt ?? item.createdAt)
+            }}</span>
             <span role="cell">{{ authorFor(item) }}</span>
             <span role="cell">{{ formatDuration(item) }}</span>
             <span role="cell">
@@ -1264,15 +1322,21 @@ onBeforeUnmount(() => {
         <div class="production-technical-grid">
           <div>
             <span>Local</span>
-            <code :title="localRevision">{{ shortRevision(localRevision) }}</code>
+            <code :title="localRevision">{{
+              shortRevision(localRevision)
+            }}</code>
           </div>
           <div>
             <span>origin/{{ branch }}</span>
-            <code :title="originRevision">{{ shortRevision(originRevision) }}</code>
+            <code :title="originRevision">{{
+              shortRevision(originRevision)
+            }}</code>
           </div>
           <div>
             <span>Produção</span>
-            <code :title="productionRevision">{{ shortRevision(productionRevision) }}</code>
+            <code :title="productionRevision">{{
+              shortRevision(productionRevision)
+            }}</code>
           </div>
           <div>
             <span>Estratégia</span>
@@ -1287,13 +1351,25 @@ onBeforeUnmount(() => {
             <code>{{ production.health.url }}</code>
           </div>
         </div>
-        <div v-if="isGitManaged && providerStatus" class="production-provider-detail">
+        <div
+          v-if="isGitManaged && providerStatus"
+          class="production-provider-detail"
+        >
           <div>
-            <strong>{{ providerStatus.providerProjectName ?? providerStatus.externalProject }}</strong>
+            <strong>{{
+              providerStatus.providerProjectName ??
+              providerStatus.externalProject
+            }}</strong>
             <StatusBadge
-              :tone="providerStatus.providerAvailability === 'available' ? 'success' : 'warning'"
+              :tone="
+                providerStatus.providerAvailability === 'available'
+                  ? 'success'
+                  : 'warning'
+              "
             >
-              {{ providerAvailabilityLabel(providerStatus.providerAvailability) }}
+              {{
+                providerAvailabilityLabel(providerStatus.providerAvailability)
+              }}
             </StatusBadge>
           </div>
           <a
@@ -1304,7 +1380,10 @@ onBeforeUnmount(() => {
           >
             Abrir deployment <ArrowTopRightOnSquareIcon aria-hidden="true" />
           </a>
-          <div v-if="providerStatus.localOperations.length" class="production-local-operations">
+          <div
+            v-if="providerStatus.localOperations.length"
+            class="production-local-operations"
+          >
             <span>Operações locais declaradas</span>
             <div>
               <code v-for="item in providerStatus.localOperations" :key="item">
