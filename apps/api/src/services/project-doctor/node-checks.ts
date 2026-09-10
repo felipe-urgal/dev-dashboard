@@ -366,9 +366,9 @@ export async function checkNodePackageManager(
         id: 'node-package-manager',
         category: 'dependencies',
         label: 'Gerenciador Node',
-        status: 'failed',
-        summary: `${manager} ${version} não atende ${declared.source}=${manager}@${declared.version}.`,
-        recommendation: `Use ${manager} ${declared.version} ou alinhe a declaração versionada do projeto.`,
+        status: 'warning',
+        summary: `${manager} ${version} difere da versão declarada pelo projeto: ${manager} ${declared.version}.`,
+        recommendation: `Use ${manager} ${declared.version} ou atualize ${declared.source} se ${manager} ${version} for intencional.`,
         action: { label: 'Abrir dependências', target: 'dependencies' },
       });
     }
