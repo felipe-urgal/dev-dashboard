@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject } from 'vue';
+import { inject, ref, watch } from 'vue';
 import { routeLocationKey } from 'vue-router';
 
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
@@ -66,6 +66,34 @@ const {
   currentBranchOrHead,
   runCommit,
 } = useProjectGitPanelPolicy(props, route, emit);
+
+const lastMainSynchronizationAt = ref<string | null>(null);
+const lastMainSynchronizationMessage = ref('');
+const lastMainSynchronizationError = ref('');
+
+async function handleMainSynchronization(): Promise<void> {
+  lastMainSynchronizationMessage.value = '';
+  lastMainSynchronizationError.value = '';
+
+  await runMainSynchronization();
+
+  lastMainSynchronizationMessage.value = mutationMessage.value;
+  lastMainSynchronizationError.value = mutationErrorMessage.value;
+  if (mutationMessage.value && !mutationErrorMessage.value) {
+    lastMainSynchronizationAt.value = new Date().toISOString();
+  }
+}
+
+function clearMainSynchronizationConsole(): void {
+  lastMainSynchronizationAt.value = null;
+  lastMainSynchronizationMessage.value = '';
+  lastMainSynchronizationError.value = '';
+}
+
+watch(
+  () => props.project.id,
+  () => clearMainSynchronizationConsole(),
+);
 </script>
 
 <template src="./ProjectGitPanel.template.html"></template>
