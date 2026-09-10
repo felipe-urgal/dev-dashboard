@@ -32,6 +32,7 @@ vi.mock('../src/composables/useProjectProcessStatus', () => ({
       supportsServer: computed(() => true),
       processStatus,
       canStop: computed(() => false),
+      hasManagedProcess: computed(() => false),
       statusLabel: computed(() => 'Parado'),
       scheduleProcessPolling: vi.fn(),
     };
@@ -97,12 +98,28 @@ describe('ambiente do servidor Node', () => {
     confirmDialog.mockResolvedValue(true);
   });
 
+  it('renderiza a composição terminal-first aprovada', async () => {
+    const wrapper = mount(ProjectServerPanel, {
+      props: { project },
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.server-overview').exists()).toBe(true);
+    expect(wrapper.findAll('.server-overview-card')).toHaveLength(4);
+    expect(wrapper.find('.server-config-card').exists()).toBe(true);
+    expect(wrapper.find('.server-console-card').exists()).toBe(true);
+    expect(wrapper.find('.server-console-terminal').exists()).toBe(true);
+    expect(wrapper.find('.server-support-grid').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Pronto para iniciar');
+
+    wrapper.unmount();
+  });
+
   it('seleciona um .env conhecido, confirma o uso e persiste antes do start', async () => {
     const wrapper = mount(ProjectServerPanel, {
       props: { project },
     });
     await flushPromises();
-    await wrapper.get('.server-settings-toggle').trigger('click');
 
     const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
     expect(select.element.value).toBe('staging');
@@ -137,7 +154,6 @@ describe('ambiente do servidor Node', () => {
       props: { project },
     });
     await flushPromises();
-    await wrapper.get('.server-settings-toggle').trigger('click');
 
     const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
     const defaultOption = select.find('option[value=""]');

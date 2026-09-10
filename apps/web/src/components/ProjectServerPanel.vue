@@ -5,6 +5,7 @@ import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
   BoltIcon,
+  ClipboardDocumentIcon,
   CommandLineIcon,
   GlobeAltIcon,
   PlayIcon,
@@ -43,10 +44,11 @@ const {
   processStatus,
   canStop,
   hasManagedProcess,
+  statusLabel,
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
 
-const { commandLabel, startedAtLabel, uptimeLabel } = useProjectServerMetrics(
+const { commandLabel } = useProjectServerMetrics(
   () => props.project,
   managedProcess,
   processStatus,
@@ -71,10 +73,11 @@ const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
-const settingsOpen = ref(false);
+const localUrlCopied = ref(false);
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
+useAutoDismiss(localUrlCopied, false);
 
 const projectRequests = new RequestGeneration();
 let hasObservedRunning = false;
@@ -88,6 +91,24 @@ const environmentDisplayLabel = computed(() => {
     ? `.env.${selectedEnvironment.value}`
     : 'Padrão (.env / .env.local)';
 });
+
+const environmentSummaryLabel = computed(() => {
+  if (props.project.type === 'rails') return 'development';
+  return selectedEnvironment.value
+    ? `.env.${selectedEnvironment.value}`
+    : '.env / .env.local';
+});
+
+const portDisplayLabel = computed(() => {
+  const port = managedProcess.value?.port ?? selectedPort.value;
+  return port ? String(port) : 'Automática';
+});
+
+const portDescription = computed(() =>
+  portDisplayLabel.value === 'Automática'
+    ? 'A aplicação será executada na porta disponível.'
+    : 'Porta definida para esta aplicação.',
+);
 
 async function confirmEnvironmentReplacement(
   action: 'iniciar' | 'reiniciar',
@@ -117,33 +138,16 @@ const processUrls = computed<string[]>(() => {
 
 const primaryProcessUrl = computed(() => processUrls.value[0] ?? '');
 
-const ipProcessUrl = computed(() => {
-  const additionalUrl = processUrls.value.slice(1).find((url) => {
-    try {
-      const hostname = new URL(url).hostname;
-      return hostname !== 'localhost' && hostname !== '127.0.0.1';
-    } catch {
-      return false;
-    }
-  });
+const localAccessUrl = computed(() => {
+  if (primaryProcessUrl.value) return primaryProcessUrl.value;
 
-  if (additionalUrl) return additionalUrl;
-
-  const host = managedProcess.value?.host;
-  const port = managedProcess.value?.port;
-  if (
-    host &&
-    port &&
-    host !== 'localhost' &&
-    host !== '127.0.0.1' &&
-    host !== '0.0.0.0' &&
-    host !== '::'
-  ) {
-    return `http://${host}:${port}`;
-  }
-
-  return '';
+  const configuredPort = selectedPort.value;
+  return configuredPort ? `http://localhost:${configuredPort}` : '';
 });
+
+const localAccessLabel = computed(
+  () => localAccessUrl.value || 'Disponível após iniciar',
+);
 
 const statusDescription = computed(() => {
   if (!supportsServer.value)
@@ -163,6 +167,41 @@ const statusDescription = computed(() => {
     default:
       return 'Servidor pronto para ser iniciado.';
   }
+});
+
+const consoleTitle = computed(() => {
+  switch (processStatus.value) {
+    case 'starting':
+      return 'Iniciando servidor';
+    case 'running':
+      return 'Servidor em execução';
+    case 'stopping':
+      return 'Encerrando servidor';
+    case 'failed':
+      return 'Pronto para tentar novamente';
+    default:
+      return 'Pronto para iniciar';
+  }
+});
+
+const consoleDescription = computed(() => {
+  if (processStatus.value === 'running') {
+    return 'A aplicação está rodando. Acompanhe a saída do servidor em tempo real no terminal.';
+  }
+
+  if (processStatus.value === 'starting') {
+    return 'O processo está sendo iniciado. Os logs serão atualizados conforme a execução avançar.';
+  }
+
+  if (processStatus.value === 'stopping') {
+    return 'Aguarde enquanto o processo é encerrado com segurança.';
+  }
+
+  if (processStatus.value === 'failed') {
+    return 'Revise os logs abaixo e inicie novamente quando estiver pronto.';
+  }
+
+  return 'Clique no botão abaixo para iniciar o servidor e ver os logs em tempo real no terminal.';
 });
 
 function isCurrentProject(projectId: string, generation: number): boolean {
@@ -351,6 +390,21 @@ async function handleRestart(): Promise<void> {
   }
 }
 
+async function copyLocalUrl(): Promise<void> {
+  if (!localAccessUrl.value || !navigator.clipboard) return;
+
+  try {
+    await navigator.clipboard.writeText(localAccessUrl.value);
+    localUrlCopied.value = true;
+  } catch {
+    localUrlCopied.value = false;
+  }
+}
+
+function focusLogs(): void {
+  logContainer.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function resetPanelState(): void {
   projectRequests.invalidate();
 
@@ -361,6 +415,7 @@ function resetPanelState(): void {
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
+  localUrlCopied.value = false;
 }
 
 async function initializeProject(): Promise<void> {
@@ -410,10 +465,3 @@ onBeforeUnmount(() => {
 <template src="./ProjectServerPanel.template.html"></template>
 
 <style scoped src="./ProjectServerPanel.css"></style>
-
-<style scoped>
-.server-log-panel-persistent {
-  width: 100%;
-  margin: 16px 0 0;
-}
-</style>
