@@ -4,11 +4,11 @@
  * Controls, status pills and semantic icons keep their compact rounded treatment.
  */
 
-.production-panel.production-panel {
+.production-panel.production-panel.production-panel {
   gap: 0;
 }
 
-.production-panel .production-card {
+.production-panel.production-panel .production-card {
   overflow: visible;
   border: 0;
   border-top: 1px solid var(--border);
@@ -16,51 +16,51 @@
   background: transparent;
 }
 
-.production-panel .production-overview {
+.production-panel.production-panel .production-overview {
   border-top: 0;
 }
 
-.production-panel .production-plan {
+.production-panel.production-panel .production-plan {
   border-top-color: color-mix(in srgb, var(--warning-text) 28%, var(--border));
 }
 
-.production-panel .production-alert,
-.production-panel .production-loading {
+.production-panel.production-panel .production-alert,
+.production-panel.production-panel .production-loading {
   border-radius: 0;
 }
 
-.production-panel .production-plan-target,
-.production-panel .production-latest-grid,
-.production-panel .production-technical-grid {
+.production-panel.production-panel .production-plan-target,
+.production-panel.production-panel .production-latest-grid,
+.production-panel.production-panel .production-technical-grid {
   gap: 0;
 }
 
-.production-panel .production-plan-target > div,
-.production-panel .production-latest-grid > div,
-.production-panel .production-technical-grid > div {
+.production-panel.production-panel .production-plan-target > div,
+.production-panel.production-panel .production-latest-grid > div,
+.production-panel.production-panel .production-technical-grid > div {
   border: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.production-panel .production-plan-target > div + div,
-.production-panel .production-latest-grid > div + div,
-.production-panel .production-technical-grid > div + div {
+.production-panel.production-panel .production-plan-target > div + div,
+.production-panel.production-panel .production-latest-grid > div + div,
+.production-panel.production-panel .production-technical-grid > div + div {
   border-left: 1px solid var(--border);
 }
 
-.production-panel .production-plan-warning,
-.production-panel .production-recovery {
+.production-panel.production-panel .production-plan-warning,
+.production-panel.production-panel .production-recovery {
   border: 0;
   border-left: 3px solid var(--warning-text);
   border-radius: 0;
 }
 
-.production-panel .production-recovery {
+.production-panel.production-panel .production-recovery {
   border-left-color: var(--danger-text);
 }
 
-.production-panel .production-history-table {
+.production-panel.production-panel .production-history-table {
   border: 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -68,7 +68,7 @@
 }
 
 /* Self-update follows the same flat structural hierarchy. */
-.self-update-panel.self-update-panel {
+.self-update-panel.self-update-panel.self-update-panel {
   gap: 0;
 }
 
@@ -171,9 +171,9 @@
 }
 
 @media (max-width: 600px) {
-  .production-panel .production-plan-target > div + div,
-  .production-panel .production-latest-grid > div + div,
-  .production-panel .production-technical-grid > div + div {
+  .production-panel.production-panel .production-plan-target > div + div,
+  .production-panel.production-panel .production-latest-grid > div + div,
+  .production-panel.production-panel .production-technical-grid > div + div {
     border-top: 1px solid var(--border);
     border-left: 0;
   }
