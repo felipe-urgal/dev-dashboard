@@ -261,7 +261,11 @@ async function undoFile(filePath: string): Promise<void> {
     </div>
 
     <section class="git-undo-card">
-      <div class="git-undo-mode" role="tablist" aria-label="Opções para desfazer">
+      <div
+        class="git-undo-mode"
+        role="tablist"
+        aria-label="Opções para desfazer"
+      >
         <button
           type="button"
           role="tab"
@@ -321,11 +325,17 @@ async function undoFile(filePath: string): Promise<void> {
         </article>
         <div v-else class="git-undo-empty">Nenhum commit disponível.</div>
 
-        <p v-if="overview.latestCommit && !overview.clean" class="git-undo-note">
+        <p
+          v-if="overview.latestCommit && !overview.clean"
+          class="git-undo-note"
+        >
           Registre ou desfaça as alterações atuais antes de desfazer o commit.
         </p>
 
-        <section class="git-undo-history" aria-labelledby="git-undo-history-title">
+        <section
+          class="git-undo-history"
+          aria-labelledby="git-undo-history-title"
+        >
           <header>
             <div>
               <h3 id="git-undo-history-title">Contexto recente</h3>
@@ -344,7 +354,10 @@ async function undoFile(filePath: string): Promise<void> {
             </label>
           </header>
 
-          <div v-if="filteredRecentCommits.length" class="git-undo-history-table">
+          <div
+            v-if="filteredRecentCommits.length"
+            class="git-undo-history-table"
+          >
             <div class="git-undo-history-head" aria-hidden="true">
               <span>Hash</span>
               <span>Mensagem</span>
@@ -364,7 +377,10 @@ async function undoFile(filePath: string): Promise<void> {
               <time :datetime="commit.authoredAt">
                 {{ formatCommitDate(commit.authoredAt) }}
               </time>
-              <span v-if="isLatestCommit(commit.hash)" class="git-undo-latest-badge">
+              <span
+                v-if="isLatestCommit(commit.hash)"
+                class="git-undo-latest-badge"
+              >
                 Último commit
               </span>
               <small v-else>Somente histórico</small>
@@ -378,8 +394,8 @@ async function undoFile(filePath: string): Promise<void> {
         <aside class="git-undo-guidance">
           <strong>O que acontece?</strong>
           <p v-if="publishedLatestCommit">
-            Reverter um commit publicado cria um novo commit inverso. O histórico
-            existente não é reescrito.
+            Reverter um commit publicado cria um novo commit inverso. O
+            histórico existente não é reescrito.
           </p>
           <p v-else>
             Desfazer um commit local remove o commit da branch e mantém as
@@ -766,7 +782,10 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-history-head,
 .git-undo-history-row {
   display: grid;
-  grid-template-columns: 110px minmax(220px, 2fr) minmax(130px, 1fr) 130px 130px;
+  grid-template-columns: 110px minmax(220px, 2fr) minmax(
+      130px,
+      1fr
+    ) 130px 130px;
   min-width: 760px;
   align-items: center;
   gap: 12px;
