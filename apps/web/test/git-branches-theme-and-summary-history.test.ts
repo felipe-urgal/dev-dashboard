@@ -13,7 +13,7 @@ test('a página Vue de branches usa os tokens dos temas claro e escuro', async (
   assert.match(css, /background:\s*var\(--surface-1\)/);
   assert.match(css, /background:\s*var\(--surface-2\)/);
   assert.match(css, /color:\s*var\(--text\)/);
-  assert.match(css, /branch-state\.is-remote[\s\S]*var\(--warning-text\)/);
+  assert.match(css, /branch-state\.is-remote[\s\S]*var\(--accent\)/);
   assert.match(css, /branch-delete-form[\s\S]*var\(--danger-surface\)/);
 });
 
