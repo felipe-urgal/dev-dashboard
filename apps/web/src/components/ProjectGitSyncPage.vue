@@ -205,10 +205,7 @@ const buttonLabel = computed(() =>
 
 const buttonDisabled = computed(
   () =>
-    props.busy ||
-    props.checking ||
-    !props.overview.clean ||
-    !available.value,
+    props.busy || props.checking || !props.overview.clean || !available.value,
 );
 
 const currentBranchButtonDisabled = computed(
@@ -254,11 +251,12 @@ const consoleSteps = computed(() => [
 
 const consoleResult = computed(() => {
   if (props.checking) return 'Verificando as referências remotas…';
-  if (props.busy)
-    return 'Executando o fluxo de sincronização no repositório…';
+  if (props.busy) return 'Executando o fluxo de sincronização no repositório…';
   if (props.synchronizationError) return props.synchronizationError;
   if (props.lastSynchronizationAt) {
-    return props.synchronizationMessage || 'Sincronização concluída com sucesso.';
+    return (
+      props.synchronizationMessage || 'Sincronização concluída com sucesso.'
+    );
   }
   if (synchronized.value) {
     return `Estado atual verificado: main alinhada com ${syncReference.value} e origin/main.`;
@@ -286,15 +284,14 @@ function statusIcon(tone: string) {
         <div>
           <span>Branch atual</span>
           <strong>{{ currentBranchName }}</strong>
-          <small>{{ currentBranchUpstream ?? 'Sem upstream configurado' }}</small>
+          <small>{{
+            currentBranchUpstream ?? 'Sem upstream configurado'
+          }}</small>
         </div>
       </article>
 
       <article class="git-sync-summary-card">
-        <span
-          class="git-sync-summary-icon"
-          :class="`is-${status.tone}`"
-        >
+        <span class="git-sync-summary-icon" :class="`is-${status.tone}`">
           <component :is="statusIcon(status.tone)" aria-hidden="true" />
         </span>
         <div>
@@ -318,13 +315,19 @@ function statusIcon(tone: string) {
       </article>
     </section>
 
-    <section class="git-sync-console-card" aria-labelledby="git-sync-console-title">
+    <section
+      class="git-sync-console-card"
+      aria-labelledby="git-sync-console-title"
+    >
       <header class="git-sync-console-header">
         <div class="git-sync-console-title">
           <CommandLineIcon aria-hidden="true" />
           <div>
             <h2 id="git-sync-console-title">Console de sincronização</h2>
-            <p>Atualiza a main a partir do repositório principal e publica em origin.</p>
+            <p>
+              Atualiza a main a partir do repositório principal e publica em
+              origin.
+            </p>
           </div>
         </div>
 
@@ -340,7 +343,11 @@ function statusIcon(tone: string) {
           <button
             type="button"
             class="git-sync-console-clear"
-            :disabled="busy || checking || (!lastSynchronizationAt && !synchronizationError)"
+            :disabled="
+              busy ||
+              checking ||
+              (!lastSynchronizationAt && !synchronizationError)
+            "
             @click="emit('clear-console')"
           >
             Limpar
@@ -365,7 +372,8 @@ function statusIcon(tone: string) {
             v-for="step in consoleSteps"
             :key="step"
             :class="{
-              'is-complete': Boolean(lastSynchronizationAt) && !synchronizationError,
+              'is-complete':
+                Boolean(lastSynchronizationAt) && !synchronizationError,
               'is-running': busy,
             }"
           >
@@ -377,13 +385,17 @@ function statusIcon(tone: string) {
         <p
           class="git-sync-terminal-result"
           :class="{
-            'is-success': Boolean(lastSynchronizationAt) && !synchronizationError,
+            'is-success':
+              Boolean(lastSynchronizationAt) && !synchronizationError,
             'is-error': Boolean(synchronizationError),
             'is-running': busy || checking,
           }"
         >
           <ArrowPathIcon v-if="busy || checking" aria-hidden="true" />
-          <ExclamationTriangleIcon v-else-if="synchronizationError" aria-hidden="true" />
+          <ExclamationTriangleIcon
+            v-else-if="synchronizationError"
+            aria-hidden="true"
+          />
           <CheckCircleIcon v-else aria-hidden="true" />
           {{ consoleResult }}
         </p>
@@ -478,7 +490,10 @@ function statusIcon(tone: string) {
     </section>
 
     <div class="git-sync-support-grid">
-      <section class="git-sync-support-card" aria-labelledby="git-sync-next-title">
+      <section
+        class="git-sync-support-card"
+        aria-labelledby="git-sync-next-title"
+      >
         <header>
           <CheckCircleIcon aria-hidden="true" />
           <div>
@@ -490,7 +505,9 @@ function statusIcon(tone: string) {
         <ul>
           <li :class="{ 'is-ready': overview.clean }">
             <i aria-hidden="true"></i>
-            <span>Manter a árvore de trabalho limpa antes da sincronização</span>
+            <span
+              >Manter a árvore de trabalho limpa antes da sincronização</span
+            >
           </li>
           <li :class="{ 'is-ready': synchronized }">
             <i aria-hidden="true"></i>
@@ -503,7 +520,10 @@ function statusIcon(tone: string) {
         </ul>
       </section>
 
-      <section class="git-sync-support-card git-sync-tip-card" aria-labelledby="git-sync-tip-title">
+      <section
+        class="git-sync-support-card git-sync-tip-card"
+        aria-labelledby="git-sync-tip-title"
+      >
         <header>
           <InformationCircleIcon aria-hidden="true" />
           <div>
@@ -513,13 +533,14 @@ function statusIcon(tone: string) {
         </header>
 
         <p v-if="hasUpstreamRemote">
-          O remote <strong>upstream</strong> está configurado. A sincronização busca
-          <code>upstream/main</code>, integra na sua <code>main</code> e publica o resultado em
-          <code>origin/main</code>.
+          O remote <strong>upstream</strong> está configurado. A sincronização
+          busca <code>upstream/main</code>, integra na sua <code>main</code> e
+          publica o resultado em <code>origin/main</code>.
         </p>
         <p v-else>
-          Sem <strong>upstream</strong>, a sincronização usa <code>origin/main</code> como fonte e
-          mantém sua <code>main</code> alinhada com o origin.
+          Sem <strong>upstream</strong>, a sincronização usa
+          <code>origin/main</code> como fonte e mantém sua
+          <code>main</code> alinhada com o origin.
         </p>
       </section>
     </div>

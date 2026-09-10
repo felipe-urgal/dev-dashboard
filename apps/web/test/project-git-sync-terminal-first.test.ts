@@ -127,7 +127,10 @@ test('mostra conclusão da sincronização sem inventar horário ou saída de te
     wrapper.find('.git-sync-terminal-result').text(),
     /Main e origin\/main já estavam sincronizadas/,
   );
-  assert.equal(wrapper.findAll('.git-sync-terminal-steps .is-complete').length, 4);
+  assert.equal(
+    wrapper.findAll('.git-sync-terminal-steps .is-complete').length,
+    4,
+  );
 });
 
 test('usa origin como fonte quando upstream não está configurado', () => {
