@@ -137,9 +137,9 @@
   grid-template-areas:
     'config console'
     'config support';
-  grid-template-columns: minmax(270px, 0.34fr) minmax(0, 1fr);
+  grid-template-columns: minmax(270px, 0.324fr) minmax(0, 1fr);
   align-items: stretch;
-  gap: 14px;
+  gap: 12px;
 }
 
 .server-config-card,
