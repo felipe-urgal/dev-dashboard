@@ -13,7 +13,7 @@ test('a página Vue de branches usa os tokens dos temas claro e escuro', async (
   assert.match(css, /background:\s*var\(--surface-1\)/);
   assert.match(css, /background:\s*var\(--surface-2\)/);
   assert.match(css, /color:\s*var\(--text\)/);
-  assert.match(css, /branch-state\.is-remote[\s\S]*var\(--warning-text\)/);
+  assert.match(css, /branch-state\.is-remote[\s\S]*var\(--accent\)/);
   assert.match(css, /branch-delete-form[\s\S]*var\(--danger-surface\)/);
 });
 
@@ -73,12 +73,12 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
   );
   assert.match(
     branchesTemplate,
-    /branch-squash-submit" :disabled="actionsBusy \|\| !canSubmitSquash"/,
+    /class="danger-button branch-squash-submit"[^>]*:disabled="actionsBusy \|\| !canSubmitSquash"/,
   );
   assert.match(branchesTemplate, /\{\{ squashSubmitLabel \}\}/);
   assert.match(
     branchesTemplate,
-    /squash também reenviará a branch para o origin com lease/,
+    /squash também reenviará a branch\s+para o origin com lease/,
   );
   assert.match(
     branchesCss,
