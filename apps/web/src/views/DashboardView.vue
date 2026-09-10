@@ -61,7 +61,9 @@ const filteredProjects = computed(() => {
 
   if (query) {
     items = items.filter((project) =>
-      `${project.name} ${project.path}`.toLocaleLowerCase('pt-BR').includes(query),
+      `${project.name} ${project.path}`
+        .toLocaleLowerCase('pt-BR')
+        .includes(query),
     );
   }
 
@@ -80,8 +82,8 @@ const workspaceName = computed(
 
 const criticalCount = computed(
   () =>
-    attention.value?.items.filter((item) => item.severity === 'critical').length ??
-    0,
+    attention.value?.items.filter((item) => item.severity === 'critical')
+      .length ?? 0,
 );
 
 const attentionItems = computed(() => attention.value?.items.slice(0, 2) ?? []);
@@ -95,7 +97,8 @@ const stoppedCount = computed(() =>
 );
 
 const isRefreshing = computed(
-  () => manualRefreshing.value || scanningWorkspace.value || loadingAttention.value,
+  () =>
+    manualRefreshing.value || scanningWorkspace.value || loadingAttention.value,
 );
 
 const lastUpdatedLabel = computed(() =>
@@ -240,7 +243,10 @@ function categoryLabel(item: AttentionItem): string {
       <main class="dashboard-primary">
         <div class="dashboard-toolbar" aria-label="Navegação dos projetos">
           <div class="dashboard-tabs">
-            <span class="dashboard-tab dashboard-tab-active" aria-current="page">
+            <span
+              class="dashboard-tab dashboard-tab-active"
+              aria-current="page"
+            >
               <Squares2X2Icon aria-hidden="true" />
               Projetos
             </span>
@@ -320,7 +326,10 @@ function categoryLabel(item: AttentionItem): string {
           description="Cadastre ou selecione um workspace na barra lateral para detectar aplicações Rails e Node."
         />
 
-        <div v-else-if="filteredProjects.length === 0" class="dashboard-no-results">
+        <div
+          v-else-if="filteredProjects.length === 0"
+          class="dashboard-no-results"
+        >
           <strong>Nenhum projeto encontrado</strong>
           <span>Tente outro nome ou caminho.</span>
         </div>
@@ -350,7 +359,9 @@ function categoryLabel(item: AttentionItem): string {
 
           <div class="workspace-metrics">
             <div class="workspace-metric workspace-metric-projects">
-              <span class="workspace-metric-icon"><CubeIcon aria-hidden="true" /></span>
+              <span class="workspace-metric-icon"
+                ><CubeIcon aria-hidden="true"
+              /></span>
               <div>
                 <strong>{{ sortedProjects.length }}</strong>
                 <span>Projetos</span>
@@ -358,7 +369,9 @@ function categoryLabel(item: AttentionItem): string {
             </div>
 
             <div class="workspace-metric workspace-metric-running">
-              <span class="workspace-metric-icon"><PlayIcon aria-hidden="true" /></span>
+              <span class="workspace-metric-icon"
+                ><PlayIcon aria-hidden="true"
+              /></span>
               <div>
                 <strong>{{ runningCount }}</strong>
                 <span>Rodando</span>
@@ -366,7 +379,9 @@ function categoryLabel(item: AttentionItem): string {
             </div>
 
             <div class="workspace-metric workspace-metric-stopped">
-              <span class="workspace-metric-icon"><StopIcon aria-hidden="true" /></span>
+              <span class="workspace-metric-icon"
+                ><StopIcon aria-hidden="true"
+              /></span>
               <div>
                 <strong>{{ stoppedCount }}</strong>
                 <span>Parados</span>
@@ -393,7 +408,9 @@ function categoryLabel(item: AttentionItem): string {
             <div>
               <h2>Atenção agora</h2>
               <p>
-                {{ criticalCount }} problema{{ criticalCount === 1 ? '' : 's' }}
+                {{ criticalCount }} problema{{
+                  criticalCount === 1 ? '' : 's'
+                }}
                 crítico{{ criticalCount === 1 ? '' : 's' }} precisam de atenção.
               </p>
             </div>
@@ -405,23 +422,35 @@ function categoryLabel(item: AttentionItem): string {
             :rows="2"
           />
 
-          <div v-else-if="attentionError" class="attention-card-feedback" role="alert">
+          <div
+            v-else-if="attentionError"
+            class="attention-card-feedback"
+            role="alert"
+          >
             <span>Não foi possível atualizar os alertas.</span>
-            <button type="button" @click="loadAttention">Tentar novamente</button>
+            <button type="button" @click="loadAttention">
+              Tentar novamente
+            </button>
           </div>
 
           <div v-else-if="!selectedWorkspaceId" class="attention-card-feedback">
             Selecione um workspace para verificar os alertas.
           </div>
 
-          <div v-else-if="attentionItems.length === 0" class="attention-card-healthy">
+          <div
+            v-else-if="attentionItems.length === 0"
+            class="attention-card-healthy"
+          >
             <CheckCircleIcon aria-hidden="true" />
             <span>Nenhum problema crítico agora.</span>
           </div>
 
           <ul v-else class="attention-card-list" aria-live="polite">
             <li v-for="item in attentionItems" :key="item.id">
-              <RouterLink class="attention-card-item" :to="attentionRoute(item)">
+              <RouterLink
+                class="attention-card-item"
+                :to="attentionRoute(item)"
+              >
                 <div class="attention-card-item-content">
                   <div class="attention-card-item-meta">
                     <strong>{{ item.projectName }}</strong>
@@ -445,7 +474,9 @@ function categoryLabel(item: AttentionItem): string {
             </span>
             <div>
               <h2>Tudo sob controle</h2>
-              <p>Monitore seus projetos, processos e implantações em um só lugar.</p>
+              <p>
+                Monitore seus projetos, processos e implantações em um só lugar.
+              </p>
             </div>
           </div>
 
@@ -803,7 +834,11 @@ function categoryLabel(item: AttentionItem): string {
   flex: 0 0 auto;
   border-radius: 50%;
   background:
-    radial-gradient(circle at center, var(--success-text) 0 7px, transparent 8px),
+    radial-gradient(
+      circle at center,
+      var(--success-text) 0 7px,
+      transparent 8px
+    ),
     var(--success-surface);
 }
 
