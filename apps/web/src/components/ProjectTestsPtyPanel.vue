@@ -424,13 +424,17 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
       </article>
       <article class="tests-overview-card">
         <span>Histórico</span>
-        <strong>{{ loadingHistory && !history ? '…' : (history?.total ?? 0) }}</strong>
+        <strong>{{
+          loadingHistory && !history ? '…' : (history?.total ?? 0)
+        }}</strong>
         <small>execuções registradas</small>
       </article>
       <article class="tests-overview-card">
         <span>Tempo da última</span>
         <strong>{{ latestDuration }}</strong>
-        <small>{{ isRunning ? 'Execução em andamento' : 'Duração registrada' }}</small>
+        <small>{{
+          isRunning ? 'Execução em andamento' : 'Duração registrada'
+        }}</small>
       </article>
       <article class="tests-overview-card">
         <span>Variação de cobertura</span>
@@ -483,7 +487,9 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
             </option>
           </select>
           <small>
-            {{ selectedCommand?.description ?? 'Selecione um comando disponível.' }}
+            {{
+              selectedCommand?.description ?? 'Selecione um comando disponível.'
+            }}
           </small>
         </label>
 
@@ -584,7 +590,10 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           :key="record.id"
           class="tests-history-row"
         >
-          <span class="tests-history-status" :class="`is-${recordTone(record)}`">
+          <span
+            class="tests-history-status"
+            :class="`is-${recordTone(record)}`"
+          >
             {{ recordStatusLabel(record) }}
           </span>
           <div class="tests-history-main">
@@ -600,7 +609,9 @@ onBeforeUnmount(() => intelligenceRequests.invalidate());
           </div>
           <div class="tests-history-metric">
             <span>Saída</span>
-            <strong>{{ record.exitCode === undefined ? '—' : `exit ${record.exitCode}` }}</strong>
+            <strong>{{
+              record.exitCode === undefined ? '—' : `exit ${record.exitCode}`
+            }}</strong>
           </div>
         </article>
       </div>
