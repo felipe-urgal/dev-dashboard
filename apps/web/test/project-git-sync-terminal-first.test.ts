@@ -81,7 +81,7 @@ const workspace: ProjectGitWorkspace = {
   ],
 };
 
-test('renderiza a sincronização terminal-first com dados reais do workspace', async () => {
+test('renderiza a sincronização terminal-first sem expor o remote principal', async () => {
   const wrapper = mount(ProjectGitSyncPage, {
     props: {
       overview,
@@ -92,25 +92,31 @@ test('renderiza a sincronização terminal-first com dados reais do workspace', 
   });
 
   assert.equal(wrapper.findAll('.git-sync-summary-card').length, 3);
+  assert.ok(wrapper.find('.git-sync-main-card').exists());
   assert.match(wrapper.text(), /Branch atual/);
   assert.match(wrapper.text(), /Última sincronização/);
+  assert.match(wrapper.text(), /main\s*→\s*origin\/main/);
+  assert.match(wrapper.text(), /Tudo sincronizado/);
   assert.match(wrapper.text(), /Console de sincronização/);
-  assert.match(wrapper.text(), /git fetch --prune upstream/);
-  assert.match(wrapper.text(), /git checkout main/);
-  assert.match(wrapper.text(), /git merge --no-edit upstream\/main/);
-  assert.match(wrapper.text(), /git push origin main:main/);
-  assert.match(wrapper.text(), /Iniciar sincronização/);
+  assert.match(wrapper.text(), /Verificar referências remotas/);
+  assert.match(wrapper.text(), /Preparar a branch main/);
+  assert.match(wrapper.text(), /Publicar main em origin\/main/);
+  assert.doesNotMatch(wrapper.text(), /upstream\//);
   assert.match(wrapper.text(), /Próximos passos/);
   assert.match(wrapper.text(), /Dicas/);
 
-  const primaryButton = wrapper.find('.git-sync-primary-button');
-  assert.equal(primaryButton.attributes('disabled'), undefined);
+  const primaryButton = wrapper.find('.git-sync-main-card .git-sync-button');
+  assert.ok(primaryButton.attributes('disabled') !== undefined);
 
   const settings = wrapper.find('.git-sync-settings-button');
   await settings.trigger('click');
-  assert.match(wrapper.find('.git-sync-settings').text(), /upstream\/main/);
+  assert.match(
+    wrapper.find('.git-sync-settings').text(),
+    /Detectada automaticamente/,
+  );
   assert.match(wrapper.find('.git-sync-settings').text(), /origin\/main/);
   assert.match(wrapper.find('.git-sync-settings').text(), /merge/);
+  assert.doesNotMatch(wrapper.find('.git-sync-settings').text(), /upstream\//);
 });
 
 test('mostra conclusão da sincronização sem inventar horário ou saída de terminal', () => {
@@ -136,7 +142,7 @@ test('mostra conclusão da sincronização sem inventar horário ou saída de te
   );
 });
 
-test('usa origin como fonte quando upstream não está configurado', () => {
+test('mantém a mesma linguagem de UI quando existe apenas origin', () => {
   const originOnlyWorkspace: ProjectGitWorkspace = {
     branches: workspace.branches.filter(
       (branch) => branch.remote !== 'upstream',
@@ -153,7 +159,7 @@ test('usa origin como fonte quando upstream não está configurado', () => {
     },
   });
 
-  assert.match(wrapper.text(), /git fetch --prune origin/);
-  assert.match(wrapper.text(), /git merge --no-edit origin\/main/);
-  assert.match(wrapper.find('.git-sync-tip-card').text(), /Sem upstream/);
+  assert.match(wrapper.text(), /main\s*→\s*origin\/main/);
+  assert.match(wrapper.text(), /Tudo sincronizado/);
+  assert.doesNotMatch(wrapper.text(), /upstream\//);
 });
