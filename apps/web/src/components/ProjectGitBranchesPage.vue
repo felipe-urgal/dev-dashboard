@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {
   ArrowsPointingInIcon,
-  CheckCircleIcon,
+  CloudIcon,
+  EllipsisHorizontalIcon,
   LockClosedIcon,
-  MinusCircleIcon,
   PencilSquareIcon,
   PlusIcon,
   ShareIcon,
@@ -43,7 +43,12 @@ const emit = defineEmits<{
 }>();
 
 type BranchModal =
-  'create' | 'rename' | 'squash' | 'delete' | 'delete-remote' | null;
+  | 'create'
+  | 'rename'
+  | 'squash'
+  | 'delete'
+  | 'delete-remote'
+  | null;
 type OpenBranchModal = Exclude<BranchModal, null>;
 
 interface BranchRow {
@@ -98,6 +103,16 @@ const rows = computed<BranchRow[]>(() => {
   });
 });
 
+const currentRow = computed(
+  () => rows.value.find((row) => row.local?.current) ?? null,
+);
+const localBranchCount = computed(
+  () => rows.value.filter((row) => Boolean(row.local)).length,
+);
+const originBranchCount = computed(
+  () => rows.value.filter((row) => Boolean(row.origin)).length,
+);
+
 const fullBranchName = computed(() => {
   const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
   return suffix ? `${branchPrefix.value}${suffix}` : branchPrefix.value;
@@ -134,18 +149,83 @@ function isProtected(row: BranchRow): boolean {
   return row.name === 'main' || row.name === 'master';
 }
 
+function commitLabel(count: number): string {
+  return count === 1 ? 'commit' : 'commits';
+}
+
 function stateLabel(row: BranchRow): string {
-  if (row.local?.current) return 'Atual';
-  if (row.local && row.origin) return 'Disponível';
-  if (row.local) return 'Somente local';
-  return 'Somente remota';
+  if (row.local && row.origin) {
+    if (row.local.ahead > 0 && row.local.behind > 0) return 'Divergente';
+    if (row.local.behind > 0) {
+      return `${row.local.behind} ${commitLabel(row.local.behind)} atrás`;
+    }
+    if (row.local.ahead > 0) {
+      return `${row.local.ahead} ${commitLabel(row.local.ahead)} à frente`;
+    }
+    return 'Em dia';
+  }
+  if (row.local) return 'Apenas local';
+  return 'Apenas remota';
 }
 
 function stateTone(row: BranchRow): string {
-  if (row.local?.current) return 'current';
-  if (row.local && row.origin) return 'available';
+  if (row.local && row.origin) {
+    if (row.local.behind > 0) return 'warning';
+    if (row.local.ahead > 0) return 'ahead';
+    return 'synced';
+  }
   if (row.local) return 'local';
   return 'remote';
+}
+
+function branchTypeLabel(row: BranchRow): string {
+  if (row.local && row.origin) return 'Local + Remota';
+  if (row.local) return 'Local';
+  return 'Remota';
+}
+
+function branchTypeTone(row: BranchRow): string {
+  if (row.local && row.origin) return 'combined';
+  if (row.local) return 'local';
+  return 'remote';
+}
+
+function rowCommit(row: BranchRow) {
+  return row.local?.latestCommit ?? row.origin?.latestCommit;
+}
+
+function formatCommitAge(authoredAt: string | undefined): string {
+  if (!authoredAt) return 'Data indisponível';
+  const timestamp = Date.parse(authoredAt);
+  if (!Number.isFinite(timestamp)) return 'Data indisponível';
+
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `há ${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `há ${days} ${days === 1 ? 'dia' : 'dias'}`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `há ${months} ${months === 1 ? 'mês' : 'meses'}`;
+
+  const years = Math.floor(months / 12);
+  return `há ${years} ${years === 1 ? 'ano' : 'anos'}`;
+}
+
+function hasMenuActions(row: BranchRow): boolean {
+  return Boolean(
+    (row.local &&
+      (props.forcePushBranch === row.name ||
+        !row.origin ||
+        row.local.ahead > 0)) ||
+      (row.local && !isProtected(row)) ||
+      (row.origin && !isProtected(row)),
+  );
 }
 
 const deleteSubmitLabel = computed(() =>
@@ -212,7 +292,9 @@ function handleModalKeydown(event: KeyboardEvent): void {
     ),
   ];
   if (focusable.length === 0) return;
-  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+  const currentIndex = focusable.indexOf(
+    document.activeElement as HTMLElement,
+  );
   if (event.shiftKey && currentIndex <= 0) {
     event.preventDefault();
     focusable.at(-1)?.focus();
