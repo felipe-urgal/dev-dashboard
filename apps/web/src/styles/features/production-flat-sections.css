@@ -1,0 +1,188 @@
+/*
+ * Production tools use the page itself as the main surface.
+ * Structural sections are separated by simple rules instead of nested cards.
+ * Controls, status pills and semantic icons keep their compact rounded treatment.
+ */
+
+.production-panel.production-panel {
+  gap: 0;
+}
+
+.production-panel .production-card {
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.production-panel .production-overview {
+  border-top: 0;
+}
+
+.production-panel .production-plan {
+  border-top-color: color-mix(in srgb, var(--warning-text) 28%, var(--border));
+}
+
+.production-panel .production-alert,
+.production-panel .production-loading {
+  border-radius: 0;
+}
+
+.production-panel .production-plan-target,
+.production-panel .production-latest-grid,
+.production-panel .production-technical-grid {
+  gap: 0;
+}
+
+.production-panel .production-plan-target > div,
+.production-panel .production-latest-grid > div,
+.production-panel .production-technical-grid > div {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.production-panel .production-plan-target > div + div,
+.production-panel .production-latest-grid > div + div,
+.production-panel .production-technical-grid > div + div {
+  border-left: 1px solid var(--border);
+}
+
+.production-panel .production-plan-warning,
+.production-panel .production-recovery {
+  border: 0;
+  border-left: 3px solid var(--warning-text);
+  border-radius: 0;
+}
+
+.production-panel .production-recovery {
+  border-left-color: var(--danger-text);
+}
+
+.production-panel .production-history-table {
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* Self-update follows the same flat structural hierarchy. */
+.self-update-panel.self-update-panel {
+  gap: 0;
+}
+
+.self-update-panel.self-update-panel > .self-update-hero,
+.self-update-panel.self-update-panel > .self-update-card,
+.self-update-panel.self-update-panel .self-update-main-grid > .self-update-card {
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.self-update-panel.self-update-panel > .self-update-hero {
+  border-top: 0;
+}
+
+.self-update-panel.self-update-panel .self-update-facts {
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-panel.self-update-panel .self-update-facts > article {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.self-update-panel.self-update-panel .self-update-facts > article + article {
+  border-left: 1px solid var(--border);
+}
+
+.self-update-panel.self-update-panel > .self-update-ready,
+.self-update-panel.self-update-panel > .self-update-safety {
+  border: 0;
+  border-left: 3px solid var(--info-text);
+  border-radius: 0;
+}
+
+.self-update-panel.self-update-panel > .self-update-error {
+  border-radius: 0;
+}
+
+.self-update-panel.self-update-panel > .self-update-plan {
+  border-top-color: color-mix(in srgb, var(--warning-text) 28%, var(--border));
+}
+
+.self-update-panel.self-update-panel .self-update-plan-summary {
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-panel.self-update-panel .self-update-plan-summary > div {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.self-update-panel.self-update-panel .self-update-plan-summary > div + div {
+  border-left: 1px solid var(--border);
+}
+
+.self-update-panel.self-update-panel .self-update-warning {
+  border: 0;
+  border-left: 3px solid var(--warning-text);
+  border-radius: 0;
+  background: var(--warning-surface);
+}
+
+.self-update-panel.self-update-panel .self-update-main-grid {
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-panel.self-update-panel .self-update-main-grid > .self-update-card {
+  border-top: 0;
+}
+
+.self-update-panel.self-update-panel
+  .self-update-main-grid
+  > .self-update-card
+  + .self-update-card {
+  border-left: 1px solid var(--border);
+}
+
+.self-update-panel.self-update-panel > .self-update-safety {
+  margin-top: 0;
+}
+
+@media (max-width: 920px) {
+  .self-update-panel.self-update-panel
+    .self-update-main-grid
+    > .self-update-card
+    + .self-update-card {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .production-panel .production-plan-target > div + div,
+  .production-panel .production-latest-grid > div + div,
+  .production-panel .production-technical-grid > div + div {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .self-update-panel.self-update-panel .self-update-facts > article + article,
+  .self-update-panel.self-update-panel .self-update-plan-summary > div + div {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}
