@@ -151,6 +151,12 @@ test('carrega os comandos e habilita "Executar suíte completa"', async () => {
     'Testes do projeto',
   );
   assert.equal(wrapper.get('.tests-pty-state').text(), 'Pronto');
+  assert.ok(
+    !wrapper
+      .get('.tests-pty-state')
+      .classes()
+      .includes('tests-pty-state-danger'),
+  );
   const button = wrapper
     .findAll('button')
     .find((candidate) => candidate.text().includes('Executar suíte completa'));
