@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  ArrowPathIcon,
+  ArrowRightIcon,
+  DocumentTextIcon,
+  ShareIcon,
+} from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
@@ -31,6 +37,7 @@ const emit = defineEmits<{
   'force-push': [];
 }>();
 
+const activeView = ref<'overview' | 'create'>('overview');
 const targetRemote = ref<GitPullRequestTargetRemote>('origin');
 const baseBranch = ref('main');
 const title = ref('');
@@ -131,6 +138,51 @@ const canForcePush = computed(
 
 const changedFilesCount = computed(() => props.overview.files.length);
 const commitCount = computed(() => props.overview.recentCommits.length);
+
+const branchState = computed(() => {
+  if (!branchPublished.value) {
+    return { label: 'Não publicada', tone: 'neutral' };
+  }
+  if (props.overview.ahead > 0 && props.overview.behind > 0) {
+    return { label: 'Divergente do remoto', tone: 'warning' };
+  }
+  if (props.overview.behind > 0) {
+    return {
+      label: `${props.overview.behind} ${props.overview.behind === 1 ? 'commit atrás' : 'commits atrás'}`,
+      tone: 'warning',
+    };
+  }
+  if (props.overview.ahead > 0) {
+    return {
+      label: `${props.overview.ahead} ${props.overview.ahead === 1 ? 'commit à frente' : 'commits à frente'}`,
+      tone: 'accent',
+    };
+  }
+  return { label: 'Em dia com o remoto', tone: 'success' };
+});
+
+const pullRequestState = computed(() => {
+  if (checkingExisting.value) {
+    return { value: 'Verificando…', detail: 'Consultando o destino selecionado' };
+  }
+  if (existingPullRequest.value) {
+    return {
+      value: `#${existingPullRequest.value.number}`,
+      detail: existingPullRequest.value.title,
+    };
+  }
+  if (lookupUnavailable.value) {
+    return { value: 'Indisponível', detail: 'Não foi possível consultar o remoto' };
+  }
+  if (!branchPublished.value) {
+    return { value: 'Não disponível', detail: 'Publique a branch antes de criar o PR' };
+  }
+  return { value: 'Nenhuma aberta', detail: 'A branch está pronta para comparação' };
+});
+
+const destinationLabel = computed(
+  () => `${targetRemote.value}/${baseBranch.value || 'main'}`,
+);
 
 const createCommandPreview = computed(() => {
   const parts = [
@@ -306,7 +358,7 @@ watch(baseBranch, () => {
 
 watch(
   () => props.forcePushBranch,
-  (branch) => {
+  () => {
     forcePushAcknowledged.value = false;
   },
   { immediate: true },
@@ -374,6 +426,7 @@ async function createPullRequestViaGh(): Promise<void> {
       confirmation.token,
     );
     showCreateConfirm.value = false;
+    activeView.value = 'overview';
     await checkExistingPullRequest();
   } catch (error) {
     mutationError.value =
@@ -450,7 +503,7 @@ async function mergePullRequest(): Promise<void> {
 </script>
 
 <template>
-  <section class="git-pr-card">
+  <section class="git-pr-card git-pr-page">
     <p v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
     </p>
@@ -458,16 +511,193 @@ async function mergePullRequest(): Promise<void> {
       {{ mutationError }}
     </p>
 
-    <ProjectGitPullRequestStatus
-      :branch-published="branchPublished"
-      :checking-existing="checkingExisting"
-      :existing-pull-request="existingPullRequest"
-      :lookup-unavailable="lookupUnavailable"
-      :target-remote="targetRemote"
-      :mutation-busy="mutationBusy"
-      @toggle-merge="showMergeConfirm = !showMergeConfirm"
-      @toggle-close="showCloseConfirm = !showCloseConfirm"
-    />
+    <section class="git-pr-summary" aria-label="Resumo da Pull Request">
+      <article class="git-pr-summary-card">
+        <div class="git-pr-summary-icon" aria-hidden="true">
+          <ShareIcon />
+        </div>
+        <div>
+          <span>Branch atual</span>
+          <div class="git-pr-summary-value-line">
+            <strong>{{ overview.branch ?? 'HEAD' }}</strong>
+            <small class="git-pr-state" :class="`is-${branchState.tone}`">
+              {{ branchState.label }}
+            </small>
+          </div>
+          <small>{{ overview.upstream ?? 'Sem upstream configurado' }}</small>
+        </div>
+      </article>
+
+      <article class="git-pr-summary-card">
+        <div class="git-pr-summary-icon" aria-hidden="true">
+          <DocumentTextIcon />
+        </div>
+        <div>
+          <span>Pull Request atual</span>
+          <strong>{{ pullRequestState.value }}</strong>
+          <small>{{ pullRequestState.detail }}</small>
+        </div>
+      </article>
+
+      <article class="git-pr-summary-card">
+        <div class="git-pr-summary-icon" aria-hidden="true">
+          <ArrowRightIcon />
+        </div>
+        <div>
+          <span>Destino</span>
+          <strong>{{ destinationLabel }}</strong>
+          <small>Branch base selecionada para comparação</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="git-pr-workspace">
+      <nav class="git-pr-view-tabs" role="tablist" aria-label="Pull Request">
+        <button
+          id="git-pr-overview-tab"
+          type="button"
+          role="tab"
+          :aria-selected="activeView === 'overview'"
+          aria-controls="git-pr-overview-panel"
+          :class="{ active: activeView === 'overview' }"
+          @click="activeView = 'overview'"
+        >
+          Pull Request
+        </button>
+        <button
+          id="git-pr-create-tab"
+          type="button"
+          role="tab"
+          :aria-selected="activeView === 'create'"
+          aria-controls="git-pr-create-panel"
+          :class="{ active: activeView === 'create' }"
+          @click="activeView = 'create'"
+        >
+          Criar Pull Request
+        </button>
+      </nav>
+
+      <div
+        id="git-pr-overview-panel"
+        v-show="activeView === 'overview'"
+        class="git-pr-overview"
+        role="tabpanel"
+        aria-labelledby="git-pr-overview-tab"
+      >
+        <header class="git-pr-overview-heading">
+          <div>
+            <h2>Pull Request da branch atual</h2>
+            <p>
+              Acompanhe o PR associado a {{ overview.branch ?? 'HEAD' }} e o
+              estado real retornado pelo provedor.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="git-pr-refresh"
+            :disabled="checkingExisting || mutationBusy || !canLookup"
+            @click="checkExistingPullRequest"
+          >
+            <ArrowPathIcon aria-hidden="true" />
+            {{ checkingExisting ? 'Atualizando…' : 'Atualizar status' }}
+          </button>
+        </header>
+
+        <ProjectGitPullRequestStatus
+          :branch-published="branchPublished"
+          :checking-existing="checkingExisting"
+          :existing-pull-request="existingPullRequest"
+          :lookup-unavailable="lookupUnavailable"
+          :target-remote="targetRemote"
+          :mutation-busy="mutationBusy"
+          @toggle-merge="showMergeConfirm = !showMergeConfirm"
+          @toggle-close="showCloseConfirm = !showCloseConfirm"
+        />
+
+        <div
+          v-if="
+            branchPublished &&
+            !checkingExisting &&
+            !existingPullRequest &&
+            !lookupUnavailable
+          "
+          class="git-pr-empty"
+        >
+          <div>
+            <strong>Nenhuma Pull Request aberta para esta branch</strong>
+            <p>
+              Compare {{ overview.branch ?? 'HEAD' }} com
+              {{ destinationLabel }} e prepare a próxima Pull Request.
+            </p>
+          </div>
+          <button type="button" @click="activeView = 'create'">
+            Criar Pull Request
+          </button>
+        </div>
+
+        <section class="git-pr-overview-facts" aria-label="Contexto local">
+          <div>
+            <strong>{{ changedFilesCount }}</strong>
+            <span>Arquivos alterados</span>
+          </div>
+          <div>
+            <strong>{{ overview.ahead }}</strong>
+            <span>Commits à frente</span>
+          </div>
+          <div>
+            <strong>{{ overview.behind }}</strong>
+            <span>Commits atrás</span>
+          </div>
+          <div>
+            <strong>{{ commitCount }}</strong>
+            <span>Commits carregados</span>
+          </div>
+        </section>
+      </div>
+
+      <div
+        id="git-pr-create-panel"
+        v-show="activeView === 'create'"
+        class="git-pr-create-view"
+        role="tabpanel"
+        aria-labelledby="git-pr-create-tab"
+      >
+        <ProjectGitPullRequestForm
+          :overview-branch="overview.branch ?? null"
+          :available-targets="availableTargets"
+          :base-branches="baseBranches"
+          :target-remote="targetRemote"
+          :base-branch="baseBranch"
+          :title="title"
+          :description="description"
+          :opening="opening"
+          :busy="busy"
+          :force-push-branch="forcePushBranch"
+          :force-push-acknowledged="forcePushAcknowledged"
+          :changed-files-count="changedFilesCount"
+          :commit-count="commitCount"
+          :ahead="overview.ahead"
+          :behind="overview.behind"
+          :mutation-busy="mutationBusy"
+          :can-force-push="canForcePush"
+          :existing-number="existingPullRequest?.number"
+          :existing-url="existingPullRequest?.url"
+          :generated-url="generatedUrl"
+          :checking-existing="checkingExisting"
+          :can-open="canOpen"
+          :existing-pull-request="Boolean(existingPullRequest)"
+          @submit="openPullRequest"
+          @update:target-remote="targetRemote = $event"
+          @update:base-branch="baseBranch = $event"
+          @update:title="title = $event"
+          @update:description="description = $event"
+          @update:force-push-acknowledged="forcePushAcknowledged = $event"
+          @force-push="emit('force-push')"
+          @open="openPullRequest"
+          @toggle-create="showCreateConfirm = !showCreateConfirm"
+        />
+      </div>
+    </section>
 
     <ProjectGitPullRequestConfirmations
       :show-merge="showMergeConfirm"
@@ -494,42 +724,308 @@ async function mergePullRequest(): Promise<void> {
       @close="closePullRequest"
       @create="createPullRequestViaGh"
     />
-
-    <ProjectGitPullRequestForm
-      :overview-branch="overview.branch ?? null"
-      :available-targets="availableTargets"
-      :base-branches="baseBranches"
-      :target-remote="targetRemote"
-      :base-branch="baseBranch"
-      :title="title"
-      :description="description"
-      :opening="opening"
-      :busy="busy"
-      :force-push-branch="forcePushBranch"
-      :force-push-acknowledged="forcePushAcknowledged"
-      :changed-files-count="changedFilesCount"
-      :commit-count="commitCount"
-      :ahead="overview.ahead"
-      :behind="overview.behind"
-      :mutation-busy="mutationBusy"
-      :can-force-push="canForcePush"
-      :existing-number="existingPullRequest?.number"
-      :existing-url="existingPullRequest?.url"
-      :generated-url="generatedUrl"
-      :checking-existing="checkingExisting"
-      :can-open="canOpen"
-      :existing-pull-request="Boolean(existingPullRequest)"
-      @submit="openPullRequest"
-      @update:target-remote="targetRemote = $event"
-      @update:base-branch="baseBranch = $event"
-      @update:title="title = $event"
-      @update:description="description = $event"
-      @update:force-push-acknowledged="forcePushAcknowledged = $event"
-      @force-push="emit('force-push')"
-      @open="openPullRequest"
-      @toggle-create="showCreateConfirm = !showCreateConfirm"
-    />
   </section>
 </template>
 
 <style src="./ProjectGitPullRequestPage.css"></style>
+
+<style scoped>
+.git-pr-page {
+  gap: 18px;
+}
+
+.git-pr-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.git-pr-summary-card {
+  display: flex;
+  min-width: 0;
+  min-height: 108px;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: 16px 18px;
+}
+
+.git-pr-summary-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.git-pr-summary-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.git-pr-summary-card > div:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.git-pr-summary-card span,
+.git-pr-summary-card small {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-pr-summary-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-xl);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-pr-summary-value-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.git-pr-state {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+}
+
+.git-pr-state.is-success {
+  background: var(--success-surface);
+  color: var(--success-text);
+}
+
+.git-pr-state.is-warning {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+}
+
+.git-pr-state.is-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.git-pr-state.is-neutral {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.git-pr-workspace {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.git-pr-view-tabs {
+  display: flex;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.git-pr-view-tabs button {
+  min-height: 48px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.git-pr-view-tabs button:hover {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.git-pr-view-tabs button.active {
+  box-shadow: inset 0 -2px 0 var(--accent);
+  background: var(--surface-1);
+  color: var(--accent);
+}
+
+.git-pr-overview,
+.git-pr-create-view {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.git-pr-overview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.git-pr-overview-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.git-pr-overview-heading h2,
+.git-pr-overview-heading p,
+.git-pr-empty p {
+  margin: 0;
+}
+
+.git-pr-overview-heading h2 {
+  color: var(--text);
+  font-size: var(--font-lg);
+}
+
+.git-pr-overview-heading p,
+.git-pr-empty p {
+  color: var(--text-muted);
+}
+
+.git-pr-refresh,
+.git-pr-empty button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text);
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.git-pr-refresh svg {
+  width: 16px;
+  height: 16px;
+}
+
+.git-pr-refresh:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.git-pr-refresh:disabled {
+  color: var(--text-dim);
+}
+
+.git-pr-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border: 1px dashed var(--border);
+  background: var(--surface-2);
+  padding: 18px;
+}
+
+.git-pr-empty > div {
+  display: grid;
+  gap: 4px;
+}
+
+.git-pr-empty strong {
+  color: var(--text);
+}
+
+.git-pr-empty button {
+  flex: 0 0 auto;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.git-pr-overview-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.git-pr-overview-facts > div {
+  display: grid;
+  gap: 3px;
+  border-right: 1px solid var(--border);
+  padding: 14px 16px;
+}
+
+.git-pr-overview-facts > div:last-child {
+  border-right: 0;
+}
+
+.git-pr-overview-facts strong {
+  color: var(--text);
+  font-size: var(--font-xl);
+}
+
+.git-pr-overview-facts span {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+@media (max-width: 980px) {
+  .git-pr-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .git-pr-overview-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .git-pr-overview-facts > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .git-pr-overview-facts > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 720px) {
+  .git-pr-view-tabs,
+  .git-pr-overview-heading,
+  .git-pr-empty {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .git-pr-view-tabs button {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .git-pr-overview-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .git-pr-overview-facts > div,
+  .git-pr-overview-facts > div:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .git-pr-overview-facts > div:last-child {
+    border-bottom: 0;
+  }
+}
+</style>
