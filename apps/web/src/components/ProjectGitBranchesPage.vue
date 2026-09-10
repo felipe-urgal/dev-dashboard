@@ -43,12 +43,7 @@ const emit = defineEmits<{
 }>();
 
 type BranchModal =
-  | 'create'
-  | 'rename'
-  | 'squash'
-  | 'delete'
-  | 'delete-remote'
-  | null;
+  'create' | 'rename' | 'squash' | 'delete' | 'delete-remote' | null;
 type OpenBranchModal = Exclude<BranchModal, null>;
 
 interface BranchRow {
@@ -223,8 +218,8 @@ function hasMenuActions(row: BranchRow): boolean {
       (props.forcePushBranch === row.name ||
         !row.origin ||
         row.local.ahead > 0)) ||
-      (row.local && !isProtected(row)) ||
-      (row.origin && !isProtected(row)),
+    (row.local && !isProtected(row)) ||
+    (row.origin && !isProtected(row)),
   );
 }
 
@@ -292,9 +287,7 @@ function handleModalKeydown(event: KeyboardEvent): void {
     ),
   ];
   if (focusable.length === 0) return;
-  const currentIndex = focusable.indexOf(
-    document.activeElement as HTMLElement,
-  );
+  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
   if (event.shiftKey && currentIndex <= 0) {
     event.preventDefault();
     focusable.at(-1)?.focus();
