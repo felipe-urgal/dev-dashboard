@@ -103,6 +103,9 @@ test('renderiza a sincronização terminal-first com dados reais do workspace', 
   assert.match(wrapper.text(), /Próximos passos/);
   assert.match(wrapper.text(), /Dicas/);
 
+  const primaryButton = wrapper.find('.git-sync-primary-button');
+  assert.equal(primaryButton.attributes('disabled'), undefined);
+
   const settings = wrapper.find('.git-sync-settings-button');
   await settings.trigger('click');
   assert.match(wrapper.find('.git-sync-settings').text(), /upstream\/main/);
