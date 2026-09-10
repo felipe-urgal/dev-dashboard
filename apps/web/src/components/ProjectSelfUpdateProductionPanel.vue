@@ -3,8 +3,11 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
+  ClockIcon,
   ExclamationTriangleIcon,
+  InformationCircleIcon,
   RocketLaunchIcon,
+  ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
 
 import type {
@@ -29,6 +32,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 const TERMINAL = new Set<Deployment['status']>([
   'succeeded',
@@ -86,22 +91,47 @@ function shouldPoll(deployment: Deployment | null): boolean {
   );
 }
 
+function executionTone(deployment: Deployment): Tone {
+  if (deployment.status === 'succeeded') return 'success';
+  if (deployment.status === 'failed' || deployment.status === 'recovery_required') {
+    return 'danger';
+  }
+  if (deployment.status === 'cancelled') return 'warning';
+  return 'info';
+}
+
+function executionTitle(deployment: Deployment): string {
+  if (deployment.status === 'succeeded') return 'Self-update aplicado com sucesso.';
+  if (deployment.status === 'failed') return 'Self-update não foi aplicado.';
+  if (deployment.status === 'recovery_required') return 'Self-update requer revisão.';
+  if (deployment.status === 'cancelled') return 'Self-update cancelado.';
+  return 'Self-update em execução.';
+}
+
+function stepLabel(id: string): string {
+  if (id === 'check') return 'Check do agent';
+  if (id === 'self-update') return 'Self-update';
+  return id;
+}
+
 const status = computed(() => {
   const deployment = latest.value;
   if (!deployment) {
     return {
-      title: 'Self-update pronto para planejar',
+      title: 'Self-update disponível',
       description:
-        'O plano usa origin/main como revision alvo e só transfere a execução depois da confirmação.',
-      tone: 'neutral',
+        'Contrato fechado e agente de atualização disponível. O ambiente está pronto para aplicar novas versões com confirmação explícita.',
+      detail: 'Nenhuma execução registrada ainda.',
+      tone: 'info' as Tone,
     };
   }
   if (deployment.status === 'succeeded') {
     return {
-      title: 'Self-update concluído',
+      title: 'Self-update disponível',
       description:
-        'O worker aplicou a revision confirmada e a nova API comprovou readiness com o mesmo SHA.',
-      tone: 'success',
+        'Contrato fechado e agente de atualização disponível. O ambiente está pronto para aplicar novas versões com confirmação explícita.',
+      detail: `Última execução concluída em ${formatDate(deployment.finishedAt ?? deployment.createdAt)}.`,
+      tone: 'success' as Tone,
     };
   }
   if (deployment.status === 'recovery_required') {
@@ -110,7 +140,8 @@ const status = computed(() => {
       description:
         deployment.errorMessage ??
         'A mutação pode ter iniciado sem uma conclusão segura comprovada.',
-      tone: 'danger',
+      detail: 'Revise a última execução antes de gerar outro plano.',
+      tone: 'danger' as Tone,
     };
   }
   if (deployment.status === 'failed') {
@@ -119,15 +150,33 @@ const status = computed(() => {
       description:
         deployment.errorMessage ??
         'A execução falhou antes de comprovar uma atualização segura.',
-      tone: 'danger',
+      detail: `Última tentativa em ${formatDate(deployment.createdAt)}.`,
+      tone: 'danger' as Tone,
+    };
+  }
+  if (deployment.status === 'cancelled') {
+    return {
+      title: 'Self-update disponível',
+      description:
+        'A última execução foi cancelada. O ambiente continua disponível para gerar um novo plano.',
+      detail: `Última tentativa em ${formatDate(deployment.createdAt)}.`,
+      tone: 'warning' as Tone,
     };
   }
   return {
     title: reconnecting.value ? 'API reiniciando…' : 'Self-update em execução',
     description:
-      'O worker externo assumiu a operação. A página volta a reconciliar o resultado quando a API responder novamente.',
-    tone: 'info',
+      'O worker externo assumiu a operação. A página reconcilia o resultado quando a API responder novamente.',
+    detail: reconnecting.value
+      ? 'Aguardando a nova API ficar pronta.'
+      : 'Atualização em andamento.',
+    tone: 'info' as Tone,
   };
+});
+
+const currentRevision = computed(() => {
+  const successful = history.value.find((item) => item.status === 'succeeded');
+  return successful?.revision ?? latest.value?.revision;
 });
 
 async function refreshLog(
@@ -208,7 +257,7 @@ async function poll(current: number): Promise<void> {
 }
 
 async function preparePlan(): Promise<void> {
-  if (operation.value) return;
+  if (operation.value || shouldPoll(latest.value)) return;
   operation.value = 'planning';
   errorMessage.value = '';
   plan.value = null;
@@ -267,6 +316,7 @@ watch(
   () => void load(),
   { immediate: true },
 );
+
 onBeforeUnmount(() => {
   generation += 1;
   clearTimer();
@@ -275,266 +325,581 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="self-update-panel">
-    <section class="self-update-status" :data-tone="status.tone">
-      <div class="self-update-status-icon" aria-hidden="true">
-        <CheckCircleIcon v-if="status.tone === 'success'" />
-        <ExclamationTriangleIcon v-else-if="status.tone === 'danger'" />
-        <ArrowPathIcon v-else-if="status.tone === 'info'" />
-        <RocketLaunchIcon v-else />
+  <section class="self-update-panel" aria-labelledby="self-update-title">
+    <article class="self-update-hero">
+      <div class="self-update-hero-main">
+        <div class="self-update-hero-icon" :class="`is-${status.tone}`" aria-hidden="true">
+          <ArrowPathIcon />
+        </div>
+        <div class="self-update-hero-copy">
+          <span class="self-update-eyebrow">Self-update</span>
+          <h3 id="self-update-title">Self-update</h3>
+          <p>{{ status.description }}</p>
+        </div>
       </div>
-      <div>
-        <h3>{{ status.title }}</h3>
-        <p>{{ status.description }}</p>
-      </div>
-    </section>
-
-    <p v-if="errorMessage" class="self-update-error" role="alert">
-      {{ errorMessage }}
-    </p>
-
-    <section class="self-update-card">
-      <div class="self-update-card-heading">
-        <div>
-          <span class="self-update-eyebrow">Production Contract</span>
-          <h3>Atualizar o Dev Dashboard</h3>
+      <div class="self-update-hero-actions">
+        <div class="self-update-status-pill" :class="`is-${status.tone}`">
+          <span class="self-update-status-dot" aria-hidden="true"></span>
+          <div>
+            <strong>{{ status.title }}</strong>
+            <small>{{ status.detail }}</small>
+          </div>
         </div>
         <button
           class="primary-button"
           type="button"
           :disabled="loading || Boolean(operation) || shouldPoll(latest)"
-          @click="preparePlan"
+          @click="load"
         >
-          {{ operation === 'planning' ? 'Planejando…' : 'Gerar plano' }}
+          <ArrowPathIcon :class="{ 'self-update-spin': loading }" aria-hidden="true" />
+          {{ loading ? 'Verificando…' : 'Verificar novamente' }}
         </button>
       </div>
+    </article>
 
-      <div class="self-update-facts">
-        <div>
-          <span>Estratégia</span>
-          <strong>self-update</strong>
-        </div>
-        <div>
-          <span>Branch</span>
-          <strong>{{ props.project.production?.branch ?? 'main' }}</strong>
-        </div>
-        <div>
-          <span>Privilégio</span>
-          <strong>user-space</strong>
-        </div>
+    <p v-if="errorMessage" class="self-update-error" role="alert">
+      <ExclamationTriangleIcon aria-hidden="true" />
+      <span>{{ errorMessage }}</span>
+    </p>
+
+    <div class="self-update-facts">
+      <article>
+        <ArrowPathIcon aria-hidden="true" />
+        <div><span>Estratégia</span><strong>self-update</strong><small>Atualização automática</small></div>
+      </article>
+      <article>
+        <RocketLaunchIcon aria-hidden="true" />
+        <div><span>Branch</span><strong>{{ props.project.production?.branch ?? 'main' }}</strong><small>Ramo de produção</small></div>
+      </article>
+      <article>
+        <ShieldCheckIcon aria-hidden="true" />
+        <div><span>Privilégio</span><strong>user-space</strong><small>Execução sem root</small></div>
+      </article>
+      <article>
+        <CheckCircleIcon aria-hidden="true" />
+        <div><span>Revision atual</span><strong :title="currentRevision">{{ shortRevision(currentRevision) }}</strong><small>Última comprovada</small></div>
+      </article>
+      <article>
+        <ClockIcon aria-hidden="true" />
+        <div><span>Última execução</span><strong>{{ formatDate(latest?.createdAt) }}</strong><small>Histórico real</small></div>
+      </article>
+    </div>
+
+    <article class="self-update-ready" :class="{ 'is-running': shouldPoll(latest) }">
+      <InformationCircleIcon aria-hidden="true" />
+      <div>
+        <strong>{{ shouldPoll(latest) ? 'Self-update em andamento.' : 'Self-update pronto para uso.' }}</strong>
+        <p>
+          {{
+            shouldPoll(latest)
+              ? 'O worker externo está aplicando a revision confirmada e a API pode reiniciar durante o processo.'
+              : 'Gere um plano para revisar a revision alvo e as etapas antes de confirmar a atualização.'
+          }}
+        </p>
       </div>
+      <button
+        class="secondary-button"
+        type="button"
+        :disabled="loading || Boolean(operation) || shouldPoll(latest)"
+        @click="preparePlan"
+      >
+        <ArrowPathIcon v-if="operation === 'planning'" class="self-update-spin" aria-hidden="true" />
+        <RocketLaunchIcon v-else aria-hidden="true" />
+        {{ operation === 'planning' ? 'Gerando…' : 'Gerar plano' }}
+      </button>
+    </article>
 
-      <div v-if="plan" class="self-update-plan">
-        <div class="self-update-plan-summary">
-          <div>
-            <span>Revision alvo</span>
-            <code :title="plan.revision">{{
-              shortRevision(plan.revision)
-            }}</code>
-          </div>
-          <div>
-            <span>Etapas</span>
-            <strong>{{ plan.steps.length }}</strong>
-          </div>
-        </div>
-
-        <ol class="self-update-steps">
-          <li v-for="step in plan.steps" :key="step.id">
-            <span>{{
-              step.id === 'check' ? 'Check do agent' : 'Self-update'
-            }}</span>
-            <small v-if="step.id === 'self-update'"
-              >reinicia a própria API</small
-            >
-            <small v-else>somente leitura</small>
-          </li>
-        </ol>
-
-        <div class="self-update-warning">
-          A confirmação vale somente para este plano e SHA. Depois do handoff, o
-          worker exige working tree limpa, fast-forward de origin/main e
-          readiness da nova API antes de concluir.
-        </div>
-
-        <div class="self-update-plan-actions">
-          <button class="secondary-button" type="button" @click="plan = null">
-            Cancelar
-          </button>
-          <button
-            class="primary-button"
-            type="button"
-            :disabled="Boolean(operation)"
-            @click="confirmAndStart"
-          >
-            {{
-              operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar'
-            }}
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="latest" class="self-update-card">
+    <article v-if="plan" class="self-update-card self-update-plan">
       <div class="self-update-card-heading">
         <div>
-          <span class="self-update-eyebrow">Última execução</span>
-          <h3>{{ formatDate(latest.createdAt) }}</h3>
+          <span class="self-update-eyebrow">Confirmação</span>
+          <h3>Revise o plano antes de atualizar</h3>
         </div>
-        <code :title="latest.revision">{{
-          shortRevision(latest.revision)
-        }}</code>
+        <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
       </div>
 
-      <div class="self-update-timeline">
-        <div
-          v-for="step in latest.timeline"
-          :key="step.id"
-          class="self-update-step"
-        >
-          <span>{{
-            step.id === 'check' ? 'Check do agent' : 'Self-update'
-          }}</span>
-          <strong>{{ step.status }}</strong>
+      <div class="self-update-plan-summary">
+        <div>
+          <span>Revision alvo</span>
+          <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
+        </div>
+        <div>
+          <span>Etapas</span>
+          <strong>{{ plan.steps.length }}</strong>
         </div>
       </div>
 
-      <ProjectLogViewer
-        v-if="log"
-        class="self-update-log"
-        :content="log.content"
-        title="Log da atualização"
-        :running="shouldPoll(latest)"
-        :masked-count="log.redactionCount"
-        :truncated="log.truncated"
-      />
-    </section>
-  </div>
+      <ol class="self-update-steps">
+        <li v-for="step in plan.steps" :key="step.id">
+          <span class="self-update-step-dot" aria-hidden="true"></span>
+          <div>
+            <strong>{{ stepLabel(step.id) }}</strong>
+            <small>{{ step.id === 'self-update' ? 'reinicia a própria API' : 'somente leitura' }}</small>
+          </div>
+        </li>
+      </ol>
+
+      <div class="self-update-warning">
+        <ShieldCheckIcon aria-hidden="true" />
+        <p>
+          A confirmação vale somente para este plano e SHA. Depois do handoff, o worker exige working tree limpa,
+          fast-forward de origin/main e readiness da nova API antes de concluir.
+        </p>
+      </div>
+
+      <div class="self-update-plan-actions">
+        <button class="secondary-button" type="button" :disabled="Boolean(operation)" @click="plan = null">
+          Cancelar
+        </button>
+        <button class="primary-button" type="button" :disabled="Boolean(operation)" @click="confirmAndStart">
+          <ArrowPathIcon v-if="operation === 'starting'" class="self-update-spin" aria-hidden="true" />
+          <RocketLaunchIcon v-else aria-hidden="true" />
+          {{ operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar' }}
+        </button>
+      </div>
+    </article>
+
+    <div class="self-update-main-grid">
+      <article class="self-update-card self-update-history">
+        <div class="self-update-card-heading">
+          <div>
+            <span class="self-update-eyebrow">Histórico</span>
+            <h3>Últimas execuções</h3>
+          </div>
+          <span class="self-update-count">{{ history.length }}</span>
+        </div>
+        <div v-if="history.length" class="self-update-history-list">
+          <div v-for="item in history" :key="item.id" class="self-update-history-row">
+            <span class="self-update-history-icon" :class="`is-${executionTone(item)}`" aria-hidden="true">
+              <CheckCircleIcon v-if="executionTone(item) === 'success'" />
+              <ExclamationTriangleIcon v-else-if="executionTone(item) === 'danger'" />
+              <ClockIcon v-else />
+            </span>
+            <div class="self-update-history-copy">
+              <strong>{{ executionTitle(item) }}</strong>
+              <small>{{ formatDate(item.createdAt) }}</small>
+            </div>
+            <code :title="item.revision">{{ shortRevision(item.revision) }}</code>
+          </div>
+        </div>
+        <p v-else class="self-update-empty">Nenhuma execução registrada.</p>
+      </article>
+
+      <article class="self-update-card self-update-log-card">
+        <div class="self-update-card-heading">
+          <div>
+            <span class="self-update-eyebrow">Log</span>
+            <h3>Log da última execução</h3>
+          </div>
+          <span v-if="latest" class="self-update-log-state">{{ shouldPoll(latest) ? 'Ao vivo' : 'Finalizado' }}</span>
+        </div>
+        <ProjectLogViewer
+          v-if="log"
+          class="self-update-log"
+          :content="log.content"
+          title="Saída do self-update"
+          :running="shouldPoll(latest)"
+          :masked-count="log.redactionCount"
+          :truncated="log.truncated"
+          embedded
+        />
+        <p v-else class="self-update-empty">O log aparecerá aqui depois da primeira execução.</p>
+      </article>
+    </div>
+
+    <article class="self-update-safety">
+      <ShieldCheckIcon aria-hidden="true" />
+      <div>
+        <strong>Operação segura</strong>
+        <p>O self-update é executado em modo user-space, sem privilégio de root, seguindo as políticas de segurança do projeto.</p>
+      </div>
+    </article>
+  </section>
 </template>
 
 <style scoped>
 .self-update-panel {
   display: grid;
-  gap: 16px;
-  width: min(100%, 920px);
+  width: min(100%, 1120px);
+  gap: 14px;
   margin: 0 auto;
-  padding: 20px 0 40px;
+  padding: 18px 0 32px;
 }
 
-.self-update-status,
-.self-update-card {
-  border: 1px solid var(--border-color, #dfe3e8);
-  border-radius: 14px;
-  background: var(--surface-color, #fff);
+.self-update-hero,
+.self-update-card,
+.self-update-facts article,
+.self-update-ready,
+.self-update-safety {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
 }
 
-.self-update-status {
+.self-update-hero {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px;
+}
+
+.self-update-hero-main,
+.self-update-hero-actions,
+.self-update-ready,
+.self-update-safety,
+.self-update-card-heading,
+.self-update-plan-actions,
+.self-update-plan-summary {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  align-items: flex-start;
-  padding: 16px 18px;
 }
 
-.self-update-status-icon {
+.self-update-hero-main {
+  min-width: 0;
+}
+
+.self-update-hero-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.self-update-hero-icon svg {
   width: 22px;
   height: 22px;
-  flex: 0 0 22px;
 }
 
-.self-update-status-icon :deep(svg) {
-  width: 22px;
-  height: 22px;
+.self-update-hero-icon.is-success {
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
-.self-update-status h3,
-.self-update-card h3 {
+.self-update-hero-icon.is-danger {
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+.self-update-hero-copy {
+  min-width: 0;
+}
+
+.self-update-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.self-update-hero h3,
+.self-update-card h3,
+.self-update-card p,
+.self-update-ready p,
+.self-update-safety p {
   margin: 0;
-  font-size: 15px;
 }
 
-.self-update-status p {
-  margin: 4px 0 0;
-  color: var(--text-secondary, #667085);
-  line-height: 1.45;
+.self-update-hero h3 {
+  color: var(--text);
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.self-update-hero-copy > p {
+  max-width: 640px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.self-update-hero-actions {
+  flex: 0 0 auto;
+}
+
+.self-update-hero-actions button,
+.self-update-ready button,
+.self-update-plan-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.self-update-hero-actions button svg,
+.self-update-ready button svg,
+.self-update-plan-actions button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.self-update-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 210px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.self-update-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--text-dim);
+}
+
+.self-update-status-pill.is-success .self-update-status-dot {
+  background: var(--success-text);
+}
+
+.self-update-status-pill.is-info .self-update-status-dot {
+  background: var(--info-text);
+}
+
+.self-update-status-pill.is-warning .self-update-status-dot {
+  background: var(--warning-text);
+}
+
+.self-update-status-pill.is-danger .self-update-status-dot {
+  background: var(--danger-text);
+}
+
+.self-update-status-pill > div {
+  display: grid;
+  gap: 2px;
+}
+
+.self-update-status-pill strong {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.self-update-status-pill small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.self-update-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger-text) 35%, var(--border));
+  border-radius: var(--radius-md);
+  color: var(--danger-text);
+  background: var(--danger-surface);
+  font-size: 11px;
+}
+
+.self-update-error svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.self-update-facts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.self-update-facts article {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px;
+}
+
+.self-update-facts article > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.self-update-facts article > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.self-update-facts span,
+.self-update-plan-summary span {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.self-update-facts strong,
+.self-update-plan-summary strong,
+.self-update-plan-summary code {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.self-update-facts small {
+  color: var(--text-dim);
+  font-size: 8px;
+}
+
+.self-update-ready,
+.self-update-safety {
+  align-items: flex-start;
+  padding: 13px 15px;
+  border-color: color-mix(in srgb, var(--info-text) 28%, var(--border));
+  background: var(--info-surface);
+}
+
+.self-update-ready > svg,
+.self-update-safety > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--info-text);
+}
+
+.self-update-ready > div,
+.self-update-safety > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.self-update-ready strong,
+.self-update-safety strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.self-update-ready p,
+.self-update-safety p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .self-update-card {
   padding: 18px;
 }
 
-.self-update-card-heading,
-.self-update-plan-actions,
-.self-update-plan-summary,
-.self-update-step {
-  display: flex;
-  align-items: center;
+.self-update-card-heading {
   justify-content: space-between;
-  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.self-update-eyebrow,
-.self-update-facts span,
-.self-update-plan-summary span {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--text-secondary, #667085);
-  font-size: 12px;
+.self-update-card-heading h3 {
+  color: var(--text);
+  font-size: 14px;
 }
 
-.self-update-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.self-update-facts > div,
-.self-update-plan-summary > div {
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--surface-muted, rgba(127, 127, 127, 0.08));
+.self-update-card-heading > code,
+.self-update-count,
+.self-update-log-state {
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
 .self-update-plan {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color, #dfe3e8);
+  border-color: color-mix(in srgb, var(--warning-text) 28%, var(--border));
 }
 
 .self-update-plan-summary {
   justify-content: flex-start;
+  margin-bottom: 12px;
 }
 
 .self-update-plan-summary > div {
+  display: grid;
   min-width: 150px;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
 }
 
 .self-update-steps {
   display: grid;
-  gap: 8px;
-  margin: 14px 0;
+  gap: 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .self-update-steps li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-steps li:last-child {
+  border-bottom: 0;
+}
+
+.self-update-step-dot {
+  width: 8px;
+  height: 8px;
+  justify-self: center;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+}
+
+.self-update-steps li > div {
+  display: grid;
+  gap: 2px;
+}
+
+.self-update-steps strong {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.self-update-steps small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.self-update-warning {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color, #dfe3e8);
-  border-radius: 10px;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
 }
 
-.self-update-steps small,
-.self-update-warning {
-  color: var(--text-secondary, #667085);
+.self-update-warning svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--warning-text);
 }
 
-.self-update-warning {
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--surface-muted, rgba(127, 127, 127, 0.08));
-  font-size: 13px;
+.self-update-warning p {
+  color: var(--text-muted);
+  font-size: 9px;
   line-height: 1.5;
 }
 
@@ -543,41 +908,166 @@ onBeforeUnmount(() => {
   margin-top: 14px;
 }
 
-.self-update-timeline {
+.self-update-main-grid {
   display: grid;
-  gap: 8px;
-  margin-top: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+  gap: 14px;
 }
 
-.self-update-step {
-  padding: 10px 0;
-  border-top: 1px solid var(--border-color, #dfe3e8);
+.self-update-history-list {
+  display: grid;
+}
+
+.self-update-history-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 52px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-history-row:last-child {
+  border-bottom: 0;
+}
+
+.self-update-history-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+.self-update-history-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.self-update-history-icon.is-success {
+  color: var(--success-text);
+  background: var(--success-surface);
+}
+
+.self-update-history-icon.is-danger {
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+.self-update-history-icon.is-warning {
+  color: var(--warning-text);
+  background: var(--warning-surface);
+}
+
+.self-update-history-icon.is-info {
+  color: var(--info-text);
+  background: var(--info-surface);
+}
+
+.self-update-history-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.self-update-history-copy strong {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.self-update-history-copy small,
+.self-update-history-row code {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.self-update-empty {
+  padding: 18px 0 8px;
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
 .self-update-log {
-  margin: 14px 0 0;
+  margin: 0;
 }
 
 .self-update-log :deep(.project-log-viewer-output) {
-  max-height: 220px;
+  max-height: 260px;
 }
 
-.self-update-error {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: rgba(220, 38, 38, 0.08);
+.self-update-safety {
+  margin-top: 1px;
 }
 
-@media (max-width: 700px) {
+.self-update-spin {
+  animation: self-update-spin 900ms linear infinite;
+}
+
+@keyframes self-update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 920px) {
+  .self-update-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .self-update-hero-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .self-update-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .self-update-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .self-update-hero,
+  .self-update-card {
+    padding: 14px;
+  }
+
+  .self-update-hero-actions,
+  .self-update-ready,
+  .self-update-plan-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .self-update-status-pill,
+  .self-update-hero-actions button,
+  .self-update-ready button,
+  .self-update-plan-actions button {
+    width: 100%;
+  }
+
   .self-update-facts {
     grid-template-columns: 1fr;
   }
 
-  .self-update-card-heading,
-  .self-update-plan-actions {
+  .self-update-plan-summary {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .self-update-plan-summary > div {
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .self-update-spin {
+    animation: none;
   }
 }
 </style>
