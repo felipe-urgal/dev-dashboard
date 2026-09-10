@@ -782,10 +782,9 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-history-head,
 .git-undo-history-row {
   display: grid;
-  grid-template-columns: 110px minmax(220px, 2fr) minmax(
-      130px,
-      1fr
-    ) 130px 130px;
+  grid-template-columns:
+    110px minmax(220px, 2fr) minmax(130px, 1fr)
+    130px 130px;
   min-width: 760px;
   align-items: center;
   gap: 12px;
