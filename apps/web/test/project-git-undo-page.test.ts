@@ -76,6 +76,7 @@ test('renderiza o protótipo 1 com resumo e contexto recente verdadeiro', async 
   });
 
   assert.equal(wrapper.findAll('.git-undo-summary-card').length, 3);
+  assert.equal(wrapper.findAll('[role="tab"]').length, 2);
   assert.match(wrapper.text(), /Branch atual/);
   assert.match(wrapper.text(), /Em dia com o origin/);
   assert.match(wrapper.text(), /Commits recentes/);
