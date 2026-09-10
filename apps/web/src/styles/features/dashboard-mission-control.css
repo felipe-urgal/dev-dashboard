@@ -1,0 +1,117 @@
+/* Dashboard Mission Control — fidelity overrides for the approved overview shell. */
+.app-shell {
+  --app-sidebar-width: 300px;
+}
+
+.sidebar {
+  padding: 22px 18px 18px;
+  background: var(--surface-0);
+}
+
+[data-theme='light'] .sidebar {
+  background: var(--surface-1);
+}
+
+.brand {
+  min-height: 62px;
+  padding: 0 7px 18px;
+  border-bottom: 0;
+}
+
+.brand-mark {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  color: #58a6ff;
+  background: var(--accent-soft);
+}
+
+[data-theme='light'] .brand-mark {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.brand-mark svg {
+  width: 28px;
+  height: 28px;
+}
+
+.brand strong {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.brand span {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.sidebar-section {
+  margin: 27px 0 29px;
+}
+
+.sidebar-workspace-select {
+  min-height: 46px;
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.sidebar-workspace-add-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.navigation {
+  gap: 6px;
+}
+
+.navigation-item {
+  min-height: 52px;
+  padding: 12px 14px 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.navigation-item::before {
+  height: 30px;
+}
+
+.navigation-item-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent-soft) 88%, var(--surface-1));
+}
+
+.navigation-item-active .navigation-icon {
+  color: #58a6ff;
+}
+
+[data-theme='light'] .navigation-item-active .navigation-icon {
+  color: var(--accent);
+}
+
+.navigation-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.sidebar-tools .segmented-control {
+  border-radius: 10px;
+  background: var(--surface-0);
+}
+
+[data-theme='light'] .sidebar-tools .segmented-control {
+  background: var(--surface-2);
+}
+
+.sidebar-tools .segmented-control button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 1050px) {
+  .app-shell {
+    --app-sidebar-width: 250px;
+  }
+}
