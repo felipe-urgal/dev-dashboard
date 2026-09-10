@@ -7,6 +7,8 @@ import type { Project, ProjectTestOverview } from '@dev-dashboard/contracts';
 
 const mocks = vi.hoisted(() => ({
   fetchProjectTests: vi.fn(),
+  fetchProjectTestIntelligence: vi.fn(),
+  fetchProjectTestHistory: vi.fn(),
   fetchProjectTestPtyStatus: vi.fn(),
   startProjectTestPty: vi.fn(),
   cancelProjectTestPty: vi.fn(),
@@ -14,6 +16,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/api', () => ({
   fetchProjectTests: mocks.fetchProjectTests,
+  fetchProjectTestIntelligence: mocks.fetchProjectTestIntelligence,
+  fetchProjectTestHistory: mocks.fetchProjectTestHistory,
   fetchProjectTestPtyStatus: mocks.fetchProjectTestPtyStatus,
   startProjectTestPty: mocks.startProjectTestPty,
   cancelProjectTestPty: mocks.cancelProjectTestPty,
@@ -99,6 +103,35 @@ beforeEach(async () => {
   FakeWebSocket.instances = [];
   mocks.fetchProjectTests.mockResolvedValue(overview());
   mocks.fetchProjectTestPtyStatus.mockResolvedValue(null);
+  mocks.fetchProjectTestHistory.mockResolvedValue({
+    items: [],
+    page: 1,
+    pageSize: 8,
+    total: 0,
+    totalPages: 0,
+  });
+  mocks.fetchProjectTestIntelligence.mockResolvedValue({
+    commandId: 'full-suite',
+    state: 'unknown',
+    recommendation: 'full-suite',
+    baseBranch: 'main',
+    currentBranch: 'main',
+    changedFiles: [],
+    testFiles: [],
+    unmappedFiles: [],
+    evidence: [],
+    coverageDelta: {
+      state: 'unknown',
+      reason: 'no-current-artifact',
+      worsenedFiles: [],
+      missingFiles: [],
+    },
+    flakiness: {
+      state: 'unknown',
+      reason: 'no-granular-results',
+      tests: [],
+    },
+  });
   ({ default: ProjectTestsPtyPanel } =
     await import('../src/components/ProjectTestsPtyPanel.vue'));
 });
@@ -118,6 +151,12 @@ test('carrega os comandos e habilita "Executar suíte completa"', async () => {
     'Testes do projeto',
   );
   assert.equal(wrapper.get('.tests-pty-state').text(), 'Pronto');
+  assert.ok(
+    !wrapper
+      .get('.tests-pty-state')
+      .classes()
+      .includes('tests-pty-state-danger'),
+  );
   const button = wrapper
     .findAll('button')
     .find((candidate) => candidate.text().includes('Executar suíte completa'));
@@ -206,4 +245,63 @@ test('cancelar chama cancelProjectTestPty enquanto a execução está em andamen
   await flushPromises();
 
   assert.equal(mocks.cancelProjectTestPty.mock.calls.length, 1);
+});
+
+test('mostra resumo e histórico usando apenas dados reais das execuções', async () => {
+  mocks.fetchProjectTestHistory.mockResolvedValue({
+    items: [
+      {
+        id: 'exec-2',
+        projectId: 'projeto-1',
+        commandId: 'full-suite',
+        scope: 'full-suite',
+        gitRevision: 'abcdef1234567890',
+        status: 'stopped',
+        startedAt: '2026-08-11T10:00:00.000Z',
+        finishedAt: '2026-08-11T10:02:14.000Z',
+        exitCode: 0,
+      },
+      {
+        id: 'exec-1',
+        projectId: 'projeto-1',
+        commandId: 'full-suite',
+        scope: 'full-suite',
+        gitRevision: '1234567890abcdef',
+        status: 'failed',
+        startedAt: '2026-08-10T09:00:00.000Z',
+        finishedAt: '2026-08-10T09:01:52.000Z',
+        exitCode: 1,
+      },
+    ],
+    page: 1,
+    pageSize: 8,
+    total: 2,
+    totalPages: 1,
+  });
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  assert.equal(wrapper.findAll('.tests-overview-card').length, 4);
+  assert.match(wrapper.text(), /Histórico\s*2/);
+  assert.match(wrapper.text(), /2m 14s/);
+  assert.match(wrapper.text(), /Sem baseline comparável/);
+
+  const historyTab = wrapper
+    .findAll('.tests-tabs button')
+    .find((candidate) => candidate.text() === 'Histórico');
+  assert.ok(historyTab);
+  await historyTab.trigger('click');
+  await flushPromises();
+
+  const rows = wrapper.findAll('.tests-history-row');
+  assert.equal(rows.length, 2);
+  assert.match(rows[0]!.text(), /Sucesso/);
+  assert.match(rows[0]!.text(), /npm run test/);
+  assert.match(rows[0]!.text(), /abcdef12/);
+  assert.match(rows[0]!.text(), /2m 14s/);
+  assert.match(rows[1]!.text(), /Falhou/);
+  assert.match(rows[1]!.text(), /exit 1/);
 });
