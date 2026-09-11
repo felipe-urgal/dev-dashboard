@@ -6,7 +6,10 @@ import { DocumentTextIcon } from '@heroicons/vue/24/outline';
 import type { Project, ProjectFileEntry } from '@dev-dashboard/contracts';
 
 import { fetchProjectFileContent, fetchProjectMarkdownFiles } from '../api';
-import type { CodeBlock } from '../utils/project-readme-markdown';
+import type {
+  CodeBlock,
+  HeadingBlock,
+} from '../utils/project-readme-markdown';
 import { parseMarkdown } from '../utils/project-readme-markdown';
 import ProjectReadmeDocument from './ProjectReadmeDocument.vue';
 import ProjectReadmeFileList from './ProjectReadmeFileList.vue';
@@ -22,18 +25,32 @@ const filesTruncated = ref(false);
 const selectedPath = ref('');
 const content = ref('');
 const copiedBlockId = ref('');
+const activeHeadingId = ref('');
 
 const blocks = computed(() =>
   content.value ? parseMarkdown(content.value) : [],
+);
+
+const headings = computed<HeadingBlock[]>(() =>
+  blocks.value.filter(
+    (block): block is HeadingBlock => block.type === 'heading',
+  ),
 );
 
 const selectedFile = computed(
   () => files.value.find((file) => file.path === selectedPath.value) ?? null,
 );
 
+const selectedPathParts = computed(() =>
+  selectedPath.value.split('/').filter(Boolean),
+);
+
 async function selectFile(path: string): Promise<void> {
   const projectId = props.project.id;
   selectedPath.value = path;
+  content.value = '';
+  copiedBlockId.value = '';
+  activeHeadingId.value = '';
   loading.value = true;
   errorMessage.value = '';
 
@@ -65,6 +82,7 @@ async function loadFiles(): Promise<void> {
   filesTruncated.value = false;
   selectedPath.value = '';
   content.value = '';
+  activeHeadingId.value = '';
 
   try {
     const result = await fetchProjectMarkdownFiles(projectId);
@@ -102,6 +120,23 @@ async function copyCode(block: CodeBlock): Promise<void> {
   }
 }
 
+function scrollToHeading(headingId: string): void {
+  activeHeadingId.value = headingId;
+  document
+    .getElementById(`readme-${headingId}`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+watch(
+  headings,
+  (nextHeadings) => {
+    if (!nextHeadings.some((heading) => heading.id === activeHeadingId.value)) {
+      activeHeadingId.value = nextHeadings[0]?.id ?? '';
+    }
+  },
+  { immediate: true },
+);
+
 watch(
   () => props.project.id,
   () => {
@@ -112,49 +147,103 @@ watch(
 </script>
 
 <template>
-  <section class="readme-panel" aria-labelledby="project-readme-title">
-    <ProjectReadmeFileList
-      :files="files"
-      :selected-path="selectedPath"
-      :loading="loading"
-      @select="selectFile"
-      @refresh="loadFiles"
-    />
+  <section class="readme-panel" aria-label="Documentação Markdown do projeto">
+    <div class="readme-workspace">
+      <ProjectReadmeFileList
+        :files="files"
+        :selected-path="selectedPath"
+        :loading="loading"
+        @select="selectFile"
+        @refresh="loadFiles"
+      />
 
-    <p v-if="filesTruncated" class="readme-truncated-warning" role="status">
-      A lista foi limitada aos primeiros arquivos Markdown encontrados.
-    </p>
+      <main class="readme-reader">
+        <p v-if="filesTruncated" class="readme-truncated-warning" role="status">
+          A lista foi limitada aos primeiros arquivos Markdown encontrados.
+        </p>
 
-    <div v-if="loading && !content" class="readme-state" aria-live="polite">
-      <span class="readme-loading-icon">•••</span>
-      <strong>Carregando documentação</strong>
-      <p>Lendo os arquivos Markdown do projeto.</p>
+        <div v-if="loading && !content" class="readme-state" aria-live="polite">
+          <span class="readme-loading-icon">•••</span>
+          <strong>Carregando documentação</strong>
+          <p>Lendo o arquivo Markdown selecionado.</p>
+        </div>
+
+        <div v-else-if="errorMessage" class="readme-state readme-state-error">
+          <span class="readme-loading-icon">!</span>
+          <strong>Não foi possível abrir a documentação</strong>
+          <p>{{ errorMessage }}</p>
+          <button type="button" class="secondary-button" @click="loadFiles">
+            Tentar novamente
+          </button>
+        </div>
+
+        <div v-else-if="!selectedFile" class="readme-state">
+          <DocumentTextIcon class="readme-empty-icon" aria-hidden="true" />
+          <strong>Nenhum arquivo Markdown encontrado</strong>
+          <p>
+            Adicione um arquivo <code>.md</code> ao projeto (por exemplo, um
+            README.md na raiz) para exibir a documentação nesta página.
+          </p>
+        </div>
+
+        <template v-else>
+          <header class="readme-reader-header">
+            <div class="readme-breadcrumb" aria-label="Caminho do arquivo atual">
+              <template v-for="(part, index) in selectedPathParts" :key="`${part}-${index}`">
+                <span>{{ part }}</span>
+                <span
+                  v-if="index < selectedPathParts.length - 1"
+                  class="readme-breadcrumb-separator"
+                  aria-hidden="true"
+                >
+                  /
+                </span>
+              </template>
+            </div>
+            <span class="readme-readonly-label">Somente leitura</span>
+          </header>
+
+          <ProjectReadmeDocument
+            :blocks="blocks"
+            :copied-block-id="copiedBlockId"
+            @copy-code="copyCode"
+          />
+        </template>
+      </main>
+
+      <aside class="readme-outline" aria-label="Índice do documento">
+        <div class="readme-outline-header">
+          <span>Neste documento</span>
+          <strong>{{ headings.length }}</strong>
+        </div>
+
+        <nav v-if="headings.length" class="readme-outline-list">
+          <button
+            v-for="heading in headings"
+            :key="heading.id"
+            type="button"
+            class="readme-outline-button"
+            :class="{
+              'readme-outline-button-active': heading.id === activeHeadingId,
+              'readme-outline-button-nested': heading.level > 1,
+            }"
+            :data-heading-id="heading.id"
+            @click="scrollToHeading(heading.id)"
+          >
+            {{ heading.text }}
+          </button>
+        </nav>
+
+        <p v-else class="readme-outline-empty">
+          Os títulos do arquivo aparecem aqui para navegação rápida.
+        </p>
+
+        <div class="readme-outline-meta">
+          <span>{{ files.length }} arquivos Markdown</span>
+          <span>Leitura local</span>
+        </div>
+      </aside>
     </div>
-
-    <div v-else-if="errorMessage" class="readme-state readme-state-error">
-      <span class="readme-loading-icon">!</span>
-      <strong>Não foi possível abrir a documentação</strong>
-      <p>{{ errorMessage }}</p>
-      <button type="button" class="secondary-button" @click="loadFiles">
-        Tentar novamente
-      </button>
-    </div>
-
-    <div v-else-if="!selectedFile" class="readme-state">
-      <DocumentTextIcon class="readme-empty-icon" aria-hidden="true" />
-      <strong>Nenhum arquivo Markdown encontrado</strong>
-      <p>
-        Adicione um arquivo <code>.md</code> ao projeto (por exemplo, um
-        README.md na raiz) para exibir a documentação nesta página.
-      </p>
-    </div>
-
-    <ProjectReadmeDocument
-      v-else
-      :blocks="blocks"
-      :copied-block-id="copiedBlockId"
-      @copy-code="copyCode"
-    />
   </section>
 </template>
 
