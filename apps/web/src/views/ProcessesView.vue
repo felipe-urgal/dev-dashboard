@@ -101,12 +101,12 @@ function openDiagnostics(): void {
     id="processes"
     class="content processes-page processes-observability-page"
     :aria-busy="loading"
-    aria-labelledby="processes-title"
+    aria-label="Processos gerenciados"
   >
     <header class="processes-observability-header">
       <div class="processes-observability-title-block">
         <span class="processes-observability-kicker">Processos</span>
-        <h1 id="processes-title">Observabilidade</h1>
+        <h1>Observabilidade</h1>
         <p>
           Acompanhe processos locais, atividade da API e saúde da sessão em um
           único lugar.

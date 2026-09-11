@@ -88,7 +88,7 @@ test('páginas globais possuem landmark nomeado', async () => {
   assert.match(dashboard, /aria-labelledby="overview-title"/);
 });
 
-test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
+test('resultados, refresh e listas mantêm anúncios e nomes acessíveis', async () => {
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
   assert.match(dashboard, /aria-label="Navegação dos projetos"/);
 
@@ -99,9 +99,13 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
   );
   assert.match(
     processes,
-    /<caption class="sr-only">[\s\S]*Processos gerenciados/,
+    /class="processes-list-section"\s+aria-labelledby="process-list-title"/,
   );
-  assert.match(processes, /class="activity-empty"\s+role="status"/);
+  assert.match(
+    processes,
+    /<h2 id="process-list-title">Processos gerenciados<\/h2>/,
+  );
+  assert.match(processes, /class="activity-empty[^"]*"\s+role="status"/);
 });
 
 test('tokens de texto do tema claro mantêm contraste AA nas superfícies', async () => {

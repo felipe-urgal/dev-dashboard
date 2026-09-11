@@ -260,7 +260,9 @@ test('congela a duração de processos terminais em stoppedAt na renderização'
   await flushPromises();
 
   const durations = wrapper
-    .findAll('td[data-label="Duração"]')
+    .findAll('.processes-process-card-meta > div')
+    .filter((node) => node.get('dt').text() === 'Duração')
+    .map((node) => node.get('dd'))
     .map((node) => node.text());
   const first = durations[0] ?? '';
   const second = durations[1] ?? '';
@@ -281,7 +283,7 @@ test('mostra a mensagem de erro quando o carregamento falha', async () => {
   await flushPromises();
 
   assert.match(wrapper.text(), /API indisponível/);
-  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 0);
+  assert.equal(wrapper.findAll('.processes-process-card').length, 0);
 });
 
 test('limpa todos os processos finalizados e preserva os ativos', async () => {
@@ -336,13 +338,13 @@ test('limpa todos os processos finalizados e preserva os ativos', async () => {
   await flushPromises();
   await flushPromises();
 
-  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 3);
+  assert.equal(wrapper.findAll('.processes-process-card').length, 3);
   await wrapper.get('.processes-cleanup-button').trigger('click');
   await flushPromises();
   await flushPromises();
 
   assert.equal(cleanupCalls, 1);
-  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
+  assert.equal(wrapper.findAll('.processes-process-card').length, 1);
   assert.equal(toastMock.success.mock.calls.length, 1);
   const [title, options] = toastMock.success.mock.calls[0] as [
     string,
@@ -388,7 +390,7 @@ test('aplica o filtro de falhas vindo da query da rota', async () => {
     await flushPromises();
     await flushPromises();
 
-    assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
+    assert.equal(wrapper.findAll('.processes-process-card').length, 1);
     assert.match(wrapper.text(), /srv-failed/);
     assert.doesNotMatch(wrapper.text(), /srv-running/);
   } finally {
@@ -433,7 +435,7 @@ test('aplica o filtro de status localmente sem refazer a consulta à API', async
   await flushPromises();
 
   assert.equal(calls, 1);
-  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
+  assert.equal(wrapper.findAll('.processes-process-card').length, 1);
   assert.match(wrapper.text(), /srv-failed/);
   assert.doesNotMatch(wrapper.text(), /srv-running/);
 });
