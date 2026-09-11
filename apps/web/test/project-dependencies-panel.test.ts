@@ -155,6 +155,7 @@ test('mostra resumo operacional e console ocioso para o gerenciador Node detecta
     wrapper.get('.dependencies-panel').attributes('aria-busy'),
     'false',
   );
+  assert.equal(wrapper.find('.dependencies-workspace').exists(), true);
   assert.equal(wrapper.find('.dependencies-console').exists(), true);
   assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
   assert.equal(wrapper.findAll('.dependencies-action-row').length, 2);
