@@ -30,7 +30,9 @@ function tableAlignmentClass(
       <component
         :is="`h${Math.min(block.level, 4)}`"
         v-if="block.type === 'heading'"
+        :id="`readme-${block.id}`"
         class="readme-heading"
+        tabindex="-1"
       >
         <span v-html="renderInlineMarkdown(block.text)"></span>
       </component>
