@@ -162,7 +162,10 @@ watch(
               class="migrations-timeline-item migrations-timeline-item--pending"
               aria-labelledby="pending-title"
             >
-              <span class="migrations-timeline-marker" aria-hidden="true"></span>
+              <span
+                class="migrations-timeline-marker"
+                aria-hidden="true"
+              ></span>
               <div class="migrations-timeline-content">
                 <div class="migrations-section-heading">
                   <h5 id="pending-title">Pendentes</h5>
@@ -187,7 +190,10 @@ watch(
               class="migrations-timeline-item"
               aria-labelledby="applied-title"
             >
-              <span class="migrations-timeline-marker" aria-hidden="true"></span>
+              <span
+                class="migrations-timeline-marker"
+                aria-hidden="true"
+              ></span>
               <div class="migrations-timeline-content">
                 <div class="migrations-section-heading">
                   <h5 id="applied-title">Aplicadas</h5>
@@ -205,10 +211,7 @@ watch(
                     {{ overview.applied.length }}.
                   </p>
                   <ul class="migrations-list">
-                    <li
-                      v-for="migration in visibleApplied"
-                      :key="migration.id"
-                    >
+                    <li v-for="migration in visibleApplied" :key="migration.id">
                       <code>{{ migration.id }}</code>
                       <span v-if="migration.name">{{ migration.name }}</span>
                     </li>
@@ -221,7 +224,10 @@ watch(
               class="migrations-timeline-item migrations-timeline-item--inspection"
               aria-labelledby="inspection-title"
             >
-              <span class="migrations-timeline-marker" aria-hidden="true"></span>
+              <span
+                class="migrations-timeline-marker"
+                aria-hidden="true"
+              ></span>
               <div class="migrations-timeline-content">
                 <div class="migrations-section-heading">
                   <h5 id="inspection-title">Inspeção</h5>
