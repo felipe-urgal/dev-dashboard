@@ -28,6 +28,8 @@ As ferramentas aparecem conforme capabilities/tipo do projeto.
 | Produção | Opera Production Contracts `command`, `git-managed`/Vercel ou o `self-update` fechado do próprio Dashboard. | [producao.md](producao.md) |
 | Terminal / Console | Sessões interativas locais; Rails Console quando aplicável. | [terminal.md](terminal.md) |
 | Variáveis de ambiente | Inspeção/configuração estrutural do environment sem promover secrets para superfícies comuns. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
+| Migrations | Inspeciona o estado conhecido das migrations em modo somente leitura. | [migrations.md](migrations.md) |
+| Readiness | Consolida evidências de Git, Testes, Doctor e Migrations antes da entrega. | [readiness.md](readiness.md) |
 | Diagnóstico | Project Doctor/diagnósticos locais somente leitura. | [diagnostico.md](diagnostico.md) |
 | README | Renderiza a documentação Markdown do projeto. | [readme.md](readme.md) |
 | Sidekiq/webpack | Lifecycle/log dos runtimes Rails reconhecidos. | — |
