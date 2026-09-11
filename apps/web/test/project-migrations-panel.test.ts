@@ -58,6 +58,7 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain('Banco secundário não foi consultado.');
     expect(wrapper.text()).toContain('20 mais recentes de 22');
     expect(wrapper.text()).toContain('Somente leitura');
+    expect(wrapper.find('.migrations-state--pending').exists()).toBe(true);
     expect(wrapper.find('.migrations-workspace').exists()).toBe(true);
     expect(wrapper.find('.migrations-timeline').exists()).toBe(true);
     expect(wrapper.find('.migrations-context').exists()).toBe(true);
