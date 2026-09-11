@@ -1,4 +1,8 @@
-import type { Project, ProjectScript } from '@dev-dashboard/contracts';
+import type {
+  ExecutionContext,
+  Project,
+  ProjectScript,
+} from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
 import { isolateProjectExecutionEnvironment } from '../security/project-execution-environment.js';
@@ -38,8 +42,18 @@ function sendJson(socket: WebSocket, message: unknown): void {
   }
 }
 
-function executionKey(projectId: string): string {
-  return `${projectId}:dependencies-pty`;
+function executionKey(
+  projectId: string,
+  environmentInstanceId: string,
+): string {
+  return `${projectId}:${environmentInstanceId}:dependencies-pty`;
+}
+
+function projectForExecution(
+  project: Project,
+  executionContext: ExecutionContext,
+): Project {
+  return { ...project, path: executionContext.cwd };
 }
 
 /**
@@ -78,10 +92,12 @@ export class ProjectDependenciesPtyService {
 
   public snapshot(
     project: Project,
+    executionContext: ExecutionContext,
   ): ProjectDependenciesPtySnapshot | undefined {
-    const snapshot = this.detachable.snapshotOf(executionKey(project.id));
+    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const snapshot = this.detachable.snapshotOf(key);
     if (!snapshot) return undefined;
-    const action = this.runningAction.get(project.id);
+    const action = this.runningAction.get(key);
     if (!action) return undefined;
     return { ...snapshot, actionId: action.id, actionName: action.name };
   }
@@ -89,9 +105,11 @@ export class ProjectDependenciesPtyService {
   public async start(
     project: Project,
     actionId: string,
+    executionContext: ExecutionContext,
   ): Promise<ProjectDependenciesPtySnapshot> {
+    const scopedProject = projectForExecution(project, executionContext);
     const action = await this.scriptDetectionService.findAction(
-      project,
+      scopedProject,
       actionId,
     );
     if (!action || !isDependenciesAction(action)) {
@@ -109,7 +127,7 @@ export class ProjectDependenciesPtyService {
 
     let resolved;
     try {
-      resolved = await resolveCommand(project, action);
+      resolved = await resolveCommand(scopedProject, action);
     } catch (error) {
       throw new ProjectDependenciesPtyError(
         'START_FAILED',
@@ -118,13 +136,17 @@ export class ProjectDependenciesPtyService {
     }
 
     try {
-      const snapshot = this.detachable.start(executionKey(project.id), {
+      const key = executionKey(
+        project.id,
+        executionContext.environmentInstanceId,
+      );
+      const snapshot = this.detachable.start(key, {
         file: resolved.command,
         args: resolved.args,
-        cwd: project.path,
-        env: isolateProjectExecutionEnvironment(project, resolved.env),
+        cwd: executionContext.cwd,
+        env: isolateProjectExecutionEnvironment(scopedProject, resolved.env),
       });
-      this.runningAction.set(project.id, {
+      this.runningAction.set(key, {
         id: action.id,
         name: action.name,
       });
@@ -143,11 +165,16 @@ export class ProjectDependenciesPtyService {
     }
   }
 
-  public attach(project: Project, socket: WebSocket): void {
+  public attach(
+    project: Project,
+    socket: WebSocket,
+    executionContext: ExecutionContext,
+  ): void {
+    const key = executionKey(project.id, executionContext.environmentInstanceId);
     let handle;
     try {
       handle = this.detachable.attach(
-        executionKey(project.id),
+        key,
         (chunk) => sendJson(socket, { type: 'output', data: chunk }),
         (snapshot) =>
           sendJson(socket, {
@@ -171,7 +198,7 @@ export class ProjectDependenciesPtyService {
       throw error;
     }
 
-    const action = this.runningAction.get(project.id);
+    const action = this.runningAction.get(key);
     sendJson(socket, {
       type: 'ready',
       snapshot: action
@@ -184,7 +211,9 @@ export class ProjectDependenciesPtyService {
     socket.once('error', handle.detach);
   }
 
-  public cancel(project: Project): void {
-    this.detachable.cancel(executionKey(project.id));
+  public cancel(project: Project, executionContext: ExecutionContext): void {
+    this.detachable.cancel(
+      executionKey(project.id, executionContext.environmentInstanceId),
+    );
   }
 }
