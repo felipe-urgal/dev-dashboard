@@ -153,7 +153,10 @@ test('unit do agent fixa entrypoint instalado e paths privados', () => {
   assert.match(unit, new RegExp(`^${SELF_UPDATE_AGENT_UNIT_MARKER}`, 'u'));
   assert.match(unit, /ExecStart="\/home\/test\/\.nvm\/node"/u);
   assert.match(unit, /self-update-agent\.mjs" serve/u);
-  assert.match(unit, /DEV_DASHBOARD_CONFIG_DIR=\/home\/test\/\.config\/dev-dashboard/u);
+  assert.match(
+    unit,
+    /DEV_DASHBOARD_CONFIG_DIR=\/home\/test\/\.config\/dev-dashboard/u,
+  );
   assert.match(unit, /WantedBy=default\.target/u);
 });
 
@@ -170,7 +173,12 @@ test('lifecycle substitui agent detached por unit própria e comprova MainPID', 
   const unitPath = path.join(root, SELF_UPDATE_AGENT_SERVICE_NAME);
   const installation = {
     release: 'release-new',
-    entrypoint: path.join(root, 'install', 'release-new', 'self-update-agent.mjs'),
+    entrypoint: path.join(
+      root,
+      'install',
+      'release-new',
+      'self-update-agent.mjs',
+    ),
   };
   const current = JSON.parse(ready('release-new', 'detached', 2222));
   const systemdCalls = [];
@@ -219,7 +227,10 @@ test('lifecycle substitui agent detached por unit própria e comprova MainPID', 
 
   const unit = await readFile(unitPath, 'utf8');
   assert.ok(unit.startsWith(`${SELF_UPDATE_AGENT_UNIT_MARKER}\n`));
-  assert.match(unit, new RegExp(installation.entrypoint.replaceAll('/', '\\/'), 'u'));
+  assert.match(
+    unit,
+    new RegExp(installation.entrypoint.replaceAll('/', '\\/'), 'u'),
+  );
 });
 
 test('lifecycle não reinicia agent já pertencente à unit gerenciada', async (t) => {
@@ -235,7 +246,12 @@ test('lifecycle não reinicia agent já pertencente à unit gerenciada', async (
   const unitPath = path.join(root, SELF_UPDATE_AGENT_SERVICE_NAME);
   const installation = {
     release: 'release-a',
-    entrypoint: path.join(root, 'install', 'release-a', 'self-update-agent.mjs'),
+    entrypoint: path.join(
+      root,
+      'install',
+      'release-a',
+      'self-update-agent.mjs',
+    ),
   };
   const current = JSON.parse(ready('release-a', 'managed', 4242));
   const systemdActions = [];
