@@ -63,7 +63,9 @@ function setup() {
     projectTerminalService: {
       status: (_project, kind, executionContext) => ({
         kind,
-        environmentInstanceId: executionContext?.environmentInstanceId,
+        ...(executionContext?.environmentInstanceId
+          ? { environmentInstanceId: executionContext.environmentInstanceId }
+          : {}),
         supported: true,
         activeSessions: terminalSessions,
         message: 'ok',
