@@ -20,40 +20,113 @@ const markdown = [
   '',
   'Consulte a [documentação do Docker](https://docs.docker.com) antes de começar.',
   '',
+  '## Como rodar',
+  '',
   '| Serviço | Imagem / Base | Porta host | Descrição |',
   '| :--- | --- | ---: | :---: |',
   '| `web` | build local | 3000 | Rails server |',
   '| `db` | `postgres:17-alpine` | 5432 | PostgreSQL |',
+  '',
+  '### Detalhes',
   '',
   'Versões definidas em [.tool-versions](.tool-versions).',
   '',
   '[link inseguro](javascript:alert(1))',
 ].join('\n');
 
+const markdownFilesResult = {
+  files: [
+    {
+      path: 'README.docker.md',
+      name: 'README.docker.md',
+      kind: 'file',
+      language: 'markdown',
+      size: markdown.length,
+    },
+    {
+      path: 'docs/setup.md',
+      name: 'setup.md',
+      kind: 'file',
+      language: 'markdown',
+      size: markdown.length,
+    },
+    {
+      path: 'node_modules/example/README.md',
+      name: 'README.md',
+      kind: 'file',
+      language: 'markdown',
+      size: markdown.length,
+    },
+  ],
+  truncated: false,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
-  api.markdownFiles.mockResolvedValue({
-    files: [
-      {
-        path: 'README.docker.md',
-        name: 'README.docker.md',
-        kind: 'file',
-        language: 'markdown',
-        size: markdown.length,
-      },
-    ],
-    truncated: false,
-  });
-  api.file.mockResolvedValue({
-    path: 'README.docker.md',
-    name: 'README.docker.md',
+  api.markdownFiles.mockResolvedValue(markdownFilesResult);
+  api.file.mockImplementation(async (_projectId: string, path: string) => ({
+    path,
+    name: path.split('/').at(-1) ?? path,
     language: 'markdown',
     content: markdown,
     version: 'a'.repeat(64),
     size: markdown.length,
     modifiedAt: '2026-08-05T12:00:00.000Z',
     writable: true,
+  }));
+});
+
+test('organiza arquivos, documento e índice no workspace de README', async () => {
+  const project = makeProject({ id: 'project-1' });
+  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(wrapper.get('.readme-workspace').exists());
+  assert.equal(wrapper.find('.readme-file-list').exists(), false);
+  assert.equal(
+    wrapper.get('.readme-project-files').findAll('.readme-file-item').length,
+    2,
+  );
+  assert.equal(wrapper.get('.readme-dependency-summary-count').text(), '1');
+  assert.ok(wrapper.get('.readme-breadcrumb').text().includes('README.docker.md'));
+  assert.equal(wrapper.get('.readme-readonly-label').text(), 'Somente leitura');
+
+  const outlineButtons = wrapper.findAll('.readme-outline-button');
+  assert.deepEqual(
+    outlineButtons.map((button) => button.text()),
+    ['Rodando o projeto com Docker', 'Como rodar', 'Detalhes'],
+  );
+  assert.equal(wrapper.findAll('.readme-heading').length, 3);
+  assert.ok(
+    wrapper
+      .findAll('.readme-heading')
+      .every((heading) => heading.attributes('id')?.startsWith('readme-heading-')),
+  );
+
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoView,
   });
+
+  await outlineButtons[1]?.trigger('click');
+  assert.equal(scrollIntoView.mock.calls.length, 1);
+  assert.ok(outlineButtons[1]?.classes().includes('readme-outline-button-active'));
+
+  const dependencyButton = wrapper
+    .get('.readme-dependency-files')
+    .get('.readme-file-item');
+  await dependencyButton.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(api.file.mock.calls.at(-1)?.slice(0, 2), [
+    'project-1',
+    'node_modules/example/README.md',
+  ]);
+  assert.ok(dependencyButton.classes().includes('readme-file-item-active'));
+
+  wrapper.unmount();
 });
 
 test('renderiza tabelas GFM, links seguros e código inline do README', async () => {
@@ -94,6 +167,29 @@ test('renderiza tabelas GFM, links seguros e código inline do README', async ()
   assert.ok(wrapper.text().includes('.tool-versions'));
   assert.equal(wrapper.findAll('a').length, 1);
   assert.equal(wrapper.find('a[href^="javascript:"]').exists(), false);
+
+  wrapper.unmount();
+});
+
+test('mantém erro explícito e permite recarregar a documentação', async () => {
+  api.markdownFiles
+    .mockReset()
+    .mockRejectedValueOnce(new Error('Falha ao listar Markdown'))
+    .mockResolvedValueOnce(markdownFilesResult);
+
+  const project = makeProject({ id: 'project-1' });
+  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  await flushPromises();
+
+  assert.ok(wrapper.get('.readme-state-error').text().includes('Falha ao listar Markdown'));
+
+  await wrapper.get('.secondary-button').trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(api.markdownFiles.mock.calls.length, 2);
+  assert.ok(wrapper.find('.readme-state-error').exists() === false);
+  assert.ok(wrapper.get('.readme-document').exists());
 
   wrapper.unmount();
 });
