@@ -172,7 +172,9 @@ watch(
           <span class="readiness-state-dot" aria-hidden="true"></span>
           <div>
             <strong>{{ summaryText }}</strong>
-            <p>Resultado consolidado das evidências verificáveis desta branch.</p>
+            <p>
+              Resultado consolidado das evidências verificáveis desta branch.
+            </p>
           </div>
         </div>
         <span class="readiness-generated-at">
@@ -192,7 +194,10 @@ watch(
           </p>
         </div>
 
-        <ol class="readiness-checklist" aria-label="Checks de Release Readiness">
+        <ol
+          class="readiness-checklist"
+          aria-label="Checks de Release Readiness"
+        >
           <li
             v-for="check in orderedChecks"
             :key="check.id"
@@ -202,7 +207,9 @@ watch(
             <span class="readiness-check-marker" aria-hidden="true"></span>
 
             <div class="readiness-check-body">
-              <span class="readiness-check-domain">{{ checkLabel[check.id] }}</span>
+              <span class="readiness-check-domain">{{
+                checkLabel[check.id]
+              }}</span>
               <strong>{{ check.summary }}</strong>
               <p>{{ check.evidence }}</p>
               <small>Observado em {{ formatDate(check.observedAt) }}</small>
