@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
 import { DetachableExecutionService } from '../src/services/detachable-execution-service.js';
 import {
@@ -100,6 +100,19 @@ function railsFixture(): Promise<Project> {
   return fixture({ Gemfile: 'gem "rails"\n' }, 'rails');
 }
 
+function executionContext(
+  project: Project,
+  environmentInstanceId = `environment:primary:${project.id}`,
+  cwd = project.path,
+): ExecutionContext {
+  return {
+    projectId: project.id,
+    environmentInstanceId,
+    cwd,
+    runtime: 'host',
+  };
+}
+
 test('start() usa o gerenciador Node detectado para package-manager:install', async () => {
   const fakePty = new FakePty();
   let spawnedFile: string | undefined;
@@ -117,7 +130,11 @@ test('start() usa o gerenciador Node detectado para package-manager:install', as
   );
   const project = await nodeFixture();
 
-  const snapshot = await service.start(project, 'package-manager:install');
+  const snapshot = await service.start(
+    project,
+    'package-manager:install',
+    executionContext(project),
+  );
 
   assert.equal(spawnedFile, 'npm');
   assert.deepEqual(spawnedArgs, ['install']);
@@ -140,7 +157,11 @@ test('start() roda o script build declarado no package.json', async () => {
   );
   const project = await nodeFixture();
 
-  const snapshot = await service.start(project, 'package-script:build');
+  const snapshot = await service.start(
+    project,
+    'package-script:build',
+    executionContext(project),
+  );
 
   assert.deepEqual(spawnedArgs, ['run', 'build']);
   assert.equal(snapshot.actionName, 'build');
@@ -155,14 +176,19 @@ test('start() lança ACTION_NOT_FOUND para uma ação fora do catálogo de depen
   const project = await nodeFixture();
 
   await assert.rejects(
-    () => service.start(project, 'package-script:does-not-exist'),
+    () =>
+      service.start(
+        project,
+        'package-script:does-not-exist',
+        executionContext(project),
+      ),
     (error: unknown) =>
       error instanceof ProjectDependenciesPtyError &&
       error.code === 'ACTION_NOT_FOUND',
   );
 });
 
-test('start() lança ALREADY_RUNNING numa segunda chamada', async () => {
+test('start() lança ALREADY_RUNNING numa segunda chamada do mesmo ambiente', async () => {
   const fakePty = new FakePty();
   const detachable = new DetachableExecutionService({
     spawnPty: () => fakePty as never,
@@ -172,15 +198,53 @@ test('start() lança ALREADY_RUNNING numa segunda chamada', async () => {
     new ScriptDetectionService(),
   );
   const project = await railsFixture();
+  const context = executionContext(project);
 
-  await service.start(project, 'bundler:install');
+  await service.start(project, 'bundler:install', context);
 
   await assert.rejects(
-    () => service.start(project, 'bundler:update'),
+    () => service.start(project, 'bundler:update', context),
     (error: unknown) =>
       error instanceof ProjectDependenciesPtyError &&
       error.code === 'ALREADY_RUNNING',
   );
+});
+
+test('execuções de ambientes diferentes não compartilham cwd, status ou cancelamento', async () => {
+  const project = await nodeFixture();
+  const worktree = await nodeFixture();
+  const primaryContext = executionContext(project);
+  const worktreeContext = executionContext(
+    project,
+    'environment:worktree:projeto:wt-1',
+    worktree.path,
+  );
+  const spawnedCwds: string[] = [];
+  const spawnedPtys: FakePty[] = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: (_file, _args, options) => {
+      spawnedCwds.push(options.cwd);
+      const fakePty = new FakePty();
+      spawnedPtys.push(fakePty);
+      return fakePty as never;
+    },
+  });
+  const service = new ProjectDependenciesPtyService(
+    detachable,
+    new ScriptDetectionService(),
+  );
+
+  await service.start(project, 'package-manager:install', primaryContext);
+  await service.start(project, 'package-manager:install', worktreeContext);
+
+  assert.deepEqual(spawnedCwds, [project.path, worktree.path]);
+  assert.equal(service.snapshot(project, primaryContext)?.status, 'running');
+  assert.equal(service.snapshot(project, worktreeContext)?.status, 'running');
+
+  service.cancel(project, worktreeContext);
+
+  assert.deepEqual(spawnedPtys[0]?.kills, []);
+  assert.deepEqual(spawnedPtys[1]?.kills, ['SIGTERM']);
 });
 
 test('attach() envia ready com a ação e o snapshot, e detach não mata o processo', async () => {
@@ -193,11 +257,12 @@ test('attach() envia ready com a ação e o snapshot, e detach não mata o proce
     new ScriptDetectionService(),
   );
   const project = await railsFixture();
+  const context = executionContext(project);
 
-  await service.start(project, 'bundler:install');
+  await service.start(project, 'bundler:install', context);
 
   const socket = new FakeSocket();
-  service.attach(project, socket as never);
+  service.attach(project, socket as never, context);
 
   const ready = socket.sent[0] as {
     type: string;
@@ -213,7 +278,12 @@ test('attach() envia ready com a ação e o snapshot, e detach não mata o proce
   });
 
   socket.close();
-  assert.equal(detachable.isRunning('projeto:dependencies-pty'), true);
+  assert.equal(
+    detachable.isRunning(
+      'projeto:environment:primary:projeto:dependencies-pty',
+    ),
+    true,
+  );
 });
 
 test('attach() sem execução em andamento envia erro e fecha o socket', async () => {
@@ -225,7 +295,7 @@ test('attach() sem execução em andamento envia erro e fecha o socket', async (
   const project = await railsFixture();
 
   const socket = new FakeSocket();
-  service.attach(project, socket as never);
+  service.attach(project, socket as never, executionContext(project));
 
   assert.equal(socket.closeCode, 1000);
   assert.equal((socket.sent[0] as { type: string }).type, 'error');
@@ -241,9 +311,10 @@ test('cancel() delega para DetachableExecutionService.cancel()', async () => {
     new ScriptDetectionService(),
   );
   const project = await nodeFixture();
+  const context = executionContext(project);
 
-  await service.start(project, 'package-manager:install');
-  service.cancel(project);
+  await service.start(project, 'package-manager:install', context);
+  service.cancel(project, context);
 
   assert.deepEqual(fakePty.kills, ['SIGTERM']);
 });

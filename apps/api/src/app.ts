@@ -395,6 +395,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(dependenciesPtyRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     projectDependenciesPtyService: context.projectDependenciesPtyService,
   });
   app.register(settingsRoutes, {
