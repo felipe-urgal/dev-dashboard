@@ -20,237 +20,151 @@ const scopeLabels: Record<ProjectEnvironmentContractScope, string> = {
   docker: 'Docker',
 };
 
-const statusLabels: Record<
-  ProjectEnvironmentContractVariable['status'],
-  string
-> = {
-  present: 'Presente',
-  missing: 'Ausente',
-  undocumented: 'Não documentada',
-  duplicate: 'Duplicada',
-  'conflicting-source': 'Fonte conflitante',
-  optional: 'Opcional',
-  unknown: 'Revisar',
-};
-
-const actionLabels: Record<
-  ProjectEnvironmentContractVariable['suggestedAction'],
-  string
-> = {
-  none: '',
-  configure: 'Configurar',
-  document: 'Documentar',
-  'review-source': 'Revisar fonte',
-  'choose-baseline': 'Escolher baseline',
-};
-
 const actionableStatuses = new Set<
   ProjectEnvironmentContractVariable['status']
 >(['missing', 'undocumented', 'duplicate', 'conflicting-source', 'unknown']);
 
 const sections = computed(() =>
-  (props.contract?.sections ?? [])
-    .map((section) => ({
-      ...section,
-      variables: section.variables.filter((variable) =>
-        actionableStatuses.has(variable.status),
-      ),
-    }))
-    .filter(
-      (section) =>
-        section.variables.length > 0 || section.baselineStatus !== 'resolved',
+  (props.contract?.sections ?? []).map((section) => ({
+    ...section,
+    variables: section.variables.filter((variable) =>
+      actionableStatuses.has(variable.status),
     ),
+  })),
+);
+
+const sectionSummaries = computed(() =>
+  sections.value
+    .map((section) => ({
+      scope: section.scope,
+      label: scopeLabels[section.scope],
+      count:
+        section.variables.length +
+        Number(section.baselineStatus !== 'resolved'),
+    }))
+    .filter((section) => section.count > 0),
 );
 
 const issueCount = computed(() =>
-  sections.value.reduce(
-    (total, section) =>
-      total +
-      section.variables.length +
-      Number(section.baselineStatus !== 'resolved'),
-    0,
-  ),
+  sectionSummaries.value.reduce((total, section) => total + section.count, 0),
 );
+
+const issueLabel = computed(() => {
+  if (issueCount.value === 0) return 'Sem pendências';
+  return `${issueCount.value} ${issueCount.value === 1 ? 'pendência' : 'pendências'}`;
+});
 </script>
 
 <template>
-  <section class="environment-contract" aria-label="Contrato de ambiente">
-    <div class="environment-contract-heading">
-      <div>
-        <span>Contrato</span>
-        <strong>Consistência entre ambientes</strong>
-      </div>
-      <small v-if="contract && !loading">
-        {{ issueCount === 0 ? 'Sem pendências' : `${issueCount} pendência(s)` }}
-      </small>
-    </div>
+  <section
+    class="environment-contract"
+    aria-label="Consistência entre ambientes"
+  >
+    <h3>Consistência</h3>
 
     <p v-if="loading && !contract" class="environment-contract-note">
-      Comparando nomes e origens das variáveis…
+      Comparando ambientes…
     </p>
     <p
       v-else-if="errorMessage"
       class="environment-contract-error"
       role="status"
     >
-      O contrato não pôde ser carregado. A leitura dos arquivos abaixo continua
-      disponível.
-    </p>
-    <p
-      v-else-if="contract && sections.length === 0"
-      class="environment-contract-ok"
-    >
-      Os baselines reconhecidos não possuem diferenças estruturais acionáveis.
+      Contrato indisponível. A leitura dos arquivos continua disponível.
     </p>
 
-    <div v-else-if="contract" class="environment-contract-sections">
-      <article v-for="section in sections" :key="section.scope">
-        <header>
-          <strong>{{ scopeLabels[section.scope] }}</strong>
-          <span v-if="section.baselineStatus === 'resolved'">
-            baseline <code>{{ section.baseline }}</code>
-          </span>
-          <span
-            v-else-if="section.baselineStatus === 'ambiguous'"
-            class="warning"
-          >
-            baseline ambíguo: {{ section.baselineCandidates.join(', ') }}
-          </span>
-          <span v-else class="warning">baseline ausente</span>
-        </header>
+    <template v-else-if="contract">
+      <strong
+        class="environment-contract-count"
+        :class="{ 'is-ok': issueCount === 0 }"
+      >
+        {{ issueLabel }}
+      </strong>
 
-        <ul v-if="section.variables.length > 0">
-          <li v-for="variable in section.variables" :key="variable.name">
-            <div>
-              <code>{{ variable.name }}</code>
-              <span>{{ statusLabels[variable.status] }}</span>
-              <small v-if="variable.sensitive">sensível</small>
-            </div>
-            <p>
-              <template v-if="variable.sources.length > 0">
-                origem: {{ variable.sources.join(', ') }}
-              </template>
-              <template v-if="variable.suggestedAction !== 'none'">
-                · {{ actionLabels[variable.suggestedAction] }}
-              </template>
-            </p>
-          </li>
-        </ul>
-      </article>
-    </div>
+      <dl v-if="sectionSummaries.length" class="environment-contract-scopes">
+        <div v-for="section in sectionSummaries" :key="section.scope">
+          <dt>{{ section.label }}</dt>
+          <dd>{{ section.count }}</dd>
+        </div>
+      </dl>
+
+      <p class="environment-contract-note">
+        {{
+          issueCount === 0
+            ? 'Nenhuma diferença estrutural acionável.'
+            : 'Foco no arquivo e nas diferenças relevantes para ele.'
+        }}
+      </p>
+    </template>
   </section>
 </template>
 
 <style scoped>
 .environment-contract {
   display: grid;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
+  gap: 12px;
+  padding: 18px 16px 0;
+  border-top: 1px solid var(--border);
 }
 
-.environment-contract-heading,
-.environment-contract-heading > div,
-.environment-contract-sections,
-.environment-contract-sections article {
-  display: grid;
-  gap: 4px;
-}
-
-.environment-contract-heading {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.environment-contract-heading span {
-  color: var(--accent);
-  font-size: 9px;
+.environment-contract h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
-.environment-contract-heading strong {
-  font-size: var(--font-sm);
-}
-
-.environment-contract-heading small,
-.environment-contract-note,
-.environment-contract-error,
-.environment-contract-ok,
-.environment-contract-sections header span,
-.environment-contract-sections li p,
-.environment-contract-sections li small {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-.environment-contract-note,
-.environment-contract-error,
-.environment-contract-ok,
-.environment-contract-sections li p {
-  margin: 0;
-}
-
-.environment-contract-error,
-.environment-contract-sections .warning {
+.environment-contract-count {
+  justify-self: start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning-text) 18%, transparent);
   color: var(--warning-text);
+  font-size: var(--font-xs);
+  font-weight: 800;
 }
 
-.environment-contract-ok {
+.environment-contract-count.is-ok {
+  background: color-mix(in srgb, var(--success-text) 14%, transparent);
   color: var(--success-text);
 }
 
-.environment-contract-sections {
-  gap: var(--space-3);
-}
-
-.environment-contract-sections article {
-  gap: var(--space-2);
-}
-
-.environment-contract-sections header {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.environment-contract-sections ul {
+.environment-contract-scopes {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-.environment-contract-sections li {
+.environment-contract-scopes > div {
   display: grid;
-  gap: 2px;
-  padding-left: var(--space-3);
-  border-left: 2px solid
-    color-mix(in srgb, var(--warning-text) 35%, var(--border));
-}
-
-.environment-contract-sections li > div {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.environment-contract-sections li > div > span {
-  color: var(--warning-text);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin: 0;
   font-size: var(--font-xs);
+}
+
+.environment-contract-scopes dt {
+  color: var(--text);
   font-weight: 700;
 }
 
-@media (max-width: 620px) {
-  .environment-contract-heading {
-    grid-template-columns: 1fr;
-  }
+.environment-contract-scopes dd {
+  margin: 0;
+  color: var(--warning-text);
+  font-weight: 800;
+}
+
+.environment-contract-note,
+.environment-contract-error {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+.environment-contract-error {
+  color: var(--warning-text);
 }
 </style>
