@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import type { Project } from '@dev-dashboard/contracts';
 
 const TOKEN = 'd'.repeat(64);
+const WORKTREE_ENVIRONMENT_ID = 'environment:worktree:p1:wt-1';
 
 interface StatusResponse {
   snapshot: { actionId: string; status: string } | null;
@@ -23,12 +24,16 @@ test('rotas de execução destacável de dependências/build', async (context) =
     path.join(tmpdir(), 'dev-dashboard-dependencies-pty-'),
   );
   const projectPath = path.join(fixtureRoot, 'sample');
+  const worktreePath = path.join(fixtureRoot, 'sample-worktree');
   await mkdir(projectPath, { recursive: true });
-  await writeFile(
-    path.join(projectPath, 'package.json'),
-    JSON.stringify({ scripts: { build: 'echo build' } }),
-  );
-  await writeFile(path.join(projectPath, 'package-lock.json'), '{}');
+  await mkdir(worktreePath, { recursive: true });
+  for (const target of [projectPath, worktreePath]) {
+    await writeFile(
+      path.join(target, 'package.json'),
+      JSON.stringify({ scripts: { build: 'echo build' } }),
+    );
+    await writeFile(path.join(target, 'package-lock.json'), '{}');
+  }
 
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
   const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
@@ -56,6 +61,9 @@ test('rotas de execução destacável de dependências/build', async (context) =
     projects: [project],
     warnings: [],
   });
+  appContext.developmentEnvironmentInstanceStore.reconcileWorktrees('p1', [
+    { id: 'wt-1', path: worktreePath, kind: 'linked' },
+  ]);
 
   const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => {
@@ -82,6 +90,35 @@ test('rotas de execução destacável de dependências/build', async (context) =
       });
       assert.equal(response.statusCode, 200);
       assert.deepEqual(response.json<StatusResponse>(), { snapshot: null });
+    },
+  );
+
+  await context.test(
+    'resolve um worktree pelo environmentInstanceId sem aceitar path do cliente',
+    async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/projects/p1/dependencies/pty/status?environmentInstanceId=${encodeURIComponent(WORKTREE_ENVIRONMENT_ID)}`,
+        headers,
+      });
+      assert.equal(response.statusCode, 200);
+      assert.deepEqual(response.json<StatusResponse>(), { snapshot: null });
+    },
+  );
+
+  await context.test(
+    'retorna 404 para environmentInstanceId inexistente',
+    async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/dependencies/pty/status?environmentInstanceId=environment%3Aworktree%3Ap1%3Amissing',
+        headers,
+      });
+      assert.equal(response.statusCode, 404);
+      assert.equal(
+        response.json<ErrorResponse>().error,
+        'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      );
     },
   );
 
