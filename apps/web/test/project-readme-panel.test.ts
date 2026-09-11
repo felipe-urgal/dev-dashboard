@@ -22,6 +22,10 @@ const markdown = [
   '',
   '## Como rodar',
   '',
+  '```bash',
+  'npm run test',
+  '```',
+  '',
   '| Serviço | Imagem / Base | Porta host | Descrição |',
   '| :--- | --- | ---: | :---: |',
   '| `web` | build local | 3000 | Rails server |',
@@ -120,6 +124,10 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
     outlineButtons[1]?.classes().includes('readme-outline-button-active'),
   );
 
+  const dependencyDetails = wrapper.get('.readme-dependency-group');
+  (dependencyDetails.element as HTMLDetailsElement).open = true;
+  await dependencyDetails.trigger('toggle');
+
   const dependencyButton = wrapper
     .get('.readme-dependency-files')
     .get('.readme-file-item');
@@ -177,6 +185,81 @@ test('renderiza tabelas GFM, links seguros e código inline do README', async ()
   wrapper.unmount();
 });
 
+test('copia um bloco de código renderizado pelo documento', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+
+  const project = makeProject({ id: 'project-1' });
+  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  await flushPromises();
+  await flushPromises();
+
+  const copyButton = wrapper.get('.readme-code-toolbar button');
+  await copyButton.trigger('click');
+  await flushPromises();
+
+  assert.equal(writeText.mock.calls.length, 1);
+  assert.ok(String(writeText.mock.calls[0]?.[0]).includes('npm run test'));
+  assert.ok(copyButton.text().includes('Copiado'));
+
+  wrapper.unmount();
+});
+
+test('mostra aviso de truncamento e atualiza a listagem pelo explorador', async () => {
+  api.markdownFiles.mockResolvedValue({
+    ...markdownFilesResult,
+    truncated: true,
+  });
+
+  const project = makeProject({ id: 'project-1' });
+  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(
+    wrapper
+      .get('.readme-truncated-warning')
+      .text()
+      .includes('lista foi limitada'),
+  );
+
+  await wrapper.get('.readme-browser-refresh').trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(api.markdownFiles.mock.calls.length, 2);
+  assert.ok(wrapper.get('.readme-document').exists());
+
+  wrapper.unmount();
+});
+
+test('mostra estado vazio quando o projeto não possui Markdown', async () => {
+  api.markdownFiles.mockResolvedValue({ files: [], truncated: false });
+
+  const project = makeProject({ id: 'project-1' });
+  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  await flushPromises();
+
+  assert.ok(
+    wrapper
+      .get('.readme-state')
+      .text()
+      .includes('Nenhum arquivo Markdown encontrado'),
+  );
+  assert.ok(
+    wrapper
+      .get('.readme-file-group-empty')
+      .text()
+      .includes('Nenhum Markdown do projeto'),
+  );
+  assert.equal(wrapper.find('.readme-reader-header').exists(), false);
+
+  wrapper.unmount();
+});
+
 test('mantém erro explícito e permite recarregar a documentação', async () => {
   api.markdownFiles
     .mockReset()
@@ -201,6 +284,43 @@ test('mantém erro explícito e permite recarregar a documentação', async () =
   assert.equal(api.markdownFiles.mock.calls.length, 2);
   assert.ok(wrapper.find('.readme-state-error').exists() === false);
   assert.ok(wrapper.get('.readme-document').exists());
+
+  wrapper.unmount();
+});
+
+test('expõe erro ao trocar para um arquivo que não pode ser lido', async () => {
+  api.file.mockImplementation(async (_projectId: string, path: string) => {
+    if (path === 'docs/setup.md') throw new Error('Falha ao abrir Markdown');
+    return {
+      path,
+      name: path.split('/').at(-1) ?? path,
+      language: 'markdown',
+      content: markdown,
+      version: 'a'.repeat(64),
+      size: markdown.length,
+      modifiedAt: '2026-08-05T12:00:00.000Z',
+      writable: true,
+    };
+  });
+
+  const project = makeProject({ id: 'project-1' });
+  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  await flushPromises();
+  await flushPromises();
+
+  const projectButtons = wrapper
+    .get('.readme-project-files')
+    .findAll('.readme-file-item');
+  await projectButtons[1]?.trigger('click');
+  await flushPromises();
+
+  assert.ok(
+    wrapper
+      .get('.readme-state-error')
+      .text()
+      .includes('Falha ao abrir Markdown'),
+  );
+  assert.equal(wrapper.find('.readme-document').exists(), false);
 
   wrapper.unmount();
 });
