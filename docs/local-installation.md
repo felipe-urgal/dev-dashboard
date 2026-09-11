@@ -34,22 +34,32 @@ npm run local:install
 
 O comando:
 
-1. prepara automaticamente a release local do self-update agent e garante que ela esteja `ready`;
-2. valida Linux e acesso ao user manager do systemd;
-3. resolve a checkout real e o caminho absoluto do Node atual;
-4. executa o build da distribuição;
-5. cria/atualiza `~/.config/systemd/user/dev-dashboard.service`;
-6. grava metadados privados da instalação e ambiente runtime gerenciado;
-7. executa `systemctl --user daemon-reload`;
-8. habilita `dev-dashboard.service` para o login;
-9. executa `systemctl --user restart dev-dashboard.service`, inclusive quando a unit já estava ativa;
-10. aguarda `/api/health` ficar saudável antes de declarar sucesso.
+1. prepara automaticamente a release local do self-update agent;
+2. cria/atualiza a unit gerenciada `dev-dashboard-self-update-agent.service`, garante que ela esteja ativa e prova que o `pid` autenticado do agent é o `MainPID` dessa unit;
+3. valida Linux e acesso ao user manager do systemd;
+4. resolve a checkout real e o caminho absoluto do Node atual;
+5. executa o build da distribuição;
+6. cria/atualiza `~/.config/systemd/user/dev-dashboard.service`;
+7. grava metadados privados da instalação e ambiente runtime gerenciado;
+8. executa `systemctl --user daemon-reload`;
+9. habilita `dev-dashboard.service` para o login;
+10. executa `systemctl --user restart dev-dashboard.service`, inclusive quando a unit já estava ativa;
+11. aguarda `/api/health` ficar saudável antes de declarar sucesso.
 
 A operação é idempotente. Reexecutar `local:install` prepara novamente o agent se necessário, recompila a distribuição, atualiza somente os arquivos que pertencem ao instalador, reinicia o runtime gerenciado e comprova readiness.
 
 O preparo do agent continua em user-space e usa somente a checkout atual e os paths privados do próprio self-update. Não solicita `sudo` nem amplia o catálogo de ações remotas do agent.
 
-Se já existir `dev-dashboard.service` sem o marcador do instalador, a operação falha sem sobrescrever o arquivo.
+O runtime principal e o agent persistente ficam em units diferentes:
+
+```text
+dev-dashboard.service                    # API/UI
+dev-dashboard-self-update-agent.service  # agent de self-update
+```
+
+Essa separação é obrigatória para o self-update: quando `dev-dashboard.service` recebe `SIGTERM`, o agent precisa continuar vivo para concluir o handoff, aplicar a revision e devolver o runtime principal.
+
+Se já existir qualquer uma das units gerenciadas com o mesmo nome, mas sem o marcador do instalador/bootstrap correspondente, a operação falha sem sobrescrever o arquivo.
 
 Se o restart acontecer mas a API não ficar saudável dentro da janela limitada, o instalador falha e orienta o diagnóstico por `local:status`/`journalctl` em vez de anunciar uma instalação saudável sem prova.
 
@@ -120,12 +130,19 @@ npm run local:status
 O comando informa:
 
 - se a instalação gerenciada existe;
-- se a unit está habilitada;
-- se o serviço está ativo;
+- se a unit principal está habilitada;
+- se o serviço principal está ativo;
 - se `/api/health` está saudável;
 - a URL instalada.
 
 O status não considera apenas a existência de um arquivo: metadados e marcador da unit precisam ser coerentes.
+
+O status do self-update agent é verificado separadamente pelo bootstrap e pode ser consultado diretamente:
+
+```bash
+systemctl --user status dev-dashboard-self-update-agent.service --no-pager -l
+npm run self-update:ensure
+```
 
 Depois de um restart manual isolado, o processo pode levar cerca de um segundo para terminar o bootstrap da API; por isso uma consulta feita imediatamente após `systemctl restart` pode observar transitoriamente serviço ativo antes do health. `local:install`, ao contrário, espera readiness antes de retornar sucesso.
 
@@ -153,16 +170,28 @@ Estado básico:
 npm run local:status
 ```
 
-Status direto da unit:
+Status direto da unit principal:
 
 ```bash
 systemctl --user status dev-dashboard.service --no-pager -l
 ```
 
-Logs recentes:
+Status do agent persistente:
+
+```bash
+systemctl --user status dev-dashboard-self-update-agent.service --no-pager -l
+```
+
+Logs recentes da API/UI:
 
 ```bash
 journalctl --user -u dev-dashboard.service -n 120 --no-pager
+```
+
+Logs recentes do agent:
+
+```bash
+journalctl --user -u dev-dashboard-self-update-agent.service -n 120 --no-pager
 ```
 
 Health sem autenticação:
@@ -189,7 +218,8 @@ Se o serviço não iniciar depois do login, confira primeiro:
 2. o Node registrado na instalação ainda existe;
 3. a checkout registrada ainda existe no mesmo path real;
 4. a porta não está ocupada por outro processo;
-5. `npm run local:status` não informa instalação inconsistente.
+5. `npm run local:status` não informa instalação inconsistente;
+6. `npm run self-update:ensure` consegue comprovar o agent na unit própria.
 
 Se o Node foi removido ou trocado por uma instalação diferente de `nvm`, `asdf`, `fnm` ou similar, rode `npm run local:install` novamente a partir do Node correto. A unit usa o caminho absoluto capturado durante a instalação e não depende de `.bashrc`, `.zshrc` ou shell profile.
 
@@ -197,11 +227,13 @@ Se o Node foi removido ou trocado por uma instalação diferente de `nvm`, `asdf
 
 A instalação local não substitui o protocolo seguro de self-update.
 
-A mutação continua passando por planner, confirmação, handoff, worker externo, fast-forward e prova da revision final. O bootstrap do agent é automático tanto em `local:install` quanto ao gerar um plano do próprio Dashboard; os comandos manuais de `self-update:agent install/start` ficam reservados a diagnóstico de baixo nível.
+A mutação continua passando por planner, confirmação, handoff, worker externo, fast-forward e prova da revision final. O bootstrap do agent é automático tanto em `local:install` quanto ao gerar um plano do próprio Dashboard. O lifecycle persistente suportado usa `dev-dashboard-self-update-agent.service`; um processo iniciado manualmente e apenas destacado não é aceito como prova suficiente de ownership.
 
 O contrato de uma instalação gerenciada é:
 
 ```text
+bootstrap comprova agent em unit própria
+        ↓
 self-update aplica revision confirmada
         ↓
 handoff propaga revision + raiz canônica validada
@@ -232,11 +264,13 @@ npm run local:uninstall
 O comando:
 
 - desabilita e para somente `dev-dashboard.service` quando ela pertence ao instalador;
-- remove a unit gerenciada;
+- remove a unit gerenciada do runtime principal;
 - remove os metadados da instalação local;
 - recarrega o user manager do systemd.
 
-Ele não remove:
+`local:uninstall` não remove automaticamente `dev-dashboard-self-update-agent.service`, porque o agent pertence ao protocolo de self-update e pode existir mesmo sem a integração de autostart do runtime principal.
+
+Ele também não remove:
 
 - a checkout do Dev Dashboard;
 - `~/.config/dev-dashboard/config.json`;

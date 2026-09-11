@@ -6,6 +6,8 @@ O projeto usa `strategy=self-update`, `provider=none` e branch `main`. Não exis
 
 Quando existe uma instalação local gerenciada por `local:install`, o self-update pode delegar o restart somente à unit fixa `dev-dashboard.service` via `systemctl --user restart`; esse detalhe operacional é resolvido pelo backend e nunca é escolhido pelo browser.
 
+O self-update agent usa uma segunda unit fixa e gerenciada, `dev-dashboard-self-update-agent.service`. Ela pertence ao `systemd --user` e possui cgroup próprio, separado de `dev-dashboard.service`, para continuar disponível quando a API antiga é encerrada durante o handoff.
+
 Documentação aprofundada:
 
 - [`architecture/self-production.md`](architecture/self-production.md): protocolo completo de handoff, agent, worker, restart, revision e recovery;
@@ -46,8 +48,8 @@ A operação do self-update acontece pela própria aba **Produção** sem exigir
 ```text
 Gerar plano
 -> instalar/atualizar a release local do agent
--> iniciar o agent se estiver parado
--> reiniciar o agent se a release em execução estiver antiga
+-> garantir dev-dashboard-self-update-agent.service
+-> provar readiness + MainPID da unit gerenciada
 -> resolver origin/main
 -> revisar revision + plano check -> self-update
 -> confirmar planHash
@@ -70,14 +72,17 @@ Não existe comando `npm run prod:deploy` para substituir esse fluxo.
 O bootstrap é idempotente e executa somente o necessário para deixar a release local coerente:
 
 1. instala/atualiza a release do agent a partir da checkout atual;
-2. consulta o agent pelo canal local autenticado;
-3. se estiver ausente/parado, inicia a release instalada;
-4. se estiver executando uma release antiga, encerra esse agent e inicia a release instalada;
-5. exige novo `ping` com `status=ready` e a mesma release preparada.
+2. cria/atualiza somente a unit marcada `dev-dashboard-self-update-agent.service` em `systemd --user`;
+3. executa `daemon-reload` e habilita a unit para a sessão do usuário;
+4. consulta o agent pelo canal local autenticado;
+5. se houver uma instância antiga ou iniciada fora da unit gerenciada, encerra essa instância e reinicia a unit própria;
+6. exige `ping` com `status=ready`, a mesma release preparada e `pid` igual ao `MainPID` informado pelo systemd.
 
-Falhas de ownership, permissões, token, instalação, start ou readiness continuam falhando fechado. O bootstrap não adiciona ações ao catálogo remoto do agent e não aceita shell/programa/argumentos arbitrários vindos da UI.
+Essa prova de `MainPID` é importante: `detached: true` sozinho não retira um processo do cgroup de `dev-dashboard.service`. O bootstrap não considera o agent persistente apenas porque ele responde no socket; ele precisa responder **e** pertencer à unit separada. Assim o shutdown controlado da API não mata o processo que deve concluir o self-update.
 
-`npm run local:install` também prepara o agent automaticamente. Durante a execução de um plano `self-update`, a revalidação da revision volta a executar o mesmo `ensure` antes de cada etapa, inclusive imediatamente antes do handoff. Assim a operação normal não exige `self-update:agent install/start` manual, enquanto `prod:check` permanece estritamente de leitura/validação.
+Falhas de ownership, permissões, token, instalação, systemd, start ou readiness continuam falhando fechado. O bootstrap recusa sobrescrever uma unit com o mesmo nome quando o arquivo não contém o marcador de ownership do Dev Dashboard. O catálogo remoto do agent não é ampliado e a UI continua sem poder escolher shell/programa/argumentos/unit.
+
+`npm run local:install` também prepara o agent automaticamente. Durante a execução de um plano `self-update`, a revalidação da revision volta a executar o mesmo `ensure` antes das etapas, inclusive imediatamente antes do handoff. Assim a operação normal não exige `self-update:agent install/start` manual, enquanto `prod:check` permanece estritamente de leitura/validação.
 
 ## `prod:status`
 
@@ -112,11 +117,19 @@ npm run self-update:helper -- ...
 npm run self-update:agent -- ...
 ```
 
-`self-update:ensure` existe para diagnóstico/engenharia; o uso normal pela UI chama o mesmo bootstrap automaticamente.
+`self-update:ensure` existe para diagnóstico/engenharia; o uso normal pela UI chama o mesmo bootstrap automaticamente. O lifecycle persistente suportado é a unit `dev-dashboard-self-update-agent.service`; iniciar manualmente o processo do agent não substitui a prova de ownership dessa unit.
 
 O fluxo suportado sempre passa pelo Production Contract, planner, confirmação vinculada ao `planHash` e revalidação da revision.
 
 O agent instalado vive fora da checkout, em user-space, e usa canal local autenticado. O catálogo remoto não aceita shell/programa/argv/path arbitrários.
+
+Para diagnóstico da unit do agent:
+
+```bash
+systemctl --user status dev-dashboard-self-update-agent.service --no-pager -l
+journalctl --user -u dev-dashboard-self-update-agent.service -n 120 --no-pager
+npm run self-update:ensure
+```
 
 ## Aplicação da revision
 
@@ -162,6 +175,13 @@ systemctl --user restart dev-dashboard.service
 
 quando a raiz real do handoff coincide com a checkout instalada, os metadados de `local:install` são válidos e a unit fixa possui o marcador de ownership do instalador. Nome de unit, path e comando não vêm do browser.
 
+A unit principal e a unit do agent são deliberadamente diferentes:
+
+```text
+dev-dashboard.service                    # API/UI, pode ser parada no handoff
+dev-dashboard-self-update-agent.service  # agent persistente, precisa sobreviver
+```
+
 Em ambos os caminhos, sucesso exige duas provas:
 
 1. `/api/health` saudável;
@@ -198,6 +218,7 @@ Consulte [`architecture/production-contract.md`](architecture/production-contrac
 - `npm run check` verde no código que será promovido;
 - `prod:status` coerente;
 - `prod:check` verde quando executado para diagnóstico;
+- `dev-dashboard-self-update-agent.service` ativo e com `MainPID` igual ao `pid` autenticado do agent;
 - working tree limpa;
 - plano aponta para a revision correta de `origin/main`;
 - confirmação corresponde ao `planHash` atual;
