@@ -291,3 +291,5 @@ Esta instalação não oferece:
 - serviço system-wide/root;
 - execução antes do login via `linger`;
 - suporte a Windows ou macOS.
+
+Essas capacidades exigiriam fronteiras operacionais e de segurança próprias.
