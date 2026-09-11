@@ -36,7 +36,9 @@ function setup() {
     projects: [project()],
     warnings: [],
   });
-  const environmentStore = new DevelopmentEnvironmentInstanceStore(projectStore);
+  const environmentStore = new DevelopmentEnvironmentInstanceStore(
+    projectStore,
+  );
   environmentStore.reconcileWorktrees(PROJECT_ID, [
     {
       id: WORKTREE_ID,
@@ -147,14 +149,18 @@ test('guard bloqueia terminal ativo e runtime cujo cleanup ainda não é suporta
   assert.match(terminal.diagnostic ?? '', /terminal ativa/i);
 
   fixture.setTerminalSessions(0);
-  const instance = fixture.environmentStore.findById(fixture.environmentInstanceId);
+  const instance = fixture.environmentStore.findById(
+    fixture.environmentInstanceId,
+  );
   assert.ok(instance);
   fixture.environmentStore.upsert({
     ...instance,
     runtime: { kind: 'devcontainer', runtimeId: 'container-1' },
   });
 
-  const devcontainer = await fixture.guard.inspect(fixture.environmentInstanceId);
+  const devcontainer = await fixture.guard.inspect(
+    fixture.environmentInstanceId,
+  );
   assert.equal(devcontainer.safe, false);
   assert.match(devcontainer.diagnostic ?? '', /runtime associado/i);
 });

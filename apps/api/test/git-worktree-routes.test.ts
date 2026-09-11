@@ -233,7 +233,10 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
     payload: { confirmationToken: CONFIRMATION_TOKEN },
   });
   assert.equal(removal.statusCode, 200);
-  assert.equal(removal.json<{ result: { state: string } }>().result.state, 'removed');
+  assert.equal(
+    removal.json<{ result: { state: string } }>().result.state,
+    'removed',
+  );
   assert.deepEqual(removalCalls, [
     {
       worktreeId: 'worktree-linked',
