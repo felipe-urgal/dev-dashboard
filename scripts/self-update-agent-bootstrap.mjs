@@ -122,7 +122,9 @@ export function resolveSelfUpdateAgentUnitPath(
   home = homedir(),
 ) {
   const configured = environment.XDG_CONFIG_HOME?.trim();
-  const configHome = configured ? path.resolve(configured) : path.join(home, '.config');
+  const configHome = configured
+    ? path.resolve(configured)
+    : path.join(home, '.config');
   return path.join(
     configHome,
     'systemd',
@@ -157,9 +159,7 @@ ExecStart=${systemdQuote(nodePath)} ${systemdQuote(installation.entrypoint)} ser
 Environment=${systemdQuote(
     `DEV_DASHBOARD_SELF_UPDATE_INSTALL_DIR=${paths.installRoot}`,
   )}
-Environment=${systemdQuote(
-    `DEV_DASHBOARD_CONFIG_DIR=${paths.configDirectory}`,
-  )}
+Environment=${systemdQuote(`DEV_DASHBOARD_CONFIG_DIR=${paths.configDirectory}`)}
 Environment=${systemdQuote(
     `DEV_DASHBOARD_STATE_DIR=${path.dirname(paths.stateDirectory)}`,
   )}
@@ -213,9 +213,15 @@ function readServiceState(runSystemctl) {
 
   const parsedPid = Number.parseInt(pid.stdout?.trim() ?? '', 10);
   return {
-    active: !active.error && active.status === 0 && active.stdout?.trim() === 'active',
+    active:
+      !active.error &&
+      active.status === 0 &&
+      active.stdout?.trim() === 'active',
     pid:
-      !pid.error && pid.status === 0 && Number.isSafeInteger(parsedPid) && parsedPid > 1
+      !pid.error &&
+      pid.status === 0 &&
+      Number.isSafeInteger(parsedPid) &&
+      parsedPid > 1
         ? parsedPid
         : null,
   };
@@ -232,7 +238,9 @@ export function ensureSelfUpdateAgentService({
   unitPath = resolveSelfUpdateAgentUnitPath(environment, homeDirectory),
 } = {}) {
   if (!installation || typeof runAgent !== 'function') {
-    throw new Error('Lifecycle do self-update agent recebeu argumentos inválidos.');
+    throw new Error(
+      'Lifecycle do self-update agent recebeu argumentos inválidos.',
+    );
   }
 
   const unit = buildSelfUpdateAgentUnit({ installation, paths });
