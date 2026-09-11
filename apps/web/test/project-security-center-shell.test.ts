@@ -22,7 +22,7 @@ const dedicatedSecurityView = resolve(
 );
 
 describe('shell do Security Center', () => {
-  it('mantém a rota de Segurança dentro de ProjectDetailsView', () => {
+  it('mantém a rota de Segurança no shell de ProjectDetailsView', () => {
     expect(routerSource).toMatch(
       /path: '\/projects\/:projectId\/security'[\s\S]*?name: 'project-security-center'[\s\S]*?import\('\.\.\/views\/ProjectDetailsView\.vue'\)/,
     );
