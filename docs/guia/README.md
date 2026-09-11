@@ -30,6 +30,7 @@ As ferramentas aparecem conforme capabilities/tipo do projeto.
 | Variáveis de ambiente | Inspeção/configuração estrutural do environment sem promover secrets para superfícies comuns. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
 | Migrations | Inspeciona o estado conhecido das migrations em modo somente leitura. | [migrations.md](migrations.md) |
 | Readiness | Consolida evidências de Git, Testes, Doctor e Migrations antes da entrega. | [readiness.md](readiness.md) |
+| Segurança | Executa scan local manual e somente leitura de secrets/misconfigurations e organiza findings por severidade. | [seguranca.md](seguranca.md) |
 | Diagnóstico | Project Doctor/diagnósticos locais somente leitura. | [diagnostico.md](diagnostico.md) |
 | README | Renderiza a documentação Markdown do projeto. | [readme.md](readme.md) |
 | Sidekiq/webpack | Lifecycle/log dos runtimes Rails reconhecidos. | — |
