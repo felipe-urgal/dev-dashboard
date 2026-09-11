@@ -4,7 +4,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const webRoot = process.cwd();
-const routerSource = readFileSync(resolve(webRoot, 'src/router/index.ts'), 'utf8');
+const routerSource = readFileSync(
+  resolve(webRoot, 'src/router/index.ts'),
+  'utf8',
+);
 const projectDetailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
