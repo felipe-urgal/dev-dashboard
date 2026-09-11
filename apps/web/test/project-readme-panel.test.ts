@@ -86,7 +86,7 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
   await flushPromises();
   await flushPromises();
 
-  assert.ok(wrapper.get('.readme-workspace').exists());
+  assert.equal(wrapper.find('.readme-workspace').exists(), true);
   assert.equal(wrapper.find('.readme-file-list').exists(), false);
   assert.equal(
     wrapper.get('.readme-project-files').findAll('.readme-file-item').length,
@@ -231,7 +231,7 @@ test('mostra aviso de truncamento e atualiza a listagem pelo explorador', async 
   await flushPromises();
 
   assert.equal(api.markdownFiles.mock.calls.length, 2);
-  assert.ok(wrapper.get('.readme-document').exists());
+  assert.equal(wrapper.find('.readme-document').exists(), true);
 
   wrapper.unmount();
 });
@@ -283,7 +283,7 @@ test('mantém erro explícito e permite recarregar a documentação', async () =
 
   assert.equal(api.markdownFiles.mock.calls.length, 2);
   assert.ok(wrapper.find('.readme-state-error').exists() === false);
-  assert.ok(wrapper.get('.readme-document').exists());
+  assert.equal(wrapper.find('.readme-document').exists(), true);
 
   wrapper.unmount();
 });
