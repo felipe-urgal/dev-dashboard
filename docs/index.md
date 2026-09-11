@@ -113,6 +113,7 @@ Self-update passa por confirmação, handoff/agent, fast-forward, restart e proo
 - [Project Profile](architecture/project-profile.md)
 - [Project Profile providers](architecture/project-profile-providers.md)
 - [Toolchain Doctor](architecture/toolchain-doctor.md)
+- [Development Environment Instances](architecture/development-environment-instances.md)
 - [Port Registry](architecture/port-registry.md)
 - [Git Worktrees](architecture/git-worktrees.md)
 - [Docker Compose](architecture/docker-compose.md)
@@ -124,7 +125,7 @@ Self-update passa por confirmação, handoff/agent, fast-forward, restart e proo
 - [Local CI com act](architecture/local-ci.md)
 - [Test Intelligence](architecture/test-intelligence.md)
 
-Algumas dessas fundações possuem apenas recortes read-only/backend. O escopo restante fica na issue correspondente; o documento arquitetural descreve o que já existe.
+Esses domínios possuem maturidade diferente: alguns já têm lifecycle e superfície de produto, enquanto outros ainda possuem recortes incompletos. O escopo restante fica na issue correspondente; o documento arquitetural descreve somente o que já existe.
 
 ### Guia de uso
 
