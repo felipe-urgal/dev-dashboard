@@ -43,27 +43,11 @@ beforeEach(() => {
 });
 
 describe('ProjectReleaseReadinessPanel', () => {
-  it('renderiza estados do backend e navega para os domínios responsáveis', async () => {
+  it('renderiza o checklist de entrega e navega para os domínios responsáveis', async () => {
     fetchReleaseReadiness.mockResolvedValue({
       state: 'block',
       generatedAt: '2026-09-06T17:00:00.000Z',
       checks: [
-        {
-          id: 'git',
-          state: 'block',
-          summary: 'Branch está atrás da referência remota',
-          evidence: '2 commits atrás de origin/main.',
-          observedAt: '2026-09-06T16:59:00.000Z',
-          action: { label: 'Abrir Sincronização', target: 'synchronization' },
-        },
-        {
-          id: 'tests',
-          state: 'unknown',
-          summary: 'Sem suíte completa comparável',
-          evidence: 'Nenhuma execução completa foi registrada.',
-          observedAt: '2026-09-06T16:59:00.000Z',
-          action: { label: 'Abrir Testes', target: 'tests' },
-        },
         {
           id: 'doctor',
           state: 'pass',
@@ -80,6 +64,22 @@ describe('ProjectReleaseReadinessPanel', () => {
           observedAt: '2026-09-06T16:59:30.000Z',
           action: { label: 'Abrir Migrations', target: 'migrations' },
         },
+        {
+          id: 'git',
+          state: 'block',
+          summary: 'Branch está atrás da referência remota',
+          evidence: '2 commits atrás de origin/main.',
+          observedAt: '2026-09-06T16:59:00.000Z',
+          action: { label: 'Abrir Sincronização', target: 'synchronization' },
+        },
+        {
+          id: 'tests',
+          state: 'unknown',
+          summary: 'Sem suíte completa comparável',
+          evidence: 'Nenhuma execução completa foi registrada.',
+          observedAt: '2026-09-06T16:59:00.000Z',
+          action: { label: 'Abrir Testes', target: 'tests' },
+        },
       ],
     });
 
@@ -88,11 +88,20 @@ describe('ProjectReleaseReadinessPanel', () => {
 
     expect(fetchReleaseReadiness).toHaveBeenCalledWith(project.id);
     expect(wrapper.text()).toContain('Release Readiness');
+    expect(wrapper.text()).toContain('Checklist de entrega');
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('Inconclusivo');
     expect(wrapper.text()).toContain('Pronto');
     expect(wrapper.text()).toContain('Existem migrations pendentes');
     expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
+    expect(wrapper.find('.readiness-state--block').exists()).toBe(true);
+    expect(wrapper.find('.readiness-checklist').exists()).toBe(true);
+    expect(wrapper.findAll('.readiness-check')).toHaveLength(4);
+
+    const domains = wrapper
+      .findAll('.readiness-check-domain')
+      .map((node) => node.text());
+    expect(domains).toEqual(['Git', 'Testes', 'Doctor', 'Migrations']);
 
     const links = wrapper.findAll('.router-link-stub');
     expect(links).toHaveLength(4);
@@ -101,6 +110,25 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(links[1]?.attributes('data-name')).toBe('project-tests');
     expect(links[2]?.attributes('data-name')).toBe('project-doctor');
     expect(links[3]?.attributes('data-name')).toBe('project-migrations');
+    expect(wrapper.findAll('button')).toHaveLength(0);
+  });
+
+  it('mostra o estado pronto sem inventar ações de entrega', async () => {
+    fetchReleaseReadiness.mockResolvedValue({
+      state: 'pass',
+      generatedAt: '2026-09-06T17:00:00.000Z',
+      checks: [],
+    });
+
+    const wrapper = mountPanel();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Pronto');
+    expect(wrapper.text()).toContain(
+      'As evidências disponíveis estão recentes e não apresentam bloqueadores.',
+    );
+    expect(wrapper.text()).toContain('Resultado consolidado das evidências');
+    expect(wrapper.find('.readiness-state--pass').exists()).toBe(true);
   });
 
   it('mantém falha de carregamento explícita e permite retry', async () => {
