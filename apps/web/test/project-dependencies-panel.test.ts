@@ -147,7 +147,10 @@ test('mostra resumo operacional e console ocioso para o gerenciador Node detecta
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
   assert.match(wrapper.text(), /Console de execução/);
-  assert.match(wrapper.text(), /Execute um comando para acompanhar a saída aqui/);
+  assert.match(
+    wrapper.text(),
+    /Execute um comando para acompanhar a saída aqui/,
+  );
   assert.equal(
     wrapper.get('.dependencies-panel').attributes('aria-busy'),
     'false',
