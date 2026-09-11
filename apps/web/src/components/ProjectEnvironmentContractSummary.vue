@@ -56,7 +56,10 @@ const issueLabel = computed(() => {
 </script>
 
 <template>
-  <section class="environment-contract" aria-label="Consistência entre ambientes">
+  <section
+    class="environment-contract"
+    aria-label="Consistência entre ambientes"
+  >
     <h3>Consistência</h3>
 
     <p v-if="loading && !contract" class="environment-contract-note">
