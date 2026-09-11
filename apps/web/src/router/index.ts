@@ -68,6 +68,11 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
+      path: '/projects/:projectId/worktrees',
+      name: 'project-worktrees',
+      component: () => import('../views/ProjectDetailsView.vue'),
+    },
+    {
       path: '/projects/:projectId/tests',
       name: 'project-tests',
       component: () => import('../views/ProjectDetailsView.vue'),

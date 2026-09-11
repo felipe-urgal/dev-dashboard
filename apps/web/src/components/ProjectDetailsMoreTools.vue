@@ -7,6 +7,7 @@ import {
   CommandLineIcon,
   CubeIcon,
   DocumentTextIcon,
+  FolderIcon,
   LockClosedIcon,
   QueueListIcon,
   ShieldCheckIcon,
@@ -26,6 +27,17 @@ const route = useRoute();
 </script>
 
 <template>
+  <RouterLink
+    v-if="project.capabilities.includes('git')"
+    class="project-details-tab"
+    :class="{
+      'project-details-tab-active': route.name === 'project-worktrees',
+    }"
+    :to="{ name: 'project-worktrees', params: { projectId: project.id } }"
+  >
+    <FolderIcon aria-hidden="true" />
+    <span>Worktrees</span>
+  </RouterLink>
   <RouterLink
     v-if="project.type === 'rails' || project.type === 'node'"
     class="project-details-tab"
