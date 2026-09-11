@@ -55,7 +55,9 @@ describe('ProjectSecurityCenterPanel', () => {
 
     expect(wrapper.text()).toContain('Security Center');
     expect(wrapper.text()).toContain('Não instalado');
-    expect(wrapper.text()).toContain('Trivy não está instalado no PATH da API.');
+    expect(wrapper.text()).toContain(
+      'Trivy não está instalado no PATH da API.',
+    );
     expect(wrapper.text()).toContain('Não executado');
     expect(wrapper.text()).toContain('Somente sessão');
     expect(wrapper.text()).toContain('Triagem de riscos');
@@ -146,7 +148,9 @@ describe('ProjectSecurityCenterPanel', () => {
     const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.get('.security-center-scan-button').attributes('disabled')).toBeUndefined();
+    expect(
+      wrapper.get('.security-center-scan-button').attributes('disabled'),
+    ).toBeUndefined();
     await wrapper.get('.security-center-scan-button').trigger('click');
     await flushPromises();
 
@@ -169,7 +173,9 @@ describe('ProjectSecurityCenterPanel', () => {
       'Unknown finding',
     ]);
     expect(wrapper.text()).toContain('Secret · CRIT-1 · a.env:4');
-    expect(wrapper.text()).toContain('Remova o segredo e rotacione a credencial.');
+    expect(wrapper.text()).toContain(
+      'Remova o segredo e rotacione a credencial.',
+    );
 
     wrapper.unmount();
   });

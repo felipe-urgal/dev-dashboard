@@ -38,7 +38,9 @@ describe('shell do Security Center', () => {
   });
 
   it('mantém Segurança como aba do projeto', () => {
-    expect(moreToolsSource).toContain("route.name === 'project-security-center'");
+    expect(moreToolsSource).toContain(
+      "route.name === 'project-security-center'",
+    );
     expect(moreToolsSource).toContain('<span>Segurança</span>');
   });
 });
