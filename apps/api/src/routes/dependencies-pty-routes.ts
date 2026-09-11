@@ -269,10 +269,11 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
         socket.close(1008, 'Projeto não encontrado');
         return;
       }
-      const executionContext = developmentEnvironmentInstanceStore.resolveForProject(
-        project.id,
-        request.query.environmentInstanceId,
-      );
+      const executionContext =
+        developmentEnvironmentInstanceStore.resolveForProject(
+          project.id,
+          request.query.environmentInstanceId,
+        );
       if (!executionContext) {
         socket.close(1008, 'Ambiente não encontrado');
         return;

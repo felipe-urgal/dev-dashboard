@@ -94,7 +94,10 @@ export class ProjectDependenciesPtyService {
     project: Project,
     executionContext: ExecutionContext,
   ): ProjectDependenciesPtySnapshot | undefined {
-    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     const snapshot = this.detachable.snapshotOf(key);
     if (!snapshot) return undefined;
     const action = this.runningAction.get(key);
@@ -170,7 +173,10 @@ export class ProjectDependenciesPtyService {
     socket: WebSocket,
     executionContext: ExecutionContext,
   ): void {
-    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     let handle;
     try {
       handle = this.detachable.attach(
