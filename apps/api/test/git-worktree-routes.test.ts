@@ -7,7 +7,10 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { gitWorktreeRoutes } from '../src/routes/git-worktrees.js';
-import type { CreateGitWorktreeInput } from '../src/services/git-worktree-lifecycle-service.js';
+import type {
+  CreateGitWorktreeInput,
+  RemoveGitWorktreeInput,
+} from '../src/services/git-worktree-lifecycle-service.js';
 import type {
   GitWorktreeInspection,
   GitWorktreeSnapshot,
@@ -17,6 +20,7 @@ import { ProjectStore } from '../src/store/project-store.js';
 const OBSERVED_AT = '2026-09-09T19:00:00.000Z';
 const MAIN_HEAD = '1111111111111111111111111111111111111111';
 const LINKED_HEAD = '2222222222222222222222222222222222222222';
+const CONFIRMATION_TOKEN = 'a'.repeat(64);
 
 function project(): Project {
   return {
@@ -59,16 +63,18 @@ function linkedWorktree(): GitWorktreeSnapshot {
   };
 }
 
-function readyInspection(): GitWorktreeInspection {
+function readyInspection(includeLinked = true): GitWorktreeInspection {
   return {
     state: 'ready',
     projectId: 'project-1',
     observedAt: OBSERVED_AT,
-    worktrees: [mainWorktree(), linkedWorktree()],
+    worktrees: includeLinked
+      ? [mainWorktree(), linkedWorktree()]
+      : [mainWorktree()],
   };
 }
 
-test('Worktrees HTTP lista, cria e reconcilia Environment Instances sem aceitar path como autoridade', async (context) => {
+test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem aceitar path como autoridade', async (context) => {
   const projectStore = new ProjectStore();
   projectStore.saveWorkspaceScan({
     workspaceId: 'workspace-1',
@@ -78,10 +84,13 @@ test('Worktrees HTTP lista, cria e reconcilia Environment Instances sem aceitar 
   });
 
   const lifecycleCalls: CreateGitWorktreeInput[] = [];
+  const prepareRemovalCalls: string[] = [];
+  const removalCalls: RemoveGitWorktreeInput[] = [];
   const reconciliations: Array<{
     projectId: string;
     worktreeIds: string[];
   }> = [];
+  let removed = false;
 
   const app = Fastify();
   registerApiErrorHandling(app);
@@ -89,7 +98,7 @@ test('Worktrees HTTP lista, cria e reconcilia Environment Instances sem aceitar 
     prefix: '/api',
     projectStore,
     gitWorktreeObserver: {
-      inspect: async () => readyInspection(),
+      inspect: async () => readyInspection(!removed),
     },
     gitWorktreeLifecycleService: {
       create: async (_project, input) => {
@@ -99,6 +108,31 @@ test('Worktrees HTTP lista, cria e reconcilia Environment Instances sem aceitar 
           path: '/workspace/projeto-demo',
           branch: 'feature/demo',
           worktree: linkedWorktree(),
+        };
+      },
+      prepareRemoval: async (_project, worktreeId) => {
+        prepareRemovalCalls.push(worktreeId);
+        return {
+          state: 'ready',
+          worktreeId,
+          environmentInstanceId:
+            'environment:worktree:project-1:worktree-linked',
+          path: '/workspace/projeto-demo',
+          branch: 'feature/demo',
+          confirmationToken: CONFIRMATION_TOKEN,
+          expiresAt: '2026-09-09T19:01:00.000Z',
+        };
+      },
+      remove: async (_project, input) => {
+        removalCalls.push(input);
+        removed = true;
+        return {
+          state: 'removed',
+          worktreeId: input.worktreeId,
+          environmentInstanceId:
+            'environment:worktree:project-1:worktree-linked',
+          path: '/workspace/projeto-demo',
+          branch: 'feature/demo',
         };
       },
     },
@@ -169,6 +203,44 @@ test('Worktrees HTTP lista, cria e reconcilia Environment Instances sem aceitar 
       createBranch: true,
     },
   ]);
+
+  const confirmation = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/worktrees/worktree-linked/removal/confirmations',
+  });
+  assert.equal(confirmation.statusCode, 200);
+  assert.equal(
+    confirmation.json<{ result: { confirmationToken?: string } }>().result
+      .confirmationToken,
+    CONFIRMATION_TOKEN,
+  );
+  assert.deepEqual(prepareRemovalCalls, ['worktree-linked']);
+
+  const invalidRemoval = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/worktrees/worktree-linked/removal',
+    payload: {
+      confirmationToken: CONFIRMATION_TOKEN,
+      path: '/tmp/fora',
+    },
+  });
+  assert.equal(invalidRemoval.statusCode, 400);
+  assert.deepEqual(removalCalls, []);
+
+  const removal = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/worktrees/worktree-linked/removal',
+    payload: { confirmationToken: CONFIRMATION_TOKEN },
+  });
+  assert.equal(removal.statusCode, 200);
+  assert.equal(removal.json<{ result: { state: string } }>().result.state, 'removed');
+  assert.deepEqual(removalCalls, [
+    {
+      worktreeId: 'worktree-linked',
+      confirmationToken: CONFIRMATION_TOKEN,
+    },
+  ]);
+
   assert.deepEqual(reconciliations, [
     {
       projectId: 'project-1',
@@ -177,6 +249,14 @@ test('Worktrees HTTP lista, cria e reconcilia Environment Instances sem aceitar 
     {
       projectId: 'project-1',
       worktreeIds: ['worktree-main', 'worktree-linked'],
+    },
+    {
+      projectId: 'project-1',
+      worktreeIds: ['worktree-main', 'worktree-linked'],
+    },
+    {
+      projectId: 'project-1',
+      worktreeIds: ['worktree-main'],
     },
   ]);
 
@@ -217,6 +297,14 @@ test('Worktrees HTTP não reconcilia snapshot não confiável', async (context) 
         state: 'blocked',
         path: '/workspace',
         branch: 'feature/demo',
+      }),
+      prepareRemoval: async (_project, worktreeId) => ({
+        state: 'blocked',
+        worktreeId,
+      }),
+      remove: async (_project, input) => ({
+        state: 'blocked',
+        worktreeId: input.worktreeId,
       }),
     },
     developmentEnvironmentInstanceStore: {
