@@ -215,7 +215,9 @@ onBeforeUnmount(() => updateClockTimer(false));
           <small>Comandos disponíveis para execução</small>
         </article>
 
-        <article class="dependencies-summary-item dependencies-summary-execution">
+        <article
+          class="dependencies-summary-item dependencies-summary-execution"
+        >
           <span>Execução</span>
           <strong
             class="dependencies-summary-status"
@@ -229,7 +231,10 @@ onBeforeUnmount(() => updateClockTimer(false));
       </section>
 
       <div class="dependencies-workspace">
-        <aside class="dependencies-actions-panel" aria-label="Comandos disponíveis">
+        <aside
+          class="dependencies-actions-panel"
+          aria-label="Comandos disponíveis"
+        >
           <header class="dependencies-actions-header">
             <div>
               <strong>Comandos</strong>
@@ -260,7 +265,9 @@ onBeforeUnmount(() => updateClockTimer(false));
                     <code>{{ item.command }}</code>
                     <button
                       type="button"
-                      :disabled="!item.enabled || starting !== null || isRunning"
+                      :disabled="
+                        !item.enabled || starting !== null || isRunning
+                      "
                       @click="run(item)"
                     >
                       <PlayIcon aria-hidden="true" />
@@ -300,7 +307,9 @@ onBeforeUnmount(() => updateClockTimer(false));
                     <code>{{ item.command }}</code>
                     <button
                       type="button"
-                      :disabled="!item.enabled || starting !== null || isRunning"
+                      :disabled="
+                        !item.enabled || starting !== null || isRunning
+                      "
                       @click="run(item)"
                     >
                       <PlayIcon aria-hidden="true" />
