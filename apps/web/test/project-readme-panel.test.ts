@@ -89,7 +89,9 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
     2,
   );
   assert.equal(wrapper.get('.readme-dependency-summary-count').text(), '1');
-  assert.ok(wrapper.get('.readme-breadcrumb').text().includes('README.docker.md'));
+  assert.ok(
+    wrapper.get('.readme-breadcrumb').text().includes('README.docker.md'),
+  );
   assert.equal(wrapper.get('.readme-readonly-label').text(), 'Somente leitura');
 
   const outlineButtons = wrapper.findAll('.readme-outline-button');
@@ -101,7 +103,9 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
   assert.ok(
     wrapper
       .findAll('.readme-heading')
-      .every((heading) => heading.attributes('id')?.startsWith('readme-heading-')),
+      .every((heading) =>
+        heading.attributes('id')?.startsWith('readme-heading-'),
+      ),
   );
 
   const scrollIntoView = vi.fn();
@@ -112,7 +116,9 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
 
   await outlineButtons[1]?.trigger('click');
   assert.equal(scrollIntoView.mock.calls.length, 1);
-  assert.ok(outlineButtons[1]?.classes().includes('readme-outline-button-active'));
+  assert.ok(
+    outlineButtons[1]?.classes().includes('readme-outline-button-active'),
+  );
 
   const dependencyButton = wrapper
     .get('.readme-dependency-files')
@@ -181,7 +187,12 @@ test('mantém erro explícito e permite recarregar a documentação', async () =
   const wrapper = mount(ProjectReadmePanel, { props: { project } });
   await flushPromises();
 
-  assert.ok(wrapper.get('.readme-state-error').text().includes('Falha ao listar Markdown'));
+  assert.ok(
+    wrapper
+      .get('.readme-state-error')
+      .text()
+      .includes('Falha ao listar Markdown'),
+  );
 
   await wrapper.get('.secondary-button').trigger('click');
   await flushPromises();
