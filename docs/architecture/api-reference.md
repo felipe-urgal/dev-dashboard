@@ -12033,6 +12033,196 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `POST /api/projects/:projectId/worktrees/:worktreeId/removal`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "worktreeId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worktreeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confirmationToken"
+  ],
+  "properties": {
+    "confirmationToken": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "worktreeId"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "removed",
+              "already-absent",
+              "blocked",
+              "failed",
+              "unverified",
+              "cleanup-required"
+            ]
+          },
+          "worktreeId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "diagnostic": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/worktrees/:worktreeId/removal/confirmations`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "worktreeId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worktreeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "worktreeId"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "blocked",
+              "not-found"
+            ]
+          },
+          "worktreeId": {
+            "type": "string"
+          },
+          "environmentInstanceId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "confirmationToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "diagnostic": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Health
 
 ### `GET /api/health`
