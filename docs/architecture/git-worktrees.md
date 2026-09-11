@@ -180,6 +180,20 @@ Antes de preparar uma remoção, a rota também reinspeciona/reconcilia um snaps
 
 A confirmação recebe apenas `projectId + worktreeId` pela rota e devolve o token curto do lifecycle quando todos os guards passam. A execução usa somente `confirmationToken` como autoridade no body; campos extras como `path`, `cwd`, comando ou argv não chegam ao lifecycle nem influenciam a mutação. Após `removed`, `already-absent` ou `cleanup-required`, a rota observa novamente os worktrees e reconcilia o estado operacional.
 
+## UI básica
+
+A ferramenta **Worktrees** usa somente os contratos HTTP acima e mantém o lifecycle separado do CRUD de Branches.
+
+A UI permite:
+
+- listar o snapshot atual de worktrees do projeto;
+- criar linked worktree para branch existente ou criar branch + worktree no mesmo fluxo;
+- omitir o diretório na experiência, derivando no cliente um nome simples e seguro a partir da branch antes de chamar o contrato atual;
+- remover somente linked worktrees elegíveis usando o fluxo `prepare -> confirmationToken -> remove`;
+- manter o checkout principal sem ação de remoção.
+
+A UI não recebe autoridade adicional sobre paths e não transforma remoção de worktree em remoção de branch. Cleanup avançado e remoção explícita da branch associada continuam recortes separados.
+
 ## Segurança e limites
 
 - nenhum shell livre;
@@ -198,6 +212,11 @@ A confirmação recebe apenas `projectId + worktreeId` pela rota e devolve o tok
 
 ## Próximos recortes
 
-A próxima etapa é criar a UI de worktrees sobre os contratos HTTP existentes e integrar nela o fluxo de confirmação/remoção sem expor paths como autoridade.
+Com observer, lifecycle, ownership guard, API e UI básica estabelecidos, os próximos recortes são de integração por `DevelopmentEnvironmentInstance` e validação da experiência completa:
+
+- propagar a identidade correta aos processos, PTYs, testes e logs restantes quando aplicável;
+- preservar ownership/cleanup quando branch ou worktree desaparecer externamente;
+- cobrir criação, uso e remoção end-to-end sem afetar outra Environment Instance;
+- tratar eventual remoção da branch associada como ação separada e explícita.
 
 O Port Registry existente continua sendo a autoridade para portas por ambiente. Se leases duráveis passarem a existir no lifecycle real da API, o guard de remoção deverá compor esse ownership explicitamente antes de liberá-los; não deve inferir leases por porta observada.
