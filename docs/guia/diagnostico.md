@@ -8,15 +8,18 @@ Ela não instala ferramentas, não executa correções automáticas e não trans
 
 ## O que aparece
 
-O relatório apresenta:
+A tela segue um resumo operacional:
 
 - estado agregado do Project Doctor;
-- checks por categoria;
-- resumo/evidência sanitizada;
-- ação de navegação quando existe uma ferramenta adequada para investigar/corrigir;
-- nova verificação sob ação explícita.
+- quantidade de checks aprovados em relação ao total coletado;
+- quantidade de pendências, considerando warnings, falhas e checks não verificados;
+- horário da coleta;
+- faixa semântica com a conclusão geral;
+- categorias **Projeto**, **Runtimes**, **Dependências** e **Configuração** em linhas expansíveis;
+- resumo e evidência sanitizada de cada check;
+- recomendação e ação de navegação quando existe uma ferramenta adequada para investigar ou corrigir.
 
-Os destinos apontam para superfícies atuais como Servidor, Banco de dados, Dependências, Variáveis de ambiente ou outra ferramenta responsável. Não existe uma página global **Configurações** como destino genérico.
+Ao expandir uma categoria, os checks aparecem na própria linha de contexto, sem abrir outra página. Os destinos apontam para superfícies atuais como Servidor, Banco de dados, Dependências, Variáveis de ambiente ou outra ferramenta responsável. A ação sugerida apenas navega para a ferramenta responsável; ela não executa a correção automaticamente.
 
 ## Fontes
 
@@ -34,6 +37,8 @@ Cada domínio mantém sua regra própria. O Doctor agrega o resultado; não deve
 ## Falhas parciais
 
 Uma fonte indisponível não precisa derrubar todas as outras. O relatório deve distinguir `unknown`/atenção/bloqueio conforme a evidência disponível e nunca afirmar saúde completa com base em uma coleta incompleta.
+
+Se a coleta inicial falhar, a tela apresenta o erro e permite tentar novamente. Ao trocar de projeto, o relatório anterior é descartado enquanto a nova coleta está em andamento.
 
 ## Segurança
 
