@@ -7,16 +7,21 @@ import {
   ProjectDependenciesPtyError,
   type ProjectDependenciesPtyService,
 } from '../services/project-dependencies-pty-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Params {
   projectId: string;
+}
+interface EnvironmentQuery {
+  environmentInstanceId?: string;
 }
 interface StartBody {
   actionId: string;
 }
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   projectDependenciesPtyService: ProjectDependenciesPtyService;
 }
 
@@ -25,6 +30,14 @@ const paramsSchema = {
   additionalProperties: false,
   required: ['projectId'],
   properties: { projectId: { type: 'string', minLength: 1 } },
+} as const;
+
+const environmentQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+  },
 } as const;
 
 const emptyBodySchema = {
@@ -100,6 +113,25 @@ function requireProject(projectStore: ProjectStore, projectId: string) {
   return project;
 }
 
+function requireExecutionContext(
+  store: DevelopmentEnvironmentInstanceStore,
+  projectId: string,
+  environmentInstanceId?: string,
+) {
+  const executionContext = store.resolveForProject(
+    projectId,
+    environmentInstanceId,
+  );
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+  return executionContext;
+}
+
 /**
  * Item 3 da task 234: mesmo padrão de rotas de tests/pty-routes.ts e
  * rails/migration-pty-routes.ts, aplicado às ações de dependências/build
@@ -109,13 +141,18 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  const { projectStore, projectDependenciesPtyService } = options;
+  const {
+    projectStore,
+    developmentEnvironmentInstanceStore,
+    projectDependenciesPtyService,
+  } = options;
 
-  app.get<{ Params: Params }>(
+  app.get<{ Params: Params; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/dependencies/pty/status',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -129,17 +166,29 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       return {
-        snapshot: projectDependenciesPtyService.snapshot(project) ?? null,
+        snapshot:
+          projectDependenciesPtyService.snapshot(project, executionContext) ??
+          null,
       };
     },
   );
 
-  app.post<{ Params: Params; Body: StartBody }>(
+  app.post<{
+    Params: Params;
+    Querystring: EnvironmentQuery;
+    Body: StartBody;
+  }>(
     '/projects/:projectId/dependencies/pty/start',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         body: startBodySchema,
         response: {
           201: {
@@ -154,10 +203,16 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         const snapshot = await projectDependenciesPtyService.start(
           project,
           request.body.actionId,
+          executionContext,
         );
         return reply.code(201).send({ snapshot });
       } catch (error) {
@@ -169,11 +224,12 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
     },
   );
 
-  app.post<{ Params: Params }>(
+  app.post<{ Params: Params; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/dependencies/pty/cancel',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         body: emptyBodySchema,
         response: {
           200: {
@@ -188,16 +244,24 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
-      projectDependenciesPtyService.cancel(project);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      projectDependenciesPtyService.cancel(project, executionContext);
       return { ok: true };
     },
   );
 
-  app.get<{ Params: Params }>(
+  app.get<{ Params: Params; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/dependencies/pty/connect',
     {
       websocket: true,
-      schema: { params: paramsSchema },
+      schema: {
+        params: paramsSchema,
+        querystring: environmentQuerySchema,
+      },
     },
     (socket, request) => {
       const project = projectStore.findProject(request.params.projectId);
@@ -205,9 +269,21 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
         socket.close(1008, 'Projeto não encontrado');
         return;
       }
+      const executionContext = developmentEnvironmentInstanceStore.resolveForProject(
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      if (!executionContext) {
+        socket.close(1008, 'Ambiente não encontrado');
+        return;
+      }
 
       const limitedSocket = withWebSocketMessageRateLimit(socket);
-      projectDependenciesPtyService.attach(project, limitedSocket);
+      projectDependenciesPtyService.attach(
+        project,
+        limitedSocket,
+        executionContext,
+      );
     },
   );
 };
