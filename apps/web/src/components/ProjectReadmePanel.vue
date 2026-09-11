@@ -6,10 +6,7 @@ import { DocumentTextIcon } from '@heroicons/vue/24/outline';
 import type { Project, ProjectFileEntry } from '@dev-dashboard/contracts';
 
 import { fetchProjectFileContent, fetchProjectMarkdownFiles } from '../api';
-import type {
-  CodeBlock,
-  HeadingBlock,
-} from '../utils/project-readme-markdown';
+import type { CodeBlock, HeadingBlock } from '../utils/project-readme-markdown';
 import { parseMarkdown } from '../utils/project-readme-markdown';
 import ProjectReadmeDocument from './ProjectReadmeDocument.vue';
 import ProjectReadmeFileList from './ProjectReadmeFileList.vue';
@@ -188,8 +185,14 @@ watch(
 
         <template v-else>
           <header class="readme-reader-header">
-            <div class="readme-breadcrumb" aria-label="Caminho do arquivo atual">
-              <template v-for="(part, index) in selectedPathParts" :key="`${part}-${index}`">
+            <div
+              class="readme-breadcrumb"
+              aria-label="Caminho do arquivo atual"
+            >
+              <template
+                v-for="(part, index) in selectedPathParts"
+                :key="`${part}-${index}`"
+              >
                 <span>{{ part }}</span>
                 <span
                   v-if="index < selectedPathParts.length - 1"

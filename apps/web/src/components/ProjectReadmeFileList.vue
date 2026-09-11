@@ -36,7 +36,9 @@ const dependencyFiles = computed(() =>
 
 function fileDirectory(file: ProjectFileEntry): string {
   const lastSeparator = file.path.lastIndexOf('/');
-  return lastSeparator >= 0 ? file.path.slice(0, lastSeparator) : 'Raiz do projeto';
+  return lastSeparator >= 0
+    ? file.path.slice(0, lastSeparator)
+    : 'Raiz do projeto';
 }
 
 function handleDependenciesToggle(event: Event): void {
@@ -64,7 +66,9 @@ watch(
         type="button"
         class="readme-browser-refresh"
         :disabled="props.loading"
-        :aria-label="props.loading ? 'Atualizando documentação' : 'Atualizar documentação'"
+        :aria-label="
+          props.loading ? 'Atualizando documentação' : 'Atualizar documentação'
+        "
         :title="props.loading ? 'Atualizando...' : 'Atualizar'"
         @click="emit('refresh')"
       >
@@ -84,7 +88,9 @@ watch(
           :key="file.path"
           type="button"
           class="readme-file-item"
-          :class="{ 'readme-file-item-active': file.path === props.selectedPath }"
+          :class="{
+            'readme-file-item-active': file.path === props.selectedPath,
+          }"
           :aria-current="file.path === props.selectedPath ? 'true' : undefined"
           :disabled="props.loading && file.path === props.selectedPath"
           @click="emit('select', file.path)"
@@ -123,8 +129,12 @@ watch(
             :key="file.path"
             type="button"
             class="readme-file-item"
-            :class="{ 'readme-file-item-active': file.path === props.selectedPath }"
-            :aria-current="file.path === props.selectedPath ? 'true' : undefined"
+            :class="{
+              'readme-file-item-active': file.path === props.selectedPath,
+            }"
+            :aria-current="
+              file.path === props.selectedPath ? 'true' : undefined
+            "
             :disabled="props.loading && file.path === props.selectedPath"
             @click="emit('select', file.path)"
           >
@@ -139,7 +149,10 @@ watch(
     </div>
 
     <footer class="readme-file-browser-footer">
-      {{ props.files.length }} arquivo{{ props.files.length === 1 ? '' : 's' }} Markdown
+      {{ props.files.length }} arquivo{{
+        props.files.length === 1 ? '' : 's'
+      }}
+      Markdown
     </footer>
   </aside>
 </template>
