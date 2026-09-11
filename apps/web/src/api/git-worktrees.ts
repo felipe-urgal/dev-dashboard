@@ -76,14 +76,13 @@ export async function createProjectGitWorktree(
   projectId: string,
   input: CreateProjectGitWorktreeInput,
 ): Promise<CreateProjectGitWorktreeResult> {
-  const response = await requestJson<{ result: CreateProjectGitWorktreeResult }>(
-    `/api/projects/${encodeURIComponent(projectId)}/worktrees`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  );
+  const response = await requestJson<{
+    result: CreateProjectGitWorktreeResult;
+  }>(`/api/projects/${encodeURIComponent(projectId)}/worktrees`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
   return response.result;
 }
 
@@ -105,7 +104,9 @@ export async function removeProjectGitWorktree(
   worktreeId: string,
   confirmationToken: string,
 ): Promise<RemoveProjectGitWorktreeResult> {
-  const response = await requestJson<{ result: RemoveProjectGitWorktreeResult }>(
+  const response = await requestJson<{
+    result: RemoveProjectGitWorktreeResult;
+  }>(
     `/api/projects/${encodeURIComponent(projectId)}/worktrees/${encodeURIComponent(worktreeId)}/removal`,
     {
       method: 'POST',
