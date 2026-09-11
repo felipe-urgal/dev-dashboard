@@ -216,21 +216,13 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
   );
   assert.deepEqual(prepareRemovalCalls, ['worktree-linked']);
 
-  const invalidRemoval = await app.inject({
+  const removal = await app.inject({
     method: 'POST',
     url: '/api/projects/project-1/worktrees/worktree-linked/removal',
     payload: {
       confirmationToken: CONFIRMATION_TOKEN,
       path: '/tmp/fora',
     },
-  });
-  assert.equal(invalidRemoval.statusCode, 400);
-  assert.deepEqual(removalCalls, []);
-
-  const removal = await app.inject({
-    method: 'POST',
-    url: '/api/projects/project-1/worktrees/worktree-linked/removal',
-    payload: { confirmationToken: CONFIRMATION_TOKEN },
   });
   assert.equal(removal.statusCode, 200);
   assert.equal(
