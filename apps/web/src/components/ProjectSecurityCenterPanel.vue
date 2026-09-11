@@ -196,10 +196,7 @@ watch(
 </script>
 
 <template>
-  <section
-    class="security-center-panel"
-    aria-labelledby="security-center-title"
-  >
+  <section class="security-center-panel" aria-labelledby="security-center-title">
     <header class="security-center-header">
       <div>
         <span class="security-center-eyebrow">Segurança</span>
@@ -239,9 +236,7 @@ watch(
       >
         <span class="security-center-state-marker" aria-hidden="true"></span>
         <div class="security-center-state-copy">
-          <strong id="security-center-state-title">{{
-            availabilityTitle
-          }}</strong>
+          <strong id="security-center-state-title">{{ availabilityTitle }}</strong>
           <p>{{ availabilityDiagnostic }}</p>
         </div>
         <span class="security-center-observed">
@@ -297,13 +292,8 @@ watch(
           </span>
         </div>
 
-        <div
-          class="security-center-severity-grid"
-          aria-label="Contagem por severidade"
-        >
-          <div
-            class="security-center-severity security-center-severity--critical"
-          >
+        <div class="security-center-severity-grid" aria-label="Contagem por severidade">
+          <div class="security-center-severity security-center-severity--critical">
             <span>Crítica</span>
             <strong>{{ severityCount('critical') }}</strong>
           </div>
@@ -311,9 +301,7 @@ watch(
             <span>Alta</span>
             <strong>{{ severityCount('high') }}</strong>
           </div>
-          <div
-            class="security-center-severity security-center-severity--medium"
-          >
+          <div class="security-center-severity security-center-severity--medium">
             <span>Média</span>
             <strong>{{ severityCount('medium') }}</strong>
           </div>
@@ -321,9 +309,7 @@ watch(
             <span>Baixa</span>
             <strong>{{ severityCount('low') }}</strong>
           </div>
-          <div
-            class="security-center-severity security-center-severity--unknown"
-          >
+          <div class="security-center-severity security-center-severity--unknown">
             <span>Desconhecida</span>
             <strong>{{ severityCount('unknown') }}</strong>
           </div>
@@ -386,14 +372,10 @@ watch(
                 {{ categoryLabel(finding.category) }} · {{ finding.ruleId }} ·
                 <code
                   >{{ finding.file
-                  }}<template v-if="finding.line"
-                    >:{{ finding.line }}</template
-                  ></code
+                  }}<template v-if="finding.line">:{{ finding.line }}</template></code
                 >
               </p>
-              <small v-if="finding.remediation">{{
-                finding.remediation
-              }}</small>
+              <small v-if="finding.remediation">{{ finding.remediation }}</small>
             </div>
           </li>
         </ul>
@@ -457,8 +439,8 @@ watch(
   gap: var(--space-3);
   margin: 0 var(--space-5);
   padding: var(--space-4) 0;
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .security-center-state-marker {
@@ -466,7 +448,7 @@ watch(
   height: 100%;
   min-height: 42px;
   border-radius: 999px;
-  background: var(--warning-border, var(--text-muted));
+  background: var(--warning-text);
 }
 
 .security-center-state--available .security-center-state-marker {
@@ -495,7 +477,7 @@ watch(
   gap: var(--space-4);
   margin: 0 var(--space-5);
   padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
 }
 
 .security-center-scanner-metric {
@@ -546,15 +528,15 @@ watch(
 .security-center-severity-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .security-center-severity {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-3);
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border);
 }
 
 .security-center-severity:first-child {
@@ -593,7 +575,7 @@ watch(
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-5) 0 var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
 }
 
 .security-center-findings-heading span {
@@ -617,7 +599,7 @@ watch(
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
 }
 
 .security-center-finding-copy {
@@ -666,7 +648,7 @@ watch(
   .security-center-severity:last-child {
     padding: var(--space-3) 0;
     border-right: 0;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border);
   }
 
   .security-center-severity:nth-last-child(-n + 2) {
@@ -681,7 +663,7 @@ watch(
   }
 
   .security-center-severity:nth-last-child(-n + 2) {
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border);
   }
 
   .security-center-severity:last-child {
