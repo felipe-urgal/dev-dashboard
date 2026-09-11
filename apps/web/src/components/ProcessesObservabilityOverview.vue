@@ -78,8 +78,7 @@ const chartPoints = computed(() => {
   return sessionHistory.value
     .map((snapshot, index) => {
       const x = padding + index * step;
-      const normalized =
-        max === min ? 0.5 : (snapshot.calls - min) / span;
+      const normalized = max === min ? 0.5 : (snapshot.calls - min) / span;
       const y = height - padding - normalized * (height - padding * 2);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
@@ -87,7 +86,8 @@ const chartPoints = computed(() => {
 });
 
 const latestCallsLabel = computed(() => {
-  if (totals.value.calls === 0) return 'Nenhuma chamada registrada nesta sessão';
+  if (totals.value.calls === 0)
+    return 'Nenhuma chamada registrada nesta sessão';
   return `${totals.value.calls} ${
     totals.value.calls === 1 ? 'chamada registrada' : 'chamadas registradas'
   } nesta sessão`;
@@ -156,7 +156,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="processes-observability" aria-label="Resumo de observabilidade">
+  <section
+    class="processes-observability"
+    aria-label="Resumo de observabilidade"
+  >
     <dl class="processes-observability-kpis">
       <div class="processes-observability-kpi">
         <dt>Em execução</dt>
@@ -207,7 +210,10 @@ onBeforeUnmount(() => {
 
         <footer class="processes-session-chart-footer">
           <span>{{ latestCallsLabel }}</span>
-          <span>{{ totals.failures }} falhas · {{ totals.cancelled }} canceladas</span>
+          <span
+            >{{ totals.failures }} falhas ·
+            {{ totals.cancelled }} canceladas</span
+          >
         </footer>
       </article>
 
@@ -248,7 +254,10 @@ onBeforeUnmount(() => {
 
     <div class="processes-observability-diagnostic">
       <div>
-        <span class="processes-observability-diagnostic-dot" aria-hidden="true" />
+        <span
+          class="processes-observability-diagnostic-dot"
+          aria-hidden="true"
+        />
         <strong>Diagnóstico de chamadas</strong>
         <span>
           {{ totals.calls }} chamadas · {{ totals.deduplicated }} deduplicadas ·

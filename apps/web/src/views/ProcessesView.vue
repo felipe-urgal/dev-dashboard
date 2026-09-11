@@ -290,7 +290,11 @@ function openDiagnostics(): void {
       </RouterLink>
     </div>
 
-    <section v-else class="processes-list-section" aria-labelledby="process-list-title">
+    <section
+      v-else
+      class="processes-list-section"
+      aria-labelledby="process-list-title"
+    >
       <header class="processes-list-header">
         <div>
           <span class="processes-observability-kicker">Execuções</span>
@@ -389,7 +393,9 @@ function openDiagnostics(): void {
           <strong>Métricas detalhadas da API</strong>
           <small>Endpoints, deduplicação, falhas e histórico de alertas.</small>
         </span>
-        <span class="processes-diagnostics-summary-action">Abrir diagnóstico</span>
+        <span class="processes-diagnostics-summary-action"
+          >Abrir diagnóstico</span
+        >
       </summary>
       <ApiRequestDiagnostics />
     </details>
