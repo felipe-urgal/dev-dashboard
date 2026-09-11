@@ -99,6 +99,23 @@ export function createProcessStatusReader(
                 storedProcess.pid,
               )
             : undefined;
+
+        const refreshedProcess = await readStoredProcess(
+          context,
+          projectId,
+          kind,
+        );
+
+        if (
+          !refreshedProcess ||
+          refreshedProcess.pid !== storedProcess.pid ||
+          refreshedProcess.startedAt !== storedProcess.startedAt ||
+          refreshedProcess.status === 'stopped' ||
+          refreshedProcess.status === 'failed'
+        ) {
+          return refreshedProcess;
+        }
+
         const exitCode = observedExit?.exitCode;
 
         const finalStatus: 'stopped' | 'failed' =
