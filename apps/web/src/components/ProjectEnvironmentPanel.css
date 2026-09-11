@@ -1,0 +1,478 @@
+.project-environment-panel {
+  display: flex;
+  min-height: 0;
+  height: auto;
+  max-height: calc(100vh - var(--project-sticky-offset, 160px));
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.project-environment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.project-environment-summary article {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 15px 18px;
+}
+
+.project-environment-summary article:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.project-environment-summary span {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-environment-summary strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-md);
+  font-weight: 750;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-environment-summary strong.is-warning {
+  color: var(--warning-text);
+}
+
+.project-environment-summary strong.is-success {
+  color: var(--success-text);
+}
+
+.project-environment-summary strong.is-partial,
+.project-environment-summary strong.is-loading {
+  color: var(--text-muted);
+}
+
+.project-environment-summary strong.is-accent {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.project-environment-summary small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-environment-empty {
+  margin: 0;
+  padding: 28px 20px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.project-environment-workspace {
+  display: grid;
+  min-height: clamp(430px, 58vh, 690px);
+  grid-template-columns: minmax(250px, 285px) minmax(0, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+.project-environment-files {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.project-environment-files > header {
+  display: grid;
+  gap: 4px;
+  padding: 17px 16px 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.project-environment-files > header strong {
+  font-size: var(--font-sm);
+  font-weight: 750;
+}
+
+.project-environment-files > header small {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+.project-environment-files nav {
+  display: grid;
+}
+
+.project-environment-file-button {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-environment-file-button:hover {
+  background: var(--surface-2);
+}
+
+.project-environment-file-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.project-environment-file-button.is-selected {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.project-environment-file-button > code {
+  overflow: hidden;
+  color: inherit;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-environment-file-button > span {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.project-environment-file-button > span small {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.project-environment-inspector {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  background: var(--surface-1);
+}
+
+.project-environment-inspector-header {
+  display: grid;
+  gap: 5px;
+  padding: 17px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.project-environment-inspector-header > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.project-environment-inspector-header strong {
+  min-width: 0;
+  font-size: var(--font-lg);
+  font-weight: 750;
+}
+
+.project-environment-inspector-header strong code {
+  color: var(--text);
+}
+
+.project-environment-inspector-header > small {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+.project-environment-file-kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.project-environment-file-kind.is-baseline,
+.project-environment-file-kind.is-template {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  color: var(--accent);
+}
+
+.project-environment-file-consistency {
+  display: grid;
+  gap: 10px;
+  padding: 14px 20px 15px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 48%, transparent);
+}
+
+.project-environment-file-consistency h3 {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-environment-consistency-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+.project-environment-consistency-note.is-warning {
+  color: var(--warning-text);
+}
+
+.project-environment-consistency-note.is-ok {
+  color: var(--success-text);
+}
+
+.project-environment-issue-list {
+  display: grid;
+}
+
+.project-environment-issue-list article {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(170px, 0.8fr) auto auto minmax(180px, 1.4fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.project-environment-issue-list article:first-child {
+  border-top: 0;
+}
+
+.project-environment-issue-list code {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-environment-issue-list strong {
+  color: var(--warning-text);
+  font-size: var(--font-xs);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.project-environment-issue-list small {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.project-environment-issue-list span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.4;
+}
+
+.project-environment-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-sm);
+}
+
+.project-environment-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.project-environment-table th,
+.project-environment-table td {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  text-align: left;
+  word-break: break-word;
+}
+
+.project-environment-table th {
+  width: min(32%, 300px);
+  color: var(--text);
+  font-weight: 650;
+}
+
+.project-environment-table th code,
+.project-environment-table td > code {
+  font-size: var(--font-xs);
+}
+
+.project-environment-table td > code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.project-environment-sensitive-value {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-environment-sensitive-value .dd-status-badge {
+  min-height: 22px;
+  padding-inline: 8px;
+  font-size: 10px;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.project-environment-secret-value {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: var(--font-xs);
+}
+
+.project-environment-value-action {
+  min-height: 27px;
+  padding: 3px 8px;
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.project-environment-value-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.project-environment-empty-value {
+  color: var(--text-muted);
+}
+
+.project-environment-footnote {
+  margin: auto 0 0;
+  padding: 13px 20px 17px;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+  .project-environment-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .project-environment-files {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .project-environment-files nav {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .project-environment-file-button {
+    border-right: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 720px) {
+  .project-environment-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .project-environment-summary article:not(:last-child) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .project-environment-summary strong,
+  .project-environment-summary small {
+    white-space: normal;
+  }
+
+  .project-environment-files nav {
+    grid-template-columns: 1fr;
+  }
+
+  .project-environment-file-button {
+    border-right: 0;
+  }
+
+  .project-environment-issue-list article {
+    grid-template-columns: 1fr auto;
+  }
+
+  .project-environment-issue-list article > span {
+    grid-column: 1 / -1;
+  }
+
+  .project-environment-table,
+  .project-environment-table tbody,
+  .project-environment-table tr,
+  .project-environment-table th,
+  .project-environment-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .project-environment-table tr {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .project-environment-table th,
+  .project-environment-table td {
+    padding: 0;
+    border: 0;
+  }
+
+  .project-environment-table td {
+    margin-top: 7px;
+  }
+}
