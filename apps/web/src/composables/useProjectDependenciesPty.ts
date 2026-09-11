@@ -72,10 +72,7 @@ export function useProjectDependenciesPty(
       snapshot.value = result;
       if (result) {
         connect(
-          projectDependenciesPtyWebSocketUrl(
-            project.id,
-            environmentInstanceId,
-          ),
+          projectDependenciesPtyWebSocketUrl(project.id, environmentInstanceId),
         );
       }
     } catch {
@@ -113,10 +110,7 @@ export function useProjectDependenciesPty(
         environmentInstanceId,
       );
       connect(
-        projectDependenciesPtyWebSocketUrl(
-          project.id,
-          environmentInstanceId,
-        ),
+        projectDependenciesPtyWebSocketUrl(project.id, environmentInstanceId),
       );
     } catch (error) {
       errorMessage.value =
@@ -147,10 +141,7 @@ export function useProjectDependenciesPty(
   }
 
   watch(
-    [
-      () => getProject().id,
-      () => getEnvironmentInstanceId?.(),
-    ],
+    [() => getProject().id, () => getEnvironmentInstanceId?.()],
     () => {
       snapshot.value = null;
       errorMessage.value = '';
