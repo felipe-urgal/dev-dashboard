@@ -97,7 +97,12 @@ export function createAppContext(
 
   return {
     ...foundation,
-    ...createProjectContextDomain(options),
+    ...createProjectContextDomain(options, {
+      processManager: foundation.processManager,
+      projectStore: foundation.projectStore,
+      developmentEnvironmentInstanceStore:
+        foundation.developmentEnvironmentInstanceStore,
+    }),
     ...createExecutionContextDomain(foundation.processManager),
     ...createDatabaseContextDomain(foundation.processManager),
     ...createSelfUpdateContextDomain(options),
