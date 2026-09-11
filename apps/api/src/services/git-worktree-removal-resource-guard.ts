@@ -20,7 +20,7 @@ export interface GitWorktreeRemovalResourceGuardDependencies {
   projectStore: Pick<ProjectStore, 'findProject'>;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
-    'findById' | 'removeWorktreeInstance'
+    'findById'
   >;
   projectTerminalService: Pick<ProjectTerminalService, 'status'>;
 }
@@ -157,14 +157,10 @@ export class GitWorktreeRemovalResourceGuardService
       );
     }
 
-    const removed =
-      this.dependencies.developmentEnvironmentInstanceStore.removeWorktreeInstance(
-        environmentInstanceId,
-      );
-    if (!removed) {
-      throw new Error(
-        'A Environment Instance não pôde ser removida sem ampliar a ownership do cleanup.',
-      );
-    }
+    // Os domínios atualmente vinculados à Environment Instance (Process
+    // Manager e Terminal) não mantêm recurso ativo quando `inspect` retorna
+    // seguro. O store preserva a identidade e a próxima reconciliação marca a
+    // origem explicitamente removida como `degraded`, permitindo diagnóstico
+    // e restauração determinística caso o mesmo worktree reapareça.
   }
 }
