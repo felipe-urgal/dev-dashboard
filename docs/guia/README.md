@@ -37,7 +37,7 @@ As ferramentas aparecem conforme capabilities/tipo do projeto.
 
 **Logs não é mais uma aba separada.** O log do servidor fica dentro de **Servidor**; a rota histórica de Logs redireciona para essa superfície.
 
-Banco de dados possui também uma superfície global `/database`; a rota histórica por projeto pode redirecionar para ela.
+Banco de dados possui também uma superfície global `/database`; a rota por projeto pode redirecionar para ela.
 
 ## Workspaces e home
 
@@ -75,6 +75,6 @@ branch=main
 
 A operação passa por planner, confirmação, handoff/agent, fast-forward, restart e proof-of-revision. Não existe `prod:deploy` local.
 
-Na instalação `systemd --user`, o runtime permanente pertence à unit fixa `dev-dashboard.service`. A limitação atual do redeploy gerenciado está rastreada em #659.
+Na instalação `systemd --user`, o runtime permanente pertence à unit fixa `dev-dashboard.service`; o handoff validado pode devolver o runtime a essa unit e o sucesso exige health + revision alvo comprovados.
 
 Veja [producao.md](producao.md) e [`../PRODUCTION.md`](../PRODUCTION.md).
