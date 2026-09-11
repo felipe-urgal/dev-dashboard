@@ -149,9 +149,7 @@ watch(
     </div>
 
     <footer class="readme-file-browser-footer">
-      {{ props.files.length }} arquivo{{
-        props.files.length === 1 ? '' : 's'
-      }}
+      {{ props.files.length }} arquivo{{ props.files.length === 1 ? '' : 's' }}
       Markdown
     </footer>
   </aside>
