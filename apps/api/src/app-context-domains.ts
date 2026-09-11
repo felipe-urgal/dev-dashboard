@@ -15,6 +15,7 @@ import { DashboardGitService } from './services/dashboard-git-service.js';
 import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
 import { GitWorktreeLifecycleService } from './services/git-worktree-lifecycle-service.js';
 import { GitWorktreeObserver } from './services/git-worktree-observer.js';
+import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
@@ -52,6 +53,12 @@ export interface AppContextDomainOptions {
   selfUpdateShutdownRequester?: SelfUpdateShutdownRequester;
 }
 
+export interface ProjectContextDomainDependencies {
+  processManager: ProcessManager;
+  projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
+}
+
 export function createFoundationContextDomain() {
   const projectStore = new ProjectStore();
   const processManager = new ProcessManager();
@@ -73,6 +80,7 @@ export function createFoundationContextDomain() {
 
 export function createProjectContextDomain(
   options: AppContextDomainOptions = {},
+  dependencies?: ProjectContextDomainDependencies,
 ) {
   const projectFileService = new ProjectFileService();
   const projectWorkspaceEditService = new ProjectWorkspaceEditService(
@@ -85,6 +93,16 @@ export function createProjectContextDomain(
       : {}),
   });
   const gitWorktreeObserver = new GitWorktreeObserver();
+  const projectTerminalService = new ProjectTerminalService();
+  const removalResourceGuard = dependencies
+    ? new GitWorktreeRemovalResourceGuardService({
+        processManager: dependencies.processManager,
+        projectStore: dependencies.projectStore,
+        developmentEnvironmentInstanceStore:
+          dependencies.developmentEnvironmentInstanceStore,
+        projectTerminalService,
+      })
+    : undefined;
 
   return {
     gitService: new DashboardGitService(),
@@ -93,6 +111,7 @@ export function createProjectContextDomain(
     gitWorktreeLifecycleService: new GitWorktreeLifecycleService(
       undefined,
       gitWorktreeObserver,
+      removalResourceGuard ? { removalResourceGuard } : {},
     ),
     projectCoverageService: new ProjectCoverageService(),
     projectCoverageHistoryService: new ProjectCoverageHistoryService(),
@@ -102,7 +121,7 @@ export function createProjectContextDomain(
     serverHealthCheckService: new ServerHealthCheckService(),
     projectWorkspaceEditService,
     projectLanguageServerService,
-    projectTerminalService: new ProjectTerminalService(),
+    projectTerminalService,
   };
 }
 
