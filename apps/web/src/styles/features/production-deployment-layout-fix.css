@@ -27,11 +27,17 @@
   word-break: break-word;
 }
 
+.production-panel.production-panel .production-timeline-horizontal {
+  display: flex;
+  width: 100%;
+}
+
 .production-panel.production-panel .production-timeline-horizontal li {
   position: relative;
   display: block;
   min-width: 0;
   min-height: 72px;
+  flex: 1 1 0;
   padding: 20px 12px 0 0;
 }
 
@@ -51,12 +57,71 @@
 
 .production-panel.production-panel
   .production-timeline-horizontal
+  li:has(> .production-step-marker.is-running):not(:last-child)::after {
+  background: var(--info-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-succeeded):not(:last-child)::after {
+  background: var(--success-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-failed):not(:last-child)::after {
+  background: var(--danger-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-cancelled):not(:last-child)::after {
+  background: var(--warning-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-running)
+  small {
+  color: var(--info-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-succeeded)
+  small {
+  color: var(--success-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-failed)
+  small {
+  color: var(--danger-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  li:has(> .production-step-marker.is-cancelled)
+  small {
+  color: var(--warning-text);
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
   .production-step-marker {
   position: absolute;
   top: 0;
   left: 0;
   z-index: 1;
   justify-self: auto;
+}
+
+.production-panel.production-panel
+  .production-timeline-horizontal
+  .production-step-marker.is-pending {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
 }
 
 .production-panel.production-panel .production-timeline-horizontal li > div {
@@ -68,6 +133,12 @@
 }
 
 @media (max-width: 600px) {
+  .production-panel.production-panel .production-timeline-horizontal {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
   .production-panel.production-panel .production-timeline-horizontal li {
     display: grid;
     grid-template-columns: 16px minmax(0, 1fr);
