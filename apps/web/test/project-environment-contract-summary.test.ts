@@ -46,23 +46,20 @@ const contract: ProjectEnvironmentContract = {
   ],
 };
 
-test('prioriza diferenças acionáveis sem renderizar valores de ambiente', () => {
+test('resume pendências por escopo sem duplicar detalhes do arquivo selecionado', () => {
   const wrapper = mount(ProjectEnvironmentContractSummary, {
     props: { contract, loading: false, errorMessage: '' },
   });
 
-  assert.match(wrapper.text(), /2 pendência\(s\)/);
-  assert.match(wrapper.text(), /DATABASE_URL/);
-  assert.match(wrapper.text(), /Ausente/);
-  assert.match(wrapper.text(), /sensível/);
-  assert.match(wrapper.text(), /Configurar/);
+  assert.match(wrapper.text(), /2 pendências/);
+  assert.match(wrapper.text(), /Padrão\s*1/);
+  assert.match(wrapper.text(), /Produção\s*1/);
+  assert.doesNotMatch(wrapper.text(), /DATABASE_URL/);
   assert.doesNotMatch(wrapper.text(), /PORT/);
-  assert.match(wrapper.text(), /baseline ambíguo/);
   assert.doesNotMatch(wrapper.text(), /postgres:\/\//);
-  assert.doesNotMatch(wrapper.text(), /secret/i);
 });
 
-test('mantém falha do contrato isolada da leitura tradicional de arquivos', () => {
+test('mantém falha do contrato isolada da leitura dos arquivos', () => {
   const wrapper = mount(ProjectEnvironmentContractSummary, {
     props: {
       contract: null,
@@ -71,10 +68,7 @@ test('mantém falha do contrato isolada da leitura tradicional de arquivos', () 
     },
   });
 
-  assert.match(wrapper.text(), /contrato não pôde ser carregado/i);
-  assert.match(
-    wrapper.text(),
-    /leitura dos arquivos abaixo continua disponível/i,
-  );
+  assert.match(wrapper.text(), /Contrato indisponível/i);
+  assert.match(wrapper.text(), /leitura dos arquivos continua disponível/i);
   assert.doesNotMatch(wrapper.text(), /detalhe interno/);
 });
