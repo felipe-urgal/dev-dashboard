@@ -23,6 +23,7 @@ import { usePtyTerminalSocket } from './usePtyTerminalSocket';
 export function useProjectDependenciesPty(
   getProject: () => Project,
   isSupportedProject: Ref<boolean> | ComputedRef<boolean>,
+  getEnvironmentInstanceId?: () => string | undefined,
 ) {
   const snapshot = ref<ProjectDependenciesPtyStatusSnapshot | null>(null);
   const errorMessage = ref('');
@@ -61,10 +62,22 @@ export function useProjectDependenciesPty(
 
   async function loadStatusAndReconnect(): Promise<void> {
     if (!isSupportedProject.value) return;
+    const project = getProject();
+    const environmentInstanceId = getEnvironmentInstanceId?.();
     try {
-      const result = await fetchProjectDependenciesPtyStatus(getProject().id);
+      const result = await fetchProjectDependenciesPtyStatus(
+        project.id,
+        environmentInstanceId,
+      );
       snapshot.value = result;
-      if (result) connect(projectDependenciesPtyWebSocketUrl(getProject().id));
+      if (result) {
+        connect(
+          projectDependenciesPtyWebSocketUrl(
+            project.id,
+            environmentInstanceId,
+          ),
+        );
+      }
     } catch {
       // best-effort: se a consulta inicial falhar, os botões de ação ainda funcionam.
     }
@@ -91,12 +104,20 @@ export function useProjectDependenciesPty(
     // ao novo registro do backend em vez de continuar ouvindo o PTY antigo.
     disconnect();
     disposeTerminal();
+    const project = getProject();
+    const environmentInstanceId = getEnvironmentInstanceId?.();
     try {
       snapshot.value = await startProjectDependenciesPty(
-        getProject().id,
+        project.id,
         action.id,
+        environmentInstanceId,
       );
-      connect(projectDependenciesPtyWebSocketUrl(getProject().id));
+      connect(
+        projectDependenciesPtyWebSocketUrl(
+          project.id,
+          environmentInstanceId,
+        ),
+      );
     } catch (error) {
       errorMessage.value =
         error instanceof Error
@@ -111,7 +132,10 @@ export function useProjectDependenciesPty(
   async function cancel(): Promise<void> {
     cancelling.value = true;
     try {
-      await cancelProjectDependenciesPty(getProject().id);
+      await cancelProjectDependenciesPty(
+        getProject().id,
+        getEnvironmentInstanceId?.(),
+      );
     } catch (error) {
       errorMessage.value =
         error instanceof Error
@@ -123,7 +147,10 @@ export function useProjectDependenciesPty(
   }
 
   watch(
-    () => getProject().id,
+    [
+      () => getProject().id,
+      () => getEnvironmentInstanceId?.(),
+    ],
     () => {
       snapshot.value = null;
       errorMessage.value = '';
