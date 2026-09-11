@@ -56,6 +56,18 @@ const groupedChecks = computed(() =>
     .filter((group) => group.checks.length > 0),
 );
 
+const totalChecks = computed(() => {
+  if (!report.value) return 0;
+  const { passed, warnings, failed, skipped } = report.value.summary;
+  return passed + warnings + failed + skipped;
+});
+
+const pendingChecks = computed(() => {
+  if (!report.value) return 0;
+  const { warnings, failed, skipped } = report.value.summary;
+  return warnings + failed + skipped;
+});
+
 const overallCopy = computed(() => {
   if (!report.value) return null;
   if (report.value.overallStatus === 'healthy') {
@@ -195,6 +207,20 @@ watch(
     :aria-busy="loading"
   >
     <article class="project-doctor-card">
+      <header class="project-doctor-intro">
+        <div>
+          <span class="project-doctor-eyebrow">Saúde do projeto</span>
+          <h3 id="project-doctor-title">Diagnóstico</h3>
+          <p>
+            Checks somente leitura para projeto, runtimes, dependências e
+            configuração.
+          </p>
+        </div>
+        <StatusBadge v-if="overallCopy" :tone="overallCopy.tone">
+          {{ overallCopy.label }}
+        </StatusBadge>
+      </header>
+
       <div v-if="errorMessage" class="project-doctor-alert" role="alert">
         <div>
           <strong>Não foi possível concluir o diagnóstico</strong>
@@ -210,13 +236,44 @@ watch(
       </div>
 
       <template v-else-if="report && overallCopy">
+        <section class="project-doctor-summary" aria-label="Resumo operacional">
+          <div class="project-doctor-summary-item">
+            <span>Estado</span>
+            <strong>{{ overallCopy.label }}</strong>
+          </div>
+          <div class="project-doctor-summary-item">
+            <span>Aprovados</span>
+            <strong>{{ report.summary.passed }} de {{ totalChecks }}</strong>
+          </div>
+          <div class="project-doctor-summary-item">
+            <span>Pendências</span>
+            <strong>{{ pendingChecks }}</strong>
+          </div>
+          <div class="project-doctor-summary-item">
+            <span>Atualizado</span>
+            <strong>{{ formatGeneratedAt(report.generatedAt) }}</strong>
+          </div>
+        </section>
+
+        <section
+          class="project-doctor-result"
+          :class="`is-${report.overallStatus}`"
+          aria-label="Estado geral do projeto"
+        >
+          <component :is="overallCopy.icon" aria-hidden="true" />
+          <div>
+            <strong>{{ overallCopy.title }}</strong>
+            <p>{{ overallCopy.description }}</p>
+          </div>
+        </section>
+
         <section
           class="project-doctor-areas"
           aria-labelledby="doctor-areas-title"
         >
           <header>
             <h4 id="doctor-areas-title">Áreas analisadas</h4>
-            <span>Saúde</span>
+            <span>Clique para ver as verificações</span>
           </header>
 
           <div class="project-doctor-category-list">
@@ -294,20 +351,6 @@ watch(
             </details>
           </div>
         </section>
-
-        <footer
-          class="project-doctor-result"
-          :class="`is-${report.overallStatus}`"
-        >
-          <component :is="overallCopy.icon" aria-hidden="true" />
-          <div>
-            <strong>{{ overallCopy.title }}</strong>
-            <p>{{ overallCopy.description }}</p>
-          </div>
-          <StatusBadge :tone="overallCopy.tone">
-            {{ overallCopy.label }}
-          </StatusBadge>
-        </footer>
 
         <div class="project-doctor-meta">
           <span>Atualizado em {{ formatGeneratedAt(report.generatedAt) }}</span>
