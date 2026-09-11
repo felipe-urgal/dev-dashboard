@@ -10,15 +10,21 @@ mesmo mecanismo usado pela suíte completa de Testes e pelas operações de Migr
 
 ## O que aparece na tela
 
-- Um cartão para **Ruby/Bundler** (quando o projeto é Rails/Ruby) e outro para **Node** com o
-  gerenciador detectado (npm, yarn, pnpm ou bun).
-- Uma tabela de ações disponíveis, com o gerenciador, o nome da ação, o comando exato que vai
-  rodar e um botão Executar.
-- Um terminal com a saída ao vivo da execução, cores e formatação nativas de quem gerou o build ou
-  instalou as dependências. A execução continua no servidor mesmo que a aba seja fechada — reabrir
-  a aba de Dependências reconecta e mostra a saída acumulada. Só uma ação por vez; um botão
-  **Cancelar** aparece enquanto ela está rodando. Não há mais histórico de execuções recentes nem o
-  Diagnóstico especializado que existiam no motor antigo — a execução corrente é a única mantida.
+- Um resumo operacional com os **gerenciadores detectados**, a quantidade real de **ações
+  disponíveis** e o **estado da execução** atual.
+- Uma coluna compacta de comandos, agrupando as ações disponíveis de **Ruby/Bundler** e **Node**
+  conforme o projeto. Cada ação mostra o comando exato que será executado e o botão **Executar**.
+- Um **Console de execução** dominante e sempre visível. Antes da primeira execução ele permanece
+  em estado ocioso verdadeiro, sem simular comandos, timestamps ou saída.
+- Quando uma ação inicia, o terminal mostra a saída ao vivo com as cores e a formatação nativas de
+  quem gerou o build ou instalou as dependências. A execução continua no servidor mesmo que a aba
+  seja fechada — reabrir a aba de Dependências reconecta e mostra a saída acumulada. Só uma ação
+  por vez; um botão **Cancelar** aparece enquanto ela está rodando. Não há histórico de execuções
+  recentes nem o Diagnóstico especializado que existiam no motor antigo — a execução corrente é a
+  única mantida.
+
+Em telas menores, comandos e console são empilhados para preservar leitura e acesso às ações sem
+criar uma navegação intermediária.
 
 ## Ações disponíveis
 

@@ -102,7 +102,7 @@ function installFetch(
   };
 }
 
-test('mostra instalação e build do gerenciador Node detectado sem terminal vazio', async () => {
+test('mostra resumo operacional e console ocioso para o gerenciador Node detectado', async () => {
   installFetch({
     items: [
       {
@@ -138,16 +138,26 @@ test('mostra instalação e build do gerenciador Node detectado sem terminal vaz
   await flushPromises();
   await flushPromises();
 
+  assert.match(wrapper.text(), /Gerenciadores/);
   assert.match(wrapper.text(), /Node \/ Yarn/);
+  assert.match(wrapper.text(), /Ações disponíveis/);
+  assert.match(wrapper.text(), /Pronto/);
+  assert.match(wrapper.text(), /Nenhum comando executado nesta sessão/);
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
-  assert.doesNotMatch(wrapper.text(), /Pronto/);
+  assert.match(wrapper.text(), /Console de execução/);
+  assert.match(
+    wrapper.text(),
+    /Execute um comando para acompanhar a saída aqui/,
+  );
   assert.equal(
     wrapper.get('.dependencies-panel').attributes('aria-busy'),
     'false',
   );
-  assert.equal(wrapper.find('.dependencies-console').exists(), false);
+  assert.equal(wrapper.find('.dependencies-workspace').exists(), true);
+  assert.equal(wrapper.find('.dependencies-console').exists(), true);
+  assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
   assert.equal(wrapper.findAll('.dependencies-action-row').length, 2);
   wrapper.unmount();
 });
@@ -291,8 +301,9 @@ test('executa uma ação via PTY e mostra estado, código de saída e reexecuç�
   assert.doesNotMatch(wrapper.text(), /exit —/);
   assert.equal(
     wrapper.get('.dependencies-console').attributes('aria-label'),
-    'Detalhes da execução',
+    'Console de execução',
   );
+  assert.equal(wrapper.find('.dependencies-console-empty').exists(), false);
 
   socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
   await flushPromises();

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
+  CommandLineIcon,
   ExclamationTriangleIcon,
   PlayIcon,
   StopCircleIcon,
@@ -68,6 +69,19 @@ const nodeManager = computed(() => {
   return 'Node';
 });
 
+const detectedManagers = computed(() => {
+  const managers: string[] = [];
+  if (nodeActions.value.length) managers.push(`Node / ${nodeManager.value}`);
+  if (railsActions.value.length) managers.push('Ruby / Bundler');
+  return managers;
+});
+
+const managerSummary = computed(() =>
+  detectedManagers.value.length
+    ? detectedManagers.value.join(' + ')
+    : 'Nenhum detectado',
+);
+
 const executedAction = computed(() =>
   snapshot.value
     ? actions.value.find((item) => item.id === snapshot.value?.actionId)
@@ -79,8 +93,15 @@ const executionSucceeded = computed(
 );
 
 const executionStateLabel = computed(() => {
+  if (!snapshot.value) return 'Pronto';
   if (isRunning.value) return 'Executando';
   return executionSucceeded.value ? 'Concluído' : 'Falhou';
+});
+
+const executionStateTone = computed(() => {
+  if (!snapshot.value) return 'idle';
+  if (isRunning.value) return 'running';
+  return executionSucceeded.value ? 'success' : 'failure';
 });
 
 const executionDuration = computed(() => {
@@ -168,172 +189,229 @@ onBeforeUnmount(() => updateClockTimer(false));
       {{ errorMessage }}
     </div>
 
-    <div
-      v-if="mutationErrorMessage && !snapshot"
-      class="dependencies-alert"
-      role="alert"
-    >
-      {{ mutationErrorMessage }}
-    </div>
-
-    <div v-if="loading && !catalog" class="dependencies-empty" role="status">
+    <div v-if="loading && !catalog" class="dependencies-loading" role="status">
       Detectando gerenciadores e ações disponíveis…
     </div>
 
     <template v-else>
-      <div v-if="actions.length" class="dependencies-groups">
-        <section v-if="railsActions.length" class="dependencies-group">
-          <header class="dependencies-group-header">
-            <div>
-              <strong>Ruby / Bundler</strong>
-              <small>Gemfile detectado</small>
-            </div>
-          </header>
+      <section class="dependencies-summary" aria-label="Resumo de dependências">
+        <article class="dependencies-summary-item">
+          <span>Gerenciadores</span>
+          <strong>{{ managerSummary }}</strong>
+          <small>Detectados automaticamente no projeto</small>
+        </article>
 
-          <div class="dependencies-action-list">
-            <article
-              v-for="item in railsActions"
-              :key="item.id"
-              class="dependencies-action-row"
-            >
-              <div class="dependencies-action-copy">
-                <strong>{{ item.name }}</strong>
-                <small>{{ item.description }}</small>
-                <span
-                  v-if="item.id === 'bundler:update'"
-                  class="dependencies-warning"
-                >
-                  <ExclamationTriangleIcon aria-hidden="true" />
-                  Pode alterar o Gemfile.lock.
-                </span>
-              </div>
-              <code>{{ item.command }}</code>
-              <button
-                type="button"
-                :disabled="!item.enabled || starting !== null || isRunning"
-                @click="run(item)"
-              >
-                <PlayIcon aria-hidden="true" />
-                {{ starting === item.id ? 'Iniciando…' : 'Executar' }}
-              </button>
-            </article>
-          </div>
-        </section>
+        <article class="dependencies-summary-item">
+          <span>Ações disponíveis</span>
+          <strong>{{ actions.length }}</strong>
+          <small>Comandos disponíveis para execução</small>
+        </article>
 
-        <section v-if="nodeActions.length" class="dependencies-group">
-          <header class="dependencies-group-header">
-            <div>
-              <strong>Node / {{ nodeManager }}</strong>
-              <small>Instalação e build detectados</small>
-            </div>
-          </header>
-
-          <div class="dependencies-action-list">
-            <article
-              v-for="item in nodeActions"
-              :key="item.id"
-              class="dependencies-action-row"
-            >
-              <div class="dependencies-action-copy">
-                <strong>{{ item.name }}</strong>
-                <small>{{ item.description }}</small>
-              </div>
-              <code>{{ item.command }}</code>
-              <button
-                type="button"
-                :disabled="!item.enabled || starting !== null || isRunning"
-                @click="run(item)"
-              >
-                <PlayIcon aria-hidden="true" />
-                {{ starting === item.id ? 'Iniciando…' : 'Executar' }}
-              </button>
-            </article>
-          </div>
-        </section>
-      </div>
-
-      <div v-else class="dependencies-empty">
-        <strong>Nenhuma ação disponível</strong>
-        <span
-          >O projeto precisa ter Gemfile, um lockfile Node ou o script build no
-          package.json.</span
+        <article
+          class="dependencies-summary-item dependencies-summary-execution"
         >
-      </div>
-
-      <section
-        v-if="snapshot"
-        class="dependencies-console"
-        aria-label="Detalhes da execução"
-      >
-        <header class="dependencies-console-header">
-          <div class="dependencies-console-title">
-            <span
-              :class="{
-                'is-running': isRunning,
-                'is-success': executionSucceeded,
-                'is-failure': !isRunning && !executionSucceeded,
-              }"
-            >
-              <ArrowPathIcon
-                v-if="isRunning"
-                class="is-spinning"
-                aria-hidden="true"
-              />
-              <CheckCircleIcon
-                v-else-if="executionSucceeded"
-                aria-hidden="true"
-              />
-              <XCircleIcon v-else aria-hidden="true" />
-            </span>
-            <div class="dependencies-console-title-copy">
-              <strong>{{ snapshot.actionName }}</strong>
-              <small>
-                {{ executionStateLabel }}
-                <template v-if="executionDuration">
-                  · {{ executionDuration }}
-                </template>
-                <template v-if="executionExitLabel">
-                  · {{ executionExitLabel }}
-                </template>
-              </small>
-            </div>
-          </div>
-
-          <div class="dependencies-console-actions">
-            <button
-              v-if="isRunning"
-              type="button"
-              class="is-danger"
-              :disabled="cancelling"
-              @click="cancel"
-            >
-              <StopCircleIcon aria-hidden="true" />
-              {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
-            </button>
-            <button
-              v-else-if="executedAction"
-              type="button"
-              :disabled="starting !== null"
-              @click="runAgain"
-            >
-              <PlayIcon aria-hidden="true" />
-              Executar novamente
-            </button>
-          </div>
-        </header>
-
-        <p v-if="connecting && isRunning" class="dependencies-status">
-          Conectando ao terminal…
-        </p>
-        <p
-          v-if="mutationErrorMessage"
-          class="dependencies-alert dependencies-console-alert"
-          role="alert"
-        >
-          {{ mutationErrorMessage }}
-        </p>
-        <div ref="terminalContainer" class="dependencies-terminal"></div>
+          <span>Execução</span>
+          <strong
+            class="dependencies-summary-status"
+            :class="`is-${executionStateTone}`"
+          >
+            {{ executionStateLabel }}
+          </strong>
+          <small v-if="snapshot">{{ snapshot.actionName }}</small>
+          <small v-else>Nenhum comando executado nesta sessão</small>
+        </article>
       </section>
+
+      <div class="dependencies-workspace">
+        <aside
+          class="dependencies-actions-panel"
+          aria-label="Comandos disponíveis"
+        >
+          <header class="dependencies-actions-header">
+            <div>
+              <strong>Comandos</strong>
+              <small>Dependências e build detectados no projeto.</small>
+            </div>
+          </header>
+
+          <div v-if="actions.length" class="dependencies-groups">
+            <section v-if="nodeActions.length" class="dependencies-group">
+              <header class="dependencies-group-header">
+                <div>
+                  <strong>Node / {{ nodeManager }}</strong>
+                  <small>Instalação e build</small>
+                </div>
+              </header>
+
+              <div class="dependencies-action-list">
+                <article
+                  v-for="item in nodeActions"
+                  :key="item.id"
+                  class="dependencies-action-row"
+                >
+                  <div class="dependencies-action-copy">
+                    <strong>{{ item.name }}</strong>
+                    <small>{{ item.description }}</small>
+                  </div>
+                  <div class="dependencies-action-command">
+                    <code>{{ item.command }}</code>
+                    <button
+                      type="button"
+                      :disabled="
+                        !item.enabled || starting !== null || isRunning
+                      "
+                      @click="run(item)"
+                    >
+                      <PlayIcon aria-hidden="true" />
+                      {{ starting === item.id ? 'Iniciando…' : 'Executar' }}
+                    </button>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section v-if="railsActions.length" class="dependencies-group">
+              <header class="dependencies-group-header">
+                <div>
+                  <strong>Ruby / Bundler</strong>
+                  <small>Gemfile detectado</small>
+                </div>
+              </header>
+
+              <div class="dependencies-action-list">
+                <article
+                  v-for="item in railsActions"
+                  :key="item.id"
+                  class="dependencies-action-row"
+                >
+                  <div class="dependencies-action-copy">
+                    <strong>{{ item.name }}</strong>
+                    <small>{{ item.description }}</small>
+                  </div>
+                  <span
+                    v-if="item.id === 'bundler:update'"
+                    class="dependencies-warning"
+                  >
+                    <ExclamationTriangleIcon aria-hidden="true" />
+                    Pode alterar o Gemfile.lock.
+                  </span>
+                  <div class="dependencies-action-command">
+                    <code>{{ item.command }}</code>
+                    <button
+                      type="button"
+                      :disabled="
+                        !item.enabled || starting !== null || isRunning
+                      "
+                      @click="run(item)"
+                    >
+                      <PlayIcon aria-hidden="true" />
+                      {{ starting === item.id ? 'Iniciando…' : 'Executar' }}
+                    </button>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div v-else class="dependencies-empty">
+            <strong>Nenhuma ação disponível</strong>
+            <span>
+              O projeto precisa ter Gemfile, um lockfile Node ou o script build
+              no package.json.
+            </span>
+          </div>
+        </aside>
+
+        <section class="dependencies-console" aria-label="Console de execução">
+          <header class="dependencies-console-header">
+            <div class="dependencies-console-title">
+              <span
+                v-if="snapshot"
+                :class="{
+                  'is-running': isRunning,
+                  'is-success': executionSucceeded,
+                  'is-failure': !isRunning && !executionSucceeded,
+                }"
+              >
+                <ArrowPathIcon
+                  v-if="isRunning"
+                  class="is-spinning"
+                  aria-hidden="true"
+                />
+                <CheckCircleIcon
+                  v-else-if="executionSucceeded"
+                  aria-hidden="true"
+                />
+                <XCircleIcon v-else aria-hidden="true" />
+              </span>
+              <span v-else class="is-idle">
+                <CommandLineIcon aria-hidden="true" />
+              </span>
+
+              <div class="dependencies-console-title-copy">
+                <strong>Console de execução</strong>
+                <small v-if="snapshot">
+                  {{ snapshot.actionName }} · {{ executionStateLabel }}
+                  <template v-if="executionDuration">
+                    · {{ executionDuration }}
+                  </template>
+                  <template v-if="executionExitLabel">
+                    · {{ executionExitLabel }}
+                  </template>
+                </small>
+                <small v-else>
+                  A saída do próximo comando aparecerá aqui.
+                </small>
+              </div>
+            </div>
+
+            <div v-if="snapshot" class="dependencies-console-actions">
+              <button
+                v-if="isRunning"
+                type="button"
+                class="is-danger"
+                :disabled="cancelling"
+                @click="cancel"
+              >
+                <StopCircleIcon aria-hidden="true" />
+                {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+              </button>
+              <button
+                v-else-if="executedAction"
+                type="button"
+                :disabled="starting !== null"
+                @click="runAgain"
+              >
+                <PlayIcon aria-hidden="true" />
+                Executar novamente
+              </button>
+            </div>
+          </header>
+
+          <p v-if="connecting && isRunning" class="dependencies-status">
+            Conectando ao terminal…
+          </p>
+          <p
+            v-if="mutationErrorMessage"
+            class="dependencies-alert dependencies-console-alert"
+            role="alert"
+          >
+            {{ mutationErrorMessage }}
+          </p>
+
+          <div v-if="!snapshot" class="dependencies-console-empty">
+            <CommandLineIcon aria-hidden="true" />
+            <strong>Pronto para executar</strong>
+            <span>Execute um comando para acompanhar a saída aqui.</span>
+          </div>
+
+          <div
+            ref="terminalContainer"
+            v-show="snapshot"
+            class="dependencies-terminal"
+          ></div>
+        </section>
+      </div>
     </template>
   </section>
 </template>
