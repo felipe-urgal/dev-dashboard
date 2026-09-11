@@ -17,7 +17,10 @@ import type { ProjectStore } from '../store/project-store.js';
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   gitWorktreeObserver: Pick<GitWorktreeObserver, 'inspect'>;
-  gitWorktreeLifecycleService: Pick<GitWorktreeLifecycleService, 'create'>;
+  gitWorktreeLifecycleService: Pick<
+    GitWorktreeLifecycleService,
+    'create' | 'prepareRemoval' | 'remove'
+  >;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
     'reconcileWorktrees'
@@ -28,10 +31,18 @@ interface Params {
   projectId: string;
 }
 
+interface WorktreeParams extends Params {
+  worktreeId: string;
+}
+
 interface CreateBody {
   branch: string;
   directoryName: string;
   createBranch?: boolean;
+}
+
+interface RemoveBody {
+  confirmationToken: string;
 }
 
 interface PublicGitWorktree extends GitWorktreeSnapshot {
@@ -47,6 +58,16 @@ const paramsSchema = {
   },
 } as const;
 
+const worktreeParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'worktreeId'],
+  properties: {
+    projectId: { type: 'string', minLength: 1 },
+    worktreeId: { type: 'string', minLength: 1, maxLength: 64 },
+  },
+} as const;
+
 const createBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -55,6 +76,15 @@ const createBodySchema = {
     branch: { type: 'string', minLength: 1, maxLength: 256 },
     directoryName: { type: 'string', minLength: 1, maxLength: 160 },
     createBranch: { type: 'boolean' },
+  },
+} as const;
+
+const removeBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmationToken'],
+  properties: {
+    confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
   },
 } as const;
 
@@ -115,6 +145,46 @@ const createResultSchema = {
     branch: { type: 'string' },
     worktree: worktreeSchema,
     environmentInstanceId: { type: 'string' },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
+const prepareRemovalResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state', 'worktreeId'],
+  properties: {
+    state: { type: 'string', enum: ['ready', 'blocked', 'not-found'] },
+    worktreeId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    path: { type: 'string' },
+    branch: { type: 'string' },
+    confirmationToken: { type: 'string' },
+    expiresAt: { type: 'string' },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
+const removeResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state', 'worktreeId'],
+  properties: {
+    state: {
+      type: 'string',
+      enum: [
+        'removed',
+        'already-absent',
+        'blocked',
+        'failed',
+        'unverified',
+        'cleanup-required',
+      ],
+    },
+    worktreeId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    path: { type: 'string' },
+    branch: { type: 'string' },
     diagnostic: { type: 'string' },
   },
 } as const;
@@ -263,6 +333,90 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
           ...(result.diagnostic ? { diagnostic: result.diagnostic } : {}),
         },
       };
+    },
+  );
+
+  app.post<{ Params: WorktreeParams }>(
+    '/projects/:projectId/worktrees/:worktreeId/removal/confirmations',
+    {
+      schema: {
+        params: worktreeParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: prepareRemovalResultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+
+      const inspection = await options.gitWorktreeObserver.inspect(project);
+      if (inspection.state === 'ready') {
+        options.developmentEnvironmentInstanceStore.reconcileWorktrees(
+          project.id,
+          inspection.worktrees,
+        );
+      }
+
+      return {
+        result: await options.gitWorktreeLifecycleService.prepareRemoval(
+          project,
+          request.params.worktreeId,
+        ),
+      };
+    },
+  );
+
+  app.post<{ Params: WorktreeParams; Body: RemoveBody }>(
+    '/projects/:projectId/worktrees/:worktreeId/removal',
+    {
+      schema: {
+        params: worktreeParamsSchema,
+        body: removeBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: removeResultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const result = await options.gitWorktreeLifecycleService.remove(project, {
+        worktreeId: request.params.worktreeId,
+        confirmationToken: request.body.confirmationToken,
+      });
+
+      if (
+        result.state === 'removed' ||
+        result.state === 'already-absent' ||
+        result.state === 'cleanup-required'
+      ) {
+        const inspection = await options.gitWorktreeObserver.inspect(project);
+        if (inspection.state === 'ready') {
+          options.developmentEnvironmentInstanceStore.reconcileWorktrees(
+            project.id,
+            inspection.worktrees,
+          );
+        }
+      }
+
+      return { result };
     },
   );
 };
