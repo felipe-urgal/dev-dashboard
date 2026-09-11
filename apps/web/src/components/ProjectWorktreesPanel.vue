@@ -234,7 +234,9 @@ watch(
     <ProjectToolHeader title="Worktrees">
       <template #meta>
         <span class="worktrees-count">
-          {{ linkedWorktreeCount }} vinculado{{ linkedWorktreeCount === 1 ? '' : 's' }}
+          {{ linkedWorktreeCount }} vinculado{{
+            linkedWorktreeCount === 1 ? '' : 's'
+          }}
         </span>
       </template>
       <template #actions>
@@ -269,7 +271,9 @@ watch(
         <div class="worktrees-create-heading">
           <div>
             <h3>Novo worktree</h3>
-            <p>Use uma branch existente ou marque a opção para criar uma nova.</p>
+            <p>
+              Use uma branch existente ou marque a opção para criar uma nova.
+            </p>
           </div>
         </div>
 
