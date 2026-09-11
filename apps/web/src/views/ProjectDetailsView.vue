@@ -61,6 +61,9 @@ const ProjectReadinessPanel = lazyTool(
 const ProjectMigrationsPanel = lazyTool(
   () => import('../components/ProjectMigrationsPanel.vue'),
 );
+const ProjectSecurityCenterPanel = lazyTool(
+  () => import('../components/ProjectSecurityCenterPanel.vue'),
+);
 const ProjectSelfUpdateProductionPanel = lazyTool(
   () => import('../components/ProjectSelfUpdateProductionPanel.vue'),
 );
@@ -103,6 +106,9 @@ const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isReadinessRoute = computed(() => route.name === 'project-readiness');
 const isMigrationsRoute = computed(() => route.name === 'project-migrations');
+const isSecurityRoute = computed(
+  () => route.name === 'project-security-center',
+);
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
@@ -424,6 +430,12 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectMigrationsPanel
         v-else-if="isMigrationsRoute"
         :key="`migrations-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectSecurityCenterPanel
+        v-else-if="isSecurityRoute"
+        :key="`security-${project.id}`"
         :project="project"
       />
 
