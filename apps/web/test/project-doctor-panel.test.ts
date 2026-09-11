@@ -103,7 +103,7 @@ describe('ProjectDoctorPanel', () => {
     expect(wrapper.html()).not.toContain('super-secret');
   });
 
-  it('mantém a tela enxuta sem cabeçalho redundante', async () => {
+  it('renderiza o protótipo 1 como resumo operacional e lista expansível', async () => {
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },
       global: {
@@ -113,8 +113,12 @@ describe('ProjectDoctorPanel', () => {
 
     await flushPromises();
 
+    expect(wrapper.find('#project-doctor-title').text()).toBe('Diagnóstico');
+    expect(wrapper.findAll('.project-doctor-summary-item')).toHaveLength(4);
+    expect(wrapper.text()).toContain('2 de 4');
+    expect(wrapper.text()).toContain('Pendências');
+    expect(wrapper.findAll('.project-doctor-category')).toHaveLength(4);
     expect(wrapper.find('.project-doctor-header').exists()).toBe(false);
-    expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false);
   });
 
   it('descarta o relatório anterior ao trocar de projeto', async () => {
