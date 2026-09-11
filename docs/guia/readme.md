@@ -7,28 +7,37 @@ editor de código ou um terminal.
 
 ## O que aparece na tela
 
-- Um contador do tipo "N arquivos Markdown encontrados".
-- Se o projeto tiver mais de um arquivo `.md`, uma lista lateral para escolher qual visualizar.
-- O conteúdo renderizado do arquivo escolhido: títulos, parágrafos, listas, citações, divisores e
-  blocos de código com botão **Copiar**.
-- Um botão **Atualizar**, para reler os arquivos do disco sem recarregar a página inteira.
+A aba usa um workspace de documentação com três áreas:
+
+- **Arquivos**, à esquerda: lista vertical dos Markdown encontrados. Arquivos do projeto ficam em
+  destaque e caminhos sob `node_modules`, quando retornados pela leitura atual, aparecem agrupados
+  em **Dependências**.
+- **Documento**, ao centro: exibe o caminho do arquivo selecionado e renderiza títulos,
+  parágrafos, listas, citações, divisores, tabelas e blocos de código com botão **Copiar**.
+- **Neste documento**, à direita: índice gerado a partir dos headings do Markdown. Selecionar um
+  item leva diretamente ao título correspondente no documento.
+
+O botão de atualização fica junto ao explorador de arquivos e relê a documentação do disco sem
+recarregar a aplicação inteira. Em larguras menores o índice lateral é ocultado primeiro; no modo
+compacto, o explorador fica acima do documento para preservar a área de leitura.
 
 ## Como funciona por trás
 
-1. O dashboard varre o diretório do projeto em busca de arquivos terminados em `.md`, `.markdown`
-   ou `.mdown`, até 8 níveis de profundidade e no máximo 200 arquivos. Pastas como `node_modules`
-   e `.git` são ignoradas automaticamente.
-2. A lista é ordenada colocando primeiro o que mais parece ser a documentação principal:
-   `README.md`, depois variações de "readme", depois outros formatos de texto (`.rdoc`, `.adoc`).
-3. Ao escolher um arquivo, o dashboard lê o conteúdo do disco e renderiza no navegador com um
-   interpretador de Markdown próprio (sem depender de nenhum serviço externo).
+1. O dashboard solicita ao backend a lista de arquivos Markdown reconhecidos para o projeto.
+2. O primeiro arquivo retornado é aberto automaticamente; selecionar outro item apenas troca o
+   documento em leitura.
+3. O conteúdo é interpretado localmente pelo parser já usado pela aba. O mesmo resultado do parser
+   alimenta o documento e o índice lateral de headings, sem um segundo contrato de API.
+4. Links externos seguros continuam abrindo fora do dashboard; esquemas não permitidos não são
+   transformados em links clicáveis.
+5. Estados de loading, erro/retry, lista truncada e ausência de arquivos continuam explícitos na
+   própria superfície.
 
-Essa aba **nunca executa nenhum comando** — é leitura pura de arquivo. As mesmas regras de
-segurança do Editor se aplicam aqui: o caminho é sempre confinado à raiz do projeto (não é
-possível "escapar" para fora dele, mesmo com link simbólico), e arquivos maiores que 512 KB não
-são exibidos.
+A aba **nunca executa nenhum comando nem edita o arquivo**. O caminho e o conteúdo continuam vindo
+das APIs existentes de documentação do projeto; o redesign altera apenas a organização e a
+navegação da interface.
 
 ## Quando usar
 
 Para consultar rapidamente instruções de setup, convenções do projeto ou notas de arquitetura que
-a equipe já documentou, sem sair do dashboard.
+a equipe já documentou, navegando entre arquivos e seções sem sair do dashboard.
