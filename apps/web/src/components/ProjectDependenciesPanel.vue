@@ -189,14 +189,6 @@ onBeforeUnmount(() => updateClockTimer(false));
       {{ errorMessage }}
     </div>
 
-    <div
-      v-if="mutationErrorMessage && !snapshot"
-      class="dependencies-alert"
-      role="alert"
-    >
-      {{ mutationErrorMessage }}
-    </div>
-
     <div v-if="loading && !catalog" class="dependencies-loading" role="status">
       Detectando gerenciadores e ações disponíveis…
     </div>
