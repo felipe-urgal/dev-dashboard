@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -14,6 +14,10 @@ const moreToolsSource = readFileSync(
   new URL('../src/components/ProjectDetailsMoreTools.vue', import.meta.url),
   'utf8',
 );
+const dedicatedSecurityView = new URL(
+  '../src/views/ProjectSecurityCenterView.vue',
+  import.meta.url,
+);
 
 describe('shell do Security Center', () => {
   it('mantém a rota de Segurança dentro de ProjectDetailsView', () => {
@@ -23,6 +27,7 @@ describe('shell do Security Center', () => {
     expect(routerSource).not.toContain(
       "import('../views/ProjectSecurityCenterView.vue')",
     );
+    expect(existsSync(dedicatedSecurityView)).toBe(false);
   });
 
   it('renderiza o painel de Segurança na cadeia de ferramentas compartilhada', () => {
