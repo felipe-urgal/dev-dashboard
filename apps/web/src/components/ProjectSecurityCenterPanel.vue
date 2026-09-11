@@ -196,7 +196,10 @@ watch(
 </script>
 
 <template>
-  <section class="security-center-panel" aria-labelledby="security-center-title">
+  <section
+    class="security-center-panel"
+    aria-labelledby="security-center-title"
+  >
     <header class="security-center-header">
       <div>
         <span class="security-center-eyebrow">Segurança</span>
@@ -236,7 +239,9 @@ watch(
       >
         <span class="security-center-state-marker" aria-hidden="true"></span>
         <div class="security-center-state-copy">
-          <strong id="security-center-state-title">{{ availabilityTitle }}</strong>
+          <strong id="security-center-state-title">{{
+            availabilityTitle
+          }}</strong>
           <p>{{ availabilityDiagnostic }}</p>
         </div>
         <span class="security-center-observed">
@@ -292,8 +297,13 @@ watch(
           </span>
         </div>
 
-        <div class="security-center-severity-grid" aria-label="Contagem por severidade">
-          <div class="security-center-severity security-center-severity--critical">
+        <div
+          class="security-center-severity-grid"
+          aria-label="Contagem por severidade"
+        >
+          <div
+            class="security-center-severity security-center-severity--critical"
+          >
             <span>Crítica</span>
             <strong>{{ severityCount('critical') }}</strong>
           </div>
@@ -301,7 +311,9 @@ watch(
             <span>Alta</span>
             <strong>{{ severityCount('high') }}</strong>
           </div>
-          <div class="security-center-severity security-center-severity--medium">
+          <div
+            class="security-center-severity security-center-severity--medium"
+          >
             <span>Média</span>
             <strong>{{ severityCount('medium') }}</strong>
           </div>
@@ -309,7 +321,9 @@ watch(
             <span>Baixa</span>
             <strong>{{ severityCount('low') }}</strong>
           </div>
-          <div class="security-center-severity security-center-severity--unknown">
+          <div
+            class="security-center-severity security-center-severity--unknown"
+          >
             <span>Desconhecida</span>
             <strong>{{ severityCount('unknown') }}</strong>
           </div>
@@ -372,10 +386,14 @@ watch(
                 {{ categoryLabel(finding.category) }} · {{ finding.ruleId }} ·
                 <code
                   >{{ finding.file
-                  }}<template v-if="finding.line">:{{ finding.line }}</template></code
+                  }}<template v-if="finding.line"
+                    >:{{ finding.line }}</template
+                  ></code
                 >
               </p>
-              <small v-if="finding.remediation">{{ finding.remediation }}</small>
+              <small v-if="finding.remediation">{{
+                finding.remediation
+              }}</small>
             </div>
           </li>
         </ul>
