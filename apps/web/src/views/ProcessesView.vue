@@ -2,11 +2,14 @@
 import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
+  MagnifyingGlassIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline';
+import { computed, ref } from 'vue';
 
-import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import ApiRequestDiagnostics from '../components/ApiRequestDiagnostics.vue';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
+import ProcessesObservabilityOverview from '../components/ProcessesObservabilityOverview.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import { useProcessesView } from '../composables/useProcessesView';
 import {
@@ -27,7 +30,6 @@ const {
   cleanupRunning,
   now,
   visibleItems,
-  hasVisibleItems,
   terminalCount,
   projectNameById,
   workspaceNameFor,
@@ -46,78 +48,132 @@ const {
   failedCount,
   runCleanup,
 } = useProcessesView();
+
+const processQuery = ref('');
+const diagnosticsDetails = ref<HTMLDetailsElement | null>(null);
+
+const displayItems = computed(() => {
+  const query = processQuery.value.trim().toLocaleLowerCase('pt-BR');
+  if (!query) return visibleItems.value;
+
+  return visibleItems.value.filter((process) => {
+    const projectName =
+      projectNameById.value.get(process.projectId) ?? process.projectId;
+    const searchable = [
+      projectName,
+      process.id,
+      process.kind,
+      kindLabel(process.kind),
+      process.status,
+      processStatusLabel(process.status),
+      workspaceNameFor(process),
+      process.command ?? '',
+      process.port ? String(process.port) : '',
+      process.pid ? String(process.pid) : '',
+    ]
+      .join(' ')
+      .toLocaleLowerCase('pt-BR');
+
+    return searchable.includes(query);
+  });
+});
+
+const hasDisplayItems = computed(() => displayItems.value.length > 0);
+const hasAnyFilters = computed(
+  () => hasActiveFilters.value || processQuery.value.trim().length > 0,
+);
+
+function clearAllFilters(): void {
+  processQuery.value = '';
+  clearFilters();
+}
+
+function openDiagnostics(): void {
+  const details = diagnosticsDetails.value;
+  if (!details) return;
+  details.open = true;
+  details.scrollIntoView({ block: 'start' });
+}
 </script>
 
 <template>
   <section
     id="processes"
-    class="content processes-page"
+    class="content processes-page processes-observability-page"
     :aria-busy="loading"
-    aria-label="Processos gerenciados"
+    aria-labelledby="processes-title"
   >
-    <div class="processes-actions" role="group" aria-label="Ações de processos">
-      <button
-        type="button"
-        class="processes-refresh-button"
-        title="Atualizar processos"
-        :disabled="loading"
-        @click="loadProcesses"
-      >
-        <ArrowPathIcon
-          aria-hidden="true"
-          :class="{ 'processes-refresh-icon-active': loading }"
-        />
-        {{ loading ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-      <button
-        type="button"
-        class="processes-cleanup-button"
-        :disabled="cleanupRunning || terminalCount === 0"
-        aria-describedby="processes-cleanup-help"
-        title="Limpar processos finalizados"
-        @click="runCleanup"
-      >
-        <TrashIcon aria-hidden="true" />
-        {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
-      </button>
-    </div>
+    <header class="processes-observability-header">
+      <div class="processes-observability-title-block">
+        <span class="processes-observability-kicker">Processos</span>
+        <h1 id="processes-title">Observabilidade</h1>
+        <p>
+          Acompanhe processos locais, atividade da API e saúde da sessão em um
+          único lugar.
+        </p>
+      </div>
 
-    <dl class="processes-summary" aria-label="Resumo dos processos">
-      <div>
-        <dt>
-          <span
-            class="processes-summary-dot processes-summary-dot-active"
-          />Ativos
-        </dt>
-        <dd>{{ activeCount }}</dd>
+      <div
+        class="processes-actions"
+        role="group"
+        aria-label="Ações de processos"
+      >
+        <button
+          type="button"
+          class="processes-refresh-button"
+          title="Atualizar processos"
+          :disabled="loading"
+          @click="loadProcesses"
+        >
+          <ArrowPathIcon
+            aria-hidden="true"
+            :class="{ 'processes-refresh-icon-active': loading }"
+          />
+          {{ loading ? 'Atualizando…' : 'Atualizar' }}
+        </button>
+        <button
+          type="button"
+          class="processes-cleanup-button"
+          :disabled="cleanupRunning || terminalCount === 0"
+          aria-describedby="processes-cleanup-help"
+          title="Limpar processos finalizados"
+          @click="runCleanup"
+        >
+          <TrashIcon aria-hidden="true" />
+          {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
+        </button>
       </div>
-      <div>
-        <dt>
-          <span
-            class="processes-summary-dot processes-summary-dot-stopped"
-          />Finalizados
-        </dt>
-        <dd>{{ stoppedCount }}</dd>
-      </div>
-      <div>
-        <dt>
-          <span
-            class="processes-summary-dot processes-summary-dot-failed"
-          />Falhos
-        </dt>
-        <dd>{{ failedCount }}</dd>
-      </div>
-      <div>
-        <dt><span class="processes-summary-dot" />Exibidos</dt>
-        <dd>{{ visibleItems.length }}</dd>
-      </div>
-    </dl>
+    </header>
+
+    <ProcessesObservabilityOverview
+      :processes="items"
+      :active-count="activeCount"
+      :stopped-count="stoppedCount"
+      :failed-count="failedCount"
+      :project-name-by-id="projectNameById"
+      :now="now"
+      @open-diagnostics="openDiagnostics"
+    />
 
     <div
-      class="processes-filters"
+      class="processes-filters processes-observability-filters"
       role="group"
       aria-label="Filtros de processos"
     >
+      <label class="processes-search-control">
+        <span>Buscar</span>
+        <span class="processes-search-field">
+          <MagnifyingGlassIcon aria-hidden="true" />
+          <input
+            id="process-filter-query"
+            v-model="processQuery"
+            type="search"
+            placeholder="Projeto, processo, porta…"
+            autocomplete="off"
+          />
+        </span>
+      </label>
+
       <label>
         Workspace
         <select id="process-filter-workspace" v-model="workspaceFilter">
@@ -165,12 +221,12 @@ const {
         </select>
       </label>
       <button
-        v-if="hasActiveFilters"
+        v-if="hasAnyFilters"
         type="button"
         class="processes-clear-button"
-        @click="clearFilters"
+        @click="clearAllFilters"
       >
-        Limpar filtros
+        Limpar
       </button>
     </div>
 
@@ -213,9 +269,9 @@ const {
 
     <div
       v-else-if="
-        !hasVisibleItems && !processesErrorMessage && !referenceErrorMessage
+        !hasDisplayItems && !processesErrorMessage && !referenceErrorMessage
       "
-      class="activity-empty"
+      class="activity-empty processes-observability-empty"
       role="status"
     >
       <span>
@@ -234,64 +290,77 @@ const {
       </RouterLink>
     </div>
 
-    <div v-else class="processes-table-shell">
-      <table class="processes-table">
-        <caption class="sr-only">
-          Processos gerenciados pelo dashboard
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Processo</th>
-            <th scope="col">Workspace</th>
-            <th scope="col">Tipo</th>
-            <th scope="col">Identificação</th>
-            <th scope="col">Duração</th>
-            <th scope="col">Estado</th>
-            <th scope="col">
-              <span class="sr-only">Ações</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="process in visibleItems" :key="process.id">
-            <td data-label="Processo">
+    <section v-else class="processes-list-section" aria-labelledby="process-list-title">
+      <header class="processes-list-header">
+        <div>
+          <span class="processes-observability-kicker">Execuções</span>
+          <h2 id="process-list-title">Processos gerenciados</h2>
+        </div>
+        <span>{{ displayItems.length }} exibidos</span>
+      </header>
+
+      <div class="processes-card-grid">
+        <article
+          v-for="process in displayItems"
+          :key="process.id"
+          class="processes-process-card"
+        >
+          <header class="processes-process-card-header">
+            <div>
               <RouterLink
                 :to="processDetailPath(process)"
-                class="processes-table-title"
+                class="processes-card-title"
               >
                 {{
                   projectNameById.get(process.projectId) ?? process.projectId
                 }}
               </RouterLink>
-              <small>{{ process.id }}</small>
-            </td>
-            <td data-label="Workspace">
-              {{ workspaceNameFor(process) }}
-            </td>
-            <td data-label="Tipo">
-              <span class="processes-kind-badge">
-                {{ kindLabel(process.kind) }}
-              </span>
-            </td>
-            <td data-label="Identificação">
-              <span v-if="process.port"> porta {{ process.port }} </span>
-              <span v-else-if="process.pid"> PID {{ process.pid }} </span>
-              <span v-else>—</span>
-            </td>
-            <td data-label="Duração">
-              {{
-                formatDuration(
-                  process.startedAt,
-                  processDurationReference(process, now),
-                )
-              }}
-            </td>
-            <td data-label="Estado">
-              <StatusBadge :tone="processToneFor(process.status)">
-                {{ processStatusLabel(process.status) }}
-              </StatusBadge>
-            </td>
-            <td class="processes-table-action" data-label="Ações">
+              <span>{{ workspaceNameFor(process) }}</span>
+            </div>
+            <StatusBadge :tone="processToneFor(process.status)">
+              {{ processStatusLabel(process.status) }}
+            </StatusBadge>
+          </header>
+
+          <dl class="processes-process-card-meta">
+            <div>
+              <dt>Tipo</dt>
+              <dd>
+                <span class="processes-kind-badge">
+                  {{ kindLabel(process.kind) }}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Identificação</dt>
+              <dd>
+                <span v-if="process.port">porta {{ process.port }}</span>
+                <span v-else-if="process.pid">PID {{ process.pid }}</span>
+                <span v-else>—</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Duração</dt>
+              <dd>
+                {{
+                  formatDuration(
+                    process.startedAt,
+                    processDurationReference(process, now),
+                  )
+                }}
+              </dd>
+            </div>
+          </dl>
+
+          <footer class="processes-process-card-footer">
+            <code :title="process.id">{{ process.id }}</code>
+            <div class="processes-process-card-actions">
+              <RouterLink
+                :to="processDetailPath(process)"
+                class="processes-detail-button"
+              >
+                Detalhes
+              </RouterLink>
               <RouterLink
                 :to="processLogPath(process)"
                 class="processes-open-button"
@@ -304,24 +373,30 @@ const {
               >
                 <ArrowTopRightOnSquareIcon aria-hidden="true" />
               </RouterLink>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            </div>
+          </footer>
+        </article>
+      </div>
+    </section>
 
-    <ApiRequestDiagnostics />
+    <details
+      id="processes-diagnostics"
+      ref="diagnosticsDetails"
+      class="processes-diagnostics-details"
+    >
+      <summary>
+        <span>
+          <strong>Métricas detalhadas da API</strong>
+          <small>Endpoints, deduplicação, falhas e histórico de alertas.</small>
+        </span>
+        <span class="processes-diagnostics-summary-action">Abrir diagnóstico</span>
+      </summary>
+      <ApiRequestDiagnostics />
+    </details>
   </section>
 </template>
 
 <style scoped>
-.processes-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 4px 0;
-}
-
 .processes-empty-action {
   display: inline-flex;
   margin-top: 10px;
@@ -334,15 +409,5 @@ const {
 .processes-empty-action:hover,
 .processes-empty-action:focus-visible {
   text-decoration: underline;
-}
-
-@media (max-width: 520px) {
-  .processes-actions {
-    flex-direction: column;
-  }
-
-  .processes-actions button {
-    width: 100%;
-  }
 }
 </style>
