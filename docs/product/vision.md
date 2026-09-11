@@ -97,13 +97,19 @@ Capacidades já presentes incluem, entre outras:
 - testes e histórico/Test Intelligence;
 - banco, snapshots e operações reconhecidas;
 - Environment Contract;
+- **Development Environment Instance** como identidade operacional comum de projeto/worktree/runtime, com `ExecutionContext` resolvido no backend e ownership propagado para Process Manager, Terminal e Port Registry;
 - Port Registry + Allocator;
-- dependências com inventário local confiável;
+- dependências com inventário local, metadata externa e descoberta conservadora do runtime Node declarado pelo projeto;
 - Production Contract com `command`, `git-managed`/Vercel e `self-update`;
 - instalação permanente do próprio Dashboard via `systemd --user`;
-- fundamentos read-only para Worktrees, Docker Compose, Migration Providers, Security Center, Release Readiness e Local CI/`act`.
+- Worktrees com observer/identidade estável, criação estruturada, domínio de remoção segura e API de listagem/criação integrada à Environment Instance;
+- Docker Compose com inspeção, preflight, start controlado e ownership persistente;
+- Migration Providers com inspeção comum, API/UI read-only e evidência integrada ao Release Readiness;
+- Security Center com provider Trivy, API e UI por projeto;
+- Release Readiness com Git, Testes, Doctor e Migrations;
+- Local CI/`act` com catálogo, execução controlada, cancelamento, logs e reattach/follow no domínio.
 
-Esses últimos fundamentos **não significam lifecycle/UI completos**. O status detalhado do trabalho futuro fica nas issues abertas.
+Essas capacidades possuem maturidade diferente. O status detalhado do trabalho futuro fica nas issues abertas; `docs/architecture/*` descreve somente o comportamento já implementado.
 
 ## Capacidades removidas
 
@@ -120,13 +126,13 @@ Documentos históricos explicitamente marcados como removidos podem registrar es
 
 O roadmap vivo está na issue **#596**. As frentes abertas devem ser lidas pelo estado real de cada issue, não por listas versionadas neste documento.
 
-A sequência estrutural atual prioriza:
+Com #598 (Development Environment Instance) e a correção estrutural de self-update já entregues, a sequência atual passa a priorizar:
 
-1. corrigir o redeploy local/self-update gerenciado (#659);
-2. criar uma identidade operacional comum de Development Environment Instance (#598);
-3. evoluir Worktrees/Compose/Dev Containers/Stacks sem identidades paralelas;
-4. levar fundamentos de Readiness, Dependency Health, Migrations, Security e Local CI às superfícies de produto;
-5. conectar Task Context e Activity/Jobs usando as integrações/lifecycles já existentes.
+1. concluir a experiência operacional de **Worktrees (#570)** sobre a identidade de Environment Instance já existente, incluindo guard concreto de ownership, remoção exposta com segurança e UI;
+2. evoluir **Docker Compose (#588)** sobre o ownership persistente já entregue, adicionando stop/restart/logs e superfície HTTP/UI;
+3. completar as superfícies/fonte de evidência de **Release Readiness (#571)**, **Dependency Health (#572)**, **Migration Providers (#589)**, **Security Center (#593)** e **Local CI (#594)** sem duplicar regras já existentes;
+4. avançar **Task Context (#599)** e **Activity Timeline + Jobs Center (#600)** reutilizando Environment Instance, Cockpit GitHub e lifecycles atuais;
+5. avançar **Dev Containers (#595)** e **Stacks (#592)** sobre a mesma identidade operacional, sem criar runtime/ownership paralelo.
 
 Essa ordem pode mudar; #596 é a fonte de planejamento, enquanto `docs/` continua descrevendo comportamento implementado e princípios permanentes.
 
