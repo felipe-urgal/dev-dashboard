@@ -344,9 +344,14 @@ const selectedFileIssues = computed(() => {
             </div>
             <small>
               {{
-                countLabel(selectedFile.variables.length, 'variável', 'variáveis')
+                countLabel(
+                  selectedFile.variables.length,
+                  'variável',
+                  'variáveis',
+                )
               }}
-              · {{ countLabel(secretCount(selectedFile), 'segredo', 'segredos') }}
+              ·
+              {{ countLabel(secretCount(selectedFile), 'segredo', 'segredos') }}
               <template v-if="selectedBaselineLabel">
                 · {{ selectedBaselineLabel }}
               </template>
