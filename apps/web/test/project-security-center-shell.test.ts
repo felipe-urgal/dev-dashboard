@@ -1,22 +1,21 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const routerSource = readFileSync(
-  new URL('../src/router/index.ts', import.meta.url),
-  'utf8',
-);
+const webRoot = process.cwd();
+const routerSource = readFileSync(resolve(webRoot, 'src/router/index.ts'), 'utf8');
 const projectDetailsSource = readFileSync(
-  new URL('../src/views/ProjectDetailsView.vue', import.meta.url),
+  resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
 );
 const moreToolsSource = readFileSync(
-  new URL('../src/components/ProjectDetailsMoreTools.vue', import.meta.url),
+  resolve(webRoot, 'src/components/ProjectDetailsMoreTools.vue'),
   'utf8',
 );
-const dedicatedSecurityView = new URL(
-  '../src/views/ProjectSecurityCenterView.vue',
-  import.meta.url,
+const dedicatedSecurityView = resolve(
+  webRoot,
+  'src/views/ProjectSecurityCenterView.vue',
 );
 
 describe('shell do Security Center', () => {
