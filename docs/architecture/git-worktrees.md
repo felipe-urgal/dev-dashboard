@@ -178,7 +178,7 @@ Campos extras como `path`, `cwd`, programa ou argv não participam da mutação.
 
 Antes de preparar uma remoção, a rota também reinspeciona/reconcilia um snapshot `ready`. Isso garante que o guard concreto encontre a mesma Environment Instance derivada do worktree mesmo quando a chamada de remoção é a primeira operação após iniciar a API.
 
-A confirmação recebe apenas `projectId + worktreeId` pela rota e devolve o token curto do lifecycle quando todos os guards passam. A execução recebe somente `confirmationToken` num body fechado; `path`, `cwd`, comando e argv adicionais são rejeitados pela validação HTTP. Após `removed`, `already-absent` ou `cleanup-required`, a rota observa novamente os worktrees e reconcilia o estado operacional.
+A confirmação recebe apenas `projectId + worktreeId` pela rota e devolve o token curto do lifecycle quando todos os guards passam. A execução usa somente `confirmationToken` como autoridade no body; campos extras como `path`, `cwd`, comando ou argv não chegam ao lifecycle nem influenciam a mutação. Após `removed`, `already-absent` ou `cleanup-required`, a rota observa novamente os worktrees e reconcilia o estado operacional.
 
 ## Segurança e limites
 
