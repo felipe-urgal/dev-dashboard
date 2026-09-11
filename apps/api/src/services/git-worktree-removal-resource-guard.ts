@@ -30,9 +30,7 @@ export interface GitWorktreeRemovalResourceGuardDependencies {
  * domínios atuais. Não usa path, porta ou PID como heurística para decidir se
  * um recurso pertence ao worktree.
  */
-export class GitWorktreeRemovalResourceGuardService
-  implements GitWorktreeRemovalResourceGuard
-{
+export class GitWorktreeRemovalResourceGuardService implements GitWorktreeRemovalResourceGuard {
   public constructor(
     private readonly dependencies: GitWorktreeRemovalResourceGuardDependencies,
   ) {}
@@ -60,7 +58,10 @@ export class GitWorktreeRemovalResourceGuardService
       };
     }
 
-    if (instance.lifecycle === 'starting' || instance.lifecycle === 'stopping') {
+    if (
+      instance.lifecycle === 'starting' ||
+      instance.lifecycle === 'stopping'
+    ) {
       return {
         safe: false,
         diagnostic:
