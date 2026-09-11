@@ -81,8 +81,17 @@ beforeEach(() => {
 });
 
 test('organiza arquivos, documento e índice no workspace de README', async () => {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoView,
+  });
+
   const project = makeProject({ id: 'project-1' });
-  const wrapper = mount(ProjectReadmePanel, { props: { project } });
+  const wrapper = mount(ProjectReadmePanel, {
+    props: { project },
+    attachTo: document.body,
+  });
   await flushPromises();
   await flushPromises();
 
@@ -111,12 +120,6 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
         heading.attributes('id')?.startsWith('readme-heading-'),
       ),
   );
-
-  const scrollIntoView = vi.fn();
-  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
-    configurable: true,
-    value: scrollIntoView,
-  });
 
   await outlineButtons[1]?.trigger('click');
   assert.equal(scrollIntoView.mock.calls.length, 1);
