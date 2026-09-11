@@ -128,14 +128,18 @@ Qualquer saída significa dirty state e bloqueia a remoção. Falha ao consultar
 
 ### Ownership e cleanup
 
-A remoção exige um `GitWorktreeRemovalResourceGuard`. Sem guard configurado, o fluxo falha fechado e nem emite confirmação.
+A composição normal da API fornece `GitWorktreeRemovalResourceGuardService` ao lifecycle. O guard recebe exclusivamente a `environmentInstanceId` derivada de `projectId + worktreeId`; path, porta e PID não são usados como heurística de ownership.
 
-O guard recebe exclusivamente a `environmentInstanceId` derivada de `projectId + worktreeId` e precisa:
+A prova atual verifica os domínios que já carregam Environment Instance de forma explícita:
 
-1. provar que não existem recursos ativos que impeçam a remoção;
-2. após o Git confirmar que a origem desapareceu, limpar somente recursos cuja ownership pertença exatamente à mesma Environment Instance.
+- Process Manager: processo `starting`, `running` ou `stopping` da mesma instance bloqueia;
+- Process Manager legado: processo ativo do mesmo projeto sem `environmentInstanceId` também bloqueia, porque a ownership não pode ser provada;
+- Terminal: qualquer sessão ativa da mesma Environment Instance bloqueia;
+- runtime diferente de `host` bloqueia enquanto não existir cleanup específico suportado.
 
-O lifecycle nunca recebe um owner arbitrário do browser e não ganha autoridade para limpar recursos de outra instância.
+Processos ativos de outra Environment Instance do mesmo projeto não bloqueiam a remoção. O guard nunca tenta adivinhar pertencimento por cwd, porta ou PID.
+
+Depois que o Git confirma a remoção, o guard revalida a mesma prova. Quando não existem recursos ativos com ownership da instance, não há processo ou terminal para matar durante cleanup; a reconciliação preserva a Environment Instance como `degraded`, mantendo diagnóstico e restauração determinística se a mesma origem reaparecer.
 
 A mutação usa apenas:
 
@@ -147,11 +151,13 @@ Não existe `--force`. Depois do comando, o observer precisa confirmar que o mes
 
 ## API HTTP
 
-A primeira superfície HTTP expõe somente inspeção e criação:
+A superfície HTTP expõe inspeção, criação e o fluxo em duas etapas de remoção:
 
 ```text
 GET  /api/projects/:projectId/worktrees
 POST /api/projects/:projectId/worktrees
+POST /api/projects/:projectId/worktrees/:worktreeId/removal/confirmations
+POST /api/projects/:projectId/worktrees/:worktreeId/removal
 ```
 
 O `GET` executa o observer e devolve o snapshot normalizado. Somente quando o estado é `ready` o backend reconcilia o snapshot completo com `DevelopmentEnvironmentInstance`; `unavailable` e `invalid-output` continuam explícitos e não criam estado operacional saudável.
@@ -162,7 +168,7 @@ Cada worktree conhecido recebe `environmentInstanceId` derivada pelo backend qua
 - `linked` aponta para `environment:worktree:<projectId>:<worktreeId>`;
 - `unknown` não recebe identidade operacional inventada.
 
-O `POST` aceita um body fechado com apenas:
+O `POST /worktrees` aceita um body fechado com apenas:
 
 - `branch`;
 - `directoryName`;
@@ -170,7 +176,9 @@ O `POST` aceita um body fechado com apenas:
 
 Campos extras como `path`, `cwd`, programa ou argv não participam da mutação. O lifecycle continua responsável por derivar o target e construir o comando Git. Depois de `created` ou `already-present`, a rota reinspeciona a lista completa e somente então reconcilia a Environment Instance e devolve sua identidade.
 
-A remoção **não** é exposta por HTTP neste recorte. O domínio já possui confirmação/dirty guard, mas a composição ainda precisa fornecer um `GitWorktreeRemovalResourceGuard` concreto que prove ownership dos recursos ativos antes de abrir essa mutação ao browser.
+Antes de preparar uma remoção, a rota também reinspeciona/reconcilia um snapshot `ready`. Isso garante que o guard concreto encontre a mesma Environment Instance derivada do worktree mesmo quando a chamada de remoção é a primeira operação após iniciar a API.
+
+A confirmação recebe apenas `projectId + worktreeId` pela rota e devolve o token curto do lifecycle quando todos os guards passam. A execução recebe somente `confirmationToken` num body fechado; `path`, `cwd`, comando e argv adicionais são rejeitados pela validação HTTP. Após `removed`, `already-absent` ou `cleanup-required`, a rota observa novamente os worktrees e reconcilia o estado operacional.
 
 ## Segurança e limites
 
@@ -184,10 +192,12 @@ A remoção **não** é exposta por HTTP neste recorte. O domínio já possui co
 - campos desconhecidos não promovem estado saudável;
 - criação não aceita path arbitrário nem `--force`;
 - remoção exige clean state, confirmação curta, revalidação e ownership fail-closed;
+- processo legado ativo sem ownership explícita bloqueia em vez de ser inferido;
+- runtime sem cleanup específico bloqueia em vez de ser removido parcialmente;
 - `move`, `prune`, `unlock` e remoção forçada continuam fora do lifecycle.
 
 ## Próximos recortes
 
-A próxima etapa é criar a UI de worktrees sobre os contratos HTTP existentes e, separadamente, conectar um `GitWorktreeRemovalResourceGuard` concreto aos domínios que já possuem ownership da mesma `DevelopmentEnvironmentInstance` antes de expor remoção pela API.
+A próxima etapa é criar a UI de worktrees sobre os contratos HTTP existentes e integrar nela o fluxo de confirmação/remoção sem expor paths como autoridade.
 
-O Port Registry existente continua sendo a autoridade para portas por ambiente. A superfície web deve consumir os domínios normalizados em vez de parsear Git diretamente.
+O Port Registry existente continua sendo a autoridade para portas por ambiente. Se leases duráveis passarem a existir no lifecycle real da API, o guard de remoção deverá compor esse ownership explicitamente antes de liberá-los; não deve inferir leases por porta observada.
