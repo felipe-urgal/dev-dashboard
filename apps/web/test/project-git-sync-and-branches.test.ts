@@ -156,7 +156,7 @@ test('remote-only branch can be tracked and removed from origin', async () => {
   ]);
 });
 
-test('branches page exposes an explicit remote refresh action', async () => {
+test('branches page toolbar displays refresh button in header', async () => {
   const wrapper = mount(ProjectGitBranchesPage, {
     props: {
       overview,
