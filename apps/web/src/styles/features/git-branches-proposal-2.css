@@ -1,0 +1,100 @@
+/* Branches — proposta 2: CRUD compacto e direto. */
+#app .git-branches-page {
+  gap: 0;
+}
+
+#app .git-branches-page .branch-table-toolbar {
+  min-height: 66px;
+  gap: 14px;
+  padding: 12px 16px;
+}
+
+#app .git-branches-page .branch-toolbar-copy {
+  gap: 4px;
+}
+
+#app .git-branches-page .branch-toolbar-copy > strong {
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+#app .git-branches-page .branch-toolbar-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+#app .git-branches-page .branch-toolbar-origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#app .git-branches-page .branch-toolbar-origin svg {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+
+#app .git-branches-page .branch-toolbar-current {
+  color: var(--text);
+  font-weight: var(--font-weight-strong);
+}
+
+#app .git-branches-page .branch-create-button {
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding: 8px 13px;
+}
+
+#app .git-branches-page .branch-table-header {
+  min-height: 36px;
+}
+
+#app .git-branches-page .branch-table-row {
+  min-height: 58px;
+}
+
+#app .git-branches-page .branch-table-row.is-current {
+  background: color-mix(in srgb, var(--accent-soft) 54%, var(--surface-1));
+}
+
+#app .git-branches-page .branch-current-badge,
+#app .git-branches-page .branch-type-badge {
+  padding-block: 3px;
+}
+
+#app .git-branches-page .branch-row-actions {
+  min-height: 58px;
+  padding-block: 7px;
+}
+
+#app .git-branches-page .branch-action-button {
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+#app .git-branches-page .branch-menu-trigger {
+  width: 32px;
+  height: 30px;
+}
+
+@media (max-width: 680px) {
+  #app .git-branches-page .branch-table-toolbar {
+    min-height: 0;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  #app .git-branches-page .branch-toolbar-copy {
+    width: 100%;
+  }
+
+  #app .git-branches-page .branch-create-button {
+    width: 100%;
+  }
+}

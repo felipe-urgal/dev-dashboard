@@ -11,6 +11,7 @@ import './styles/features/database-layout-polish.css';
 import './styles/features/database-tabs-proposal-3.css';
 import './styles/features/scripts-explorer-redesign.css';
 import './styles/features/git-modern-polish.css';
+import './styles/features/git-branches-proposal-2.css';
 import './styles/features/git-inline-diff-theme.css';
 import './styles/features/git-diff-compact-enhancer.css';
 import './styles/features/git-diff-layout-fix.css';
