@@ -1,0 +1,282 @@
+/* Dashboard overview — proposal 1: compact operational project list. */
+
+.dashboard-mission-control {
+  padding: 26px 24px 32px !important;
+}
+
+.dashboard-mission-control .dashboard-header {
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.dashboard-mission-control .dashboard-greeting {
+  margin-bottom: 3px;
+  font-size: 13px;
+}
+
+.dashboard-mission-control .dashboard-title-block h1 {
+  font-size: clamp(30px, 2.5vw, 38px);
+}
+
+.dashboard-mission-control .dashboard-summary {
+  gap: 7px;
+  margin-top: 7px;
+  font-size: 14px;
+}
+
+.dashboard-mission-control .dashboard-refresh-block {
+  gap: 0;
+  padding-top: 0;
+}
+
+.dashboard-mission-control .dashboard-refresh-button {
+  min-height: 42px;
+  gap: 8px;
+  padding: 0 15px;
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+  font-size: 13px;
+}
+
+.dashboard-mission-control .dashboard-refresh-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dashboard-mission-control .dashboard-refresh-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dashboard-mission-control .dashboard-last-updated {
+  display: none;
+}
+
+.dashboard-mission-control .dashboard-layout {
+  display: block;
+}
+
+.dashboard-mission-control .dashboard-primary {
+  width: 100%;
+}
+
+.dashboard-mission-control .dashboard-rail {
+  display: none;
+}
+
+.dashboard-mission-control .dashboard-toolbar {
+  min-height: 58px;
+  gap: 14px;
+  padding: 0 10px 0 6px;
+  border-radius: 10px;
+}
+
+.dashboard-mission-control .dashboard-tabs {
+  gap: 4px;
+}
+
+.dashboard-mission-control .dashboard-tab {
+  min-width: 138px;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.dashboard-mission-control .dashboard-tab svg {
+  width: 19px;
+  height: 19px;
+}
+
+.dashboard-mission-control .dashboard-tab::after {
+  right: 9px;
+  left: 9px;
+  height: 2px;
+}
+
+.dashboard-mission-control .dashboard-search-actions {
+  gap: 0;
+}
+
+.dashboard-mission-control .dashboard-search {
+  width: min(420px, 36vw);
+  min-height: 40px;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+
+.dashboard-mission-control .dashboard-search svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dashboard-mission-control .dashboard-search input {
+  font-size: 13px;
+}
+
+/* A ordem por prioridade já é a ordem operacional padrão; retirar o controle
+   de inversão reduz ruído e deixa a busca como ação principal da toolbar. */
+.dashboard-mission-control .dashboard-filter-button {
+  display: none;
+}
+
+.dashboard-mission-control .dashboard-projects-heading {
+  margin: 17px 0 9px;
+}
+
+.dashboard-mission-control .dashboard-projects-heading h2 {
+  font-size: 14px;
+}
+
+.dashboard-mission-control .dashboard-project-list {
+  gap: 8px;
+}
+
+/* ProjectCard é um componente scoped. Estes overrides são intencionais para
+   a variante compacta usada somente na visão geral do workspace. */
+.dashboard-mission-control .project-card {
+  grid-template-columns: 44px minmax(0, 1fr) auto !important;
+  min-height: 84px !important;
+  gap: 14px !important;
+  padding: 13px 16px !important;
+  border-radius: 10px !important;
+  transform: none !important;
+}
+
+.dashboard-mission-control .project-card:hover {
+  transform: none !important;
+}
+
+.dashboard-mission-control .project-card-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 9px !important;
+  font-size: 14px !important;
+}
+
+.dashboard-mission-control .project-card-identity {
+  gap: 1px !important;
+}
+
+.dashboard-mission-control .project-card-identity h3 {
+  font-size: 15px !important;
+  line-height: 1.2 !important;
+}
+
+.dashboard-mission-control .project-card-path {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+}
+
+.dashboard-mission-control .project-card-meta {
+  min-height: 22px !important;
+  gap: 6px !important;
+  margin-top: 6px !important;
+}
+
+.dashboard-mission-control .project-card-branch,
+.dashboard-mission-control .project-card-status,
+.dashboard-mission-control .project-card-muted-pill,
+.dashboard-mission-control .project-card-port {
+  min-height: 22px !important;
+  gap: 4px !important;
+  padding: 3px 8px !important;
+  font-size: 10.5px !important;
+}
+
+.dashboard-mission-control .project-card-status-dot {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.dashboard-mission-control .project-card-actions {
+  gap: 8px !important;
+  padding-left: 8px !important;
+}
+
+.dashboard-mission-control .project-card-actions :is(.processes-menu-trigger),
+.dashboard-mission-control .project-card-toggle {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 8px !important;
+}
+
+.dashboard-mission-control .project-card-toggle::before {
+  top: 6px !important;
+  bottom: 6px !important;
+  left: -9px !important;
+}
+
+.dashboard-mission-control .project-card-toggle svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.dashboard-mission-control .dashboard-projects-loading,
+.dashboard-mission-control .dashboard-panel-state,
+.dashboard-mission-control .dashboard-no-results {
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-mission-control .dashboard-toolbar {
+    align-items: center;
+  }
+
+  .dashboard-mission-control .dashboard-search {
+    width: min(330px, 40vw);
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-mission-control {
+    padding: 20px 14px 26px !important;
+  }
+
+  .dashboard-mission-control .dashboard-header {
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .dashboard-mission-control .dashboard-refresh-button {
+    width: 100%;
+  }
+
+  .dashboard-mission-control .dashboard-toolbar {
+    padding: 0;
+  }
+
+  .dashboard-mission-control .dashboard-tabs {
+    min-height: 52px;
+  }
+
+  .dashboard-mission-control .dashboard-search-actions {
+    padding: 0 10px 10px;
+  }
+
+  .dashboard-mission-control .dashboard-search {
+    width: 100%;
+  }
+
+  .dashboard-mission-control .project-card {
+    grid-template-columns: 40px minmax(0, 1fr) !important;
+    min-height: 0 !important;
+    gap: 11px !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-mission-control .project-card-avatar {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .dashboard-mission-control .project-card-actions {
+    grid-column: 2 !important;
+    padding: 0 !important;
+  }
+
+  .dashboard-mission-control .project-card-toggle::before {
+    display: none !important;
+  }
+}
