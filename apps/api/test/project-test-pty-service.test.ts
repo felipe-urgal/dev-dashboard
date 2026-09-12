@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
 import { DetachableExecutionService } from '../src/services/detachable-execution-service.js';
 import {
@@ -71,6 +71,19 @@ function project(overrides: Partial<Project> = {}): Project {
     enabled: true,
     capabilities: [],
     ...overrides,
+  };
+}
+
+function executionContext(
+  targetProject: Project,
+  environmentInstanceId = `environment:primary:${targetProject.id}`,
+  cwd = targetProject.path,
+): ExecutionContext {
+  return {
+    projectId: targetProject.id,
+    environmentInstanceId,
+    cwd,
+    runtime: 'host',
   };
 }
 
@@ -313,6 +326,60 @@ test('start() lança ALREADY_RUNNING numa segunda chamada enquanto a primeira ro
   );
 });
 
+test('execuções de ambientes diferentes não compartilham cwd nem status', async (t) => {
+  const primaryPath = await temporaryProject(t);
+  const worktreePath = await temporaryProject(t);
+  const targetProject = project({ path: primaryPath });
+  const primaryContext = executionContext(targetProject);
+  const worktreeContext = executionContext(
+    targetProject,
+    'environment:worktree:projeto-1:wt-1',
+    worktreePath,
+  );
+  const detectedPaths: string[] = [];
+  const spawnedCwds: string[] = [];
+  const spawnedPtys: FakePty[] = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: (_file, _args, options) => {
+      spawnedCwds.push(options.cwd);
+      const fakePty = new FakePty();
+      spawnedPtys.push(fakePty);
+      return fakePty as never;
+    },
+  });
+  const service = new ProjectTestPtyService(detachable, {
+    resolveCommand: async (detectedProject: Project) => {
+      detectedPaths.push(detectedProject.path);
+      return { command: 'npm', args: ['test'] };
+    },
+  } as never);
+
+  await service.start(targetProject, 'full-suite', primaryContext);
+  await service.start(targetProject, 'full-suite', worktreeContext);
+
+  assert.deepEqual(detectedPaths, [primaryPath, worktreePath]);
+  assert.deepEqual(spawnedCwds, [primaryPath, worktreePath]);
+  assert.equal(
+    service.snapshot(targetProject, primaryContext)?.status,
+    'running',
+  );
+  assert.equal(
+    service.snapshot(targetProject, worktreeContext)?.status,
+    'running',
+  );
+
+  spawnedPtys[0]?.emitExit(0);
+
+  assert.equal(
+    service.snapshot(targetProject, primaryContext)?.status,
+    'exited',
+  );
+  assert.equal(
+    service.snapshot(targetProject, worktreeContext)?.status,
+    'running',
+  );
+});
+
 test('attach() envia ready com o snapshot, encaminha output e exit, e detach não mata o processo', async () => {
   const fakePty = new FakePty();
   const detachable = new DetachableExecutionService({
@@ -338,13 +405,17 @@ test('attach() envia ready com o snapshot, encaminha output e exit, e detach nã
 
   socket.close();
   assert.equal(
-    detachable.isRunning('projeto-1:test-pty'),
+    detachable.isRunning('projeto-1:environment:primary:projeto-1:test-pty'),
     true,
     'fechar o socket não deveria matar a execução',
   );
 
   fakePty.emitExit(0);
-  assert.equal(detachable.snapshotOf('projeto-1:test-pty')?.status, 'exited');
+  assert.equal(
+    detachable.snapshotOf('projeto-1:environment:primary:projeto-1:test-pty')
+      ?.status,
+    'exited',
+  );
 });
 
 test('attach() sem execução em andamento envia erro e fecha o socket', () => {

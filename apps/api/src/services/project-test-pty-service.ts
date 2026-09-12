@@ -1,4 +1,4 @@
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 import type { WebSocket } from 'ws';
 
 import {
@@ -36,8 +36,27 @@ function sendJson(socket: WebSocket, message: unknown): void {
   }
 }
 
-function executionKey(projectId: string): string {
-  return `${projectId}:test-pty`;
+function primaryExecutionContext(project: Project): ExecutionContext {
+  return {
+    projectId: project.id,
+    environmentInstanceId: `environment:primary:${project.id}`,
+    cwd: project.path,
+    runtime: 'host',
+  };
+}
+
+function executionKey(
+  projectId: string,
+  environmentInstanceId: string,
+): string {
+  return `${projectId}:${environmentInstanceId}:test-pty`;
+}
+
+function projectForExecution(
+  project: Project,
+  executionContext: ExecutionContext,
+): Project {
+  return { ...project, path: executionContext.cwd };
 }
 
 async function testEnvironment(project: Project): Promise<NodeJS.ProcessEnv> {
@@ -70,18 +89,25 @@ export class ProjectTestPtyService {
     private readonly testDetectionService: TestDetectionService,
   ) {}
 
-  public snapshot(project: Project): DetachableExecutionSnapshot | undefined {
-    return this.detachable.snapshotOf(executionKey(project.id));
+  public snapshot(
+    project: Project,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): DetachableExecutionSnapshot | undefined {
+    return this.detachable.snapshotOf(
+      executionKey(project.id, executionContext.environmentInstanceId),
+    );
   }
 
   public async start(
     project: Project,
     commandId: string,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
   ): Promise<DetachableExecutionSnapshot> {
+    const scopedProject = projectForExecution(project, executionContext);
     let resolved;
     try {
       resolved = await this.testDetectionService.resolveCommand(
-        project,
+        scopedProject,
         commandId,
       );
     } catch (error) {
@@ -97,15 +123,18 @@ export class ProjectTestPtyService {
       );
     }
 
-    const environment = await testEnvironment(project);
+    const environment = await testEnvironment(scopedProject);
 
     try {
-      return this.detachable.start(executionKey(project.id), {
-        file: resolved.command,
-        args: resolved.args,
-        cwd: project.path,
-        env: environment,
-      });
+      return this.detachable.start(
+        executionKey(project.id, executionContext.environmentInstanceId),
+        {
+          file: resolved.command,
+          args: resolved.args,
+          cwd: executionContext.cwd,
+          env: environment,
+        },
+      );
     } catch (error) {
       if (
         error instanceof DetachableExecutionError &&
@@ -124,11 +153,15 @@ export class ProjectTestPtyService {
   }
 
   /** Reanexa ao WebSocket: sem stdin (execução não-interativa), só envia saída/estado. */
-  public attach(project: Project, socket: WebSocket): void {
+  public attach(
+    project: Project,
+    socket: WebSocket,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): void {
     let handle;
     try {
       handle = this.detachable.attach(
-        executionKey(project.id),
+        executionKey(project.id, executionContext.environmentInstanceId),
         (chunk) => sendJson(socket, { type: 'output', data: chunk }),
         (snapshot) =>
           sendJson(socket, {
@@ -159,7 +192,12 @@ export class ProjectTestPtyService {
     socket.once('error', handle.detach);
   }
 
-  public cancel(project: Project): void {
-    this.detachable.cancel(executionKey(project.id));
+  public cancel(
+    project: Project,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): void {
+    this.detachable.cancel(
+      executionKey(project.id, executionContext.environmentInstanceId),
+    );
   }
 }
