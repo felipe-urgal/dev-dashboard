@@ -22,15 +22,26 @@
           </template>
         </span>
       </div>
-      <button
-        type="button"
-        class="primary-button branch-create-button"
-        :disabled="actionsBusy"
-        @click="openCreateModal"
-      >
-        <PlusIcon aria-hidden="true" />
-        Nova branch
-      </button>
+      <div class="branch-toolbar-actions">
+        <button
+          type="button"
+          class="secondary-button"
+          :disabled="actionsBusy"
+          @click="emit('refresh-remotes')"
+          title="Atualizar remotas"
+        >
+          Atualizar remotas
+        </button>
+        <button
+          type="button"
+          class="primary-button branch-create-button"
+          :disabled="actionsBusy"
+          @click="openCreateModal"
+        >
+          <PlusIcon aria-hidden="true" />
+          Nova branch
+        </button>
+      </div>
     </header>
 
     <div class="branch-table-scroll">
