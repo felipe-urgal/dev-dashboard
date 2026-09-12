@@ -19,6 +19,7 @@ import './styles/features/shell-option3.css';
 import './styles/features/dashboard-mission-control.css';
 import './styles/features/production-flat-sections.css';
 import './styles/features/production-deployment-layout-fix.css';
+import './styles/features/production-overview-proposal-2.css';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
