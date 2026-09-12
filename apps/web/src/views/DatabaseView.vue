@@ -348,10 +348,7 @@ onMounted(() => {
         :disabled="loading"
         @click="refreshServices"
       >
-        <ArrowPathIcon
-          :class="{ 'is-spinning': loading }"
-          aria-hidden="true"
-        />
+        <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
         {{ loading ? 'Atualizando…' : 'Atualizar' }}
       </button>
     </header>
