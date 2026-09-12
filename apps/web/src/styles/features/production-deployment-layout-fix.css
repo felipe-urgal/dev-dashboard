@@ -41,6 +41,21 @@
   padding: 20px 12px 0 0;
 }
 
+/*
+ * With four or five stages, the last flex item must be the endpoint instead
+ * of consuming another column. That keeps the first marker at the start, the
+ * last marker at the end, and all intermediate markers evenly distributed.
+ */
+.production-panel.production-panel
+  .production-timeline-horizontal:has(> li:nth-child(4):last-child)
+  li:last-child,
+.production-panel.production-panel
+  .production-timeline-horizontal:has(> li:nth-child(5):last-child)
+  li:last-child {
+  flex: 0 0 0;
+  padding-right: 0;
+}
+
 .production-panel.production-panel
   .production-timeline-horizontal
   li:not(:last-child)::after {
@@ -132,6 +147,21 @@
   background: transparent;
 }
 
+.production-panel.production-panel
+  .production-timeline-horizontal:has(> li:nth-child(4):last-child)
+  li:last-child
+  > div,
+.production-panel.production-panel
+  .production-timeline-horizontal:has(> li:nth-child(5):last-child)
+  li:last-child
+  > div {
+  position: absolute;
+  top: 20px;
+  right: 0;
+  width: max-content;
+  text-align: right;
+}
+
 @media (max-width: 600px) {
   .production-panel.production-panel .production-timeline-horizontal {
     display: grid;
@@ -146,6 +176,12 @@
     gap: 8px;
     min-height: 44px;
     padding: 0 12px 0 0;
+  }
+
+  .production-panel.production-panel
+    .production-timeline-horizontal
+    li:last-child {
+    padding-right: 12px;
   }
 
   .production-panel.production-panel
@@ -168,7 +204,20 @@
     height: auto;
   }
 
-  .production-panel.production-panel .production-timeline-horizontal li > div {
+  .production-panel.production-panel .production-timeline-horizontal li > div,
+  .production-panel.production-panel
+    .production-timeline-horizontal:has(> li:nth-child(4):last-child)
+    li:last-child
+    > div,
+  .production-panel.production-panel
+    .production-timeline-horizontal:has(> li:nth-child(5):last-child)
+    li:last-child
+    > div {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
     padding: 0 5px;
+    text-align: left;
   }
 }
