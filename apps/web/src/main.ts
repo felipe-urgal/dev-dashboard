@@ -18,6 +18,7 @@ import './styles/features/git-syntax-highlight.css';
 import './styles/features/sidebar-collapse.css';
 import './styles/features/shell-option3.css';
 import './styles/features/dashboard-mission-control.css';
+import './styles/features/dashboard-overview-proposal-1.css';
 import './styles/features/production-flat-sections.css';
 import './styles/features/production-deployment-layout-fix.css';
 import './styles/features/production-overview-proposal-2.css';
