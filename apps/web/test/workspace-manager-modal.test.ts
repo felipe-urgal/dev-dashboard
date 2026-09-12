@@ -107,7 +107,7 @@ describe('WorkspaceManagerModal', () => {
   it('não mostra a lista de workspaces cadastrados quando não há nenhum', () => {
     mountModal();
 
-    expect(document.querySelector('.workspace-existing-list')).toBeNull();
+    expect(document.querySelector('.workspace-manage-list')).toBeNull();
   });
 
   it('lista workspaces cadastrados e alterna a varredura recursiva de um deles', async () => {
@@ -121,11 +121,13 @@ describe('WorkspaceManagerModal', () => {
       },
     ];
 
-    mountModal();
+    const wrapper = mountModal();
+    document.querySelector<HTMLButtonElement>('#workspace-manage-tab')?.click();
+    await wrapper.vm.$nextTick();
 
-    expect(
-      document.querySelector('.workspace-existing-list')?.textContent,
-    ).toContain('Workspace 1');
+    const workspaceList = document.querySelector('.workspace-manage-list');
+    expect(workspaceList).not.toBeNull();
+    expect(workspaceList?.textContent).toContain('Workspace 1');
 
     const switchEl = document.querySelector<HTMLElement>(
       '[role="switch"][aria-labelledby="workspace-existing-recursive-scan-label-w1"]',
