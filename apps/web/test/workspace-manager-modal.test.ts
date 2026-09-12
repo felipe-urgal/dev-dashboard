@@ -121,7 +121,8 @@ describe('WorkspaceManagerModal', () => {
       },
     ];
 
-    mountModal();
+    const wrapper = mountModal();
+    await wrapper.vm.$nextTick();
 
     const workspaceList = document.querySelector('.workspace-existing-list');
     expect(workspaceList).not.toBeNull();
