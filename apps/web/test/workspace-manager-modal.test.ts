@@ -123,9 +123,9 @@ describe('WorkspaceManagerModal', () => {
 
     mountModal();
 
-    expect(
-      document.querySelector('.workspace-existing-list')?.textContent,
-    ).toContain('Workspace 1');
+    const workspaceList = document.querySelector('.workspace-existing-list');
+    expect(workspaceList).not.toBeNull();
+    expect(workspaceList?.textContent).toContain('Workspace 1');
 
     const switchEl = document.querySelector<HTMLElement>(
       '[role="switch"][aria-labelledby="workspace-existing-recursive-scan-label-w1"]',
