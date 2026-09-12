@@ -1,0 +1,284 @@
+/*
+ * Banco de dados — proposta 3.
+ * Separa serviços e explorador em duas tarefas explícitas sem alterar os fluxos.
+ */
+
+.database-machine-page.database-machine-page {
+  width: min(1180px, 100%);
+  min-height: 100vh;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 30px 28px 48px;
+}
+
+.database-page-header.database-machine-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0;
+  padding: 0 0 22px;
+  border: 0;
+}
+
+.database-page-header .database-machine-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.database-page-header h1 {
+  margin: 0;
+  font-size: clamp(26px, 2.6vw, 34px);
+  letter-spacing: -0.025em;
+}
+
+.database-page-header p {
+  max-width: 660px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.database-page-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.database-page-tabs button {
+  position: relative;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color var(--motion-duration-fast) var(--motion-easing-standard),
+    background var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.database-page-tabs button::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  content: '';
+}
+
+.database-page-tabs button:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-2) 58%, transparent);
+}
+
+.database-page-tabs button[aria-selected='true'] {
+  color: var(--info-text);
+}
+
+.database-page-tabs button[aria-selected='true']::after {
+  background: var(--accent);
+}
+
+.database-page-tabs button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
+
+.database-tab-panel {
+  min-width: 0;
+}
+
+/* O cabeçalho passa a pertencer à página, não ao painel de serviços. */
+.database-tab-panel-services > .database-machine-header {
+  display: none;
+}
+
+.database-tab-panel-services .database-machine-overview {
+  display: none;
+}
+
+.database-tab-panel-services .database-machine-section-heading {
+  margin: 0 0 12px;
+}
+
+.database-tab-panel-services .database-machine-section-heading h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.database-tab-panel-services .database-machine-section-heading p {
+  margin: 0;
+  font-size: 11px;
+}
+
+.database-tab-panel-services .database-machine-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-1);
+}
+
+.database-tab-panel-services .database-machine-card {
+  grid-template-columns: 38px minmax(190px, 1fr) auto;
+  min-height: 68px;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.database-tab-panel-services .database-machine-card:last-child {
+  border-bottom: 0;
+}
+
+.database-tab-panel-services .database-machine-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.database-tab-panel-services .database-machine-card-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.database-tab-panel-services .database-machine-card-copy h2 {
+  font-size: 13px;
+}
+
+.database-tab-panel-services .database-machine-meta {
+  margin-top: 3px;
+  font-size: 10px;
+}
+
+.database-tab-panel-services .database-machine-actions {
+  gap: 6px;
+}
+
+.database-tab-panel-services .database-machine-actions button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.database-tab-panel-services .database-machine-actions button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.database-tab-panel-services .database-machine-details {
+  grid-column: 2 / -1;
+  margin: 4px 0 2px;
+}
+
+.database-tab-panel-services .database-machine-section-available {
+  margin-top: 28px;
+}
+
+/* O explorador vira uma superfície própria em vez de continuação da lista. */
+.database-tab-panel-explorer.database-explorer {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.database-tab-panel-explorer > .database-machine-section-heading {
+  margin: 0 0 12px;
+}
+
+.database-tab-panel-explorer > .database-machine-section-heading h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.database-tab-panel-explorer > .database-machine-section-heading p {
+  margin: 0;
+  font-size: 11px;
+}
+
+.database-tab-panel-explorer .database-connection-bar {
+  margin-top: 0;
+}
+
+.database-tab-panel-explorer .database-explorer-empty,
+.database-tab-panel-explorer .database-explorer-workspace {
+  margin-top: 12px;
+}
+
+.database-tab-panel-explorer .database-explorer-empty {
+  min-height: 330px;
+}
+
+@media (max-width: 900px) {
+  .database-machine-page.database-machine-page {
+    width: 100%;
+    padding: 24px 20px 40px;
+  }
+
+  .database-tab-panel-services .database-machine-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .database-tab-panel-services .database-machine-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .database-tab-panel-services .database-machine-details {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .database-machine-page.database-machine-page {
+    padding: 20px 14px 32px;
+  }
+
+  .database-page-header.database-machine-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .database-page-header .database-machine-refresh {
+    align-self: flex-start;
+  }
+
+  .database-page-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .database-page-tabs button {
+    padding-inline: 8px;
+  }
+
+  .database-tab-panel-services .database-machine-card {
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 11px;
+  }
+
+  .database-tab-panel-services .database-machine-actions {
+    grid-column: 1 / -1;
+  }
+
+  .database-tab-panel-explorer .database-connection-bar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .database-tab-panel-explorer .database-connection-bar > div {
+    min-width: calc(100% - 40px);
+  }
+}

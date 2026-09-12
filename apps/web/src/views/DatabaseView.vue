@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import {
+  ArrowPathIcon,
   ChevronDownIcon,
   CircleStackIcon,
   LinkIcon,
@@ -28,6 +29,8 @@ import { useDatabaseTableListView } from '../composables/useDatabaseTableListVie
 import { useDatabaseSavedConnections } from '../composables/useDatabaseSavedConnections';
 import { useMachineDatabaseServices } from '../composables/useMachineDatabaseServices';
 
+type DatabaseTab = 'services' | 'explorer';
+
 const {
   services,
   loading,
@@ -48,6 +51,7 @@ const {
   uninstallService,
 } = useMachineDatabaseServices();
 
+const activeDatabaseTab = ref<DatabaseTab>('services');
 const explorerModalOpen = ref(false);
 const explorerLoading = ref(false);
 const explorerError = ref('');
@@ -327,30 +331,84 @@ onMounted(() => {
   <section
     class="content database-machine-page"
     aria-labelledby="database-page-title"
-    :aria-busy="loading"
+    :aria-busy="loading || explorerLoading"
   >
-    <DatabaseServicesPanel
-      :services="services"
-      :loading="loading"
-      :error-message="errorMessage"
-      :success-message="successMessage"
-      :last-updated-at="lastUpdatedAt"
-      :expanded-service-id="expandedServiceId"
-      :details="details"
-      :details-errors="detailsErrors"
-      :details-loading="detailsLoading"
-      :pending="pending"
-      @refresh="refreshServices"
-      @run-action="runAction"
-      @toggle-details="toggleDetails"
-      @reload-details="loadDetails"
-      @install="installService"
-      @uninstall="uninstallService"
-    />
+    <header class="database-machine-header database-page-header">
+      <div>
+        <span class="database-machine-eyebrow">Serviços da máquina</span>
+        <h1 id="database-page-title">Banco de dados</h1>
+        <p>
+          Gerencie os bancos instalados no sistema e explore dados locais em
+          tarefas separadas.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="database-machine-refresh"
+        :disabled="loading"
+        @click="refreshServices"
+      >
+        <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
+        {{ loading ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+    </header>
+
+    <div class="database-page-tabs" role="tablist" aria-label="Banco de dados">
+      <button
+        id="database-tab-services"
+        type="button"
+        role="tab"
+        :aria-selected="activeDatabaseTab === 'services'"
+        aria-controls="database-services-panel"
+        @click="activeDatabaseTab = 'services'"
+      >
+        Serviços da máquina
+      </button>
+      <button
+        id="database-tab-explorer"
+        type="button"
+        role="tab"
+        :aria-selected="activeDatabaseTab === 'explorer'"
+        aria-controls="database-explorer-panel"
+        @click="activeDatabaseTab = 'explorer'"
+      >
+        Explorador de dados
+      </button>
+    </div>
+
+    <div
+      v-show="activeDatabaseTab === 'services'"
+      id="database-services-panel"
+      class="database-tab-panel database-tab-panel-services"
+      role="tabpanel"
+      aria-labelledby="database-tab-services"
+    >
+      <DatabaseServicesPanel
+        :services="services"
+        :loading="loading"
+        :error-message="errorMessage"
+        :success-message="successMessage"
+        :last-updated-at="lastUpdatedAt"
+        :expanded-service-id="expandedServiceId"
+        :details="details"
+        :details-errors="detailsErrors"
+        :details-loading="detailsLoading"
+        :pending="pending"
+        @refresh="refreshServices"
+        @run-action="runAction"
+        @toggle-details="toggleDetails"
+        @reload-details="loadDetails"
+        @install="installService"
+        @uninstall="uninstallService"
+      />
+    </div>
+
     <section
-      v-if="!loading || services.length > 0"
-      class="database-explorer"
-      aria-labelledby="database-explorer-title"
+      v-show="activeDatabaseTab === 'explorer'"
+      id="database-explorer-panel"
+      class="database-explorer database-tab-panel database-tab-panel-explorer"
+      role="tabpanel"
+      aria-labelledby="database-tab-explorer"
     >
       <div class="database-machine-section-heading">
         <div>
