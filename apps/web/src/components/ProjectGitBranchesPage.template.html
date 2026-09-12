@@ -1,72 +1,27 @@
 <section class="git-branches-page">
-  <div class="branch-summary-grid" aria-label="Resumo das branches">
-    <article class="branch-summary-card">
-      <div class="branch-summary-icon" aria-hidden="true">
-        <ShareIcon />
-      </div>
-      <div class="branch-summary-copy">
-        <span>Branch atual</span>
-        <div class="branch-summary-value-line">
-          <strong>{{ overview.branch ?? 'HEAD' }}</strong>
-          <span
-            v-if="currentRow"
-            class="branch-summary-state"
-            :class="`is-${stateTone(currentRow)}`"
-          >
-            <span aria-hidden="true" />
-            {{ stateLabel(currentRow) }}
-          </span>
-        </div>
-        <small>Você está nesta branch</small>
-      </div>
-    </article>
-
-    <article class="branch-summary-card">
-      <div class="branch-summary-icon" aria-hidden="true">
-        <ArrowsPointingInIcon />
-      </div>
-      <div class="branch-summary-copy">
-        <span>Total de branches</span>
-        <strong>{{ rows.length }}</strong>
-        <small>
-          {{ localBranchCount }} {{ localBranchCount === 1 ? 'local' : 'locais' }}
-          ·
-          {{ originBranchCount }}
-          {{ originBranchCount === 1 ? 'remota' : 'remotas' }}
-        </small>
-      </div>
-    </article>
-
-    <article class="branch-summary-card">
-      <div class="branch-summary-icon" aria-hidden="true">
-        <CloudIcon />
-      </div>
-      <div class="branch-summary-copy">
-        <span>Origem</span>
-        <strong>origin</strong>
-        <small v-if="remoteRefreshing">Atualizando referências…</small>
-        <small v-else>
-          {{ originBranchCount }}
-          {{ originBranchCount === 1 ? 'branch' : 'branches' }} no origin
-        </small>
-      </div>
-    </article>
-  </div>
-
   <div class="branch-table-card">
     <header class="branch-table-toolbar">
       <div class="branch-toolbar-copy">
         <strong>Branches</strong>
-        <span>Gerencie suas branches locais e remotas</span>
+        <span class="branch-toolbar-meta">
+          <span>
+            {{ rows.length }} {{ rows.length === 1 ? 'branch' : 'branches' }}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>
+            {{ localBranchCount }} {{ localBranchCount === 1 ? 'local' : 'locais' }}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span class="branch-toolbar-origin">
+            <CloudIcon aria-hidden="true" />
+            {{ originBranchCount }} no origin
+          </span>
+          <template v-if="currentRow">
+            <span aria-hidden="true">·</span>
+            <span class="branch-toolbar-current">Atual: {{ currentRow.name }}</span>
+          </template>
+        </span>
       </div>
-      <button
-        type="button"
-        class="secondary-button branch-refresh-button"
-        :disabled="actionsBusy"
-        @click="emit('refresh-remotes')"
-      >
-        {{ remoteRefreshing ? 'Atualizando…' : 'Atualizar remotas' }}
-      </button>
       <button
         type="button"
         class="primary-button branch-create-button"
@@ -133,7 +88,6 @@
         </div>
 
         <div class="branch-row-actions">
-          <span v-if="row.local?.current" class="branch-action-current">Atual</span>
           <button
             v-if="row.local && !row.local.current"
             type="button"
