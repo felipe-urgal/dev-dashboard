@@ -7,6 +7,7 @@ import './styles.css';
 import './styles/features/project-details-redesign.css';
 import './styles/features/project-dependencies-typography.css';
 import './styles/features/database-layout-polish.css';
+import './styles/features/database-tabs-proposal-3.css';
 import './styles/features/scripts-explorer-redesign.css';
 import './styles/features/git-modern-polish.css';
 import './styles/features/git-inline-diff-theme.css';
