@@ -79,11 +79,13 @@ function ptyApiError(error: ProjectTestPtyError): ApiError {
   return new ApiError({ statusCode, code, message: error.message });
 }
 
-function requireExecutionContext(
+function resolveExecutionContext(
   store: DevelopmentEnvironmentInstanceStore,
   projectId: string,
   environmentInstanceId?: string,
 ) {
+  if (environmentInstanceId === undefined) return undefined;
+
   const executionContext = store.resolveForProject(
     projectId,
     environmentInstanceId,
@@ -127,7 +129,7 @@ export function registerTestPtyRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
-      const executionContext = requireExecutionContext(
+      const executionContext = resolveExecutionContext(
         developmentEnvironmentInstanceStore,
         project.id,
         request.query.environmentInstanceId,
@@ -163,7 +165,7 @@ export function registerTestPtyRoutes(
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
-      const executionContext = requireExecutionContext(
+      const executionContext = resolveExecutionContext(
         developmentEnvironmentInstanceStore,
         project.id,
         request.query.environmentInstanceId,
@@ -204,7 +206,7 @@ export function registerTestPtyRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
-      const executionContext = requireExecutionContext(
+      const executionContext = resolveExecutionContext(
         developmentEnvironmentInstanceStore,
         project.id,
         request.query.environmentInstanceId,
@@ -230,14 +232,22 @@ export function registerTestPtyRoutes(
         return;
       }
 
-      const executionContext =
-        developmentEnvironmentInstanceStore.resolveForProject(
+      let executionContext;
+      try {
+        executionContext = resolveExecutionContext(
+          developmentEnvironmentInstanceStore,
           project.id,
           request.query.environmentInstanceId,
         );
-      if (!executionContext) {
-        socket.close(1008, 'Ambiente não encontrado');
-        return;
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          error.code === 'ENVIRONMENT_INSTANCE_NOT_FOUND'
+        ) {
+          socket.close(1008, 'Ambiente não encontrado');
+          return;
+        }
+        throw error;
       }
 
       const limitedSocket = withWebSocketMessageRateLimit(socket);
