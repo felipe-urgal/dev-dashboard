@@ -178,7 +178,10 @@ watch(
         <span>Cadastre uma pasta local para acompanhar seus projetos.</span>
       </div>
 
-      <form class="workspace-create-form" @submit.prevent="handleCreateWorkspace">
+      <form
+        class="workspace-create-form"
+        @submit.prevent="handleCreateWorkspace"
+      >
         <label class="workspace-field">
           <span>Nome</span>
           <NInput
@@ -213,8 +216,8 @@ watch(
               >Escanear subdiretórios (monorepos)</strong
             >
             <span id="workspace-recursive-scan-description"
-              >Procura projetos em subpastas além dos filhos diretos. Pode deixar
-              o cadastro mais lento em workspaces grandes.</span
+              >Procura projetos em subpastas além dos filhos diretos. Pode
+              deixar o cadastro mais lento em workspaces grandes.</span
             >
           </span>
           <span class="settings-switch-control">
@@ -284,9 +287,7 @@ watch(
                 :aria-describedby="`workspace-existing-recursive-scan-description-${workspace.id}`"
                 @update:value="toggleWorkspaceRecursiveScan(workspace)"
               />
-              <span>{{
-                workspace.recursiveScan ? 'Monorepo' : 'Direto'
-              }}</span>
+              <span>{{ workspace.recursiveScan ? 'Monorepo' : 'Direto' }}</span>
             </span>
 
             <NDropdown
