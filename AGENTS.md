@@ -4,6 +4,45 @@ Guia canônico para agentes de IA que trabalhem neste repositório.
 
 Use este arquivo para reduzir decisões ambíguas antes de editar código. Quando código e documentação divergirem, confirme o comportamento atual no código/testes e atualize a documentação obsoleta na mesma entrega.
 
+## Integração com `agent-workflow`
+
+Quando a execução vier do repositório externo `felipe-urgal/agent-workflow`:
+
+1. leia `AGENTS-CONTRACT.md` no `agent-workflow`;
+2. leia a definição do agent atual;
+3. leia a task ativa no caminho canônico registrado pelo workflow;
+4. leia este `AGENTS.md` e a documentação local aplicável;
+5. revalide estado real de base/branch/head/PR antes de agir.
+
+A divisão de autoridade é intencional:
+
+- regras de plataforma, segurança e permissões continuam absolutas;
+- este `AGENTS.md` define invariantes duráveis do Dev Dashboard, arquitetura, segurança, operação e gates locais;
+- a task ativa do `agent-workflow` define o escopo e as decisões específicas da entrega e não deve ser redescoberta ou redefinida sem contradição nova ou risco real;
+- código, testes e documentação local são evidência técnica do estado atual, mas não substituem silenciosamente uma decisão de produto já aprovada na task.
+
+A task externa é **estado operacional do workflow**, não backlog do Dev Dashboard. Portanto a regra de não recriar `tasks/` neste repositório continua válida; não copie a task para cá.
+
+### Modos de execução e evidência
+
+A execução pode ocorrer em `FULL`, `REMOTE`, `PREPARE` ou `BLOCKED`, conforme `AGENTS-CONTRACT.md`.
+
+- ausência de checkout local, shell ou Git local não encerra automaticamente o trabalho se existir caminho `REMOTE` seguro, suficiente e autorizado;
+- `npm run check` local, CI remoto, inspeção de diff e validação manual são evidências diferentes e devem ser registradas como tal;
+- nunca declare um gate como executado quando ele não foi realmente rodado ou observado;
+- uma etapa do workflow pode terminar com limitações explicitamente registradas, mas **merge readiness** continua exigindo os gates obrigatórios do head final previstos por este projeto.
+
+### Autorizações remotas
+
+No modo `REMOTE`, trate autorizações separadamente:
+
+- `remote_commits` pode autorizar commits por API remota na branch de trabalho;
+- `push` autoriza push Git tradicional quando houver checkout/Git local;
+- uma autorização não implica automaticamente a outra;
+- criar/atualizar PR, merge, deploy, release, exclusões remotas e outras mutações continuam exigindo a autorização correspondente registrada na task ou dada explicitamente pelo usuário.
+
+Quando não houver task ativa no `agent-workflow`, siga o fluxo local normal de issue/branch/PR descrito neste arquivo.
+
 ## Antes de editar
 
 1. leia este arquivo;
@@ -48,7 +87,7 @@ CLI e web são independentes; não sincronize implementações por reflexo.
 1. **Português brasileiro** em UI/docs/commits/PRs quando controlados pelo projeto.
 2. **Simplicidade primeiro**: KISS/YAGNI; não crie abstração para possibilidade futura.
 3. **Docs acompanham comportamento** na mesma entrega.
-4. **Backlog não vive no repo**: não recrie `tasks/`, `NEXT.md`, `PENDENCIAS.md` ou roadmap versionado. Use issues.
+4. **Backlog não vive no repo**: não recrie `tasks/`, `NEXT.md`, `PENDENCIAS.md` ou roadmap versionado. Use issues. Tasks externas do `agent-workflow` são estado operacional e não violam esta regra.
 5. **API é fronteira de segurança**: sem shell arbitrário, paths livres ou credenciais vindas do browser.
 6. **CLI Bash e web são interfaces independentes**.
 7. **CLI interativo mantém `gum` + fallback Bash puro** quando aplicável.
@@ -234,7 +273,7 @@ Ao tocar `lib/`/`init.sh`:
 
 ## Gate de qualidade
 
-Para uma mudança normal:
+Para uma mudança normal, o gate local canônico é:
 
 ```bash
 npm run check
@@ -274,17 +313,26 @@ Checks direcionados complementam o gate:
 
 Coverage não é gate percentual.
 
+Quando o ambiente não puder executar um gate:
+
+- registre-o como **não executado**, com a limitação concreta;
+- procure evidência remota equivalente quando ela existir, sem chamá-la de teste local;
+- não transforme ausência de capacidade em aprovação técnica falsa;
+- antes de merge, o head final precisa satisfazer os gates obrigatórios e o CI exigido pelo repositório.
+
 ## Git e PR
 
-Fluxo normal:
+O fluxo de issue/branch/PR continua sendo o fluxo local revisável do Dev Dashboard. Quando houver task ativa no `agent-workflow`, o contrato compartilhado controla handoff, estados terminais, sincronização da task e autorizações; este arquivo não duplica esse protocolo.
+
+Para alterações versionadas:
 
 ```text
-issue
+escopo aprovado
 → branch curta
 → implementação + testes/docs
-→ npm run check
+→ npm run check quando executável localmente
 → checks direcionados
-→ PR
+→ PR quando autorizado
 → CI no head final
 → review final
 → correções
@@ -292,25 +340,28 @@ issue
 → merge somente com autorização explícita
 ```
 
-Não faça push/merge/delete remoto sem autorização aplicável ao fluxo atual.
+Não faça push, commits remotos, abertura/atualização de PR, merge, delete remoto ou operação de produção sem a autorização aplicável ao fluxo atual.
 
 ## Documentação
 
 `docs/` descreve o estado implementado. Documentos históricos precisam estar claramente marcados como removidos/históricos.
 
-Backlog/roadmap/debito ficam em issues. Não crie arquivos de tarefas locais.
+Backlog/roadmap/débito ficam em issues. Não crie arquivos de tarefas locais. A task operacional externa do `agent-workflow` não deve ser copiada para este repositório.
 
 ## Definição de pronto
 
-Uma mudança está pronta quando:
+Para uma **etapa do agent-workflow**, pronto significa que o agent cumpriu seu papel, revisou o estado/diff aplicável, registrou evidências reais, limitações e findings e sincronizou a task para um estado terminal válido.
+
+Para uma mudança estar **pronta para merge** no Dev Dashboard:
 
 - resolve o problema declarado;
 - respeita as fronteiras de segurança/lifecycle;
 - possui testes proporcionais ao risco;
 - atualiza docs/contratos necessários;
 - não introduz secrets;
-- `npm run check` passou no head final;
+- `npm run check` passou no head final por execução local ou CI equivalente realmente observada conforme o fluxo;
 - checks adicionais aplicáveis passaram;
 - o diff final foi revisado;
-- o CI do head final está verde;
+- o CI obrigatório do head final está verde;
+- não existem findings bloqueantes conhecidos;
 - merge só ocorre após autorização explícita do usuário.
