@@ -256,8 +256,7 @@ export function useProjectLogsPolling(
   }
 
   watch(
-    () =>
-      `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
+    () => `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
     () => {
       reset();
     },

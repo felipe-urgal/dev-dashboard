@@ -442,8 +442,7 @@ async function initializeProject(): Promise<void> {
 }
 
 watch(
-  () =>
-    `${props.project.id}:${props.environmentInstanceId ?? ''}`,
+  () => `${props.project.id}:${props.environmentInstanceId ?? ''}`,
   () => {
     void initializeProject();
   },

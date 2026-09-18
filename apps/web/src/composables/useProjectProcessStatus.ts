@@ -172,8 +172,7 @@ export function useProjectProcessStatus(
   }
 
   watch(
-    () =>
-      `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
+    () => `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
     () => {
       void initialize();
     },
