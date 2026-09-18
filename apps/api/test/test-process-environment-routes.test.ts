@@ -29,7 +29,9 @@ const executionContext: ExecutionContext = {
   runtime: 'host',
 };
 
-function managedProcess(status: ManagedProcess['status'] = 'running'): ManagedProcess {
+function managedProcess(
+  status: ManagedProcess['status'] = 'running',
+): ManagedProcess {
   return {
     id: 'p1:worktree:test:full-suite',
     projectId: project.id,
@@ -202,8 +204,10 @@ test('start de suíte resolve comando no cwd da Environment Instance e preserva 
 
   assert.equal(response.statusCode, 201);
   assert.equal(
-    (calls.find((call) => call.action === 'resolve-command')?.args[0] as Project)
-      .path,
+    (
+      calls.find((call) => call.action === 'resolve-command')
+        ?.args[0] as Project
+    ).path,
     executionContext.cwd,
   );
   assert.deepEqual(calls.find((call) => call.action === 'start')?.args, [
@@ -235,13 +239,15 @@ test('SSE de testes assina somente a Environment Instance selecionada', async (c
   });
 
   await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.deepEqual(calls.find((call) => call.action === 'subscribe')?.args.slice(0, 1), [
-    project.id,
-  ]);
+  assert.deepEqual(
+    calls.find((call) => call.action === 'subscribe')?.args.slice(0, 1),
+    [project.id],
+  );
   const subscribeCall = calls.find((call) => call.action === 'subscribe');
   assert.equal(subscribeCall?.args[2], environmentInstanceId);
 
-  const subscriber = subscribeCall?.args[1] as { close: () => void } | undefined;
+  const subscriber = subscribeCall?.args[1] as
+    { close: () => void } | undefined;
   subscriber?.close();
   const response = await responsePromise;
   assert.equal(response.statusCode, 200);

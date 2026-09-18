@@ -467,8 +467,7 @@ test('subscribe e polling ficam isolados por Environment Instance', async (conte
       const content = logs.get(environmentInstanceId ?? '') ?? '';
       return {
         projectId,
-        processId:
-          processes.get(environmentInstanceId ?? '')?.id ?? 'unknown',
+        processId: processes.get(environmentInstanceId ?? '')?.id ?? 'unknown',
         content,
         sizeBytes: content.length,
         truncated: false,
