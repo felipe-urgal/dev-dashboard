@@ -125,7 +125,7 @@ test('related/start preserva Git, detecção e processo na Environment Instance 
   const response = await app.inject({
     method: 'POST',
     url:
-      '/projects/p1/tests/npm-script-test/related/start?environmentInstanceId=' +
+      '/projects/p1/tests/node-script-test/related/start?environmentInstanceId=' +
       encodeURIComponent(environmentInstanceId),
     payload: {},
   });

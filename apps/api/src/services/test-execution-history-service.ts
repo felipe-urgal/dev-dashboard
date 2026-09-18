@@ -341,8 +341,9 @@ export class TestExecutionHistoryService {
     const openIndex = items.findIndex(
       (item) =>
         OPEN_STATUSES.includes(item.status) &&
-        (environmentInstanceId === undefined ||
-          recordMatchesEnvironment(projectId, item, environmentInstanceId)),
+        (environmentInstanceId === undefined
+          ? item.environmentInstanceId === undefined
+          : recordMatchesEnvironment(projectId, item, environmentInstanceId)),
     );
     if (openIndex === -1) return;
 
