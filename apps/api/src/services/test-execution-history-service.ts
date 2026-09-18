@@ -280,10 +280,7 @@ export class TestExecutionHistoryService {
     this.lastSentLog.delete(key);
   }
 
-  private emitToSubscribers(
-    key: string,
-    event: TestExecutionEvent,
-  ): void {
+  private emitToSubscribers(key: string, event: TestExecutionEvent): void {
     for (const subscriber of this.subscribers.get(key) ?? [])
       subscriber.send(event);
   }
