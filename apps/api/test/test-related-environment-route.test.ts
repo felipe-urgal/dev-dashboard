@@ -38,15 +38,24 @@ test('related/start usa Git, detecção e processo da Environment Instance selec
       devDependencies: { vitest: '^1.0.0' },
     }),
   );
-  await writeFile(path.join(worktreePath, 'src', 'app.ts'), 'export const x = 1;\n');
-  await writeFile(path.join(worktreePath, 'src', 'app.test.ts'), 'test("x", () => {});\n');
+  await writeFile(
+    path.join(worktreePath, 'src', 'app.ts'),
+    'export const x = 1;\n',
+  );
+  await writeFile(
+    path.join(worktreePath, 'src', 'app.test.ts'),
+    'test("x", () => {});\n',
+  );
 
   await git(worktreePath, ['init', '-b', 'main']);
   await git(worktreePath, ['config', 'user.email', 'test@example.com']);
   await git(worktreePath, ['config', 'user.name', 'Test']);
   await git(worktreePath, ['add', '.']);
   await git(worktreePath, ['commit', '-m', 'initial']);
-  await writeFile(path.join(worktreePath, 'src', 'app.ts'), 'export const x = 2;\n');
+  await writeFile(
+    path.join(worktreePath, 'src', 'app.ts'),
+    'export const x = 2;\n',
+  );
 
   context.after(() => rm(root, { recursive: true, force: true }));
 
