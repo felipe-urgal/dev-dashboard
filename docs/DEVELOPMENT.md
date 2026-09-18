@@ -18,9 +18,9 @@ Execução:
 
     npm run dev
 
-## Relação com o agent-orchestrator
+## Relação com o agent-workflow-browser
 
-Quando uma mudança for coordenada pelo `agent-orchestrator`, este documento continua sendo a fonte local para preparação, desenvolvimento e validação do projeto. Ele não substitui a task canônica nem define workflow, handoff ou autorizações.
+Quando uma mudança for coordenada pelo `agent-workflow-browser`, este documento continua sendo a fonte local para preparação, desenvolvimento e validação do projeto. Ele não substitui a task canônica nem define workflow, handoff ou autorizações.
 
 ## Fluxo de alteração
 
