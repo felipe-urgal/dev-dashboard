@@ -22,7 +22,7 @@ async function git(cwd: string, args: string[]): Promise<void> {
   await execFileAsync('git', args, { cwd });
 }
 
-test('related/start usa Git, detecção e processo da Environment Instance selecionada', async (context) => {
+test('related/start preserva Git, detecção e processo na Environment Instance selecionada', async (context) => {
   const root = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-related-environment-'),
   );

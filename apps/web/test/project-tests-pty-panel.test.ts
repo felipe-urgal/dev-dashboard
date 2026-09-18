@@ -286,6 +286,11 @@ test('propaga Environment Instance para overview, PTY, WebSocket e histórico', 
     8,
     environmentInstanceId,
   ]);
+  assert.deepEqual(mocks.fetchProjectTestIntelligence.mock.calls[0], [
+    'projeto-1',
+    'full-suite',
+    environmentInstanceId,
+  ]);
 
   const button = wrapper
     .findAll('button')
