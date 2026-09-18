@@ -211,7 +211,7 @@ async function verifyProcessDirectoryDarwin(
     const expectedDirectory = await realpath(storedProcess.cwd);
     return processDirectory === expectedDirectory;
   } catch {
-    return path.resolve(rawCwd) === path.resolve(storedProcess.cwd);
+    return false;
   }
 }
 
