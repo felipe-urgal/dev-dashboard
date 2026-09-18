@@ -390,6 +390,34 @@ test('política de retenção nunca remove execução ainda em andamento', () =>
   assert.equal(service.snapshotOf('finalizada-2')?.status, 'exited');
 });
 
+test('cleanupEnvironment cancela somente PTYs da Environment Instance informada', () => {
+  const ptys = [new FakePty(), new FakePty()];
+  let nextPty = 0;
+  const service = new DetachableExecutionService({
+    spawnPty: () => ptys[nextPty++]! as never,
+  });
+  const target = 'environment:worktree:project-1:worktree-a';
+  const other = 'environment:worktree:project-1:worktree-b';
+
+  service.start(`project-1:${target}:test-pty`, {
+    file: 'npm',
+    args: ['test'],
+    cwd: '/tmp',
+  });
+  service.start(`project-1:${other}:test-pty`, {
+    file: 'npm',
+    args: ['test'],
+    cwd: '/tmp',
+  });
+
+  assert.equal(service.cleanupEnvironment('project-1', target), 1);
+  assert.deepEqual(ptys[0]!.kills, ['SIGTERM']);
+  assert.deepEqual(ptys[1]!.kills, []);
+  assert.equal(service.isRunning(`project-1:${other}:test-pty`), true);
+
+  ptys[0]!.emitExit(0, 15);
+  ptys[1]!.emitExit(0);
+});
 test('close() encerra PTYs ativos com TERM→KILL, limpa retenção e é idempotente', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const fakePty = new FakePty();
