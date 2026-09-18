@@ -369,6 +369,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(railsRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     railsInspectionService: context.railsInspectionService,
     railsRuntimeService: context.railsRuntimeService,
     railsMigrationPtyService: context.railsMigrationPtyService,

@@ -365,6 +365,8 @@ Eles não devem ser usados como implementação oculta de ação estruturada que
 
 Testes completos, Migration Rails e Dependências/Build podem usar PTY destacável sem canal de input arbitrário. O comando continua vindo do resolver fechado; saída é limitada/mascarada e uma única execução por chave é permitida.
 
+Quando a execução está associada a uma Development Environment Instance, a chave inclui `projectId + environmentInstanceId` e o `cwd` vem do contexto resolvido no backend. O browser não envia path nem `cwd` para selecionar o worktree.
+
 ## Logs e masking
 
 Logs podem conter tokens, senhas, cookies, URLs de banco, headers e variáveis de ambiente.

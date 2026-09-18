@@ -1,4 +1,5 @@
 import type {
+  ExecutionContext,
   Project,
   RailsMigrationMutationOperation,
 } from '@dev-dashboard/contracts';
@@ -27,8 +28,27 @@ function sendJson(socket: WebSocket, message: unknown): void {
   }
 }
 
-function executionKey(projectId: string): string {
-  return `${projectId}:migration-pty`;
+function primaryExecutionContext(project: Project): ExecutionContext {
+  return {
+    projectId: project.id,
+    environmentInstanceId: `environment:primary:${project.id}`,
+    cwd: project.path,
+    runtime: 'host',
+  };
+}
+
+function executionKey(
+  projectId: string,
+  environmentInstanceId: string,
+): string {
+  return `${projectId}:${environmentInstanceId}:migration-pty`;
+}
+
+function projectForExecution(
+  project: Project,
+  executionContext: ExecutionContext,
+): Project {
+  return { ...project, path: executionContext.cwd };
 }
 
 /**
@@ -47,10 +67,17 @@ export class RailsMigrationPtyService {
 
   public constructor(private readonly detachable: DetachableExecutionService) {}
 
-  public snapshot(project: Project): RailsMigrationPtySnapshot | undefined {
-    const snapshot = this.detachable.snapshotOf(executionKey(project.id));
+  public snapshot(
+    project: Project,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): RailsMigrationPtySnapshot | undefined {
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
+    const snapshot = this.detachable.snapshotOf(key);
     if (!snapshot) return undefined;
-    const operation = this.runningOperation.get(project.id);
+    const operation = this.runningOperation.get(key);
     if (!operation) return undefined;
     return { ...snapshot, operation };
   }
@@ -58,10 +85,12 @@ export class RailsMigrationPtyService {
   public async start(
     project: Project,
     operation: RailsMigrationMutationOperation,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
   ): Promise<RailsMigrationPtySnapshot> {
+    const scopedProject = projectForExecution(project, executionContext);
     let railsCommand;
     try {
-      railsCommand = await resolveRailsCommand(project);
+      railsCommand = await resolveRailsCommand(scopedProject);
     } catch (error) {
       throw new RailsMutationError(
         'RAILS_MUTATION_FAILED',
@@ -76,12 +105,16 @@ export class RailsMigrationPtyService {
     }
 
     try {
-      const snapshot = this.detachable.start(executionKey(project.id), {
+      const key = executionKey(
+        project.id,
+        executionContext.environmentInstanceId,
+      );
+      const snapshot = this.detachable.start(key, {
         file: railsCommand.command,
         args: [...railsCommand.args, ...MUTATION_ARGS[operation]],
-        cwd: project.path,
+        cwd: executionContext.cwd,
       });
-      this.runningOperation.set(project.id, operation);
+      this.runningOperation.set(key, operation);
       return { ...snapshot, operation };
     } catch (error) {
       if (
@@ -100,11 +133,19 @@ export class RailsMigrationPtyService {
     }
   }
 
-  public attach(project: Project, socket: WebSocket): void {
+  public attach(
+    project: Project,
+    socket: WebSocket,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): void {
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     let handle;
     try {
       handle = this.detachable.attach(
-        executionKey(project.id),
+        key,
         (chunk) => sendJson(socket, { type: 'output', data: chunk }),
         (snapshot) =>
           sendJson(socket, {
@@ -128,7 +169,7 @@ export class RailsMigrationPtyService {
       throw error;
     }
 
-    const operation = this.runningOperation.get(project.id);
+    const operation = this.runningOperation.get(key);
     sendJson(socket, {
       type: 'ready',
       snapshot: operation ? { ...handle.snapshot, operation } : handle.snapshot,
@@ -139,7 +180,12 @@ export class RailsMigrationPtyService {
     socket.once('error', handle.detach);
   }
 
-  public cancel(project: Project): void {
-    this.detachable.cancel(executionKey(project.id));
+  public cancel(
+    project: Project,
+    executionContext: ExecutionContext = primaryExecutionContext(project),
+  ): void {
+    this.detachable.cancel(
+      executionKey(project.id, executionContext.environmentInstanceId),
+    );
   }
 }

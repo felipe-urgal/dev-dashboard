@@ -2801,6 +2801,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Corpo (`body`)**
 
 ```json
@@ -2856,6 +2872,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 ### `POST /api/projects/:projectId/dependencies/pty/start`
 
 **Parâmetros de rota (`params`)**
@@ -2871,6 +2903,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -2981,6 +3029,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -19847,6 +19911,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Corpo (`body`)**
 
 ```json
@@ -19902,6 +19982,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 ### `POST /api/projects/:projectId/rails/migrations/pty/start`
 
 **Parâmetros de rota (`params`)**
@@ -19917,6 +20013,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -20033,6 +20145,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -24729,6 +24857,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Corpo (`body`)**
 
 ```json
@@ -24784,6 +24928,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 ### `POST /api/projects/:projectId/tests/pty/start`
 
 **Parâmetros de rota (`params`)**
@@ -24799,6 +24959,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -24904,6 +25080,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }

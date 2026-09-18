@@ -56,6 +56,8 @@ A reconciliação segue estas regras:
 - o mesmo linked worktree host reaparecendo restaura a mesma identidade;
 - observar a origem Git não é suficiente para considerar um runtime `devcontainer` saudável.
 
+Terminal/Console e os PTYs destacáveis de testes completos, Dependências/Build e Migration Rails usam a Environment Instance para resolver o `cwd` no backend e isolar a chave da sessão. O browser informa no máximo a `environmentInstanceId`; path e `cwd` continuam sem autoridade no contrato HTTP.
+
 O observer não persiste lifecycle nem cria/remove recursos. Ele apenas produz a evidência read-only que a Environment Instance pode reconciliar.
 
 Veja [Development Environment Instances](development-environment-instances.md).
@@ -214,7 +216,7 @@ A UI não recebe autoridade adicional sobre paths e não transforma remoção de
 
 Com observer, lifecycle, ownership guard, API e UI básica estabelecidos, os próximos recortes são de integração por `DevelopmentEnvironmentInstance` e validação da experiência completa:
 
-- propagar a identidade correta aos processos, PTYs, testes e logs restantes quando aplicável;
+- propagar a identidade correta aos processos e logs restantes quando aplicável;
 - preservar ownership/cleanup quando branch ou worktree desaparecer externamente;
 - cobrir criação, uso e remoção end-to-end sem afetar outra Environment Instance;
 - tratar eventual remoção da branch associada como ação separada e explícita.
