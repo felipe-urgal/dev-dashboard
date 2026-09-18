@@ -15,10 +15,12 @@ import {
   RailsWorkerError,
   type RailsRuntimeService,
 } from '../../services/rails-runtime-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../../store/project-store.js';
 
 export interface RailsRouteOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   railsInspectionService: RailsInspectionService;
   railsRuntimeService: RailsRuntimeService;
   railsMigrationPtyService: RailsMigrationPtyService;

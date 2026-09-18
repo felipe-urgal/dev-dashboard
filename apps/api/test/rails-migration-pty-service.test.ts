@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
 import { DetachableExecutionService } from '../src/services/detachable-execution-service.js';
 import { RailsMigrationPtyService } from '../src/services/rails-migration-pty-service.js';
@@ -88,6 +88,18 @@ function railsFixture(): Promise<Project> {
   return fixture({ 'bin/rails': '#!/bin/sh\n', Gemfile: 'gem "rails"\n' });
 }
 
+function worktreeExecutionContext(
+  project: Project,
+  cwd: string,
+): ExecutionContext {
+  return {
+    projectId: project.id,
+    environmentInstanceId: `environment:worktree:${project.id}:wt-1`,
+    cwd,
+    runtime: 'host',
+  };
+}
+
 test('start() usa bin/rails e monta o comando esperado por operação', async () => {
   const fakePty = new FakePty();
   let spawnedFile: string | undefined;
@@ -108,6 +120,44 @@ test('start() usa bin/rails e monta o comando esperado por operação', async ()
   assert.deepEqual(spawnedArgs, ['db:migrate']);
   assert.equal(snapshot.operation, 'migrate');
   assert.equal(snapshot.status, 'running');
+});
+
+test('primary e worktree usam cwd e sessões independentes', async () => {
+  const spawned: Array<{ file: string; cwd: string }> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: (file, _args, options) => {
+      spawned.push({ file, cwd: options.cwd });
+      return new FakePty() as never;
+    },
+  });
+  const service = new RailsMigrationPtyService(detachable);
+  const project = await railsFixture();
+  const worktree = await railsFixture();
+  const worktreeContext = worktreeExecutionContext(project, worktree.path);
+
+  await service.start(project, 'migrate');
+  await service.start(project, 'seed', worktreeContext);
+
+  assert.deepEqual(spawned, [
+    {
+      file: path.join(project.path, 'bin', 'rails'),
+      cwd: project.path,
+    },
+    {
+      file: path.join(worktree.path, 'bin', 'rails'),
+      cwd: worktree.path,
+    },
+  ]);
+  assert.equal(
+    detachable.isRunning('projeto:environment:primary:projeto:migration-pty'),
+    true,
+  );
+  assert.equal(
+    detachable.isRunning(
+      'projeto:environment:worktree:projeto:wt-1:migration-pty',
+    ),
+    true,
+  );
 });
 
 test('rollback usa STEP=1', async () => {
@@ -185,7 +235,10 @@ test('attach() envia ready com a operação e o snapshot, e detach não mata o p
   });
 
   socket.close();
-  assert.equal(detachable.isRunning('projeto:migration-pty'), true);
+  assert.equal(
+    detachable.isRunning('projeto:environment:primary:projeto:migration-pty'),
+    true,
+  );
 });
 
 test('attach() sem execução em andamento envia erro e fecha o socket', async () => {
