@@ -1,6 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  writeFile,
+} from 'node:fs/promises';
 
 import path from 'node:path';
 
@@ -121,10 +128,24 @@ export async function readStoredProcess(
   kind: ManagedKind,
   environmentInstanceId?: string,
 ): Promise<StoredProcess | null> {
-  const scoped = await readStoredProcessFile(
-    resolveProcessFile(context, projectId, kind, environmentInstanceId),
+  if (environmentInstanceId === undefined) {
+    return readStoredProcessFile(resolveProcessFile(context, projectId, kind));
+  }
+
+  const scopedFile = resolveProcessFile(
+    context,
+    projectId,
+    kind,
+    environmentInstanceId,
   );
-  if (scoped || environmentInstanceId === undefined) return scoped;
+  try {
+    await access(scopedFile);
+    return await readStoredProcessFile(scopedFile);
+  } catch (error) {
+    if (!(isErrnoException(error) && error.code === 'ENOENT')) {
+      throw error;
+    }
+  }
 
   const legacy = await readStoredProcessFile(
     resolveProcessFile(context, projectId, kind),

@@ -9,6 +9,7 @@ import {
   listStoredProcessEntries,
   readStoredProcess,
   resolveLogFile,
+  resolveProcessFile,
   type ProcessStoreContext,
   writeStoredProcess,
 } from '../src/process-store.js';
@@ -134,4 +135,34 @@ test('estado legado sem Environment Instance continua resolvendo como primary', 
     `environment:worktree:${projectId}:wt-1`,
   );
   assert.equal(unrelated, null);
+});
+
+
+test('estado scoped inválido não faz fallback para estado legado', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-process-invalid-scoped-'),
+  );
+  const store: ProcessStoreContext = {
+    processDirectory: path.join(root, 'processes'),
+    logDirectory: path.join(root, 'logs'),
+  };
+  await mkdir(store.processDirectory, { recursive: true });
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const projectId = 'invalid-scoped-project';
+  const primaryId = `environment:primary:${projectId}`;
+  const legacy = processState(projectId, undefined, '/tmp/legacy-project');
+  await writeStoredProcess(store, legacy);
+  await writeFile(
+    resolveProcessFile(store, projectId, 'server', primaryId),
+    '{invalid json',
+  );
+
+  const resolved = await readStoredProcess(
+    store,
+    projectId,
+    'server',
+    primaryId,
+  );
+  assert.equal(resolved, null);
 });
