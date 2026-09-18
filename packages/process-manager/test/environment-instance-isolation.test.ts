@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -164,4 +164,54 @@ test('estado scoped inválido não faz fallback para estado legado', async (cont
     primaryId,
   );
   assert.equal(resolved, null);
+});
+
+
+test('estado legado com Environment Instance preserva state e log legados ao atualizar', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-process-legacy-owned-'),
+  );
+  const store: ProcessStoreContext = {
+    processDirectory: path.join(root, 'processes'),
+    logDirectory: path.join(root, 'logs'),
+  };
+  await mkdir(store.processDirectory, { recursive: true });
+  await mkdir(store.logDirectory, { recursive: true });
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const projectId = 'legacy-owned-project';
+  const worktreeId = `environment:worktree:${projectId}:wt-1`;
+  const legacyLog = resolveLogFile(store, projectId, 'server');
+  const legacy = {
+    ...processState(projectId, worktreeId, '/tmp/legacy-worktree'),
+    logPath: legacyLog,
+  };
+  await writeFile(
+    resolveProcessFile(store, projectId, 'server'),
+    JSON.stringify(legacy),
+  );
+  await writeFile(legacyLog, 'legacy owned log\n');
+
+  const loaded = await readStoredProcess(
+    store,
+    projectId,
+    'server',
+    worktreeId,
+  );
+  assert.equal(loaded?.environmentInstanceId, worktreeId);
+  assert.ok(loaded);
+
+  await writeStoredProcess(store, {
+    ...loaded,
+    status: 'failed',
+    stoppedAt: '2026-09-18T10:02:00.000Z',
+  });
+
+  await assert.rejects(
+    access(resolveProcessFile(store, projectId, 'server', worktreeId)),
+  );
+  assert.equal(
+    (await readManagedLog(store, projectId, 'server', {}, worktreeId)).content,
+    'legacy owned log\n',
+  );
 });

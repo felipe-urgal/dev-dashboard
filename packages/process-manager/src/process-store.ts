@@ -175,11 +175,20 @@ export async function writeStoredProcess(
     mode: 0o700,
   });
 
+  const kind = managedProcess.kind as ManagedKind;
+  const legacyLogFile = resolveLogFile(
+    context,
+    managedProcess.projectId,
+    kind,
+  );
+  const preserveLegacyStorage =
+    managedProcess.environmentInstanceId !== undefined &&
+    managedProcess.logPath === legacyLogFile;
   const processFile = resolveProcessFile(
     context,
     managedProcess.projectId,
-    managedProcess.kind as ManagedKind,
-    managedProcess.environmentInstanceId,
+    kind,
+    preserveLegacyStorage ? undefined : managedProcess.environmentInstanceId,
   );
 
   const temporaryFile = `${processFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
