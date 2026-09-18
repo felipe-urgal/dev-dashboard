@@ -5,6 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
 import { readRuntimeInfo } from '../fixtures/runtime-info';
+import { runGit } from '../fixtures/server-harness';
 
 interface WorktreeSnapshot {
   id: string;
@@ -114,7 +115,7 @@ async function startEnvironmentServer(
 
   await expect(page.locator('.server-console-hero.is-running')).toBeVisible();
   await expect(page.locator('.server-console-copy h3')).toHaveText(
-    'Tudo funcionando',
+    'Servidor em execução',
   );
 }
 
@@ -259,7 +260,7 @@ test.describe('Worktrees como Environment Instances', () => {
         page.locator('.server-console-hero.is-running'),
       ).toBeVisible();
       await expect(page.locator('.server-console-copy h3')).toHaveText(
-        'Tudo funcionando',
+        'Servidor em execução',
       );
     } finally {
       await stopEnvironmentServer(
@@ -272,6 +273,22 @@ test.describe('Worktrees como Environment Instances', () => {
         projectId,
         worktreeB.environmentInstanceId,
       );
+
+      const projectPath = path.join(
+        runtimeInfo.workspaceDirectory,
+        'sample-node-app',
+      );
+      for (const worktreePath of [worktreeA.path, worktreeB.path]) {
+        await runGit(projectPath, ['worktree', 'remove', '--', worktreePath]).catch(
+          () => undefined,
+        );
+      }
+      await runGit(projectPath, ['worktree', 'prune']).catch(() => undefined);
+      for (const branch of [branchA, branchB]) {
+        await runGit(projectPath, ['branch', '-d', branch]).catch(
+          () => undefined,
+        );
+      }
     }
   });
 });
