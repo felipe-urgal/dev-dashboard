@@ -78,7 +78,9 @@ O Port Registry mantém responsabilidades separadas:
 - observações de processos gerenciados propagam a mesma `environmentInstanceId`;
 - cleanup de lease por ambiente usa `releaseOwned`, que só libera quando o owner confere.
 
-Compatibilidade com estados legados sem `environmentInstanceId` permanece durante a migração incremental.
+O servidor gerenciado persiste estado e log por `projectId + environmentInstanceId + kind`; status, stop e health resolvem a mesma identidade. Isso permite que `primary` e linked worktrees mantenham processos de servidor independentes no mesmo projeto. Estados legados sem `environmentInstanceId` continuam sendo aceitos somente como compatibilidade da instância `primary`, evitando atribuir silenciosamente ownership legado a um worktree.
+
+Compatibilidade com os demais estados legados sem `environmentInstanceId` permanece durante a migração incremental.
 
 ## Cleanup
 
