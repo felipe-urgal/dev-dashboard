@@ -150,6 +150,10 @@ test('rotas HTTP de processo de testes usam a Environment Instance selecionada',
     url: `/projects/p1/tests/process?${query}`,
   });
   assert.equal(status.statusCode, 200);
+  assert.equal(
+    status.json().process.environmentInstanceId,
+    environmentInstanceId,
+  );
   assert.deepEqual(calls.find((call) => call.action === 'get')?.args, [
     project.id,
     environmentInstanceId,
