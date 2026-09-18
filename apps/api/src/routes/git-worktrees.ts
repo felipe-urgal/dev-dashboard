@@ -244,7 +244,9 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
     const observedEnvironmentInstanceIds = new Set(
       worktrees
         .filter((worktree) => worktree.kind === 'linked')
-        .map((worktree) => worktreeEnvironmentInstanceId(projectId, worktree.id)),
+        .map((worktree) =>
+          worktreeEnvironmentInstanceId(projectId, worktree.id),
+        ),
     );
     const missingWorktreeInstances = instances.filter(
       (instance) =>

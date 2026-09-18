@@ -147,7 +147,8 @@ test('cleanup não tenta adivinhar runtime não suportado', async () => {
         inspected = true;
         return [];
       },
-      stopServer: async () => managedProcess('server', 'server', TARGET_ENVIRONMENT),
+      stopServer: async () =>
+        managedProcess('server', 'server', TARGET_ENVIRONMENT),
       stopTest: async () => managedProcess('test', 'test', TARGET_ENVIRONMENT),
       stopWorker: async (_projectId, kind) =>
         managedProcess(kind, kind, TARGET_ENVIRONMENT),
