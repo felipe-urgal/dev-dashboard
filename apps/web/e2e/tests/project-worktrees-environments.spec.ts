@@ -99,9 +99,12 @@ async function startEnvironmentServer(
   );
   await expect(page.getByText('Pronto para iniciar')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar servidor' }).click();
-  await expect(page.locator('.server-running-badge')).toHaveText('Em execução', {
-    timeout: 15_000,
-  });
+  await expect(page.locator('.server-running-badge')).toHaveText(
+    'Em execução',
+    {
+      timeout: 15_000,
+    },
+  );
 }
 
 async function stopEnvironmentServer(
@@ -143,7 +146,9 @@ test.describe('Worktrees como Environment Instances', () => {
       page,
       `/projects/${encodeURIComponent(projectId)}/worktrees`,
     );
-    await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Worktrees' }),
+    ).toBeVisible();
 
     await createWorktree(page, branchA, directoryA);
     await createWorktree(page, branchB, directoryB);
@@ -154,8 +159,13 @@ test.describe('Worktrees como Environment Instances', () => {
 
     expect(worktreeA?.environmentInstanceId).toBeTruthy();
     expect(worktreeB?.environmentInstanceId).toBeTruthy();
-    if (!worktreeA?.environmentInstanceId || !worktreeB?.environmentInstanceId) {
-      throw new Error('Environment Instances dos linked worktrees não foram expostas.');
+    if (
+      !worktreeA?.environmentInstanceId ||
+      !worktreeB?.environmentInstanceId
+    ) {
+      throw new Error(
+        'Environment Instances dos linked worktrees não foram expostas.',
+      );
     }
 
     const runtimeInfo = await readRuntimeInfo();
