@@ -67,6 +67,7 @@ export interface ProcessLifecycle {
   stopManagedProcess(
     projectId: string,
     kind: ManagedKind,
+    environmentInstanceId?: string,
   ): Promise<ManagedProcess>;
   sendSignal(pid: number, signal: NodeJS.Signals): void;
 }
@@ -111,12 +112,15 @@ export function createProcessLifecycle(
     stateDirectory: string,
   ): Promise<ManagedProcess> {
     const dependencies = startDependencies(stateDirectory);
+    const environmentInstanceId =
+      options.executionContext?.environmentInstanceId;
 
     await prepareManagedProcessStart(
       dependencies,
       project,
       'server',
       `O servidor de ${project.name} já está em execução.`,
+      environmentInstanceId,
     );
 
     const requestedPort = options.port ?? project.port;
@@ -133,8 +137,11 @@ export function createProcessLifecycle(
     }
 
     const port = requestedPort ?? (await findAvailablePort(SERVER_BIND_HOST));
+    const scopedProject = options.executionContext
+      ? { ...project, path: options.executionContext.cwd }
+      : project;
     const resolvedCommand = await resolveServerCommand(
-      project,
+      scopedProject,
       SERVER_BIND_HOST,
       port,
     );
@@ -146,7 +153,9 @@ export function createProcessLifecycle(
         ? { executionContext: options.executionContext }
         : {}),
       kind: 'server',
-      id: `${project.id}:server`,
+      id: environmentInstanceId
+        ? `${project.id}:${environmentInstanceId}:server`
+        : `${project.id}:server`,
       status: 'starting',
       command: resolvedCommand.command,
       args: resolvedCommand.args,
@@ -177,6 +186,7 @@ export function createProcessLifecycle(
       project,
       'test',
       `Já existe uma execução de testes em andamento para ${project.name}.`,
+      executionContext?.environmentInstanceId,
     );
 
     return startManagedProcess(dependencies, {
@@ -209,6 +219,7 @@ export function createProcessLifecycle(
       project,
       kind,
       `O worker de ${project.name} já está em execução.`,
+      executionContext?.environmentInstanceId,
     );
 
     return startManagedProcess(dependencies, {
@@ -227,8 +238,14 @@ export function createProcessLifecycle(
   async function stopManagedProcess(
     projectId: string,
     kind: ManagedKind,
+    environmentInstanceId?: string,
   ): Promise<ManagedProcess> {
-    const storedProcess = await readStoredProcess(context, projectId, kind);
+    const storedProcess = await readStoredProcess(
+      context,
+      projectId,
+      kind,
+      environmentInstanceId,
+    );
 
     if (!storedProcess) {
       throw new ProcessManagerError(
@@ -269,6 +286,8 @@ export function createProcessLifecycle(
       kind,
       storedProcess.pid,
       5_000,
+      false,
+      storedProcess.environmentInstanceId,
     );
 
     if (!exitedGracefully) {
@@ -280,6 +299,7 @@ export function createProcessLifecycle(
         storedProcess.pid,
         2_000,
         true,
+        storedProcess.environmentInstanceId,
       );
 
       if (!exitedAfterKill) {

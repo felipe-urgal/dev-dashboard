@@ -7,6 +7,7 @@ import { maskSensitiveLogContent } from './log-protection.js';
 import {
   readStoredProcess,
   resolveLogFile,
+  resolveProcessFile,
   type ManagedKind,
   type ProcessStoreContext,
 } from './process-store.js';
@@ -15,13 +16,58 @@ export interface ReadServerLogOptions {
   maxBytes?: number;
 }
 
+async function resolveManagedLogFile(
+  context: ProcessStoreContext,
+  projectId: string,
+  kind: ManagedKind,
+  environmentInstanceId?: string,
+): Promise<string> {
+  if (environmentInstanceId === undefined) {
+    return resolveLogFile(context, projectId, kind);
+  }
+
+  try {
+    await stat(
+      resolveProcessFile(context, projectId, kind, environmentInstanceId),
+    );
+    return resolveLogFile(context, projectId, kind, environmentInstanceId);
+  } catch (error) {
+    if (isErrnoException(error) && error.code === 'ENOENT') {
+      return resolveLogFile(context, projectId, kind);
+    }
+    throw error;
+  }
+}
+
+function emptyLogSnapshot(
+  projectId: string,
+  processId: string,
+): ProcessLogSnapshot {
+  return {
+    projectId,
+    processId,
+    content: '',
+    sizeBytes: 0,
+    truncated: false,
+    masked: false,
+    redactionCount: 0,
+    readAt: new Date().toISOString(),
+  };
+}
+
 export async function readManagedLog(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
   options: ReadServerLogOptions = {},
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
-  const storedProcess = await readStoredProcess(context, projectId, kind);
+  const storedProcess = await readStoredProcess(
+    context,
+    projectId,
+    kind,
+    environmentInstanceId,
+  );
 
   if (!storedProcess) {
     throw new ProcessManagerError(
@@ -40,7 +86,12 @@ export async function readManagedLog(
   }
 
   try {
-    const logPath = resolveLogFile(context, projectId, kind);
+    const logPath = await resolveManagedLogFile(
+      context,
+      projectId,
+      kind,
+      environmentInstanceId,
+    );
 
     const logStats = await stat(logPath);
 
@@ -85,16 +136,7 @@ export async function readManagedLog(
     };
   } catch (error) {
     if (isErrnoException(error) && error.code === 'ENOENT') {
-      return {
-        projectId,
-        processId: storedProcess.id,
-        content: '',
-        sizeBytes: 0,
-        truncated: false,
-        masked: false,
-        redactionCount: 0,
-        readAt: new Date().toISOString(),
-      };
+      return emptyLogSnapshot(projectId, storedProcess.id);
     }
 
     throw error;
@@ -105,8 +147,14 @@ export async function clearManagedLog(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
-  const storedProcess = await readStoredProcess(context, projectId, kind);
+  const storedProcess = await readStoredProcess(
+    context,
+    projectId,
+    kind,
+    environmentInstanceId,
+  );
 
   if (!storedProcess) {
     throw new ProcessManagerError(
@@ -115,7 +163,12 @@ export async function clearManagedLog(
     );
   }
 
-  const logPath = resolveLogFile(context, projectId, kind);
+  const logPath = await resolveManagedLogFile(
+    context,
+    projectId,
+    kind,
+    environmentInstanceId,
+  );
 
   try {
     await truncate(logPath, 0);
@@ -135,16 +188,7 @@ export async function clearManagedLog(
     };
   } catch (error) {
     if (isErrnoException(error) && error.code === 'ENOENT') {
-      return {
-        projectId,
-        processId: storedProcess.id,
-        content: '',
-        sizeBytes: 0,
-        truncated: false,
-        masked: false,
-        redactionCount: 0,
-        readAt: new Date().toISOString(),
-      };
+      return emptyLogSnapshot(projectId, storedProcess.id);
     }
 
     throw error;

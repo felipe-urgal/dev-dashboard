@@ -16,6 +16,12 @@ interface ProcessLogResponse {
   log: ProcessLogSnapshot;
 }
 
+function environmentQuery(environmentInstanceId?: string): string {
+  if (!environmentInstanceId) return '';
+  const parameters = new URLSearchParams({ environmentInstanceId });
+  return `?${parameters}`;
+}
+
 export interface ProjectServerConfiguration {
   settings: ProjectServerSettings;
   environments: string[];
@@ -27,9 +33,10 @@ interface ServerHealthResponse {
 
 export async function fetchProjectProcess(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess | null> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/process`,
+    `/api/projects/${encodeURIComponent(projectId)}/process${environmentQuery(environmentInstanceId)}`,
   );
 
   return response.process;
@@ -39,6 +46,7 @@ export async function startProjectProcess(
   projectId: string,
   input: {
     port?: number | null;
+    environmentInstanceId?: string;
   } = {},
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
@@ -98,9 +106,10 @@ export async function saveProjectServerSettings(
 
 export async function fetchProjectServerHealth(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ProjectServerHealth> {
   const response = await requestJson<ServerHealthResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/server-health`,
+    `/api/projects/${encodeURIComponent(projectId)}/server-health${environmentQuery(environmentInstanceId)}`,
   );
 
   return response.health;
@@ -108,9 +117,10 @@ export async function fetchProjectServerHealth(
 
 export async function stopProjectProcess(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/process/stop`,
+    `/api/projects/${encodeURIComponent(projectId)}/process/stop${environmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
     },
@@ -126,10 +136,14 @@ export async function stopProjectProcess(
 export async function fetchProjectProcessLog(
   projectId: string,
   maxBytes = 65_536,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
   const parameters = new URLSearchParams({
     maxBytes: String(maxBytes),
   });
+  if (environmentInstanceId) {
+    parameters.set('environmentInstanceId', environmentInstanceId);
+  }
 
   const response = await requestJson<ProcessLogResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/process/logs?${parameters}`,
@@ -141,18 +155,20 @@ export async function fetchProjectProcessLog(
 export function followProjectProcessLogEvents(
   projectId: string,
   onEvent: (log: ProcessLogSnapshot) => void,
+  environmentInstanceId?: string,
 ): { close: () => void; done: Promise<void> } {
   return followEventStream(
-    `/api/projects/${encodeURIComponent(projectId)}/process/logs/events`,
+    `/api/projects/${encodeURIComponent(projectId)}/process/logs/events${environmentQuery(environmentInstanceId)}`,
     onEvent,
   );
 }
 
 export async function clearProjectProcessLog(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
   const response = await requestJson<ProcessLogResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/process/logs`,
+    `/api/projects/${encodeURIComponent(projectId)}/process/logs${environmentQuery(environmentInstanceId)}`,
     {
       method: 'DELETE',
     },
@@ -164,6 +180,7 @@ export async function clearProjectProcessLog(
 export interface ProcessesQuery {
   workspaceId?: string;
   projectId?: string;
+  environmentInstanceId?: string;
   kind?: 'server' | 'test' | 'worker' | 'webpack' | 'compose-build';
   signal?: AbortSignal;
 }
@@ -176,6 +193,8 @@ export function buildProcessesQuery(query: ProcessesQuery): string {
   const parameters = new URLSearchParams();
   if (query.workspaceId) parameters.set('workspaceId', query.workspaceId);
   if (query.projectId) parameters.set('projectId', query.projectId);
+  if (query.environmentInstanceId)
+    parameters.set('environmentInstanceId', query.environmentInstanceId);
   if (query.kind) parameters.set('kind', query.kind);
   return parameters.toString();
 }

@@ -76,12 +76,14 @@ export async function prepareManagedProcessStart(
   project: Project,
   kind: ManagedKind,
   alreadyRunningMessage: string,
+  environmentInstanceId?: string,
 ): Promise<void> {
   await sweepStateBestEffort(dependencies.stateDirectory);
 
   const currentProcess = await dependencies.statusReader.getManagedProcess(
     project.id,
     kind,
+    environmentInstanceId,
   );
 
   if (isActiveStatus(currentProcess?.status)) {
@@ -105,7 +107,12 @@ async function spawnManagedChild(
   context: ProcessStoreContext,
   spec: ManagedProcessStartSpec,
 ): Promise<{ child: ReturnType<typeof spawn>; logPath: string; cwd: string }> {
-  const logPath = resolveLogFile(context, spec.project.id, spec.kind);
+  const logPath = resolveLogFile(
+    context,
+    spec.project.id,
+    spec.kind,
+    spec.executionContext?.environmentInstanceId,
+  );
   const logHandle = await open(logPath, 'a', 0o600);
   const cwd = executionCwd(spec);
 

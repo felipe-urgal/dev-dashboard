@@ -62,6 +62,7 @@ test('GET /api/processes lists managed processes for known projects', async (con
     {
       id: 'srv-p1',
       projectId: 'p1',
+      environmentInstanceId: 'environment:primary:p1',
       kind: 'server',
       status: 'running',
       pid: 1000,
@@ -147,6 +148,19 @@ test('GET /api/processes lists managed processes for known projects', async (con
       'srv-p1',
       'tst-p1',
     ]);
+  });
+
+  await context.test('filters by environmentInstanceId', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url:
+        '/api/processes?environmentInstanceId=' +
+        encodeURIComponent('environment:primary:p1'),
+      headers,
+    });
+    assert.equal(response.statusCode, 200);
+    const body = response.json<ProcessesResponse>();
+    assert.deepEqual(body.processes.map((process) => process.id), ['srv-p1']);
   });
 
   await context.test('filters by kind', async () => {

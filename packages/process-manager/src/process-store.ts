@@ -33,22 +33,39 @@ export interface ProcessStoreContext {
   readonly logDirectory: string;
 }
 
-export function createProjectKey(projectId: string): string {
-  const readable = projectId.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 80);
-
-  const hash = createHash('sha256').update(projectId).digest('hex').slice(0, 8);
-
+function createStorageKey(value: string): string {
+  const readable = value.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 80);
+  const hash = createHash('sha256').update(value).digest('hex').slice(0, 8);
   return `${readable}-${hash}`;
+}
+
+export function createProjectKey(projectId: string): string {
+  return createStorageKey(projectId);
+}
+
+function createEnvironmentKey(environmentInstanceId: string): string {
+  return createStorageKey(environmentInstanceId);
+}
+
+function storagePrefix(
+  projectId: string,
+  environmentInstanceId?: string,
+): string {
+  const projectKey = createProjectKey(projectId);
+  return environmentInstanceId
+    ? `${projectKey}.${createEnvironmentKey(environmentInstanceId)}`
+    : projectKey;
 }
 
 export function resolveLogFile(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
+  environmentInstanceId?: string,
 ): string {
   return path.join(
     context.logDirectory,
-    `${createProjectKey(projectId)}.${kind}.log`,
+    `${storagePrefix(projectId, environmentInstanceId)}.${kind}.log`,
   );
 }
 
@@ -56,20 +73,17 @@ export function resolveProcessFile(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
+  environmentInstanceId?: string,
 ): string {
   return path.join(
     context.processDirectory,
-    `${createProjectKey(projectId)}.${kind}.json`,
+    `${storagePrefix(projectId, environmentInstanceId)}.${kind}.json`,
   );
 }
 
-export async function readStoredProcess(
-  context: ProcessStoreContext,
-  projectId: string,
-  kind: ManagedKind,
+async function readStoredProcessFile(
+  processFile: string,
 ): Promise<StoredProcess | null> {
-  const processFile = resolveProcessFile(context, projectId, kind);
-
   let contents: string;
   try {
     contents = await readFile(processFile, 'utf8');
@@ -97,6 +111,40 @@ export async function readStoredProcess(
   return parsed;
 }
 
+function primaryEnvironmentInstanceId(projectId: string): string {
+  return `environment:primary:${projectId}`;
+}
+
+export async function readStoredProcess(
+  context: ProcessStoreContext,
+  projectId: string,
+  kind: ManagedKind,
+  environmentInstanceId?: string,
+): Promise<StoredProcess | null> {
+  const scoped = await readStoredProcessFile(
+    resolveProcessFile(context, projectId, kind, environmentInstanceId),
+  );
+  if (scoped || environmentInstanceId === undefined) return scoped;
+
+  const legacy = await readStoredProcessFile(
+    resolveProcessFile(context, projectId, kind),
+  );
+  if (!legacy) return null;
+
+  if (legacy.environmentInstanceId === environmentInstanceId) {
+    return legacy;
+  }
+
+  if (
+    legacy.environmentInstanceId === undefined &&
+    environmentInstanceId === primaryEnvironmentInstanceId(projectId)
+  ) {
+    return legacy;
+  }
+
+  return null;
+}
+
 export async function writeStoredProcess(
   context: ProcessStoreContext,
   managedProcess: StoredProcess,
@@ -110,6 +158,7 @@ export async function writeStoredProcess(
     context,
     managedProcess.projectId,
     managedProcess.kind as ManagedKind,
+    managedProcess.environmentInstanceId,
   );
 
   const temporaryFile = `${processFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;

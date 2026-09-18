@@ -74,6 +74,7 @@ export interface ExitTracker {
     kind: ManagedKind,
     pid: number,
     timeoutMs?: number,
+    environmentInstanceId?: string,
   ): Promise<ObservedExit | undefined>;
   waitForManagedExit(
     projectId: string,
@@ -81,8 +82,14 @@ export interface ExitTracker {
     pid: number,
     timeoutMs: number,
     acceptObservedExit?: boolean,
+    environmentInstanceId?: string,
   ): Promise<boolean>;
-  clearObservedExit(projectId: string, kind: ManagedKind, pid: number): void;
+  clearObservedExit(
+    projectId: string,
+    kind: ManagedKind,
+    pid: number,
+    environmentInstanceId?: string,
+  ): void;
 }
 
 export function createExitTracker(
@@ -103,12 +110,21 @@ export function createExitTracker(
     }
   }
 
+  function trackingKey(
+    projectId: string,
+    kind: ManagedKind,
+    environmentInstanceId?: string,
+  ): string {
+    return `${projectId}:${environmentInstanceId ?? 'legacy'}:${kind}`;
+  }
+
   function clearObservedExit(
     projectId: string,
     kind: ManagedKind,
     pid: number,
+    environmentInstanceId?: string,
   ): void {
-    const key = `${projectId}:${kind}`;
+    const key = trackingKey(projectId, kind, environmentInstanceId);
     if (observedExits.get(key)?.observation.pid === pid) {
       observedExits.delete(key);
     }
@@ -122,12 +138,18 @@ export function createExitTracker(
     projectId: string,
     kind: ManagedKind,
     pid: number,
+    environmentInstanceId?: string,
     exitCode?: number | null,
   ): Promise<void> {
-    const currentProcess = await readStoredProcess(context, projectId, kind);
+    const currentProcess = await readStoredProcess(
+      context,
+      projectId,
+      kind,
+      environmentInstanceId,
+    );
 
     if (!currentProcess) {
-      clearObservedExit(projectId, kind, pid);
+      clearObservedExit(projectId, kind, pid, environmentInstanceId);
       return;
     }
 
@@ -146,7 +168,7 @@ export function createExitTracker(
         });
       }
 
-      clearObservedExit(projectId, kind, pid);
+      clearObservedExit(projectId, kind, pid, environmentInstanceId);
       return;
     }
 
@@ -161,7 +183,7 @@ export function createExitTracker(
       terminalProcess(currentProcess, status, exitCode),
     );
 
-    clearObservedExit(projectId, kind, pid);
+    clearObservedExit(projectId, kind, pid, environmentInstanceId);
   }
 
   function observeChild(
@@ -179,7 +201,11 @@ export function createExitTracker(
 
     const pid = managedProcess.pid as number;
 
-    const key = `${managedProcess.projectId}:${managedProcess.kind}`;
+    const key = trackingKey(
+      managedProcess.projectId,
+      managedProcess.kind as ManagedKind,
+      managedProcess.environmentInstanceId,
+    );
 
     exitWaiters.set(key, {
       pid,
@@ -206,6 +232,7 @@ export function createExitTracker(
         managedProcess.projectId,
         managedProcess.kind as ManagedKind,
         pid,
+        managedProcess.environmentInstanceId,
         exitCode,
       ).catch(() => undefined);
     };
@@ -223,8 +250,9 @@ export function createExitTracker(
     kind: ManagedKind,
     pid: number,
     timeoutMs = 1_000,
+    environmentInstanceId?: string,
   ): Promise<ObservedExit | undefined> {
-    const key = `${projectId}:${kind}`;
+    const key = trackingKey(projectId, kind, environmentInstanceId);
     const existing = observedExits.get(key);
 
     if (existing?.observation.pid === pid) {
@@ -251,6 +279,7 @@ export function createExitTracker(
     pid: number,
     timeoutMs: number,
     acceptObservedExit = false,
+    environmentInstanceId?: string,
   ): Promise<boolean> {
     const groupExit = waitForProcessExit(pid, timeoutMs);
     const observation = await waitForObservedExit(
@@ -258,6 +287,7 @@ export function createExitTracker(
       kind,
       pid,
       timeoutMs,
+      environmentInstanceId,
     );
 
     if (

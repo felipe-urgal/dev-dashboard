@@ -11,9 +11,12 @@ import {
   projectServerSettingsResponseSchema,
 } from '../../http/response-schemas.js';
 import {
+  processEnvironmentQuerySchema,
   projectParamsSchema,
+  requireExecutionContext,
   requireProject,
   serverSettingsApiError,
+  type ProcessEnvironmentQuery,
   type ProcessRouteOptions,
   type ProjectParams,
   type SaveServerSettingsBody,
@@ -50,6 +53,7 @@ export function registerServerSettingsRoutes(
     serverHealthCheckService,
     serverSettingsRepository,
     projectStore,
+    developmentEnvironmentInstanceStore,
   } = options;
 
   async function environmentsForProject(
@@ -203,11 +207,13 @@ export function registerServerSettingsRoutes(
 
   app.get<{
     Params: ProjectParams;
+    Querystring: ProcessEnvironmentQuery;
   }>(
     '/projects/:projectId/server-health',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: processEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -223,8 +229,16 @@ export function registerServerSettingsRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       const [process, settings] = await Promise.all([
-        processManager.getServerProcess(project.id),
+        processManager.getServerProcess(
+          project.id,
+          executionContext.environmentInstanceId,
+        ),
         serverSettingsRepository.find(project.id),
       ]);
       const port = process?.port ?? settings.port;

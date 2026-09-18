@@ -21,6 +21,7 @@ export interface ProcessStatusReader {
   getManagedProcess(
     projectId: string,
     kind: ManagedKind,
+    environmentInstanceId?: string,
   ): Promise<ManagedProcess | null>;
   listProcesses(): Promise<ManagedProcess[]>;
 }
@@ -73,8 +74,14 @@ export function createProcessStatusReader(
   async function getManagedProcess(
     projectId: string,
     kind: ManagedKind,
+    environmentInstanceId?: string,
   ): Promise<ManagedProcess | null> {
-    const storedProcess = await readStoredProcess(context, projectId, kind);
+    const storedProcess = await readStoredProcess(
+      context,
+      projectId,
+      kind,
+      environmentInstanceId,
+    );
 
     if (!storedProcess) {
       return null;
@@ -97,6 +104,8 @@ export function createProcessStatusReader(
                 projectId,
                 kind,
                 storedProcess.pid,
+                1_000,
+                storedProcess.environmentInstanceId,
               )
             : undefined;
 
@@ -104,6 +113,7 @@ export function createProcessStatusReader(
           context,
           projectId,
           kind,
+          environmentInstanceId,
         );
 
         if (
@@ -134,7 +144,12 @@ export function createProcessStatusReader(
         await writeStoredProcess(context, finishedProcess);
 
         if (storedProcess.pid !== undefined) {
-          exitTracker.clearObservedExit(projectId, kind, storedProcess.pid);
+          exitTracker.clearObservedExit(
+            projectId,
+            kind,
+            storedProcess.pid,
+            storedProcess.environmentInstanceId,
+          );
         }
 
         return finishedProcess;
@@ -185,22 +200,43 @@ export function createProcessStatusReader(
 
   async function listProcesses(): Promise<ManagedProcess[]> {
     const entries = await listStoredProcessEntries(context);
-
-    const processes: ManagedProcess[] = [];
+    const identities = new Map<
+      string,
+      {
+        projectId: string;
+        kind: ManagedKind;
+        environmentInstanceId: string;
+      }
+    >();
 
     for (const entry of entries) {
-      const managedProcess = await getManagedProcess(
-        entry.projectId,
-        entry.kind as ManagedKind,
+      const environmentInstanceId =
+        entry.environmentInstanceId ??
+        `environment:primary:${entry.projectId}`;
+      const kind = entry.kind as ManagedKind;
+      identities.set(
+        `${entry.projectId}:${environmentInstanceId}:${kind}`,
+        { projectId: entry.projectId, kind, environmentInstanceId },
       );
-
-      if (managedProcess) {
-        processes.push(managedProcess);
-      }
     }
 
-    return processes.sort((left, right) =>
-      left.projectId.localeCompare(right.projectId),
+    const processes: ManagedProcess[] = [];
+    for (const identity of identities.values()) {
+      const managedProcess = await getManagedProcess(
+        identity.projectId,
+        identity.kind,
+        identity.environmentInstanceId,
+      );
+      if (managedProcess) processes.push(managedProcess);
+    }
+
+    return processes.sort(
+      (left, right) =>
+        left.projectId.localeCompare(right.projectId) ||
+        (left.environmentInstanceId ?? '').localeCompare(
+          right.environmentInstanceId ?? '',
+        ) ||
+        left.kind.localeCompare(right.kind),
     );
   }
 

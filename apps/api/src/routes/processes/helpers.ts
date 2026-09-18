@@ -44,7 +44,11 @@ export interface SaveServerSettingsBody {
   environment?: string | null;
 }
 
-export interface ProcessLogQuery {
+export interface ProcessEnvironmentQuery {
+  environmentInstanceId?: string;
+}
+
+export interface ProcessLogQuery extends ProcessEnvironmentQuery {
   maxBytes?: number;
 }
 
@@ -137,6 +141,35 @@ export function requireExecutionContext(
   }
   return executionContext;
 }
+
+export const processEnvironmentQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
+
+export const processLogQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    maxBytes: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 262_144,
+    },
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
 
 export const projectParamsSchema = {
   type: 'object',
