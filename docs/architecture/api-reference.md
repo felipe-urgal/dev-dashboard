@@ -23258,7 +23258,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -23361,7 +23367,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -23505,6 +23517,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
   "properties": {
     "refresh": {
       "type": "boolean"
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -23643,7 +23660,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -23716,7 +23739,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -23880,7 +23909,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -24215,7 +24250,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -24348,6 +24389,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -24418,6 +24475,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "type": "integer",
       "minimum": 1,
       "maximum": 100
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -24543,7 +24605,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -24669,6 +24737,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 ### `DELETE /api/projects/:projectId/tests/process/logs`
 
 **Parâmetros de rota (`params`)**
@@ -24695,7 +24779,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
@@ -24796,6 +24886,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "type": "integer",
       "minimum": 1,
       "maximum": 262144
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -24893,7 +24988,13 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
 }
 ```
 
