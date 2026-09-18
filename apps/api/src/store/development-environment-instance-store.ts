@@ -22,6 +22,7 @@ export interface ObservedWorktreeForEnvironmentInstance {
   id: string;
   path: string;
   kind: 'main' | 'linked' | 'unknown';
+  prunable?: boolean;
 }
 
 export interface DevelopmentEnvironmentInstanceStoreOptions {
@@ -244,6 +245,7 @@ export class DevelopmentEnvironmentInstanceStore {
       }
       if (
         worktree.kind !== 'linked' ||
+        worktree.prunable === true ||
         !isNonEmptyString(worktree.id) ||
         !isNonEmptyString(worktree.path) ||
         !path.isAbsolute(worktree.path)
