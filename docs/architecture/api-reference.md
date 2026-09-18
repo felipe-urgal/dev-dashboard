@@ -12685,6 +12685,11 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
       "minLength": 1,
       "maxLength": 200
     },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
     "kind": {
       "type": "string",
       "enum": [
@@ -12864,6 +12869,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -12986,6 +13007,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -13083,6 +13120,11 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
       "type": "integer",
       "minimum": 1,
       "maximum": 262144
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -13185,6 +13227,11 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
       "type": "integer",
       "minimum": 1,
       "maximum": 262144
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -13357,6 +13404,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -13471,6 +13534,22 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
     "projectId": {
       "type": "string",
       "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }

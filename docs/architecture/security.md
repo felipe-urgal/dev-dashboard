@@ -343,6 +343,7 @@ Processos gerenciados usam:
 
 - comando/catálogo conhecido;
 - `cwd` controlado;
+- para o servidor migrado, estado/log/status/stop são isolados por `environmentInstanceId`; estado legado sem identidade só faz fallback para a `primary`;
 - `shell: false` quando aplicável;
 - grupos de processo;
 - limites de logs;

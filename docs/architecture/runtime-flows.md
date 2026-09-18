@@ -140,19 +140,23 @@ Manifesto de produção inválido gera warning e não cria capability falsa.
 
 ```text
 Iniciar
-  ↓ projectId conhecido
+  ↓ projectId + environmentInstanceId
+backend resolve ExecutionContext
+  ↓ cwd conhecido da origem
 resolver comando permitido
-  ↓ Rails ou script Node reconhecido
-Process Manager escolhe porta/cwd
+  ↓ Rails ou script Node reconhecido no ambiente
+Process Manager escolhe porta
   ↓ spawn shell:false
-persistir starting + PID + log
-  ↓ health/porta
+persistir estado + log por Environment Instance
+  ↓ health/porta da mesma instance
 running | failed
 ```
 
+Sem `environmentInstanceId` explícita, a API resolve a `primary`. Status, logs, stream, limpeza, stop e health usam a mesma identidade operacional; estado legado sem identidade só pode ser reutilizado como `primary`.
+
 No Linux, uma porta só confirma `running` quando o listener pertence ao PID gerenciado ou descendente da mesma árvore. Um processo alheio na porta não é promovido para readiness do projeto.
 
-O browser não envia a linha de comando final.
+O browser não envia a linha de comando final, path nem `cwd`. Configuração de porta do servidor continua pertencendo ao projeto; uma porta fixa já ocupada por outra instance falha pelo guard existente em vez de ser remapeada silenciosamente.
 
 ## Encerramento de processo
 
@@ -222,21 +226,19 @@ Tokens não são genéricos nem reutilizáveis.
 
 ## Worktrees
 
-O recorte atual é read-only:
-
 ```text
 Project.path
   ↓
-git rev-parse --git-common-dir
-  +
-git worktree list --porcelain -z
+observer Git bounded
   ↓
-normalização bounded
+worktree.id estável
   ↓
-worktree.id estável por common-dir + path
+Development Environment Instance
+  ↓
+terminal / PTYs / servidor gerenciado
 ```
 
-Criação/remoção e integração com Environment Instance permanecem na #570/#598.
+O lifecycle atual permite observar, criar e remover linked worktrees por contratos estruturados. Remoção exige clean state, confirmação, revalidação e ownership comprovada. A UI básica usa esses contratos sem receber path/argv livre. Integrações restantes e validação end-to-end continuam na #570.
 
 ## Testes e execuções destacáveis
 

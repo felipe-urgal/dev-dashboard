@@ -16,13 +16,16 @@ import {
   processLogSnapshotResponseSchema,
 } from '../../http/response-schemas.js';
 import {
+  processEnvironmentQuerySchema,
   processEnvelopeResponseSchema,
+  processLogQuerySchema,
   processManagerApiError,
   projectParamsSchema,
   requireEnabledProject,
   requireExecutionContext,
   requireProject,
   serverSettingsApiError,
+  type ProcessEnvironmentQuery,
   type ProcessLogQuery,
   type ProcessRouteOptions,
   type ProjectParams,
@@ -42,11 +45,13 @@ export function registerServerProcessRoutes(
 
   app.get<{
     Params: ProjectParams;
+    Querystring: ProcessEnvironmentQuery;
   }>(
     '/projects/:projectId/process',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: processEnvironmentQuerySchema,
         response: {
           200: processEnvelopeResponseSchema(
             nullableManagedProcessResponseSchema,
@@ -57,8 +62,16 @@ export function registerServerProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
 
-      const managedProcess = await processManager.getServerProcess(project.id);
+      const managedProcess = await processManager.getServerProcess(
+        project.id,
+        executionContext.environmentInstanceId,
+      );
 
       return {
         process: managedProcess,
@@ -74,17 +87,7 @@ export function registerServerProcessRoutes(
     {
       schema: {
         params: projectParamsSchema,
-        querystring: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            maxBytes: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 262_144,
-            },
-          },
-        },
+        querystring: processLogQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -100,15 +103,24 @@ export function registerServerProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
 
       try {
-        const log = await processManager.readServerLog(project.id, {
-          ...(request.query.maxBytes !== undefined
-            ? {
-                maxBytes: request.query.maxBytes,
-              }
-            : {}),
-        });
+        const log = await processManager.readServerLog(
+          project.id,
+          {
+            ...(request.query.maxBytes !== undefined
+              ? {
+                  maxBytes: request.query.maxBytes,
+                }
+              : {}),
+          },
+          executionContext.environmentInstanceId,
+        );
 
         return {
           log,
@@ -131,28 +143,27 @@ export function registerServerProcessRoutes(
     {
       schema: {
         params: projectParamsSchema,
-        querystring: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            maxBytes: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 262_144,
-            },
-          },
-        },
+        querystring: processLogQuerySchema,
       },
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       const readOptions = {
         ...(request.query.maxBytes !== undefined
           ? { maxBytes: request.query.maxBytes }
           : {}),
       };
       const readLog = () =>
-        processManager.readServerLog(project.id, readOptions);
+        processManager.readServerLog(
+          project.id,
+          readOptions,
+          executionContext.environmentInstanceId,
+        );
 
       let initial: ProcessLogSnapshot;
       try {
@@ -171,11 +182,13 @@ export function registerServerProcessRoutes(
 
   app.delete<{
     Params: ProjectParams;
+    Querystring: ProcessEnvironmentQuery;
   }>(
     '/projects/:projectId/process/logs',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: processEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -191,10 +204,18 @@ export function registerServerProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
 
       try {
         return {
-          log: await processManager.clearServerLog(project.id),
+          log: await processManager.clearServerLog(
+            project.id,
+            executionContext.environmentInstanceId,
+          ),
         };
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -323,11 +344,13 @@ export function registerServerProcessRoutes(
 
   app.post<{
     Params: ProjectParams;
+    Querystring: ProcessEnvironmentQuery;
   }>(
     '/projects/:projectId/process/stop',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: processEnvironmentQuerySchema,
         response: {
           200: processEnvelopeResponseSchema(managedProcessResponseSchema),
           ...commonErrorResponseSchemas,
@@ -336,9 +359,17 @@ export function registerServerProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
 
       try {
-        const managedProcess = await processManager.stopServer(project.id);
+        const managedProcess = await processManager.stopServer(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
 
         return {
           process: managedProcess,

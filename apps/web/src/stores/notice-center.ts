@@ -17,7 +17,11 @@ export interface Notice {
   label: string;
   createdAt: number;
   read: boolean;
-  routeTo: { name: string; params: { projectId: string } };
+  routeTo: {
+    name: string;
+    params: { projectId: string };
+    query?: Record<string, string>;
+  };
 }
 
 export const NOTICE_LIST_LIMIT = 20;

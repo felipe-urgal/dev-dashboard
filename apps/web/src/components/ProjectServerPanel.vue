@@ -34,6 +34,7 @@ import ProjectLogTerminal from './ProjectLogTerminal.vue';
 
 const props = defineProps<{
   project: Project;
+  environmentInstanceId?: string | undefined;
 }>();
 
 const {
@@ -46,7 +47,10 @@ const {
   hasManagedProcess,
   statusLabel,
   scheduleProcessPolling,
-} = useProjectProcessStatus(() => props.project);
+} = useProjectProcessStatus(
+  () => props.project,
+  () => props.environmentInstanceId,
+);
 
 const { commandLabel } = useProjectServerMetrics(
   () => props.project,
@@ -64,6 +68,7 @@ const {
   hasManagedProcess,
   supportsServer,
   logContainer,
+  () => props.environmentInstanceId,
 );
 
 const selectedPort = ref<string | number>('');
@@ -301,6 +306,9 @@ async function startServer(
   const settings = await persistServerSettings(projectId, generation);
   const nextProcess = await startProjectProcess(projectId, {
     port: settings.port ?? null,
+    ...(props.environmentInstanceId
+      ? { environmentInstanceId: props.environmentInstanceId }
+      : {}),
   });
 
   if (!isCurrentProject(projectId, generation)) return;
@@ -341,7 +349,9 @@ async function handleStop(): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const nextProcess = await stopProjectProcess(projectId);
+    const nextProcess = props.environmentInstanceId
+      ? await stopProjectProcess(projectId, props.environmentInstanceId)
+      : await stopProjectProcess(projectId);
     if (!isCurrentProject(projectId, generation)) return;
 
     managedProcess.value = nextProcess;
@@ -370,7 +380,9 @@ async function handleRestart(): Promise<void> {
 
   try {
     if (canStop.value) {
-      const stoppedProcess = await stopProjectProcess(projectId);
+      const stoppedProcess = props.environmentInstanceId
+        ? await stopProjectProcess(projectId, props.environmentInstanceId)
+        : await stopProjectProcess(projectId);
       if (!isCurrentProject(projectId, generation)) return;
       managedProcess.value = stoppedProcess;
     }
@@ -416,6 +428,7 @@ function resetPanelState(): void {
   settingsMessage.value = '';
   currentAction.value = null;
   localUrlCopied.value = false;
+  hasObservedRunning = false;
 }
 
 async function initializeProject(): Promise<void> {
@@ -427,7 +440,7 @@ async function initializeProject(): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  () => `${props.project.id}:${props.environmentInstanceId ?? ''}`,
   () => {
     void initializeProject();
   },
@@ -452,6 +465,13 @@ watch(processStatus, (status) => {
       routeTo: {
         name: 'project-server',
         params: { projectId: props.project.id },
+        ...(props.environmentInstanceId
+          ? {
+              query: {
+                environmentInstanceId: props.environmentInstanceId,
+              },
+            }
+          : {}),
       },
     });
   }

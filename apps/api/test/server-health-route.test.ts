@@ -41,13 +41,20 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
     port: 3_210,
     healthCheckPath: '/healthz',
   });
-  appContext.processManager.getServerProcess = async () => ({
-    id: 'server-health',
-    projectId: project.id,
-    kind: 'server',
-    status: 'running',
-    port: 3_210,
-  });
+  let receivedEnvironmentInstanceId: string | undefined;
+  appContext.processManager.getServerProcess = async (
+    _projectId,
+    environmentInstanceId,
+  ) => {
+    receivedEnvironmentInstanceId = environmentInstanceId;
+    return {
+      id: 'server-health',
+      projectId: project.id,
+      kind: 'server',
+      status: 'running',
+      port: 3_210,
+    };
+  };
 
   let receivedInput: unknown;
   let serviceCalls = 0;
@@ -82,6 +89,10 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(
+    receivedEnvironmentInstanceId,
+    `environment:primary:${project.id}`,
+  );
   assert.deepEqual(receivedInput, {
     projectId: project.id,
     port: 3_210,
