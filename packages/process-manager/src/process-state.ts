@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { realpath } from 'node:fs/promises';
+import { readlink, realpath } from 'node:fs/promises';
+import path from 'node:path';
 import { promisify } from 'node:util';
 
 import type {
@@ -149,6 +150,12 @@ export interface VerifyProcessDirectoryDeps {
   platform?: NodeJS.Platform;
   /** Só para teste — substitui a chamada real a `lsof` (usado no ramo macOS). */
   runLsof?: (pid: number) => Promise<string>;
+  /** Só para teste — substitui a leitura de `/proc/<pid>/cwd` no Linux. */
+  readProcessCwd?: (pid: number) => Promise<string>;
+}
+
+async function defaultReadProcessCwd(pid: number): Promise<string> {
+  return readlink(`/proc/${pid}/cwd`);
 }
 
 async function defaultRunLsof(pid: number): Promise<string> {
@@ -204,7 +211,7 @@ async function verifyProcessDirectoryDarwin(
     const expectedDirectory = await realpath(storedProcess.cwd);
     return processDirectory === expectedDirectory;
   } catch {
-    return false;
+    return path.resolve(rawCwd) === path.resolve(storedProcess.cwd);
   }
 }
 
@@ -233,13 +240,26 @@ export async function verifyProcessDirectory(
     return isProcessGroupAlive(storedProcess.pid);
   }
 
+  let rawProcessDirectory: string;
   try {
-    const processDirectory = await realpath(`/proc/${storedProcess.pid}/cwd`);
-
-    const expectedDirectory = await realpath(storedProcess.cwd);
-
-    return processDirectory === expectedDirectory;
+    rawProcessDirectory = await (
+      deps.readProcessCwd ?? defaultReadProcessCwd
+    )(storedProcess.pid);
   } catch {
     return false;
+  }
+
+  try {
+    const processDirectory = await realpath(rawProcessDirectory);
+    const expectedDirectory = await realpath(storedProcess.cwd);
+    return processDirectory === expectedDirectory;
+  } catch {
+    const deletedSuffix = ' (deleted)';
+    if (!rawProcessDirectory.endsWith(deletedSuffix)) return false;
+    const deletedDirectory = rawProcessDirectory.slice(
+      0,
+      -deletedSuffix.length,
+    );
+    return path.resolve(deletedDirectory) === path.resolve(storedProcess.cwd);
   }
 }
