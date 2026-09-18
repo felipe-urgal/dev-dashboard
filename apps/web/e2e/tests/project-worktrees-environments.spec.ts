@@ -105,8 +105,7 @@ async function startEnvironmentServer(
       async () => {
         const processes = await fetchServerProcesses(page, projectId);
         return processes.find(
-          (process) =>
-            process.environmentInstanceId === environmentInstanceId,
+          (process) => process.environmentInstanceId === environmentInstanceId,
         )?.status;
       },
       { timeout: 15_000 },
