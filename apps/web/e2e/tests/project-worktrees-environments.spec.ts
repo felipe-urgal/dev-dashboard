@@ -279,9 +279,12 @@ test.describe('Worktrees como Environment Instances', () => {
         'sample-node-app',
       );
       for (const worktreePath of [worktreeA.path, worktreeB.path]) {
-        await runGit(projectPath, ['worktree', 'remove', '--', worktreePath]).catch(
-          () => undefined,
-        );
+        await runGit(projectPath, [
+          'worktree',
+          'remove',
+          '--',
+          worktreePath,
+        ]).catch(() => undefined);
       }
       await runGit(projectPath, ['worktree', 'prune']).catch(() => undefined);
       for (const branch of [branchA, branchB]) {
