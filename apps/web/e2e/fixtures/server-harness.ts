@@ -26,7 +26,7 @@ export interface RunningServer {
   runtimeDirectory: string;
 }
 
-async function runGit(cwd: string, args: string[]): Promise<void> {
+export async function runGit(cwd: string, args: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn('git', args, {
       cwd,
