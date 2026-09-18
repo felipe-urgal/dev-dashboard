@@ -150,6 +150,32 @@ test('invalidate refreshes the cached detection', async () => {
   }
 });
 
+test('cache de detecção separa paths de Environment Instances do mesmo projeto', async () => {
+  const primary = await makeProject('node', {
+    'package.json': JSON.stringify({ name: 'demo' }),
+  });
+  const worktree = await makeProject('node', {
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'vitest run' },
+      devDependencies: { vitest: '^1.0.0' },
+    }),
+  });
+  worktree.id = primary.id;
+
+  try {
+    const service = new TestDetectionService();
+    const primaryOverview = await service.getOverview(primary);
+    const worktreeOverview = await service.getOverview(worktree);
+
+    assert.equal(primaryOverview.supported, false);
+    assert.equal(worktreeOverview.supported, true);
+  } finally {
+    await rm(primary.path, { recursive: true, force: true });
+    await rm(worktree.path, { recursive: true, force: true });
+  }
+});
+
 test('resolveCommand returns null for unknown ids', async () => {
   const project = await makeProject('node', {
     'package.json': JSON.stringify({

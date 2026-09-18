@@ -27,7 +27,10 @@ import ProjectTestIntelligenceSummary from './ProjectTestIntelligenceSummary.vue
 type TestsTab = 'execute' | 'history';
 type ExecutionTone = 'neutral' | 'running' | 'success' | 'danger';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string | undefined;
+}>();
 
 const overview = ref<ProjectTestOverview | null>(null);
 const loadingOverview = ref(false);
@@ -222,7 +225,11 @@ function executionScope(record: TestExecutionRecord): string {
 async function loadOverview(): Promise<void> {
   loadingOverview.value = true;
   try {
-    overview.value = await fetchProjectTests(props.project.id);
+    overview.value = props.environmentInstanceId
+      ? await fetchProjectTests(props.project.id, {
+          environmentInstanceId: props.environmentInstanceId,
+        })
+      : await fetchProjectTests(props.project.id);
     if (!selectedCommandId.value && (overview.value.commands.length ?? 0) > 0) {
       selectedCommandId.value = overview.value.commands[0]!.id;
     }
@@ -238,26 +245,43 @@ async function loadOverview(): Promise<void> {
 
 async function loadHistory(): Promise<void> {
   const projectId = props.project.id;
+  const environmentInstanceId = props.environmentInstanceId;
   loadingHistory.value = true;
   historyErrorMessage.value = '';
   try {
-    const result = await fetchProjectTestHistory(projectId, 1, 8);
-    if (props.project.id === projectId) history.value = result;
+    const result = environmentInstanceId
+      ? await fetchProjectTestHistory(projectId, 1, 8, environmentInstanceId)
+      : await fetchProjectTestHistory(projectId, 1, 8);
+    if (
+      props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId
+    ) {
+      history.value = result;
+    }
   } catch (error) {
-    if (props.project.id === projectId) {
+    if (
+      props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId
+    ) {
       historyErrorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível carregar o histórico de testes.';
     }
   } finally {
-    if (props.project.id === projectId) loadingHistory.value = false;
+    if (
+      props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId
+    ) {
+      loadingHistory.value = false;
+    }
   }
 }
 
 async function loadIntelligence(): Promise<void> {
   const projectId = props.project.id;
   const commandId = selectedCommandId.value;
+  const environmentInstanceId = props.environmentInstanceId;
   intelligenceRequests.invalidate();
   intelligence.value = null;
   intelligenceErrorMessage.value = '';
@@ -270,9 +294,16 @@ async function loadIntelligence(): Promise<void> {
   const generation = intelligenceRequests.capture();
   loadingIntelligence.value = true;
   try {
-    const suggestion = await fetchProjectTestIntelligence(projectId, commandId);
+    const suggestion = environmentInstanceId
+      ? await fetchProjectTestIntelligence(
+          projectId,
+          commandId,
+          environmentInstanceId,
+        )
+      : await fetchProjectTestIntelligence(projectId, commandId);
     if (
       props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId &&
       selectedCommandId.value === commandId &&
       intelligenceRequests.isCurrent(generation)
     ) {
@@ -281,6 +312,7 @@ async function loadIntelligence(): Promise<void> {
   } catch (error) {
     if (
       props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId &&
       selectedCommandId.value === commandId &&
       intelligenceRequests.isCurrent(generation)
     ) {
@@ -292,6 +324,7 @@ async function loadIntelligence(): Promise<void> {
   } finally {
     if (
       props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId &&
       selectedCommandId.value === commandId &&
       intelligenceRequests.isCurrent(generation)
     ) {
@@ -302,8 +335,20 @@ async function loadIntelligence(): Promise<void> {
 
 async function loadStatusAndReconnect(): Promise<void> {
   try {
-    snapshot.value = await fetchProjectTestPtyStatus(props.project.id);
-    if (snapshot.value) connect(projectTestPtyWebSocketUrl(props.project.id));
+    snapshot.value = props.environmentInstanceId
+      ? await fetchProjectTestPtyStatus(
+          props.project.id,
+          props.environmentInstanceId,
+        )
+      : await fetchProjectTestPtyStatus(props.project.id);
+    if (snapshot.value) {
+      connect(
+        projectTestPtyWebSocketUrl(
+          props.project.id,
+          props.environmentInstanceId,
+        ),
+      );
+    }
   } catch {
     // Best-effort: se a consulta inicial falhar, executar testes continua disponível.
   }
@@ -316,11 +361,16 @@ async function start(): Promise<void> {
   starting.value = true;
   disposeTerminal();
   try {
-    snapshot.value = await startProjectTestPty(
-      props.project.id,
-      selectedCommandId.value,
+    snapshot.value = props.environmentInstanceId
+      ? await startProjectTestPty(
+          props.project.id,
+          selectedCommandId.value,
+          props.environmentInstanceId,
+        )
+      : await startProjectTestPty(props.project.id, selectedCommandId.value);
+    connect(
+      projectTestPtyWebSocketUrl(props.project.id, props.environmentInstanceId),
     );
-    connect(projectTestPtyWebSocketUrl(props.project.id));
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -335,7 +385,11 @@ async function start(): Promise<void> {
 async function cancel(): Promise<void> {
   cancelling.value = true;
   try {
-    await cancelProjectTestPty(props.project.id);
+    if (props.environmentInstanceId) {
+      await cancelProjectTestPty(props.project.id, props.environmentInstanceId);
+    } else {
+      await cancelProjectTestPty(props.project.id);
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -359,7 +413,7 @@ function selectTab(tab: TestsTab): void {
 }
 
 watch(
-  () => props.project.id,
+  () => `${props.project.id}:${props.environmentInstanceId ?? ''}`,
   () => {
     disconnect();
     disposeTerminal();
@@ -378,7 +432,11 @@ watch(
 );
 
 watch(
-  [() => props.project.id, selectedCommandId],
+  [
+    () => props.project.id,
+    () => props.environmentInstanceId,
+    selectedCommandId,
+  ],
   () => {
     void loadIntelligence();
   },

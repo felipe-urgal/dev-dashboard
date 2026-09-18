@@ -10,6 +10,7 @@ import {
   commonErrorResponseSchemas,
   managedProcessResponseSchema,
 } from '../http/response-schemas.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type { TestDetectionService } from '../services/test-detection-service.js';
 import type { TestExecutionHistoryService } from '../services/test-execution-history-service.js';
@@ -17,10 +18,17 @@ import {
   RelatedTestError,
   RelatedTestService,
 } from '../services/related-test-service.js';
+import {
+  projectForExecutionContext,
+  requireExecutionContext,
+  testEnvironmentQuerySchema,
+  type TestEnvironmentQuery,
+} from './tests/helpers.js';
 
 interface TestRelatedRouteOptions extends FastifyPluginOptions {
   processManager: ProcessManager;
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
 }
@@ -41,12 +49,6 @@ const testCommandParamsSchema = {
 } as const;
 
 const emptyBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {},
-} as const;
-
-const emptyQuerystringSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {},
@@ -131,17 +133,21 @@ export const testRelatedRoutes: FastifyPluginAsync<
   const {
     processManager,
     projectStore,
+    developmentEnvironmentInstanceStore,
     testDetectionService,
     testExecutionHistoryService,
   } = options;
   const relatedTestService = new RelatedTestService(testDetectionService);
 
-  app.get<{ Params: TestCommandParams }>(
+  app.get<{
+    Params: TestCommandParams;
+    Querystring: TestEnvironmentQuery;
+  }>(
     '/projects/:projectId/tests/:commandId/related',
     {
       schema: {
         params: testCommandParamsSchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           200: relatedTestsResponseSchema,
           ...commonErrorResponseSchemas,
@@ -150,9 +156,14 @@ export const testRelatedRoutes: FastifyPluginAsync<
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         const related = await relatedTestService.resolve(
-          project,
+          projectForExecutionContext(project, executionContext),
           request.params.commandId,
         );
         return {
@@ -172,13 +183,16 @@ export const testRelatedRoutes: FastifyPluginAsync<
     },
   );
 
-  app.post<{ Params: TestCommandParams }>(
+  app.post<{
+    Params: TestCommandParams;
+    Querystring: TestEnvironmentQuery;
+  }>(
     '/projects/:projectId/tests/:commandId/related/start',
     {
       schema: {
         params: testCommandParamsSchema,
         body: emptyBodySchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           201: {
             type: 'object',
@@ -192,9 +206,14 @@ export const testRelatedRoutes: FastifyPluginAsync<
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         const related = await relatedTestService.resolve(
-          project,
+          projectForExecutionContext(project, executionContext),
           request.params.commandId,
         );
         if (related.testFiles.length === 0) {
@@ -206,12 +225,19 @@ export const testRelatedRoutes: FastifyPluginAsync<
           });
         }
 
-        await testExecutionHistoryService.reconcile(project.id);
-        const managedProcess = await processManager.startTest(project, {
-          id: `${request.params.commandId}:related`,
-          command: related.resolved.command,
-          args: related.resolved.args,
-        });
+        await testExecutionHistoryService.reconcile(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
+        const managedProcess = await processManager.startTest(
+          project,
+          {
+            id: `${request.params.commandId}:related`,
+            command: related.resolved.command,
+            args: related.resolved.args,
+          },
+          executionContext,
+        );
         await testExecutionHistoryService.recordStart(
           project.id,
           managedProcess,

@@ -3,10 +3,13 @@ import type { FastifyInstance } from 'fastify';
 import { commonErrorResponseSchemas } from '../../http/response-schemas.js';
 import { TestIntelligenceService } from '../../services/test-intelligence-service.js';
 import {
-  emptyQuerystringSchema,
+  projectForExecutionContext,
+  requireExecutionContext,
   requireProject,
   testCommandParamsSchema,
+  testEnvironmentQuerySchema,
   type TestCommandParams,
+  type TestEnvironmentQuery,
   type TestRouteOptions,
 } from './helpers.js';
 
@@ -162,12 +165,15 @@ export function registerTestIntelligenceRoutes(
       : {}),
   });
 
-  app.get<{ Params: TestCommandParams }>(
+  app.get<{
+    Params: TestCommandParams;
+    Querystring: TestEnvironmentQuery;
+  }>(
     '/projects/:projectId/tests/:commandId/intelligence',
     {
       schema: {
         params: testCommandParamsSchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -184,8 +190,16 @@ export function registerTestIntelligenceRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       return {
-        suggestion: await service.suggest(project, request.params.commandId),
+        suggestion: await service.suggest(
+          projectForExecutionContext(project, executionContext),
+          request.params.commandId,
+        ),
       };
     },
   );

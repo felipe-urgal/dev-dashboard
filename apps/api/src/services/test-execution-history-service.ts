@@ -116,7 +116,9 @@ function deriveTarget(managedProcess: ManagedProcess): {
   scope: TestExecutionScope;
   targetFile?: string;
 } {
-  const prefix = `${managedProcess.projectId}:${managedProcess.kind}:`;
+  const prefix = managedProcess.environmentInstanceId
+    ? `${managedProcess.projectId}:${managedProcess.environmentInstanceId}:${managedProcess.kind}:`
+    : `${managedProcess.projectId}:${managedProcess.kind}:`;
   const rawId = managedProcess.id.startsWith(prefix)
     ? managedProcess.id.slice(prefix.length)
     : managedProcess.id;
@@ -136,6 +138,27 @@ function deriveTarget(managedProcess: ManagedProcess): {
 
 function sanitizeProjectId(projectId: string): string {
   return projectId.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function primaryEnvironmentInstanceId(projectId: string): string {
+  return `environment:primary:${projectId}`;
+}
+
+function recordMatchesEnvironment(
+  projectId: string,
+  record: StoredTestExecutionRecord,
+  environmentInstanceId: string,
+): boolean {
+  return record.environmentInstanceId !== undefined
+    ? record.environmentInstanceId === environmentInstanceId
+    : environmentInstanceId === primaryEnvironmentInstanceId(projectId);
+}
+
+function executionKey(
+  projectId: string,
+  environmentInstanceId?: string,
+): string {
+  return `${projectId}\u0000${environmentInstanceId ?? ''}`;
 }
 
 export class TestExecutionHistoryService {
@@ -176,8 +199,13 @@ export class TestExecutionHistoryService {
   public async subscribe(
     projectId: string,
     subscriber: TestExecutionSubscriber,
+    environmentInstanceId?: string,
   ): Promise<() => void> {
-    const current = await this.processManager.getTestProcess(projectId);
+    const key = executionKey(projectId, environmentInstanceId);
+    const current = await this.processManager.getTestProcess(
+      projectId,
+      environmentInstanceId,
+    );
     if (!current) {
       throw new TestExecutionSubscriptionError(
         'TEST_EXECUTION_NOT_FOUND',
@@ -186,13 +214,17 @@ export class TestExecutionHistoryService {
     }
 
     const projectSubscribers =
-      this.subscribers.get(projectId) ?? new Set<TestExecutionSubscriber>();
+      this.subscribers.get(key) ?? new Set<TestExecutionSubscriber>();
+    const projectPrefix = `${projectId}\u0000`;
+    const subscribersForProject = Array.from(this.subscribers.entries())
+      .filter(([entryKey]) => entryKey.startsWith(projectPrefix))
+      .reduce((sum, [, set]) => sum + set.size, 0);
     const totalSubscribers = Array.from(this.subscribers.values()).reduce(
       (sum, set) => sum + set.size,
       0,
     );
     if (
-      projectSubscribers.size >= SUBSCRIBER_LIMIT_PER_PROJECT ||
+      subscribersForProject >= SUBSCRIBER_LIMIT_PER_PROJECT ||
       totalSubscribers >= SUBSCRIBER_LIMIT_TOTAL
     ) {
       throw new TestExecutionSubscriptionError(
@@ -201,109 +233,124 @@ export class TestExecutionHistoryService {
       );
     }
     projectSubscribers.add(subscriber);
-    this.subscribers.set(projectId, projectSubscribers);
+    this.subscribers.set(key, projectSubscribers);
 
     subscriber.send({ type: 'state', process: current });
-    this.lastSentStatus.set(projectId, current.status);
+    this.lastSentStatus.set(key, current.status);
     const log = await this.processManager
-      .readTestLog(projectId)
+      .readTestLog(projectId, {}, environmentInstanceId)
       .catch(() => null);
     if (log) {
       subscriber.send({ type: 'log', log });
-      this.lastSentLog.set(projectId, log.content);
+      this.lastSentLog.set(key, log.content);
     }
 
-    this.ensurePolling(projectId);
+    this.ensurePolling(projectId, environmentInstanceId);
 
     return () => {
-      const set = this.subscribers.get(projectId);
+      const set = this.subscribers.get(key);
       if (!set?.delete(subscriber)) return;
       if (set.size === 0) {
-        this.subscribers.delete(projectId);
-        this.stopPolling(projectId);
+        this.subscribers.delete(key);
+        this.stopPolling(key);
       }
     };
   }
 
-  private ensurePolling(projectId: string): void {
-    if (this.pollTimers.has(projectId)) return;
+  private ensurePolling(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): void {
+    const key = executionKey(projectId, environmentInstanceId);
+    if (this.pollTimers.has(key)) return;
     // Sem unref(): a assinatura precisa manter o laço de eventos vivo enquanto
     // houver acompanhamento ativo (o listener HTTP do servidor já cumpre esse
     // papel em produção, mas a chamada explícita evita depender disso).
     const timer = setInterval(() => {
-      void this.pollOnce(projectId);
+      void this.pollOnce(projectId, environmentInstanceId);
     }, POLL_INTERVAL_MS);
-    this.pollTimers.set(projectId, timer);
+    this.pollTimers.set(key, timer);
   }
 
-  private stopPolling(projectId: string): void {
-    const timer = this.pollTimers.get(projectId);
+  private stopPolling(key: string): void {
+    const timer = this.pollTimers.get(key);
     if (timer) clearInterval(timer);
-    this.pollTimers.delete(projectId);
-    this.lastSentStatus.delete(projectId);
-    this.lastSentLog.delete(projectId);
+    this.pollTimers.delete(key);
+    this.lastSentStatus.delete(key);
+    this.lastSentLog.delete(key);
   }
 
-  private emitToSubscribers(
-    projectId: string,
-    event: TestExecutionEvent,
-  ): void {
-    for (const subscriber of this.subscribers.get(projectId) ?? [])
+  private emitToSubscribers(key: string, event: TestExecutionEvent): void {
+    for (const subscriber of this.subscribers.get(key) ?? [])
       subscriber.send(event);
   }
 
-  private closeSubscribers(projectId: string): void {
-    const subscribers = this.subscribers.get(projectId);
-    this.stopPolling(projectId);
-    this.subscribers.delete(projectId);
+  private closeSubscribers(key: string): void {
+    const subscribers = this.subscribers.get(key);
+    this.stopPolling(key);
+    this.subscribers.delete(key);
     if (subscribers) {
       for (const subscriber of subscribers) subscriber.close();
     }
   }
 
-  private async pollOnce(projectId: string): Promise<void> {
-    const subscribers = this.subscribers.get(projectId);
+  private async pollOnce(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): Promise<void> {
+    const key = executionKey(projectId, environmentInstanceId);
+    const subscribers = this.subscribers.get(key);
     if (!subscribers || subscribers.size === 0) {
-      this.stopPolling(projectId);
+      this.stopPolling(key);
       return;
     }
 
     const current = await this.processManager
-      .getTestProcess(projectId)
+      .getTestProcess(projectId, environmentInstanceId)
       .catch(() => null);
     if (!current) {
-      await this.reconcile(projectId);
-      this.closeSubscribers(projectId);
+      await this.reconcile(projectId, environmentInstanceId);
+      this.closeSubscribers(key);
       return;
     }
 
-    if (this.lastSentStatus.get(projectId) !== current.status) {
-      this.lastSentStatus.set(projectId, current.status);
-      this.emitToSubscribers(projectId, { type: 'state', process: current });
+    if (this.lastSentStatus.get(key) !== current.status) {
+      this.lastSentStatus.set(key, current.status);
+      this.emitToSubscribers(key, { type: 'state', process: current });
     }
 
     const log = await this.processManager
-      .readTestLog(projectId)
+      .readTestLog(projectId, {}, environmentInstanceId)
       .catch(() => null);
-    if (log && log.content !== this.lastSentLog.get(projectId)) {
-      this.lastSentLog.set(projectId, log.content);
-      this.emitToSubscribers(projectId, { type: 'log', log });
+    if (log && log.content !== this.lastSentLog.get(key)) {
+      this.lastSentLog.set(key, log.content);
+      this.emitToSubscribers(key, { type: 'log', log });
     }
 
     if (!OPEN_STATUSES.includes(current.status)) {
-      await this.reconcile(projectId);
-      this.closeSubscribers(projectId);
+      await this.reconcile(projectId, environmentInstanceId);
+      this.closeSubscribers(key);
     }
   }
 
-  public async reconcile(projectId: string): Promise<void> {
+  public async reconcile(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): Promise<void> {
     const items = await this.load(projectId);
-    const openIndex = items.findIndex((item) =>
-      OPEN_STATUSES.includes(item.status),
+    const openIndex = items.findIndex(
+      (item) =>
+        OPEN_STATUSES.includes(item.status) &&
+        (environmentInstanceId === undefined
+          ? item.environmentInstanceId === undefined
+          : recordMatchesEnvironment(projectId, item, environmentInstanceId)),
     );
     if (openIndex === -1) return;
 
-    const current = await this.processManager.getTestProcess(projectId);
+    const current = await this.processManager.getTestProcess(
+      projectId,
+      environmentInstanceId,
+    );
     const openRecord = items[openIndex]!;
 
     if (!current) {
@@ -349,6 +396,9 @@ export class TestExecutionHistoryService {
       commandId,
       scope,
       ...(targetFile ? { targetFile } : {}),
+      ...(managedProcess.environmentInstanceId
+        ? { environmentInstanceId: managedProcess.environmentInstanceId }
+        : {}),
       ...gitIdentity,
       status: managedProcess.status,
       startedAt: managedProcess.startedAt ?? new Date().toISOString(),
@@ -361,9 +411,16 @@ export class TestExecutionHistoryService {
     projectId: string,
     page = 1,
     pageSize = 20,
+    environmentInstanceId?: string,
   ): Promise<TestExecutionHistory> {
-    await this.reconcile(projectId);
-    const items = await this.load(projectId);
+    await this.reconcile(projectId, environmentInstanceId);
+    const storedItems = await this.load(projectId);
+    const items =
+      environmentInstanceId === undefined
+        ? storedItems
+        : storedItems.filter((item) =>
+            recordMatchesEnvironment(projectId, item, environmentInstanceId),
+          );
     const total = items.length;
     return {
       items: items
@@ -376,10 +433,18 @@ export class TestExecutionHistoryService {
     };
   }
 
-  public async clear(projectId: string): Promise<{ removedCount: number }> {
-    await this.reconcile(projectId);
+  public async clear(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): Promise<{ removedCount: number }> {
+    await this.reconcile(projectId, environmentInstanceId);
     const items = await this.load(projectId);
-    const kept = items.filter((item) => OPEN_STATUSES.includes(item.status));
+    const kept = items.filter(
+      (item) =>
+        OPEN_STATUSES.includes(item.status) ||
+        (environmentInstanceId !== undefined &&
+          !recordMatchesEnvironment(projectId, item, environmentInstanceId)),
+    );
     const removedCount = items.length - kept.length;
     if (removedCount > 0) await this.save(projectId, kept);
     return { removedCount };

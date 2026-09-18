@@ -423,6 +423,182 @@ test('publica log quando o conteúdo muda durante o polling', async (context) =>
   );
 });
 
+test('subscribe e polling ficam isolados por Environment Instance', async (context) => {
+  const stateDirectory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-test-history-environment-'),
+  );
+  context.after(async () => {
+    await rm(stateDirectory, { recursive: true, force: true });
+  });
+
+  const primaryId = 'environment:primary:p1';
+  const worktreeId = 'environment:worktree:p1:wt-1';
+  const processes = new Map<string, ManagedProcess | null>([
+    [
+      primaryId,
+      makeManagedProcess({
+        id: 'p1:primary:test',
+        environmentInstanceId: primaryId,
+      }),
+    ],
+    [
+      worktreeId,
+      makeManagedProcess({
+        id: 'p1:worktree:test',
+        environmentInstanceId: worktreeId,
+      }),
+    ],
+  ]);
+  const logs = new Map([
+    [primaryId, 'primary log'],
+    [worktreeId, 'worktree log'],
+  ]);
+
+  const pm = {
+    getTestProcess: async (
+      _projectId: string,
+      environmentInstanceId?: string,
+    ) => processes.get(environmentInstanceId ?? '') ?? null,
+    readTestLog: async (
+      projectId: string,
+      _options = {},
+      environmentInstanceId?: string,
+    ): Promise<ProcessLogSnapshot> => {
+      const content = logs.get(environmentInstanceId ?? '') ?? '';
+      return {
+        projectId,
+        processId: processes.get(environmentInstanceId ?? '')?.id ?? 'unknown',
+        content,
+        sizeBytes: content.length,
+        truncated: false,
+        masked: false,
+        redactionCount: 0,
+        readAt: new Date().toISOString(),
+      };
+    },
+  };
+  const service = new TestExecutionHistoryService(pm, stateDirectory);
+  context.after(() => service.close());
+
+  const primaryEvents: TestExecutionEvent[] = [];
+  const worktreeEvents: TestExecutionEvent[] = [];
+  const unsubscribePrimary = await service.subscribe(
+    'p1',
+    {
+      send: (event) => primaryEvents.push(event),
+      close: () => undefined,
+    },
+    primaryId,
+  );
+  const unsubscribeWorktree = await service.subscribe(
+    'p1',
+    {
+      send: (event) => worktreeEvents.push(event),
+      close: () => undefined,
+    },
+    worktreeId,
+  );
+  context.after(unsubscribePrimary);
+  context.after(unsubscribeWorktree);
+
+  assert.equal(
+    primaryEvents.find((event) => event.type === 'log')?.type === 'log'
+      ? (
+          primaryEvents.find((event) => event.type === 'log') as Extract<
+            TestExecutionEvent,
+            { type: 'log' }
+          >
+        ).log.content
+      : undefined,
+    'primary log',
+  );
+  assert.equal(
+    worktreeEvents.find((event) => event.type === 'log')?.type === 'log'
+      ? (
+          worktreeEvents.find((event) => event.type === 'log') as Extract<
+            TestExecutionEvent,
+            { type: 'log' }
+          >
+        ).log.content
+      : undefined,
+    'worktree log',
+  );
+
+  logs.set(worktreeId, 'worktree atualizado');
+  await sleep(700);
+
+  assert.equal(
+    primaryEvents.some(
+      (event) =>
+        event.type === 'log' && event.log.content === 'worktree atualizado',
+    ),
+    false,
+  );
+  assert.equal(
+    worktreeEvents.some(
+      (event) =>
+        event.type === 'log' && event.log.content === 'worktree atualizado',
+    ),
+    true,
+  );
+});
+
+test('reconcile finaliza apenas a execução aberta da Environment Instance alvo', async (context) => {
+  const stateDirectory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-test-history-reconcile-env-'),
+  );
+  context.after(async () => {
+    await rm(stateDirectory, { recursive: true, force: true });
+  });
+
+  const primaryId = 'environment:primary:p1';
+  const worktreeId = 'environment:worktree:p1:wt-1';
+  const primary = makeManagedProcess({
+    id: 'p1:primary:test',
+    environmentInstanceId: primaryId,
+  });
+  const worktree = makeManagedProcess({
+    id: 'p1:worktree:test',
+    environmentInstanceId: worktreeId,
+  });
+  const processes = new Map<string, ManagedProcess | null>([
+    [primaryId, primary],
+    [worktreeId, worktree],
+  ]);
+  const pm = {
+    getTestProcess: async (
+      _projectId: string,
+      environmentInstanceId?: string,
+    ) => processes.get(environmentInstanceId ?? '') ?? null,
+    readTestLog: async (): Promise<ProcessLogSnapshot> => {
+      throw new Error('unused');
+    },
+  };
+  const service = new TestExecutionHistoryService(pm, stateDirectory);
+
+  await service.recordStart('p1', primary);
+  await service.recordStart('p1', worktree);
+  processes.set(worktreeId, {
+    ...worktree,
+    status: 'stopped',
+    stoppedAt: new Date().toISOString(),
+    exitCode: 0,
+  });
+
+  await service.reconcile('p1', worktreeId);
+  const history = await service.history('p1');
+
+  const primaryRecord = history.items.find(
+    (item) => item.environmentInstanceId === primaryId,
+  );
+  const worktreeRecord = history.items.find(
+    (item) => item.environmentInstanceId === worktreeId,
+  );
+  assert.equal(primaryRecord?.status, 'running');
+  assert.equal(worktreeRecord?.status, 'stopped');
+  assert.equal(worktreeRecord?.exitCode, 0);
+});
+
 test('limita assinantes simultâneos por projeto', async (context) => {
   const stateDirectory = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-test-history-'),

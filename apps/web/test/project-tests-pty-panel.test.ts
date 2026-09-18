@@ -12,6 +12,14 @@ const mocks = vi.hoisted(() => ({
   fetchProjectTestPtyStatus: vi.fn(),
   startProjectTestPty: vi.fn(),
   cancelProjectTestPty: vi.fn(),
+  projectTestPtyWebSocketUrl: vi.fn(
+    (projectId: string, environmentInstanceId?: string) =>
+      `ws://localhost/api/projects/${projectId}/tests/pty/connect${
+        environmentInstanceId
+          ? `?environmentInstanceId=${encodeURIComponent(environmentInstanceId)}`
+          : ''
+      }`,
+  ),
 }));
 
 vi.mock('../src/api', () => ({
@@ -21,8 +29,7 @@ vi.mock('../src/api', () => ({
   fetchProjectTestPtyStatus: mocks.fetchProjectTestPtyStatus,
   startProjectTestPty: mocks.startProjectTestPty,
   cancelProjectTestPty: mocks.cancelProjectTestPty,
-  projectTestPtyWebSocketUrl: (projectId: string) =>
-    `ws://localhost/api/projects/${projectId}/tests/pty/connect`,
+  projectTestPtyWebSocketUrl: mocks.projectTestPtyWebSocketUrl,
 }));
 
 class FakeWebSocket {
@@ -245,6 +252,64 @@ test('cancelar chama cancelProjectTestPty enquanto a execução está em andamen
   await flushPromises();
 
   assert.equal(mocks.cancelProjectTestPty.mock.calls.length, 1);
+});
+
+test('propaga Environment Instance para overview, PTY, WebSocket e histórico', async () => {
+  const environmentInstanceId = 'environment:worktree:projeto-1:wt-1';
+  mocks.startProjectTestPty.mockResolvedValue({
+    status: 'running',
+    exitCode: null,
+    exitSignal: null,
+    startedAt: '2026-09-18T14:00:00.000Z',
+    endedAt: null,
+  });
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: {
+      project: project(),
+      environmentInstanceId,
+    },
+  });
+  await flushPromises();
+
+  assert.deepEqual(mocks.fetchProjectTests.mock.calls[0], [
+    'projeto-1',
+    { environmentInstanceId },
+  ]);
+  assert.deepEqual(mocks.fetchProjectTestPtyStatus.mock.calls[0], [
+    'projeto-1',
+    environmentInstanceId,
+  ]);
+  assert.deepEqual(mocks.fetchProjectTestHistory.mock.calls[0], [
+    'projeto-1',
+    1,
+    8,
+    environmentInstanceId,
+  ]);
+  assert.deepEqual(mocks.fetchProjectTestIntelligence.mock.calls[0], [
+    'projeto-1',
+    'full-suite',
+    environmentInstanceId,
+  ]);
+
+  const button = wrapper
+    .findAll('button')
+    .find((candidate) => candidate.text().includes('Executar suíte completa'));
+  assert.ok(button);
+  await button.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls[0], [
+    'projeto-1',
+    'full-suite',
+    environmentInstanceId,
+  ]);
+  assert.deepEqual(mocks.projectTestPtyWebSocketUrl.mock.calls.at(-1), [
+    'projeto-1',
+    environmentInstanceId,
+  ]);
+
+  wrapper.unmount();
 });
 
 test('mostra resumo e histórico usando apenas dados reais das execuções', async () => {

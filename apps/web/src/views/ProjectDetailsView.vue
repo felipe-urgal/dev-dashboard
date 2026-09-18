@@ -384,7 +384,13 @@ onBeforeUnmount(stopGitOverviewRefresh);
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isTestsRoute }"
               :aria-current="isTestsRoute ? 'page' : undefined"
-              :to="{ name: 'project-tests', params: { projectId: project.id } }"
+              :to="{
+                name: 'project-tests',
+                params: { projectId: project.id },
+                ...(environmentInstanceId
+                  ? { query: { environmentInstanceId } }
+                  : {}),
+              }"
             >
               <BeakerIcon aria-hidden="true" />
               <span>Testes</span>
@@ -478,8 +484,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectTestsPanel
         v-else-if="isTestsRoute"
-        :key="`tests-${project.id}`"
+        :key="`tests-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectSelfUpdateProductionPanel

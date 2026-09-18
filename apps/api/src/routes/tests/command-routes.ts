@@ -11,12 +11,15 @@ import {
 import { TestFileError } from '../../services/test-detection-service.js';
 import {
   emptyBodySchema,
-  emptyQuerystringSchema,
   processManagerApiError,
+  projectForExecutionContext,
+  requireExecutionContext,
   requireProject,
   testCommandParamsSchema,
+  testEnvironmentQuerySchema,
   testFileApiError,
   type TestCommandParams,
+  type TestEnvironmentQuery,
   type TestFileStartBody,
   type TestRouteOptions,
 } from './helpers.js';
@@ -28,17 +31,21 @@ export function registerTestCommandRoutes(
   const {
     processManager,
     projectStore,
+    developmentEnvironmentInstanceStore,
     testDetectionService,
     testExecutionHistoryService,
   } = options;
 
-  app.post<{ Params: TestCommandParams }>(
+  app.post<{
+    Params: TestCommandParams;
+    Querystring: TestEnvironmentQuery;
+  }>(
     '/projects/:projectId/tests/:commandId/start',
     {
       schema: {
         params: testCommandParamsSchema,
         body: emptyBodySchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           201: {
             type: 'object',
@@ -52,8 +59,17 @@ export function registerTestCommandRoutes(
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
-      const resolved = await testDetectionService.resolveCommand(
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      const scopedProject = projectForExecutionContext(
         project,
+        executionContext,
+      );
+      const resolved = await testDetectionService.resolveCommand(
+        scopedProject,
         request.params.commandId,
       );
 
@@ -66,12 +82,19 @@ export function registerTestCommandRoutes(
       }
 
       try {
-        await testExecutionHistoryService.reconcile(project.id);
-        const managedProcess = await processManager.startTest(project, {
-          id: request.params.commandId,
-          command: resolved.command,
-          args: resolved.args,
-        });
+        await testExecutionHistoryService.reconcile(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
+        const managedProcess = await processManager.startTest(
+          project,
+          {
+            id: request.params.commandId,
+            command: resolved.command,
+            args: resolved.args,
+          },
+          executionContext,
+        );
         await testExecutionHistoryService.recordStart(
           project.id,
           managedProcess,
@@ -94,12 +117,15 @@ export function registerTestCommandRoutes(
     },
   );
 
-  app.get<{ Params: TestCommandParams }>(
+  app.get<{
+    Params: TestCommandParams;
+    Querystring: TestEnvironmentQuery;
+  }>(
     '/projects/:projectId/tests/:commandId/files',
     {
       schema: {
         params: testCommandParamsSchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -115,8 +141,13 @@ export function registerTestCommandRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       const files = await testDetectionService.listTestFiles(
-        project,
+        projectForExecutionContext(project, executionContext),
         request.params.commandId,
       );
 
@@ -132,7 +163,11 @@ export function registerTestCommandRoutes(
     },
   );
 
-  app.post<{ Params: TestCommandParams; Body: TestFileStartBody }>(
+  app.post<{
+    Params: TestCommandParams;
+    Querystring: TestEnvironmentQuery;
+    Body: TestFileStartBody;
+  }>(
     '/projects/:projectId/tests/:commandId/files/start',
     {
       schema: {
@@ -147,7 +182,7 @@ export function registerTestCommandRoutes(
             namePattern: { type: 'string', minLength: 1, maxLength: 200 },
           },
         },
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           201: {
             type: 'object',
@@ -161,11 +196,20 @@ export function registerTestCommandRoutes(
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      const scopedProject = projectForExecutionContext(
+        project,
+        executionContext,
+      );
 
       let resolved;
       try {
         resolved = await testDetectionService.resolveFileCommand(
-          project,
+          scopedProject,
           request.params.commandId,
           request.body.path,
           request.body.line,
@@ -187,12 +231,19 @@ export function registerTestCommandRoutes(
       }
 
       try {
-        await testExecutionHistoryService.reconcile(project.id);
-        const managedProcess = await processManager.startTest(project, {
-          id: `${request.params.commandId}:file`,
-          command: resolved.command,
-          args: resolved.args,
-        });
+        await testExecutionHistoryService.reconcile(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
+        const managedProcess = await processManager.startTest(
+          project,
+          {
+            id: `${request.params.commandId}:file`,
+            command: resolved.command,
+            args: resolved.args,
+          },
+          executionContext,
+        );
         await testExecutionHistoryService.recordStart(
           project.id,
           managedProcess,
