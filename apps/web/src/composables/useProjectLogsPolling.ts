@@ -75,11 +75,9 @@ export function useProjectLogsPolling(
     logErrorMessage.value = '';
 
     try {
-      const snapshot = await fetchProjectProcessLog(
-        projectId,
-        65_536,
-        environmentInstanceId,
-      );
+      const snapshot = environmentInstanceId
+        ? await fetchProjectProcessLog(projectId, 65_536, environmentInstanceId)
+        : await fetchProjectProcessLog(projectId);
 
       if (
         isCurrentContext(projectId, environmentInstanceId, generation) &&
@@ -135,24 +133,27 @@ export function useProjectLogsPolling(
     const logGeneration = logRequests.capture();
     loadingLogs.value = true;
 
-    const stream = followProjectProcessLogEvents(
-      projectId,
-      (snapshot) => {
-        if (
-          logStream !== stream ||
-          !isCurrentContext(projectId, environmentInstanceId, generation) ||
-          !logRequests.isCurrent(logGeneration)
-        ) {
-          return;
-        }
+    const handleSnapshot = (snapshot: ProcessLogSnapshot) => {
+      if (
+        logStream !== stream ||
+        !isCurrentContext(projectId, environmentInstanceId, generation) ||
+        !logRequests.isCurrent(logGeneration)
+      ) {
+        return;
+      }
 
-        logErrorMessage.value = '';
-        loadingLogs.value = false;
-        logSnapshot.value = snapshot;
-        void scrollLogsToLatest();
-      },
-      environmentInstanceId,
-    );
+      logErrorMessage.value = '';
+      loadingLogs.value = false;
+      logSnapshot.value = snapshot;
+      void scrollLogsToLatest();
+    };
+    const stream = environmentInstanceId
+      ? followProjectProcessLogEvents(
+          projectId,
+          handleSnapshot,
+          environmentInstanceId,
+        )
+      : followProjectProcessLogEvents(projectId, handleSnapshot);
     logStream = stream;
 
     void stream.done
@@ -201,10 +202,9 @@ export function useProjectLogsPolling(
     stopLogStream();
 
     try {
-      const snapshot = await clearProjectProcessLog(
-        projectId,
-        environmentInstanceId,
-      );
+      const snapshot = environmentInstanceId
+        ? await clearProjectProcessLog(projectId, environmentInstanceId)
+        : await clearProjectProcessLog(projectId);
 
       if (
         isCurrentContext(projectId, environmentInstanceId, generation) &&

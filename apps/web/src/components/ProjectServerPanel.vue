@@ -349,10 +349,9 @@ async function handleStop(): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const nextProcess = await stopProjectProcess(
-      projectId,
-      props.environmentInstanceId,
-    );
+    const nextProcess = props.environmentInstanceId
+      ? await stopProjectProcess(projectId, props.environmentInstanceId)
+      : await stopProjectProcess(projectId);
     if (!isCurrentProject(projectId, generation)) return;
 
     managedProcess.value = nextProcess;
@@ -381,10 +380,9 @@ async function handleRestart(): Promise<void> {
 
   try {
     if (canStop.value) {
-      const stoppedProcess = await stopProjectProcess(
-        projectId,
-        props.environmentInstanceId,
-      );
+      const stoppedProcess = props.environmentInstanceId
+        ? await stopProjectProcess(projectId, props.environmentInstanceId)
+        : await stopProjectProcess(projectId);
       if (!isCurrentProject(projectId, generation)) return;
       managedProcess.value = stoppedProcess;
     }

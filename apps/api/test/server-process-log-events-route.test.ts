@@ -32,6 +32,14 @@ test('GET /api/projects/:id/process/logs/events traduz PROCESS_NOT_FOUND em 404 
     projectStore: {
       findProject: () => ({ id: 'projeto-1' }),
     } as never,
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'projeto-1',
+        environmentInstanceId: 'environment:primary:projeto-1',
+        cwd: '/tmp/projeto-1',
+        runtime: 'host',
+      }),
+    } as never,
   });
 
   const response = await app.inject({

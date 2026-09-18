@@ -92,10 +92,9 @@ export function useProjectProcessStatus(
     loadingStatus.value = true;
 
     try {
-      const nextProcess = await fetchProjectProcess(
-        projectId,
-        environmentInstanceId,
-      );
+      const nextProcess = environmentInstanceId
+        ? await fetchProjectProcess(projectId, environmentInstanceId)
+        : await fetchProjectProcess(projectId);
 
       if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         managedProcess.value = nextProcess;

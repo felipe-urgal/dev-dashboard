@@ -76,11 +76,11 @@ async function startServer(): Promise<void> {
   serverBusy.value = 'start';
   errorMessage.value = '';
   try {
-    const nextProcess = await startProjectProcess(props.project.id, {
-      ...(props.environmentInstanceId
-        ? { environmentInstanceId: props.environmentInstanceId }
-        : {}),
-    });
+    const nextProcess = props.environmentInstanceId
+      ? await startProjectProcess(props.project.id, {
+          environmentInstanceId: props.environmentInstanceId,
+        })
+      : await startProjectProcess(props.project.id);
     server.managedProcess.value = nextProcess;
     server.scheduleProcessPolling();
   } catch (error) {
@@ -97,10 +97,9 @@ async function stopServer(): Promise<void> {
   serverBusy.value = 'stop';
   errorMessage.value = '';
   try {
-    const nextProcess = await stopProjectProcess(
-      props.project.id,
-      props.environmentInstanceId,
-    );
+    const nextProcess = props.environmentInstanceId
+      ? await stopProjectProcess(props.project.id, props.environmentInstanceId)
+      : await stopProjectProcess(props.project.id);
     server.managedProcess.value = nextProcess;
   } catch (error) {
     errorMessage.value =
