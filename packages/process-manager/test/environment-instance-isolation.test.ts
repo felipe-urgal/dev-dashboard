@@ -137,7 +137,6 @@ test('estado legado sem Environment Instance continua resolvendo como primary', 
   assert.equal(unrelated, null);
 });
 
-
 test('estado scoped inválido não faz fallback para estado legado', async (context) => {
   const root = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-process-invalid-scoped-'),
