@@ -12,6 +12,7 @@ test('remove propriedades fora do contrato nos eventos SSE de teste', async (t) 
   const managedProcess = {
     id: 'projeto-1:test:node-script-test',
     projectId: 'projeto-1',
+    environmentInstanceId: 'environment:primary:projeto-1',
     kind: 'test',
     status: 'running',
     command: 'npm',
@@ -35,6 +36,14 @@ test('remove propriedades fora do contrato nos eventos SSE de teste', async (t) 
   await app.register(testRoutes, {
     processManager: {} as never,
     projectStore: { findProject: () => ({ id: 'projeto-1' }) } as never,
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'projeto-1',
+        environmentInstanceId: 'environment:primary:projeto-1',
+        cwd: '/tmp/projeto-1',
+        runtime: 'host',
+      }),
+    } as never,
     testDetectionService: {} as never,
     testExecutionHistoryService,
   });
@@ -44,6 +53,10 @@ test('remove propriedades fora do contrato nos eventos SSE de teste', async (t) 
   });
   assert.equal(response.statusCode, 200);
   assert.match(response.body, /"type":"state"/);
+  assert.match(
+    response.body,
+    /"environmentInstanceId":"environment:primary:projeto-1"/,
+  );
   assert.equal(response.body.includes('cwd'), false);
   assert.equal(response.body.includes('logPath'), false);
   assert.equal(response.body.includes('host'), false);
@@ -68,6 +81,14 @@ test('traduz TEST_EXECUTION_NOT_FOUND em 404', async (t) => {
   await app.register(testRoutes, {
     processManager: {} as never,
     projectStore: { findProject: () => ({ id: 'projeto-1' }) } as never,
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'projeto-1',
+        environmentInstanceId: 'environment:primary:projeto-1',
+        cwd: '/tmp/projeto-1',
+        runtime: 'host',
+      }),
+    } as never,
     testDetectionService: {} as never,
     testExecutionHistoryService,
   });
