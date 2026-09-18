@@ -257,11 +257,22 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
     );
 
     await Promise.all(
-      missingWorktreeInstances.map((instance) =>
-        options.environmentInstanceCleanupService.cleanupMissingWorktree(
-          instance,
-        ),
-      ),
+      missingWorktreeInstances.map(async (instance) => {
+        const cleanup =
+          await options.environmentInstanceCleanupService.cleanupMissingWorktree(
+            instance,
+          );
+        if (cleanup.state === 'cleanup-required') {
+          app.log.warn(
+            {
+              projectId,
+              environmentInstanceId: instance.id,
+            },
+            cleanup.diagnostic ??
+              'O cleanup do ambiente removido exige intervenção.',
+          );
+        }
+      }),
     );
   };
 
