@@ -2,9 +2,14 @@ import type {
   ProcessManager,
   ProcessManagerError,
 } from '@dev-dashboard/process-manager';
-import type { TestExecutionEvent } from '@dev-dashboard/contracts';
+import type {
+  ExecutionContext,
+  Project,
+  TestExecutionEvent,
+} from '@dev-dashboard/contracts';
 
 import { ApiError } from '../../http/api-error.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../../store/project-store.js';
 import type { ProjectCoverageHistoryService } from '../../services/project-coverage-history-service.js';
 import type { ProjectCoverageService } from '../../services/project-coverage-service.js';
@@ -32,11 +37,15 @@ export interface TestFileStartBody {
   namePattern?: string;
 }
 
-export interface TestLogQuery {
+export interface TestEnvironmentQuery {
+  environmentInstanceId?: string;
+}
+
+export interface TestLogQuery extends TestEnvironmentQuery {
   maxBytes?: number;
 }
 
-export interface TestOverviewQuery {
+export interface TestOverviewQuery extends TestEnvironmentQuery {
   refresh?: boolean;
 }
 
@@ -48,6 +57,7 @@ export interface TestHistoryQuery extends TestEnvironmentQuery {
 export interface TestRouteOptions {
   processManager: ProcessManager;
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   projectTestPtyService: ProjectTestPtyService;
@@ -85,6 +95,61 @@ export const emptyQuerystringSchema = {
   additionalProperties: false,
   properties: {},
 } as const;
+
+export const testEnvironmentQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
+
+export const testLogQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    maxBytes: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 262_144,
+    },
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
+
+export function requireExecutionContext(
+  store: DevelopmentEnvironmentInstanceStore,
+  projectId: string,
+  environmentInstanceId?: string,
+): ExecutionContext {
+  const executionContext = store.resolveForProject(
+    projectId,
+    environmentInstanceId,
+  );
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+  return executionContext;
+}
+
+export function projectForExecutionContext(
+  project: Project,
+  executionContext: ExecutionContext,
+): Project {
+  return { ...project, path: executionContext.cwd };
+}
 
 export function processManagerApiError(error: ProcessManagerError): ApiError {
   switch (error.code) {
@@ -149,6 +214,9 @@ export function serializeTestExecutionEvent(event: TestExecutionEvent): string {
         projectId: managedProcess.projectId,
         ...(managedProcess.workspaceId !== undefined
           ? { workspaceId: managedProcess.workspaceId }
+          : {}),
+        ...(managedProcess.environmentInstanceId !== undefined
+          ? { environmentInstanceId: managedProcess.environmentInstanceId }
           : {}),
         kind: managedProcess.kind,
         status: managedProcess.status,

@@ -195,7 +195,9 @@ export function createProcessLifecycle(
       project,
       ...(executionContext ? { executionContext } : {}),
       kind: 'test',
-      id: `${project.id}:test:${command.id}`,
+      id: executionContext?.environmentInstanceId
+        ? `${project.id}:${executionContext.environmentInstanceId}:test:${command.id}`
+        : `${project.id}:test:${command.id}`,
       status: 'running',
       command: command.command,
       args: command.args,

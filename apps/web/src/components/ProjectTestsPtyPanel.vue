@@ -245,10 +245,10 @@ async function loadOverview(): Promise<void> {
 
 async function loadHistory(): Promise<void> {
   const projectId = props.project.id;
+  const environmentInstanceId = props.environmentInstanceId;
   loadingHistory.value = true;
   historyErrorMessage.value = '';
   try {
-    const environmentInstanceId = props.environmentInstanceId;
     const result = environmentInstanceId
       ? await fetchProjectTestHistory(projectId, 1, 8, environmentInstanceId)
       : await fetchProjectTestHistory(projectId, 1, 8);
