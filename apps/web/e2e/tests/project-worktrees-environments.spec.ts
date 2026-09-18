@@ -99,11 +99,23 @@ async function startEnvironmentServer(
   );
   await expect(page.getByText('Pronto para iniciar')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar servidor' }).click();
-  await expect(page.locator('.server-running-badge')).toHaveText(
-    'Em execução',
-    {
-      timeout: 15_000,
-    },
+
+  await expect
+    .poll(
+      async () => {
+        const processes = await fetchServerProcesses(page, projectId);
+        return processes.find(
+          (process) =>
+            process.environmentInstanceId === environmentInstanceId,
+        )?.status;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe('running');
+
+  await expect(page.locator('.server-console-hero.is-running')).toBeVisible();
+  await expect(page.locator('.server-console-copy h3')).toHaveText(
+    'Tudo funcionando',
   );
 }
 
@@ -244,8 +256,11 @@ test.describe('Worktrees como Environment Instances', () => {
         page,
         `/projects/${encodeURIComponent(projectId)}/server?environmentInstanceId=${encodeURIComponent(worktreeB.environmentInstanceId)}`,
       );
-      await expect(page.locator('.server-running-badge')).toHaveText(
-        'Em execução',
+      await expect(
+        page.locator('.server-console-hero.is-running'),
+      ).toBeVisible();
+      await expect(page.locator('.server-console-copy h3')).toHaveText(
+        'Tudo funcionando',
       );
     } finally {
       await stopEnvironmentServer(
