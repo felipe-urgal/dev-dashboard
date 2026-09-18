@@ -1,205 +1,53 @@
 # Desenvolvimento
 
-Este é o ponto de entrada canônico para preparar o ambiente local, desenvolver, validar mudanças e abrir PRs no Dev Dashboard.
+## Preparação
 
-Documentos especializados continuam em:
+Requisitos:
 
-- [`development-guide.md`](development-guide.md): engenharia detalhada por camada, segurança, testes e domínio de Produção;
-- [`testing-and-quality.md`](testing-and-quality.md): política de testes e checks direcionados;
-- [`operations-and-troubleshooting.md`](operations-and-troubleshooting.md): configuração local e diagnóstico;
-- [`architecture/overview.md`](architecture/overview.md): visão arquitetural;
-- [`architecture/security.md`](architecture/security.md): fronteiras de segurança.
+- Linux
+- Git
+- Node.js ^20.19.0 ou >=22.12.0
+- npm
 
-## Pré-requisitos
+Instalação:
 
-- Linux;
-- Node.js `^20.19.0 || >=22.12.0`;
-- npm;
-- Git.
+    npm ci
+    npm run doctor
 
-O CI principal usa Node 24. Valide Node 20.19.0 separadamente quando a mudança tocar APIs de plataforma, runtime ou dependências e houver risco de incompatibilidade.
+Execução:
 
-## Primeira execução
+    npm run dev
 
-```bash
-npm ci
-npm run doctor
-npm run dev
-```
+## Fluxo de alteração
 
-Serviços padrão:
+1. Reproduza ou entenda o comportamento atual.
+2. Identifique o módulo owner.
+3. Defina critérios de aceite para mudanças não triviais.
+4. Faça a menor alteração coerente.
+5. Teste no nível adequado.
+6. Execute o gate principal e revise o diff.
 
-```text
-API: http://127.0.0.1:4343
-Web: http://127.0.0.1:5174
-```
+## Validação
 
-Quando precisar de configuração local:
+Gate canônico:
 
-```bash
-cp .env.example .env.local
-```
+    npm run check
 
-Secrets, como `VERCEL_TOKEN`, permanecem somente em `.env.local`/ambiente do processo.
+Comandos úteis:
 
-## Ciclo normal de desenvolvimento
+    npm run typecheck
+    npm test
+    npm run build
+    npm run test:cli
+    npm run test:e2e
 
-Depois de implementar a mudança e os testes correspondentes:
+## Segurança e integração
 
-1. execute `npm run dev`;
-2. valide manualmente o fluxo alterado quando aplicável;
-3. execute o gate canônico:
+- Não aceite shell arbitrário vindo da UI.
+- Preserve validações de caminho, projeto e workspace.
+- Operações destrutivas devem manter confirmação e caminho de recuperação.
+- Integrações externas devem falhar de forma explícita e não contaminar o core.
 
-```bash
-npm run check
-```
+## Política de documentação
 
-`npm run check` representa tudo que é sempre exigido pelo CI funcional atual:
-
-```text
-format:check
--> lint
--> test
--> build:apps
-```
-
-`npm test` preserva o hook `pretest`, que compila os packages compartilhados antes das suítes. Por isso o gate funciona em checkout limpo sem manter uma segunda lista de preparação dentro do workflow.
-
-## Checks direcionados
-
-Use quando o risco/escopo justificar uma validação adicional ou quando quiser diagnosticar uma etapa isoladamente.
-
-### Typecheck isolado
-
-```bash
-npm run typecheck
-```
-
-Útil quando tipos/configuração de build merecem inspeção separada. Não é repetido como etapa fixa do CI atual.
-
-### Formatação isolada
-
-```bash
-npm run format:check
-```
-
-`format:check` **já faz parte de `npm run check`**. Rode isoladamente quando quiser diagnosticar rapidamente drift de Prettier antes do gate completo.
-
-### CLI Bash
-
-```bash
-npm run test:cli
-```
-
-Execute quando `lib/`, `init.sh` ou contratos Bash relacionados mudarem.
-
-### E2E
-
-```bash
-npm run test:e2e
-```
-
-Reserve para jornadas web críticas em que unidade/componente não provam a integração real entre UI, router, API e ambiente. O E2E não é um segundo job obrigatório do CI atual.
-
-### Coverage
-
-```bash
-npm run test:coverage
-```
-
-Coverage é diagnóstico, não threshold de aprovação.
-
-### API docs
-
-Quando rotas ou schemas mudarem:
-
-```bash
-npm run docs:api
-npm run docs:api:check
-```
-
-`docs/architecture/api-reference.md` é gerada e não deve ser editada manualmente. `docs:api:check` é um check direcionado para mudanças de API; ele não é hoje uma etapa automática separada do job `Validate`.
-
-## Modos de execução
-
-Desenvolvimento normal:
-
-```bash
-npm run dev
-```
-
-Somente API/web:
-
-```bash
-npm run dev:api
-npm run dev:web
-```
-
-Distribuição local compilada sem Vite:
-
-```bash
-npm run dev-web
-```
-
-`dev-web` é um modo real de distribuição local e também compartilha implementação com o runtime usado pelo self-update. Ele não deve ser confundido com o servidor HMR comum.
-
-Instalação permanente no Linux:
-
-```bash
-npm run local:install
-```
-
-Esse fluxo recompila a distribuição, mantém uma unit fixa `systemd --user`, reinicia `dev-dashboard.service` e aguarda a API ficar saudável antes de concluir.
-
-## CI
-
-O workflow `.github/workflows/ci.yml` possui hoje um único job **Validate**:
-
-```text
-npm ci --ignore-scripts
--> npm rebuild esbuild node-pty
--> npm run check
-```
-
-A preparação explícita dos binários nativos evita scripts de instalação implícitos/repetidos durante `npm ci`.
-
-O objetivo é manter uma única interface para o gate obrigatório, em vez de duplicar `format`, `lint`, `test` e build no YAML.
-
-## Fluxo recomendado
-
-```text
-issue
--> branch curta
--> implementação + testes
--> npm run dev
--> validação manual quando aplicável
--> npm run check
--> checks direcionados quando o risco justificar
--> PR
--> CI no head atual
--> auto code review completo
--> correções
--> novo CI/review se o SHA mudar
--> merge
--> produção conforme PRODUCTION.md quando aplicável
-```
-
-## Domínio de Produção
-
-Mudanças no Production Contract, planner, providers, recovery ou UI de Produção exigem leitura adicional de:
-
-- [`architecture/production-contract.md`](architecture/production-contract.md);
-- [`architecture/deployment-domain.md`](architecture/deployment-domain.md);
-- [`architecture/security.md`](architecture/security.md);
-- [`deployment-operations.md`](deployment-operations.md);
-- [`production-ui.md`](production-ui.md).
-
-Quando tocar a produção do próprio Dev Dashboard, siga [`PRODUCTION.md`](PRODUCTION.md) e [`architecture/self-production.md`](architecture/self-production.md).
-
-## Antes de declarar pronto
-
-- o `npm run check` passa no head final;
-- checks direcionados aplicáveis passaram;
-- documentação mudou junto do contrato/comportamento;
-- nenhuma credencial entrou em Git/logs/responses;
-- o auto-review ocorreu depois do último commit.
+Mantenha somente documentação viva. Planos concluídos, relatórios e decisões pontuais ficam no histórico Git, issues e PRs.
