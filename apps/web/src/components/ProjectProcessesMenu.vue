@@ -12,7 +12,7 @@ import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 const props = withDefaults(
   defineProps<{
     project: Project;
-    environmentInstanceId?: string;
+    environmentInstanceId?: string | undefined;
     eager?: boolean;
   }>(),
   { eager: true },

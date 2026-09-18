@@ -34,7 +34,7 @@ import ProjectLogTerminal from './ProjectLogTerminal.vue';
 
 const props = defineProps<{
   project: Project;
-  environmentInstanceId?: string;
+  environmentInstanceId?: string | undefined;
 }>();
 
 const {
