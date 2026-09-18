@@ -274,6 +274,7 @@ test.describe('Worktrees como Environment Instances', () => {
         worktreeB.environmentInstanceId,
       );
 
+      // Mantém a fixture determinística quando este cenário roda junto da suíte completa.
       const projectPath = path.join(
         runtimeInfo.workspaceDirectory,
         'sample-node-app',
