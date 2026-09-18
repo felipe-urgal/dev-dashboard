@@ -127,7 +127,7 @@ function baseOptions(calls: Array<{ action: string; args: unknown[] }>) {
   };
 }
 
-test('rotas de processo de testes usam a Environment Instance selecionada', async (context) => {
+test('rotas HTTP de processo de testes usam a Environment Instance selecionada', async (context) => {
   const calls: Array<{ action: string; args: unknown[] }> = [];
   const app = Fastify();
   context.after(() => app.close());
