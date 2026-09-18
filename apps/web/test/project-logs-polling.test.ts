@@ -78,6 +78,15 @@ describe('lifecycle do stream de logs do projeto', () => {
       expect.any(Function),
       'environment:worktree:p1:wt-1',
     );
+
+    environmentInstanceId.value = 'environment:primary:p1';
+    await flushPromises();
+
+    expect(followProjectProcessLogEvents).toHaveBeenLastCalledWith(
+      'p1',
+      expect.any(Function),
+      'environment:primary:p1',
+    );
     wrapper.unmount();
   });
 

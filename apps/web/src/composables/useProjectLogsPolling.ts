@@ -259,8 +259,8 @@ export function useProjectLogsPolling(
     () => `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
     () => {
       reset();
+      if (hasManagedProcess.value) startLogStream();
     },
-    { immediate: true },
   );
 
   watch(
