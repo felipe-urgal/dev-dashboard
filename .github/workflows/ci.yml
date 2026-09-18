@@ -39,11 +39,3 @@ jobs:
 
       - name: Quality gate
         run: npm run check
-
-      - name: Install Playwright Chromium for worktree E2E
-        if: github.event_name == 'pull_request' && github.event.pull_request.number == 765
-        run: npx playwright install --with-deps chromium
-
-      - name: Worktree Environment E2E
-        if: github.event_name == 'pull_request' && github.event.pull_request.number == 765
-        run: npm run test:e2e --workspace=@dev-dashboard/web -- --grep "cleanup após remoção externa"
