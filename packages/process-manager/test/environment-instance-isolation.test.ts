@@ -31,7 +31,7 @@ function processState(
     command: 'node',
     args: ['server.js'],
     cwd,
-    logPath: '',
+    logPath: '/tmp/process.log',
     startedAt: '2026-09-18T10:00:00.000Z',
     stoppedAt: '2026-09-18T10:01:00.000Z',
   };
