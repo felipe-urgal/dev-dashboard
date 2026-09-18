@@ -176,11 +176,7 @@ export async function writeStoredProcess(
   });
 
   const kind = managedProcess.kind as ManagedKind;
-  const legacyLogFile = resolveLogFile(
-    context,
-    managedProcess.projectId,
-    kind,
-  );
+  const legacyLogFile = resolveLogFile(context, managedProcess.projectId, kind);
   const preserveLegacyStorage =
     managedProcess.environmentInstanceId !== undefined &&
     managedProcess.logPath === legacyLogFile;

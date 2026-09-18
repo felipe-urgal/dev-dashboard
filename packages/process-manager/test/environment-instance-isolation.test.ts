@@ -166,7 +166,6 @@ test('estado scoped inválido não faz fallback para estado legado', async (cont
   assert.equal(resolved, null);
 });
 
-
 test('estado legado com Environment Instance preserva state e log legados ao atualizar', async (context) => {
   const root = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-process-legacy-owned-'),
