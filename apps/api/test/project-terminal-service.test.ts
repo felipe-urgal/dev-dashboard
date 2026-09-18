@@ -255,6 +255,63 @@ test('desconexão do navegador encerra o processo', async () => {
   assert.equal(service.status(testProject, 'shell').activeSessions, 0);
 });
 
+test('closeEnvironment encerra somente sessões e confirmações da Environment Instance dona', async () => {
+  const ptys = [new FakePty(), new FakePty()];
+  let nextPty = 0;
+  const service = new ProjectTerminalService({
+    spawnPty: () => ptys[nextPty++]! as never,
+    resolveCommand: async () => ({ file: '/bin/bash', args: [] }),
+  });
+  const testProject = project('/tmp/x');
+  const target = {
+    projectId: testProject.id,
+    environmentInstanceId: 'environment:worktree:project-1:worktree-a',
+    cwd: '/tmp/x-a',
+    runtime: 'host' as const,
+  };
+  const other = {
+    projectId: testProject.id,
+    environmentInstanceId: 'environment:worktree:project-1:worktree-b',
+    cwd: '/tmp/x-b',
+    runtime: 'host' as const,
+  };
+  const targetConfirmation = service.prepareConfirmation(
+    testProject,
+    'shell',
+    target,
+  );
+  const otherConfirmation = service.prepareConfirmation(
+    testProject,
+    'shell',
+    other,
+  );
+  const targetSocket = new FakeSocket();
+  const otherSocket = new FakeSocket();
+
+  await service.attach(
+    testProject,
+    'shell',
+    targetConfirmation.token,
+    targetSocket as never,
+    target,
+  );
+  await service.attach(
+    testProject,
+    'shell',
+    otherConfirmation.token,
+    otherSocket as never,
+    other,
+  );
+
+  service.closeEnvironment(target.environmentInstanceId);
+
+  assert.equal(ptys[0]!.killed, true);
+  assert.equal(ptys[1]!.killed, false);
+  assert.equal(service.status(testProject, 'shell', target).activeSessions, 0);
+  assert.equal(service.status(testProject, 'shell', other).activeSessions, 1);
+
+  otherSocket.close();
+});
 test('comando indisponível encerra a conexão com erro', async () => {
   const service = new ProjectTerminalService({
     resolveCommand: async () => undefined,

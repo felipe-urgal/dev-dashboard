@@ -64,6 +64,30 @@ test('verifyProcessDirectory (linux): confirma quando /proc/<pid>/cwd bate com o
   );
 });
 
+test('verifyProcessDirectory (linux): confirma cwd removido externamente sem aceitar outro caminho', async () => {
+  const cwd = '/tmp/project-worktree-removido';
+  const stored = {
+    ...validProcess,
+    pid: process.pid,
+    cwd,
+  } as StoredProcess;
+
+  assert.equal(
+    await verifyProcessDirectory(stored, {
+      platform: 'linux',
+      readProcessCwd: async () => `${cwd} (deleted)`,
+    }),
+    true,
+  );
+  assert.equal(
+    await verifyProcessDirectory(stored, {
+      platform: 'linux',
+      readProcessCwd: async () => '/tmp/outro-worktree (deleted)',
+    }),
+    false,
+  );
+});
+
 test('verifyProcessDirectory (linux): rejeita quando o cwd esperado não bate', async () => {
   const stored = {
     ...validProcess,

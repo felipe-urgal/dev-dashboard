@@ -98,7 +98,7 @@ test('does not resolve arbitrary or unknown environment identities', () => {
   );
 });
 
-test('maps linked worktree to one deterministic instance and degrades it when it disappears', () => {
+test('maps linked worktree to one deterministic instance and degrades it when it disappears or becomes prunable', () => {
   const projectStore = new ProjectStore();
   saveProjects(projectStore, [project('project-a', '/workspace/project-a')]);
   const store = new DevelopmentEnvironmentInstanceStore(projectStore);
@@ -133,6 +133,13 @@ test('maps linked worktree to one deterministic instance and degrades it when it
     runtime: { kind: 'host' },
     lifecycle: 'ready',
   });
+
+  store.reconcileWorktrees('project-a', [{ ...worktree, prunable: true }]);
+  assert.equal(store.findById(environmentId)?.lifecycle, 'degraded');
+  assert.equal(store.resolveExecutionContext(environmentId), null);
+
+  store.reconcileWorktrees('project-a', [worktree]);
+  assert.equal(store.findById(environmentId)?.lifecycle, 'ready');
 
   store.reconcileWorktrees('project-a', []);
   assert.equal(store.findById(environmentId)?.lifecycle, 'degraded');

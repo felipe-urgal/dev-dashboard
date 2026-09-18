@@ -90,6 +90,7 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
     projectId: string;
     worktreeIds: string[];
   }> = [];
+  const cleanupCalls: string[] = [];
   let removed = false;
 
   const app = Fastify();
@@ -142,7 +143,26 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
           projectId,
           worktreeIds: worktrees.map((worktree) => worktree.id),
         });
-        return [];
+        if (worktrees.some((worktree) => worktree.kind === 'linked')) return [];
+        return [
+          {
+            id: 'environment:worktree:project-1:worktree-linked',
+            projectId: 'project-1',
+            source: {
+              kind: 'worktree',
+              path: '/workspace/projeto-demo',
+              worktreeId: 'worktree-linked',
+            },
+            runtime: { kind: 'host' },
+            lifecycle: 'degraded',
+          },
+        ];
+      },
+    },
+    environmentInstanceCleanupService: {
+      cleanupMissingWorktree: async (instance) => {
+        cleanupCalls.push(instance.id);
+        return { state: 'cleaned' };
       },
     },
   });
@@ -236,6 +256,10 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
     },
   ]);
 
+  assert.deepEqual(cleanupCalls, [
+    'environment:worktree:project-1:worktree-linked',
+  ]);
+
   assert.deepEqual(reconciliations, [
     {
       projectId: 'project-1',
@@ -272,6 +296,7 @@ test('Worktrees HTTP não reconcilia snapshot não confiável', async (context) 
     warnings: [],
   });
   let reconciled = false;
+  let cleanupCalled = false;
 
   const app = Fastify();
   registerApiErrorHandling(app);
@@ -308,6 +333,12 @@ test('Worktrees HTTP não reconcilia snapshot não confiável', async (context) 
         return [];
       },
     },
+    environmentInstanceCleanupService: {
+      cleanupMissingWorktree: async () => {
+        cleanupCalled = true;
+        return { state: 'cleaned' };
+      },
+    },
   });
   context.after(() => app.close());
 
@@ -321,4 +352,5 @@ test('Worktrees HTTP não reconcilia snapshot não confiável', async (context) 
     'invalid-output',
   );
   assert.equal(reconciled, false);
+  assert.equal(cleanupCalled, false);
 });

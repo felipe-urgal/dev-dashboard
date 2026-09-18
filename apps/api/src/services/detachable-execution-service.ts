@@ -293,6 +293,26 @@ export class DetachableExecutionService {
     this.deleteRecord(key, record);
   }
 
+  public cleanupEnvironment(
+    projectId: string,
+    environmentInstanceId: string,
+  ): number {
+    const prefix = `${projectId}:${environmentInstanceId}:`;
+    let affected = 0;
+
+    for (const [key, record] of [...this.executions]) {
+      if (!key.startsWith(prefix)) continue;
+      affected += 1;
+      if (record.status === 'running') {
+        this.cancel(key);
+      } else {
+        this.deleteRecord(key, record);
+      }
+    }
+
+    return affected;
+  }
+
   /**
    * Fecha o serviço inteiro durante o shutdown da API. O fechamento é
    * idempotente: remove listeners, dá uma janela curta de TERM aos PTYs ainda

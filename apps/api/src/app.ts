@@ -23,6 +23,7 @@ import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js'
 import { projectLanguageServerRoutes } from './routes/project-language-server.js';
 import { projectTerminalRoutes } from './routes/project-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
+import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -122,6 +123,17 @@ export async function buildApp(options: BuildAppOptions = {}) {
     securityScannerProvider,
   } = composition;
   registerAppLifecycle(app, context, composition);
+
+  const environmentInstanceCleanupService =
+    new EnvironmentInstanceCleanupService({
+      processManager: context.processManager,
+      projectTerminalService,
+      ...(context.detachableExecutionService
+        ? {
+            detachableExecutionService: context.detachableExecutionService,
+          }
+        : {}),
+    });
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());
@@ -234,6 +246,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     gitWorktreeLifecycleService: context.gitWorktreeLifecycleService,
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
+    environmentInstanceCleanupService,
   });
   app.register(gitSyncRoutes, {
     prefix: '/api',
