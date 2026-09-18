@@ -64,6 +64,7 @@ export class EnvironmentInstanceCleanupService {
 
     const ownedProcesses = processes.filter(
       (process) =>
+        process.projectId === instance.projectId &&
         process.environmentInstanceId === instance.id &&
         ACTIVE_PROCESS_STATUSES.has(process.status),
     );
