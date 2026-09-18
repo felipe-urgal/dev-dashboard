@@ -10,7 +10,11 @@ import { useProjectProcessStatus } from '../composables/useProjectProcessStatus'
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
 const props = withDefaults(
-  defineProps<{ project: Project; eager?: boolean }>(),
+  defineProps<{
+    project: Project;
+    environmentInstanceId?: string;
+    eager?: boolean;
+  }>(),
   { eager: true },
 );
 const emit = defineEmits<{
@@ -20,7 +24,10 @@ const emit = defineEmits<{
 const serverBusy = ref<'start' | 'stop' | null>(null);
 const errorMessage = ref('');
 
-const server = useProjectProcessStatus(() => props.project);
+const server = useProjectProcessStatus(
+  () => props.project,
+  () => props.environmentInstanceId,
+);
 const sidekiq = useProjectRailsWorker(
   () => props.project,
   'sidekiq',
@@ -69,7 +76,11 @@ async function startServer(): Promise<void> {
   serverBusy.value = 'start';
   errorMessage.value = '';
   try {
-    const nextProcess = await startProjectProcess(props.project.id);
+    const nextProcess = await startProjectProcess(props.project.id, {
+      ...(props.environmentInstanceId
+        ? { environmentInstanceId: props.environmentInstanceId }
+        : {}),
+    });
     server.managedProcess.value = nextProcess;
     server.scheduleProcessPolling();
   } catch (error) {
@@ -86,7 +97,10 @@ async function stopServer(): Promise<void> {
   serverBusy.value = 'stop';
   errorMessage.value = '';
   try {
-    const nextProcess = await stopProjectProcess(props.project.id);
+    const nextProcess = await stopProjectProcess(
+      props.project.id,
+      props.environmentInstanceId,
+    );
     server.managedProcess.value = nextProcess;
   } catch (error) {
     errorMessage.value =

@@ -9,7 +9,10 @@ import type {
 import { fetchProjectProcess } from '../api';
 import { RequestGate, RequestGeneration } from '../utils/request-generation';
 
-export function useProjectProcessStatus(getProject: () => Project) {
+export function useProjectProcessStatus(
+  getProject: () => Project,
+  getEnvironmentInstanceId: () => string | undefined = () => undefined,
+) {
   const managedProcess = ref<ManagedProcess | null>(null);
   const loadingStatus = ref(false);
   const errorMessage = ref('');
@@ -60,9 +63,15 @@ export function useProjectProcessStatus(getProject: () => Project) {
     }
   });
 
-  function isCurrentProject(projectId: string, generation: number): boolean {
+  function isCurrentContext(
+    projectId: string,
+    environmentInstanceId: string | undefined,
+    generation: number,
+  ): boolean {
     return (
-      getProject().id === projectId && projectRequests.isCurrent(generation)
+      getProject().id === projectId &&
+      getEnvironmentInstanceId() === environmentInstanceId &&
+      projectRequests.isCurrent(generation)
     );
   }
 
@@ -78,17 +87,21 @@ export function useProjectProcessStatus(getProject: () => Project) {
     }
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     loadingStatus.value = true;
 
     try {
-      const nextProcess = await fetchProjectProcess(projectId);
+      const nextProcess = await fetchProjectProcess(
+        projectId,
+        environmentInstanceId,
+      );
 
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         managedProcess.value = nextProcess;
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
@@ -96,7 +109,7 @@ export function useProjectProcessStatus(getProject: () => Project) {
       }
     } finally {
       if (processRequestGate.finish(requestToken)) {
-        if (isCurrentProject(projectId, generation)) {
+        if (isCurrentContext(projectId, environmentInstanceId, generation)) {
           loadingStatus.value = false;
         }
       }
@@ -159,7 +172,8 @@ export function useProjectProcessStatus(getProject: () => Project) {
   }
 
   watch(
-    () => getProject().id,
+    () =>
+      `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
     () => {
       void initialize();
     },

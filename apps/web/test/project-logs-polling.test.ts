@@ -25,7 +25,9 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function mountHarness() {
+function mountHarness(
+  environmentInstanceId = ref<string | undefined>(undefined),
+) {
   const project = makeProject();
   const hasManagedProcess = ref(true);
   const supportsServer = ref(true);
@@ -40,6 +42,7 @@ function mountHarness() {
           hasManagedProcess,
           supportsServer,
           logContainer,
+          () => environmentInstanceId.value,
         );
         return {};
       },
@@ -55,6 +58,27 @@ describe('lifecycle do stream de logs do projeto', () => {
     clearProjectProcessLog.mockReset();
     fetchProjectProcessLog.mockReset();
     followProjectProcessLogEvents.mockReset();
+  });
+
+  it('abre o stream na Environment Instance selecionada', async () => {
+    const done = deferred<void>();
+    followProjectProcessLogEvents.mockReturnValue({
+      close: vi.fn(() => done.resolve()),
+      done: done.promise,
+    });
+    const environmentInstanceId = ref<string | undefined>(
+      'environment:worktree:p1:wt-1',
+    );
+
+    const { wrapper } = mountHarness(environmentInstanceId);
+    await flushPromises();
+
+    expect(followProjectProcessLogEvents).toHaveBeenCalledWith(
+      'p1',
+      expect.any(Function),
+      'environment:worktree:p1:wt-1',
+    );
+    wrapper.unmount();
   });
 
   it('encerra o loading ao pausar antes do primeiro evento', async () => {

@@ -105,6 +105,12 @@ const projectId = computed(() => {
   return Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
 });
 
+const environmentInstanceId = computed(() => {
+  const value = route.query.environmentInstanceId;
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return typeof candidate === 'string' && candidate ? candidate : undefined;
+});
+
 const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isReadinessRoute = computed(() => route.name === 'project-readiness');
@@ -327,6 +333,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
             <div v-if="project.enabled" class="project-details-actions-row">
               <ProjectProcessesMenu
                 :project="project"
+                :environment-instance-id="environmentInstanceId"
                 @worker-detected="
                   (workerId, detected) => {
                     if (workerId === 'sidekiq') sidekiqDetected = detected;
@@ -352,6 +359,11 @@ onBeforeUnmount(stopGitOverviewRefresh);
               :to="{
                 name: 'project-server',
                 params: { projectId: project.id },
+                ...(environmentInstanceId
+                  ? {
+                      query: { environmentInstanceId },
+                    }
+                  : {}),
               }"
             >
               <ServerStackIcon aria-hidden="true" />
@@ -445,8 +457,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectServerPanel
         v-else-if="isServerRoute"
-        :key="`server-${project.id}`"
+        :key="`server-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectGitPanel

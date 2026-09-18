@@ -21,6 +21,7 @@ export function useProjectLogsPolling(
   hasManagedProcess: Ref<boolean> | ComputedRef<boolean>,
   supportsServer: Ref<boolean> | ComputedRef<boolean>,
   logContainer: Ref<HTMLElement | null>,
+  getEnvironmentInstanceId: () => string | undefined = () => undefined,
 ) {
   const loadingLogs = ref(false);
   const logSnapshot = ref<ProcessLogSnapshot | null>(null);
@@ -35,9 +36,15 @@ export function useProjectLogsPolling(
   let clearingLog = false;
   const clearing = ref(false);
 
-  function isCurrentProject(projectId: string, generation: number): boolean {
+  function isCurrentContext(
+    projectId: string,
+    environmentInstanceId: string | undefined,
+    generation: number,
+  ): boolean {
     return (
-      getProject().id === projectId && projectRequests.isCurrent(generation)
+      getProject().id === projectId &&
+      getEnvironmentInstanceId() === environmentInstanceId &&
+      projectRequests.isCurrent(generation)
     );
   }
 
@@ -61,16 +68,21 @@ export function useProjectLogsPolling(
     if (!requestToken) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     const logGeneration = logRequests.capture();
     loadingLogs.value = true;
     logErrorMessage.value = '';
 
     try {
-      const snapshot = await fetchProjectProcessLog(projectId);
+      const snapshot = await fetchProjectProcessLog(
+        projectId,
+        65_536,
+        environmentInstanceId,
+      );
 
       if (
-        isCurrentProject(projectId, generation) &&
+        isCurrentContext(projectId, environmentInstanceId, generation) &&
         logRequests.isCurrent(logGeneration)
       ) {
         logSnapshot.value = snapshot;
@@ -78,7 +90,7 @@ export function useProjectLogsPolling(
       }
     } catch (error) {
       if (
-        isCurrentProject(projectId, generation) &&
+        isCurrentContext(projectId, environmentInstanceId, generation) &&
         logRequests.isCurrent(logGeneration)
       ) {
         logErrorMessage.value =
@@ -88,7 +100,10 @@ export function useProjectLogsPolling(
       }
     } finally {
       if (logRequestGate.finish(requestToken)) {
-        if (isCurrentProject(projectId, generation) && !clearingLog) {
+        if (
+          isCurrentContext(projectId, environmentInstanceId, generation) &&
+          !clearingLog
+        ) {
           loadingLogs.value = false;
         }
       }
@@ -115,31 +130,36 @@ export function useProjectLogsPolling(
     }
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     const logGeneration = logRequests.capture();
     loadingLogs.value = true;
 
-    const stream = followProjectProcessLogEvents(projectId, (snapshot) => {
-      if (
-        logStream !== stream ||
-        !isCurrentProject(projectId, generation) ||
-        !logRequests.isCurrent(logGeneration)
-      ) {
-        return;
-      }
+    const stream = followProjectProcessLogEvents(
+      projectId,
+      (snapshot) => {
+        if (
+          logStream !== stream ||
+          !isCurrentContext(projectId, environmentInstanceId, generation) ||
+          !logRequests.isCurrent(logGeneration)
+        ) {
+          return;
+        }
 
-      logErrorMessage.value = '';
-      loadingLogs.value = false;
-      logSnapshot.value = snapshot;
-      void scrollLogsToLatest();
-    });
+        logErrorMessage.value = '';
+        loadingLogs.value = false;
+        logSnapshot.value = snapshot;
+        void scrollLogsToLatest();
+      },
+      environmentInstanceId,
+    );
     logStream = stream;
 
     void stream.done
       .catch((error: unknown) => {
         if (
           logStream !== stream ||
-          !isCurrentProject(projectId, generation) ||
+          !isCurrentContext(projectId, environmentInstanceId, generation) ||
           !logRequests.isCurrent(logGeneration)
         ) {
           return;
@@ -170,6 +190,7 @@ export function useProjectLogsPolling(
     if (!hasManagedProcess.value || clearingLog) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     const clearGeneration = logRequests.invalidate();
     logRequestGate.invalidate();
@@ -180,10 +201,13 @@ export function useProjectLogsPolling(
     stopLogStream();
 
     try {
-      const snapshot = await clearProjectProcessLog(projectId);
+      const snapshot = await clearProjectProcessLog(
+        projectId,
+        environmentInstanceId,
+      );
 
       if (
-        isCurrentProject(projectId, generation) &&
+        isCurrentContext(projectId, environmentInstanceId, generation) &&
         logRequests.isCurrent(clearGeneration)
       ) {
         logSnapshot.value = snapshot;
@@ -191,14 +215,14 @@ export function useProjectLogsPolling(
         await scrollLogsToLatest();
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         logErrorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível limpar os logs.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         clearingLog = false;
         clearing.value = false;
         loadingLogs.value = false;
@@ -232,7 +256,8 @@ export function useProjectLogsPolling(
   }
 
   watch(
-    () => getProject().id,
+    () =>
+      `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
     () => {
       reset();
     },

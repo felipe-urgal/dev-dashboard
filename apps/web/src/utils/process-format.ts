@@ -39,9 +39,20 @@ export function processStatusLabel(status: ManagedProcessStatus): string {
   }
 }
 
+function serverEnvironmentQuery(process: ManagedProcess): string {
+  if (process.kind !== 'server' || !process.environmentInstanceId) return '';
+  const parameters = new URLSearchParams({
+    environmentInstanceId: process.environmentInstanceId,
+  });
+  return `?${parameters}`;
+}
+
 export function processDetailPath(process: ManagedProcess): string {
   const base = `/projects/${encodeURIComponent(process.projectId)}`;
   if (process.kind === 'test') return `${base}/tests`;
+  if (process.kind === 'server' && process.environmentInstanceId) {
+    return `${base}/server${serverEnvironmentQuery(process)}`;
+  }
   return base;
 }
 
@@ -52,7 +63,7 @@ export function processLogPath(process: ManagedProcess): string {
     case 'test':
       return `${base}/tests`;
     case 'server':
-      return `${base}/server`;
+      return `${base}/server${serverEnvironmentQuery(process)}`;
     case 'worker':
       return `${base}/sidekiq`;
     case 'webpack':

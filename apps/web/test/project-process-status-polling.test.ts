@@ -37,12 +37,18 @@ function process(status: ManagedProcessStatus): ManagedProcess {
   };
 }
 
-function mountHarness(currentStatus: Ref<ManagedProcessStatus>) {
+function mountHarness(
+  currentStatus: Ref<ManagedProcessStatus>,
+  environmentInstanceId = ref<string | undefined>(undefined),
+) {
   return mount(
     defineComponent({
       setup() {
         const currentProject = ref(project());
-        useProjectProcessStatus(() => currentProject.value);
+        useProjectProcessStatus(
+          () => currentProject.value,
+          () => environmentInstanceId.value,
+        );
 
         return {
           currentStatus,
@@ -62,6 +68,30 @@ describe('polling do status do processo do servidor', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('propaga e reage à Environment Instance selecionada', async () => {
+    const status = ref<ManagedProcessStatus>('stopped');
+    const environmentInstanceId = ref<string | undefined>(
+      'environment:worktree:project-a:wt-1',
+    );
+    fetchProjectProcess.mockResolvedValue(process('stopped'));
+    const wrapper = mountHarness(status, environmentInstanceId);
+
+    await flushPromises();
+    expect(fetchProjectProcess).toHaveBeenLastCalledWith(
+      'project-a',
+      'environment:worktree:project-a:wt-1',
+    );
+
+    environmentInstanceId.value = 'environment:primary:project-a';
+    await flushPromises();
+
+    expect(fetchProjectProcess).toHaveBeenLastCalledWith(
+      'project-a',
+      'environment:primary:project-a',
+    );
+    wrapper.unmount();
   });
 
   it('não continua consultando um processo parado', async () => {

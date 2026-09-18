@@ -45,6 +45,14 @@ test('processDetailPath aponta test para /tests e demais kinds para a raiz do pr
     processDetailPath({ ...base, kind: 'server' }),
     '/projects/p%20one',
   );
+  assert.equal(
+    processDetailPath({
+      ...base,
+      kind: 'server',
+      environmentInstanceId: 'environment:worktree:p one:wt-1',
+    }),
+    '/projects/p%20one/server?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
+  );
 });
 
 test('processLogPath direciona cada processo para a ferramenta que exibe seus logs', () => {
@@ -57,6 +65,14 @@ test('processLogPath direciona cada processo para a ferramenta que exibe seus lo
   assert.equal(
     processLogPath({ ...base, kind: 'server' }),
     '/projects/p%20one/server',
+  );
+  assert.equal(
+    processLogPath({
+      ...base,
+      kind: 'server',
+      environmentInstanceId: 'environment:worktree:p one:wt-1',
+    }),
+    '/projects/p%20one/server?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
   );
   assert.equal(
     processLogPath({ ...base, kind: 'test' }),
