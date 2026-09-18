@@ -81,7 +81,7 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
         name: 'sample-node-app',
         version: '0.0.0',
         scripts: {
-          dev: 'node -e "process.exit(0)"',
+          dev: `node -e "require('node:http').createServer((_, res) => res.end('ok')).listen(Number(process.env.PORT), process.env.HOST || '127.0.0.1')"`,
           test: 'node -e "process.exit(0)"',
           // Duração observável (~500ms) para o e2e do catálogo de scripts
           // exercitar o estado "Em execução" antes do desfecho; nomes
