@@ -28,6 +28,14 @@ test('GET /api/projects/:id/rails/workers/:workerId/logs/events traduz erro de w
     projectStore: {
       findProject: () => ({ id: 'projeto-1' }),
     } as never,
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'projeto-1',
+        environmentInstanceId: 'environment:primary:projeto-1',
+        cwd: '/tmp/projeto-1',
+        runtime: 'host',
+      }),
+    } as never,
     railsInspectionService: {} as never,
     railsRuntimeService,
   });

@@ -21,6 +21,7 @@ defineProps<{
   project: Project;
   sidekiqDetected: boolean;
   webpackDetected: boolean;
+  environmentInstanceId?: string | undefined;
 }>();
 
 const route = useRoute();
@@ -66,7 +67,13 @@ const route = useRoute();
     :class="{
       'project-details-tab-active': route.name === 'project-rails-sidekiq',
     }"
-    :to="{ name: 'project-rails-sidekiq', params: { projectId: project.id } }"
+    :to="{
+      name: 'project-rails-sidekiq',
+      params: { projectId: project.id },
+      ...(environmentInstanceId
+        ? { query: { environmentInstanceId } }
+        : {}),
+    }"
   >
     <QueueListIcon aria-hidden="true" />
     <span>Sidekiq</span>
@@ -77,7 +84,13 @@ const route = useRoute();
     :class="{
       'project-details-tab-active': route.name === 'project-rails-webpack',
     }"
-    :to="{ name: 'project-rails-webpack', params: { projectId: project.id } }"
+    :to="{
+      name: 'project-rails-webpack',
+      params: { projectId: project.id },
+      ...(environmentInstanceId
+        ? { query: { environmentInstanceId } }
+        : {}),
+    }"
   >
     <CodeBracketIcon aria-hidden="true" />
     <span>Webpack</span>

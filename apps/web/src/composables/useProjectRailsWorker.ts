@@ -30,6 +30,7 @@ export function useProjectRailsWorker(
   workerId: RailsWorkerId,
   supportsRestart: boolean,
   autoInitialize = true,
+  getEnvironmentInstanceId: () => string | undefined = () => undefined,
 ) {
   const detected = ref(false);
   const managedProcess = ref<ManagedProcess | null>(null);
@@ -77,9 +78,15 @@ export function useProjectRailsWorker(
     }
   });
 
-  function isCurrentProject(projectId: string, generation: number): boolean {
+  function isCurrentContext(
+    projectId: string,
+    environmentInstanceId: string | undefined,
+    generation: number,
+  ): boolean {
     return (
-      getProject().id === projectId && projectRequests.isCurrent(generation)
+      getProject().id === projectId &&
+      getEnvironmentInstanceId() === environmentInstanceId &&
+      projectRequests.isCurrent(generation)
     );
   }
 
@@ -90,17 +97,24 @@ export function useProjectRailsWorker(
     if (!requestToken) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     loading.value = true;
 
     try {
-      const overview = await fetchProjectRailsWorker(projectId, workerId);
-      if (isCurrentProject(projectId, generation)) {
+      const overview = environmentInstanceId
+        ? await fetchProjectRailsWorker(
+            projectId,
+            workerId,
+            environmentInstanceId,
+          )
+        : await fetchProjectRailsWorker(projectId, workerId);
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         detected.value = overview.detected;
         managedProcess.value = overview.process;
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
@@ -109,7 +123,7 @@ export function useProjectRailsWorker(
     } finally {
       if (
         requestGate.finish(requestToken) &&
-        isCurrentProject(projectId, generation)
+        isCurrentContext(projectId, environmentInstanceId, generation)
       ) {
         loading.value = false;
       }
@@ -151,23 +165,30 @@ export function useProjectRailsWorker(
   // aberto enquanto `logsVisible` estiver true (ver startLogStream).
   async function refreshLog(): Promise<void> {
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     logLoading.value = true;
 
     try {
-      const snapshot = await fetchProjectRailsWorkerLog(projectId, workerId);
-      if (isCurrentProject(projectId, generation)) {
+      const snapshot = environmentInstanceId
+        ? await fetchProjectRailsWorkerLog(
+            projectId,
+            workerId,
+            environmentInstanceId,
+          )
+        : await fetchProjectRailsWorkerLog(projectId, workerId);
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         log.value = snapshot;
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível carregar o log.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         logLoading.value = false;
       }
     }
@@ -184,22 +205,33 @@ export function useProjectRailsWorker(
     stopLogStream();
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     logLoading.value = true;
 
-    logStream = followProjectRailsWorkerLogEvents(
-      projectId,
-      workerId,
-      (snapshot) => {
-        if (!isCurrentProject(projectId, generation)) return;
+    const handleSnapshot = (snapshot: ProcessLogSnapshot) => {
+      if (!isCurrentContext(projectId, environmentInstanceId, generation)) {
+        return;
+      }
 
-        logLoading.value = false;
-        log.value = snapshot;
-      },
-    );
+      logLoading.value = false;
+      log.value = snapshot;
+    };
+    logStream = environmentInstanceId
+      ? followProjectRailsWorkerLogEvents(
+          projectId,
+          workerId,
+          handleSnapshot,
+          environmentInstanceId,
+        )
+      : followProjectRailsWorkerLogEvents(
+          projectId,
+          workerId,
+          handleSnapshot,
+        );
 
     logStream.done.catch((error: unknown) => {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         logLoading.value = false;
         errorMessage.value =
           error instanceof Error
@@ -222,24 +254,31 @@ export function useProjectRailsWorker(
     if (clearingLog.value) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.invalidate();
     clearingLog.value = true;
     stopLogStream();
 
     try {
-      const snapshot = await clearProjectRailsWorkerLog(projectId, workerId);
-      if (isCurrentProject(projectId, generation)) {
+      const snapshot = environmentInstanceId
+        ? await clearProjectRailsWorkerLog(
+            projectId,
+            workerId,
+            environmentInstanceId,
+          )
+        : await clearProjectRailsWorkerLog(projectId, workerId);
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         log.value = snapshot;
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível limpar o log.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         clearingLog.value = false;
         startLogStream();
       }
@@ -250,25 +289,33 @@ export function useProjectRailsWorker(
     if (!supportsWorker.value) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     currentAction.value = 'start';
     errorMessage.value = '';
 
     try {
-      const nextProcess = await startProjectRailsWorker(projectId, workerId);
-      if (isCurrentProject(projectId, generation)) {
+      const nextProcess = environmentInstanceId
+        ? await startProjectRailsWorker(
+            projectId,
+            workerId,
+            environmentInstanceId,
+          )
+        : await startProjectRailsWorker(projectId, workerId);
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         managedProcess.value = nextProcess;
         schedulePolling();
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível iniciar o worker.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) currentAction.value = null;
+      if (isCurrentContext(projectId, environmentInstanceId, generation))
+        currentAction.value = null;
     }
   }
 
@@ -276,25 +323,33 @@ export function useProjectRailsWorker(
     if (!supportsWorker.value) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     currentAction.value = 'stop';
     errorMessage.value = '';
 
     try {
-      const nextProcess = await stopProjectRailsWorker(projectId, workerId);
-      if (isCurrentProject(projectId, generation)) {
+      const nextProcess = environmentInstanceId
+        ? await stopProjectRailsWorker(
+            projectId,
+            workerId,
+            environmentInstanceId,
+          )
+        : await stopProjectRailsWorker(projectId, workerId);
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         managedProcess.value = nextProcess;
         schedulePolling();
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível parar o worker.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) currentAction.value = null;
+      if (isCurrentContext(projectId, environmentInstanceId, generation))
+        currentAction.value = null;
     }
   }
 
@@ -302,25 +357,33 @@ export function useProjectRailsWorker(
     if (!supportsRestart || !supportsWorker.value) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     currentAction.value = 'restart';
     errorMessage.value = '';
 
     try {
-      const nextProcess = await restartProjectRailsWorker(projectId, workerId);
-      if (isCurrentProject(projectId, generation)) {
+      const nextProcess = environmentInstanceId
+        ? await restartProjectRailsWorker(
+            projectId,
+            workerId,
+            environmentInstanceId,
+          )
+        : await restartProjectRailsWorker(projectId, workerId);
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         managedProcess.value = nextProcess;
         schedulePolling();
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentContext(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível reiniciar o worker.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) currentAction.value = null;
+      if (isCurrentContext(projectId, environmentInstanceId, generation))
+        currentAction.value = null;
     }
   }
 
@@ -347,7 +410,7 @@ export function useProjectRailsWorker(
   }
 
   watch(
-    () => getProject().id,
+    () => `${getProject().id}:${getEnvironmentInstanceId() ?? ''}`,
     () => {
       if (!autoInitialize) return;
       void initialize();

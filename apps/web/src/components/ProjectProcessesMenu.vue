@@ -33,12 +33,14 @@ const sidekiq = useProjectRailsWorker(
   'sidekiq',
   true,
   props.eager,
+  () => props.environmentInstanceId,
 );
 const webpack = useProjectRailsWorker(
   () => props.project,
   'webpack',
   false,
   props.eager,
+  () => props.environmentInstanceId,
 );
 
 watch(

@@ -39,8 +39,8 @@ export function processStatusLabel(status: ManagedProcessStatus): string {
   }
 }
 
-function serverEnvironmentQuery(process: ManagedProcess): string {
-  if (process.kind !== 'server' || !process.environmentInstanceId) return '';
+function processEnvironmentQuery(process: ManagedProcess): string {
+  if (!process.environmentInstanceId) return '';
   const parameters = new URLSearchParams({
     environmentInstanceId: process.environmentInstanceId,
   });
@@ -51,7 +51,13 @@ export function processDetailPath(process: ManagedProcess): string {
   const base = `/projects/${encodeURIComponent(process.projectId)}`;
   if (process.kind === 'test') return `${base}/tests`;
   if (process.kind === 'server' && process.environmentInstanceId) {
-    return `${base}/server${serverEnvironmentQuery(process)}`;
+    return `${base}/server${processEnvironmentQuery(process)}`;
+  }
+  if (process.kind === 'worker' && process.environmentInstanceId) {
+    return `${base}/sidekiq${processEnvironmentQuery(process)}`;
+  }
+  if (process.kind === 'webpack' && process.environmentInstanceId) {
+    return `${base}/webpack${processEnvironmentQuery(process)}`;
   }
   return base;
 }
@@ -63,11 +69,11 @@ export function processLogPath(process: ManagedProcess): string {
     case 'test':
       return `${base}/tests`;
     case 'server':
-      return `${base}/server${serverEnvironmentQuery(process)}`;
+      return `${base}/server${processEnvironmentQuery(process)}`;
     case 'worker':
-      return `${base}/sidekiq`;
+      return `${base}/sidekiq${processEnvironmentQuery(process)}`;
     case 'webpack':
-      return `${base}/webpack`;
+      return `${base}/webpack${processEnvironmentQuery(process)}`;
     default:
       return base;
   }

@@ -411,12 +411,18 @@ function workerPath(projectId: string, workerId: RailsWorkerId): string {
   return `/api/projects/${encodeURIComponent(projectId)}/rails/workers/${encodeURIComponent(workerId)}`;
 }
 
+function workerEnvironmentQuery(environmentInstanceId?: string): string {
+  if (!environmentInstanceId) return '';
+  return `?environmentInstanceId=${encodeURIComponent(environmentInstanceId)}`;
+}
+
 export async function fetchProjectRailsWorker(
   projectId: string,
   workerId: RailsWorkerId,
+  environmentInstanceId?: string,
 ): Promise<RailsWorkerOverview> {
   const response = await requestJson<RailsWorkerOverviewResponse>(
-    workerPath(projectId, workerId),
+    `${workerPath(projectId, workerId)}${workerEnvironmentQuery(environmentInstanceId)}`,
   );
   return response.worker;
 }
@@ -424,9 +430,10 @@ export async function fetchProjectRailsWorker(
 export async function startProjectRailsWorker(
   projectId: string,
   workerId: RailsWorkerId,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<RailsWorkerProcessResponse>(
-    `${workerPath(projectId, workerId)}/start`,
+    `${workerPath(projectId, workerId)}/start${workerEnvironmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -439,9 +446,10 @@ export async function startProjectRailsWorker(
 export async function stopProjectRailsWorker(
   projectId: string,
   workerId: RailsWorkerId,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<RailsWorkerProcessResponse>(
-    `${workerPath(projectId, workerId)}/stop`,
+    `${workerPath(projectId, workerId)}/stop${workerEnvironmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -454,9 +462,10 @@ export async function stopProjectRailsWorker(
 export async function restartProjectRailsWorker(
   projectId: string,
   workerId: RailsWorkerId,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<RailsWorkerProcessResponse>(
-    `${workerPath(projectId, workerId)}/restart`,
+    `${workerPath(projectId, workerId)}/restart${workerEnvironmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -469,9 +478,10 @@ export async function restartProjectRailsWorker(
 export async function fetchProjectRailsWorkerLog(
   projectId: string,
   workerId: RailsWorkerId,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
   const response = await requestJson<RailsWorkerLogResponse>(
-    `${workerPath(projectId, workerId)}/logs`,
+    `${workerPath(projectId, workerId)}/logs${workerEnvironmentQuery(environmentInstanceId)}`,
   );
   return response.log;
 }
@@ -480,9 +490,10 @@ export function followProjectRailsWorkerLogEvents(
   projectId: string,
   workerId: RailsWorkerId,
   onEvent: (log: ProcessLogSnapshot) => void,
+  environmentInstanceId?: string,
 ): { close: () => void; done: Promise<void> } {
   return followEventStream(
-    `${workerPath(projectId, workerId)}/logs/events`,
+    `${workerPath(projectId, workerId)}/logs/events${workerEnvironmentQuery(environmentInstanceId)}`,
     onEvent,
   );
 }
@@ -490,9 +501,10 @@ export function followProjectRailsWorkerLogEvents(
 export async function clearProjectRailsWorkerLog(
   projectId: string,
   workerId: RailsWorkerId,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
   const response = await requestJson<RailsWorkerLogResponse>(
-    `${workerPath(projectId, workerId)}/logs`,
+    `${workerPath(projectId, workerId)}/logs${workerEnvironmentQuery(environmentInstanceId)}`,
     {
       method: 'DELETE',
     },

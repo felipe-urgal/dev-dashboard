@@ -10,11 +10,14 @@ import {
 } from '../../http/response-schemas.js';
 import { railsWorkerOverviewResponseSchema } from '../../http/response-schemas/rails.js';
 import {
+  requireExecutionContext,
   requireProject,
   translateWorkerError,
+  workerEnvironmentQuerySchema,
   workerLogQuerySchema,
   workerParamsSchema,
   type RailsRouteOptions,
+  type WorkerEnvironmentQuery,
   type WorkerLogQuery,
   type WorkerParams,
 } from './helpers.js';
@@ -23,11 +26,12 @@ export function registerRailsWorkerRoutes(
   app: FastifyInstance,
   options: RailsRouteOptions,
 ): void {
-  app.get<{ Params: WorkerParams }>(
+  app.get<{ Params: WorkerParams; Querystring: WorkerEnvironmentQuery }>(
     '/projects/:projectId/rails/workers/:workerId',
     {
       schema: {
         params: workerParamsSchema,
+        querystring: workerEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -39,12 +43,24 @@ export function registerRailsWorkerRoutes(
         },
       },
     },
-    async (request) => ({
-      worker: await options.railsRuntimeService.getWorkerOverview(
-        requireProject(options.projectStore, request.params.projectId),
-        request.params.workerId,
-      ),
-    }),
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      return {
+        worker: await options.railsRuntimeService.getWorkerOverview(
+          project,
+          request.params.workerId,
+          executionContext,
+        ),
+      };
+    },
   );
 
   app.get<{ Params: WorkerParams; Querystring: WorkerLogQuery }>(
@@ -69,6 +85,11 @@ export function registerRailsWorkerRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         return {
           log: await options.railsRuntimeService.readWorkerLog(
@@ -77,6 +98,7 @@ export function registerRailsWorkerRoutes(
             request.query.maxBytes !== undefined
               ? { maxBytes: request.query.maxBytes }
               : {},
+            executionContext.environmentInstanceId,
           ),
         };
       } catch (error) {
@@ -98,6 +120,11 @@ export function registerRailsWorkerRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       const readOptions = {
         ...(request.query.maxBytes !== undefined
           ? { maxBytes: request.query.maxBytes }
@@ -108,6 +135,7 @@ export function registerRailsWorkerRoutes(
           project.id,
           request.params.workerId,
           readOptions,
+          executionContext.environmentInstanceId,
         );
 
       let initial: ProcessLogSnapshot;
@@ -121,11 +149,12 @@ export function registerRailsWorkerRoutes(
     },
   );
 
-  app.delete<{ Params: WorkerParams }>(
+  app.delete<{ Params: WorkerParams; Querystring: WorkerEnvironmentQuery }>(
     '/projects/:projectId/rails/workers/:workerId/logs',
     {
       schema: {
         params: workerParamsSchema,
+        querystring: workerEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -142,11 +171,17 @@ export function registerRailsWorkerRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         return {
           log: await options.railsRuntimeService.clearWorkerLog(
             project.id,
             request.params.workerId,
+            executionContext.environmentInstanceId,
           ),
         };
       } catch (error) {
@@ -155,11 +190,12 @@ export function registerRailsWorkerRoutes(
     },
   );
 
-  app.post<{ Params: WorkerParams }>(
+  app.post<{ Params: WorkerParams; Querystring: WorkerEnvironmentQuery }>(
     '/projects/:projectId/rails/workers/:workerId/start',
     {
       schema: {
         params: workerParamsSchema,
+        querystring: workerEnvironmentQuerySchema,
         response: {
           201: {
             type: 'object',
@@ -176,10 +212,16 @@ export function registerRailsWorkerRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         const managedProcess = await options.railsRuntimeService.startWorker(
           project,
           request.params.workerId,
+          executionContext,
         );
         return reply.code(201).send({ process: managedProcess });
       } catch (error) {
@@ -188,11 +230,12 @@ export function registerRailsWorkerRoutes(
     },
   );
 
-  app.post<{ Params: WorkerParams }>(
+  app.post<{ Params: WorkerParams; Querystring: WorkerEnvironmentQuery }>(
     '/projects/:projectId/rails/workers/:workerId/stop',
     {
       schema: {
         params: workerParamsSchema,
+        querystring: workerEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -209,11 +252,17 @@ export function registerRailsWorkerRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         return {
           process: await options.railsRuntimeService.stopWorker(
             project.id,
             request.params.workerId,
+            executionContext.environmentInstanceId,
           ),
         };
       } catch (error) {
@@ -222,11 +271,12 @@ export function registerRailsWorkerRoutes(
     },
   );
 
-  app.post<{ Params: WorkerParams }>(
+  app.post<{ Params: WorkerParams; Querystring: WorkerEnvironmentQuery }>(
     '/projects/:projectId/rails/workers/:workerId/restart',
     {
       schema: {
         params: workerParamsSchema,
+        querystring: workerEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -243,11 +293,17 @@ export function registerRailsWorkerRoutes(
         options.projectStore,
         request.params.projectId,
       );
+      const executionContext = requireExecutionContext(
+        options.developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
         return {
           process: await options.railsRuntimeService.restartWorker(
             project,
             request.params.workerId,
+            executionContext,
           ),
         };
       } catch (error) {
