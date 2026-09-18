@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
+import type { EnvironmentInstanceCleanupService } from '../services/environment-instance-cleanup-service.js';
 import type { GitWorktreeLifecycleService } from '../services/git-worktree-lifecycle-service.js';
 import type {
   GitWorktreeObserver,
@@ -24,6 +25,10 @@ interface Options extends FastifyPluginOptions {
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
     'reconcileWorktrees'
+  >;
+  environmentInstanceCleanupService: Pick<
+    EnvironmentInstanceCleanupService,
+    'cleanupMissingWorktree'
   >;
 }
 
@@ -227,6 +232,35 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
+  const reconcileWorktrees = async (
+    projectId: string,
+    worktrees: readonly GitWorktreeSnapshot[],
+  ): Promise<void> => {
+    const instances =
+      options.developmentEnvironmentInstanceStore.reconcileWorktrees(
+        projectId,
+        worktrees,
+      );
+    const observedEnvironmentInstanceIds = new Set(
+      worktrees
+        .filter((worktree) => worktree.kind === 'linked')
+        .map((worktree) => worktreeEnvironmentInstanceId(projectId, worktree.id)),
+    );
+    const missingWorktreeInstances = instances.filter(
+      (instance) =>
+        instance.source.kind === 'worktree' &&
+        !observedEnvironmentInstanceIds.has(instance.id),
+    );
+
+    await Promise.all(
+      missingWorktreeInstances.map((instance) =>
+        options.environmentInstanceCleanupService.cleanupMissingWorktree(
+          instance,
+        ),
+      ),
+    );
+  };
+
   app.get<{ Params: Params }>(
     '/projects/:projectId/worktrees',
     {
@@ -250,10 +284,7 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
       );
       const inspection = await options.gitWorktreeObserver.inspect(project);
       if (inspection.state === 'ready') {
-        options.developmentEnvironmentInstanceStore.reconcileWorktrees(
-          project.id,
-          inspection.worktrees,
-        );
+        await reconcileWorktrees(project.id, inspection.worktrees);
       }
 
       return {
@@ -303,10 +334,7 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
       if (result.state === 'created' || result.state === 'already-present') {
         const inspection = await options.gitWorktreeObserver.inspect(project);
         if (inspection.state === 'ready') {
-          options.developmentEnvironmentInstanceStore.reconcileWorktrees(
-            project.id,
-            inspection.worktrees,
-          );
+          await reconcileWorktrees(project.id, inspection.worktrees);
           const confirmed = result.worktree
             ? inspection.worktrees.find(
                 (worktree) => worktree.id === result.worktree?.id,
@@ -360,10 +388,7 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
 
       const inspection = await options.gitWorktreeObserver.inspect(project);
       if (inspection.state === 'ready') {
-        options.developmentEnvironmentInstanceStore.reconcileWorktrees(
-          project.id,
-          inspection.worktrees,
-        );
+        await reconcileWorktrees(project.id, inspection.worktrees);
       }
 
       return {
@@ -409,10 +434,7 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
       ) {
         const inspection = await options.gitWorktreeObserver.inspect(project);
         if (inspection.state === 'ready') {
-          options.developmentEnvironmentInstanceStore.reconcileWorktrees(
-            project.id,
-            inspection.worktrees,
-          );
+          await reconcileWorktrees(project.id, inspection.worktrees);
         }
       }
 
