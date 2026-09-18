@@ -224,11 +224,7 @@ export function useProjectRailsWorker(
           handleSnapshot,
           environmentInstanceId,
         )
-      : followProjectRailsWorkerLogEvents(
-          projectId,
-          workerId,
-          handleSnapshot,
-        );
+      : followProjectRailsWorkerLogEvents(projectId, workerId, handleSnapshot);
 
     logStream.done.catch((error: unknown) => {
       if (isCurrentContext(projectId, environmentInstanceId, generation)) {

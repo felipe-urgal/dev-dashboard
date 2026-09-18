@@ -70,9 +70,7 @@ const route = useRoute();
     :to="{
       name: 'project-rails-sidekiq',
       params: { projectId: project.id },
-      ...(environmentInstanceId
-        ? { query: { environmentInstanceId } }
-        : {}),
+      ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
   >
     <QueueListIcon aria-hidden="true" />
@@ -87,9 +85,7 @@ const route = useRoute();
     :to="{
       name: 'project-rails-webpack',
       params: { projectId: project.id },
-      ...(environmentInstanceId
-        ? { query: { environmentInstanceId } }
-        : {}),
+      ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
   >
     <CodeBracketIcon aria-hidden="true" />

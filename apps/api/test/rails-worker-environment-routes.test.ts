@@ -29,8 +29,7 @@ function executionContext(environmentInstanceId: string): ExecutionContext {
   return {
     projectId: project.id,
     environmentInstanceId,
-    cwd:
-      environmentInstanceId === PRIMARY_ID ? project.path : '/tmp/worktree',
+    cwd: environmentInstanceId === PRIMARY_ID ? project.path : '/tmp/worktree',
     runtime: 'host',
   };
 }

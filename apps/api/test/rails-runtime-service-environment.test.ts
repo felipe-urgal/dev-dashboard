@@ -101,11 +101,7 @@ test('RailsRuntimeService detecta e inicia worker no cwd da Environment Instance
   assert.equal(overview.detected, true);
   assert.deepEqual(calls.at(-1), {
     action: 'get',
-    args: [
-      project.id,
-      'worker',
-      executionContext.environmentInstanceId,
-    ],
+    args: [project.id, 'worker', executionContext.environmentInstanceId],
   });
 
   await service.startWorker(project, 'sidekiq', executionContext);
@@ -143,11 +139,7 @@ test('RailsRuntimeService detecta e inicia worker no cwd da Environment Instance
   );
   assert.deepEqual(calls.at(-1), {
     action: 'clear-log',
-    args: [
-      project.id,
-      'worker',
-      executionContext.environmentInstanceId,
-    ],
+    args: [project.id, 'worker', executionContext.environmentInstanceId],
   });
 });
 
@@ -216,19 +208,11 @@ test('restart do Sidekiq mantém ownership na mesma Environment Instance', async
 
   assert.deepEqual(calls[0], {
     action: 'get',
-    args: [
-      project.id,
-      'worker',
-      executionContext.environmentInstanceId,
-    ],
+    args: [project.id, 'worker', executionContext.environmentInstanceId],
   });
   assert.deepEqual(calls[1], {
     action: 'stop',
-    args: [
-      project.id,
-      'worker',
-      executionContext.environmentInstanceId,
-    ],
+    args: [project.id, 'worker', executionContext.environmentInstanceId],
   });
   assert.equal(calls[2]?.action, 'start');
   assert.deepEqual(calls[2]?.args[2], {
