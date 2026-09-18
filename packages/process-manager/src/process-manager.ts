@@ -209,7 +209,11 @@ export class ProcessManager {
       project.id,
       'server',
       () =>
-        this.lifecycle.startManagedServer(project, options, this.stateDirectory),
+        this.lifecycle.startManagedServer(
+          project,
+          options,
+          this.stateDirectory,
+        ),
       options.executionContext?.environmentInstanceId,
     );
   }

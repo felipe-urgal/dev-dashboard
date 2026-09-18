@@ -160,7 +160,10 @@ test('GET /api/processes lists managed processes for known projects', async (con
     });
     assert.equal(response.statusCode, 200);
     const body = response.json<ProcessesResponse>();
-    assert.deepEqual(body.processes.map((process) => process.id), ['srv-p1']);
+    assert.deepEqual(
+      body.processes.map((process) => process.id),
+      ['srv-p1'],
+    );
   });
 
   await context.test('filters by kind', async () => {

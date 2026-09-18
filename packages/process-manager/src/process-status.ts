@@ -211,13 +211,13 @@ export function createProcessStatusReader(
 
     for (const entry of entries) {
       const environmentInstanceId =
-        entry.environmentInstanceId ??
-        `environment:primary:${entry.projectId}`;
+        entry.environmentInstanceId ?? `environment:primary:${entry.projectId}`;
       const kind = entry.kind as ManagedKind;
-      identities.set(
-        `${entry.projectId}:${environmentInstanceId}:${kind}`,
-        { projectId: entry.projectId, kind, environmentInstanceId },
-      );
+      identities.set(`${entry.projectId}:${environmentInstanceId}:${kind}`, {
+        projectId: entry.projectId,
+        kind,
+        environmentInstanceId,
+      });
     }
 
     const processes: ManagedProcess[] = [];

@@ -12,10 +12,7 @@ import {
   type ProcessStoreContext,
   writeStoredProcess,
 } from '../src/process-store.js';
-import {
-  clearManagedLog,
-  readManagedLog,
-} from '../src/process-logs.js';
+import { clearManagedLog, readManagedLog } from '../src/process-logs.js';
 
 function processState(
   projectId: string,

@@ -45,9 +45,10 @@ test('rotas do servidor usam a Environment Instance correta', async (context) =>
     projects: [project],
     warnings: [],
   });
-  appContext.developmentEnvironmentInstanceStore.reconcileWorktrees(PROJECT_ID, [
-    { id: 'wt-1', path: worktreePath, kind: 'linked' },
-  ]);
+  appContext.developmentEnvironmentInstanceStore.reconcileWorktrees(
+    PROJECT_ID,
+    [{ id: 'wt-1', path: worktreePath, kind: 'linked' }],
+  );
 
   const calls: Array<{ action: string; environmentInstanceId?: string }> = [];
   appContext.processManager.getServerProcess = async (
@@ -129,8 +130,7 @@ test('rotas do servidor usam a Environment Instance correta', async (context) =>
     environmentInstanceId: PRIMARY_ID,
   });
 
-  const worktreeQuery =
-    `environmentInstanceId=${encodeURIComponent(WORKTREE_ID)}`;
+  const worktreeQuery = `environmentInstanceId=${encodeURIComponent(WORKTREE_ID)}`;
 
   const worktreeStatus = await app.inject({
     method: 'GET',
