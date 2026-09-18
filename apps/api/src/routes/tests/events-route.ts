@@ -64,10 +64,10 @@ export function registerTestEventsRoute(
           project.id,
           {
             send: (event) => {
-            const frame = `event: ${event.type}\ndata: ${serializeTestExecutionEvent(event)}\n\n`;
-            if (connected) write(frame);
-            else pending.push(frame);
-          },
+              const frame = `event: ${event.type}\ndata: ${serializeTestExecutionEvent(event)}\n\n`;
+              if (connected) write(frame);
+              else pending.push(frame);
+            },
             close,
           },
           executionContext.environmentInstanceId,

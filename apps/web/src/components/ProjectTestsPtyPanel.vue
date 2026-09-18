@@ -250,12 +250,7 @@ async function loadHistory(): Promise<void> {
   try {
     const environmentInstanceId = props.environmentInstanceId;
     const result = environmentInstanceId
-      ? await fetchProjectTestHistory(
-          projectId,
-          1,
-          8,
-          environmentInstanceId,
-        )
+      ? await fetchProjectTestHistory(projectId, 1, 8, environmentInstanceId)
       : await fetchProjectTestHistory(projectId, 1, 8);
     if (
       props.project.id === projectId &&
@@ -374,10 +369,7 @@ async function start(): Promise<void> {
         )
       : await startProjectTestPty(props.project.id, selectedCommandId.value);
     connect(
-      projectTestPtyWebSocketUrl(
-        props.project.id,
-        props.environmentInstanceId,
-      ),
+      projectTestPtyWebSocketUrl(props.project.id, props.environmentInstanceId),
     );
   } catch (error) {
     errorMessage.value =
@@ -394,10 +386,7 @@ async function cancel(): Promise<void> {
   cancelling.value = true;
   try {
     if (props.environmentInstanceId) {
-      await cancelProjectTestPty(
-        props.project.id,
-        props.environmentInstanceId,
-      );
+      await cancelProjectTestPty(props.project.id, props.environmentInstanceId);
     } else {
       await cancelProjectTestPty(props.project.id);
     }
@@ -443,7 +432,11 @@ watch(
 );
 
 watch(
-  [() => props.project.id, () => props.environmentInstanceId, selectedCommandId],
+  [
+    () => props.project.id,
+    () => props.environmentInstanceId,
+    selectedCommandId,
+  ],
   () => {
     void loadIntelligence();
   },

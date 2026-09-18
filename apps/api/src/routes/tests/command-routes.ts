@@ -64,7 +64,10 @@ export function registerTestCommandRoutes(
         project.id,
         request.query.environmentInstanceId,
       );
-      const scopedProject = projectForExecutionContext(project, executionContext);
+      const scopedProject = projectForExecutionContext(
+        project,
+        executionContext,
+      );
       const resolved = await testDetectionService.resolveCommand(
         scopedProject,
         request.params.commandId,
@@ -198,7 +201,10 @@ export function registerTestCommandRoutes(
         project.id,
         request.query.environmentInstanceId,
       );
-      const scopedProject = projectForExecutionContext(project, executionContext);
+      const scopedProject = projectForExecutionContext(
+        project,
+        executionContext,
+      );
 
       let resolved;
       try {
