@@ -352,6 +352,21 @@ export class ProjectTerminalService {
     socket.once('error', () => this.teardown(key, id));
   }
 
+  public closeEnvironment(environmentInstanceId: string): void {
+    for (const [key, session] of this.sessions) {
+      if (session.environmentInstanceId !== environmentInstanceId) continue;
+      this.sessions.delete(key);
+      session.socket.close(1001, 'Ambiente removido');
+      session.proc.kill();
+    }
+
+    for (const [token, record] of this.confirmations) {
+      if (record.environmentInstanceId === environmentInstanceId) {
+        this.confirmations.delete(token);
+      }
+    }
+  }
+
   public close(): void {
     for (const session of this.sessions.values()) {
       session.socket.close(1001, 'API encerrando');
