@@ -158,6 +158,22 @@ No Linux, uma porta só confirma `running` quando o listener pertence ao PID ger
 
 O browser não envia a linha de comando final, path nem `cwd`. Configuração de porta do servidor continua pertencendo ao projeto; uma porta fixa já ocupada por outra instance falha pelo guard existente em vez de ser remapeada silenciosamente.
 
+## Rails workers
+
+```text
+Sidekiq / Webpack
+  ↓ projectId + environmentInstanceId
+backend resolve ExecutionContext
+  ↓ cwd conhecido da origem
+detectar binstub/dependência no mesmo ambiente
+  ↓ comando permitido
+Process Manager
+  ↓ estado + log por Environment Instance
+status / stream / clear / stop / restart
+```
+
+Sem `environmentInstanceId` explícita, as rotas resolvem a `primary`. Sidekiq e Webpack continuam com kinds independentes, e um worker de uma instance não é usado como status ou alvo de stop de outra.
+
 ## Encerramento de processo
 
 ```text
@@ -235,7 +251,7 @@ worktree.id estável
   ↓
 Development Environment Instance
   ↓
-terminal / PTYs / servidor gerenciado
+terminal / PTYs / servidor / Rails workers
 ```
 
 O lifecycle atual permite observar, criar e remover linked worktrees por contratos estruturados. Remoção exige clean state, confirmação, revalidação e ownership comprovada. A UI básica usa esses contratos sem receber path/argv livre. Integrações restantes e validação end-to-end continuam na #570.

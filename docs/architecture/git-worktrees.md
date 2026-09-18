@@ -56,7 +56,7 @@ A reconciliação segue estas regras:
 - o mesmo linked worktree host reaparecendo restaura a mesma identidade;
 - observar a origem Git não é suficiente para considerar um runtime `devcontainer` saudável.
 
-Terminal/Console, os PTYs destacáveis de testes completos, Dependências/Build e Migration Rails e o servidor gerenciado usam a Environment Instance para resolver o `cwd` no backend e isolar recursos. Para servidor, estado persistido, log, status, health e stop são selecionados pela mesma identidade. O browser informa no máximo a `environmentInstanceId`; path e `cwd` continuam sem autoridade no contrato HTTP.
+Terminal/Console, os PTYs destacáveis de testes completos, Dependências/Build, Migration Rails, o servidor gerenciado e os Rails workers Sidekiq/Webpack usam a Environment Instance para resolver o `cwd` no backend e isolar recursos. Para servidor e workers, estado persistido, logs e lifecycle são selecionados pela mesma identidade; detecção/comando dos workers também usam o path da instance. O browser informa no máximo a `environmentInstanceId`; path e `cwd` continuam sem autoridade no contrato HTTP.
 
 O observer não persiste lifecycle nem cria/remove recursos. Ele apenas produz a evidência read-only que a Environment Instance pode reconciliar.
 

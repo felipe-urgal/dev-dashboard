@@ -20622,6 +20622,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -20773,6 +20789,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **200**:
@@ -20878,6 +20910,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "type": "integer",
       "minimum": 1,
       "maximum": 262144
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -20988,6 +21025,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "type": "integer",
       "minimum": 1,
       "maximum": 262144
+    },
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -21016,6 +21058,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
         "sidekiq",
         "webpack"
       ]
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -21148,6 +21206,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
 **Resposta**
 
 - **201**:
@@ -21270,6 +21344,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
         "sidekiq",
         "webpack"
       ]
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "environmentInstanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
