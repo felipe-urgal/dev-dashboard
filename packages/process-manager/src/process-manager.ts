@@ -214,7 +214,8 @@ export class ProcessManager {
           options,
           this.stateDirectory,
         ),
-      options.executionContext?.environmentInstanceId,
+      options.executionContext?.environmentInstanceId ??
+        `environment:primary:${project.id}`,
     );
   }
 

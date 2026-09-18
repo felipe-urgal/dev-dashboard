@@ -112,15 +112,17 @@ export function createProcessLifecycle(
     stateDirectory: string,
   ): Promise<ManagedProcess> {
     const dependencies = startDependencies(stateDirectory);
-    const environmentInstanceId =
+    const executionEnvironmentInstanceId =
       options.executionContext?.environmentInstanceId;
+    const ownershipEnvironmentInstanceId =
+      executionEnvironmentInstanceId ?? `environment:primary:${project.id}`;
 
     await prepareManagedProcessStart(
       dependencies,
       project,
       'server',
       `O servidor de ${project.name} já está em execução.`,
-      environmentInstanceId,
+      ownershipEnvironmentInstanceId,
     );
 
     const requestedPort = options.port ?? project.port;
@@ -153,8 +155,8 @@ export function createProcessLifecycle(
         ? { executionContext: options.executionContext }
         : {}),
       kind: 'server',
-      id: environmentInstanceId
-        ? `${project.id}:${environmentInstanceId}:server`
+      id: executionEnvironmentInstanceId
+        ? `${project.id}:${executionEnvironmentInstanceId}:server`
         : `${project.id}:server`,
       status: 'starting',
       command: resolvedCommand.command,
