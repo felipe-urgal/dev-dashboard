@@ -243,9 +243,7 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
       );
     const observedEnvironmentInstanceIds = new Set(
       worktrees
-        .filter(
-          (worktree) => worktree.kind === 'linked' && !worktree.prunable,
-        )
+        .filter((worktree) => worktree.kind === 'linked' && !worktree.prunable)
         .map((worktree) =>
           worktreeEnvironmentInstanceId(projectId, worktree.id),
         ),

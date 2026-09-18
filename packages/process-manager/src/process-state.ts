@@ -242,9 +242,9 @@ export async function verifyProcessDirectory(
 
   let rawProcessDirectory: string;
   try {
-    rawProcessDirectory = await (
-      deps.readProcessCwd ?? defaultReadProcessCwd
-    )(storedProcess.pid);
+    rawProcessDirectory = await (deps.readProcessCwd ?? defaultReadProcessCwd)(
+      storedProcess.pid,
+    );
   } catch {
     return false;
   }
