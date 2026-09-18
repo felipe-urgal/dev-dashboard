@@ -187,32 +187,32 @@ test.describe('Worktrees como Environment Instances', () => {
       path.resolve(runtimeInfo.workspaceDirectory),
     );
 
-    await startEnvironmentServer(
-      page,
-      projectId,
-      worktreeA.environmentInstanceId,
-    );
-    await startEnvironmentServer(
-      page,
-      projectId,
-      worktreeB.environmentInstanceId,
-    );
-
-    let serverProcesses = await fetchServerProcesses(page, projectId);
-    expect(
-      serverProcesses.find(
-        (process) =>
-          process.environmentInstanceId === worktreeA.environmentInstanceId,
-      )?.status,
-    ).toBe('running');
-    expect(
-      serverProcesses.find(
-        (process) =>
-          process.environmentInstanceId === worktreeB.environmentInstanceId,
-      )?.status,
-    ).toBe('running');
-
     try {
+      await startEnvironmentServer(
+        page,
+        projectId,
+        worktreeA.environmentInstanceId,
+      );
+      await startEnvironmentServer(
+        page,
+        projectId,
+        worktreeB.environmentInstanceId,
+      );
+
+      let serverProcesses = await fetchServerProcesses(page, projectId);
+      expect(
+        serverProcesses.find(
+          (process) =>
+            process.environmentInstanceId === worktreeA.environmentInstanceId,
+        )?.status,
+      ).toBe('running');
+      expect(
+        serverProcesses.find(
+          (process) =>
+            process.environmentInstanceId === worktreeB.environmentInstanceId,
+        )?.status,
+      ).toBe('running');
+
       await gotoBootstrapped(
         page,
         `/projects/${encodeURIComponent(projectId)}/worktrees`,
@@ -262,6 +262,11 @@ test.describe('Worktrees como Environment Instances', () => {
         'Tudo funcionando',
       );
     } finally {
+      await stopEnvironmentServer(
+        page,
+        projectId,
+        worktreeA.environmentInstanceId,
+      );
       await stopEnvironmentServer(
         page,
         projectId,
