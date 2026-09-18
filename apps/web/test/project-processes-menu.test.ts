@@ -148,6 +148,32 @@ describe('ProjectProcessesMenu', () => {
     vi.useRealTimers();
   });
 
+  it('consulta servidor e workers na Environment Instance selecionada', async () => {
+    const environmentInstanceId = 'environment:worktree:p1:wt-1';
+    const wrapper = mount(ProjectProcessesMenu, {
+      props: { project: railsProject, environmentInstanceId },
+    });
+
+    await flushPromises();
+
+    expect(fetchProjectProcess).toHaveBeenCalledWith(
+      'p1',
+      environmentInstanceId,
+    );
+    expect(fetchProjectRailsWorker).toHaveBeenCalledWith(
+      'p1',
+      'sidekiq',
+      environmentInstanceId,
+    );
+    expect(fetchProjectRailsWorker).toHaveBeenCalledWith(
+      'p1',
+      'webpack',
+      environmentInstanceId,
+    );
+
+    wrapper.unmount();
+  });
+
   it('lista servidor e sidekiq rodando e mostra a contagem no botão', async () => {
     const wrapper = mount(ProjectProcessesMenu, {
       attachTo: document.body,

@@ -420,6 +420,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
               :project="project"
               :sidekiq-detected="sidekiqDetected"
               :webpack-detected="webpackDetected"
+              :environment-instance-id="environmentInstanceId"
             />
           </div>
         </nav>
@@ -524,16 +525,18 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectRailsRuntimePanel
         v-else-if="isRailsSidekiqRoute"
-        :key="`rails-sidekiq-${project.id}`"
+        :key="`rails-sidekiq-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         worker-id="sidekiq"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectRailsRuntimePanel
         v-else-if="isRailsWebpackRoute"
-        :key="`rails-webpack-${project.id}`"
+        :key="`rails-webpack-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         worker-id="webpack"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectEnvironmentPanel

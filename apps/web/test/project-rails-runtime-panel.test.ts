@@ -162,6 +162,59 @@ describe('ProjectRailsRuntimePanel', () => {
     wrapper.unmount();
   });
 
+  it('propaga Environment Instance para status, start e stream do worker', async () => {
+    const environmentInstanceId = 'environment:worktree:p1:wt-1';
+    fetchProjectRailsWorker.mockResolvedValueOnce(
+      overview('sidekiq', true, false),
+    );
+    startProjectRailsWorker.mockResolvedValueOnce({
+      id: 'p1:worker:sidekiq',
+      projectId: 'p1',
+      environmentInstanceId,
+      kind: 'worker',
+      status: 'running',
+      pid: 4242,
+      command: '/worktree/bin/sidekiq',
+      startedAt: '2026-08-05T12:00:00.000Z',
+    });
+
+    const wrapper = mount(ProjectRailsRuntimePanel, {
+      props: {
+        project,
+        workerId: 'sidekiq',
+        environmentInstanceId,
+      },
+    });
+    await flushPromises();
+
+    expect(fetchProjectRailsWorker).toHaveBeenCalledWith(
+      'p1',
+      'sidekiq',
+      environmentInstanceId,
+    );
+
+    await wrapper.find('button.primary-button').trigger('click');
+    await flushPromises();
+
+    expect(startProjectRailsWorker).toHaveBeenCalledWith(
+      'p1',
+      'sidekiq',
+      environmentInstanceId,
+    );
+
+    await wrapper.find('button.secondary-button').trigger('click');
+    await flushPromises();
+
+    expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
+      'p1',
+      'sidekiq',
+      expect.any(Function),
+      environmentInstanceId,
+    );
+
+    wrapper.unmount();
+  });
+
   it('mantém um painel de logs independente para cada processo', async () => {
     fetchProjectRailsWorker.mockImplementation(
       async (_projectId: string, workerId: RailsWorkerId) =>

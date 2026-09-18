@@ -53,6 +53,22 @@ test('processDetailPath aponta test para /tests e demais kinds para a raiz do pr
     }),
     '/projects/p%20one/server?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
   );
+  assert.equal(
+    processDetailPath({
+      ...base,
+      kind: 'worker',
+      environmentInstanceId: 'environment:worktree:p one:wt-1',
+    }),
+    '/projects/p%20one/sidekiq?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
+  );
+  assert.equal(
+    processDetailPath({
+      ...base,
+      kind: 'webpack',
+      environmentInstanceId: 'environment:worktree:p one:wt-1',
+    }),
+    '/projects/p%20one/webpack?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
+  );
 });
 
 test('processLogPath direciona cada processo para a ferramenta que exibe seus logs', () => {
@@ -85,6 +101,22 @@ test('processLogPath direciona cada processo para a ferramenta que exibe seus lo
   assert.equal(
     processLogPath({ ...base, kind: 'webpack' }),
     '/projects/p%20one/webpack',
+  );
+  assert.equal(
+    processLogPath({
+      ...base,
+      kind: 'worker',
+      environmentInstanceId: 'environment:worktree:p one:wt-1',
+    }),
+    '/projects/p%20one/sidekiq?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
+  );
+  assert.equal(
+    processLogPath({
+      ...base,
+      kind: 'webpack',
+      environmentInstanceId: 'environment:worktree:p one:wt-1',
+    }),
+    '/projects/p%20one/webpack?environmentInstanceId=environment%3Aworktree%3Ap+one%3Awt-1',
   );
 });
 

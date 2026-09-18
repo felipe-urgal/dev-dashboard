@@ -259,7 +259,11 @@ export interface WorkerParams extends Params {
   workerId: RailsWorkerId;
 }
 
-export interface WorkerLogQuery {
+export interface WorkerEnvironmentQuery {
+  environmentInstanceId?: string;
+}
+
+export interface WorkerLogQuery extends WorkerEnvironmentQuery {
   maxBytes?: number;
 }
 
@@ -273,10 +277,29 @@ export const workerParamsSchema = {
   },
 } as const;
 
+export const workerEnvironmentQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
+
 export const workerLogQuerySchema = {
   type: 'object',
   additionalProperties: false,
-  properties: { maxBytes: { type: 'integer', minimum: 1, maximum: 262_144 } },
+  properties: {
+    maxBytes: { type: 'integer', minimum: 1, maximum: 262_144 },
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
 } as const;
 
 export function requireProject(store: ProjectStore, id: string) {
@@ -288,6 +311,25 @@ export function requireProject(store: ProjectStore, id: string) {
       message: 'Projeto não encontrado.',
     });
   return project;
+}
+
+export function requireExecutionContext(
+  store: DevelopmentEnvironmentInstanceStore,
+  projectId: string,
+  environmentInstanceId?: string,
+) {
+  const executionContext = store.resolveForProject(
+    projectId,
+    environmentInstanceId,
+  );
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+  return executionContext;
 }
 
 export function translateWorkerError(error: unknown): never {

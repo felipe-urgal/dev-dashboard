@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
+  ExecutionContext,
   ManagedProcess,
   Project,
   ProcessLogSnapshot,
@@ -143,14 +144,32 @@ export class RailsRuntimeService {
       : resolveWebpackCommand(project);
   }
 
+  private projectForExecutionContext(
+    project: Project,
+    executionContext?: ExecutionContext,
+  ): Project {
+    return executionContext
+      ? { ...project, path: executionContext.cwd }
+      : project;
+  }
+
   public async getWorkerOverview(
     project: Project,
     workerId: RailsWorkerId,
+    executionContext?: ExecutionContext,
   ): Promise<RailsWorkerOverview> {
     const kind = WORKER_PROCESS_KIND[workerId];
+    const scopedProject = this.projectForExecutionContext(
+      project,
+      executionContext,
+    );
     const [detected, managedProcess] = await Promise.all([
-      this.detect(workerId, project),
-      this.processManager.getWorkerProcess(project.id, kind),
+      this.detect(workerId, scopedProject),
+      this.processManager.getWorkerProcess(
+        project.id,
+        kind,
+        executionContext?.environmentInstanceId,
+      ),
     ]);
 
     return { id: workerId, detected, process: managedProcess };
@@ -159,35 +178,44 @@ export class RailsRuntimeService {
   public async startWorker(
     project: Project,
     workerId: RailsWorkerId,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess> {
-    if (!(await this.detect(workerId, project))) {
+    const scopedProject = this.projectForExecutionContext(
+      project,
+      executionContext,
+    );
+    if (!(await this.detect(workerId, scopedProject))) {
       throw new RailsWorkerError(
         'RAILS_WORKER_UNSUPPORTED',
         `Não encontramos indícios de ${workerId} neste projeto.`,
       );
     }
 
-    const command = await this.resolveCommand(workerId, project);
+    const command = await this.resolveCommand(workerId, scopedProject);
     return this.processManager.startWorker(
       project,
       WORKER_PROCESS_KIND[workerId],
       command,
+      executionContext,
     );
   }
 
   public stopWorker(
     projectId: string,
     workerId: RailsWorkerId,
+    environmentInstanceId?: string,
   ): Promise<ManagedProcess> {
     return this.processManager.stopWorker(
       projectId,
       WORKER_PROCESS_KIND[workerId],
+      environmentInstanceId,
     );
   }
 
   public async restartWorker(
     project: Project,
     workerId: RailsWorkerId,
+    executionContext?: ExecutionContext,
   ): Promise<ManagedProcess> {
     if (workerId !== 'sidekiq') {
       throw new RailsWorkerError(
@@ -197,9 +225,11 @@ export class RailsRuntimeService {
     }
 
     const kind = WORKER_PROCESS_KIND[workerId];
+    const environmentInstanceId = executionContext?.environmentInstanceId;
     const current = await this.processManager.getWorkerProcess(
       project.id,
       kind,
+      environmentInstanceId,
     );
 
     if (
@@ -208,31 +238,39 @@ export class RailsRuntimeService {
         current.status === 'starting' ||
         current.status === 'stopping')
     ) {
-      await this.processManager.stopWorker(project.id, kind);
+      await this.processManager.stopWorker(
+        project.id,
+        kind,
+        environmentInstanceId,
+      );
     }
 
-    return this.startWorker(project, workerId);
+    return this.startWorker(project, workerId, executionContext);
   }
 
   public readWorkerLog(
     projectId: string,
     workerId: RailsWorkerId,
     options: ReadServerLogOptions = {},
+    environmentInstanceId?: string,
   ): Promise<ProcessLogSnapshot> {
     return this.processManager.readWorkerLog(
       projectId,
       WORKER_PROCESS_KIND[workerId],
       options,
+      environmentInstanceId,
     );
   }
 
   public clearWorkerLog(
     projectId: string,
     workerId: RailsWorkerId,
+    environmentInstanceId?: string,
   ): Promise<ProcessLogSnapshot> {
     return this.processManager.clearWorkerLog(
       projectId,
       WORKER_PROCESS_KIND[workerId],
+      environmentInstanceId,
     );
   }
 

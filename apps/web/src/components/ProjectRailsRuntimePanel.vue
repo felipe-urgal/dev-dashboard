@@ -19,12 +19,18 @@ import Card from './Card.vue';
 import ProjectLogTerminal from './ProjectLogTerminal.vue';
 import StatusBadge from './StatusBadge.vue';
 
-const props = defineProps<{ project: Project; workerId: RailsWorkerId }>();
+const props = defineProps<{
+  project: Project;
+  workerId: RailsWorkerId;
+  environmentInstanceId?: string | undefined;
+}>();
 
 const worker = useProjectRailsWorker(
   () => props.project,
   props.workerId,
   props.workerId === 'sidekiq',
+  true,
+  () => props.environmentInstanceId,
 );
 
 useAutoDismiss(worker.errorMessage, '');
