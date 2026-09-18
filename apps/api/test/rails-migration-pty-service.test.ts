@@ -149,9 +149,7 @@ test('primary e worktree usam cwd e sessões independentes', async () => {
     },
   ]);
   assert.equal(
-    detachable.isRunning(
-      'projeto:environment:primary:projeto:migration-pty',
-    ),
+    detachable.isRunning('projeto:environment:primary:projeto:migration-pty'),
     true,
   );
   assert.equal(
@@ -238,9 +236,7 @@ test('attach() envia ready com a operação e o snapshot, e detach não mata o p
 
   socket.close();
   assert.equal(
-    detachable.isRunning(
-      'projeto:environment:primary:projeto:migration-pty',
-    ),
+    detachable.isRunning('projeto:environment:primary:projeto:migration-pty'),
     true,
   );
 });

@@ -233,11 +233,7 @@ export function registerRailsMigrationPtyRoutes(
       }
 
       const limitedSocket = withWebSocketMessageRateLimit(socket);
-      railsMigrationPtyService.attach(
-        project,
-        limitedSocket,
-        executionContext,
-      );
+      railsMigrationPtyService.attach(project, limitedSocket, executionContext);
     },
   );
 }
