@@ -3,10 +3,13 @@ import type { FastifyInstance } from 'fastify';
 import { TestExecutionSubscriptionError } from '../../services/test-execution-history-service.js';
 import {
   projectParamsSchema,
+  requireExecutionContext,
   requireProject,
   serializeTestExecutionEvent,
+  testEnvironmentQuerySchema,
   testExecutionSubscriptionApiError,
   type ProjectParams,
+  type TestEnvironmentQuery,
   type TestRouteOptions,
 } from './helpers.js';
 
@@ -14,17 +17,27 @@ export function registerTestEventsRoute(
   app: FastifyInstance,
   options: TestRouteOptions,
 ): void {
-  const { projectStore, testExecutionHistoryService } = options;
+  const {
+    projectStore,
+    developmentEnvironmentInstanceStore,
+    testExecutionHistoryService,
+  } = options;
 
-  app.get<{ Params: ProjectParams }>(
+  app.get<{ Params: ProjectParams; Querystring: TestEnvironmentQuery }>(
     '/projects/:projectId/tests/process/events',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: testEnvironmentQuerySchema,
       },
     },
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
 
       let unsubscribe = (): void => undefined;
       // eslint-disable-next-line prefer-const -- `close` fecha sobre esta variável antes da atribuição (linha abaixo); `const` causaria TDZ se `close` for chamado antes.
@@ -47,14 +60,18 @@ export function registerTestEventsRoute(
       };
 
       try {
-        unsubscribe = await testExecutionHistoryService.subscribe(project.id, {
-          send: (event) => {
+        unsubscribe = await testExecutionHistoryService.subscribe(
+          project.id,
+          {
+            send: (event) => {
             const frame = `event: ${event.type}\ndata: ${serializeTestExecutionEvent(event)}\n\n`;
             if (connected) write(frame);
             else pending.push(frame);
           },
-          close,
-        });
+            close,
+          },
+          executionContext.environmentInstanceId,
+        );
       } catch (error) {
         if (error instanceof TestExecutionSubscriptionError) {
           throw testExecutionSubscriptionApiError(error);

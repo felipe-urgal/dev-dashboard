@@ -361,9 +361,16 @@ export class TestExecutionHistoryService {
     projectId: string,
     page = 1,
     pageSize = 20,
+    environmentInstanceId?: string,
   ): Promise<TestExecutionHistory> {
-    await this.reconcile(projectId);
-    const items = await this.load(projectId);
+    await this.reconcile(projectId, environmentInstanceId);
+    const storedItems = await this.load(projectId);
+    const items =
+      environmentInstanceId === undefined
+        ? storedItems
+        : storedItems.filter((item) =>
+            recordMatchesEnvironment(projectId, item, environmentInstanceId),
+          );
     const total = items.length;
     return {
       items: items
@@ -376,10 +383,18 @@ export class TestExecutionHistoryService {
     };
   }
 
-  public async clear(projectId: string): Promise<{ removedCount: number }> {
-    await this.reconcile(projectId);
+  public async clear(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): Promise<{ removedCount: number }> {
+    await this.reconcile(projectId, environmentInstanceId);
     const items = await this.load(projectId);
-    const kept = items.filter((item) => OPEN_STATUSES.includes(item.status));
+    const kept = items.filter(
+      (item) =>
+        OPEN_STATUSES.includes(item.status) ||
+        (environmentInstanceId !== undefined &&
+          !recordMatchesEnvironment(projectId, item, environmentInstanceId)),
+    );
     const removedCount = items.length - kept.length;
     if (removedCount > 0) await this.save(projectId, kept);
     return { removedCount };

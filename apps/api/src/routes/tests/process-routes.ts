@@ -11,11 +11,15 @@ import {
 } from '../../http/response-schemas.js';
 import {
   emptyBodySchema,
-  emptyQuerystringSchema,
   processManagerApiError,
+  projectForExecutionContext,
   projectParamsSchema,
+  requireExecutionContext,
   requireProject,
+  testEnvironmentQuerySchema,
+  testLogQuerySchema,
   type ProjectParams,
+  type TestEnvironmentQuery,
   type TestLogQuery,
   type TestOverviewQuery,
   type TestRouteOptions,
@@ -25,7 +29,12 @@ export function registerTestProcessRoutes(
   app: FastifyInstance,
   options: TestRouteOptions,
 ): void {
-  const { processManager, projectStore, testDetectionService } = options;
+  const {
+    processManager,
+    projectStore,
+    developmentEnvironmentInstanceStore,
+    testDetectionService,
+  } = options;
 
   app.get<{ Params: ProjectParams; Querystring: TestOverviewQuery }>(
     '/projects/:projectId/tests',
@@ -37,6 +46,11 @@ export function registerTestProcessRoutes(
           additionalProperties: false,
           properties: {
             refresh: { type: 'boolean' },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
           },
         },
         response: {
@@ -54,20 +68,27 @@ export function registerTestProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       if (request.query.refresh) {
         testDetectionService.invalidate(project.id);
       }
-      const tests = await testDetectionService.getOverview(project);
+      const tests = await testDetectionService.getOverview(
+        projectForExecutionContext(project, executionContext),
+      );
       return { tests };
     },
   );
 
-  app.get<{ Params: ProjectParams }>(
+  app.get<{ Params: ProjectParams; Querystring: TestEnvironmentQuery }>(
     '/projects/:projectId/tests/process',
     {
       schema: {
         params: projectParamsSchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -83,7 +104,15 @@ export function registerTestProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
-      const managedProcess = await processManager.getTestProcess(project.id);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      const managedProcess = await processManager.getTestProcess(
+        project.id,
+        executionContext.environmentInstanceId,
+      );
       return { process: managedProcess };
     },
   );
@@ -93,17 +122,7 @@ export function registerTestProcessRoutes(
     {
       schema: {
         params: projectParamsSchema,
-        querystring: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            maxBytes: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 262_144,
-            },
-          },
-        },
+        querystring: testLogQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -119,12 +138,21 @@ export function registerTestProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
-        const log = await processManager.readTestLog(project.id, {
-          ...(request.query.maxBytes !== undefined
-            ? { maxBytes: request.query.maxBytes }
-            : {}),
-        });
+        const log = await processManager.readTestLog(
+          project.id,
+          {
+            ...(request.query.maxBytes !== undefined
+              ? { maxBytes: request.query.maxBytes }
+              : {}),
+          },
+          executionContext.environmentInstanceId,
+        );
         return { log };
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -135,12 +163,12 @@ export function registerTestProcessRoutes(
     },
   );
 
-  app.delete<{ Params: ProjectParams }>(
+  app.delete<{ Params: ProjectParams; Querystring: TestEnvironmentQuery }>(
     '/projects/:projectId/tests/process/logs',
     {
       schema: {
         params: projectParamsSchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -156,8 +184,16 @@ export function registerTestProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
-        const log = await processManager.clearTestLog(project.id);
+        const log = await processManager.clearTestLog(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
         return { log };
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -168,13 +204,13 @@ export function registerTestProcessRoutes(
     },
   );
 
-  app.post<{ Params: ProjectParams }>(
+  app.post<{ Params: ProjectParams; Querystring: TestEnvironmentQuery }>(
     '/projects/:projectId/tests/process/stop',
     {
       schema: {
         params: projectParamsSchema,
         body: emptyBodySchema,
-        querystring: emptyQuerystringSchema,
+        querystring: testEnvironmentQuerySchema,
         response: {
           200: {
             type: 'object',
@@ -188,8 +224,16 @@ export function registerTestProcessRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
       try {
-        const managedProcess = await processManager.stopTest(project.id);
+        const managedProcess = await processManager.stopTest(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
         return { process: managedProcess };
       } catch (error) {
         if (error instanceof ProcessManagerError) {

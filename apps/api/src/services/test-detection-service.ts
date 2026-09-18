@@ -33,8 +33,12 @@ export class TestDetectionService {
   public invalidate(projectId?: string): void {
     if (projectId === undefined) {
       this.cache.clear();
-    } else {
-      this.cache.delete(projectId);
+      return;
+    }
+
+    const prefix = `${projectId}\0`;
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) this.cache.delete(key);
     }
   }
 
@@ -132,7 +136,8 @@ export class TestDetectionService {
   }
 
   private async detect(project: Project): Promise<DetectedTestCommand[]> {
-    const cached = this.cache.get(project.id);
+    const cacheKey = `${project.id}\0${path.resolve(project.path)}`;
+    const cached = this.cache.get(cacheKey);
     if (cached) {
       return cached;
     }
@@ -147,7 +152,7 @@ export class TestDetectionService {
 
     commands.push(...(await detectPythonCommands(project)));
 
-    this.cache.set(project.id, commands);
+    this.cache.set(cacheKey, commands);
     return commands;
   }
 }

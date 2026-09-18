@@ -37,11 +37,29 @@ interface ProjectRelatedTestsResponse {
   related: ProjectRelatedTests;
 }
 
+function environmentQuery(environmentInstanceId?: string): string {
+  return environmentInstanceId
+    ? `?environmentInstanceId=${encodeURIComponent(environmentInstanceId)}`
+    : '';
+}
+
+function appendEnvironmentInstance(
+  query: URLSearchParams,
+  environmentInstanceId?: string,
+): void {
+  if (environmentInstanceId) {
+    query.set('environmentInstanceId', environmentInstanceId);
+  }
+}
+
 export async function fetchProjectTests(
   projectId: string,
-  options: { refresh?: boolean } = {},
+  options: { refresh?: boolean; environmentInstanceId?: string } = {},
 ): Promise<ProjectTestOverview> {
-  const query = options.refresh ? '?refresh=true' : '';
+  const parameters = new URLSearchParams();
+  if (options.refresh) parameters.set('refresh', 'true');
+  appendEnvironmentInstance(parameters, options.environmentInstanceId);
+  const query = parameters.size > 0 ? `?${parameters}` : '';
   const response = await requestJson<ProjectTestsResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests${query}`,
   );
@@ -51,18 +69,20 @@ export async function fetchProjectTests(
 export async function fetchProjectTestIntelligence(
   projectId: string,
   commandId: string,
+  environmentInstanceId?: string,
 ): Promise<TestIntelligenceSuggestion> {
   const response = await requestJson<ProjectTestIntelligenceResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/intelligence`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/intelligence${environmentQuery(environmentInstanceId)}`,
   );
   return response.suggestion;
 }
 
 export async function fetchProjectTestProcess(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess | null> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/process`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process${environmentQuery(environmentInstanceId)}`,
   );
   return response.process;
 }
@@ -70,9 +90,10 @@ export async function fetchProjectTestProcess(
 export async function startProjectTest(
   projectId: string,
   commandId: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/start`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/start${environmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: {
@@ -90,9 +111,10 @@ export async function startProjectTest(
 export async function fetchProjectRelatedTests(
   projectId: string,
   commandId: string,
+  environmentInstanceId?: string,
 ): Promise<ProjectRelatedTests> {
   const response = await requestJson<ProjectRelatedTestsResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/related`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/related${environmentQuery(environmentInstanceId)}`,
   );
   return response.related;
 }
@@ -100,9 +122,10 @@ export async function fetchProjectRelatedTests(
 export async function startProjectRelatedTests(
   projectId: string,
   commandId: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/related/start`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/related/start${environmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,9 +140,10 @@ export async function startProjectRelatedTests(
 
 export async function stopProjectTest(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/process/stop`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/stop${environmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: {
@@ -137,8 +161,10 @@ export async function stopProjectTest(
 export async function fetchProjectTestLog(
   projectId: string,
   maxBytes = 65_536,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
   const parameters = new URLSearchParams({ maxBytes: String(maxBytes) });
+  appendEnvironmentInstance(parameters, environmentInstanceId);
   const response = await requestJson<ProcessLogResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/process/logs?${parameters}`,
   );
@@ -147,9 +173,10 @@ export async function fetchProjectTestLog(
 
 export async function clearProjectTestLog(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<ProcessLogSnapshot> {
   const response = await requestJson<ProcessLogResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/process/logs`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/logs${environmentQuery(environmentInstanceId)}`,
     { method: 'DELETE' },
   );
   return response.log;
@@ -162,9 +189,10 @@ interface ProjectTestFilesResponse {
 export async function fetchProjectTestFiles(
   projectId: string,
   commandId: string,
+  environmentInstanceId?: string,
 ): Promise<ProjectTestFile[]> {
   const response = await requestJson<ProjectTestFilesResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files${environmentQuery(environmentInstanceId)}`,
   );
   return response.files;
 }
@@ -175,9 +203,10 @@ export async function startProjectTestFile(
   path: string,
   line?: number,
   namePattern?: string,
+  environmentInstanceId?: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files/start`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files/start${environmentQuery(environmentInstanceId)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -202,11 +231,13 @@ export async function fetchProjectTestHistory(
   projectId: string,
   page = 1,
   pageSize = 10,
+  environmentInstanceId?: string,
 ): Promise<TestExecutionHistory> {
   const query = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize),
   });
+  appendEnvironmentInstance(query, environmentInstanceId);
   const response = await requestJson<TestExecutionHistoryResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/history?${query}`,
   );
@@ -219,9 +250,10 @@ interface TestExecutionHistoryClearResponse {
 
 export async function clearProjectTestHistory(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<number> {
   const response = await requestJson<TestExecutionHistoryClearResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/history`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/history${environmentQuery(environmentInstanceId)}`,
     { method: 'DELETE' },
   );
   return response.history.removedCount;
@@ -230,9 +262,10 @@ export async function clearProjectTestHistory(
 export function followTestExecutionEvents(
   projectId: string,
   onEvent: (event: TestExecutionEvent) => void,
+  environmentInstanceId?: string,
 ): { close: () => void; done: Promise<void> } {
   return followEventStream(
-    `/api/projects/${encodeURIComponent(projectId)}/tests/process/events`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/events${environmentQuery(environmentInstanceId)}`,
     onEvent,
   );
 }

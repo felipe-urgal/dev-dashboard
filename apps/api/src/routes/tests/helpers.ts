@@ -40,7 +40,7 @@ export interface TestOverviewQuery {
   refresh?: boolean;
 }
 
-export interface TestHistoryQuery {
+export interface TestHistoryQuery extends TestEnvironmentQuery {
   page?: number;
   pageSize?: number;
 }

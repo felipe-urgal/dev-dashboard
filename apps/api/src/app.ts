@@ -349,6 +349,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     processManager: context.processManager,
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     testDetectionService: context.testDetectionService,
     testExecutionHistoryService: context.testExecutionHistoryService,
   });
