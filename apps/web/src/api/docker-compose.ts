@@ -113,7 +113,7 @@ function postTarget(
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(service ? { service } : {}),
+      body: JSON.stringify({ service: service ?? null }),
     },
   );
 }
