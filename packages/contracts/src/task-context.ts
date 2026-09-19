@@ -1,3 +1,5 @@
+import type { GitOpenPullRequest } from './git.js';
+
 export interface TaskContextIssueRef {
   repository: string;
   number: number;
@@ -29,6 +31,7 @@ export interface TaskContextEvidence {
   branchMatches?: boolean;
   headSha?: string;
   pullRequestObservedAt?: string;
+  pullRequest?: GitOpenPullRequest;
   readiness?: {
     status: TaskContextReadinessStatus;
     observedAt: string;
