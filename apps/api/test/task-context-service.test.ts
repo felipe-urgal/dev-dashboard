@@ -523,3 +523,44 @@ test('não atribui Readiness do checkout primário a Task Context de worktree', 
   assert.equal(readinessCalls, 0);
   assert.equal(snapshot.evidence?.readiness, undefined);
 });
+
+
+test('não anexa readiness quando a branch atual diverge do Task Context', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-readiness-branch-'),
+  );
+  const repository = new TaskContextRepository(directory);
+  let branch = 'feature/context';
+  let readinessReads = 0;
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: (id) => (id === primary.id ? primary : null),
+      findPrimaryByProjectId: () => primary,
+    },
+    {
+      getOverview: async () => gitOverview(branch),
+    },
+    repository,
+    () => new Date('2026-09-19T13:00:00.000Z'),
+    {
+      readiness: {
+        getSnapshot: async () => {
+          readinessReads += 1;
+          return {
+            state: 'pass',
+            generatedAt: '2026-09-19T13:00:00.000Z',
+          };
+        },
+      },
+    },
+  );
+  const context = await service.create(project.id);
+  branch = 'feature/other';
+
+  const snapshot = await service.snapshot(project.id, context.id);
+
+  assert.equal(snapshot.evidence?.branchMatches, false);
+  assert.equal(snapshot.evidence?.readiness, undefined);
+  assert.equal(readinessReads, 0);
+});
