@@ -198,3 +198,107 @@ test('atualiza somente referências explícitas e preserva branch/ambiente', asy
   await service.remove(project.id, created.id);
   assert.deepEqual(service.list(project.id), []);
 });
+
+
+test('hidrata evidência Git somente quando a branch observada corresponde ao contexto', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'task-context-evidence-'));
+  const repository = new TaskContextRepository(directory);
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: (id) => (id === worktree.id ? worktree : null),
+      findPrimaryByProjectId: () => primary,
+    },
+    {
+      getOverview: async () => ({
+        ...gitOverview('feature/task-context'),
+        latestCommit: {
+          hash: 'abc123',
+          shortHash: 'abc123',
+          subject: 'Task context',
+          authorName: 'Dev',
+          authorEmail: 'dev@example.com',
+          authoredAt: '2026-09-19T10:00:00.000Z',
+        },
+      }),
+    },
+    repository,
+    () => new Date('2026-09-19T10:10:00.000Z'),
+  );
+  const context = await service.create(project.id, {
+    environmentInstanceId: worktree.id,
+  });
+
+  const snapshot = await service.snapshot(project.id, context.id);
+
+  assert.equal(snapshot.evidence?.observedAt, '2026-09-19T10:10:00.000Z');
+  assert.equal(snapshot.evidence?.currentBranch, 'feature/task-context');
+  assert.equal(snapshot.evidence?.branchMatches, true);
+  assert.equal(snapshot.evidence?.headSha, 'abc123');
+});
+
+test('não associa HEAD de outra branch ao Task Context', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'task-context-evidence-'));
+  const repository = new TaskContextRepository(directory);
+  let branch = 'feature/original';
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: () => null,
+      findPrimaryByProjectId: () => primary,
+    },
+    {
+      getOverview: async () => ({
+        ...gitOverview(branch),
+        latestCommit: {
+          hash: 'def456',
+          shortHash: 'def456',
+          subject: 'Other branch',
+          authorName: 'Dev',
+          authorEmail: 'dev@example.com',
+          authoredAt: '2026-09-19T10:00:00.000Z',
+        },
+      }),
+    },
+    repository,
+  );
+  const context = await service.create(project.id);
+  branch = 'feature/other';
+
+  const snapshot = await service.snapshot(project.id, context.id);
+
+  assert.equal(snapshot.context.branch, 'feature/original');
+  assert.equal(snapshot.evidence?.currentBranch, 'feature/other');
+  assert.equal(snapshot.evidence?.branchMatches, false);
+  assert.equal(snapshot.evidence?.headSha, undefined);
+});
+
+test('degrada evidência Git sem perder o contexto quando a leitura falha', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'task-context-evidence-'));
+  const repository = new TaskContextRepository(directory);
+  let fail = false;
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: () => null,
+      findPrimaryByProjectId: () => primary,
+    },
+    {
+      getOverview: async () => {
+        if (fail) throw new Error('git unavailable');
+        return gitOverview('main');
+      },
+    },
+    repository,
+    () => new Date('2026-09-19T10:11:00.000Z'),
+  );
+  const context = await service.create(project.id);
+  fail = true;
+
+  const snapshot = await service.snapshot(project.id, context.id);
+
+  assert.equal(snapshot.context.id, context.id);
+  assert.deepEqual(snapshot.evidence, {
+    observedAt: '2026-09-19T10:11:00.000Z',
+  });
+});

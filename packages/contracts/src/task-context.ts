@@ -25,6 +25,8 @@ export type TaskContextReadinessStatus =
 
 export interface TaskContextEvidence {
   observedAt: string;
+  currentBranch?: string;
+  branchMatches?: boolean;
   headSha?: string;
   pullRequestObservedAt?: string;
   readiness?: {

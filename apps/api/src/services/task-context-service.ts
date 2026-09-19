@@ -2,6 +2,7 @@ import type {
   TaskContext,
   TaskContextIssueRef,
   TaskContextPullRequestRef,
+  TaskContextSnapshot,
 } from '@dev-dashboard/contracts';
 import type { TaskContextRepository } from '@dev-dashboard/core';
 
@@ -53,6 +54,7 @@ export class TaskContextService {
     private readonly environmentStore: EnvironmentStoreView,
     private readonly gitReader: GitReader,
     private readonly repository: TaskContextStore,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   public list(projectId: string): readonly TaskContext[] {
@@ -108,6 +110,43 @@ export class TaskContextService {
         ? { pullRequest: input.pullRequest ?? null }
         : {}),
     });
+  }
+
+  public async snapshot(
+    projectId: string,
+    taskContextId: string,
+  ): Promise<TaskContextSnapshot> {
+    const context = this.requireContext(projectId, taskContextId);
+    const observedAt = this.now().toISOString();
+    const environment = context.environmentInstanceId
+      ? this.environmentStore.findById(context.environmentInstanceId)
+      : this.environmentStore.findPrimaryByProjectId(projectId);
+
+    if (!environment || environment.projectId !== projectId) {
+      return { context, evidence: { observedAt } };
+    }
+
+    try {
+      const overview = await this.gitReader.getOverview(environment.source.path);
+      const currentBranch =
+        overview.repository && !overview.detached ? overview.branch : undefined;
+      const branchMatches =
+        currentBranch !== undefined && currentBranch === context.branch;
+
+      return {
+        context,
+        evidence: {
+          observedAt,
+          ...(currentBranch ? { currentBranch } : {}),
+          branchMatches,
+          ...(branchMatches && overview.latestCommit
+            ? { headSha: overview.latestCommit.hash }
+            : {}),
+        },
+      };
+    } catch {
+      return { context, evidence: { observedAt } };
+    }
   }
 
   public async remove(projectId: string, taskContextId: string): Promise<void> {
