@@ -328,9 +328,7 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
-    const observedServices = after
-      ? this.targetServices(after, service)
-      : [];
+    const observedServices = after ? this.targetServices(after, service) : [];
     const verified =
       Boolean(after?.runtime) &&
       observedServices.length > 0 &&
@@ -394,9 +392,7 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
-    const observedServices = after
-      ? this.targetServices(after, service)
-      : [];
+    const observedServices = after ? this.targetServices(after, service) : [];
     const verified =
       Boolean(after?.runtime) &&
       observedServices.length > 0 &&

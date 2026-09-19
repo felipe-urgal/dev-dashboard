@@ -413,7 +413,6 @@ test('logs são bounded, mascarados e limitados ao target owned', async () => {
   ]);
 });
 
-
 test('runtime vazio não vira stop verificado', async () => {
   const commands: Array<{ program: 'docker'; args: string[] }> = [];
   const emptyAfter: DockerComposeInspection = {
