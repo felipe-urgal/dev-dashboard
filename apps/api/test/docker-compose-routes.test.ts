@@ -206,7 +206,7 @@ test('Compose rejeita path, argv e executable enviados pelo browser', async (con
   const fixture = await createFixture();
   context.after(() => fixture.app.close());
 
-  const response = await fixture.app.inject({
+  const withService = await fixture.app.inject({
     method: 'POST',
     url: '/api/projects/project-1/docker-compose/stop',
     headers: {
@@ -220,8 +220,18 @@ test('Compose rejeita path, argv e executable enviados pelo browser', async (con
       argv: ['-c', 'id'],
     },
   });
+  const withoutService = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/stop',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { path: '/etc' },
+  });
 
-  assert.equal(response.statusCode, 400);
+  assert.equal(withService.statusCode, 400);
+  assert.equal(withoutService.statusCode, 400);
   assert.equal(fixture.calls.length, 0);
 });
 
