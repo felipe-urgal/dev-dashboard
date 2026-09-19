@@ -10,10 +10,15 @@ import {
 import type { DockerComposeOwnershipStore } from '../services/docker-compose-ownership-store.js';
 import type { DockerComposePreflightService } from '../services/docker-compose-preflight-service.js';
 import type { DockerComposeProvider } from '../services/docker-compose-provider.js';
+import {
+  primaryEnvironmentInstanceId,
+  type DevelopmentEnvironmentInstanceStore,
+} from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   dockerComposeProvider: Pick<DockerComposeProvider, 'inspect'>;
   dockerComposePreflightService: Pick<DockerComposePreflightService, 'inspect'>;
   dockerComposeLifecycleService: Pick<
@@ -31,7 +36,11 @@ interface TargetBody {
   service: string | null;
 }
 
-interface LogsQuery {
+interface EnvironmentQuery {
+  environmentInstanceId?: string;
+}
+
+interface LogsQuery extends EnvironmentQuery {
   service?: string;
   tail?: number;
 }
@@ -70,10 +79,23 @@ const targetBodySchema = {
   },
 } as const;
 
+const environmentQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
+
 const logsQuerySchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
+    ...environmentQuerySchema.properties,
     service: serviceSchema,
     tail: { type: 'integer', minimum: 1, maximum: 500 },
   },
@@ -288,6 +310,49 @@ function requireProject(store: ProjectStore, projectId: string): Project {
   return project;
 }
 
+function requireComposeProject(
+  options: Options,
+  projectId: string,
+  environmentInstanceId?: string,
+): Project {
+  const project = requireProject(options.projectStore, projectId);
+  const executionContext =
+    options.developmentEnvironmentInstanceStore.resolveForProject(
+      project.id,
+      environmentInstanceId,
+    );
+
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+
+  if (executionContext.runtime !== 'host') {
+    throw new ApiError({
+      statusCode: 409,
+      code: 'DOCKER_UNAVAILABLE',
+      message:
+        'Docker Compose ainda está disponível somente para ambientes host.',
+    });
+  }
+
+  if (
+    executionContext.environmentInstanceId ===
+    primaryEnvironmentInstanceId(project.id)
+  ) {
+    return project;
+  }
+
+  return {
+    ...project,
+    id: executionContext.environmentInstanceId,
+    path: executionContext.cwd,
+  };
+}
+
 function throwLifecycleApiError(error: unknown): never {
   if (!(error instanceof DockerComposeLifecycleError)) throw error;
 
@@ -352,11 +417,12 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  app.get<{ Params: Params }>(
+  app.get<{ Params: Params; Querystring: EnvironmentQuery }>(
     '/projects/:projectId/docker-compose',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         response: {
           200: snapshotSchema,
           ...commonErrorResponseSchemas,
@@ -366,15 +432,20 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
     async (request) =>
       readSnapshot(
         options,
-        requireProject(options.projectStore, request.params.projectId),
+        requireComposeProject(
+          options,
+          request.params.projectId,
+          request.query.environmentInstanceId,
+        ),
       ),
   );
 
-  app.post<{ Params: Params; Body: Record<string, never> }>(
+  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: Record<string, never> }>(
     '/projects/:projectId/docker-compose/start',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         body: emptyBodySchema,
         response: {
           200: operationResponseSchema(startResultSchema),
@@ -383,9 +454,10 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(
-        options.projectStore,
+      const project = requireComposeProject(
+        options,
         request.params.projectId,
+        request.query.environmentInstanceId,
       );
       try {
         const result =
@@ -397,11 +469,12 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
     },
   );
 
-  app.post<{ Params: Params; Body: TargetBody }>(
+  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: TargetBody }>(
     '/projects/:projectId/docker-compose/stop',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         body: targetBodySchema,
         response: {
           200: operationResponseSchema(mutationResultSchema),
@@ -410,9 +483,10 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(
-        options.projectStore,
+      const project = requireComposeProject(
+        options,
         request.params.projectId,
+        request.query.environmentInstanceId,
       );
       try {
         const result = await options.dockerComposeLifecycleService.stop(
@@ -426,11 +500,12 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
     },
   );
 
-  app.post<{ Params: Params; Body: TargetBody }>(
+  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: TargetBody }>(
     '/projects/:projectId/docker-compose/restart',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerySchema,
         body: targetBodySchema,
         response: {
           200: operationResponseSchema(mutationResultSchema),
@@ -439,9 +514,10 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(
-        options.projectStore,
+      const project = requireComposeProject(
+        options,
         request.params.projectId,
+        request.query.environmentInstanceId,
       );
       try {
         const result = await options.dockerComposeLifecycleService.restart(
@@ -473,9 +549,10 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(
-        options.projectStore,
+      const project = requireComposeProject(
+        options,
         request.params.projectId,
+        request.query.environmentInstanceId,
       );
       try {
         return {
