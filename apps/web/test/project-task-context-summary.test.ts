@@ -1,7 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { TaskContext, TaskContextSnapshot } from '@dev-dashboard/contracts';
+import type {
+  TaskContext,
+  TaskContextSnapshot,
+} from '@dev-dashboard/contracts';
 
 const fetchTaskContexts = vi.hoisted(() => vi.fn());
 const fetchTaskContextSnapshot = vi.hoisted(() => vi.fn());

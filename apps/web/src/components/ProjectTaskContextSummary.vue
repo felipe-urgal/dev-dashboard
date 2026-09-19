@@ -31,13 +31,13 @@ let controller: AbortController | undefined;
 let generation = 0;
 
 const selectedContext = computed(
-  () => snapshot.value?.context ?? contexts.value.find((item) => item.id === selectedId.value),
+  () =>
+    snapshot.value?.context ??
+    contexts.value.find((item) => item.id === selectedId.value),
 );
 
 const expectedEnvironmentId = computed(
-  () =>
-    props.environmentInstanceId ??
-    `environment:primary:${props.projectId}`,
+  () => props.environmentInstanceId ?? `environment:primary:${props.projectId}`,
 );
 
 const branchMismatch = computed(() => {
@@ -133,7 +133,10 @@ async function loadSnapshot(taskContextId: string): Promise<void> {
       taskContextId,
       controller?.signal,
     );
-    if (requestGeneration === generation && selectedId.value === taskContextId) {
+    if (
+      requestGeneration === generation &&
+      selectedId.value === taskContextId
+    ) {
       snapshot.value = result;
     }
   } catch (error) {
@@ -200,7 +203,11 @@ onBeforeUnmount(() => controller?.abort());
         class="task-context-summary-select"
         aria-label="Trocar Task Context"
       >
-        <option v-for="context in contexts" :key="context.id" :value="context.id">
+        <option
+          v-for="context in contexts"
+          :key="context.id"
+          :value="context.id"
+        >
           {{ contextLabel(context) }}
         </option>
       </select>
@@ -209,20 +216,23 @@ onBeforeUnmount(() => controller?.abort());
     <span v-if="loading && !selectedContext" class="task-context-summary-muted">
       Carregando…
     </span>
-    <span v-else-if="errorMessage" class="task-context-summary-error" role="status">
+    <span
+      v-else-if="errorMessage"
+      class="task-context-summary-error"
+      role="status"
+    >
       {{ errorMessage }}
     </span>
-    <span
-      v-else-if="contexts.length === 0"
-      class="task-context-summary-muted"
-    >
+    <span v-else-if="contexts.length === 0" class="task-context-summary-muted">
       Nenhum contexto associado.
     </span>
 
     <template v-else-if="selectedContext">
       <div class="task-context-summary-row">
         <strong>{{ selectedContext.branch }}</strong>
-        <StatusBadge v-if="branchMismatch" tone="warning">Branch diferente</StatusBadge>
+        <StatusBadge v-if="branchMismatch" tone="warning"
+          >Branch diferente</StatusBadge
+        >
         <StatusBadge
           v-if="snapshot?.evidence?.readiness"
           :tone="readinessTone[snapshot.evidence.readiness.status]"
