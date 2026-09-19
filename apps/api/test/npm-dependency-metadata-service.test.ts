@@ -298,3 +298,27 @@ test('limita concorrência de consultas ao registry', async () => {
   assert.equal(result.metadata.length, 5);
   assert.equal(peak, 2);
 });
+
+test('runtime por chamada evita carregar evidência de outro projeto no serviço compartilhado', async () => {
+  const fetcher: NpmRegistryFetch = async () =>
+    new Response(
+      JSON.stringify({
+        version: '6.0.0',
+        engines: { node: '>=22.0.0' },
+      }),
+      { status: 200 },
+    );
+  const shared = new NpmDependencyMetadataService({
+    fetcher,
+    now: () => NOW,
+    runtimeVersion: '20.19.0',
+  });
+
+  const first = await shared.enrich(singleDependency(), '22.12.0');
+  const second = await shared.enrich(singleDependency(), '20.19.0');
+
+  assert.equal(first.metadata[0]?.runtimeVersion, '22.12.0');
+  assert.equal(first.metadata[0]?.latestRuntimeCompatibility, 'compatible');
+  assert.equal(second.metadata[0]?.runtimeVersion, '20.19.0');
+  assert.equal(second.metadata[0]?.latestRuntimeCompatibility, 'incompatible');
+});

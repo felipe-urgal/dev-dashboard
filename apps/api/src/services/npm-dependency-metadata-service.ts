@@ -428,11 +428,15 @@ export class NpmDependencyMetadataService {
 
   public async enrich(
     inventory: NodeDependencyInventory,
+    runtimeVersionInput?: string,
   ): Promise<NodeDependencyHealthSnapshot> {
     if (inventory.status !== 'ready' || inventory.dependencies.length === 0) {
       return { inventory, metadata: [] };
     }
 
+    const runtimeVersion = stableRuntimeVersion(
+      runtimeVersionInput ?? this.runtimeVersion,
+    );
     const metadata = new Array<NpmDependencyMetadata>(
       inventory.dependencies.length,
     );
@@ -443,7 +447,10 @@ export class NpmDependencyMetadataService {
         nextIndex += 1;
         const dependency = inventory.dependencies[index];
         if (!dependency) return;
-        metadata[index] = await this.fetchDependency(dependency);
+        metadata[index] = await this.fetchDependency(
+          dependency,
+          runtimeVersion,
+        );
       }
     };
 
@@ -454,13 +461,14 @@ export class NpmDependencyMetadataService {
 
   private async fetchDependency(
     dependency: NodeDependencyInventoryEntry,
+    runtimeVersion: string | undefined,
   ): Promise<NpmDependencyMetadata> {
     const observedAt = this.now().toISOString();
     const base = {
       name: dependency.name,
       source: 'npm-registry' as const,
       observedAt,
-      ...(this.runtimeVersion ? { runtimeVersion: this.runtimeVersion } : {}),
+      ...(runtimeVersion ? { runtimeVersion } : {}),
     };
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -513,7 +521,7 @@ export class NpmDependencyMetadataService {
         latestVersion: latest.version,
         ...(latest.nodeEngine ? { latestNodeEngine: latest.nodeEngine } : {}),
         latestRuntimeCompatibility: evaluateNodeRuntimeCompatibility(
-          this.runtimeVersion,
+          runtimeVersion,
           latest.nodeEngine,
         ),
         update: classifyDependencyUpdate(
