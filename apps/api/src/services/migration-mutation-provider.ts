@@ -39,6 +39,7 @@ export interface MigrationMutationPlan {
   environmentInstanceId: string;
   runtime: ExecutionContext['runtime'];
   executionContextHash: string;
+  overviewHash: string;
   createdAt: string;
   overviewObservedAt?: string;
   planHash: string;
