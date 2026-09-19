@@ -5,6 +5,7 @@ import { directoryRoutes } from './routes/directories.js';
 
 import { healthRoutes } from './routes/health.js';
 import { attentionRoutes } from './routes/attention.js';
+import { taskContextRoutes } from './routes/task-contexts.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -117,6 +118,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectTerminalService,
     deploymentService,
     productionOverviewService,
+    taskContextService,
     attentionCenterService,
     releaseReadinessService,
     migrationOverviewService,
@@ -171,6 +173,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     workspaceRepository: context.workspaceRepository,
     projectStore: context.projectStore,
     attentionCenterService,
+  });
+
+  app.register(taskContextRoutes, {
+    prefix: '/api',
+    taskContextService,
   });
 
   app.register(projectRoutes, {
