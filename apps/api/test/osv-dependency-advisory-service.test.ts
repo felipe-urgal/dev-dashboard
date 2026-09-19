@@ -200,7 +200,10 @@ test('HTTP e falha de rede afetam somente evidência externa', async () => {
   }).inspect(local);
   assert.equal(offline.inventory, local);
   assert.equal(offline.advisories[0]?.state, 'unavailable');
-  assert.match(offline.advisories[0]?.diagnostic ?? '', /indisponível|timeout/i);
+  assert.match(
+    offline.advisories[0]?.diagnostic ?? '',
+    /indisponível|timeout/i,
+  );
 });
 
 test('payload inválido ou acima do limite falha fechado', async () => {
@@ -216,9 +219,12 @@ test('payload inválido ou acima do limite falha fechado', async () => {
 
   const invalid = await new OsvDependencyAdvisoryService({
     fetcher: async () =>
-      new Response(JSON.stringify({ results: [{ vulns: [{ id: 'missing-date' }] }] }), {
-        status: 200,
-      }),
+      new Response(
+        JSON.stringify({ results: [{ vulns: [{ id: 'missing-date' }] }] }),
+        {
+          status: 200,
+        },
+      ),
     now: () => NOW,
   }).inspect(local);
   assert.equal(invalid.advisories[0]?.state, 'invalid');
@@ -346,7 +352,6 @@ test('timeout aborta consulta e mantém versão local conhecida', async () => {
   assert.equal(result.advisories[0]?.resolvedVersion, '1.0.0');
   assert.equal(result.advisories[0]?.complete, false);
 });
-
 
 test('opções numéricas inválidas usam defaults bounded', async () => {
   const local = inventory([

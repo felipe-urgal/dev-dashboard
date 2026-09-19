@@ -13,11 +13,7 @@ const MAX_ADVISORY_ID_LENGTH = 256;
 const MAX_MODIFIED_LENGTH = 64;
 
 export type OsvDependencyAdvisoryState =
-  | 'available'
-  | 'partial'
-  | 'unknown-version'
-  | 'unavailable'
-  | 'invalid';
+  'available' | 'partial' | 'unknown-version' | 'unavailable' | 'invalid';
 
 export interface OsvAdvisoryReference {
   id: string;
@@ -40,10 +36,7 @@ export interface OsvDependencyAdvisorySnapshot {
   advisories: OsvDependencyAdvisoryEvidence[];
 }
 
-export type OsvFetch = (
-  url: string,
-  init: RequestInit,
-) => Promise<Response>;
+export type OsvFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export interface OsvDependencyAdvisoryServiceOptions {
   fetcher?: OsvFetch;
@@ -98,7 +91,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function validAdvisoryReference(value: unknown): OsvAdvisoryReference | undefined {
+function validAdvisoryReference(
+  value: unknown,
+): OsvAdvisoryReference | undefined {
   if (!isObject(value)) return undefined;
   const id = typeof value.id === 'string' ? value.id.trim() : '';
   const modified =
@@ -289,32 +284,33 @@ export class OsvDependencyAdvisoryService {
     inventory: NodeDependencyInventory,
   ): Promise<OsvDependencyAdvisorySnapshot> {
     const observedAt = this.now().toISOString();
-    const advisories = inventory.dependencies.map<OsvDependencyAdvisoryEvidence>(
-      (dependency) => {
-        const version = safeExactVersion(dependency);
-        return version
-          ? {
-              name: dependency.name,
-              state: 'unavailable',
-              source: 'osv',
-              observedAt,
-              resolvedVersion: version,
-              advisories: [],
-              complete: false,
-              diagnostic: 'Consulta OSV ainda não executada.',
-            }
-          : {
-              name: dependency.name,
-              state: 'unknown-version',
-              source: 'osv',
-              observedAt,
-              advisories: [],
-              complete: false,
-              diagnostic:
-                'A versão resolvida não foi comprovada; advisories não foram consultados.',
-            };
-      },
-    );
+    const advisories =
+      inventory.dependencies.map<OsvDependencyAdvisoryEvidence>(
+        (dependency) => {
+          const version = safeExactVersion(dependency);
+          return version
+            ? {
+                name: dependency.name,
+                state: 'unavailable',
+                source: 'osv',
+                observedAt,
+                resolvedVersion: version,
+                advisories: [],
+                complete: false,
+                diagnostic: 'Consulta OSV ainda não executada.',
+              }
+            : {
+                name: dependency.name,
+                state: 'unknown-version',
+                source: 'osv',
+                observedAt,
+                advisories: [],
+                complete: false,
+                diagnostic:
+                  'A versão resolvida não foi comprovada; advisories não foram consultados.',
+              };
+        },
+      );
 
     if (inventory.status !== 'ready' || inventory.dependencies.length === 0) {
       return { inventory, advisories };
