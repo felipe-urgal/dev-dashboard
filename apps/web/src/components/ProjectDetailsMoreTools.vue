@@ -10,6 +10,7 @@ import {
   FolderIcon,
   LockClosedIcon,
   QueueListIcon,
+  ServerStackIcon,
   ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -49,6 +50,16 @@ const route = useRoute();
   >
     <CubeIcon aria-hidden="true" />
     <span>Dependências</span>
+  </RouterLink>
+  <RouterLink
+    class="project-details-tab"
+    :class="{
+      'project-details-tab-active': route.name === 'project-compose',
+    }"
+    :to="{ name: 'project-compose', params: { projectId: project.id } }"
+  >
+    <ServerStackIcon aria-hidden="true" />
+    <span>Compose</span>
   </RouterLink>
   <RouterLink
     v-if="project.type === 'rails'"
