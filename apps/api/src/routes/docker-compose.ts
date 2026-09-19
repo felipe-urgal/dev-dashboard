@@ -28,7 +28,7 @@ interface Params {
 }
 
 interface TargetBody {
-  service?: string;
+  service: string | null;
 }
 
 interface LogsQuery {
@@ -61,8 +61,12 @@ const emptyBodySchema = {
 const targetBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['service'],
+  maxProperties: 1,
   properties: {
-    service: serviceSchema,
+    service: {
+      anyOf: [serviceSchema, { type: 'null' }],
+    },
   },
 } as const;
 
@@ -404,7 +408,7 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       try {
         const result = await options.dockerComposeLifecycleService.stop(
           project,
-          request.body.service,
+          request.body.service ?? undefined,
         );
         return { result, snapshot: await readSnapshot(options, project) };
       } catch (error) {
@@ -433,7 +437,7 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       try {
         const result = await options.dockerComposeLifecycleService.restart(
           project,
-          request.body.service,
+          request.body.service ?? undefined,
         );
         return { result, snapshot: await readSnapshot(options, project) };
       } catch (error) {
