@@ -84,10 +84,7 @@ const ACTIVITY_STATUSES = new Set<ActivityEventStatus>([
   'warning',
 ]);
 
-function isBoundedText(
-  value: unknown,
-  maximumLength: number,
-): value is string {
+function isBoundedText(value: unknown, maximumLength: number): value is string {
   return (
     typeof value === 'string' &&
     value.length > 0 &&
@@ -185,7 +182,10 @@ function parseConfig(contents: string, now: Date): ActivityEvent[] {
     return [];
   const candidate = parsed as Record<string, unknown>;
   if (candidate.version !== 1 || !Array.isArray(candidate.events)) return [];
-  return applyLimits(candidate.events.filter(isActivityEvent).map(cloneEvent), now);
+  return applyLimits(
+    candidate.events.filter(isActivityEvent).map(cloneEvent),
+    now,
+  );
 }
 
 function validateInput(input: AppendActivityEventInput): void {
@@ -234,7 +234,9 @@ export class ActivityEventRepository {
     return this.file;
   }
 
-  public list(options: ActivityEventListOptions = {}): readonly ActivityEvent[] {
+  public list(
+    options: ActivityEventListOptions = {},
+  ): readonly ActivityEvent[] {
     const requestedLimit = options.limit ?? 100;
     const limit = Math.min(
       Math.max(1, Math.trunc(requestedLimit)),
@@ -254,9 +256,7 @@ export class ActivityEventRepository {
       .map(cloneEvent);
   }
 
-  public async append(
-    input: AppendActivityEventInput,
-  ): Promise<ActivityEvent> {
+  public async append(input: AppendActivityEventInput): Promise<ActivityEvent> {
     validateInput(input);
     const summary = sanitizeSummary(input.summary);
     if (!summary) {
@@ -277,15 +277,11 @@ export class ActivityEventRepository {
       ...(input.status ? { status: input.status } : {}),
       summary,
       occurredAt: input.occurredAt ?? this.now().toISOString(),
-      ...(input.resourceRef
-        ? { resourceRef: { ...input.resourceRef } }
-        : {}),
+      ...(input.resourceRef ? { resourceRef: { ...input.resourceRef } } : {}),
       ...(input.jobId ? { jobId: input.jobId } : {}),
     };
 
-    await this.mutate((events) =>
-      applyLimits([event, ...events], this.now()),
-    );
+    await this.mutate((events) => applyLimits([event, ...events], this.now()));
     return cloneEvent(event);
   }
 

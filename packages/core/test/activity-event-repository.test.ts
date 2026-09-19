@@ -92,7 +92,11 @@ test('aplica retenção por tempo e quantidade', async () => {
     occurredAt: '2026-08-01T10:00:00.000Z',
   });
 
-  for (let index = 0; index < ACTIVITY_EVENT_LIMITS.perProject + 2; index += 1) {
+  for (
+    let index = 0;
+    index < ACTIVITY_EVENT_LIMITS.perProject + 2;
+    index += 1
+  ) {
     tick += 1;
     await repository.append({
       projectId: 'project-a',
@@ -103,9 +107,14 @@ test('aplica retenção por tempo e quantidade', async () => {
     });
   }
 
-  assert.equal(repository.list({ projectId: 'project-a', limit: 500 }).length, ACTIVITY_EVENT_LIMITS.perProject);
   assert.equal(
-    repository.list({ projectId: 'project-a', limit: 500 }).some((event) => event.type === 'old'),
+    repository.list({ projectId: 'project-a', limit: 500 }).length,
+    ACTIVITY_EVENT_LIMITS.perProject,
+  );
+  assert.equal(
+    repository
+      .list({ projectId: 'project-a', limit: 500 })
+      .some((event) => event.type === 'old'),
     false,
   );
 });

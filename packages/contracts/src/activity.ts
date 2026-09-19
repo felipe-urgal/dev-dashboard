@@ -10,11 +10,7 @@ export type ActivityDomain =
   | 'security';
 
 export type ActivityEventStatus =
-  | 'started'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'warning';
+  'started' | 'succeeded' | 'failed' | 'cancelled' | 'warning';
 
 export interface ActivityResourceRef {
   kind: string;
@@ -35,11 +31,7 @@ export interface ActivityEvent {
 }
 
 export type ActivityJobStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled';
+  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface ActivityJob {
   id: string;
