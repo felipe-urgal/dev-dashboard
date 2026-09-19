@@ -198,8 +198,8 @@ watch(
         <div class="readiness-checklist-heading">
           <h4 id="readiness-checklist-title">Checklist de entrega</h4>
           <p>
-            Git, Testes, Pull Request, Doctor e Migrations formam a evidência usada para a
-            conclusão acima.
+            Git, Testes, Pull Request, Doctor e Migrations formam a evidência
+            usada para a conclusão acima.
           </p>
         </div>
 

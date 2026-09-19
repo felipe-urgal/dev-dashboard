@@ -190,7 +190,6 @@ test('janela de freshness inválida falha antes de consultar providers', async (
   assert.equal(called, false);
 });
 
-
 test('PR remoto só passa quando Cockpit observa exatamente o HEAD local', async () => {
   const currentGit: ProjectGitOverview = {
     ...gitOverview,
@@ -354,5 +353,8 @@ test('falha do provider remoto fica isolada como unknown', async () => {
 
   const remote = snapshot.checks.find((check) => check.id === 'pull-request');
   assert.equal(remote?.state, 'unknown');
-  assert.equal(snapshot.checks.find((check) => check.id === 'git')?.state, 'pass');
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'git')?.state,
+    'pass',
+  );
 });
