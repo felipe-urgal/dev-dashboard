@@ -126,9 +126,7 @@ function formatTimestamp(value: string): string {
 function environmentQuery(
   environmentInstanceId: string | undefined,
 ): Record<string, string> | undefined {
-  return environmentInstanceId
-    ? { environmentInstanceId }
-    : undefined;
+  return environmentInstanceId ? { environmentInstanceId } : undefined;
 }
 
 function detailTarget(
@@ -324,11 +322,7 @@ onBeforeUnmount(() => {
         </header>
 
         <div v-if="jobs.length > 0" class="activity-jobs-grid">
-          <article
-            v-for="job in jobs"
-            :key="job.id"
-            class="activity-job-card"
-          >
+          <article v-for="job in jobs" :key="job.id" class="activity-job-card">
             <header>
               <div>
                 <strong>{{ job.action }}</strong>
@@ -357,10 +351,7 @@ onBeforeUnmount(() => {
             </dl>
 
             <footer v-if="detailTarget(job)">
-              <RouterLink
-                class="activity-detail-link"
-                :to="detailTarget(job)!"
-              >
+              <RouterLink class="activity-detail-link" :to="detailTarget(job)!">
                 Abrir detalhes
                 <ArrowTopRightOnSquareIcon aria-hidden="true" />
               </RouterLink>
@@ -373,13 +364,18 @@ onBeforeUnmount(() => {
         </p>
       </section>
 
-      <section class="activity-section" aria-labelledby="activity-timeline-title">
+      <section
+        class="activity-section"
+        aria-labelledby="activity-timeline-title"
+      >
         <header class="activity-section-header">
           <div>
             <ClockIcon aria-hidden="true" />
             <div>
               <h2 id="activity-timeline-title">Atividade recente</h2>
-              <p>Resumo agregado; logs completos continuam no domínio original.</p>
+              <p>
+                Resumo agregado; logs completos continuam no domínio original.
+              </p>
             </div>
           </div>
           <span>{{ events.length }}</span>
