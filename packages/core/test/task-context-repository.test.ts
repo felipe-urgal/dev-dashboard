@@ -93,7 +93,9 @@ test('aplica limite por projeto mantendo os contextos mais recentes', async () =
     TASK_CONTEXT_LIMITS.perProject,
   );
   assert.equal(
-    repository.list('project-a').some((context) => context.branch === 'feature/0'),
+    repository
+      .list('project-a')
+      .some((context) => context.branch === 'feature/0'),
     false,
   );
 });

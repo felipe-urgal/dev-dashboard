@@ -21,10 +21,7 @@ export interface TaskContext {
 }
 
 export type TaskContextReadinessStatus =
-  | 'pass'
-  | 'warning'
-  | 'block'
-  | 'unknown';
+  'pass' | 'warning' | 'block' | 'unknown';
 
 export interface TaskContextEvidence {
   observedAt: string;

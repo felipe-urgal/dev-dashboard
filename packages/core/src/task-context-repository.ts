@@ -33,8 +33,7 @@ export interface UpdateTaskContextInput {
 }
 
 export type TaskContextRepositoryErrorCode =
-  | 'TASK_CONTEXT_INVALID'
-  | 'TASK_CONTEXT_NOT_FOUND';
+  'TASK_CONTEXT_INVALID' | 'TASK_CONTEXT_NOT_FOUND';
 
 export class TaskContextRepositoryError extends Error {
   public constructor(
@@ -60,10 +59,7 @@ const MAX_ID_LENGTH = 256;
 const MAX_BRANCH_LENGTH = 512;
 const MAX_REPOSITORY_LENGTH = 256;
 
-function isBoundedText(
-  value: unknown,
-  maximumLength: number,
-): value is string {
+function isBoundedText(value: unknown, maximumLength: number): value is string {
   return (
     typeof value === 'string' &&
     value.length > 0 &&
@@ -111,9 +107,9 @@ function isTaskContext(value: unknown): value is TaskContext {
   );
 }
 
-function cloneReference<T extends TaskContextIssueRef | TaskContextPullRequestRef>(
-  value: T | undefined,
-): T | undefined {
+function cloneReference<
+  T extends TaskContextIssueRef | TaskContextPullRequestRef,
+>(value: T | undefined): T | undefined {
   return value ? ({ ...value } as T) : undefined;
 }
 
@@ -148,7 +144,9 @@ function parseConfig(contents: string): TaskContext[] {
     return [];
   const candidate = parsed as Record<string, unknown>;
   if (candidate.version !== 1 || !Array.isArray(candidate.contexts)) return [];
-  return applyLimits(candidate.contexts.filter(isTaskContext).map(cloneContext));
+  return applyLimits(
+    candidate.contexts.filter(isTaskContext).map(cloneContext),
+  );
 }
 
 function validateCreateInput(input: CreateTaskContextInput): void {
@@ -197,7 +195,9 @@ export class TaskContextRepository {
 
   public list(projectId?: string): readonly TaskContext[] {
     return this.contexts
-      .filter((context) => projectId === undefined || context.projectId === projectId)
+      .filter(
+        (context) => projectId === undefined || context.projectId === projectId,
+      )
       .map(cloneContext);
   }
 
