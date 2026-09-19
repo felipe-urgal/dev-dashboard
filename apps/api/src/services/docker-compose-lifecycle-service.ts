@@ -181,6 +181,16 @@ export interface DockerComposeLogSnapshot {
   readAt: string;
 }
 
+export type DockerComposeReconciliationState =
+  | 'unchanged'
+  | 'released'
+  | 'unavailable';
+
+export interface DockerComposeReconciliationResult {
+  state: DockerComposeReconciliationState;
+  diagnostic?: string;
+}
+
 export interface DockerComposeLifecycleServiceOptions {
   supportsWait?: () => Promise<boolean>;
   ownershipStore?: Pick<
@@ -317,7 +327,12 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
-    if (!after || after.state !== 'available' || !after.runtime) {
+    if (
+      !after ||
+      after.state !== 'available' ||
+      !after.runtime ||
+      after.runtime.services.length === 0
+    ) {
       return {
         state: 'started-unverified',
         preflight: checked,
@@ -444,6 +459,78 @@ export class DockerComposeLifecycleService {
           diagnostic:
             'A operação de restart terminou, mas o runtime ativo não pôde ser comprovado.',
         };
+  }
+
+  public async reconcile(
+    project: Project,
+    inspection: DockerComposeInspection,
+  ): Promise<DockerComposeReconciliationResult> {
+    if (!this.ownershipStore) {
+      return {
+        state: 'unavailable',
+        diagnostic:
+          'Reconciliation do Compose exige ownership persistido configurado.',
+      };
+    }
+
+    let ownership: DockerComposeOwnershipRecord | undefined;
+    try {
+      ownership = await this.ownershipStore.get(project);
+    } catch {
+      return {
+        state: 'unavailable',
+        diagnostic:
+          'O ownership persistido do Compose não pôde ser lido para reconciliation.',
+      };
+    }
+
+    if (!ownership) {
+      const released = this.portLeaseRegistry?.releaseProject(project.id) ?? 0;
+      return { state: released > 0 ? 'released' : 'unchanged' };
+    }
+
+    if (
+      inspection.state !== 'available' ||
+      !inspection.config ||
+      !inspection.runtime
+    ) {
+      return {
+        state: 'unavailable',
+        diagnostic:
+          'O runtime Compose não pôde ser comprovado; ownership foi preservado.',
+      };
+    }
+
+    if (inspection.config.projectName !== ownership.composeProjectName) {
+      return {
+        state: 'unavailable',
+        diagnostic:
+          'O nome Compose observado diverge do ownership; estado foi preservado por segurança.',
+      };
+    }
+
+    if (inspection.runtime.services.length > 0) {
+      return { state: 'unchanged' };
+    }
+
+    try {
+      const releasedOwnership = await this.ownershipStore.release(project);
+      if (!releasedOwnership) {
+        return {
+          state: 'unavailable',
+          diagnostic:
+            'A stack não possui containers, mas o ownership não pôde ser liberado.',
+        };
+      }
+      this.portLeaseRegistry?.releaseProject(project.id);
+      return { state: 'released' };
+    } catch {
+      return {
+        state: 'unavailable',
+        diagnostic:
+          'A stack não possui containers, mas a persistência do cleanup falhou.',
+      };
+    }
   }
 
   public async logs(
