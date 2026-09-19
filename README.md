@@ -32,5 +32,6 @@ A API local é a fronteira de segurança. Ações estruturadas não devem aceita
 - [Desenvolvimento](docs/DEVELOPMENT.md)
 - [Template de tarefa](docs/TASK_TEMPLATE.md)
 - [Guia de code review](docs/CODE_REVIEW.md)
+- [Dependency Health](docs/architecture/dependency-health.md)
 
 Regras para agentes estão em [AGENTS.md](AGENTS.md).
