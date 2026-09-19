@@ -434,7 +434,6 @@ test('falha de cleanup é explícita depois de remoção confirmada', async () =
   assert.match(removed.diagnostic ?? '', /já não existe/u);
 });
 
-
 test('guard configurado pela aplicação substitui o guard inicial antes da confirmação', async () => {
   const target = '/workspace/projeto-demo';
   const worktreeId = linkedWorktreeId(target);

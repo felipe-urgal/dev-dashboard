@@ -187,7 +187,6 @@ test('guard bloqueia terminal ativo e runtime cujo cleanup ainda não é suporta
   assert.match(devcontainer.diagnostic ?? '', /runtime associado/i);
 });
 
-
 test('guard bloqueia remoção quando Compose ainda está owned pela Environment Instance', async () => {
   const fixture = setup({ composeOwned: true });
 

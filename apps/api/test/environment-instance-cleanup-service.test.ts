@@ -168,7 +168,6 @@ test('cleanup não tenta adivinhar runtime não suportado', async () => {
   assert.equal(inspected, false);
 });
 
-
 test('cleanup de worktree ausente preserva Compose owned e sinaliza intervenção explícita', async () => {
   const stopped: string[] = [];
   let terminalClosed = false;
@@ -192,7 +191,8 @@ test('cleanup de worktree ausente preserva Compose owned e sinaliza intervençã
         stopped.push(environmentInstanceId);
         return managedProcess('server-a', 'server', TARGET_ENVIRONMENT);
       },
-      stopTest: async () => managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
+      stopTest: async () =>
+        managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
       stopWorker: async (_projectId, kind) =>
         managedProcess(`${kind}-a`, kind, TARGET_ENVIRONMENT),
     },
@@ -246,7 +246,8 @@ test('cleanup de worktree ausente falha fechado se ownership Compose não puder 
       listProcesses: async () => [],
       stopServer: async () =>
         managedProcess('server-a', 'server', TARGET_ENVIRONMENT),
-      stopTest: async () => managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
+      stopTest: async () =>
+        managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
       stopWorker: async (_projectId, kind) =>
         managedProcess(`${kind}-a`, kind, TARGET_ENVIRONMENT),
     },
