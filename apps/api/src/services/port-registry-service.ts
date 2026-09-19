@@ -271,6 +271,11 @@ interface StoredPortAllocationLease extends PortAllocationLeaseResult {
   role: string;
 }
 
+export interface PortAllocationLeaseBatchResult {
+  leases: PortAllocationLeaseResult[];
+  createdLeaseIds: string[];
+}
+
 /**
  * Coordena decisões de porta dentro do processo da API. A operação `reserve`
  * é síncrona de propósito: escolher + registrar acontece sem um `await` entre
@@ -346,6 +351,43 @@ export class PortAllocationLeaseRegistry {
       port: stored.port,
       explanation: stored.explanation,
     };
+  }
+
+  public reserveBatch(
+    input: ReconcilePortsInput,
+    requests: readonly PortAllocationLeaseRequest[],
+  ): PortAllocationLeaseBatchResult | null {
+    const leases: PortAllocationLeaseResult[] = [];
+    const createdLeaseIds: string[] = [];
+
+    for (const request of requests) {
+      const normalizedLeaseId = request.leaseId.trim();
+      const existed = Boolean(
+        normalizedLeaseId && this.leases.has(normalizedLeaseId),
+      );
+      const lease = this.reserve(input, request);
+      if (!lease) {
+        for (const leaseId of createdLeaseIds) this.leases.delete(leaseId);
+        return null;
+      }
+      leases.push(lease);
+      if (!existed) createdLeaseIds.push(lease.leaseId);
+    }
+
+    return { leases, createdLeaseIds };
+  }
+
+  public releaseProject(projectId: string): number {
+    const normalizedProjectId = projectId.trim();
+    if (!normalizedProjectId) return 0;
+
+    let released = 0;
+    for (const [leaseId, lease] of this.leases) {
+      if (lease.projectId !== normalizedProjectId) continue;
+      this.leases.delete(leaseId);
+      released += 1;
+    }
+    return released;
   }
 
   /**
