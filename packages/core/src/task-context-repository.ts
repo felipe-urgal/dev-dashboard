@@ -107,20 +107,11 @@ function isTaskContext(value: unknown): value is TaskContext {
   );
 }
 
-function cloneReference<
-  T extends TaskContextIssueRef | TaskContextPullRequestRef,
->(value: T | undefined): T | undefined {
-  return value ? ({ ...value } as T) : undefined;
-}
-
 function cloneContext(context: TaskContext): TaskContext {
-  return {
-    ...context,
-    ...(context.issue ? { issue: cloneReference(context.issue) } : {}),
-    ...(context.pullRequest
-      ? { pullRequest: cloneReference(context.pullRequest) }
-      : {}),
-  };
+  const clone: TaskContext = { ...context };
+  if (context.issue) clone.issue = { ...context.issue };
+  if (context.pullRequest) clone.pullRequest = { ...context.pullRequest };
+  return clone;
 }
 
 function applyLimits(contexts: TaskContext[]): TaskContext[] {
