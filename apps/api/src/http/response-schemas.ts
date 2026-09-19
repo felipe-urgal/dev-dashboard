@@ -13,3 +13,4 @@ export * from './response-schemas/deployments.js';
 export * from './response-schemas/production-overview.js';
 export * from './response-schemas/release-readiness.js';
 export * from './response-schemas/dependency-health.js';
+export * from './response-schemas/dependency-upgrade-plan.js';
