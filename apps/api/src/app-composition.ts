@@ -8,6 +8,8 @@ import { AttentionCenterService } from './services/attention-center-service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
+import { GitPullRequestService } from './services/git-pull-request-service.js';
+import { GitPullRequestStatusService } from './services/git-pull-request-status-service.js';
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
@@ -67,12 +69,6 @@ export function createAppComposition(
     deploymentReader: deploymentService,
     ...(options.now ? { now: options.now } : {}),
   });
-  const taskContextService = new TaskContextService(
-    context.projectStore,
-    context.developmentEnvironmentInstanceStore,
-    context.gitService,
-    context.taskContextRepository,
-  );
   const activitySnapshotService = new ActivitySnapshotService({
     eventStore: context.activityEventRepository,
     gitHistory: context.gitMutationHistoryService,
@@ -108,6 +104,18 @@ export function createAppComposition(
       migrationOverviewService,
       options.now ? { now: options.now } : {},
     );
+  const taskContextService = new TaskContextService(
+    context.projectStore,
+    context.developmentEnvironmentInstanceStore,
+    context.gitService,
+    context.taskContextRepository,
+    options.now ? () => new Date(options.now!()) : () => new Date(),
+    {
+      pullRequestLookup: new GitPullRequestService(),
+      pullRequestStatus: new GitPullRequestStatusService(),
+      readiness: releaseReadinessService,
+    },
+  );
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 

@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import type {
   DevelopmentEnvironmentInstance,
+  GitOpenPullRequest,
   Project,
   ProjectGitOverview,
 } from '@dev-dashboard/contracts';
@@ -306,4 +307,220 @@ test('degrada evidência Git sem perder o contexto quando a leitura falha', asyn
   assert.deepEqual(snapshot.evidence, {
     observedAt: '2026-09-19T10:11:00.000Z',
   });
+});
+
+
+test('reutiliza Cockpit do PR explícito e anexa Readiness apenas no ambiente primário', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-remote-evidence-'),
+  );
+  const repository = new TaskContextRepository(directory);
+  const pullRequest: GitOpenPullRequest = {
+    provider: 'github',
+    number: 900,
+    title: 'Task Context',
+    url: 'https://github.com/felipe-urgal/dev-dashboard/pull/900',
+    sourceBranch: 'feature/task-context',
+    baseBranch: 'main',
+  };
+  let enrichCalls = 0;
+  let readinessCalls = 0;
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: (id) => (id === primary.id ? primary : null),
+      findPrimaryByProjectId: () => primary,
+    },
+    {
+      getOverview: async () => ({
+        ...gitOverview('feature/task-context'),
+        latestCommit: {
+          hash: 'abc900',
+          shortHash: 'abc900',
+          subject: 'Task Context',
+          authorName: 'Dev',
+          authorEmail: 'dev@example.com',
+          authoredAt: '2026-09-19T11:00:00.000Z',
+        },
+      }),
+    },
+    repository,
+    () => new Date('2026-09-19T11:05:00.000Z'),
+    {
+      pullRequestLookup: {
+        findOpenPullRequest: async () => ({
+          checked: true,
+          existing: pullRequest,
+        }),
+      },
+      pullRequestStatus: {
+        enrich: async (_projectPath, candidate) => {
+          enrichCalls += 1;
+          return {
+            ...candidate,
+            ciStatus: 'success',
+            cockpit: {
+              remoteStatus: 'available',
+              headSha: 'abc900',
+              reviewState: 'approved',
+              requestedReviewers: [],
+              checks: [{ name: 'CI', status: 'success' }],
+            },
+          };
+        },
+      },
+      readiness: {
+        getSnapshot: async () => {
+          readinessCalls += 1;
+          return {
+            state: 'warning',
+            generatedAt: '2026-09-19T11:04:00.000Z',
+          };
+        },
+      },
+    },
+  );
+  const context = await service.create(project.id, {
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 900,
+    },
+  });
+
+  const snapshot = await service.snapshot(project.id, context.id);
+
+  assert.equal(enrichCalls, 1);
+  assert.equal(readinessCalls, 1);
+  assert.equal(snapshot.evidence?.pullRequest?.number, 900);
+  assert.equal(
+    snapshot.evidence?.pullRequest?.cockpit?.remoteStatus,
+    'available',
+  );
+  assert.equal(
+    snapshot.evidence?.pullRequest?.cockpit?.reviewState,
+    'approved',
+  );
+  assert.equal(
+    snapshot.evidence?.pullRequestObservedAt,
+    '2026-09-19T11:05:00.000Z',
+  );
+  assert.deepEqual(snapshot.evidence?.readiness, {
+    status: 'warning',
+    observedAt: '2026-09-19T11:04:00.000Z',
+  });
+});
+
+test('não anexa Cockpit de outro PR e falha remota não remove evidência local', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-remote-evidence-'),
+  );
+  const repository = new TaskContextRepository(directory);
+  let lookupShouldFail = false;
+  let enrichCalls = 0;
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: (id) => (id === primary.id ? primary : null),
+      findPrimaryByProjectId: () => primary,
+    },
+    {
+      getOverview: async () => ({
+        ...gitOverview('feature/task-context'),
+        latestCommit: {
+          hash: 'local-head',
+          shortHash: 'local',
+          subject: 'Local head',
+          authorName: 'Dev',
+          authorEmail: 'dev@example.com',
+          authoredAt: '2026-09-19T11:00:00.000Z',
+        },
+      }),
+    },
+    repository,
+    () => new Date('2026-09-19T11:10:00.000Z'),
+    {
+      pullRequestLookup: {
+        findOpenPullRequest: async () => {
+          if (lookupShouldFail) throw new Error('rate limited');
+          return {
+            checked: true,
+            existing: {
+              provider: 'github',
+              number: 901,
+              title: 'Outro PR',
+              url: 'https://github.com/felipe-urgal/dev-dashboard/pull/901',
+              sourceBranch: 'feature/task-context',
+              baseBranch: 'main',
+            },
+          };
+        },
+      },
+      pullRequestStatus: {
+        enrich: async (_projectPath, candidate) => {
+          enrichCalls += 1;
+          return candidate;
+        },
+      },
+      readiness: {
+        getSnapshot: async () => ({
+          state: 'pass',
+          generatedAt: '2026-09-19T11:09:00.000Z',
+        }),
+      },
+    },
+  );
+  const context = await service.create(project.id, {
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 900,
+    },
+  });
+
+  const mismatched = await service.snapshot(project.id, context.id);
+  assert.equal(enrichCalls, 0);
+  assert.equal(mismatched.evidence?.pullRequest, undefined);
+  assert.equal(mismatched.evidence?.headSha, 'local-head');
+
+  lookupShouldFail = true;
+  const degraded = await service.snapshot(project.id, context.id);
+  assert.equal(degraded.evidence?.pullRequest, undefined);
+  assert.equal(degraded.evidence?.headSha, 'local-head');
+  assert.equal(degraded.evidence?.readiness?.status, 'pass');
+});
+
+test('não atribui Readiness do checkout primário a Task Context de worktree', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-worktree-readiness-'),
+  );
+  const repository = new TaskContextRepository(directory);
+  let readinessCalls = 0;
+  const service = new TaskContextService(
+    { findProject: () => project },
+    {
+      findById: (id) => (id === worktree.id ? worktree : null),
+      findPrimaryByProjectId: () => primary,
+    },
+    { getOverview: async () => gitOverview('feature/task-context') },
+    repository,
+    () => new Date('2026-09-19T11:15:00.000Z'),
+    {
+      readiness: {
+        getSnapshot: async () => {
+          readinessCalls += 1;
+          return {
+            state: 'pass',
+            generatedAt: '2026-09-19T11:14:00.000Z',
+          };
+        },
+      },
+    },
+  );
+  const context = await service.create(project.id, {
+    environmentInstanceId: worktree.id,
+  });
+
+  const snapshot = await service.snapshot(project.id, context.id);
+
+  assert.equal(readinessCalls, 0);
+  assert.equal(snapshot.evidence?.readiness, undefined);
 });
