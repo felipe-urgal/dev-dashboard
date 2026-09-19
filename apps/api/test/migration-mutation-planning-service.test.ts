@@ -256,6 +256,41 @@ test('evidência unknown/unavailable e falha da inspeção permanecem unavailabl
   );
 });
 
+test('database solicitado precisa coincidir com a evidência read-only', async () => {
+  let planCalls = 0;
+  const service = new MigrationMutationPlanningService(
+    [
+      provider({
+        planMutation: async () => {
+          planCalls += 1;
+          return {
+            command: {
+              file: 'bundle',
+              args: ['exec', 'rails', 'db:migrate'],
+            },
+          };
+        },
+      }),
+    ],
+    {
+      inspect: async () => ({ ...pendingOverview, database: 'primary' }),
+    },
+    { resolveForProject: () => hostContext },
+    { now: () => NOW },
+  );
+
+  const plan = await service.plan(project, {
+    operation: 'apply',
+    database: 'analytics',
+  });
+
+  assert.equal(planCalls, 0);
+  assert.equal(plan.database, 'analytics');
+  assert.equal(plan.preflight.state, 'unavailable');
+  assert.equal(plan.preflight.reason, 'database-evidence-mismatch');
+  assert.equal(plan.command, undefined);
+});
+
 test('provider de mutation precisa coincidir com a evidência read-only', async () => {
   const service = new MigrationMutationPlanningService(
     [provider()],
