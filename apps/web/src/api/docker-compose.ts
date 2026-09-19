@@ -17,11 +17,7 @@ export type DockerComposeServiceState =
   | 'unknown';
 
 export type DockerComposeServiceHealth =
-  | 'healthy'
-  | 'unhealthy'
-  | 'starting'
-  | 'none'
-  | 'unknown';
+  'healthy' | 'unhealthy' | 'starting' | 'none' | 'unknown';
 
 export interface DockerComposePortBinding {
   targetPort: number;

@@ -321,8 +321,8 @@ async function readSnapshot(options: Options, project: Project) {
   const ownership = await options.dockerComposeOwnershipStore.get(project);
   const owned = Boolean(
     ownership &&
-      inspection.config?.projectName &&
-      ownership.composeProjectName === inspection.config.projectName,
+    inspection.config?.projectName &&
+    ownership.composeProjectName === inspection.config.projectName,
   );
 
   return {
