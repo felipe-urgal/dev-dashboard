@@ -99,17 +99,40 @@ interface DockerComposeLogsResponse {
   logs: DockerComposeLogSnapshot;
 }
 
-function projectUrl(projectId: string): string {
-  return '/api/projects/' + encodeURIComponent(projectId) + '/docker-compose';
+function projectUrl(
+  projectId: string,
+  environmentInstanceId?: string,
+): string {
+  const base =
+    '/api/projects/' + encodeURIComponent(projectId) + '/docker-compose';
+  if (!environmentInstanceId) return base;
+  const query = new URLSearchParams({ environmentInstanceId });
+  return base + '?' + query.toString();
+}
+
+function actionUrl(
+  projectId: string,
+  action: 'start' | 'stop' | 'restart',
+  environmentInstanceId?: string,
+): string {
+  const base =
+    '/api/projects/' +
+    encodeURIComponent(projectId) +
+    '/docker-compose/' +
+    action;
+  if (!environmentInstanceId) return base;
+  const query = new URLSearchParams({ environmentInstanceId });
+  return base + '?' + query.toString();
 }
 
 function postTarget(
   projectId: string,
   action: 'stop' | 'restart',
   service?: string,
+  environmentInstanceId?: string,
 ): Promise<DockerComposeOperationResponse> {
   return requestJson<DockerComposeOperationResponse>(
-    projectUrl(projectId) + '/' + action,
+    actionUrl(projectId, action, environmentInstanceId),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,15 +143,19 @@ function postTarget(
 
 export function fetchDockerComposeSnapshot(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<DockerComposeSnapshot> {
-  return requestJson<DockerComposeSnapshot>(projectUrl(projectId));
+  return requestJson<DockerComposeSnapshot>(
+    projectUrl(projectId, environmentInstanceId),
+  );
 }
 
 export function startDockerCompose(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<DockerComposeOperationResponse> {
   return requestJson<DockerComposeOperationResponse>(
-    projectUrl(projectId) + '/start',
+    actionUrl(projectId, 'start', environmentInstanceId),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,26 +167,35 @@ export function startDockerCompose(
 export function stopDockerCompose(
   projectId: string,
   service?: string,
+  environmentInstanceId?: string,
 ): Promise<DockerComposeOperationResponse> {
-  return postTarget(projectId, 'stop', service);
+  return postTarget(projectId, 'stop', service, environmentInstanceId);
 }
 
 export function restartDockerCompose(
   projectId: string,
   service?: string,
+  environmentInstanceId?: string,
 ): Promise<DockerComposeOperationResponse> {
-  return postTarget(projectId, 'restart', service);
+  return postTarget(projectId, 'restart', service, environmentInstanceId);
 }
 
 export async function fetchDockerComposeLogs(
   projectId: string,
   service?: string,
   tail = 200,
+  environmentInstanceId?: string,
 ): Promise<DockerComposeLogSnapshot> {
   const query = new URLSearchParams({ tail: String(tail) });
+  if (environmentInstanceId) {
+    query.set('environmentInstanceId', environmentInstanceId);
+  }
   if (service) query.set('service', service);
   const response = await requestJson<DockerComposeLogsResponse>(
-    projectUrl(projectId) + '/logs?' + query.toString(),
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/docker-compose/logs?' +
+      query.toString(),
   );
   return response.logs;
 }
