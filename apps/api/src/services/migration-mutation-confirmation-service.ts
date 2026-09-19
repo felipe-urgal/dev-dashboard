@@ -74,10 +74,7 @@ export class MigrationMutationConfirmationService {
     };
   }
 
-  public consume(
-    plan: MigrationMutationPlan,
-    token: string | undefined,
-  ): void {
+  public consume(plan: MigrationMutationPlan, token: string | undefined): void {
     this.pruneExpired();
     this.assertReady(plan);
 

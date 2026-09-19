@@ -7,9 +7,7 @@ import type {
 
 export type MigrationMutationOperation = 'apply';
 export type MigrationMutationPreflightState =
-  | 'ready'
-  | 'blocked'
-  | 'unavailable';
+  'ready' | 'blocked' | 'unavailable';
 
 export type MigrationMutationPreflightReason =
   | 'ready'

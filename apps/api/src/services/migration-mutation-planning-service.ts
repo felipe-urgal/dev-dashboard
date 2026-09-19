@@ -147,9 +147,7 @@ function normalizedCommand(
   return { file, args };
 }
 
-function planHash(
-  input: Omit<MigrationMutationPlan, 'planHash'>,
-): string {
+function planHash(input: Omit<MigrationMutationPlan, 'planHash'>): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }
 
@@ -175,11 +173,10 @@ export class MigrationMutationPlanningService {
     project: Project,
     input: MigrationMutationPlanInput,
   ): Promise<MigrationMutationPlan> {
-    const executionContext =
-      this.environmentInstanceStore.resolveForProject(
-        project.id,
-        input.environmentInstanceId,
-      );
+    const executionContext = this.environmentInstanceStore.resolveForProject(
+      project.id,
+      input.environmentInstanceId,
+    );
     if (!executionContext) {
       throw new MigrationMutationPlanningError(
         'MIGRATION_MUTATION_ENVIRONMENT_NOT_FOUND',

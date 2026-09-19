@@ -3,12 +3,8 @@ import test from 'node:test';
 
 import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
-import type {
-  MigrationOverview,
-} from '../src/services/migration-provider.js';
-import type {
-  MigrationMutationProvider,
-} from '../src/services/migration-mutation-provider.js';
+import type { MigrationOverview } from '../src/services/migration-provider.js';
+import type { MigrationMutationProvider } from '../src/services/migration-mutation-provider.js';
 import {
   MigrationMutationPlanningError,
   MigrationMutationPlanningService,
@@ -163,10 +159,7 @@ test('environment desconhecido falha antes de consultar provider ou overview', a
       }),
     (error: unknown) => {
       assert.ok(error instanceof MigrationMutationPlanningError);
-      assert.equal(
-        error.code,
-        'MIGRATION_MUTATION_ENVIRONMENT_NOT_FOUND',
-      );
+      assert.equal(error.code, 'MIGRATION_MUTATION_ENVIRONMENT_NOT_FOUND');
       return true;
     },
   );
@@ -324,7 +317,10 @@ test('shell wrapper ou plano inválido do provider falha fechado', async () => {
 
   const failedPlan = await throwing.plan(project, { operation: 'apply' });
   assert.equal(failedPlan.preflight.reason, 'provider-plan-invalid');
-  assert.doesNotMatch(failedPlan.preflight.diagnostic ?? '', /provider details/u);
+  assert.doesNotMatch(
+    failedPlan.preflight.diagnostic ?? '',
+    /provider details/u,
+  );
 });
 
 test('ausência de provider comum produz plano unavailable sem inventar execução', async () => {

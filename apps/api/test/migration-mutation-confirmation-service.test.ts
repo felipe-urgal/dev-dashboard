@@ -7,7 +7,9 @@ import {
   MigrationMutationConfirmationService,
 } from '../src/services/migration-mutation-confirmation-service.js';
 
-function readyPlan(overrides: Partial<MigrationMutationPlan> = {}): MigrationMutationPlan {
+function readyPlan(
+  overrides: Partial<MigrationMutationPlan> = {},
+): MigrationMutationPlan {
   return {
     projectId: 'project-1',
     provider: 'rails',
@@ -34,27 +36,18 @@ function readyPlan(overrides: Partial<MigrationMutationPlan> = {}): MigrationMut
 
 test('confirmation é curta, vinculada ao plano e de uso único', () => {
   let now = Date.parse('2026-09-19T18:20:00.000Z');
-  const service = new MigrationMutationConfirmationService(
-    60_000,
-    () => now,
-  );
+  const service = new MigrationMutationConfirmationService(60_000, () => now);
   const plan = readyPlan();
 
   const confirmation = service.prepare(plan);
 
   assert.equal(confirmation.projectId, plan.projectId);
-  assert.equal(
-    confirmation.environmentInstanceId,
-    plan.environmentInstanceId,
-  );
+  assert.equal(confirmation.environmentInstanceId, plan.environmentInstanceId);
   assert.equal(confirmation.provider, plan.provider);
   assert.equal(confirmation.operation, plan.operation);
   assert.equal(confirmation.planHash, plan.planHash);
   assert.match(confirmation.token, /^[a-f0-9]{64}$/u);
-  assert.equal(
-    confirmation.expiresAt,
-    '2026-09-19T18:21:00.000Z',
-  );
+  assert.equal(confirmation.expiresAt, '2026-09-19T18:21:00.000Z');
 
   service.consume(plan, confirmation.token);
 
@@ -62,10 +55,7 @@ test('confirmation é curta, vinculada ao plano e de uso único', () => {
     () => service.consume(plan, confirmation.token),
     (error: unknown) => {
       assert.ok(error instanceof MigrationMutationConfirmationError);
-      assert.equal(
-        error.code,
-        'MIGRATION_MUTATION_CONFIRMATION_REQUIRED',
-      );
+      assert.equal(error.code, 'MIGRATION_MUTATION_CONFIRMATION_REQUIRED');
       return true;
     },
   );
@@ -87,10 +77,7 @@ test('token não pode ser reutilizado em outro hash, projeto ou Environment Inst
       () => service.consume(changed, confirmation.token),
       (error: unknown) => {
         assert.ok(error instanceof MigrationMutationConfirmationError);
-        assert.equal(
-          error.code,
-          'MIGRATION_MUTATION_CONFIRMATION_REQUIRED',
-        );
+        assert.equal(error.code, 'MIGRATION_MUTATION_CONFIRMATION_REQUIRED');
         return true;
       },
     );
@@ -111,10 +98,7 @@ test('token expirado falha fechado', () => {
     () => service.consume(plan, confirmation.token),
     (error: unknown) => {
       assert.ok(error instanceof MigrationMutationConfirmationError);
-      assert.equal(
-        error.code,
-        'MIGRATION_MUTATION_CONFIRMATION_REQUIRED',
-      );
+      assert.equal(error.code, 'MIGRATION_MUTATION_CONFIRMATION_REQUIRED');
       return true;
     },
   );
