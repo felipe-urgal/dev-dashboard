@@ -6,6 +6,7 @@ import { directoryRoutes } from './routes/directories.js';
 import { healthRoutes } from './routes/health.js';
 import { attentionRoutes } from './routes/attention.js';
 import { taskContextRoutes } from './routes/task-contexts.js';
+import { activityRoutes } from './routes/activity.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -119,6 +120,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     deploymentService,
     productionOverviewService,
     taskContextService,
+    activitySnapshotService,
     attentionCenterService,
     releaseReadinessService,
     migrationOverviewService,
@@ -178,6 +180,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(taskContextRoutes, {
     prefix: '/api',
     taskContextService,
+  });
+
+  app.register(activityRoutes, {
+    prefix: '/api',
+    activitySnapshotService,
   });
 
   app.register(projectRoutes, {
