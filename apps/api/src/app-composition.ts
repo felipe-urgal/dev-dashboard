@@ -108,6 +108,7 @@ export function createAppComposition(
         ...(options.now ? { now: options.now } : {}),
         pullRequestLookup,
         pullRequestStatus,
+        productionOverview: productionOverviewService,
       },
     );
   const taskContextService = new TaskContextService(

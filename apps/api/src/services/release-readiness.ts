@@ -1,5 +1,6 @@
 import type {
   GitPullRequestLookup,
+  ProductionOverviewItem,
   ProjectDiagnosticReport,
   ProjectGitOverview,
   TestExecutionHistory,
@@ -10,9 +11,19 @@ import type { MigrationOverview } from './migration-provider.js';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
 export type ReleaseReadinessCheckId =
-  'git' | 'tests' | 'pull-request' | 'doctor' | 'migrations';
+  | 'git'
+  | 'tests'
+  | 'pull-request'
+  | 'doctor'
+  | 'migrations'
+  | 'production';
 export type ReleaseReadinessActionTarget =
-  'synchronization' | 'tests' | 'pull-request' | 'doctor' | 'migrations';
+  | 'synchronization'
+  | 'tests'
+  | 'pull-request'
+  | 'doctor'
+  | 'migrations'
+  | 'production';
 
 export interface ReleaseReadinessCheck {
   id: ReleaseReadinessCheckId;
@@ -492,6 +503,130 @@ export function evaluateMigrationsReadiness(
         : 'Estado de migrations inconclusivo',
     evidence: overview.evidence,
     observedAt: overview.observedAt,
+    action,
+  };
+}
+
+export function evaluateProductionReadiness(
+  item: ProductionOverviewItem,
+  now: number,
+  healthMaxAgeMs: number,
+): ReleaseReadinessCheck {
+  const action = { label: 'Abrir Produção', target: 'production' as const };
+  const observedAt = new Date(now).toISOString();
+
+  if (
+    item.state === 'blocked' ||
+    item.state === 'failed' ||
+    item.state === 'recovery-required' ||
+    item.state === 'drift'
+  ) {
+    return {
+      id: 'production',
+      state: 'block',
+      summary:
+        item.state === 'drift'
+          ? 'Produção está divergente do alvo'
+          : item.state === 'recovery-required'
+            ? 'Produção requer recuperação'
+            : item.state === 'failed'
+              ? 'Última operação de produção falhou'
+              : 'Contrato de produção está bloqueado',
+      evidence:
+        item.errorMessage ??
+        (item.targetRevision && item.productionRevision
+          ? `Alvo ${item.targetRevision.slice(0, 12)} difere de produção ${item.productionRevision.slice(0, 12)}.`
+          : `Estado de produção: ${item.state}.`),
+      observedAt,
+      action,
+    };
+  }
+
+  if (item.health === 'verify-failed') {
+    return {
+      id: 'production',
+      state: 'block',
+      summary: 'Verificação de produção falhou',
+      evidence: item.healthCheckedAt
+        ? `A verificação falhou em ${item.healthCheckedAt}.`
+        : 'O último health/verify conhecido falhou.',
+      observedAt: item.healthCheckedAt ?? observedAt,
+      action,
+    };
+  }
+
+  if (item.state === 'running') {
+    return {
+      id: 'production',
+      state: 'warning',
+      summary: 'Operação de produção em andamento',
+      evidence: 'A produção ainda está mudando; aguarde uma nova observação.',
+      observedAt,
+      action,
+    };
+  }
+
+  if (item.state !== 'in-sync') {
+    return {
+      id: 'production',
+      state: 'unknown',
+      summary: 'Estado de produção inconclusivo',
+      evidence:
+        item.errorMessage ??
+        'Não há evidência suficiente para comparar o alvo com a produção.',
+      observedAt,
+      action,
+    };
+  }
+
+  if (item.health === 'unknown') {
+    return {
+      id: 'production',
+      state: 'unknown',
+      summary: 'Produção sincronizada sem health verificável',
+      evidence:
+        'A revisão de produção corresponde ao alvo, mas a saúde atual não foi comprovada.',
+      observedAt,
+      action,
+    };
+  }
+
+  if (item.health === 'verified') {
+    if (!item.healthCheckedAt) {
+      return {
+        id: 'production',
+        state: 'unknown',
+        summary: 'Health de produção sem freshness comprovável',
+        evidence: 'A verificação não informou quando foi observada.',
+        observedAt,
+        action,
+      };
+    }
+    const age = now - Date.parse(item.healthCheckedAt);
+    if (!Number.isFinite(age) || age < 0 || age > healthMaxAgeMs) {
+      return {
+        id: 'production',
+        state: 'unknown',
+        summary: 'Health de produção está desatualizado',
+        evidence: `A última verificação foi observada em ${item.healthCheckedAt}.`,
+        observedAt: item.healthCheckedAt,
+        action,
+      };
+    }
+  }
+
+  return {
+    id: 'production',
+    state: 'pass',
+    summary:
+      item.health === 'verified'
+        ? 'Produção sincronizada e verificada'
+        : 'Produção sincronizada',
+    evidence:
+      item.health === 'not-configured'
+        ? 'O alvo corresponde à produção; o contrato não exige health check.'
+        : 'O alvo corresponde à produção e o health recente foi verificado.',
+    observedAt: item.healthCheckedAt ?? observedAt,
     action,
   };
 }
