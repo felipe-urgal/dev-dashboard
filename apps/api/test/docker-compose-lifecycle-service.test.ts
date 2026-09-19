@@ -182,3 +182,272 @@ test('não inventa sucesso observado quando a reinspeção pós-start falha', as
   assert.equal(result.state, 'started-unverified');
   assert.match(result.diagnostic ?? '', /não pôde ser comprovado/i);
 });
+
+test('start com ownership usa project name explícito e persiste a posse', async () => {
+  const claims: string[] = [];
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const inspections = [before, after];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? after },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => undefined,
+        claim: async (_project, composeProjectName) => {
+          claims.push(composeProjectName);
+          return {
+            projectId: project.id,
+            projectPath: project.path,
+            composeProjectName,
+            startedAt: '2026-09-06T17:00:00.000Z',
+          };
+        },
+        release: async () => true,
+      },
+    },
+  );
+
+  await service.start(project);
+
+  assert.deepEqual(claims, ['project']);
+  assert.deepEqual(commands[0]?.args, [
+    'compose',
+    '--project-name',
+    'project',
+    'up',
+    '--detach',
+  ]);
+});
+
+test('exige ownership para stop sem executar comando', async () => {
+  const commands: unknown[] = [];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+    },
+  );
+
+  await assert.rejects(
+    service.stop(project),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_OWNERSHIP_REQUIRED',
+  );
+  assert.equal(commands.length, 0);
+});
+
+test('stop de serviço usa apenas project name owned e serviço do catálogo', async () => {
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const stopped: DockerComposeInspection = {
+    ...after,
+    runtime: {
+      ...after.runtime!,
+      services: [
+        {
+          ...after.runtime!.services[0]!,
+          state: 'exited',
+        },
+      ],
+    },
+  };
+  const inspections = [before, stopped];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? stopped },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  const result = await service.stop(project, 'web');
+
+  assert.equal(result.state, 'stopped');
+  assert.deepEqual(commands[0]?.args, [
+    'compose',
+    '--project-name',
+    'project',
+    'stop',
+    'web',
+  ]);
+});
+
+test('restart rejeita serviço fora do catálogo antes de mutar', async () => {
+  const commands: unknown[] = [];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  await assert.rejects(
+    service.restart(project, 'missing'),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_SERVICE_INVALID',
+  );
+  assert.equal(commands.length, 0);
+});
+
+test('restart revalida preflight antes de mutar target owned', async () => {
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const inspections = [before, after];
+  let preflightCalls = 0;
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? after },
+    {
+      inspect: async () => {
+        preflightCalls += 1;
+        return ready;
+      },
+    },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  const result = await service.restart(project, 'web');
+
+  assert.equal(preflightCalls, 1);
+  assert.equal(result.state, 'restarted');
+  assert.deepEqual(commands[0]?.args, [
+    'compose',
+    '--project-name',
+    'project',
+    'restart',
+    'web',
+  ]);
+});
+
+test('logs são bounded, mascarados e limitados ao target owned', async () => {
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return 'token=ghp_abcdefghijklmnopqrstuvwxyz123456\nlinha segura\n';
+    },
+    {
+      now: () => new Date('2026-09-06T17:03:00.000Z'),
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  const logs = await service.logs(project, { service: 'web', tail: 50 });
+
+  assert.equal(logs.masked, true);
+  assert.equal(logs.content.includes('ghp_'), false);
+  assert.equal(logs.readAt, '2026-09-06T17:03:00.000Z');
+  assert.deepEqual(commands[0]?.args, [
+    'compose',
+    '--project-name',
+    'project',
+    'logs',
+    '--no-color',
+    '--tail',
+    '50',
+    'web',
+  ]);
+});
+
+test('runtime vazio não vira stop verificado', async () => {
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const emptyAfter: DockerComposeInspection = {
+    ...after,
+    runtime: {
+      observedAt: '2026-09-06T17:01:00.000Z',
+      services: [],
+    },
+  };
+  const inspections = [before, emptyAfter];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? emptyAfter },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  const result = await service.stop(project, 'web');
+
+  assert.equal(result.state, 'stopped-unverified');
+  assert.equal(commands.length, 1);
+});

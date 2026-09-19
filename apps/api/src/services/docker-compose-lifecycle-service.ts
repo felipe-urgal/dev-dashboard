@@ -1,8 +1,13 @@
 import { execFile } from 'node:child_process';
 
 import type { Project } from '@dev-dashboard/contracts';
+import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ComposeStructuredCommand } from './docker-compose-model.js';
+import type {
+  DockerComposeOwnershipRecord,
+  DockerComposeOwnershipStore,
+} from './docker-compose-ownership-store.js';
 import type {
   DockerComposeInspection,
   DockerComposeProvider,
@@ -13,8 +18,13 @@ import type {
   DockerComposePreflightService,
 } from './docker-compose-preflight-service.js';
 
-const START_TIMEOUT_MS = 2 * 60_000;
-const START_MAX_BUFFER_BYTES = 128 * 1024;
+const MUTATION_TIMEOUT_MS = 2 * 60_000;
+const MUTATION_MAX_BUFFER_BYTES = 128 * 1024;
+const LOG_TIMEOUT_MS = 15_000;
+const LOG_MAX_BUFFER_BYTES = 256 * 1024;
+const LOG_MAX_CONTENT_BYTES = 128 * 1024;
+const DEFAULT_LOG_TAIL = 200;
+const MAX_LOG_TAIL = 500;
 
 export type DockerComposeStartState = 'started' | 'started-unverified';
 
@@ -29,7 +39,14 @@ export type DockerComposeLifecycleErrorCode =
   | 'COMPOSE_UNAVAILABLE'
   | 'COMPOSE_PREFLIGHT_BLOCKED'
   | 'COMPOSE_PREFLIGHT_UNAVAILABLE'
-  | 'COMPOSE_START_FAILED';
+  | 'COMPOSE_START_FAILED'
+  | 'COMPOSE_STOP_FAILED'
+  | 'COMPOSE_RESTART_FAILED'
+  | 'COMPOSE_LOGS_FAILED'
+  | 'COMPOSE_OWNERSHIP_REQUIRED'
+  | 'COMPOSE_OWNERSHIP_MISMATCH'
+  | 'COMPOSE_OWNERSHIP_PERSIST_FAILED'
+  | 'COMPOSE_SERVICE_INVALID';
 
 export class DockerComposeLifecycleError extends Error {
   public constructor(
@@ -41,63 +58,145 @@ export class DockerComposeLifecycleError extends Error {
   }
 }
 
-interface StartCommandOptions {
+interface LifecycleCommandOptions {
   cwd: string;
   timeoutMs: number;
   maxBufferBytes: number;
 }
 
-export type DockerComposeStartCommandRunner = (
+export type DockerComposeLifecycleCommandRunner = (
   command: ComposeStructuredCommand,
-  options: StartCommandOptions,
-) => Promise<void>;
+  options: LifecycleCommandOptions,
+) => Promise<string | void>;
 
-function defaultStartCommandRunner(
+export type DockerComposeStartCommandRunner =
+  DockerComposeLifecycleCommandRunner;
+
+function defaultLifecycleCommandRunner(
   command: ComposeStructuredCommand,
-  options: StartCommandOptions,
-): Promise<void> {
+  options: LifecycleCommandOptions,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       command.program,
       command.args,
       {
         cwd: options.cwd,
+        encoding: 'utf8',
         timeout: options.timeoutMs,
         maxBuffer: options.maxBufferBytes,
         windowsHide: true,
       },
-      (error) => {
+      (error, stdout) => {
         if (error) {
           reject(error);
           return;
         }
-        resolve();
+        resolve(stdout);
       },
     );
   });
 }
 
-function startCommand(wait: boolean): ComposeStructuredCommand {
+function composeCommand(
+  composeProjectName: string | undefined,
+  args: string[],
+): ComposeStructuredCommand {
   return {
     program: 'docker',
-    args: ['compose', 'up', '--detach', ...(wait ? ['--wait'] : [])],
+    args: [
+      'compose',
+      ...(composeProjectName ? ['--project-name', composeProjectName] : []),
+      ...args,
+    ],
   };
+}
+
+function startCommand(
+  composeProjectName: string | undefined,
+  wait: boolean,
+): ComposeStructuredCommand {
+  return composeCommand(composeProjectName, [
+    'up',
+    '--detach',
+    ...(wait ? ['--wait'] : []),
+  ]);
+}
+
+function stopCommand(
+  composeProjectName: string,
+  service?: string,
+): ComposeStructuredCommand {
+  return composeCommand(composeProjectName, [
+    'stop',
+    ...(service ? [service] : []),
+  ]);
+}
+
+function restartCommand(
+  composeProjectName: string,
+  service?: string,
+): ComposeStructuredCommand {
+  return composeCommand(composeProjectName, [
+    'restart',
+    ...(service ? [service] : []),
+  ]);
+}
+
+function logsCommand(
+  composeProjectName: string,
+  tail: number,
+  service?: string,
+): ComposeStructuredCommand {
+  return composeCommand(composeProjectName, [
+    'logs',
+    '--no-color',
+    '--tail',
+    String(tail),
+    ...(service ? [service] : []),
+  ]);
+}
+
+export type DockerComposeMutationState =
+  'stopped' | 'stopped-unverified' | 'restarted' | 'restarted-unverified';
+
+export interface DockerComposeMutationResult {
+  state: DockerComposeMutationState;
+  inspection?: DockerComposeInspection;
+  diagnostic?: string;
+}
+
+export interface DockerComposeLogSnapshot {
+  content: string;
+  truncated: boolean;
+  masked: boolean;
+  redactionCount: number;
+  readAt: string;
 }
 
 export interface DockerComposeLifecycleServiceOptions {
   supportsWait?: () => Promise<boolean>;
+  ownershipStore?: Pick<
+    DockerComposeOwnershipStore,
+    'get' | 'claim' | 'release'
+  >;
+  now?: () => Date;
 }
 
 export class DockerComposeLifecycleService {
   private readonly supportsWait: () => Promise<boolean>;
+  private readonly ownershipStore: DockerComposeLifecycleServiceOptions['ownershipStore'];
+  private readonly now: () => Date;
 
   public constructor(
     private readonly provider: Pick<DockerComposeProvider, 'inspect'>,
     private readonly preflight: Pick<DockerComposePreflightService, 'inspect'>,
-    private readonly runStart: DockerComposeStartCommandRunner = defaultStartCommandRunner,
+    private readonly runCommand: DockerComposeLifecycleCommandRunner = defaultLifecycleCommandRunner,
     options: DockerComposeLifecycleServiceOptions = {},
   ) {
     this.supportsWait = options.supportsWait ?? (async () => false);
+    this.ownershipStore = options.ownershipStore;
+    this.now = options.now ?? (() => new Date());
   }
 
   public async start(
@@ -142,13 +241,51 @@ export class DockerComposeLifecycleService {
       wait = false;
     }
 
+    const composeProjectName = before.config.projectName;
+    let claimedOwnership = false;
+    if (this.ownershipStore) {
+      if (!composeProjectName) {
+        throw new DockerComposeLifecycleError(
+          'COMPOSE_OWNERSHIP_MISMATCH',
+          'O projeto Compose resolvido não possui nome estável para ownership.',
+        );
+      }
+      const existing = await this.ownershipStore.get(project);
+      if (existing && existing.composeProjectName !== composeProjectName) {
+        throw new DockerComposeLifecycleError(
+          'COMPOSE_OWNERSHIP_MISMATCH',
+          'O ownership persistido pertence a outro projeto Compose.',
+        );
+      }
+      if (!existing) {
+        try {
+          await this.ownershipStore.claim(project, composeProjectName);
+          claimedOwnership = true;
+        } catch {
+          throw new DockerComposeLifecycleError(
+            'COMPOSE_OWNERSHIP_PERSIST_FAILED',
+            'Não foi possível persistir o ownership antes de iniciar o Compose.',
+          );
+        }
+      }
+    }
+
     try {
-      await this.runStart(startCommand(wait), {
-        cwd: project.path,
-        timeoutMs: START_TIMEOUT_MS,
-        maxBufferBytes: START_MAX_BUFFER_BYTES,
-      });
+      await this.runCommand(
+        startCommand(
+          this.ownershipStore ? composeProjectName : undefined,
+          wait,
+        ),
+        {
+          cwd: project.path,
+          timeoutMs: MUTATION_TIMEOUT_MS,
+          maxBufferBytes: MUTATION_MAX_BUFFER_BYTES,
+        },
+      );
     } catch {
+      if (claimedOwnership) {
+        await this.ownershipStore?.release(project).catch(() => false);
+      }
       throw new DockerComposeLifecycleError(
         'COMPOSE_START_FAILED',
         'Docker Compose não conseguiu iniciar a stack conhecida deste projeto.',
@@ -167,5 +304,228 @@ export class DockerComposeLifecycleService {
     }
 
     return { state: 'started', preflight: checked, inspection: after };
+  }
+
+  public async stop(
+    project: Project,
+    service?: string,
+  ): Promise<DockerComposeMutationResult> {
+    const target = await this.requireOwnedTarget(project, service);
+    try {
+      await this.runCommand(
+        stopCommand(target.ownership.composeProjectName, service),
+        {
+          cwd: project.path,
+          timeoutMs: MUTATION_TIMEOUT_MS,
+          maxBufferBytes: MUTATION_MAX_BUFFER_BYTES,
+        },
+      );
+    } catch {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_STOP_FAILED',
+        'Docker Compose não conseguiu parar o alvo owned deste projeto.',
+      );
+    }
+
+    const after = await this.provider.inspect(project).catch(() => undefined);
+    const observedServices = after ? this.targetServices(after, service) : [];
+    const verified =
+      Boolean(after?.runtime) &&
+      observedServices.length > 0 &&
+      observedServices.every(
+        (item) =>
+          item.state !== 'running' &&
+          item.state !== 'restarting' &&
+          item.state !== 'paused',
+      );
+    return verified
+      ? {
+          state: 'stopped',
+          ...(after ? { inspection: after } : {}),
+        }
+      : {
+          state: 'stopped-unverified',
+          ...(after ? { inspection: after } : {}),
+          diagnostic:
+            'A operação de stop terminou, mas o estado parado não pôde ser comprovado.',
+        };
+  }
+
+  public async restart(
+    project: Project,
+    service?: string,
+    preflightInput: DockerComposePortPreflightInput = {},
+  ): Promise<DockerComposeMutationResult> {
+    const target = await this.requireOwnedTarget(project, service);
+    const checked = await this.preflight.inspect(
+      project,
+      target.inspection.config!,
+      target.inspection.runtime,
+      preflightInput,
+    );
+    if (checked.state === 'blocked') {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_PREFLIGHT_BLOCKED',
+        checked.diagnostic ??
+          'Docker Compose não pode reiniciar enquanto houver conflito de portas.',
+      );
+    }
+    if (checked.state !== 'ready') {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_PREFLIGHT_UNAVAILABLE',
+        checked.diagnostic ??
+          'Docker Compose não pode comprovar a segurança das portas antes do restart.',
+      );
+    }
+
+    try {
+      await this.runCommand(
+        restartCommand(target.ownership.composeProjectName, service),
+        {
+          cwd: project.path,
+          timeoutMs: MUTATION_TIMEOUT_MS,
+          maxBufferBytes: MUTATION_MAX_BUFFER_BYTES,
+        },
+      );
+    } catch {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_RESTART_FAILED',
+        'Docker Compose não conseguiu reiniciar o alvo owned deste projeto.',
+      );
+    }
+
+    const after = await this.provider.inspect(project).catch(() => undefined);
+    const observedServices = after ? this.targetServices(after, service) : [];
+    const verified =
+      Boolean(after?.runtime) &&
+      observedServices.length > 0 &&
+      observedServices.every(
+        (item) => item.state === 'running' || item.state === 'restarting',
+      );
+    return verified
+      ? {
+          state: 'restarted',
+          ...(after ? { inspection: after } : {}),
+        }
+      : {
+          state: 'restarted-unverified',
+          ...(after ? { inspection: after } : {}),
+          diagnostic:
+            'A operação de restart terminou, mas o runtime ativo não pôde ser comprovado.',
+        };
+  }
+
+  public async logs(
+    project: Project,
+    options: { service?: string; tail?: number } = {},
+  ): Promise<DockerComposeLogSnapshot> {
+    const tail = options.tail ?? DEFAULT_LOG_TAIL;
+    if (!Number.isInteger(tail) || tail < 1 || tail > MAX_LOG_TAIL) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_LOGS_FAILED',
+        `O tail dos logs deve ficar entre 1 e ${MAX_LOG_TAIL}.`,
+      );
+    }
+
+    const target = await this.requireOwnedTarget(project, options.service);
+    let output: string | void;
+    try {
+      output = await this.runCommand(
+        logsCommand(target.ownership.composeProjectName, tail, options.service),
+        {
+          cwd: project.path,
+          timeoutMs: LOG_TIMEOUT_MS,
+          maxBufferBytes: LOG_MAX_BUFFER_BYTES,
+        },
+      );
+    } catch {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_LOGS_FAILED',
+        'Docker Compose não conseguiu ler os logs do alvo owned.',
+      );
+    }
+
+    const raw = typeof output === 'string' ? output : '';
+    const bounded = this.boundLogContent(raw);
+    const masked = maskSensitiveLogContent(bounded.content);
+    return {
+      content: masked.content,
+      truncated: bounded.truncated,
+      masked: masked.masked,
+      redactionCount: masked.redactionCount,
+      readAt: this.now().toISOString(),
+    };
+  }
+
+  private async requireOwnedTarget(
+    project: Project,
+    service?: string,
+  ): Promise<{
+    ownership: DockerComposeOwnershipRecord;
+    inspection: DockerComposeInspection;
+  }> {
+    if (!this.ownershipStore) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_OWNERSHIP_REQUIRED',
+        'Lifecycle mutável do Compose exige ownership persistido.',
+      );
+    }
+    const ownership = await this.ownershipStore.get(project);
+    if (!ownership) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_OWNERSHIP_REQUIRED',
+        'Este projeto não possui ownership Compose comprovado.',
+      );
+    }
+
+    const inspection = await this.provider.inspect(project);
+    const composeProjectName = inspection.config?.projectName;
+    if (
+      !inspection.config ||
+      !composeProjectName ||
+      composeProjectName !== ownership.composeProjectName
+    ) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_OWNERSHIP_MISMATCH',
+        'A configuração Compose atual não corresponde ao ownership persistido.',
+      );
+    }
+
+    if (
+      service &&
+      !inspection.config.services.some((item) => item.name === service)
+    ) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_SERVICE_INVALID',
+        'O serviço solicitado não pertence ao catálogo Compose resolvido.',
+      );
+    }
+
+    return { ownership, inspection };
+  }
+
+  private targetServices(
+    inspection: DockerComposeInspection,
+    service?: string,
+  ) {
+    const services = inspection.runtime?.services ?? [];
+    return service
+      ? services.filter((item) => item.service === service)
+      : services;
+  }
+
+  private boundLogContent(content: string): {
+    content: string;
+    truncated: boolean;
+  } {
+    const bytes = Buffer.from(content, 'utf8');
+    if (bytes.byteLength <= LOG_MAX_CONTENT_BYTES) {
+      return { content, truncated: false };
+    }
+    const tail = bytes
+      .subarray(bytes.byteLength - LOG_MAX_CONTENT_BYTES)
+      .toString('utf8')
+      .replace(/^\uFFFD/u, '');
+    return { content: tail, truncated: true };
   }
 }
