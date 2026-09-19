@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -14,6 +15,7 @@ import {
 
 const COMMAND_TIMEOUT_MS = 5_000;
 const COMMAND_MAX_BUFFER_BYTES = 2 * 1024 * 1024;
+const WORKTREE_ENVIRONMENT_INSTANCE_PREFIX = 'environment:worktree:';
 
 export type DockerComposeInspectionState =
   | 'available'
@@ -83,6 +85,20 @@ function parseJson(value: string): unknown {
   return JSON.parse(value) as unknown;
 }
 
+export function composeProjectNameForProject(
+  project: Pick<Project, 'id'>,
+): string | undefined {
+  if (!project.id.startsWith(WORKTREE_ENVIRONMENT_INSTANCE_PREFIX)) {
+    return undefined;
+  }
+
+  const digest = createHash('sha256')
+    .update(project.id)
+    .digest('hex')
+    .slice(0, 16);
+  return `devdash-${digest}`;
+}
+
 export class DockerComposeProvider {
   public constructor(
     private readonly runCommand: ComposeCommandRunner = defaultCommandRunner,
@@ -91,6 +107,7 @@ export class DockerComposeProvider {
 
   public async inspect(project: Project): Promise<DockerComposeInspection> {
     const observedAt = this.now().toISOString();
+    const composeProjectName = composeProjectNameForProject(project);
     const commandOptions = {
       cwd: project.path,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -100,7 +117,7 @@ export class DockerComposeProvider {
     let configOutput: string;
     try {
       configOutput = await this.runCommand(
-        buildComposeConfigCommand(),
+        buildComposeConfigCommand(composeProjectName),
         commandOptions,
       );
     } catch (error) {
@@ -120,6 +137,9 @@ export class DockerComposeProvider {
         project.id,
         observedAt,
       );
+      if (composeProjectName && config.projectName !== composeProjectName) {
+        throw new Error('Nome Compose resolvido não corresponde ao namespace.');
+      }
     } catch {
       return {
         state: 'invalid-output',
@@ -132,7 +152,7 @@ export class DockerComposeProvider {
     let runtimeOutput: string;
     try {
       runtimeOutput = await this.runCommand(
-        buildComposePsCommand(),
+        buildComposePsCommand(composeProjectName),
         commandOptions,
       );
     } catch {

@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
+  composeProjectNameForProject,
   DockerComposeProvider,
   type ComposeCommandRunner,
 } from '../src/services/docker-compose-provider.js';
@@ -67,6 +68,91 @@ test('executa somente os dois comandos estruturados no cwd do projeto', async ()
   assert.equal(result.config?.services[0]?.name, 'postgres');
   assert.equal(result.runtime?.services[0]?.health, 'healthy');
   assert.equal(JSON.stringify(result).includes('postgres://secret'), false);
+});
+
+test('worktree usa project-name determinístico e isolado em config/ps', async () => {
+  const worktreeProject: Project = {
+    ...project,
+    id: 'environment:worktree:project-1:worktree-1',
+    path: '/workspace/projeto-worktree',
+  };
+  const otherWorktreeProject: Project = {
+    ...worktreeProject,
+    id: 'environment:worktree:project-1:worktree-2',
+  };
+  const composeProjectName = composeProjectNameForProject(worktreeProject);
+  assert.ok(composeProjectName);
+  assert.equal(
+    composeProjectNameForProject(worktreeProject),
+    composeProjectName,
+  );
+  assert.notEqual(
+    composeProjectNameForProject(otherWorktreeProject),
+    composeProjectName,
+  );
+  assert.match(composeProjectName, /^devdash-[a-f0-9]{16}$/u);
+  assert.equal(composeProjectNameForProject(project), undefined);
+
+  const calls: Array<{ args: string[]; cwd: string }> = [];
+  const runner: ComposeCommandRunner = async (command, options) => {
+    calls.push({ args: [...command.args], cwd: options.cwd });
+    if (command.args.includes('config')) {
+      return JSON.stringify({
+        ...JSON.parse(configPayload),
+        name: composeProjectName,
+      });
+    }
+    return runtimePayload;
+  };
+
+  const result = await new DockerComposeProvider(runner, () => NOW).inspect(
+    worktreeProject,
+  );
+
+  assert.equal(result.state, 'available');
+  assert.equal(result.config?.projectName, composeProjectName);
+  assert.deepEqual(calls, [
+    {
+      args: [
+        'compose',
+        '--project-name',
+        composeProjectName,
+        'config',
+        '--format',
+        'json',
+      ],
+      cwd: worktreeProject.path,
+    },
+    {
+      args: [
+        'compose',
+        '--project-name',
+        composeProjectName,
+        'ps',
+        '--all',
+        '--format',
+        'json',
+      ],
+      cwd: worktreeProject.path,
+    },
+  ]);
+});
+
+test('worktree falha fechado se config não confirmar project-name explícito', async () => {
+  const worktreeProject: Project = {
+    ...project,
+    id: 'environment:worktree:project-1:worktree-1',
+    path: '/workspace/projeto-worktree',
+  };
+  const runner: ComposeCommandRunner = async (command) =>
+    command.args.includes('config') ? configPayload : runtimePayload;
+
+  const result = await new DockerComposeProvider(runner, () => NOW).inspect(
+    worktreeProject,
+  );
+
+  assert.equal(result.state, 'invalid-output');
+  assert.equal(result.runtime, undefined);
 });
 
 test('Docker ausente vira estado suportado sem ecoar erro bruto', async () => {
