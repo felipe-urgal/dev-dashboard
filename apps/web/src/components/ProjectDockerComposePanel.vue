@@ -315,7 +315,9 @@ watch(
           <small v-if="snapshot.ownership.startedAt">
             Desde {{ formatDate(snapshot.ownership.startedAt) }}
           </small>
-          <small v-else-if="snapshot.ownership.reconciliation.state === 'released'">
+          <small
+            v-else-if="snapshot.ownership.reconciliation.state === 'released'"
+          >
             Ownership obsoleto reconciliado.
           </small>
         </section>

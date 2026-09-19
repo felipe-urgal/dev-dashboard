@@ -403,8 +403,10 @@ function throwLifecycleApiError(error: unknown): never {
 
 async function readSnapshot(options: Options, project: Project) {
   const inspection = await options.dockerComposeProvider.inspect(project);
-  const reconciliation =
-    await options.dockerComposeLifecycleService.reconcile(project, inspection);
+  const reconciliation = await options.dockerComposeLifecycleService.reconcile(
+    project,
+    inspection,
+  );
   const preflight = inspection.config
     ? await options.dockerComposePreflightService.inspect(
         project,

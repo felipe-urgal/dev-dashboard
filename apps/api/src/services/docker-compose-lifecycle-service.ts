@@ -182,9 +182,7 @@ export interface DockerComposeLogSnapshot {
 }
 
 export type DockerComposeReconciliationState =
-  | 'unchanged'
-  | 'released'
-  | 'unavailable';
+  'unchanged' | 'released' | 'unavailable';
 
 export interface DockerComposeReconciliationResult {
   state: DockerComposeReconciliationState;
