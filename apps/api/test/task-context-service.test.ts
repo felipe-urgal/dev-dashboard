@@ -309,7 +309,6 @@ test('degrada evidência Git sem perder o contexto quando a leitura falha', asyn
   });
 });
 
-
 test('reutiliza Cockpit do PR explícito e anexa Readiness apenas no ambiente primário', async () => {
   const directory = await mkdtemp(
     path.join(tmpdir(), 'task-context-remote-evidence-'),

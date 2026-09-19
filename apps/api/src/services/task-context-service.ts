@@ -213,11 +213,7 @@ export class TaskContextService {
         environment.source.path,
         evidence,
       ),
-      this.hydrateReadinessEvidence(
-        project,
-        environment.source.kind,
-        evidence,
-      ),
+      this.hydrateReadinessEvidence(project, environment.source.kind, evidence),
     ]);
 
     return { context, evidence };
