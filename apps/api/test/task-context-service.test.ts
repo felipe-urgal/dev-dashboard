@@ -199,9 +199,10 @@ test('atualiza somente referências explícitas e preserva branch/ambiente', asy
   assert.deepEqual(service.list(project.id), []);
 });
 
-
 test('hidrata evidência Git somente quando a branch observada corresponde ao contexto', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'task-context-evidence-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-evidence-'),
+  );
   const repository = new TaskContextRepository(directory);
   const service = new TaskContextService(
     { findProject: () => project },
@@ -238,7 +239,9 @@ test('hidrata evidência Git somente quando a branch observada corresponde ao co
 });
 
 test('não associa HEAD de outra branch ao Task Context', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'task-context-evidence-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-evidence-'),
+  );
   const repository = new TaskContextRepository(directory);
   let branch = 'feature/original';
   const service = new TaskContextService(
@@ -274,7 +277,9 @@ test('não associa HEAD de outra branch ao Task Context', async () => {
 });
 
 test('degrada evidência Git sem perder o contexto quando a leitura falha', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'task-context-evidence-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'task-context-evidence-'),
+  );
   const repository = new TaskContextRepository(directory);
   let fail = false;
   const service = new TaskContextService(

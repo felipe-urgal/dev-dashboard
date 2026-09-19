@@ -127,7 +127,9 @@ export class TaskContextService {
     }
 
     try {
-      const overview = await this.gitReader.getOverview(environment.source.path);
+      const overview = await this.gitReader.getOverview(
+        environment.source.path,
+      );
       const currentBranch =
         overview.repository && !overview.detached ? overview.branch : undefined;
       const branchMatches =
