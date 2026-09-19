@@ -1,5 +1,3 @@
-import type { Project } from '@dev-dashboard/contracts';
-
 import type {
   MigrationMutationPlanContext,
   MigrationMutationProvider,
