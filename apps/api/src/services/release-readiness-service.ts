@@ -1,6 +1,7 @@
 import type {
   GitOpenPullRequest,
   GitPullRequestLookup,
+  ProductionOverview,
   Project,
 } from '@dev-dashboard/contracts';
 
@@ -13,6 +14,7 @@ import {
   evaluateGitReadiness,
   evaluateMigrationsReadiness,
   evaluatePullRequestReadiness,
+  evaluateProductionReadiness,
   evaluateTestsReadiness,
   type ReleaseReadinessCheck,
   type ReleaseReadinessCheckId,
@@ -39,11 +41,17 @@ interface ReleaseReadinessServiceOptions {
       pullRequest: GitOpenPullRequest,
     ): Promise<GitOpenPullRequest>;
   };
+  productionOverview?: {
+    read(projects: readonly Project[]): Promise<ProductionOverview>;
+  };
 }
 
 export interface ReleaseReadinessSnapshotOptions {
   testMaxAgeMs: number;
+  productionHealthMaxAgeMs?: number;
 }
+
+const DEFAULT_PRODUCTION_HEALTH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function unavailableCheck(
   id: ReleaseReadinessCheckId,
@@ -58,6 +66,7 @@ function unavailableCheck(
     },
     doctor: { label: 'Abrir Doctor', target: 'doctor' as const },
     migrations: { label: 'Abrir Migrations', target: 'migrations' as const },
+    production: { label: 'Abrir Produção', target: 'production' as const },
   };
   const summaryById = {
     git: 'Estado Git indisponível',
@@ -65,6 +74,7 @@ function unavailableCheck(
     'pull-request': 'Estado remoto da Pull Request indisponível',
     doctor: 'Project Doctor indisponível',
     migrations: 'Estado de migrations indisponível',
+    production: 'Estado de produção indisponível',
   };
 
   return {
@@ -104,6 +114,8 @@ export class ReleaseReadinessService {
     ReleaseReadinessServiceOptions['pullRequestLookup'] | undefined;
   private readonly pullRequestStatus:
     ReleaseReadinessServiceOptions['pullRequestStatus'] | undefined;
+  private readonly productionOverview:
+    ReleaseReadinessServiceOptions['productionOverview'] | undefined;
 
   public constructor(
     private readonly gitService: Pick<GitService, 'getOverview'>,
@@ -126,6 +138,7 @@ export class ReleaseReadinessService {
       options.captureIdentity ?? captureTestExecutionGitIdentity;
     this.pullRequestLookup = options.pullRequestLookup;
     this.pullRequestStatus = options.pullRequestStatus;
+    this.productionOverview = options.productionOverview;
   }
 
   public async getSnapshot(
@@ -137,6 +150,16 @@ export class ReleaseReadinessService {
     }
 
     const now = this.now();
+    const productionHealthMaxAgeMs =
+      options.productionHealthMaxAgeMs ?? DEFAULT_PRODUCTION_HEALTH_MAX_AGE_MS;
+    if (
+      !Number.isFinite(productionHealthMaxAgeMs) ||
+      productionHealthMaxAgeMs <= 0
+    ) {
+      throw new Error(
+        'A janela de freshness do health de produção deve ser positiva.',
+      );
+    }
     const observedAt = new Date(now).toISOString();
     const [
       gitOverview,
@@ -145,6 +168,7 @@ export class ReleaseReadinessService {
       doctorReport,
       migrationOverview,
       pullRequestLookup,
+      productionOverview,
     ] = await Promise.all([
       safely(() => this.gitService.getOverview(project.path)),
       safely(() => this.testHistoryService.history(project.id, 1, 50)),
@@ -152,6 +176,7 @@ export class ReleaseReadinessService {
       safely(() => this.projectDoctorService.getReport(project)),
       safely(() => this.migrationOverviewService.inspect(project)),
       this.readPullRequest(project.path),
+      this.readProduction(project),
     ]);
 
     const checks: ReleaseReadinessCheck[] = [
@@ -183,9 +208,36 @@ export class ReleaseReadinessService {
       migrationOverview
         ? evaluateMigrationsReadiness(migrationOverview)
         : unavailableCheck('migrations', observedAt),
+      ...(this.productionOverview && this.isProductionApplicable(project)
+        ? [
+            productionOverview?.items[0]
+              ? evaluateProductionReadiness(
+                  productionOverview.items[0],
+                  now,
+                  productionHealthMaxAgeMs,
+                )
+              : unavailableCheck('production', observedAt),
+          ]
+        : []),
     ];
 
     return buildReleaseReadinessSnapshot(checks, observedAt);
+  }
+
+  private isProductionApplicable(project: Project): boolean {
+    return (
+      project.capabilities.includes('production') &&
+      project.production !== undefined
+    );
+  }
+
+  private async readProduction(
+    project: Project,
+  ): Promise<ProductionOverview | undefined> {
+    if (!this.productionOverview || !this.isProductionApplicable(project)) {
+      return undefined;
+    }
+    return safely(() => this.productionOverview!.read([project]));
   }
 
   private async readPullRequest(
