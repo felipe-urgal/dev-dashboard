@@ -271,16 +271,28 @@ export function parseComposePs(
   return { observedAt, services };
 }
 
-export function buildComposeConfigCommand(): ComposeStructuredCommand {
+function composeCommand(
+  composeProjectName: string | undefined,
+  args: string[],
+): ComposeStructuredCommand {
   return {
     program: 'docker',
-    args: ['compose', 'config', '--format', 'json'],
+    args: [
+      'compose',
+      ...(composeProjectName ? ['--project-name', composeProjectName] : []),
+      ...args,
+    ],
   };
 }
 
-export function buildComposePsCommand(): ComposeStructuredCommand {
-  return {
-    program: 'docker',
-    args: ['compose', 'ps', '--all', '--format', 'json'],
-  };
+export function buildComposeConfigCommand(
+  composeProjectName?: string,
+): ComposeStructuredCommand {
+  return composeCommand(composeProjectName, ['config', '--format', 'json']);
+}
+
+export function buildComposePsCommand(
+  composeProjectName?: string,
+): ComposeStructuredCommand {
+  return composeCommand(composeProjectName, ['ps', '--all', '--format', 'json']);
 }
