@@ -56,7 +56,11 @@ const route = useRoute();
     :class="{
       'project-details-tab-active': route.name === 'project-compose',
     }"
-    :to="{ name: 'project-compose', params: { projectId: project.id } }"
+    :to="{
+      name: 'project-compose',
+      params: { projectId: project.id },
+      ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
+    }"
   >
     <ServerStackIcon aria-hidden="true" />
     <span>Compose</span>
