@@ -52,6 +52,18 @@ export interface OsvDependencyAdvisoryServiceOptions {
   batchSize?: number;
 }
 
+function positiveInteger(
+  value: number | undefined,
+  fallback: number,
+  maximum?: number,
+): number {
+  if (!Number.isFinite(value) || value === undefined || value <= 0) {
+    return fallback;
+  }
+  const normalized = Math.max(1, Math.floor(value));
+  return maximum === undefined ? normalized : Math.min(maximum, normalized);
+}
+
 interface QueryTarget {
   dependency: NodeDependencyInventoryEntry;
   index: number;
@@ -262,10 +274,14 @@ export class OsvDependencyAdvisoryService {
   public constructor(options: OsvDependencyAdvisoryServiceOptions = {}) {
     this.fetcher = options.fetcher ?? fetch;
     this.now = options.now ?? (() => new Date());
-    this.timeoutMs = Math.max(10, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-    this.batchSize = Math.min(
+    this.timeoutMs = Math.max(
+      10,
+      positiveInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS),
+    );
+    this.batchSize = positiveInteger(
+      options.batchSize,
+      DEFAULT_BATCH_SIZE,
       MAX_BATCH_SIZE,
-      Math.max(1, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)),
     );
   }
 
