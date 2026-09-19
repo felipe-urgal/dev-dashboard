@@ -12,3 +12,4 @@ export * from './response-schemas/project-coverage.js';
 export * from './response-schemas/deployments.js';
 export * from './response-schemas/production-overview.js';
 export * from './response-schemas/release-readiness.js';
+export * from './response-schemas/dependency-health.js';
