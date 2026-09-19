@@ -17,6 +17,18 @@ export {
 } from './retention-settings-repository.js';
 
 export {
+  ActivityEventRepository,
+  ActivityEventRepositoryError,
+  ACTIVITY_EVENT_LIMITS,
+} from './activity-event-repository.js';
+
+export type {
+  ActivityEventListOptions,
+  ActivityEventRepositoryErrorCode,
+  AppendActivityEventInput,
+} from './activity-event-repository.js';
+
+export {
   ProjectDisabledRepository,
   ProjectDisabledRepositoryError,
 } from './project-disabled-repository.js';

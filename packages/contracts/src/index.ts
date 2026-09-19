@@ -11,6 +11,16 @@ export type {
 } from './attention.js';
 
 export type {
+  ActivityDomain,
+  ActivityEvent,
+  ActivityEventStatus,
+  ActivityJob,
+  ActivityJobStatus,
+  ActivityResourceRef,
+  ActivitySnapshot,
+} from './activity.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
