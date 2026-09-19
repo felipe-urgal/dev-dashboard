@@ -27,6 +27,7 @@ import ProjectDetailsMoreTools from '../components/ProjectDetailsMoreTools.vue';
 import ProjectGitUpdateIndicator from '../components/ProjectGitUpdateIndicator.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
+import ProjectTaskContextSummary from '../components/ProjectTaskContextSummary.vue';
 import ProjectToolError from '../components/ProjectToolError.vue';
 import ProjectToolLoading from '../components/ProjectToolLoading.vue';
 import { dashboardStore } from '../stores/dashboard';
@@ -326,6 +327,12 @@ onBeforeUnmount(stopGitOverviewRefresh);
                 >
                 <code>{{ project.path }}</code>
               </div>
+              <ProjectTaskContextSummary
+                v-if="project.enabled && project.capabilities.includes('git')"
+                :project-id="project.id"
+                :current-branch="gitBranch || undefined"
+                :environment-instance-id="environmentInstanceId"
+              />
             </div>
           </div>
 
