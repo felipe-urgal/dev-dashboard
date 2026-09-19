@@ -12,6 +12,7 @@ import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
 import { releaseReadinessRoutes } from './routes/release-readiness.js';
 import { dependencyHealthRoutes } from './routes/dependency-health.js';
+import { dependencyUpgradePlanRoutes } from './routes/dependency-upgrade-plan.js';
 import { migrationRoutes } from './routes/migrations.js';
 import { dockerComposeRoutes } from './routes/docker-compose.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
@@ -127,6 +128,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     attentionCenterService,
     releaseReadinessService,
     dependencyHealthService,
+    dependencyUpgradePlanService,
     migrationOverviewService,
     dockerComposeProvider,
     dockerComposePreflightService,
@@ -230,6 +232,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     dependencyHealthService,
+  });
+
+  app.register(dependencyUpgradePlanRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    dependencyUpgradePlanService,
   });
 
   app.register(migrationRoutes, {
