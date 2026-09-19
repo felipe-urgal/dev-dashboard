@@ -456,11 +456,7 @@ test('guard da aplicação é aplicado por operação sem mutar o lifecycle comp
     },
   };
 
-  const prepared = await service.prepareRemoval(
-    project,
-    worktreeId,
-    appGuard,
-  );
+  const prepared = await service.prepareRemoval(project, worktreeId, appGuard);
 
   assert.equal(prepared.state, 'blocked');
   assert.match(prepared.diagnostic ?? '', /Docker Compose owned/i);
