@@ -123,12 +123,6 @@ function formatTimestamp(value: string): string {
   }).format(date);
 }
 
-function environmentQuery(
-  environmentInstanceId: string | undefined,
-): Record<string, string> | undefined {
-  return environmentInstanceId ? { environmentInstanceId } : undefined;
-}
-
 function detailTarget(
   item: ActivityEvent | ActivityJob,
 ): RouteLocationRaw | undefined {
@@ -142,8 +136,8 @@ function detailTarget(
     return {
       name: 'project-tests',
       params: { projectId },
-      ...(environmentQuery(item.environmentInstanceId)
-        ? { query: environmentQuery(item.environmentInstanceId) }
+      ...(item.environmentInstanceId
+        ? { query: { environmentInstanceId: item.environmentInstanceId } }
         : {}),
     };
   }
