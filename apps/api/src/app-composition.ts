@@ -16,6 +16,7 @@ import { PortInspectorService } from './services/port-inspector-service.js';
 import { PortAllocationLeaseRegistry } from './services/port-registry-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectDependencyHealthService } from './services/project-dependency-health-service.js';
+import { ProjectDependencyUpgradePlanService } from './services/project-dependency-upgrade-plan-service.js';
 import { GitPullRequestService } from './services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from './services/git-pull-request-status-service.js';
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
@@ -53,6 +54,10 @@ export interface AppCompositionOptions {
   deploymentService?: DeploymentService;
   releaseReadinessService?: Pick<ReleaseReadinessService, 'getSnapshot'>;
   dependencyHealthService?: Pick<ProjectDependencyHealthService, 'inspect'>;
+  dependencyUpgradePlanService?: Pick<
+    ProjectDependencyUpgradePlanService,
+    'inspect'
+  >;
   migrationProviders?: readonly MigrationProvider[];
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
@@ -177,6 +182,9 @@ export function createAppComposition(
     new ProjectDependencyHealthService(
       options.now ? { now: () => new Date(options.now!()) } : {},
     );
+  const dependencyUpgradePlanService =
+    options.dependencyUpgradePlanService ??
+    new ProjectDependencyUpgradePlanService({ dependencyHealthService });
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
@@ -201,6 +209,7 @@ export function createAppComposition(
     releaseReadinessService,
     migrationOverviewService,
     dependencyHealthService,
+    dependencyUpgradePlanService,
     securityScannerProvider,
   };
 }
