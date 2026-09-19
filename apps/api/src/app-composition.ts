@@ -16,6 +16,7 @@ import type { MigrationProvider } from './services/migration-provider.js';
 import { PrismaMigrationProvider } from './services/prisma-migration-provider.js';
 import { RailsMigrationProvider } from './services/rails-migration-provider.js';
 import { ReleaseReadinessService } from './services/release-readiness-service.js';
+import { TaskContextService } from './services/task-context-service.js';
 import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
 import { TrivySecurityProvider } from './services/trivy-security-provider.js';
 import type { SecurityScanResult } from './services/trivy-security-scanner.js';
@@ -66,6 +67,12 @@ export function createAppComposition(
     deploymentReader: deploymentService,
     ...(options.now ? { now: options.now } : {}),
   });
+  const taskContextService = new TaskContextService(
+    context.projectStore,
+    context.developmentEnvironmentInstanceStore,
+    context.gitService,
+    context.taskContextRepository,
+  );
   const activitySnapshotService = new ActivitySnapshotService({
     eventStore: context.activityEventRepository,
     gitHistory: context.gitMutationHistoryService,
@@ -114,6 +121,7 @@ export function createAppComposition(
     projectTerminalService,
     deploymentService,
     productionOverviewService,
+    taskContextService,
     activitySnapshotService,
     attentionCenterService,
     releaseReadinessService,
