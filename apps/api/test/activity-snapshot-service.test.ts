@@ -136,6 +136,7 @@ function createService(
     },
     projectStore: {
       findProject: (id) => (id === project.id ? project : null),
+      listProjects: () => [project],
     },
     now: () => new Date('2026-09-19T10:06:00.000Z'),
   });
@@ -204,5 +205,28 @@ test('limita eventos e rejeita projeto inexistente', async () => {
     (error) =>
       error instanceof ActivitySnapshotServiceError &&
       error.code === 'ACTIVITY_PROJECT_NOT_FOUND',
+  );
+});
+
+test('agrega visão global reutilizando uma única leitura de processos', async () => {
+  let processReads = 0;
+  const service = createService({
+    processes: async () => {
+      processReads += 1;
+      return processes;
+    },
+  });
+
+  const snapshot = await service.readGlobal(10);
+
+  assert.equal(processReads, 1);
+  assert.equal(snapshot.partial, false);
+  assert.equal(
+    snapshot.events.some((event) => event.id === 'git:git-1'),
+    true,
+  );
+  assert.equal(
+    snapshot.jobs.some((job) => job.id === 'process:process-1'),
+    true,
   );
 });
