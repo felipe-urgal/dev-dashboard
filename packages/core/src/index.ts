@@ -29,6 +29,18 @@ export {
 export type { ProjectRecentAccess } from './project-recent-repository.js';
 
 export {
+  TaskContextRepository,
+  TaskContextRepositoryError,
+  TASK_CONTEXT_LIMITS,
+} from './task-context-repository.js';
+
+export type {
+  CreateTaskContextInput,
+  TaskContextRepositoryErrorCode,
+  UpdateTaskContextInput,
+} from './task-context-repository.js';
+
+export {
   EnvironmentProfileRepository,
   EnvironmentProfileRepositoryError,
   ENVIRONMENT_PROFILE_LIMITS,

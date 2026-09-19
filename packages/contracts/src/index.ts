@@ -24,6 +24,15 @@ export type {
 } from './project.js';
 
 export type {
+  TaskContext,
+  TaskContextEvidence,
+  TaskContextIssueRef,
+  TaskContextPullRequestRef,
+  TaskContextReadinessStatus,
+  TaskContextSnapshot,
+} from './task-context.js';
+
+export type {
   DevelopmentEnvironmentInstance,
   DevelopmentEnvironmentLifecycle,
   DevelopmentEnvironmentRuntime,
