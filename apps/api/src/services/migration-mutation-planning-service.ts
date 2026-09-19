@@ -165,10 +165,7 @@ type PlanInput = Omit<
   'planHash' | 'executionContextHash'
 >;
 
-function planHash(
-  input: PlanInput,
-  contextHash: string,
-): string {
+function planHash(input: PlanInput, contextHash: string): string {
   const authority = {
     projectId: input.projectId,
     provider: input.provider,

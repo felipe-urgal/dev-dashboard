@@ -338,7 +338,6 @@ test('ausência de provider comum produz plano unavailable sem inventar execuç�
   assert.equal(plan.command, undefined);
 });
 
-
 test('planHash permanece estável entre revalidações equivalentes e invalida quando o cwd muda', async () => {
   let currentContext = hostContext;
   let currentNow = NOW;

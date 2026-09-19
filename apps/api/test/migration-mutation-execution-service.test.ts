@@ -20,8 +20,7 @@ class FakePty extends EventEmitter {
   public readonly kills: string[] = [];
   private dataListener: ((data: string) => void) | undefined;
   private exitListener:
-    | ((event: { exitCode: number; signal?: number }) => void)
-    | undefined;
+    ((event: { exitCode: number; signal?: number }) => void) | undefined;
 
   public onData(listener: (data: string) => void): { dispose(): void } {
     this.dataListener = listener;
@@ -99,8 +98,7 @@ function readyPlan(
 test('executor revalida, consome confirmação e inicia PTY no cwd backend-owned', async () => {
   const fakePty = new FakePty();
   let spawned:
-    | { file: string; args: readonly string[]; cwd: string }
-    | undefined;
+    { file: string; args: readonly string[]; cwd: string } | undefined;
   const detachable = new DetachableExecutionService({
     spawnPty: (file, args, options) => {
       spawned = { file, args, cwd: options.cwd };
@@ -134,7 +132,10 @@ test('executor revalida, consome confirmação e inicia PTY no cwd backend-owned
   assert.equal(snapshot.provider, 'rails');
   assert.equal(snapshot.operation, 'apply');
   assert.equal(snapshot.database, 'primary');
-  assert.equal(snapshot.environmentInstanceId, executionContext.environmentInstanceId);
+  assert.equal(
+    snapshot.environmentInstanceId,
+    executionContext.environmentInstanceId,
+  );
   assert.equal(snapshot.planHash, plan.planHash);
 
   assert.throws(
@@ -242,17 +243,14 @@ test('mudança de Environment Instance invalida execução antes de consumir tok
   );
 
   await assert.rejects(
-    () =>
-      service.start(project, { operation: 'apply' }, confirmation.token),
+    () => service.start(project, { operation: 'apply' }, confirmation.token),
     (error: unknown) =>
       error instanceof MigrationMutationExecutionError &&
       error.code === 'MIGRATION_MUTATION_EXECUTION_CONTEXT_CHANGED',
   );
 
   contextAvailable = true;
-  assert.doesNotThrow(() =>
-    confirmations.consume(plan, confirmation.token),
-  );
+  assert.doesNotThrow(() => confirmations.consume(plan, confirmation.token));
 });
 
 test('confirmation de plano anterior não autoriza revalidação com novo hash', async () => {
@@ -277,8 +275,7 @@ test('confirmation de plano anterior não autoriza revalidação com novo hash',
   );
 
   await assert.rejects(
-    () =>
-      service.start(project, { operation: 'apply' }, confirmation.token),
+    () => service.start(project, { operation: 'apply' }, confirmation.token),
     (error: unknown) =>
       error instanceof MigrationMutationConfirmationError &&
       error.code === 'MIGRATION_MUTATION_CONFIRMATION_REQUIRED',

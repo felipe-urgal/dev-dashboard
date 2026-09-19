@@ -28,7 +28,9 @@ export class RailsMigrationMutationProvider
       throw new Error('Provider Rails não se aplica a este projeto.');
     }
     if (context.operation !== 'apply') {
-      throw new Error('Operação de migration não suportada pelo provider Rails.');
+      throw new Error(
+        'Operação de migration não suportada pelo provider Rails.',
+      );
     }
     if (context.database !== 'primary') {
       throw new Error(

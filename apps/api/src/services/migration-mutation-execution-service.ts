@@ -31,8 +31,7 @@ export class MigrationMutationExecutionError extends Error {
   }
 }
 
-export interface MigrationMutationExecutionSnapshot
-  extends DetachableExecutionSnapshot {
+export interface MigrationMutationExecutionSnapshot extends DetachableExecutionSnapshot {
   provider: string;
   operation: MigrationMutationOperation;
   database: string;
@@ -180,10 +179,8 @@ export class MigrationMutationExecutionService {
     }
 
     try {
-      const handle = this.detachable.attach(
-        key,
-        onData,
-        (snapshot) => onExit(withMetadata(snapshot, metadata)),
+      const handle = this.detachable.attach(key, onData, (snapshot) =>
+        onExit(withMetadata(snapshot, metadata)),
       );
       return {
         snapshot: withMetadata(handle.snapshot, metadata),

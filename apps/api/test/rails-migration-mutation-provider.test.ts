@@ -13,7 +13,9 @@ async function projectFixture(
   files: Record<string, string>,
   type: Project['type'] = 'rails',
 ): Promise<Project> {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'rails-mutation-provider-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'rails-mutation-provider-'),
+  );
   for (const [relative, contents] of Object.entries(files)) {
     const target = path.join(root, relative);
     await mkdir(path.dirname(target), { recursive: true });

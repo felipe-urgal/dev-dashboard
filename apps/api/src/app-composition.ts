@@ -157,13 +157,12 @@ export function createAppComposition(
     ],
     now ? { now: () => new Date(now()) } : {},
   );
-  const migrationMutationPlanningService =
-    new MigrationMutationPlanningService(
-      options.migrationMutationProviders ?? [railsMigrationMutationProvider],
-      migrationOverviewService,
-      context.developmentEnvironmentInstanceStore,
-      now ? { now: () => new Date(now()) } : {},
-    );
+  const migrationMutationPlanningService = new MigrationMutationPlanningService(
+    options.migrationMutationProviders ?? [railsMigrationMutationProvider],
+    migrationOverviewService,
+    context.developmentEnvironmentInstanceStore,
+    now ? { now: () => new Date(now()) } : {},
+  );
   const migrationMutationConfirmationService =
     new MigrationMutationConfirmationService(
       undefined,
