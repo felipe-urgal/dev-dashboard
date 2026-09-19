@@ -25,7 +25,7 @@ E2E quando necessário:
 
 ## Segurança
 
-A API local é a fronteira de segurança. Ações estruturadas não devem aceitar shell arbitrário vindo do navegador. Operações Git, banco e produção devem manter validação e confirmação adequadas ao risco.
+A API local é a fronteira de segurança. Ações estruturadas não devem aceitar shell arbitrário vindo do navegador. Operações Git, banco e produção devem manter validação e confirmação adequadas ao risco. A remoção de Worktrees também respeita ownership por Environment Instance: processos, terminais e Docker Compose owned bloqueiam a remoção até que o recurso seja encerrado explicitamente; desaparecimentos externos ficam como `cleanup-required` quando o Compose ainda não pode ser reconciliado com segurança.
 
 ## Documentação
 
