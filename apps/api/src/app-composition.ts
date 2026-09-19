@@ -168,12 +168,13 @@ export function createAppComposition(
       undefined,
       options.now ?? Date.now,
     );
-  const migrationMutationExecutionService =
-    new MigrationMutationExecutionService(
-      migrationMutationPlanningService,
-      migrationMutationConfirmationService,
-      context.detachableExecutionService,
-    );
+  const migrationMutationExecutionService = context.detachableExecutionService
+    ? new MigrationMutationExecutionService(
+        migrationMutationPlanningService,
+        migrationMutationConfirmationService,
+        context.detachableExecutionService,
+      )
+    : undefined;
   const pullRequestLookup = new GitPullRequestService();
   const pullRequestStatus = new GitPullRequestStatusService();
   const releaseReadinessService =
