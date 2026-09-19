@@ -1,7 +1,7 @@
 import type { Project } from '@dev-dashboard/contracts';
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import { ApiError } from '../http/api-error.js';
+import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import {
   DockerComposeLifecycleError,
@@ -291,24 +291,33 @@ function requireProject(store: ProjectStore, projectId: string): Project {
 function throwLifecycleApiError(error: unknown): never {
   if (!(error instanceof DockerComposeLifecycleError)) throw error;
 
-  const conflictCodes = new Set([
-    'COMPOSE_PREFLIGHT_BLOCKED',
-    'COMPOSE_OWNERSHIP_REQUIRED',
-    'COMPOSE_OWNERSHIP_MISMATCH',
-    'COMPOSE_SERVICE_INVALID',
-  ]);
-  const unavailableCodes = new Set([
-    'COMPOSE_UNAVAILABLE',
-    'COMPOSE_PREFLIGHT_UNAVAILABLE',
-  ]);
+  let statusCode = 500;
+  let code: ApiErrorCode = 'DOCKER_ACTION_FAILED';
+
+  switch (error.code) {
+    case 'COMPOSE_PREFLIGHT_BLOCKED':
+      statusCode = 409;
+      code = 'DOCKER_PORT_CONFLICT';
+      break;
+    case 'COMPOSE_OWNERSHIP_REQUIRED':
+    case 'COMPOSE_OWNERSHIP_MISMATCH':
+      statusCode = 409;
+      code = 'CONFLICT';
+      break;
+    case 'COMPOSE_SERVICE_INVALID':
+      statusCode = 404;
+      code = 'DOCKER_SERVICE_NOT_FOUND';
+      break;
+    case 'COMPOSE_UNAVAILABLE':
+    case 'COMPOSE_PREFLIGHT_UNAVAILABLE':
+      statusCode = 503;
+      code = 'DOCKER_UNAVAILABLE';
+      break;
+  }
 
   throw new ApiError({
-    statusCode: conflictCodes.has(error.code)
-      ? 409
-      : unavailableCodes.has(error.code)
-        ? 503
-        : 500,
-    code: error.code,
+    statusCode,
+    code,
     message: error.message,
   });
 }
