@@ -94,7 +94,10 @@ test('Task Context HTTP associa contexto local sem aceitar autoridade de path/br
   const created = createdResponse.json<{ context: TaskContext }>().context;
   assert.equal(created.branch, 'main');
   assert.equal(created.projectId, project.id);
-  assert.equal(created.environmentInstanceId, `environment:primary:${project.id}`);
+  assert.equal(
+    created.environmentInstanceId,
+    `environment:primary:${project.id}`,
+  );
   assert.equal(created.issue?.number, 599);
 
   const listResponse = await app.inject({
@@ -114,8 +117,8 @@ test('Task Context HTTP associa contexto local sem aceitar autoridade de path/br
     headers,
   });
   assert.equal(snapshotResponse.statusCode, 200);
-  const snapshot =
-    snapshotResponse.json<{ snapshot: TaskContextSnapshot }>().snapshot;
+  const snapshot = snapshotResponse.json<{ snapshot: TaskContextSnapshot }>()
+    .snapshot;
   assert.equal(snapshot.context.id, created.id);
   assert.equal(snapshot.evidence?.currentBranch, 'main');
   assert.equal(snapshot.evidence?.branchMatches, true);
