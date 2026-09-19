@@ -98,7 +98,7 @@ test('usa a Environment Instance primária quando nenhuma é informada', async (
   const service = new TaskContextService(
     { findProject: () => project },
     {
-      findById: () => null,
+      findById: (id) => (id === primary.id ? primary : null),
       findPrimaryByProjectId: () => primary,
     },
     { getOverview: async () => gitOverview('main') },
@@ -175,7 +175,7 @@ test('atualiza somente referências explícitas e preserva branch/ambiente', asy
   const service = new TaskContextService(
     { findProject: () => project },
     {
-      findById: () => null,
+      findById: (id) => (id === primary.id ? primary : null),
       findPrimaryByProjectId: () => primary,
     },
     { getOverview: async () => gitOverview('feature/original') },
