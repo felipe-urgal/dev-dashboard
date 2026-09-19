@@ -359,7 +359,6 @@ test('falha do provider remoto fica isolada como unknown', async () => {
   );
 });
 
-
 test('produção aplicável entra no snapshot e health recente pode passar', async () => {
   const productionProject: Project = {
     ...project,
