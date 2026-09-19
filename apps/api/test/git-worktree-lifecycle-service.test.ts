@@ -433,3 +433,38 @@ test('falha de cleanup é explícita depois de remoção confirmada', async () =
   assert.equal(cleaned.length, 1);
   assert.match(removed.diagnostic ?? '', /já não existe/u);
 });
+
+
+test('guard configurado pela aplicação substitui o guard inicial antes da confirmação', async () => {
+  const target = '/workspace/projeto-demo';
+  const worktreeId = linkedWorktreeId(target);
+  const { runner, calls } = createRunner({
+    existing: [{ path: target, branch: 'feature/demo' }],
+  });
+  const initial = createSafeRemovalGuard();
+  const service = new GitWorktreeLifecycleService(runner, undefined, {
+    removalResourceGuard: initial.guard,
+  });
+
+  service.configureRemovalResourceGuard({
+    async inspect() {
+      return {
+        safe: false,
+        diagnostic: 'Docker Compose owned pelo Dashboard.',
+      };
+    },
+    async cleanupRemoved() {
+      throw new Error('não deveria limpar');
+    },
+  });
+
+  const prepared = await service.prepareRemoval(project, worktreeId);
+
+  assert.equal(prepared.state, 'blocked');
+  assert.match(prepared.diagnostic ?? '', /Docker Compose owned/i);
+  assert.deepEqual(initial.inspected, []);
+  assert.equal(
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'remove'),
+    false,
+  );
+});
