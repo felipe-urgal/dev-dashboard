@@ -91,6 +91,12 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
     worktreeIds: string[];
   }> = [];
   const cleanupCalls: string[] = [];
+  const routeGuard = {
+    inspect: async () => ({ safe: true }),
+    cleanupRemoved: async () => undefined,
+  };
+  const prepareGuards: unknown[] = [];
+  const removeGuards: unknown[] = [];
   let removed = false;
 
   const app = Fastify();
@@ -111,8 +117,9 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
           worktree: linkedWorktree(),
         };
       },
-      prepareRemoval: async (_project, worktreeId) => {
+      prepareRemoval: async (_project, worktreeId, guard) => {
         prepareRemovalCalls.push(worktreeId);
+        prepareGuards.push(guard);
         return {
           state: 'ready',
           worktreeId,
@@ -124,8 +131,9 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
           expiresAt: '2026-09-09T19:01:00.000Z',
         };
       },
-      remove: async (_project, input) => {
+      remove: async (_project, input, guard) => {
         removalCalls.push(input);
+        removeGuards.push(guard);
         removed = true;
         return {
           state: 'removed',
@@ -137,6 +145,7 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
         };
       },
     },
+    removalResourceGuard: routeGuard,
     developmentEnvironmentInstanceStore: {
       reconcileWorktrees: (projectId, worktrees) => {
         reconciliations.push({
@@ -235,6 +244,7 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
     CONFIRMATION_TOKEN,
   );
   assert.deepEqual(prepareRemovalCalls, ['worktree-linked']);
+  assert.deepEqual(prepareGuards, [routeGuard]);
 
   const removal = await app.inject({
     method: 'POST',
@@ -255,6 +265,7 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
       confirmationToken: CONFIRMATION_TOKEN,
     },
   ]);
+  assert.deepEqual(removeGuards, [routeGuard]);
 
   assert.deepEqual(cleanupCalls, [
     'environment:worktree:project-1:worktree-linked',

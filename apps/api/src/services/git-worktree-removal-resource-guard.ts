@@ -3,6 +3,7 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
+import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type {
   GitWorktreeRemovalResourceGuard,
   GitWorktreeRemovalResourceGuardResult,
@@ -23,6 +24,7 @@ export interface GitWorktreeRemovalResourceGuardDependencies {
     'findById'
   >;
   projectTerminalService: Pick<ProjectTerminalService, 'status'>;
+  dockerComposeOwnershipStore?: Pick<DockerComposeOwnershipStore, 'get'>;
 }
 
 /**
@@ -144,6 +146,30 @@ export class GitWorktreeRemovalResourceGuardService implements GitWorktreeRemova
         diagnostic:
           'O worktree ainda possui sessão de terminal ativa. Feche a sessão antes de remover o ambiente.',
       };
+    }
+
+    if (this.dependencies.dockerComposeOwnershipStore) {
+      try {
+        const ownership =
+          await this.dependencies.dockerComposeOwnershipStore.get({
+            ...project,
+            id: instance.id,
+            path: instance.source.path,
+          });
+        if (ownership) {
+          return {
+            safe: false,
+            diagnostic:
+              'O worktree ainda possui Docker Compose owned pelo Dashboard. Pare a stack antes de remover o ambiente.',
+          };
+        }
+      } catch {
+        return {
+          safe: false,
+          diagnostic:
+            'O ownership do Docker Compose não pôde ser confirmado para remoção.',
+        };
+      }
     }
 
     return { safe: true };

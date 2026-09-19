@@ -3,7 +3,10 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { EnvironmentInstanceCleanupService } from '../services/environment-instance-cleanup-service.js';
-import type { GitWorktreeLifecycleService } from '../services/git-worktree-lifecycle-service.js';
+import type {
+  GitWorktreeLifecycleService,
+  GitWorktreeRemovalResourceGuard,
+} from '../services/git-worktree-lifecycle-service.js';
 import type {
   GitWorktreeObserver,
   GitWorktreeSnapshot,
@@ -22,6 +25,7 @@ interface Options extends FastifyPluginOptions {
     GitWorktreeLifecycleService,
     'create' | 'prepareRemoval' | 'remove'
   >;
+  removalResourceGuard?: GitWorktreeRemovalResourceGuard;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
     'reconcileWorktrees'
@@ -408,6 +412,7 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
         result: await options.gitWorktreeLifecycleService.prepareRemoval(
           project,
           request.params.worktreeId,
+          options.removalResourceGuard,
         ),
       };
     },
@@ -435,10 +440,14 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
         options.projectStore,
         request.params.projectId,
       );
-      const result = await options.gitWorktreeLifecycleService.remove(project, {
-        worktreeId: request.params.worktreeId,
-        confirmationToken: request.body.confirmationToken,
-      });
+      const result = await options.gitWorktreeLifecycleService.remove(
+        project,
+        {
+          worktreeId: request.params.worktreeId,
+          confirmationToken: request.body.confirmationToken,
+        },
+        options.removalResourceGuard,
+      );
 
       if (
         result.state === 'removed' ||

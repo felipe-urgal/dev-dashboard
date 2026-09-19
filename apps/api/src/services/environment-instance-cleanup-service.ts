@@ -4,7 +4,9 @@ import type {
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
 
+import type { ProjectStore } from '../store/project-store.js';
 import type { DetachableExecutionService } from './detachable-execution-service.js';
+import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type { ProjectTerminalService } from './project-terminal-service.js';
 
 const ACTIVE_PROCESS_STATUSES = new Set<ManagedProcess['status']>([
@@ -23,6 +25,8 @@ export interface EnvironmentInstanceCleanupDependencies {
     DetachableExecutionService,
     'cleanupEnvironment'
   >;
+  projectStore?: Pick<ProjectStore, 'findProject'>;
+  dockerComposeOwnershipStore?: Pick<DockerComposeOwnershipStore, 'get'>;
 }
 
 export interface EnvironmentInstanceCleanupResult {
@@ -51,6 +55,31 @@ export class EnvironmentInstanceCleanupService {
         diagnostic:
           'O runtime do ambiente removido ainda não possui cleanup automático suportado.',
       };
+    }
+
+    let composeState: 'none' | 'owned' | 'unavailable' = 'none';
+    if (
+      this.dependencies.projectStore &&
+      this.dependencies.dockerComposeOwnershipStore
+    ) {
+      const project = this.dependencies.projectStore.findProject(
+        instance.projectId,
+      );
+      if (!project) {
+        composeState = 'unavailable';
+      } else {
+        try {
+          const ownership =
+            await this.dependencies.dockerComposeOwnershipStore.get({
+              ...project,
+              id: instance.id,
+              path: instance.source.path,
+            });
+          if (ownership) composeState = 'owned';
+        } catch {
+          composeState = 'unavailable';
+        }
+      }
     }
 
     let cleanupFailed = false;
@@ -92,11 +121,15 @@ export class EnvironmentInstanceCleanupService {
       cleanupFailed = true;
     }
 
-    if (cleanupFailed) {
+    if (cleanupFailed || composeState !== 'none') {
       return {
         state: 'cleanup-required',
         diagnostic:
-          'O worktree desapareceu, mas nem todos os recursos pertencentes ao ambiente puderam ser encerrados.',
+          composeState === 'owned'
+            ? 'O worktree desapareceu e os recursos locais foram reconciliados, mas ainda existe Docker Compose owned pelo Dashboard. O cleanup do Compose exige intervenção explícita.'
+            : composeState === 'unavailable'
+              ? 'O worktree desapareceu, mas o ownership do Docker Compose não pôde ser confirmado com segurança.'
+              : 'O worktree desapareceu, mas nem todos os recursos pertencentes ao ambiente puderam ser encerrados.',
       };
     }
 
