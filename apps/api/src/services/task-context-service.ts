@@ -110,10 +110,7 @@ export class TaskContextService {
     });
   }
 
-  public async remove(
-    projectId: string,
-    taskContextId: string,
-  ): Promise<void> {
+  public async remove(projectId: string, taskContextId: string): Promise<void> {
     const context = this.requireContext(projectId, taskContextId);
     await this.repository.remove(context.id);
   }
