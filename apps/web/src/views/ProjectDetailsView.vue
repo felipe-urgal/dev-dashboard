@@ -68,6 +68,9 @@ const ProjectMigrationsPanel = lazyTool(
 const ProjectSecurityCenterPanel = lazyTool(
   () => import('../components/ProjectSecurityCenterPanel.vue'),
 );
+const ProjectDockerComposePanel = lazyTool(
+  () => import('../components/ProjectDockerComposePanel.vue'),
+);
 const ProjectSelfUpdateProductionPanel = lazyTool(
   () => import('../components/ProjectSelfUpdateProductionPanel.vue'),
 );
@@ -119,6 +122,7 @@ const isMigrationsRoute = computed(() => route.name === 'project-migrations');
 const isSecurityRoute = computed(
   () => route.name === 'project-security-center',
 );
+const isComposeRoute = computed(() => route.name === 'project-compose');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
@@ -466,6 +470,12 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectSecurityCenterPanel
         v-else-if="isSecurityRoute"
         :key="`security-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectDockerComposePanel
+        v-else-if="isComposeRoute"
+        :key="`compose-${project.id}`"
         :project="project"
       />
 
