@@ -372,8 +372,8 @@ test('produção aplicável entra no snapshot e health recente pode passar', asy
       commands: { deploy: 'prod:deploy' },
       health: { type: 'http', url: 'https://example.test/health' },
       policies: {
-        backup: 'not-required',
-        migrations: 'manual',
+        backup: 'not-configured',
+        migrations: 'not-configured',
         rollback: 'not-configured',
       },
     },
@@ -429,8 +429,8 @@ test('health de produção stale nunca vira falso pass', async () => {
       commands: { deploy: 'prod:deploy' },
       health: { type: 'http', url: 'https://example.test/health' },
       policies: {
-        backup: 'not-required',
-        migrations: 'manual',
+        backup: 'not-configured',
+        migrations: 'not-configured',
         rollback: 'not-configured',
       },
     },
