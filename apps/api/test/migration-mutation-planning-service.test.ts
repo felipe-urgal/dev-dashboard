@@ -342,11 +342,12 @@ test('planHash permanece estável entre revalidações equivalentes e invalida q
   let currentContext = hostContext;
   let currentNow = NOW;
   let observedAt = pendingOverview.observedAt;
+  let pending = pendingOverview.pending;
 
   const service = new MigrationMutationPlanningService(
     [provider()],
     {
-      inspect: async () => ({ ...pendingOverview, observedAt }),
+      inspect: async () => ({ ...pendingOverview, observedAt, pending }),
     },
     {
       resolveForProject: () => currentContext,
@@ -364,8 +365,18 @@ test('planHash permanece estável entre revalidações equivalentes e invalida q
   assert.notEqual(first.overviewObservedAt, second.overviewObservedAt);
   assert.equal(first.planHash, second.planHash);
   assert.equal(first.executionContextHash, second.executionContextHash);
+  assert.equal(first.overviewHash, second.overviewHash);
   assert.deepEqual(service.resolveExecutionContext(first), hostContext);
 
+  pending = [
+    ...pendingOverview.pending,
+    { id: '20260919000200', name: 'AddAccounts' },
+  ];
+  const evidenceChanged = await service.plan(project, { operation: 'apply' });
+  assert.notEqual(evidenceChanged.overviewHash, second.overviewHash);
+  assert.notEqual(evidenceChanged.planHash, second.planHash);
+
+  pending = pendingOverview.pending;
   currentContext = {
     ...hostContext,
     cwd: '/workspace/project-1-moved',
