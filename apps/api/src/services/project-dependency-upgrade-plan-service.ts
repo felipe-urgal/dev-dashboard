@@ -126,6 +126,7 @@ function buildItem(
   const warnings: string[] = [];
   const gates: DependencyUpgradeGate[] = [];
   const update = metadata?.update ?? 'unknown';
+  const resolvedVersion = currentVersion(dependency);
   const targetVersion =
     metadata?.state === 'available' ? metadata.latestVersion : undefined;
 
@@ -155,9 +156,7 @@ function buildItem(
       declaredRange: dependency.declaredRange,
       state,
       update,
-      ...(currentVersion(dependency)
-        ? { currentVersion: currentVersion(dependency) }
-        : {}),
+      ...(resolvedVersion ? { currentVersion: resolvedVersion } : {}),
       ...(targetVersion ? { targetVersion } : {}),
       affectedFiles: [],
       warnings,
