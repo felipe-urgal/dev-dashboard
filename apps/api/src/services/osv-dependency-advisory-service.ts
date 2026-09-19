@@ -385,7 +385,7 @@ export class OsvDependencyAdvisoryService {
         return;
       }
 
-      if (!isObject(payload) || !Array.isArray(payload.results)) {
+      if (!isObject(payload)) {
         for (const target of targets) {
           destination[target.index] = invalidEvidence(
             target,
@@ -395,7 +395,18 @@ export class OsvDependencyAdvisoryService {
         }
         return;
       }
-      if (payload.results.length !== targets.length) {
+      const results = payload.results;
+      if (!Array.isArray(results)) {
+        for (const target of targets) {
+          destination[target.index] = invalidEvidence(
+            target,
+            observedAt,
+            'OSV não retornou a coleção results esperada.',
+          );
+        }
+        return;
+      }
+      if (results.length !== targets.length) {
         for (const target of targets) {
           destination[target.index] = invalidEvidence(
             target,
@@ -407,7 +418,7 @@ export class OsvDependencyAdvisoryService {
       }
 
       targets.forEach((target, index) => {
-        const parsed = parseQueryResult(payload.results[index]);
+        const parsed = parseQueryResult(results[index]);
         destination[target.index] = {
           name: target.dependency.name,
           state: parsed.state,
