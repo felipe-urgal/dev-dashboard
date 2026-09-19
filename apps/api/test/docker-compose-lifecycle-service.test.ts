@@ -10,6 +10,7 @@ import {
 } from '../src/services/docker-compose-lifecycle-service.js';
 import type { DockerComposeInspection } from '../src/services/docker-compose-provider.js';
 import type { DockerComposePortPreflight } from '../src/services/docker-compose-preflight-service.js';
+import { PortAllocationLeaseRegistry } from '../src/services/port-registry-service.js';
 
 const project: Project = {
   id: 'project-1',
@@ -221,6 +222,160 @@ test('start com ownership usa project name explícito e persiste a posse', async
     'up',
     '--detach',
   ]);
+});
+
+test('lease exato bloqueia start concorrente de outro ambiente antes do Docker', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  const firstCommands: unknown[] = [];
+  const firstInspections = [before, after];
+  const first = new DockerComposeLifecycleService(
+    { inspect: async () => firstInspections.shift() ?? after },
+    { inspect: async () => ready },
+    async (command) => {
+      firstCommands.push(command);
+      return '';
+    },
+    { portLeaseRegistry: registry },
+  );
+
+  await first.start(project);
+  assert.equal(firstCommands.length, 1);
+
+  const otherProject: Project = {
+    ...project,
+    id: 'environment:worktree:project-1:worktree-2',
+    path: '/workspace/project-worktree-2',
+  };
+  const secondCommands: unknown[] = [];
+  const second = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async (command) => {
+      secondCommands.push(command);
+      return '';
+    },
+    { portLeaseRegistry: registry },
+  );
+
+  await assert.rejects(
+    second.start(otherProject),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_PREFLIGHT_BLOCKED',
+  );
+  assert.equal(secondCommands.length, 0);
+});
+
+test('start falho libera somente leases criados pela tentativa', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  const failing = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async () => {
+      throw new Error('docker failed');
+    },
+    { portLeaseRegistry: registry },
+  );
+
+  await assert.rejects(
+    failing.start(project),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_START_FAILED',
+  );
+
+  const other = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:other:web:3000',
+      projectId: 'other',
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  );
+  assert.equal(other?.port, 3000);
+});
+
+test('stop completo libera leases do projeto, stop de serviço preserva', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:project-1:web:3000',
+      projectId: project.id,
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  ]);
+  const stopped: DockerComposeInspection = {
+    ...after,
+    runtime: {
+      ...after.runtime!,
+      services: [
+        {
+          ...after.runtime!.services[0]!,
+          state: 'exited',
+        },
+      ],
+    },
+  };
+  const ownershipStore = {
+    get: async () => ({
+      projectId: project.id,
+      projectPath: project.path,
+      composeProjectName: 'project',
+      startedAt: '2026-09-06T17:00:00.000Z',
+    }),
+    claim: async () => {
+      throw new Error('não deveria claim');
+    },
+    release: async () => false,
+  };
+
+  const serviceStopInspections = [before, stopped];
+  const serviceStop = new DockerComposeLifecycleService(
+    { inspect: async () => serviceStopInspections.shift() ?? stopped },
+    { inspect: async () => ready },
+    async () => '',
+    { ownershipStore, portLeaseRegistry: registry },
+  );
+  await serviceStop.stop(project, 'web');
+
+  assert.equal(
+    registry.reserve(
+      {},
+      {
+        leaseId: 'compose:other:web:3000',
+        projectId: 'other',
+        role: 'web',
+        preferredPort: 3000,
+        maxPort: 3000,
+      },
+    ),
+    null,
+  );
+
+  const fullStopInspections = [before, stopped];
+  const fullStop = new DockerComposeLifecycleService(
+    { inspect: async () => fullStopInspections.shift() ?? stopped },
+    { inspect: async () => ready },
+    async () => '',
+    { ownershipStore, portLeaseRegistry: registry },
+  );
+  await fullStop.stop(project);
+
+  const released = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:other:web:3000',
+      projectId: 'other',
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  );
+  assert.equal(released?.port, 3000);
 });
 
 test('exige ownership para stop sem executar comando', async () => {

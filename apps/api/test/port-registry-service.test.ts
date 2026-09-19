@@ -9,6 +9,7 @@ import type {
 
 import {
   allocatePort,
+  PortAllocationLeaseRegistry,
   reconcilePorts,
 } from '../src/services/port-registry-service.js';
 
@@ -206,4 +207,114 @@ test('allocator permite reserva/declaration do próprio role e nunca escolhe por
 
   assert.equal(result?.port, 1_024);
   assert.ok((result?.port ?? 0) >= 1_024);
+});
+
+test('lease batch é transacional e não escolhe porta alternativa', () => {
+  const registry = new PortAllocationLeaseRegistry();
+  const first = registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:env-a:web:5300',
+      projectId: 'env-a',
+      environmentInstanceId: 'env-a',
+      role: 'web',
+      preferredPort: 5_300,
+      maxPort: 5_300,
+    },
+    {
+      leaseId: 'compose:env-a:db:5432',
+      projectId: 'env-a',
+      environmentInstanceId: 'env-a',
+      role: 'db',
+      preferredPort: 5_432,
+      maxPort: 5_432,
+    },
+  ]);
+
+  assert.deepEqual(
+    first?.leases.map((lease) => lease.port),
+    [5_300, 5_432],
+  );
+  assert.deepEqual(first?.createdLeaseIds, [
+    'compose:env-a:web:5300',
+    'compose:env-a:db:5432',
+  ]);
+
+  const blocked = registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:env-b:api:5400',
+      projectId: 'env-b',
+      environmentInstanceId: 'env-b',
+      role: 'api',
+      preferredPort: 5_400,
+      maxPort: 5_400,
+    },
+    {
+      leaseId: 'compose:env-b:web:5300',
+      projectId: 'env-b',
+      environmentInstanceId: 'env-b',
+      role: 'web',
+      preferredPort: 5_300,
+      maxPort: 5_300,
+    },
+  ]);
+
+  assert.equal(blocked, null);
+
+  const reclaimed = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:env-c:api:5400',
+      projectId: 'env-c',
+      role: 'api',
+      preferredPort: 5_400,
+      maxPort: 5_400,
+    },
+  );
+  assert.equal(reclaimed?.port, 5_400);
+});
+
+test('releaseProject libera somente leases do owner solicitado', () => {
+  const registry = new PortAllocationLeaseRegistry();
+  registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:env-a:web:5300',
+      projectId: 'env-a',
+      role: 'web',
+      preferredPort: 5_300,
+      maxPort: 5_300,
+    },
+    {
+      leaseId: 'compose:env-b:web:5301',
+      projectId: 'env-b',
+      role: 'web',
+      preferredPort: 5_301,
+      maxPort: 5_301,
+    },
+  ]);
+
+  assert.equal(registry.releaseProject('env-a'), 1);
+
+  const reused = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:env-c:web:5300',
+      projectId: 'env-c',
+      role: 'web',
+      preferredPort: 5_300,
+      maxPort: 5_300,
+    },
+  );
+  assert.equal(reused?.port, 5_300);
+
+  const stillBlocked = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:env-c:web:5301',
+      projectId: 'env-c',
+      role: 'web',
+      preferredPort: 5_301,
+      maxPort: 5_301,
+    },
+  );
+  assert.equal(stillBlocked, null);
 });

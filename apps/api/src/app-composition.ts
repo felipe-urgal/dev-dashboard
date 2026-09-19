@@ -13,6 +13,7 @@ import { DockerComposeProvider } from './services/docker-compose-provider.js';
 import { AttentionCenterService } from './services/attention-center-service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
+import { PortAllocationLeaseRegistry } from './services/port-registry-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { GitPullRequestService } from './services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from './services/git-pull-request-status-service.js';
@@ -75,6 +76,7 @@ export function createAppComposition(
   const dockerComposePreflightService =
     options.dockerComposePreflightService ??
     new DockerComposePreflightService(portInspectorService);
+  const dockerComposePortLeaseRegistry = new PortAllocationLeaseRegistry();
   const dockerComposeOwnershipStore =
     options.dockerComposeOwnershipStore ??
     new DockerComposeOwnershipStore(
@@ -92,6 +94,7 @@ export function createAppComposition(
       undefined,
       {
         ownershipStore: dockerComposeOwnershipStore,
+        portLeaseRegistry: dockerComposePortLeaseRegistry,
         ...(options.now ? { now: () => new Date(options.now!()) } : {}),
       },
     );
@@ -178,6 +181,7 @@ export function createAppComposition(
     dockerComposePreflightService,
     dockerComposeLifecycleService,
     dockerComposeOwnershipStore,
+    dockerComposePortLeaseRegistry,
     projectFileMutationService,
     projectWorkspaceEditService: context.projectWorkspaceEditService,
     projectLanguageServerService,
