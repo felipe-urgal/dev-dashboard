@@ -123,6 +123,70 @@ const taskContextResponseSchema = {
   },
 } as const;
 
+const pullRequestCheckResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'status'],
+  properties: {
+    name: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['success', 'pending', 'failure', 'unknown'],
+    },
+    detailsUrl: { type: 'string' },
+  },
+} as const;
+
+const pullRequestCockpitResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['remoteStatus', 'reviewState', 'requestedReviewers', 'checks'],
+  properties: {
+    remoteStatus: {
+      type: 'string',
+      enum: ['available', 'unauthenticated', 'rate-limited', 'unavailable'],
+    },
+    headSha: { type: 'string' },
+    draft: { type: 'boolean' },
+    mergeable: { type: ['boolean', 'null'] },
+    mergeableState: { type: 'string' },
+    reviewState: {
+      type: 'string',
+      enum: ['approved', 'changes-requested', 'review-required', 'unknown'],
+    },
+    requestedReviewers: { type: 'array', items: { type: 'string' } },
+    checks: { type: 'array', items: pullRequestCheckResponseSchema },
+  },
+} as const;
+
+const openPullRequestResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'provider',
+    'number',
+    'title',
+    'url',
+    'sourceBranch',
+    'baseBranch',
+  ],
+  properties: {
+    provider: { type: 'string', enum: ['github', 'gitlab'] },
+    number: { type: 'integer', minimum: 1 },
+    title: { type: 'string' },
+    url: { type: 'string' },
+    sourceBranch: { type: 'string' },
+    baseBranch: { type: 'string' },
+    ciStatus: {
+      type: 'string',
+      enum: ['success', 'pending', 'failure', 'unknown'],
+    },
+    commentsCount: { type: 'integer', minimum: 0 },
+    unresolvedConversationsCount: { type: 'integer', minimum: 0 },
+    cockpit: pullRequestCockpitResponseSchema,
+  },
+} as const;
+
 const readinessResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -146,6 +210,7 @@ const taskContextEvidenceResponseSchema = {
     branchMatches: { type: 'boolean' },
     headSha: { type: 'string' },
     pullRequestObservedAt: { type: 'string' },
+    pullRequest: openPullRequestResponseSchema,
     readiness: readinessResponseSchema,
   },
 } as const;
