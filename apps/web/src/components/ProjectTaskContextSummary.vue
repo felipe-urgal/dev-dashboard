@@ -163,8 +163,11 @@ async function loadContexts(): Promise<void> {
       right.updatedAt.localeCompare(left.updatedAt),
     );
     const preferred = chooseDefaultContext(contexts.value);
+    const previousSelectedId = selectedId.value;
     selectedId.value = preferred?.id ?? '';
-    if (preferred) await loadSnapshot(preferred.id);
+    if (preferred && previousSelectedId === preferred.id) {
+      await loadSnapshot(preferred.id);
+    }
   } catch (error) {
     if (controller.signal.aborted || activeGeneration !== generation) return;
     contexts.value = [];
