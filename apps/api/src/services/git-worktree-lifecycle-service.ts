@@ -189,7 +189,7 @@ function blocked(
 
 export class GitWorktreeLifecycleService {
   private readonly observer: GitWorktreeObserver;
-  private readonly removalResourceGuard: GitWorktreeRemovalResourceGuard;
+  private removalResourceGuard: GitWorktreeRemovalResourceGuard;
   private readonly now: () => number;
   private readonly createConfirmationToken: () => string;
   private readonly removalConfirmations = new Map<
@@ -209,6 +209,16 @@ export class GitWorktreeLifecycleService {
     this.createConfirmationToken =
       options.createConfirmationToken ??
       (() => randomBytes(32).toString('hex'));
+  }
+
+  /**
+   * Wiring-only hook usado durante a composição da aplicação. A remoção
+   * continua revalidando o guard imediatamente antes e depois da mutação.
+   */
+  public configureRemovalResourceGuard(
+    guard: GitWorktreeRemovalResourceGuard,
+  ): void {
+    this.removalResourceGuard = guard;
   }
 
   public async create(
