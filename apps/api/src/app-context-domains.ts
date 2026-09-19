@@ -3,6 +3,7 @@ import {
   EnvironmentProfileRepository,
   ProjectDisabledRepository,
   RetentionSettingsRepository,
+  TaskContextRepository,
   WorkspaceRepository,
 } from '@dev-dashboard/core';
 import {
@@ -68,6 +69,7 @@ export function createFoundationContextDomain() {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository: new RetentionSettingsRepository(),
     activityEventRepository: new ActivityEventRepository(),
+    taskContextRepository: new TaskContextRepository(),
     environmentProfileRepository: new EnvironmentProfileRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
     processManager,

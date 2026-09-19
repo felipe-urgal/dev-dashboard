@@ -3,6 +3,7 @@ import type {
   EnvironmentProfileRepository,
   ProjectDisabledRepository,
   RetentionSettingsRepository,
+  TaskContextRepository,
   WorkspaceRepository,
 } from '@dev-dashboard/core';
 import type {
@@ -53,6 +54,7 @@ export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
   activityEventRepository: ActivityEventRepository;
+  taskContextRepository: TaskContextRepository;
   environmentProfileRepository: EnvironmentProfileRepository;
   projectDisabledRepository: ProjectDisabledRepository;
   processManager: ProcessManager;
