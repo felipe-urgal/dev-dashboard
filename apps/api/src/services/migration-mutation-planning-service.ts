@@ -147,14 +147,77 @@ function normalizedCommand(
   return { file, args };
 }
 
-function planHash(input: Omit<MigrationMutationPlan, 'planHash'>): string {
-  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+function hashPayload(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function executionContextHash(executionContext: ExecutionContext): string {
+  return hashPayload({
+    projectId: executionContext.projectId,
+    environmentInstanceId: executionContext.environmentInstanceId,
+    cwd: executionContext.cwd,
+    runtime: executionContext.runtime,
+  });
+}
+
+type PlanInput = Omit<
+  MigrationMutationPlan,
+  'planHash' | 'executionContextHash' | 'overviewHash'
+>;
+
+function overviewHash(overview: MigrationOverview | undefined): string {
+  return hashPayload(
+    overview
+      ? {
+          provider: overview.provider,
+          status: overview.status,
+          database: overview.database,
+          applied: overview.applied,
+          pending: overview.pending,
+          evidence: overview.evidence,
+          warnings: overview.warnings,
+        }
+      : null,
+  );
+}
+
+function planHash(
+  input: PlanInput,
+  contextHash: string,
+  evidenceHash: string,
+): string {
+  const authority = {
+    projectId: input.projectId,
+    provider: input.provider,
+    operation: input.operation,
+    database: input.database,
+    environmentInstanceId: input.environmentInstanceId,
+    runtime: input.runtime,
+    executionContextHash: contextHash,
+    overviewHash: evidenceHash,
+    preflight: {
+      state: input.preflight.state,
+      reason: input.preflight.reason,
+    },
+    command: input.command ?? null,
+  };
+
+  return hashPayload(authority);
 }
 
 function buildPlan(
-  input: Omit<MigrationMutationPlan, 'planHash'>,
+  executionContext: ExecutionContext,
+  input: PlanInput,
+  overview?: MigrationOverview,
 ): MigrationMutationPlan {
-  return { ...input, planHash: planHash(input) };
+  const contextHash = executionContextHash(executionContext);
+  const evidenceHash = overviewHash(overview);
+  return {
+    ...input,
+    executionContextHash: contextHash,
+    overviewHash: evidenceHash,
+    planHash: planHash(input, contextHash, evidenceHash),
+  };
 }
 
 export class MigrationMutationPlanningService {
@@ -167,6 +230,21 @@ export class MigrationMutationPlanningService {
     options: MigrationMutationPlanningServiceOptions = {},
   ) {
     this.now = options.now ?? (() => new Date());
+  }
+
+  public resolveExecutionContext(
+    plan: MigrationMutationPlan,
+  ): ExecutionContext | null {
+    const executionContext = this.environmentInstanceStore.resolveForProject(
+      plan.projectId,
+      plan.environmentInstanceId,
+    );
+    if (!executionContext) return null;
+    if (executionContext.runtime !== plan.runtime) return null;
+    if (executionContextHash(executionContext) !== plan.executionContextHash) {
+      return null;
+    }
+    return executionContext;
   }
 
   public async plan(
@@ -188,7 +266,7 @@ export class MigrationMutationPlanningService {
     const requestedDatabase = databaseIdentity(input.database);
 
     if (executionContext.runtime !== 'host') {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: 'none',
         operation: input.operation,
@@ -219,7 +297,7 @@ export class MigrationMutationPlanningService {
     }
 
     if (!provider) {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: 'none',
         operation: input.operation,
@@ -243,7 +321,7 @@ export class MigrationMutationPlanningService {
         requestedDatabase,
       );
     } catch {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -261,61 +339,96 @@ export class MigrationMutationPlanningService {
     }
     const database = databaseIdentity(overview.database);
 
+    if (database !== requestedDatabase) {
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database: requestedDatabase,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'database-evidence-mismatch',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção read-only não comprovou o mesmo database solicitado para mutation.',
+          ),
+        },
+        overview,
+      );
+    }
+
     if (overview.provider !== provider.id) {
-      return buildPlan({
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'provider-evidence-mismatch',
-          overview.observedAt,
-          overview.evidence,
-          'A inspeção read-only e o provider de mutation não apontam para o mesmo provider; a operação não pode ser planejada com segurança.',
-        ),
-      });
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'provider-evidence-mismatch',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção read-only e o provider de mutation não apontam para o mesmo provider; a operação não pode ser planejada com segurança.',
+          ),
+        },
+        overview,
+      );
     }
 
     if (overview.status === 'up-to-date') {
-      return buildPlan({
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: blockedPreflight(
-          'nothing-pending',
-          overview.observedAt,
-          overview.evidence,
-          'A inspeção comprovou que não há migrations pendentes para aplicar.',
-        ),
-      });
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: blockedPreflight(
+            'nothing-pending',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção comprovou que não há migrations pendentes para aplicar.',
+          ),
+        },
+        overview,
+      );
     }
 
     if (overview.status !== 'pending') {
-      return buildPlan({
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'inspection-inconclusive',
-          overview.observedAt,
-          overview.evidence,
-          'A inspeção não comprovou migrations pendentes; mutation permanece indisponível.',
-        ),
-      });
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'inspection-inconclusive',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção não comprovou migrations pendentes; mutation permanece indisponível.',
+          ),
+        },
+        overview,
+      );
     }
 
     let providerPlan: MigrationMutationProviderPlan;
@@ -329,27 +442,55 @@ export class MigrationMutationPlanningService {
         now: this.now,
       });
     } catch {
-      return buildPlan({
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'provider-plan-invalid',
-          overview.observedAt,
-          overview.evidence,
-          'O provider não conseguiu produzir um plano de execução estruturado.',
-        ),
-      });
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'provider-plan-invalid',
+            overview.observedAt,
+            overview.evidence,
+            'O provider não conseguiu produzir um plano de execução estruturado.',
+          ),
+        },
+        overview,
+      );
     }
 
     const command = normalizedCommand(providerPlan.command);
     if (!command) {
-      return buildPlan({
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'provider-plan-invalid',
+            overview.observedAt,
+            overview.evidence,
+            'O provider produziu um comando de mutation fora do contrato estruturado.',
+          ),
+        },
+        overview,
+      );
+    }
+
+    return buildPlan(
+      executionContext,
+      {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -358,26 +499,10 @@ export class MigrationMutationPlanningService {
         runtime: executionContext.runtime,
         createdAt,
         overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'provider-plan-invalid',
-          overview.observedAt,
-          overview.evidence,
-          'O provider produziu um comando de mutation fora do contrato estruturado.',
-        ),
-      });
-    }
-
-    return buildPlan({
-      projectId: project.id,
-      provider: provider.id,
-      operation: input.operation,
-      database,
-      environmentInstanceId: executionContext.environmentInstanceId,
-      runtime: executionContext.runtime,
-      createdAt,
-      overviewObservedAt: overview.observedAt,
-      preflight: readyPreflight(overview.observedAt, overview.evidence),
-      command,
-    });
+        preflight: readyPreflight(overview.observedAt, overview.evidence),
+        command,
+      },
+      overview,
+    );
   }
 }

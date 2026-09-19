@@ -14,6 +14,7 @@ export type MigrationMutationPreflightReason =
   | 'provider-unavailable'
   | 'runtime-unsupported'
   | 'provider-evidence-mismatch'
+  | 'database-evidence-mismatch'
   | 'nothing-pending'
   | 'inspection-inconclusive'
   | 'provider-plan-invalid';
@@ -38,6 +39,8 @@ export interface MigrationMutationPlan {
   database: string;
   environmentInstanceId: string;
   runtime: ExecutionContext['runtime'];
+  executionContextHash: string;
+  overviewHash: string;
   createdAt: string;
   overviewObservedAt?: string;
   planHash: string;
@@ -58,23 +61,8 @@ export interface MigrationMutationProviderPlan {
   command: MigrationMutationCommand;
 }
 
-export interface MigrationMutationExecutionContext {
-  project: Project;
-  executionContext: ExecutionContext;
-  plan: MigrationMutationPlan;
-}
-
-export interface MigrationMutationExecutionResult {
-  status: 'succeeded' | 'failed';
-  finishedAt: string;
-}
-
 export interface MigrationMutationProvider extends MigrationProvider {
   planMutation(
     context: MigrationMutationPlanContext,
   ): Promise<MigrationMutationProviderPlan>;
-
-  executeMutation(
-    context: MigrationMutationExecutionContext,
-  ): Promise<MigrationMutationExecutionResult>;
 }

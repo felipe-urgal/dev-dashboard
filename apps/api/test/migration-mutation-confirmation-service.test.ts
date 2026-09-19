@@ -17,6 +17,8 @@ function readyPlan(
     database: 'primary',
     environmentInstanceId: 'environment:primary:project-1',
     runtime: 'host',
+    executionContextHash: 'c'.repeat(64),
+    overviewHash: 'd'.repeat(64),
     createdAt: '2026-09-19T18:20:00.000Z',
     overviewObservedAt: '2026-09-19T18:19:00.000Z',
     planHash: 'a'.repeat(64),

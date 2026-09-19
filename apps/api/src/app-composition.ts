@@ -23,9 +23,13 @@ import type { ProjectLanguageServerService } from './services/project-language-s
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
 import { MigrationOverviewService } from './services/migration-overview-service.js';
+import { MigrationMutationConfirmationService } from './services/migration-mutation-confirmation-service.js';
+import { MigrationMutationExecutionService } from './services/migration-mutation-execution-service.js';
+import { MigrationMutationPlanningService } from './services/migration-mutation-planning-service.js';
+import type { MigrationMutationProvider } from './services/migration-mutation-provider.js';
 import type { MigrationProvider } from './services/migration-provider.js';
 import { PrismaMigrationProvider } from './services/prisma-migration-provider.js';
-import { RailsMigrationProvider } from './services/rails-migration-provider.js';
+import { RailsMigrationMutationProvider } from './services/rails-migration-mutation-provider.js';
 import { ReleaseReadinessService } from './services/release-readiness-service.js';
 import { TaskContextService } from './services/task-context-service.js';
 import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
@@ -59,6 +63,7 @@ export interface AppCompositionOptions {
     'inspect'
   >;
   migrationProviders?: readonly MigrationProvider[];
+  migrationMutationProviders?: readonly MigrationMutationProvider[];
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
 
@@ -141,14 +146,35 @@ export function createAppComposition(
     ...(options.now ? { now: options.now } : {}),
   });
   const now = options.now;
+  const railsMigrationMutationProvider = new RailsMigrationMutationProvider(
+    context.railsInspectionService,
+  );
   const migrationOverviewService = new MigrationOverviewService(
     [
       ...(options.migrationProviders ?? []),
-      new RailsMigrationProvider(context.railsInspectionService),
+      railsMigrationMutationProvider,
       new PrismaMigrationProvider(),
     ],
     now ? { now: () => new Date(now()) } : {},
   );
+  const migrationMutationPlanningService = new MigrationMutationPlanningService(
+    options.migrationMutationProviders ?? [railsMigrationMutationProvider],
+    migrationOverviewService,
+    context.developmentEnvironmentInstanceStore,
+    now ? { now: () => new Date(now()) } : {},
+  );
+  const migrationMutationConfirmationService =
+    new MigrationMutationConfirmationService(
+      undefined,
+      options.now ?? Date.now,
+    );
+  const migrationMutationExecutionService = context.detachableExecutionService
+    ? new MigrationMutationExecutionService(
+        migrationMutationPlanningService,
+        migrationMutationConfirmationService,
+        context.detachableExecutionService,
+      )
+    : undefined;
   const pullRequestLookup = new GitPullRequestService();
   const pullRequestStatus = new GitPullRequestStatusService();
   const releaseReadinessService =
@@ -208,6 +234,9 @@ export function createAppComposition(
     attentionCenterService,
     releaseReadinessService,
     migrationOverviewService,
+    migrationMutationPlanningService,
+    migrationMutationConfirmationService,
+    migrationMutationExecutionService,
     dependencyHealthService,
     dependencyUpgradePlanService,
     securityScannerProvider,

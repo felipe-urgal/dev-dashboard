@@ -1,10 +1,10 @@
 # Migration Providers
 
-Migration Providers separam inspeção read-only de qualquer execução mutável. O contrato comum precisa permanecer conservador: ausência de evidência nunca equivale a “sem migrations pendentes”, e mutation nunca recebe shell/path de autoridade do browser.
+Migration Providers separam inspeção read-only, planejamento e execução mutável. Ausência de evidência nunca equivale a “sem migrations pendentes”, e nenhuma mutation recebe `cwd`, executable ou argv como autoridade do browser.
 
 ## Inspeção read-only
 
-O contrato atual usa `MigrationProvider` + `MigrationOverview`.
+O contrato usa `MigrationProvider` + `MigrationOverview`.
 
 Estados:
 
@@ -23,18 +23,13 @@ Providers atuais:
 
 ## Contrato comum de mutation
 
-O primeiro slice mutável é backend-only e **não executa migrations reais ainda**.
+`MigrationMutationProvider` estende o provider read-only somente com `planMutation`. O provider descreve um comando estruturado backend-owned; ele não controla lifecycle, streaming, cancelamento nem confirmação.
 
-`MigrationMutationProvider` estende o provider comum com duas fases separadas:
+Essa separação evita criar uma engine por framework. Execução pertence a `MigrationMutationExecutionService`, que reutiliza `DetachableExecutionService`.
 
-- `planMutation`: produz apenas comando estruturado backend-owned;
-- `executeMutation`: contrato de execução futura, ainda sem provider real habilitado neste slice.
+### Plano e identidade de execução
 
-O coordenador não aceita `cwd`, executable ou argv do browser. O `cwd` e o runtime vêm exclusivamente de `DevelopmentEnvironmentInstanceStore.resolveForProject()`.
-
-### Plano
-
-`MigrationMutationPlanningService` gera um plano hashado contendo:
+`MigrationMutationPlanningService` gera um plano contendo:
 
 - projeto;
 - provider;
@@ -42,11 +37,16 @@ O coordenador não aceita `cwd`, executable ou argv do browser. O `cwd` e o runt
 - database lógico;
 - `environmentInstanceId`;
 - runtime;
+- `executionContextHash` opaco;
 - evidência usada no preflight;
 - comando estruturado somente quando o preflight está `ready`;
-- `planHash` SHA-256 vinculado a todo o plano interno.
+- `planHash` SHA-256.
 
-O comando interno ainda não possui schema HTTP e não deve ser serializado diretamente para o browser em slices futuros.
+O `executionContextHash` inclui internamente project/environment/cwd/runtime, mas não expõe o caminho. Se a Environment Instance mudar de cwd/runtime, o plano deixa de resolver para o mesmo contexto.
+
+O `planHash` representa a autoridade estável de execução e deliberadamente não inclui timestamps. Ele incorpora `overviewHash`, fingerprint opaco de provider/status/database/applied/pending/evidence. Revalidações equivalentes preservam o hash; mudança de migrations observadas, provider, operação, database, Environment Instance, contexto, preflight ou comando produz outro hash.
+
+O comando interno não possui schema HTTP e não deve ser serializado diretamente para o browser.
 
 ### Preflight
 
@@ -55,9 +55,10 @@ O preflight é fail-closed.
 `ready` exige simultaneamente:
 
 - Environment Instance resolvida pelo backend;
-- runtime `host` neste primeiro corte;
+- runtime `host` neste corte;
 - provider de mutation compatível;
 - `MigrationOverview.provider` igual ao provider mutável;
+- database comprovado pelo overview exatamente igual ao database solicitado;
 - overview com estado `pending`;
 - provider produzindo comando estruturado válido e sem shell wrapper.
 
@@ -67,27 +68,50 @@ Exemplos:
 
 - Environment Instance inexistente/degradada: erro de planejamento;
 - runtime `devcontainer`: bloqueado até existir adapter próprio;
-- `up-to-date`: bloqueado, pois não há mutation necessária;
+- `up-to-date`: bloqueado;
 - `unknown` / `unavailable`: indisponível;
 - provider divergente entre inspeção e mutation: indisponível;
+- fallback/mismatch de database entre pedido e inspeção: indisponível;
 - falha de provider ou comando inválido: indisponível sem expor detalhes internos.
 
-## Confirmação
+## Confirmação e revalidação
 
-`MigrationMutationConfirmationService` segue o mesmo padrão de confirmação curta usado em outros domínios:
+`MigrationMutationConfirmationService` usa:
 
 - token aleatório de 32 bytes;
 - TTL curto;
 - uso único;
 - vínculo a projeto, Environment Instance, provider, operação e `planHash`;
-- somente planos com preflight `ready` podem receber confirmação.
+- confirmação apenas para preflight `ready`.
 
-Em um slice de execução, o coordenador deve reconstruir/revalidar o plano antes de consumir a confirmação. O token não transforma evidência stale em autorização válida.
+`MigrationMutationExecutionService.start()` reconstrói o plano, revalida a Environment Instance pelo `executionContextHash` e só então consome a confirmação. Um token preparado para outro plano não autoriza a execução.
 
-## Compatibilidade com o Rails existente
+## Execução destacável comum
 
-O Rails PTY existente permanece intacto neste corte. Nenhuma rota ou UI foi redirecionada para o novo contrato.
+O executor comum usa uma chave por projeto + Environment Instance e delega ao `DetachableExecutionService`.
 
-A migração do Rails só deve ocorrer quando o coordenador comum de execução puder preservar streaming/cancelamento, Environment Instance, revalidação do plano e confirmação sem regressão.
+Com isso, migration mutation ganha o mesmo comportamento já comprovado no dashboard:
 
-Prisma e providers custom também continuam read-only até terem adapters de mutation explícitos sob o mesmo contrato.
+- processo continua após disconnect;
+- reattach recebe buffer acumulado;
+- output passa pela máscara de segredos comum;
+- cancelamento usa TERM → KILL;
+- uma segunda mutation concorrente no mesmo ambiente é rejeitada;
+- snapshot preserva provider, operação, database e `planHash`.
+
+Ainda não existe rota HTTP comum para essa execução neste slice.
+
+## Adapter Rails
+
+`RailsMigrationMutationProvider` adapta somente `apply` para o catálogo existente do Rails:
+
+- prefere `bin/rails db:migrate`;
+- cai para `bundle exec rails db:migrate` quando aplicável;
+- usa apenas projeto/cwd resolvido pela Environment Instance;
+- não executa shell wrapper.
+
+No primeiro corte, mutation comum Rails fica habilitável somente para um único database lógico `primary`. Projeto multi-database ou seleção de database secundário permanece fail-closed até existir comando explícito por database.
+
+A composição da API usa esse adapter como mutation provider default, mas as rotas Rails existentes ainda não foram redirecionadas. `rollback`, `seed` e `prepare` continuam no `RailsMigrationPtyService` legado.
+
+Prisma e providers custom continuam read-only até terem adapters mutáveis explícitos sob o mesmo contrato.
