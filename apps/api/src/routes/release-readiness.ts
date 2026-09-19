@@ -11,6 +11,9 @@ import type { ProjectStore } from '../store/project-store.js';
 const DEFAULT_TEST_MAX_AGE_SECONDS = 30 * 60;
 const MIN_TEST_MAX_AGE_SECONDS = 60;
 const MAX_TEST_MAX_AGE_SECONDS = 24 * 60 * 60;
+const DEFAULT_PRODUCTION_HEALTH_MAX_AGE_SECONDS = 24 * 60 * 60;
+const MIN_PRODUCTION_HEALTH_MAX_AGE_SECONDS = 60;
+const MAX_PRODUCTION_HEALTH_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
@@ -23,6 +26,7 @@ interface Params {
 
 interface Querystring {
   testMaxAgeSeconds?: number;
+  productionHealthMaxAgeSeconds?: number;
 }
 
 const paramsSchema = {
@@ -42,6 +46,11 @@ const querystringSchema = {
       type: 'integer',
       minimum: MIN_TEST_MAX_AGE_SECONDS,
       maximum: MAX_TEST_MAX_AGE_SECONDS,
+    },
+    productionHealthMaxAgeSeconds: {
+      type: 'integer',
+      minimum: MIN_PRODUCTION_HEALTH_MAX_AGE_SECONDS,
+      maximum: MAX_PRODUCTION_HEALTH_MAX_AGE_SECONDS,
     },
   },
 } as const;
@@ -87,6 +96,9 @@ export const releaseReadinessRoutes: FastifyPluginAsync<Options> = async (
     async (request) => {
       const testMaxAgeSeconds =
         request.query.testMaxAgeSeconds ?? DEFAULT_TEST_MAX_AGE_SECONDS;
+      const productionHealthMaxAgeSeconds =
+        request.query.productionHealthMaxAgeSeconds ??
+        DEFAULT_PRODUCTION_HEALTH_MAX_AGE_SECONDS;
       const project = requireProject(
         options.projectStore,
         request.params.projectId,
@@ -94,6 +106,7 @@ export const releaseReadinessRoutes: FastifyPluginAsync<Options> = async (
       return {
         readiness: await options.releaseReadinessService.getSnapshot(project, {
           testMaxAgeMs: testMaxAgeSeconds * 1_000,
+          productionHealthMaxAgeMs: productionHealthMaxAgeSeconds * 1_000,
         }),
       };
     },

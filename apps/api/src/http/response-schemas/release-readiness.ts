@@ -12,6 +12,7 @@ export const releaseReadinessActionResponseSchema = {
         'pull-request',
         'doctor',
         'migrations',
+        'production',
       ],
     },
   },
@@ -24,7 +25,14 @@ export const releaseReadinessCheckResponseSchema = {
   properties: {
     id: {
       type: 'string',
-      enum: ['git', 'tests', 'pull-request', 'doctor', 'migrations'],
+      enum: [
+        'git',
+        'tests',
+        'pull-request',
+        'doctor',
+        'migrations',
+        'production',
+      ],
     },
     state: {
       type: 'string',
