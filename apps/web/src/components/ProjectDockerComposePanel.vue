@@ -205,8 +205,8 @@ watch(
         <span class="compose-eyebrow">Runtime local</span>
         <h3 id="compose-title">Docker Compose</h3>
         <p>
-          Serviços, health, portas e lifecycle controlado do Compose associado
-          a este projeto.
+          Serviços, health, portas e lifecycle controlado do Compose associado a
+          este projeto.
         </p>
       </div>
       <div class="compose-header-actions">
@@ -365,7 +365,9 @@ watch(
               </div>
               <div class="compose-badges">
                 <StatusBadge
-                  :tone="stateTone(runtimeFor(service.name)?.state ?? 'unknown')"
+                  :tone="
+                    stateTone(runtimeFor(service.name)?.state ?? 'unknown')
+                  "
                 >
                   {{ stateLabel(runtimeFor(service.name)?.state ?? 'unknown') }}
                 </StatusBadge>
@@ -374,7 +376,9 @@ watch(
                     healthTone(runtimeFor(service.name)?.health ?? 'unknown')
                   "
                 >
-                  {{ healthLabel(runtimeFor(service.name)?.health ?? 'unknown') }}
+                  {{
+                    healthLabel(runtimeFor(service.name)?.health ?? 'unknown')
+                  }}
                 </StatusBadge>
               </div>
             </div>
@@ -393,14 +397,18 @@ watch(
                 <dt>Depende de</dt>
                 <dd>
                   {{
-                    service.dependsOn.length ? service.dependsOn.join(', ') : '—'
+                    service.dependsOn.length
+                      ? service.dependsOn.join(', ')
+                      : '—'
                   }}
                 </dd>
               </div>
               <div>
                 <dt>Profiles</dt>
                 <dd>
-                  {{ service.profiles.length ? service.profiles.join(', ') : '—' }}
+                  {{
+                    service.profiles.length ? service.profiles.join(', ') : '—'
+                  }}
                 </dd>
               </div>
               <div v-if="runtimeFor(service.name)?.exitCode !== undefined">
@@ -432,9 +440,7 @@ watch(
                 :disabled="!owned || Boolean(action)"
                 @click="openLogs(service.name)"
               >
-                {{
-                  action === 'logs-' + service.name ? 'Lendo…' : 'Ver logs'
-                }}
+                {{ action === 'logs-' + service.name ? 'Lendo…' : 'Ver logs' }}
               </button>
               <button
                 class="compose-button compose-button--danger"
@@ -446,9 +452,7 @@ watch(
                   )
                 "
               >
-                {{
-                  action === 'stop-' + service.name ? 'Parando…' : 'Parar'
-                }}
+                {{ action === 'stop-' + service.name ? 'Parando…' : 'Parar' }}
               </button>
             </div>
           </article>
