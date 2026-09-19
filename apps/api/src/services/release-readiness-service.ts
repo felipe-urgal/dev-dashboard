@@ -1,4 +1,8 @@
-import type { Project } from '@dev-dashboard/contracts';
+import type {
+  GitOpenPullRequest,
+  GitPullRequestLookup,
+  Project,
+} from '@dev-dashboard/contracts';
 
 import type { GitService } from './git-service.js';
 import type { MigrationOverviewService } from './migration-overview-service.js';
@@ -8,6 +12,7 @@ import {
   evaluateDoctorReadiness,
   evaluateGitReadiness,
   evaluateMigrationsReadiness,
+  evaluatePullRequestReadiness,
   evaluateTestsReadiness,
   type ReleaseReadinessCheck,
   type ReleaseReadinessCheckId,
@@ -25,6 +30,15 @@ interface ReleaseReadinessServiceOptions {
   captureIdentity?: (
     projectPath: string | undefined,
   ) => Promise<TestExecutionGitIdentity>;
+  pullRequestLookup?: {
+    findOpenPullRequest(projectPath: string): Promise<GitPullRequestLookup>;
+  };
+  pullRequestStatus?: {
+    enrich(
+      projectPath: string,
+      pullRequest: GitOpenPullRequest,
+    ): Promise<GitOpenPullRequest>;
+  };
 }
 
 export interface ReleaseReadinessSnapshotOptions {
@@ -38,12 +52,17 @@ function unavailableCheck(
   const actionById = {
     git: { label: 'Abrir Sincronização', target: 'synchronization' as const },
     tests: { label: 'Abrir Testes', target: 'tests' as const },
+    'pull-request': {
+      label: 'Abrir Pull Request',
+      target: 'pull-request' as const,
+    },
     doctor: { label: 'Abrir Doctor', target: 'doctor' as const },
     migrations: { label: 'Abrir Migrations', target: 'migrations' as const },
   };
   const summaryById = {
     git: 'Estado Git indisponível',
     tests: 'Histórico de testes indisponível',
+    'pull-request': 'Estado remoto da Pull Request indisponível',
     doctor: 'Project Doctor indisponível',
     migrations: 'Estado de migrations indisponível',
   };
@@ -81,6 +100,10 @@ export class ReleaseReadinessService {
   private readonly captureIdentity: (
     projectPath: string | undefined,
   ) => Promise<TestExecutionGitIdentity>;
+  private readonly pullRequestLookup:
+    ReleaseReadinessServiceOptions['pullRequestLookup'] | undefined;
+  private readonly pullRequestStatus:
+    ReleaseReadinessServiceOptions['pullRequestStatus'] | undefined;
 
   public constructor(
     private readonly gitService: Pick<GitService, 'getOverview'>,
@@ -101,6 +124,8 @@ export class ReleaseReadinessService {
     this.now = options.now ?? Date.now;
     this.captureIdentity =
       options.captureIdentity ?? captureTestExecutionGitIdentity;
+    this.pullRequestLookup = options.pullRequestLookup;
+    this.pullRequestStatus = options.pullRequestStatus;
   }
 
   public async getSnapshot(
@@ -119,12 +144,14 @@ export class ReleaseReadinessService {
       identity,
       doctorReport,
       migrationOverview,
+      pullRequestLookup,
     ] = await Promise.all([
       safely(() => this.gitService.getOverview(project.path)),
       safely(() => this.testHistoryService.history(project.id, 1, 50)),
       safely(() => this.captureIdentity(project.path)),
       safely(() => this.projectDoctorService.getReport(project)),
       safely(() => this.migrationOverviewService.inspect(project)),
+      this.readPullRequest(project.path),
     ]);
 
     const checks: ReleaseReadinessCheck[] = [
@@ -139,6 +166,17 @@ export class ReleaseReadinessService {
             identity ? comparableIdentity(identity) : undefined,
           )
         : unavailableCheck('tests', observedAt),
+      ...(this.pullRequestLookup
+        ? [
+            gitOverview
+              ? evaluatePullRequestReadiness(
+                  gitOverview,
+                  pullRequestLookup,
+                  observedAt,
+                )
+              : unavailableCheck('pull-request', observedAt),
+          ]
+        : []),
       doctorReport
         ? evaluateDoctorReadiness(doctorReport)
         : unavailableCheck('doctor', observedAt),
@@ -148,5 +186,22 @@ export class ReleaseReadinessService {
     ];
 
     return buildReleaseReadinessSnapshot(checks, observedAt);
+  }
+
+  private async readPullRequest(
+    projectPath: string,
+  ): Promise<GitPullRequestLookup | undefined> {
+    if (!this.pullRequestLookup) return undefined;
+
+    const lookup = await safely(() =>
+      this.pullRequestLookup!.findOpenPullRequest(projectPath),
+    );
+    if (!lookup?.existing || !this.pullRequestStatus) return lookup;
+
+    const existing = lookup.existing;
+    const enriched = await safely(() =>
+      this.pullRequestStatus!.enrich(projectPath, existing),
+    );
+    return enriched ? { ...lookup, existing: enriched } : lookup;
   }
 }

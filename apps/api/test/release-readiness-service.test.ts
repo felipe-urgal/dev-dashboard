@@ -189,3 +189,172 @@ test('janela de freshness inválida falha antes de consultar providers', async (
   );
   assert.equal(called, false);
 });
+
+test('PR remoto só passa quando Cockpit observa exatamente o HEAD local', async () => {
+  const currentGit: ProjectGitOverview = {
+    ...gitOverview,
+    latestCommit: {
+      hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      shortHash: 'aaaaaaaaaaaa',
+      subject: 'feat: current',
+      authorName: 'Dev',
+      authorEmail: 'dev@example.com',
+      authoredAt: '2026-09-05T19:59:00.000Z',
+    },
+  };
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => currentGit },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      pullRequestLookup: {
+        findOpenPullRequest: async () => ({
+          checked: true,
+          existing: {
+            provider: 'github',
+            number: 42,
+            title: 'PR',
+            url: 'https://github.com/felipe-urgal/dev-dashboard/pull/42',
+            sourceBranch: 'feature/example',
+            baseBranch: 'main',
+          },
+        }),
+      },
+      pullRequestStatus: {
+        enrich: async (_path, pullRequest) => ({
+          ...pullRequest,
+          ciStatus: 'success',
+          cockpit: {
+            remoteStatus: 'available',
+            headSha: currentGit.latestCommit!.hash,
+            draft: false,
+            mergeable: true,
+            reviewState: 'approved',
+            requestedReviewers: [],
+            checks: [{ name: 'CI', status: 'success' }],
+          },
+        }),
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(project, {
+    testMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  const remote = snapshot.checks.find((check) => check.id === 'pull-request');
+  assert.equal(remote?.state, 'pass');
+  assert.match(remote?.evidence ?? '', /CI remoto verde/);
+});
+
+test('PR com SHA remoto divergente degrada para unknown em vez de falso pass', async () => {
+  const currentGit: ProjectGitOverview = {
+    ...gitOverview,
+    latestCommit: {
+      hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      shortHash: 'aaaaaaaaaaaa',
+      subject: 'feat: current',
+      authorName: 'Dev',
+      authorEmail: 'dev@example.com',
+      authoredAt: '2026-09-05T19:59:00.000Z',
+    },
+  };
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => currentGit },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      pullRequestLookup: {
+        findOpenPullRequest: async () => ({
+          checked: true,
+          existing: {
+            provider: 'github',
+            number: 42,
+            title: 'PR',
+            url: 'https://github.com/felipe-urgal/dev-dashboard/pull/42',
+            sourceBranch: 'feature/example',
+            baseBranch: 'main',
+          },
+        }),
+      },
+      pullRequestStatus: {
+        enrich: async (_path, pullRequest) => ({
+          ...pullRequest,
+          ciStatus: 'success',
+          cockpit: {
+            remoteStatus: 'available',
+            headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            draft: false,
+            mergeable: true,
+            reviewState: 'approved',
+            requestedReviewers: [],
+            checks: [{ name: 'CI', status: 'success' }],
+          },
+        }),
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(project, {
+    testMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  const remote = snapshot.checks.find((check) => check.id === 'pull-request');
+  assert.equal(remote?.state, 'unknown');
+  assert.match(remote?.summary ?? '', /não corresponde ao HEAD/);
+});
+
+test('falha do provider remoto fica isolada como unknown', async () => {
+  const currentGit: ProjectGitOverview = {
+    ...gitOverview,
+    latestCommit: {
+      hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      shortHash: 'aaaaaaaaaaaa',
+      subject: 'feat: current',
+      authorName: 'Dev',
+      authorEmail: 'dev@example.com',
+      authoredAt: '2026-09-05T19:59:00.000Z',
+    },
+  };
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => currentGit },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      pullRequestLookup: {
+        findOpenPullRequest: async () => {
+          throw new Error('rate limit');
+        },
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(project, {
+    testMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  const remote = snapshot.checks.find((check) => check.id === 'pull-request');
+  assert.equal(remote?.state, 'unknown');
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'git')?.state,
+    'pass',
+  );
+});

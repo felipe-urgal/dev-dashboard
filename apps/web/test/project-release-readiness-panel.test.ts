@@ -49,6 +49,14 @@ describe('ProjectReleaseReadinessPanel', () => {
       generatedAt: '2026-09-06T17:00:00.000Z',
       checks: [
         {
+          id: 'pull-request',
+          state: 'warning',
+          summary: 'CI remoto ainda está em execução',
+          evidence: 'PR #42 corresponde ao HEAD atual.',
+          observedAt: '2026-09-06T16:59:45.000Z',
+          action: { label: 'Abrir Pull Request', target: 'pull-request' },
+        },
+        {
           id: 'doctor',
           state: 'pass',
           summary: 'Project Doctor saudável',
@@ -96,20 +104,28 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
     expect(wrapper.find('.readiness-state--block').exists()).toBe(true);
     expect(wrapper.find('.readiness-checklist').exists()).toBe(true);
-    expect(wrapper.findAll('.readiness-check')).toHaveLength(4);
+    expect(wrapper.findAll('.readiness-check')).toHaveLength(5);
 
     const domains = wrapper
       .findAll('.readiness-check-domain')
       .map((node) => node.text());
-    expect(domains).toEqual(['Git', 'Testes', 'Doctor', 'Migrations']);
+    expect(domains).toEqual([
+      'Git',
+      'Testes',
+      'Pull Request',
+      'Doctor',
+      'Migrations',
+    ]);
 
     const links = wrapper.findAll('.router-link-stub');
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
     expect(links[0]?.attributes('data-name')).toBe('project-git');
     expect(links[0]?.attributes('data-tab')).toBe('sync');
     expect(links[1]?.attributes('data-name')).toBe('project-tests');
-    expect(links[2]?.attributes('data-name')).toBe('project-doctor');
-    expect(links[3]?.attributes('data-name')).toBe('project-migrations');
+    expect(links[2]?.attributes('data-name')).toBe('project-git');
+    expect(links[2]?.attributes('data-tab')).toBe('pull-request');
+    expect(links[3]?.attributes('data-name')).toBe('project-doctor');
+    expect(links[4]?.attributes('data-name')).toBe('project-migrations');
     expect(wrapper.findAll('button')).toHaveLength(0);
   });
 

@@ -1,4 +1,5 @@
 import type {
+  GitPullRequestLookup,
   ProjectDiagnosticReport,
   ProjectGitOverview,
   TestExecutionHistory,
@@ -8,9 +9,10 @@ import type {
 import type { MigrationOverview } from './migration-provider.js';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
-export type ReleaseReadinessCheckId = 'git' | 'tests' | 'doctor' | 'migrations';
+export type ReleaseReadinessCheckId =
+  'git' | 'tests' | 'pull-request' | 'doctor' | 'migrations';
 export type ReleaseReadinessActionTarget =
-  'synchronization' | 'tests' | 'doctor' | 'migrations';
+  'synchronization' | 'tests' | 'pull-request' | 'doctor' | 'migrations';
 
 export interface ReleaseReadinessCheck {
   id: ReleaseReadinessCheckId;
@@ -124,6 +126,195 @@ export function evaluateGitReadiness(
     state: 'pass',
     summary: 'Git pronto para entrega',
     evidence: `${overview.branch} está limpa e sincronizada com ${overview.upstream}.`,
+    observedAt,
+    action,
+  };
+}
+
+function pullRequestRemoteLabel(status: string): string {
+  if (status === 'unauthenticated') return 'autenticação ausente';
+  if (status === 'rate-limited') return 'rate limit atingido';
+  return 'provider indisponível';
+}
+
+export function evaluatePullRequestReadiness(
+  overview: ProjectGitOverview,
+  lookup: GitPullRequestLookup | undefined,
+  observedAt: string,
+): ReleaseReadinessCheck {
+  const action = {
+    label: 'Abrir Pull Request',
+    target: 'pull-request' as const,
+  };
+
+  if (
+    !overview.repository ||
+    overview.detached ||
+    !overview.branch ||
+    !overview.latestCommit
+  ) {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'PR remoto não é comparável ao checkout atual',
+      evidence: 'Branch ou revisão local não pôde ser determinada.',
+      observedAt,
+      action,
+    };
+  }
+
+  if (!lookup) {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'Estado remoto da Pull Request indisponível',
+      evidence: 'A consulta ao provider remoto não pôde ser concluída.',
+      observedAt,
+      action,
+    };
+  }
+
+  const pullRequest = lookup.existing;
+  if (!pullRequest) {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'Nenhuma Pull Request aberta para a branch',
+      evidence: `${overview.branch} não possui PR aberta comprovada no provider.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (pullRequest.sourceBranch !== overview.branch) {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'Pull Request pertence a outra branch',
+      evidence: `A PR #${pullRequest.number} aponta para ${pullRequest.sourceBranch}, não ${overview.branch}.`,
+      observedAt,
+      action,
+    };
+  }
+
+  const cockpit = pullRequest.cockpit;
+  if (!cockpit) {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'Cockpit remoto sem evidência suficiente',
+      evidence: `A PR #${pullRequest.number} foi encontrada, mas checks/reviews não foram hidratados.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (cockpit.remoteStatus !== 'available') {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'Cockpit remoto indisponível',
+      evidence: `PR #${pullRequest.number}: ${pullRequestRemoteLabel(cockpit.remoteStatus)}.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (!cockpit.headSha || cockpit.headSha !== overview.latestCommit.hash) {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'PR remoto não corresponde ao HEAD local',
+      evidence: cockpit.headSha
+        ? `PR #${pullRequest.number} observa ${cockpit.headSha.slice(0, 12)}, enquanto o checkout está em ${overview.latestCommit.shortHash}.`
+        : `PR #${pullRequest.number} não informou um head SHA comparável.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (pullRequest.ciStatus === 'failure') {
+    return {
+      id: 'pull-request',
+      state: 'block',
+      summary: 'CI remoto falhou para o HEAD atual',
+      evidence: `PR #${pullRequest.number} está em ${overview.latestCommit.shortHash} e possui checks com falha.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (cockpit.mergeable === false) {
+    return {
+      id: 'pull-request',
+      state: 'block',
+      summary: 'Pull Request não está mergeável',
+      evidence: `PR #${pullRequest.number} possui conflito ou bloqueio remoto de merge no HEAD atual.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (cockpit.reviewState === 'changes-requested') {
+    return {
+      id: 'pull-request',
+      state: 'block',
+      summary: 'Review remoto solicitou mudanças',
+      evidence: `PR #${pullRequest.number} possui mudanças solicitadas para o HEAD atual.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (pullRequest.ciStatus === 'pending') {
+    return {
+      id: 'pull-request',
+      state: 'warning',
+      summary: 'CI remoto ainda está em execução',
+      evidence: `PR #${pullRequest.number} corresponde a ${overview.latestCommit.shortHash}, mas os checks ainda não terminaram.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (cockpit.draft) {
+    return {
+      id: 'pull-request',
+      state: 'warning',
+      summary: 'Pull Request ainda está em draft',
+      evidence: `PR #${pullRequest.number} corresponde ao HEAD atual, mas segue marcada como draft.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (cockpit.reviewState === 'review-required') {
+    return {
+      id: 'pull-request',
+      state: 'warning',
+      summary: 'Pull Request ainda aguarda review',
+      evidence: `PR #${pullRequest.number} possui reviewer solicitado para o HEAD atual.`,
+      observedAt,
+      action,
+    };
+  }
+
+  if (pullRequest.ciStatus !== 'success') {
+    return {
+      id: 'pull-request',
+      state: 'unknown',
+      summary: 'CI remoto sem resultado conclusivo',
+      evidence: `PR #${pullRequest.number} corresponde ao HEAD atual, mas não há resultado remoto verificável.`,
+      observedAt,
+      action,
+    };
+  }
+
+  return {
+    id: 'pull-request',
+    state: 'pass',
+    summary: 'PR remoto corresponde ao HEAD e CI passou',
+    evidence: `PR #${pullRequest.number} está em ${overview.latestCommit.shortHash} com CI remoto verde.`,
     observedAt,
     action,
   };

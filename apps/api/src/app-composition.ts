@@ -95,6 +95,8 @@ export function createAppComposition(
     ],
     now ? { now: () => new Date(now()) } : {},
   );
+  const pullRequestLookup = new GitPullRequestService();
+  const pullRequestStatus = new GitPullRequestStatusService();
   const releaseReadinessService =
     options.releaseReadinessService ??
     new ReleaseReadinessService(
@@ -102,7 +104,11 @@ export function createAppComposition(
       context.testExecutionHistoryService,
       projectDoctorService,
       migrationOverviewService,
-      options.now ? { now: options.now } : {},
+      {
+        ...(options.now ? { now: options.now } : {}),
+        pullRequestLookup,
+        pullRequestStatus,
+      },
     );
   const taskContextService = new TaskContextService(
     context.projectStore,
@@ -111,8 +117,8 @@ export function createAppComposition(
     context.taskContextRepository,
     options.now ? () => new Date(options.now!()) : () => new Date(),
     {
-      pullRequestLookup: new GitPullRequestService(),
-      pullRequestStatus: new GitPullRequestStatusService(),
+      pullRequestLookup,
+      pullRequestStatus,
       readiness: releaseReadinessService,
     },
   );
