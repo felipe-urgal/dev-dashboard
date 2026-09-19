@@ -65,15 +65,23 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
     warnings: [],
   });
 
-  const calls: Array<{ projectId: string; testMaxAgeMs: number }> = [];
+  const calls: Array<{
+    projectId: string;
+    testMaxAgeMs: number;
+    productionHealthMaxAgeMs?: number;
+  }> = [];
   const service = {
     getSnapshot: async (
       selectedProject: Project,
-      options: { testMaxAgeMs: number },
+      options: {
+        testMaxAgeMs: number;
+        productionHealthMaxAgeMs?: number;
+      },
     ) => {
       calls.push({
         projectId: selectedProject.id,
         testMaxAgeMs: options.testMaxAgeMs,
+        productionHealthMaxAgeMs: options.productionHealthMaxAgeMs,
       });
       const state = selectedProject.id.replace(
         'project-',
@@ -109,6 +117,7 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
   }
 
   assert.equal(calls[0]?.testMaxAgeMs, 30 * 60 * 1_000);
+  assert.equal(calls[0]?.productionHealthMaxAgeMs, 24 * 60 * 60 * 1_000);
 
   const customFreshness = await app.inject({
     method: 'GET',
@@ -116,6 +125,21 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
   });
   assert.equal(customFreshness.statusCode, 200);
   assert.equal(calls.at(-1)?.testMaxAgeMs, 60_000);
+
+  const productionFreshness = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-pass/release-readiness?productionHealthMaxAgeSeconds=3600',
+  });
+  assert.equal(productionFreshness.statusCode, 200);
+  assert.equal(calls.at(-1)?.productionHealthMaxAgeMs, 3_600_000);
+
+  for (const invalidValue of ['0', '59', '604801', 'abc']) {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/projects/project-pass/release-readiness?productionHealthMaxAgeSeconds=${invalidValue}`,
+    });
+    assert.equal(response.statusCode, 400);
+  }
 
   for (const invalidValue of ['0', '59', '86401', 'abc']) {
     const response = await app.inject({

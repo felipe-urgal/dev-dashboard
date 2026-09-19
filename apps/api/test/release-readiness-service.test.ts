@@ -358,3 +358,147 @@ test('falha do provider remoto fica isolada como unknown', async () => {
     'pass',
   );
 });
+
+
+test('produção aplicável entra no snapshot e health recente pode passar', async () => {
+  const productionProject: Project = {
+    ...project,
+    capabilities: ['production'],
+    production: {
+      version: 1,
+      enabled: true,
+      strategy: 'command',
+      provider: 'systemd',
+      branch: 'main',
+      commands: { deploy: 'prod:deploy' },
+      health: { type: 'http', url: 'https://example.test/health' },
+      policies: {
+        backup: 'not-required',
+        migrations: 'manual',
+        rollback: 'not-configured',
+      },
+    },
+  };
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => gitOverview },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      productionOverview: {
+        read: async () => ({
+          generatedAt: new Date(NOW).toISOString(),
+          items: [
+            {
+              projectId: productionProject.id,
+              projectName: productionProject.name,
+              state: 'in-sync',
+              health: 'verified',
+              healthCheckedAt: '2026-09-05T19:45:00.000Z',
+            },
+          ],
+        }),
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(productionProject, {
+    testMaxAgeMs: 60 * 60 * 1000,
+    productionHealthMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  const production = snapshot.checks.find((check) => check.id === 'production');
+  assert.equal(production?.state, 'pass');
+  assert.equal(production?.action.target, 'production');
+});
+
+test('health de produção stale nunca vira falso pass', async () => {
+  const productionProject: Project = {
+    ...project,
+    capabilities: ['production'],
+    production: {
+      version: 1,
+      enabled: true,
+      strategy: 'command',
+      provider: 'systemd',
+      branch: 'main',
+      commands: { deploy: 'prod:deploy' },
+      health: { type: 'http', url: 'https://example.test/health' },
+      policies: {
+        backup: 'not-required',
+        migrations: 'manual',
+        rollback: 'not-configured',
+      },
+    },
+  };
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => gitOverview },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      productionOverview: {
+        read: async () => ({
+          generatedAt: new Date(NOW).toISOString(),
+          items: [
+            {
+              projectId: productionProject.id,
+              projectName: productionProject.name,
+              state: 'in-sync',
+              health: 'verified',
+              healthCheckedAt: '2026-09-03T20:00:00.000Z',
+            },
+          ],
+        }),
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(productionProject, {
+    testMaxAgeMs: 60 * 60 * 1000,
+    productionHealthMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  const production = snapshot.checks.find((check) => check.id === 'production');
+  assert.equal(production?.state, 'unknown');
+  assert.match(production?.summary ?? '', /desatualizado/);
+});
+
+test('produção não adiciona check quando projeto não possui contrato aplicável', async () => {
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => gitOverview },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      productionOverview: {
+        read: async () => {
+          throw new Error('não deveria consultar produção');
+        },
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(project, {
+    testMaxAgeMs: 60 * 60 * 1000,
+  });
+  assert.equal(
+    snapshot.checks.some((check) => check.id === 'production'),
+    false,
+  );
+});

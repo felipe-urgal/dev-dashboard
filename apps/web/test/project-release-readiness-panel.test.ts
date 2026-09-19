@@ -65,6 +65,14 @@ describe('ProjectReleaseReadinessPanel', () => {
           action: { label: 'Abrir Doctor', target: 'doctor' },
         },
         {
+          id: 'production',
+          state: 'pass',
+          summary: 'Produção sincronizada',
+          evidence: 'O alvo corresponde à produção.',
+          observedAt: '2026-09-06T16:59:50.000Z',
+          action: { label: 'Abrir Produção', target: 'production' },
+        },
+        {
           id: 'migrations',
           state: 'block',
           summary: 'Existem migrations pendentes',
@@ -104,7 +112,7 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
     expect(wrapper.find('.readiness-state--block').exists()).toBe(true);
     expect(wrapper.find('.readiness-checklist').exists()).toBe(true);
-    expect(wrapper.findAll('.readiness-check')).toHaveLength(5);
+    expect(wrapper.findAll('.readiness-check')).toHaveLength(6);
 
     const domains = wrapper
       .findAll('.readiness-check-domain')
@@ -115,10 +123,11 @@ describe('ProjectReleaseReadinessPanel', () => {
       'Pull Request',
       'Doctor',
       'Migrations',
+      'Produção',
     ]);
 
     const links = wrapper.findAll('.router-link-stub');
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(6);
     expect(links[0]?.attributes('data-name')).toBe('project-git');
     expect(links[0]?.attributes('data-tab')).toBe('sync');
     expect(links[1]?.attributes('data-name')).toBe('project-tests');
@@ -126,6 +135,7 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(links[2]?.attributes('data-tab')).toBe('pull-request');
     expect(links[3]?.attributes('data-name')).toBe('project-doctor');
     expect(links[4]?.attributes('data-name')).toBe('project-migrations');
+    expect(links[5]?.attributes('data-name')).toBe('project-production');
     expect(wrapper.findAll('button')).toHaveLength(0);
   });
 
