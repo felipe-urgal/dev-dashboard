@@ -267,7 +267,12 @@ export class TaskContextService {
     evidence: TaskContextEvidence,
   ): Promise<void> {
     const reader = this.evidenceReaders.readiness;
-    if (!reader || environmentKind !== 'primary') return;
+    if (
+      !reader ||
+      environmentKind !== 'primary' ||
+      evidence.branchMatches !== true
+    )
+      return;
 
     const readiness = await safely(() =>
       reader.getSnapshot(project, {
