@@ -168,6 +168,32 @@ test('comandos de inspeção são fixos e somente leitura', () => {
   });
 });
 
+test('comandos aceitam project-name explícito sem shell livre', () => {
+  assert.deepEqual(buildComposeConfigCommand('devdash-0123456789abcdef'), {
+    program: 'docker',
+    args: [
+      'compose',
+      '--project-name',
+      'devdash-0123456789abcdef',
+      'config',
+      '--format',
+      'json',
+    ],
+  });
+  assert.deepEqual(buildComposePsCommand('devdash-0123456789abcdef'), {
+    program: 'docker',
+    args: [
+      'compose',
+      '--project-name',
+      'devdash-0123456789abcdef',
+      'ps',
+      '--all',
+      '--format',
+      'json',
+    ],
+  });
+});
+
 test('payload estrutural inválido falha fechado', () => {
   assert.throws(
     () => parseComposeConfig({ services: null }, 'project-1', OBSERVED_AT),
