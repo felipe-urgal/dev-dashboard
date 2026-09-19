@@ -1,10 +1,5 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import type {
-  TaskContext,
-  TaskContextSnapshot,
-} from '@dev-dashboard/contracts';
-
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import {
@@ -194,6 +189,8 @@ function mapTaskContextError(error: unknown): unknown {
         message: error.message,
       });
   }
+
+  return error;
 }
 
 async function withTaskContextErrors<T>(
