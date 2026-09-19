@@ -152,8 +152,8 @@ function detailTarget(
       return {
         name: 'project-tests',
         params: { projectId },
-        ...(environmentQuery(item.environmentInstanceId)
-          ? { query: environmentQuery(item.environmentInstanceId) }
+        ...(item.environmentInstanceId
+          ? { query: { environmentInstanceId: item.environmentInstanceId } }
           : {}),
       };
     case 'git':
