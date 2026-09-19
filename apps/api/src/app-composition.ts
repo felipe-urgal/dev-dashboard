@@ -32,7 +32,10 @@ import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 export interface AppCompositionOptions {
   now?: () => number;
   dockerComposeProvider?: Pick<DockerComposeProvider, 'inspect'>;
-  dockerComposePreflightService?: Pick<DockerComposePreflightService, 'inspect'>;
+  dockerComposePreflightService?: Pick<
+    DockerComposePreflightService,
+    'inspect'
+  >;
   dockerComposeLifecycleService?: Pick<
     DockerComposeLifecycleService,
     'start' | 'stop' | 'restart' | 'logs'
