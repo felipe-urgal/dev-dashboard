@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 
 import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
@@ -123,7 +124,7 @@ function normalizedCommand(
     file.includes('\0') ||
     file.includes('\n') ||
     file.includes('\r') ||
-    FORBIDDEN_PROGRAMS.has(file.toLowerCase())
+    FORBIDDEN_PROGRAMS.has(path.basename(file).toLowerCase())
   ) {
     return undefined;
   }
@@ -236,10 +237,29 @@ export class MigrationMutationPlanningService {
       });
     }
 
-    const overview = await this.overviewService.inspect(
-      selectedProject,
-      requestedDatabase,
-    );
+    let overview;
+    try {
+      overview = await this.overviewService.inspect(
+        selectedProject,
+        requestedDatabase,
+      );
+    } catch {
+      return buildPlan({
+        projectId: project.id,
+        provider: provider.id,
+        operation: input.operation,
+        database: requestedDatabase,
+        environmentInstanceId: executionContext.environmentInstanceId,
+        runtime: executionContext.runtime,
+        createdAt,
+        preflight: unavailablePreflight(
+          'inspection-inconclusive',
+          createdAt,
+          'MigrationOverview',
+          'A inspeção read-only falhou; mutation permanece indisponível.',
+        ),
+      });
+    }
     const database = databaseIdentity(overview.database);
 
     if (overview.provider !== provider.id) {
