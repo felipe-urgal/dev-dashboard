@@ -14,6 +14,7 @@ export type MigrationMutationPreflightReason =
   | 'provider-unavailable'
   | 'runtime-unsupported'
   | 'provider-evidence-mismatch'
+  | 'database-evidence-mismatch'
   | 'nothing-pending'
   | 'inspection-inconclusive'
   | 'provider-plan-invalid';
