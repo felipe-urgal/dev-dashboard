@@ -26,7 +26,7 @@ type GitHistoryReader = Pick<GitMutationHistoryService, 'history'>;
 type TestHistoryReader = Pick<TestExecutionHistoryService, 'history'>;
 type ScriptHistoryReader = Pick<ScriptExecutionService, 'history'>;
 type ProcessReader = Pick<ProcessManager, 'listProcesses'>;
-type ProjectStoreView = Pick<ProjectStore, 'findProject'>;
+type ProjectStoreView = Pick<ProjectStore, 'findProject' | 'listProjects'>;
 
 export interface ActivitySnapshotServiceDependencies {
   eventStore: ActivityEventStore;
@@ -186,15 +186,67 @@ export class ActivitySnapshotService {
       );
     }
 
-    const limit = Math.min(Math.max(1, Math.trunc(requestedLimit)), MAX_LIMIT);
+    const limit = this.normalizeLimit(requestedLimit);
+    const processes = await capture(() =>
+      this.dependencies.processReader.listProcesses(),
+    );
+    return this.readProjectWithProcesses(projectId, limit, processes);
+  }
 
-    const [git, tests, scripts, processes] = await Promise.all([
+  public async readGlobal(
+    requestedLimit = DEFAULT_LIMIT,
+  ): Promise<ActivitySnapshot> {
+    const limit = this.normalizeLimit(requestedLimit);
+    const projects = this.dependencies.projectStore.listProjects();
+    const processes = await capture(() =>
+      this.dependencies.processReader.listProcesses(),
+    );
+    const snapshots = await Promise.all(
+      projects.map((project) =>
+        this.readProjectWithProcesses(project.id, limit, processes),
+      ),
+    );
+
+    const unavailableDomains: ActivityDomain[] = [];
+    for (const snapshot of snapshots) {
+      for (const domain of snapshot.unavailableDomains)
+        pushUnavailable(unavailableDomains, domain, true);
+    }
+
+    const events = snapshots
+      .flatMap((snapshot) => snapshot.events)
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, limit);
+    const jobs = snapshots
+      .flatMap((snapshot) => snapshot.jobs)
+      .sort((left, right) =>
+        (right.startedAt ?? '').localeCompare(left.startedAt ?? ''),
+      );
+
+    return {
+      generatedAt: this.now().toISOString(),
+      partial: unavailableDomains.length > 0,
+      unavailableDomains,
+      events,
+      jobs,
+    };
+  }
+
+  private normalizeLimit(requestedLimit: number): number {
+    return Math.min(Math.max(1, Math.trunc(requestedLimit)), MAX_LIMIT);
+  }
+
+  private async readProjectWithProcesses(
+    projectId: string,
+    limit: number,
+    processes: Captured<ManagedProcess[]>,
+  ): Promise<ActivitySnapshot> {
+    const [git, tests, scripts] = await Promise.all([
       capture(() => this.dependencies.gitHistory.history(projectId, 1, limit)),
       capture(() => this.dependencies.testHistory.history(projectId, 1, limit)),
       capture(() =>
         this.dependencies.scriptHistory.history(projectId, 1, limit),
       ),
-      capture(() => this.dependencies.processReader.listProcesses()),
     ]);
 
     const unavailableDomains: ActivityDomain[] = [];
