@@ -162,10 +162,30 @@ function executionContextHash(executionContext: ExecutionContext): string {
 
 type PlanInput = Omit<
   MigrationMutationPlan,
-  'planHash' | 'executionContextHash'
+  'planHash' | 'executionContextHash' | 'overviewHash'
 >;
 
-function planHash(input: PlanInput, contextHash: string): string {
+function overviewHash(overview: MigrationOverview | undefined): string {
+  return hashPayload(
+    overview
+      ? {
+          provider: overview.provider,
+          status: overview.status,
+          database: overview.database,
+          applied: overview.applied,
+          pending: overview.pending,
+          evidence: overview.evidence,
+          warnings: overview.warnings,
+        }
+      : null,
+  );
+}
+
+function planHash(
+  input: PlanInput,
+  contextHash: string,
+  evidenceHash: string,
+): string {
   const authority = {
     projectId: input.projectId,
     provider: input.provider,
@@ -174,6 +194,7 @@ function planHash(input: PlanInput, contextHash: string): string {
     environmentInstanceId: input.environmentInstanceId,
     runtime: input.runtime,
     executionContextHash: contextHash,
+    overviewHash: evidenceHash,
     preflight: {
       state: input.preflight.state,
       reason: input.preflight.reason,
@@ -187,12 +208,15 @@ function planHash(input: PlanInput, contextHash: string): string {
 function buildPlan(
   executionContext: ExecutionContext,
   input: PlanInput,
+  overview?: MigrationOverview,
 ): MigrationMutationPlan {
   const contextHash = executionContextHash(executionContext);
+  const evidenceHash = overviewHash(overview);
   return {
     ...input,
     executionContextHash: contextHash,
-    planHash: planHash(input, contextHash),
+    overviewHash: evidenceHash,
+    planHash: planHash(input, contextHash, evidenceHash),
   };
 }
 
@@ -331,7 +355,7 @@ export class MigrationMutationPlanningService {
           overview.evidence,
           'A inspeção read-only e o provider de mutation não apontam para o mesmo provider; a operação não pode ser planejada com segurança.',
         ),
-      });
+      }, overview);
     }
 
     if (overview.status === 'up-to-date') {
@@ -350,7 +374,7 @@ export class MigrationMutationPlanningService {
           overview.evidence,
           'A inspeção comprovou que não há migrations pendentes para aplicar.',
         ),
-      });
+      }, overview);
     }
 
     if (overview.status !== 'pending') {
@@ -369,7 +393,7 @@ export class MigrationMutationPlanningService {
           overview.evidence,
           'A inspeção não comprovou migrations pendentes; mutation permanece indisponível.',
         ),
-      });
+      }, overview);
     }
 
     let providerPlan: MigrationMutationProviderPlan;
@@ -398,7 +422,7 @@ export class MigrationMutationPlanningService {
           overview.evidence,
           'O provider não conseguiu produzir um plano de execução estruturado.',
         ),
-      });
+      }, overview);
     }
 
     const command = normalizedCommand(providerPlan.command);
@@ -418,7 +442,7 @@ export class MigrationMutationPlanningService {
           overview.evidence,
           'O provider produziu um comando de mutation fora do contrato estruturado.',
         ),
-      });
+      }, overview);
     }
 
     return buildPlan(executionContext, {
@@ -432,6 +456,6 @@ export class MigrationMutationPlanningService {
       overviewObservedAt: overview.observedAt,
       preflight: readyPreflight(overview.observedAt, overview.evidence),
       command,
-    });
+    }, overview);
   }
 }
