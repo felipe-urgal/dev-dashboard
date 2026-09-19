@@ -78,6 +78,7 @@ function readyPlan(
     environmentInstanceId: executionContext.environmentInstanceId,
     runtime: 'host',
     executionContextHash: 'c'.repeat(64),
+    overviewHash: 'd'.repeat(64),
     createdAt: '2026-09-19T18:30:00.000Z',
     overviewObservedAt: '2026-09-19T18:29:00.000Z',
     planHash: 'a'.repeat(64),
