@@ -247,7 +247,7 @@ test('não associa HEAD de outra branch ao Task Context', async () => {
   const service = new TaskContextService(
     { findProject: () => project },
     {
-      findById: () => null,
+      findById: (id) => (id === primary.id ? primary : null),
       findPrimaryByProjectId: () => primary,
     },
     {
@@ -285,7 +285,7 @@ test('degrada evidência Git sem perder o contexto quando a leitura falha', asyn
   const service = new TaskContextService(
     { findProject: () => project },
     {
-      findById: () => null,
+      findById: (id) => (id === primary.id ? primary : null),
       findPrimaryByProjectId: () => primary,
     },
     {
