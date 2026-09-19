@@ -5,11 +5,13 @@ import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { MigrationOverviewService } from './migration-overview-service.js';
+import type { MigrationOverview } from './migration-provider.js';
 import type {
   MigrationMutationCommand,
   MigrationMutationPlan,
   MigrationMutationPreflight,
   MigrationMutationProvider,
+  MigrationMutationProviderPlan,
 } from './migration-mutation-provider.js';
 
 const SAFE_DATABASE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u;
@@ -237,7 +239,7 @@ export class MigrationMutationPlanningService {
       });
     }
 
-    let overview;
+    let overview: MigrationOverview;
     try {
       overview = await this.overviewService.inspect(
         selectedProject,
@@ -319,7 +321,7 @@ export class MigrationMutationPlanningService {
       });
     }
 
-    let providerPlan;
+    let providerPlan: MigrationMutationProviderPlan;
     try {
       providerPlan = await provider.planMutation({
         project: selectedProject,
