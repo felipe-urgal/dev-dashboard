@@ -53,6 +53,16 @@ describe('Docker Compose no shell do projeto', () => {
     expect(apiSource).toContain("query.set('environmentInstanceId'");
   });
 
+  it('expõe reconciliation de ownership sem ampliar autoridade do browser', () => {
+    expect(apiSource).toContain(
+      "state: 'unchanged' | 'released' | 'unavailable'",
+    );
+    expect(panelSource).toContain('Ownership obsoleto reconciliado.');
+    expect(panelSource).toContain(
+      'snapshot.ownership.reconciliation.diagnostic',
+    );
+  });
+
   it('usa API estruturada sem enviar path, executable ou argv', () => {
     expect(apiSource).toContain('/docker-compose');
     expect(apiSource).not.toContain('executable');
