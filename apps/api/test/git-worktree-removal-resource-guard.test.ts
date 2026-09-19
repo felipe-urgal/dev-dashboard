@@ -28,7 +28,9 @@ function project(): Project {
   };
 }
 
-function setup() {
+function setup(
+  options: { composeOwned?: boolean; composeReadFails?: boolean } = {},
+) {
   const projectStore = new ProjectStore();
   projectStore.saveWorkspaceScan({
     workspaceId: 'workspace-a',
@@ -53,6 +55,7 @@ function setup() {
   );
   let processes: ManagedProcess[] = [];
   let terminalSessions = 0;
+  const composeProjects: Array<{ id: string; path: string }> = [];
 
   const guard = new GitWorktreeRemovalResourceGuardService({
     processManager: {
@@ -71,12 +74,29 @@ function setup() {
         message: 'ok',
       }),
     },
+    dockerComposeOwnershipStore: {
+      get: async (target) => {
+        composeProjects.push({ id: target.id, path: target.path });
+        if (options.composeReadFails) {
+          throw new Error('ownership unavailable');
+        }
+        return options.composeOwned
+          ? {
+              projectId: target.id,
+              projectPath: target.path,
+              composeProjectName: 'devdash-test',
+              startedAt: '2026-09-19T16:00:00.000Z',
+            }
+          : undefined;
+      },
+    },
   });
 
   return {
     guard,
     environmentStore,
     environmentInstanceId,
+    composeProjects,
     setProcesses(next: ManagedProcess[]) {
       processes = next;
     },
@@ -165,4 +185,29 @@ test('guard bloqueia terminal ativo e runtime cujo cleanup ainda não é suporta
   );
   assert.equal(devcontainer.safe, false);
   assert.match(devcontainer.diagnostic ?? '', /runtime associado/i);
+});
+
+
+test('guard bloqueia remoção quando Compose ainda está owned pela Environment Instance', async () => {
+  const fixture = setup({ composeOwned: true });
+
+  const result = await fixture.guard.inspect(fixture.environmentInstanceId);
+
+  assert.equal(result.safe, false);
+  assert.match(result.diagnostic ?? '', /Docker Compose owned/i);
+  assert.deepEqual(fixture.composeProjects, [
+    {
+      id: fixture.environmentInstanceId,
+      path: WORKTREE_PATH,
+    },
+  ]);
+});
+
+test('guard falha fechado quando ownership Compose não pode ser lido', async () => {
+  const fixture = setup({ composeReadFails: true });
+
+  const result = await fixture.guard.inspect(fixture.environmentInstanceId);
+
+  assert.equal(result.safe, false);
+  assert.match(result.diagnostic ?? '', /ownership do Docker Compose/i);
 });
