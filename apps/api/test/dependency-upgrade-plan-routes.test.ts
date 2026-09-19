@@ -39,11 +39,7 @@ const plan: ProjectDependencyUpgradePlan = {
       warnings: [
         'A atualização é major e pode conter breaking changes; o planner não afirma compatibilidade de API.',
       ],
-      gates: [
-        'review-major-change',
-        'verify-target-advisories',
-        'run-tests',
-      ],
+      gates: ['review-major-change', 'verify-target-advisories', 'run-tests'],
     },
   ],
   groups: [

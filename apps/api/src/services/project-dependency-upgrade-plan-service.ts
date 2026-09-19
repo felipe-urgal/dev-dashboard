@@ -16,7 +16,8 @@ import type {
 
 export type DependencyUpgradePlanStatus = 'ready' | 'partial' | 'unavailable';
 export type DependencyUpgradeItemState = 'upgrade' | 'current' | 'unknown';
-export type DependencyUpgradeAffectedFile = 'package.json' | 'package-lock.json';
+export type DependencyUpgradeAffectedFile =
+  'package.json' | 'package-lock.json';
 export type DependencyUpgradeGate =
   | 'resolve-current-version'
   | 'refresh-metadata'
@@ -136,7 +137,11 @@ function buildItem(
         'A versão atual não foi comprovada; o planner não pode classificar esta atualização.',
       );
     }
-    if (!metadata || metadata.state !== 'available' || !metadata.latestVersion) {
+    if (
+      !metadata ||
+      metadata.state !== 'available' ||
+      !metadata.latestVersion
+    ) {
       addUnique(gates, 'refresh-metadata');
       addUnique(
         warnings,
@@ -270,7 +275,9 @@ export class ProjectDependencyUpgradePlanService {
     this.dependencyHealthService = options.dependencyHealthService;
   }
 
-  public async inspect(project: Project): Promise<ProjectDependencyUpgradePlan> {
+  public async inspect(
+    project: Project,
+  ): Promise<ProjectDependencyUpgradePlan> {
     const snapshot = await this.dependencyHealthService.inspect(project);
     const items =
       snapshot.inventory.status === 'ready'
