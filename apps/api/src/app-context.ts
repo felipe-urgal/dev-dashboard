@@ -1,4 +1,5 @@
 import type {
+  ActivityEventRepository,
   EnvironmentProfileRepository,
   ProjectDisabledRepository,
   RetentionSettingsRepository,
@@ -52,6 +53,7 @@ import {
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
+  activityEventRepository: ActivityEventRepository;
   taskContextRepository: TaskContextRepository;
   environmentProfileRepository: EnvironmentProfileRepository;
   projectDisabledRepository: ProjectDisabledRepository;

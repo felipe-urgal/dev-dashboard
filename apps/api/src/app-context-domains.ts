@@ -1,4 +1,5 @@
 import {
+  ActivityEventRepository,
   EnvironmentProfileRepository,
   ProjectDisabledRepository,
   RetentionSettingsRepository,
@@ -67,6 +68,7 @@ export function createFoundationContextDomain() {
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository: new RetentionSettingsRepository(),
+    activityEventRepository: new ActivityEventRepository(),
     taskContextRepository: new TaskContextRepository(),
     environmentProfileRepository: new EnvironmentProfileRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
