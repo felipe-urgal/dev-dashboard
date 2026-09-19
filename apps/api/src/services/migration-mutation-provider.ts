@@ -58,23 +58,8 @@ export interface MigrationMutationProviderPlan {
   command: MigrationMutationCommand;
 }
 
-export interface MigrationMutationExecutionContext {
-  project: Project;
-  executionContext: ExecutionContext;
-  plan: MigrationMutationPlan;
-}
-
-export interface MigrationMutationExecutionResult {
-  status: 'succeeded' | 'failed';
-  finishedAt: string;
-}
-
 export interface MigrationMutationProvider extends MigrationProvider {
   planMutation(
     context: MigrationMutationPlanContext,
   ): Promise<MigrationMutationProviderPlan>;
-
-  executeMutation(
-    context: MigrationMutationExecutionContext,
-  ): Promise<MigrationMutationExecutionResult>;
 }
