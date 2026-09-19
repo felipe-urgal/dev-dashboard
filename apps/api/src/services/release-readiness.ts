@@ -11,12 +11,7 @@ import type { MigrationOverview } from './migration-provider.js';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
 export type ReleaseReadinessCheckId =
-  | 'git'
-  | 'tests'
-  | 'pull-request'
-  | 'doctor'
-  | 'migrations'
-  | 'production';
+  'git' | 'tests' | 'pull-request' | 'doctor' | 'migrations' | 'production';
 export type ReleaseReadinessActionTarget =
   | 'synchronization'
   | 'tests'
