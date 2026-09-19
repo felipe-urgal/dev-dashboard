@@ -99,10 +99,7 @@ interface DockerComposeLogsResponse {
   logs: DockerComposeLogSnapshot;
 }
 
-function projectUrl(
-  projectId: string,
-  environmentInstanceId?: string,
-): string {
+function projectUrl(projectId: string, environmentInstanceId?: string): string {
   const base =
     '/api/projects/' + encodeURIComponent(projectId) + '/docker-compose';
   if (!environmentInstanceId) return base;

@@ -440,7 +440,11 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       ),
   );
 
-  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: Record<string, never> }>(
+  app.post<{
+    Params: Params;
+    Querystring: EnvironmentQuery;
+    Body: Record<string, never>;
+  }>(
     '/projects/:projectId/docker-compose/start',
     {
       schema: {

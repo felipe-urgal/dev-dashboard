@@ -233,7 +233,11 @@ watch(
           class="compose-button compose-button--primary"
           type="button"
           :disabled="!canStart"
-          @click="mutate('start', () => startDockerCompose(project.id, environmentInstanceId))"
+          @click="
+            mutate('start', () =>
+              startDockerCompose(project.id, environmentInstanceId),
+            )
+          "
         >
           {{ action === 'start' ? 'Iniciando…' : 'Iniciar stack' }}
         </button>
@@ -242,7 +246,15 @@ watch(
           class="compose-button"
           type="button"
           :disabled="Boolean(action) || !hasActiveServices"
-          @click="mutate('restart', () => restartDockerCompose(project.id, undefined, environmentInstanceId))"
+          @click="
+            mutate('restart', () =>
+              restartDockerCompose(
+                project.id,
+                undefined,
+                environmentInstanceId,
+              ),
+            )
+          "
         >
           {{ action === 'restart' ? 'Reiniciando…' : 'Reiniciar stack' }}
         </button>
@@ -251,7 +263,11 @@ watch(
           class="compose-button compose-button--danger"
           type="button"
           :disabled="Boolean(action) || !hasActiveServices"
-          @click="mutate('stop', () => stopDockerCompose(project.id, undefined, environmentInstanceId))"
+          @click="
+            mutate('stop', () =>
+              stopDockerCompose(project.id, undefined, environmentInstanceId),
+            )
+          "
         >
           {{ action === 'stop' ? 'Parando…' : 'Parar stack' }}
         </button>
@@ -435,7 +451,11 @@ watch(
                 :disabled="!owned || Boolean(action)"
                 @click="
                   mutate('restart-' + service.name, () =>
-                    restartDockerCompose(project.id, service.name, environmentInstanceId),
+                    restartDockerCompose(
+                      project.id,
+                      service.name,
+                      environmentInstanceId,
+                    ),
                   )
                 "
               >
@@ -459,7 +479,11 @@ watch(
                 :disabled="!owned || Boolean(action)"
                 @click="
                   mutate('stop-' + service.name, () =>
-                    stopDockerCompose(project.id, service.name, environmentInstanceId),
+                    stopDockerCompose(
+                      project.id,
+                      service.name,
+                      environmentInstanceId,
+                    ),
                   )
                 "
               >

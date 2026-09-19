@@ -43,7 +43,7 @@ describe('Docker Compose no shell do projeto', () => {
 
   it('preserva a Environment Instance na navegação e no painel', () => {
     expect(moreToolsSource).toContain(
-      "environmentInstanceId ? { query: { environmentInstanceId } } : {}",
+      'environmentInstanceId ? { query: { environmentInstanceId } } : {}',
     );
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',
