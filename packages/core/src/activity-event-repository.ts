@@ -138,7 +138,7 @@ function isActivityEvent(value: unknown): value is ActivityEvent {
 function cloneEvent(event: ActivityEvent): ActivityEvent {
   return {
     ...event,
-    resourceRef: event.resourceRef ? { ...event.resourceRef } : undefined,
+    ...(event.resourceRef ? { resourceRef: { ...event.resourceRef } } : {}),
   };
 }
 
