@@ -116,8 +116,10 @@ function cloneReference<
 function cloneContext(context: TaskContext): TaskContext {
   return {
     ...context,
-    issue: cloneReference(context.issue),
-    pullRequest: cloneReference(context.pullRequest),
+    ...(context.issue ? { issue: cloneReference(context.issue) } : {}),
+    ...(context.pullRequest
+      ? { pullRequest: cloneReference(context.pullRequest) }
+      : {}),
   };
 }
 
@@ -281,14 +283,12 @@ export class TaskContextRepository {
       }
       if ('issue' in input) {
         if (input.issue === null) delete next.issue;
-        else next.issue = input.issue ? { ...input.issue } : undefined;
+        else if (input.issue !== undefined) next.issue = { ...input.issue };
       }
       if ('pullRequest' in input) {
         if (input.pullRequest === null) delete next.pullRequest;
-        else
-          next.pullRequest = input.pullRequest
-            ? { ...input.pullRequest }
-            : undefined;
+        else if (input.pullRequest !== undefined)
+          next.pullRequest = { ...input.pullRequest };
       }
 
       validateCreateInput(next);
