@@ -147,14 +147,38 @@ function normalizedCommand(
   return { file, args };
 }
 
-function planHash(input: Omit<MigrationMutationPlan, 'planHash'>): string {
-  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+function planHash(
+  executionContext: ExecutionContext,
+  input: Omit<MigrationMutationPlan, 'planHash'>,
+): string {
+  const authority = {
+    projectId: input.projectId,
+    provider: input.provider,
+    operation: input.operation,
+    database: input.database,
+    environmentInstanceId: input.environmentInstanceId,
+    runtime: input.runtime,
+    cwd: executionContext.cwd,
+    preflight: {
+      state: input.preflight.state,
+      reason: input.preflight.reason,
+    },
+    command: input.command ?? null,
+  };
+
+  return createHash('sha256')
+    .update(JSON.stringify(authority))
+    .digest('hex');
 }
 
 function buildPlan(
+  executionContext: ExecutionContext,
   input: Omit<MigrationMutationPlan, 'planHash'>,
 ): MigrationMutationPlan {
-  return { ...input, planHash: planHash(input) };
+  return {
+    ...input,
+    planHash: planHash(executionContext, input),
+  };
 }
 
 export class MigrationMutationPlanningService {
@@ -188,7 +212,7 @@ export class MigrationMutationPlanningService {
     const requestedDatabase = databaseIdentity(input.database);
 
     if (executionContext.runtime !== 'host') {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: 'none',
         operation: input.operation,
@@ -219,7 +243,7 @@ export class MigrationMutationPlanningService {
     }
 
     if (!provider) {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: 'none',
         operation: input.operation,
@@ -243,7 +267,7 @@ export class MigrationMutationPlanningService {
         requestedDatabase,
       );
     } catch {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -262,7 +286,7 @@ export class MigrationMutationPlanningService {
     const database = databaseIdentity(overview.database);
 
     if (overview.provider !== provider.id) {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -281,7 +305,7 @@ export class MigrationMutationPlanningService {
     }
 
     if (overview.status === 'up-to-date') {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -300,7 +324,7 @@ export class MigrationMutationPlanningService {
     }
 
     if (overview.status !== 'pending') {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -329,7 +353,7 @@ export class MigrationMutationPlanningService {
         now: this.now,
       });
     } catch {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -349,7 +373,7 @@ export class MigrationMutationPlanningService {
 
     const command = normalizedCommand(providerPlan.command);
     if (!command) {
-      return buildPlan({
+      return buildPlan(executionContext, {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -367,7 +391,7 @@ export class MigrationMutationPlanningService {
       });
     }
 
-    return buildPlan({
+    return buildPlan(executionContext, {
       projectId: project.id,
       provider: provider.id,
       operation: input.operation,
