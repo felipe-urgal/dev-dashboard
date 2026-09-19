@@ -147,9 +147,27 @@ function normalizedCommand(
   return { file, args };
 }
 
+function hashPayload(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function executionContextHash(executionContext: ExecutionContext): string {
+  return hashPayload({
+    projectId: executionContext.projectId,
+    environmentInstanceId: executionContext.environmentInstanceId,
+    cwd: executionContext.cwd,
+    runtime: executionContext.runtime,
+  });
+}
+
+type PlanInput = Omit<
+  MigrationMutationPlan,
+  'planHash' | 'executionContextHash'
+>;
+
 function planHash(
-  executionContext: ExecutionContext,
-  input: Omit<MigrationMutationPlan, 'planHash'>,
+  input: PlanInput,
+  contextHash: string,
 ): string {
   const authority = {
     projectId: input.projectId,
@@ -158,7 +176,7 @@ function planHash(
     database: input.database,
     environmentInstanceId: input.environmentInstanceId,
     runtime: input.runtime,
-    cwd: executionContext.cwd,
+    executionContextHash: contextHash,
     preflight: {
       state: input.preflight.state,
       reason: input.preflight.reason,
@@ -166,18 +184,18 @@ function planHash(
     command: input.command ?? null,
   };
 
-  return createHash('sha256')
-    .update(JSON.stringify(authority))
-    .digest('hex');
+  return hashPayload(authority);
 }
 
 function buildPlan(
   executionContext: ExecutionContext,
-  input: Omit<MigrationMutationPlan, 'planHash'>,
+  input: PlanInput,
 ): MigrationMutationPlan {
+  const contextHash = executionContextHash(executionContext);
   return {
     ...input,
-    planHash: planHash(executionContext, input),
+    executionContextHash: contextHash,
+    planHash: planHash(input, contextHash),
   };
 }
 
@@ -191,6 +209,21 @@ export class MigrationMutationPlanningService {
     options: MigrationMutationPlanningServiceOptions = {},
   ) {
     this.now = options.now ?? (() => new Date());
+  }
+
+  public resolveExecutionContext(
+    plan: MigrationMutationPlan,
+  ): ExecutionContext | null {
+    const executionContext = this.environmentInstanceStore.resolveForProject(
+      plan.projectId,
+      plan.environmentInstanceId,
+    );
+    if (!executionContext) return null;
+    if (executionContext.runtime !== plan.runtime) return null;
+    if (executionContextHash(executionContext) !== plan.executionContextHash) {
+      return null;
+    }
+    return executionContext;
   }
 
   public async plan(
