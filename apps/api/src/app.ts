@@ -27,6 +27,7 @@ import { projectLanguageServerRoutes } from './routes/project-language-server.js
 import { projectTerminalRoutes } from './routes/project-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
+import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -133,10 +134,23 @@ export async function buildApp(options: BuildAppOptions = {}) {
   } = composition;
   registerAppLifecycle(app, context, composition);
 
+  context.gitWorktreeLifecycleService.configureRemovalResourceGuard(
+    new GitWorktreeRemovalResourceGuardService({
+      processManager: context.processManager,
+      projectStore: context.projectStore,
+      developmentEnvironmentInstanceStore:
+        context.developmentEnvironmentInstanceStore,
+      projectTerminalService,
+      dockerComposeOwnershipStore,
+    }),
+  );
+
   const environmentInstanceCleanupService =
     new EnvironmentInstanceCleanupService({
       processManager: context.processManager,
       projectTerminalService,
+      projectStore: context.projectStore,
+      dockerComposeOwnershipStore,
       ...(context.detachableExecutionService
         ? {
             detachableExecutionService: context.detachableExecutionService,
