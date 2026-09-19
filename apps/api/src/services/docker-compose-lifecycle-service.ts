@@ -82,6 +82,7 @@ function defaultLifecycleCommandRunner(
       command.args,
       {
         cwd: options.cwd,
+        encoding: 'utf8',
         timeout: options.timeoutMs,
         maxBuffer: options.maxBufferBytes,
         windowsHide: true,
@@ -327,9 +328,13 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
+    const observedServices = after
+      ? this.targetServices(after, service)
+      : [];
     const verified =
-      after?.runtime &&
-      this.targetServices(after, service).every(
+      Boolean(after?.runtime) &&
+      observedServices.length > 0 &&
+      observedServices.every(
         (item) =>
           item.state !== 'running' &&
           item.state !== 'restarting' &&
@@ -389,9 +394,13 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
+    const observedServices = after
+      ? this.targetServices(after, service)
+      : [];
     const verified =
-      after?.runtime &&
-      this.targetServices(after, service).every(
+      Boolean(after?.runtime) &&
+      observedServices.length > 0 &&
+      observedServices.every(
         (item) => item.state === 'running' || item.state === 'restarting',
       );
     return verified

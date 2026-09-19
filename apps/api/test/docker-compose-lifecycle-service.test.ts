@@ -412,3 +412,43 @@ test('logs são bounded, mascarados e limitados ao target owned', async () => {
     'web',
   ]);
 });
+
+
+test('runtime vazio não vira stop verificado', async () => {
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const emptyAfter: DockerComposeInspection = {
+    ...after,
+    runtime: {
+      observedAt: '2026-09-06T17:01:00.000Z',
+      services: [],
+    },
+  };
+  const inspections = [before, emptyAfter];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? emptyAfter },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  const result = await service.stop(project, 'web');
+
+  assert.equal(result.state, 'stopped-unverified');
+  assert.equal(commands.length, 1);
+});
