@@ -524,7 +524,6 @@ test('não atribui Readiness do checkout primário a Task Context de worktree', 
   assert.equal(snapshot.evidence?.readiness, undefined);
 });
 
-
 test('não anexa readiness quando a branch atual diverge do Task Context', async () => {
   const directory = await mkdtemp(
     path.join(tmpdir(), 'task-context-readiness-branch-'),
