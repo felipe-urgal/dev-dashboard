@@ -85,7 +85,8 @@ async function createFixture() {
     warnings: [],
   });
 
-  const calls: Array<{ action: string; project: Project; service?: string }> = [];
+  const calls: Array<{ action: string; project: Project; service?: string }> =
+    [];
   const startResult: DockerComposeStartResult = {
     state: 'started',
     preflight,
