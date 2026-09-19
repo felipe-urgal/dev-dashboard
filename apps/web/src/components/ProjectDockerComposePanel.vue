@@ -20,7 +20,10 @@ import EmptyState from './EmptyState.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string;
+}>();
 
 const loading = ref(false);
 const action = ref('');
@@ -132,7 +135,10 @@ async function load(): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const result = await fetchDockerComposeSnapshot(props.project.id);
+    const result = await fetchDockerComposeSnapshot(
+      props.project.id,
+      props.environmentInstanceId,
+    );
     if (requestGeneration === generation) snapshot.value = result;
   } catch (error) {
     if (requestGeneration === generation) {
@@ -174,7 +180,12 @@ async function openLogs(service: string): Promise<void> {
   errorMessage.value = '';
 
   try {
-    logs.value = await fetchDockerComposeLogs(props.project.id, service);
+    logs.value = await fetchDockerComposeLogs(
+      props.project.id,
+      service,
+      200,
+      props.environmentInstanceId,
+    );
     logsService.value = service;
   } catch (error) {
     errorMessage.value =
@@ -187,7 +198,7 @@ async function openLogs(service: string): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  [() => props.project.id, () => props.environmentInstanceId],
   () => {
     snapshot.value = null;
     logs.value = null;
@@ -222,7 +233,11 @@ watch(
           class="compose-button compose-button--primary"
           type="button"
           :disabled="!canStart"
-          @click="mutate('start', () => startDockerCompose(project.id))"
+          @click="
+            mutate('start', () =>
+              startDockerCompose(project.id, environmentInstanceId),
+            )
+          "
         >
           {{ action === 'start' ? 'Iniciando…' : 'Iniciar stack' }}
         </button>
@@ -231,7 +246,15 @@ watch(
           class="compose-button"
           type="button"
           :disabled="Boolean(action) || !hasActiveServices"
-          @click="mutate('restart', () => restartDockerCompose(project.id))"
+          @click="
+            mutate('restart', () =>
+              restartDockerCompose(
+                project.id,
+                undefined,
+                environmentInstanceId,
+              ),
+            )
+          "
         >
           {{ action === 'restart' ? 'Reiniciando…' : 'Reiniciar stack' }}
         </button>
@@ -240,7 +263,11 @@ watch(
           class="compose-button compose-button--danger"
           type="button"
           :disabled="Boolean(action) || !hasActiveServices"
-          @click="mutate('stop', () => stopDockerCompose(project.id))"
+          @click="
+            mutate('stop', () =>
+              stopDockerCompose(project.id, undefined, environmentInstanceId),
+            )
+          "
         >
           {{ action === 'stop' ? 'Parando…' : 'Parar stack' }}
         </button>
@@ -424,7 +451,11 @@ watch(
                 :disabled="!owned || Boolean(action)"
                 @click="
                   mutate('restart-' + service.name, () =>
-                    restartDockerCompose(project.id, service.name),
+                    restartDockerCompose(
+                      project.id,
+                      service.name,
+                      environmentInstanceId,
+                    ),
                   )
                 "
               >
@@ -448,7 +479,11 @@ watch(
                 :disabled="!owned || Boolean(action)"
                 @click="
                   mutate('stop-' + service.name, () =>
-                    stopDockerCompose(project.id, service.name),
+                    stopDockerCompose(
+                      project.id,
+                      service.name,
+                      environmentInstanceId,
+                    ),
                   )
                 "
               >

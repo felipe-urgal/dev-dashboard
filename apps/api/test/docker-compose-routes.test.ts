@@ -84,9 +84,21 @@ async function createFixture() {
     projects: [knownProject],
     warnings: [],
   });
+  const worktreePath = '/tmp/dev-dashboard-compose-project-worktree';
+  const worktree = context.developmentEnvironmentInstanceStore
+    .reconcileWorktrees(knownProject.id, [
+      {
+        id: 'worktree-1',
+        path: worktreePath,
+        kind: 'linked',
+      },
+    ])
+    .find((instance) => instance.source.kind === 'worktree');
+  assert.ok(worktree);
 
   const calls: Array<{ action: string; project: Project; service?: string }> =
     [];
+  const inspectedProjects: Project[] = [];
   const startResult: DockerComposeStartResult = {
     state: 'started',
     preflight,
@@ -112,7 +124,10 @@ async function createFixture() {
     localToken: TOKEN,
     context,
     dockerComposeProvider: {
-      inspect: async () => inspection,
+      inspect: async (target) => {
+        inspectedProjects.push(target);
+        return inspection;
+      },
     },
     dockerComposePreflightService: {
       inspect: async () => preflight,
@@ -154,7 +169,14 @@ async function createFixture() {
     },
   });
 
-  return { app, calls, knownProject };
+  return {
+    app,
+    calls,
+    inspectedProjects,
+    knownProject,
+    worktree,
+    worktreePath,
+  };
 }
 
 test('Compose snapshot é autenticado e remove IDs de container do contrato público', async (context) => {
@@ -179,6 +201,61 @@ test('Compose snapshot é autenticado e remove IDs de container do contrato púb
   assert.equal(body.inspection.config.services[0].name, 'web');
   assert.equal(body.inspection.runtime.services[0].containerId, undefined);
   assert.equal(body.inspection.runtime.services[0].containerName, undefined);
+});
+
+test('Compose usa a mesma Environment Instance para cwd e ownership isolado', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  const environmentQuery = encodeURIComponent(fixture.worktree.id);
+  const snapshot = await fixture.app.inject({
+    method: 'GET',
+    url:
+      '/api/projects/project-1/docker-compose?environmentInstanceId=' +
+      environmentQuery,
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+
+  assert.equal(snapshot.statusCode, 200);
+  assert.equal(fixture.inspectedProjects.at(-1)?.id, fixture.worktree.id);
+  assert.equal(fixture.inspectedProjects.at(-1)?.path, fixture.worktreePath);
+
+  const restart = await fixture.app.inject({
+    method: 'POST',
+    url:
+      '/api/projects/project-1/docker-compose/restart?environmentInstanceId=' +
+      environmentQuery,
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { service: 'web' },
+  });
+
+  assert.equal(restart.statusCode, 200);
+  assert.equal(fixture.calls[0]?.project.id, fixture.worktree.id);
+  assert.equal(fixture.calls[0]?.project.path, fixture.worktreePath);
+});
+
+test('Compose rejeita Environment Instance desconhecida antes do lifecycle', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  const response = await fixture.app.inject({
+    method: 'POST',
+    url:
+      '/api/projects/project-1/docker-compose/start?environmentInstanceId=' +
+      encodeURIComponent('environment:worktree:project-1:missing'),
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: {},
+  });
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.json().error, 'ENVIRONMENT_INSTANCE_NOT_FOUND');
+  assert.equal(fixture.calls.length, 0);
 });
 
 test('Compose mutações resolvem Project no backend e aceitam somente serviço estruturado', async (context) => {

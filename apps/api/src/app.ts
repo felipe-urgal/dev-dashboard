@@ -220,6 +220,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(dockerComposeRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     dockerComposeProvider,
     dockerComposePreflightService,
     dockerComposeLifecycleService,

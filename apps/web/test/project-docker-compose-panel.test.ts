@@ -41,6 +41,18 @@ describe('Docker Compose no shell do projeto', () => {
     expect(moreToolsSource).toContain('<span>Compose</span>');
   });
 
+  it('preserva a Environment Instance na navegação e no painel', () => {
+    expect(moreToolsSource).toContain(
+      'environmentInstanceId ? { query: { environmentInstanceId } } : {}',
+    );
+    expect(projectDetailsSource).toContain(
+      ':environment-instance-id="environmentInstanceId"',
+    );
+    expect(panelSource).toContain('environmentInstanceId?: string');
+    expect(apiSource).toContain('environmentInstanceId?: string');
+    expect(apiSource).toContain("query.set('environmentInstanceId'");
+  });
+
   it('usa API estruturada sem enviar path, executable ou argv', () => {
     expect(apiSource).toContain('/docker-compose');
     expect(apiSource).not.toContain('executable');
