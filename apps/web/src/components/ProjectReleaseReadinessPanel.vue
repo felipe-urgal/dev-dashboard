@@ -39,6 +39,7 @@ const stateTone: Record<ReleaseReadinessState, StatusBadgeTone> = {
 const checkLabel: Record<ReleaseReadinessCheckId, string> = {
   git: 'Git',
   tests: 'Testes',
+  'pull-request': 'Pull Request',
   doctor: 'Doctor',
   migrations: 'Migrations',
 };
@@ -46,8 +47,9 @@ const checkLabel: Record<ReleaseReadinessCheckId, string> = {
 const checkOrder: Record<ReleaseReadinessCheckId, number> = {
   git: 0,
   tests: 1,
-  doctor: 2,
-  migrations: 3,
+  'pull-request': 2,
+  doctor: 3,
+  migrations: 4,
 };
 
 const orderedChecks = computed(() =>
@@ -89,6 +91,13 @@ function actionRoute(target: ReleaseReadinessActionTarget) {
   }
   if (target === 'tests') {
     return { name: 'project-tests', params: { projectId: props.project.id } };
+  }
+  if (target === 'pull-request') {
+    return {
+      name: 'project-git',
+      params: { projectId: props.project.id },
+      query: { tab: 'pull-request' },
+    };
   }
   if (target === 'doctor') {
     return { name: 'project-doctor', params: { projectId: props.project.id } };
@@ -147,7 +156,7 @@ watch(
       v-if="loading"
       icon="•••"
       title="Verificando readiness"
-      description="Consultando Git, suíte completa comparável, Project Doctor e Migrations."
+      description="Consultando Git, suíte completa comparável, Pull Request, Project Doctor e Migrations."
     />
 
     <EmptyState
@@ -189,7 +198,7 @@ watch(
         <div class="readiness-checklist-heading">
           <h4 id="readiness-checklist-title">Checklist de entrega</h4>
           <p>
-            Git, Testes, Doctor e Migrations formam a evidência usada para a
+            Git, Testes, Pull Request, Doctor e Migrations formam a evidência usada para a
             conclusão acima.
           </p>
         </div>

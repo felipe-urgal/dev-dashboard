@@ -1,9 +1,18 @@
 import { requestJson } from './core';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
-export type ReleaseReadinessCheckId = 'git' | 'tests' | 'doctor' | 'migrations';
+export type ReleaseReadinessCheckId =
+  | 'git'
+  | 'tests'
+  | 'pull-request'
+  | 'doctor'
+  | 'migrations';
 export type ReleaseReadinessActionTarget =
-  'synchronization' | 'tests' | 'doctor' | 'migrations';
+  | 'synchronization'
+  | 'tests'
+  | 'pull-request'
+  | 'doctor'
+  | 'migrations';
 
 export interface ReleaseReadinessCheck {
   id: ReleaseReadinessCheckId;
