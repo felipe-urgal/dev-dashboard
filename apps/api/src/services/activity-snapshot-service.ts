@@ -186,10 +186,7 @@ export class ActivitySnapshotService {
       );
     }
 
-    const limit = Math.min(
-      Math.max(1, Math.trunc(requestedLimit)),
-      MAX_LIMIT,
-    );
+    const limit = Math.min(Math.max(1, Math.trunc(requestedLimit)), MAX_LIMIT);
 
     const [git, tests, scripts, processes] = await Promise.all([
       capture(() => this.dependencies.gitHistory.history(projectId, 1, limit)),

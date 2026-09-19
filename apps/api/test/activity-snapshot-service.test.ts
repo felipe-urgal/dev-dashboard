@@ -110,12 +110,14 @@ const processes: ManagedProcess[] = [
   },
 ];
 
-function createService(overrides: {
-  gitHistory?: () => Promise<GitMutationHistoryPage>;
-  testHistory?: () => Promise<TestExecutionHistory>;
-  scriptHistory?: () => Promise<ScriptExecutionHistory>;
-  processes?: () => Promise<ManagedProcess[]>;
-} = {}) {
+function createService(
+  overrides: {
+    gitHistory?: () => Promise<GitMutationHistoryPage>;
+    testHistory?: () => Promise<TestExecutionHistory>;
+    scriptHistory?: () => Promise<ScriptExecutionHistory>;
+    processes?: () => Promise<ManagedProcess[]>;
+  } = {},
+) {
   return new ActivitySnapshotService({
     eventStore: {
       list: () => [storedEvent],
