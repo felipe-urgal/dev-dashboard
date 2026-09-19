@@ -209,7 +209,6 @@ test('allocator permite reserva/declaration do próprio role e nunca escolhe por
   assert.ok((result?.port ?? 0) >= 1_024);
 });
 
-
 test('lease batch é transacional e não escolhe porta alternativa', () => {
   const registry = new PortAllocationLeaseRegistry();
   const first = registry.reserveBatch({}, [
