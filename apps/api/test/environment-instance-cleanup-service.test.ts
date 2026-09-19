@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import type {
   DevelopmentEnvironmentInstance,
   ManagedProcess,
+  Project,
 } from '@dev-dashboard/contracts';
 
 import { EnvironmentInstanceCleanupService } from '../src/services/environment-instance-cleanup-service.js';
@@ -165,4 +166,105 @@ test('cleanup não tenta adivinhar runtime não suportado', async () => {
   );
   assert.equal(result.state, 'cleanup-required');
   assert.equal(inspected, false);
+});
+
+
+test('cleanup de worktree ausente preserva Compose owned e sinaliza intervenção explícita', async () => {
+  const stopped: string[] = [];
+  let terminalClosed = false;
+  let ptyCleanupCalled = false;
+  const baseProject: Project = {
+    id: 'project-1',
+    name: 'Projeto',
+    path: '/workspace/project-1',
+    type: 'node',
+    source: 'workspace',
+    enabled: true,
+    capabilities: ['git'],
+  };
+
+  const service = new EnvironmentInstanceCleanupService({
+    processManager: {
+      listProcesses: async () => [
+        managedProcess('server-a', 'server', TARGET_ENVIRONMENT),
+      ],
+      stopServer: async (_projectId, environmentInstanceId) => {
+        stopped.push(environmentInstanceId);
+        return managedProcess('server-a', 'server', TARGET_ENVIRONMENT);
+      },
+      stopTest: async () => managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
+      stopWorker: async (_projectId, kind) =>
+        managedProcess(`${kind}-a`, kind, TARGET_ENVIRONMENT),
+    },
+    projectTerminalService: {
+      closeEnvironment: () => {
+        terminalClosed = true;
+      },
+    },
+    detachableExecutionService: {
+      cleanupEnvironment: () => {
+        ptyCleanupCalled = true;
+        return 0;
+      },
+    },
+    projectStore: {
+      findProject: (projectId) =>
+        projectId === baseProject.id ? baseProject : undefined,
+    },
+    dockerComposeOwnershipStore: {
+      get: async (target) => ({
+        projectId: target.id,
+        projectPath: target.path,
+        composeProjectName: 'devdash-test',
+        startedAt: '2026-09-19T16:00:00.000Z',
+      }),
+    },
+  });
+
+  const result = await service.cleanupMissingWorktree(instance());
+
+  assert.equal(result.state, 'cleanup-required');
+  assert.match(result.diagnostic ?? '', /Docker Compose owned/i);
+  assert.deepEqual(stopped, [TARGET_ENVIRONMENT]);
+  assert.equal(terminalClosed, true);
+  assert.equal(ptyCleanupCalled, true);
+});
+
+test('cleanup de worktree ausente falha fechado se ownership Compose não puder ser confirmado', async () => {
+  const baseProject: Project = {
+    id: 'project-1',
+    name: 'Projeto',
+    path: '/workspace/project-1',
+    type: 'node',
+    source: 'workspace',
+    enabled: true,
+    capabilities: ['git'],
+  };
+
+  const service = new EnvironmentInstanceCleanupService({
+    processManager: {
+      listProcesses: async () => [],
+      stopServer: async () =>
+        managedProcess('server-a', 'server', TARGET_ENVIRONMENT),
+      stopTest: async () => managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
+      stopWorker: async (_projectId, kind) =>
+        managedProcess(`${kind}-a`, kind, TARGET_ENVIRONMENT),
+    },
+    projectTerminalService: {
+      closeEnvironment: () => undefined,
+    },
+    projectStore: {
+      findProject: () => baseProject,
+    },
+    dockerComposeOwnershipStore: {
+      get: async () => {
+        throw new Error('ownership unavailable');
+      },
+    },
+  });
+
+  const result = await service.cleanupMissingWorktree(instance());
+
+  assert.equal(result.state, 'cleanup-required');
+  assert.match(result.diagnostic ?? '', /ownership do Docker Compose/i);
 });
