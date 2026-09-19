@@ -2,6 +2,7 @@
 import {
   CodeBracketIcon,
   CircleStackIcon,
+  ClockIcon,
   HomeIcon,
   PlayCircleIcon,
   PlusIcon,
@@ -153,6 +154,17 @@ onMounted(() => {
           >
             <HomeIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Visão geral</span>
+          </RouterLink>
+
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'activity' }"
+            :to="{ name: 'activity' }"
+            :aria-label="sidebarCollapsed ? 'Atividade' : undefined"
+            :title="sidebarCollapsed ? 'Atividade' : undefined"
+          >
+            <ClockIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Atividade</span>
           </RouterLink>
 
           <RouterLink

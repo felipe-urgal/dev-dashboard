@@ -21,3 +21,4 @@ export * from './api/project-readme';
 export * from './api/terminal';
 export * from './api/deployments';
 export * from './api/security-center';
+export * from './api/activity';
