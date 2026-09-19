@@ -339,7 +339,10 @@ export class DockerComposeLifecycleService {
           item.state !== 'paused',
       );
     return verified
-      ? { state: 'stopped', inspection: after }
+      ? {
+          state: 'stopped',
+          ...(after ? { inspection: after } : {}),
+        }
       : {
           state: 'stopped-unverified',
           ...(after ? { inspection: after } : {}),
@@ -400,7 +403,10 @@ export class DockerComposeLifecycleService {
         (item) => item.state === 'running' || item.state === 'restarting',
       );
     return verified
-      ? { state: 'restarted', inspection: after }
+      ? {
+          state: 'restarted',
+          ...(after ? { inspection: after } : {}),
+        }
       : {
           state: 'restarted-unverified',
           ...(after ? { inspection: after } : {}),
