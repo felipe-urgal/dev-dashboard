@@ -147,9 +147,13 @@ test('não aceita Environment Instance de outro projeto nem branch destacada', a
     },
     {
       getOverview: async () => ({
-        ...gitOverview(),
-        branch: undefined,
+        repository: true,
         detached: true,
+        ahead: 0,
+        behind: 0,
+        clean: true,
+        files: [],
+        recentCommits: [],
       }),
     },
     repository,
