@@ -129,14 +129,7 @@ const osvAdvisoryReferenceResponseSchema = {
 const dependencyAdvisoryEvidenceResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'name',
-    'state',
-    'source',
-    'observedAt',
-    'advisories',
-    'complete',
-  ],
+  required: ['name', 'state', 'source', 'observedAt', 'advisories', 'complete'],
   properties: {
     name: { type: 'string' },
     state: {

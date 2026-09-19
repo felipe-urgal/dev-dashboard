@@ -299,7 +299,6 @@ test('limita concorrência de consultas ao registry', async () => {
   assert.equal(peak, 2);
 });
 
-
 test('runtime por chamada evita carregar evidência de outro projeto no serviço compartilhado', async () => {
   const fetcher: NpmRegistryFetch = async () =>
     new Response(

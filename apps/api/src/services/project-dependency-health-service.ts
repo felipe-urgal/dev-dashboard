@@ -122,8 +122,14 @@ export class ProjectDependencyHealthService {
     NodeRuntimeDiscoveryService,
     'inspect'
   >;
-  private readonly metadataService: Pick<NpmDependencyMetadataService, 'enrich'>;
-  private readonly advisoryService: Pick<OsvDependencyAdvisoryService, 'inspect'>;
+  private readonly metadataService: Pick<
+    NpmDependencyMetadataService,
+    'enrich'
+  >;
+  private readonly advisoryService: Pick<
+    OsvDependencyAdvisoryService,
+    'inspect'
+  >;
 
   public constructor(options: ProjectDependencyHealthServiceOptions = {}) {
     this.now = options.now ?? (() => new Date());
