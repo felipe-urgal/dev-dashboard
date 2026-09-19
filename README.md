@@ -1,6 +1,6 @@
 # Dev Dashboard
 
-Dashboard local para descobrir projetos e centralizar Git, processos, testes, banco, dependências, logs e operações controladas de produção.
+Dashboard local para descobrir projetos e centralizar Git, processos, testes, banco, dependências, Docker Compose, logs e operações controladas de produção.
 
 ## Stack
 
