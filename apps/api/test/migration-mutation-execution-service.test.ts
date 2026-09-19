@@ -12,6 +12,7 @@ import {
 import {
   MigrationMutationExecutionError,
   MigrationMutationExecutionService,
+  type MigrationMutationExecutionSnapshot,
 } from '../src/services/migration-mutation-execution-service.js';
 import type { MigrationMutationPlan } from '../src/services/migration-mutation-provider.js';
 
@@ -163,7 +164,7 @@ test('executor preserva metadata no snapshot, attach e exit e suporta cancelamen
   await service.start(project, { operation: 'apply' }, confirmation.token);
 
   const data: string[] = [];
-  let exited;
+  let exited: MigrationMutationExecutionSnapshot | undefined;
   const handle = service.attach(
     project.id,
     executionContext.environmentInstanceId,
