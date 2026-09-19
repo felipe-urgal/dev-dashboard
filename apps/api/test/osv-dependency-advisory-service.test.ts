@@ -346,3 +346,29 @@ test('timeout aborta consulta e mantém versão local conhecida', async () => {
   assert.equal(result.advisories[0]?.resolvedVersion, '1.0.0');
   assert.equal(result.advisories[0]?.complete, false);
 });
+
+
+test('opções numéricas inválidas usam defaults bounded', async () => {
+  const local = inventory([
+    {
+      name: 'package-a',
+      kind: 'dependency',
+      declaredRange: '1.0.0',
+      resolution: 'resolved',
+      resolvedVersion: '1.0.0',
+    },
+  ]);
+  let calls = 0;
+  const result = await new OsvDependencyAdvisoryService({
+    fetcher: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ results: [{}] }), { status: 200 });
+    },
+    now: () => NOW,
+    timeoutMs: Number.NaN,
+    batchSize: Number.NaN,
+  }).inspect(local);
+
+  assert.equal(calls, 1);
+  assert.equal(result.advisories[0]?.state, 'available');
+});
