@@ -39,7 +39,7 @@ export interface AppCompositionOptions {
   >;
   dockerComposeLifecycleService?: Pick<
     DockerComposeLifecycleService,
-    'start' | 'stop' | 'restart' | 'logs'
+    'start' | 'stop' | 'restart' | 'logs' | 'reconcile'
   >;
   dockerComposeOwnershipStore?: Pick<
     DockerComposeOwnershipStore,
