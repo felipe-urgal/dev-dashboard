@@ -134,7 +134,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   } = composition;
   registerAppLifecycle(app, context, composition);
 
-  context.gitWorktreeLifecycleService.configureRemovalResourceGuard(
+  const gitWorktreeRemovalResourceGuard =
     new GitWorktreeRemovalResourceGuardService({
       processManager: context.processManager,
       projectStore: context.projectStore,
@@ -142,8 +142,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         context.developmentEnvironmentInstanceStore,
       projectTerminalService,
       dockerComposeOwnershipStore,
-    }),
-  );
+    });
 
   const environmentInstanceCleanupService =
     new EnvironmentInstanceCleanupService({
@@ -288,6 +287,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     gitWorktreeObserver: context.gitWorktreeObserver,
     gitWorktreeLifecycleService: context.gitWorktreeLifecycleService,
+    removalResourceGuard: gitWorktreeRemovalResourceGuard,
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     environmentInstanceCleanupService,
