@@ -74,8 +74,8 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     headers,
   });
   assert.equal(projectResponse.statusCode, 200);
-  const projectActivity =
-    projectResponse.json<{ activity: ActivitySnapshot }>().activity;
+  const projectActivity = projectResponse.json<{ activity: ActivitySnapshot }>()
+    .activity;
   assert.equal(
     projectActivity.events.some(
       (event) =>
@@ -91,8 +91,8 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     headers,
   });
   assert.equal(globalResponse.statusCode, 200);
-  const globalActivity =
-    globalResponse.json<{ activity: ActivitySnapshot }>().activity;
+  const globalActivity = globalResponse.json<{ activity: ActivitySnapshot }>()
+    .activity;
   assert.equal(
     globalActivity.events.some((event) => event.projectId === project.id),
     true,
@@ -113,10 +113,7 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     headers,
   });
   assert.equal(missing.statusCode, 404);
-  assert.equal(
-    missing.json<{ error: string }>().error,
-    'PROJECT_NOT_FOUND',
-  );
+  assert.equal(missing.json<{ error: string }>().error, 'PROJECT_NOT_FOUND');
 
   const serialized = JSON.stringify({
     projectActivity,

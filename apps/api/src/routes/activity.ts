@@ -64,14 +64,7 @@ const resourceRefSchema = {
 const activityEventSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'id',
-    'projectId',
-    'domain',
-    'type',
-    'summary',
-    'occurredAt',
-  ],
+  required: ['id', 'projectId', 'domain', 'type', 'summary', 'occurredAt'],
   properties: {
     id: { type: 'string' },
     projectId: { type: 'string' },
@@ -120,13 +113,7 @@ const activityJobSchema = {
 const activitySnapshotSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'generatedAt',
-    'partial',
-    'unavailableDomains',
-    'events',
-    'jobs',
-  ],
+  required: ['generatedAt', 'partial', 'unavailableDomains', 'events', 'jobs'],
   properties: {
     generatedAt: { type: 'string' },
     partial: { type: 'boolean' },
@@ -162,9 +149,7 @@ function mapActivityError(error: unknown): unknown {
   return error;
 }
 
-async function withActivityErrors<T>(
-  operation: () => Promise<T>,
-): Promise<T> {
+async function withActivityErrors<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
   } catch (error) {
