@@ -44,7 +44,7 @@ Essa separação evita criar uma engine por framework. Execução pertence a `Mi
 
 O `executionContextHash` inclui internamente project/environment/cwd/runtime, mas não expõe o caminho. Se a Environment Instance mudar de cwd/runtime, o plano deixa de resolver para o mesmo contexto.
 
-O `planHash` representa a autoridade estável de execução e deliberadamente não inclui timestamps. Revalidações equivalentes preservam o hash; mudança de provider, operação, database, Environment Instance, contexto, preflight ou comando produz outro hash.
+O `planHash` representa a autoridade estável de execução e deliberadamente não inclui timestamps. Ele incorpora `overviewHash`, fingerprint opaco de provider/status/database/applied/pending/evidence. Revalidações equivalentes preservam o hash; mudança de migrations observadas, provider, operação, database, Environment Instance, contexto, preflight ou comando produz outro hash.
 
 O comando interno não possui schema HTTP e não deve ser serializado diretamente para o browser.
 
@@ -58,6 +58,7 @@ O preflight é fail-closed.
 - runtime `host` neste corte;
 - provider de mutation compatível;
 - `MigrationOverview.provider` igual ao provider mutável;
+- database comprovado pelo overview exatamente igual ao database solicitado;
 - overview com estado `pending`;
 - provider produzindo comando estruturado válido e sem shell wrapper.
 
@@ -70,6 +71,7 @@ Exemplos:
 - `up-to-date`: bloqueado;
 - `unknown` / `unavailable`: indisponível;
 - provider divergente entre inspeção e mutation: indisponível;
+- fallback/mismatch de database entre pedido e inspeção: indisponível;
 - falha de provider ou comando inválido: indisponível sem expor detalhes internos.
 
 ## Confirmação e revalidação
