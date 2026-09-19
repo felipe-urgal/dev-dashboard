@@ -44,6 +44,21 @@ O primeiro corte não infere severidade. O batch OSV fornece IDs e `modified`; u
 
 Uma lista vazia só significa “nenhum advisory conhecido retornado pela OSV para esta versão nesta consulta” quando o estado é `available` e `complete=true`. Não significa ausência absoluta de vulnerabilidades.
 
+## Snapshot HTTP
+
+`ProjectDependencyHealthService` compõe, por projeto:
+
+- inventário npm local;
+- runtime Node declarado;
+- metadata `latest` do npm Registry;
+- advisories OSV.
+
+A API expõe `GET /api/projects/:projectId/dependency-health` com contrato fechado. `projectId` seleciona o projeto no backend; path, package name, registry URL e versão não ganham autoridade pelo browser.
+
+Falhas são isoladas por fonte. Uma indisponibilidade externa não apaga inventário/runtime já conhecidos, e evidência incompleta permanece `unknown`, `unavailable`, `invalid` ou `partial` conforme a origem.
+
+O serviço de metadata recebe o runtime comprovado por chamada, evitando carregar evidência de um projeto para outro quando a instância é compartilhada.
+
 ## Próximo recorte
 
 O Upgrade Planner deve compor os fatos já existentes sem aplicar upgrades automaticamente:
