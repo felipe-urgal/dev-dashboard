@@ -315,6 +315,11 @@ watch(
           <small v-if="snapshot.ownership.startedAt">
             Desde {{ formatDate(snapshot.ownership.startedAt) }}
           </small>
+          <small
+            v-else-if="snapshot.ownership.reconciliation.state === 'released'"
+          >
+            Ownership obsoleto reconciliado.
+          </small>
         </section>
         <section v-if="snapshot.preflight" class="compose-summary-card">
           <span>Portas</span>
@@ -339,6 +344,14 @@ watch(
         role="note"
       >
         {{ snapshot.preflight.diagnostic }}
+      </p>
+
+      <p
+        v-if="snapshot.ownership.reconciliation.diagnostic"
+        class="compose-diagnostic"
+        role="note"
+      >
+        {{ snapshot.ownership.reconciliation.diagnostic }}
       </p>
 
       <ul

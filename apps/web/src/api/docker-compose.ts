@@ -76,6 +76,10 @@ export interface DockerComposeSnapshot {
   ownership: {
     owned: boolean;
     startedAt?: string;
+    reconciliation: {
+      state: 'unchanged' | 'released' | 'unavailable';
+      diagnostic?: string;
+    };
   };
 }
 

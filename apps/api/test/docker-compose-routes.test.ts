@@ -138,6 +138,7 @@ async function createFixture() {
       release: async () => true,
     },
     dockerComposeLifecycleService: {
+      reconcile: async () => ({ state: 'unchanged' }),
       start: async (target) => {
         calls.push({ action: 'start', project: target });
         return startResult;
@@ -198,6 +199,7 @@ test('Compose snapshot é autenticado e remove IDs de container do contrato púb
   assert.equal(response.statusCode, 200);
   const body = response.json();
   assert.equal(body.ownership.owned, true);
+  assert.deepEqual(body.ownership.reconciliation, { state: 'unchanged' });
   assert.equal(body.inspection.config.services[0].name, 'web');
   assert.equal(body.inspection.runtime.services[0].containerId, undefined);
   assert.equal(body.inspection.runtime.services[0].containerName, undefined);

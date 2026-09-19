@@ -23,7 +23,7 @@ interface Options extends FastifyPluginOptions {
   dockerComposePreflightService: Pick<DockerComposePreflightService, 'inspect'>;
   dockerComposeLifecycleService: Pick<
     DockerComposeLifecycleService,
-    'start' | 'stop' | 'restart' | 'logs'
+    'start' | 'stop' | 'restart' | 'logs' | 'reconcile'
   >;
   dockerComposeOwnershipStore: Pick<DockerComposeOwnershipStore, 'get'>;
 }
@@ -222,13 +222,27 @@ const preflightSchema = {
   },
 } as const;
 
+const reconciliationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state'],
+  properties: {
+    state: {
+      type: 'string',
+      enum: ['unchanged', 'released', 'unavailable'],
+    },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
 const ownershipSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['owned'],
+  required: ['owned', 'reconciliation'],
   properties: {
     owned: { type: 'boolean' },
     startedAt: { type: 'string' },
+    reconciliation: reconciliationSchema,
   },
 } as const;
 
@@ -389,6 +403,10 @@ function throwLifecycleApiError(error: unknown): never {
 
 async function readSnapshot(options: Options, project: Project) {
   const inspection = await options.dockerComposeProvider.inspect(project);
+  const reconciliation = await options.dockerComposeLifecycleService.reconcile(
+    project,
+    inspection,
+  );
   const preflight = inspection.config
     ? await options.dockerComposePreflightService.inspect(
         project,
@@ -409,6 +427,7 @@ async function readSnapshot(options: Options, project: Project) {
     ownership: {
       owned,
       ...(owned && ownership ? { startedAt: ownership.startedAt } : {}),
+      reconciliation,
     },
   };
 }

@@ -184,6 +184,154 @@ test('não inventa sucesso observado quando a reinspeção pós-start falha', as
   assert.match(result.diagnostic ?? '', /não pôde ser comprovado/i);
 });
 
+test('runtime vazio após start permanece não verificado', async () => {
+  const { service } = createHarness({
+    inspections: [before, before],
+  });
+
+  const result = await service.start(project);
+
+  assert.equal(result.state, 'started-unverified');
+  assert.match(result.diagnostic ?? '', /não pôde ser comprovado/i);
+});
+
+test('reconciliation libera ownership e leases somente quando ps --all confirma zero containers', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:project-1:web:3000',
+      projectId: project.id,
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  ]);
+  let currentOwnership = {
+    projectId: project.id,
+    projectPath: project.path,
+    composeProjectName: 'project',
+    startedAt: '2026-09-06T17:00:00.000Z',
+  };
+  let releaseCalls = 0;
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async () => '',
+    {
+      ownershipStore: {
+        get: async () => currentOwnership,
+        claim: async () => currentOwnership,
+        release: async () => {
+          releaseCalls += 1;
+          currentOwnership = undefined as never;
+          return true;
+        },
+      },
+      portLeaseRegistry: registry,
+    },
+  );
+
+  const result = await service.reconcile(project, before);
+
+  assert.deepEqual(result, { state: 'released' });
+  assert.equal(releaseCalls, 1);
+  const reused = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:other:web:3000',
+      projectId: 'other',
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  );
+  assert.equal(reused?.port, 3000);
+});
+
+test('reconciliation preserva ownership quando runtime é ambíguo ou project-name diverge', async () => {
+  const ownership = {
+    projectId: project.id,
+    projectPath: project.path,
+    composeProjectName: 'project',
+    startedAt: '2026-09-06T17:00:00.000Z',
+  };
+  let releaseCalls = 0;
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async () => '',
+    {
+      ownershipStore: {
+        get: async () => ownership,
+        claim: async () => ownership,
+        release: async () => {
+          releaseCalls += 1;
+          return true;
+        },
+      },
+    },
+  );
+
+  const unavailable = await service.reconcile(project, {
+    state: 'runtime-unavailable',
+    observedAt: before.observedAt,
+    config: before.config,
+  });
+  const mismatch = await service.reconcile(project, {
+    ...before,
+    config: { ...before.config!, projectName: 'other-project' },
+  });
+  const active = await service.reconcile(project, after);
+
+  assert.equal(unavailable.state, 'unavailable');
+  assert.equal(mismatch.state, 'unavailable');
+  assert.equal(active.state, 'unchanged');
+  assert.equal(releaseCalls, 0);
+});
+
+test('reconciliation limpa lease órfão mesmo sem ownership persistido', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:project-1:web:3000',
+      projectId: project.id,
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  ]);
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => before },
+    { inspect: async () => ready },
+    async () => '',
+    {
+      ownershipStore: {
+        get: async () => undefined,
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+      portLeaseRegistry: registry,
+    },
+  );
+
+  const result = await service.reconcile(project, before);
+  assert.deepEqual(result, { state: 'released' });
+
+  const reused = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:other:web:3000',
+      projectId: 'other',
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  );
+  assert.equal(reused?.port, 3000);
+});
+
 test('start com ownership usa project name explícito e persiste a posse', async () => {
   const claims: string[] = [];
   const commands: Array<{ program: 'docker'; args: string[] }> = [];
