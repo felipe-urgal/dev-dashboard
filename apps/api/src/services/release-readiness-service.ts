@@ -101,11 +101,9 @@ export class ReleaseReadinessService {
     projectPath: string | undefined,
   ) => Promise<TestExecutionGitIdentity>;
   private readonly pullRequestLookup:
-    | ReleaseReadinessServiceOptions['pullRequestLookup']
-    | undefined;
+    ReleaseReadinessServiceOptions['pullRequestLookup'] | undefined;
   private readonly pullRequestStatus:
-    | ReleaseReadinessServiceOptions['pullRequestStatus']
-    | undefined;
+    ReleaseReadinessServiceOptions['pullRequestStatus'] | undefined;
 
   public constructor(
     private readonly gitService: Pick<GitService, 'getOverview'>,

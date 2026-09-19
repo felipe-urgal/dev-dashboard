@@ -6,7 +6,13 @@ export const releaseReadinessActionResponseSchema = {
     label: { type: 'string' },
     target: {
       type: 'string',
-      enum: ['synchronization', 'tests', 'pull-request', 'doctor', 'migrations'],
+      enum: [
+        'synchronization',
+        'tests',
+        'pull-request',
+        'doctor',
+        'migrations',
+      ],
     },
   },
 } as const;
