@@ -53,10 +53,6 @@ function provider(
         args: ['exec', 'rails', 'db:migrate'],
       },
     }),
-    executeMutation: async () => ({
-      status: 'succeeded',
-      finishedAt: NOW.toISOString(),
-    }),
     ...overrides,
   };
 }
@@ -64,7 +60,6 @@ function provider(
 test('planeja mutation usando somente cwd/runtime resolvidos pelo backend e não executa o provider', async () => {
   let inspectedProjectPath: string | undefined;
   let plannedProjectPath: string | undefined;
-  let executed = 0;
 
   const mutationProvider = provider({
     planMutation: async (context) => {
@@ -78,10 +73,6 @@ test('planeja mutation usando somente cwd/runtime resolvidos pelo backend e não
           args: ['exec', 'rails', 'db:migrate'],
         },
       };
-    },
-    executeMutation: async () => {
-      executed += 1;
-      return { status: 'succeeded', finishedAt: NOW.toISOString() };
     },
   });
 
@@ -108,11 +99,11 @@ test('planeja mutation usando somente cwd/runtime resolvidos pelo backend e não
 
   assert.equal(inspectedProjectPath, hostContext.cwd);
   assert.equal(plannedProjectPath, hostContext.cwd);
-  assert.equal(executed, 0);
   assert.equal(plan.projectId, project.id);
   assert.equal(plan.provider, 'rails');
   assert.equal(plan.environmentInstanceId, hostContext.environmentInstanceId);
   assert.equal(plan.runtime, 'host');
+  assert.match(plan.executionContextHash, /^[a-f0-9]{64}$/u);
   assert.equal(plan.createdAt, NOW.toISOString());
   assert.equal(plan.overviewObservedAt, pendingOverview.observedAt);
   assert.deepEqual(plan.preflight, {
@@ -345,4 +336,45 @@ test('ausência de provider comum produz plano unavailable sem inventar execuç�
   assert.equal(plan.preflight.state, 'unavailable');
   assert.equal(plan.preflight.reason, 'provider-unavailable');
   assert.equal(plan.command, undefined);
+});
+
+
+test('planHash permanece estável entre revalidações equivalentes e invalida quando o cwd muda', async () => {
+  let currentContext = hostContext;
+  let currentNow = NOW;
+  let observedAt = pendingOverview.observedAt;
+
+  const service = new MigrationMutationPlanningService(
+    [provider()],
+    {
+      inspect: async () => ({ ...pendingOverview, observedAt }),
+    },
+    {
+      resolveForProject: () => currentContext,
+    },
+    { now: () => currentNow },
+  );
+
+  const first = await service.plan(project, { operation: 'apply' });
+
+  currentNow = new Date('2026-09-19T18:21:00.000Z');
+  observedAt = '2026-09-19T18:20:30.000Z';
+  const second = await service.plan(project, { operation: 'apply' });
+
+  assert.notEqual(first.createdAt, second.createdAt);
+  assert.notEqual(first.overviewObservedAt, second.overviewObservedAt);
+  assert.equal(first.planHash, second.planHash);
+  assert.equal(first.executionContextHash, second.executionContextHash);
+  assert.deepEqual(service.resolveExecutionContext(first), hostContext);
+
+  currentContext = {
+    ...hostContext,
+    cwd: '/workspace/project-1-moved',
+  };
+  const moved = await service.plan(project, { operation: 'apply' });
+
+  assert.notEqual(moved.executionContextHash, first.executionContextHash);
+  assert.notEqual(moved.planHash, first.planHash);
+  assert.equal(service.resolveExecutionContext(first), null);
+  assert.deepEqual(service.resolveExecutionContext(moved), currentContext);
 });
