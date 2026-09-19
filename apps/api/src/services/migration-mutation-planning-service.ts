@@ -339,6 +339,29 @@ export class MigrationMutationPlanningService {
     }
     const database = databaseIdentity(overview.database);
 
+    if (database !== requestedDatabase) {
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database: requestedDatabase,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'database-evidence-mismatch',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção read-only não comprovou o mesmo database solicitado para mutation.',
+          ),
+        },
+        overview,
+      );
+    }
+
     if (overview.provider !== provider.id) {
       return buildPlan(
         executionContext,
