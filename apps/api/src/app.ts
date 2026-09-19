@@ -12,6 +12,7 @@ import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
 import { releaseReadinessRoutes } from './routes/release-readiness.js';
 import { migrationRoutes } from './routes/migrations.js';
+import { dockerComposeRoutes } from './routes/docker-compose.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
 import { productionOverviewRoutes } from './routes/production-overview.js';
@@ -124,6 +125,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
     attentionCenterService,
     releaseReadinessService,
     migrationOverviewService,
+    dockerComposeProvider,
+    dockerComposePreflightService,
+    dockerComposeLifecycleService,
+    dockerComposeOwnershipStore,
     securityScannerProvider,
   } = composition;
   registerAppLifecycle(app, context, composition);
@@ -210,6 +215,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     migrationOverviewService,
+  });
+
+  app.register(dockerComposeRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    dockerComposeProvider,
+    dockerComposePreflightService,
+    dockerComposeLifecycleService,
+    dockerComposeOwnershipStore,
   });
 
   app.register(projectCoverageRoutes, {

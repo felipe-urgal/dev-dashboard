@@ -1,9 +1,15 @@
+import path from 'node:path';
+
 import type { FastifyInstance } from 'fastify';
 
 import type { AppContext } from './app-context.js';
 import { DeploymentService } from './deployment/service.js';
 import { ProductionOverviewService } from './deployment/production-overview.js';
 import { ActivitySnapshotService } from './services/activity-snapshot-service.js';
+import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
+import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
+import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
+import { DockerComposeProvider } from './services/docker-compose-provider.js';
 import { AttentionCenterService } from './services/attention-center-service.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
@@ -25,6 +31,19 @@ import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
 export interface AppCompositionOptions {
   now?: () => number;
+  dockerComposeProvider?: Pick<DockerComposeProvider, 'inspect'>;
+  dockerComposePreflightService?: Pick<
+    DockerComposePreflightService,
+    'inspect'
+  >;
+  dockerComposeLifecycleService?: Pick<
+    DockerComposeLifecycleService,
+    'start' | 'stop' | 'restart' | 'logs'
+  >;
+  dockerComposeOwnershipStore?: Pick<
+    DockerComposeOwnershipStore,
+    'get' | 'claim' | 'release'
+  >;
   projectDoctorService?: ProjectDoctorService;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
@@ -51,6 +70,31 @@ export function createAppComposition(
     new ProjectDoctorService(options.now ? { now: options.now } : {});
   const portInspectorService =
     options.portInspectorService ?? new PortInspectorService();
+  const dockerComposeProvider =
+    options.dockerComposeProvider ?? new DockerComposeProvider();
+  const dockerComposePreflightService =
+    options.dockerComposePreflightService ??
+    new DockerComposePreflightService(portInspectorService);
+  const dockerComposeOwnershipStore =
+    options.dockerComposeOwnershipStore ??
+    new DockerComposeOwnershipStore(
+      path.join(
+        context.processManager.stateDirectory,
+        'docker-compose-ownership.json',
+      ),
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    );
+  const dockerComposeLifecycleService =
+    options.dockerComposeLifecycleService ??
+    new DockerComposeLifecycleService(
+      dockerComposeProvider,
+      dockerComposePreflightService,
+      undefined,
+      {
+        ownershipStore: dockerComposeOwnershipStore,
+        ...(options.now ? { now: () => new Date(options.now!()) } : {}),
+      },
+    );
   const projectFileMutationService = new ProjectFileMutationService(
     options.now ?? Date.now,
   );
@@ -130,6 +174,10 @@ export function createAppComposition(
     databaseExplorerSessionStore,
     projectDoctorService,
     portInspectorService,
+    dockerComposeProvider,
+    dockerComposePreflightService,
+    dockerComposeLifecycleService,
+    dockerComposeOwnershipStore,
     projectFileMutationService,
     projectWorkspaceEditService: context.projectWorkspaceEditService,
     projectLanguageServerService,
