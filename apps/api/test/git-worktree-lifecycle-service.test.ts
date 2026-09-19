@@ -434,7 +434,7 @@ test('falha de cleanup é explícita depois de remoção confirmada', async () =
   assert.match(removed.diagnostic ?? '', /já não existe/u);
 });
 
-test('guard configurado pela aplicação substitui o guard inicial antes da confirmação', async () => {
+test('guard da aplicação é aplicado por operação sem mutar o lifecycle compartilhado', async () => {
   const target = '/workspace/projeto-demo';
   const worktreeId = linkedWorktreeId(target);
   const { runner, calls } = createRunner({
@@ -444,8 +444,7 @@ test('guard configurado pela aplicação substitui o guard inicial antes da conf
   const service = new GitWorktreeLifecycleService(runner, undefined, {
     removalResourceGuard: initial.guard,
   });
-
-  service.configureRemovalResourceGuard({
+  const appGuard: GitWorktreeRemovalResourceGuard = {
     async inspect() {
       return {
         safe: false,
@@ -455,9 +454,13 @@ test('guard configurado pela aplicação substitui o guard inicial antes da conf
     async cleanupRemoved() {
       throw new Error('não deveria limpar');
     },
-  });
+  };
 
-  const prepared = await service.prepareRemoval(project, worktreeId);
+  const prepared = await service.prepareRemoval(
+    project,
+    worktreeId,
+    appGuard,
+  );
 
   assert.equal(prepared.state, 'blocked');
   assert.match(prepared.diagnostic ?? '', /Docker Compose owned/i);
