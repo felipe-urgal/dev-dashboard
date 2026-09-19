@@ -1,6 +1,9 @@
 import { execFile } from 'node:child_process';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type {
+  PortAllocationLeaseRequest,
+  Project,
+} from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ComposeStructuredCommand } from './docker-compose-model.js';
@@ -12,6 +15,10 @@ import type {
   DockerComposeInspection,
   DockerComposeProvider,
 } from './docker-compose-provider.js';
+import type {
+  PortAllocationLeaseBatchResult,
+  PortAllocationLeaseRegistry,
+} from './port-registry-service.js';
 import type {
   DockerComposePortPreflight,
   DockerComposePortPreflightInput,
@@ -180,12 +187,17 @@ export interface DockerComposeLifecycleServiceOptions {
     DockerComposeOwnershipStore,
     'get' | 'claim' | 'release'
   >;
+  portLeaseRegistry?: Pick<
+    PortAllocationLeaseRegistry,
+    'reserveBatch' | 'release' | 'releaseProject'
+  >;
   now?: () => Date;
 }
 
 export class DockerComposeLifecycleService {
   private readonly supportsWait: () => Promise<boolean>;
   private readonly ownershipStore: DockerComposeLifecycleServiceOptions['ownershipStore'];
+  private readonly portLeaseRegistry: DockerComposeLifecycleServiceOptions['portLeaseRegistry'];
   private readonly now: () => Date;
 
   public constructor(
@@ -196,6 +208,7 @@ export class DockerComposeLifecycleService {
   ) {
     this.supportsWait = options.supportsWait ?? (async () => false);
     this.ownershipStore = options.ownershipStore;
+    this.portLeaseRegistry = options.portLeaseRegistry;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -270,6 +283,16 @@ export class DockerComposeLifecycleService {
       }
     }
 
+    let portLeases: PortAllocationLeaseBatchResult | undefined;
+    try {
+      portLeases = this.reservePublishedPortLeases(project, before.config);
+    } catch (error) {
+      if (claimedOwnership) {
+        await this.ownershipStore?.release(project).catch(() => false);
+      }
+      throw error;
+    }
+
     try {
       await this.runCommand(
         startCommand(
@@ -283,6 +306,7 @@ export class DockerComposeLifecycleService {
         },
       );
     } catch {
+      this.releaseCreatedPortLeases(portLeases);
       if (claimedOwnership) {
         await this.ownershipStore?.release(project).catch(() => false);
       }
@@ -320,6 +344,7 @@ export class DockerComposeLifecycleService {
           maxBufferBytes: MUTATION_MAX_BUFFER_BYTES,
         },
       );
+      if (!service) this.portLeaseRegistry?.releaseProject(project.id);
     } catch {
       throw new DockerComposeLifecycleError(
         'COMPOSE_STOP_FAILED',
@@ -378,6 +403,11 @@ export class DockerComposeLifecycleService {
       );
     }
 
+    const portLeases = this.reservePublishedPortLeases(
+      project,
+      target.inspection.config!,
+    );
+
     try {
       await this.runCommand(
         restartCommand(target.ownership.composeProjectName, service),
@@ -388,6 +418,7 @@ export class DockerComposeLifecycleService {
         },
       );
     } catch {
+      this.releaseCreatedPortLeases(portLeases);
       throw new DockerComposeLifecycleError(
         'COMPOSE_RESTART_FAILED',
         'Docker Compose não conseguiu reiniciar o alvo owned deste projeto.',
@@ -455,6 +486,64 @@ export class DockerComposeLifecycleService {
       redactionCount: masked.redactionCount,
       readAt: this.now().toISOString(),
     };
+  }
+
+  private reservePublishedPortLeases(
+    project: Project,
+    config: NonNullable<DockerComposeInspection['config']>,
+  ): PortAllocationLeaseBatchResult | undefined {
+    if (!this.portLeaseRegistry) return undefined;
+
+    const requests: PortAllocationLeaseRequest[] = [];
+    const seenPorts = new Set<number>();
+    for (const service of config.services) {
+      for (const binding of service.ports) {
+        const port = binding.publishedPort;
+        if (port === undefined || seenPorts.has(port)) continue;
+        seenPorts.add(port);
+        requests.push({
+          leaseId: `compose:${project.id}:${service.name}:${port}`,
+          projectId: project.id,
+          role: service.name,
+          preferredPort: port,
+          maxPort: port,
+          ...(project.id.startsWith('environment:')
+            ? { environmentInstanceId: project.id }
+            : {}),
+        });
+      }
+    }
+    requests.sort(
+      (left, right) =>
+        left.preferredPort - right.preferredPort ||
+        left.role.localeCompare(right.role),
+    );
+    if (requests.length === 0) {
+      return { leases: [], createdLeaseIds: [] };
+    }
+
+    const batch = this.portLeaseRegistry.reserveBatch({}, requests);
+    if (
+      !batch ||
+      batch.leases.some(
+        (lease, index) => lease.port !== requests[index]?.preferredPort,
+      )
+    ) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_PREFLIGHT_BLOCKED',
+        'Uma porta publicada pelo Compose já foi reservada por outro ambiente local.',
+      );
+    }
+    return batch;
+  }
+
+  private releaseCreatedPortLeases(
+    batch: PortAllocationLeaseBatchResult | undefined,
+  ): void {
+    if (!batch || !this.portLeaseRegistry) return;
+    for (const leaseId of batch.createdLeaseIds) {
+      this.portLeaseRegistry.release(leaseId);
+    }
   }
 
   private async requireOwnedTarget(
