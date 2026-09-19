@@ -340,60 +340,72 @@ export class MigrationMutationPlanningService {
     const database = databaseIdentity(overview.database);
 
     if (overview.provider !== provider.id) {
-      return buildPlan(executionContext, {
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'provider-evidence-mismatch',
-          overview.observedAt,
-          overview.evidence,
-          'A inspeção read-only e o provider de mutation não apontam para o mesmo provider; a operação não pode ser planejada com segurança.',
-        ),
-      }, overview);
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'provider-evidence-mismatch',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção read-only e o provider de mutation não apontam para o mesmo provider; a operação não pode ser planejada com segurança.',
+          ),
+        },
+        overview,
+      );
     }
 
     if (overview.status === 'up-to-date') {
-      return buildPlan(executionContext, {
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: blockedPreflight(
-          'nothing-pending',
-          overview.observedAt,
-          overview.evidence,
-          'A inspeção comprovou que não há migrations pendentes para aplicar.',
-        ),
-      }, overview);
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: blockedPreflight(
+            'nothing-pending',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção comprovou que não há migrations pendentes para aplicar.',
+          ),
+        },
+        overview,
+      );
     }
 
     if (overview.status !== 'pending') {
-      return buildPlan(executionContext, {
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'inspection-inconclusive',
-          overview.observedAt,
-          overview.evidence,
-          'A inspeção não comprovou migrations pendentes; mutation permanece indisponível.',
-        ),
-      }, overview);
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'inspection-inconclusive',
+            overview.observedAt,
+            overview.evidence,
+            'A inspeção não comprovou migrations pendentes; mutation permanece indisponível.',
+          ),
+        },
+        overview,
+      );
     }
 
     let providerPlan: MigrationMutationProviderPlan;
@@ -407,27 +419,55 @@ export class MigrationMutationPlanningService {
         now: this.now,
       });
     } catch {
-      return buildPlan(executionContext, {
-        projectId: project.id,
-        provider: provider.id,
-        operation: input.operation,
-        database,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        createdAt,
-        overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'provider-plan-invalid',
-          overview.observedAt,
-          overview.evidence,
-          'O provider não conseguiu produzir um plano de execução estruturado.',
-        ),
-      }, overview);
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'provider-plan-invalid',
+            overview.observedAt,
+            overview.evidence,
+            'O provider não conseguiu produzir um plano de execução estruturado.',
+          ),
+        },
+        overview,
+      );
     }
 
     const command = normalizedCommand(providerPlan.command);
     if (!command) {
-      return buildPlan(executionContext, {
+      return buildPlan(
+        executionContext,
+        {
+          projectId: project.id,
+          provider: provider.id,
+          operation: input.operation,
+          database,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          createdAt,
+          overviewObservedAt: overview.observedAt,
+          preflight: unavailablePreflight(
+            'provider-plan-invalid',
+            overview.observedAt,
+            overview.evidence,
+            'O provider produziu um comando de mutation fora do contrato estruturado.',
+          ),
+        },
+        overview,
+      );
+    }
+
+    return buildPlan(
+      executionContext,
+      {
         projectId: project.id,
         provider: provider.id,
         operation: input.operation,
@@ -436,26 +476,10 @@ export class MigrationMutationPlanningService {
         runtime: executionContext.runtime,
         createdAt,
         overviewObservedAt: overview.observedAt,
-        preflight: unavailablePreflight(
-          'provider-plan-invalid',
-          overview.observedAt,
-          overview.evidence,
-          'O provider produziu um comando de mutation fora do contrato estruturado.',
-        ),
-      }, overview);
-    }
-
-    return buildPlan(executionContext, {
-      projectId: project.id,
-      provider: provider.id,
-      operation: input.operation,
-      database,
-      environmentInstanceId: executionContext.environmentInstanceId,
-      runtime: executionContext.runtime,
-      createdAt,
-      overviewObservedAt: overview.observedAt,
-      preflight: readyPreflight(overview.observedAt, overview.evidence),
-      command,
-    }, overview);
+        preflight: readyPreflight(overview.observedAt, overview.evidence),
+        command,
+      },
+      overview,
+    );
   }
 }
