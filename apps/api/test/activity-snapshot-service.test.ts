@@ -208,7 +208,6 @@ test('limita eventos e rejeita projeto inexistente', async () => {
   );
 });
 
-
 test('agrega visão global reutilizando uma única leitura de processos', async () => {
   let processReads = 0;
   const service = createService({
