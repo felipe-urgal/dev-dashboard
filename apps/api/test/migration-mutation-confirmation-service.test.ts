@@ -122,6 +122,8 @@ test('token expirado falha fechado', () => {
 
 test('plano bloqueado ou sem comando nunca recebe confirmação', () => {
   const service = new MigrationMutationConfirmationService();
+  const noCommand = readyPlan();
+  delete noCommand.command;
 
   for (const plan of [
     readyPlan({
@@ -132,7 +134,7 @@ test('plano bloqueado ou sem comando nunca recebe confirmação', () => {
         evidence: 'Rails db:migrate:status',
       },
     }),
-    readyPlan({ command: undefined }),
+    noCommand,
   ]) {
     assert.throws(
       () => service.prepare(plan),
