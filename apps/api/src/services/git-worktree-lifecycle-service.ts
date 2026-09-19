@@ -189,7 +189,7 @@ function blocked(
 
 export class GitWorktreeLifecycleService {
   private readonly observer: GitWorktreeObserver;
-  private removalResourceGuard: GitWorktreeRemovalResourceGuard;
+  private readonly removalResourceGuard: GitWorktreeRemovalResourceGuard;
   private readonly now: () => number;
   private readonly createConfirmationToken: () => string;
   private readonly removalConfirmations = new Map<
@@ -209,16 +209,6 @@ export class GitWorktreeLifecycleService {
     this.createConfirmationToken =
       options.createConfirmationToken ??
       (() => randomBytes(32).toString('hex'));
-  }
-
-  /**
-   * Wiring-only hook usado durante a composição da aplicação. A remoção
-   * continua revalidando o guard imediatamente antes e depois da mutação.
-   */
-  public configureRemovalResourceGuard(
-    guard: GitWorktreeRemovalResourceGuard,
-  ): void {
-    this.removalResourceGuard = guard;
   }
 
   public async create(
@@ -351,6 +341,8 @@ export class GitWorktreeLifecycleService {
   public async prepareRemoval(
     project: Project,
     worktreeIdInput: string,
+    removalResourceGuard: GitWorktreeRemovalResourceGuard = this
+      .removalResourceGuard,
   ): Promise<PrepareGitWorktreeRemovalResult> {
     this.sweepRemovalConfirmations();
     const worktreeId = normalizeWorktreeId(worktreeIdInput);
@@ -390,7 +382,10 @@ export class GitWorktreeLifecycleService {
       project.id,
       worktree.id,
     );
-    const ownership = await this.inspectRemovalOwnership(environmentInstanceId);
+    const ownership = await this.inspectRemovalOwnership(
+      environmentInstanceId,
+      removalResourceGuard,
+    );
     if (!ownership.safe) {
       return {
         state: 'blocked',
@@ -431,6 +426,8 @@ export class GitWorktreeLifecycleService {
   public async remove(
     project: Project,
     input: RemoveGitWorktreeInput,
+    removalResourceGuard: GitWorktreeRemovalResourceGuard = this
+      .removalResourceGuard,
   ): Promise<RemoveGitWorktreeResult> {
     this.sweepRemovalConfirmations();
     const worktreeId = normalizeWorktreeId(input.worktreeId);
@@ -469,6 +466,7 @@ export class GitWorktreeLifecycleService {
     if (!worktree) {
       const ownership = await this.inspectRemovalOwnership(
         record.environmentInstanceId,
+        removalResourceGuard,
       );
       if (!ownership.safe) {
         return {
@@ -482,7 +480,11 @@ export class GitWorktreeLifecycleService {
             'A origem já não existe, mas o cleanup do ambiente ainda não é seguro.',
         };
       }
-      return this.cleanupRemovedEnvironment(record, 'already-absent');
+      return this.cleanupRemovedEnvironment(
+        record,
+        'already-absent',
+        removalResourceGuard,
+      );
     }
 
     if (
@@ -515,6 +517,7 @@ export class GitWorktreeLifecycleService {
 
     const ownership = await this.inspectRemovalOwnership(
       record.environmentInstanceId,
+      removalResourceGuard,
     );
     if (!ownership.safe) {
       return {
@@ -572,7 +575,11 @@ export class GitWorktreeLifecycleService {
       };
     }
 
-    return this.cleanupRemovedEnvironment(record, 'removed');
+    return this.cleanupRemovedEnvironment(
+      record,
+      'removed',
+      removalResourceGuard,
+    );
   }
 
   private async removalPreflight(
@@ -608,9 +615,10 @@ export class GitWorktreeLifecycleService {
 
   private async inspectRemovalOwnership(
     environmentInstanceId: string,
+    removalResourceGuard: GitWorktreeRemovalResourceGuard,
   ): Promise<GitWorktreeRemovalResourceGuardResult> {
     try {
-      return await this.removalResourceGuard.inspect(environmentInstanceId);
+      return await removalResourceGuard.inspect(environmentInstanceId);
     } catch {
       return {
         safe: false,
@@ -623,11 +631,10 @@ export class GitWorktreeLifecycleService {
   private async cleanupRemovedEnvironment(
     record: RemovalConfirmationRecord,
     successState: 'removed' | 'already-absent',
+    removalResourceGuard: GitWorktreeRemovalResourceGuard,
   ): Promise<RemoveGitWorktreeResult> {
     try {
-      await this.removalResourceGuard.cleanupRemoved(
-        record.environmentInstanceId,
-      );
+      await removalResourceGuard.cleanupRemoved(record.environmentInstanceId);
     } catch {
       return {
         state: 'cleanup-required',
