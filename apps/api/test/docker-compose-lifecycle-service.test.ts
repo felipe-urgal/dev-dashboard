@@ -183,7 +183,6 @@ test('não inventa sucesso observado quando a reinspeção pós-start falha', as
   assert.match(result.diagnostic ?? '', /não pôde ser comprovado/i);
 });
 
-
 test('start com ownership usa project name explícito e persiste a posse', async () => {
   const claims: string[] = [];
   const commands: Array<{ program: 'docker'; args: string[] }> = [];

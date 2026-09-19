@@ -105,9 +105,7 @@ function composeCommand(
     program: 'docker',
     args: [
       'compose',
-      ...(composeProjectName
-        ? ['--project-name', composeProjectName]
-        : []),
+      ...(composeProjectName ? ['--project-name', composeProjectName] : []),
       ...args,
     ],
   };
@@ -159,10 +157,7 @@ function logsCommand(
 }
 
 export type DockerComposeMutationState =
-  | 'stopped'
-  | 'stopped-unverified'
-  | 'restarted'
-  | 'restarted-unverified';
+  'stopped' | 'stopped-unverified' | 'restarted' | 'restarted-unverified';
 
 export interface DockerComposeMutationResult {
   state: DockerComposeMutationState;
@@ -189,8 +184,7 @@ export interface DockerComposeLifecycleServiceOptions {
 
 export class DockerComposeLifecycleService {
   private readonly supportsWait: () => Promise<boolean>;
-  private readonly ownershipStore:
-    DockerComposeLifecycleServiceOptions['ownershipStore'];
+  private readonly ownershipStore: DockerComposeLifecycleServiceOptions['ownershipStore'];
   private readonly now: () => Date;
 
   public constructor(
@@ -256,10 +250,7 @@ export class DockerComposeLifecycleService {
         );
       }
       const existing = await this.ownershipStore.get(project);
-      if (
-        existing &&
-        existing.composeProjectName !== composeProjectName
-      ) {
+      if (existing && existing.composeProjectName !== composeProjectName) {
         throw new DockerComposeLifecycleError(
           'COMPOSE_OWNERSHIP_MISMATCH',
           'O ownership persistido pertence a outro projeto Compose.',
@@ -280,7 +271,10 @@ export class DockerComposeLifecycleService {
 
     try {
       await this.runCommand(
-        startCommand(this.ownershipStore ? composeProjectName : undefined, wait),
+        startCommand(
+          this.ownershipStore ? composeProjectName : undefined,
+          wait,
+        ),
         {
           cwd: project.path,
           timeoutMs: MUTATION_TIMEOUT_MS,
@@ -426,11 +420,7 @@ export class DockerComposeLifecycleService {
     let output: string | void;
     try {
       output = await this.runCommand(
-        logsCommand(
-          target.ownership.composeProjectName,
-          tail,
-          options.service,
-        ),
+        logsCommand(target.ownership.composeProjectName, tail, options.service),
         {
           cwd: project.path,
           timeoutMs: LOG_TIMEOUT_MS,
