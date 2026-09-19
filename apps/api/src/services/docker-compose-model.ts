@@ -294,5 +294,10 @@ export function buildComposeConfigCommand(
 export function buildComposePsCommand(
   composeProjectName?: string,
 ): ComposeStructuredCommand {
-  return composeCommand(composeProjectName, ['ps', '--all', '--format', 'json']);
+  return composeCommand(composeProjectName, [
+    'ps',
+    '--all',
+    '--format',
+    'json',
+  ]);
 }

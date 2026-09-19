@@ -137,10 +137,7 @@ export class DockerComposeProvider {
         project.id,
         observedAt,
       );
-      if (
-        composeProjectName &&
-        config.projectName !== composeProjectName
-      ) {
+      if (composeProjectName && config.projectName !== composeProjectName) {
         throw new Error('Nome Compose resolvido não corresponde ao namespace.');
       }
     } catch {
