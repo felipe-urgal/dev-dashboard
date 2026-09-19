@@ -59,15 +59,51 @@ Falhas são isoladas por fonte. Uma indisponibilidade externa não apaga invent�
 
 O serviço de metadata recebe o runtime comprovado por chamada, evitando carregar evidência de um projeto para outro quando a instância é compartilhada.
 
-## Próximo recorte
+## Upgrade Planner
 
-O Upgrade Planner deve compor os fatos já existentes sem aplicar upgrades automaticamente:
+O Upgrade Planner é read-only e compõe somente o snapshot de Dependency Health já existente. A API expõe `GET /api/projects/:projectId/dependency-upgrade-plan`.
 
-- versão atual e alvo;
-- tipo de mudança;
-- arquivos afetados;
-- agrupamentos/lockstep comprováveis;
-- warnings de major/breaking;
+Cada item preserva:
+
+- range declarado;
+- versão atual somente quando a resolução local foi comprovada;
+- versão alvo somente quando a metadata npm está disponível;
+- classificação `none | patch | minor | major | unknown`;
+- arquivos que uma futura aplicação deverá alterar;
+- warnings conservadores;
 - gates recomendados antes de qualquer mutação.
 
-Aplicação automática permanece fora deste domínio até existir plano, confirmação, recovery/rollback e validação pós-mudança.
+Estados do item:
+
+- `upgrade`: versão atual e alvo são comprovadas e existe mudança comparável;
+- `current`: versão atual e `latest` são comparáveis e não há upgrade;
+- `unknown`: falta resolução local, metadata ou comparação suficiente.
+
+O plano inteiro fica `partial` quando ao menos um item permanece `unknown`, e `unavailable` quando o inventário local não está disponível.
+
+### Agrupamento e lockstep
+
+Upgrades do mesmo manifesto raiz podem ser agrupados com `basis=shared-manifest`, pois essa relação é comprovada pelo inventário local. Esse agrupamento não afirma compatibilidade entre pacotes.
+
+`lockstep` permanece `unknown` enquanto não existir evidência explícita que prove que duas dependências precisam avançar juntas. O planner não usa escopo npm, similaridade de nome ou versão como heurística de lockstep.
+
+### Gates
+
+O planner pode recomendar gates como:
+
+- resolver a versão atual antes de classificar;
+- atualizar metadata externa indisponível;
+- revisar mudança major;
+- verificar ou atualizar runtime Node;
+- revisar advisories conhecidos da versão atual;
+- renovar evidência OSV incompleta;
+- verificar advisories da versão alvo;
+- executar testes.
+
+Uma mudança `major` é tratada apenas como possibilidade de breaking change. O planner não afirma que houve quebra sem evidência específica. A evidência OSV atual descreve a versão resolvida atual e não prova que a versão alvo está livre de advisories.
+
+Aplicação automática continua fora deste domínio. Qualquer mutação futura precisa de plano confirmado, preflight, recovery/rollback e validação pós-mudança.
+
+## Próximo recorte
+
+Estabilizado o contrato read-only do planner, a UI pode consumir Health + Upgrade Planner sem ganhar autoridade para executar package manager. Mutação continua separada até os guardrails acima existirem.
