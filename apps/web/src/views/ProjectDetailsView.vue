@@ -475,8 +475,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectDockerComposePanel
         v-else-if="isComposeRoute"
-        :key="`compose-${project.id}`"
+        :key="`compose-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectServerPanel
