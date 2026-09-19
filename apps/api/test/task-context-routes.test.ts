@@ -171,7 +171,7 @@ test('Task Context HTTP associa contexto local sem aceitar autoridade de path/br
   const removed = await app.inject({
     method: 'DELETE',
     url: `/api/projects/project-a/task-contexts/${created.id}`,
-    headers,
+    headers: { 'x-dev-dashboard-token': TOKEN },
   });
   assert.equal(removed.statusCode, 200);
   assert.equal(removed.json<{ removed: boolean }>().removed, true);
