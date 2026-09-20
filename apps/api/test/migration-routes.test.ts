@@ -212,7 +212,9 @@ test('Migrations HTTP exp√µe contrato comum, database validado e erros determin√
   const worktreeEnvironmentId = 'environment:worktree:project-1:feature';
   const scoped = await app.inject({
     method: 'GET',
-    url: `/api/projects/project-1/migrations?database=primary&environmentInstanceId=${encodeURIComponent(worktreeEnvironmentId)}`,
+    url: `/api/projects/project-1/migrations?database=primary&environmentInstanceId=${encodeURIComponent(
+      worktreeEnvironmentId,
+    )}`,
   });
   assert.equal(scoped.statusCode, 200);
   assert.deepEqual(calls.at(-1), {
