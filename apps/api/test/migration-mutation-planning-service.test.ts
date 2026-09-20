@@ -425,7 +425,6 @@ test('planHash permanece estável entre revalidações equivalentes e invalida q
   assert.deepEqual(service.resolveExecutionContext(moved), currentContext);
 });
 
-
 test('provider custom explícito usa o planner comum quando status prova pending por exit code', async () => {
   const customProvider = new CustomMigrationMutationProvider(
     {

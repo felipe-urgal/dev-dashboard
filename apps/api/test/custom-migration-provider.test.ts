@@ -180,7 +180,6 @@ test('configuração ambígua ou capaz de abrir shell falha na construção', ()
   );
 });
 
-
 function mutationConfig() {
   return {
     ...config(),
