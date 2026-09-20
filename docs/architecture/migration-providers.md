@@ -86,6 +86,18 @@ Exemplos:
 
 `MigrationMutationExecutionService.start()` reconstrói o plano, revalida a Environment Instance pelo `executionContextHash` e só então consome a confirmação. Um token preparado para outro plano não autoriza a execução.
 
+## Superfície HTTP e UI comum
+
+A superfície comum de Migrations expõe mutation sem transformar o browser em autoridade de execução:
+
+- `POST /api/projects/:projectId/migrations/mutations/plan` revalida o estado e devolve somente o plano público;
+- o plano público inclui provider/operação/database/Environment Instance/runtime/`planHash`/preflight, mas não serializa comando, `cwd`, `executionContextHash` nem `overviewHash`;
+- `POST .../confirmation` exige o `planHash` que a UI acabou de revisar e reconstrói o plano no servidor antes de emitir um token curto;
+- `POST .../start` replaneja novamente pelo executor comum, revalida a Environment Instance e só então consome o token;
+- `GET .../status`, `POST .../cancel` e `GET .../connect` permitem reattach, cancelamento e streaming da execução destacável.
+
+A tela comum de Migrations usa esse fluxo somente quando o preflight está `ready`. Para providers sem adapter mutável, a mesma tela continua read-only e explica por que a execução está indisponível.
+
 ## Execução destacável comum
 
 O executor comum usa uma chave por projeto + Environment Instance e delega ao `DetachableExecutionService`.
@@ -99,7 +111,7 @@ Com isso, migration mutation ganha o mesmo comportamento já comprovado no dashb
 - uma segunda mutation concorrente no mesmo ambiente é rejeitada;
 - snapshot preserva provider, operação, database e `planHash`.
 
-Ainda não existe rota HTTP comum para essa execução neste slice.
+A rota HTTP/WebSocket comum apenas projeta o estado seguro do executor; o comando backend-owned nunca atravessa a fronteira HTTP.
 
 ## Adapter Rails
 
@@ -112,6 +124,6 @@ Ainda não existe rota HTTP comum para essa execução neste slice.
 
 No primeiro corte, mutation comum Rails fica habilitável somente para um único database lógico `primary`. Projeto multi-database ou seleção de database secundário permanece fail-closed até existir comando explícito por database.
 
-A composição da API usa esse adapter como mutation provider default, mas as rotas Rails existentes ainda não foram redirecionadas. `rollback`, `seed` e `prepare` continuam no `RailsMigrationPtyService` legado.
+A composição da API usa esse adapter como mutation provider default e a UI comum de Migrations já usa o fluxo novo para `apply`. As rotas Rails antigas continuam disponíveis para os fluxos que ainda não foram migrados; `rollback`, `seed` e `prepare` permanecem no `RailsMigrationPtyService` legado.
 
-Prisma e providers custom continuam read-only até terem adapters mutáveis explícitos sob o mesmo contrato.
+Prisma e providers custom continuam read-only até terem adapters mutáveis explícitos sob o mesmo contrato. A existência da UI/HTTP comum não amplia autoridade desses providers automaticamente.
