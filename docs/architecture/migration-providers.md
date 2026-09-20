@@ -90,13 +90,14 @@ Exemplos:
 
 A superfície comum de Migrations expõe mutation sem transformar o browser em autoridade de execução:
 
+- `GET /api/projects/:projectId/migrations` aceita `environmentInstanceId` e faz a inspeção no `cwd` resolvido pelo backend para o mesmo ambiente selecionado na UI;
 - `POST /api/projects/:projectId/migrations/mutations/plan` revalida o estado e devolve somente o plano público;
 - o plano público inclui provider/operação/database/Environment Instance/runtime/`planHash`/preflight, mas não serializa comando, `cwd`, `executionContextHash` nem `overviewHash`;
 - `POST .../confirmation` exige o `planHash` que a UI acabou de revisar e reconstrói o plano no servidor antes de emitir um token curto;
 - `POST .../start` replaneja novamente pelo executor comum, revalida a Environment Instance e só então consome o token;
 - `GET .../status`, `POST .../cancel` e `GET .../connect` permitem reattach, cancelamento e streaming da execução destacável.
 
-A tela comum de Migrations usa esse fluxo somente quando o preflight está `ready`. Para providers sem adapter mutável, a mesma tela continua read-only e explica por que a execução está indisponível.
+A tela comum de Migrations preserva a Environment Instance da navegação e usa o mesmo ambiente tanto para a inspeção exibida quanto para planejamento/execução. O fluxo mutável aparece somente quando o preflight está `ready`. Para providers sem adapter mutável, a mesma tela continua read-only e explica por que a execução está indisponível.
 
 ## Execução destacável comum
 
