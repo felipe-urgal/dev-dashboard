@@ -114,8 +114,14 @@ function mutationInput(
 export async function fetchMigrationOverview(
   projectId: string,
   database?: string,
+  environmentInstanceId?: string,
 ): Promise<MigrationOverview> {
-  const query = database ? `?database=${encodeURIComponent(database)}` : '';
+  const parameters = new URLSearchParams();
+  if (database) parameters.set('database', database);
+  if (environmentInstanceId) {
+    parameters.set('environmentInstanceId', environmentInstanceId);
+  }
+  const query = parameters.size > 0 ? `?${parameters}` : '';
   const response = await requestJson<MigrationOverviewResponse>(
     `${migrationsPath(projectId)}${query}`,
   );
