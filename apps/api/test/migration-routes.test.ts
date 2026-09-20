@@ -81,6 +81,35 @@ function projectStore(): ProjectStore {
   return store;
 }
 
+function environmentStore() {
+  return {
+    resolveForProject: (
+      projectId: string,
+      environmentInstanceId?: string,
+    ) => {
+      if (projectId !== 'project-1') return undefined;
+      const resolvedId = environmentInstanceId ?? ENVIRONMENT_ID;
+      if (resolvedId === ENVIRONMENT_ID) {
+        return {
+          projectId,
+          environmentInstanceId: resolvedId,
+          cwd: '/workspace/projeto',
+          runtime: 'host' as const,
+        };
+      }
+      if (resolvedId === 'environment:worktree:project-1:feature') {
+        return {
+          projectId,
+          environmentInstanceId: resolvedId,
+          cwd: '/workspace/projeto-worktree',
+          runtime: 'host' as const,
+        };
+      }
+      return undefined;
+    },
+  };
+}
+
 function baseMutationOptions(plan = mutationPlan()) {
   return {
     migrationMutationPlanningService: {
@@ -124,10 +153,18 @@ function baseMutationOptions(plan = mutationPlan()) {
 test('Migrations HTTP expõe contrato comum, database validado e erros determinísticos', async (context) => {
   const store = projectStore();
 
-  const calls: Array<{ projectId: string; database: string | undefined }> = [];
+  const calls: Array<{
+    projectId: string;
+    projectPath: string;
+    database: string | undefined;
+  }> = [];
   const service = {
     inspect: async (selectedProject: Project, database?: string) => {
-      calls.push({ projectId: selectedProject.id, database });
+      calls.push({
+        projectId: selectedProject.id,
+        projectPath: selectedProject.path,
+        database,
+      });
       return overview(database ?? 'primary');
     },
   };
@@ -137,6 +174,7 @@ test('Migrations HTTP expõe contrato comum, database validado e erros determin�
   app.register(migrationRoutes, {
     prefix: '/api',
     projectStore: store,
+    developmentEnvironmentInstanceStore: environmentStore(),
     migrationOverviewService: service,
     ...baseMutationOptions(),
   });
@@ -153,7 +191,11 @@ test('Migrations HTTP expõe contrato comum, database validado e erros determin�
   assert.equal(body.migration.database, 'analytics_2');
   assert.equal(body.migration.pending[0]?.id, '002');
   assert.deepEqual(calls, [
-    { projectId: 'project-1', database: 'analytics_2' },
+    {
+      projectId: 'project-1',
+      projectPath: '/workspace/projeto',
+      database: 'analytics_2',
+    },
   ]);
 
   for (const invalidDatabase of [
@@ -169,6 +211,28 @@ test('Migrations HTTP expõe contrato comum, database validado e erros determin�
     assert.equal(invalid.statusCode, 400);
   }
   assert.equal(calls.length, 1);
+
+  const worktreeEnvironmentId = 'environment:worktree:project-1:feature';
+  const scoped = await app.inject({
+    method: 'GET',
+    url: `/api/projects/project-1/migrations?database=primary&environmentInstanceId=${encodeURIComponent(worktreeEnvironmentId)}`,
+  });
+  assert.equal(scoped.statusCode, 200);
+  assert.deepEqual(calls.at(-1), {
+    projectId: 'project-1',
+    projectPath: '/workspace/projeto-worktree',
+    database: 'primary',
+  });
+
+  const missingEnvironment = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/migrations?environmentInstanceId=missing',
+  });
+  assert.equal(missingEnvironment.statusCode, 404);
+  assert.equal(
+    missingEnvironment.json<{ error: string }>().error,
+    'ENVIRONMENT_INSTANCE_NOT_FOUND',
+  );
 
   const missing = await app.inject({
     method: 'GET',
@@ -189,6 +253,7 @@ test('mutation HTTP mantém comando/contexto privados e exige o planHash observa
   app.register(migrationRoutes, {
     prefix: '/api',
     projectStore: store,
+    developmentEnvironmentInstanceStore: environmentStore(),
     migrationOverviewService: {
       inspect: async () => overview('primary'),
     },
