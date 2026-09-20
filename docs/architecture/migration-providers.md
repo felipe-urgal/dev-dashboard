@@ -127,4 +127,24 @@ No primeiro corte, mutation comum Rails fica habilitável somente para um único
 
 A composição da API usa esse adapter como mutation provider default e a UI comum de Migrations já usa o fluxo novo para `apply`. As rotas Rails antigas continuam disponíveis para os fluxos que ainda não foram migrados; `rollback`, `seed` e `prepare` permanecem no `RailsMigrationPtyService` legado.
 
-Prisma e providers custom continuam read-only até terem adapters mutáveis explícitos sob o mesmo contrato. A existência da UI/HTTP comum não amplia autoridade desses providers automaticamente.
+## Adapter custom
+
+`CustomMigrationProvider` continua estritamente read-only. Declarar apenas o comando de status e seus exit codes não habilita mutation.
+
+Quando uma integração confiável também declara um `applyCommand` estruturado, ela pode usar `CustomMigrationMutationProvider`:
+
+- o comando de status continua determinando `up-to-date | pending | unavailable | unknown` somente por exit codes declarados;
+- `apply` só é planejado quando a evidência read-only do mesmo provider está `pending`;
+- `applyCommand` passa pelos mesmos guards contra shell wrappers, argumentos inválidos e texto com quebras/NUL;
+- neste primeiro corte, mutation custom fica restrita ao database lógico `primary`; databases secundários exigem adapter explícito;
+- execução, confirmação, revalidação, streaming, reattach e cancelamento continuam pertencendo ao fluxo comum.
+
+Isso preserva a propriedade de segurança principal: adicionar inspeção custom não concede permissão de escrita automaticamente.
+
+## Prisma
+
+Prisma continua read-only neste corte. No CLI clássico, `prisma migrate status` usa exit code 1 para situações diferentes — migrations pendentes, histórico divergente, tabela de migrations ausente, migration falha e erro de conexão. Como o contrato comum exige prova de `pending`, o Dashboard não transforma esse exit code ambíguo em autorização para `migrate deploy`.
+
+Um adapter Prisma mutável só deve ser habilitado quando houver evidência estruturada capaz de distinguir pendência aplicável desses demais estados sem inferir autoridade de texto livre.
+
+A existência da UI/HTTP comum não amplia autoridade de Prisma ou providers custom automaticamente.

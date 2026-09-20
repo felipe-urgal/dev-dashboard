@@ -3,6 +3,11 @@ import { execFile } from 'node:child_process';
 import type { Project, ProjectType } from '@dev-dashboard/contracts';
 
 import type {
+  MigrationMutationPlanContext,
+  MigrationMutationProvider,
+  MigrationMutationProviderPlan,
+} from './migration-mutation-provider.js';
+import type {
   MigrationInspectionContext,
   MigrationOverview,
   MigrationOverviewStatus,
@@ -41,6 +46,10 @@ export interface CustomMigrationProviderConfig {
   upToDateExitCodes: readonly number[];
   pendingExitCodes?: readonly number[];
   unavailableExitCodes?: readonly number[];
+}
+
+export interface CustomMigrationMutationProviderConfig extends CustomMigrationProviderConfig {
+  applyCommand: CustomMigrationCommand;
 }
 
 export interface CustomMigrationStatusResult {
@@ -285,6 +294,54 @@ export class CustomMigrationProvider implements MigrationProvider {
                 `Exit code ${result.exitCode} não possui semântica declarada neste provider.`,
               ]
             : [],
+    };
+  }
+}
+
+export class CustomMigrationMutationProvider
+  extends CustomMigrationProvider
+  implements MigrationMutationProvider
+{
+  private readonly applyCommand: CustomMigrationCommand;
+
+  public constructor(
+    config: CustomMigrationMutationProviderConfig,
+    runStatus: CustomMigrationStatusRunner = defaultStatusRunner,
+  ) {
+    super(config, runStatus);
+    this.applyCommand = validateCommand(config.applyCommand);
+  }
+
+  public async planMutation(
+    context: MigrationMutationPlanContext,
+  ): Promise<MigrationMutationProviderPlan> {
+    if (!this.supports(context.project)) {
+      throw new Error('Provider custom não se aplica a este projeto.');
+    }
+    if (context.operation !== 'apply') {
+      throw new Error(
+        'Operação de migration não suportada pelo provider custom.',
+      );
+    }
+    if (context.database !== 'primary') {
+      throw new Error(
+        'Mutation custom por database secundário exige um adapter explícito.',
+      );
+    }
+    if (
+      context.overview.provider !== this.id ||
+      context.overview.status !== 'pending'
+    ) {
+      throw new Error(
+        'Mutation custom exige evidência pending do mesmo provider.',
+      );
+    }
+
+    return {
+      command: {
+        file: this.applyCommand.program,
+        args: [...this.applyCommand.args],
+      },
     };
   }
 }

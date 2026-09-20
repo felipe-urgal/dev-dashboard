@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
+  CustomMigrationMutationProvider,
   CustomMigrationProvider,
   type CustomMigrationStatusRunner,
 } from '../src/services/custom-migration-provider.js';
@@ -176,5 +177,134 @@ test('configuração ambígua ou capaz de abrir shell falha na construção', ()
         projectIds: [],
       }),
     /precisa declarar/u,
+  );
+});
+
+function mutationConfig() {
+  return {
+    ...config(),
+    applyCommand: {
+      program: 'acme-migrate',
+      args: ['apply', '--non-interactive'],
+    },
+  };
+}
+
+function pendingOverview() {
+  return {
+    provider: 'acme-migrations',
+    status: 'pending' as const,
+    database: 'primary',
+    applied: [],
+    pending: [],
+    observedAt: '2026-09-20T12:00:00.000Z',
+    evidence: 'custom:acme-migrations:status',
+    warnings: [],
+  };
+}
+
+test('provider custom mutável produz somente argv apply estruturado com evidência pending do mesmo provider', async () => {
+  const provider = new CustomMigrationMutationProvider(mutationConfig());
+
+  const plan = await provider.planMutation({
+    project,
+    executionContext: {
+      projectId: project.id,
+      environmentInstanceId: 'environment:primary:project-1',
+      cwd: project.path,
+      runtime: 'host',
+    },
+    operation: 'apply',
+    database: 'primary',
+    overview: pendingOverview(),
+    now: () => new Date('2026-09-20T12:00:00.000Z'),
+  });
+
+  assert.deepEqual(plan, {
+    command: {
+      file: 'acme-migrate',
+      args: ['apply', '--non-interactive'],
+    },
+  });
+});
+
+test('provider custom read-only não ganha mutation implicitamente', () => {
+  const provider = new CustomMigrationProvider(config());
+  assert.equal('planMutation' in provider, false);
+});
+
+test('mutation custom falha fechado para database secundário ou evidência divergente', async () => {
+  const provider = new CustomMigrationMutationProvider(mutationConfig());
+  const baseContext = {
+    project,
+    executionContext: {
+      projectId: project.id,
+      environmentInstanceId: 'environment:primary:project-1',
+      cwd: project.path,
+      runtime: 'host' as const,
+    },
+    operation: 'apply' as const,
+    database: 'primary',
+    overview: pendingOverview(),
+    now: () => new Date('2026-09-20T12:00:00.000Z'),
+  };
+
+  await assert.rejects(
+    () =>
+      provider.planMutation({
+        ...baseContext,
+        database: 'analytics',
+      }),
+    /database secundário/u,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.planMutation({
+        ...baseContext,
+        overview: {
+          ...pendingOverview(),
+          provider: 'other-provider',
+        },
+      }),
+    /evidência pending/u,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.planMutation({
+        ...baseContext,
+        overview: {
+          ...pendingOverview(),
+          status: 'unknown',
+        },
+      }),
+    /evidência pending/u,
+  );
+});
+
+test('applyCommand custom reutiliza os mesmos guards contra shell e argumentos inseguros', () => {
+  assert.throws(
+    () =>
+      new CustomMigrationMutationProvider({
+        ...mutationConfig(),
+        applyCommand: {
+          program: 'sh',
+          args: ['-c', 'acme-migrate apply'],
+        },
+      }),
+    /não permitido/u,
+  );
+
+  assert.throws(
+    () =>
+      new CustomMigrationMutationProvider({
+        ...mutationConfig(),
+        applyCommand: {
+          program: 'acme-migrate',
+          args: ['apply\nunsafe'],
+        },
+      }),
+    /Argumento custom inválido/u,
   );
 });
