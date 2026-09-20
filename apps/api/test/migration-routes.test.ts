@@ -83,10 +83,7 @@ function projectStore(): ProjectStore {
 
 function environmentStore() {
   return {
-    resolveForProject: (
-      projectId: string,
-      environmentInstanceId?: string,
-    ) => {
+    resolveForProject: (projectId: string, environmentInstanceId?: string) => {
       if (projectId !== 'project-1') return undefined;
       const resolvedId = environmentInstanceId ?? ENVIRONMENT_ID;
       if (resolvedId === ENVIRONMENT_ID) {
