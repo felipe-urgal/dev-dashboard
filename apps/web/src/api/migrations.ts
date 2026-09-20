@@ -1,10 +1,7 @@
 import { requestJson } from './core';
 
 export type MigrationOverviewStatus =
-  | 'up-to-date'
-  | 'pending'
-  | 'unavailable'
-  | 'unknown';
+  'up-to-date' | 'pending' | 'unavailable' | 'unknown';
 
 export interface MigrationEntry {
   id: string;
@@ -23,9 +20,7 @@ export interface MigrationOverview {
 }
 
 export type MigrationMutationPreflightState =
-  | 'ready'
-  | 'blocked'
-  | 'unavailable';
+  'ready' | 'blocked' | 'unavailable';
 
 export type MigrationMutationPreflightReason =
   | 'ready'
@@ -200,14 +195,11 @@ export async function cancelMigrationMutation(
   environmentInstanceId: string,
 ): Promise<void> {
   const query = new URLSearchParams({ environmentInstanceId });
-  await requestJson(
-    `${migrationsPath(projectId)}/mutations/cancel?${query}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-    },
-  );
+  await requestJson(`${migrationsPath(projectId)}/mutations/cancel?${query}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
 }
 
 export function migrationMutationWebSocketUrl(

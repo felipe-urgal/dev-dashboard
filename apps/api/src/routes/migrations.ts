@@ -27,7 +27,10 @@ import type { ProjectStore } from '../store/project-store.js';
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   migrationOverviewService: Pick<MigrationOverviewService, 'inspect'>;
-  migrationMutationPlanningService: Pick<MigrationMutationPlanningService, 'plan'>;
+  migrationMutationPlanningService: Pick<
+    MigrationMutationPlanningService,
+    'plan'
+  >;
   migrationMutationConfirmationService: Pick<
     MigrationMutationConfirmationService,
     'prepare'
