@@ -121,7 +121,11 @@ const route = useRoute();
     :class="{
       'project-details-tab-active': route.name === 'project-migrations',
     }"
-    :to="{ name: 'project-migrations', params: { projectId: project.id } }"
+    :to="{
+      name: 'project-migrations',
+      params: { projectId: project.id },
+      ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
+    }"
   >
     <CircleStackIcon aria-hidden="true" />
     <span>Migrations</span>
