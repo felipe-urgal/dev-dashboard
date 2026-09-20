@@ -246,6 +246,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(migrationRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     migrationOverviewService,
     migrationMutationPlanningService,
     migrationMutationConfirmationService,
