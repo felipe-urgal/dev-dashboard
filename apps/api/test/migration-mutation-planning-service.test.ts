@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
+import { CustomMigrationMutationProvider } from '../src/services/custom-migration-provider.js';
 import type { MigrationOverview } from '../src/services/migration-provider.js';
 import type { MigrationMutationProvider } from '../src/services/migration-mutation-provider.js';
 import {
@@ -422,4 +423,55 @@ test('planHash permanece estável entre revalidações equivalentes e invalida q
   assert.notEqual(moved.planHash, first.planHash);
   assert.equal(service.resolveExecutionContext(first), null);
   assert.deepEqual(service.resolveExecutionContext(moved), currentContext);
+});
+
+
+test('provider custom explícito usa o planner comum quando status prova pending por exit code', async () => {
+  const customProvider = new CustomMigrationMutationProvider(
+    {
+      id: 'acme-migrations',
+      command: {
+        program: 'acme-migrate',
+        args: ['status', '--quiet'],
+      },
+      applyCommand: {
+        program: 'acme-migrate',
+        args: ['apply', '--non-interactive'],
+      },
+      projectIds: [project.id],
+      upToDateExitCodes: [0],
+      pendingExitCodes: [2],
+      unavailableExitCodes: [3],
+    },
+    async () => ({ exitCode: 2 }),
+  );
+
+  const service = new MigrationMutationPlanningService(
+    [customProvider],
+    {
+      inspect: async (selectedProject, database) =>
+        customProvider.inspect({
+          project: selectedProject,
+          database,
+          now: () => NOW,
+        }),
+    },
+    { resolveForProject: () => hostContext },
+    { now: () => NOW },
+  );
+
+  const plan = await service.plan(project, { operation: 'apply' });
+
+  assert.equal(plan.provider, 'acme-migrations');
+  assert.equal(plan.preflight.state, 'ready');
+  assert.equal(plan.preflight.reason, 'ready');
+  assert.deepEqual(plan.command, {
+    file: 'acme-migrate',
+    args: ['apply', '--non-interactive'],
+  });
+  assert.equal(
+    JSON.stringify(plan).includes(hostContext.cwd),
+    false,
+    'o plano público será sanitizado depois; a autoridade do cwd permanece no executionContextHash',
+  );
 });
