@@ -228,3 +228,64 @@ test('shutdown cancela runs ativos sem operar execuções externas', async () =>
     `local-ci:${project.id}:${second.id}`,
   ]);
 });
+
+test('normaliza request fora do catálogo sem expor erro interno', async () => {
+  const executions = new FakeExecutions();
+  const service = new LocalCiExecutionService(
+    {
+      discover: async () => ({
+        ...catalog(),
+        jobs: [],
+      }),
+    },
+    executions,
+    { createId: () => 'run-invalid' },
+  );
+
+  await assert.rejects(
+    service.start(project, request),
+    (error: unknown) =>
+      error instanceof LocalCiExecutionError &&
+      error.code === 'LOCAL_CI_INVALID_REQUEST',
+  );
+  assert.equal(executions.starts.length, 0);
+});
+
+test('normaliza indisponibilidade de act/docker antes de tentar executar', async () => {
+  const executions = new FakeExecutions();
+  const service = new LocalCiExecutionService(
+    {
+      discover: async () => ({
+        ...catalog(),
+        availability: { state: 'act-missing' as const },
+      }),
+    },
+    executions,
+    { createId: () => 'run-unavailable' },
+  );
+
+  await assert.rejects(
+    service.start(project, request),
+    (error: unknown) =>
+      error instanceof LocalCiExecutionError &&
+      error.code === 'LOCAL_CI_UNAVAILABLE',
+  );
+  assert.equal(executions.starts.length, 0);
+});
+
+test('normaliza falha do executor sem transportar erro bruto', async () => {
+  const executions = new FakeExecutions();
+  executions.start = () => {
+    throw new Error('spawn /private/path secret=abc failed');
+  };
+  const service = createService(executions);
+
+  await assert.rejects(
+    service.start(project, request),
+    (error: unknown) =>
+      error instanceof LocalCiExecutionError &&
+      error.code === 'LOCAL_CI_START_FAILED' &&
+      !error.message.includes('secret') &&
+      !error.message.includes('/private/path'),
+  );
+});

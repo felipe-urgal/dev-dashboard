@@ -22,6 +22,8 @@ import { GitPullRequestStatusService } from './services/git-pull-request-status-
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
+import { LocalCiDiscoveryService } from './services/local-ci-discovery-service.js';
+import { LocalCiExecutionService } from './services/local-ci-execution-service.js';
 import { MigrationOverviewService } from './services/migration-overview-service.js';
 import { MigrationMutationConfirmationService } from './services/migration-mutation-confirmation-service.js';
 import { MigrationMutationExecutionService } from './services/migration-mutation-execution-service.js';
@@ -64,6 +66,11 @@ export interface AppCompositionOptions {
   >;
   migrationProviders?: readonly MigrationProvider[];
   migrationMutationProviders?: readonly MigrationMutationProvider[];
+  localCiDiscoveryService?: Pick<LocalCiDiscoveryService, 'discover'>;
+  localCiExecutionService?: Pick<
+    LocalCiExecutionService,
+    'start' | 'get' | 'reattach' | 'cancel' | 'shutdown'
+  >;
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
 }
 
@@ -211,6 +218,16 @@ export function createAppComposition(
   const dependencyUpgradePlanService =
     options.dependencyUpgradePlanService ??
     new ProjectDependencyUpgradePlanService({ dependencyHealthService });
+  const localCiDiscoveryService =
+    options.localCiDiscoveryService ?? new LocalCiDiscoveryService();
+  const localCiExecutionService =
+    options.localCiExecutionService ??
+    (context.detachableExecutionService
+      ? new LocalCiExecutionService(
+          localCiDiscoveryService,
+          context.detachableExecutionService,
+        )
+      : undefined);
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
@@ -237,6 +254,8 @@ export function createAppComposition(
     migrationMutationPlanningService,
     migrationMutationConfirmationService,
     migrationMutationExecutionService,
+    localCiDiscoveryService,
+    localCiExecutionService,
     dependencyHealthService,
     dependencyUpgradePlanService,
     securityScannerProvider,
@@ -258,6 +277,7 @@ export function registerAppLifecycle(
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
+    composition.localCiExecutionService?.shutdown();
     await context.detachableExecutionService?.close();
     composition.databaseExplorerSessionStore.close();
     composition.projectLanguageServerService.close();
