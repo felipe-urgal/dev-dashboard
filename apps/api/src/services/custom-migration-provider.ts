@@ -48,8 +48,7 @@ export interface CustomMigrationProviderConfig {
   unavailableExitCodes?: readonly number[];
 }
 
-export interface CustomMigrationMutationProviderConfig
-  extends CustomMigrationProviderConfig {
+export interface CustomMigrationMutationProviderConfig extends CustomMigrationProviderConfig {
   applyCommand: CustomMigrationCommand;
 }
 
@@ -298,7 +297,6 @@ export class CustomMigrationProvider implements MigrationProvider {
     };
   }
 }
-
 
 export class CustomMigrationMutationProvider
   extends CustomMigrationProvider
