@@ -17,10 +17,7 @@ import {
   type MigrationMutationPlanInput,
   type MigrationMutationPlanningService,
 } from '../services/migration-mutation-planning-service.js';
-import type {
-  MigrationMutationPlan,
-  MigrationMutationPreflight,
-} from '../services/migration-mutation-provider.js';
+import type { MigrationMutationPlan } from '../services/migration-mutation-provider.js';
 import type { MigrationOverviewService } from '../services/migration-overview-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
@@ -55,15 +52,15 @@ interface EnvironmentQuery {
   environmentInstanceId: string;
 }
 
-interface MutationBody extends MigrationMutationPlanInput {}
+type MutationBody = MigrationMutationPlanInput;
 
-interface ConfirmationBody extends MutationBody {
+type ConfirmationBody = MutationBody & {
   planHash: string;
-}
+};
 
-interface StartBody extends MutationBody {
+type StartBody = MutationBody & {
   confirmationToken: string;
-}
+};
 
 const paramsSchema = {
   type: 'object',
@@ -381,6 +378,16 @@ function sendJson(socket: WebSocket, message: unknown): void {
   }
 }
 
+function mutationInput(input: MutationBody): MigrationMutationPlanInput {
+  return {
+    operation: input.operation,
+    ...(input.database ? { database: input.database } : {}),
+    ...(input.environmentInstanceId
+      ? { environmentInstanceId: input.environmentInstanceId }
+      : {}),
+  };
+}
+
 async function planMutation(
   options: Options,
   projectId: string,
@@ -482,7 +489,7 @@ export const migrationRoutes: FastifyPluginAsync<Options> = async (
       const plan = await planMutation(
         options,
         request.params.projectId,
-        request.body,
+        mutationInput(request.body),
       );
       if (plan.planHash !== request.body.planHash) {
         throw new ApiError({
@@ -540,7 +547,7 @@ export const migrationRoutes: FastifyPluginAsync<Options> = async (
       try {
         const snapshot = await executionService.start(
           project,
-          request.body,
+          mutationInput(request.body),
           request.body.confirmationToken,
         );
         return reply.code(201).send({ snapshot });
