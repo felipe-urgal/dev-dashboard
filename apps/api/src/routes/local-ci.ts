@@ -47,6 +47,8 @@ const runParamsSchema = {
   },
 } as const;
 
+const START_BODY_KEYS = new Set(['workflowFile', 'jobId', 'event']);
+
 const jobRequestSchema = {
   type: 'object',
   additionalProperties: false,
@@ -143,6 +145,26 @@ const executionSnapshotSchema = {
   },
 } as const;
 
+function rejectUnexpectedBodyKeys(
+  body: unknown,
+  allowedKeys: ReadonlySet<string>,
+): void {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return;
+
+  const unexpected = Object.keys(body).filter((key) => !allowedKeys.has(key));
+  if (unexpected.length === 0) return;
+
+  throw new ApiError({
+    statusCode: 400,
+    code: 'VALIDATION_ERROR',
+    message: 'A requisição possui dados inválidos.',
+    details: unexpected.map((key) => ({
+      path: `/${key}`,
+      message: 'Propriedade não permitida.',
+    })),
+  });
+}
+
 function requireProject(store: ProjectStore, projectId: string) {
   const project = store.findProject(projectId);
   if (!project) {
@@ -226,6 +248,9 @@ export const localCiRoutes: FastifyPluginAsync<Options> = async (
   app.post<{ Params: ProjectParams; Body: LocalCiJobRequest }>(
     '/projects/:projectId/local-ci/runs',
     {
+      preValidation: async (request) => {
+        rejectUnexpectedBodyKeys(request.body, START_BODY_KEYS);
+      },
       schema: {
         params: projectParamsSchema,
         body: jobRequestSchema,
