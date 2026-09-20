@@ -112,13 +112,23 @@ describe('ProjectMigrationsPanel', () => {
       endedAt: null,
     });
 
-    const wrapper = mount(ProjectMigrationsPanel, { props: { project } });
+    const wrapper = mount(ProjectMigrationsPanel, {
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
+    });
     await flushPromises();
 
-    expect(api.fetchMigrationOverview).toHaveBeenCalledWith(project.id);
+    expect(api.fetchMigrationOverview).toHaveBeenCalledWith(
+      project.id,
+      undefined,
+      readyPlan.environmentInstanceId,
+    );
     expect(api.planMigrationMutation).toHaveBeenCalledWith(
       project.id,
       'primary',
+      readyPlan.environmentInstanceId,
     );
     expect(wrapper.text()).toContain('Pendente');
     expect(wrapper.text()).toContain('Histórico de migrations');
