@@ -41,7 +41,9 @@ function overview(database: string): MigrationOverview {
   };
 }
 
-function mutationPlan(overrides: Partial<MigrationMutationPlan> = {}): MigrationMutationPlan {
+function mutationPlan(
+  overrides: Partial<MigrationMutationPlan> = {},
+): MigrationMutationPlan {
   return {
     projectId: 'project-1',
     provider: 'rails',
