@@ -463,8 +463,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectMigrationsPanel
         v-else-if="isMigrationsRoute"
-        :key="`migrations-${project.id}`"
+        :key="`migrations-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectSecurityCenterPanel
