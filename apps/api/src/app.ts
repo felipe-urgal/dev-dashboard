@@ -130,6 +130,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
     dependencyHealthService,
     dependencyUpgradePlanService,
     migrationOverviewService,
+    migrationMutationPlanningService,
+    migrationMutationConfirmationService,
+    migrationMutationExecutionService,
     dockerComposeProvider,
     dockerComposePreflightService,
     dockerComposeLifecycleService,
@@ -243,7 +246,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(migrationRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     migrationOverviewService,
+    migrationMutationPlanningService,
+    migrationMutationConfirmationService,
+    migrationMutationExecutionService,
   });
 
   app.register(dockerComposeRoutes, {

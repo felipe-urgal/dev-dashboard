@@ -3,11 +3,38 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Project } from '@dev-dashboard/contracts';
 
-const fetchMigrationOverview = vi.hoisted(() => vi.fn());
+const api = vi.hoisted(() => ({
+  fetchMigrationOverview: vi.fn(),
+  planMigrationMutation: vi.fn(),
+  fetchMigrationMutationStatus: vi.fn(),
+  prepareMigrationMutation: vi.fn(),
+  startMigrationMutation: vi.fn(),
+  cancelMigrationMutation: vi.fn(),
+  migrationMutationWebSocketUrl: vi.fn(),
+}));
+
+const terminal = vi.hoisted(() => ({
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+  disposeTerminal: vi.fn(),
+}));
 
 vi.mock('../src/api/migrations', async () => {
   const actual = await vi.importActual('../src/api/migrations');
-  return { ...actual, fetchMigrationOverview };
+  return { ...actual, ...api };
+});
+
+vi.mock('../src/composables/usePtyTerminalSocket', async () => {
+  const { ref } = await import('vue');
+  return {
+    usePtyTerminalSocket: () => ({
+      terminalContainer: ref(null),
+      connecting: ref(false),
+      connect: terminal.connect,
+      disconnect: terminal.disconnect,
+      disposeTerminal: terminal.disposeTerminal,
+    }),
+  };
 });
 
 import ProjectMigrationsPanel from '../src/components/ProjectMigrationsPanel.vue';
@@ -23,13 +50,35 @@ const project: Project = {
   capabilities: ['database'],
 };
 
+const readyPlan = {
+  projectId: project.id,
+  provider: 'rails',
+  operation: 'apply' as const,
+  database: 'primary',
+  environmentInstanceId: 'environment:primary:project-1',
+  runtime: 'host' as const,
+  createdAt: '2026-09-20T10:00:00.000Z',
+  overviewObservedAt: '2026-09-07T16:00:00.000Z',
+  planHash: 'a'.repeat(64),
+  preflight: {
+    state: 'ready' as const,
+    reason: 'ready' as const,
+    observedAt: '2026-09-07T16:00:00.000Z',
+    evidence: 'Rails db:migrate:status',
+  },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  api.fetchMigrationMutationStatus.mockResolvedValue(null);
+  api.migrationMutationWebSocketUrl.mockReturnValue(
+    'ws://localhost/api/projects/project-1/migrations/mutations/connect',
+  );
 });
 
 describe('ProjectMigrationsPanel', () => {
-  it('renderiza a linha do tempo e o contexto sem expor ações de mutation', async () => {
-    fetchMigrationOverview.mockResolvedValue({
+  it('renderiza timeline e habilita apply somente quando o plano comum está ready', async () => {
+    api.fetchMigrationOverview.mockResolvedValue({
       provider: 'rails',
       status: 'pending',
       database: 'primary',
@@ -42,33 +91,104 @@ describe('ProjectMigrationsPanel', () => {
       evidence: 'Rails db:migrate:status',
       warnings: ['Banco secundário não foi consultado.'],
     });
+    api.planMigrationMutation.mockResolvedValue(readyPlan);
+    api.prepareMigrationMutation.mockResolvedValue({
+      token: 'confirmation-token',
+      planHash: readyPlan.planHash,
+      expiresAt: '2026-09-20T10:01:00.000Z',
+    });
+    api.startMigrationMutation.mockResolvedValue({
+      provider: 'rails',
+      operation: 'apply',
+      database: 'primary',
+      environmentInstanceId: readyPlan.environmentInstanceId,
+      planHash: readyPlan.planHash,
+      status: 'running',
+      buffer: '',
+      truncated: false,
+      exitCode: null,
+      exitSignal: null,
+      startedAt: '2026-09-20T10:00:05.000Z',
+      endedAt: null,
+    });
+
+    const wrapper = mount(ProjectMigrationsPanel, {
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
+    });
+    await flushPromises();
+
+    expect(api.fetchMigrationOverview).toHaveBeenCalledWith(
+      project.id,
+      undefined,
+      readyPlan.environmentInstanceId,
+    );
+    expect(api.planMigrationMutation).toHaveBeenCalledWith(
+      project.id,
+      'primary',
+      readyPlan.environmentInstanceId,
+    );
+    expect(wrapper.text()).toContain('Pendente');
+    expect(wrapper.text()).toContain('Histórico de migrations');
+    expect(wrapper.text()).toContain('rails');
+    expect(wrapper.text()).toContain('023');
+    expect(wrapper.text()).toContain('Add audit index');
+    expect(wrapper.text()).toContain('20 mais recentes de 22');
+    expect(wrapper.text()).toContain('Aplicação disponível');
+    expect(wrapper.text()).toContain('Aplicar 1 migration');
+
+    await wrapper.get('.migrations-mutation .primary-button').trigger('click');
+    await flushPromises();
+
+    expect(api.prepareMigrationMutation).toHaveBeenCalledWith(
+      project.id,
+      readyPlan,
+    );
+    expect(api.startMigrationMutation).toHaveBeenCalledWith(
+      project.id,
+      readyPlan,
+      'confirmation-token',
+    );
+    expect(terminal.connect).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toContain('Executando');
+  });
+
+  it('mantém providers sem mutation em modo somente leitura', async () => {
+    api.fetchMigrationOverview.mockResolvedValue({
+      provider: 'prisma',
+      status: 'pending',
+      database: 'primary',
+      applied: [],
+      pending: [{ id: '20260920', name: 'AddUser' }],
+      observedAt: '2026-09-07T16:00:00.000Z',
+      evidence: 'prisma migrate status',
+      warnings: [],
+    });
+    api.planMigrationMutation.mockResolvedValue({
+      ...readyPlan,
+      provider: 'none',
+      preflight: {
+        state: 'unavailable',
+        reason: 'provider-unavailable',
+        observedAt: '2026-09-07T16:00:00.000Z',
+        evidence: 'Migration mutation provider',
+      },
+    });
 
     const wrapper = mount(ProjectMigrationsPanel, { props: { project } });
     await flushPromises();
 
-    expect(fetchMigrationOverview).toHaveBeenCalledWith(project.id);
-    expect(wrapper.text()).toContain('Pendente');
-    expect(wrapper.text()).toContain('Histórico de migrations');
-    expect(wrapper.text()).toContain('Pendentes primeiro');
-    expect(wrapper.text()).toContain('rails');
-    expect(wrapper.text()).toContain('primary');
-    expect(wrapper.text()).toContain('023');
-    expect(wrapper.text()).toContain('Add audit index');
-    expect(wrapper.text()).toContain('Rails db:migrate:status');
-    expect(wrapper.text()).toContain('Banco secundário não foi consultado.');
-    expect(wrapper.text()).toContain('20 mais recentes de 22');
     expect(wrapper.text()).toContain('Somente leitura');
-    expect(wrapper.find('.migrations-state--pending').exists()).toBe(true);
-    expect(wrapper.find('.migrations-workspace').exists()).toBe(true);
-    expect(wrapper.find('.migrations-timeline').exists()).toBe(true);
-    expect(wrapper.find('.migrations-context').exists()).toBe(true);
-    expect(wrapper.findAll('.migrations-timeline-item')).toHaveLength(3);
-    expect(wrapper.text()).not.toContain('Executar migration');
-    expect(wrapper.findAll('button')).toHaveLength(0);
+    expect(wrapper.text()).toContain(
+      'Este provider ainda não possui execução comum habilitada.',
+    );
+    expect(wrapper.text()).not.toContain('Aplicar 1 migration');
   });
 
   it('mostra o estado atualizado sem inventar atividade', async () => {
-    fetchMigrationOverview.mockResolvedValue({
+    api.fetchMigrationOverview.mockResolvedValue({
       provider: 'prisma',
       status: 'up-to-date',
       database: 'primary',
@@ -77,6 +197,16 @@ describe('ProjectMigrationsPanel', () => {
       observedAt: '2026-09-07T16:00:00.000Z',
       evidence: 'prisma migrate status',
       warnings: [],
+    });
+    api.planMigrationMutation.mockResolvedValue({
+      ...readyPlan,
+      provider: 'rails',
+      preflight: {
+        state: 'blocked',
+        reason: 'nothing-pending',
+        observedAt: '2026-09-07T16:00:00.000Z',
+        evidence: 'prisma migrate status',
+      },
     });
 
     const wrapper = mount(ProjectMigrationsPanel, { props: { project } });
@@ -87,16 +217,13 @@ describe('ProjectMigrationsPanel', () => {
       'Não há migrations pendentes segundo a evidência disponível.',
     );
     expect(wrapper.text()).toContain(
-      'Nenhuma migration pendente foi identificada pela inspeção.',
+      'Não há migrations pendentes para aplicar.',
     );
-    expect(wrapper.text()).toContain(
-      'Nenhuma migration aplicada foi retornada pelo provider.',
-    );
-    expect(wrapper.find('.migrations-state--up-to-date').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Somente leitura');
   });
 
-  it('mantém falha explícita e permite retry', async () => {
-    fetchMigrationOverview
+  it('mantém falha de inspeção explícita e permite retry', async () => {
+    api.fetchMigrationOverview
       .mockRejectedValueOnce(new Error('Provider indisponível'))
       .mockResolvedValueOnce({
         provider: 'prisma',
@@ -108,6 +235,15 @@ describe('ProjectMigrationsPanel', () => {
         evidence: 'prisma migrate status',
         warnings: [],
       });
+    api.planMigrationMutation.mockResolvedValue({
+      ...readyPlan,
+      preflight: {
+        state: 'blocked',
+        reason: 'nothing-pending',
+        observedAt: '2026-09-07T16:00:00.000Z',
+        evidence: 'prisma migrate status',
+      },
+    });
 
     const wrapper = mount(ProjectMigrationsPanel, { props: { project } });
     await flushPromises();
@@ -116,7 +252,7 @@ describe('ProjectMigrationsPanel', () => {
     await wrapper.get('button').trigger('click');
     await flushPromises();
 
-    expect(fetchMigrationOverview).toHaveBeenCalledTimes(2);
+    expect(api.fetchMigrationOverview).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).toContain('Atualizado');
   });
 });
