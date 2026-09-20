@@ -4,10 +4,19 @@ import { computed, ref, watch } from 'vue';
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
+  cancelMigrationMutation,
+  fetchMigrationMutationStatus,
   fetchMigrationOverview,
+  migrationMutationWebSocketUrl,
+  planMigrationMutation,
+  prepareMigrationMutation,
+  startMigrationMutation,
+  type MigrationMutationExecutionSnapshot,
+  type MigrationMutationPlan,
   type MigrationOverview,
   type MigrationOverviewStatus,
 } from '../api/migrations';
+import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
 import EmptyState from './EmptyState.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
@@ -17,9 +26,35 @@ const props = defineProps<{ project: Project }>();
 const loading = ref(false);
 const errorMessage = ref('');
 const overview = ref<MigrationOverview | null>(null);
+const mutationPlan = ref<MigrationMutationPlan | null>(null);
+const mutationSnapshot = ref<MigrationMutationExecutionSnapshot | null>(null);
+const mutationBusy = ref(false);
+const mutationError = ref('');
 let generation = 0;
 
 const APPLIED_PREVIEW_LIMIT = 20;
+
+const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
+  usePtyTerminalSocket<MigrationMutationExecutionSnapshot>({
+    onReady: (snapshot) => {
+      mutationSnapshot.value = snapshot;
+    },
+    onExit: (exitCode, exitSignal) => {
+      if (mutationSnapshot.value) {
+        mutationSnapshot.value = {
+          ...mutationSnapshot.value,
+          status: 'exited',
+          exitCode,
+          exitSignal,
+          endedAt: new Date().toISOString(),
+        };
+      }
+      void refreshReadModel();
+    },
+    onError: (message) => {
+      mutationError.value = message;
+    },
+  });
 
 const statusLabel: Record<MigrationOverviewStatus, string> = {
   'up-to-date': 'Atualizado',
@@ -60,6 +95,50 @@ const summaryText = computed(() => {
   return 'A evidência atual não permite classificar o estado com segurança.';
 });
 
+const mutationRunning = computed(
+  () => mutationSnapshot.value?.status === 'running',
+);
+
+const mutationReady = computed(
+  () => mutationPlan.value?.preflight.state === 'ready',
+);
+
+const mutationMode = computed(() =>
+  mutationReady.value ? 'Aplicação disponível' : 'Somente leitura',
+);
+
+const mutationHint = computed(() => {
+  const plan = mutationPlan.value;
+  if (!plan) return 'Avaliando se este provider pode executar migrations.';
+
+  switch (plan.preflight.reason) {
+    case 'ready':
+      return 'Plano validado pelo backend. A execução revalida o ambiente e as migrations antes de iniciar.';
+    case 'nothing-pending':
+      return 'Não há migrations pendentes para aplicar.';
+    case 'provider-unavailable':
+      return 'Este provider ainda não possui execução comum habilitada.';
+    case 'runtime-unsupported':
+      return 'O runtime atual ainda não suporta execução comum de migrations.';
+    case 'provider-evidence-mismatch':
+    case 'database-evidence-mismatch':
+      return 'A evidência read-only não coincide com o alvo da execução.';
+    case 'inspection-inconclusive':
+      return 'A inspeção atual é inconclusiva; a execução permanece bloqueada.';
+    case 'provider-plan-invalid':
+      return 'O provider não produziu um plano de execução válido.';
+    default:
+      return plan.preflight.diagnostic ?? 'A execução permanece bloqueada.';
+  }
+});
+
+const executionLabel = computed(() => {
+  const snapshot = mutationSnapshot.value;
+  if (!snapshot) return '';
+  if (snapshot.status === 'running') return 'Executando';
+  return snapshot.exitCode === 0 ? 'Concluída' : 'Falhou';
+});
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -67,6 +146,43 @@ function formatDate(value: string): string {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date);
+}
+
+async function loadMutationState(
+  projectId: string,
+  database: string,
+  requestGeneration: number,
+): Promise<void> {
+  mutationPlan.value = null;
+  mutationSnapshot.value = null;
+  mutationError.value = '';
+  disconnect();
+  disposeTerminal();
+
+  try {
+    const plan = await planMigrationMutation(projectId, database);
+    if (requestGeneration !== generation) return;
+    mutationPlan.value = plan;
+
+    const snapshot = await fetchMigrationMutationStatus(
+      projectId,
+      plan.environmentInstanceId,
+    );
+    if (requestGeneration !== generation) return;
+    mutationSnapshot.value = snapshot;
+    if (snapshot) {
+      connect(
+        migrationMutationWebSocketUrl(projectId, plan.environmentInstanceId),
+      );
+    }
+  } catch (error) {
+    if (requestGeneration === generation) {
+      mutationError.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível avaliar a execução de migrations.';
+    }
+  }
 }
 
 async function load(): Promise<void> {
@@ -77,7 +193,13 @@ async function load(): Promise<void> {
 
   try {
     const result = await fetchMigrationOverview(props.project.id);
-    if (requestGeneration === generation) overview.value = result;
+    if (requestGeneration !== generation) return;
+    overview.value = result;
+    await loadMutationState(
+      props.project.id,
+      result.database,
+      requestGeneration,
+    );
   } catch (error) {
     if (requestGeneration === generation) {
       errorMessage.value =
@@ -87,6 +209,79 @@ async function load(): Promise<void> {
     }
   } finally {
     if (requestGeneration === generation) loading.value = false;
+  }
+}
+
+async function refreshReadModel(): Promise<void> {
+  const projectId = props.project.id;
+  try {
+    const result = await fetchMigrationOverview(projectId);
+    if (props.project.id !== projectId) return;
+    overview.value = result;
+    mutationPlan.value = await planMigrationMutation(projectId, result.database);
+  } catch (error) {
+    if (props.project.id === projectId) {
+      mutationError.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar o estado após a execução.';
+    }
+  }
+}
+
+async function runMigration(): Promise<void> {
+  const plan = mutationPlan.value;
+  if (!plan || plan.preflight.state !== 'ready' || mutationRunning.value) {
+    return;
+  }
+
+  mutationBusy.value = true;
+  mutationError.value = '';
+  try {
+    const confirmation = await prepareMigrationMutation(props.project.id, plan);
+    const snapshot = await startMigrationMutation(
+      props.project.id,
+      plan,
+      confirmation.token,
+    );
+    mutationSnapshot.value = snapshot;
+    disconnect();
+    disposeTerminal();
+    connect(
+      migrationMutationWebSocketUrl(
+        props.project.id,
+        snapshot.environmentInstanceId,
+      ),
+    );
+  } catch (error) {
+    mutationError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível iniciar a execução das migrations.';
+    await refreshReadModel();
+  } finally {
+    mutationBusy.value = false;
+  }
+}
+
+async function cancelMutation(): Promise<void> {
+  const snapshot = mutationSnapshot.value;
+  if (!snapshot || snapshot.status !== 'running') return;
+
+  mutationBusy.value = true;
+  mutationError.value = '';
+  try {
+    await cancelMigrationMutation(
+      props.project.id,
+      snapshot.environmentInstanceId,
+    );
+  } catch (error) {
+    mutationError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível cancelar a execução das migrations.';
+  } finally {
+    mutationBusy.value = false;
   }
 }
 
@@ -104,8 +299,8 @@ watch(
         <span class="migrations-eyebrow">Banco de dados</span>
         <h3 id="migrations-title">Migrations</h3>
         <p>
-          Inspeção comum e somente leitura. Nenhuma migration é executada por
-          esta tela.
+          Inspeção comum com execução protegida por preflight, confirmação e
+          revalidação do ambiente.
         </p>
       </div>
     </header>
@@ -267,7 +462,7 @@ watch(
             </div>
             <div>
               <dt>Modo</dt>
-              <dd>Somente leitura</dd>
+              <dd>{{ mutationMode }}</dd>
             </div>
           </dl>
 
@@ -284,11 +479,68 @@ watch(
             </ul>
           </div>
 
-          <p class="migrations-readonly-note">
-            Nenhuma migration é executada nesta tela.
-          </p>
+          <section class="migrations-mutation" aria-label="Aplicar migrations">
+            <div>
+              <strong>Aplicação</strong>
+              <p>{{ mutationHint }}</p>
+            </div>
+
+            <p v-if="mutationError" class="migrations-mutation-error">
+              {{ mutationError }}
+            </p>
+
+            <button
+              v-if="mutationReady && !mutationRunning"
+              class="primary-button"
+              type="button"
+              :disabled="mutationBusy"
+              @click="runMigration"
+            >
+              {{
+                mutationBusy
+                  ? 'Preparando…'
+                  : `Aplicar ${overview.pending.length} migration${overview.pending.length === 1 ? '' : 's'}`
+              }}
+            </button>
+
+            <button
+              v-else-if="mutationRunning"
+              class="secondary-button"
+              type="button"
+              :disabled="mutationBusy"
+              @click="cancelMutation"
+            >
+              {{ mutationBusy ? 'Cancelando…' : 'Cancelar execução' }}
+            </button>
+          </section>
         </aside>
       </div>
+
+      <section
+        v-if="mutationSnapshot"
+        class="migrations-execution"
+        aria-labelledby="migrations-execution-title"
+      >
+        <div class="migrations-execution-heading">
+          <div>
+            <span class="migrations-context-eyebrow">Execução</span>
+            <h4 id="migrations-execution-title">{{ executionLabel }}</h4>
+          </div>
+          <span>
+            {{
+              connecting
+                ? 'Conectando…'
+                : mutationSnapshot.status === 'running'
+                  ? 'Saída ao vivo'
+                  : `exit ${mutationSnapshot.exitCode ?? '—'}`
+            }}
+          </span>
+        </div>
+        <div ref="terminalContainer" class="migrations-terminal"></div>
+        <p v-if="mutationSnapshot.truncated" class="migrations-output-note">
+          A saída anterior foi truncada pelo limite seguro de retenção.
+        </p>
+      </section>
     </template>
   </section>
 </template>
@@ -308,11 +560,14 @@ watch(
 .migrations-section-heading h5,
 .migrations-empty-copy,
 .migrations-inspection-date,
-.migrations-readonly-note {
+.migrations-mutation p,
+.migrations-execution-heading h4,
+.migrations-output-note {
   margin: 0;
 }
 
-.migrations-header h3 {
+.migrations-header h3,
+.migrations-execution-heading h4 {
   margin-top: var(--space-1);
 }
 
@@ -320,7 +575,8 @@ watch(
 .migrations-timeline-heading p,
 .migrations-empty-copy,
 .migrations-inspection-date,
-.migrations-readonly-note,
+.migrations-mutation p,
+.migrations-output-note,
 .migrations-context-list dt {
   color: var(--text-muted);
 }
@@ -530,8 +786,76 @@ watch(
   padding-left: var(--space-5);
 }
 
-.migrations-readonly-note {
+.migrations-mutation {
+  display: grid;
+  gap: var(--space-3);
   padding-top: var(--space-2);
+}
+
+.migrations-mutation > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.migrations-mutation button {
+  width: 100%;
+}
+
+.migrations-mutation-error {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--danger-surface);
+  color: var(--danger-text) !important;
+}
+
+.migrations-execution {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.migrations-execution-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.migrations-execution-heading > span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.migrations-terminal {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 260px;
+  height: 320px;
+  padding: var(--space-3);
+  overflow: hidden;
+  background: #10131c;
+}
+
+.migrations-terminal :global(.xterm) {
+  width: 100%;
+  height: 100%;
+}
+
+.migrations-terminal :global(.xterm-viewport) {
+  background-color: #10131c !important;
+  scrollbar-width: none;
+}
+
+.migrations-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+  display: none;
+}
+
+.migrations-output-note {
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 900px) {
@@ -548,13 +872,14 @@ watch(
 
   .migrations-context-eyebrow,
   .migrations-warning,
-  .migrations-readonly-note {
+  .migrations-mutation {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 640px) {
-  .migrations-state {
+  .migrations-state,
+  .migrations-execution-heading {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -566,6 +891,10 @@ watch(
   .migrations-list li {
     grid-template-columns: 1fr;
     gap: var(--space-1);
+  }
+
+  .migrations-terminal {
+    height: 260px;
   }
 }
 </style>
