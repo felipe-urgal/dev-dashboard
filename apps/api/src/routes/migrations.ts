@@ -19,10 +19,15 @@ import {
 } from '../services/migration-mutation-planning-service.js';
 import type { MigrationMutationPlan } from '../services/migration-mutation-provider.js';
 import type { MigrationOverviewService } from '../services/migration-overview-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'resolveForProject'
+  >;
   migrationOverviewService: Pick<MigrationOverviewService, 'inspect'>;
   migrationMutationPlanningService: Pick<
     MigrationMutationPlanningService,
@@ -46,6 +51,7 @@ interface Params {
 
 interface Querystring {
   database?: string;
+  environmentInstanceId?: string;
 }
 
 interface EnvironmentQuery {
@@ -89,6 +95,7 @@ const querystringSchema = {
   additionalProperties: false,
   properties: {
     database: databaseSchema,
+    environmentInstanceId: environmentInstanceIdSchema,
   },
 } as const;
 
@@ -284,6 +291,30 @@ function requireProject(store: ProjectStore, projectId: string) {
   return project;
 }
 
+function projectForInspection(
+  options: Options,
+  projectId: string,
+  environmentInstanceId?: string,
+) {
+  const project = requireProject(options.projectStore, projectId);
+  if (!environmentInstanceId) return project;
+
+  const executionContext =
+    options.developmentEnvironmentInstanceStore.resolveForProject(
+      project.id,
+      environmentInstanceId,
+    );
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+
+  return { ...project, path: executionContext.cwd };
+}
+
 function publicPlan(plan: MigrationMutationPlan) {
   return {
     projectId: plan.projectId,
@@ -431,9 +462,10 @@ export const migrationRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(
-        options.projectStore,
+      const project = projectForInspection(
+        options,
         request.params.projectId,
+        request.query.environmentInstanceId,
       );
       return {
         migration: await options.migrationOverviewService.inspect(
