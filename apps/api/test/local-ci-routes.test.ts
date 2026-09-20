@@ -9,7 +9,10 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { localCiRoutes } from '../src/routes/local-ci.js';
-import type { LocalCiCatalog, LocalCiJobRequest } from '../src/services/local-ci-act.js';
+import type {
+  LocalCiCatalog,
+  LocalCiJobRequest,
+} from '../src/services/local-ci-act.js';
 import {
   LocalCiExecutionError,
   type LocalCiExecutionSnapshot,
@@ -305,8 +308,5 @@ test('Local CI WebSocket reanexa ao mesmo run e transmite output/exit com approx
   );
   assert.deepEqual(messages[1], { type: 'output', data: 'novo chunk\n' });
   assert.equal(messages[2]?.type, 'exit');
-  assert.equal(
-    (messages[2]?.run as LocalCiExecutionSnapshot).exitCode,
-    0,
-  );
+  assert.equal((messages[2]?.run as LocalCiExecutionSnapshot).exitCode, 0);
 });

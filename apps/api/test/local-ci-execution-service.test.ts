@@ -229,7 +229,6 @@ test('shutdown cancela runs ativos sem operar execuções externas', async () =>
   ]);
 });
 
-
 test('normaliza request fora do catálogo sem expor erro interno', async () => {
   const executions = new FakeExecutions();
   const service = new LocalCiExecutionService(
