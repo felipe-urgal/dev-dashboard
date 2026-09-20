@@ -129,9 +129,7 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain('Aplicação disponível');
     expect(wrapper.text()).toContain('Aplicar 1 migration');
 
-    await wrapper
-      .get('.migrations-mutation .primary-button')
-      .trigger('click');
+    await wrapper.get('.migrations-mutation .primary-button').trigger('click');
     await flushPromises();
 
     expect(api.prepareMigrationMutation).toHaveBeenCalledWith(
@@ -208,7 +206,9 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain(
       'Não há migrations pendentes segundo a evidência disponível.',
     );
-    expect(wrapper.text()).toContain('Não há migrations pendentes para aplicar.');
+    expect(wrapper.text()).toContain(
+      'Não há migrations pendentes para aplicar.',
+    );
     expect(wrapper.text()).toContain('Somente leitura');
   });
 

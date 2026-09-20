@@ -108,11 +108,7 @@ describe('Migrations API', () => {
 
     const planned = await planMigrationMutation('project-1', 'primary');
     const confirmation = await prepareMigrationMutation('project-1', planned);
-    await startMigrationMutation(
-      'project-1',
-      planned,
-      confirmation.token,
-    );
+    await startMigrationMutation('project-1', planned, confirmation.token);
 
     expect(requestJson).toHaveBeenNthCalledWith(
       1,
@@ -151,18 +147,17 @@ describe('Migrations API', () => {
   });
 
   it('expõe status/cancel/connect por environment instance', async () => {
-    requestJson.mockResolvedValueOnce({ snapshot: null }).mockResolvedValueOnce({
-      ok: true,
-    });
+    requestJson
+      .mockResolvedValueOnce({ snapshot: null })
+      .mockResolvedValueOnce({
+        ok: true,
+      });
 
     await fetchMigrationMutationStatus(
       'project-1',
       'environment:primary:project-1',
     );
-    await cancelMigrationMutation(
-      'project-1',
-      'environment:primary:project-1',
-    );
+    await cancelMigrationMutation('project-1', 'environment:primary:project-1');
 
     expect(requestJson).toHaveBeenNthCalledWith(
       1,
