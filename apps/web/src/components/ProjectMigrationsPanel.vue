@@ -21,7 +21,10 @@ import EmptyState from './EmptyState.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string | undefined;
+}>();
 
 const loading = ref(false);
 const errorMessage = ref('');
@@ -151,6 +154,7 @@ function formatDate(value: string): string {
 async function loadMutationState(
   projectId: string,
   database: string,
+  environmentInstanceId: string | undefined,
   requestGeneration: number,
 ): Promise<void> {
   mutationPlan.value = null;
@@ -160,7 +164,11 @@ async function loadMutationState(
   disposeTerminal();
 
   try {
-    const plan = await planMigrationMutation(projectId, database);
+    const plan = await planMigrationMutation(
+      projectId,
+      database,
+      environmentInstanceId,
+    );
     if (requestGeneration !== generation) return;
     mutationPlan.value = plan;
 
@@ -187,17 +195,24 @@ async function loadMutationState(
 
 async function load(): Promise<void> {
   const requestGeneration = ++generation;
+  const projectId = props.project.id;
+  const environmentInstanceId = props.environmentInstanceId;
   loading.value = true;
   errorMessage.value = '';
   overview.value = null;
 
   try {
-    const result = await fetchMigrationOverview(props.project.id);
+    const result = await fetchMigrationOverview(
+      projectId,
+      undefined,
+      environmentInstanceId,
+    );
     if (requestGeneration !== generation) return;
     overview.value = result;
     await loadMutationState(
-      props.project.id,
+      projectId,
       result.database,
+      environmentInstanceId,
       requestGeneration,
     );
   } catch (error) {
@@ -214,16 +229,30 @@ async function load(): Promise<void> {
 
 async function refreshReadModel(): Promise<void> {
   const projectId = props.project.id;
+  const environmentInstanceId = props.environmentInstanceId;
   try {
-    const result = await fetchMigrationOverview(projectId);
-    if (props.project.id !== projectId) return;
+    const result = await fetchMigrationOverview(
+      projectId,
+      undefined,
+      environmentInstanceId,
+    );
+    if (
+      props.project.id !== projectId ||
+      props.environmentInstanceId !== environmentInstanceId
+    ) {
+      return;
+    }
     overview.value = result;
     mutationPlan.value = await planMigrationMutation(
       projectId,
       result.database,
+      environmentInstanceId,
     );
   } catch (error) {
-    if (props.project.id === projectId) {
+    if (
+      props.project.id === projectId &&
+      props.environmentInstanceId === environmentInstanceId
+    ) {
       mutationError.value =
         error instanceof Error
           ? error.message
@@ -289,7 +318,7 @@ async function cancelMutation(): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  () => [props.project.id, props.environmentInstanceId] as const,
   () => void load(),
   { immediate: true },
 );
