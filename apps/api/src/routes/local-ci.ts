@@ -16,10 +16,7 @@ interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   localCiDiscoveryService: Pick<LocalCiDiscoveryService, 'discover'>;
   localCiExecutionService:
-    | Pick<
-        LocalCiExecutionService,
-        'start' | 'get' | 'reattach' | 'cancel'
-      >
+    | Pick<LocalCiExecutionService, 'start' | 'get' | 'reattach' | 'cancel'>
     | undefined;
 }
 
