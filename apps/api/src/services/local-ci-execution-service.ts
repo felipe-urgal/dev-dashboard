@@ -25,7 +25,12 @@ const SAFE_ENV_KEYS = [
 ] as const;
 
 export type LocalCiExecutionErrorCode =
-  'LOCAL_CI_BUSY' | 'LOCAL_CI_NOT_FOUND' | 'LOCAL_CI_NOT_RUNNING';
+  | 'LOCAL_CI_BUSY'
+  | 'LOCAL_CI_INVALID_REQUEST'
+  | 'LOCAL_CI_UNAVAILABLE'
+  | 'LOCAL_CI_START_FAILED'
+  | 'LOCAL_CI_NOT_FOUND'
+  | 'LOCAL_CI_NOT_RUNNING';
 
 export class LocalCiExecutionError extends Error {
   public constructor(
@@ -124,7 +129,21 @@ export class LocalCiExecutionService {
     }
 
     const catalog = await this.discovery.discover(project);
-    const command = buildActJobCommand(catalog, request);
+    let command;
+    try {
+      command = buildActJobCommand(catalog, request);
+    } catch {
+      if (catalog.availability.state !== 'available') {
+        throw new LocalCiExecutionError(
+          'LOCAL_CI_UNAVAILABLE',
+          'Local CI não está disponível neste ambiente.',
+        );
+      }
+      throw new LocalCiExecutionError(
+        'LOCAL_CI_INVALID_REQUEST',
+        'Workflow, job ou evento não pertence ao catálogo Local CI atual.',
+      );
+    }
     const id = this.createId();
     const key = `local-ci:${project.id}:${id}`;
     const record: RunRecord = {
@@ -137,12 +156,20 @@ export class LocalCiExecutionService {
       detach: null,
     };
 
-    const started = this.executions.start(key, {
-      file: command.program,
-      args: command.args,
-      cwd: project.path,
-      env: this.environment,
-    });
+    let started: DetachableExecutionSnapshot;
+    try {
+      started = this.executions.start(key, {
+        file: command.program,
+        args: command.args,
+        cwd: project.path,
+        env: this.environment,
+      });
+    } catch {
+      throw new LocalCiExecutionError(
+        'LOCAL_CI_START_FAILED',
+        'Não foi possível iniciar a execução Local CI.',
+      );
+    }
     this.runs.set(id, record);
 
     const handle = this.executions.attach(
