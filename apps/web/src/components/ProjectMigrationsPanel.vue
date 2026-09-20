@@ -218,7 +218,10 @@ async function refreshReadModel(): Promise<void> {
     const result = await fetchMigrationOverview(projectId);
     if (props.project.id !== projectId) return;
     overview.value = result;
-    mutationPlan.value = await planMigrationMutation(projectId, result.database);
+    mutationPlan.value = await planMigrationMutation(
+      projectId,
+      result.database,
+    );
   } catch (error) {
     if (props.project.id === projectId) {
       mutationError.value =
