@@ -14,6 +14,7 @@ import { releaseReadinessRoutes } from './routes/release-readiness.js';
 import { dependencyHealthRoutes } from './routes/dependency-health.js';
 import { dependencyUpgradePlanRoutes } from './routes/dependency-upgrade-plan.js';
 import { migrationRoutes } from './routes/migrations.js';
+import { localCiRoutes } from './routes/local-ci.js';
 import { dockerComposeRoutes } from './routes/docker-compose.js';
 import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { deploymentRoutes } from './routes/deployments.js';
@@ -133,6 +134,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     migrationMutationPlanningService,
     migrationMutationConfirmationService,
     migrationMutationExecutionService,
+    localCiDiscoveryService,
+    localCiExecutionService,
     dockerComposeProvider,
     dockerComposePreflightService,
     dockerComposeLifecycleService,
@@ -252,6 +255,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     migrationMutationPlanningService,
     migrationMutationConfirmationService,
     migrationMutationExecutionService,
+  });
+
+  app.register(localCiRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    localCiDiscoveryService,
+    localCiExecutionService,
   });
 
   app.register(dockerComposeRoutes, {
