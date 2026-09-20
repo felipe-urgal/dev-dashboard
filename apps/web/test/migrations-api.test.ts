@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 describe('Migrations API', () => {
-  it('usa a rota comum e codifica project/database', async () => {
+  it('usa a rota comum e codifica project/database/environment', async () => {
     requestJson.mockResolvedValue({
       migration: {
         provider: 'rails',
@@ -33,10 +33,14 @@ describe('Migrations API', () => {
       },
     });
 
-    const result = await fetchMigrationOverview('project / 1', 'analytics_2');
+    const result = await fetchMigrationOverview(
+      'project / 1',
+      'analytics_2',
+      'environment:worktree:project-1:feature',
+    );
 
     expect(requestJson).toHaveBeenCalledWith(
-      '/api/projects/project%20%2F%201/migrations?database=analytics_2',
+      '/api/projects/project%20%2F%201/migrations?database=analytics_2&environmentInstanceId=environment%3Aworktree%3Aproject-1%3Afeature',
     );
     expect(result.provider).toBe('rails');
   });
