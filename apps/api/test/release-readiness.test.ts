@@ -107,7 +107,9 @@ function securitySnapshot(
         severity,
         title: `Finding ${index + 1}`,
         file: `config/${index + 1}.yml`,
-        fingerprint: String(index + 1).padStart(64, 'a').slice(-64),
+        fingerprint: String(index + 1)
+          .padStart(64, 'a')
+          .slice(-64),
         observedAt,
       })),
     },
@@ -263,7 +265,10 @@ test('Doctor mantém warning separado de block', () => {
 test('Security Readiness aplica freshness e severidade sem falso pass', () => {
   const observedAt = '2026-09-05T18:00:00.000Z';
 
-  assert.equal(evaluateSecurityReadiness(undefined, observedAt).state, 'unknown');
+  assert.equal(
+    evaluateSecurityReadiness(undefined, observedAt).state,
+    'unknown',
+  );
   assert.equal(
     evaluateSecurityReadiness(securitySnapshot([], 'stale'), observedAt).state,
     'unknown',
