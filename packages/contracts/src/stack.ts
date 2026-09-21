@@ -1,16 +1,8 @@
 export type StackNodeKind =
-  | 'environment'
-  | 'process'
-  | 'compose-service'
-  | 'health-check';
+  'environment' | 'process' | 'compose-service' | 'health-check';
 
 export type StackNodeState =
-  | 'ready'
-  | 'starting'
-  | 'stopped'
-  | 'failed'
-  | 'blocked'
-  | 'unknown';
+  'ready' | 'starting' | 'stopped' | 'failed' | 'blocked' | 'unknown';
 
 export interface StackEnvironmentTarget {
   kind: 'environment';

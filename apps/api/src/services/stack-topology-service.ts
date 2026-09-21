@@ -12,8 +12,7 @@ const MAX_IDENTIFIER_LENGTH = 160;
 const MAX_NAME_LENGTH = 240;
 
 export type StackTopologyServiceErrorCode =
-  | 'STACK_INVALID'
-  | 'STACK_DEPENDENCY_CYCLE';
+  'STACK_INVALID' | 'STACK_DEPENDENCY_CYCLE';
 
 export class StackTopologyServiceError extends Error {
   public constructor(
@@ -101,9 +100,7 @@ export class StackTopologyService {
   public plan(stack: Stack): StackTopologyPlan {
     validateStack(stack);
 
-    const indegree = new Map(
-      stack.nodes.map((node) => [node.id, 0] as const),
-    );
+    const indegree = new Map(stack.nodes.map((node) => [node.id, 0] as const));
     const dependents = new Map(
       stack.nodes.map((node) => [node.id, [] as string[]] as const),
     );

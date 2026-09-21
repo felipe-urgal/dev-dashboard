@@ -70,7 +70,12 @@ test('creates deterministic start and reverse stop order', () => {
 test('independent nodes use deterministic id ordering without inventing dependencies', () => {
   const input = stack();
   input.dependencies = [];
-  input.nodes = [input.nodes[2]!, input.nodes[0]!, input.nodes[3]!, input.nodes[1]!];
+  input.nodes = [
+    input.nodes[2]!,
+    input.nodes[0]!,
+    input.nodes[3]!,
+    input.nodes[1]!,
+  ];
 
   const plan = new StackTopologyService().plan(input);
 
