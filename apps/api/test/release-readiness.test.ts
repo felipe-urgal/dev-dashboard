@@ -12,9 +12,11 @@ import {
   buildReleaseReadinessSnapshot,
   evaluateDoctorReadiness,
   evaluateGitReadiness,
+  evaluateSecurityReadiness,
   evaluateTestsReadiness,
   type ReleaseReadinessTestIdentity,
 } from '../src/services/release-readiness.js';
+import type { SecurityScanSnapshot } from '../src/services/security-scan-snapshot-store.js';
 
 const NOW = Date.parse('2026-09-05T18:00:00.000Z');
 const IDENTITY: ReleaseReadinessTestIdentity = {
@@ -79,6 +81,36 @@ function doctor(
       skipped: 0,
     },
     checks: [],
+  };
+}
+
+function securitySnapshot(
+  severities: Array<'unknown' | 'low' | 'medium' | 'high' | 'critical'> = [],
+  freshness: 'fresh' | 'stale' = 'fresh',
+): SecurityScanSnapshot {
+  const observedAt = '2026-09-05T17:59:00.000Z';
+  return {
+    storedAt: observedAt,
+    freshness: {
+      state: freshness,
+      observedAt,
+      ageMs: freshness === 'fresh' ? 60_000 : 90_000_000,
+      maxAgeMs: 86_400_000,
+    },
+    result: {
+      provider: 'trivy',
+      observedAt,
+      findings: severities.map((severity, index) => ({
+        provider: 'trivy',
+        category: 'misconfiguration',
+        ruleId: `SEC-${index + 1}`,
+        severity,
+        title: `Finding ${index + 1}`,
+        file: `config/${index + 1}.yml`,
+        fingerprint: String(index + 1).padStart(64, 'a').slice(-64),
+        observedAt,
+      })),
+    },
   };
 }
 
@@ -226,6 +258,34 @@ test('Doctor mantém warning separado de block', () => {
   assert.equal(evaluateDoctorReadiness(doctor('healthy')).state, 'pass');
   assert.equal(evaluateDoctorReadiness(doctor('attention')).state, 'warning');
   assert.equal(evaluateDoctorReadiness(doctor('blocked')).state, 'block');
+});
+
+test('Security Readiness aplica freshness e severidade sem falso pass', () => {
+  const observedAt = '2026-09-05T18:00:00.000Z';
+
+  assert.equal(evaluateSecurityReadiness(undefined, observedAt).state, 'unknown');
+  assert.equal(
+    evaluateSecurityReadiness(securitySnapshot([], 'stale'), observedAt).state,
+    'unknown',
+  );
+  assert.equal(
+    evaluateSecurityReadiness(
+      securitySnapshot(['critical', 'unknown']),
+      observedAt,
+    ).state,
+    'block',
+  );
+  assert.equal(
+    evaluateSecurityReadiness(securitySnapshot(['unknown']), observedAt).state,
+    'unknown',
+  );
+  assert.equal(
+    evaluateSecurityReadiness(securitySnapshot(['medium']), observedAt).state,
+    'warning',
+  );
+  const passed = evaluateSecurityReadiness(securitySnapshot([]), observedAt);
+  assert.equal(passed.state, 'pass');
+  assert.equal(passed.action.target, 'security');
 });
 
 test('snapshot usa o estado mais conservador sem score opaco', () => {
