@@ -39,7 +39,7 @@
     "self-update:ensure": "node scripts/self-update-agent-bootstrap.mjs ensure",
     "self-update:helper": "node scripts/self-update-helper.mjs",
     "self-update:agent": "node scripts/self-update-agent.mjs",
-    "build:packages": "npm run build --workspace=@dev-dashboard/contracts && npm run build --workspace=@dev-dashboard/core && npm run build --workspace=@dev-dashboard/project-discovery && npm run build --workspace=@dev-dashboard/process-manager",
+    "build:packages": "npm run build --workspace=@dev-dashboard/contracts && npm run build --workspace=@dev-dashboard/core && npm run build --workspace=@dev-dashboard/project-discovery && npm run build --workspace=@dev-dashboard/process-manager && npm run build --workspace=@dev-dashboard/agent-runtime",
     "build:apps": "npm run build --workspace=@dev-dashboard/api && npm run build --workspace=@dev-dashboard/web",
     "predev": "npm run build:packages",
     "pretypecheck": "npm run build:packages",
