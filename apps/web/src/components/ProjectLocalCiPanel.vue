@@ -169,18 +169,27 @@ function appendOutput(chunk: string): void {
 function parseSocketMessage(data: unknown): SocketMessage | null {
   if (typeof data !== 'string') return null;
   try {
-    const parsed = JSON.parse(data) as Partial<SocketMessage>;
-    if (parsed.type === 'ready' && 'run' in parsed) {
-      return parsed as SocketMessage;
+    const parsed = JSON.parse(data) as {
+      type?: unknown;
+      run?: unknown;
+      data?: unknown;
+      message?: unknown;
+    };
+    if (
+      (parsed.type === 'ready' || parsed.type === 'exit') &&
+      parsed.run &&
+      typeof parsed.run === 'object'
+    ) {
+      return {
+        type: parsed.type,
+        run: parsed.run as LocalCiExecutionSnapshot,
+      };
     }
     if (parsed.type === 'output' && typeof parsed.data === 'string') {
-      return parsed as SocketMessage;
-    }
-    if (parsed.type === 'exit' && 'run' in parsed) {
-      return parsed as SocketMessage;
+      return { type: 'output', data: parsed.data };
     }
     if (parsed.type === 'error' && typeof parsed.message === 'string') {
-      return parsed as SocketMessage;
+      return { type: 'error', message: parsed.message };
     }
   } catch {
     return null;
@@ -551,7 +560,7 @@ onBeforeUnmount(closeSocket);
             </button>
             <button
               v-if="run.status === 'running'"
-              class="danger-button"
+              class="secondary-button local-ci-cancel"
               type="button"
               :disabled="cancelling"
               @click="cancelRun"
@@ -785,6 +794,11 @@ onBeforeUnmount(closeSocket);
 .local-ci-run-actions {
   display: flex;
   gap: var(--space-2);
+}
+
+.local-ci-cancel {
+  border-color: color-mix(in srgb, var(--danger-text) 45%, var(--border));
+  color: var(--danger-text);
 }
 
 .local-ci-run-meta {
