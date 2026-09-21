@@ -46,10 +46,7 @@ export {
   serializeAgentTask,
 } from './serialization.js';
 
-export {
-  AgentTaskLockError,
-  AgentTaskLockManager,
-} from './task-lock.js';
+export { AgentTaskLockError, AgentTaskLockManager } from './task-lock.js';
 export type {
   AgentTaskLockAcquireOptions,
   AgentTaskLockErrorCode,
