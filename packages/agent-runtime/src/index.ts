@@ -45,3 +45,18 @@ export {
   deserializeAgentTask,
   serializeAgentTask,
 } from './serialization.js';
+
+export { AgentTaskLockError, AgentTaskLockManager } from './task-lock.js';
+export type {
+  AgentTaskLockAcquireOptions,
+  AgentTaskLockErrorCode,
+  AgentTaskLockManagerOptions,
+} from './task-lock.js';
+
+export { AgentRuntimeStateStore } from './runtime-state.js';
+export type {
+  AgentRuntimeRecoveryReason,
+  AgentRuntimeState,
+  AgentRuntimeStateKind,
+  AgentRuntimeStateStoreOptions,
+} from './runtime-state.js';
