@@ -15,6 +15,7 @@ import {
   evaluateMigrationsReadiness,
   evaluatePullRequestReadiness,
   evaluateProductionReadiness,
+  evaluateSecurityReadiness,
   evaluateTestsReadiness,
   type ReleaseReadinessCheck,
   type ReleaseReadinessCheckId,
@@ -25,6 +26,7 @@ import {
   captureTestExecutionGitIdentity,
   type TestExecutionGitIdentity,
 } from './test-execution-identity.js';
+import type { SecurityScanSnapshotStore } from './security-scan-snapshot-store.js';
 import type { TestExecutionHistoryService } from './test-execution-history-service.js';
 
 interface ReleaseReadinessServiceOptions {
@@ -44,6 +46,7 @@ interface ReleaseReadinessServiceOptions {
   productionOverview?: {
     read(projects: readonly Project[]): Promise<ProductionOverview>;
   };
+  securityScanSnapshotReader?: Pick<SecurityScanSnapshotStore, 'get'>;
 }
 
 export interface ReleaseReadinessSnapshotOptions {
@@ -66,6 +69,7 @@ function unavailableCheck(
     },
     doctor: { label: 'Abrir Doctor', target: 'doctor' as const },
     migrations: { label: 'Abrir Migrations', target: 'migrations' as const },
+    security: { label: 'Abrir Segurança', target: 'security' as const },
     production: { label: 'Abrir Produção', target: 'production' as const },
   };
   const summaryById = {
@@ -74,6 +78,7 @@ function unavailableCheck(
     'pull-request': 'Estado remoto da Pull Request indisponível',
     doctor: 'Project Doctor indisponível',
     migrations: 'Estado de migrations indisponível',
+    security: 'Estado do Security Center indisponível',
     production: 'Estado de produção indisponível',
   };
 
@@ -116,6 +121,8 @@ export class ReleaseReadinessService {
     ReleaseReadinessServiceOptions['pullRequestStatus'] | undefined;
   private readonly productionOverview:
     ReleaseReadinessServiceOptions['productionOverview'] | undefined;
+  private readonly securityScanSnapshotReader:
+    ReleaseReadinessServiceOptions['securityScanSnapshotReader'] | undefined;
 
   public constructor(
     private readonly gitService: Pick<GitService, 'getOverview'>,
@@ -139,6 +146,7 @@ export class ReleaseReadinessService {
     this.pullRequestLookup = options.pullRequestLookup;
     this.pullRequestStatus = options.pullRequestStatus;
     this.productionOverview = options.productionOverview;
+    this.securityScanSnapshotReader = options.securityScanSnapshotReader;
   }
 
   public async getSnapshot(
@@ -167,6 +175,7 @@ export class ReleaseReadinessService {
       identity,
       doctorReport,
       migrationOverview,
+      securitySnapshot,
       pullRequestLookup,
       productionOverview,
     ] = await Promise.all([
@@ -175,6 +184,9 @@ export class ReleaseReadinessService {
       safely(() => this.captureIdentity(project.path)),
       safely(() => this.projectDoctorService.getReport(project)),
       safely(() => this.migrationOverviewService.inspect(project)),
+      this.securityScanSnapshotReader
+        ? safely(() => this.securityScanSnapshotReader!.get(project))
+        : undefined,
       this.readPullRequest(project.path),
       this.readProduction(project),
     ]);
@@ -208,6 +220,9 @@ export class ReleaseReadinessService {
       migrationOverview
         ? evaluateMigrationsReadiness(migrationOverview)
         : unavailableCheck('migrations', observedAt),
+      ...(this.securityScanSnapshotReader
+        ? [evaluateSecurityReadiness(securitySnapshot, observedAt)]
+        : []),
       ...(this.productionOverview && this.isProductionApplicable(project)
         ? [
             productionOverview?.items[0]
