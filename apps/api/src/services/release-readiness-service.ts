@@ -26,7 +26,10 @@ import {
   captureTestExecutionGitIdentity,
   type TestExecutionGitIdentity,
 } from './test-execution-identity.js';
-import type { SecurityScanSnapshotStore } from './security-scan-snapshot-store.js';
+import type {
+  SecurityScanSnapshot,
+  SecurityScanSnapshotStore,
+} from './security-scan-snapshot-store.js';
 import type { TestExecutionHistoryService } from './test-execution-history-service.js';
 
 interface ReleaseReadinessServiceOptions {
@@ -110,6 +113,11 @@ async function safely<T>(operation: () => Promise<T>): Promise<T | undefined> {
   }
 }
 
+type SecuritySnapshotObservation =
+  | { state: 'available'; snapshot: SecurityScanSnapshot }
+  | { state: 'missing' }
+  | { state: 'unavailable' };
+
 export class ReleaseReadinessService {
   private readonly now: () => number;
   private readonly captureIdentity: (
@@ -175,7 +183,7 @@ export class ReleaseReadinessService {
       identity,
       doctorReport,
       migrationOverview,
-      securitySnapshot,
+      securityObservation,
       pullRequestLookup,
       productionOverview,
     ] = await Promise.all([
@@ -184,9 +192,7 @@ export class ReleaseReadinessService {
       safely(() => this.captureIdentity(project.path)),
       safely(() => this.projectDoctorService.getReport(project)),
       safely(() => this.migrationOverviewService.inspect(project)),
-      this.securityScanSnapshotReader
-        ? safely(() => this.securityScanSnapshotReader!.get(project))
-        : undefined,
+      this.readSecurity(project),
       this.readPullRequest(project.path),
       this.readProduction(project),
     ]);
@@ -221,7 +227,16 @@ export class ReleaseReadinessService {
         ? evaluateMigrationsReadiness(migrationOverview)
         : unavailableCheck('migrations', observedAt),
       ...(this.securityScanSnapshotReader
-        ? [evaluateSecurityReadiness(securitySnapshot, observedAt)]
+        ? [
+            securityObservation?.state === 'unavailable'
+              ? unavailableCheck('security', observedAt)
+              : evaluateSecurityReadiness(
+                  securityObservation?.state === 'available'
+                    ? securityObservation.snapshot
+                    : undefined,
+                  observedAt,
+                ),
+          ]
         : []),
       ...(this.productionOverview && this.isProductionApplicable(project)
         ? [
@@ -237,6 +252,20 @@ export class ReleaseReadinessService {
     ];
 
     return buildReleaseReadinessSnapshot(checks, observedAt);
+  }
+
+  private async readSecurity(
+    project: Project,
+  ): Promise<SecuritySnapshotObservation | undefined> {
+    if (!this.securityScanSnapshotReader) return undefined;
+    try {
+      const snapshot = await this.securityScanSnapshotReader.get(project);
+      return snapshot
+        ? { state: 'available', snapshot }
+        : { state: 'missing' };
+    } catch {
+      return { state: 'unavailable' };
+    }
   }
 
   private isProductionApplicable(project: Project): boolean {
