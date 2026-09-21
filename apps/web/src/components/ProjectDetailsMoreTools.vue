@@ -9,6 +9,7 @@ import {
   DocumentTextIcon,
   FolderIcon,
   LockClosedIcon,
+  PlayCircleIcon,
   QueueListIcon,
   ServerStackIcon,
   ShieldCheckIcon,
@@ -129,6 +130,16 @@ const route = useRoute();
   >
     <CircleStackIcon aria-hidden="true" />
     <span>Migrations</span>
+  </RouterLink>
+  <RouterLink
+    class="project-details-tab"
+    :class="{
+      'project-details-tab-active': route.name === 'project-local-ci',
+    }"
+    :to="{ name: 'project-local-ci', params: { projectId: project.id } }"
+  >
+    <PlayCircleIcon aria-hidden="true" />
+    <span>Local CI</span>
   </RouterLink>
   <RouterLink
     class="project-details-tab"

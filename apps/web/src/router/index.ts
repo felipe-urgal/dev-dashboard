@@ -64,6 +64,11 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
+      path: '/projects/:projectId/local-ci',
+      name: 'project-local-ci',
+      component: () => import('../views/ProjectDetailsView.vue'),
+    },
+    {
       path: '/projects/:projectId/server',
       name: 'project-server',
       component: () => import('../views/ProjectDetailsView.vue'),

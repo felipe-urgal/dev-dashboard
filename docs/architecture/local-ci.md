@@ -72,13 +72,19 @@ O WebSocket envia mensagens:
 
 A API aceita no start apenas `workflowFile`, `jobId` e `event`. Campos adicionais são rejeitados pelo schema e a seleção é revalidada contra o catálogo no serviço imediatamente antes de iniciar `act`.
 
+## UI
+
+A superfície web por projeto consome somente o contrato HTTP/streaming acima:
+
+- rota `/projects/:projectId/local-ci` dentro do shell compartilhado do projeto;
+- catálogo apresentado sem permitir parâmetros fora de `workflowFile + jobId + event`;
+- aviso permanente de `Local / aproximação`, separado do CI remoto oficial;
+- estados explícitos para `act` ausente e Docker indisponível;
+- start, acompanhamento de logs, reattach do `runId` durante a sessão do navegador e cancelamento;
+- buffer do cliente também permanece bounded para não transformar streaming em crescimento de memória sem limite.
+
+O `runId` pode ser preservado em `sessionStorage` apenas como conveniência de reattach. A API continua validando ownership por `projectId + runId`; a UI não recebe autoridade adicional por persistir esse identificador.
+
 ## Escopo seguinte
 
-A UI deve consumir somente essa superfície:
-
-- listar as combinações detectadas;
-- manter indicação visual permanente de “Local / aproximação”;
-- iniciar, acompanhar, reanexar e cancelar runs;
-- nunca apresentar o resultado como CI remoto oficial.
-
-Integração com Task Context pode consumir a mesma identidade de run futuramente, sem promover Local CI a verdade remota.
+Integração opcional com Task Context pode consumir a mesma identidade de run futuramente, sem promover Local CI a verdade remota ou substituir checks do GitHub.
