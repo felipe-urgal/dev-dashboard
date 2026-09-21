@@ -29,4 +29,19 @@ A resposta inclui `storedAt` e freshness calculada a partir de `result.observedA
 - `fresh`: idade menor ou igual a 24h;
 - `stale`: idade superior a 24h.
 
-Freshness é evidência, não autorização. Este slice não integra Security Center ao Release Readiness; essa política deve ser definida separadamente para não transformar resultado stale ou severidade incompleta em blocker implícito.
+Freshness é evidência, não autorização. Timestamp futuro também é tratado como `stale`, evitando promover clock skew ou estado adulterado a evidência recente.
+
+## Release Readiness
+
+O Release Readiness lê somente o snapshot persistido; ele nunca dispara um scan automaticamente.
+
+Política explícita:
+
+- sem snapshot: `unknown`;
+- snapshot `stale`: `unknown`;
+- `critical/high` em snapshot fresh: `block`;
+- severity `unknown` sem blocker conhecido: `unknown`;
+- somente `medium/low` em snapshot fresh: `warning`;
+- snapshot fresh sem findings: `pass`.
+
+A ação do check leva ao Security Center. Essa integração não altera a autoridade do browser e não transforma o resultado em permissão para merge, push, deploy ou release.
