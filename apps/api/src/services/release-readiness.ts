@@ -8,16 +8,24 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import type { MigrationOverview } from './migration-provider.js';
+import type { SecurityScanSnapshot } from './security-scan-snapshot-store.js';
 
 export type ReleaseReadinessState = 'pass' | 'warning' | 'block' | 'unknown';
 export type ReleaseReadinessCheckId =
-  'git' | 'tests' | 'pull-request' | 'doctor' | 'migrations' | 'production';
+  | 'git'
+  | 'tests'
+  | 'pull-request'
+  | 'doctor'
+  | 'migrations'
+  | 'security'
+  | 'production';
 export type ReleaseReadinessActionTarget =
   | 'synchronization'
   | 'tests'
   | 'pull-request'
   | 'doctor'
   | 'migrations'
+  | 'security'
   | 'production';
 
 export interface ReleaseReadinessCheck {
@@ -498,6 +506,88 @@ export function evaluateMigrationsReadiness(
         : 'Estado de migrations inconclusivo',
     evidence: overview.evidence,
     observedAt: overview.observedAt,
+    action,
+  };
+}
+
+export function evaluateSecurityReadiness(
+  snapshot: SecurityScanSnapshot | undefined,
+  observedAt: string,
+): ReleaseReadinessCheck {
+  const action = { label: 'Abrir Segurança', target: 'security' as const };
+
+  if (!snapshot) {
+    return {
+      id: 'security',
+      state: 'unknown',
+      summary: 'Sem scan de segurança persistido',
+      evidence:
+        'Nenhum snapshot sanitizado foi registrado para este projeto.',
+      observedAt,
+      action,
+    };
+  }
+
+  if (snapshot.freshness.state !== 'fresh') {
+    return {
+      id: 'security',
+      state: 'unknown',
+      summary: 'Scan de segurança está desatualizado',
+      evidence: `O último snapshot foi observado em ${snapshot.result.observedAt}.`,
+      observedAt: snapshot.result.observedAt,
+      action,
+    };
+  }
+
+  const counts = snapshot.result.findings.reduce(
+    (accumulator, finding) => {
+      accumulator[finding.severity] += 1;
+      return accumulator;
+    },
+    { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 },
+  );
+
+  const blocking = counts.critical + counts.high;
+  if (blocking > 0) {
+    return {
+      id: 'security',
+      state: 'block',
+      summary: 'Security Center encontrou findings de alta severidade',
+      evidence: `${counts.critical} critical e ${counts.high} high finding(s) em evidência fresh.`,
+      observedAt: snapshot.result.observedAt,
+      action,
+    };
+  }
+
+  if (counts.unknown > 0) {
+    return {
+      id: 'security',
+      state: 'unknown',
+      summary: 'Security Center possui severidade inconclusiva',
+      evidence: `${counts.unknown} finding(s) não possuem severidade comprovada.`,
+      observedAt: snapshot.result.observedAt,
+      action,
+    };
+  }
+
+  const attention = counts.medium + counts.low;
+  if (attention > 0) {
+    return {
+      id: 'security',
+      state: 'warning',
+      summary: 'Security Center encontrou findings para triagem',
+      evidence: `${counts.medium} medium e ${counts.low} low finding(s) em evidência fresh.`,
+      observedAt: snapshot.result.observedAt,
+      action,
+    };
+  }
+
+  return {
+    id: 'security',
+    state: 'pass',
+    summary: 'Security Center sem findings no snapshot recente',
+    evidence: 'O último snapshot fresh não contém findings sanitizados.',
+    observedAt: snapshot.result.observedAt,
     action,
   };
 }
