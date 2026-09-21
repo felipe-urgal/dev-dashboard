@@ -282,12 +282,14 @@ export class SecurityScanSnapshotStore {
 
   private toSnapshot(persisted: PersistedSnapshot): SecurityScanSnapshot {
     const observedAtMs = new Date(persisted.result.observedAt).getTime();
-    const ageMs = Math.max(0, this.now().getTime() - observedAtMs);
+    const rawAgeMs = this.now().getTime() - observedAtMs;
+    const ageMs = Math.max(0, rawAgeMs);
     return {
       result: persisted.result,
       storedAt: persisted.storedAt,
       freshness: {
-        state: ageMs <= FRESHNESS_MS ? 'fresh' : 'stale',
+        state:
+          rawAgeMs >= 0 && rawAgeMs <= FRESHNESS_MS ? 'fresh' : 'stale',
         observedAt: persisted.result.observedAt,
         ageMs,
         maxAgeMs: FRESHNESS_MS,
