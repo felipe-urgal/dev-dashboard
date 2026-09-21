@@ -163,4 +163,5 @@ test('cancellation ownership carries project, environment, task and execution id
     taskId: 'task-1',
     executionId: 'execution-1',
   });
+  assert.equal(cancellation.requestedAt, '2026-09-21T21:05:00.000Z');
 });
