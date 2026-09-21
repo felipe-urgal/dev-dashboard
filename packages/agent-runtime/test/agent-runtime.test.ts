@@ -134,11 +134,7 @@ test('checkpoint requires an explicit valid transition before work resumes', () 
   assert.equal(checkpoint.state, 'checkpoint');
   assert.throws(
     () =>
-      transitionAgentTask(
-        checkpoint,
-        'completed',
-        '2026-09-21T21:03:00.000Z',
-      ),
+      transitionAgentTask(checkpoint, 'completed', '2026-09-21T21:03:00.000Z'),
     AgentStateTransitionError,
   );
 
