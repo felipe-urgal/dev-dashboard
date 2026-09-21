@@ -47,8 +47,7 @@ test('task lock blocks a second live owner and releases by owner token', async (
   await assert.rejects(
     () => second.acquire('project-1__task-1'),
     (error: unknown) =>
-      error instanceof AgentTaskLockError &&
-      error.code === 'AGENT_TASK_LOCKED',
+      error instanceof AgentTaskLockError && error.code === 'AGENT_TASK_LOCKED',
   );
 
   await release();
@@ -151,7 +150,10 @@ test('corrupted runtime state fails closed instead of being reset silently', asy
 
   const runtimeDirectory = path.join(root, 'runtime');
   await mkdir(runtimeDirectory, { recursive: true });
-  await writeFile(path.join(runtimeDirectory, 'broken.json'), '{"state":"running"');
+  await writeFile(
+    path.join(runtimeDirectory, 'broken.json'),
+    '{"state":"running"',
+  );
 
   await assert.rejects(() => store.recoverInterrupted([record()]));
 });

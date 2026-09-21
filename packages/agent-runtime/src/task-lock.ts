@@ -7,9 +7,7 @@ const DEFAULT_POLL_MS = 50;
 const MAX_LOCK_KEY_LENGTH = 160;
 
 export type AgentTaskLockErrorCode =
-  | 'AGENT_TASK_LOCK_INVALID'
-  | 'AGENT_TASK_LOCKED'
-  | 'AGENT_TASK_LOCK_TIMEOUT';
+  'AGENT_TASK_LOCK_INVALID' | 'AGENT_TASK_LOCKED' | 'AGENT_TASK_LOCK_TIMEOUT';
 
 export class AgentTaskLockError extends Error {
   public constructor(
@@ -162,27 +160,23 @@ export class AgentTaskLockManager {
 
           if (current.ownerToken !== ownerToken) return;
           await fs.unlink(lockPath).catch((error: unknown) => {
-            if (
-              !(
-                error &&
-                typeof error === 'object' &&
-                'code' in error &&
-                (error as { code?: unknown }).code === 'ENOENT'
-              )
-            ) {
+            if (!(
+              error &&
+              typeof error === 'object' &&
+              'code' in error &&
+              (error as { code?: unknown }).code === 'ENOENT'
+            )) {
               throw error;
             }
           });
         };
       } catch (error) {
-        if (
-          !(
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            (error as { code?: unknown }).code === 'EEXIST'
-          )
-        ) {
+        if (!(
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code?: unknown }).code === 'EEXIST'
+        )) {
           throw error;
         }
       }
@@ -211,14 +205,12 @@ export class AgentTaskLockManager {
 
       if (!this.isProcessAlive(current.processId)) {
         await fs.unlink(lockPath).catch((error: unknown) => {
-          if (
-            !(
-              error &&
-              typeof error === 'object' &&
-              'code' in error &&
-              (error as { code?: unknown }).code === 'ENOENT'
-            )
-          ) {
+          if (!(
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            (error as { code?: unknown }).code === 'ENOENT'
+          )) {
             throw error;
           }
         });

@@ -7,9 +7,7 @@ import type { AgentTaskRecord } from './contracts.js';
 export type AgentRuntimeStateKind = 'idle' | 'running' | 'interrupted';
 
 export type AgentRuntimeRecoveryReason =
-  | 'process-interrupted'
-  | 'canonical-task-advanced'
-  | 'operator-recovered';
+  'process-interrupted' | 'canonical-task-advanced' | 'operator-recovered';
 
 export interface AgentRuntimeState {
   taskId: string;
@@ -257,7 +255,10 @@ export class AgentRuntimeStateStore {
   }
 
   private pathFor(record: Pick<AgentTaskRecord, 'task'>): string {
-    return path.join(this.runtimeDirectory(), `${runtimeStateKey(record)}.json`);
+    return path.join(
+      this.runtimeDirectory(),
+      `${runtimeStateKey(record)}.json`,
+    );
   }
 
   private async list(): Promise<AgentRuntimeState[]> {
@@ -277,7 +278,9 @@ export class AgentRuntimeStateStore {
     }
 
     const states: AgentRuntimeState[] = [];
-    for (const name of names.filter((entry) => entry.endsWith('.json')).sort()) {
+    for (const name of names
+      .filter((entry) => entry.endsWith('.json'))
+      .sort()) {
       const parsed: unknown = JSON.parse(
         await fs.readFile(path.join(this.runtimeDirectory(), name), 'utf8'),
       );
@@ -307,14 +310,12 @@ export class AgentRuntimeStateStore {
       await fs.rename(temporary, target);
     } finally {
       await fs.unlink(temporary).catch((error: unknown) => {
-        if (
-          !(
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            (error as { code?: unknown }).code === 'ENOENT'
-          )
-        ) {
+        if (!(
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code?: unknown }).code === 'ENOENT'
+        )) {
           throw error;
         }
       });
