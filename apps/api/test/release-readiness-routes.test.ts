@@ -49,6 +49,14 @@ function snapshot(state: ReleaseReadinessState): ReleaseReadinessSnapshot {
         observedAt: GENERATED_AT,
         action: { label: 'Abrir Migrations', target: 'migrations' },
       },
+      {
+        id: 'security',
+        state: 'warning',
+        summary: 'Security Center requer triagem',
+        evidence: '1 medium finding.',
+        observedAt: GENERATED_AT,
+        action: { label: 'Abrir Segurança', target: 'security' },
+      },
     ],
   };
 }
@@ -113,6 +121,8 @@ test('Release Readiness HTTP expõe contrato, freshness bounded e erros determin
       assert.equal(body.readiness.checks[0]?.action.target, 'synchronization');
       assert.equal(body.readiness.checks[1]?.id, 'migrations');
       assert.equal(body.readiness.checks[1]?.action.target, 'migrations');
+      assert.equal(body.readiness.checks[2]?.id, 'security');
+      assert.equal(body.readiness.checks[2]?.action.target, 'security');
     });
   }
 

@@ -10,6 +10,7 @@ import type {
 
 import type { MigrationOverview } from '../src/services/migration-provider.js';
 import { ReleaseReadinessService } from '../src/services/release-readiness-service.js';
+import type { SecurityScanSnapshot } from '../src/services/security-scan-snapshot-store.js';
 
 const NOW = Date.parse('2026-09-05T20:00:00.000Z');
 const project: Project = {
@@ -74,6 +75,32 @@ const migrationOverview: MigrationOverview = {
   warnings: [],
 };
 
+const securitySnapshot: SecurityScanSnapshot = {
+  storedAt: '2026-09-05T19:59:30.000Z',
+  freshness: {
+    state: 'fresh',
+    observedAt: '2026-09-05T19:59:00.000Z',
+    ageMs: 60_000,
+    maxAgeMs: 86_400_000,
+  },
+  result: {
+    provider: 'trivy',
+    observedAt: '2026-09-05T19:59:00.000Z',
+    findings: [
+      {
+        provider: 'trivy',
+        category: 'misconfiguration',
+        ruleId: 'SEC-1',
+        severity: 'high',
+        title: 'Finding alto',
+        file: 'config/security.yml',
+        fingerprint: 'a'.repeat(64),
+        observedAt: '2026-09-05T19:59:00.000Z',
+      },
+    ],
+  },
+};
+
 function service(
   overrides: {
     git?: () => Promise<ProjectGitOverview>;
@@ -99,6 +126,68 @@ function service(
     },
   );
 }
+
+test('Security Center fresh entra no snapshot e finding high bloqueia', async () => {
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => gitOverview },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      securityScanSnapshotReader: {
+        get: async () => securitySnapshot,
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(project, {
+    testMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  assert.equal(snapshot.state, 'block');
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'security')?.state,
+    'block',
+  );
+});
+
+test('falha ao ler snapshot de segurança fica isolada como unknown', async () => {
+  const instance = new ReleaseReadinessService(
+    { getOverview: async () => gitOverview },
+    { history: async () => history },
+    { getReport: async () => doctorReport },
+    { inspect: async () => migrationOverview },
+    {
+      now: () => NOW,
+      captureIdentity: async () => ({
+        gitRevision: 'abc123',
+        gitDirtyFingerprint: 'clean',
+      }),
+      securityScanSnapshotReader: {
+        get: async () => {
+          throw new Error('snapshot indisponível');
+        },
+      },
+    },
+  );
+
+  const snapshot = await instance.getSnapshot(project, {
+    testMaxAgeMs: 60 * 60 * 1000,
+  });
+
+  const security = snapshot.checks.find((check) => check.id === 'security');
+  assert.equal(security?.state, 'unknown');
+  assert.match(security?.summary ?? '', /indisponível/);
+  assert.equal(
+    snapshot.checks.find((check) => check.id === 'git')?.state,
+    'pass',
+  );
+});
 
 test('agrega Git, histórico de testes, Doctor e Migrations em um snapshot real', async () => {
   const snapshot = await service().getSnapshot(project, {

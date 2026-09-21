@@ -65,6 +65,14 @@ describe('ProjectReleaseReadinessPanel', () => {
           action: { label: 'Abrir Doctor', target: 'doctor' },
         },
         {
+          id: 'security',
+          state: 'warning',
+          summary: 'Security Center encontrou findings para triagem',
+          evidence: '1 medium e 0 low finding(s) em evidência fresh.',
+          observedAt: '2026-09-06T16:59:40.000Z',
+          action: { label: 'Abrir Segurança', target: 'security' },
+        },
+        {
           id: 'production',
           state: 'pass',
           summary: 'Produção sincronizada',
@@ -112,7 +120,7 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
     expect(wrapper.find('.readiness-state--block').exists()).toBe(true);
     expect(wrapper.find('.readiness-checklist').exists()).toBe(true);
-    expect(wrapper.findAll('.readiness-check')).toHaveLength(6);
+    expect(wrapper.findAll('.readiness-check')).toHaveLength(7);
 
     const domains = wrapper
       .findAll('.readiness-check-domain')
@@ -123,11 +131,12 @@ describe('ProjectReleaseReadinessPanel', () => {
       'Pull Request',
       'Doctor',
       'Migrations',
+      'Segurança',
       'Produção',
     ]);
 
     const links = wrapper.findAll('.router-link-stub');
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(7);
     expect(links[0]?.attributes('data-name')).toBe('project-git');
     expect(links[0]?.attributes('data-tab')).toBe('sync');
     expect(links[1]?.attributes('data-name')).toBe('project-tests');
@@ -135,7 +144,8 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(links[2]?.attributes('data-tab')).toBe('pull-request');
     expect(links[3]?.attributes('data-name')).toBe('project-doctor');
     expect(links[4]?.attributes('data-name')).toBe('project-migrations');
-    expect(links[5]?.attributes('data-name')).toBe('project-production');
+    expect(links[5]?.attributes('data-name')).toBe('project-security');
+    expect(links[6]?.attributes('data-name')).toBe('project-production');
     expect(wrapper.findAll('button')).toHaveLength(0);
   });
 

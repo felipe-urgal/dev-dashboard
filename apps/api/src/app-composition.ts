@@ -184,6 +184,12 @@ export function createAppComposition(
         context.detachableExecutionService,
       )
     : undefined;
+  const securityScanSnapshotStore =
+    options.securityScanSnapshotStore ??
+    new SecurityScanSnapshotStore(
+      path.join(context.processManager.stateDirectory, 'security-center'),
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    );
   const pullRequestLookup = new GitPullRequestService();
   const pullRequestStatus = new GitPullRequestStatusService();
   const releaseReadinessService =
@@ -198,6 +204,7 @@ export function createAppComposition(
         pullRequestLookup,
         pullRequestStatus,
         productionOverview: productionOverviewService,
+        securityScanSnapshotReader: securityScanSnapshotStore,
       },
     );
   const taskContextService = new TaskContextService(
@@ -232,12 +239,6 @@ export function createAppComposition(
       : undefined);
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
-  const securityScanSnapshotStore =
-    options.securityScanSnapshotStore ??
-    new SecurityScanSnapshotStore(
-      path.join(context.processManager.stateDirectory, 'security-center'),
-      options.now ? { now: () => new Date(options.now!()) } : {},
-    );
 
   return {
     databaseExplorerSessionStore,
