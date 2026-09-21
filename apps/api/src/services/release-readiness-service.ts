@@ -260,9 +260,7 @@ export class ReleaseReadinessService {
     if (!this.securityScanSnapshotReader) return undefined;
     try {
       const snapshot = await this.securityScanSnapshotReader.get(project);
-      return snapshot
-        ? { state: 'available', snapshot }
-        : { state: 'missing' };
+      return snapshot ? { state: 'available', snapshot } : { state: 'missing' };
     } catch {
       return { state: 'unavailable' };
     }
