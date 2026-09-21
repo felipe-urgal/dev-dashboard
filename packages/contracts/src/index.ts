@@ -21,6 +21,22 @@ export type {
 } from './activity.js';
 
 export type {
+  Stack,
+  StackComposeServiceTarget,
+  StackDependency,
+  StackEnvironmentTarget,
+  StackHealth,
+  StackHealthCheckTarget,
+  StackNode,
+  StackNodeHealth,
+  StackNodeKind,
+  StackNodeState,
+  StackNodeTarget,
+  StackProcessTarget,
+  StackTopologyPlan,
+} from './stack.js';
+
+export type {
   RetentionSettings,
   RetentionSettingsLimits,
   RetentionSettingsSnapshot,
