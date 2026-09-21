@@ -5,9 +5,11 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   fetchSecurityCenterAvailability,
+  fetchSecurityCenterSnapshot,
   scanProjectSecurityCenter,
   type SecurityCenterAvailabilityResponse,
   type SecurityCenterScanResponse,
+  type SecurityCenterSnapshotResponse,
   type SecurityFinding,
 } from '../api/security-center';
 import EmptyState from './EmptyState.vue';
@@ -20,6 +22,7 @@ const loadingAvailability = ref(false);
 const scanning = ref(false);
 const errorMessage = ref('');
 const availability = ref<SecurityCenterAvailabilityResponse | null>(null);
+const snapshot = ref<SecurityCenterSnapshotResponse['snapshot']>(null);
 const scan = ref<SecurityCenterScanResponse | null>(null);
 let generation = 0;
 
@@ -67,19 +70,41 @@ const canScan = computed(
     availability.value?.availability.state === 'available' && !scanning.value,
 );
 
-const findings = computed<SecurityFinding[]>(
-  () => scan.value?.execution.result?.findings ?? [],
+const completedResult = computed(
+  () =>
+    snapshot.value?.result ??
+    (scan.value?.execution.state === 'completed'
+      ? scan.value.execution.result
+      : undefined),
 );
 
-const hasCompletedScan = computed(
-  () => scan.value?.execution.state === 'completed',
+const findings = computed<SecurityFinding[]>(
+  () => completedResult.value?.findings ?? [],
 );
+
+const hasCompletedScan = computed(() => completedResult.value !== undefined);
+
+const evidenceObservedAt = computed(
+  () =>
+    snapshot.value?.result.observedAt ??
+    (scan.value?.execution.state === 'completed'
+      ? scan.value.execution.observedAt
+      : undefined),
+);
+
+const freshnessLabel = computed(() => {
+  if (!snapshot.value) return '—';
+  return snapshot.value.freshness.state === 'fresh'
+    ? 'Atual'
+    : 'Desatualizado';
+});
 
 const scanStateLabel = computed(() => {
   if (scanning.value) return 'Em execução';
-  if (!scan.value) return 'Não executado';
-  if (scan.value.execution.state === 'completed') return 'Concluído';
-  return 'Inconclusivo';
+  if (scan.value?.execution.state === 'completed') return 'Concluído';
+  if (scan.value) return 'Inconclusivo';
+  if (snapshot.value) return 'Persistido';
+  return 'Não executado';
 });
 
 const severityOrder: Record<SecurityFinding['severity'], number> = {
@@ -154,21 +179,34 @@ async function loadAvailability(): Promise<void> {
   loadingAvailability.value = true;
   errorMessage.value = '';
   scan.value = null;
+  snapshot.value = null;
 
-  try {
-    const result = await fetchSecurityCenterAvailability();
-    if (requestGeneration === generation) availability.value = result;
-  } catch (error) {
-    if (requestGeneration === generation) {
-      availability.value = null;
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível consultar o Security Center.';
-    }
-  } finally {
-    if (requestGeneration === generation) loadingAvailability.value = false;
+  const [availabilityResult, snapshotResult] = await Promise.allSettled([
+    fetchSecurityCenterAvailability(),
+    fetchSecurityCenterSnapshot(props.project.id),
+  ]);
+  if (requestGeneration !== generation) return;
+
+  if (availabilityResult.status === 'fulfilled') {
+    availability.value = availabilityResult.value;
+  } else {
+    availability.value = null;
+    errorMessage.value =
+      availabilityResult.reason instanceof Error
+        ? availabilityResult.reason.message
+        : 'Não foi possível consultar o Security Center.';
   }
+
+  if (snapshotResult.status === 'fulfilled') {
+    snapshot.value = snapshotResult.value.snapshot;
+  } else if (availabilityResult.status === 'fulfilled') {
+    errorMessage.value =
+      snapshotResult.reason instanceof Error
+        ? snapshotResult.reason.message
+        : 'Não foi possível carregar o último snapshot de segurança.';
+  }
+
+  loadingAvailability.value = false;
 }
 
 async function runScan(): Promise<void> {
@@ -178,6 +216,14 @@ async function runScan(): Promise<void> {
 
   try {
     scan.value = await scanProjectSecurityCenter(props.project.id);
+    if (scan.value.execution.state === 'completed') {
+      const persisted = await fetchSecurityCenterSnapshot(props.project.id);
+      snapshot.value = persisted.snapshot;
+    } else {
+      errorMessage.value =
+        scan.value.execution.diagnostic ??
+        'O provider não conseguiu produzir um resultado confiável.';
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -264,7 +310,11 @@ watch(
         </div>
         <div class="security-center-scanner-metric">
           <span>Persistência</span>
-          <strong>Somente sessão</strong>
+          <strong>{{ snapshot ? 'Persistido' : 'Sem snapshot' }}</strong>
+        </div>
+        <div class="security-center-scanner-metric">
+          <span>Freshness</span>
+          <strong>{{ freshnessLabel }}</strong>
         </div>
         <button
           class="primary-button security-center-scan-button"
@@ -292,8 +342,8 @@ watch(
               severidade.
             </p>
           </div>
-          <span v-if="scan">
-            {{ formatDate(scan.execution.observedAt) }}
+          <span v-if="evidenceObservedAt">
+            {{ formatDate(evidenceObservedAt) }}
           </span>
         </div>
 
@@ -336,26 +386,18 @@ watch(
               {{ findings.length }} finding(s)
             </template>
             <template v-else-if="scan">Scan inconclusivo</template>
-            <template v-else>Sem scan nesta sessão</template>
+            <template v-else>Sem snapshot persistido</template>
           </span>
         </div>
 
         <EmptyState
-          v-if="!scan"
+          v-if="!hasCompletedScan"
           class="security-center-empty"
-          icon="—"
-          title="Nenhum finding para exibir"
-          description="Quando o scanner estiver disponível, execute um scan para preencher a triagem."
-        />
-
-        <EmptyState
-          v-else-if="scan.execution.state !== 'completed'"
-          class="security-center-empty"
-          icon="!"
-          title="Scan inconclusivo"
+          :icon="scan ? '!' : '—'"
+          :title="scan ? 'Scan inconclusivo' : 'Nenhum snapshot persistido'"
           :description="
-            scan.execution.diagnostic ??
-            'O provider não conseguiu produzir um resultado confiável.'
+            scan?.execution.diagnostic ??
+            'Execute um scan concluído para persistir uma evidência sanitizada.'
           "
         />
 
@@ -364,7 +406,7 @@ watch(
           class="security-center-empty"
           icon="✓"
           title="Nenhum finding encontrado"
-          :description="`Scan concluído em ${formatDate(scan.execution.observedAt)}.`"
+          :description="`Scan concluído em ${formatDate(evidenceObservedAt ?? '')}.`"
         />
 
         <ul
@@ -490,7 +532,7 @@ watch(
 
 .security-center-scanner {
   display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+  grid-template-columns: repeat(5, minmax(110px, 1fr)) auto;
   align-items: center;
   gap: var(--space-4);
   margin: 0 var(--space-5);
