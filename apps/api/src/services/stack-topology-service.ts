@@ -100,7 +100,9 @@ export class StackTopologyService {
   public plan(stack: Stack): StackTopologyPlan {
     validateStack(stack);
 
-    const indegree = new Map(stack.nodes.map((node) => [node.id, 0] as const));
+    const indegree = new Map<string, number>(
+      stack.nodes.map((node) => [node.id, 0]),
+    );
     const dependents = new Map(
       stack.nodes.map((node) => [node.id, [] as string[]] as const),
     );
