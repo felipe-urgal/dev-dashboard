@@ -42,6 +42,7 @@ const checkLabel: Record<ReleaseReadinessCheckId, string> = {
   'pull-request': 'Pull Request',
   doctor: 'Doctor',
   migrations: 'Migrations',
+  security: 'Segurança',
   production: 'Produção',
 };
 
@@ -51,7 +52,8 @@ const checkOrder: Record<ReleaseReadinessCheckId, number> = {
   'pull-request': 2,
   doctor: 3,
   migrations: 4,
-  production: 5,
+  security: 5,
+  production: 6,
 };
 
 const orderedChecks = computed(() =>
@@ -110,6 +112,12 @@ function actionRoute(target: ReleaseReadinessActionTarget) {
       params: { projectId: props.project.id },
     };
   }
+  if (target === 'security') {
+    return {
+      name: 'project-security',
+      params: { projectId: props.project.id },
+    };
+  }
   return {
     name: 'project-production',
     params: { projectId: props.project.id },
@@ -164,7 +172,7 @@ watch(
       v-if="loading"
       icon="•••"
       title="Verificando readiness"
-      description="Consultando Git, suíte completa comparável, Pull Request, Project Doctor, Migrations e Produção."
+      description="Consultando Git, suíte completa comparável, Pull Request, Project Doctor, Migrations, Segurança e Produção."
     />
 
     <EmptyState
@@ -206,8 +214,8 @@ watch(
         <div class="readiness-checklist-heading">
           <h4 id="readiness-checklist-title">Checklist de entrega</h4>
           <p>
-            Git, Testes, Pull Request, Doctor, Migrations e Produção formam a
-            evidência usada para a conclusão acima.
+            Git, Testes, Pull Request, Doctor, Migrations, Segurança e Produção
+            formam a evidência usada para a conclusão acima.
           </p>
         </div>
 
