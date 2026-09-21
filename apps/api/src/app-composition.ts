@@ -35,6 +35,7 @@ import { RailsMigrationMutationProvider } from './services/rails-migration-mutat
 import { ReleaseReadinessService } from './services/release-readiness-service.js';
 import { TaskContextService } from './services/task-context-service.js';
 import type { SecurityScannerProvider } from './services/security-scanner-provider.js';
+import { SecurityScanSnapshotStore } from './services/security-scan-snapshot-store.js';
 import { TrivySecurityProvider } from './services/trivy-security-provider.js';
 import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
@@ -72,6 +73,7 @@ export interface AppCompositionOptions {
     'start' | 'get' | 'reattach' | 'cancel' | 'shutdown'
   >;
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
+  securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
 }
 
 /**
@@ -230,6 +232,12 @@ export function createAppComposition(
       : undefined);
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
+  const securityScanSnapshotStore =
+    options.securityScanSnapshotStore ??
+    new SecurityScanSnapshotStore(
+      path.join(context.processManager.stateDirectory, 'security-center'),
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    );
 
   return {
     databaseExplorerSessionStore,
@@ -259,6 +267,7 @@ export function createAppComposition(
     dependencyHealthService,
     dependencyUpgradePlanService,
     securityScannerProvider,
+    securityScanSnapshotStore,
   };
 }
 
