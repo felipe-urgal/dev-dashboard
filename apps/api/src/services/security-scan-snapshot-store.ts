@@ -226,7 +226,13 @@ export class SecurityScanSnapshotStore {
     try {
       const info = await stat(statePath);
       if (!info.isFile() || info.size > MAX_SNAPSHOT_BYTES) return undefined;
-      const parsed = parsePersistedSnapshot(await readFile(statePath, 'utf8'));
+      let persisted: unknown;
+      try {
+        persisted = JSON.parse(await readFile(statePath, 'utf8')) as unknown;
+      } catch {
+        return undefined;
+      }
+      const parsed = parsePersistedSnapshot(persisted);
       if (
         !parsed ||
         parsed.projectId !== project.id ||
