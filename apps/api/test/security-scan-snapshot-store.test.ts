@@ -106,8 +106,5 @@ test('não reaproveita snapshot quando o mesmo projectId aponta para outro path'
   });
   await store.save(project('/tmp/security-project-a'), result());
 
-  assert.equal(
-    await store.get(project('/tmp/security-project-b')),
-    undefined,
-  );
+  assert.equal(await store.get(project('/tmp/security-project-b')), undefined);
 });
