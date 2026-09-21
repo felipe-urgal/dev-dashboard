@@ -108,3 +108,21 @@ test('não reaproveita snapshot quando o mesmo projectId aponta para outro path'
 
   assert.equal(await store.get(project('/tmp/security-project-b')), undefined);
 });
+
+
+test('timestamp futuro nunca é promovido a fresh', async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'security-snapshot-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const knownProject = project('/tmp/security-project');
+  const store = new SecurityScanSnapshotStore(directory, {
+    now: () => new Date('2026-09-21T11:00:00.000Z'),
+  });
+
+  const saved = await store.save(
+    knownProject,
+    result('2026-09-21T12:00:00.000Z'),
+  );
+
+  assert.equal(saved.freshness.state, 'stale');
+  assert.equal(saved.freshness.ageMs, 0);
+});
