@@ -123,3 +123,48 @@ test('ambiguous execution failure is represented explicitly', () => {
   assert.equal(execution.failure?.kind, 'ambiguous');
   assert.equal(execution.state, 'unknown');
 });
+
+test('checkpoint requires an explicit valid transition before work resumes', () => {
+  const checkpoint = transitionAgentTask(
+    task('running'),
+    'checkpoint',
+    '2026-09-21T21:02:00.000Z',
+  );
+
+  assert.equal(checkpoint.state, 'checkpoint');
+  assert.throws(
+    () =>
+      transitionAgentTask(
+        checkpoint,
+        'completed',
+        '2026-09-21T21:03:00.000Z',
+      ),
+    AgentStateTransitionError,
+  );
+
+  const resumed = transitionAgentTask(
+    checkpoint,
+    'running',
+    '2026-09-21T21:04:00.000Z',
+  );
+  assert.equal(resumed.state, 'running');
+});
+
+test('cancellation ownership carries project, environment, task and execution identity', () => {
+  const cancellation = {
+    ownership: {
+      projectId: 'project-1',
+      environmentInstanceId: 'env-1',
+      taskId: 'task-1',
+      executionId: 'execution-1',
+    },
+    requestedAt: '2026-09-21T21:05:00.000Z',
+  } satisfies import('../src/index.js').AgentCancellationRequest;
+
+  assert.deepEqual(cancellation.ownership, {
+    projectId: 'project-1',
+    environmentInstanceId: 'env-1',
+    taskId: 'task-1',
+    executionId: 'execution-1',
+  });
+});
