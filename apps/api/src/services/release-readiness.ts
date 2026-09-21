@@ -521,8 +521,7 @@ export function evaluateSecurityReadiness(
       id: 'security',
       state: 'unknown',
       summary: 'Sem scan de segurança persistido',
-      evidence:
-        'Nenhum snapshot sanitizado foi registrado para este projeto.',
+      evidence: 'Nenhum snapshot sanitizado foi registrado para este projeto.',
       observedAt,
       action,
     };

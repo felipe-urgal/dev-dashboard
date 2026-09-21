@@ -288,8 +288,7 @@ export class SecurityScanSnapshotStore {
       result: persisted.result,
       storedAt: persisted.storedAt,
       freshness: {
-        state:
-          rawAgeMs >= 0 && rawAgeMs <= FRESHNESS_MS ? 'fresh' : 'stale',
+        state: rawAgeMs >= 0 && rawAgeMs <= FRESHNESS_MS ? 'fresh' : 'stale',
         observedAt: persisted.result.observedAt,
         ageMs,
         maxAgeMs: FRESHNESS_MS,
