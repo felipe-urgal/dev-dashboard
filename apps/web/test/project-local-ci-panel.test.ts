@@ -7,14 +7,17 @@ const fetchLocalCiCatalog = vi.hoisted(() => vi.fn());
 const fetchLocalCiRun = vi.hoisted(() => vi.fn());
 const startLocalCiRun = vi.hoisted(() => vi.fn());
 const cancelLocalCiRun = vi.hoisted(() => vi.fn());
-const localCiWebSocketUrl = vi.hoisted(() => vi.fn(() => 'ws://local/run'));
+const localCiWebSocketUrl = vi.hoisted(() =>
+  vi.fn((_projectId: string, _runId: string) => 'ws://local/run'),
+);
 
 vi.mock('../src/api/local-ci', () => ({
   fetchLocalCiCatalog: (...args: unknown[]) => fetchLocalCiCatalog(...args),
   fetchLocalCiRun: (...args: unknown[]) => fetchLocalCiRun(...args),
   startLocalCiRun: (...args: unknown[]) => startLocalCiRun(...args),
   cancelLocalCiRun: (...args: unknown[]) => cancelLocalCiRun(...args),
-  localCiWebSocketUrl: (...args: unknown[]) => localCiWebSocketUrl(...args),
+  localCiWebSocketUrl: (projectId: string, runId: string) =>
+    localCiWebSocketUrl(projectId, runId),
 }));
 
 import ProjectLocalCiPanel from '../src/components/ProjectLocalCiPanel.vue';
@@ -97,7 +100,7 @@ describe('ProjectLocalCiPanel', () => {
     const wrapper = mount(ProjectLocalCiPanel, { props: { project } });
     await flushPromises();
 
-    await wrapper.getAll('select')[1]!.setValue('pull_request');
+    await wrapper.findAll('select')[1]!.setValue('pull_request');
     await wrapper.get('.local-ci-start').trigger('click');
     await flushPromises();
 
