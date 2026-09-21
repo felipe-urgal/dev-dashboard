@@ -6,6 +6,7 @@ vi.mock('../src/api/core', () => ({ requestJson }));
 
 import {
   fetchSecurityCenterAvailability,
+  fetchSecurityCenterSnapshot,
   scanProjectSecurityCenter,
 } from '../src/api/security-center';
 
@@ -28,6 +29,19 @@ describe('Security Center API', () => {
 
     expect(requestJson).toHaveBeenCalledWith(
       '/api/security-center/availability',
+    );
+  });
+
+  it('carrega snapshot persistido por projectId', async () => {
+    requestJson.mockResolvedValueOnce({
+      provider: 'trivy',
+      snapshot: null,
+    });
+
+    await fetchSecurityCenterSnapshot('project / 1');
+
+    expect(requestJson).toHaveBeenCalledWith(
+      '/api/projects/project%20%2F%201/security-center/snapshot',
     );
   });
 

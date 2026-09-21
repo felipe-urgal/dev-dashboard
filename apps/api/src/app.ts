@@ -141,6 +141,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     dockerComposeLifecycleService,
     dockerComposeOwnershipStore,
     securityScannerProvider,
+    securityScanSnapshotStore,
   } = composition;
   registerAppLifecycle(app, context, composition);
 
@@ -504,6 +505,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     securityScannerProvider,
+    securityScanSnapshotStore,
   });
 
   if (options.staticDashboardEnabled) {

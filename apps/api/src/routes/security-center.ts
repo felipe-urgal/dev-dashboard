@@ -3,12 +3,14 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { SecurityScannerProvider } from '../services/security-scanner-provider.js';
+import type { SecurityScanSnapshotStore } from '../services/security-scan-snapshot-store.js';
 import type { SecurityScanResult } from '../services/trivy-security-scanner.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   securityScannerProvider: SecurityScannerProvider<SecurityScanResult>;
+  securityScanSnapshotStore: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
 }
 
 interface Params {
@@ -87,6 +89,29 @@ const scanResultSchema = {
   },
 } as const;
 
+const freshnessSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state', 'observedAt', 'ageMs', 'maxAgeMs'],
+  properties: {
+    state: { type: 'string', enum: ['fresh', 'stale'] },
+    observedAt: { type: 'string' },
+    ageMs: { type: 'integer', minimum: 0 },
+    maxAgeMs: { type: 'integer', minimum: 1 },
+  },
+} as const;
+
+const snapshotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['result', 'storedAt', 'freshness'],
+  properties: {
+    result: scanResultSchema,
+    storedAt: { type: 'string' },
+    freshness: freshnessSchema,
+  },
+} as const;
+
 const scanExecutionSchema = {
   type: 'object',
   additionalProperties: false,
@@ -142,6 +167,38 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
     }),
   );
 
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/security-center/snapshot',
+    {
+      schema: {
+        params: paramsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['provider', 'snapshot'],
+            properties: {
+              provider: { type: 'string' },
+              snapshot: { anyOf: [snapshotSchema, { type: 'null' }] },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      return {
+        provider: options.securityScannerProvider.id,
+        snapshot:
+          (await options.securityScanSnapshotStore.get(project)) ?? null,
+      };
+    },
+  );
+
   app.post<{
     Params: Params;
     Body: Record<string, never>;
@@ -165,11 +222,19 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async (request) => ({
-      provider: options.securityScannerProvider.id,
-      execution: await options.securityScannerProvider.scan(
-        requireProject(options.projectStore, request.params.projectId),
-      ),
-    }),
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const execution = await options.securityScannerProvider.scan(project);
+      if (execution.state === 'completed' && execution.result) {
+        await options.securityScanSnapshotStore.save(project, execution.result);
+      }
+      return {
+        provider: options.securityScannerProvider.id,
+        execution,
+      };
+    },
   );
 };

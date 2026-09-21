@@ -37,9 +37,27 @@ export interface SecurityScanExecution {
   diagnostic?: string;
 }
 
+export interface SecurityScanFreshness {
+  state: 'fresh' | 'stale';
+  observedAt: string;
+  ageMs: number;
+  maxAgeMs: number;
+}
+
+export interface SecurityScanSnapshot {
+  result: SecurityScanResult;
+  storedAt: string;
+  freshness: SecurityScanFreshness;
+}
+
 export interface SecurityCenterAvailabilityResponse {
   provider: string;
   availability: SecurityScannerAvailability;
+}
+
+export interface SecurityCenterSnapshotResponse {
+  provider: string;
+  snapshot: SecurityScanSnapshot | null;
 }
 
 export interface SecurityCenterScanResponse {
@@ -50,6 +68,14 @@ export interface SecurityCenterScanResponse {
 export function fetchSecurityCenterAvailability(): Promise<SecurityCenterAvailabilityResponse> {
   return requestJson<SecurityCenterAvailabilityResponse>(
     '/api/security-center/availability',
+  );
+}
+
+export function fetchSecurityCenterSnapshot(
+  projectId: string,
+): Promise<SecurityCenterSnapshotResponse> {
+  return requestJson<SecurityCenterSnapshotResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/security-center/snapshot`,
   );
 }
 

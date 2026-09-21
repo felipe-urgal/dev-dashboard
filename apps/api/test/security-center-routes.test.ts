@@ -10,10 +10,41 @@ import type {
   SecurityScannerAvailability,
   SecurityScannerProvider,
 } from '../src/services/security-scanner-provider.js';
+import type { SecurityScanSnapshot } from '../src/services/security-scan-snapshot-store.js';
 import type { SecurityScanResult } from '../src/services/trivy-security-scanner.js';
 
 const TOKEN = 's'.repeat(64);
 const OBSERVED_AT = '2026-09-07T12:00:00.000Z';
+
+class StubSecurityScanSnapshotStore {
+  public readonly snapshots = new Map<string, SecurityScanSnapshot>();
+  public savedProjects: Project[] = [];
+
+  public async get(
+    project: Project,
+  ): Promise<SecurityScanSnapshot | undefined> {
+    return this.snapshots.get(project.id);
+  }
+
+  public async save(
+    project: Project,
+    result: SecurityScanResult,
+  ): Promise<SecurityScanSnapshot> {
+    this.savedProjects.push(project);
+    const snapshot: SecurityScanSnapshot = {
+      result,
+      storedAt: OBSERVED_AT,
+      freshness: {
+        state: 'fresh',
+        observedAt: result.observedAt,
+        ageMs: 0,
+        maxAgeMs: 86_400_000,
+      },
+    };
+    this.snapshots.set(project.id, snapshot);
+    return snapshot;
+  }
+}
 
 class StubSecurityScannerProvider implements SecurityScannerProvider<SecurityScanResult> {
   public readonly id = 'trivy';
@@ -68,12 +99,14 @@ async function createFixture() {
     warnings: [],
   });
   const provider = new StubSecurityScannerProvider();
+  const snapshotStore = new StubSecurityScanSnapshotStore();
   const app = await buildApp({
     localToken: TOKEN,
     context,
     securityScannerProvider: provider,
+    securityScanSnapshotStore: snapshotStore,
   });
-  return { app, provider, knownProject };
+  return { app, provider, snapshotStore, knownProject };
 }
 
 test('Security Center expõe availability autenticada sem executar scan', async (context) => {
@@ -179,4 +212,83 @@ test('scan retorna 404 sem chamar provider para projeto inexistente', async (con
   assert.equal(response.statusCode, 404);
   assert.equal(response.json().error, 'PROJECT_NOT_FOUND');
   assert.equal(fixture.provider.scannedProjects.length, 0);
+});
+
+test('snapshot retorna null antes de existir evidência persistida', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  const response = await fixture.app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/security-center/snapshot',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    provider: 'trivy',
+    snapshot: null,
+  });
+});
+
+test('scan concluído persiste o resultado normalizado para reload', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  const scanResponse = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/security-center/scan',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: {},
+  });
+  assert.equal(scanResponse.statusCode, 200);
+  assert.equal(fixture.snapshotStore.savedProjects.length, 1);
+
+  const snapshotResponse = await fixture.app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/security-center/snapshot',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+
+  assert.equal(snapshotResponse.statusCode, 200);
+  assert.equal(snapshotResponse.json().snapshot.freshness.state, 'fresh');
+  assert.deepEqual(snapshotResponse.json().snapshot.result, {
+    provider: 'trivy',
+    observedAt: OBSERVED_AT,
+    findings: [],
+  });
+});
+
+test('scan inconclusivo não apaga a última evidência persistida', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  await fixture.snapshotStore.save(fixture.knownProject, {
+    provider: 'trivy',
+    observedAt: OBSERVED_AT,
+    findings: [],
+  });
+  fixture.provider.scanResult = {
+    state: 'failed',
+    observedAt: '2026-09-07T13:00:00.000Z',
+    diagnostic: 'Falha controlada.',
+  };
+
+  const response = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/security-center/scan',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: {},
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().execution.state, 'failed');
+  assert.equal(fixture.snapshotStore.savedProjects.length, 1);
+  assert.ok(fixture.snapshotStore.snapshots.get('project-1'));
 });

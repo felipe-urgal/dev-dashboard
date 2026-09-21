@@ -4,11 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '@dev-dashboard/contracts';
 
 const fetchSecurityCenterAvailability = vi.hoisted(() => vi.fn());
+const fetchSecurityCenterSnapshot = vi.hoisted(() => vi.fn());
 const scanProjectSecurityCenter = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/api/security-center', () => ({
   fetchSecurityCenterAvailability: (...args: unknown[]) =>
     fetchSecurityCenterAvailability(...args),
+  fetchSecurityCenterSnapshot: (...args: unknown[]) =>
+    fetchSecurityCenterSnapshot(...args),
   scanProjectSecurityCenter: (...args: unknown[]) =>
     scanProjectSecurityCenter(...args),
 }));
@@ -43,6 +46,10 @@ function availability(state: 'available' | 'missing' | 'unavailable') {
 describe('ProjectSecurityCenterPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchSecurityCenterSnapshot.mockResolvedValue({
+      provider: 'trivy',
+      snapshot: null,
+    });
   });
 
   it('mantém ausência de evidência quando o scanner não está instalado', async () => {
@@ -59,9 +66,9 @@ describe('ProjectSecurityCenterPanel', () => {
       'Trivy não está instalado no PATH da API.',
     );
     expect(wrapper.text()).toContain('Não executado');
-    expect(wrapper.text()).toContain('Somente sessão');
+    expect(wrapper.text()).toContain('Sem snapshot');
     expect(wrapper.text()).toContain('Triagem de riscos');
-    expect(wrapper.text()).toContain('Sem scan nesta sessão');
+    expect(wrapper.text()).toContain('Sem snapshot persistido');
     expect(
       wrapper
         .findAll('.security-center-severity strong')
@@ -71,6 +78,50 @@ describe('ProjectSecurityCenterPanel', () => {
     const button = wrapper.get('.security-center-scan-button');
     expect(button.attributes('disabled')).toBeDefined();
     expect(scanProjectSecurityCenter).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it('restaura snapshot persistido e mostra freshness após reload', async () => {
+    fetchSecurityCenterAvailability.mockResolvedValueOnce(
+      availability('missing'),
+    );
+    fetchSecurityCenterSnapshot.mockResolvedValueOnce({
+      provider: 'trivy',
+      snapshot: {
+        storedAt: '2026-09-11T14:41:00.000Z',
+        freshness: {
+          state: 'stale',
+          observedAt: '2026-09-10T10:00:00.000Z',
+          ageMs: 103_260_000,
+          maxAgeMs: 86_400_000,
+        },
+        result: {
+          provider: 'trivy',
+          observedAt: '2026-09-10T10:00:00.000Z',
+          findings: [
+            {
+              provider: 'trivy',
+              category: 'misconfiguration',
+              ruleId: 'CFG-1',
+              severity: 'high',
+              title: 'Configuração antiga',
+              file: 'config.yml',
+              fingerprint: 'a'.repeat(64),
+              observedAt: '2026-09-10T10:00:00.000Z',
+            },
+          ],
+        },
+      },
+    });
+
+    const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Persistido');
+    expect(wrapper.text()).toContain('Desatualizado');
+    expect(wrapper.text()).toContain('Configuração antiga');
+    expect(wrapper.text()).toContain('1 finding(s)');
 
     wrapper.unmount();
   });
