@@ -94,9 +94,7 @@ const evidenceObservedAt = computed(
 
 const freshnessLabel = computed(() => {
   if (!snapshot.value) return '—';
-  return snapshot.value.freshness.state === 'fresh'
-    ? 'Atual'
-    : 'Desatualizado';
+  return snapshot.value.freshness.state === 'fresh' ? 'Atual' : 'Desatualizado';
 });
 
 const scanStateLabel = computed(() => {

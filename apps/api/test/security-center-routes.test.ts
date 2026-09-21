@@ -20,7 +20,9 @@ class StubSecurityScanSnapshotStore {
   public readonly snapshots = new Map<string, SecurityScanSnapshot>();
   public savedProjects: Project[] = [];
 
-  public async get(project: Project): Promise<SecurityScanSnapshot | undefined> {
+  public async get(
+    project: Project,
+  ): Promise<SecurityScanSnapshot | undefined> {
     return this.snapshots.get(project.id);
   }
 
@@ -211,7 +213,6 @@ test('scan retorna 404 sem chamar provider para projeto inexistente', async (con
   assert.equal(response.json().error, 'PROJECT_NOT_FOUND');
   assert.equal(fixture.provider.scannedProjects.length, 0);
 });
-
 
 test('snapshot retorna null antes de existir evidência persistida', async (context) => {
   const fixture = await createFixture();

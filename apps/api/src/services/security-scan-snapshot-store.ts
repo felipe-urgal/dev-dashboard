@@ -219,7 +219,9 @@ export class SecurityScanSnapshotStore {
     this.now = options.now ?? (() => new Date());
   }
 
-  public async get(project: Project): Promise<SecurityScanSnapshot | undefined> {
+  public async get(
+    project: Project,
+  ): Promise<SecurityScanSnapshot | undefined> {
     const statePath = this.statePath(project.id);
     try {
       const info = await stat(statePath);
