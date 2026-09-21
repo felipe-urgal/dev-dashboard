@@ -1,9 +1,7 @@
 import { requestJson } from './core';
 
 export type LocalCiAvailabilityState =
-  | 'available'
-  | 'act-missing'
-  | 'docker-unavailable';
+  'available' | 'act-missing' | 'docker-unavailable';
 
 export interface LocalCiAvailability {
   state: LocalCiAvailabilityState;
@@ -103,10 +101,7 @@ export async function cancelLocalCiRun(
   runId: string,
 ): Promise<void> {
   await requestJson(
-    localCiPath(projectId) +
-      '/runs/' +
-      encodeURIComponent(runId) +
-      '/cancel',
+    localCiPath(projectId) + '/runs/' + encodeURIComponent(runId) + '/cancel',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,10 +110,7 @@ export async function cancelLocalCiRun(
   );
 }
 
-export function localCiWebSocketUrl(
-  projectId: string,
-  runId: string,
-): string {
+export function localCiWebSocketUrl(projectId: string, runId: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return (
     protocol +

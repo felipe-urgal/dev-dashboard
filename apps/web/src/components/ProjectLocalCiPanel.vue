@@ -469,7 +469,11 @@ onBeforeUnmount(closeSocket);
         description="Não há combinações de workflow, job e evento disponíveis no catálogo detectado."
       />
 
-      <section v-else class="local-ci-launcher" aria-labelledby="local-ci-run-title">
+      <section
+        v-else
+        class="local-ci-launcher"
+        aria-labelledby="local-ci-run-title"
+      >
         <div class="local-ci-section-heading">
           <div>
             <h4 id="local-ci-run-title">Executar job</h4>
@@ -520,7 +524,11 @@ onBeforeUnmount(closeSocket);
         </div>
       </section>
 
-      <section v-if="run" class="local-ci-run" aria-labelledby="local-ci-current-title">
+      <section
+        v-if="run"
+        class="local-ci-run"
+        aria-labelledby="local-ci-current-title"
+      >
         <div class="local-ci-section-heading local-ci-run-heading">
           <div>
             <div class="local-ci-heading-row">
@@ -534,9 +542,7 @@ onBeforeUnmount(closeSocket);
           </div>
           <div class="local-ci-run-actions">
             <button
-              v-if="
-                run.status === 'running' && socketState === 'disconnected'
-              "
+              v-if="run.status === 'running' && socketState === 'disconnected'"
               class="secondary-button"
               type="button"
               @click="reconnect"
@@ -583,7 +589,9 @@ onBeforeUnmount(closeSocket);
         </div>
 
         <p v-if="run.status === 'exited'" class="local-ci-result">
-          <template v-if="run.timedOut">Execução encerrada por timeout.</template>
+          <template v-if="run.timedOut"
+            >Execução encerrada por timeout.</template
+          >
           <template v-else>
             Exit code {{ run.exitCode ?? '—' }}
             <template v-if="run.exitSignal !== null">
@@ -668,10 +676,9 @@ onBeforeUnmount(closeSocket);
 
 .local-ci-availability {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) minmax(120px, 0.6fr) minmax(
-      120px,
-      0.6fr
-    ) auto;
+  grid-template-columns:
+    minmax(220px, 1.5fr) minmax(120px, 0.6fr) minmax(120px, 0.6fr)
+    auto;
   align-items: center;
   gap: var(--space-4);
   margin: var(--space-4) var(--space-5) 0;

@@ -108,9 +108,11 @@ describe('ProjectLocalCiPanel', () => {
     });
     expect(wrapper.text()).toContain('Concluído');
     expect(wrapper.text()).toContain('Exit code 0');
-    expect(window.sessionStorage.getItem(
-      'dev-dashboard-local-ci:' + project.id + ':run',
-    )).toBe('run-1');
+    expect(
+      window.sessionStorage.getItem(
+        'dev-dashboard-local-ci:' + project.id + ':run',
+      ),
+    ).toBe('run-1');
 
     wrapper.unmount();
   });
