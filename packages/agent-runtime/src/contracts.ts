@@ -1,8 +1,5 @@
 export type AgentProviderId =
-  | 'automatic'
-  | 'codex'
-  | 'claude-code'
-  | 'chatgpt-browser';
+  'automatic' | 'codex' | 'claude-code' | 'chatgpt-browser';
 
 export type AgentTaskState =
   | 'queued'
@@ -15,12 +12,7 @@ export type AgentTaskState =
   | 'cancelled';
 
 export type AgentExecutionState =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'unknown';
+  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
 
 export type AgentCapability =
   | 'workspace:write'
@@ -60,7 +52,8 @@ export interface AgentExecution {
   failure?: AgentExecutionFailure;
 }
 
-export type AgentProviderAvailability = 'available' | 'degraded' | 'unavailable';
+export type AgentProviderAvailability =
+  'available' | 'degraded' | 'unavailable';
 
 export interface AgentProviderStatus {
   providerId: AgentProviderId;
@@ -91,13 +84,7 @@ export interface AgentAuthorization {
 }
 
 export type AgentEvidenceKind =
-  | 'diff'
-  | 'test'
-  | 'log'
-  | 'commit'
-  | 'pull-request'
-  | 'readiness'
-  | 'other';
+  'diff' | 'test' | 'log' | 'commit' | 'pull-request' | 'readiness' | 'other';
 
 export interface AgentEvidence {
   id: string;
@@ -167,7 +154,10 @@ export interface AgentTaskRecord {
 export interface AgentTaskStore {
   get(taskId: string): Promise<AgentTaskRecord | null>;
   list(projectId: string): Promise<AgentTaskRecord[]>;
-  save(task: AgentTask, expectedVersion: number | null): Promise<AgentTaskRecord>;
+  save(
+    task: AgentTask,
+    expectedVersion: number | null,
+  ): Promise<AgentTaskRecord>;
 }
 
 export interface AgentProviderRegistry {

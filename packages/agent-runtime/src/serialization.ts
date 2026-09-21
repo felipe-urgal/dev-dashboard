@@ -47,10 +47,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function requiredString(
-  value: Record<string, unknown>,
-  key: string,
-): string {
+function requiredString(value: Record<string, unknown>, key: string): string {
   const candidate = value[key];
 
   if (typeof candidate !== 'string' || candidate.length === 0) {
@@ -90,7 +87,9 @@ export function deserializeAgentTask(serialized: string): AgentTask {
 
   const requestedCapabilities = parsed.requestedCapabilities;
   if (!Array.isArray(requestedCapabilities)) {
-    throw new AgentSerializationError('Invalid AgentTask.requestedCapabilities');
+    throw new AgentSerializationError(
+      'Invalid AgentTask.requestedCapabilities',
+    );
   }
 
   const capabilities = requestedCapabilities.map((capability) => {
@@ -110,7 +109,9 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     (typeof environmentInstanceId !== 'string' ||
       environmentInstanceId.length === 0)
   ) {
-    throw new AgentSerializationError('Invalid AgentTask.environmentInstanceId');
+    throw new AgentSerializationError(
+      'Invalid AgentTask.environmentInstanceId',
+    );
   }
 
   const task: AgentTask = {

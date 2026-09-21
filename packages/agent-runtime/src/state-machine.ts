@@ -1,8 +1,17 @@
 import type { AgentTask, AgentTaskState } from './contracts.js';
 
-const TASK_TRANSITIONS: Readonly<Record<AgentTaskState, readonly AgentTaskState[]>> = {
+const TASK_TRANSITIONS: Readonly<
+  Record<AgentTaskState, readonly AgentTaskState[]>
+> = {
   queued: ['running', 'cancelled'],
-  running: ['checkpoint', 'review', 'blocked', 'failed', 'completed', 'cancelled'],
+  running: [
+    'checkpoint',
+    'review',
+    'blocked',
+    'failed',
+    'completed',
+    'cancelled',
+  ],
   checkpoint: ['running', 'review', 'blocked', 'cancelled'],
   review: ['running', 'blocked', 'failed', 'completed', 'cancelled'],
   blocked: ['queued', 'failed', 'cancelled'],
