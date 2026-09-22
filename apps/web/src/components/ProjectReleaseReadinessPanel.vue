@@ -420,9 +420,9 @@ watch(
   .readiness-check {
     grid-template-columns: 28px minmax(0, 1fr) auto;
     grid-template-areas:
-      "icon domain action"
-      "icon status action"
-      "icon summary summary";
+      'icon domain action'
+      'icon status action'
+      'icon summary summary';
     align-items: start;
     row-gap: var(--space-2);
     min-height: 0;
@@ -465,10 +465,10 @@ watch(
   .readiness-check {
     grid-template-columns: 28px minmax(0, 1fr);
     grid-template-areas:
-      "icon domain"
-      "icon status"
-      "icon summary"
-      ". action";
+      'icon domain'
+      'icon status'
+      'icon summary'
+      '. action';
   }
 
   .readiness-check-action {
