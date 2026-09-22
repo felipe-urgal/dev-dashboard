@@ -7,6 +7,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import { computed, onMounted, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
+import { Toaster } from 'vue-sonner';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
@@ -175,6 +176,43 @@ onMounted(() => {
         :open="workspaceManagerOpen"
         @close="workspaceManagerOpen = false"
       />
+
+      <Toaster
+        :theme="currentTheme"
+        position="bottom-right"
+        rich-colors
+        close-button
+        :duration="2500"
+      />
     </div>
   </n-config-provider>
 </template>
+
+<style>
+/* Toasts globais continuam disponíveis para fluxos que ainda usam vue-sonner. */
+[data-sonner-toast] {
+  background: color-mix(
+    in srgb,
+    var(--sonner-toast-bg, var(--normal-bg)) 78%,
+    transparent
+  ) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-sonner-toast][data-type='success'] {
+  --sonner-toast-bg: var(--success-bg);
+}
+
+[data-sonner-toast][data-type='error'] {
+  --sonner-toast-bg: var(--error-bg);
+}
+
+[data-sonner-toast][data-type='warning'] {
+  --sonner-toast-bg: var(--warning-bg);
+}
+
+[data-sonner-toast][data-type='info'] {
+  --sonner-toast-bg: var(--info-bg);
+}
+</style>
