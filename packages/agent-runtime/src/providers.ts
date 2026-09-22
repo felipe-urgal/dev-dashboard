@@ -74,8 +74,10 @@ export interface AutomaticAgentProviderOptions {
   now?: () => string;
 }
 
-export interface LocalAgentProviderRegistryOptions
-  extends Omit<LocalAgentProviderOptions, 'command'> {
+export interface LocalAgentProviderRegistryOptions extends Omit<
+  LocalAgentProviderOptions,
+  'command'
+> {
   codexCommand?: string;
   claudeCommand?: string;
   preferredProviderId?: AgentConcreteProviderId;
@@ -144,10 +146,7 @@ function probeReason(error: unknown): {
     };
   }
 
-  if (
-    error instanceof AgentCliProcessError &&
-    error.code === 'spawn-failed'
-  ) {
+  if (error instanceof AgentCliProcessError && error.code === 'spawn-failed') {
     return {
       availability: 'unavailable',
       reason: 'provider command unavailable',
@@ -670,9 +669,7 @@ export function createLocalAgentProviderRegistry(
     ...(options.preferredProviderId
       ? { preferredProviderId: options.preferredProviderId }
       : {}),
-    ...(options.fallbackOrder
-      ? { fallbackOrder: options.fallbackOrder }
-      : {}),
+    ...(options.fallbackOrder ? { fallbackOrder: options.fallbackOrder } : {}),
     ...(options.now ? { now: options.now } : {}),
   });
 

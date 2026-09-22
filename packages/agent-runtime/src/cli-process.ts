@@ -227,10 +227,7 @@ export async function runAgentCliProcess(
       );
     }
 
-    function onClose(
-      code: number | null,
-      signal: NodeJS.Signals | null,
-    ): void {
+    function onClose(code: number | null, signal: NodeJS.Signals | null): void {
       if (terminationError) {
         settleReject(terminationError);
         return;

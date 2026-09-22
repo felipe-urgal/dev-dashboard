@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  AgentCliProcessError,
-  runAgentCliProcess,
-} from '../src/index.js';
+import { AgentCliProcessError, runAgentCliProcess } from '../src/index.js';
 
 const cwd = process.cwd();
 
@@ -44,8 +41,7 @@ test('CLI runner terminates output that exceeds its bound', async () => {
         terminationGraceMs: 20,
       }),
     (error: unknown) =>
-      error instanceof AgentCliProcessError &&
-      error.code === 'output-limit',
+      error instanceof AgentCliProcessError && error.code === 'output-limit',
   );
 });
 
@@ -82,8 +78,7 @@ test('CLI runner supports explicit cancellation', async () => {
   await assert.rejects(
     () => running,
     (error: unknown) =>
-      error instanceof AgentCliProcessError &&
-      error.code === 'cancelled',
+      error instanceof AgentCliProcessError && error.code === 'cancelled',
   );
 });
 
@@ -98,7 +93,6 @@ test('CLI runner fails closed when command cannot be spawned', async () => {
         label: 'Missing provider',
       }),
     (error: unknown) =>
-      error instanceof AgentCliProcessError &&
-      error.code === 'spawn-failed',
+      error instanceof AgentCliProcessError && error.code === 'spawn-failed',
   );
 });

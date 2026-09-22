@@ -59,10 +59,9 @@ function createProviderRunner(): {
 
     if (input.args[0] === '--version') {
       return result({
-        stdout:
-          input.command.includes('claude')
-            ? '2.1.259 (Claude Code)\n'
-            : 'codex-cli 1.2.3\n',
+        stdout: input.command.includes('claude')
+          ? '2.1.259 (Claude Code)\n'
+          : 'codex-cli 1.2.3\n',
       });
     }
 
@@ -177,7 +176,10 @@ test('Claude doctor degrades cleanly on unsupported version', async () => {
   const status = await provider.status();
 
   assert.equal(status.availability, 'degraded');
-  assert.equal(status.reason, 'Claude Code version is below the supported minimum');
+  assert.equal(
+    status.reason,
+    'Claude Code version is below the supported minimum',
+  );
   assert.equal(calls.length, 1);
 });
 
@@ -284,8 +286,7 @@ test('Registry rejects unknown providers before dispatch', () => {
   assert.throws(
     () => registry.require('unknown'),
     (error: unknown) =>
-      error instanceof AgentProviderError &&
-      error.code === 'unknown-provider',
+      error instanceof AgentProviderError && error.code === 'unknown-provider',
   );
 });
 
@@ -299,8 +300,7 @@ test('Backend-owned cwd is required and absolute', async () => {
   await assert.rejects(
     () => provider.execute(request()),
     (error: unknown) =>
-      error instanceof AgentProviderError &&
-      error.code === 'invalid-cwd',
+      error instanceof AgentProviderError && error.code === 'invalid-cwd',
   );
 });
 
@@ -335,7 +335,10 @@ test('Cancellation and ambiguous termination are normalized without raw output',
 
   const ambiguousResult = await ambiguous.execute(request());
   assert.equal(ambiguousResult.outcome, 'unknown');
-  assert.equal(JSON.stringify(ambiguousResult).includes('secret internal output'), false);
+  assert.equal(
+    JSON.stringify(ambiguousResult).includes('secret internal output'),
+    false,
+  );
 });
 
 test('Factory registers Automatic, Codex and Claude without shell authority', () => {
