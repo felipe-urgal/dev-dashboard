@@ -8,6 +8,7 @@ import {
 import { computed, onMounted, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
+
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
@@ -33,6 +34,7 @@ const naiveThemeOverrides = computed(() =>
 );
 
 loadVisualPreferences();
+
 const workspaceManagerOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());
 
@@ -189,7 +191,9 @@ onMounted(() => {
 </template>
 
 <style>
-/* Toasts globais continuam disponíveis para fluxos que ainda usam vue-sonner. */
+/* Toaster (vue-sonner) teleporta o conteúdo pra fora da árvore do App, então
+   isso não pode ser scoped. Deixa os toasts translúcidos com um leve
+   desfoque, no lugar do fundo sólido do preset rich-colors padrão. */
 [data-sonner-toast] {
   background: color-mix(
     in srgb,
