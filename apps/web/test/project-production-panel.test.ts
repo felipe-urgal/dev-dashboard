@@ -319,7 +319,9 @@ describe('ProjectProductionPanel', () => {
     });
     await flushPromises();
 
-    expect(document.body.textContent).not.toContain('Revisar antes de publicar');
+    expect(document.body.textContent).not.toContain(
+      'Revisar antes de publicar',
+    );
     const prepareButton = wrapper
       .findAll('button')
       .find((button) => button.text().includes('Preparar deployment'));

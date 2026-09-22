@@ -167,9 +167,7 @@ describe('ProjectSelfUpdateProductionPanel', () => {
     await flushPromises();
 
     expect(document.body.textContent).toContain('Atualização pronta');
-    expect(document.body.textContent).toContain(
-      NEXT_REVISION.slice(0, 10),
-    );
+    expect(document.body.textContent).toContain(NEXT_REVISION.slice(0, 10));
     expect(api.createDeploymentConfirmation).not.toHaveBeenCalled();
 
     const applyButton = Array.from(

@@ -927,10 +927,7 @@ onBeforeUnmount(() => {
   >
     <article class="production-card production-overview">
       <div class="production-overview-main">
-        <div
-          class="production-state-icon"
-          :class="'is-' + statusView.tone"
-        >
+        <div class="production-state-icon" :class="'is-' + statusView.tone">
           <component :is="statusView.icon" aria-hidden="true" />
         </div>
         <div class="production-state-copy">
@@ -951,7 +948,9 @@ onBeforeUnmount(() => {
         <div>
           <span>Commit</span>
           <code :title="productionRevision ?? latestDeployment?.revision">
-            {{ shortRevision(productionRevision ?? latestDeployment?.revision) }}
+            {{
+              shortRevision(productionRevision ?? latestDeployment?.revision)
+            }}
           </code>
         </div>
         <div v-if="latestDeployment">
@@ -1014,11 +1013,15 @@ onBeforeUnmount(() => {
             :class="{ 'production-spin': operation === 'verifying' }"
             aria-hidden="true"
           />
-          {{ operation === 'verifying' ? 'Verificando' : 'Verificar novamente' }}
+          {{
+            operation === 'verifying' ? 'Verificando' : 'Verificar novamente'
+          }}
         </button>
         <button
           v-if="!hasActiveDeployment && !canRetryLatestVerify"
-          :class="needsSudoAuthorization ? 'secondary-button' : 'primary-button'"
+          :class="
+            needsSudoAuthorization ? 'secondary-button' : 'primary-button'
+          "
           type="button"
           :disabled="
             Boolean(operation) ||
@@ -1049,7 +1052,9 @@ onBeforeUnmount(() => {
           @click="cancelActiveDeployment"
         >
           <StopIcon aria-hidden="true" />
-          {{ operation === 'cancelling' ? 'Cancelando' : 'Cancelar deployment' }}
+          {{
+            operation === 'cancelling' ? 'Cancelando' : 'Cancelar deployment'
+          }}
         </button>
       </div>
     </article>
@@ -1248,7 +1253,9 @@ onBeforeUnmount(() => {
                   : 'warning'
               "
             >
-              {{ providerAvailabilityLabel(providerStatus.providerAvailability) }}
+              {{
+                providerAvailabilityLabel(providerStatus.providerAvailability)
+              }}
             </StatusBadge>
           </div>
           <a
@@ -1378,9 +1385,7 @@ onBeforeUnmount(() => {
               />
               <PlayIcon v-else aria-hidden="true" />
               {{
-                operation === 'starting'
-                  ? 'Iniciando'
-                  : 'Iniciar deployment'
+                operation === 'starting' ? 'Iniciando' : 'Iniciar deployment'
               }}
             </button>
           </footer>

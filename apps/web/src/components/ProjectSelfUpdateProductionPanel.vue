@@ -134,7 +134,9 @@ function executionStatusLabel(deployment: Deployment): string {
   return 'Em execução';
 }
 
-function stepStatusLabel(status: Deployment['timeline'][number]['status']): string {
+function stepStatusLabel(
+  status: Deployment['timeline'][number]['status'],
+): string {
   if (status === 'succeeded') return 'Concluída';
   if (status === 'failed') return 'Falhou';
   if (status === 'cancelled') return 'Cancelada';
@@ -393,7 +395,9 @@ onBeforeUnmount(() => {
       <div class="self-update-hero-meta">
         <div>
           <span>Revisão atual</span>
-          <code :title="currentRevision">{{ shortRevision(currentRevision) }}</code>
+          <code :title="currentRevision">{{
+            shortRevision(currentRevision)
+          }}</code>
         </div>
         <div>
           <span>Última execução</span>
@@ -431,9 +435,7 @@ onBeforeUnmount(() => {
           />
           <RocketLaunchIcon v-else aria-hidden="true" />
           {{
-            operation === 'planning'
-              ? 'Preparando…'
-              : 'Preparar atualização'
+            operation === 'planning' ? 'Preparando…' : 'Preparar atualização'
           }}
         </button>
       </div>
@@ -636,9 +638,9 @@ onBeforeUnmount(() => {
             <div class="self-update-warning">
               <ShieldCheckIcon aria-hidden="true" />
               <p>
-                A confirmação vale somente para este plano e SHA. O worker
-                exige working tree limpa, fast-forward de origin/main e
-                readiness da nova API antes de concluir.
+                A confirmação vale somente para este plano e SHA. O worker exige
+                working tree limpa, fast-forward de origin/main e readiness da
+                nova API antes de concluir.
               </p>
             </div>
           </div>
@@ -894,7 +896,10 @@ onBeforeUnmount(() => {
 .self-update-history-head,
 .self-update-history-row {
   display: grid;
-  grid-template-columns: minmax(110px, 0.8fr) minmax(150px, 1.2fr) minmax(90px, 0.7fr) minmax(110px, 0.75fr);
+  grid-template-columns: minmax(110px, 0.8fr) minmax(150px, 1.2fr) minmax(
+      90px,
+      0.7fr
+    ) minmax(110px, 0.75fr);
   align-items: center;
   min-width: 560px;
   gap: 12px;
