@@ -18,8 +18,6 @@ import {
 } from '../api/migrations';
 import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
 import EmptyState from './EmptyState.vue';
-import StatusBadge from './StatusBadge.vue';
-import type { StatusBadgeTone } from './status-badge-types';
 
 const props = defineProps<{
   project: Project;
@@ -66,13 +64,6 @@ const statusLabel: Record<MigrationOverviewStatus, string> = {
   unknown: 'Inconclusivo',
 };
 
-const statusTone: Record<MigrationOverviewStatus, StatusBadgeTone> = {
-  'up-to-date': 'success',
-  pending: 'warning',
-  unavailable: 'danger',
-  unknown: 'neutral',
-};
-
 const visibleApplied = computed(() =>
   (overview.value?.applied ?? []).slice(-APPLIED_PREVIEW_LIMIT).reverse(),
 );
@@ -84,19 +75,11 @@ const hiddenAppliedCount = computed(() =>
   ),
 );
 
-const summaryText = computed(() => {
-  const status = overview.value?.status;
-  if (status === 'up-to-date') {
-    return 'Não há migrations pendentes segundo a evidência disponível.';
-  }
-  if (status === 'pending') {
-    return 'Há migrations pendentes para o banco selecionado.';
-  }
-  if (status === 'unavailable') {
-    return 'A inspeção não está disponível. Isso não significa zero migrations pendentes.';
-  }
-  return 'A evidência atual não permite classificar o estado com segurança.';
-});
+const hasMigrationItems = computed(
+  () =>
+    (overview.value?.pending.length ?? 0) > 0 ||
+    (overview.value?.applied.length ?? 0) > 0,
+);
 
 const mutationRunning = computed(
   () => mutationSnapshot.value?.status === 'running',
@@ -133,6 +116,39 @@ const mutationHint = computed(() => {
     default:
       return plan.preflight.diagnostic ?? 'A execução permanece bloqueada.';
   }
+});
+
+const emptyStateTitle = computed(() => {
+  if (overview.value?.status === 'unavailable') {
+    return 'Nenhuma migration disponível';
+  }
+  if (overview.value?.status === 'up-to-date') {
+    return 'Nenhuma migration pendente';
+  }
+  return 'Nenhuma migration para exibir';
+});
+
+const emptyStateDescription = computed(() => {
+  const current = overview.value;
+  if (!current) return '';
+
+  if (current.status === 'unavailable') {
+    return (
+      current.warnings[0] ??
+      'Nenhum Migration Provider compatível foi encontrado para este projeto.'
+    );
+  }
+  if (current.status === 'up-to-date') {
+    return 'O banco está atualizado segundo a inspeção disponível.';
+  }
+  return 'A evidência atual não retornou migrations para exibir.';
+});
+
+const showMutationAction = computed(() => {
+  if (mutationRunning.value || mutationReady.value || mutationError.value) {
+    return true;
+  }
+  return (overview.value?.pending.length ?? 0) > 0;
 });
 
 const executionLabel = computed(() => {
@@ -327,14 +343,7 @@ watch(
 <template>
   <section class="migrations-panel" aria-labelledby="migrations-title">
     <header class="migrations-header">
-      <div>
-        <span class="migrations-eyebrow">Banco de dados</span>
-        <h3 id="migrations-title">Migrations</h3>
-        <p>
-          Inspeção comum com execução protegida por preflight, confirmação e
-          revalidação do ambiente.
-        </p>
-      </div>
+      <h3 id="migrations-title">Migrations</h3>
     </header>
 
     <EmptyState
@@ -358,195 +367,184 @@ watch(
     </EmptyState>
 
     <template v-else-if="overview">
-      <div
-        class="migrations-state"
-        :class="`migrations-state--${overview.status}`"
-      >
-        <div class="migrations-state-copy">
-          <span class="migrations-state-dot" aria-hidden="true"></span>
+      <div class="migrations-meta" aria-label="Resumo da inspeção">
+        <div class="migrations-meta-item migrations-meta-item--status">
+          <span
+            class="migrations-status-dot"
+            :class="`migrations-status-dot--${overview.status}`"
+            aria-hidden="true"
+          ></span>
           <div>
+            <span>Status</span>
             <strong>{{ statusLabel[overview.status] }}</strong>
-            <p>{{ summaryText }}</p>
           </div>
         </div>
-        <StatusBadge :tone="statusTone[overview.status]" size="md">
-          {{ statusLabel[overview.status] }}
-        </StatusBadge>
+
+        <div class="migrations-meta-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+          </svg>
+          <div>
+            <span>Modo</span>
+            <strong>{{ mutationMode }}</strong>
+          </div>
+        </div>
+
+        <div class="migrations-meta-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <ellipse cx="12" cy="5" rx="7" ry="3"></ellipse>
+            <path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path>
+            <path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>
+          </svg>
+          <div>
+            <span>Provider</span>
+            <strong>{{ overview.provider }}</strong>
+          </div>
+        </div>
+
+        <div class="migrations-meta-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <ellipse cx="12" cy="5" rx="7" ry="3"></ellipse>
+            <path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path>
+            <path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>
+          </svg>
+          <div>
+            <span>Banco</span>
+            <strong>{{ overview.database }}</strong>
+          </div>
+        </div>
       </div>
 
-      <div class="migrations-workspace">
-        <section
-          class="migrations-timeline-panel"
-          aria-labelledby="migrations-timeline-title"
+      <div class="migrations-counts" aria-label="Contagem de migrations">
+        <div>
+          <span>Pendentes</span>
+          <strong>{{ overview.pending.length }}</strong>
+        </div>
+        <div>
+          <span>Aplicadas</span>
+          <strong>{{ overview.applied.length }}</strong>
+        </div>
+      </div>
+
+      <section class="migrations-content" aria-live="polite">
+        <div
+          v-if="!hasMigrationItems || overview.status === 'unavailable'"
+          class="migrations-empty"
         >
-          <div class="migrations-timeline-heading">
-            <h4 id="migrations-timeline-title">Histórico de migrations</h4>
-            <p>Pendentes primeiro; aplicadas em ordem mais recente.</p>
-          </div>
-
-          <div class="migrations-timeline">
-            <section
-              class="migrations-timeline-item migrations-timeline-item--pending"
-              aria-labelledby="pending-title"
-            >
-              <span
-                class="migrations-timeline-marker"
-                aria-hidden="true"
-              ></span>
-              <div class="migrations-timeline-content">
-                <div class="migrations-section-heading">
-                  <h5 id="pending-title">Pendentes</h5>
-                  <span>{{ overview.pending.length }}</span>
-                </div>
-                <p
-                  v-if="overview.pending.length === 0"
-                  class="migrations-empty-copy"
-                >
-                  Nenhuma migration pendente foi identificada pela inspeção.
-                </p>
-                <ul v-else class="migrations-list">
-                  <li v-for="migration in overview.pending" :key="migration.id">
-                    <code>{{ migration.id }}</code>
-                    <span v-if="migration.name">{{ migration.name }}</span>
-                  </li>
-                </ul>
-              </div>
-            </section>
-
-            <section
-              class="migrations-timeline-item"
-              aria-labelledby="applied-title"
-            >
-              <span
-                class="migrations-timeline-marker"
-                aria-hidden="true"
-              ></span>
-              <div class="migrations-timeline-content">
-                <div class="migrations-section-heading">
-                  <h5 id="applied-title">Aplicadas</h5>
-                  <span>{{ overview.applied.length }}</span>
-                </div>
-                <p
-                  v-if="overview.applied.length === 0"
-                  class="migrations-empty-copy"
-                >
-                  Nenhuma migration aplicada foi retornada pelo provider.
-                </p>
-                <template v-else>
-                  <p v-if="hiddenAppliedCount" class="migrations-empty-copy">
-                    Exibindo as {{ visibleApplied.length }} mais recentes de
-                    {{ overview.applied.length }}.
-                  </p>
-                  <ul class="migrations-list">
-                    <li v-for="migration in visibleApplied" :key="migration.id">
-                      <code>{{ migration.id }}</code>
-                      <span v-if="migration.name">{{ migration.name }}</span>
-                    </li>
-                  </ul>
-                </template>
-              </div>
-            </section>
-
-            <section
-              class="migrations-timeline-item migrations-timeline-item--inspection"
-              aria-labelledby="inspection-title"
-            >
-              <span
-                class="migrations-timeline-marker"
-                aria-hidden="true"
-              ></span>
-              <div class="migrations-timeline-content">
-                <div class="migrations-section-heading">
-                  <h5 id="inspection-title">Inspeção</h5>
-                </div>
-                <p class="migrations-inspection-date">
-                  {{ formatDate(overview.observedAt) }}
-                </p>
-                <code class="migrations-evidence">{{ overview.evidence }}</code>
-              </div>
-            </section>
-          </div>
-        </section>
-
-        <aside class="migrations-context" aria-label="Contexto da inspeção">
-          <span class="migrations-context-eyebrow">Contexto</span>
-
-          <dl class="migrations-context-list">
-            <div>
-              <dt>Status</dt>
-              <dd>{{ statusLabel[overview.status] }}</dd>
-            </div>
-            <div>
-              <dt>Provider</dt>
-              <dd>{{ overview.provider }}</dd>
-            </div>
-            <div>
-              <dt>Banco</dt>
-              <dd>{{ overview.database }}</dd>
-            </div>
-            <div>
-              <dt>Aplicadas</dt>
-              <dd>{{ overview.applied.length }}</dd>
-            </div>
-            <div>
-              <dt>Pendentes</dt>
-              <dd>{{ overview.pending.length }}</dd>
-            </div>
-            <div>
-              <dt>Modo</dt>
-              <dd>{{ mutationMode }}</dd>
-            </div>
-          </dl>
-
-          <div
-            v-if="overview.warnings.length"
-            class="migrations-warning"
-            role="note"
+          <span class="migrations-empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <ellipse cx="12" cy="5" rx="7" ry="3"></ellipse>
+              <path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path>
+              <path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>
+            </svg>
+          </span>
+          <h4>{{ emptyStateTitle }}</h4>
+          <p>{{ emptyStateDescription }}</p>
+          <span class="migrations-observed-at">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+              <path d="M8 3v4M16 3v4M4 10h16"></path>
+            </svg>
+            Última inspeção: {{ formatDate(overview.observedAt) }}
+          </span>
+          <p
+            v-if="overview.status === 'up-to-date' && mutationPlan"
+            class="migrations-inline-hint"
           >
-            <strong>Atenção</strong>
-            <ul>
-              <li v-for="warning in overview.warnings" :key="warning">
-                {{ warning }}
+            {{ mutationHint }}
+          </p>
+        </div>
+
+        <div v-else class="migrations-list-grid">
+          <section
+            v-if="overview.pending.length"
+            class="migrations-list-section"
+            aria-labelledby="pending-title"
+          >
+            <div class="migrations-list-heading">
+              <h4 id="pending-title">Pendentes</h4>
+              <span>{{ overview.pending.length }}</span>
+            </div>
+            <ul class="migrations-list">
+              <li v-for="migration in overview.pending" :key="migration.id">
+                <code>{{ migration.id }}</code>
+                <span v-if="migration.name">{{ migration.name }}</span>
               </li>
             </ul>
+          </section>
+
+          <section
+            v-if="overview.applied.length"
+            class="migrations-list-section"
+            aria-labelledby="applied-title"
+          >
+            <div class="migrations-list-heading">
+              <h4 id="applied-title">Aplicadas</h4>
+              <span>{{ overview.applied.length }}</span>
+            </div>
+            <p v-if="hiddenAppliedCount" class="migrations-list-note">
+              Exibindo as {{ visibleApplied.length }} mais recentes de
+              {{ overview.applied.length }}.
+            </p>
+            <ul class="migrations-list">
+              <li v-for="migration in visibleApplied" :key="migration.id">
+                <code>{{ migration.id }}</code>
+                <span v-if="migration.name">{{ migration.name }}</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <div
+          v-if="overview.status !== 'unavailable' && overview.warnings.length"
+          class="migrations-notes"
+          role="note"
+        >
+          <span v-for="warning in overview.warnings" :key="warning">
+            {{ warning }}
+          </span>
+        </div>
+
+        <section
+          v-if="showMutationAction"
+          class="migrations-action"
+          aria-label="Aplicar migrations"
+        >
+          <div>
+            <strong>{{ mutationMode }}</strong>
+            <p>{{ mutationHint }}</p>
           </div>
 
-          <section class="migrations-mutation" aria-label="Aplicar migrations">
-            <div>
-              <strong>Aplicação</strong>
-              <p>{{ mutationHint }}</p>
-            </div>
+          <p v-if="mutationError" class="migrations-action-error">
+            {{ mutationError }}
+          </p>
 
-            <p v-if="mutationError" class="migrations-mutation-error">
-              {{ mutationError }}
-            </p>
+          <button
+            v-if="mutationReady && !mutationRunning"
+            class="primary-button"
+            type="button"
+            :disabled="mutationBusy"
+            @click="runMigration"
+          >
+            {{
+              mutationBusy
+                ? 'Preparando…'
+                : `Aplicar ${overview.pending.length} migration${overview.pending.length === 1 ? '' : 's'}`
+            }}
+          </button>
 
-            <button
-              v-if="mutationReady && !mutationRunning"
-              class="primary-button"
-              type="button"
-              :disabled="mutationBusy"
-              @click="runMigration"
-            >
-              {{
-                mutationBusy
-                  ? 'Preparando…'
-                  : `Aplicar ${overview.pending.length} migration${overview.pending.length === 1 ? '' : 's'}`
-              }}
-            </button>
-
-            <button
-              v-else-if="mutationRunning"
-              class="secondary-button"
-              type="button"
-              :disabled="mutationBusy"
-              @click="cancelMutation"
-            >
-              {{ mutationBusy ? 'Cancelando…' : 'Cancelar execução' }}
-            </button>
-          </section>
-        </aside>
-      </div>
+          <button
+            v-else-if="mutationRunning"
+            class="secondary-button"
+            type="button"
+            :disabled="mutationBusy"
+            @click="cancelMutation"
+          >
+            {{ mutationBusy ? 'Cancelando…' : 'Cancelar execução' }}
+          </button>
+        </section>
+      </section>
 
       <section
         v-if="mutationSnapshot"
@@ -555,7 +553,7 @@ watch(
       >
         <div class="migrations-execution-heading">
           <div>
-            <span class="migrations-context-eyebrow">Execução</span>
+            <span>Execução</span>
             <h4 id="migrations-execution-title">{{ executionLabel }}</h4>
           </div>
           <span>
@@ -580,178 +578,233 @@ watch(
 <style scoped>
 .migrations-panel {
   display: grid;
-  gap: var(--space-5);
+  gap: 0;
+  min-height: 100%;
   padding: var(--space-5);
 }
 
+.migrations-header {
+  padding-bottom: var(--space-6);
+}
+
 .migrations-header h3,
-.migrations-header p,
-.migrations-state p,
-.migrations-timeline-heading h4,
-.migrations-timeline-heading p,
-.migrations-section-heading h5,
-.migrations-empty-copy,
-.migrations-inspection-date,
-.migrations-mutation p,
+.migrations-empty h4,
+.migrations-empty p,
+.migrations-inline-hint,
+.migrations-list-heading h4,
+.migrations-list-note,
+.migrations-action p,
 .migrations-execution-heading h4,
 .migrations-output-note {
   margin: 0;
 }
 
-.migrations-header h3,
-.migrations-execution-heading h4 {
-  margin-top: var(--space-1);
+.migrations-header h3 {
+  font-size: 1.5rem;
 }
 
-.migrations-header p,
-.migrations-timeline-heading p,
-.migrations-empty-copy,
-.migrations-inspection-date,
-.migrations-mutation p,
-.migrations-output-note,
-.migrations-context-list dt {
+.migrations-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: 76px;
+  border-bottom: 1px solid var(--border);
+}
+
+.migrations-meta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-6);
+}
+
+.migrations-meta-item:first-child {
+  padding-left: var(--space-4);
+}
+
+.migrations-meta-item + .migrations-meta-item {
+  border-left: 1px solid var(--border);
+}
+
+.migrations-meta-item > svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.migrations-meta-item > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.migrations-meta-item span,
+.migrations-counts span,
+.migrations-execution-heading > div > span {
   color: var(--text-muted);
+  font-size: var(--font-xs);
 }
 
-.migrations-eyebrow,
-.migrations-context-eyebrow,
-.migrations-context-list dt {
-  font-size: var(--font-xs);
+.migrations-meta-item > div > span,
+.migrations-execution-heading > div > span {
   font-weight: var(--font-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.migrations-state {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.migrations-meta-item strong {
+  overflow-wrap: anywhere;
+}
+
+.migrations-meta-item--status {
   gap: var(--space-4);
-  padding: var(--space-4);
-  border-left: 3px solid var(--border-strong);
-  background: var(--surface-2);
 }
 
-.migrations-state--up-to-date {
-  border-left-color: var(--success-text);
-}
-
-.migrations-state--pending {
-  border-left-color: var(--warning-text);
-}
-
-.migrations-state--unavailable {
-  border-left-color: var(--danger-text);
-}
-
-.migrations-state-copy {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.migrations-state-copy > div {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.migrations-state-dot {
+.migrations-status-dot {
   width: 10px;
   height: 10px;
-  margin-top: 5px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--text-muted);
 }
 
-.migrations-state--up-to-date .migrations-state-dot {
+.migrations-status-dot--up-to-date {
   background: var(--success-text);
 }
 
-.migrations-state--pending .migrations-state-dot {
+.migrations-status-dot--pending {
   background: var(--warning-text);
 }
 
-.migrations-state--unavailable .migrations-state-dot {
+.migrations-status-dot--unavailable {
   background: var(--danger-text);
 }
 
-.migrations-workspace {
+.migrations-counts {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
-  gap: var(--space-6);
-  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: var(--space-5) 0 var(--space-4);
 }
 
-.migrations-timeline-panel {
-  min-width: 0;
+.migrations-counts > div {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 60px;
+  padding: 0 var(--space-5);
 }
 
-.migrations-timeline-heading {
-  display: grid;
-  gap: var(--space-1);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
+.migrations-counts > div + div {
+  border-left: 1px solid var(--border);
 }
 
-.migrations-timeline {
-  display: grid;
+.migrations-counts strong {
+  font-size: 1.8rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.migrations-timeline-item {
-  position: relative;
+.migrations-content {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  min-height: 400px;
+  padding: var(--space-4) var(--space-5) var(--space-6);
+}
+
+.migrations-empty {
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  justify-items: center;
   gap: var(--space-3);
-  padding: var(--space-5) 0;
+  width: min(100%, 720px);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
 }
 
-.migrations-timeline-item:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  top: 32px;
-  bottom: -8px;
-  left: 7px;
-  width: 1px;
-  background: var(--border);
-}
-
-.migrations-timeline-marker {
-  position: relative;
-  z-index: 1;
-  width: 14px;
-  height: 14px;
-  margin-top: 2px;
-  border: 2px solid var(--border-strong);
+.migrations-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: var(--space-2);
   border-radius: 50%;
-  background: var(--surface-0);
+  background: var(--surface-2);
 }
 
-.migrations-timeline-item--pending .migrations-timeline-marker {
-  border-color: var(--warning-text);
+.migrations-empty-icon svg {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.migrations-timeline-item--inspection .migrations-timeline-marker {
-  border-color: var(--accent);
+.migrations-empty h4 {
+  font-size: 1.25rem;
 }
 
-.migrations-timeline-content {
+.migrations-empty > p {
+  color: var(--text-muted);
+}
+
+.migrations-observed-at {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.migrations-observed-at svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.migrations-inline-hint {
+  max-width: 620px;
+  font-size: var(--font-sm);
+}
+
+.migrations-list-grid {
   display: grid;
-  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-7);
+  align-content: start;
+  width: 100%;
+}
+
+.migrations-list-section {
   min-width: 0;
 }
 
-.migrations-section-heading {
+.migrations-list-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
 }
 
-.migrations-section-heading span {
+.migrations-list-heading span,
+.migrations-list-note {
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+}
+
+.migrations-list-note {
+  padding-top: var(--space-3);
+  font-size: var(--font-sm);
 }
 
 .migrations-list {
@@ -763,85 +816,58 @@ watch(
 
 .migrations-list li {
   display: grid;
-  grid-template-columns: minmax(12rem, auto) 1fr;
+  grid-template-columns: minmax(10rem, auto) 1fr;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--border);
-}
-
-.migrations-list code,
-.migrations-evidence {
-  overflow-wrap: anywhere;
-}
-
-.migrations-evidence {
-  width: fit-content;
-  max-width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--code-surface);
-  color: var(--code-text);
-}
-
-.migrations-context {
-  display: grid;
-  gap: var(--space-4);
-  padding-left: var(--space-5);
-  border-left: 1px solid var(--border);
-}
-
-.migrations-context-list {
-  display: grid;
-  margin: 0;
-}
-
-.migrations-context-list > div {
-  display: grid;
-  gap: var(--space-1);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);
 }
 
-.migrations-context-list dd {
-  margin: 0;
-  font-weight: var(--font-weight-strong);
+.migrations-list code {
   overflow-wrap: anywhere;
 }
 
-.migrations-warning {
-  padding: var(--space-3) 0 var(--space-3) var(--space-3);
-  border-left: 3px solid var(--warning-text);
-}
-
-.migrations-warning ul {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-5);
-}
-
-.migrations-mutation {
-  display: grid;
-  gap: var(--space-3);
-  padding-top: var(--space-2);
-}
-
-.migrations-mutation > div {
+.migrations-notes {
   display: grid;
   gap: var(--space-1);
+  margin-top: var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
-.migrations-mutation button {
-  width: 100%;
+.migrations-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
-.migrations-mutation-error {
+.migrations-action > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.migrations-action p {
+  color: var(--text-muted);
+}
+
+.migrations-action-error {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--danger-surface);
   color: var(--danger-text) !important;
 }
 
+.migrations-action button {
+  flex: 0 0 auto;
+}
+
 .migrations-execution {
   overflow: hidden;
+  margin: 0 var(--space-5) var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
@@ -854,6 +880,11 @@ watch(
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
+}
+
+.migrations-execution-heading > div {
+  display: grid;
+  gap: var(--space-1);
 }
 
 .migrations-execution-heading > span {
@@ -888,41 +919,85 @@ watch(
 .migrations-output-note {
   padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 @media (max-width: 900px) {
-  .migrations-workspace {
-    grid-template-columns: 1fr;
+  .migrations-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .migrations-context {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: var(--space-5) 0 0;
-    border-top: 1px solid var(--border);
+  .migrations-meta-item:nth-child(3) {
     border-left: 0;
   }
 
-  .migrations-context-eyebrow,
-  .migrations-warning,
-  .migrations-mutation {
-    grid-column: 1 / -1;
+  .migrations-meta-item:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .migrations-list-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .migrations-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .migrations-action button {
+    width: 100%;
   }
 }
 
 @media (max-width: 640px) {
-  .migrations-state,
-  .migrations-execution-heading {
-    align-items: flex-start;
-    flex-direction: column;
+  .migrations-panel {
+    padding: var(--space-4);
   }
 
-  .migrations-context {
+  .migrations-header {
+    padding-bottom: var(--space-4);
+  }
+
+  .migrations-meta {
     grid-template-columns: 1fr;
+  }
+
+  .migrations-meta-item,
+  .migrations-meta-item:first-child {
+    padding: var(--space-3) 0;
+  }
+
+  .migrations-meta-item + .migrations-meta-item,
+  .migrations-meta-item:nth-child(3) {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .migrations-counts > div {
+    padding: 0 var(--space-3);
+  }
+
+  .migrations-counts > div:first-child {
+    padding-left: 0;
+  }
+
+  .migrations-content {
+    min-height: 340px;
+    padding: var(--space-4) 0;
   }
 
   .migrations-list li {
     grid-template-columns: 1fr;
     gap: var(--space-1);
+  }
+
+  .migrations-execution {
+    margin: 0 0 var(--space-4);
+  }
+
+  .migrations-execution-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .migrations-terminal {
