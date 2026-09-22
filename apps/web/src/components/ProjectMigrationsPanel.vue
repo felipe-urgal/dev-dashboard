@@ -779,7 +779,7 @@ watch(
 .migrations-list-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-7);
+  gap: var(--space-8);
   align-content: start;
   width: 100%;
 }
