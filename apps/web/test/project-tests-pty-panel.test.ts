@@ -142,8 +142,14 @@ test('carrega os comandos com a interface mínima de execução', async () => {
   });
   await flushPromises();
 
-  assert.equal(wrapper.get('[aria-label="Comando de teste"]').text(), 'npm run test');
-  assert.equal(wrapper.get('[aria-label="Ambiente de execução"]').text(), 'Local');
+  assert.equal(
+    wrapper.get('[aria-label="Comando de teste"]').text(),
+    'npm run test',
+  );
+  assert.equal(
+    wrapper.get('[aria-label="Ambiente de execução"]').text(),
+    'Local',
+  );
 
   const button = wrapper
     .findAll('button')
