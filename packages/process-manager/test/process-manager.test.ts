@@ -768,3 +768,46 @@ test('treats a project with a corrupted state file as having no process, without
     'esperava uma cópia de quarentena do arquivo corrompido',
   );
 });
+
+test('worker recebe ambiente explícito sem persistir valores no estado', async (context) => {
+  const fixture = await createFixture({
+    name: 'fixture',
+    scripts: { dev: 'node -e "setInterval(() => {}, 60000)"' },
+  });
+  context.after(async () => {
+    await fixture.manager
+      .stopWorker(fixture.project.id, 'webpack')
+      .catch(() => undefined);
+    await fixture.cleanup();
+  });
+
+  const outputFile = path.join(fixture.project.path, 'worker-env.txt');
+  const started = await fixture.manager.startWorker(
+    fixture.project,
+    'webpack',
+    {
+      id: 'webpack-env',
+      command: 'node',
+      args: [
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(
+          outputFile,
+        )}, process.env.DEV_DASHBOARD_WORKER_ENV_FIXTURE ?? 'missing'); setInterval(() => {}, 60_000)`,
+      ],
+      environment: {
+        DEV_DASHBOARD_WORKER_ENV_FIXTURE: 'available',
+      },
+    },
+  );
+
+  let content = '';
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    content = await readFile(outputFile, 'utf8').catch(() => '');
+    if (content) break;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+
+  assert.equal(content, 'available');
+  assert.equal('environment' in started, false);
+});
+
