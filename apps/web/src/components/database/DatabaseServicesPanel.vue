@@ -128,6 +128,7 @@ function isPending(
           <button
             v-if="!service.active"
             type="button"
+            class="database-machine-action database-machine-action-primary"
             :disabled="pending !== null"
             @click="emit('run-action', service, 'start')"
           >
@@ -137,6 +138,7 @@ function isPending(
           <template v-else>
             <button
               type="button"
+              class="database-machine-action database-machine-action-secondary"
               :disabled="pending !== null"
               @click="emit('run-action', service, 'restart')"
             >
@@ -145,7 +147,7 @@ function isPending(
             </button>
             <button
               type="button"
-              class="danger"
+              class="database-machine-action database-machine-action-danger"
               :disabled="pending !== null"
               @click="emit('run-action', service, 'stop')"
             >
@@ -155,7 +157,7 @@ function isPending(
           </template>
           <button
             type="button"
-            class="database-machine-details-toggle"
+            class="database-machine-action database-machine-details-toggle"
             :disabled="detailsLoading !== null && detailsLoading !== service.id"
             :aria-expanded="expandedServiceId === service.id"
             :aria-controls="`database-details-${service.id}`"
@@ -175,7 +177,7 @@ function isPending(
           </button>
           <button
             type="button"
-            class="danger"
+            class="database-machine-action database-machine-action-danger database-machine-action-uninstall"
             :disabled="pending !== null"
             @click="emit('uninstall', service)"
           >
@@ -228,6 +230,7 @@ function isPending(
               </span>
               <button
                 type="button"
+                class="database-machine-details-refresh"
                 :disabled="detailsLoading !== null"
                 @click="emit('reload-details', service.id)"
               >

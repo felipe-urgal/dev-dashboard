@@ -1547,3 +1547,162 @@
     justify-content: flex-end;
   }
 }
+
+/* Compact service actions and expanded details. */
+.database-machine-actions {
+  align-items: center;
+  gap: 6px;
+}
+.database-machine-actions .database-machine-action {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+.database-machine-actions .database-machine-action svg {
+  width: 14px;
+  height: 14px;
+}
+.database-machine-actions .database-machine-action:hover:not(:disabled) {
+  border-color: var(--text-dim);
+  color: var(--text);
+  background: var(--surface-2);
+}
+.database-machine-actions .database-machine-action-primary {
+  border-color: color-mix(in srgb, var(--accent-strong) 62%, var(--border));
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+}
+.database-machine-actions .database-machine-action-primary:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.database-machine-actions .database-machine-action-secondary,
+.database-machine-actions .database-machine-details-toggle {
+  background: var(--surface-2);
+}
+.database-machine-actions .database-machine-action-danger {
+  border-color: color-mix(in srgb, var(--error-text) 42%, var(--border));
+  color: var(--error-text);
+  background: color-mix(in srgb, var(--error-text) 5%, transparent);
+}
+.database-machine-actions .database-machine-action-danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--error-text) 72%, var(--border));
+  color: var(--error-text);
+  background: color-mix(in srgb, var(--error-text) 10%, transparent);
+}
+.database-machine-actions .database-machine-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.database-machine-details {
+  padding-top: 12px;
+  border-top-color: var(--border);
+}
+.database-machine-details-grid {
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 0;
+  padding-bottom: 10px;
+}
+.database-machine-details-grid div {
+  min-width: 0;
+  gap: 3px;
+  padding: 0 18px;
+  border-right: 1px solid var(--border);
+}
+.database-machine-details-grid div:first-child {
+  padding-left: 0;
+}
+.database-machine-details-grid div:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+.database-machine-details-grid span {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.database-machine-details-grid strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.database-machine-details-toolbar {
+  min-height: 32px;
+  margin-top: 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.database-machine-details-refresh {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.database-machine-details-refresh:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.database-machine-details-refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+.database-machine-log-viewer {
+  margin-top: 6px;
+}
+.database-machine-details .database-machine-log-viewer .project-log-viewer-header {
+  min-height: 34px;
+  padding: 5px 10px;
+}
+.database-machine-details .database-machine-log-viewer .project-log-viewer-output {
+  min-height: 96px;
+  max-height: 150px;
+}
+.database-machine-details .database-machine-log-viewer .project-log-viewer-output pre {
+  padding: 10px 12px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .database-machine-actions {
+    max-width: 420px;
+  }
+  .database-machine-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+  .database-machine-details-grid div:nth-child(2) {
+    border-right: 0;
+  }
+  .database-machine-details-grid div:nth-child(3) {
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .database-machine-actions {
+    max-width: none;
+  }
+  .database-machine-actions .database-machine-action {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .database-machine-details-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .database-machine-details-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
