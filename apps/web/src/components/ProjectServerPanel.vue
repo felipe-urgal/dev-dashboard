@@ -4,13 +4,14 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
-  BoltIcon,
   ClipboardDocumentIcon,
+  Cog6ToothIcon,
   CommandLineIcon,
   GlobeAltIcon,
   PlayIcon,
   ServerStackIcon,
   StopIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
@@ -39,7 +40,6 @@ const props = defineProps<{
 
 const {
   managedProcess,
-  loadingStatus,
   errorMessage,
   supportsServer,
   processStatus,
@@ -79,6 +79,7 @@ const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
 const localUrlCopied = ref(false);
+const showSettings = ref(false);
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
@@ -108,12 +109,6 @@ const portDisplayLabel = computed(() => {
   const port = managedProcess.value?.port ?? selectedPort.value;
   return port ? String(port) : 'Automática';
 });
-
-const portDescription = computed(() =>
-  portDisplayLabel.value === 'Automática'
-    ? 'A aplicação será executada na porta disponível.'
-    : 'Porta definida para esta aplicação.',
-);
 
 async function confirmEnvironmentReplacement(
   action: 'iniciar' | 'reiniciar',
@@ -153,61 +148,6 @@ const localAccessUrl = computed(() => {
 const localAccessLabel = computed(
   () => localAccessUrl.value || 'Disponível após iniciar',
 );
-
-const statusDescription = computed(() => {
-  if (!supportsServer.value)
-    return 'Este projeto não expõe um servidor gerenciável.';
-  if (loadingStatus.value && !managedProcess.value)
-    return 'Consultando o processo local.';
-
-  switch (processStatus.value) {
-    case 'starting':
-      return 'Preparando o processo e os endereços locais.';
-    case 'running':
-      return 'Servidor rodando normalmente.';
-    case 'stopping':
-      return 'Encerrando o processo com segurança.';
-    case 'failed':
-      return 'O último processo terminou com falha.';
-    default:
-      return 'Servidor pronto para ser iniciado.';
-  }
-});
-
-const consoleTitle = computed(() => {
-  switch (processStatus.value) {
-    case 'starting':
-      return 'Iniciando servidor';
-    case 'running':
-      return 'Servidor em execução';
-    case 'stopping':
-      return 'Encerrando servidor';
-    case 'failed':
-      return 'Pronto para tentar novamente';
-    default:
-      return 'Pronto para iniciar';
-  }
-});
-
-const consoleDescription = computed(() => {
-  if (processStatus.value === 'running') {
-    return 'A aplicação está rodando. Acompanhe a saída do servidor em tempo real no terminal.';
-  }
-
-  if (processStatus.value === 'starting') {
-    return 'O processo está sendo iniciado. Os logs serão atualizados conforme a execução avançar.';
-  }
-
-  if (processStatus.value === 'stopping') {
-    return 'Aguarde enquanto o processo é encerrado com segurança.';
-  }
-
-  if (processStatus.value === 'failed') {
-    return 'Revise os logs abaixo e inicie novamente quando estiver pronto.';
-  }
-
-  return 'Clique no botão abaixo para iniciar o servidor e ver os logs em tempo real no terminal.';
-});
 
 function isCurrentProject(projectId: string, generation: number): boolean {
   return (
@@ -284,6 +224,7 @@ async function handleSaveSettings(): Promise<void> {
     await persistServerSettings(projectId, generation);
     if (isCurrentProject(projectId, generation)) {
       settingsMessage.value = 'Configurações salvas.';
+      showSettings.value = false;
     }
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
@@ -413,10 +354,6 @@ async function copyLocalUrl(): Promise<void> {
   }
 }
 
-function focusLogs(): void {
-  logContainer.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
 function resetPanelState(): void {
   projectRequests.invalidate();
 
@@ -428,6 +365,7 @@ function resetPanelState(): void {
   settingsMessage.value = '';
   currentAction.value = null;
   localUrlCopied.value = false;
+  showSettings.value = false;
   hasObservedRunning = false;
 }
 
