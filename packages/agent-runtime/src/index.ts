@@ -107,3 +107,51 @@ export type {
   ChatGptBrowserAgentProviderOptions,
   HttpBrowserBridgeClientOptions,
 } from './browser-provider.js';
+
+export {
+  BrowserToolProtocolError,
+  BROWSER_TERMINAL_RESULT_STATUS,
+  BROWSER_TERMINAL_RESULT_TYPE,
+  BROWSER_TOOL_REQUEST_TYPE,
+  MAX_AGENT_WORKFLOW_PAYLOAD_BYTES,
+  assertBrowserTerminalResult,
+  assertBrowserToolRequest,
+  parseBrowserAgentEnvelope,
+} from './browser-tool-protocol.js';
+export type {
+  BrowserAgentEnvelope,
+  BrowserTerminalResult,
+  BrowserToolProtocolErrorCode,
+  BrowserToolRequest,
+} from './browser-tool-protocol.js';
+
+export {
+  ALLOWED_BROWSER_PROCESS_EXECUTABLES,
+  BROWSER_TOOL_NAMES,
+  DEFAULT_BROWSER_TOOL_LIMITS,
+  authorizeBrowserToolCall,
+  browserToolsForCapabilities,
+  buildBrowserToolPolicy,
+  isMutatingBrowserTool,
+  isSensitiveBrowserToolPath,
+  normalizeBrowserToolPath,
+} from './browser-tool-policy.js';
+export type {
+  AuthorizeBrowserToolCallOptions,
+  BrowserToolDecision,
+  BrowserToolName,
+  BrowserToolPolicy,
+  BuildBrowserToolPolicyOptions,
+} from './browser-tool-policy.js';
+
+export {
+  BrowserToolCallStore,
+  BrowserToolCallStoreError,
+} from './browser-tool-store.js';
+export type {
+  BrowserToolCallFailure,
+  BrowserToolCallRecord,
+  BrowserToolCallState,
+  BrowserToolCallStoreErrorCode,
+  BrowserToolCallStoreOptions,
+} from './browser-tool-store.js';

@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { browserToolsForCapabilities } from './browser-tool-policy.js';
 import type {
   AgentCapability,
   AgentProvider,
@@ -340,24 +341,6 @@ function capabilityMap(
   );
 }
 
-function browserTools(capabilities: readonly AgentCapability[]): string[] {
-  const tools = [
-    'list_files',
-    'read_file',
-    'search_text',
-    'git_status',
-    'git_diff',
-    'git_log',
-    'git_branch',
-  ];
-
-  if (capabilities.includes('workspace:write')) {
-    tools.push('apply_patch', 'run_process');
-  }
-
-  return tools;
-}
-
 function terminalResult(job: BrowserBridgeJob): AgentProviderResult | null {
   if (job.state === 'finished') {
     return {
@@ -546,7 +529,7 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       timeoutMs: this.executionTimeoutMs,
       repositories,
       capabilities: capabilityMap(request.allowedCapabilities),
-      tools: browserTools(request.allowedCapabilities),
+      tools: browserToolsForCapabilities(request.allowedCapabilities),
     });
 
     let cancelled = false;
