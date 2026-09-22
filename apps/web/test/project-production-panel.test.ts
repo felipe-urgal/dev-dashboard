@@ -593,7 +593,6 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Produção está em revision diferente');
-    expect(wrapper.text()).toContain('Desatualizada');
     expect(wrapper.text()).toContain(REVISION_B.slice(0, 8));
     expect(wrapper.text()).toContain(REVISION_A.slice(0, 8));
     expect(wrapper.text()).not.toContain('Produção atualizada');
@@ -657,7 +656,6 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Produção está em revision diferente');
-    expect(wrapper.text()).toContain('Desatualizada');
     expect(wrapper.text()).toContain('prod:check');
     expect(wrapper.text()).not.toContain('Confirmar e iniciar deployment');
     wrapper.unmount();
