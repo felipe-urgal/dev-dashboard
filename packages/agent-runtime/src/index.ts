@@ -186,3 +186,15 @@ export type {
   GitAgentTaskStoreErrorCode,
   GitAgentTaskStoreOptions,
 } from './git-task-store.js';
+
+export {
+  AgentWorkflowRuntime,
+  AgentWorkflowRuntimeError,
+} from './workflow-runtime.js';
+export type {
+  AgentWorkflowExecuteRequest,
+  AgentWorkflowExecutionResult,
+  AgentWorkflowRuntimeErrorCode,
+  AgentWorkflowRuntimeOptions,
+  AgentWorkflowTaskStatus,
+} from './workflow-runtime.js';
