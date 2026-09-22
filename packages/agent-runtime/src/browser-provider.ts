@@ -373,8 +373,7 @@ function buildPrompt(
     'Available tools:',
     ...(tools.length > 0
       ? tools.map(
-          (tool) =>
-            '- ' + (BROWSER_TOOL_CONTRACTS[tool] ?? tool + ' args={}'),
+          (tool) => '- ' + (BROWSER_TOOL_CONTRACTS[tool] ?? tool + ' args={}'),
         )
       : ['- none']),
     '',
