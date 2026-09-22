@@ -48,9 +48,7 @@ export function referencedPackageManagerEnvironmentVariables(
   return [...names].sort((left, right) => left.localeCompare(right));
 }
 
-export function parseShellEnvironmentOutput(
-  output: Buffer,
-): NodeJS.ProcessEnv {
+export function parseShellEnvironmentOutput(output: Buffer): NodeJS.ProcessEnv {
   const startIndex = output.indexOf(SHELL_ENV_START);
   if (startIndex === -1) return {};
 
@@ -187,7 +185,9 @@ export async function resolvePackageManagerEnvironment(
   const resolved: NodeJS.ProcessEnv = {};
   const missing: string[] = [];
 
-  for (const name of [...names].sort((left, right) => left.localeCompare(right))) {
+  for (const name of [...names].sort((left, right) =>
+    left.localeCompare(right),
+  )) {
     const value = processEnvironment[name];
     if (value !== undefined) {
       resolved[name] = value;

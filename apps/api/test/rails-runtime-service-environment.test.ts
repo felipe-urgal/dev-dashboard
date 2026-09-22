@@ -295,4 +295,3 @@ test('webpack recebe variáveis de package manager resolvidas no cwd da Environm
     ],
   });
 });
-

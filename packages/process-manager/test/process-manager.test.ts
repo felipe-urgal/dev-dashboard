@@ -810,4 +810,3 @@ test('worker recebe ambiente explícito sem persistir valores no estado', async 
   assert.equal(content, 'available');
   assert.equal('environment' in started, false);
 });
-
