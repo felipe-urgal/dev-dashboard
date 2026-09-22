@@ -142,7 +142,11 @@ function parsePersistedRecord(serialized: string): PersistedAgentTaskRecord {
 
   let task: AgentTask;
   try {
-    task = deserializeAgentTask(JSON.stringify(record.task));
+    const serializedTask = JSON.stringify(record.task);
+    if (serializedTask === undefined) {
+      throw new Error('Canonical agent task payload is missing.');
+    }
+    task = deserializeAgentTask(serializedTask);
   } catch (error) {
     throw new GitAgentTaskStoreError(
       'AGENT_TASK_STORE_CORRUPT',
