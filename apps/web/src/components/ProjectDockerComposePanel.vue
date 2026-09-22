@@ -440,7 +440,7 @@ watch(
             )
           "
         >
-          Reiniciar stack
+          {{ action === 'restart' ? 'Reiniciando…' : 'Reiniciar stack' }}
         </button>
         <button
           v-if="owned"
@@ -453,7 +453,7 @@ watch(
             )
           "
         >
-          Parar stack
+          {{ action === 'stop' ? 'Parando…' : 'Parar stack' }}
         </button>
       </div>
     </header>
