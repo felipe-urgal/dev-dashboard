@@ -7,11 +7,6 @@ import type { Project, Workspace } from '@dev-dashboard/contracts';
 const actions = vi.hoisted(() => ({
   escanear: vi.fn(),
   desativar: vi.fn(),
-  atencao: vi.fn(),
-}));
-
-vi.mock('../src/api', () => ({
-  fetchWorkspaceAttention: actions.atencao,
 }));
 
 vi.mock('../src/stores/dashboard', async () => {
@@ -75,11 +70,6 @@ function mountView() {
   return mount(DashboardView, {
     global: {
       stubs: {
-        RouterLink: {
-          props: ['to'],
-          template:
-            '<a class="router-link-stub" :data-route="to.name" :data-status="to.query?.status || \'\'"><slot /></a>',
-        },
         ProjectCard: {
           props: ['project', 'enabledUpdating'],
           emits: ['toggle-enabled'],
@@ -94,13 +84,6 @@ function mountView() {
 beforeEach(() => {
   vi.clearAllMocks();
   actions.escanear.mockResolvedValue(undefined);
-  actions.atencao.mockResolvedValue({
-    workspaceId: 'w1',
-    generatedAt: new Date(0).toISOString(),
-    partial: false,
-    unavailableSources: [],
-    items: [],
-  });
 
   dashboardStore.projects.value = [];
   dashboardStore.workspaces.value = [];
@@ -123,30 +106,30 @@ beforeEach(() => {
 });
 
 describe('dashboard principal', () => {
-  it('renderiza a estrutura Mission Control e o estado vazio', () => {
+  it('renderiza a visão minimalista e o estado vazio', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.dashboard-layout').exists()).toBe(true);
     expect(wrapper.find('.dashboard-primary').exists()).toBe(true);
-    expect(wrapper.find('.dashboard-rail').exists()).toBe(true);
-    expect(wrapper.find('.overview-summary-card').exists()).toBe(false);
+    expect(wrapper.find('.dashboard-rail').exists()).toBe(false);
+    expect(wrapper.find('.dashboard-toolbar').exists()).toBe(false);
+    expect(wrapper.find('.dashboard-search').exists()).toBe(false);
     expect(wrapper.text()).toContain('Projetos pessoais');
     expect(wrapper.text()).toContain('Nenhum projeto carregado');
   });
 
-  it('renderiza busca, contagem e lista de projetos conforme o protótipo', () => {
+  it('renderiza somente cabeçalhos e lista de projetos', () => {
     dashboardStore.projects.value = [project];
     const wrapper = mountView();
 
-    expect(wrapper.find('.dashboard-search input').exists()).toBe(true);
-    expect(wrapper.find('.dashboard-filter-button').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Todos os projetos (1)');
-    expect(wrapper.find('[aria-label="Iniciar servidores"]').exists()).toBe(
-      false,
+    expect(wrapper.get('.dashboard-project-columns').text()).toContain(
+      'Projeto',
     );
-    expect(wrapper.find('[aria-label="Parar servidores"]').exists()).toBe(
-      false,
+    expect(wrapper.get('.dashboard-project-columns').text()).toContain(
+      'Status',
     );
+    expect(wrapper.get('.dashboard-project-columns').text()).toContain('Ações');
+    expect(wrapper.find('.dashboard-tabs').exists()).toBe(false);
+    expect(wrapper.find('.dashboard-filter-button').exists()).toBe(false);
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
   });
 
@@ -156,12 +139,10 @@ describe('dashboard principal', () => {
     dashboardStore.lastScannedPath.value = workspace.path;
     const wrapper = mountView();
 
-    await flushPromises();
     await wrapper.get('.dashboard-refresh-button').trigger('click');
     await flushPromises();
 
     expect(actions.escanear).toHaveBeenCalledOnce();
-    expect(actions.atencao).toHaveBeenCalled();
     expect(wrapper.find('[aria-label="Remover workspace"]').exists()).toBe(
       false,
     );
