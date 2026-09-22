@@ -111,7 +111,11 @@ async function refreshWorkspace(): Promise<void> {
         description="Cadastre ou selecione um workspace na barra lateral para detectar aplicações Rails e Node."
       />
 
-      <ul v-else class="dashboard-project-list" aria-labelledby="projects-title">
+      <ul
+        v-else
+        class="dashboard-project-list"
+        aria-labelledby="projects-title"
+      >
         <ProjectCard
           v-for="project in sortedProjects"
           :key="project.id"
