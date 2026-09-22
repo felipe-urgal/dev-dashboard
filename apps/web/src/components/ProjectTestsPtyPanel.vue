@@ -192,7 +192,10 @@ watch(
 
         <div class="tests-control-field">
           <span>Ambiente</span>
-          <div class="tests-local-environment" aria-label="Ambiente de execução">
+          <div
+            class="tests-local-environment"
+            aria-label="Ambiente de execução"
+          >
             Local
           </div>
         </div>
