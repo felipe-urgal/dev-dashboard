@@ -5,6 +5,7 @@ export type {
   AgentCheckpoint,
   AgentCheckpointStatus,
   AgentClock,
+  AgentConcreteProviderId,
   AgentEvent,
   AgentEventType,
   AgentEvidence,
@@ -60,3 +61,32 @@ export type {
   AgentRuntimeStateKind,
   AgentRuntimeStateStoreOptions,
 } from './runtime-state.js';
+
+export {
+  AgentCliProcessError,
+  DEFAULT_AGENT_CLI_MAX_OUTPUT_BYTES,
+  DEFAULT_AGENT_CLI_TERMINATION_GRACE_MS,
+  runAgentCliProcess,
+} from './cli-process.js';
+export type {
+  AgentCliProcessErrorCode,
+  AgentCliProcessRequest,
+  AgentCliProcessResult,
+  AgentCliProcessRunner,
+} from './cli-process.js';
+
+export {
+  AgentProviderError,
+  AutomaticAgentProvider,
+  ClaudeCodeAgentProvider,
+  CodexAgentProvider,
+  StaticAgentProviderRegistry,
+  createLocalAgentProviderRegistry,
+} from './providers.js';
+export type {
+  AgentExecutionCwdResolver,
+  AgentProviderErrorCode,
+  AutomaticAgentProviderOptions,
+  LocalAgentProviderOptions,
+  LocalAgentProviderRegistryOptions,
+} from './providers.js';

@@ -1,6 +1,8 @@
 export type AgentProviderId =
   'automatic' | 'codex' | 'claude-code' | 'chatgpt-browser';
 
+export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
+
 export type AgentTaskState =
   | 'queued'
   | 'running'
@@ -45,7 +47,8 @@ export interface AgentExecution {
   taskId: string;
   projectId: string;
   environmentInstanceId?: string;
-  providerId: AgentProviderId;
+  requestedProviderId?: AgentProviderId;
+  providerId: AgentConcreteProviderId;
   state: AgentExecutionState;
   startedAt?: string;
   finishedAt?: string;
@@ -131,10 +134,12 @@ export interface AgentProviderExecutionRequest {
   environmentInstanceId?: string;
   summary: string;
   allowedCapabilities: readonly AgentCapability[];
+  signal?: AbortSignal;
 }
 
 export interface AgentProviderResult {
-  outcome: 'succeeded' | 'failed' | 'unknown';
+  providerId: AgentConcreteProviderId;
+  outcome: 'succeeded' | 'failed' | 'cancelled' | 'unknown';
   summary: string;
   evidence?: AgentEvidence[];
   failure?: AgentExecutionFailure;
@@ -143,6 +148,7 @@ export interface AgentProviderResult {
 export interface AgentProvider {
   readonly id: AgentProviderId;
   status(): Promise<AgentProviderStatus>;
+  supports?(request: AgentProviderExecutionRequest): boolean | Promise<boolean>;
   execute(request: AgentProviderExecutionRequest): Promise<AgentProviderResult>;
 }
 
