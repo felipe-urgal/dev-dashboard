@@ -63,49 +63,19 @@ function cssToken(block: string, token: string): string {
 }
 
 test('páginas globais possuem landmark nomeado', async () => {
-  const pagesWithNamedLandmark = [
-    {
-      path: 'apps/web/src/views/ProcessesView.vue',
-      landmarkLabel: 'Processos gerenciados',
-    },
-  ];
-
-  for (const page of pagesWithNamedLandmark) {
-    const content = await source(page.path);
-    assert.match(
-      content,
-      new RegExp(`aria-label="${page.landmarkLabel}"`),
-      `${page.path} deve nomear seu landmark principal com aria-label.`,
-    );
-    assert.doesNotMatch(
-      content,
-      /id="processes-title"/,
-      `${page.path} não deve depender de um título oculto para nomear o landmark.`,
-    );
-  }
-
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
   assert.match(dashboard, /aria-labelledby="overview-title"/);
+
+  const database = await source('apps/web/src/views/DatabaseView.vue');
+  assert.match(database, /aria-labelledby="database-page-title"/);
 });
 
-test('resultados, refresh e listas mantêm anúncios e nomes acessíveis', async () => {
+test('navegação e listas globais mantêm nomes acessíveis', async () => {
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
   assert.match(dashboard, /aria-label="Navegação dos projetos"/);
 
-  const processes = await source('apps/web/src/views/ProcessesView.vue');
-  assert.match(
-    processes,
-    /loading && items\.length > 0[\s\S]*Atualizando processos/,
-  );
-  assert.match(
-    processes,
-    /class="processes-list-section"\s+aria-labelledby="process-list-title"/,
-  );
-  assert.match(
-    processes,
-    /<h2 id="process-list-title">Processos gerenciados<\/h2>/,
-  );
-  assert.match(processes, /class="activity-empty[^"]*"\s+role="status"/);
+  const database = await source('apps/web/src/views/DatabaseView.vue');
+  assert.match(database, /role="tablist" aria-label="Banco de dados"/);
 });
 
 test('tokens de texto do tema claro mantêm contraste AA nas superfícies', async () => {
