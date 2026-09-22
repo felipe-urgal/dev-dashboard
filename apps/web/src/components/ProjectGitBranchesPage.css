@@ -4,123 +4,6 @@
   gap: 18px;
 }
 
-.branch-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.branch-summary-card {
-  display: flex;
-  min-width: 0;
-  min-height: 108px;
-  align-items: center;
-  gap: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  padding: 18px 20px;
-}
-
-.branch-summary-icon {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.branch-summary-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.branch-summary-copy {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.branch-summary-copy > span,
-.branch-summary-copy small {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-.branch-summary-copy > strong,
-.branch-summary-value-line > strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 22px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.branch-summary-value-line {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 9px;
-}
-
-.branch-summary-state {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-muted);
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-  white-space: nowrap;
-}
-
-.branch-summary-state > span,
-.branch-state > span {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--text-dim);
-}
-
-.branch-summary-state.is-synced {
-  background: color-mix(in srgb, var(--success-text) 12%, transparent);
-  color: var(--success-text);
-}
-
-.branch-summary-state.is-synced > span,
-.branch-state.is-synced > span {
-  background: var(--success-text);
-}
-
-.branch-summary-state.is-ahead {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.branch-summary-state.is-ahead > span,
-.branch-state.is-ahead > span {
-  background: var(--accent);
-}
-
-.branch-summary-state.is-warning {
-  background: color-mix(in srgb, var(--warning-text) 12%, transparent);
-  color: var(--warning-text);
-}
-
-.branch-summary-state.is-warning > span,
-.branch-state.is-warning > span {
-  background: var(--warning-text);
-}
-
 .branch-table-card {
   overflow: visible;
   border: 1px solid var(--border);
@@ -130,27 +13,51 @@
 
 .branch-table-toolbar {
   display: flex;
-  min-height: 70px;
+  min-height: 68px;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
-  padding: 14px 16px;
+  padding: 12px 16px;
 }
 
-.branch-toolbar-copy {
-  display: grid;
-  gap: 3px;
-  margin-right: auto;
+.branch-toolbar-title,
+.branch-toolbar-actions,
+.branch-name-cell,
+.branch-row-actions,
+.branch-modal-close,
+.branch-inline-action,
+.branch-state {
+  display: flex;
+  align-items: center;
 }
 
-.branch-toolbar-copy strong {
+.branch-toolbar-title {
+  min-width: 0;
+  gap: 10px;
+}
+
+.branch-toolbar-title > strong {
   color: var(--text);
   font-size: var(--font-lg);
 }
 
-.branch-toolbar-copy span {
+.branch-count-badge {
+  display: inline-grid;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-2);
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  padding: 0 8px;
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.branch-toolbar-actions {
+  flex: 0 0 auto;
+  gap: 8px;
 }
 
 .branch-create-button,
@@ -165,68 +72,61 @@
   gap: 8px;
 }
 
-.branch-refresh-button {
-  padding: 0 14px;
-}
-
-.branch-create-button svg {
+.branch-create-button svg,
+.branch-refresh-button svg {
   width: 18px;
   height: 18px;
+}
+
+.branch-refresh-button {
+  width: 38px;
+  padding: 0;
+}
+
+.branch-refresh-button.is-spinning svg {
+  animation: branch-refresh-spin 800ms linear infinite;
+}
+
+@keyframes branch-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .branch-table-scroll {
   min-width: 0;
 }
 
-.branch-table-header,
-.branch-table-row {
-  display: grid;
-  grid-template-columns:
-    minmax(235px, 1.3fr)
-    minmax(145px, 0.75fr)
-    minmax(285px, 1.55fr)
-    minmax(185px, 0.95fr)
-    minmax(190px, 0.95fr);
-  align-items: center;
-  gap: 16px;
-  padding: 0 16px;
-}
-
-.branch-table-header {
-  min-height: 40px;
-  background: var(--surface-2);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-}
-
-.branch-table-header span:last-child {
-  text-align: right;
-}
-
 .branch-table-row {
   position: relative;
-  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 190px) auto;
+  min-height: 80px;
+  align-items: center;
+  gap: 18px;
   border-top: 1px solid var(--border);
+  padding: 14px 16px;
 }
 
-.branch-table-header + .branch-table-row {
+.branch-table-row:first-child {
   border-top: 0;
 }
 
-.branch-table-row.is-current {
-  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-1));
+.branch-table-row.is-current::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--accent);
+  content: '';
 }
 
-.branch-name-cell,
-.branch-row-actions,
-.branch-modal-close,
-.branch-inline-action,
-.branch-commit-main,
-.branch-state,
-.branch-action-current {
-  display: flex;
-  align-items: center;
+.branch-row-main {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
 }
 
 .branch-name-cell {
@@ -267,65 +167,22 @@
   color: var(--text-muted);
 }
 
-.branch-type-cell {
+.branch-commit-cell {
+  display: flex;
   min-width: 0;
-}
-
-.branch-type-badge {
-  display: inline-flex;
-  max-width: 100%;
   align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-muted);
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-  white-space: nowrap;
+  gap: 6px;
+  padding-left: 27px;
 }
 
-.branch-type-badge.is-combined {
-  border-color: color-mix(in srgb, var(--success-text) 24%, var(--border));
-  background: color-mix(in srgb, var(--success-text) 10%, transparent);
-  color: var(--success-text);
-}
-
-.branch-type-badge.is-local {
-  border-color: color-mix(in srgb, var(--success-text) 20%, var(--border));
-  background: color-mix(in srgb, var(--success-text) 8%, transparent);
-  color: var(--success-text);
-}
-
-.branch-type-badge.is-remote {
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.branch-commit-cell,
-.branch-status-cell {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.branch-commit-main {
-  min-width: 0;
-  gap: 8px;
-}
-
-.branch-commit-main code {
+.branch-commit-cell code {
   flex: 0 0 auto;
-  border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--text);
-  padding: 2px 5px;
+  color: var(--text-muted);
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 11px;
 }
 
-.branch-commit-main span {
+.branch-commit-subject {
   min-width: 0;
   overflow: hidden;
   color: var(--text-muted);
@@ -334,9 +191,25 @@
   white-space: nowrap;
 }
 
+.branch-commit-separator,
 .branch-commit-cell small,
-.branch-status-cell small,
 .branch-commit-empty {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.branch-commit-empty {
+  padding-left: 0;
+}
+
+.branch-status-cell {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.branch-status-cell small {
   color: var(--text-dim);
   font-size: 10px;
 }
@@ -347,30 +220,51 @@
   color: var(--text-muted);
   font-size: var(--font-sm);
   font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.branch-state > span {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--text-dim);
 }
 
 .branch-state.is-synced {
   color: var(--success-text);
 }
 
+.branch-state.is-synced > span {
+  background: var(--success-text);
+}
+
 .branch-state.is-ahead {
   color: var(--accent);
+}
+
+.branch-state.is-ahead > span {
+  background: var(--accent);
 }
 
 .branch-state.is-warning {
   color: var(--warning-text);
 }
 
+.branch-state.is-warning > span {
+  background: var(--warning-text);
+}
+
 .branch-state.is-local {
   color: var(--text-muted);
 }
 
-.branch-state.is-remote {
-  color: var(--accent);
-}
-
 .branch-state.is-local > span {
   background: var(--text-muted);
+}
+
+.branch-state.is-remote {
+  color: var(--accent);
 }
 
 .branch-state.is-remote > span {
@@ -379,24 +273,15 @@
 
 .branch-row-actions {
   position: relative;
+  min-width: 0;
   justify-content: flex-end;
   gap: 7px;
-  padding: 9px 0;
 }
 
 .branch-action-button {
   min-height: 32px;
   padding: 6px 11px;
   white-space: nowrap;
-}
-
-.branch-action-current {
-  min-height: 30px;
-  border: 1px solid transparent;
-  color: var(--text-dim);
-  padding: 0 8px;
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
 }
 
 .branch-menu-popover {
@@ -498,8 +383,8 @@
 
 .branch-table-empty {
   display: grid;
-  place-items: center;
   min-height: 120px;
+  place-items: center;
   border-top: 1px solid var(--border);
   color: var(--text-muted);
   padding: var(--space-4);
@@ -721,22 +606,22 @@
   line-height: 1.5;
 }
 
-@media (max-width: 1180px) {
-  .branch-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .branch-summary-card {
-    min-height: 92px;
-  }
-
-  .branch-table-scroll {
-    overflow-x: auto;
-  }
-
-  .branch-table-header,
+@media (max-width: 900px) {
   .branch-table-row {
-    min-width: 1080px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 14px;
+  }
+
+  .branch-row-main {
+    grid-column: 1 / -1;
+  }
+
+  .branch-status-cell {
+    grid-column: 1;
+  }
+
+  .branch-row-actions {
+    grid-column: 2;
   }
 }
 
@@ -745,22 +630,25 @@
     gap: 14px;
   }
 
-  .branch-summary-card {
-    padding: 16px;
-  }
-
   .branch-table-toolbar {
     align-items: stretch;
     flex-wrap: wrap;
   }
 
-  .branch-toolbar-copy {
-    width: 100%;
+  .branch-toolbar-title {
+    flex: 1 1 auto;
   }
 
-  .branch-refresh-button,
-  .branch-create-button {
-    flex: 1;
+  .branch-toolbar-actions {
+    margin-left: auto;
+  }
+
+  .branch-table-row {
+    padding: 13px 14px;
+  }
+
+  .branch-commit-cell {
+    padding-left: 0;
   }
 
   .branch-modal {
