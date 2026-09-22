@@ -71,6 +71,7 @@
             <span aria-hidden="true" />
             {{ stateLabel(row) }}
           </span>
+          <small v-if="!row.local && row.origin">Somente leitura</small>
         </div>
 
         <div class="branch-row-actions">
