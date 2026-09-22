@@ -1050,6 +1050,17 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
             changed: true,
             previousHead: 'a'.repeat(40),
             currentHead: 'b'.repeat(40),
+            impact: {
+              changedPaths: ['src/example.test.ts'],
+              actions: [
+                {
+                  category: 'tests',
+                  label: 'Executar testes',
+                  description:
+                    'Arquivos de teste mudaram; execute os testes relacionados quando desejar.',
+                },
+              ],
+            },
           },
         });
       }
@@ -1080,5 +1091,10 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
   assert.match(
     mounted.wrapper.text(),
     /Main atualizada e publicada em origin\/main/,
+  );
+  assert.equal(mounted.wrapper.find('.git-change-impact').exists(), false);
+  assert.doesNotMatch(
+    mounted.wrapper.text(),
+    /A mudança trouxe|Executar testes/,
   );
 });
