@@ -2,12 +2,10 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
-  CheckCircleIcon,
-  ClockIcon,
   ExclamationTriangleIcon,
-  InformationCircleIcon,
   RocketLaunchIcon,
   ShieldCheckIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
 import type {
@@ -49,6 +47,7 @@ const errorMessage = ref('');
 const plan = ref<DeploymentPlan | null>(null);
 const latest = ref<Deployment | null>(null);
 const history = ref<Deployment[]>([]);
+const historyExpanded = ref(false);
 const log = ref<DeploymentLog | null>(null);
 
 let generation = 0;
@@ -81,6 +80,20 @@ function formatDate(value: string | undefined): string {
   }).format(date);
 }
 
+function formatDuration(deployment: Deployment): string {
+  if (!deployment.startedAt || !deployment.finishedAt) return '—';
+  const start = new Date(deployment.startedAt).getTime();
+  const finish = new Date(deployment.finishedAt).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(finish) || finish < start) {
+    return '—';
+  }
+  const seconds = Math.round((finish - start) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes} min ${remaining.toString().padStart(2, '0')} s`;
+}
+
 function shouldPoll(deployment: Deployment | null): boolean {
   if (!deployment) return false;
   if (!TERMINAL.has(deployment.status)) return true;
@@ -111,6 +124,22 @@ function executionTitle(deployment: Deployment): string {
     return 'Self-update requer revisão.';
   if (deployment.status === 'cancelled') return 'Self-update cancelado.';
   return 'Self-update em execução.';
+}
+
+function executionStatusLabel(deployment: Deployment): string {
+  if (deployment.status === 'succeeded') return 'Concluído';
+  if (deployment.status === 'failed') return 'Falhou';
+  if (deployment.status === 'recovery_required') return 'Requer revisão';
+  if (deployment.status === 'cancelled') return 'Cancelado';
+  return 'Em execução';
+}
+
+function stepStatusLabel(status: Deployment['timeline'][number]['status']): string {
+  if (status === 'succeeded') return 'Concluída';
+  if (status === 'failed') return 'Falhou';
+  if (status === 'cancelled') return 'Cancelada';
+  if (status === 'running') return 'Em execução';
+  return 'Pendente';
 }
 
 function stepLabel(id: string): string {
@@ -184,6 +213,10 @@ const currentRevision = computed(() => {
   return successful?.revision ?? latest.value?.revision;
 });
 
+const visibleHistory = computed(() =>
+  historyExpanded.value ? history.value : history.value.slice(0, 5),
+);
+
 async function refreshLog(
   deploymentId: string,
   current: number,
@@ -211,6 +244,7 @@ async function load(): Promise<void> {
   plan.value = null;
   latest.value = null;
   history.value = [];
+  historyExpanded.value = false;
   log.value = null;
 
   try {
@@ -281,6 +315,11 @@ async function preparePlan(): Promise<void> {
   }
 }
 
+function closePlan(): void {
+  if (operation.value === 'starting') return;
+  plan.value = null;
+}
+
 async function confirmAndStart(): Promise<void> {
   const currentPlan = plan.value;
   if (!currentPlan || operation.value) return;
@@ -330,32 +369,45 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="self-update-panel" aria-labelledby="self-update-title">
+  <section
+    class="self-update-panel"
+    aria-labelledby="self-update-title"
+    :aria-busy="loading || Boolean(operation)"
+  >
     <article class="self-update-hero">
       <div class="self-update-hero-main">
         <div
           class="self-update-hero-icon"
-          :class="`is-${status.tone}`"
+          :class="'is-' + status.tone"
           aria-hidden="true"
         >
           <ArrowPathIcon />
         </div>
         <div class="self-update-hero-copy">
           <span class="self-update-eyebrow">Self-update</span>
-          <h3 id="self-update-title">Self-update</h3>
+          <h3 id="self-update-title">{{ status.title }}</h3>
           <p>{{ status.description }}</p>
         </div>
       </div>
-      <div class="self-update-hero-actions">
-        <div class="self-update-status-pill" :class="`is-${status.tone}`">
-          <span class="self-update-status-dot" aria-hidden="true"></span>
-          <div>
-            <strong>{{ status.title }}</strong>
-            <small>{{ status.detail }}</small>
-          </div>
+
+      <div class="self-update-hero-meta">
+        <div>
+          <span>Revisão atual</span>
+          <code :title="currentRevision">{{ shortRevision(currentRevision) }}</code>
         </div>
+        <div>
+          <span>Última execução</span>
+          <strong>{{ formatDate(latest?.createdAt) }}</strong>
+        </div>
+        <div>
+          <span>Branch</span>
+          <strong>{{ props.project.production?.branch ?? 'main' }}</strong>
+        </div>
+      </div>
+
+      <div class="self-update-hero-actions">
         <button
-          class="primary-button"
+          class="secondary-button"
           type="button"
           :disabled="loading || Boolean(operation) || shouldPoll(latest)"
           @click="load"
@@ -366,6 +418,24 @@ onBeforeUnmount(() => {
           />
           {{ loading ? 'Verificando…' : 'Verificar novamente' }}
         </button>
+        <button
+          class="primary-button"
+          type="button"
+          :disabled="loading || Boolean(operation) || shouldPoll(latest)"
+          @click="preparePlan"
+        >
+          <ArrowPathIcon
+            v-if="operation === 'planning'"
+            class="self-update-spin"
+            aria-hidden="true"
+          />
+          <RocketLaunchIcon v-else aria-hidden="true" />
+          {{
+            operation === 'planning'
+              ? 'Preparando…'
+              : 'Preparar atualização'
+          }}
+        </button>
       </div>
     </article>
 
@@ -374,229 +444,236 @@ onBeforeUnmount(() => {
       <span>{{ errorMessage }}</span>
     </p>
 
-    <div class="self-update-facts">
-      <article>
-        <ArrowPathIcon aria-hidden="true" />
+    <article class="self-update-card self-update-history">
+      <div class="self-update-card-heading">
         <div>
-          <span>Estratégia</span><strong>self-update</strong
-          ><small>Atualização automática</small>
+          <span class="self-update-eyebrow">Histórico</span>
+          <h3>Últimas atualizações</h3>
+          <p>Execuções recentes registradas pelo self-update.</p>
         </div>
-      </article>
-      <article>
-        <RocketLaunchIcon aria-hidden="true" />
-        <div>
-          <span>Branch</span
-          ><strong>{{ props.project.production?.branch ?? 'main' }}</strong
-          ><small>Ramo de produção</small>
-        </div>
-      </article>
-      <article>
-        <ShieldCheckIcon aria-hidden="true" />
-        <div>
-          <span>Privilégio</span><strong>user-space</strong
-          ><small>Execução sem root</small>
-        </div>
-      </article>
-      <article>
-        <CheckCircleIcon aria-hidden="true" />
-        <div>
-          <span>Revision atual</span
-          ><strong :title="currentRevision">{{
-            shortRevision(currentRevision)
-          }}</strong
-          ><small>Última comprovada</small>
-        </div>
-      </article>
-      <article>
-        <ClockIcon aria-hidden="true" />
-        <div>
-          <span>Última execução</span
-          ><strong>{{ formatDate(latest?.createdAt) }}</strong
-          ><small>Histórico real</small>
-        </div>
-      </article>
-    </div>
-
-    <article
-      class="self-update-ready"
-      :class="{ 'is-running': shouldPoll(latest) }"
-    >
-      <InformationCircleIcon aria-hidden="true" />
-      <div>
-        <strong>{{
-          shouldPoll(latest)
-            ? 'Self-update em andamento.'
-            : 'Self-update pronto para uso.'
-        }}</strong>
-        <p>
-          {{
-            shouldPoll(latest)
-              ? 'O worker externo está aplicando a revision confirmada e a API pode reiniciar durante o processo.'
-              : 'Gere um plano para revisar a revision alvo e as etapas antes de confirmar a atualização.'
-          }}
-        </p>
       </div>
-      <button
-        class="secondary-button"
-        type="button"
-        :disabled="loading || Boolean(operation) || shouldPoll(latest)"
-        @click="preparePlan"
+
+      <div
+        v-if="history.length"
+        class="self-update-history-table"
+        role="table"
+        aria-label="Últimas atualizações"
       >
-        <ArrowPathIcon
-          v-if="operation === 'planning'"
-          class="self-update-spin"
-          aria-hidden="true"
-        />
-        <RocketLaunchIcon v-else aria-hidden="true" />
-        {{ operation === 'planning' ? 'Gerando…' : 'Gerar plano' }}
+        <div class="self-update-history-head" role="row">
+          <span role="columnheader">Revisão</span>
+          <span role="columnheader">Data e hora</span>
+          <span role="columnheader">Duração</span>
+          <span role="columnheader">Status</span>
+        </div>
+        <div
+          v-for="item in visibleHistory"
+          :key="item.id"
+          class="self-update-history-row"
+          role="row"
+        >
+          <code role="cell" :title="item.revision">{{
+            shortRevision(item.revision)
+          }}</code>
+          <span role="cell">{{ formatDate(item.createdAt) }}</span>
+          <span role="cell">{{ formatDuration(item) }}</span>
+          <span role="cell">
+            <span
+              class="self-update-status"
+              :class="'is-' + executionTone(item)"
+            >
+              {{ executionStatusLabel(item) }}
+            </span>
+          </span>
+        </div>
+      </div>
+      <p v-else class="self-update-empty">Nenhuma execução registrada.</p>
+
+      <button
+        v-if="history.length > 5"
+        class="secondary-button self-update-history-more"
+        type="button"
+        @click="historyExpanded = !historyExpanded"
+      >
+        {{ historyExpanded ? 'Ver menos' : 'Ver mais' }}
       </button>
     </article>
 
-    <article v-if="plan" class="self-update-card self-update-plan">
-      <div class="self-update-card-heading">
-        <div>
-          <span class="self-update-eyebrow">Confirmação</span>
-          <h3>Revise o plano antes de atualizar</h3>
-        </div>
-        <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
-      </div>
+    <details
+      class="self-update-card self-update-technical"
+      :open="
+        shouldPoll(latest) ||
+        Boolean(latest && executionTone(latest) === 'danger')
+      "
+    >
+      <summary>
+        <span>Detalhes técnicos</span>
+        <span v-if="latest">{{ executionStatusLabel(latest) }}</span>
+      </summary>
 
-      <div class="self-update-plan-summary">
-        <div>
-          <span>Revision alvo</span>
-          <code :title="plan.revision">{{ shortRevision(plan.revision) }}</code>
-        </div>
-        <div>
-          <span>Etapas</span>
-          <strong>{{ plan.steps.length }}</strong>
-        </div>
-      </div>
-
-      <ol class="self-update-steps">
-        <li v-for="step in plan.steps" :key="step.id">
-          <span class="self-update-step-dot" aria-hidden="true"></span>
+      <div class="self-update-technical-body">
+        <div class="self-update-technical-grid">
           <div>
-            <strong>{{ stepLabel(step.id) }}</strong>
-            <small>{{
-              step.id === 'self-update'
-                ? 'reinicia a própria API'
-                : 'somente leitura'
-            }}</small>
+            <span>Estratégia</span>
+            <strong>self-update</strong>
           </div>
-        </li>
-      </ol>
-
-      <div class="self-update-warning">
-        <ShieldCheckIcon aria-hidden="true" />
-        <p>
-          A confirmação vale somente para este plano e SHA. Depois do handoff, o
-          worker exige working tree limpa, fast-forward de origin/main e
-          readiness da nova API antes de concluir.
-        </p>
-      </div>
-
-      <div class="self-update-plan-actions">
-        <button
-          class="secondary-button"
-          type="button"
-          :disabled="Boolean(operation)"
-          @click="plan = null"
-        >
-          Cancelar
-        </button>
-        <button
-          class="primary-button"
-          type="button"
-          :disabled="Boolean(operation)"
-          @click="confirmAndStart"
-        >
-          <ArrowPathIcon
-            v-if="operation === 'starting'"
-            class="self-update-spin"
-            aria-hidden="true"
-          />
-          <RocketLaunchIcon v-else aria-hidden="true" />
-          {{
-            operation === 'starting' ? 'Iniciando…' : 'Confirmar e atualizar'
-          }}
-        </button>
-      </div>
-    </article>
-
-    <div class="self-update-main-grid">
-      <article class="self-update-card self-update-history">
-        <div class="self-update-card-heading">
           <div>
-            <span class="self-update-eyebrow">Histórico</span>
-            <h3>Últimas execuções</h3>
+            <span>Branch</span>
+            <strong>{{ props.project.production?.branch ?? 'main' }}</strong>
           </div>
-          <span class="self-update-count">{{ history.length }}</span>
+          <div>
+            <span>Privilégio</span>
+            <strong>user-space</strong>
+          </div>
         </div>
-        <div v-if="history.length" class="self-update-history-list">
-          <div
-            v-for="item in history"
-            :key="item.id"
-            class="self-update-history-row"
-          >
-            <span
-              class="self-update-history-icon"
-              :class="`is-${executionTone(item)}`"
-              aria-hidden="true"
-            >
-              <CheckCircleIcon v-if="executionTone(item) === 'success'" />
-              <ExclamationTriangleIcon
-                v-else-if="executionTone(item) === 'danger'"
-              />
-              <ClockIcon v-else />
-            </span>
-            <div class="self-update-history-copy">
-              <strong>{{ executionTitle(item) }}</strong>
-              <small>{{ formatDate(item.createdAt) }}</small>
+
+        <div v-if="latest" class="self-update-execution">
+          <div class="self-update-execution-heading">
+            <div>
+              <span class="self-update-eyebrow">Última execução</span>
+              <h3>{{ executionTitle(latest) }}</h3>
             </div>
-            <code :title="item.revision">{{
-              shortRevision(item.revision)
+            <code :title="latest.revision">{{
+              shortRevision(latest.revision)
             }}</code>
           </div>
-        </div>
-        <p v-else class="self-update-empty">Nenhuma execução registrada.</p>
-      </article>
 
-      <article class="self-update-card self-update-log-card">
-        <div class="self-update-card-heading">
-          <div>
-            <span class="self-update-eyebrow">Log</span>
-            <h3>Log da última execução</h3>
-          </div>
-          <span v-if="latest" class="self-update-log-state">{{
-            shouldPoll(latest) ? 'Ao vivo' : 'Finalizado'
-          }}</span>
-        </div>
-        <ProjectLogViewer
-          v-if="log"
-          class="self-update-log"
-          :content="log.content"
-          title="Saída do self-update"
-          :running="shouldPoll(latest)"
-          :masked-count="log.redactionCount"
-          :truncated="log.truncated"
-          embedded
-        />
-        <p v-else class="self-update-empty">
-          O log aparecerá aqui depois da primeira execução.
-        </p>
-      </article>
-    </div>
+          <ol class="self-update-execution-steps">
+            <li v-for="step in latest.timeline" :key="step.id">
+              <span
+                class="self-update-step-dot"
+                :class="'is-' + step.status"
+                aria-hidden="true"
+              ></span>
+              <div>
+                <strong>{{ stepLabel(step.id) }}</strong>
+                <small>{{ stepStatusLabel(step.status) }}</small>
+              </div>
+            </li>
+          </ol>
 
-    <article class="self-update-safety">
-      <ShieldCheckIcon aria-hidden="true" />
-      <div>
-        <strong>Operação segura</strong>
-        <p>
-          O self-update é executado em modo user-space, sem privilégio de root,
-          seguindo as políticas de segurança do projeto.
-        </p>
+          <ProjectLogViewer
+            v-if="log"
+            class="self-update-log"
+            :content="log.content"
+            title="Saída do self-update"
+            :running="shouldPoll(latest)"
+            :masked-count="log.redactionCount"
+            :truncated="log.truncated"
+            embedded
+          />
+          <p v-else class="self-update-empty">
+            O log aparecerá aqui depois da primeira execução.
+          </p>
+        </div>
       </div>
-    </article>
+    </details>
+
+    <Teleport to="body">
+      <div
+        v-if="plan"
+        class="self-update-modal-backdrop"
+        role="presentation"
+        @click.self="closePlan"
+      >
+        <section
+          class="self-update-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="self-update-plan-title"
+        >
+          <header>
+            <div>
+              <span class="self-update-eyebrow">Preparar self-update</span>
+              <h3 id="self-update-plan-title">Atualização pronta</h3>
+              <p>Revise o alvo e as etapas antes de aplicar a atualização.</p>
+            </div>
+            <button
+              class="self-update-modal-close"
+              type="button"
+              aria-label="Fechar"
+              :disabled="operation === 'starting'"
+              @click="closePlan"
+            >
+              <XMarkIcon aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="self-update-modal-content">
+            <div class="self-update-plan-summary">
+              <div>
+                <span>Revisão atual</span>
+                <code :title="currentRevision">{{
+                  shortRevision(currentRevision)
+                }}</code>
+              </div>
+              <div>
+                <span>Nova revisão</span>
+                <code :title="plan.revision">{{
+                  shortRevision(plan.revision)
+                }}</code>
+              </div>
+              <div>
+                <span>Branch</span>
+                <strong>{{ plan.branch }}</strong>
+              </div>
+            </div>
+
+            <div class="self-update-modal-section-title">Etapas</div>
+            <ol class="self-update-steps">
+              <li v-for="step in plan.steps" :key="step.id">
+                <span class="self-update-step-dot" aria-hidden="true"></span>
+                <div>
+                  <strong>{{ stepLabel(step.id) }}</strong>
+                  <small>{{
+                    step.id === 'self-update'
+                      ? 'reinicia a própria API'
+                      : 'somente leitura'
+                  }}</small>
+                </div>
+              </li>
+            </ol>
+
+            <div class="self-update-warning">
+              <ShieldCheckIcon aria-hidden="true" />
+              <p>
+                A confirmação vale somente para este plano e SHA. O worker
+                exige working tree limpa, fast-forward de origin/main e
+                readiness da nova API antes de concluir.
+              </p>
+            </div>
+          </div>
+
+          <footer class="self-update-plan-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="operation === 'starting'"
+              @click="closePlan"
+            >
+              Cancelar
+            </button>
+            <button
+              class="primary-button"
+              type="button"
+              :disabled="Boolean(operation)"
+              @click="confirmAndStart"
+            >
+              <ArrowPathIcon
+                v-if="operation === 'starting'"
+                class="self-update-spin"
+                aria-hidden="true"
+              />
+              <RocketLaunchIcon v-else aria-hidden="true" />
+              {{
+                operation === 'starting'
+                  ? 'Atualizando…'
+                  : 'Aplicar atualização'
+              }}
+            </button>
+          </footer>
+        </section>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -610,37 +687,25 @@ onBeforeUnmount(() => {
 }
 
 .self-update-hero,
-.self-update-card,
-.self-update-facts article,
-.self-update-ready,
-.self-update-safety {
+.self-update-card {
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
 .self-update-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 22px;
   padding: 20px;
 }
 
-.self-update-hero-main,
-.self-update-hero-actions,
-.self-update-ready,
-.self-update-safety,
-.self-update-card-heading,
-.self-update-plan-actions,
-.self-update-plan-summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .self-update-hero-main {
+  display: flex;
   min-width: 0;
+  align-items: center;
+  gap: 14px;
 }
 
 .self-update-hero-icon {
@@ -664,9 +729,19 @@ onBeforeUnmount(() => {
   background: var(--success-surface);
 }
 
+.self-update-hero-icon.is-warning {
+  color: var(--warning-text);
+  background: var(--warning-surface);
+}
+
 .self-update-hero-icon.is-danger {
   color: var(--danger-text);
   background: var(--danger-surface);
+}
+
+.self-update-hero-icon.is-info {
+  color: var(--info-text);
+  background: var(--info-surface);
 }
 
 .self-update-hero-copy {
@@ -686,93 +761,85 @@ onBeforeUnmount(() => {
 .self-update-hero h3,
 .self-update-card h3,
 .self-update-card p,
-.self-update-ready p,
-.self-update-safety p {
+.self-update-modal h3,
+.self-update-modal p {
   margin: 0;
 }
 
 .self-update-hero h3 {
   color: var(--text);
-  font-size: 20px;
-  letter-spacing: -0.025em;
+  font-size: 18px;
+  letter-spacing: -0.02em;
 }
 
 .self-update-hero-copy > p {
-  max-width: 640px;
-  margin-top: 6px;
+  max-width: 650px;
+  margin-top: 5px;
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.5;
 }
 
-.self-update-hero-actions {
-  flex: 0 0 auto;
+.self-update-hero-meta {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+
+.self-update-hero-meta > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 13px 14px 0;
+  border-left: 1px solid var(--border);
+}
+
+.self-update-hero-meta > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.self-update-hero-meta span,
+.self-update-plan-summary span,
+.self-update-technical-grid span {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.self-update-hero-meta strong,
+.self-update-hero-meta code,
+.self-update-plan-summary strong,
+.self-update-plan-summary code,
+.self-update-technical-grid strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.self-update-hero-actions,
+.self-update-plan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .self-update-hero-actions button,
-.self-update-ready button,
 .self-update-plan-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
+  white-space: nowrap;
 }
 
-.self-update-hero-actions button svg,
-.self-update-ready button svg,
-.self-update-plan-actions button svg {
+.self-update-hero-actions svg,
+.self-update-plan-actions svg {
   width: 15px;
   height: 15px;
-}
-
-.self-update-status-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 210px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-0);
-}
-
-.self-update-status-dot {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--text-dim);
-}
-
-.self-update-status-pill.is-success .self-update-status-dot {
-  background: var(--success-text);
-}
-
-.self-update-status-pill.is-info .self-update-status-dot {
-  background: var(--info-text);
-}
-
-.self-update-status-pill.is-warning .self-update-status-dot {
-  background: var(--warning-text);
-}
-
-.self-update-status-pill.is-danger .self-update-status-dot {
-  background: var(--danger-text);
-}
-
-.self-update-status-pill > div {
-  display: grid;
-  gap: 2px;
-}
-
-.self-update-status-pill strong {
-  color: var(--text);
-  font-size: 10px;
-}
-
-.self-update-status-pill small {
-  color: var(--text-muted);
-  font-size: 9px;
 }
 
 .self-update-error {
@@ -794,130 +861,171 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
 }
 
-.self-update-facts {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.self-update-facts article {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 12px;
-}
-
-.self-update-facts article > svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  color: var(--accent);
-}
-
-.self-update-facts article > div {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.self-update-facts span,
-.self-update-plan-summary span {
-  color: var(--text-muted);
-  font-size: 9px;
-}
-
-.self-update-facts strong,
-.self-update-plan-summary strong,
-.self-update-plan-summary code {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.self-update-facts small {
-  color: var(--text-dim);
-  font-size: 8px;
-}
-
-.self-update-ready,
-.self-update-safety {
-  align-items: flex-start;
-  padding: 13px 15px;
-  border-color: color-mix(in srgb, var(--info-text) 28%, var(--border));
-  background: var(--info-surface);
-}
-
-.self-update-ready > svg,
-.self-update-safety > svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  color: var(--info-text);
-}
-
-.self-update-ready > div,
-.self-update-safety > div {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.self-update-ready strong,
-.self-update-safety strong {
-  color: var(--text);
-  font-size: 11px;
-}
-
-.self-update-ready p,
-.self-update-safety p {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
 .self-update-card {
-  padding: 18px;
+  padding: 18px 20px;
 }
 
 .self-update-card-heading {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
-.self-update-card-heading h3 {
+.self-update-card-heading h3,
+.self-update-execution-heading h3 {
   color: var(--text);
   font-size: 14px;
 }
 
-.self-update-card-heading > code,
-.self-update-count,
-.self-update-log-state {
+.self-update-card-heading p {
+  margin-top: 4px;
   color: var(--text-muted);
   font-size: 10px;
 }
 
-.self-update-plan {
-  border-color: color-mix(in srgb, var(--warning-text) 28%, var(--border));
+.self-update-history-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
-.self-update-plan-summary {
-  justify-content: flex-start;
-  margin-bottom: 12px;
-}
-
-.self-update-plan-summary > div {
+.self-update-history-head,
+.self-update-history-row {
   display: grid;
-  min-width: 150px;
-  gap: 4px;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(150px, 1.2fr) minmax(90px, 0.7fr) minmax(110px, 0.75fr);
+  align-items: center;
+  min-width: 560px;
+  gap: 12px;
   padding: 10px 12px;
+}
+
+.self-update-history-head {
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.self-update-history-row {
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.self-update-history-row code {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.self-update-status {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.self-update-status.is-success {
+  color: var(--success-text);
+  background: var(--success-surface);
+}
+
+.self-update-status.is-danger {
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+.self-update-status.is-warning {
+  color: var(--warning-text);
+  background: var(--warning-surface);
+}
+
+.self-update-status.is-info {
+  color: var(--info-text);
+  background: var(--info-surface);
+}
+
+.self-update-history-more {
+  margin-top: 12px;
+}
+
+.self-update-empty {
+  margin: 0;
+  padding: 12px 0 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.self-update-technical {
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.self-update-technical > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.self-update-technical[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-technical-body {
+  padding: 16px 20px 18px;
+}
+
+.self-update-technical-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.self-update-technical-grid > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 11px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-0);
 }
 
+.self-update-execution {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.self-update-execution-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.self-update-execution-heading code {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.self-update-execution-steps,
 .self-update-steps {
   display: grid;
   gap: 0;
@@ -926,40 +1034,166 @@ onBeforeUnmount(() => {
   list-style: none;
 }
 
+.self-update-execution-steps li,
 .self-update-steps li {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  min-height: 46px;
+  min-height: 44px;
   border-bottom: 1px solid var(--border);
 }
 
+.self-update-execution-steps li:last-child,
 .self-update-steps li:last-child {
   border-bottom: 0;
 }
 
 .self-update-step-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   justify-self: center;
   border: 2px solid var(--accent);
   border-radius: 999px;
 }
 
+.self-update-step-dot.is-succeeded {
+  border-color: var(--success-text);
+  background: var(--success-text);
+}
+
+.self-update-step-dot.is-running {
+  border-color: var(--info-text);
+  background: var(--info-text);
+}
+
+.self-update-step-dot.is-failed {
+  border-color: var(--danger-text);
+  background: var(--danger-text);
+}
+
+.self-update-step-dot.is-cancelled {
+  border-color: var(--warning-text);
+  background: var(--warning-text);
+}
+
+.self-update-execution-steps li > div,
 .self-update-steps li > div {
   display: grid;
   gap: 2px;
 }
 
+.self-update-execution-steps strong,
 .self-update-steps strong {
   color: var(--text);
   font-size: 10px;
 }
 
+.self-update-execution-steps small,
 .self-update-steps small {
   color: var(--text-muted);
   font-size: 9px;
+}
+
+.self-update-log {
+  margin-top: 14px;
+}
+
+.self-update-log :deep(.project-log-viewer-output) {
+  max-height: 260px;
+}
+
+.self-update-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(2 12 20 / 72%);
+  backdrop-filter: blur(4px);
+}
+
+.self-update-modal {
+  width: min(560px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--text);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 38%);
+}
+
+.self-update-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.self-update-modal h3 {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.self-update-modal header p {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.self-update-modal-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.self-update-modal-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.self-update-modal-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.self-update-modal-content {
+  padding: 18px 20px 0;
+}
+
+.self-update-plan-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.self-update-plan-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.self-update-modal-section-title {
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .self-update-warning {
@@ -968,9 +1202,9 @@ onBeforeUnmount(() => {
   gap: 9px;
   margin-top: 12px;
   padding: 11px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--warning-text) 28%, var(--border));
   border-radius: var(--radius-sm);
-  background: var(--surface-0);
+  background: var(--warning-surface);
 }
 
 .self-update-warning svg {
@@ -986,102 +1220,10 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
-.self-update-plan-actions {
-  justify-content: flex-end;
-  margin-top: 14px;
-}
-
-.self-update-main-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
-  gap: 14px;
-}
-
-.self-update-history-list {
-  display: grid;
-}
-
-.self-update-history-row {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 9px;
-  min-height: 52px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.self-update-history-row:last-child {
-  border-bottom: 0;
-}
-
-.self-update-history-icon {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border-radius: 999px;
-  color: var(--text-muted);
-  background: var(--surface-2);
-}
-
-.self-update-history-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.self-update-history-icon.is-success {
-  color: var(--success-text);
-  background: var(--success-surface);
-}
-
-.self-update-history-icon.is-danger {
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
-.self-update-history-icon.is-warning {
-  color: var(--warning-text);
-  background: var(--warning-surface);
-}
-
-.self-update-history-icon.is-info {
-  color: var(--info-text);
-  background: var(--info-surface);
-}
-
-.self-update-history-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.self-update-history-copy strong {
-  color: var(--text);
-  font-size: 10px;
-}
-
-.self-update-history-copy small,
-.self-update-history-row code {
-  color: var(--text-muted);
-  font-size: 9px;
-}
-
-.self-update-empty {
-  padding: 18px 0 8px;
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.self-update-log {
-  margin: 0;
-}
-
-.self-update-log :deep(.project-log-viewer-output) {
-  max-height: 260px;
-}
-
-.self-update-safety {
-  margin-top: 1px;
+.self-update-modal > .self-update-plan-actions {
+  margin-top: 18px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
 }
 
 .self-update-spin {
@@ -1094,23 +1236,19 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 920px) {
+@media (max-width: 820px) {
   .self-update-hero {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .self-update-hero-main,
+  .self-update-hero-actions,
+  .self-update-hero-meta {
+    grid-column: 1;
   }
 
   .self-update-hero-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .self-update-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .self-update-main-grid {
-    grid-template-columns: 1fr;
+    justify-content: flex-start;
   }
 }
 
@@ -1120,31 +1258,56 @@ onBeforeUnmount(() => {
     padding: 14px;
   }
 
-  .self-update-hero-actions,
-  .self-update-ready,
+  .self-update-hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .self-update-hero-actions button {
+    width: 100%;
+  }
+
+  .self-update-hero-meta,
+  .self-update-technical-grid,
+  .self-update-plan-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .self-update-hero-meta > div {
+    padding: 10px 0 0;
+    border-left: 0;
+  }
+
+  .self-update-technical {
+    padding: 0;
+  }
+
+  .self-update-technical-body {
+    padding: 14px;
+  }
+
+  .self-update-execution-heading {
+    flex-direction: column;
+  }
+
+  .self-update-modal-backdrop {
+    padding: 12px;
+  }
+
+  .self-update-modal-content,
+  .self-update-modal > header,
+  .self-update-modal > .self-update-plan-actions {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
   .self-update-plan-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .self-update-status-pill,
-  .self-update-hero-actions button,
-  .self-update-ready button,
   .self-update-plan-actions button {
     width: 100%;
-  }
-
-  .self-update-facts {
-    grid-template-columns: 1fr;
-  }
-
-  .self-update-plan-summary {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .self-update-plan-summary > div {
-    min-width: 0;
   }
 }
 
