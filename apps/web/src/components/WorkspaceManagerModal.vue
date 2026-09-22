@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { EllipsisHorizontalIcon, FolderIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import {
+  EllipsisHorizontalIcon,
+  FolderIcon,
+  PlusIcon,
+} from '@heroicons/vue/24/outline';
 import { NButton, NDropdown, NInput, NModal, NSwitch } from 'naive-ui';
 
 import { dashboardStore } from '../stores/dashboard';
@@ -291,7 +295,8 @@ watch(
               >
               <span
                 :id="
-                  'workspace-existing-recursive-scan-description-' + workspace.id
+                  'workspace-existing-recursive-scan-description-' +
+                  workspace.id
                 "
                 >{{ workspace.path }}</span
               >
@@ -305,7 +310,8 @@ watch(
                   'workspace-existing-recursive-scan-label-' + workspace.id
                 "
                 :aria-describedby="
-                  'workspace-existing-recursive-scan-description-' + workspace.id
+                  'workspace-existing-recursive-scan-description-' +
+                  workspace.id
                 "
                 @update:value="toggleWorkspaceRecursiveScan(workspace)"
               />
@@ -363,11 +369,7 @@ watch(
           </template>
           Adicionar novo workspace
         </NButton>
-        <NButton
-          class="workspace-done-button"
-          secondary
-          @click="closeModal"
-        >
+        <NButton class="workspace-done-button" secondary @click="closeModal">
           Concluir
         </NButton>
       </div>
@@ -573,11 +575,16 @@ watch(
   height: 18px;
 }
 
-.workspace-manager-tabs-dialog .workspace-recursive-scan-field .settings-row-copy {
+.workspace-manager-tabs-dialog
+  .workspace-recursive-scan-field
+  .settings-row-copy {
   gap: 4px;
 }
 
-.workspace-manager-tabs-dialog .workspace-recursive-scan-field .settings-row-copy > span {
+.workspace-manager-tabs-dialog
+  .workspace-recursive-scan-field
+  .settings-row-copy
+  > span {
   max-width: 38ch;
 }
 
