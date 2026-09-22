@@ -175,9 +175,6 @@ onMounted(() => {
         :open="workspaceManagerOpen"
         @close="workspaceManagerOpen = false"
       />
-
     </div>
   </n-config-provider>
 </template>
-
-
