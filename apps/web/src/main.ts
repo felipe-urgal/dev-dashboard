@@ -9,6 +9,7 @@ import './styles/features/project-dependencies-typography.css';
 import './styles/features/dependencies-runner-proposal-1.css';
 import './styles/features/database-layout-polish.css';
 import './styles/features/database-tabs-proposal-3.css';
+import './styles/features/database-explorer-minimal.css';
 import './styles/features/scripts-explorer-redesign.css';
 import './styles/features/git-modern-polish.css';
 import './styles/features/git-branches-proposal-2.css';
