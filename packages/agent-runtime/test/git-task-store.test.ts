@@ -15,9 +15,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-function agentTask(
-  overrides: Partial<AgentTask> = {},
-): AgentTask {
+function agentTask(overrides: Partial<AgentTask> = {}): AgentTask {
   return {
     id: 'task-1',
     projectId: 'project-1',
@@ -53,10 +51,7 @@ function hasStoreCode(
   error: unknown,
   code: GitAgentTaskStoreErrorCode,
 ): boolean {
-  return (
-    error instanceof GitAgentTaskStoreError &&
-    error.code === code
-  );
+  return error instanceof GitAgentTaskStoreError && error.code === code;
 }
 
 test('creates a private canonical Git store and versions task updates', async (t) => {
@@ -116,8 +111,7 @@ test('rejects stale expected versions without changing canonical state', async (
         }),
         0,
       ),
-    (error: unknown) =>
-      hasStoreCode(error, 'AGENT_TASK_STORE_CONFLICT'),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_CONFLICT'),
   );
 
   const current = await store.get('task-1');
@@ -180,8 +174,7 @@ test('rejects invalid workflow transitions and immutable identity changes', asyn
         }),
         0,
       ),
-    (error: unknown) =>
-      hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
   );
 
   await assert.rejects(
@@ -193,8 +186,7 @@ test('rejects invalid workflow transitions and immutable identity changes', asyn
         }),
         0,
       ),
-    (error: unknown) =>
-      hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
   );
 
   await assert.rejects(
@@ -206,8 +198,7 @@ test('rejects invalid workflow transitions and immutable identity changes', asyn
         }),
         0,
       ),
-    (error: unknown) =>
-      hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_INVALID'),
   );
 
   assert.equal((await store.get('task-1'))?.task.state, 'queued');
@@ -244,9 +235,7 @@ test('fails closed when the managed repository becomes dirty', async (t) => {
   const taskRecord = await store.get('task-1');
   assert.ok(taskRecord);
 
-  const taskFiles = await fs.readdir(
-    path.join(repositoryDirectory, 'tasks'),
-  );
+  const taskFiles = await fs.readdir(path.join(repositoryDirectory, 'tasks'));
   assert.equal(taskFiles.length, 1);
 
   await fs.appendFile(
@@ -256,7 +245,6 @@ test('fails closed when the managed repository becomes dirty', async (t) => {
 
   await assert.rejects(
     () => store.get('task-1'),
-    (error: unknown) =>
-      hasStoreCode(error, 'AGENT_TASK_STORE_CORRUPT'),
+    (error: unknown) => hasStoreCode(error, 'AGENT_TASK_STORE_CORRUPT'),
   );
 });
