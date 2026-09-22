@@ -36,25 +36,17 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  refresh: [];
   'run-action': [
     service: MachineDatabaseService,
     action: DatabaseServiceAction,
   ];
   'toggle-details': [serviceId: string];
   'reload-details': [serviceId: string];
-  install: [service: MachineDatabaseService];
   uninstall: [service: MachineDatabaseService];
 }>();
 
 const installedServices = computed(() =>
   props.services.filter((service) => service.installed),
-);
-const uninstalledServices = computed(() =>
-  props.services.filter((service) => !service.installed),
-);
-const activeServices = computed(() =>
-  installedServices.value.filter((service) => service.active),
 );
 
 function serviceDetails(
@@ -84,26 +76,6 @@ function isPending(
 </script>
 
 <template>
-  <header class="database-machine-header">
-    <div>
-      <span class="database-machine-eyebrow">Serviços da máquina</span>
-      <h1 id="database-page-title">Banco de dados</h1>
-      <p>
-        Gerencie os bancos instalados no sistema, independentemente do
-        workspace.
-      </p>
-    </div>
-    <button
-      type="button"
-      class="database-machine-refresh"
-      :disabled="loading"
-      @click="emit('refresh')"
-    >
-      <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
-      {{ loading ? 'Atualizando…' : 'Atualizar' }}
-    </button>
-  </header>
-
   <p v-if="successMessage" class="database-machine-success" role="status">
     {{ successMessage }}
     <span v-if="lastUpdatedAt">
@@ -127,32 +99,6 @@ function isPending(
     Consultando os serviços do sistema…
   </div>
   <template v-else>
-    <div class="database-machine-overview" aria-label="Resumo dos serviços">
-      <div class="database-machine-overview-item">
-        <span>Instalados</span>
-        <strong>{{ installedServices.length }}</strong>
-      </div>
-      <div class="database-machine-overview-item">
-        <span>Em execução</span>
-        <strong class="is-success">{{ activeServices.length }}</strong>
-      </div>
-      <div class="database-machine-overview-item">
-        <span>Disponíveis</span>
-        <strong>{{ uninstalledServices.length }}</strong>
-      </div>
-    </div>
-
-    <div v-if="installedServices.length" class="database-machine-section">
-      <div class="database-machine-section-heading">
-        <div>
-          <h2>Serviços da máquina</h2>
-          <p>Gerencie os serviços disponíveis nesta máquina.</p>
-        </div>
-        <span class="database-machine-count"
-          >{{ installedServices.length }} serviços</span
-        >
-      </div>
-    </div>
     <div v-if="installedServices.length" class="database-machine-list">
       <article
         v-for="service in installedServices"
@@ -310,49 +256,8 @@ function isPending(
       </article>
     </div>
 
-    <div
-      v-if="uninstalledServices.length"
-      class="database-machine-section database-machine-section-available"
-    >
-      <div class="database-machine-section-heading">
-        <div>
-          <h2>Disponíveis para instalar</h2>
-          <p>Instale um serviço quando precisar dele nesta máquina.</p>
-        </div>
-        <span class="database-machine-count"
-          >{{ uninstalledServices.length }} disponíveis</span
-        >
-      </div>
-    </div>
-    <div v-if="uninstalledServices.length" class="database-machine-list">
-      <article
-        v-for="service in uninstalledServices"
-        :key="service.id"
-        class="database-machine-card database-machine-card-uninstalled"
-        :data-service-id="service.id"
-        :aria-busy="pending?.serviceId === service.id"
-      >
-        <div class="database-machine-card-icon">
-          <CircleStackIcon aria-hidden="true" />
-        </div>
-        <div class="database-machine-card-copy">
-          <h2>{{ service.label }}</h2>
-          <div class="database-machine-meta">
-            <code>{{ service.unit }}</code>
-            <span>Não instalado</span>
-          </div>
-        </div>
-        <div class="database-machine-actions">
-          <button
-            type="button"
-            :disabled="pending !== null"
-            @click="emit('install', service)"
-          >
-            <PlayIcon aria-hidden="true" />
-            {{ isPending(service, 'install') ? 'Instalando…' : 'Instalar' }}
-          </button>
-        </div>
-      </article>
+    <div v-else class="activity-empty">
+      Nenhum banco instalado nesta máquina.
     </div>
   </template>
 </template>
