@@ -547,7 +547,9 @@ async function mergePullRequest(): Promise<void> {
           <div class="git-pr-route" aria-label="Comparação das branches">
             <div>
               <strong>{{ overview.branch ?? 'HEAD' }}</strong>
-              <small>{{ overview.upstream ?? 'Sem upstream configurado' }}</small>
+              <small>{{
+                overview.upstream ?? 'Sem upstream configurado'
+              }}</small>
             </div>
             <span aria-hidden="true">→</span>
             <div>
