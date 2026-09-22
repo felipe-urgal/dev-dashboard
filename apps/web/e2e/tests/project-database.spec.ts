@@ -9,13 +9,9 @@ test.describe('Banco de dados da máquina', () => {
     await gotoBootstrapped(page, '/database');
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Banco de dados' }),
+      page.getByRole('tab', { name: 'Serviços da máquina' }),
     ).toBeVisible();
-    await expect(
-      page.getByText('Gerencie os bancos instalados no sistema', {
-        exact: false,
-      }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Atualizar' })).toBeVisible();
     await expect(page.getByText('MySQL', { exact: true })).toBeVisible();
     await expect(page.getByText('PostgreSQL', { exact: true })).toBeVisible();
   });
