@@ -30,8 +30,6 @@ vi.mock('../src/stores/dashboard', async () => {
       scanningWorkspace: ref(false),
       enabledUpdatingIds: ref<string[]>([]),
       errorMessage: ref(''),
-      successMessage: ref(''),
-      warningCount: ref(0),
       processSummary: ref({ total: 0, active: 0, stopped: 0, failed: 0 }),
       loadingProcessSummary: ref(false),
       processSummaryError: ref(''),
@@ -92,8 +90,6 @@ beforeEach(() => {
   dashboardStore.scanningWorkspace.value = false;
   dashboardStore.enabledUpdatingIds.value = [];
   dashboardStore.errorMessage.value = '';
-  dashboardStore.successMessage.value = '';
-  dashboardStore.warningCount.value = 0;
   dashboardStore.processSummary.value = {
     total: 0,
     active: 0,

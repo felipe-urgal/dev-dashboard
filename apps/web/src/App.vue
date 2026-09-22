@@ -13,7 +13,6 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
-import { useDashboardToastBridge } from './composables/useDashboardToastBridge';
 import CommandPalette from './components/CommandPalette.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
@@ -35,7 +34,6 @@ const naiveThemeOverrides = computed(() =>
 );
 
 loadVisualPreferences();
-useDashboardToastBridge();
 
 const workspaceManagerOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());

@@ -59,8 +59,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const recursiveScanUpdatingIds = ref<string[]>([]);
 
   const errorMessage = ref('');
-  const successMessage = ref('');
-  const warningCount = ref(0);
   const lastScannedPath = ref('');
   const processSummary = ref({
     total: 0,
@@ -112,9 +110,8 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     ),
   );
 
-  function clearMessages(): void {
+  function clearError(): void {
     errorMessage.value = '';
-    successMessage.value = '';
   }
 
   function rememberProjects(items: Project[]): void {
@@ -207,7 +204,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       workspace.id,
     ];
     replaceWorkspaceRecursiveScan(workspace.id, recursiveScan);
-    clearMessages();
+    clearError();
 
     try {
       const updatedWorkspace = await updateWorkspaceRecursiveScan(
@@ -300,20 +297,14 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     workspaceId: string,
     options: {
       activate?: boolean;
-      showMessages?: boolean;
     } = {},
   ): Promise<WorkspaceScanResponse> {
     const shouldActivate = options.activate ?? false;
-    const shouldShowMessages = options.showMessages ?? false;
 
     if (shouldActivate) {
       scanningWorkspace.value = true;
       loadingProjects.value = true;
-      warningCount.value = 0;
-    }
-
-    if (shouldShowMessages) {
-      clearMessages();
+      clearError();
     }
 
     try {
@@ -324,15 +315,10 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
       if (shouldActivate) {
         activateWorkspace(workspaceId, result.projects);
-        warningCount.value = result.warnings.length;
         lastScannedPath.value = result.workspacePath;
       }
 
       apiConnected.value = true;
-
-      if (shouldShowMessages) {
-        successMessage.value = `${result.projects.length} projeto(s) detectado(s).`;
-      }
 
       return result;
     } finally {
@@ -355,7 +341,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     try {
       await scanWorkspaceById(workspace.id, {
         activate: true,
-        showMessages: true,
       });
       await loadProcessSummary();
     } catch (error) {
@@ -378,7 +363,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     try {
       await scanWorkspaceById(workspace.id, {
         activate: true,
-        showMessages: true,
       });
       await loadProcessSummary();
     } catch (error) {
@@ -391,7 +375,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
   async function loadInitialData(): Promise<boolean> {
     loadingProjects.value = true;
-    clearMessages();
+    clearError();
 
     try {
       const [health, storedWorkspaces] = await Promise.all([
@@ -507,7 +491,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     const name = newWorkspaceName.value.trim();
     const path = newWorkspacePath.value.trim();
 
-    clearMessages();
+    clearError();
 
     if (!name || !path) {
       errorMessage.value = 'Informe o nome e o caminho do workspace.';
@@ -531,7 +515,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       newWorkspaceName.value = '';
       newWorkspacePath.value = '';
       newWorkspaceRecursiveScan.value = false;
-      successMessage.value = `Workspace "${workspace.name}" cadastrado.`;
 
       await scanWorkspaceById(workspace.id, {
         activate: true,
@@ -569,7 +552,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
 
     deletingWorkspace.value = true;
-    clearMessages();
+    clearError();
 
     try {
       await deleteWorkspace(workspace.id);
@@ -602,7 +585,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       projectIndex.value = nextIndex;
 
       projects.value = [];
-      warningCount.value = 0;
       lastScannedPath.value = '';
 
       const nextWorkspace = workspaces.value[0];
@@ -613,7 +595,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       } else if (workspace.id === selectedWorkspaceId.value) {
         selectedWorkspaceId.value = '';
         persistWorkspaceId('');
-        successMessage.value = `Workspace "${workspace.name}" removido.`;
       }
     } catch (error) {
       errorMessage.value =
@@ -634,7 +615,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
     if (!workspace || !nextName || workspace.name === nextName) return;
 
-    clearMessages();
+    clearError();
 
     try {
       const updatedWorkspace = await updateWorkspace(workspaceId, {
@@ -643,7 +624,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       workspaces.value = workspaces.value
         .map((item) => (item.id === workspaceId ? updatedWorkspace : item))
         .sort((left, right) => left.name.localeCompare(right.name));
-      successMessage.value = `Workspace renomeado para "${updatedWorkspace.name}".`;
     } catch (error) {
       errorMessage.value =
         error instanceof Error
@@ -669,8 +649,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     enabledUpdatingIds,
     recursiveScanUpdatingIds,
     errorMessage,
-    successMessage,
-    warningCount,
     lastScannedPath,
     processSummary,
     loadingProcessSummary,

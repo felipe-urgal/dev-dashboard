@@ -165,10 +165,6 @@ test('dashboard store renomeia workspace e mantém a seleção persistida', asyn
 
   assert.equal(store.workspaces.value[0]?.name, 'Projetos Renomeados');
   assert.equal(store.selectedWorkspaceId.value, workspace.id);
-  assert.equal(
-    store.successMessage.value,
-    'Workspace renomeado para "Projetos Renomeados".',
-  );
 });
 
 test('dashboard store desfaz a alteração otimista de recursiveScan quando a API falha', async () => {
