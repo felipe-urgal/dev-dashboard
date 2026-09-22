@@ -1,4 +1,21 @@
 <script setup lang="ts">
+import {
+  ArrowPathIcon,
+  CheckCircleIcon,
+  CircleStackIcon,
+  CommandLineIcon,
+  CubeIcon,
+  EllipsisVerticalIcon,
+  EnvelopeIcon,
+  ExclamationCircleIcon,
+  ExclamationTriangleIcon,
+  GlobeAltIcon,
+  InformationCircleIcon,
+  LockClosedIcon,
+  MagnifyingGlassIcon,
+  PlayIcon,
+  QueueListIcon,
+} from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -9,8 +26,10 @@ import {
   restartDockerCompose,
   startDockerCompose,
   stopDockerCompose,
+  type DockerComposeInspectionState,
   type DockerComposeLogSnapshot,
   type DockerComposePortBinding,
+  type DockerComposePreflightConflict,
   type DockerComposeRuntimeService,
   type DockerComposeServiceHealth,
   type DockerComposeServiceState,
@@ -31,6 +50,7 @@ const errorMessage = ref('');
 const snapshot = ref<DockerComposeSnapshot | null>(null);
 const logs = ref<DockerComposeLogSnapshot | null>(null);
 const logsService = ref('');
+const serviceSearch = ref('');
 let generation = 0;
 
 const config = computed(() => snapshot.value?.inspection.config);
@@ -56,18 +76,138 @@ const canStart = computed(
     !hasActiveServices.value &&
     !action.value,
 );
+const visibleServices = computed(() => {
+  const services = config.value?.services ?? [];
+  const query = serviceSearch.value.trim().toLowerCase();
+  if (!query) return services;
 
-const inspectionTone = computed<StatusBadgeTone>(() => {
-  if (snapshot.value?.inspection.state === 'available') return 'success';
-  if (snapshot.value?.inspection.state === 'runtime-unavailable')
-    return 'warning';
-  return 'neutral';
+  return services.filter((service) => {
+    const searchable = [
+      service.name,
+      service.image ?? '',
+      service.ports.map(portLabel).join(' '),
+      service.dependsOn.join(' '),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return searchable.includes(query);
+  });
+});
+const problemDiagnostics = computed(() => {
+  if (!snapshot.value) return [];
+
+  return [
+    snapshot.value.inspection.diagnostic,
+    snapshot.value.preflight?.diagnostic,
+    snapshot.value.ownership.reconciliation.diagnostic,
+  ].filter((message): message is string => Boolean(message));
+});
+const hasProblems = computed(
+  () =>
+    problemDiagnostics.value.length > 0 ||
+    Boolean(snapshot.value?.preflight?.conflicts.length),
+);
+
+const inspectionSummary = computed(() => {
+  const state = snapshot.value?.inspection.state;
+  const summary: Record<
+    DockerComposeInspectionState,
+    {
+      title: string;
+      detail: string;
+      tone: 'success' | 'warning' | 'danger' | 'neutral';
+      icon: typeof CheckCircleIcon;
+    }
+  > = {
+    available: {
+      title: 'Compose disponível',
+      detail: 'Configuração e runtime estruturados',
+      tone: 'success',
+      icon: CheckCircleIcon,
+    },
+    'runtime-unavailable': {
+      title: 'Runtime indisponível',
+      detail: 'Configuração disponível, runtime indisponível',
+      tone: 'warning',
+      icon: ExclamationCircleIcon,
+    },
+    'docker-missing': {
+      title: 'Docker indisponível',
+      detail: 'Docker não está disponível neste ambiente',
+      tone: 'danger',
+      icon: ExclamationCircleIcon,
+    },
+    'compose-unavailable': {
+      title: 'Compose indisponível',
+      detail: 'Docker Compose não está disponível',
+      tone: 'danger',
+      icon: ExclamationCircleIcon,
+    },
+    'invalid-output': {
+      title: 'Compose inválido',
+      detail: 'Estado de runtime estruturado inválido',
+      tone: 'danger',
+      icon: ExclamationCircleIcon,
+    },
+  };
+
+  return state ? summary[state] : summary['invalid-output'];
 });
 
-const preflightTone = computed<StatusBadgeTone>(() => {
-  if (snapshot.value?.preflight?.state === 'ready') return 'success';
-  if (snapshot.value?.preflight?.state === 'blocked') return 'danger';
-  return 'warning';
+const ownershipSummary = computed(() =>
+  owned.value
+    ? {
+        title: 'Ownership ativo',
+        detail: 'Ações de serviço disponíveis',
+        tone: 'success' as const,
+        icon: CheckCircleIcon,
+      }
+    : {
+        title: 'Somente leitura',
+        detail: 'Ações de serviço não estão disponíveis',
+        tone: 'warning' as const,
+        icon: LockClosedIcon,
+      },
+);
+
+const preflightSummary = computed(() => {
+  const preflight = snapshot.value?.preflight;
+  if (!preflight) {
+    return {
+      title: 'Portas não avaliadas',
+      detail: 'Preflight não disponível',
+      tone: 'neutral' as const,
+      icon: InformationCircleIcon,
+    };
+  }
+
+  if (preflight.state === 'blocked') {
+    const count = preflight.conflicts.length;
+    return {
+      title:
+        count + (count === 1 ? ' conflito de porta' : ' conflitos de porta'),
+      detail: 'Portas publicadas não disponíveis',
+      tone: 'danger' as const,
+      icon: ExclamationTriangleIcon,
+    };
+  }
+
+  if (preflight.state === 'ready') {
+    return {
+      title: 'Portas disponíveis',
+      detail: 'Preflight sem conflitos',
+      tone: 'success' as const,
+      icon: CheckCircleIcon,
+    };
+  }
+
+  return {
+    title: 'Portas não verificadas',
+    detail: 'Preflight indisponível',
+    tone: 'warning' as const,
+    icon: ExclamationCircleIcon,
+  };
 });
 
 function runtimeFor(service: string): DockerComposeRuntimeService | undefined {
@@ -118,6 +258,30 @@ function portLabel(port: DockerComposePortBinding): string {
   const published =
     port.publishedPort === undefined ? target : String(port.publishedPort);
   return published + ':' + target + '/' + port.protocol;
+}
+
+function conflictReasonLabel(
+  reason: DockerComposePreflightConflict['reason'],
+): string {
+  const labels: Record<DockerComposePreflightConflict['reason'], string> = {
+    occupied: 'Porta ocupada',
+    reserved: 'Porta reservada',
+    'duplicate-declaration': 'Porta declarada em duplicidade',
+  };
+  return labels[reason];
+}
+
+function serviceIcon(service: string) {
+  const normalized = service.toLowerCase();
+  if (normalized === 'db' || normalized.includes('postgres'))
+    return CircleStackIcon;
+  if (normalized.includes('mail')) return EnvelopeIcon;
+  if (normalized.includes('redis')) return QueueListIcon;
+  if (normalized === 'web' || normalized.includes('app')) return GlobeAltIcon;
+  if (normalized.includes('webpack')) return CubeIcon;
+  if (normalized.includes('wrk') || normalized.includes('worker'))
+    return CommandLineIcon;
+  return CubeIcon;
 }
 
 function formatDate(value: string): string {
@@ -203,6 +367,7 @@ watch(
     snapshot.value = null;
     logs.value = null;
     logsService.value = '';
+    serviceSearch.value = '';
     void load();
   },
   { immediate: true },
@@ -212,14 +377,28 @@ watch(
 <template>
   <section class="compose-panel" aria-labelledby="compose-title">
     <header class="compose-header">
-      <div>
-        <span class="compose-eyebrow">Runtime local</span>
-        <h3 id="compose-title">Docker Compose</h3>
-        <p>
-          Serviços, health, portas e lifecycle controlado do Compose associado a
-          este projeto.
-        </p>
+      <div class="compose-title">
+        <svg class="compose-docker-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path
+            d="M3 15.5h25c-.7 6.6-4.8 10.5-11.4 10.5h-6C6 26 3 22.8 3 18.5v-3Z"
+          />
+          <path d="M27 13.5c1.9 0 3.1-1 4-2.8.2 2.7-.9 4.7-3.5 5.4" />
+          <rect x="6" y="10" width="4" height="4" rx=".7" />
+          <rect x="11" y="10" width="4" height="4" rx=".7" />
+          <rect x="16" y="10" width="4" height="4" rx=".7" />
+          <rect x="11" y="5" width="4" height="4" rx=".7" />
+          <rect x="16" y="5" width="4" height="4" rx=".7" />
+          <rect x="21" y="10" width="4" height="4" rx=".7" />
+        </svg>
+        <div>
+          <h3 id="compose-title">Docker Compose</h3>
+          <p>
+            Serviços, health, portas e lifecycle controlado do Compose associado
+            a este projeto.
+          </p>
+        </div>
       </div>
+
       <div class="compose-header-actions">
         <button
           class="compose-button"
@@ -227,6 +406,10 @@ watch(
           :disabled="loading || Boolean(action)"
           @click="load"
         >
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
           Atualizar
         </button>
         <button
@@ -239,6 +422,7 @@ watch(
             )
           "
         >
+          <PlayIcon aria-hidden="true" />
           {{ action === 'start' ? 'Iniciando…' : 'Iniciar stack' }}
         </button>
         <button
@@ -299,77 +483,97 @@ watch(
         {{ errorMessage }}
       </p>
 
-      <div class="compose-summary">
-        <section class="compose-summary-card">
-          <span>Compose</span>
-          <StatusBadge :tone="inspectionTone" size="md">
-            {{ snapshot.inspection.state }}
-          </StatusBadge>
-          <small>{{ formatDate(snapshot.inspection.observedAt) }}</small>
-        </section>
-        <section class="compose-summary-card">
-          <span>Ownership</span>
-          <StatusBadge :tone="owned ? 'success' : 'neutral'" size="md">
-            {{ owned ? 'Owned' : 'Somente leitura' }}
-          </StatusBadge>
-          <small v-if="snapshot.ownership.startedAt">
-            Desde {{ formatDate(snapshot.ownership.startedAt) }}
-          </small>
-          <small
-            v-else-if="snapshot.ownership.reconciliation.state === 'released'"
-          >
-            Ownership obsoleto reconciliado.
-          </small>
-        </section>
-        <section v-if="snapshot.preflight" class="compose-summary-card">
-          <span>Portas</span>
-          <StatusBadge :tone="preflightTone" size="md">
-            {{ snapshot.preflight.state }}
-          </StatusBadge>
-          <small>{{ snapshot.preflight.conflicts.length }} conflito(s)</small>
-        </section>
+      <div class="compose-status-strip" aria-label="Status do Docker Compose">
+        <div
+          class="compose-status-item"
+          :class="'compose-status-item--' + inspectionSummary.tone"
+        >
+          <span class="compose-status-icon">
+            <component :is="inspectionSummary.icon" aria-hidden="true" />
+          </span>
+          <div>
+            <strong>{{ inspectionSummary.title }}</strong>
+            <span>{{ inspectionSummary.detail }}</span>
+          </div>
+        </div>
+
+        <div
+          class="compose-status-item"
+          :class="'compose-status-item--' + ownershipSummary.tone"
+        >
+          <span class="compose-status-icon">
+            <component :is="ownershipSummary.icon" aria-hidden="true" />
+          </span>
+          <div>
+            <strong>{{ ownershipSummary.title }}</strong>
+            <span>{{ ownershipSummary.detail }}</span>
+          </div>
+        </div>
+
+        <div
+          class="compose-status-item"
+          :class="'compose-status-item--' + preflightSummary.tone"
+        >
+          <span class="compose-status-icon">
+            <component :is="preflightSummary.icon" aria-hidden="true" />
+          </span>
+          <div>
+            <strong>{{ preflightSummary.title }}</strong>
+            <span>{{ preflightSummary.detail }}</span>
+          </div>
+        </div>
       </div>
 
-      <p
-        v-if="snapshot.inspection.diagnostic"
-        class="compose-diagnostic"
-        role="note"
+      <section
+        v-if="hasProblems"
+        class="compose-problem-panel"
+        aria-labelledby="compose-problems-title"
       >
-        {{ snapshot.inspection.diagnostic }}
-      </p>
+        <div class="compose-problem-main">
+          <ExclamationTriangleIcon
+            class="compose-problem-icon"
+            aria-hidden="true"
+          />
+          <div>
+            <h4 id="compose-problems-title">Problemas detectados</h4>
+            <p
+              v-for="diagnostic in problemDiagnostics"
+              :key="diagnostic"
+              class="compose-problem-diagnostic"
+            >
+              {{ diagnostic }}
+            </p>
+            <ul
+              v-if="snapshot.preflight?.conflicts.length"
+              class="compose-conflicts"
+              aria-label="Conflitos de portas"
+            >
+              <li
+                v-for="conflict in snapshot.preflight.conflicts"
+                :key="conflict.port + '-' + conflict.reason"
+              >
+                <span aria-hidden="true"></span>
+                <strong>{{ conflict.port }}</strong>
+                <span>·</span>
+                <span>{{ conflict.services.join(', ') }}</span>
+                <span>·</span>
+                <span>{{ conflictReasonLabel(conflict.reason) }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
 
-      <p
-        v-if="snapshot.preflight?.diagnostic"
-        class="compose-diagnostic"
-        role="note"
-      >
-        {{ snapshot.preflight.diagnostic }}
-      </p>
-
-      <p
-        v-if="snapshot.ownership.reconciliation.diagnostic"
-        class="compose-diagnostic"
-        role="note"
-      >
-        {{ snapshot.ownership.reconciliation.diagnostic }}
-      </p>
-
-      <ul
-        v-if="snapshot.preflight?.conflicts.length"
-        class="compose-conflicts"
-        aria-label="Conflitos de portas"
-      >
-        <li
-          v-for="conflict in snapshot.preflight.conflicts"
-          :key="conflict.port + '-' + conflict.reason"
-        >
-          Porta {{ conflict.port }} · {{ conflict.reason }} ·
-          {{ conflict.services.join(', ') }}
-          <template v-if="conflict.suggestedPort">
-            · sugestão {{ conflict.suggestedPort }}
-          </template>
-        </li>
-      </ul>
+        <div v-if="!owned" class="compose-readonly-message">
+          <InformationCircleIcon aria-hidden="true" />
+          <div>
+            <strong>O projeto está em modo somente leitura.</strong>
+            <span>
+              Ações de serviço (iniciar, parar, reiniciar) não estão disponíveis
+              neste modo.
+            </span>
+          </div>
+        </div>
+      </section>
 
       <EmptyState
         v-if="!config"
@@ -379,131 +583,172 @@ watch(
       />
 
       <template v-else>
-        <div class="compose-section-heading">
-          <div>
-            <h4>Serviços</h4>
-            <p>
-              {{ config.projectName ?? 'Projeto Compose' }} ·
-              {{ config.services.length }} serviço(s)
-            </p>
+        <div class="compose-services-heading">
+          <div class="compose-services-title">
+            <CircleStackIcon aria-hidden="true" />
+            <h4>Serviços · {{ config.services.length }}</h4>
           </div>
-          <span v-if="!owned" class="compose-readonly-note">
-            Stop, restart e logs exigem ownership do Dashboard.
-          </span>
+
+          <label class="compose-search">
+            <MagnifyingGlassIcon aria-hidden="true" />
+            <span class="sr-only">Buscar serviço</span>
+            <input
+              v-model="serviceSearch"
+              type="search"
+              placeholder="Buscar serviço..."
+              autocomplete="off"
+            />
+          </label>
         </div>
 
-        <div class="compose-services">
-          <article
-            v-for="service in config.services"
-            :key="service.name"
-            class="compose-service"
-          >
-            <div class="compose-service-heading">
-              <div>
-                <h5>{{ service.name }}</h5>
-                <code v-if="service.image">{{ service.image }}</code>
-              </div>
-              <div class="compose-badges">
-                <StatusBadge
-                  :tone="
-                    stateTone(runtimeFor(service.name)?.state ?? 'unknown')
-                  "
-                >
-                  {{ stateLabel(runtimeFor(service.name)?.state ?? 'unknown') }}
-                </StatusBadge>
-                <StatusBadge
-                  :tone="
-                    healthTone(runtimeFor(service.name)?.health ?? 'unknown')
-                  "
-                >
-                  {{
-                    healthLabel(runtimeFor(service.name)?.health ?? 'unknown')
-                  }}
-                </StatusBadge>
-              </div>
-            </div>
+        <div class="compose-table-shell">
+          <table class="compose-service-table">
+            <thead>
+              <tr>
+                <th>Serviço</th>
+                <th>Imagem</th>
+                <th>Portas</th>
+                <th>Depende de</th>
+                <th>Status</th>
+                <th><span class="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="service in visibleServices" :key="service.name">
+                <td>
+                  <div class="compose-service-name">
+                    <component
+                      :is="serviceIcon(service.name)"
+                      aria-hidden="true"
+                    />
+                    <strong>{{ service.name }}</strong>
+                  </div>
+                </td>
+                <td>
+                  <code>{{ service.image || '—' }}</code>
+                </td>
+                <td>
+                  <span class="compose-cell-wrap">
+                    {{
+                      service.ports.length
+                        ? service.ports.map(portLabel).join(', ')
+                        : '—'
+                    }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    v-if="service.dependsOn.length"
+                    class="compose-cell-wrap"
+                  >
+                    {{ service.dependsOn.join(', ') }}
+                  </span>
+                </td>
+                <td>
+                  <div class="compose-badges">
+                    <StatusBadge
+                      :tone="
+                        stateTone(runtimeFor(service.name)?.state ?? 'unknown')
+                      "
+                    >
+                      {{
+                        stateLabel(runtimeFor(service.name)?.state ?? 'unknown')
+                      }}
+                    </StatusBadge>
+                    <StatusBadge
+                      :tone="
+                        healthTone(
+                          runtimeFor(service.name)?.health ?? 'unknown',
+                        )
+                      "
+                    >
+                      {{
+                        healthLabel(
+                          runtimeFor(service.name)?.health ?? 'unknown',
+                        )
+                      }}
+                    </StatusBadge>
+                  </div>
+                </td>
+                <td class="compose-actions-cell">
+                  <details v-if="owned" class="compose-row-menu">
+                    <summary
+                      :aria-label="'Ações de ' + service.name"
+                      :title="'Ações de ' + service.name"
+                    >
+                      <EllipsisVerticalIcon aria-hidden="true" />
+                    </summary>
+                    <div class="compose-row-menu-popover">
+                      <button
+                        type="button"
+                        :disabled="Boolean(action)"
+                        @click="
+                          mutate('restart-' + service.name, () =>
+                            restartDockerCompose(
+                              project.id,
+                              service.name,
+                              environmentInstanceId,
+                            ),
+                          )
+                        "
+                      >
+                        {{
+                          action === 'restart-' + service.name
+                            ? 'Reiniciando…'
+                            : 'Reiniciar'
+                        }}
+                      </button>
+                      <button
+                        type="button"
+                        :disabled="Boolean(action)"
+                        @click="openLogs(service.name)"
+                      >
+                        {{
+                          action === 'logs-' + service.name
+                            ? 'Lendo…'
+                            : 'Ver logs'
+                        }}
+                      </button>
+                      <button
+                        class="compose-row-menu-danger"
+                        type="button"
+                        :disabled="Boolean(action)"
+                        @click="
+                          mutate('stop-' + service.name, () =>
+                            stopDockerCompose(
+                              project.id,
+                              service.name,
+                              environmentInstanceId,
+                            ),
+                          )
+                        "
+                      >
+                        {{
+                          action === 'stop-' + service.name
+                            ? 'Parando…'
+                            : 'Parar'
+                        }}
+                      </button>
+                    </div>
+                  </details>
+                  <button
+                    v-else
+                    class="compose-row-menu-disabled"
+                    type="button"
+                    :aria-label="'Ações indisponíveis para ' + service.name"
+                    title="Ações indisponíveis em modo somente leitura"
+                    disabled
+                  >
+                    <EllipsisVerticalIcon aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-            <dl class="compose-service-meta">
-              <div>
-                <dt>Portas</dt>
-                <dd>
-                  <template v-if="service.ports.length">
-                    {{ service.ports.map(portLabel).join(', ') }}
-                  </template>
-                  <template v-else>—</template>
-                </dd>
-              </div>
-              <div>
-                <dt>Depende de</dt>
-                <dd>
-                  {{
-                    service.dependsOn.length
-                      ? service.dependsOn.join(', ')
-                      : '—'
-                  }}
-                </dd>
-              </div>
-              <div>
-                <dt>Profiles</dt>
-                <dd>
-                  {{
-                    service.profiles.length ? service.profiles.join(', ') : '—'
-                  }}
-                </dd>
-              </div>
-              <div v-if="runtimeFor(service.name)?.exitCode !== undefined">
-                <dt>Exit code</dt>
-                <dd>{{ runtimeFor(service.name)?.exitCode }}</dd>
-              </div>
-            </dl>
-
-            <div class="compose-service-actions">
-              <button
-                class="compose-button"
-                type="button"
-                :disabled="!owned || Boolean(action)"
-                @click="
-                  mutate('restart-' + service.name, () =>
-                    restartDockerCompose(
-                      project.id,
-                      service.name,
-                      environmentInstanceId,
-                    ),
-                  )
-                "
-              >
-                {{
-                  action === 'restart-' + service.name
-                    ? 'Reiniciando…'
-                    : 'Reiniciar'
-                }}
-              </button>
-              <button
-                class="compose-button"
-                type="button"
-                :disabled="!owned || Boolean(action)"
-                @click="openLogs(service.name)"
-              >
-                {{ action === 'logs-' + service.name ? 'Lendo…' : 'Ver logs' }}
-              </button>
-              <button
-                class="compose-button compose-button--danger"
-                type="button"
-                :disabled="!owned || Boolean(action)"
-                @click="
-                  mutate('stop-' + service.name, () =>
-                    stopDockerCompose(
-                      project.id,
-                      service.name,
-                      environmentInstanceId,
-                    ),
-                  )
-                "
-              >
-                {{ action === 'stop-' + service.name ? 'Parando…' : 'Parar' }}
-              </button>
-            </div>
-          </article>
+          <div v-if="!visibleServices.length" class="compose-no-results">
+            Nenhum serviço encontrado.
+          </div>
         </div>
       </template>
 
@@ -512,7 +757,7 @@ watch(
         class="compose-logs"
         aria-labelledby="compose-logs-title"
       >
-        <div class="compose-section-heading">
+        <div class="compose-logs-heading">
           <div>
             <h4 id="compose-logs-title">Logs · {{ logsService }}</h4>
             <p>{{ formatDate(logs.readAt) }}</p>
@@ -533,190 +778,683 @@ watch(
 <style scoped>
 .compose-panel {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
   padding: var(--space-5);
 }
 
 .compose-header,
-.compose-section-heading,
-.compose-service-heading,
-.compose-service-actions,
 .compose-header-actions,
-.compose-badges {
+.compose-title,
+.compose-services-heading,
+.compose-services-title,
+.compose-badges,
+.compose-logs-heading {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-}
-
-.compose-header,
-.compose-section-heading,
-.compose-service-heading {
-  justify-content: space-between;
 }
 
 .compose-header {
-  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
 }
 
-.compose-header h3,
-.compose-header p,
-.compose-section-heading h4,
-.compose-section-heading p,
-.compose-service h5,
-.compose-diagnostic,
+.compose-title {
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.compose-title > div {
+  min-width: 0;
+}
+
+.compose-title h3,
+.compose-title p,
+.compose-services-title h4,
+.compose-problem-panel h4,
+.compose-problem-diagnostic,
+.compose-logs-heading h4,
+.compose-logs-heading p,
 .compose-error {
   margin: 0;
 }
 
-.compose-eyebrow,
-.compose-summary-card > span,
-.compose-service-meta dt {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.compose-title h3 {
+  color: var(--text);
+  font-size: var(--font-xl);
 }
 
-.compose-header-actions,
-.compose-service-actions,
-.compose-badges {
+.compose-title p {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--font-control);
+}
+
+.compose-docker-mark {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  fill: var(--accent);
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+}
+
+.compose-header-actions {
   flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .compose-button {
-  border: 1px solid var(--border-color);
+  display: inline-flex;
+  min-height: var(--control-height-lg);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  background: var(--surface-secondary);
-  color: var(--text-primary);
+  color: var(--text);
+  background: var(--surface-1);
   cursor: pointer;
-  padding: 0.55rem 0.8rem;
+  font: inherit;
+  font-size: var(--font-control);
+  font-weight: var(--font-weight-strong);
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    background var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.compose-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.compose-button:hover:not(:disabled),
+.compose-button:focus-visible {
+  border-color: var(--accent);
+  background: var(--surface-2);
 }
 
 .compose-button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
 }
 
 .compose-button--primary {
+  border-color: var(--accent-strong);
+  color: #fff;
+  background: var(--accent-strong);
+}
+
+.compose-button--primary:hover:not(:disabled),
+.compose-button--primary:focus-visible {
   border-color: var(--accent);
+  background: var(--accent);
 }
 
 .compose-button--danger {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
-.compose-summary {
+.compose-status-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.compose-summary-card,
-.compose-service,
-.compose-logs {
-  border: 1px solid var(--border-color);
+  overflow: hidden;
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface-primary);
+  background: var(--surface-1);
 }
 
-.compose-summary-card {
-  display: grid;
-  gap: var(--space-2);
+.compose-status-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-4);
 }
 
-.compose-summary-card small,
-.compose-readonly-note,
-.compose-section-heading span {
+.compose-status-item + .compose-status-item {
+  border-left: 1px solid var(--border);
+}
+
+.compose-status-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.compose-status-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.compose-status-item > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.compose-status-item strong,
+.compose-status-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-status-item strong {
+  color: var(--text);
+  font-size: var(--font-control);
+}
+
+.compose-status-item > div > span {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.compose-status-item--success .compose-status-icon,
+.compose-status-item--success strong {
+  color: var(--success-text);
+}
+
+.compose-status-item--success .compose-status-icon {
+  background: var(--success-surface);
+}
+
+.compose-status-item--warning .compose-status-icon,
+.compose-status-item--warning strong {
+  color: var(--warning-text);
+}
+
+.compose-status-item--warning .compose-status-icon {
+  background: var(--warning-surface);
+}
+
+.compose-status-item--danger .compose-status-icon,
+.compose-status-item--danger strong {
+  color: var(--danger-text);
+}
+
+.compose-status-item--danger .compose-status-icon {
+  background: var(--danger-surface);
+}
+
+.compose-status-item--neutral .compose-status-icon,
+.compose-status-item--neutral strong {
   color: var(--text-muted);
 }
 
-.compose-diagnostic,
-.compose-error,
-.compose-conflicts {
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+.compose-problem-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  overflow: hidden;
+  border: 1px solid var(--danger-text);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--danger-surface) 44%, transparent),
+      transparent 65%
+    ),
+    var(--surface-1);
 }
 
-.compose-diagnostic {
-  background: var(--surface-secondary);
+.compose-problem-main {
+  display: flex;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.compose-problem-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  color: var(--danger-text);
+}
+
+.compose-problem-panel h4 {
+  margin-bottom: var(--space-2);
+  color: var(--danger-text);
+  font-size: var(--font-lg);
+}
+
+.compose-problem-diagnostic {
+  color: var(--text);
+  font-size: var(--font-control);
+  line-height: 1.6;
+}
+
+.compose-conflicts {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compose-conflicts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: var(--font-control);
+}
+
+.compose-conflicts li > span:first-child {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--danger-text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger-text) 10%, transparent);
+}
+
+.compose-readonly-message {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: 0 var(--space-5);
+  border-left: 1px solid var(--border);
+}
+
+.compose-readonly-message > svg {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  color: var(--info-text);
+}
+
+.compose-readonly-message > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.compose-readonly-message strong {
+  color: var(--text);
+  font-size: var(--font-control);
+}
+
+.compose-readonly-message span {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  line-height: 1.5;
+}
+
+.compose-services-heading {
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-1);
+}
+
+.compose-services-title {
+  gap: var(--space-2);
+}
+
+.compose-services-title svg {
+  width: 22px;
+  height: 22px;
+  color: var(--info-text);
+}
+
+.compose-services-title h4 {
+  color: var(--text);
+  font-size: var(--font-lg);
+}
+
+.compose-search {
+  display: flex;
+  width: min(280px, 100%);
+  min-height: var(--control-height-lg);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.compose-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.compose-search svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  color: var(--text-muted);
+}
+
+.compose-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-control);
+}
+
+.compose-search input::placeholder {
+  color: var(--text-dim);
+}
+
+.compose-table-shell {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.compose-service-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.compose-service-table th {
+  padding: 10px var(--space-3);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.compose-service-table td {
+  min-width: 0;
+  padding: 10px var(--space-3);
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--font-control);
+  vertical-align: middle;
+}
+
+.compose-service-table th:nth-child(1) {
+  width: 12%;
+}
+
+.compose-service-table th:nth-child(2) {
+  width: 17%;
+}
+
+.compose-service-table th:nth-child(3) {
+  width: 22%;
+}
+
+.compose-service-table th:nth-child(4) {
+  width: 20%;
+}
+
+.compose-service-table th:nth-child(5) {
+  width: 25%;
+}
+
+.compose-service-table th:nth-child(6) {
+  width: 44px;
+}
+
+.compose-service-table code,
+.compose-cell-wrap {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-service-table code {
+  color: var(--text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-label);
+}
+
+.compose-service-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.compose-service-name svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: var(--info-text);
+}
+
+.compose-service-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-badges {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.compose-actions-cell {
+  position: relative;
+  text-align: right;
+}
+
+.compose-row-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.compose-row-menu summary,
+.compose-row-menu-disabled {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  list-style: none;
+}
+
+.compose-row-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.compose-row-menu summary:hover,
+.compose-row-menu summary:focus-visible,
+.compose-row-menu[open] summary {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.compose-row-menu summary svg,
+.compose-row-menu-disabled svg {
+  width: 18px;
+  height: 18px;
+}
+
+.compose-row-menu-disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.compose-row-menu-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  width: 140px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-1);
+}
+
+.compose-row-menu-popover button {
+  padding: 9px var(--space-3);
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-control);
+  text-align: left;
+}
+
+.compose-row-menu-popover button:hover:not(:disabled),
+.compose-row-menu-popover button:focus-visible {
+  background: var(--surface-3);
+}
+
+.compose-row-menu-popover button:disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity);
+}
+
+.compose-row-menu-popover .compose-row-menu-danger {
+  color: var(--danger-text);
+}
+
+.compose-no-results {
+  padding: var(--space-5);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--font-control);
+  text-align: center;
 }
 
 .compose-error {
-  color: var(--danger);
-}
-
-.compose-conflicts {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding-left: calc(var(--space-3) + 1rem);
-}
-
-.compose-services {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.compose-service {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-4);
-}
-
-.compose-service h5 {
-  font-size: 1rem;
-}
-
-.compose-service code {
-  color: var(--text-muted);
-}
-
-.compose-service-meta {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.compose-service-meta div {
-  min-width: 0;
-}
-
-.compose-service-meta dd {
-  margin: var(--space-1) 0 0;
-  overflow-wrap: anywhere;
+  padding: var(--space-3);
+  border: 1px solid var(--danger-text);
+  border-radius: var(--radius-md);
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .compose-logs {
   overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
 }
 
-.compose-logs .compose-section-heading {
+.compose-logs-heading {
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-4);
+}
+
+.compose-logs-heading h4 {
+  color: var(--text);
+  font-size: var(--font-lg);
+}
+
+.compose-logs-heading p,
+.compose-logs-heading > span {
+  color: var(--text-muted);
+  font-size: var(--font-label);
 }
 
 .compose-logs pre {
   max-height: 420px;
   margin: 0;
   overflow: auto;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
   padding: var(--space-4);
+  color: var(--text);
+  background: var(--surface-0);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-label);
   white-space: pre-wrap;
 }
 
-@media (max-width: 900px) {
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.is-spinning {
+  animation: compose-spin 0.8s linear infinite;
+}
+
+@keyframes compose-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1100px) {
+  .compose-problem-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .compose-readonly-message {
+    margin: 0 var(--space-4) var(--space-4);
+    padding: var(--space-4) 0 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .compose-table-shell {
+    overflow-x: auto;
+  }
+
+  .compose-service-table {
+    min-width: 940px;
+  }
+}
+
+@media (max-width: 760px) {
+  .compose-panel {
+    padding: var(--space-4);
+  }
+
   .compose-header,
-  .compose-section-heading,
-  .compose-service-heading {
+  .compose-services-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .compose-summary,
-  .compose-service-meta {
+  .compose-header-actions {
+    justify-content: flex-start;
+  }
+
+  .compose-status-strip {
     grid-template-columns: 1fr;
+  }
+
+  .compose-status-item + .compose-status-item {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .compose-search {
+    width: 100%;
   }
 }
 </style>
