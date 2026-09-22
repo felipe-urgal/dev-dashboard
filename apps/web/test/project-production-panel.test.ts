@@ -319,22 +319,26 @@ describe('ProjectProductionPanel', () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).not.toContain('Revise o plano antes de executar');
-    await wrapper.get('button').trigger('click');
+    expect(document.body.textContent).not.toContain(
+      'Revisar antes de publicar',
+    );
+    const prepareButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Preparar deployment'));
+    expect(prepareButton).toBeDefined();
+    await prepareButton!.trigger('click');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Revise o plano antes de executar');
-    expect(wrapper.text()).toContain('Revision alvo');
-    expect(wrapper.text()).toContain('Muda estado');
+    expect(document.body.textContent).toContain('Revisar antes de publicar');
+    expect(document.body.textContent).toContain('Destino');
+    expect(document.body.textContent).toContain('Muda estado');
     expect(api.createDeploymentConfirmation).not.toHaveBeenCalled();
 
-    const confirmButton = wrapper
-      .findAll('button')
-      .find((button) =>
-        button.text().includes('Confirmar e iniciar deployment'),
-      );
+    const confirmButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button'),
+    ).find((button) => button.textContent?.includes('Iniciar deployment'));
     expect(confirmButton).toBeDefined();
-    await confirmButton!.trigger('click');
+    confirmButton!.click();
     await flushPromises();
 
     expect(api.createDeploymentConfirmation).toHaveBeenCalledWith(
@@ -349,7 +353,7 @@ describe('ProjectProductionPanel', () => {
       expect.any(AbortSignal),
     );
     expect(wrapper.text()).toContain('Timeline do deployment');
-    expect(wrapper.text()).toContain('Último deployment concluído');
+    expect(wrapper.text()).toContain('Produção atualizada');
     expect(wrapper.text()).toContain('deploy ok');
     wrapper.unmount();
   });
@@ -395,7 +399,7 @@ describe('ProjectProductionPanel', () => {
       'project-1',
       expect.any(AbortSignal),
     );
-    expect(wrapper.text()).toContain('Revise o plano antes de executar');
+    expect(document.body.textContent).toContain('Revisar antes de publicar');
     wrapper.unmount();
   });
 
@@ -591,10 +595,9 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Produção está em revision diferente');
-    expect(wrapper.text()).toContain('Desatualizada');
     expect(wrapper.text()).toContain(REVISION_B.slice(0, 8));
     expect(wrapper.text()).toContain(REVISION_A.slice(0, 8));
-    expect(wrapper.text()).not.toContain('Último deployment concluído');
+    expect(wrapper.text()).not.toContain('Produção atualizada');
     wrapper.unmount();
   });
 
@@ -655,7 +658,6 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Produção está em revision diferente');
-    expect(wrapper.text()).toContain('Desatualizada');
     expect(wrapper.text()).toContain('prod:check');
     expect(wrapper.text()).not.toContain('Confirmar e iniciar deployment');
     wrapper.unmount();
