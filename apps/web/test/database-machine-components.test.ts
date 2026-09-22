@@ -25,7 +25,7 @@ const availableService = {
 };
 
 describe('DatabaseServicesPanel', () => {
-  test('renderiza estado dos serviços e emite apenas intenções de UI', async () => {
+  test('renderiza apenas serviços instalados e emite ações da lista', async () => {
     const wrapper = mount(DatabaseServicesPanel, {
       props: {
         services: [installedService, availableService],
@@ -41,30 +41,23 @@ describe('DatabaseServicesPanel', () => {
       },
     });
 
-    const overviewItems = wrapper.findAll('.database-machine-overview-item');
-    assert.equal(overviewItems[0]!.get('span').text(), 'Instalados');
-    assert.equal(overviewItems[0]!.get('strong').text(), '1');
-    assert.equal(overviewItems[2]!.get('span').text(), 'Disponíveis');
-    assert.equal(overviewItems[2]!.get('strong').text(), '1');
+    assert.equal(wrapper.find('[data-service-id="postgresql"]').exists(), true);
+    assert.equal(wrapper.find('[data-service-id="mysql"]').exists(), false);
+    assert.equal(wrapper.text().includes('Disponíveis para instalar'), false);
 
-    await wrapper.get('.database-machine-refresh').trigger('click');
     await wrapper
       .get('[data-service-id="postgresql"] .database-machine-actions button')
       .trigger('click');
     await wrapper
       .get('[data-service-id="postgresql"] .database-machine-details-toggle')
       .trigger('click');
-    await wrapper
-      .get('[data-service-id="mysql"] .database-machine-actions button')
-      .trigger('click');
 
-    assert.equal(wrapper.emitted('refresh')?.length, 1);
     assert.deepEqual(wrapper.emitted('run-action')?.[0], [
       installedService,
       'start',
     ]);
     assert.deepEqual(wrapper.emitted('toggle-details')?.[0], ['postgresql']);
-    assert.deepEqual(wrapper.emitted('install')?.[0], [availableService]);
+    assert.equal(wrapper.emitted('install'), undefined);
   });
 });
 

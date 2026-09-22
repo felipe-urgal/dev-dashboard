@@ -47,7 +47,6 @@ const {
   loadDetails,
   toggleDetails,
   runAction,
-  installService,
   uninstallService,
 } = useMachineDatabaseServices();
 
@@ -333,14 +332,36 @@ onMounted(() => {
     aria-labelledby="database-page-title"
     :aria-busy="loading || explorerLoading"
   >
-    <header class="database-machine-header database-page-header">
-      <div>
-        <span class="database-machine-eyebrow">Serviços da máquina</span>
-        <h1 id="database-page-title">Banco de dados</h1>
-        <p>
-          Gerencie os bancos instalados no sistema e explore dados locais em
-          tarefas separadas.
-        </p>
+    <h1 id="database-page-title" class="database-page-title-sr">
+      Banco de dados
+    </h1>
+
+    <div class="database-page-toolbar">
+      <div
+        class="database-page-tabs"
+        role="tablist"
+        aria-label="Banco de dados"
+      >
+        <button
+          id="database-tab-services"
+          type="button"
+          role="tab"
+          :aria-selected="activeDatabaseTab === 'services'"
+          aria-controls="database-services-panel"
+          @click="activeDatabaseTab = 'services'"
+        >
+          Serviços da máquina
+        </button>
+        <button
+          id="database-tab-explorer"
+          type="button"
+          role="tab"
+          :aria-selected="activeDatabaseTab === 'explorer'"
+          aria-controls="database-explorer-panel"
+          @click="activeDatabaseTab = 'explorer'"
+        >
+          Explorador de dados
+        </button>
       </div>
       <button
         type="button"
@@ -350,29 +371,6 @@ onMounted(() => {
       >
         <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
         {{ loading ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-    </header>
-
-    <div class="database-page-tabs" role="tablist" aria-label="Banco de dados">
-      <button
-        id="database-tab-services"
-        type="button"
-        role="tab"
-        :aria-selected="activeDatabaseTab === 'services'"
-        aria-controls="database-services-panel"
-        @click="activeDatabaseTab = 'services'"
-      >
-        Serviços da máquina
-      </button>
-      <button
-        id="database-tab-explorer"
-        type="button"
-        role="tab"
-        :aria-selected="activeDatabaseTab === 'explorer'"
-        aria-controls="database-explorer-panel"
-        @click="activeDatabaseTab = 'explorer'"
-      >
-        Explorador de dados
       </button>
     </div>
 
@@ -394,11 +392,9 @@ onMounted(() => {
         :details-errors="detailsErrors"
         :details-loading="detailsLoading"
         :pending="pending"
-        @refresh="refreshServices"
         @run-action="runAction"
         @toggle-details="toggleDetails"
         @reload-details="loadDetails"
-        @install="installService"
         @uninstall="uninstallService"
       />
     </div>

@@ -75,7 +75,7 @@ test('navegação e listas globais mantêm nomes acessíveis', async () => {
   assert.match(dashboard, /aria-label="Navegação dos projetos"/);
 
   const database = await source('apps/web/src/views/DatabaseView.vue');
-  assert.match(database, /role="tablist" aria-label="Banco de dados"/);
+  assert.match(database, /role="tablist"\s+aria-label="Banco de dados"/);
 });
 
 test('tokens de texto do tema claro mantêm contraste AA nas superfícies', async () => {
