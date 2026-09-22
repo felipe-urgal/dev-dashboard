@@ -204,7 +204,14 @@
 }
 
 .branch-status-cell {
+  display: grid;
   min-width: 0;
+  gap: 3px;
+}
+
+.branch-status-cell small {
+  color: var(--text-dim);
+  font-size: 10px;
 }
 
 .branch-state {
