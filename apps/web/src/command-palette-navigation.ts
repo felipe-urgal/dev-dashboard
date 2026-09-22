@@ -12,7 +12,6 @@ export type CommandPaletteNavigationGroup =
 
 export type CommandPaletteNavigationIcon =
   | 'home'
-  | 'processes'
   | 'production'
   | 'database'
   | 'workspace'
@@ -183,26 +182,6 @@ export function buildCommandPaletteNavigationItems(
       mode: 'page',
       to: { name: 'dashboard' },
       aliases: 'home início projetos repositórios',
-    }),
-    item({
-      id: 'page-processes',
-      group: 'Páginas',
-      label: 'Processos',
-      description: 'Processos gerenciados',
-      icon: 'processes',
-      mode: 'page',
-      to: { name: 'processes' },
-      aliases: 'process process manager',
-    }),
-    item({
-      id: 'page-production',
-      group: 'Páginas',
-      label: 'Produção',
-      description: 'Visão global de produção',
-      icon: 'production',
-      mode: 'page',
-      to: { name: 'production' },
-      aliases: 'deploy deployment produção',
     }),
     item({
       id: 'page-database',

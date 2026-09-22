@@ -11,17 +11,17 @@ export const router = createRouter({
     {
       path: '/activity',
       name: 'activity',
-      component: () => import('../views/ActivityView.vue'),
+      redirect: { name: 'dashboard' },
     },
     {
       path: '/processes',
       name: 'processes',
-      component: () => import('../views/ProcessesView.vue'),
+      redirect: { name: 'dashboard' },
     },
     {
       path: '/production',
       name: 'production',
-      component: () => import('../views/ProductionView.vue'),
+      redirect: { name: 'dashboard' },
     },
     {
       path: '/database',

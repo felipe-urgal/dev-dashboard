@@ -21,7 +21,6 @@ import {
   FolderIcon,
   HomeIcon,
   MagnifyingGlassIcon,
-  PlayCircleIcon,
   RocketLaunchIcon,
   ServerStackIcon,
   ShieldCheckIcon,
@@ -54,7 +53,6 @@ let previousFocus: HTMLElement | null = null;
 
 const iconByName: Record<CommandPaletteNavigationIcon, Component> = {
   home: HomeIcon,
-  processes: PlayCircleIcon,
   production: RocketLaunchIcon,
   database: CircleStackIcon,
   workspace: FolderIcon,
