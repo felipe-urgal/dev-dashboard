@@ -83,7 +83,7 @@ describe('ProjectLocalCiPanel', () => {
     const wrapper = mount(ProjectLocalCiPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.get('.local-ci-panel').exists()).toBe(true);
+    expect(wrapper.find('.local-ci-panel').exists()).toBe(true);
     expect(wrapper.get('.local-ci-environment').text()).toContain('act 0.2.81');
     expect(wrapper.get('.local-ci-environment').text()).toContain(
       'Docker 28.0.0',
