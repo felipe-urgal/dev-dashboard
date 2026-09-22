@@ -16,10 +16,6 @@ const props = defineProps<{
   busy: boolean;
   forcePushBranch: string | null;
   forcePushAcknowledged: boolean;
-  changedFilesCount: number;
-  commitCount: number;
-  ahead: number;
-  behind: number;
   mutationBusy: boolean;
   canForcePush: boolean;
   existingNumber: number | undefined;
@@ -39,6 +35,7 @@ const emit = defineEmits<{
   'update:force-push-acknowledged': [value: boolean];
   'force-push': [];
   open: [];
+  cancel: [];
   'toggle-create': [];
 }>();
 
@@ -66,49 +63,19 @@ function onDescriptionInput(event: Event) {
   <form class="git-pr-form" @submit.prevent="emit('submit')">
     <section class="git-pr-branch-summary" aria-label="Comparação das branches">
       <div class="git-pr-branch-card">
-        <span>Branch de origem</span>
-        <strong>{{ `origin/${props.overviewBranch ?? 'HEAD'}` }}</strong>
-        <small>Último commit local</small>
+        <strong>{{ props.overviewBranch ?? 'HEAD' }}</strong>
+        <small>{{ `origin/${props.overviewBranch ?? 'HEAD'}` }}</small>
       </div>
       <span class="git-pr-branch-arrow" aria-hidden="true">→</span>
       <div class="git-pr-branch-card">
-        <span>Destino do PR</span>
-        <strong>{{ props.targetRemote }}</strong>
-        <small>Branch base: {{ props.baseBranch }}</small>
-      </div>
-    </section>
-
-    <section class="git-pr-change-summary" aria-label="Resumo das alterações">
-      <div>
-        <strong>{{ props.changedFilesCount }}</strong>
-        <span>Arquivos alterados</span>
-      </div>
-      <div>
-        <strong>{{ props.ahead }}</strong>
-        <span>Commits locais à frente</span>
-      </div>
-      <div>
-        <strong>{{ props.behind }}</strong>
-        <span>Commits remotos à frente</span>
-      </div>
-      <div>
-        <strong>{{ props.commitCount }}</strong>
-        <span>Commits no histórico</span>
+        <strong>{{ props.targetRemote }}/{{ props.baseBranch }}</strong>
+        <small>Destino da Pull Request</small>
       </div>
     </section>
 
     <div class="git-pr-grid">
       <label>
-        <span>Branch de origem</span>
-        <input
-          :value="`origin/${props.overviewBranch ?? 'HEAD'}`"
-          type="text"
-          readonly
-        />
-      </label>
-
-      <label>
-        <span>Destino do PR</span>
+        <span>Destino</span>
         <select
           :value="props.targetRemote"
           :disabled="props.opening || props.busy"
@@ -214,6 +181,7 @@ function onDescriptionInput(event: Event) {
       :mutation-busy="props.mutationBusy"
       :existing-pull-request="props.existingPullRequest"
       @open="emit('open')"
+      @cancel="emit('cancel')"
       @toggle-create="emit('toggle-create')"
     />
   </form>

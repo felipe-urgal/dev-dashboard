@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  ArrowPathIcon,
-  ArrowRightIcon,
-  DocumentTextIcon,
-  ShareIcon,
-} from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, ShareIcon } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
@@ -136,9 +131,6 @@ const canForcePush = computed(
     !mutationBusy.value,
 );
 
-const changedFilesCount = computed(() => props.overview.files.length);
-const commitCount = computed(() => props.overview.recentCommits.length);
-
 const branchState = computed(() => {
   if (!branchPublished.value) {
     return { label: 'Não publicada', tone: 'neutral' };
@@ -159,37 +151,6 @@ const branchState = computed(() => {
     };
   }
   return { label: 'Em dia com o remoto', tone: 'success' };
-});
-
-const pullRequestState = computed(() => {
-  if (checkingExisting.value) {
-    return {
-      value: 'Verificando…',
-      detail: 'Consultando o destino selecionado',
-    };
-  }
-  if (existingPullRequest.value) {
-    return {
-      value: `#${existingPullRequest.value.number}`,
-      detail: existingPullRequest.value.title,
-    };
-  }
-  if (lookupUnavailable.value) {
-    return {
-      value: 'Indisponível',
-      detail: 'Não foi possível consultar o remoto',
-    };
-  }
-  if (!branchPublished.value) {
-    return {
-      value: 'Não disponível',
-      detail: 'Publique a branch antes de criar o PR',
-    };
-  }
-  return {
-    value: 'Nenhuma aberta',
-    detail: 'A branch está pronta para comparação',
-  };
 });
 
 const destinationLabel = computed(
@@ -523,96 +484,38 @@ async function mergePullRequest(): Promise<void> {
       {{ mutationError }}
     </p>
 
-    <section class="git-pr-summary" aria-label="Resumo da Pull Request">
-      <article class="git-pr-summary-card">
-        <div class="git-pr-summary-icon" aria-hidden="true">
-          <ShareIcon />
-        </div>
-        <div>
-          <span>Branch atual</span>
-          <div class="git-pr-summary-value-line">
-            <strong>{{ overview.branch ?? 'HEAD' }}</strong>
-            <small class="git-pr-state" :class="`is-${branchState.tone}`">
-              {{ branchState.label }}
-            </small>
-          </div>
-          <small>{{ overview.upstream ?? 'Sem upstream configurado' }}</small>
-        </div>
-      </article>
-
-      <article class="git-pr-summary-card">
-        <div class="git-pr-summary-icon" aria-hidden="true">
-          <DocumentTextIcon />
-        </div>
-        <div>
-          <span>Pull Request atual</span>
-          <strong>{{ pullRequestState.value }}</strong>
-          <small>{{ pullRequestState.detail }}</small>
-        </div>
-      </article>
-
-      <article class="git-pr-summary-card">
-        <div class="git-pr-summary-icon" aria-hidden="true">
-          <ArrowRightIcon />
-        </div>
-        <div>
-          <span>Destino</span>
-          <strong>{{ destinationLabel }}</strong>
-          <small>Branch base selecionada para comparação</small>
-        </div>
-      </article>
-    </section>
-
     <section class="git-pr-workspace">
-      <nav class="git-pr-view-tabs" role="tablist" aria-label="Pull Request">
-        <button
-          id="git-pr-overview-tab"
-          type="button"
-          role="tab"
-          :aria-selected="activeView === 'overview'"
-          aria-controls="git-pr-overview-panel"
-          :class="{ active: activeView === 'overview' }"
-          @click="activeView = 'overview'"
-        >
-          Pull Request
-        </button>
-        <button
-          id="git-pr-create-tab"
-          type="button"
-          role="tab"
-          :aria-selected="activeView === 'create'"
-          aria-controls="git-pr-create-panel"
-          :class="{ active: activeView === 'create' }"
-          @click="activeView = 'create'"
-        >
-          Criar Pull Request
-        </button>
-      </nav>
-
       <div
         id="git-pr-overview-panel"
         v-show="activeView === 'overview'"
         class="git-pr-overview"
-        role="tabpanel"
-        aria-labelledby="git-pr-overview-tab"
       >
         <header class="git-pr-overview-heading">
           <div>
-            <h2>Pull Request da branch atual</h2>
-            <p>
-              Acompanhe o PR associado a {{ overview.branch ?? 'HEAD' }} e o
-              estado real retornado pelo provedor.
-            </p>
+            <h2>Pull Request</h2>
+            <p>Compare a branch atual com a branch base selecionada.</p>
           </div>
-          <button
-            type="button"
-            class="git-pr-refresh"
-            :disabled="checkingExisting || mutationBusy || !canLookup"
-            @click="checkExistingPullRequest"
-          >
-            <ArrowPathIcon aria-hidden="true" />
-            {{ checkingExisting ? 'Atualizando…' : 'Atualizar status' }}
-          </button>
+
+          <div class="git-pr-overview-meta">
+            <div class="git-pr-current-branch">
+              <ShareIcon aria-hidden="true" />
+              <span>Branch atual</span>
+              <strong>{{ overview.branch ?? 'HEAD' }}</strong>
+              <small class="git-pr-state" :class="`is-${branchState.tone}`">
+                {{ branchState.label }}
+              </small>
+            </div>
+            <button
+              type="button"
+              class="git-pr-refresh"
+              :disabled="checkingExisting || mutationBusy || !canLookup"
+              aria-label="Atualizar status da Pull Request"
+              title="Atualizar status"
+              @click="checkExistingPullRequest"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <ProjectGitPullRequestStatus
@@ -635,45 +538,59 @@ async function mergePullRequest(): Promise<void> {
           "
           class="git-pr-empty"
         >
-          <div>
-            <strong>Nenhuma Pull Request aberta para esta branch</strong>
-            <p>
-              Compare {{ overview.branch ?? 'HEAD' }} com
-              {{ destinationLabel }} e prepare a próxima Pull Request.
-            </p>
+          <div class="git-pr-empty-icon" aria-hidden="true">
+            <ShareIcon />
           </div>
-          <button type="button" @click="activeView = 'create'">
+          <strong>Nenhuma Pull Request aberta</strong>
+          <p>A branch está pronta para comparação.</p>
+
+          <div class="git-pr-route" aria-label="Comparação das branches">
+            <div>
+              <strong>{{ overview.branch ?? 'HEAD' }}</strong>
+              <small>{{
+                overview.upstream ?? 'Sem upstream configurado'
+              }}</small>
+            </div>
+            <span aria-hidden="true">→</span>
+            <div>
+              <strong>{{ destinationLabel }}</strong>
+              <small>Branch base</small>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="git-pr-primary-action"
+            @click="activeView = 'create'"
+          >
             Criar Pull Request
           </button>
+          <small class="git-pr-empty-hint">
+            Compare as alterações e abra um Pull Request para contribuir com
+            este repositório.
+          </small>
         </div>
 
-        <section class="git-pr-overview-facts" aria-label="Contexto local">
-          <div>
-            <strong>{{ changedFilesCount }}</strong>
-            <span>Arquivos alterados</span>
-          </div>
-          <div>
-            <strong>{{ overview.ahead }}</strong>
-            <span>Commits à frente</span>
-          </div>
-          <div>
-            <strong>{{ overview.behind }}</strong>
-            <span>Commits atrás</span>
-          </div>
-          <div>
-            <strong>{{ commitCount }}</strong>
-            <span>Commits carregados</span>
-          </div>
-        </section>
+        <button
+          v-if="lookupUnavailable && branchPublished"
+          type="button"
+          class="git-pr-continue-action"
+          @click="activeView = 'create'"
+        >
+          Continuar para criação
+        </button>
       </div>
 
       <div
         id="git-pr-create-panel"
         v-show="activeView === 'create'"
         class="git-pr-create-view"
-        role="tabpanel"
-        aria-labelledby="git-pr-create-tab"
       >
+        <header class="git-pr-create-heading">
+          <h2>Criar Pull Request</h2>
+          <p>Preencha as informações para abrir um Pull Request.</p>
+        </header>
+
         <ProjectGitPullRequestForm
           :overview-branch="overview.branch ?? null"
           :available-targets="availableTargets"
@@ -686,10 +603,6 @@ async function mergePullRequest(): Promise<void> {
           :busy="busy"
           :force-push-branch="forcePushBranch"
           :force-push-acknowledged="forcePushAcknowledged"
-          :changed-files-count="changedFilesCount"
-          :commit-count="commitCount"
-          :ahead="overview.ahead"
-          :behind="overview.behind"
           :mutation-busy="mutationBusy"
           :can-force-push="canForcePush"
           :existing-number="existingPullRequest?.number"
@@ -706,6 +619,7 @@ async function mergePullRequest(): Promise<void> {
           @update:force-push-acknowledged="forcePushAcknowledged = $event"
           @force-push="emit('force-push')"
           @open="openPullRequest"
+          @cancel="activeView = 'overview'"
           @toggle-create="showCreateConfirm = !showCreateConfirm"
         />
       </div>
@@ -743,80 +657,107 @@ async function mergePullRequest(): Promise<void> {
 
 <style scoped>
 .git-pr-page {
-  gap: 18px;
+  gap: var(--space-4);
+  background: transparent;
+  padding: 0;
 }
 
-.git-pr-summary {
+.git-pr-workspace {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.git-pr-summary-card {
-  display: flex;
-  min-width: 0;
-  min-height: 108px;
-  align-items: center;
-  gap: 16px;
+  width: min(100%, 1040px);
+  margin: 0 auto;
   border: 1px solid var(--border);
   background: var(--surface-1);
-  padding: 16px 18px;
 }
 
-.git-pr-summary-icon {
+.git-pr-overview,
+.git-pr-create-view {
   display: grid;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  gap: var(--space-4);
+  padding: 22px;
 }
 
-.git-pr-summary-icon svg {
-  width: 22px;
-  height: 22px;
+.git-pr-overview {
+  min-height: 470px;
 }
 
-.git-pr-summary-card > div:last-child {
+.git-pr-overview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.git-pr-overview-heading > div:first-child,
+.git-pr-create-heading {
   display: grid;
-  min-width: 0;
   gap: 5px;
 }
 
-.git-pr-summary-card span,
-.git-pr-summary-card small {
-  overflow: hidden;
-  color: var(--text-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.git-pr-overview-heading h2,
+.git-pr-overview-heading p,
+.git-pr-create-heading h2,
+.git-pr-create-heading p,
+.git-pr-empty p {
+  margin: 0;
 }
 
-.git-pr-summary-card strong {
-  overflow: hidden;
+.git-pr-overview-heading h2,
+.git-pr-create-heading h2 {
   color: var(--text);
   font-size: var(--font-xl);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.git-pr-summary-value-line {
+.git-pr-overview-heading p,
+.git-pr-create-heading p,
+.git-pr-empty p,
+.git-pr-empty-hint {
+  color: var(--text-muted);
+}
+
+.git-pr-overview-meta,
+.git-pr-current-branch {
   display: flex;
-  min-width: 0;
   align-items: center;
-  gap: 10px;
+}
+
+.git-pr-overview-meta {
+  gap: var(--space-2);
+}
+
+.git-pr-current-branch {
+  min-width: 0;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.git-pr-current-branch > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--accent);
+}
+
+.git-pr-current-branch strong {
+  color: var(--text);
+  font-size: var(--font-md);
+}
+
+.git-pr-current-branch > span {
+  white-space: nowrap;
 }
 
 .git-pr-state {
   display: inline-flex;
-  max-width: 100%;
   align-items: center;
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 3px 7px;
   font-size: var(--font-xs);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .git-pr-state.is-success {
@@ -839,91 +780,16 @@ async function mergePullRequest(): Promise<void> {
   color: var(--text-muted);
 }
 
-.git-pr-workspace {
+.git-pr-refresh {
   display: grid;
-  overflow: hidden;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
   border: 1px solid var(--border);
-  background: var(--surface-1);
-}
-
-.git-pr-view-tabs {
-  display: flex;
-  min-width: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-.git-pr-view-tabs button {
-  min-height: 48px;
-  border: 0;
-  border-right: 1px solid var(--border);
-  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
-  padding: 0 18px;
-  font: inherit;
-  font-weight: 700;
-}
-
-.git-pr-view-tabs button:hover {
-  background: var(--surface-1);
-  color: var(--text);
-}
-
-.git-pr-view-tabs button.active {
-  box-shadow: inset 0 -2px 0 var(--accent);
-  background: var(--surface-1);
-  color: var(--accent);
-}
-
-.git-pr-overview,
-.git-pr-create-view {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-4);
-}
-
-.git-pr-overview-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.git-pr-overview-heading > div {
-  display: grid;
-  gap: 4px;
-}
-
-.git-pr-overview-heading h2,
-.git-pr-overview-heading p,
-.git-pr-empty p {
-  margin: 0;
-}
-
-.git-pr-overview-heading h2 {
-  color: var(--text);
-  font-size: var(--font-lg);
-}
-
-.git-pr-overview-heading p,
-.git-pr-empty p {
-  color: var(--text-muted);
-}
-
-.git-pr-refresh,
-.git-pr-empty button {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text);
-  padding: 8px 12px;
-  font: inherit;
-  font-weight: 700;
+  padding: 0;
 }
 
 .git-pr-refresh svg {
@@ -941,103 +807,135 @@ async function mergePullRequest(): Promise<void> {
 }
 
 .git-pr-empty {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  border: 1px dashed var(--border);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 330px;
+  text-align: center;
+}
+
+.git-pr-empty-icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin-bottom: var(--space-2);
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   background: var(--surface-2);
-  padding: 18px;
+  color: var(--text-muted);
 }
 
-.git-pr-empty > div {
-  display: grid;
-  gap: 4px;
+.git-pr-empty-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
-.git-pr-empty strong {
+.git-pr-empty > strong {
   color: var(--text);
+  font-size: var(--font-lg);
 }
 
-.git-pr-empty button {
-  flex: 0 0 auto;
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
-}
-
-.git-pr-overview-facts {
+.git-pr-route {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  width: min(100%, 620px);
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-2);
   border: 1px solid var(--border);
   background: var(--surface-2);
+  padding: 12px 14px;
+  text-align: left;
 }
 
-.git-pr-overview-facts > div {
+.git-pr-route > div {
   display: grid;
+  min-width: 0;
   gap: 3px;
-  border-right: 1px solid var(--border);
-  padding: 14px 16px;
 }
 
-.git-pr-overview-facts > div:last-child {
-  border-right: 0;
+.git-pr-route > div:last-child {
+  text-align: right;
 }
 
-.git-pr-overview-facts strong {
+.git-pr-route strong,
+.git-pr-route small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-pr-route strong {
   color: var(--text);
-  font-size: var(--font-xl);
 }
 
-.git-pr-overview-facts span {
+.git-pr-route small {
   color: var(--text-muted);
-  font-size: var(--font-sm);
 }
 
-@media (max-width: 980px) {
-  .git-pr-summary {
-    grid-template-columns: 1fr;
-  }
+.git-pr-route > span {
+  color: var(--accent);
+  font-size: var(--font-lg);
+}
 
-  .git-pr-overview-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.git-pr-primary-action,
+.git-pr-continue-action {
+  min-height: 40px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 700;
+}
 
-  .git-pr-overview-facts > div:nth-child(2) {
-    border-right: 0;
-  }
+.git-pr-empty-hint {
+  max-width: 460px;
+  margin-top: var(--space-2);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
 
-  .git-pr-overview-facts > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--border);
-  }
+.git-pr-continue-action {
+  justify-self: end;
+}
+
+.git-pr-create-heading {
+  padding-bottom: var(--space-3);
 }
 
 @media (max-width: 720px) {
-  .git-pr-view-tabs,
-  .git-pr-overview-heading,
-  .git-pr-empty {
+  .git-pr-overview,
+  .git-pr-create-view {
+    padding: var(--space-4);
+  }
+
+  .git-pr-overview-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .git-pr-view-tabs button {
-    width: 100%;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+  .git-pr-overview-meta {
+    justify-content: space-between;
   }
 
-  .git-pr-overview-facts {
+  .git-pr-current-branch {
+    flex-wrap: wrap;
+  }
+
+  .git-pr-route {
     grid-template-columns: 1fr;
+    text-align: center;
   }
 
-  .git-pr-overview-facts > div,
-  .git-pr-overview-facts > div:nth-child(2) {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+  .git-pr-route > div:last-child {
+    text-align: center;
   }
 
-  .git-pr-overview-facts > div:last-child {
-    border-bottom: 0;
+  .git-pr-route > span {
+    transform: rotate(90deg);
   }
 }
 </style>

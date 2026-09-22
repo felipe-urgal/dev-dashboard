@@ -169,9 +169,8 @@ test('mantém o force push no origin, separado do destino da Pull Request', asyn
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Branch de origem/);
   assert.match(wrapper.text(), /origin\/feature\/pull-request/);
-  assert.match(wrapper.text(), /Destino do PR/);
+  assert.match(wrapper.text(), /Destino da Pull Request/);
   assert.match(wrapper.text(), /Push forçado detectado/);
   assert.match(
     wrapper.text(),
@@ -261,7 +260,8 @@ test('troca a ação principal pelo link de continuação quando o popup é bloq
 
   assert.match(wrapper.text(), /navegador bloqueou a nova aba/i);
   assert.ok(wrapper.find('.git-pr-fallback-link').exists());
-  assert.ok(!wrapper.find('.git-pr-footer button').exists());
+  assert.ok(wrapper.find('.git-pr-cancel').exists());
+  assert.ok(!wrapper.find('.git-pr-primary').exists());
 });
 
 test('detecta PR aberta e substitui a criação por acesso ao PR existente', async () => {
@@ -352,8 +352,7 @@ test('refaz a verificação ao trocar o destino e libera criação quando não h
     { targetRemote: 'origin', baseBranch: 'main' },
   ]);
   assert.equal(
-    (wrapper.find('.git-pr-footer button').element as HTMLButtonElement)
-      .disabled,
+    (wrapper.find('.git-pr-primary').element as HTMLButtonElement).disabled,
     false,
   );
 });
