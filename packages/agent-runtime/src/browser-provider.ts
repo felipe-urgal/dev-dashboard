@@ -314,22 +314,80 @@ async function resolveOwnedCwd(
   return path.normalize(value);
 }
 
-function buildPrompt(request: AgentProviderExecutionRequest): string {
+const BROWSER_TOOL_CONTRACTS: Readonly<Record<string, string>> = {
+  list_files:
+    'list_files args={"path":"relative directory optional","offset":0,"limit":100}',
+  read_file:
+    'read_file args={"path":"relative file","startLine":1,"endLine":200}',
+  search_text:
+    'search_text args={"query":"text","path":"relative directory optional","limit":50,"caseSensitive":false}',
+  git_status: 'git_status args={}',
+  git_diff: 'git_diff args={"staged":false,"path":"relative path optional"}',
+  git_log: 'git_log args={"count":20}',
+  git_branch: 'git_branch args={}',
+  apply_patch:
+    'apply_patch args={"path":"relative file","patch":"unified diff for exactly that file"}',
+  run_process:
+    'run_process args={"executable":"allowed executable","argv":["..."],"timeoutMs":120000}',
+};
+
+function buildPrompt(
+  request: AgentProviderExecutionRequest,
+  repositories: Readonly<Record<string, string>>,
+  tools: readonly string[],
+): string {
   const summary = validateSummary(request);
   const capabilities =
     request.allowedCapabilities.length > 0
       ? request.allowedCapabilities.join(', ')
       : 'none';
+  const aliases = Object.keys(repositories);
+  const exampleRepo = aliases[0] ?? 'project';
+
+  const requestExample = JSON.stringify({
+    type: 'tool_request',
+    toolCallId: 'call-1',
+    tool: 'read_file',
+    repo: exampleRepo,
+    args: { path: 'README.md' },
+  });
+  const terminalExample = JSON.stringify({
+    type: 'terminal_result',
+    status: 'completed',
+  });
 
   return [
     summary,
     '',
-    'Execution boundary:',
+    'Browser Local Tool Gateway:',
     '- Use only the structured tools exposed by the Browser Bridge.',
     '- Never request shell text, credentials, cookies or absolute host paths.',
+    '- Emit exactly one executable envelope per assistant turn.',
+    '- Executable envelopes must use a fenced block named agent-workflow-browser.',
     '- Granted capabilities: ' + capabilities + '.',
     '- Protected actions that are not explicitly exposed by a tool are forbidden.',
-    '- Finish with exactly one terminal_result envelope.',
+    '',
+    'Repository aliases:',
+    ...(aliases.length > 0 ? aliases.map((alias) => '- ' + alias) : ['- none']),
+    '',
+    'Available tools:',
+    ...(tools.length > 0
+      ? tools.map(
+          (tool) => '- ' + (BROWSER_TOOL_CONTRACTS[tool] ?? tool + ' args={}'),
+        )
+      : ['- none']),
+    '',
+    'Tool request example:',
+    '```agent-workflow-browser',
+    requestExample,
+    '```',
+    '',
+    'Completion example:',
+    '```agent-workflow-browser',
+    terminalExample,
+    '```',
+    '',
+    'Treat tool errors and truncation as evidence. Do not invent success or local state.',
   ].join('\n');
 }
 
@@ -379,6 +437,7 @@ function terminalResult(job: BrowserBridgeJob): AgentProviderResult | null {
   if (job.state === 'failed') {
     const ambiguous =
       job.errorCode === 'unknown_after_submit' ||
+      job.errorCode === 'tool-call-ambiguous' ||
       job.errorCode === 'tool_call_ambiguous';
 
     return {
@@ -519,7 +578,8 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
     const repositories = this.options.resolveRepositories
       ? await this.options.resolveRepositories(request, cwd)
       : { project: cwd };
-    const prompt = buildPrompt(request);
+    const tools = browserToolsForCapabilities(request.allowedCapabilities);
+    const prompt = buildPrompt(request, repositories, tools);
 
     const job = await this.options.bridge.createJob({
       prompt,
@@ -529,7 +589,7 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       timeoutMs: this.executionTimeoutMs,
       repositories,
       capabilities: capabilityMap(request.allowedCapabilities),
-      tools: browserToolsForCapabilities(request.allowedCapabilities),
+      tools,
     });
 
     let cancelled = false;

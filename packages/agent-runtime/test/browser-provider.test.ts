@@ -191,6 +191,9 @@ test('browser provider executes one bounded structured job', async () => {
   assert.equal(created?.tools.includes('git_push'), false);
   assert.equal(created?.tools.includes('github_pull_request'), false);
   assert.match(created?.prompt ?? '', /structured tools/);
+  assert.match(created?.prompt ?? '', /```agent-workflow-browser/);
+  assert.match(created?.prompt ?? '', /read_file args=/);
+  assert.match(created?.prompt ?? '', /Repository aliases:/);
   assert.match(created?.prompt ?? '', /terminal_result/);
 });
 
@@ -219,7 +222,7 @@ test('ambiguous browser failure never retries or becomes success', async () => {
     {
       id: 'job-1',
       state: 'failed',
-      errorCode: 'unknown_after_submit',
+      errorCode: 'tool-call-ambiguous',
       browserPhase: 'after_submit',
     },
   ];
