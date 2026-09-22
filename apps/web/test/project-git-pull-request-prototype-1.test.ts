@@ -121,10 +121,16 @@ test('renderiza Pull Request minimalista e leva à criação sem informações d
     wrapper.find('#git-pr-create-panel').attributes('style') ?? '',
     /display:\s*none/,
   );
-  assert.match(wrapper.find('#git-pr-create-panel').text(), /Criar Pull Request/);
+  assert.match(
+    wrapper.find('#git-pr-create-panel').text(),
+    /Criar Pull Request/,
+  );
   assert.equal(wrapper.findAll('.git-pr-grid label').length, 2);
   assert.equal(wrapper.findAll('.git-pr-change-summary').length, 0);
-  assert.doesNotMatch(wrapper.find('#git-pr-create-panel').text(), /Branch de origem/);
+  assert.doesNotMatch(
+    wrapper.find('#git-pr-create-panel').text(),
+    /Branch de origem/,
+  );
   assert.ok(wrapper.find('.git-pr-primary').exists());
   assert.ok(wrapper.find('.git-pr-gh-action').exists());
 });
