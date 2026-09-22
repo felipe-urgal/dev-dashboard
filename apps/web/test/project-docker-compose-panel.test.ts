@@ -57,9 +57,11 @@ describe('Docker Compose no shell do projeto', () => {
     expect(apiSource).toContain(
       "state: 'unchanged' | 'released' | 'unavailable'",
     );
-    expect(panelSource).toContain('Ownership obsoleto reconciliado.');
     expect(panelSource).toContain(
-      'snapshot.ownership.reconciliation.diagnostic',
+      'snapshot.value.ownership.reconciliation.diagnostic',
+    );
+    expect(panelSource).toContain(
+      'O projeto está em modo somente leitura.',
     );
   });
 
@@ -67,8 +69,19 @@ describe('Docker Compose no shell do projeto', () => {
     expect(apiSource).toContain('/docker-compose');
     expect(apiSource).not.toContain('executable');
     expect(apiSource).not.toContain('argv');
-    expect(panelSource).toContain('Stop, restart e logs exigem ownership');
+    expect(panelSource).toContain('Ações de serviço não estão disponíveis');
     expect(panelSource).toContain('Docker Compose');
     expect(panelSource).toContain('Ver logs');
+  });
+
+  it('segue o protótipo compacto com status, problemas e tabela de serviços', () => {
+    expect(panelSource).toContain('compose-status-strip');
+    expect(panelSource).toContain('Problemas detectados');
+    expect(panelSource).toContain('Serviços · {{ config.services.length }}');
+    expect(panelSource).toContain('placeholder="Buscar serviço..."');
+    expect(panelSource).toContain('class="compose-service-table"');
+    expect(panelSource).toContain('class="compose-row-menu"');
+    expect(panelSource).not.toContain('compose-summary-card');
+    expect(panelSource).not.toContain('compose-service-meta');
   });
 });
