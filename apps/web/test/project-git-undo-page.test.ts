@@ -63,7 +63,7 @@ beforeEach(() => {
   vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
-test('renderiza o protótipo 1 com resumo e contexto recente verdadeiro', async () => {
+test('renderiza desfazer minimalista sem resumo, busca ou tabela detalhada', () => {
   const wrapper = mount(ProjectGitUndoPage, {
     props: {
       projectId: 'p1',
@@ -75,23 +75,18 @@ test('renderiza o protótipo 1 com resumo e contexto recente verdadeiro', async 
     },
   });
 
-  assert.equal(wrapper.findAll('.git-undo-summary-card').length, 3);
+  assert.equal(wrapper.find('.git-undo-summary').exists(), false);
+  assert.equal(wrapper.find('.git-undo-search').exists(), false);
+  assert.equal(wrapper.find('.git-undo-history-table').exists(), false);
   assert.equal(wrapper.findAll('[role="tab"]').length, 2);
-  assert.match(wrapper.text(), /Branch atual/);
-  assert.match(wrapper.text(), /Em dia com o origin/);
+  assert.match(wrapper.text(), /Desfazer commit/);
+  assert.match(wrapper.text(), /Reverter arquivo/);
   assert.match(wrapper.text(), /Commits recentes/);
-  assert.match(wrapper.text(), /Alterações locais/);
-  assert.equal(wrapper.findAll('.git-undo-history-row').length, 2);
+  assert.match(wrapper.text(), /Somente o último commit pode ser desfeito/);
+  assert.equal(wrapper.findAll('.git-undo-commit-row').length, 2);
   assert.equal(wrapper.findAll('.git-undo-danger').length, 1);
-  assert.match(wrapper.text(), /Último commit/);
   assert.match(wrapper.text(), /Publicado no origin/);
-  assert.match(wrapper.text(), /Somente histórico/);
-  assert.match(wrapper.text(), /mantém o histórico publicado intacto/);
-
-  const search = wrapper.find('.git-undo-search input');
-  await search.setValue('docs');
-  assert.equal(wrapper.findAll('.git-undo-history-row').length, 1);
-  assert.match(wrapper.text(), /docs: atualiza instruções/);
+  assert.match(wrapper.text(), /novo commit inverso/);
 });
 
 test('desfaz commit local e informa que alterações foram mantidas', async () => {
@@ -112,7 +107,8 @@ test('desfaz commit local e informa que alterações foram mantidas', async () =
     },
   });
 
-  assert.match(wrapper.text(), /Desfazer último commit/);
+  assert.match(wrapper.text(), /Desfazer commit/);
+  assert.match(wrapper.text(), /Commit local/);
   await wrapper.find('.git-undo-danger').trigger('click');
   await flushPromises();
 
@@ -155,14 +151,14 @@ test('usa revert quando o último commit já está publicado', async () => {
     },
   });
 
-  assert.match(wrapper.text(), /Reverter commit publicado/);
+  assert.match(wrapper.text(), /Reverter commit/);
   await wrapper.find('.git-undo-danger').trigger('click');
   await flushPromises();
 
   assert.match(wrapper.text(), /revertido com um novo commit/);
 });
 
-test('mantém restauração de arquivo em Arquivos locais', async () => {
+test('mantém restauração individual de arquivo na visão minimalista', async () => {
   api.prepareProjectGitUndo.mockResolvedValue({
     token: 'f'.repeat(64),
     operation: 'file',
@@ -191,8 +187,10 @@ test('mantém restauração de arquivo em Arquivos locais', async () => {
 
   const tabs = wrapper.findAll('[role="tab"]');
   await tabs[1]?.trigger('click');
-  assert.match(wrapper.text(), /Desfazer alterações de arquivos/);
-  assert.match(wrapper.text(), /1 arquivo alterado/);
+  assert.match(wrapper.text(), /Alterações locais/);
+  assert.match(wrapper.text(), /README\.md/);
+  assert.match(wrapper.text(), /Modificado/);
+  assert.equal(wrapper.findAll('.git-undo-file-button').length, 1);
 
   await wrapper.find('.git-undo-file-button').trigger('click');
   await flushPromises();
