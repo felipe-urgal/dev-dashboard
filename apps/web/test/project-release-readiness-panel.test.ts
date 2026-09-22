@@ -112,13 +112,14 @@ describe('ProjectReleaseReadinessPanel', () => {
 
     expect(fetchReleaseReadiness).toHaveBeenCalledWith(project.id);
     expect(wrapper.text()).toContain('Release Readiness');
-    expect(wrapper.text()).toContain('Checklist de entrega');
+    expect(wrapper.text()).toContain('2 bloqueios impedem a entrega.');
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('Inconclusivo');
     expect(wrapper.text()).toContain('Pronto');
     expect(wrapper.text()).toContain('Existem migrations pendentes');
-    expect(wrapper.text()).toContain('Não autoriza merge, push ou deploy.');
-    expect(wrapper.find('.readiness-state--block').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('Evidência de entrega');
+    expect(wrapper.text()).not.toContain('Observado em');
+    expect(wrapper.find('.readiness-card').exists()).toBe(true);
     expect(wrapper.find('.readiness-checklist').exists()).toBe(true);
     expect(wrapper.findAll('.readiness-check')).toHaveLength(7);
 
@@ -160,11 +161,8 @@ describe('ProjectReleaseReadinessPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Pronto');
-    expect(wrapper.text()).toContain(
-      'As evidências disponíveis estão recentes e não apresentam bloqueadores.',
-    );
-    expect(wrapper.text()).toContain('Resultado consolidado das evidências');
-    expect(wrapper.find('.readiness-state--pass').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Nenhum bloqueio impede a entrega.');
+    expect(wrapper.find('.readiness-card').exists()).toBe(true);
   });
 
   it('mantém falha de carregamento explícita e permite retry', async () => {

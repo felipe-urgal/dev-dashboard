@@ -1,5 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, type Component } from 'vue';
+import {
+  ArrowsRightLeftIcon,
+  BeakerIcon,
+  ChevronRightIcon,
+  CircleStackIcon,
+  CloudArrowUpIcon,
+  CodeBracketIcon,
+  HeartIcon,
+  RocketLaunchIcon,
+  ShieldCheckIcon,
+} from '@heroicons/vue/24/outline';
 import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -56,24 +67,32 @@ const checkOrder: Record<ReleaseReadinessCheckId, number> = {
   production: 6,
 };
 
+const checkIcon: Record<ReleaseReadinessCheckId, Component> = {
+  git: CodeBracketIcon,
+  tests: BeakerIcon,
+  'pull-request': ArrowsRightLeftIcon,
+  doctor: HeartIcon,
+  migrations: CircleStackIcon,
+  security: ShieldCheckIcon,
+  production: CloudArrowUpIcon,
+};
+
 const orderedChecks = computed(() =>
   [...(snapshot.value?.checks ?? [])].sort(
     (left, right) => checkOrder[left.id] - checkOrder[right.id],
   ),
 );
 
-const summaryText = computed(() => {
-  const state = snapshot.value?.state;
-  if (state === 'pass') {
-    return 'As evidências disponíveis estão recentes e não apresentam bloqueadores.';
-  }
-  if (state === 'block') {
-    return 'Há pelo menos um bloqueio verificável antes da entrega.';
-  }
-  if (state === 'warning') {
-    return 'Não há bloqueio determinístico, mas existe um ponto que merece atenção.';
-  }
-  return 'Faltam evidências suficientes para considerar esta branch pronta.';
+const blockerCount = computed(
+  () =>
+    snapshot.value?.checks.filter((check) => check.state === 'block').length ??
+    0,
+);
+
+const blockerSummary = computed(() => {
+  if (blockerCount.value === 0) return 'Nenhum bloqueio impede a entrega.';
+  if (blockerCount.value === 1) return '1 bloqueio impede a entrega.';
+  return blockerCount.value + ' bloqueios impedem a entrega.';
 });
 
 function formatDate(value: string): string {
@@ -154,20 +173,6 @@ watch(
 
 <template>
   <section class="readiness-panel" aria-labelledby="readiness-title">
-    <header class="readiness-header">
-      <div>
-        <span class="readiness-eyebrow">Evidência de entrega</span>
-        <h3 id="readiness-title">Release Readiness</h3>
-        <p>
-          Leitura verificável do estado atual. Não autoriza merge, push ou
-          deploy.
-        </p>
-      </div>
-      <StatusBadge v-if="snapshot" :tone="stateTone[snapshot.state]" size="md">
-        {{ stateLabel[snapshot.state] }}
-      </StatusBadge>
-    </header>
-
     <EmptyState
       v-if="loading"
       icon="•••"
@@ -188,304 +193,287 @@ watch(
       </template>
     </EmptyState>
 
-    <template v-else-if="snapshot">
-      <div
-        class="readiness-state"
-        :class="`readiness-state--${snapshot.state}`"
-      >
-        <div class="readiness-state-copy">
-          <span class="readiness-state-dot" aria-hidden="true"></span>
+    <div v-else-if="snapshot" class="readiness-card">
+      <header class="readiness-header">
+        <div class="readiness-heading">
+          <RocketLaunchIcon class="readiness-title-icon" aria-hidden="true" />
           <div>
-            <strong>{{ summaryText }}</strong>
-            <p>
-              Resultado consolidado das evidências verificáveis desta branch.
-            </p>
+            <h3 id="readiness-title">Release Readiness</h3>
+            <p>{{ blockerSummary }}</p>
           </div>
         </div>
-        <span class="readiness-generated-at">
-          Atualizado em {{ formatDate(snapshot.generatedAt) }}
-        </span>
-      </div>
 
-      <section
-        class="readiness-checklist-panel"
-        aria-labelledby="readiness-checklist-title"
-      >
-        <div class="readiness-checklist-heading">
-          <h4 id="readiness-checklist-title">Checklist de entrega</h4>
-          <p>
-            Git, Testes, Pull Request, Doctor, Migrations, Segurança e Produção
-            formam a evidência usada para a conclusão acima.
-          </p>
+        <div class="readiness-overview">
+          <StatusBadge :tone="stateTone[snapshot.state]" size="md">
+            {{ stateLabel[snapshot.state] }}
+          </StatusBadge>
+          <span>Atualizado em {{ formatDate(snapshot.generatedAt) }}</span>
         </div>
+      </header>
 
-        <ol
-          class="readiness-checklist"
-          aria-label="Checks de Release Readiness"
+      <ol class="readiness-checklist" aria-label="Checks de Release Readiness">
+        <li
+          v-for="check in orderedChecks"
+          :key="check.id"
+          class="readiness-check"
         >
-          <li
-            v-for="check in orderedChecks"
-            :key="check.id"
-            class="readiness-check"
-            :class="`readiness-check--${check.state}`"
+          <component
+            :is="checkIcon[check.id]"
+            class="readiness-check-icon"
+            aria-hidden="true"
+          />
+
+          <span class="readiness-check-domain">
+            {{ checkLabel[check.id] }}
+          </span>
+
+          <StatusBadge
+            class="readiness-check-status"
+            :tone="stateTone[check.state]"
           >
-            <span class="readiness-check-marker" aria-hidden="true"></span>
+            {{ stateLabel[check.state] }}
+          </StatusBadge>
 
-            <div class="readiness-check-body">
-              <span class="readiness-check-domain">{{
-                checkLabel[check.id]
-              }}</span>
-              <strong>{{ check.summary }}</strong>
-              <p>{{ check.evidence }}</p>
-              <small>Observado em {{ formatDate(check.observedAt) }}</small>
-            </div>
+          <p class="readiness-check-summary">{{ check.summary }}</p>
 
-            <div class="readiness-check-actions">
-              <StatusBadge :tone="stateTone[check.state]">
-                {{ stateLabel[check.state] }}
-              </StatusBadge>
-              <RouterLink
-                class="secondary-button link-button"
-                :to="actionRoute(check.action.target)"
-              >
-                {{ check.action.label }}
-              </RouterLink>
-            </div>
-          </li>
-        </ol>
-      </section>
-    </template>
+          <RouterLink
+            class="readiness-check-action"
+            :to="actionRoute(check.action.target)"
+            :aria-label="'Abrir ' + checkLabel[check.id]"
+          >
+            <span class="readiness-open-button">Abrir</span>
+            <ChevronRightIcon aria-hidden="true" />
+          </RouterLink>
+        </li>
+      </ol>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .readiness-panel {
-  display: grid;
-  gap: var(--space-5);
   padding: var(--space-5);
 }
 
+.readiness-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
 .readiness-header,
-.readiness-state,
-.readiness-state-copy,
-.readiness-check,
-.readiness-check-actions {
+.readiness-heading,
+.readiness-overview,
+.readiness-check-action {
   display: flex;
 }
 
-.readiness-header,
-.readiness-state,
-.readiness-check {
-  justify-content: space-between;
-}
-
-.readiness-header,
-.readiness-check {
-  align-items: flex-start;
-}
-
 .readiness-header {
-  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.readiness-heading {
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.readiness-title-icon {
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  color: var(--text);
 }
 
 .readiness-header h3,
 .readiness-header p,
-.readiness-state p,
-.readiness-checklist-heading h4,
-.readiness-checklist-heading p,
-.readiness-check-body p {
+.readiness-check-summary {
   margin: 0;
 }
 
 .readiness-header h3 {
-  margin-top: var(--space-1);
+  font-size: 22px;
+  line-height: 1.25;
 }
 
 .readiness-header p,
-.readiness-state p,
-.readiness-checklist-heading p,
-.readiness-check-body p,
-.readiness-check-body small,
-.readiness-generated-at {
+.readiness-overview span,
+.readiness-check-summary {
   color: var(--text-muted);
 }
 
-.readiness-eyebrow,
-.readiness-check-domain {
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.readiness-header p {
+  margin-top: var(--space-2);
 }
 
-.readiness-eyebrow {
-  color: var(--text-muted);
-}
-
-.readiness-state {
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border-left: 3px solid var(--border-strong);
-  background: var(--surface-2);
-}
-
-.readiness-state--pass {
-  border-left-color: var(--success-text);
-}
-
-.readiness-state--warning {
-  border-left-color: var(--warning-text);
-}
-
-.readiness-state--block {
-  border-left-color: var(--danger-text);
-}
-
-.readiness-state-copy {
-  align-items: flex-start;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.readiness-state-copy > div {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.readiness-state-dot {
-  width: 10px;
-  height: 10px;
-  margin-top: 5px;
+.readiness-overview {
+  align-items: flex-end;
+  flex-direction: column;
+  gap: var(--space-2);
   flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--text-muted);
 }
 
-.readiness-state--pass .readiness-state-dot {
-  background: var(--success-text);
-}
-
-.readiness-state--warning .readiness-state-dot {
-  background: var(--warning-text);
-}
-
-.readiness-state--block .readiness-state-dot {
-  background: var(--danger-text);
-}
-
-.readiness-generated-at {
-  flex: 0 0 auto;
+.readiness-overview span {
   font-size: var(--font-xs);
   white-space: nowrap;
 }
 
-.readiness-checklist-panel {
-  min-width: 0;
-}
-
-.readiness-checklist-heading {
-  display: grid;
-  gap: var(--space-1);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-
 .readiness-checklist {
-  display: grid;
   margin: 0;
-  padding: 0;
+  padding: 0 var(--space-5);
   list-style: none;
 }
 
 .readiness-check {
-  position: relative;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
-  gap: var(--space-3);
-  padding: var(--space-5) 0;
+  grid-template-columns: 28px 140px 140px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 78px;
+  padding: var(--space-3) 0;
 }
 
-.readiness-check:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  top: 34px;
-  bottom: -10px;
-  left: 7px;
-  width: 1px;
-  background: var(--border);
+.readiness-check + .readiness-check {
+  border-top: 1px solid var(--border);
 }
 
-.readiness-check-marker {
-  position: relative;
-  z-index: 1;
-  width: 14px;
-  height: 14px;
-  margin-top: 2px;
-  border: 2px solid var(--border-strong);
-  border-radius: 50%;
-  background: var(--surface-0);
-}
-
-.readiness-check--pass .readiness-check-marker {
-  border-color: var(--success-text);
-}
-
-.readiness-check--warning .readiness-check-marker {
-  border-color: var(--warning-text);
-}
-
-.readiness-check--block .readiness-check-marker {
-  border-color: var(--danger-text);
-}
-
-.readiness-check-body {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
+.readiness-check-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--text);
 }
 
 .readiness-check-domain {
-  color: var(--text-muted);
+  font-weight: var(--font-weight-strong);
+  color: var(--text);
 }
 
-.readiness-check-actions {
+.readiness-check-summary {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.readiness-check-action {
   align-items: center;
   gap: var(--space-3);
+  color: var(--text-muted);
+  text-decoration: none;
 }
 
-@media (max-width: 820px) {
-  .readiness-state {
+.readiness-check-action > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.readiness-open-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: var(--font-weight-strong);
+}
+
+.readiness-check-action:hover .readiness-open-button {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+}
+
+.readiness-check-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 980px) {
+  .readiness-check {
+    grid-template-columns: 28px 120px 130px minmax(0, 1fr) auto;
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 760px) {
+  .readiness-header {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .readiness-generated-at {
+  .readiness-overview {
+    align-items: flex-start;
+  }
+
+  .readiness-overview span {
     white-space: normal;
   }
 
   .readiness-check {
-    grid-template-columns: 20px minmax(0, 1fr);
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'icon domain action'
+      'icon status action'
+      'icon summary summary';
+    align-items: start;
+    row-gap: var(--space-2);
+    min-height: 0;
+    padding: var(--space-4) 0;
   }
 
-  .readiness-check-actions {
-    grid-column: 2;
-    justify-content: space-between;
+  .readiness-check-icon {
+    grid-area: icon;
+  }
+
+  .readiness-check-domain {
+    grid-area: domain;
+  }
+
+  .readiness-check-status {
+    grid-area: status;
+    justify-self: start;
+  }
+
+  .readiness-check-summary {
+    grid-area: summary;
+  }
+
+  .readiness-check-action {
+    grid-area: action;
   }
 }
 
-@media (max-width: 620px) {
-  .readiness-header {
-    flex-direction: column;
+@media (max-width: 520px) {
+  .readiness-panel {
+    padding: var(--space-3);
   }
 
-  .readiness-check-actions {
-    align-items: stretch;
-    flex-direction: column;
+  .readiness-header,
+  .readiness-checklist {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
 
-  .readiness-check-actions .secondary-button {
-    width: 100%;
+  .readiness-check {
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-areas:
+      'icon domain'
+      'icon status'
+      'icon summary'
+      '. action';
+  }
+
+  .readiness-check-action {
+    justify-content: space-between;
+    margin-top: var(--space-1);
   }
 }
 </style>
