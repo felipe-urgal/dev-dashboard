@@ -12,7 +12,7 @@ import {
   prepareProjectTerminalConfirmation,
   projectTerminalWebSocketUrl,
 } from '../api';
-import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
+import {\n  copyTextToClipboard,\n  isTerminalCopyShortcut,\n} from '../utils/terminal-clipboard';\nimport { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
 import Card from './Card.vue';
 import ProjectTerminalWindowBar from './ProjectTerminalWindowBar.vue';
 
@@ -36,7 +36,7 @@ const sessionState = ref<SessionState>('idle');
 const errorMessage = ref('');
 const maximized = ref(false);
 const terminalFontSize = ref(13);
-const hasAutoStarted = ref(false);
+const hasAutoStarted = ref(false);\nconst terminalContextMenu = ref<{ left: number; top: number } | null>(null);\nconst macOS =\n  typeof navigator !== 'undefined' &&\n  /Mac|iPhone|iPad|iPod/.test(navigator.platform);\nconst copyShortcutLabel = macOS ? '⌘C' : 'Ctrl+C';
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | undefined;
@@ -240,13 +240,13 @@ watch(
 
 onMounted(() => {
   void loadStatus();
-  window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keydown', handleKeydown);\n  window.addEventListener('click', closeTerminalContextMenu);
 });
 
 onBeforeUnmount(() => {
   disconnect();
   disposeTerminal();
-  window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('keydown', handleKeydown);\n  window.removeEventListener('click', closeTerminalContextMenu);
 });
 </script>
 
@@ -328,7 +328,32 @@ onBeforeUnmount(() => {
           @toggle-maximized="toggleMaximized"
           @set-font-size="setTerminalFontSize"
         />
-        <div ref="terminalContainer" class="terminal-window-body"></div>
+        <div
+          ref="terminalContainer"
+          class="terminal-window-body"
+          @contextmenu.capture="openTerminalContextMenu"
+        ></div>
+        <div
+          v-if="terminalContextMenu"
+          class="terminal-context-menu"
+          :style="{
+            left: `${terminalContextMenu.left}px`,
+            top: `${terminalContextMenu.top}px`,
+          }"
+          role="menu"
+          @click.stop
+          @contextmenu.prevent
+        >
+          <button
+            type="button"
+            class="terminal-context-menu-button"
+            role="menuitem"
+            @click="copyTerminalSelection"
+          >
+            <span>Copiar</span>
+            <kbd>{{ copyShortcutLabel }}</kbd>
+          </button>
+        </div>
         <p
           v-if="errorMessage"
           class="terminal-error terminal-window-error"
