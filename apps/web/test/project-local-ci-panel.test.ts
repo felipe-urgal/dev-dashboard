@@ -66,11 +66,36 @@ describe('ProjectLocalCiPanel', () => {
     const wrapper = mount(ProjectLocalCiPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Local / aproximação');
-    expect(wrapper.text()).toContain('Não substitui o GitHub CI');
+    expect(wrapper.text()).toContain('Execução local');
+    expect(wrapper.text()).toContain(
+      'não substitui os checks oficiais do GitHub',
+    );
     expect(wrapper.text()).toContain('act não instalado');
     expect(wrapper.get('.local-ci-start').attributes('disabled')).toBeDefined();
     expect(startLocalCiRun).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it('renderiza o fluxo minimalista em largura total', async () => {
+    fetchLocalCiCatalog.mockResolvedValueOnce(catalog('available'));
+
+    const wrapper = mount(ProjectLocalCiPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.find('.local-ci-panel').exists()).toBe(true);
+    expect(wrapper.get('.local-ci-environment').text()).toContain('act 0.2.81');
+    expect(wrapper.get('.local-ci-environment').text()).toContain(
+      'Docker 28.0.0',
+    );
+    expect(wrapper.get('.local-ci-environment').text()).toContain('Disponível');
+    expect(wrapper.get('.local-ci-start').text()).toBe('Executar');
+    expect(wrapper.text()).not.toContain('Provider act');
+    expect(wrapper.text()).not.toContain('Executar job');
+    expect(wrapper.text()).not.toContain('Local / aproximação');
+    expect(wrapper.text()).not.toContain(
+      'A seleção abaixo vem exclusivamente do catálogo validado pelo backend.',
+    );
 
     wrapper.unmount();
   });

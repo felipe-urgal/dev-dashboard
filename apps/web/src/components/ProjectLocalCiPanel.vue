@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
-import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
+import {
+  ArrowPathIcon,
+  CommandLineIcon,
+  CubeIcon,
+  InformationCircleIcon,
+  PlayIcon,
+} from '@heroicons/vue/24/outline';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -54,27 +60,11 @@ const selectedJob = computed(
     null,
 );
 
-const availabilityTone = computed<StatusBadgeTone>(() => {
-  if (catalog.value?.availability.state === 'available') return 'success';
-  if (catalog.value?.availability.state === 'act-missing') return 'neutral';
-  return 'warning';
-});
-
 const availabilityLabel = computed(() => {
   if (catalog.value?.availability.state === 'available') return 'Disponível';
   if (catalog.value?.availability.state === 'act-missing')
     return 'act não instalado';
   return 'Docker indisponível';
-});
-
-const availabilityDescription = computed(() => {
-  if (catalog.value?.availability.state === 'available') {
-    return 'act e Docker estão disponíveis para executar os jobs detectados.';
-  }
-  if (catalog.value?.availability.state === 'act-missing') {
-    return 'O provider act não está disponível no PATH da API.';
-  }
-  return 'act foi detectado, mas o Docker não está disponível para executar o workflow.';
 });
 
 const canStart = computed(
@@ -399,27 +389,6 @@ onBeforeUnmount(closeSocket);
 
 <template>
   <section class="local-ci-panel" aria-labelledby="local-ci-title">
-    <header class="local-ci-header">
-      <div>
-        <span class="local-ci-eyebrow">GitHub Actions local</span>
-        <h3 id="local-ci-title">Local CI</h3>
-        <p>Execute jobs detectados no repositório usando act.</p>
-      </div>
-      <StatusBadge tone="warning" size="md">Local / aproximação</StatusBadge>
-    </header>
-
-    <section class="local-ci-boundary" aria-label="Limite do Local CI">
-      <ExclamationTriangleIcon aria-hidden="true" />
-      <div>
-        <strong>Não substitui o GitHub CI</strong>
-        <p>
-          O resultado executa código do repositório na sua máquina e nunca é
-          tratado como check remoto oficial ou evidência suficiente de
-          Readiness.
-        </p>
-      </div>
-    </section>
-
     <EmptyState
       v-if="loadingCatalog"
       icon="•••"
@@ -443,28 +412,47 @@ onBeforeUnmount(closeSocket);
     </EmptyState>
 
     <template v-else>
-      <section class="local-ci-availability" aria-label="Disponibilidade">
-        <div class="local-ci-availability-copy">
-          <div class="local-ci-heading-row">
-            <strong>Provider act</strong>
-            <StatusBadge :tone="availabilityTone">
-              {{ availabilityLabel }}
-            </StatusBadge>
-          </div>
-          <p>{{ availabilityDescription }}</p>
+      <header class="local-ci-header">
+        <div class="local-ci-heading">
+          <h3 id="local-ci-title">Local CI</h3>
+          <p>Execute workflows do GitHub Actions localmente.</p>
         </div>
-        <div class="local-ci-metric">
-          <span>act</span>
-          <strong>{{ catalog.availability.actVersion ?? '—' }}</strong>
+
+        <div class="local-ci-environment" aria-label="Ambiente Local CI">
+          <span class="local-ci-environment-item">
+            <CommandLineIcon aria-hidden="true" />
+            <strong>act {{ catalog.availability.actVersion ?? '—' }}</strong>
+          </span>
+
+          <span class="local-ci-environment-divider" aria-hidden="true" />
+
+          <span class="local-ci-environment-item">
+            <CubeIcon aria-hidden="true" />
+            <strong>
+              Docker {{ catalog.availability.dockerVersion ?? '—' }}
+            </strong>
+          </span>
+
+          <span class="local-ci-environment-divider" aria-hidden="true" />
+
+          <span
+            class="local-ci-availability"
+            :data-state="catalog.availability.state"
+          >
+            <span class="local-ci-availability-dot" aria-hidden="true" />
+            <strong>{{ availabilityLabel }}</strong>
+          </span>
+
+          <button
+            class="secondary-button local-ci-refresh"
+            type="button"
+            @click="loadCatalog()"
+          >
+            <ArrowPathIcon aria-hidden="true" />
+            Atualizar
+          </button>
         </div>
-        <div class="local-ci-metric">
-          <span>Docker</span>
-          <strong>{{ catalog.availability.dockerVersion ?? '—' }}</strong>
-        </div>
-        <button class="secondary-button" type="button" @click="loadCatalog()">
-          Atualizar
-        </button>
-      </section>
+      </header>
 
       <p v-if="errorMessage" class="local-ci-error" role="alert">
         {{ errorMessage }}
@@ -478,67 +466,58 @@ onBeforeUnmount(closeSocket);
         description="Não há combinações de workflow, job e evento disponíveis no catálogo detectado."
       />
 
-      <section
-        v-else
-        class="local-ci-launcher"
-        aria-labelledby="local-ci-run-title"
-      >
-        <div class="local-ci-section-heading">
-          <div>
-            <h4 id="local-ci-run-title">Executar job</h4>
-            <p>
-              A seleção abaixo vem exclusivamente do catálogo validado pelo
-              backend.
-            </p>
-          </div>
-          <span>{{ catalog.jobs.length }} job(s)</span>
-        </div>
+      <div v-else class="local-ci-controls">
+        <label class="local-ci-workflow">
+          <span>Workflow / Job</span>
+          <select v-model="selectedJobKey">
+            <option
+              v-for="job in catalog.jobs"
+              :key="jobKey(job)"
+              :value="jobKey(job)"
+            >
+              {{ job.workflow }} · {{ job.job }}
+            </option>
+          </select>
+          <small v-if="selectedJob">{{ selectedJob.workflowFile }}</small>
+        </label>
 
-        <div class="local-ci-controls">
-          <label>
-            <span>Workflow / job</span>
-            <select v-model="selectedJobKey">
-              <option
-                v-for="job in catalog.jobs"
-                :key="jobKey(job)"
-                :value="jobKey(job)"
-              >
-                {{ job.workflow }} · {{ job.job }}
-              </option>
-            </select>
-            <small v-if="selectedJob">{{ selectedJob.workflowFile }}</small>
-          </label>
+        <label>
+          <span>Evento</span>
+          <select v-model="selectedEvent" :disabled="!selectedJob">
+            <option
+              v-for="eventName in selectedJob?.events ?? []"
+              :key="eventName"
+              :value="eventName"
+            >
+              {{ eventName }}
+            </option>
+          </select>
+        </label>
 
-          <label>
-            <span>Evento</span>
-            <select v-model="selectedEvent" :disabled="!selectedJob">
-              <option
-                v-for="eventName in selectedJob?.events ?? []"
-                :key="eventName"
-                :value="eventName"
-              >
-                {{ eventName }}
-              </option>
-            </select>
-          </label>
+        <button
+          class="primary-button local-ci-start"
+          type="button"
+          :disabled="!canStart"
+          @click="startRun"
+        >
+          <PlayIcon aria-hidden="true" />
+          {{ starting ? 'Iniciando…' : 'Executar' }}
+        </button>
+      </div>
 
-          <button
-            class="primary-button local-ci-start"
-            type="button"
-            :disabled="!canStart"
-            @click="startRun"
-          >
-            {{ starting ? 'Iniciando…' : 'Executar localmente' }}
-          </button>
-        </div>
-      </section>
+      <div class="local-ci-boundary" aria-label="Limite do Local CI">
+        <InformationCircleIcon aria-hidden="true" />
+        <span>
+          Execução local — não substitui os checks oficiais do GitHub.
+        </span>
+      </div>
 
       <section
         v-if="run"
         class="local-ci-run"
         aria-labelledby="local-ci-current-title"
       >
-        <div class="local-ci-section-heading local-ci-run-heading">
+        <div class="local-ci-section-heading">
           <div>
             <div class="local-ci-heading-row">
               <h4 id="local-ci-current-title">Execução atual</h4>
@@ -549,6 +528,7 @@ onBeforeUnmount(closeSocket);
               {{ run.request.event }}
             </p>
           </div>
+
           <div class="local-ci-run-actions">
             <button
               v-if="run.status === 'running' && socketState === 'disconnected'"
@@ -616,123 +596,183 @@ onBeforeUnmount(closeSocket);
 <style scoped>
 .local-ci-panel {
   display: grid;
+  width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+  padding: var(--space-5);
 }
 
 .local-ci-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  gap: var(--space-6);
+  padding-bottom: var(--space-5);
 }
 
-.local-ci-header h3,
-.local-ci-header p,
-.local-ci-boundary p,
-.local-ci-availability p,
+.local-ci-heading {
+  min-width: 0;
+}
+
+.local-ci-heading h3,
+.local-ci-heading p,
 .local-ci-section-heading h4,
 .local-ci-section-heading p,
 .local-ci-result {
   margin: 0;
 }
 
-.local-ci-header h3 {
-  margin-top: var(--space-1);
+.local-ci-heading h3 {
+  font-size: 22px;
+  line-height: 1.25;
 }
 
-.local-ci-header p,
-.local-ci-boundary p,
-.local-ci-availability p,
-.local-ci-section-heading p,
-.local-ci-section-heading > span,
-.local-ci-result,
-.local-ci-controls small {
+.local-ci-heading p {
+  margin-top: var(--space-2);
   color: var(--text-muted);
 }
 
-.local-ci-eyebrow,
-.local-ci-metric span,
-.local-ci-controls label > span,
-.local-ci-run-meta dt {
+.local-ci-environment {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  min-height: 40px;
+  flex-wrap: wrap;
+}
+
+.local-ci-environment-item,
+.local-ci-availability,
+.local-ci-refresh,
+.local-ci-start {
+  display: inline-flex;
+  align-items: center;
+}
+
+.local-ci-environment-item {
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.local-ci-environment-item > svg,
+.local-ci-refresh > svg,
+.local-ci-start > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.local-ci-environment-item > svg {
   color: var(--text-muted);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
-.local-ci-boundary {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-3);
-  margin: 0 var(--space-5);
-  padding: var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--warning-text) 40%, var(--border));
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--warning-text) 8%, transparent);
-}
-
-.local-ci-boundary svg {
-  width: 22px;
-  color: var(--warning-text);
-}
-
-.local-ci-boundary div {
-  display: grid;
-  gap: var(--space-1);
+.local-ci-environment-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
 }
 
 .local-ci-availability {
-  display: grid;
-  grid-template-columns:
-    minmax(220px, 1.5fr) minmax(120px, 0.6fr) minmax(120px, 0.6fr)
-    auto;
-  align-items: center;
-  gap: var(--space-4);
-  margin: var(--space-4) var(--space-5) 0;
-  padding: var(--space-4) 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.local-ci-availability-copy,
-.local-ci-metric {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.local-ci-heading-row {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-  min-width: 0;
+  white-space: nowrap;
+  color: var(--text-muted);
 }
 
-.local-ci-metric strong,
-.local-ci-run-meta dd {
-  overflow-wrap: anywhere;
+.local-ci-availability[data-state='available'] {
+  color: var(--success-text);
+}
+
+.local-ci-availability[data-state='docker-unavailable'] {
+  color: var(--warning-text);
+}
+
+.local-ci-availability-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.local-ci-refresh {
+  gap: var(--space-2);
+  white-space: nowrap;
 }
 
 .local-ci-error {
-  margin: var(--space-3) var(--space-5) 0;
+  margin: 0 0 var(--space-4);
   color: var(--danger-text);
 }
 
 .local-ci-empty {
-  margin: var(--space-5);
+  margin: 0;
 }
 
-.local-ci-launcher,
+.local-ci-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.7fr) auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.local-ci-controls label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.local-ci-controls label > span {
+  color: var(--text);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.local-ci-controls select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.local-ci-controls small {
+  min-height: 1em;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.local-ci-start {
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.local-ci-boundary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.local-ci-boundary > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
 .local-ci-run {
   display: grid;
   gap: var(--space-4);
-  padding: var(--space-5);
-}
-
-.local-ci-launcher {
-  border-bottom: 1px solid var(--border);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
 }
 
 .local-ci-section-heading {
@@ -745,55 +785,25 @@ onBeforeUnmount(closeSocket);
 .local-ci-section-heading > div:first-child {
   display: grid;
   gap: var(--space-1);
-}
-
-.local-ci-section-heading > span {
-  font-size: var(--font-xs);
-  white-space: nowrap;
-}
-
-.local-ci-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(150px, 0.7fr) auto;
-  align-items: end;
-  gap: var(--space-3);
-}
-
-.local-ci-controls label {
-  display: grid;
-  gap: var(--space-2);
   min-width: 0;
 }
 
-.local-ci-controls select {
-  width: 100%;
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text);
+.local-ci-section-heading p,
+.local-ci-result {
+  color: var(--text-muted);
 }
 
-.local-ci-controls small {
-  overflow-wrap: anywhere;
-}
-
-.local-ci-start {
-  white-space: nowrap;
-}
-
-.local-ci-run {
-  padding-top: 0;
-}
-
-.local-ci-run-heading {
-  padding-top: var(--space-5);
+.local-ci-heading-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .local-ci-run-actions {
   display: flex;
   gap: var(--space-2);
+  flex: 0 0 auto;
 }
 
 .local-ci-cancel {
@@ -802,24 +812,35 @@ onBeforeUnmount(closeSocket);
 }
 
 .local-ci-run-meta {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
   margin: 0;
+  flex-wrap: wrap;
 }
 
 .local-ci-run-meta div {
-  display: grid;
-  gap: var(--space-1);
+  display: flex;
+  gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
+}
+
+.local-ci-run-meta div + div {
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border);
+}
+
+.local-ci-run-meta dt {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .local-ci-run-meta dd {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .local-ci-console {
@@ -857,33 +878,38 @@ onBeforeUnmount(closeSocket);
   font-size: var(--font-sm);
 }
 
-@media (max-width: 920px) {
-  .local-ci-availability {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1080px) {
+  .local-ci-header {
+    flex-direction: column;
+    gap: var(--space-4);
   }
 
-  .local-ci-controls {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .local-ci-start {
-    justify-self: start;
-  }
-
-  .local-ci-run-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .local-ci-environment {
+    justify-content: flex-start;
   }
 }
 
-@media (max-width: 640px) {
-  .local-ci-header,
-  .local-ci-section-heading {
-    flex-direction: column;
+@media (max-width: 760px) {
+  .local-ci-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.7fr);
   }
 
-  .local-ci-availability,
-  .local-ci-controls,
-  .local-ci-run-meta {
+  .local-ci-start {
+    width: max-content;
+  }
+
+  .local-ci-run-meta div + div {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .local-ci-panel {
+    padding: var(--space-3);
+  }
+
+  .local-ci-controls {
     grid-template-columns: 1fr;
   }
 
@@ -893,8 +919,25 @@ onBeforeUnmount(closeSocket);
     width: 100%;
   }
 
-  .local-ci-run-actions {
+  .local-ci-environment {
+    align-items: flex-start;
     flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .local-ci-environment-divider {
+    display: none;
+  }
+
+  .local-ci-run-actions,
+  .local-ci-section-heading {
+    flex-direction: column;
+  }
+
+  .local-ci-run-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
   }
 }
 </style>
