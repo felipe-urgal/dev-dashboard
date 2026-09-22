@@ -60,9 +60,7 @@ describe('Docker Compose no shell do projeto', () => {
     expect(panelSource).toContain(
       'snapshot.value.ownership.reconciliation.diagnostic',
     );
-    expect(panelSource).toContain(
-      'O projeto está em modo somente leitura.',
-    );
+    expect(panelSource).toContain('O projeto está em modo somente leitura.');
   });
 
   it('usa API estruturada sem enviar path, executable ou argv', () => {

@@ -185,7 +185,8 @@ const preflightSummary = computed(() => {
   if (preflight.state === 'blocked') {
     const count = preflight.conflicts.length;
     return {
-      title: count + (count === 1 ? ' conflito de porta' : ' conflitos de porta'),
+      title:
+        count + (count === 1 ? ' conflito de porta' : ' conflitos de porta'),
       detail: 'Portas publicadas não disponíveis',
       tone: 'danger' as const,
       icon: ExclamationTriangleIcon,
@@ -377,11 +378,7 @@ watch(
   <section class="compose-panel" aria-labelledby="compose-title">
     <header class="compose-header">
       <div class="compose-title">
-        <svg
-          class="compose-docker-mark"
-          viewBox="0 0 32 32"
-          aria-hidden="true"
-        >
+        <svg class="compose-docker-mark" viewBox="0 0 32 32" aria-hidden="true">
           <path
             d="M3 15.5h25c-.7 6.6-4.8 10.5-11.4 10.5h-6C6 26 3 22.8 3 18.5v-3Z"
           />
@@ -409,7 +406,10 @@ watch(
           :disabled="loading || Boolean(action)"
           @click="load"
         >
-          <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
           Atualizar
         </button>
         <button
@@ -617,7 +617,10 @@ watch(
               <tr v-for="service in visibleServices" :key="service.name">
                 <td>
                   <div class="compose-service-name">
-                    <component :is="serviceIcon(service.name)" aria-hidden="true" />
+                    <component
+                      :is="serviceIcon(service.name)"
+                      aria-hidden="true"
+                    />
                     <strong>{{ service.name }}</strong>
                   </div>
                 </td>
@@ -634,7 +637,10 @@ watch(
                   </span>
                 </td>
                 <td>
-                  <span v-if="service.dependsOn.length" class="compose-cell-wrap">
+                  <span
+                    v-if="service.dependsOn.length"
+                    class="compose-cell-wrap"
+                  >
                     {{ service.dependsOn.join(', ') }}
                   </span>
                 </td>
@@ -651,7 +657,9 @@ watch(
                     </StatusBadge>
                     <StatusBadge
                       :tone="
-                        healthTone(runtimeFor(service.name)?.health ?? 'unknown')
+                        healthTone(
+                          runtimeFor(service.name)?.health ?? 'unknown',
+                        )
                       "
                     >
                       {{
@@ -1045,8 +1053,7 @@ watch(
   flex: 0 0 7px;
   border-radius: 999px;
   background: var(--danger-text);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--danger-text) 10%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger-text) 10%, transparent);
 }
 
 .compose-readonly-message {
