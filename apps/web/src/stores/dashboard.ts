@@ -320,7 +320,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
       apiConnected.value = true;
 
-
       return result;
     } finally {
       if (shouldActivate) {
