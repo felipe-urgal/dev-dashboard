@@ -24,10 +24,7 @@ import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 import { fetchProjectGit } from '../api';
 import EmptyState from '../components/EmptyState.vue';
 import ProjectDetailsMoreTools from '../components/ProjectDetailsMoreTools.vue';
-import ProjectGitUpdateIndicator from '../components/ProjectGitUpdateIndicator.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
-import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
-import ProjectTaskContextSummary from '../components/ProjectTaskContextSummary.vue';
 import ProjectToolError from '../components/ProjectToolError.vue';
 import ProjectToolLoading from '../components/ProjectToolLoading.vue';
 import { dashboardStore } from '../stores/dashboard';
@@ -311,36 +308,16 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <div class="project-details-sticky-header">
         <header class="project-details-hero">
           <div class="project-details-main">
-            <div class="project-details-copy">
-              <span class="project-details-eyebrow">Projeto atual</span>
-              <div class="project-title-row">
-                <h2>{{ project.name }}</h2>
-                <div
-                  v-if="gitBranch"
-                  class="project-details-branch"
-                  aria-label="Branch atual"
-                >
-                  <ShareIcon aria-hidden="true" />
-                  <span>{{ gitBranch }}</span>
-                </div>
-                <ProjectGitUpdateIndicator
-                  v-if="gitBranch && project.capabilities.includes('git')"
-                  :project-id="project.id"
-                  :overview="gitOverview"
-                />
+            <div class="project-title-row">
+              <h2>{{ project.name }}</h2>
+              <div
+                v-if="gitBranch"
+                class="project-details-branch"
+                aria-label="Branch atual"
+              >
+                <ShareIcon aria-hidden="true" />
+                <span>{{ gitBranch }}</span>
               </div>
-              <div class="project-details-repository" :title="project.path">
-                <span class="project-details-repository-label"
-                  >Repositório</span
-                >
-                <code>{{ project.path }}</code>
-              </div>
-              <ProjectTaskContextSummary
-                v-if="project.enabled && project.capabilities.includes('git')"
-                :project-id="project.id"
-                :current-branch="gitBranch || undefined"
-                :environment-instance-id="environmentInstanceId"
-              />
             </div>
           </div>
 
@@ -357,11 +334,6 @@ onBeforeUnmount(stopGitOverviewRefresh);
                 "
               />
             </div>
-            <ProjectPullRequestSummary
-              v-if="project.enabled && gitOverview"
-              :project-id="project.id"
-              :overview="gitOverview"
-            />
           </div>
         </header>
 
