@@ -3,13 +3,10 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   ChevronDownIcon,
-  ClockIcon,
   CodeBracketIcon,
   Cog6ToothIcon,
   CommandLineIcon,
   ExclamationTriangleIcon,
-  InformationCircleIcon,
-  ShareIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, ref } from 'vue';
 
@@ -140,17 +137,6 @@ const status = computed(() => {
   };
 });
 
-const statusDescription = computed(() => {
-  if (props.checking) return 'Atualizando as referências remotas.';
-  if (!available.value)
-    return 'A main local ou origin/main não está disponível.';
-  if (!props.overview.clean)
-    return 'Guarde ou confirme as alterações antes de sincronizar.';
-  if (synchronized.value)
-    return 'A main local e origin/main estão alinhadas com a origem principal.';
-  return 'Há atualizações pendentes entre a origem principal, main e origin/main.';
-});
-
 const currentBranchStatus = computed(() => {
   if (!props.workspace || props.checking) {
     return {
@@ -217,7 +203,7 @@ const currentBranchButtonDisabled = computed(
 );
 
 const lastSynchronizationLabel = computed(() => {
-  if (!props.lastSynchronizationAt) return 'Ainda não executada';
+  if (!props.lastSynchronizationAt) return 'ainda não executada';
 
   const date = new Date(props.lastSynchronizationAt);
   if (Number.isNaN(date.getTime())) return props.lastSynchronizationAt;
@@ -237,15 +223,8 @@ const consoleState = computed(() => {
   return { label: 'Pronto', tone: 'idle' };
 });
 
-const consoleSteps = [
-  'Verificar referências remotas',
-  'Preparar a branch main',
-  'Integrar atualizações da origem principal',
-  'Publicar main em origin/main',
-];
-
 const consoleResult = computed(() => {
-  if (props.checking) return 'Verificando as referências remotas…';
+  if (props.checking) return 'Verificando referências remotas…';
   if (props.busy) return 'Executando a sincronização da main…';
   if (props.synchronizationError) return props.synchronizationError;
   if (props.lastSynchronizationAt) {
@@ -254,12 +233,12 @@ const consoleResult = computed(() => {
     );
   }
   if (synchronized.value) {
-    return 'Estado atual verificado: main e origin/main estão sincronizadas.';
+    return 'main e origin/main estão sincronizadas.';
   }
   if (!props.overview.clean) {
-    return 'Aguardando uma árvore de trabalho limpa para iniciar.';
+    return 'Confirme ou guarde as alterações locais antes de sincronizar.';
   }
-  return 'Pronto para sincronizar a main e publicar em origin/main.';
+  return 'Pronto para sincronizar main com origin/main.';
 });
 
 function statusIcon(tone: string) {
@@ -271,56 +250,40 @@ function statusIcon(tone: string) {
 
 <template>
   <section class="git-sync-page">
-    <section class="git-sync-summary" aria-label="Resumo da sincronização">
-      <article class="git-sync-summary-card">
-        <span class="git-sync-summary-icon">
-          <ShareIcon aria-hidden="true" />
-        </span>
-        <div>
-          <span>Branch atual</span>
-          <strong>{{ currentBranchName }}</strong>
-          <small>{{ currentBranchRemote ?? 'Sem remoto configurado' }}</small>
-        </div>
-      </article>
-
-      <article class="git-sync-summary-card">
-        <span class="git-sync-summary-icon" :class="`is-${status.tone}`">
-          <component :is="statusIcon(status.tone)" aria-hidden="true" />
-        </span>
-        <div>
-          <span>Status</span>
-          <strong class="git-sync-summary-status" :class="`is-${status.tone}`">
-            {{ status.label }}
-          </strong>
-          <small>{{ statusDescription }}</small>
-        </div>
-      </article>
-
-      <article class="git-sync-summary-card">
-        <span class="git-sync-summary-icon">
-          <ClockIcon aria-hidden="true" />
-        </span>
-        <div>
-          <span>Última sincronização</span>
-          <strong>{{ lastSynchronizationLabel }}</strong>
-          <small>Nesta sessão</small>
-        </div>
-      </article>
-    </section>
+    <header class="git-sync-heading">
+      <div class="git-sync-heading-icon" aria-hidden="true">
+        <ArrowPathIcon />
+      </div>
+      <div>
+        <h2>Sincronização</h2>
+        <p>Mantenha sua main atualizada e publique as alterações no origin.</p>
+      </div>
+    </header>
 
     <section class="git-sync-main-card" aria-label="Sincronização da main">
       <div class="git-sync-main-copy">
         <span class="git-sync-main-icon" :class="`is-${status.tone}`">
           <component :is="statusIcon(status.tone)" aria-hidden="true" />
         </span>
-        <div>
-          <span>Fluxo principal</span>
-          <strong>
-            <span>main</span>
-            <span aria-hidden="true">→</span>
-            <span>origin/main</span>
-          </strong>
-          <small :class="`is-${status.tone}`">{{ status.label }}</small>
+
+        <div class="git-sync-main-details">
+          <div class="git-sync-main-line">
+            <strong>
+              <span>main</span>
+              <span aria-hidden="true">→</span>
+              <span>origin/main</span>
+            </strong>
+
+            <span class="git-sync-status" :class="`is-${status.tone}`" role="status">
+              <component :is="statusIcon(status.tone)" aria-hidden="true" />
+              {{ status.label }}
+            </span>
+          </div>
+
+          <small>
+            Última sincronização:
+            <strong>{{ lastSynchronizationLabel }}</strong>
+          </small>
         </div>
       </div>
 
@@ -343,13 +306,7 @@ function statusIcon(tone: string) {
       <header class="git-sync-console-header">
         <div class="git-sync-console-title">
           <CommandLineIcon aria-hidden="true" />
-          <div>
-            <h2 id="git-sync-console-title">Console de sincronização</h2>
-            <p>
-              Acompanha as etapas reais do fluxo sem expor detalhes
-              desnecessários.
-            </p>
-          </div>
+          <h3 id="git-sync-console-title">Console de sincronização</h3>
         </div>
 
         <div class="git-sync-console-tools">
@@ -361,6 +318,7 @@ function statusIcon(tone: string) {
             <i aria-hidden="true"></i>
             {{ consoleState.label }}
           </span>
+
           <button
             type="button"
             class="git-sync-console-clear"
@@ -373,72 +331,46 @@ function statusIcon(tone: string) {
           >
             Limpar
           </button>
+
+          <button
+            type="button"
+            class="git-sync-settings-button"
+            :aria-expanded="settingsOpen"
+            aria-controls="git-sync-settings"
+            aria-label="Configurações da sincronização"
+            title="Configurações"
+            @click="settingsOpen = !settingsOpen"
+          >
+            <Cog6ToothIcon aria-hidden="true" />
+            <ChevronDownIcon
+              class="git-sync-settings-chevron"
+              :class="{ 'is-open': settingsOpen }"
+              aria-hidden="true"
+            />
+          </button>
         </div>
       </header>
 
       <div
-        class="git-sync-terminal"
+        class="git-sync-console-output"
         role="log"
         aria-live="polite"
-        aria-label="Etapas da sincronização da main"
+        aria-label="Resultado da sincronização"
       >
-        <div class="git-sync-terminal-intro">
-          <span class="git-sync-terminal-prompt">›</span>
-          <span>sincronizar main</span>
-          <small>destino: origin/main</small>
-        </div>
-
-        <ol class="git-sync-terminal-steps">
-          <li
-            v-for="step in consoleSteps"
-            :key="step"
-            :class="{
-              'is-complete':
-                Boolean(lastSynchronizationAt) && !synchronizationError,
-              'is-running': busy,
-            }"
-          >
-            <span class="git-sync-step-marker" aria-hidden="true"></span>
-            <span>{{ step }}</span>
-          </li>
-        </ol>
-
-        <p
-          class="git-sync-terminal-result"
-          :class="{
-            'is-success':
-              Boolean(lastSynchronizationAt) && !synchronizationError,
-            'is-error': Boolean(synchronizationError),
-            'is-running': busy || checking,
-          }"
-        >
-          <ArrowPathIcon v-if="busy || checking" aria-hidden="true" />
-          <ExclamationTriangleIcon
-            v-else-if="synchronizationError"
-            aria-hidden="true"
-          />
-          <CheckCircleIcon v-else aria-hidden="true" />
-          {{ consoleResult }}
-        </p>
+        <component
+          :is="
+            busy || checking
+              ? ArrowPathIcon
+              : synchronizationError
+                ? ExclamationTriangleIcon
+                : CheckCircleIcon
+          "
+          :class="{ 'is-spinning': busy || checking }"
+          aria-hidden="true"
+        />
+        <span>{{ consoleResult }}</span>
+        <time v-if="lastSynchronizationAt">{{ lastSynchronizationLabel }}</time>
       </div>
-
-      <footer class="git-sync-console-actions">
-        <button
-          type="button"
-          class="secondary-button git-sync-settings-button"
-          :aria-expanded="settingsOpen"
-          aria-controls="git-sync-settings"
-          @click="settingsOpen = !settingsOpen"
-        >
-          <Cog6ToothIcon aria-hidden="true" />
-          Configurações
-          <ChevronDownIcon
-            class="git-sync-settings-chevron"
-            :class="{ 'is-open': settingsOpen }"
-            aria-hidden="true"
-          />
-        </button>
-      </footer>
 
       <div
         v-if="settingsOpen"
@@ -475,7 +407,7 @@ function statusIcon(tone: string) {
           <CodeBracketIcon aria-hidden="true" />
         </span>
         <div>
-          <span>Branch em uso</span>
+          <small>Branch em uso</small>
           <strong>
             <span>{{ currentBranchName }}</span>
             <span aria-hidden="true">←</span>
@@ -498,56 +430,6 @@ function statusIcon(tone: string) {
         {{ busy ? 'Atualizando…' : 'Atualizar local' }}
       </button>
     </section>
-
-    <div class="git-sync-support-grid">
-      <section
-        class="git-sync-support-card"
-        aria-labelledby="git-sync-next-title"
-      >
-        <header>
-          <CheckCircleIcon aria-hidden="true" />
-          <div>
-            <h3 id="git-sync-next-title">Próximos passos</h3>
-            <p>O que precisa estar em ordem para sincronizar.</p>
-          </div>
-        </header>
-
-        <ul>
-          <li :class="{ 'is-ready': overview.clean }">
-            <i aria-hidden="true"></i>
-            <span>Manter a árvore de trabalho limpa</span>
-          </li>
-          <li :class="{ 'is-ready': synchronized }">
-            <i aria-hidden="true"></i>
-            <span>Manter a main alinhada com a origem principal</span>
-          </li>
-          <li :class="{ 'is-ready': hasOriginRemote }">
-            <i aria-hidden="true"></i>
-            <span>Publicar a main atualizada em origin/main</span>
-          </li>
-        </ul>
-      </section>
-
-      <section
-        class="git-sync-support-card git-sync-tip-card"
-        aria-labelledby="git-sync-tip-title"
-      >
-        <header>
-          <InformationCircleIcon aria-hidden="true" />
-          <div>
-            <h3 id="git-sync-tip-title">Dicas</h3>
-            <p>O fluxo escolhe a origem correta automaticamente.</p>
-          </div>
-        </header>
-
-        <p>
-          Você trabalha apenas com <strong>main</strong> e
-          <strong>origin/main</strong>
-          nesta tela. A origem principal é resolvida internamente antes da
-          atualização e não exige configuração manual durante o fluxo.
-        </p>
-      </section>
-    </div>
   </section>
 </template>
 
@@ -556,127 +438,64 @@ function statusIcon(tone: string) {
   display: grid;
   align-content: start;
   min-width: 0;
-  gap: 14px;
+  gap: 12px;
   padding: 16px 18px 24px;
 }
 
-.git-sync-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+.git-sync-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 2px 8px;
 }
 
-.git-sync-summary-card,
+.git-sync-heading-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--accent);
+}
+
+.git-sync-heading-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.git-sync-heading h2,
+.git-sync-heading p {
+  margin: 0;
+}
+
+.git-sync-heading h2 {
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.git-sync-heading p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
 .git-sync-main-card,
 .git-sync-console-card,
-.git-sync-current-card,
-.git-sync-support-card {
+.git-sync-current-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
-.git-sync-summary-card {
-  display: flex;
-  min-width: 0;
-  min-height: 84px;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-.git-sync-summary-icon,
-.git-sync-main-icon,
-.git-sync-current-icon {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.git-sync-summary-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-
-.git-sync-main-icon,
-.git-sync-current-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-}
-
-.git-sync-summary-icon svg,
-.git-sync-main-icon svg,
-.git-sync-current-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.git-sync-summary-icon.is-success,
-.git-sync-main-icon.is-success {
-  color: var(--success-text);
-  background: var(--success-surface);
-}
-
-.git-sync-summary-icon.is-warning,
-.git-sync-main-icon.is-warning {
-  color: var(--warning-text);
-  background: var(--warning-surface);
-}
-
-.git-sync-summary-card > div:last-child {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.git-sync-summary-card span:not(.git-sync-summary-icon),
-.git-sync-summary-card small {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 10px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.git-sync-summary-card > div > span:first-child {
-  color: var(--text-dim);
-  font-weight: var(--font-weight-strong);
-}
-
-.git-sync-summary-card strong {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.git-sync-summary-status.is-success {
-  color: var(--success-text);
-}
-
-.git-sync-summary-status.is-warning {
-  color: var(--warning-text);
-}
-
-.git-sync-summary-status.is-pending,
-.git-sync-summary-status.is-loading {
-  color: var(--accent);
-}
-
 .git-sync-main-card,
 .git-sync-current-card {
   display: flex;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 13px 14px;
+  padding: 13px 16px;
 }
 
 .git-sync-main-copy,
@@ -684,51 +503,105 @@ function statusIcon(tone: string) {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
 }
 
-.git-sync-main-copy > div,
+.git-sync-main-icon,
+.git-sync-current-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.git-sync-main-icon svg,
+.git-sync-current-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.git-sync-main-icon.is-success {
+  color: var(--success-text);
+  background: var(--success-surface);
+}
+
+.git-sync-main-icon.is-warning {
+  color: var(--warning-text);
+  background: var(--warning-surface);
+}
+
+.git-sync-main-details,
 .git-sync-current-copy > div {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 5px;
 }
 
-.git-sync-main-copy > div > span:first-child,
-.git-sync-current-copy > div > span:first-child {
-  color: var(--text-dim);
-  font-size: 9px;
-  font-weight: var(--font-weight-strong);
+.git-sync-main-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.git-sync-main-copy strong,
+.git-sync-main-line > strong,
 .git-sync-current-copy strong {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.3;
 }
 
-.git-sync-main-copy small,
+.git-sync-main-details > small,
 .git-sync-current-copy small {
   color: var(--text-muted);
   font-size: 10px;
 }
 
-.git-sync-main-copy small.is-success,
-.git-sync-current-copy small.is-success {
+.git-sync-main-details > small strong {
+  color: var(--text-muted);
+  font-weight: var(--font-weight-strong);
+}
+
+.git-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.git-sync-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.git-sync-status.is-success {
   color: var(--success-text);
+  background: var(--success-surface);
 }
 
-.git-sync-main-copy small.is-warning,
-.git-sync-current-copy small.is-warning {
+.git-sync-status.is-warning {
   color: var(--warning-text);
+  background: var(--warning-surface);
 }
 
-.git-sync-main-copy small.is-pending,
-.git-sync-current-copy small.is-pending {
+.git-sync-status.is-pending,
+.git-sync-status.is-loading {
   color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .git-sync-console-card {
@@ -737,11 +610,11 @@ function statusIcon(tone: string) {
 
 .git-sync-console-header {
   display: flex;
-  min-height: 58px;
+  min-height: 46px;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 11px 14px;
+  gap: 12px;
+  padding: 8px 12px 8px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -749,52 +622,42 @@ function statusIcon(tone: string) {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.git-sync-console-title > svg {
-  width: 20px;
-  height: 20px;
+.git-sync-console-title svg {
+  width: 17px;
+  height: 17px;
   flex: 0 0 auto;
   color: var(--accent);
 }
 
-.git-sync-console-title h2,
-.git-sync-console-title p {
+.git-sync-console-title h3 {
   margin: 0;
-}
-
-.git-sync-console-title h2 {
   color: var(--text);
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.3;
-}
-
-.git-sync-console-title p {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 10px;
 }
 
 .git-sync-console-tools {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .git-sync-console-state {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: var(--font-weight-strong);
 }
 
 .git-sync-console-state i {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: var(--text-dim);
 }
@@ -805,7 +668,6 @@ function statusIcon(tone: string) {
 
 .git-sync-console-state.is-success i {
   background: var(--success-text);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-text) 14%, transparent);
 }
 
 .git-sync-console-state.is-warning {
@@ -825,21 +687,39 @@ function statusIcon(tone: string) {
   animation: git-sync-pulse 1s ease-in-out infinite alternate;
 }
 
-.git-sync-console-clear {
+.git-sync-console-clear,
+.git-sync-settings-button {
+  display: inline-flex;
   min-height: 28px;
-  padding: 4px 9px;
-  border: 1px solid #484f58;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: #c9d1d9;
-  background: #21262d;
+  color: var(--text-muted);
+  background: var(--surface-2);
   font: inherit;
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
 }
 
-.git-sync-console-clear:hover:not(:disabled) {
-  border-color: #8b949e;
-  color: #fff;
+.git-sync-console-clear {
+  padding: 4px 9px;
+}
+
+.git-sync-settings-button {
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.git-sync-settings-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.git-sync-console-clear:hover:not(:disabled),
+.git-sync-settings-button:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border));
 }
 
 .git-sync-console-clear:disabled {
@@ -847,152 +727,45 @@ function statusIcon(tone: string) {
   opacity: 0.45;
 }
 
-.git-sync-terminal {
-  min-height: 250px;
-  padding: 18px 20px 20px;
-  color: #c9d1d9;
-  background: #0d1117;
-  color-scheme: dark;
-  font-family: var(--font-family-code);
-}
-
-.git-sync-terminal-intro {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #e6edf3;
-  font-size: 12px;
-}
-
-.git-sync-terminal-intro small {
-  margin-left: auto;
-  color: #8b949e;
-  font-family: var(--font-family-sans);
-  font-size: 10px;
-}
-
-.git-sync-terminal-prompt {
-  color: #58a6ff;
-  font-weight: 800;
-}
-
-.git-sync-terminal-steps {
-  display: grid;
-  gap: 14px;
-  margin: 22px 0 20px;
-  padding: 0;
-  list-style: none;
-}
-
-.git-sync-terminal-steps li {
-  display: grid;
-  grid-template-columns: 9px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  color: #8b949e;
-  font-size: 12px;
-}
-
-.git-sync-step-marker {
-  width: 7px;
-  height: 7px;
-  border: 1px solid #6e7681;
-  border-radius: 999px;
-}
-
-.git-sync-terminal-steps li.is-complete {
-  color: #c9d1d9;
-}
-
-.git-sync-terminal-steps li.is-complete .git-sync-step-marker {
-  border-color: #3fb950;
-  background: #3fb950;
-}
-
-.git-sync-terminal-steps li.is-running {
-  color: #c9d1d9;
-}
-
-.git-sync-terminal-steps li.is-running .git-sync-step-marker {
-  border-color: #58a6ff;
-  background: #58a6ff;
-  animation: git-sync-pulse 1s ease-in-out infinite alternate;
-}
-
-.git-sync-terminal-result {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding-top: 16px;
-  border-top: 1px solid #21262d;
-  color: #8b949e;
-  font-family: var(--font-family-sans);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.git-sync-terminal-result svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-
-.git-sync-terminal-result.is-success {
-  color: #3fb950;
-}
-
-.git-sync-terminal-result.is-error {
-  color: #f85149;
-}
-
-.git-sync-terminal-result.is-running {
-  color: #58a6ff;
-}
-
-.git-sync-terminal-result.is-running svg,
-.git-sync-button.is-busy svg,
-.git-sync-summary-icon.is-loading svg {
-  animation: git-sync-spin 0.8s linear infinite;
-}
-
-.git-sync-console-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border);
-}
-
-.git-sync-button,
-.git-sync-settings-button {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.git-sync-button svg,
-.git-sync-settings-button svg {
-  width: 16px;
-  height: 16px;
-}
-
-.git-sync-primary-button {
-  min-width: 190px;
-}
-
-.git-sync-current-button {
-  min-width: 140px;
-}
-
 .git-sync-settings-chevron {
-  width: 14px !important;
+  width: 11px !important;
   transition: transform 0.18s ease;
 }
 
 .git-sync-settings-chevron.is-open {
   transform: rotate(180deg);
+}
+
+.git-sync-console-output {
+  display: grid;
+  min-height: 52px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-2) 40%, transparent);
+  font-family: var(--font-family-code);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.git-sync-console-output > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--success-text);
+}
+
+.git-sync-console-output > svg.is-spinning {
+  color: var(--accent);
+  animation: git-sync-spin 0.8s linear infinite;
+}
+
+.git-sync-console-output time {
+  color: var(--text-dim);
+  font-family: var(--font-family-sans);
+  font-size: 9px;
+  white-space: nowrap;
 }
 
 .git-sync-settings {
@@ -1006,102 +779,68 @@ function statusIcon(tone: string) {
 .git-sync-settings > div {
   display: grid;
   min-width: 0;
-  gap: 4px;
-  padding: 12px 14px;
+  gap: 3px;
+  padding: 10px 12px;
   background: var(--surface-2);
 }
 
 .git-sync-settings span {
   color: var(--text-dim);
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .git-sync-settings strong {
   overflow: hidden;
   color: var(--text);
-  font-size: 11px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.git-sync-support-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.78fr);
-  gap: 14px;
+.git-sync-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
-.git-sync-support-card {
-  padding: 14px;
+.git-sync-button svg {
+  width: 15px;
+  height: 15px;
 }
 
-.git-sync-support-card header {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
+.git-sync-primary-button {
+  min-width: 176px;
 }
 
-.git-sync-support-card header > svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  margin-top: 1px;
+.git-sync-current-button {
+  min-width: 132px;
+}
+
+.git-sync-current-copy small:first-child {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
+}
+
+.git-sync-current-copy small.is-success {
+  color: var(--success-text);
+}
+
+.git-sync-current-copy small.is-warning {
+  color: var(--warning-text);
+}
+
+.git-sync-current-copy small.is-pending,
+.git-sync-current-copy small.is-loading {
   color: var(--accent);
 }
 
-.git-sync-support-card h3,
-.git-sync-support-card header p {
-  margin: 0;
-}
-
-.git-sync-support-card h3 {
-  color: var(--text);
-  font-size: 12px;
-}
-
-.git-sync-support-card header p {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 9px;
-}
-
-.git-sync-support-card ul {
-  display: grid;
-  gap: 9px;
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.git-sync-support-card li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.git-sync-support-card li i {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border: 1px solid var(--text-dim);
-  border-radius: 999px;
-}
-
-.git-sync-support-card li.is-ready i {
-  border-color: var(--success-text);
-  background: var(--success-text);
-}
-
-.git-sync-tip-card > p {
-  margin: 15px 0 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  line-height: 1.55;
-}
-
-.git-sync-tip-card strong {
-  color: var(--text);
+.git-sync-button.is-busy svg,
+.git-sync-main-icon.is-loading svg,
+.git-sync-status.is-loading svg {
+  animation: git-sync-spin 0.8s linear infinite;
 }
 
 @keyframes git-sync-spin {
@@ -1120,11 +859,11 @@ function statusIcon(tone: string) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .git-sync-terminal-result.is-running svg,
   .git-sync-button.is-busy svg,
-  .git-sync-summary-icon.is-loading svg,
-  .git-sync-console-state.is-loading i,
-  .git-sync-terminal-steps li.is-running .git-sync-step-marker {
+  .git-sync-main-icon.is-loading svg,
+  .git-sync-status.is-loading svg,
+  .git-sync-console-output > svg.is-spinning,
+  .git-sync-console-state.is-loading i {
     animation: none;
   }
 
@@ -1134,14 +873,8 @@ function statusIcon(tone: string) {
 }
 
 @media (max-width: 960px) {
-  .git-sync-summary,
-  .git-sync-settings,
-  .git-sync-support-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .git-sync-summary-card {
-    min-height: 0;
+  .git-sync-settings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1150,35 +883,41 @@ function statusIcon(tone: string) {
     padding: 12px;
   }
 
-  .git-sync-console-header,
+  .git-sync-heading {
+    align-items: flex-start;
+  }
+
   .git-sync-main-card,
   .git-sync-current-card {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .git-sync-console-tools {
-    justify-content: space-between;
-  }
-
-  .git-sync-terminal {
-    min-height: 220px;
-    padding: 16px;
-  }
-
-  .git-sync-terminal-intro {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .git-sync-terminal-intro small {
-    width: 100%;
-    margin-left: 17px;
-  }
-
   .git-sync-primary-button,
   .git-sync-current-button {
     width: 100%;
+  }
+
+  .git-sync-console-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .git-sync-console-tools {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .git-sync-console-output {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .git-sync-console-output time {
+    display: none;
+  }
+
+  .git-sync-settings {
+    grid-template-columns: 1fr;
   }
 }
 </style>
