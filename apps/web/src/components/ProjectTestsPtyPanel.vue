@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import type { Project, ProjectTestOverview } from '@dev-dashboard/contracts';
 
@@ -26,9 +26,19 @@ const snapshot = ref<ProjectTestPtyStatusSnapshot | null>(null);
 const starting = ref(false);
 const cancelling = ref(false);
 const errorMessage = ref('');
+const terminalContextMenu = ref<{ left: number; top: number } | null>(null);
 
-const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
-  usePtyTerminalSocket<ProjectTestPtyStatusSnapshot & { buffer: string }>({
+const {
+  terminalContainer,
+  connecting,
+  connect,
+  disconnect,
+  disposeTerminal,
+  hasTerminalSelection,
+  copyTerminalSelection,
+  copyShortcutLabel,
+} = usePtyTerminalSocket<ProjectTestPtyStatusSnapshot & { buffer: string }>(
+  {
     onReady: (readySnapshot) => {
       snapshot.value = readySnapshot;
     },
@@ -45,7 +55,9 @@ const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
     onError: (message) => {
       errorMessage.value = message;
     },
-  });
+  },
+  { enableClipboard: true },
+);
 
 const isRunning = computed(() => snapshot.value?.status === 'running');
 const selectedCommand = computed(() =>
@@ -141,12 +153,59 @@ async function cancel(): Promise<void> {
   }
 }
 
+function closeTerminalContextMenu(): void {
+  terminalContextMenu.value = null;
+}
+
+async function copyTerminalSelectionFromMenu(): Promise<void> {
+  closeTerminalContextMenu();
+  await copyTerminalSelection();
+}
+
+function openTerminalContextMenu(event: MouseEvent): void {
+  if (!hasTerminalSelection()) {
+    closeTerminalContextMenu();
+    return;
+  }
+
+  event.preventDefault();
+
+  const margin = 8;
+  const menuWidth = 156;
+  const menuHeight = 40;
+  terminalContextMenu.value = {
+    left: Math.max(
+      margin,
+      Math.min(event.clientX, window.innerWidth - menuWidth - margin),
+    ),
+    top: Math.max(
+      margin,
+      Math.min(event.clientY, window.innerHeight - menuHeight - margin),
+    ),
+  };
+}
+
+function handleKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeTerminalContextMenu();
+}
+
 function closeTerminal(): void {
+  closeTerminalContextMenu();
   disconnect();
   disposeTerminal();
   snapshot.value = null;
   errorMessage.value = '';
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('click', closeTerminalContextMenu);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('click', closeTerminalContextMenu);
+});
 
 watch(
   () => `${props.project.id}:${props.environmentInstanceId ?? ''}`,
@@ -243,7 +302,32 @@ watch(
             Fechar saída
           </button>
         </div>
-        <div ref="terminalContainer" class="tests-pty-terminal"></div>
+        <div
+          ref="terminalContainer"
+          class="tests-pty-terminal"
+          @contextmenu.capture="openTerminalContextMenu"
+        ></div>
+        <div
+          v-if="terminalContextMenu"
+          class="tests-terminal-context-menu"
+          :style="{
+            left: `${terminalContextMenu.left}px`,
+            top: `${terminalContextMenu.top}px`,
+          }"
+          role="menu"
+          @click.stop
+          @contextmenu.prevent
+        >
+          <button
+            type="button"
+            class="tests-terminal-context-menu-button"
+            role="menuitem"
+            @click="copyTerminalSelectionFromMenu"
+          >
+            <span>Copiar</span>
+            <kbd>{{ copyShortcutLabel }}</kbd>
+          </button>
+        </div>
       </section>
     </section>
   </Card>
@@ -397,6 +481,47 @@ watch(
 
 .tests-pty-terminal :global(.xterm-viewport::-webkit-scrollbar) {
   display: none;
+}
+
+.tests-terminal-context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 156px;
+  padding: 4px;
+  border: 1px solid #30374d;
+  border-radius: 8px;
+  background: #171b28;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
+}
+
+.tests-terminal-context-menu-button {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #dbe0f2;
+  font: inherit;
+  font-size: var(--font-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tests-terminal-context-menu-button:hover,
+.tests-terminal-context-menu-button:focus-visible {
+  background: rgb(124 139 255 / 22%);
+  outline: none;
+}
+
+.tests-terminal-context-menu-button kbd {
+  color: #7d84a3;
+  font: inherit;
+  font-size: 10px;
 }
 
 @media (max-width: 980px) {

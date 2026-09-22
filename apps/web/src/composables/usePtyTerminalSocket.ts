@@ -4,6 +4,10 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { onBeforeUnmount, ref } from 'vue';
 
+import {
+  copyTextToClipboard,
+  isTerminalCopyShortcut,
+} from '../utils/terminal-clipboard';
 import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
 
 /**
@@ -15,13 +19,14 @@ import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
  * (ex. qual operação está rodando); a montagem do terminal e a escrita da
  * saída são genéricas e ficam aqui.
  */
-export function usePtyTerminalSocket<
-  TSnapshot extends { buffer: string },
->(handlers: {
-  onReady: (snapshot: TSnapshot) => void;
-  onExit: (exitCode: number | null, exitSignal: number | null) => void;
-  onError: (message: string) => void;
-}) {
+export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
+  handlers: {
+    onReady: (snapshot: TSnapshot) => void;
+    onExit: (exitCode: number | null, exitSignal: number | null) => void;
+    onError: (message: string) => void;
+  },
+  options: { enableClipboard?: boolean } = {},
+) {
   const terminalContainer = ref<HTMLDivElement | null>(null);
   const connecting = ref(false);
 
@@ -29,6 +34,24 @@ export function usePtyTerminalSocket<
   let fitAddon: FitAddon | undefined;
   let resizeObserver: ResizeObserver | undefined;
   let socket: WebSocket | undefined;
+
+  const macOS =
+    typeof navigator !== 'undefined' &&
+    /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const copyShortcutLabel = macOS ? '⌘C' : 'Ctrl+C';
+
+  function hasTerminalSelection(): boolean {
+    return terminal?.hasSelection() ?? false;
+  }
+
+  async function copyTerminalSelection(): Promise<boolean> {
+    const selection = terminal?.getSelection() ?? '';
+    if (!selection) return false;
+
+    const copied = await copyTextToClipboard(selection);
+    if (copied) terminal?.focus();
+    return copied;
+  }
 
   function sendResize(): void {
     if (!terminal || !socket || socket.readyState !== WebSocket.OPEN) return;
@@ -58,6 +81,22 @@ export function usePtyTerminalSocket<
     terminal.loadAddon(fitAddon);
     terminal.open(terminalContainer.value);
     fitAddon.fit();
+
+    if (options.enableClipboard) {
+      terminal.attachCustomKeyEventHandler((event) => {
+        if (
+          event.type !== 'keydown' ||
+          !terminal ||
+          !isTerminalCopyShortcut(event, terminal.hasSelection(), macOS)
+        ) {
+          return true;
+        }
+
+        void copyTerminalSelection();
+        return false;
+      });
+    }
+
     sendResize();
     // No primeiro paint o container às vezes ainda não assumiu a largura
     // final (troca de aba, layout do Card ainda assentando) e o fit()
@@ -163,5 +202,8 @@ export function usePtyTerminalSocket<
     connect,
     disconnect,
     disposeTerminal,
+    hasTerminalSelection,
+    copyTerminalSelection,
+    copyShortcutLabel,
   };
 }
