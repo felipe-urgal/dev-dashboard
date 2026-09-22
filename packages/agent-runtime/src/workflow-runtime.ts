@@ -102,9 +102,7 @@ function sameOwnership(
   );
 }
 
-function executionState(
-  result: AgentProviderResult,
-): AgentExecution['state'] {
+function executionState(result: AgentProviderResult): AgentExecution['state'] {
   switch (result.outcome) {
     case 'succeeded':
       return 'succeeded';
@@ -241,8 +239,7 @@ export class AgentWorkflowRuntime {
         executionId,
         ...(runningRecord.task.environmentInstanceId
           ? {
-              environmentInstanceId:
-                runningRecord.task.environmentInstanceId,
+              environmentInstanceId: runningRecord.task.environmentInstanceId,
             }
           : {}),
       };
@@ -259,8 +256,7 @@ export class AgentWorkflowRuntime {
           projectId: runningRecord.task.projectId,
           ...(runningRecord.task.environmentInstanceId
             ? {
-                environmentInstanceId:
-                  runningRecord.task.environmentInstanceId,
+                environmentInstanceId: runningRecord.task.environmentInstanceId,
               }
             : {}),
           summary: runningRecord.task.summary,
@@ -304,8 +300,7 @@ export class AgentWorkflowRuntime {
         projectId: runningRecord.task.projectId,
         ...(runningRecord.task.environmentInstanceId
           ? {
-              environmentInstanceId:
-                runningRecord.task.environmentInstanceId,
+              environmentInstanceId: runningRecord.task.environmentInstanceId,
             }
           : {}),
         requestedProviderId: providerId,
@@ -313,9 +308,7 @@ export class AgentWorkflowRuntime {
         state: executionState(providerResult),
         startedAt,
         finishedAt,
-        ...(providerResult.failure
-          ? { failure: providerResult.failure }
-          : {}),
+        ...(providerResult.failure ? { failure: providerResult.failure } : {}),
       };
 
       return {
@@ -326,12 +319,8 @@ export class AgentWorkflowRuntime {
     } finally {
       try {
         const persisted =
-          latestRecord ??
-          (await this.taskStore.get(request.taskId));
-        if (
-          persisted &&
-          persisted.task.projectId === request.projectId
-        ) {
+          latestRecord ?? (await this.taskStore.get(request.taskId));
+        if (persisted && persisted.task.projectId === request.projectId) {
           await this.runtimeStateStore.markIdle(persisted);
         }
       } finally {

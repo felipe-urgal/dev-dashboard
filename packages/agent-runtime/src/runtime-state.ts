@@ -187,9 +187,7 @@ export class AgentRuntimeStateStore {
     });
   }
 
-  public async markIdle(
-    record: AgentTaskRecord,
-  ): Promise<AgentRuntimeState> {
+  public async markIdle(record: AgentTaskRecord): Promise<AgentRuntimeState> {
     const previous = await this.read(record);
     const observedAt = this.now().toISOString();
 
