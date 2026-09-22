@@ -395,16 +395,14 @@
   gap: var(--space-3);
   border: 1px solid var(--border);
   background: var(--surface-2);
-  padding: var(--space-3);
+  padding: 12px 14px;
 }
 
 .git-pr-branch-card {
   display: grid;
-  gap: 5px;
+  gap: 3px;
   min-width: 0;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  padding: 14px;
+  padding: 0;
 }
 
 .git-pr-branch-card span,
@@ -422,12 +420,6 @@
 }
 
 .git-pr-branch-arrow {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
   color: var(--accent);
   font-size: var(--font-lg);
 }
@@ -462,7 +454,7 @@
 
 .git-pr-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
