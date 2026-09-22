@@ -140,7 +140,7 @@ describe('ambiente do servidor Node', () => {
 
     const cancelButton = wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Cancelar'));
+      .find((button) => button.text().includes('Fechar'));
     expect(cancelButton).toBeDefined();
     await cancelButton!.trigger('click');
 
@@ -190,7 +190,7 @@ describe('ambiente do servidor Node', () => {
 
     const cancelButton = wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Cancelar'));
+      .find((button) => button.text().includes('Fechar'));
     expect(cancelButton).toBeDefined();
     await cancelButton!.trigger('click');
 
