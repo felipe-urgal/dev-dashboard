@@ -187,6 +187,22 @@ export class AgentRuntimeStateStore {
     });
   }
 
+  public async markIdle(
+    record: AgentTaskRecord,
+  ): Promise<AgentRuntimeState> {
+    const previous = await this.read(record);
+    const observedAt = this.now().toISOString();
+
+    return this.write(record, {
+      taskId: record.task.id,
+      projectId: record.task.projectId,
+      canonicalVersion: record.version,
+      state: 'idle',
+      attempts: previous.attempts,
+      updatedAt: observedAt,
+    });
+  }
+
   public async recoverInterrupted(
     records: readonly AgentTaskRecord[],
   ): Promise<string[]> {
