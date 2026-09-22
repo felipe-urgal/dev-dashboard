@@ -18,6 +18,7 @@ import type {
   WorkerKind,
 } from '@dev-dashboard/process-manager';
 
+import { resolvePackageManagerEnvironment } from '../security/project-package-manager-environment.js';
 import { pathExists } from './rails-inspection/command-resolution.js';
 
 /**
@@ -126,8 +127,25 @@ async function resolveWebpackCommand(
  * criptografadas. Catálogo fechado: o navegador envia apenas `RailsWorkerId`,
  * nunca comando ou argumentos.
  */
+export interface RailsRuntimeServiceOptions {
+  resolvePackageManagerEnvironment?: (
+    projectPath: string,
+  ) => Promise<NodeJS.ProcessEnv>;
+}
+
 export class RailsRuntimeService {
-  public constructor(private readonly processManager: ProcessManager) {}
+  private readonly packageManagerEnvironmentResolver: (
+    projectPath: string,
+  ) => Promise<NodeJS.ProcessEnv>;
+
+  public constructor(
+    private readonly processManager: ProcessManager,
+    options: RailsRuntimeServiceOptions = {},
+  ) {
+    this.packageManagerEnvironmentResolver =
+      options.resolvePackageManagerEnvironment ??
+      resolvePackageManagerEnvironment;
+  }
 
   private detect(workerId: RailsWorkerId, project: Project): Promise<boolean> {
     return workerId === 'sidekiq'
@@ -191,7 +209,19 @@ export class RailsRuntimeService {
       );
     }
 
-    const command = await this.resolveCommand(workerId, scopedProject);
+    const resolvedCommand = await this.resolveCommand(workerId, scopedProject);
+    const packageManagerEnvironment =
+      workerId === 'webpack'
+        ? await this.packageManagerEnvironmentResolver(scopedProject.path)
+        : {};
+    const command =
+      Object.keys(packageManagerEnvironment).length > 0
+        ? {
+            ...resolvedCommand,
+            environment: packageManagerEnvironment,
+          }
+        : resolvedCommand;
+
     return this.processManager.startWorker(
       project,
       WORKER_PROCESS_KIND[workerId],

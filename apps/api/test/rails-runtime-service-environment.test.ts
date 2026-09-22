@@ -222,3 +222,76 @@ test('restart do Sidekiq mantém ownership na mesma Environment Instance', async
   });
   assert.equal(calls[2]?.args[3], executionContext);
 });
+
+test('webpack recebe variáveis de package manager resolvidas no cwd da Environment Instance', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-rails-webpack-package-env-'),
+  );
+  const primaryPath = path.join(root, 'primary');
+  const worktreePath = path.join(root, 'worktree');
+  await mkdir(primaryPath, { recursive: true });
+  await mkdir(path.join(worktreePath, 'bin'), { recursive: true });
+  await writeFile(path.join(primaryPath, 'Gemfile'), 'gem "rails"\n');
+  await writeFile(path.join(worktreePath, 'Gemfile'), 'gem "rails"\n');
+  await writeFile(
+    path.join(worktreePath, 'bin', 'webpack-dev-server'),
+    '#!/bin/sh\n',
+  );
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const project: Project = {
+    id: 'p1',
+    name: 'sample',
+    path: primaryPath,
+    type: 'rails',
+    source: 'standalone',
+    enabled: true,
+    capabilities: [],
+  };
+  const executionContext: ExecutionContext = {
+    projectId: project.id,
+    environmentInstanceId: 'environment:worktree:p1:wt-webpack',
+    cwd: worktreePath,
+    runtime: 'host',
+  };
+
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const processManager = {
+    startWorker: async (...args: unknown[]) => {
+      calls.push({ action: 'start', args });
+      return {
+        id: 'webpack-1',
+        projectId: project.id,
+        environmentInstanceId: executionContext.environmentInstanceId,
+        kind: 'webpack',
+        status: 'running',
+      };
+    },
+  };
+
+  const service = new RailsRuntimeService(processManager as never, {
+    resolvePackageManagerEnvironment: async (projectPath) => {
+      assert.equal(projectPath, worktreePath);
+      return { FONTAWESOME_TOKEN: 'token-from-shell' };
+    },
+  });
+
+  await service.startWorker(project, 'webpack', executionContext);
+
+  assert.deepEqual(calls.at(-1), {
+    action: 'start',
+    args: [
+      project,
+      'webpack',
+      {
+        id: 'webpack',
+        command: path.join(worktreePath, 'bin', 'webpack-dev-server'),
+        args: [],
+        environment: {
+          FONTAWESOME_TOKEN: 'token-from-shell',
+        },
+      },
+      executionContext,
+    ],
+  });
+});
