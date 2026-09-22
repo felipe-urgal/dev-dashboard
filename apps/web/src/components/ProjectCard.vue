@@ -264,7 +264,10 @@ const statusClass = computed(() => {
 }
 
 .project-card-hit-area:hover ~ .project-card-main .project-card-identity h3,
-.project-card-hit-area:focus-visible ~ .project-card-main .project-card-identity h3 {
+.project-card-hit-area:focus-visible
+  ~ .project-card-main
+  .project-card-identity
+  h3 {
   color: var(--info-text);
 }
 
