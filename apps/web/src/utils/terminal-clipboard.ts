@@ -1,6 +1,6 @@
 type TerminalCopyKeyEvent = Pick<
   KeyboardEvent,
-  'key' | 'ctrlKey' | 'metaKey' | 'altKey'
+  'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'
 >;
 
 export function isTerminalCopyShortcut(
