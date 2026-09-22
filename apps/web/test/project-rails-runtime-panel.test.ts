@@ -157,7 +157,11 @@ describe('ProjectRailsRuntimePanel', () => {
 
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
     expect(wrapper.text()).toContain('4242');
-    expect(wrapper.text()).toContain('Processo ativo e respondendo');
+    expect(wrapper.text()).toContain('Executando');
+    expect(wrapper.find('.rails-worker-status-dot.is-running').exists()).toBe(
+      true,
+    );
+    expect(wrapper.findAll('.project-log-terminal')).toHaveLength(1);
 
     wrapper.unmount();
   });
@@ -202,9 +206,6 @@ describe('ProjectRailsRuntimePanel', () => {
       environmentInstanceId,
     );
 
-    await wrapper.find('button.secondary-button').trigger('click');
-    await flushPromises();
-
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
       'sidekiq',
@@ -226,9 +227,6 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
-    await sidekiqWrapper.find('button.secondary-button').trigger('click');
-    await flushPromises();
-
     expect(sidekiqWrapper.findAll('.project-log-terminal')).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
@@ -242,9 +240,6 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
-    await webpackWrapper.find('button.secondary-button').trigger('click');
-    await flushPromises();
-
     expect(webpackWrapper.findAll('.project-log-terminal')).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
@@ -255,5 +250,31 @@ describe('ProjectRailsRuntimePanel', () => {
 
     sidekiqWrapper.unmount();
     webpackWrapper.unmount();
+  });
+
+  it('usa a visualização minimalista com detalhes recolhidos e log direto', async () => {
+    fetchProjectRailsWorker.mockResolvedValueOnce(
+      overview('webpack', true, true),
+    );
+
+    const wrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'webpack' },
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.rails-worker-identity').text()).toContain('Webpack');
+    expect(
+      wrapper.find('.rails-worker-details').attributes('open'),
+    ).toBeUndefined();
+    expect(wrapper.text()).not.toContain('Processo ativo e respondendo');
+    expect(wrapper.text()).not.toContain('Log do processo');
+    expect(wrapper.text()).not.toContain('Acompanhando o final');
+    expect(wrapper.text()).toContain('Ao vivo');
+    expect(wrapper.text()).toContain('Copiar');
+    expect(wrapper.text()).toContain('Limpar');
+    expect(wrapper.text()).toContain('Expandir');
+    expect(wrapper.find('.rails-log-close-button').exists()).toBe(false);
+
+    wrapper.unmount();
   });
 });

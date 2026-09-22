@@ -31,6 +31,9 @@ const props = withDefaults(
     follow?: boolean;
     embedded?: boolean;
     stripAnsi?: boolean;
+    copyLabel?: string;
+    showStatusLabel?: boolean;
+    showFollowStatus?: boolean;
   }>(),
   {
     title: 'Log',
@@ -42,6 +45,9 @@ const props = withDefaults(
     follow: true,
     embedded: false,
     stripAnsi: true,
+    copyLabel: 'Copiar tudo',
+    showStatusLabel: true,
+    showFollowStatus: true,
   },
 );
 
@@ -124,7 +130,9 @@ onBeforeUnmount(() => window.clearTimeout(copyMessageTimer));
           aria-hidden="true"
         ></span>
         <strong>{{ title }}</strong>
-        <span>{{ running ? 'Ao vivo' : `${lineCount} linhas` }}</span>
+        <span v-if="showStatusLabel">{{
+          running ? 'Ao vivo' : `${lineCount} linhas`
+        }}</span>
       </div>
 
       <div class="project-log-viewer-actions">
@@ -143,14 +151,16 @@ onBeforeUnmount(() => window.clearTimeout(copyMessageTimer));
           @click="copyAll"
         >
           <ClipboardDocumentIcon aria-hidden="true" />
-          Copiar tudo
+          {{ copyLabel }}
         </button>
         <slot name="actions" />
       </div>
     </header>
 
     <div
-      v-if="maskedCount || truncated || (running && autoFollow)"
+      v-if="
+        maskedCount || truncated || (showFollowStatus && running && autoFollow)
+      "
       class="project-log-viewer-meta"
     >
       <span v-if="maskedCount">
@@ -159,7 +169,9 @@ onBeforeUnmount(() => window.clearTimeout(copyMessageTimer));
         }}
       </span>
       <span v-if="truncated">O início do log foi truncado</span>
-      <span v-if="running && autoFollow">Acompanhando o final</span>
+      <span v-if="showFollowStatus && running && autoFollow">
+        Acompanhando o final
+      </span>
     </div>
 
     <button
