@@ -10,6 +10,9 @@ withDefaults(
     clearing?: boolean;
     title?: string;
     emptyLabel?: string;
+    copyLabel?: string;
+    showStatusLabel?: boolean;
+    showFollowStatus?: boolean;
   }>(),
   {
     running: false,
@@ -18,6 +21,9 @@ withDefaults(
     clearing: false,
     title: 'Log do servidor',
     emptyLabel: 'Nenhuma saída registrada.',
+    copyLabel: 'Copiar tudo',
+    showStatusLabel: true,
+    showFollowStatus: true,
   },
 );
 
@@ -32,6 +38,9 @@ const emit = defineEmits<{ clear: [] }>();
     :running="running"
     :masked-count="maskedCount"
     :empty-label="emptyLabel"
+    :copy-label="copyLabel"
+    :show-status-label="showStatusLabel"
+    :show-follow-status="showFollowStatus"
     :wrap="false"
     embedded
   >
@@ -44,6 +53,7 @@ const emit = defineEmits<{ clear: [] }>();
       >
         {{ clearing ? 'Limpando…' : 'Limpar' }}
       </button>
+      <slot name="actions" />
     </template>
   </ProjectLogViewer>
 </template>
