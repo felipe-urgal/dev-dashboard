@@ -274,7 +274,11 @@ function statusIcon(tone: string) {
               <span>origin/main</span>
             </strong>
 
-            <span class="git-sync-status" :class="`is-${status.tone}`" role="status">
+            <span
+              class="git-sync-status"
+              :class="`is-${status.tone}`"
+              role="status"
+            >
               <component :is="statusIcon(status.tone)" aria-hidden="true" />
               {{ status.label }}
             </span>
