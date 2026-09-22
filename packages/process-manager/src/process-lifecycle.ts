@@ -43,6 +43,7 @@ export interface StartWorkerCommand {
   id: string;
   command: string;
   args: string[];
+  environment?: NodeJS.ProcessEnv;
 }
 
 export interface ProcessLifecycle {
@@ -234,7 +235,7 @@ export function createProcessLifecycle(
       status: 'running',
       command: command.command,
       args: command.args,
-      env: { ...process.env },
+      env: { ...process.env, ...command.environment },
       missingPidMessage: `Não foi possível obter o PID do worker de ${project.name}.`,
     });
   }
