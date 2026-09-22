@@ -98,6 +98,11 @@ test('loop processa múltiplas tools e só finaliza em terminal_result', async (
   assert.equal(x.getSubmits(), 3);
   assert.equal(x.getGenerationEnds(), 3);
   assert.equal(x.submittedTexts[0], 'bootstrap');
+  assert.equal(
+    x.submittedTexts[1].startsWith('```agent-workflow-browser\\n'),
+    true,
+  );
+  assert.equal(x.submittedTexts[1].endsWith('\\n```'), true);
   assert.match(x.submittedTexts[1], /"type":"tool_result".*"toolCallId":"call-1"/);
   assert.match(x.submittedTexts[2], /"type":"tool_result".*"toolCallId":"call-2"/);
 

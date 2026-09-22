@@ -61,7 +61,7 @@
   }
 
   function formatAgentWorkflowEnvelope(value) {
-    return '```agent-workflow-browser\\n' + JSON.stringify(value) + '\\n```';
+    return '```agent-workflow-browser\n' + JSON.stringify(value) + '\n```';
   }
 
   async function reportFailure(jobId, errorCode, browserPhase) {
