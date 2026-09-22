@@ -525,8 +525,22 @@ export class GitAgentTaskStore implements AgentTaskStore {
   }
 
   private async readTask(taskId: string): Promise<AgentTaskRecord | null> {
+    const tasksDirectory = path.join(this.repositoryDirectory, 'tasks');
+    try {
+      const stat = await fs.lstat(tasksDirectory);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) {
+        throw new GitAgentTaskStoreError(
+          'AGENT_TASK_STORE_CORRUPT',
+          'Canonical agent task directory is invalid.',
+        );
+      }
+    } catch (error) {
+      if (isEnoent(error)) return null;
+      throw error;
+    }
+
     const fileName = taskFileName(taskId);
-    const filePath = path.join(this.repositoryDirectory, 'tasks', fileName);
+    const filePath = path.join(tasksDirectory, fileName);
 
     try {
       const record = await this.readTaskFile(filePath, fileName);
