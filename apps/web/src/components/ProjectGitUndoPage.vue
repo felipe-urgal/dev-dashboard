@@ -232,7 +232,9 @@ async function undoFile(filePath: string): Promise<void> {
               class="git-undo-publication"
               :class="publishedLatestCommit ? 'is-published' : 'is-local'"
             >
-              {{ publishedLatestCommit ? 'Publicado no origin' : 'Commit local' }}
+              {{
+                publishedLatestCommit ? 'Publicado no origin' : 'Commit local'
+              }}
             </span>
             <button
               v-if="isLatestCommit(commit.hash)"
@@ -248,7 +250,10 @@ async function undoFile(filePath: string): Promise<void> {
         </div>
         <div v-else class="git-undo-empty">Nenhum commit disponível.</div>
 
-        <p v-if="overview.latestCommit && !overview.clean" class="git-undo-note">
+        <p
+          v-if="overview.latestCommit && !overview.clean"
+          class="git-undo-note"
+        >
           Registre ou desfaça as alterações atuais antes de desfazer o commit.
         </p>
 
