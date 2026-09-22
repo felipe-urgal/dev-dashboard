@@ -337,7 +337,11 @@ onMounted(() => {
     </h1>
 
     <div class="database-page-toolbar">
-      <div class="database-page-tabs" role="tablist" aria-label="Banco de dados">
+      <div
+        class="database-page-tabs"
+        role="tablist"
+        aria-label="Banco de dados"
+      >
         <button
           id="database-tab-services"
           type="button"
