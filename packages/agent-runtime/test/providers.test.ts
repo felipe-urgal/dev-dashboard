@@ -149,7 +149,7 @@ test('Claude doctor validates supported version and auth before auto mode', asyn
   assert.equal(execution.outcome, 'succeeded');
 
   const executionCall = fake.calls.at(-1);
-  assert.deepEqual(executionCall?.args.slice(0, 8), [
+  assert.deepEqual(executionCall?.args.slice(0, 9), [
     '-p',
     '--permission-mode',
     'auto',
