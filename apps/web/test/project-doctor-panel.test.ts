@@ -85,7 +85,7 @@ describe('ProjectDoctorPanel', () => {
     fetchProjectDoctor.mockResolvedValue(report);
   });
 
-  it('mostra o resumo e as recomendações sem conteúdo sensível', async () => {
+  it('prioriza pendências sem esconder recomendações e ações', async () => {
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },
       global: {
@@ -96,14 +96,21 @@ describe('ProjectDoctorPanel', () => {
     await flushPromises();
 
     expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false);
-    expect(wrapper.text()).toContain('O projeto precisa de atenção');
+    expect(wrapper.find('#project-doctor-title').text()).toBe('Diagnóstico');
+    expect(wrapper.text()).toContain('2 problemas encontrados');
+    expect(wrapper.text()).toContain('2 de 4 verificações aprovadas');
+    expect(wrapper.text()).toContain('Requer ação');
     expect(wrapper.text()).toContain('PUBLIC_URL');
     expect(wrapper.text()).toContain('Abrir variáveis de ambiente');
-    expect(wrapper.findAll('.project-doctor-check')).toHaveLength(4);
+    expect(
+      wrapper.findAll(
+        '.project-doctor-action-section .project-doctor-category',
+      ),
+    ).toHaveLength(2);
     expect(wrapper.html()).not.toContain('super-secret');
   });
 
-  it('renderiza o protótipo 1 como resumo operacional e lista expansível', async () => {
+  it('separa áreas aprovadas das áreas que requerem ação', async () => {
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },
       global: {
@@ -113,12 +120,17 @@ describe('ProjectDoctorPanel', () => {
 
     await flushPromises();
 
-    expect(wrapper.find('#project-doctor-title').text()).toBe('Diagnóstico');
-    expect(wrapper.findAll('.project-doctor-summary-item')).toHaveLength(4);
-    expect(wrapper.text()).toContain('2 de 4');
-    expect(wrapper.text()).toContain('Pendências');
-    expect(wrapper.findAll('.project-doctor-category')).toHaveLength(4);
-    expect(wrapper.find('.project-doctor-header').exists()).toBe(false);
+    expect(wrapper.findAll('.project-doctor-summary-item')).toHaveLength(0);
+    expect(wrapper.find('.project-doctor-result').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Áreas analisadas');
+    expect(
+      wrapper.findAll(
+        '.project-doctor-approved-section .project-doctor-category',
+      ),
+    ).toHaveLength(2);
+    expect(wrapper.text()).toContain('Aprovados');
+    expect(wrapper.text()).toContain('Projeto');
+    expect(wrapper.text()).toContain('Dependências');
   });
 
   it('descarta o relatório anterior ao trocar de projeto', async () => {
@@ -158,6 +170,8 @@ describe('ProjectDoctorPanel', () => {
     await flushPromises();
 
     expect(fetchProjectDoctor).toHaveBeenLastCalledWith('p2', false);
-    expect(wrapper.text()).toContain('Projeto pronto para trabalhar');
+    expect(wrapper.text()).toContain('Saudável');
+    expect(wrapper.text()).toContain('0 problemas encontrados');
+    expect(wrapper.text()).not.toContain('Requer ação');
   });
 });
