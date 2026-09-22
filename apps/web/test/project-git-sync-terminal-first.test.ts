@@ -99,7 +99,10 @@ test('renderiza a sincronização minimalista sem expor o remote principal', asy
   assert.match(wrapper.text(), /main\s*→\s*origin\/main/);
   assert.match(wrapper.text(), /Tudo sincronizado/);
   assert.match(wrapper.text(), /Console de sincronização/);
-  assert.match(wrapper.find('.git-sync-console-output').text(), /sincronizadas/);
+  assert.match(
+    wrapper.find('.git-sync-console-output').text(),
+    /sincronizadas/,
+  );
   assert.doesNotMatch(wrapper.text(), /upstream\//);
   assert.doesNotMatch(wrapper.text(), /Próximos passos/);
   assert.doesNotMatch(wrapper.text(), /Dicas/);
