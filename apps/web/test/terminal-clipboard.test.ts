@@ -8,6 +8,7 @@ function keyEvent(
     key: string;
     ctrlKey: boolean;
     metaKey: boolean;
+    shiftKey: boolean;
     altKey: boolean;
   }> = {},
 ) {
@@ -15,6 +16,7 @@ function keyEvent(
     key: 'c',
     ctrlKey: false,
     metaKey: false,
+    shiftKey: false,
     altKey: false,
     ...overrides,
   };
@@ -37,10 +39,7 @@ test('mantém Ctrl+C como SIGINT quando não existe seleção', () => {
 test('aceita Ctrl+Shift+C porque o Shift não muda o atalho de cópia', () => {
   assert.equal(
     isTerminalCopyShortcut(
-      {
-        ...keyEvent({ ctrlKey: true }),
-        shiftKey: true,
-      },
+      keyEvent({ ctrlKey: true, shiftKey: true }),
       true,
       false,
     ),
