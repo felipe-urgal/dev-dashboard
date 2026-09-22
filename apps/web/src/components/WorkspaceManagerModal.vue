@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { EllipsisHorizontalIcon } from '@heroicons/vue/24/outline';
+import { EllipsisHorizontalIcon, FolderIcon, PlusIcon } from '@heroicons/vue/24/outline';
 import { NButton, NDropdown, NInput, NModal, NSwitch } from 'naive-ui';
 
 import { dashboardStore } from '../stores/dashboard';
@@ -108,14 +108,25 @@ watch(
     preset="card"
     to="body"
     class="workspace-manager-dialog workspace-manager-tabs-dialog"
-    title="Workspaces"
     :bordered="false"
     role="dialog"
     aria-modal="true"
+    aria-label="Workspaces"
     @update:show="handleShowUpdate"
   >
-    <template #header-extra>
-      <span class="section-kicker">Workspace</span>
+    <template #header>
+      <div class="workspace-manager-header">
+        <strong>{{
+          activeTab === 'add' ? 'Adicionar workspace' : 'Gerenciar workspaces'
+        }}</strong>
+        <span>
+          {{
+            activeTab === 'add'
+              ? 'Cadastre uma pasta local para acompanhar seus projetos.'
+              : 'Renomeie, remova ou ajuste a busca em subdiretórios.'
+          }}
+        </span>
+      </div>
     </template>
 
     <div
@@ -173,11 +184,6 @@ watch(
       aria-labelledby="workspace-add-tab"
       tabindex="0"
     >
-      <div class="workspace-manager-panel-heading">
-        <strong>Adicionar workspace</strong>
-        <span>Cadastre uma pasta local para acompanhar seus projetos.</span>
-      </div>
-
       <form
         class="workspace-create-form"
         @submit.prevent="handleCreateWorkspace"
@@ -187,7 +193,7 @@ watch(
           <NInput
             v-model:value="newWorkspaceName"
             autocomplete="off"
-            placeholder="Projetos pessoais"
+            placeholder="Ex.: Projetos Pessoais"
           />
         </label>
 
@@ -201,6 +207,7 @@ watch(
             />
 
             <NButton
+              class="workspace-choose-folder-button"
               attr-type="button"
               secondary
               @click="directoryPickerOpen = true"
@@ -211,13 +218,15 @@ watch(
         </label>
 
         <label class="settings-row workspace-recursive-scan-field">
+          <span class="workspace-recursive-scan-icon" aria-hidden="true">
+            <FolderIcon />
+          </span>
           <span class="settings-row-copy">
             <strong id="workspace-recursive-scan-label"
               >Escanear subdiretórios (monorepos)</strong
             >
             <span id="workspace-recursive-scan-description"
-              >Procura projetos em subpastas além dos filhos diretos. Pode
-              deixar o cadastro mais lento em workspaces grandes.</span
+              >Procura projetos em subpastas além dos filhos diretos.</span
             >
           </span>
           <span class="settings-switch-control">
@@ -232,15 +241,25 @@ watch(
           </span>
         </label>
 
-        <NButton
-          class="workspace-create-submit"
-          type="primary"
-          attr-type="submit"
-          :loading="creatingWorkspace"
-          :disabled="creatingWorkspace"
-        >
-          {{ creatingWorkspace ? 'Cadastrando...' : 'Adicionar workspace' }}
-        </NButton>
+        <div class="workspace-modal-actions workspace-create-actions">
+          <NButton
+            class="workspace-cancel-button"
+            attr-type="button"
+            secondary
+            @click="closeModal"
+          >
+            Cancelar
+          </NButton>
+          <NButton
+            class="workspace-create-submit"
+            type="primary"
+            attr-type="submit"
+            :loading="creatingWorkspace"
+            :disabled="creatingWorkspace"
+          >
+            {{ creatingWorkspace ? 'Cadastrando...' : 'Adicionar workspace' }}
+          </NButton>
+        </div>
       </form>
     </section>
 
@@ -252,11 +271,6 @@ watch(
       aria-labelledby="workspace-manage-tab"
       tabindex="0"
     >
-      <div class="workspace-manager-panel-heading">
-        <strong>Gerenciar workspaces</strong>
-        <span>Renomeie, remova ou ajuste a busca em subdiretórios.</span>
-      </div>
-
       <p v-if="workspaces.length === 0" class="workspace-manager-empty">
         Nenhum workspace cadastrado ainda.
       </p>
@@ -268,13 +282,17 @@ watch(
           class="settings-row workspace-existing-row workspace-manage-row"
         >
           <template v-if="editingWorkspaceId !== workspace.id">
+            <FolderIcon class="workspace-manage-icon" aria-hidden="true" />
+
             <span class="settings-row-copy workspace-manage-copy">
               <strong
-                :id="`workspace-existing-recursive-scan-label-${workspace.id}`"
+                :id="'workspace-existing-recursive-scan-label-' + workspace.id"
                 >{{ workspace.name }}</strong
               >
               <span
-                :id="`workspace-existing-recursive-scan-description-${workspace.id}`"
+                :id="
+                  'workspace-existing-recursive-scan-description-' + workspace.id
+                "
                 >{{ workspace.path }}</span
               >
             </span>
@@ -283,8 +301,12 @@ watch(
               <NSwitch
                 :value="workspace.recursiveScan"
                 :disabled="recursiveScanUpdatingIds.includes(workspace.id)"
-                :aria-labelledby="`workspace-existing-recursive-scan-label-${workspace.id}`"
-                :aria-describedby="`workspace-existing-recursive-scan-description-${workspace.id}`"
+                :aria-labelledby="
+                  'workspace-existing-recursive-scan-label-' + workspace.id
+                "
+                :aria-describedby="
+                  'workspace-existing-recursive-scan-description-' + workspace.id
+                "
                 @update:value="toggleWorkspaceRecursiveScan(workspace)"
               />
               <span>{{ workspace.recursiveScan ? 'Monorepo' : 'Direto' }}</span>
@@ -300,7 +322,7 @@ watch(
                 quaternary
                 circle
                 :loading="deletingWorkspace"
-                :aria-label="`Ações de ${workspace.name}`"
+                :aria-label="'Ações de ' + workspace.name"
               >
                 <template #icon>
                   <EllipsisHorizontalIcon aria-hidden="true" />
@@ -312,7 +334,7 @@ watch(
           <div v-else class="workspace-rename-control workspace-rename-inline">
             <NInput
               v-model:value="editingWorkspaceName"
-              :aria-label="`Novo nome para ${workspace.name}`"
+              :aria-label="'Novo nome para ' + workspace.name"
               @keyup.enter="saveRename(workspace.id)"
               @keyup.esc="cancelRename"
             />
@@ -329,6 +351,26 @@ watch(
           </div>
         </li>
       </ul>
+
+      <div class="workspace-modal-actions workspace-manage-actions">
+        <NButton
+          class="workspace-add-another-button"
+          secondary
+          @click="selectTab('add')"
+        >
+          <template #icon>
+            <PlusIcon aria-hidden="true" />
+          </template>
+          Adicionar novo workspace
+        </NButton>
+        <NButton
+          class="workspace-done-button"
+          secondary
+          @click="closeModal"
+        >
+          Concluir
+        </NButton>
+      </div>
     </section>
   </NModal>
 
@@ -341,12 +383,48 @@ watch(
 
 <style>
 .workspace-manager-tabs-dialog {
-  width: min(620px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 32px));
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  background: color-mix(
+    in srgb,
+    var(--surface-1) 72%,
+    var(--surface-2) 28%
+  ) !important;
+  box-shadow: var(--shadow-2) !important;
+}
+
+.workspace-manager-tabs-dialog .n-card-header {
+  padding: 20px 22px 14px;
 }
 
 .workspace-manager-tabs-dialog .n-card__content {
   overflow-y: auto;
+  padding: 0 22px 22px;
+}
+
+.workspace-manager-tabs-dialog .n-card-header__close {
+  color: var(--text-muted);
+}
+
+.workspace-manager-header {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-manager-header strong {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.workspace-manager-header span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-body);
+  line-height: 1.45;
 }
 
 .workspace-manager-tabs {
@@ -376,9 +454,9 @@ watch(
   font-weight: var(--font-weight-strong);
   cursor: pointer;
   transition:
-    color 140ms ease,
-    border-color 140ms ease,
-    background 140ms ease;
+    color var(--motion-duration-fast) var(--motion-easing-standard),
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .workspace-manager-tab:hover {
@@ -387,14 +465,14 @@ watch(
 }
 
 .workspace-manager-tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .workspace-manager-tab-active {
-  border-color: var(--border-strong);
-  color: var(--accent);
-  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  color: var(--info-text);
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-1));
 }
 
 .workspace-manager-tab-count {
@@ -410,7 +488,7 @@ watch(
 }
 
 .workspace-manager-tab-active .workspace-manager-tab-count {
-  color: var(--accent);
+  color: var(--info-text);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
 }
 
@@ -420,24 +498,32 @@ watch(
   outline: none;
 }
 
-.workspace-manager-panel-heading {
-  display: grid;
-  gap: 4px;
-}
-
-.workspace-manager-panel-heading strong {
-  color: var(--text);
-  font-size: 13px;
-}
-
-.workspace-manager-panel-heading span {
-  color: var(--text-muted);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
 .workspace-manager-tabs-dialog .workspace-create-form {
-  gap: 14px;
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-manager-tabs-dialog .workspace-field {
+  display: grid;
+  gap: 7px;
+}
+
+.workspace-manager-tabs-dialog .workspace-field > span {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: var(--font-weight-strong);
+}
+
+.workspace-manager-tabs-dialog .n-input {
+  --n-color: var(--surface-0) !important;
+  --n-color-focus: var(--surface-0) !important;
+  --n-border: 1px solid var(--border) !important;
+  --n-border-hover: 1px solid var(--border-strong) !important;
+  --n-border-focus: 1px solid var(--accent) !important;
+  --n-box-shadow-focus: 0 0 0 2px
+    color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  --n-text-color: var(--text) !important;
+  --n-placeholder-color: var(--text-muted) !important;
 }
 
 .workspace-manager-tabs-dialog .workspace-path-picker-field {
@@ -446,17 +532,84 @@ watch(
   gap: 8px;
 }
 
+.workspace-manager-tabs-dialog .workspace-choose-folder-button,
+.workspace-manager-tabs-dialog .workspace-cancel-button,
+.workspace-manager-tabs-dialog .workspace-done-button {
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  background: var(--surface-0) !important;
+}
+
+.workspace-manager-tabs-dialog
+  :is(
+    .workspace-choose-folder-button,
+    .workspace-cancel-button,
+    .workspace-done-button
+  ):hover {
+  border-color: var(--border-strong) !important;
+  background: var(--surface-2) !important;
+}
+
 .workspace-manager-tabs-dialog .workspace-recursive-scan-field {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   min-height: 0;
-  gap: 18px;
+  gap: 12px;
   padding: 13px 14px;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-0);
+}
+
+.workspace-recursive-scan-icon {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.workspace-recursive-scan-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.workspace-manager-tabs-dialog .workspace-recursive-scan-field .settings-row-copy {
+  gap: 4px;
+}
+
+.workspace-manager-tabs-dialog .workspace-recursive-scan-field .settings-row-copy > span {
+  max-width: 38ch;
+}
+
+.workspace-manager-tabs-dialog .settings-switch-control {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.workspace-manager-tabs-dialog .n-switch {
+  --n-rail-color-active: var(--accent-strong) !important;
+}
+
+.workspace-modal-actions {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.workspace-create-actions {
+  grid-template-columns: minmax(130px, 0.72fr) minmax(220px, 1.28fr);
 }
 
 .workspace-manager-tabs-dialog .workspace-create-submit {
-  width: 100%;
   min-height: 40px;
+  border-color: var(--accent-strong) !important;
+  color: #fff !important;
+  background: var(--accent-strong) !important;
+}
+
+.workspace-manager-tabs-dialog .workspace-create-submit:hover:not(:disabled) {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
 }
 
 .workspace-manage-list {
@@ -468,25 +621,53 @@ watch(
 }
 
 .workspace-manager-tabs-dialog .workspace-manage-row {
-  grid-template-columns: minmax(0, 1fr) auto 34px;
+  grid-template-columns: 22px minmax(0, 1fr) auto 34px;
   min-height: 0;
-  gap: 14px;
+  gap: 12px;
   padding: 12px 14px;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-0);
+}
+
+.workspace-manager-tabs-dialog .workspace-manage-row:hover {
+  border-color: var(--border-strong);
+}
+
+.workspace-manage-icon {
+  width: 18px;
+  height: 18px;
+  align-self: center;
+  color: var(--text-muted);
 }
 
 .workspace-manager-tabs-dialog .workspace-manage-copy {
   gap: 4px;
+  min-width: 0;
+}
+
+.workspace-manager-tabs-dialog .workspace-manage-copy > strong {
+  color: var(--text);
 }
 
 .workspace-manager-tabs-dialog .workspace-manage-copy > span {
   overflow: hidden;
+  color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workspace-manager-tabs-dialog .workspace-manage-switch {
   min-width: 104px;
+}
+
+.workspace-manager-tabs-dialog .workspace-manage-menu-button {
+  color: var(--text-muted);
+}
+
+.workspace-manager-tabs-dialog .workspace-manage-menu-button:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .workspace-manager-tabs-dialog .workspace-manage-menu-button svg {
@@ -503,11 +684,42 @@ watch(
   width: 100%;
 }
 
+.workspace-manage-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.workspace-manager-tabs-dialog .workspace-add-another-button {
+  justify-self: stretch;
+  border-color: color-mix(in srgb, var(--accent) 64%, var(--border)) !important;
+  color: var(--info-text) !important;
+  background: color-mix(
+    in srgb,
+    var(--accent-soft) 40%,
+    var(--surface-0)
+  ) !important;
+}
+
+.workspace-manager-tabs-dialog .workspace-add-another-button:hover {
+  border-color: var(--accent) !important;
+  background: color-mix(
+    in srgb,
+    var(--accent-soft) 72%,
+    var(--surface-0)
+  ) !important;
+}
+
+.workspace-manager-tabs-dialog .workspace-add-another-button svg {
+  width: 16px;
+  height: 16px;
+}
+
 .workspace-manager-empty {
   margin: 0;
   padding: 28px 16px;
   border: 1px dashed var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   color: var(--text-muted);
   background: var(--surface-0);
   font-size: 11px;
@@ -524,10 +736,20 @@ watch(
     max-height: calc(100vh - 20px);
   }
 
+  .workspace-manager-tabs-dialog .n-card-header {
+    padding: 18px 16px 12px;
+  }
+
+  .workspace-manager-tabs-dialog .n-card__content {
+    padding: 0 16px 16px;
+  }
+
   .workspace-manager-tabs-dialog .workspace-path-picker-field,
   .workspace-manager-tabs-dialog .workspace-recursive-scan-field,
   .workspace-manager-tabs-dialog .workspace-manage-row,
-  .workspace-manager-tabs-dialog .workspace-rename-inline {
+  .workspace-manager-tabs-dialog .workspace-rename-inline,
+  .workspace-create-actions,
+  .workspace-manage-actions {
     grid-template-columns: 1fr;
   }
 
@@ -538,6 +760,11 @@ watch(
 
   .workspace-manager-tabs-dialog .workspace-manage-menu-button {
     justify-self: end;
+  }
+
+  .workspace-manager-tabs-dialog .workspace-add-another-button,
+  .workspace-manager-tabs-dialog .workspace-done-button {
+    width: 100%;
   }
 }
 </style>
