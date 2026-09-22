@@ -81,7 +81,7 @@ const workspace: ProjectGitWorkspace = {
   ],
 };
 
-test('renderiza a sincronização terminal-first sem expor o remote principal', async () => {
+test('renderiza a sincronização minimalista sem expor o remote principal', async () => {
   const wrapper = mount(ProjectGitSyncPage, {
     props: {
       overview,
@@ -91,19 +91,23 @@ test('renderiza a sincronização terminal-first sem expor o remote principal', 
     },
   });
 
-  assert.equal(wrapper.findAll('.git-sync-summary-card').length, 3);
+  assert.ok(wrapper.find('.git-sync-heading').exists());
   assert.ok(wrapper.find('.git-sync-main-card').exists());
-  assert.match(wrapper.text(), /Branch atual/);
+  assert.ok(wrapper.find('.git-sync-console-card').exists());
+  assert.equal(wrapper.findAll('.git-sync-summary-card').length, 0);
+  assert.match(wrapper.text(), /Sincronização/);
   assert.match(wrapper.text(), /Última sincronização/);
   assert.match(wrapper.text(), /main\s*→\s*origin\/main/);
   assert.match(wrapper.text(), /Tudo sincronizado/);
   assert.match(wrapper.text(), /Console de sincronização/);
-  assert.match(wrapper.text(), /Verificar referências remotas/);
-  assert.match(wrapper.text(), /Preparar a branch main/);
-  assert.match(wrapper.text(), /Publicar main em origin\/main/);
+  assert.match(
+    wrapper.find('.git-sync-console-output').text(),
+    /sincronizadas/,
+  );
   assert.doesNotMatch(wrapper.text(), /upstream\//);
-  assert.match(wrapper.text(), /Próximos passos/);
-  assert.match(wrapper.text(), /Dicas/);
+  assert.doesNotMatch(wrapper.text(), /Próximos passos/);
+  assert.doesNotMatch(wrapper.text(), /Dicas/);
+  assert.equal(wrapper.findAll('.git-sync-terminal-steps').length, 0);
 
   const primaryButton = wrapper.find('.git-sync-main-card .git-sync-button');
   assert.ok(primaryButton.attributes('disabled') !== undefined);
@@ -119,7 +123,7 @@ test('renderiza a sincronização terminal-first sem expor o remote principal', 
   assert.doesNotMatch(wrapper.find('.git-sync-settings').text(), /upstream\//);
 });
 
-test('mostra conclusão da sincronização sem inventar horário ou saída de terminal', () => {
+test('mostra conclusão da sincronização no console compacto', () => {
   const wrapper = mount(ProjectGitSyncPage, {
     props: {
       overview,
@@ -133,13 +137,10 @@ test('mostra conclusão da sincronização sem inventar horário ou saída de te
 
   assert.match(wrapper.find('.git-sync-console-state').text(), /Concluída/);
   assert.match(
-    wrapper.find('.git-sync-terminal-result').text(),
+    wrapper.find('.git-sync-console-output').text(),
     /Main e origin\/main já estavam sincronizadas/,
   );
-  assert.equal(
-    wrapper.findAll('.git-sync-terminal-steps .is-complete').length,
-    4,
-  );
+  assert.equal(wrapper.findAll('.git-sync-terminal-steps').length, 0);
 });
 
 test('mantém a mesma linguagem de UI quando existe apenas origin', () => {
