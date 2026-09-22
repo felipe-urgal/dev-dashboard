@@ -6,7 +6,6 @@ import {
   ChevronDownIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  ShieldCheckIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
@@ -68,35 +67,31 @@ const pendingChecks = computed(() => {
   return warnings + failed + skipped;
 });
 
+const actionGroups = computed(() =>
+  groupedChecks.value.filter((group) => groupStatus(group.checks) !== 'passed'),
+);
+
+const approvedGroups = computed(() =>
+  groupedChecks.value.filter((group) => groupStatus(group.checks) === 'passed'),
+);
+
 const overallCopy = computed(() => {
   if (!report.value) return null;
   if (report.value.overallStatus === 'healthy') {
     return {
-      title: 'Projeto pronto para trabalhar',
-      description:
-        'Os sinais verificados não apontaram bloqueios ou pendências.',
-      tone: 'success' as const,
-      icon: ShieldCheckIcon,
       label: 'Saudável',
+      icon: CheckCircleIcon,
     };
   }
   if (report.value.overallStatus === 'blocked') {
     return {
-      title: 'Há bloqueios no projeto',
-      description:
-        'Resolva os itens com falha antes de iniciar os fluxos principais.',
-      tone: 'danger' as const,
-      icon: XCircleIcon,
       label: 'Bloqueado',
+      icon: XCircleIcon,
     };
   }
   return {
-    title: 'O projeto precisa de atenção',
-    description:
-      'Há recomendações que podem evitar falhas durante o desenvolvimento.',
-    tone: 'warning' as const,
-    icon: ExclamationTriangleIcon,
     label: 'Atenção',
+    icon: ExclamationTriangleIcon,
   };
 });
 
@@ -134,6 +129,29 @@ function groupStatus(
 
 function completedChecks(checks: ProjectDiagnosticCheck[]): number {
   return checks.filter((check) => check.status === 'passed').length;
+}
+
+function pendingGroupChecks(checks: ProjectDiagnosticCheck[]): number {
+  return checks.filter((check) => check.status !== 'passed').length;
+}
+
+function groupDetail(checks: ProjectDiagnosticCheck[]): string {
+  const pendingCheck = checks.find((check) => check.status !== 'passed');
+  if (pendingCheck) return pendingCheck.summary;
+  return `${completedChecks(checks)}/${checks.length} ${
+    checks.length === 1 ? 'verificação' : 'verificações'
+  }`;
+}
+
+function groupPendingLabel(checks: ProjectDiagnosticCheck[]): string {
+  const count = pendingGroupChecks(checks);
+  const status = groupStatus(checks);
+
+  if (status === 'failed')
+    return `${count} ${count === 1 ? 'problema' : 'problemas'}`;
+  if (status === 'warning')
+    return `${count} ${count === 1 ? 'alerta' : 'alertas'}`;
+  return `${count} ${count === 1 ? 'pendência' : 'pendências'}`;
 }
 
 function actionDestination(
@@ -208,17 +226,27 @@ watch(
   >
     <article class="project-doctor-card">
       <header class="project-doctor-intro">
-        <div>
+        <div class="project-doctor-intro-copy">
           <span class="project-doctor-eyebrow">Saúde do projeto</span>
           <h3 id="project-doctor-title">Diagnóstico</h3>
           <p>
-            Checks somente leitura para projeto, runtimes, dependências e
+            Verificações somente leitura de projeto, runtimes, dependências e
             configuração.
           </p>
         </div>
-        <StatusBadge v-if="overallCopy" :tone="overallCopy.tone">
-          {{ overallCopy.label }}
-        </StatusBadge>
+
+        <div v-if="report && overallCopy" class="project-doctor-state">
+          <span
+            class="project-doctor-overall-status"
+            :class="`is-${report.overallStatus}`"
+          >
+            <component :is="overallCopy.icon" aria-hidden="true" />
+            {{ overallCopy.label }}
+          </span>
+          <span>
+            Atualizado em {{ formatGeneratedAt(report.generatedAt) }}
+          </span>
+        </div>
       </header>
 
       <div v-if="errorMessage" class="project-doctor-alert" role="alert">
@@ -237,48 +265,38 @@ watch(
 
       <template v-else-if="report && overallCopy">
         <section class="project-doctor-summary" aria-label="Resumo operacional">
-          <div class="project-doctor-summary-item">
-            <span>Estado</span>
-            <strong>{{ overallCopy.label }}</strong>
-          </div>
-          <div class="project-doctor-summary-item">
-            <span>Aprovados</span>
-            <strong>{{ report.summary.passed }} de {{ totalChecks }}</strong>
-          </div>
-          <div class="project-doctor-summary-item">
-            <span>Pendências</span>
-            <strong>{{ pendingChecks }}</strong>
-          </div>
-          <div class="project-doctor-summary-item">
-            <span>Atualizado</span>
-            <strong>{{ formatGeneratedAt(report.generatedAt) }}</strong>
-          </div>
+          <InformationCircleIcon aria-hidden="true" />
+          <p>
+            <strong>{{ pendingChecks }} problemas</strong> encontrados
+            <span aria-hidden="true">·</span>
+            <strong>
+              {{ report.summary.passed }} de {{ totalChecks }} verificações
+              aprovadas
+            </strong>
+          </p>
         </section>
 
         <section
-          class="project-doctor-result"
-          :class="`is-${report.overallStatus}`"
-          aria-label="Estado geral do projeto"
+          v-if="actionGroups.length > 0"
+          class="project-doctor-section project-doctor-action-section"
+          aria-labelledby="doctor-action-title"
         >
-          <component :is="overallCopy.icon" aria-hidden="true" />
-          <div>
-            <strong>{{ overallCopy.title }}</strong>
-            <p>{{ overallCopy.description }}</p>
-          </div>
-        </section>
-
-        <section
-          class="project-doctor-areas"
-          aria-labelledby="doctor-areas-title"
-        >
-          <header>
-            <h4 id="doctor-areas-title">Áreas analisadas</h4>
-            <span>Clique para ver as verificações</span>
+          <header class="project-doctor-section-header">
+            <span
+              class="project-doctor-section-icon"
+              :class="`is-${report.overallStatus}`"
+            >
+              <ExclamationTriangleIcon aria-hidden="true" />
+            </span>
+            <div>
+              <h4 id="doctor-action-title">Requer ação</h4>
+              <p>Corrija os itens abaixo para habilitar o ambiente.</p>
+            </div>
           </header>
 
           <div class="project-doctor-category-list">
             <details
-              v-for="group in groupedChecks"
+              v-for="group in actionGroups"
               :key="group.category"
               class="project-doctor-category"
             >
@@ -292,6 +310,85 @@ watch(
                       :is="statusIcon(groupStatus(group.checks))"
                       aria-hidden="true"
                     />
+                  </span>
+                  <div>
+                    <strong>{{ group.label }}</strong>
+                    <span>{{ groupDetail(group.checks) }}</span>
+                  </div>
+                </div>
+
+                <div class="project-doctor-category-status">
+                  <StatusBadge :tone="statusTone(groupStatus(group.checks))">
+                    {{ statusLabel(groupStatus(group.checks)) }}
+                  </StatusBadge>
+                  <span class="project-doctor-category-count">
+                    {{ groupPendingLabel(group.checks) }}
+                  </span>
+                  <ChevronDownIcon aria-hidden="true" />
+                </div>
+              </summary>
+
+              <div class="project-doctor-check-list">
+                <article
+                  v-for="check in group.checks"
+                  :key="check.id"
+                  class="project-doctor-check"
+                  :class="`is-${check.status}`"
+                >
+                  <component
+                    :is="statusIcon(check.status)"
+                    aria-hidden="true"
+                  />
+                  <div class="project-doctor-check-copy">
+                    <div>
+                      <strong>{{ check.label }}</strong>
+                      <StatusBadge :tone="statusTone(check.status)">
+                        {{ statusLabel(check.status) }}
+                      </StatusBadge>
+                    </div>
+                    <p>{{ check.summary }}</p>
+                    <small v-if="check.recommendation">
+                      {{ check.recommendation }}
+                    </small>
+                  </div>
+                  <RouterLink
+                    v-if="check.action"
+                    class="project-doctor-action"
+                    :to="actionDestination(check.action.target)"
+                  >
+                    {{ check.action.label }}
+                  </RouterLink>
+                </article>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section
+          v-if="approvedGroups.length > 0"
+          class="project-doctor-section project-doctor-approved-section"
+          aria-labelledby="doctor-approved-title"
+        >
+          <header class="project-doctor-section-header">
+            <span class="project-doctor-section-icon is-healthy">
+              <CheckCircleIcon aria-hidden="true" />
+            </span>
+            <div>
+              <h4 id="doctor-approved-title">Aprovados</h4>
+              <p>Verificações concluídas com sucesso.</p>
+            </div>
+          </header>
+
+          <div class="project-doctor-category-list">
+            <details
+              v-for="group in approvedGroups"
+              :key="group.category"
+              class="project-doctor-category"
+            >
+              <summary>
+                <div class="project-doctor-category-main">
+                  <span class="project-doctor-category-icon is-passed">
+                    <CheckCircleIcon aria-hidden="true" />
                   </span>
                   <div>
                     <strong>{{ group.label }}</strong>
@@ -309,9 +406,7 @@ watch(
                 </div>
 
                 <div class="project-doctor-category-status">
-                  <StatusBadge :tone="statusTone(groupStatus(group.checks))">
-                    {{ statusLabel(groupStatus(group.checks)) }}
-                  </StatusBadge>
+                  <StatusBadge tone="success">Boa</StatusBadge>
                   <ChevronDownIcon aria-hidden="true" />
                 </div>
               </summary>
@@ -353,10 +448,8 @@ watch(
         </section>
 
         <div class="project-doctor-meta">
-          <span>Atualizado em {{ formatGeneratedAt(report.generatedAt) }}</span>
-          <span>
-            Somente leitura. Valores e credenciais não são exibidos.
-          </span>
+          <InformationCircleIcon aria-hidden="true" />
+          <span>Somente leitura. Valores e credenciais não são exibidos.</span>
         </div>
       </template>
     </article>
