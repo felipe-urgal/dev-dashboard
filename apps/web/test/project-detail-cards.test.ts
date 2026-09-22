@@ -220,7 +220,7 @@ describe('cards dos painéis de detalhe', () => {
     await flushPromises();
 
     expect(wrapper.get('.dd-card').classes()).toContain('project-detail-card');
-    expect(wrapper.find('.dd-card-header').exists()).toBe(true);
+    expect(wrapper.find('.dd-card-header').exists()).toBe(false);
 
     wrapper.unmount();
   });

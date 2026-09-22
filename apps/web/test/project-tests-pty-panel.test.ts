@@ -127,17 +127,6 @@ beforeEach(async () => {
     testFiles: [],
     unmappedFiles: [],
     evidence: [],
-    coverageDelta: {
-      state: 'unknown',
-      reason: 'no-current-artifact',
-      worsenedFiles: [],
-      missingFiles: [],
-    },
-    flakiness: {
-      state: 'unknown',
-      reason: 'no-granular-results',
-      tests: [],
-    },
   });
   ({ default: ProjectTestsPtyPanel } =
     await import('../src/components/ProjectTestsPtyPanel.vue'));
@@ -147,31 +136,35 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-test('carrega os comandos e habilita "Executar suíte completa"', async () => {
+test('carrega os comandos com a interface mínima de execução', async () => {
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: { project: project() },
   });
   await flushPromises();
 
   assert.equal(
-    wrapper.get('.tests-pty-heading strong').text(),
-    'Testes do projeto',
+    wrapper.get('[aria-label="Comando de teste"]').text(),
+    'npm run test',
   );
-  assert.equal(wrapper.get('.tests-pty-state').text(), 'Pronto');
-  assert.ok(
-    !wrapper
-      .get('.tests-pty-state')
-      .classes()
-      .includes('tests-pty-state-danger'),
+  assert.equal(
+    wrapper.get('[aria-label="Ambiente de execução"]').text(),
+    'Local',
   );
+
   const button = wrapper
     .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar suíte completa'));
+    .find((candidate) => candidate.text().includes('Executar testes'));
   assert.ok(button);
   assert.equal(button.attributes('disabled'), undefined);
+
+  assert.equal(wrapper.find('.tests-pty-heading').exists(), false);
+  assert.equal(wrapper.find('.tests-overview').exists(), false);
+  assert.equal(wrapper.find('.tests-tabs').exists(), false);
+  assert.equal(wrapper.find('.test-intelligence').exists(), false);
+  assert.equal(wrapper.find('.tests-local-note').exists(), false);
 });
 
-test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao encerrar', async () => {
+test('executar conecta via WebSocket, escreve a saída e mantém o resultado disponível ao encerrar', async () => {
   mocks.startProjectTestPty.mockResolvedValue({
     status: 'running',
     exitCode: null,
@@ -187,7 +180,7 @@ test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao e
 
   const button = wrapper
     .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar suíte completa'));
+    .find((candidate) => candidate.text().includes('Executar testes'));
   assert.ok(button);
   await button.trigger('click');
   await flushPromises();
@@ -211,7 +204,7 @@ test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao e
     },
   });
   await flushPromises();
-  assert.doesNotMatch(wrapper.text(), /Executando…/);
+  assert.ok(wrapper.find('.tests-output').exists());
 
   socket.emitMessage({ type: 'output', data: 'ok\n' });
   await flushPromises();
@@ -219,7 +212,12 @@ test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao e
   socket.emitMessage({ type: 'exit', exitCode: 0, exitSignal: null });
   await flushPromises();
 
-  assert.doesNotMatch(wrapper.text(), /Concluído com sucesso/);
+  assert.ok(wrapper.find('.tests-output').exists());
+  assert.ok(
+    wrapper
+      .findAll('button')
+      .some((candidate) => candidate.text().includes('Fechar saída')),
+  );
 });
 
 test('cancelar chama cancelProjectTestPty enquanto a execução está em andamento', async () => {
@@ -239,7 +237,7 @@ test('cancelar chama cancelProjectTestPty enquanto a execução está em andamen
 
   const startButton = wrapper
     .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar suíte completa'));
+    .find((candidate) => candidate.text().includes('Executar testes'));
   assert.ok(startButton);
   await startButton.trigger('click');
   await flushPromises();
@@ -254,7 +252,7 @@ test('cancelar chama cancelProjectTestPty enquanto a execução está em andamen
   assert.equal(mocks.cancelProjectTestPty.mock.calls.length, 1);
 });
 
-test('propaga Environment Instance para overview, PTY, WebSocket e histórico', async () => {
+test('propaga Environment Instance para overview, PTY e WebSocket', async () => {
   const environmentInstanceId = 'environment:worktree:projeto-1:wt-1';
   mocks.startProjectTestPty.mockResolvedValue({
     status: 'running',
@@ -280,21 +278,10 @@ test('propaga Environment Instance para overview, PTY, WebSocket e histórico', 
     'projeto-1',
     environmentInstanceId,
   ]);
-  assert.deepEqual(mocks.fetchProjectTestHistory.mock.calls[0], [
-    'projeto-1',
-    1,
-    8,
-    environmentInstanceId,
-  ]);
-  assert.deepEqual(mocks.fetchProjectTestIntelligence.mock.calls[0], [
-    'projeto-1',
-    'full-suite',
-    environmentInstanceId,
-  ]);
 
   const button = wrapper
     .findAll('button')
-    .find((candidate) => candidate.text().includes('Executar suíte completa'));
+    .find((candidate) => candidate.text().includes('Executar testes'));
   assert.ok(button);
   await button.trigger('click');
   await flushPromises();
@@ -312,61 +299,15 @@ test('propaga Environment Instance para overview, PTY, WebSocket e histórico', 
   wrapper.unmount();
 });
 
-test('mostra resumo e histórico usando apenas dados reais das execuções', async () => {
-  mocks.fetchProjectTestHistory.mockResolvedValue({
-    items: [
-      {
-        id: 'exec-2',
-        projectId: 'projeto-1',
-        commandId: 'full-suite',
-        scope: 'full-suite',
-        gitRevision: 'abcdef1234567890',
-        status: 'stopped',
-        startedAt: '2026-08-11T10:00:00.000Z',
-        finishedAt: '2026-08-11T10:02:14.000Z',
-        exitCode: 0,
-      },
-      {
-        id: 'exec-1',
-        projectId: 'projeto-1',
-        commandId: 'full-suite',
-        scope: 'full-suite',
-        gitRevision: '1234567890abcdef',
-        status: 'failed',
-        startedAt: '2026-08-10T09:00:00.000Z',
-        finishedAt: '2026-08-10T09:01:52.000Z',
-        exitCode: 1,
-      },
-    ],
-    page: 1,
-    pageSize: 8,
-    total: 2,
-    totalPages: 1,
-  });
-
+test('não carrega histórico nem Test Intelligence na tela de execução', async () => {
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: { project: project() },
   });
   await flushPromises();
 
-  assert.equal(wrapper.findAll('.tests-overview-card').length, 4);
-  assert.match(wrapper.text(), /Histórico\s*2/);
-  assert.match(wrapper.text(), /2m 14s/);
-  assert.match(wrapper.text(), /Sem baseline comparável/);
-
-  const historyTab = wrapper
-    .findAll('.tests-tabs button')
-    .find((candidate) => candidate.text() === 'Histórico');
-  assert.ok(historyTab);
-  await historyTab.trigger('click');
-  await flushPromises();
-
-  const rows = wrapper.findAll('.tests-history-row');
-  assert.equal(rows.length, 2);
-  assert.match(rows[0]!.text(), /Sucesso/);
-  assert.match(rows[0]!.text(), /npm run test/);
-  assert.match(rows[0]!.text(), /abcdef12/);
-  assert.match(rows[0]!.text(), /2m 14s/);
-  assert.match(rows[1]!.text(), /Falhou/);
-  assert.match(rows[1]!.text(), /exit 1/);
+  assert.equal(mocks.fetchProjectTestHistory.mock.calls.length, 0);
+  assert.equal(mocks.fetchProjectTestIntelligence.mock.calls.length, 0);
+  assert.doesNotMatch(wrapper.text(), /Histórico/);
+  assert.doesNotMatch(wrapper.text(), /Test Intelligence/);
+  assert.doesNotMatch(wrapper.text(), /dados suficientes para recomendar/i);
 });
