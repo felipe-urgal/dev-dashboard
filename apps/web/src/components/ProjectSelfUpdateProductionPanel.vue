@@ -896,10 +896,9 @@ onBeforeUnmount(() => {
 .self-update-history-head,
 .self-update-history-row {
   display: grid;
-  grid-template-columns: minmax(110px, 0.8fr) minmax(150px, 1.2fr) minmax(
-      90px,
-      0.7fr
-    ) minmax(110px, 0.75fr);
+  grid-template-columns:
+    minmax(110px, 0.8fr) minmax(150px, 1.2fr) minmax(90px, 0.7fr)
+    minmax(110px, 0.75fr);
   align-items: center;
   min-width: 560px;
   gap: 12px;
