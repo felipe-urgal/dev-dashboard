@@ -59,7 +59,7 @@ const overview: ProjectGitOverview = {
   recentCommits: commits,
 };
 
-test('renderiza o protótipo 1 de commit com resumo, formulário e histórico real', async () => {
+test('renderiza tela de commit minimalista sem resumo, abas ou histórico', async () => {
   const wrapper = mount(ProjectGitCommitPage, {
     props: {
       overview,
@@ -70,42 +70,39 @@ test('renderiza o protótipo 1 de commit com resumo, formulário e histórico re
     },
   });
 
-  assert.equal(wrapper.findAll('.git-commit-summary-card').length, 3);
-  assert.match(wrapper.text(), /Branch atual/);
-  assert.match(wrapper.text(), /main/);
-  assert.match(wrapper.text(), /Em dia com o origin/);
-  assert.match(wrapper.text(), /Alterações rastreadas/);
-  assert.match(wrapper.text(), /2 alterações rastreadas · 1 não rastreada/);
-  assert.match(wrapper.text(), /Último commit/);
-  assert.match(wrapper.text(), /abcdef1/);
-  assert.match(wrapper.text(), /feat: melhora commit/);
-
   assert.ok(wrapper.find('.git-commit-card').exists());
-  assert.match(wrapper.text(), /Novo commit/);
-  assert.match(wrapper.text(), /Alterar último commit/);
-  assert.match(wrapper.text(), /git commit -a/);
-  assert.match(wrapper.text(), /git commit --amend/);
+  assert.equal(wrapper.findAll('.git-commit-summary-card').length, 0);
+  assert.equal(wrapper.findAll('.git-commit-history-row').length, 0);
+  assert.equal(wrapper.find('.git-commit-mode').exists(), false);
+  assert.equal(wrapper.text().includes('Criar novo commit'), false);
+  assert.equal(wrapper.text().includes('Últimos commits'), false);
+  assert.equal(wrapper.text().includes('Ver histórico completo'), false);
+  assert.equal(wrapper.text().includes('git commit -a'), false);
+  assert.equal(wrapper.text().includes('git commit --amend'), false);
+
+  const textarea = wrapper.find('.git-commit-message textarea');
+  assert.equal(textarea.attributes('aria-label'), 'Mensagem do commit');
+  assert.equal(textarea.attributes('placeholder'), 'Descreva as alterações');
   assert.match(wrapper.text(), /0\/500/);
-  assert.match(
-    wrapper.text(),
-    /Arquivos não rastreados não entram neste commit automaticamente/,
-  );
+  assert.match(wrapper.text(), /Incluir todas as alterações rastreadas/);
+  assert.match(wrapper.text(), /Amend último commit/);
+  assert.match(wrapper.text(), /Criar commit/);
 
-  assert.equal(wrapper.findAll('.git-commit-history-row').length, 2);
-  assert.match(wrapper.text(), /chore: ajusta testes/);
-  assert.match(wrapper.text(), /Felipe/);
-  assert.match(wrapper.text(), /Ver histórico completo/);
+  const create = wrapper.find('.git-commit-submit');
+  assert.equal((create.element as HTMLButtonElement).disabled, true);
 
-  const submit = wrapper.find('.git-commit-submit');
-  assert.equal((submit.element as HTMLButtonElement).disabled, true);
-  await wrapper.find('.git-commit-message textarea').setValue('novo commit');
+  await textarea.setValue('novo commit');
   assert.deepEqual(wrapper.emitted('update:message'), [['novo commit']]);
 
-  await wrapper.find('.git-commit-history-button').trigger('click');
-  assert.deepEqual(wrapper.emitted('open-history'), [[]]);
+  await wrapper.setProps({ message: 'novo commit' });
+  assert.equal((create.element as HTMLButtonElement).disabled, false);
+
+  await create.trigger('click');
+  assert.deepEqual(wrapper.emitted('update:mode'), [['create']]);
+  assert.deepEqual(wrapper.emitted('submit'), [[]]);
 });
 
-test('mantém untracked fora da regra do commit normal', () => {
+test('mantém commit normal desabilitado quando só há arquivo não rastreado', () => {
   const untrackedOnly: ProjectGitOverview = {
     ...overview,
     files: [
@@ -128,9 +125,29 @@ test('mantém untracked fora da regra do commit normal', () => {
     },
   });
 
-  assert.match(wrapper.text(), /0 alterações rastreadas · 1 não rastreada/);
   assert.equal(
     (wrapper.find('.git-commit-submit').element as HTMLButtonElement).disabled,
     true,
   );
+});
+
+test('amend usa a mensagem atual ou reaproveita a do último commit', async () => {
+  const wrapper = mount(ProjectGitCommitPage, {
+    props: {
+      overview,
+      busy: false,
+      message: '',
+      mode: 'create',
+      pushBranch: null,
+    },
+  });
+
+  const amend = wrapper.find('.git-commit-amend');
+  assert.equal((amend.element as HTMLButtonElement).disabled, false);
+
+  await amend.trigger('click');
+
+  assert.deepEqual(wrapper.emitted('update:mode'), [['amend']]);
+  assert.deepEqual(wrapper.emitted('update:message'), [[latestCommit.subject]]);
+  assert.deepEqual(wrapper.emitted('submit'), [[]]);
 });
