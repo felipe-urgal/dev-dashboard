@@ -98,19 +98,26 @@ describe('ambiente do servidor Node', () => {
     confirmDialog.mockResolvedValue(true);
   });
 
-  it('renderiza a composição terminal-first aprovada', async () => {
+  it('renderiza a composição minimalista aprovada', async () => {
     const wrapper = mount(ProjectServerPanel, {
       props: { project },
     });
     await flushPromises();
 
-    expect(wrapper.find('.server-overview').exists()).toBe(true);
-    expect(wrapper.findAll('.server-overview-card')).toHaveLength(4);
-    expect(wrapper.find('.server-config-card').exists()).toBe(true);
+    expect(wrapper.find('.server-toolbar').exists()).toBe(true);
+    expect(wrapper.findAll('.server-summary-item')).toHaveLength(4);
     expect(wrapper.find('.server-console-card').exists()).toBe(true);
-    expect(wrapper.find('.server-console-terminal').exists()).toBe(true);
-    expect(wrapper.find('.server-support-grid').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Pronto para iniciar');
+    expect(wrapper.find('.server-config-card').exists()).toBe(false);
+    expect(wrapper.find('.server-support-grid').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Pronto para iniciar');
+
+    const settingsButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Configurar'));
+    expect(settingsButton).toBeDefined();
+    await settingsButton!.trigger('click');
+
+    expect(wrapper.find('.server-settings-modal').exists()).toBe(true);
 
     wrapper.unmount();
   });
@@ -121,9 +128,21 @@ describe('ambiente do servidor Node', () => {
     });
     await flushPromises();
 
+    const settingsButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Configurar'));
+    expect(settingsButton).toBeDefined();
+    await settingsButton!.trigger('click');
+
     const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
     expect(select.element.value).toBe('staging');
     await select.setValue('development');
+
+    const cancelButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Fechar'));
+    expect(cancelButton).toBeDefined();
+    await cancelButton!.trigger('click');
 
     const startButton = wrapper
       .findAll('button')
@@ -155,6 +174,12 @@ describe('ambiente do servidor Node', () => {
     });
     await flushPromises();
 
+    const settingsButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Configurar'));
+    expect(settingsButton).toBeDefined();
+    await settingsButton!.trigger('click');
+
     const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
     const defaultOption = select.find('option[value=""]');
     expect(defaultOption.exists()).toBe(true);
@@ -162,6 +187,12 @@ describe('ambiente do servidor Node', () => {
     expect(defaultOption.text()).toContain('Padrão');
 
     await select.setValue('');
+
+    const cancelButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Fechar'));
+    expect(cancelButton).toBeDefined();
+    await cancelButton!.trigger('click');
 
     const startButton = wrapper
       .findAll('button')

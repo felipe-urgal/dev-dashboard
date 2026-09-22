@@ -91,19 +91,19 @@ test.describe('Jornadas críticas', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
 
-    await expect(page.getByText('Pronto para iniciar')).toBeVisible();
+    await expect(page.locator('.server-status-label')).toContainText('Parado');
 
     await page.getByRole('button', { name: 'Iniciar servidor' }).click();
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'Tudo funcionando' }),
-    ).toBeVisible();
-    await expect(page.locator('.server-running-badge')).toHaveText(
-      'Em execução',
+    await expect(page.locator('.server-status-label')).toContainText(
+      'Executando',
     );
+    await expect(
+      page.getByRole('button', { name: 'Parar', exact: true }),
+    ).toBeVisible();
     expect(startCalls).toBe(1);
 
     await page.getByRole('button', { name: 'Parar', exact: true }).click();
-    await expect(page.getByText('Pronto para iniciar')).toBeVisible();
+    await expect(page.locator('.server-status-label')).toContainText('Parado');
     expect(stopCalls).toBe(1);
   });
 
