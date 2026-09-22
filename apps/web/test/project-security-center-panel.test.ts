@@ -52,7 +52,7 @@ describe('ProjectSecurityCenterPanel', () => {
     });
   });
 
-  it('mantém ausência de evidência quando o scanner não está instalado', async () => {
+  it('mostra o estado vazio compacto quando o scanner não está instalado', async () => {
     fetchSecurityCenterAvailability.mockResolvedValueOnce(
       availability('missing'),
     );
@@ -60,20 +60,15 @@ describe('ProjectSecurityCenterPanel', () => {
     const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Security Center');
+    expect(wrapper.text()).toContain('Segurança');
+    expect(wrapper.text()).toContain('Trivy');
     expect(wrapper.text()).toContain('Não instalado');
+    expect(wrapper.text()).toContain('Último scan: Nunca executado');
+    expect(wrapper.text()).toContain('Scanner não disponível');
     expect(wrapper.text()).toContain(
       'Trivy não está instalado no PATH da API.',
     );
-    expect(wrapper.text()).toContain('Não executado');
-    expect(wrapper.text()).toContain('Sem snapshot');
-    expect(wrapper.text()).toContain('Triagem de riscos');
-    expect(wrapper.text()).toContain('Sem snapshot persistido');
-    expect(
-      wrapper
-        .findAll('.security-center-severity strong')
-        .map((metric) => metric.text()),
-    ).toEqual(['—', '—', '—', '—', '—']);
+    expect(wrapper.findAll('.security-center-severity')).toHaveLength(0);
 
     const button = wrapper.get('.security-center-scan-button');
     expect(button.attributes('disabled')).toBeDefined();
@@ -82,7 +77,7 @@ describe('ProjectSecurityCenterPanel', () => {
     wrapper.unmount();
   });
 
-  it('restaura snapshot persistido e mostra freshness após reload', async () => {
+  it('restaura snapshot persistido diretamente na visão de resultados', async () => {
     fetchSecurityCenterAvailability.mockResolvedValueOnce(
       availability('missing'),
     );
@@ -118,15 +113,20 @@ describe('ProjectSecurityCenterPanel', () => {
     const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Persistido');
-    expect(wrapper.text()).toContain('Desatualizado');
+    expect(wrapper.text()).toContain('Resultados');
+    expect(wrapper.text()).toContain('1 resultado');
     expect(wrapper.text()).toContain('Configuração antiga');
-    expect(wrapper.text()).toContain('1 finding(s)');
+    expect(wrapper.text()).toContain('Misconfiguration · CFG-1');
+    expect(
+      wrapper
+        .findAll('.security-center-severity strong')
+        .map((metric) => metric.text()),
+    ).toEqual(['0', '1', '0', '0']);
 
     wrapper.unmount();
   });
 
-  it('deriva a triagem somente dos findings reais após um scan concluído', async () => {
+  it('deriva o resumo e a tabela somente dos findings reais após um scan concluído', async () => {
     fetchSecurityCenterAvailability.mockResolvedValueOnce(
       availability('available'),
     );
@@ -199,22 +199,27 @@ describe('ProjectSecurityCenterPanel', () => {
     const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
     await flushPromises();
 
+    expect(wrapper.text()).toContain('Último scan: Nunca executado');
     expect(
       wrapper.get('.security-center-scan-button').attributes('disabled'),
     ).toBeUndefined();
+
     await wrapper.get('.security-center-scan-button').trigger('click');
     await flushPromises();
 
     expect(scanProjectSecurityCenter).toHaveBeenCalledWith(project.id);
-    expect(wrapper.text()).toContain('Concluído');
+    expect(wrapper.get('.security-center-scan-button').text()).toContain(
+      'Executar novamente',
+    );
+    expect(wrapper.text()).toContain('5 resultados');
     expect(
       wrapper
         .findAll('.security-center-severity strong')
         .map((metric) => metric.text()),
-    ).toEqual(['1', '1', '1', '1', '1']);
+    ).toEqual(['1', '1', '1', '1']);
 
     const titles = wrapper
-      .findAll('.security-center-finding-copy > strong')
+      .findAll('.security-center-finding-title')
       .map((finding) => finding.text());
     expect(titles).toEqual([
       'Critical finding',
@@ -223,7 +228,7 @@ describe('ProjectSecurityCenterPanel', () => {
       'Low finding',
       'Unknown finding',
     ]);
-    expect(wrapper.text()).toContain('Secret · CRIT-1 · a.env:4');
+    expect(wrapper.text()).toContain('a.env');
     expect(wrapper.text()).toContain(
       'Remova o segredo e rotacione a credencial.',
     );
@@ -257,14 +262,14 @@ describe('ProjectSecurityCenterPanel', () => {
       wrapper
         .findAll('.security-center-severity strong')
         .map((metric) => metric.text()),
-    ).toEqual(['0', '0', '0', '0', '0']);
+    ).toEqual(['0', '0', '0', '0']);
     expect(wrapper.text()).toContain('Nenhum finding encontrado');
-    expect(wrapper.text()).toContain('0 finding(s)');
+    expect(wrapper.text()).toContain('0 resultados');
 
     wrapper.unmount();
   });
 
-  it('mantém a triagem inconclusiva quando o provider falha', async () => {
+  it('mantém o estado vazio e o diagnóstico quando o provider falha', async () => {
     fetchSecurityCenterAvailability.mockResolvedValueOnce(
       availability('available'),
     );
@@ -284,11 +289,7 @@ describe('ProjectSecurityCenterPanel', () => {
 
     expect(wrapper.text()).toContain('Scan inconclusivo');
     expect(wrapper.text()).toContain('Trivy encerrou com erro.');
-    expect(
-      wrapper
-        .findAll('.security-center-severity strong')
-        .map((metric) => metric.text()),
-    ).toEqual(['—', '—', '—', '—', '—']);
+    expect(wrapper.findAll('.security-center-severity')).toHaveLength(0);
 
     wrapper.unmount();
   });

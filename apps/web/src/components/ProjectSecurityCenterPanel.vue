@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  ChevronRightIcon,
+  PlayIcon,
+  ShieldCheckIcon,
+} from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -12,7 +17,6 @@ import {
   type SecurityCenterSnapshotResponse,
   type SecurityFinding,
 } from '../api/security-center';
-import EmptyState from './EmptyState.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
@@ -38,31 +42,6 @@ const availabilityLabel = computed(() => {
   if (availability.value?.availability.state === 'missing')
     return 'Não instalado';
   return 'Indisponível';
-});
-
-const availabilityStateClass = computed(() =>
-  availability.value
-    ? `security-center-state--${availability.value.availability.state}`
-    : '',
-);
-
-const availabilityTitle = computed(() =>
-  availability.value?.availability.state === 'available'
-    ? 'Scanner pronto para executar'
-    : 'Security Center ainda não pode executar scans',
-);
-
-const availabilityDiagnostic = computed(() => {
-  if (availability.value?.availability.diagnostic) {
-    return availability.value.availability.diagnostic;
-  }
-  if (availability.value?.availability.state === 'available') {
-    return 'O provider está disponível para um scan manual nesta sessão.';
-  }
-  if (availability.value?.availability.state === 'missing') {
-    return 'O scanner não está instalado ou não está disponível no PATH da API.';
-  }
-  return 'O provider não está disponível para execução neste momento.';
 });
 
 const canScan = computed(
@@ -92,17 +71,55 @@ const evidenceObservedAt = computed(
       : undefined),
 );
 
-const freshnessLabel = computed(() => {
-  if (!snapshot.value) return '—';
-  return snapshot.value.freshness.state === 'fresh' ? 'Atual' : 'Desatualizado';
+const lastScanLabel = computed(() => {
+  if (scanning.value) return 'Em execução';
+
+  const observedAt =
+    scan.value?.execution.observedAt ?? snapshot.value?.result.observedAt;
+  return observedAt ? formatDate(observedAt) : 'Nunca executado';
 });
 
-const scanStateLabel = computed(() => {
-  if (scanning.value) return 'Em execução';
-  if (scan.value?.execution.state === 'completed') return 'Concluído';
-  if (scan.value) return 'Inconclusivo';
-  if (snapshot.value) return 'Persistido';
-  return 'Não executado';
+const providerLabel = computed(() => {
+  const provider = availability.value?.provider;
+  if (!provider) return 'Scanner';
+  return provider === 'trivy' ? 'Trivy' : provider;
+});
+
+const versionLabel = computed(() => {
+  const version = availability.value?.availability.version;
+  if (!version) return '';
+  return version.startsWith('v') ? version : `v${version}`;
+});
+
+const scanButtonLabel = computed(() => {
+  if (scanning.value) return 'Escaneando…';
+  return hasCompletedScan.value ? 'Executar novamente' : 'Executar scan';
+});
+
+const emptyTitle = computed(() => {
+  if (scan.value && scan.value.execution.state !== 'completed') {
+    return 'Scan inconclusivo';
+  }
+  if (availability.value?.availability.state !== 'available') {
+    return 'Scanner não disponível';
+  }
+  return 'Nenhum scan executado';
+});
+
+const emptyDescription = computed(() => {
+  if (scan.value && scan.value.execution.state !== 'completed') {
+    return (
+      scan.value.execution.diagnostic ??
+      'O provider não conseguiu produzir um resultado confiável.'
+    );
+  }
+  if (availability.value?.availability.state !== 'available') {
+    return (
+      availability.value?.availability.diagnostic ??
+      'O scanner não está disponível para execução neste momento.'
+    );
+  }
+  return 'Execute um scan para verificar secrets e configurações incorretas.';
 });
 
 const severityOrder: Record<SecurityFinding['severity'], number> = {
@@ -113,10 +130,8 @@ const severityOrder: Record<SecurityFinding['severity'], number> = {
   unknown: 4,
 };
 
-const severityCounts = computed(() => {
-  if (!hasCompletedScan.value) return null;
-
-  return findings.value.reduce(
+const severityCounts = computed(() =>
+  findings.value.reduce(
     (counts, finding) => {
       counts[finding.severity] += 1;
       return counts;
@@ -128,8 +143,8 @@ const severityCounts = computed(() => {
       low: 0,
       unknown: 0,
     } satisfies Record<SecurityFinding['severity'], number>,
-  );
-});
+  ),
+);
 
 const sortedFindings = computed(() =>
   [...findings.value].sort(
@@ -159,6 +174,13 @@ function categoryLabel(category: SecurityFinding['category']): string {
   return category === 'secret' ? 'Secret' : 'Misconfiguration';
 }
 
+function findingDescription(finding: SecurityFinding): string {
+  return (
+    finding.remediation ??
+    `${categoryLabel(finding.category)} · ${finding.ruleId}`
+  );
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -166,10 +188,6 @@ function formatDate(value: string): string {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date);
-}
-
-function severityCount(severity: SecurityFinding['severity']): string | number {
-  return severityCounts.value?.[severity] ?? '—';
 }
 
 async function loadAvailability(): Promise<void> {
@@ -245,198 +263,164 @@ watch(
     aria-labelledby="security-center-title"
   >
     <header class="security-center-header">
-      <div>
-        <span class="security-center-eyebrow">Segurança</span>
-        <h3 id="security-center-title">Security Center</h3>
-        <p>Scan manual e somente leitura de secrets e misconfigurations.</p>
+      <div class="security-center-identity">
+        <ShieldCheckIcon class="security-center-icon" aria-hidden="true" />
+        <div class="security-center-heading">
+          <h3 id="security-center-title">Segurança</h3>
+          <div v-if="availability" class="security-center-scanner-summary">
+            <strong>{{ providerLabel }}</strong>
+            <span v-if="versionLabel" class="security-center-version">
+              {{ versionLabel }}
+            </span>
+            <StatusBadge :tone="availabilityTone" size="md">
+              {{ availabilityLabel }}
+            </StatusBadge>
+            <span class="security-center-divider" aria-hidden="true"></span>
+            <span class="security-center-last-scan">
+              Último scan: {{ lastScanLabel }}
+            </span>
+          </div>
+        </div>
       </div>
-      <StatusBadge v-if="availability" :tone="availabilityTone" size="md">
-        {{ availabilityLabel }}
-      </StatusBadge>
+
+      <button
+        v-if="availability"
+        class="primary-button security-center-scan-button"
+        type="button"
+        :disabled="!canScan"
+        @click="runScan"
+      >
+        <PlayIcon v-if="!scanning" aria-hidden="true" />
+        {{ scanButtonLabel }}
+      </button>
     </header>
 
-    <EmptyState
-      v-if="loadingAvailability"
-      icon="•••"
-      title="Consultando scanner"
-      description="Verificando se o provider de segurança está disponível."
-    />
+    <div v-if="loadingAvailability" class="security-center-placeholder">
+      <ShieldCheckIcon aria-hidden="true" />
+      <strong>Consultando scanner</strong>
+      <span>Verificando se o provider de segurança está disponível.</span>
+    </div>
 
-    <EmptyState
+    <div
       v-else-if="errorMessage && !availability"
-      icon="!"
-      title="Security Center indisponível"
-      :description="errorMessage"
+      class="security-center-placeholder"
+      role="alert"
     >
-      <template #actions>
-        <button class="primary-button" type="button" @click="loadAvailability">
-          Tentar novamente
-        </button>
-      </template>
-    </EmptyState>
+      <ShieldCheckIcon aria-hidden="true" />
+      <strong>Security Center indisponível</strong>
+      <span>{{ errorMessage }}</span>
+      <button class="primary-button" type="button" @click="loadAvailability">
+        Tentar novamente
+      </button>
+    </div>
 
     <template v-else-if="availability">
-      <section
-        class="security-center-state"
-        :class="availabilityStateClass"
-        aria-labelledby="security-center-state-title"
+      <p
+        v-if="errorMessage && (hasCompletedScan || !scan)"
+        class="security-center-error"
+        role="alert"
       >
-        <span class="security-center-state-marker" aria-hidden="true"></span>
-        <div class="security-center-state-copy">
-          <strong id="security-center-state-title">{{
-            availabilityTitle
-          }}</strong>
-          <p>{{ availabilityDiagnostic }}</p>
-        </div>
-        <span class="security-center-observed">
-          Observado em {{ formatDate(availability.availability.observedAt) }}
-        </span>
-      </section>
-
-      <section class="security-center-scanner" aria-label="Estado do scanner">
-        <div class="security-center-scanner-metric">
-          <span>Scanner</span>
-          <strong>{{ availability.provider }}</strong>
-        </div>
-        <div class="security-center-scanner-metric">
-          <span>Versão</span>
-          <strong>{{ availability.availability.version ?? '—' }}</strong>
-        </div>
-        <div class="security-center-scanner-metric">
-          <span>Último scan</span>
-          <strong>{{ scanStateLabel }}</strong>
-        </div>
-        <div class="security-center-scanner-metric">
-          <span>Persistência</span>
-          <strong>{{ snapshot ? 'Persistido' : 'Sem snapshot' }}</strong>
-        </div>
-        <div class="security-center-scanner-metric">
-          <span>Freshness</span>
-          <strong>{{ freshnessLabel }}</strong>
-        </div>
-        <button
-          class="primary-button security-center-scan-button"
-          type="button"
-          :disabled="!canScan"
-          @click="runScan"
-        >
-          {{ scanning ? 'Escaneando…' : 'Executar scan' }}
-        </button>
-      </section>
-
-      <p v-if="errorMessage" class="security-center-error" role="alert">
         {{ errorMessage }}
       </p>
 
-      <section
-        class="security-center-triage"
-        aria-labelledby="security-center-triage-title"
-      >
-        <div class="security-center-section-heading">
-          <div>
-            <h4 id="security-center-triage-title">Triagem de riscos</h4>
-            <p>
-              Findings críticos aparecem primeiro e o restante segue por
-              severidade.
-            </p>
-          </div>
-          <span v-if="evidenceObservedAt">
-            {{ formatDate(evidenceObservedAt) }}
-          </span>
-        </div>
+      <section class="security-center-results" aria-label="Resultados">
+        <template v-if="hasCompletedScan">
+          <h4>Resultados</h4>
 
-        <div
-          class="security-center-severity-grid"
-          aria-label="Contagem por severidade"
-        >
           <div
-            class="security-center-severity security-center-severity--critical"
+            class="security-center-severity-grid"
+            aria-label="Contagem por severidade"
           >
-            <span>Crítica</span>
-            <strong>{{ severityCount('critical') }}</strong>
+            <article
+              class="security-center-severity security-center-severity--critical"
+            >
+              <span>Críticas</span>
+              <strong>{{ severityCounts.critical }}</strong>
+            </article>
+            <article
+              class="security-center-severity security-center-severity--high"
+            >
+              <span>Altas</span>
+              <strong>{{ severityCounts.high }}</strong>
+            </article>
+            <article
+              class="security-center-severity security-center-severity--medium"
+            >
+              <span>Médias</span>
+              <strong>{{ severityCounts.medium }}</strong>
+            </article>
+            <article
+              class="security-center-severity security-center-severity--low"
+            >
+              <span>Baixas</span>
+              <strong>{{ severityCounts.low }}</strong>
+            </article>
           </div>
-          <div class="security-center-severity security-center-severity--high">
-            <span>Alta</span>
-            <strong>{{ severityCount('high') }}</strong>
-          </div>
-          <div
-            class="security-center-severity security-center-severity--medium"
-          >
-            <span>Média</span>
-            <strong>{{ severityCount('medium') }}</strong>
-          </div>
-          <div class="security-center-severity security-center-severity--low">
-            <span>Baixa</span>
-            <strong>{{ severityCount('low') }}</strong>
-          </div>
-          <div
-            class="security-center-severity security-center-severity--unknown"
-          >
-            <span>Desconhecida</span>
-            <strong>{{ severityCount('unknown') }}</strong>
-          </div>
-        </div>
 
-        <div class="security-center-findings-heading">
-          <h4>Findings</h4>
-          <span>
-            <template v-if="hasCompletedScan">
-              {{ findings.length }} finding(s)
-            </template>
-            <template v-else-if="scan">Scan inconclusivo</template>
-            <template v-else>Sem snapshot persistido</template>
-          </span>
-        </div>
+          <div class="security-center-findings">
+            <h5>
+              {{ findings.length }}
+              {{ findings.length === 1 ? 'resultado' : 'resultados' }}
+            </h5>
 
-        <EmptyState
-          v-if="!hasCompletedScan"
-          class="security-center-empty"
-          :icon="scan ? '!' : '—'"
-          :title="scan ? 'Scan inconclusivo' : 'Nenhum snapshot persistido'"
-          :description="
-            scan?.execution.diagnostic ??
-            'Execute um scan concluído para persistir uma evidência sanitizada.'
-          "
-        />
-
-        <EmptyState
-          v-else-if="findings.length === 0"
-          class="security-center-empty"
-          icon="✓"
-          title="Nenhum finding encontrado"
-          :description="`Scan concluído em ${formatDate(evidenceObservedAt ?? '')}.`"
-        />
-
-        <ul
-          v-else
-          class="security-center-findings"
-          aria-label="Findings de segurança"
-        >
-          <li
-            v-for="finding in sortedFindings"
-            :key="finding.fingerprint"
-            class="security-center-finding"
-          >
-            <StatusBadge :tone="severityTone(finding.severity)">
-              {{ severityLabel(finding.severity) }}
-            </StatusBadge>
-            <div class="security-center-finding-copy">
-              <strong>{{ finding.title }}</strong>
-              <p>
-                {{ categoryLabel(finding.category) }} · {{ finding.ruleId }} ·
-                <code
-                  >{{ finding.file
-                  }}<template v-if="finding.line"
-                    >:{{ finding.line }}</template
-                  ></code
-                >
-              </p>
-              <small v-if="finding.remediation">{{
-                finding.remediation
-              }}</small>
+            <div
+              v-if="findings.length === 0"
+              class="security-center-placeholder security-center-placeholder--compact"
+            >
+              <ShieldCheckIcon aria-hidden="true" />
+              <strong>Nenhum finding encontrado</strong>
+              <span>
+                Scan concluído em {{ formatDate(evidenceObservedAt ?? '') }}.
+              </span>
             </div>
-          </li>
-        </ul>
+
+            <div v-else class="security-center-table-wrap">
+              <table class="security-center-table">
+                <thead>
+                  <tr>
+                    <th>Severidade</th>
+                    <th>Título</th>
+                    <th>Arquivo</th>
+                    <th>Linha</th>
+                    <th>Descrição</th>
+                    <th aria-label="Detalhes"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="finding in sortedFindings"
+                    :key="finding.fingerprint"
+                  >
+                    <td>
+                      <StatusBadge :tone="severityTone(finding.severity)">
+                        {{ severityLabel(finding.severity) }}
+                      </StatusBadge>
+                    </td>
+                    <td class="security-center-finding-title">
+                      {{ finding.title }}
+                    </td>
+                    <td>
+                      <code>{{ finding.file }}</code>
+                    </td>
+                    <td>{{ finding.line ?? '—' }}</td>
+                    <td class="security-center-finding-description">
+                      {{ findingDescription(finding) }}
+                    </td>
+                    <td class="security-center-finding-chevron">
+                      <ChevronRightIcon aria-hidden="true" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+
+        <div v-else class="security-center-placeholder">
+          <ShieldCheckIcon aria-hidden="true" />
+          <strong>{{ emptyTitle }}</strong>
+          <span>{{ emptyDescription }}</span>
+        </div>
       </section>
     </template>
   </section>
@@ -446,293 +430,336 @@ watch(
 .security-center-panel {
   display: grid;
   min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
 }
 
 .security-center-header {
   display: flex;
-  align-items: flex-start;
+  min-height: 100px;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--border);
 }
 
-.security-center-header h3,
-.security-center-header p,
-.security-center-state p,
-.security-center-section-heading h4,
-.security-center-section-heading p,
-.security-center-findings-heading h4,
-.security-center-finding p {
-  margin: 0;
+.security-center-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-5);
 }
 
-.security-center-header h3 {
-  margin-top: var(--space-1);
+.security-center-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  color: var(--accent);
 }
 
-.security-center-header p,
-.security-center-state p,
-.security-center-section-heading p,
-.security-center-findings-heading span,
-.security-center-finding p,
-.security-center-finding small,
-.security-center-observed {
-  color: var(--text-muted);
-}
-
-.security-center-eyebrow,
-.security-center-scanner-metric span,
-.security-center-severity span {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.security-center-state {
+.security-center-heading {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.security-center-heading h3,
+.security-center-results h4,
+.security-center-findings h5 {
+  margin: 0;
+  color: var(--text);
+  font-weight: var(--font-weight-strong);
+}
+
+.security-center-heading h3 {
+  font-size: var(--font-xl);
+}
+
+.security-center-scanner-summary {
+  display: flex;
+  min-width: 0;
   align-items: center;
   gap: var(--space-3);
-  margin: 0 var(--space-5);
-  padding: var(--space-4) 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
-.security-center-state-marker {
-  width: 4px;
-  height: 100%;
-  min-height: 42px;
+.security-center-scanner-summary > strong {
+  color: var(--text);
+  font-size: var(--font-lg);
+}
+
+.security-center-version {
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: var(--warning-text);
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: var(--font-sm);
 }
 
-.security-center-state--available .security-center-state-marker {
-  background: var(--success-text);
+.security-center-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-strong);
 }
 
-.security-center-state--missing .security-center-state-marker {
-  background: var(--text-muted);
-}
-
-.security-center-state-copy {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.security-center-observed {
-  font-size: var(--font-xs);
+.security-center-last-scan {
+  overflow: hidden;
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.security-center-scanner {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(110px, 1fr)) auto;
-  align-items: center;
-  gap: var(--space-4);
-  margin: 0 var(--space-5);
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.security-center-scanner-metric {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.security-center-scanner-metric strong {
-  overflow-wrap: anywhere;
 }
 
 .security-center-scan-button {
-  justify-self: end;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   white-space: nowrap;
+}
+
+.security-center-scan-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .security-center-error {
   margin: var(--space-3) var(--space-5) 0;
   color: var(--danger-text);
+  font-size: var(--font-sm);
 }
 
-.security-center-triage {
+.security-center-results {
   display: grid;
-  gap: 0;
-  padding: var(--space-5);
+  gap: var(--space-3);
+  min-height: 250px;
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
-.security-center-section-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
-}
-
-.security-center-section-heading > div {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.security-center-section-heading > span {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  white-space: nowrap;
+.security-center-results h4 {
+  font-size: var(--font-md);
 }
 
 .security-center-severity-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-5);
 }
 
 .security-center-severity {
+  position: relative;
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-4) var(--space-3);
-  border-right: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
 }
 
-.security-center-severity:first-child {
-  padding-left: 0;
+.security-center-severity::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--text-muted);
+  content: '';
 }
 
-.security-center-severity:last-child {
-  padding-right: 0;
-  border-right: 0;
+.security-center-severity span {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .security-center-severity strong {
-  font-size: 1.35rem;
+  color: var(--text);
+  font-size: 1.45rem;
+  line-height: 1;
 }
 
-.security-center-severity--critical strong,
-.security-center-severity--high strong {
-  color: var(--danger-text);
+.security-center-severity--critical::before {
+  background: var(--danger-text);
 }
 
-.security-center-severity--medium strong {
-  color: var(--warning-text);
+.security-center-severity--high::before {
+  background: #ff6a3d;
 }
 
-.security-center-severity--low strong {
-  color: var(--success-text);
+.security-center-severity--medium::before {
+  background: var(--warning-text);
 }
 
-.security-center-severity--unknown strong {
-  color: var(--text-muted);
-}
-
-.security-center-findings-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-5) 0 var(--space-3);
-  border-bottom: 1px solid var(--border);
-}
-
-.security-center-findings-heading span {
-  font-size: var(--font-xs);
-}
-
-.security-center-empty {
-  margin-top: var(--space-4);
+.security-center-severity--low::before {
+  background: var(--success-text);
 }
 
 .security-center-findings {
   display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
-.security-center-finding {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4) 0;
+.security-center-findings h5 {
+  font-size: var(--font-md);
+}
+
+.security-center-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.security-center-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.security-center-table th {
+  padding: 9px var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
   border-bottom: 1px solid var(--border);
 }
 
-.security-center-finding-copy {
+.security-center-table td {
+  padding: 10px var(--space-3);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.security-center-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.security-center-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.security-center-table code {
+  color: var(--text);
+  font-family: var(--font-family-code);
+  font-size: var(--font-sm);
+}
+
+.security-center-finding-title {
+  color: var(--text) !important;
+  font-weight: var(--font-weight-strong);
+}
+
+.security-center-finding-description {
+  min-width: 220px;
+}
+
+.security-center-finding-chevron {
+  width: 36px;
+  text-align: right;
+}
+
+.security-center-finding-chevron svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.security-center-placeholder {
   display: grid;
-  gap: var(--space-1);
-  min-width: 0;
+  min-height: 198px;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  color: var(--text-muted);
+  text-align: center;
 }
 
-.security-center-finding code {
-  overflow-wrap: anywhere;
+.security-center-placeholder > svg {
+  width: 42px;
+  height: 42px;
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
 }
 
-@media (max-width: 980px) {
-  .security-center-scanner {
+.security-center-placeholder > strong {
+  color: var(--text);
+  font-size: var(--font-md);
+  font-weight: var(--font-weight-strong);
+}
+
+.security-center-placeholder > span {
+  font-size: var(--font-sm);
+}
+
+.security-center-placeholder > button {
+  margin-top: var(--space-2);
+}
+
+.security-center-placeholder--compact {
+  min-height: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 900px) {
+  .security-center-severity-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .security-center-scan-button {
-    justify-self: start;
+    gap: var(--space-3);
   }
 }
 
-@media (max-width: 720px) {
-  .security-center-header,
-  .security-center-section-heading,
-  .security-center-findings-heading {
-    align-items: flex-start;
+@media (max-width: 680px) {
+  .security-center-header {
+    min-height: 0;
+    align-items: stretch;
     flex-direction: column;
   }
 
-  .security-center-state {
-    grid-template-columns: auto minmax(0, 1fr);
+  .security-center-identity {
+    align-items: flex-start;
   }
 
-  .security-center-observed {
-    grid-column: 2;
+  .security-center-scanner-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .security-center-divider {
+    display: none;
+  }
+
+  .security-center-last-scan {
+    width: 100%;
     white-space: normal;
-  }
-
-  .security-center-severity-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .security-center-severity,
-  .security-center-severity:first-child,
-  .security-center-severity:last-child {
-    padding: var(--space-3) 0;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .security-center-severity:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-}
-
-@media (max-width: 520px) {
-  .security-center-scanner,
-  .security-center-severity-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .security-center-severity:nth-last-child(-n + 2) {
-    border-bottom: 1px solid var(--border);
-  }
-
-  .security-center-severity:last-child {
-    border-bottom: 0;
   }
 
   .security-center-scan-button {
     width: 100%;
   }
 
-  .security-center-finding {
+  .security-center-results {
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .security-center-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .security-center-severity-grid {
     grid-template-columns: 1fr;
   }
 }
