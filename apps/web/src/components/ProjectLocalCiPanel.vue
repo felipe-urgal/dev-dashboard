@@ -578,7 +578,9 @@ onBeforeUnmount(closeSocket);
         </div>
 
         <p v-if="run.status === 'exited'" class="local-ci-result">
-          <template v-if="run.timedOut">Execução encerrada por timeout.</template>
+          <template v-if="run.timedOut"
+            >Execução encerrada por timeout.</template
+          >
           <template v-else>
             Exit code {{ run.exitCode ?? '—' }}
             <template v-if="run.exitSignal !== null">
