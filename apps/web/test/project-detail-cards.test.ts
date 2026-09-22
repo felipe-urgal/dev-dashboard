@@ -124,32 +124,31 @@ describe('cards dos painéis de detalhe', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
 
-  it('exibe configuração e console quando o servidor está parado', async () => {
+  it('exibe resumo compacto e console quando o servidor está parado', async () => {
     fetchProjectProcess.mockResolvedValueOnce(null);
 
     const wrapper = mountServerPanel();
     await flushPromises();
 
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
-    expect(wrapper.find('.server-overview').exists()).toBe(true);
-    expect(wrapper.findAll('.server-overview-card')).toHaveLength(4);
-    expect(wrapper.find('.server-config-card').exists()).toBe(true);
+    expect(wrapper.find('.server-toolbar').exists()).toBe(true);
+    expect(wrapper.findAll('.server-summary-item')).toHaveLength(4);
     expect(wrapper.find('.server-console-card').exists()).toBe(true);
-    expect(wrapper.find('.server-console-terminal').exists()).toBe(true);
     expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
-    expect(wrapper.find('.server-support-grid').exists()).toBe(true);
-    expect(wrapper.find('.server-console-hero.is-running').exists()).toBe(
-      false,
-    );
+    expect(wrapper.find('.server-settings-modal').exists()).toBe(false);
+    expect(wrapper.find('.server-support-grid').exists()).toBe(false);
+    expect(wrapper.find('.server-config-card').exists()).toBe(false);
+    expect(wrapper.find('.server-status-label').text()).toContain('Parado');
     expect(wrapper.text()).toContain('$ aguardando início do servidor...');
     expect(wrapper.text()).toContain('Iniciar servidor');
+    expect(wrapper.text()).toContain('Configurar');
     expect(wrapper.text()).not.toContain('Atividade recente');
     expect(wrapper.text()).not.toContain('Health check');
 
     wrapper.unmount();
   });
 
-  it('exibe configuração e console durante a execução do servidor', async () => {
+  it('exibe resumo compacto e console durante a execução do servidor', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-running',
       projectId: project.id,
@@ -163,17 +162,22 @@ describe('cards dos painéis de detalhe', () => {
     const wrapper = mountServerPanel();
     await flushPromises();
 
-    expect(wrapper.find('.server-config-card').exists()).toBe(true);
+    expect(wrapper.find('.server-toolbar').exists()).toBe(true);
     expect(wrapper.find('.server-console-card').exists()).toBe(true);
-    expect(wrapper.find('.server-console-hero.is-running').exists()).toBe(true);
-    expect(wrapper.find('.server-console-terminal').exists()).toBe(true);
     expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
-    expect(wrapper.find('.server-logs-link').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Servidor em execução');
-    expect(wrapper.text()).toContain('Logs do servidor');
-    expect(wrapper.text()).toContain('http://localhost:3000');
-    expect(wrapper.text()).toContain('Parar servidor');
+    expect(wrapper.find('.server-config-card').exists()).toBe(false);
+    expect(wrapper.find('.server-support-grid').exists()).toBe(false);
+    expect(wrapper.find('.server-status-label').text()).toContain('Executando');
+    expect(
+      wrapper.get<HTMLAnchorElement>('a[aria-label="Abrir aplicação"]').attributes('href'),
+    ).toBe('http://localhost:3000');
+    expect(
+      wrapper.find('button[aria-label="Copiar URL local"]').exists(),
+    ).toBe(true);
+    expect(wrapper.text()).toContain('Console');
+    expect(wrapper.text()).toContain('Parar');
     expect(wrapper.text()).toContain('Reiniciar');
+    expect(wrapper.text()).toContain('Configurar');
     expect(wrapper.text()).not.toContain('Configuração do processo');
     expect(wrapper.text()).not.toContain('Abrir no navegador do sistema');
     expect(wrapper.text()).not.toContain('Health check');
