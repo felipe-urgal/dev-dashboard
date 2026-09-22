@@ -2,7 +2,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { AgentTask, AgentTaskRecord, AgentTaskStore } from './contracts.js';
+import type {
+  AgentTask,
+  AgentTaskRecord,
+  AgentTaskStore,
+} from './contracts.js';
 import {
   runAgentCliProcess,
   type AgentCliProcessRunner,
@@ -53,9 +57,9 @@ interface PersistedAgentTaskRecord {
 function isEnoent(error: unknown): boolean {
   return Boolean(
     error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'ENOENT',
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT',
   );
 }
 
@@ -92,10 +96,7 @@ function assertIsoTimestamp(value: string, label: string): void {
 }
 
 function taskFileName(taskId: string): string {
-  return (
-    createHash('sha256').update(taskId).digest('hex') +
-    '.json'
-  );
+  return createHash('sha256').update(taskId).digest('hex') + '.json';
 }
 
 function parsePersistedRecord(serialized: string): PersistedAgentTaskRecord {
@@ -175,11 +176,11 @@ function isOwnedMarker(value: string): boolean {
     const parsed: unknown = JSON.parse(value);
     return Boolean(
       parsed &&
-        typeof parsed === 'object' &&
-        !Array.isArray(parsed) &&
-        (parsed as Record<string, unknown>).owner === STORE_OWNER &&
-        (parsed as Record<string, unknown>).schemaVersion ===
-          STORE_SCHEMA_VERSION,
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      (parsed as Record<string, unknown>).owner === STORE_OWNER &&
+      (parsed as Record<string, unknown>).schemaVersion ===
+        STORE_SCHEMA_VERSION,
     );
   } catch {
     return false;
@@ -252,7 +253,9 @@ export class GitAgentTaskStore implements AgentTaskStore {
       }
 
       const records: AgentTaskRecord[] = [];
-      for (const name of names.filter((entry) => entry.endsWith('.json')).sort()) {
+      for (const name of names
+        .filter((entry) => entry.endsWith('.json'))
+        .sort()) {
         const record = await this.readTaskFile(
           path.join(tasksDirectory, name),
           name,
@@ -635,12 +638,7 @@ export class GitAgentTaskStore implements AgentTaskStore {
 
     if (created) {
       await fs
-        .unlink(
-          path.join(
-            this.repositoryDirectory,
-            ...relativePath.split('/'),
-          ),
-        )
+        .unlink(path.join(this.repositoryDirectory, ...relativePath.split('/')))
         .catch((error: unknown) => {
           if (!isEnoent(error)) throw error;
         });
