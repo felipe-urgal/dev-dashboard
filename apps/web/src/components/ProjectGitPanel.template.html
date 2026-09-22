@@ -17,7 +17,7 @@
       {{ mutationErrorMessage }}
     </p>
     <ProjectGitChangeImpactBanner
-      v-if="changeImpact"
+      v-if="changeImpact && activeTab !== 'sync'"
       :project-id="project.id"
       :impact="changeImpact"
     />
