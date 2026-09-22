@@ -77,7 +77,7 @@ beforeEach(() => {
 });
 
 describe('ProjectMigrationsPanel', () => {
-  it('renderiza timeline e habilita apply somente quando o plano comum está ready', async () => {
+  it('renderiza listas compactas e habilita apply somente quando o plano comum está ready', async () => {
     api.fetchMigrationOverview.mockResolvedValue({
       provider: 'rails',
       status: 'pending',
@@ -131,7 +131,7 @@ describe('ProjectMigrationsPanel', () => {
       readyPlan.environmentInstanceId,
     );
     expect(wrapper.text()).toContain('Pendente');
-    expect(wrapper.text()).toContain('Histórico de migrations');
+    expect(wrapper.find('.migrations-list-grid').exists()).toBe(true);
     expect(wrapper.text()).toContain('rails');
     expect(wrapper.text()).toContain('023');
     expect(wrapper.text()).toContain('Add audit index');
@@ -139,7 +139,7 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain('Aplicação disponível');
     expect(wrapper.text()).toContain('Aplicar 1 migration');
 
-    await wrapper.get('.migrations-mutation .primary-button').trigger('click');
+    await wrapper.get('.migrations-action .primary-button').trigger('click');
     await flushPromises();
 
     expect(api.prepareMigrationMutation).toHaveBeenCalledWith(
@@ -187,6 +187,46 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).not.toContain('Aplicar 1 migration');
   });
 
+  it('renderiza o estado indisponível no layout minimalista sem timeline ou contexto lateral', async () => {
+    api.fetchMigrationOverview.mockResolvedValue({
+      provider: 'none',
+      status: 'unavailable',
+      database: 'primary',
+      applied: [],
+      pending: [],
+      observedAt: '2026-09-22T16:32:00.000Z',
+      evidence: 'Inspeção de migrations indisponível.',
+      warnings: [
+        'Nenhum Migration Provider compatível foi encontrado para este projeto.',
+      ],
+    });
+    api.planMigrationMutation.mockResolvedValue({
+      ...readyPlan,
+      provider: 'none',
+      preflight: {
+        state: 'unavailable',
+        reason: 'provider-unavailable',
+        observedAt: '2026-09-22T16:32:00.000Z',
+        evidence: 'Migration mutation provider',
+      },
+    });
+
+    const wrapper = mount(ProjectMigrationsPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Indisponível');
+    expect(wrapper.text()).toContain('Somente leitura');
+    expect(wrapper.text()).toContain('Nenhuma migration disponível');
+    expect(wrapper.text()).toContain(
+      'Nenhum Migration Provider compatível foi encontrado para este projeto.',
+    );
+    expect(wrapper.find('.migrations-meta').exists()).toBe(true);
+    expect(wrapper.find('.migrations-counts').exists()).toBe(true);
+    expect(wrapper.find('.migrations-empty').exists()).toBe(true);
+    expect(wrapper.find('.migrations-list-grid').exists()).toBe(false);
+    expect(wrapper.find('.migrations-action').exists()).toBe(false);
+  });
+
   it('mostra o estado atualizado sem inventar atividade', async () => {
     api.fetchMigrationOverview.mockResolvedValue({
       provider: 'prisma',
@@ -213,9 +253,7 @@ describe('ProjectMigrationsPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Atualizado');
-    expect(wrapper.text()).toContain(
-      'Não há migrations pendentes segundo a evidência disponível.',
-    );
+    expect(wrapper.text()).toContain('Nenhuma migration pendente');
     expect(wrapper.text()).toContain(
       'Não há migrations pendentes para aplicar.',
     );
