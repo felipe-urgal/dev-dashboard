@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
-  ArrowPathIcon,
-  CheckCircleIcon,
+  ClipboardDocumentIcon,
   CommandLineIcon,
+  CubeIcon,
   ExclamationTriangleIcon,
   PlayIcon,
   StopCircleIcon,
-  XCircleIcon,
+  TrashIcon,
 } from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectScriptCatalog } from '@dev-dashboard/contracts';
@@ -21,9 +21,7 @@ const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
-const clock = ref(Date.now());
 let generation = 0;
-let clockTimer: ReturnType<typeof setInterval> | undefined;
 
 const isSupportedProject = computed(() => Boolean(props.project.type));
 
@@ -37,6 +35,7 @@ const {
   terminalContainer,
   run,
   cancel,
+  clear,
 } = useProjectDependenciesPty(() => props.project, isSupportedProject);
 
 const actions = computed(() =>
@@ -69,79 +68,23 @@ const nodeManager = computed(() => {
   return 'Node';
 });
 
-const detectedManagers = computed(() => {
-  const managers: string[] = [];
-  if (nodeActions.value.length) managers.push(`Node / ${nodeManager.value}`);
-  if (railsActions.value.length) managers.push('Ruby / Bundler');
-  return managers;
-});
-
-const managerSummary = computed(() =>
-  detectedManagers.value.length
-    ? detectedManagers.value.join(' + ')
-    : 'Nenhum detectado',
-);
-
-const executedAction = computed(() =>
-  snapshot.value
-    ? actions.value.find((item) => item.id === snapshot.value?.actionId)
-    : undefined,
-);
-
 const executionSucceeded = computed(
   () => snapshot.value?.status === 'exited' && snapshot.value.exitCode === 0,
 );
 
 const executionStateLabel = computed(() => {
-  if (!snapshot.value) return 'Pronto';
+  if (!snapshot.value) return '';
   if (isRunning.value) return 'Executando';
-  return executionSucceeded.value ? 'Concluído' : 'Falhou';
+  return executionSucceeded.value ? 'Execução concluída' : 'Execução falhou';
 });
 
 const executionStateTone = computed(() => {
-  if (!snapshot.value) return 'idle';
   if (isRunning.value) return 'running';
   return executionSucceeded.value ? 'success' : 'failure';
 });
 
-const executionDuration = computed(() => {
-  const current = snapshot.value;
-  if (!current) return '';
-
-  const startedAt = Date.parse(current.startedAt);
-  const endedAt = current.endedAt ? Date.parse(current.endedAt) : clock.value;
-  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) return '';
-
-  const totalSeconds = Math.max(0, Math.floor((endedAt - startedAt) / 1_000));
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
-});
-
-const executionExitLabel = computed(() => {
-  const current = snapshot.value;
-  if (!current || isRunning.value) return '';
-  if (current.exitCode !== null) return `código ${current.exitCode}`;
-  if (current.exitSignal !== null) return `sinal ${current.exitSignal}`;
-  return 'sem código de saída';
-});
-
-function updateClockTimer(running: boolean): void {
-  if (clockTimer !== undefined) {
-    clearInterval(clockTimer);
-    clockTimer = undefined;
-  }
-  clock.value = Date.now();
-  if (running) {
-    clockTimer = setInterval(() => {
-      clock.value = Date.now();
-    }, 1_000);
-  }
-}
-
-function runAgain(): void {
-  if (executedAction.value) void run(executedAction.value);
+function copyCommand(command: string): void {
+  void navigator.clipboard?.writeText(command).catch(() => undefined);
 }
 
 async function load(): Promise<void> {
@@ -165,8 +108,6 @@ async function load(): Promise<void> {
   }
 }
 
-watch(isRunning, updateClockTimer, { immediate: true });
-
 watch(
   () => props.project.id,
   () => {
@@ -175,8 +116,6 @@ watch(
   },
   { immediate: true },
 );
-
-onBeforeUnmount(() => updateClockTimer(false));
 </script>
 
 <template>
@@ -194,53 +133,25 @@ onBeforeUnmount(() => updateClockTimer(false));
     </div>
 
     <template v-else>
-      <section class="dependencies-summary" aria-label="Resumo de dependências">
-        <article class="dependencies-summary-item">
-          <span>Gerenciadores</span>
-          <strong>{{ managerSummary }}</strong>
-          <small>Detectados automaticamente no projeto</small>
-        </article>
-
-        <article class="dependencies-summary-item">
-          <span>Ações disponíveis</span>
-          <strong>{{ actions.length }}</strong>
-          <small>Comandos disponíveis para execução</small>
-        </article>
-
-        <article
-          class="dependencies-summary-item dependencies-summary-execution"
-        >
-          <span>Execução</span>
-          <strong
-            class="dependencies-summary-status"
-            :class="`is-${executionStateTone}`"
-          >
-            {{ executionStateLabel }}
-          </strong>
-          <small v-if="snapshot">{{ snapshot.actionName }}</small>
-          <small v-else>Nenhum comando executado nesta sessão</small>
-        </article>
-      </section>
-
       <div class="dependencies-workspace">
         <aside
           class="dependencies-actions-panel"
           aria-label="Comandos disponíveis"
         >
-          <header class="dependencies-actions-header">
-            <div>
-              <strong>Comandos</strong>
-              <small>Dependências e build detectados no projeto.</small>
+          <header class="dependencies-panel-header">
+            <span class="dependencies-panel-icon" aria-hidden="true">
+              <CubeIcon />
+            </span>
+            <div class="dependencies-panel-title">
+              <strong>Dependências</strong>
+              <small>Comandos para gerenciar dependências do projeto.</small>
             </div>
           </header>
 
           <div v-if="actions.length" class="dependencies-groups">
             <section v-if="nodeActions.length" class="dependencies-group">
               <header class="dependencies-group-header">
-                <div>
-                  <strong>Node / {{ nodeManager }}</strong>
-                  <small>Instalação e build</small>
-                </div>
+                <strong>Node / {{ nodeManager }}</strong>
               </header>
 
               <div class="dependencies-action-list">
@@ -248,15 +159,34 @@ onBeforeUnmount(() => updateClockTimer(false));
                   v-for="item in nodeActions"
                   :key="item.id"
                   class="dependencies-action-row"
+                  :class="{ 'is-active': snapshot?.actionId === item.id }"
                 >
-                  <div class="dependencies-action-copy">
+                  <div class="dependencies-action-heading">
                     <strong>{{ item.name }}</strong>
-                    <small>{{ item.description }}</small>
                   </div>
+
                   <div class="dependencies-action-command">
-                    <code>{{ item.command }}</code>
+                    <div class="dependencies-command-field">
+                      <code>{{ item.command }}</code>
+                      <button
+                        type="button"
+                        class="dependencies-copy-command"
+                        :aria-label="`Copiar comando ${item.command}`"
+                        title="Copiar comando"
+                        @click="copyCommand(item.command)"
+                      >
+                        <ClipboardDocumentIcon aria-hidden="true" />
+                      </button>
+                    </div>
+
                     <button
                       type="button"
+                      class="dependencies-run-command"
+                      :class="{
+                        'is-primary':
+                          nodeActions.length === 1 ||
+                          snapshot?.actionId === item.id,
+                      }"
                       :disabled="
                         !item.enabled || starting !== null || isRunning
                       "
@@ -272,10 +202,7 @@ onBeforeUnmount(() => updateClockTimer(false));
 
             <section v-if="railsActions.length" class="dependencies-group">
               <header class="dependencies-group-header">
-                <div>
-                  <strong>Ruby / Bundler</strong>
-                  <small>Gemfile detectado</small>
-                </div>
+                <strong>Ruby / Bundler</strong>
               </header>
 
               <div class="dependencies-action-list">
@@ -283,22 +210,39 @@ onBeforeUnmount(() => updateClockTimer(false));
                   v-for="item in railsActions"
                   :key="item.id"
                   class="dependencies-action-row"
+                  :class="{ 'is-active': snapshot?.actionId === item.id }"
                 >
-                  <div class="dependencies-action-copy">
+                  <div class="dependencies-action-heading">
                     <strong>{{ item.name }}</strong>
-                    <small>{{ item.description }}</small>
+                    <span
+                      v-if="item.id === 'bundler:update'"
+                      class="dependencies-warning"
+                    >
+                      <ExclamationTriangleIcon aria-hidden="true" />
+                      Pode alterar o Gemfile.lock
+                    </span>
                   </div>
-                  <span
-                    v-if="item.id === 'bundler:update'"
-                    class="dependencies-warning"
-                  >
-                    <ExclamationTriangleIcon aria-hidden="true" />
-                    Pode alterar o Gemfile.lock.
-                  </span>
+
                   <div class="dependencies-action-command">
-                    <code>{{ item.command }}</code>
+                    <div class="dependencies-command-field">
+                      <code>{{ item.command }}</code>
+                      <button
+                        type="button"
+                        class="dependencies-copy-command"
+                        :aria-label="`Copiar comando ${item.command}`"
+                        title="Copiar comando"
+                        @click="copyCommand(item.command)"
+                      >
+                        <ClipboardDocumentIcon aria-hidden="true" />
+                      </button>
+                    </div>
+
                     <button
                       type="button"
+                      class="dependencies-run-command"
+                      :class="{
+                        'is-primary': snapshot?.actionId === item.id,
+                      }"
                       :disabled="
                         !item.enabled || starting !== null || isRunning
                       "
@@ -323,49 +267,30 @@ onBeforeUnmount(() => updateClockTimer(false));
         </aside>
 
         <section class="dependencies-console" aria-label="Console de execução">
-          <header class="dependencies-console-header">
-            <div class="dependencies-console-title">
+          <header class="dependencies-panel-header dependencies-console-header">
+            <div class="dependencies-console-heading">
               <span
-                v-if="snapshot"
-                :class="{
-                  'is-running': isRunning,
-                  'is-success': executionSucceeded,
-                  'is-failure': !isRunning && !executionSucceeded,
-                }"
+                class="dependencies-panel-icon dependencies-console-icon"
+                aria-hidden="true"
               >
-                <ArrowPathIcon
-                  v-if="isRunning"
-                  class="is-spinning"
-                  aria-hidden="true"
-                />
-                <CheckCircleIcon
-                  v-else-if="executionSucceeded"
-                  aria-hidden="true"
-                />
-                <XCircleIcon v-else aria-hidden="true" />
+                <CommandLineIcon />
               </span>
-              <span v-else class="is-idle">
-                <CommandLineIcon aria-hidden="true" />
-              </span>
-
-              <div class="dependencies-console-title-copy">
+              <div class="dependencies-panel-title">
                 <strong>Console de execução</strong>
-                <small v-if="snapshot">
-                  {{ snapshot.actionName }} · {{ executionStateLabel }}
-                  <template v-if="executionDuration">
-                    · {{ executionDuration }}
-                  </template>
-                  <template v-if="executionExitLabel">
-                    · {{ executionExitLabel }}
-                  </template>
-                </small>
-                <small v-else>
-                  A saída do próximo comando aparecerá aqui.
-                </small>
+                <small>Saída dos comandos executados no projeto.</small>
               </div>
             </div>
 
-            <div v-if="snapshot" class="dependencies-console-actions">
+            <div class="dependencies-console-actions">
+              <span
+                v-if="snapshot"
+                class="dependencies-execution-state"
+                :class="`is-${executionStateTone}`"
+              >
+                <span class="dependencies-status-dot" aria-hidden="true"></span>
+                {{ executionStateLabel }}
+              </span>
+
               <button
                 v-if="isRunning"
                 type="button"
@@ -376,14 +301,15 @@ onBeforeUnmount(() => updateClockTimer(false));
                 <StopCircleIcon aria-hidden="true" />
                 {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
               </button>
+
               <button
-                v-else-if="executedAction"
+                v-else-if="snapshot"
                 type="button"
-                :disabled="starting !== null"
-                @click="runAgain"
+                class="dependencies-console-clear"
+                @click="clear"
               >
-                <PlayIcon aria-hidden="true" />
-                Executar novamente
+                <TrashIcon aria-hidden="true" />
+                Limpar
               </button>
             </div>
           </header>
