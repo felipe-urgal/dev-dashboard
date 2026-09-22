@@ -216,6 +216,33 @@ test('ambiguous provider result blocks the task and cannot use automatic retry',
   );
 });
 
+test('unnormalized provider errors fail closed as blocked', async (t) => {
+  const provider = new StubProvider(async () => {
+    throw new Error('raw provider failure');
+  });
+  const { runtime, store } = await fixture(t, provider);
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_PROVIDER_FAILED',
+  );
+
+  assert.equal((await store.get('task-1'))?.task.state, 'blocked');
+  await assert.rejects(
+    () => runtime.retry('project-1', 'task-1'),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED',
+  );
+});
+
 test('known failed task can be reset to queued by explicit retry', async (t) => {
   const provider = new StubProvider(async () => ({
     providerId: 'codex',
