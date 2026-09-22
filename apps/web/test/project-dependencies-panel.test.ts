@@ -139,7 +139,10 @@ test('mostra runner compacto sem resumo redundante para o gerenciador Node detec
   await flushPromises();
 
   assert.match(wrapper.text(), /Dependências/);
-  assert.match(wrapper.text(), /Comandos para gerenciar dependências do projeto/);
+  assert.match(
+    wrapper.text(),
+    /Comandos para gerenciar dependências do projeto/,
+  );
   assert.match(wrapper.text(), /Node \/ Yarn/);
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
@@ -303,7 +306,10 @@ test('executa uma ação via PTY, destaca o comando e permite limpar o console',
     'Console de execução',
   );
   assert.equal(wrapper.find('.dependencies-console-empty').exists(), false);
-  assert.equal(wrapper.find('.dependencies-action-row.is-active').exists(), true);
+  assert.equal(
+    wrapper.find('.dependencies-action-row.is-active').exists(),
+    true,
+  );
 
   socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
   await flushPromises();
@@ -320,7 +326,10 @@ test('executa uma ação via PTY, destaca o comando e permite limpar o console',
   await flushPromises();
 
   assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
-  assert.equal(wrapper.find('.dependencies-action-row.is-active').exists(), false);
+  assert.equal(
+    wrapper.find('.dependencies-action-row.is-active').exists(),
+    false,
+  );
 
   await wrapper.get('.dependencies-run-command').trigger('click');
   await flushPromises();
