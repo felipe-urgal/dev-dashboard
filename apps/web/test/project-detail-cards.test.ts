@@ -169,11 +169,13 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.server-support-grid').exists()).toBe(false);
     expect(wrapper.find('.server-status-label').text()).toContain('Executando');
     expect(
-      wrapper.get<HTMLAnchorElement>('a[aria-label="Abrir aplicação"]').attributes('href'),
+      wrapper
+        .get<HTMLAnchorElement>('a[aria-label="Abrir aplicação"]')
+        .attributes('href'),
     ).toBe('http://localhost:3000');
-    expect(
-      wrapper.find('button[aria-label="Copiar URL local"]').exists(),
-    ).toBe(true);
+    expect(wrapper.find('button[aria-label="Copiar URL local"]').exists()).toBe(
+      true,
+    );
     expect(wrapper.text()).toContain('Console');
     expect(wrapper.text()).toContain('Parar');
     expect(wrapper.text()).toContain('Reiniciar');
