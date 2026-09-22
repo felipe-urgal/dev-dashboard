@@ -60,28 +60,29 @@
           Configurar
         </button>
 
+        <a
+          v-if="localAccessUrl"
+          class="server-icon-button server-link-button"
+          :href="localAccessUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Abrir aplicação"
+          title="Abrir aplicação"
+        >
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+        </a>
+        <button
+          v-if="localAccessUrl"
+          type="button"
+          class="server-icon-button"
+          :aria-label="localUrlCopied ? 'URL copiada' : 'Copiar URL local'"
+          :title="localUrlCopied ? 'URL copiada' : 'Copiar URL local'"
+          @click="copyLocalUrl"
+        >
+          <ClipboardDocumentIcon aria-hidden="true" />
+        </button>
+
         <template v-if="canStop">
-          <a
-            v-if="localAccessUrl"
-            class="server-icon-button server-link-button"
-            :href="localAccessUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Abrir aplicação"
-            title="Abrir aplicação"
-          >
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          </a>
-          <button
-            v-if="localAccessUrl"
-            type="button"
-            class="server-icon-button"
-            :aria-label="localUrlCopied ? 'URL copiada' : 'Copiar URL local'"
-            :title="localUrlCopied ? 'URL copiada' : 'Copiar URL local'"
-            @click="copyLocalUrl"
-          >
-            <ClipboardDocumentIcon aria-hidden="true" />
-          </button>
           <button
             type="button"
             class="server-secondary-button"
@@ -255,7 +256,7 @@
             :disabled="savingSettings"
             @click="showSettings = false"
           >
-            Cancelar
+            Fechar
           </button>
           <button
             type="button"
