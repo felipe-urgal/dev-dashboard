@@ -1,0 +1,150 @@
+/* Modal visual standard
+ *
+ * Mantém todos os fluxos e tamanhos específicos, mas unifica o shell visual
+ * com o modal de workspace: superfície discreta, borda única, raio consistente,
+ * sombra curta e máscara escura com blur.
+ */
+
+body .n-modal-mask,
+body .database-modal-backdrop,
+body .sudo-modal-backdrop,
+body .git-history-modal-backdrop,
+body .database-migration-modal-backdrop {
+  background: rgb(4 6 10 / 72%) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+body .n-modal.n-card,
+body .n-dialog,
+body .workspace-manager-tabs-dialog,
+body .branch-modal,
+body .database-connection-modal,
+body .sudo-modal,
+body .git-history-modal,
+body .database-migration-modal {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  background: color-mix(
+    in srgb,
+    var(--surface-1) 72%,
+    var(--surface-2) 28%
+  ) !important;
+  box-shadow: var(--shadow-2) !important;
+}
+
+/* Confirmações/alertas do app usam o mesmo card dos modais maiores. */
+body .n-dialog {
+  width: min(560px, calc(100vw - 32px)) !important;
+  max-width: none !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+body .n-dialog .n-dialog__icon {
+  display: none !important;
+}
+
+body .n-dialog .n-dialog__title {
+  margin: 0 !important;
+  padding: 20px 52px 0 22px !important;
+  color: var(--text) !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.02em;
+}
+
+body .n-dialog .n-dialog__content {
+  margin: 0 !important;
+  padding: 8px 22px 0 !important;
+  color: var(--text-muted) !important;
+  font-size: var(--font-sm) !important;
+  line-height: 1.55 !important;
+}
+
+body .n-dialog .n-dialog__action {
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 18px 22px 22px !important;
+}
+
+body .n-dialog .n-dialog__action .n-button {
+  min-height: 40px;
+  padding-inline: 16px;
+  font-weight: var(--font-weight-strong);
+}
+
+body .n-dialog .n-dialog__close {
+  top: 16px !important;
+  right: 16px !important;
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted) !important;
+}
+
+body .n-dialog .n-dialog__close:hover,
+body .n-dialog .n-dialog__close:focus-visible {
+  border-color: var(--border);
+  color: var(--text) !important;
+  background: var(--surface-2) !important;
+}
+
+/* Títulos seguem a mesma hierarquia do modal de workspace. */
+body .branch-modal h2,
+body .database-modal-heading h2,
+body .sudo-modal h3,
+body .git-history-modal-title h3,
+body .database-migration-modal-head h4 {
+  color: var(--text) !important;
+  font-size: 18px !important;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+/* Fechar mantém o mesmo affordance em todos os shells manuais. */
+body .branch-modal-close,
+body .sudo-modal-close,
+body .database-modal-heading > button,
+body .git-history-close,
+body .database-migration-modal-close {
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}
+
+body .branch-modal-close:hover:not(:disabled),
+body .branch-modal-close:focus-visible,
+body .sudo-modal-close:hover:not(:disabled),
+body .sudo-modal-close:focus-visible,
+body .database-modal-heading > button:hover,
+body .database-modal-heading > button:focus-visible,
+body .git-history-close:hover,
+body .git-history-close:focus-visible,
+body .database-migration-modal-close:hover,
+body .database-migration-modal-close:focus-visible {
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  background: var(--surface-2) !important;
+}
+
+@media (max-width: 620px) {
+  body .n-dialog {
+    width: calc(100vw - 24px) !important;
+  }
+
+  body .n-dialog .n-dialog__action {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
+  body .n-dialog .n-dialog__action .n-button {
+    width: 100%;
+  }
+}

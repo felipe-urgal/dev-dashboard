@@ -659,13 +659,13 @@ async function mergePullRequest(): Promise<void> {
 .git-pr-page {
   gap: var(--space-4);
   background: transparent;
-  padding: 0;
+  padding: var(--space-5);
 }
 
 .git-pr-workspace {
   display: grid;
-  width: min(100%, 1040px);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   border: 1px solid var(--border);
   background: var(--surface-1);
 }
@@ -679,6 +679,7 @@ async function mergePullRequest(): Promise<void> {
 
 .git-pr-overview {
   min-height: 470px;
+  grid-template-rows: auto auto 1fr;
 }
 
 .git-pr-overview-heading {
@@ -882,11 +883,11 @@ async function mergePullRequest(): Promise<void> {
 
 .git-pr-primary-action,
 .git-pr-continue-action {
-  min-height: 40px;
+  min-height: 42px;
   border: 1px solid var(--accent);
   background: var(--accent);
   color: #fff;
-  padding: 8px 16px;
+  padding: 0 16px;
   font: inherit;
   font-weight: 700;
 }
@@ -899,6 +900,7 @@ async function mergePullRequest(): Promise<void> {
 }
 
 .git-pr-continue-action {
+  align-self: end;
   justify-self: end;
 }
 
@@ -907,6 +909,10 @@ async function mergePullRequest(): Promise<void> {
 }
 
 @media (max-width: 720px) {
+  .git-pr-page {
+    padding: var(--space-4);
+  }
+
   .git-pr-overview,
   .git-pr-create-view {
     padding: var(--space-4);
