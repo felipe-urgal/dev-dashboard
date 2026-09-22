@@ -40,12 +40,11 @@ test.describe('Commit do projeto', () => {
     await page.reload();
     await page.getByRole('button', { name: 'Commit', exact: true }).click();
 
-    await expect(page.getByText('1 alteração rastreada')).toBeVisible();
-
     // Sucesso: cria o commit com a alteração rastreada.
     await page
       .getByLabel('Mensagem do commit')
       .fill('chore: ajusta lockfile via e2e');
+    await expect(submitButton).toBeEnabled();
     await submitButton.click();
     const confirmDialog = page.getByRole('dialog');
     await expect(

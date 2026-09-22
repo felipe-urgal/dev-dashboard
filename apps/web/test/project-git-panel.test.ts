@@ -696,19 +696,24 @@ test('renderiza somente as duas operações de commit', async () => {
 
   await clickTab(mounted.wrapper, 'Commit');
 
-  assert.match(mounted.wrapper.text(), /Novo commit/);
-  assert.match(mounted.wrapper.text(), /Alterar último commit/);
-  assert.match(mounted.wrapper.text(), /Branch main/);
-  assert.match(mounted.wrapper.text(), /4 alterações rastreadas/);
+  assert.match(mounted.wrapper.text(), /Criar commit/);
+  assert.match(mounted.wrapper.text(), /Amend último commit/);
   assert.match(
     mounted.wrapper.text(),
-    /Inclui automaticamente todas as alterações rastreadas/,
+    /Incluir todas as alterações rastreadas/,
   );
   assert.ok(mounted.wrapper.find('.git-commit-card').exists());
+  assert.ok(mounted.wrapper.find('.git-commit-message textarea').exists());
+  assert.ok(!mounted.wrapper.find('.git-commit-summary').exists());
+  assert.ok(!mounted.wrapper.find('.git-commit-mode').exists());
+  assert.ok(!mounted.wrapper.find('.git-commit-history').exists());
   assert.ok(!mounted.wrapper.find('.git-commit-steps').exists());
   assert.ok(!mounted.wrapper.find('.git-commit-files').exists());
   assert.ok(!mounted.wrapper.find('input[type="search"]').exists());
-  assert.doesNotMatch(mounted.wrapper.text(), /Staged|Modificados|Novos/);
+  assert.doesNotMatch(
+    mounted.wrapper.text(),
+    /Novo commit|Alterar último commit|Branch main|Staged|Modificados|Novos/,
+  );
 });
 
 test('cria commit incluindo automaticamente alterações rastreadas', async () => {
@@ -756,7 +761,7 @@ test('cria commit incluindo automaticamente alterações rastreadas', async () =
   await mounted.wrapper
     .find('.git-commit-message textarea')
     .setValue('simplifica commit');
-  await mounted.wrapper.find('.git-commit-card').trigger('submit');
+  await mounted.wrapper.find('.git-commit-submit').trigger('click');
   await flushPromises();
   await flushPromises();
 
@@ -820,22 +825,12 @@ test('altera o último commit pelo modo amend', async () => {
   };
 
   await clickTab(mounted.wrapper, 'Commit');
-  const amendButton = mounted.wrapper
-    .findAll('.git-commit-mode button')
-    .find((button) => button.text().includes('Alterar último commit'));
-  assert.ok(amendButton);
-  await amendButton.trigger('click');
-  assert.equal(
-    (
-      mounted.wrapper.find('.git-commit-message textarea')
-        .element as HTMLTextAreaElement
-    ).value,
-    latestCommit.subject,
-  );
   await mounted.wrapper
     .find('.git-commit-message textarea')
     .setValue('mensagem corrigida');
-  await mounted.wrapper.find('.git-commit-card').trigger('submit');
+  const amendButton = mounted.wrapper.find('.git-commit-amend');
+  assert.ok(amendButton.exists());
+  await amendButton.trigger('click');
   await flushPromises();
   await flushPromises();
 
@@ -918,15 +913,12 @@ test('oferece reenvio com lease na Pull Request depois de alterar commit em bran
   };
 
   await clickTab(mounted.wrapper, 'Commit');
-  const amendButton = mounted.wrapper
-    .findAll('.git-commit-mode button')
-    .find((button) => button.text().includes('Alterar último commit'));
-  assert.ok(amendButton);
-  await amendButton.trigger('click');
   await mounted.wrapper
     .find('.git-commit-message textarea')
     .setValue('commit reescrito');
-  await mounted.wrapper.find('.git-commit-card').trigger('submit');
+  const amendButton = mounted.wrapper.find('.git-commit-amend');
+  assert.ok(amendButton.exists());
+  await amendButton.trigger('click');
   await flushPromises();
   await flushPromises();
 
