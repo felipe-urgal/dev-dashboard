@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
+  ArrowPathIcon,
   ArrowsPointingInIcon,
-  CloudIcon,
   EllipsisHorizontalIcon,
   LockClosedIcon,
   PencilSquareIcon,
@@ -98,16 +98,6 @@ const rows = computed<BranchRow[]>(() => {
   });
 });
 
-const currentRow = computed(
-  () => rows.value.find((row) => row.local?.current) ?? null,
-);
-const localBranchCount = computed(
-  () => rows.value.filter((row) => Boolean(row.local)).length,
-);
-const originBranchCount = computed(
-  () => rows.value.filter((row) => Boolean(row.origin)).length,
-);
-
 const fullBranchName = computed(() => {
   const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
   return suffix ? `${branchPrefix.value}${suffix}` : branchPrefix.value;
@@ -169,18 +159,6 @@ function stateTone(row: BranchRow): string {
     if (row.local.ahead > 0) return 'ahead';
     return 'synced';
   }
-  if (row.local) return 'local';
-  return 'remote';
-}
-
-function branchTypeLabel(row: BranchRow): string {
-  if (row.local && row.origin) return 'Local + Remota';
-  if (row.local) return 'Local';
-  return 'Remota';
-}
-
-function branchTypeTone(row: BranchRow): string {
-  if (row.local && row.origin) return 'combined';
   if (row.local) return 'local';
   return 'remote';
 }
