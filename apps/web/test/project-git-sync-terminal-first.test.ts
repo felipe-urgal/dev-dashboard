@@ -93,6 +93,7 @@ test('renderiza a sincronização minimalista sem expor o remote principal', asy
 
   assert.ok(wrapper.find('.git-sync-heading').exists());
   assert.ok(wrapper.find('.git-sync-main-card').exists());
+  assert.ok(wrapper.find('.git-sync-console-card').exists());
   assert.equal(wrapper.findAll('.git-sync-summary-card').length, 0);
   assert.match(wrapper.text(), /Sincronização/);
   assert.match(wrapper.text(), /Última sincronização/);
