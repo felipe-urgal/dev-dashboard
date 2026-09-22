@@ -2,13 +2,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type {
-  AgentCliProcessRunner,
-  AgentTask,
-  AgentTaskRecord,
-  AgentTaskStore,
-} from './index.js';
-import { runAgentCliProcess } from './cli-process.js';
+import type { AgentTask, AgentTaskRecord, AgentTaskStore } from './contracts.js';
+import {
+  runAgentCliProcess,
+  type AgentCliProcessRunner,
+} from './cli-process.js';
 import { deserializeAgentTask, serializeAgentTask } from './serialization.js';
 import { canTransitionAgentTask } from './state-machine.js';
 import { AgentTaskLockManager } from './task-lock.js';
