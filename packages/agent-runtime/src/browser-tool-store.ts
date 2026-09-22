@@ -70,7 +70,7 @@ function fail(
 
 function hasCode(error: unknown, code: string): boolean {
   return (
-    Boolean(error) &&
+    error !== null &&
     typeof error === 'object' &&
     'code' in error &&
     (error as { code?: unknown }).code === code
