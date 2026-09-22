@@ -17,7 +17,7 @@ import {
   ShareIcon,
 } from '@heroicons/vue/24/outline';
 
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
@@ -94,6 +94,7 @@ const ProjectTestsPanel = lazyTool(
 );
 
 const route = useRoute();
+const router = useRouter();
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
@@ -190,6 +191,17 @@ async function loadProjectData(requestedProjectId: string): Promise<void> {
     const loadedProject =
       await dashboardStore.ensureProject(requestedProjectId);
     if (projectId.value !== requestedProjectId || !loadedProject) return;
+
+    if (
+      (route.name === 'project-details' || route.name === 'project-server') &&
+      !loadedProject.capabilities.includes('server')
+    ) {
+      await router.replace({
+        name: 'project-git',
+        params: { projectId: loadedProject.id },
+      });
+      if (projectId.value !== requestedProjectId) return;
+    }
 
     project.value = loadedProject;
     void recordProjectVisit(loadedProject.id);
