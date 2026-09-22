@@ -7,13 +7,10 @@ import {
 } from '@heroicons/vue/24/outline';
 import { computed, onMounted, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
-import { Toaster } from 'vue-sonner';
-
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
-import { useDashboardToastBridge } from './composables/useDashboardToastBridge';
 import CommandPalette from './components/CommandPalette.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
@@ -35,8 +32,6 @@ const naiveThemeOverrides = computed(() =>
 );
 
 loadVisualPreferences();
-useDashboardToastBridge();
-
 const workspaceManagerOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());
 
@@ -181,44 +176,8 @@ onMounted(() => {
         @close="workspaceManagerOpen = false"
       />
 
-      <Toaster
-        :theme="currentTheme"
-        position="bottom-right"
-        rich-colors
-        close-button
-        :duration="2500"
-      />
     </div>
   </n-config-provider>
 </template>
 
-<style>
-/* Toaster (vue-sonner) teleporta o conteúdo pra fora da árvore do App, então
-   isso não pode ser scoped. Deixa os toasts translúcidos com um leve
-   desfoque, no lugar do fundo sólido do preset rich-colors padrão. */
-[data-sonner-toast] {
-  background: color-mix(
-    in srgb,
-    var(--sonner-toast-bg, var(--normal-bg)) 78%,
-    transparent
-  ) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
 
-[data-sonner-toast][data-type='success'] {
-  --sonner-toast-bg: var(--success-bg);
-}
-
-[data-sonner-toast][data-type='error'] {
-  --sonner-toast-bg: var(--error-bg);
-}
-
-[data-sonner-toast][data-type='warning'] {
-  --sonner-toast-bg: var(--warning-bg);
-}
-
-[data-sonner-toast][data-type='info'] {
-  --sonner-toast-bg: var(--info-bg);
-}
-</style>
