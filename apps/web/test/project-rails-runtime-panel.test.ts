@@ -263,7 +263,9 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(wrapper.find('.rails-worker-identity').text()).toContain('Webpack');
-    expect(wrapper.find('.rails-worker-details').attributes('open')).toBeUndefined();
+    expect(
+      wrapper.find('.rails-worker-details').attributes('open'),
+    ).toBeUndefined();
     expect(wrapper.text()).not.toContain('Processo ativo e respondendo');
     expect(wrapper.text()).not.toContain('Log do processo');
     expect(wrapper.text()).not.toContain('Acompanhando o final');
@@ -275,5 +277,4 @@ describe('ProjectRailsRuntimePanel', () => {
 
     wrapper.unmount();
   });
-
 });

@@ -101,7 +101,9 @@ function formatDate(value?: string): string {
           v-else-if="!worker.detected.value"
           class="rails-worker-empty-state"
         >
-          <strong>{{ workerProcessLabels[workerId] }} não foi detectado.</strong>
+          <strong
+            >{{ workerProcessLabels[workerId] }} não foi detectado.</strong
+          >
           <p>
             O painel será habilitado automaticamente quando o projeto possuir a
             dependência ou o binstub correspondente.

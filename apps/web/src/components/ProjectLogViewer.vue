@@ -159,9 +159,7 @@ onBeforeUnmount(() => window.clearTimeout(copyMessageTimer));
 
     <div
       v-if="
-        maskedCount ||
-        truncated ||
-        (showFollowStatus && running && autoFollow)
+        maskedCount || truncated || (showFollowStatus && running && autoFollow)
       "
       class="project-log-viewer-meta"
     >
