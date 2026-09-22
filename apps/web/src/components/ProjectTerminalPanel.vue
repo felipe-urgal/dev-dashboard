@@ -12,6 +12,10 @@ import {
   prepareProjectTerminalConfirmation,
   projectTerminalWebSocketUrl,
 } from '../api';
+import {
+  copyTextToClipboard,
+  isTerminalCopyShortcut,
+} from '../utils/terminal-clipboard';
 import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
 import Card from './Card.vue';
 import ProjectTerminalWindowBar from './ProjectTerminalWindowBar.vue';
@@ -37,6 +41,11 @@ const errorMessage = ref('');
 const maximized = ref(false);
 const terminalFontSize = ref(13);
 const hasAutoStarted = ref(false);
+const terminalContextMenu = ref<{ left: number; top: number } | null>(null);
+const macOS =
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+const copyShortcutLabel = macOS ? '⌘C' : 'Ctrl+C';
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | undefined;
@@ -103,6 +112,19 @@ function mountTerminal(): void {
   terminal.open(terminalContainer.value);
   fitAddon.fit();
 
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (
+      event.type !== 'keydown' ||
+      !terminal ||
+      !isTerminalCopyShortcut(event, terminal.hasSelection(), macOS)
+    ) {
+      return true;
+    }
+
+    void copyTerminalSelection();
+    return false;
+  });
+
   terminal.onData((data) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'input', data }));
@@ -116,7 +138,44 @@ function mountTerminal(): void {
   resizeObserver.observe(terminalContainer.value);
 }
 
+function closeTerminalContextMenu(): void {
+  terminalContextMenu.value = null;
+}
+
+async function copyTerminalSelection(): Promise<void> {
+  const selection = terminal?.getSelection() ?? '';
+  closeTerminalContextMenu();
+  if (!selection) return;
+
+  await copyTextToClipboard(selection);
+  terminal?.focus();
+}
+
+function openTerminalContextMenu(event: MouseEvent): void {
+  if (!terminal?.hasSelection()) {
+    closeTerminalContextMenu();
+    return;
+  }
+
+  event.preventDefault();
+
+  const margin = 8;
+  const menuWidth = 156;
+  const menuHeight = 40;
+  terminalContextMenu.value = {
+    left: Math.max(
+      margin,
+      Math.min(event.clientX, window.innerWidth - menuWidth - margin),
+    ),
+    top: Math.max(
+      margin,
+      Math.min(event.clientY, window.innerHeight - menuHeight - margin),
+    ),
+  };
+}
+
 function disposeTerminal(): void {
+  closeTerminalContextMenu();
   resizeObserver?.disconnect();
   resizeObserver = undefined;
   terminal?.dispose();
@@ -222,7 +281,9 @@ function setTerminalFontSize(size: number): void {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && maximized.value) maximized.value = false;
+  if (event.key !== 'Escape') return;
+  closeTerminalContextMenu();
+  if (maximized.value) maximized.value = false;
 }
 
 watch(
@@ -241,12 +302,14 @@ watch(
 onMounted(() => {
   void loadStatus();
   window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('click', closeTerminalContextMenu);
 });
 
 onBeforeUnmount(() => {
   disconnect();
   disposeTerminal();
   window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('click', closeTerminalContextMenu);
 });
 </script>
 
@@ -328,7 +391,32 @@ onBeforeUnmount(() => {
           @toggle-maximized="toggleMaximized"
           @set-font-size="setTerminalFontSize"
         />
-        <div ref="terminalContainer" class="terminal-window-body"></div>
+        <div
+          ref="terminalContainer"
+          class="terminal-window-body"
+          @contextmenu.capture="openTerminalContextMenu"
+        ></div>
+        <div
+          v-if="terminalContextMenu"
+          class="terminal-context-menu"
+          :style="{
+            left: `${terminalContextMenu.left}px`,
+            top: `${terminalContextMenu.top}px`,
+          }"
+          role="menu"
+          @click.stop
+          @contextmenu.prevent
+        >
+          <button
+            type="button"
+            class="terminal-context-menu-button"
+            role="menuitem"
+            @click="copyTerminalSelection"
+          >
+            <span>Copiar</span>
+            <kbd>{{ copyShortcutLabel }}</kbd>
+          </button>
+        </div>
         <p
           v-if="errorMessage"
           class="terminal-error terminal-window-error"
@@ -537,6 +625,47 @@ onBeforeUnmount(() => {
   max-width: 100%;
   overflow-x: hidden !important;
   overflow-y: auto;
+}
+
+.terminal-context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 156px;
+  padding: 4px;
+  background: #171b28;
+  border: 1px solid #30374d;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
+}
+
+.terminal-context-menu-button {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border: 0;
+  border-radius: 6px;
+  padding: 0 9px;
+  background: transparent;
+  color: #dbe0f2;
+  font: inherit;
+  font-size: var(--font-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.terminal-context-menu-button:hover,
+.terminal-context-menu-button:focus-visible {
+  background: rgb(124 139 255 / 22%);
+  outline: none;
+}
+
+.terminal-context-menu-button kbd {
+  color: #7d84a3;
+  font: inherit;
+  font-size: 10px;
 }
 
 .terminal-window-error {
