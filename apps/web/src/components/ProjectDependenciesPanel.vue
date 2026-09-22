@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import {
+  ChevronDownIcon,
   ClipboardDocumentIcon,
   CommandLineIcon,
   CubeIcon,
@@ -151,6 +152,7 @@ watch(
           <div v-if="actions.length" class="dependencies-groups">
             <section v-if="nodeActions.length" class="dependencies-group">
               <header class="dependencies-group-header">
+                <ChevronDownIcon aria-hidden="true" />
                 <strong>Node / {{ nodeManager }}</strong>
               </header>
 
@@ -202,6 +204,7 @@ watch(
 
             <section v-if="railsActions.length" class="dependencies-group">
               <header class="dependencies-group-header">
+                <ChevronDownIcon aria-hidden="true" />
                 <strong>Ruby / Bundler</strong>
               </header>
 
