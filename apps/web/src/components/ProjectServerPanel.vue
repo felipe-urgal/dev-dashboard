@@ -145,10 +145,6 @@ const localAccessUrl = computed(() => {
   return configuredPort ? `http://localhost:${configuredPort}` : '';
 });
 
-const localAccessLabel = computed(
-  () => localAccessUrl.value || 'Disponível após iniciar',
-);
-
 function isCurrentProject(projectId: string, generation: number): boolean {
   return (
     props.project.id === projectId && projectRequests.isCurrent(generation)
