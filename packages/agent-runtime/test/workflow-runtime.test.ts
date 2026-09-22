@@ -276,8 +276,7 @@ test('execution lock prevents two executions of the same task', async (t) => {
         providerId: 'codex',
       }),
     (error: unknown) =>
-      error instanceof AgentTaskLockError &&
-      error.code === 'AGENT_TASK_LOCKED',
+      error instanceof AgentTaskLockError && error.code === 'AGENT_TASK_LOCKED',
   );
 
   releaseProvider();
