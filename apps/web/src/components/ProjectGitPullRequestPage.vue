@@ -679,7 +679,7 @@ async function mergePullRequest(): Promise<void> {
 
 .git-pr-overview {
   min-height: 470px;
-  align-content: start;
+  grid-template-rows: auto auto 1fr;
 }
 
 .git-pr-overview-heading {
@@ -905,6 +905,7 @@ async function mergePullRequest(): Promise<void> {
 .git-pr-continue-action {
   width: calc(100% + 44px);
   margin: 0 -22px -22px;
+  align-self: end;
   justify-self: stretch;
   border: 0;
 }
