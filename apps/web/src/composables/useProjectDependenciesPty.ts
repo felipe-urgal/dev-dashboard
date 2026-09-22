@@ -140,6 +140,14 @@ export function useProjectDependenciesPty(
     }
   }
 
+  function clear(): void {
+    if (isRunning.value) return;
+    snapshot.value = null;
+    errorMessage.value = '';
+    disconnect();
+    disposeTerminal();
+  }
+
   watch(
     [() => getProject().id, () => getEnvironmentInstanceId?.()],
     () => {
@@ -163,5 +171,6 @@ export function useProjectDependenciesPty(
     terminalContainer,
     run,
     cancel,
+    clear,
   };
 }

@@ -5,8 +5,6 @@ import App from './App.vue';
 import { router } from './router';
 import './styles.css';
 import './styles/features/project-details-redesign.css';
-import './styles/features/project-dependencies-typography.css';
-import './styles/features/dependencies-runner-proposal-1.css';
 import './styles/features/database-layout-polish.css';
 import './styles/features/database-tabs-proposal-3.css';
 import './styles/features/database-explorer-minimal.css';
