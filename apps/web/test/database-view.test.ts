@@ -178,7 +178,7 @@ describe('DatabaseView', () => {
     expect(api.fetchMachineDatabaseServiceDetails).toHaveBeenCalledTimes(2);
   });
 
-  it('separa serviços não instalados e confirma a instalação', async () => {
+  it('oculta serviços não instalados da lista de gerenciamento', async () => {
     api.fetchMachineDatabaseServices.mockResolvedValue([
       {
         id: 'mongodb',
@@ -189,22 +189,20 @@ describe('DatabaseView', () => {
         active: false,
       },
     ]);
-    confirmDialog.mockResolvedValue(true);
     const wrapper = mount(DatabaseView);
     wrappers.push(wrapper);
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Disponíveis para instalar');
-    const installButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Instalar'))!;
-    await installButton.trigger('click');
-    await flushPromises();
-
-    expect(confirmDialog).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Instalar MongoDB?' }),
-    );
-    expect(api.installMachineDatabaseService).toHaveBeenCalledWith('mongodb');
+    expect(wrapper.text()).toContain('Nenhum banco instalado nesta máquina.');
+    expect(wrapper.text()).not.toContain('Disponíveis para instalar');
+    expect(wrapper.text()).not.toContain('MongoDB');
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().includes('Instalar')),
+    ).toBe(false);
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(api.installMachineDatabaseService).not.toHaveBeenCalled();
   });
 
   it('exige confirmação antes de desinstalar um serviço', async () => {
