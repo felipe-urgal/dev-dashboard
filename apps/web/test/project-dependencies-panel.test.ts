@@ -102,7 +102,7 @@ function installFetch(
   };
 }
 
-test('mostra resumo operacional e console ocioso para o gerenciador Node detectado', async () => {
+test('mostra runner compacto sem resumo redundante para o gerenciador Node detectado', async () => {
   installFetch({
     items: [
       {
@@ -138,31 +138,32 @@ test('mostra resumo operacional e console ocioso para o gerenciador Node detecta
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Gerenciadores/);
+  assert.match(wrapper.text(), /Dependências/);
+  assert.match(wrapper.text(), /Comandos para gerenciar dependências do projeto/);
   assert.match(wrapper.text(), /Node \/ Yarn/);
-  assert.match(wrapper.text(), /Ações disponíveis/);
-  assert.match(wrapper.text(), /Pronto/);
-  assert.match(wrapper.text(), /Nenhum comando executado nesta sessão/);
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
   assert.match(wrapper.text(), /Console de execução/);
-  assert.match(
-    wrapper.text(),
-    /Execute um comando para acompanhar a saída aqui/,
-  );
+  assert.match(wrapper.text(), /Saída dos comandos executados no projeto/);
+  assert.match(wrapper.text(), /Pronto para executar/);
+  assert.doesNotMatch(wrapper.text(), /Gerenciadores/);
+  assert.doesNotMatch(wrapper.text(), /Ações disponíveis/);
+  assert.doesNotMatch(wrapper.text(), /Nenhum comando executado nesta sessão/);
   assert.equal(
     wrapper.get('.dependencies-panel').attributes('aria-busy'),
     'false',
   );
+  assert.equal(wrapper.find('.dependencies-summary').exists(), false);
   assert.equal(wrapper.find('.dependencies-workspace').exists(), true);
   assert.equal(wrapper.find('.dependencies-console').exists(), true);
   assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
   assert.equal(wrapper.findAll('.dependencies-action-row').length, 2);
+  assert.equal(wrapper.findAll('.dependencies-copy-command').length, 2);
   wrapper.unmount();
 });
 
-test('projeto Rails com frontend agrupa Bundler e Node sem cards redundantes', async () => {
+test('projeto Rails com frontend agrupa Bundler e Node em comandos compactos', async () => {
   installFetch({
     items: [
       {
@@ -233,12 +234,14 @@ test('projeto Rails com frontend agrupa Bundler e Node sem cards redundantes', a
   assert.match(wrapper.text(), /bundle check/);
   assert.match(wrapper.text(), /bundle update/);
   assert.match(wrapper.text(), /npm run build/);
+  assert.match(wrapper.text(), /Pode alterar o Gemfile.lock/);
   assert.equal(wrapper.findAll('.dependencies-group').length, 2);
   assert.equal(wrapper.findAll('.dependencies-action-row').length, 5);
+  assert.equal(wrapper.findAll('.dependencies-copy-command').length, 5);
   wrapper.unmount();
 });
 
-test('executa uma ação via PTY e mostra estado, código de saída e reexecução', async () => {
+test('executa uma ação via PTY, destaca o comando e permite limpar o console', async () => {
   const calls: unknown[] = [];
   installFetch(
     {
@@ -269,11 +272,8 @@ test('executa uma ação via PTY e mostra estado, código de saída e reexecuç�
   await flushPromises();
   await flushPromises();
 
-  const runButton = wrapper
-    .findAll('.dependencies-action-row button')
-    .find((button) => button.text().includes('Executar'));
-  assert.ok(runButton);
-  await runButton!.trigger('click');
+  const runButton = wrapper.get('.dependencies-run-command');
+  await runButton.trigger('click');
   await flushPromises();
   await flushPromises();
 
@@ -298,12 +298,12 @@ test('executa uma ação via PTY e mostra estado, código de saída e reexecuç�
   await flushPromises();
 
   assert.match(wrapper.text(), /Executando/);
-  assert.doesNotMatch(wrapper.text(), /exit —/);
   assert.equal(
     wrapper.get('.dependencies-console').attributes('aria-label'),
     'Console de execução',
   );
   assert.equal(wrapper.find('.dependencies-console-empty').exists(), false);
+  assert.equal(wrapper.find('.dependencies-action-row.is-active').exists(), true);
 
   socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
   await flushPromises();
@@ -312,14 +312,17 @@ test('executa uma ação via PTY e mostra estado, código de saída e reexecuç�
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Concluído/);
-  assert.match(wrapper.text(), /código 0/);
-  const rerunButton = wrapper
-    .findAll('.dependencies-console-actions button')
-    .find((button) => button.text().includes('Executar novamente'));
-  assert.ok(rerunButton);
+  assert.match(wrapper.text(), /Execução concluída/);
+  const clearButton = wrapper.get('.dependencies-console-clear');
+  assert.match(clearButton.text(), /Limpar/);
 
-  await rerunButton!.trigger('click');
+  await clearButton.trigger('click');
+  await flushPromises();
+
+  assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
+  assert.equal(wrapper.find('.dependencies-action-row.is-active').exists(), false);
+
+  await wrapper.get('.dependencies-run-command').trigger('click');
   await flushPromises();
   await flushPromises();
 
