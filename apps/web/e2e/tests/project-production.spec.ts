@@ -51,25 +51,28 @@ test.describe('produção por projeto', () => {
 
     await page.getByRole('button', { name: 'Preparar deployment' }).click();
     await expect(
-      page.getByRole('heading', { name: 'Revise o plano antes de executar' }),
+      page.getByRole('heading', { name: 'Revisar antes de publicar' }),
     ).toBeVisible();
     await expect(page.getByText('prod:deploy', { exact: true })).toBeVisible();
     await expect(
-      page.getByText('Revision alvo', { exact: true }),
+      page.getByText('Destino', { exact: true }),
     ).toBeVisible();
 
     await page
-      .getByRole('button', { name: 'Confirmar e iniciar deployment' })
+      .getByRole('button', { name: 'Iniciar deployment' })
       .click();
 
     await expect(
-      page.getByRole('heading', { name: 'Último deployment concluído' }),
+      page.getByRole('heading', { name: 'Produção atualizada' }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByRole('heading', { name: 'Timeline do deployment' }),
+      page.getByText('Detalhes da última execução', { exact: true }),
     ).toBeVisible();
+    await page
+      .getByText('Detalhes da última execução', { exact: true })
+      .click();
     await expect(
-      page.getByText('Último verify passou', { exact: true }),
+      page.getByRole('heading', { name: 'Timeline do deployment' }),
     ).toBeVisible();
   });
 });
