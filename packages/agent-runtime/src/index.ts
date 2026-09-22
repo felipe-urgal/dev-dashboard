@@ -180,3 +180,9 @@ export {
   readBrowserBridgeToken,
 } from './browser-bridge.js';
 export type { BrowserBridgeOptions } from './browser-bridge.js';
+
+export { GitAgentTaskStore, GitAgentTaskStoreError } from './git-task-store.js';
+export type {
+  GitAgentTaskStoreErrorCode,
+  GitAgentTaskStoreOptions,
+} from './git-task-store.js';
