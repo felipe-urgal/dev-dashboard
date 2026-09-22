@@ -1397,13 +1397,4 @@ onBeforeUnmount(() => {
   </section>
 </template>
 
-    <ProductionSudoModal
-      :open="sudoModalOpen"
-      :project-id="project.id"
-      @close="sudoModalOpen = false"
-      @authorized="handleSudoAuthorized"
-    />
-  </section>
-</template>
-
 <style scoped src="./ProjectProductionPanel.css"></style>
