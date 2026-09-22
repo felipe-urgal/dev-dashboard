@@ -88,6 +88,12 @@ const statusClass = computed(() => {
     :class="{ 'project-card-disabled': !project.enabled }"
     :data-state="statusClass"
   >
+    <RouterLink
+      class="project-card-hit-area"
+      :to="projectDetailsRoute"
+      :aria-label="`Ver detalhes de ${project.name}`"
+    />
+
     <div
       class="project-card-avatar"
       :data-type="project.type"
@@ -98,27 +104,22 @@ const statusClass = computed(() => {
     </div>
 
     <div class="project-card-main">
-      <RouterLink
-        class="project-card-identity"
-        :to="projectDetailsRoute"
-        :aria-label="`Ver detalhes de ${project.name}`"
-      >
+      <div class="project-card-identity">
         <h3>{{ project.name }}</h3>
         <code class="project-card-path" :title="project.path">{{
           project.path
         }}</code>
-      </RouterLink>
+      </div>
 
       <div class="project-card-meta">
-        <RouterLink
+        <span
           v-if="currentBranch"
           class="project-card-branch"
-          :to="projectDetailsRoute"
           :title="`Branch atual: ${currentBranch}`"
         >
           <span class="project-card-branch-icon" aria-hidden="true">⑂</span>
           <span>{{ currentBranch }}</span>
-        </RouterLink>
+        </span>
         <span v-else class="project-card-muted-pill">Sem Git</span>
 
         <span
@@ -145,7 +146,7 @@ const statusClass = computed(() => {
 
     <div class="project-card-actions">
       <ProjectProcessesMenu
-        v-if="project.enabled"
+        v-if="project.enabled && supportsServer"
         :project="project"
         :eager="false"
       />
@@ -190,6 +191,19 @@ const statusClass = computed(() => {
   border-color: var(--border-strong);
   background: var(--surface-1);
   transform: translateY(-1px);
+}
+
+.project-card-hit-area {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.project-card-hit-area:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .project-card-disabled {
@@ -249,8 +263,11 @@ const statusClass = computed(() => {
   white-space: nowrap;
 }
 
-.project-card-identity:hover h3,
-.project-card-identity:focus-visible h3 {
+.project-card-hit-area:hover ~ .project-card-main .project-card-identity h3,
+.project-card-hit-area:focus-visible
+  ~ .project-card-main
+  .project-card-identity
+  h3 {
   color: var(--info-text);
 }
 
@@ -302,11 +319,6 @@ const statusClass = computed(() => {
   background: var(--accent-soft);
 }
 
-.project-card-branch:hover,
-.project-card-branch:focus-visible {
-  border-color: var(--accent);
-}
-
 .project-card-branch-icon {
   font-size: 13px;
 }
@@ -339,6 +351,8 @@ const statusClass = computed(() => {
 }
 
 .project-card-port {
+  position: relative;
+  z-index: 2;
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
   color: var(--info-text);
   background: var(--accent-soft);
@@ -346,6 +360,8 @@ const statusClass = computed(() => {
 }
 
 .project-card-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12px;
