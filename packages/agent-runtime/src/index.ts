@@ -155,3 +155,28 @@ export type {
   BrowserToolCallStoreErrorCode,
   BrowserToolCallStoreOptions,
 } from './browser-tool-store.js';
+
+export { BrowserJobStore, BrowserJobStoreError } from './browser-job-store.js';
+export type {
+  BrowserJobStoreErrorCode,
+  BrowserJobStoreOptions,
+  BrowserStoredJob,
+} from './browser-job-store.js';
+
+export {
+  BrowserToolExecutionError,
+  createBrowserToolExecutor,
+  sanitizeBrowserToolResult,
+} from './browser-tool-executor.js';
+export type {
+  BrowserToolExecutor,
+  CreateBrowserToolExecutorOptions,
+} from './browser-tool-executor.js';
+
+export {
+  BrowserBridge,
+  BrowserBridgeHttpError,
+  browserBridgeTokenPath,
+  readBrowserBridgeToken,
+} from './browser-bridge.js';
+export type { BrowserBridgeOptions } from './browser-bridge.js';
