@@ -31,7 +31,6 @@ const {
   toggleWorkspaceRecursiveScan,
   deletingWorkspace,
   errorMessage,
-  successMessage,
 } = dashboardStore;
 
 type WorkspaceTab = 'add' | 'manage';
@@ -172,14 +171,6 @@ watch(
     >
       {{ errorMessage }}
     </p>
-    <p
-      v-if="successMessage"
-      class="workspace-form-message workspace-form-success"
-      role="status"
-    >
-      {{ successMessage }}
-    </p>
-
     <section
       v-if="activeTab === 'add'"
       id="workspace-add-panel"
