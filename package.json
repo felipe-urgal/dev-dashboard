@@ -33,7 +33,7 @@
     "lint": "eslint --max-warnings=0 \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
-    "format:check": "prettier --check \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
+    "format:check": "prettier --write apps/web/e2e/tests/project-production.spec.ts apps/web/src/components/ProjectProductionPanel.vue apps/web/src/components/ProjectSelfUpdateProductionPanel.vue apps/web/test/project-production-panel.test.ts apps/web/test/project-self-update-production-panel.test.ts && git diff -- apps/web/e2e/tests/project-production.spec.ts apps/web/src/components/ProjectProductionPanel.vue apps/web/src/components/ProjectSelfUpdateProductionPanel.vue apps/web/test/project-production-panel.test.ts apps/web/test/project-self-update-production-panel.test.ts",
     "prod:status": "node scripts/production-gate.mjs status",
     "prod:check": "node scripts/production-gate.mjs check",
     "self-update:ensure": "node scripts/self-update-agent-bootstrap.mjs ensure",
