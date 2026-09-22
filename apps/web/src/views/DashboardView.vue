@@ -68,7 +68,7 @@ async function refreshWorkspace(): Promise<void> {
       </button>
     </header>
 
-    <main class="dashboard-primary">
+    <main class="dashboard-primary" aria-label="Navegação dos projetos">
       <h2 id="projects-title" class="sr-only">Projetos</h2>
 
       <div class="dashboard-project-columns" aria-hidden="true">
