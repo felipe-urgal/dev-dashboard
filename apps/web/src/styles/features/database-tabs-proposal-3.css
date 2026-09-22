@@ -4,48 +4,46 @@
  */
 
 .database-machine-page.database-machine-page {
-  width: min(1180px, 100%);
+  width: 100%;
   min-height: 100vh;
   box-sizing: border-box;
-  margin: 0 auto;
+  margin: 0;
   padding: 30px 28px 48px;
 }
 
-.database-page-header.database-machine-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin: 0;
-  padding: 0 0 22px;
+.database-page-title-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
   border: 0;
+  margin: -1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
-.database-page-header .database-machine-eyebrow {
-  display: block;
-  margin-bottom: 8px;
-}
-
-.database-page-header h1 {
-  margin: 0;
-  font-size: clamp(26px, 2.6vw, 34px);
-  letter-spacing: -0.025em;
-}
-
-.database-page-header p {
-  max-width: 660px;
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
+.database-page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
 }
 
 .database-page-tabs {
   display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   align-items: flex-end;
   gap: 4px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.database-page-toolbar > .database-machine-refresh {
+  flex: 0 0 auto;
+  margin-bottom: 6px;
 }
 
 .database-page-tabs button {
@@ -97,11 +95,6 @@
 
 .database-tab-panel {
   min-width: 0;
-}
-
-/* O cabeçalho passa a pertencer à página, não ao painel de serviços. */
-.database-tab-panel-services > .database-machine-header {
-  display: none;
 }
 
 .database-tab-panel-services .database-machine-overview {
@@ -245,14 +238,21 @@
     padding: 20px 14px 32px;
   }
 
-  .database-page-header.database-machine-header {
+  .database-page-toolbar {
     align-items: stretch;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
+    border-bottom: 0;
   }
 
-  .database-page-header .database-machine-refresh {
-    align-self: flex-start;
+  .database-page-toolbar > .database-machine-refresh {
+    order: -1;
+    align-self: flex-end;
+    margin-bottom: 0;
+  }
+
+  .database-page-tabs {
+    border-bottom: 1px solid var(--border);
   }
 
   .database-page-tabs {
