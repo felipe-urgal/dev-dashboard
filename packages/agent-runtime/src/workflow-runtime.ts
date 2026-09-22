@@ -178,7 +178,7 @@ export class AgentWorkflowRuntime {
     );
 
     let active: ActiveExecution | undefined;
-    let latestRecord: AgentTaskRecord | undefined;
+    let settledRecord: AgentTaskRecord | undefined;
 
     try {
       const current = await this.requireOwnedTask(
@@ -223,8 +223,6 @@ export class AgentWorkflowRuntime {
         runningTask,
         current.version,
       );
-      latestRecord = runningRecord;
-
       await this.runtimeStateStore.markRunning(runningRecord, executionId);
       await this.runtimeStateStore.recordAttempt(runningRecord);
 
@@ -264,13 +262,13 @@ export class AgentWorkflowRuntime {
           signal: controller.signal,
         });
       } catch {
-        const target = controller.signal.aborted ? 'cancelled' : 'failed';
+        const target = controller.signal.aborted ? 'cancelled' : 'blocked';
         const failedTask = transitionAgentTask(
           runningRecord.task,
           target,
           this.now(),
         );
-        latestRecord = await this.taskStore.save(
+        settledRecord = await this.taskStore.save(
           failedTask,
           runningRecord.version,
         );
@@ -279,7 +277,7 @@ export class AgentWorkflowRuntime {
           'AGENT_WORKFLOW_PROVIDER_FAILED',
           controller.signal.aborted
             ? 'Agent provider execution was cancelled.'
-            : 'Agent provider failed before returning a normalized result.',
+            : 'Agent provider ended without a normalized result.',
         );
       }
 
@@ -289,7 +287,7 @@ export class AgentWorkflowRuntime {
         taskStateForResult(providerResult),
         finishedAt,
       );
-      latestRecord = await this.taskStore.save(
+      settledRecord = await this.taskStore.save(
         finalTask,
         runningRecord.version,
       );
@@ -313,15 +311,13 @@ export class AgentWorkflowRuntime {
 
       return {
         execution,
-        task: latestRecord,
+        task: settledRecord,
         providerResult,
       };
     } finally {
       try {
-        const persisted =
-          latestRecord ?? (await this.taskStore.get(request.taskId));
-        if (persisted && persisted.task.projectId === request.projectId) {
-          await this.runtimeStateStore.markIdle(persisted);
+        if (settledRecord) {
+          await this.runtimeStateStore.markIdle(settledRecord);
         }
       } finally {
         if (active) {
