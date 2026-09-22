@@ -1,5 +1,9 @@
 import path from 'node:path';
 
+import {
+  ChatGptBrowserAgentProvider,
+  type ChatGptBrowserAgentProviderOptions,
+} from './browser-provider.js';
 import type {
   AgentConcreteProviderId,
   AgentProvider,
@@ -82,6 +86,7 @@ export interface LocalAgentProviderRegistryOptions extends Omit<
   claudeCommand?: string;
   preferredProviderId?: AgentConcreteProviderId;
   fallbackOrder?: readonly AgentConcreteProviderId[];
+  browser?: ChatGptBrowserAgentProviderOptions;
 }
 
 class ProviderProbeError extends Error {
@@ -663,7 +668,15 @@ export function createLocalAgentProviderRegistry(
     ...(options.claudeCommand ? { command: options.claudeCommand } : {}),
   });
 
-  const concreteRegistry = new StaticAgentProviderRegistry([codex, claude]);
+  const browser = options.browser
+    ? new ChatGptBrowserAgentProvider(options.browser)
+    : null;
+  const concreteProviders: AgentProvider[] = [
+    codex,
+    claude,
+    ...(browser ? [browser] : []),
+  ];
+  const concreteRegistry = new StaticAgentProviderRegistry(concreteProviders);
   const automatic = new AutomaticAgentProvider({
     registry: concreteRegistry,
     ...(options.preferredProviderId
@@ -673,5 +686,10 @@ export function createLocalAgentProviderRegistry(
     ...(options.now ? { now: options.now } : {}),
   });
 
-  return new StaticAgentProviderRegistry([automatic, codex, claude]);
+  return new StaticAgentProviderRegistry([
+    automatic,
+    codex,
+    claude,
+    ...(browser ? [browser] : []),
+  ]);
 }

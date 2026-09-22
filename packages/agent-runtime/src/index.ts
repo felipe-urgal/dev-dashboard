@@ -90,3 +90,20 @@ export type {
   LocalAgentProviderOptions,
   LocalAgentProviderRegistryOptions,
 } from './providers.js';
+
+export {
+  BrowserProviderError,
+  ChatGptBrowserAgentProvider,
+  HttpBrowserBridgeClient,
+} from './browser-provider.js';
+export type {
+  BrowserBridgeCreateJobRequest,
+  BrowserBridgeHealth,
+  BrowserBridgeJob,
+  BrowserBridgeJobState,
+  BrowserBridgePort,
+  BrowserProviderErrorCode,
+  BrowserSessionState,
+  ChatGptBrowserAgentProviderOptions,
+  HttpBrowserBridgeClientOptions,
+} from './browser-provider.js';
