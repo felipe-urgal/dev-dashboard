@@ -25,6 +25,7 @@ import './styles/features/dashboard-overview-proposal-1.css';
 import './styles/features/production-flat-sections.css';
 import './styles/features/production-deployment-layout-fix.css';
 import './styles/features/production-overview-proposal-2.css';
+import './styles/features/modal-standard.css';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
