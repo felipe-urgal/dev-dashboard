@@ -44,9 +44,7 @@ export interface AgentIntegrationInstallRequest {
 export interface AgentIntegrationProvider {
   readonly id: AgentConcreteProviderId;
   list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]>;
-  install?(
-    request: AgentIntegrationInstallRequest,
-  ): Promise<AgentIntegration>;
+  install?(request: AgentIntegrationInstallRequest): Promise<AgentIntegration>;
 }
 
 export interface AgentIntegrationProviderRegistry {
