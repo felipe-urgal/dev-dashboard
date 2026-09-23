@@ -6,7 +6,7 @@ import test from 'node:test';
 
 import { AgentAuditStore } from '../src/agent-audit-store.js';
 
-test('AgentAuditStore persiste autorização atual e audit trail bounded', async (context) => {
+test('AgentAuditStore persiste autorização atual com audit trail bounded', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-store-'));
   context.after(() => rm(root, { recursive: true, force: true }));
 
