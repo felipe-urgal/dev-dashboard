@@ -272,8 +272,8 @@ watch(
       </label>
       <div class="agent-integration-install-actions">
         <p>
-          O dashboard envia apenas nome e URL ao backend. Comandos, argumentos
-          e variáveis de ambiente não são aceitos por este formulário.
+          O dashboard envia apenas nome e URL ao backend. Comandos, argumentos e
+          variáveis de ambiente não são aceitos por este formulário.
         </p>
         <button
           class="secondary-button"
@@ -481,7 +481,6 @@ watch(
   margin: 0;
   line-height: 1.45;
 }
-
 
 .agent-integration-install {
   display: grid;

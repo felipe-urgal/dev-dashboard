@@ -94,7 +94,6 @@ test('integration provider registry rejects duplicate providers', () => {
   );
 });
 
-
 test('Codex MCP install uses fixed structured args and requires confirmation', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new CodexMcpIntegrationProvider({

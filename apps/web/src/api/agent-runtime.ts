@@ -313,7 +313,6 @@ export async function fetchAgentIntegrations(
     .integrations;
 }
 
-
 export async function installAgentIntegration(
   projectId: string,
   input: {
@@ -327,9 +326,7 @@ export async function installAgentIntegration(
   },
 ): Promise<AgentIntegration> {
   const path =
-    '/api/projects/' +
-    encodeURIComponent(projectId) +
-    '/agent/integrations';
+    '/api/projects/' + encodeURIComponent(projectId) + '/agent/integrations';
   return (
     await requestJson<{ integration: AgentIntegration }>(path, {
       method: 'POST',

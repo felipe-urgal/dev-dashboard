@@ -857,7 +857,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       })),
   );
 
-
   app.post<{ Params: ProjectParams; Body: InstallIntegrationBody }>(
     '/projects/:projectId/agent/integrations',
     {
