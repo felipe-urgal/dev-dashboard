@@ -372,9 +372,7 @@ function codexUsageFromJsonl(stdout: string): AgentUsage | undefined {
       source: 'provider',
       ...(inputTokens !== undefined ? { inputTokens } : {}),
       ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
-      ...(cacheWriteInputTokens !== undefined
-        ? { cacheWriteInputTokens }
-        : {}),
+      ...(cacheWriteInputTokens !== undefined ? { cacheWriteInputTokens } : {}),
       ...(outputTokens !== undefined ? { outputTokens } : {}),
       ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
       ...(totalTokens !== undefined ? { totalTokens } : {}),

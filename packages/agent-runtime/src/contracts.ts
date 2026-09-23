@@ -51,10 +51,7 @@ export interface AgentExecutionFailure {
 }
 
 export type AgentUsageSource =
-  | 'provider'
-  | 'estimated'
-  | 'mixed'
-  | 'unavailable';
+  'provider' | 'estimated' | 'mixed' | 'unavailable';
 
 export interface AgentUsage {
   providerId: AgentConcreteProviderId;
