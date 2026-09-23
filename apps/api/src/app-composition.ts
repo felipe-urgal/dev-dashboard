@@ -19,6 +19,7 @@ import {
   AgentRuntimeApiService,
   type AgentRuntimeApiServicePort,
 } from './services/agent-runtime-api-service.js';
+import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -257,6 +258,9 @@ export function createAppComposition(
   const agentRuntimeApiService =
     options.agentRuntimeApiService ??
     createAgentRuntimeApiService(context, options);
+  const agentRuntimeRealtimeService = new AgentRuntimeRealtimeService(
+    agentRuntimeApiService,
+  );
 
   return {
     databaseExplorerSessionStore,
@@ -288,6 +292,7 @@ export function createAppComposition(
     securityScannerProvider,
     securityScanSnapshotStore,
     agentRuntimeApiService,
+    agentRuntimeRealtimeService,
   };
 }
 
@@ -365,6 +370,7 @@ export function registerAppLifecycle(
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     composition.localCiExecutionService?.shutdown();
+    composition.agentRuntimeRealtimeService.close();
     await composition.agentRuntimeApiService.shutdown();
     await context.detachableExecutionService?.close();
     composition.databaseExplorerSessionStore.close();
