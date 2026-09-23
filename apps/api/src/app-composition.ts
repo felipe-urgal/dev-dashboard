@@ -2,10 +2,22 @@ import path from 'node:path';
 
 import type { FastifyInstance } from 'fastify';
 
+import {
+  AgentRuntimeStateStore,
+  AgentTaskLockManager,
+  AgentWorkflowRuntime,
+  GitAgentTaskStore,
+  createLocalAgentProviderRegistry,
+} from '@dev-dashboard/agent-runtime';
+
 import type { AppContext } from './app-context.js';
 import { DeploymentService } from './deployment/service.js';
 import { ProductionOverviewService } from './deployment/production-overview.js';
 import { ActivitySnapshotService } from './services/activity-snapshot-service.js';
+import {
+  AgentRuntimeApiService,
+  type AgentRuntimeApiServicePort,
+} from './services/agent-runtime-api-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -74,6 +86,7 @@ export interface AppCompositionOptions {
   >;
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
   securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
+  agentRuntimeApiService?: AgentRuntimeApiServicePort;
 }
 
 /**
@@ -240,6 +253,9 @@ export function createAppComposition(
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
+  const agentRuntimeApiService =
+    options.agentRuntimeApiService ?? createAgentRuntimeApiService(context, options);
+
   return {
     databaseExplorerSessionStore,
     projectDoctorService,
@@ -269,7 +285,64 @@ export function createAppComposition(
     dependencyUpgradePlanService,
     securityScannerProvider,
     securityScanSnapshotStore,
+    agentRuntimeApiService,
   };
+}
+
+function createAgentRuntimeApiService(
+  context: AppContext,
+  options: AppCompositionOptions,
+): AgentRuntimeApiService {
+  const stateDirectory = path.join(
+    context.processManager.stateDirectory,
+    'agent-runtime',
+  );
+  const taskStore = new GitAgentTaskStore({
+    repositoryDirectory: path.join(stateDirectory, 'tasks'),
+  });
+  const providerRegistry = createLocalAgentProviderRegistry({
+    resolveCwd: (request) => {
+      const executionContext =
+        context.developmentEnvironmentInstanceStore.resolveForProject(
+          request.projectId,
+          request.environmentInstanceId,
+        );
+      if (!executionContext || executionContext.runtime !== 'host') {
+        throw new Error('Agent execution environment is unavailable.');
+      }
+      return executionContext.cwd;
+    },
+    ...(options.now
+      ? { now: () => new Date(options.now!()).toISOString() }
+      : {}),
+  });
+  const workflowRuntime = new AgentWorkflowRuntime({
+    taskStore,
+    providerRegistry,
+    runtimeStateStore: new AgentRuntimeStateStore({
+      stateDirectory,
+      ...(options.now ? { now: () => new Date(options.now!()) } : {}),
+    }),
+    lockManager: new AgentTaskLockManager({
+      stateDirectory,
+      ...(options.now ? { now: options.now } : {}),
+    }),
+    ...(options.now
+      ? { now: () => new Date(options.now!()).toISOString() }
+      : {}),
+  });
+
+  return new AgentRuntimeApiService({
+    taskStore,
+    providerRegistry,
+    workflowRuntime,
+    projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
+    ...(options.now
+      ? { now: () => new Date(options.now!()).toISOString() }
+      : {}),
+  });
 }
 
 export type AppComposition = ReturnType<typeof createAppComposition>;
@@ -288,6 +361,7 @@ export function registerAppLifecycle(
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     composition.localCiExecutionService?.shutdown();
+    await composition.agentRuntimeApiService.shutdown();
     await context.detachableExecutionService?.close();
     composition.databaseExplorerSessionStore.close();
     composition.projectLanguageServerService.close();
