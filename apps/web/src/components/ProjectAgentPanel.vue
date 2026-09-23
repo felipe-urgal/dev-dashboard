@@ -464,7 +464,8 @@ async function load(): Promise<void> {
           'blocked',
           'failed',
         ].includes(record.task.state),
-      ) ?? sorted[0];
+      ) ??
+      sorted[0];
 
     selectedTaskId.value = active?.task.id ?? '';
     if (active) await loadTask(active.task.id, requestGeneration);
