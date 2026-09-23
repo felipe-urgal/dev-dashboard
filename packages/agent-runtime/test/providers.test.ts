@@ -222,9 +222,112 @@ test('Claude doctor validates supported version and auth before auto mode', asyn
     'none',
     '--no-session-persistence',
     '--output-format',
-    'text',
-    'Implement the requested change\n\nExecution boundary:\n- Work only inside the backend-selected working directory.\n- Granted capabilities: workspace:write.\n- Do not perform capabilities that are not listed above.\n- If a protected action is needed but not granted, stop and report it.',
+    'stream-json',
+    '--verbose',
   ]);
+});
+
+test('Claude captures structured model, tokens, cost and duration', async () => {
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    now: () => observedAt,
+    runProcess: async (input) => {
+      if (input.args[0] === '--version') {
+        return result({ stdout: '2.1.259 (Claude Code)\n' });
+      }
+      if (input.args[0] === 'auth') {
+        return result({ stdout: 'authenticated\n' });
+      }
+
+      return result({
+        stdout: [
+          JSON.stringify({
+            type: 'system',
+            subtype: 'init',
+            model: 'claude-sonnet-test',
+          }),
+          JSON.stringify({
+            type: 'assistant',
+            message: {
+              model: 'claude-sonnet-test',
+              usage: {
+                input_tokens: 100,
+                cache_read_input_tokens: 20,
+                cache_creation_input_tokens: 5,
+                output_tokens: 30,
+              },
+            },
+          }),
+          JSON.stringify({
+            type: 'assistant',
+            message: {
+              model: 'claude-sonnet-test',
+              usage: {
+                input_tokens: 10,
+                output_tokens: 4,
+              },
+            },
+          }),
+          JSON.stringify({
+            type: 'result',
+            subtype: 'success',
+            total_cost_usd: 0.0123,
+            duration_ms: 2450,
+            result: 'SECRET_SHOULD_NOT_BE_PERSISTED',
+          }),
+        ].join('\n'),
+      });
+    },
+  });
+
+  const execution = await provider.execute(request());
+
+  assert.deepEqual(execution.usage, {
+    providerId: 'claude-code',
+    source: 'provider',
+    model: 'claude-sonnet-test',
+    inputTokens: 110,
+    cachedInputTokens: 20,
+    cacheWriteInputTokens: 5,
+    outputTokens: 34,
+    reportedCost: {
+      amount: 0.0123,
+      currency: 'USD',
+    },
+    durationMs: 2450,
+  });
+  assert.equal(
+    JSON.stringify(execution).includes('SECRET_SHOULD_NOT_BE_PERSISTED'),
+    false,
+  );
+});
+
+test('Claude execution succeeds when structured usage is absent', async () => {
+  const provider = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    command: 'claude-test',
+    now: () => observedAt,
+    runProcess: async (input) => {
+      if (input.args[0] === '--version') {
+        return result({ stdout: '2.1.259 (Claude Code)\n' });
+      }
+      if (input.args[0] === 'auth') return result();
+
+      return result({
+        stdout: JSON.stringify({
+          type: 'result',
+          subtype: 'success',
+          result: 'done',
+        }),
+      });
+    },
+  });
+
+  const execution = await provider.execute(request());
+
+  assert.equal(execution.outcome, 'succeeded');
+  assert.equal(execution.usage, undefined);
 });
 
 test('Claude doctor degrades cleanly on unsupported version', async () => {
