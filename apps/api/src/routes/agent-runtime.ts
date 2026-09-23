@@ -47,6 +47,11 @@ interface AuthorizationBody {
   granted: boolean;
 }
 
+interface BudgetBody {
+  maxTotalTokens?: number;
+  maxEstimatedCostUsd?: number;
+}
+
 interface CheckpointResolutionBody {
   decision: 'approved' | 'rejected';
   instruction?: string;
@@ -135,6 +140,16 @@ const executeBodySchema = {
   additionalProperties: false,
   properties: {
     providerId: { type: 'string', enum: [...providerIds] },
+  },
+} as const;
+
+const budgetBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  minProperties: 1,
+  properties: {
+    maxTotalTokens: { type: 'integer', minimum: 1 },
+    maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
   },
 } as const;
 
@@ -326,6 +341,50 @@ const usageOverviewSchema = {
           usageSummarySchema,
         ]),
       ),
+    },
+  },
+} as const;
+
+const budgetSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'taskId', 'updatedAt'],
+  properties: {
+    projectId: { type: 'string' },
+    taskId: { type: 'string' },
+    maxTotalTokens: { type: 'integer', minimum: 1 },
+    maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
+    updatedAt: { type: 'string' },
+  },
+} as const;
+
+const budgetAlertSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['kind', 'observed', 'threshold'],
+  properties: {
+    kind: {
+      type: 'string',
+      enum: ['total-tokens', 'estimated-cost-usd'],
+    },
+    observed: { type: 'number', minimum: 0 },
+    threshold: { type: 'number', exclusiveMinimum: 0 },
+  },
+} as const;
+
+const budgetOverviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['budget', 'usage', 'alerts'],
+  properties: {
+    budget: {
+      anyOf: [budgetSchema, { type: 'null' }],
+    },
+    usage: usageSummarySchema,
+    alerts: {
+      type: 'array',
+      maxItems: 2,
+      items: budgetAlertSchema,
     },
   },
 } as const;
@@ -736,6 +795,68 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     async (request) =>
       withAgentErrors(() =>
         options.agentRuntimeApiService.usage(
+          request.params.projectId,
+          request.params.taskId,
+        ),
+      ),
+  );
+
+  app.get<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/budget',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: budgetOverviewSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.budget(
+          request.params.projectId,
+          request.params.taskId,
+        ),
+      ),
+  );
+
+  app.put<{ Params: TaskParams; Body: BudgetBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/budget',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: budgetBodySchema,
+        response: {
+          200: budgetOverviewSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.setBudget(
+          request.params.projectId,
+          request.params.taskId,
+          request.body,
+        ),
+      ),
+  );
+
+  app.delete<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/budget',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: budgetOverviewSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.clearBudget(
           request.params.projectId,
           request.params.taskId,
         ),
