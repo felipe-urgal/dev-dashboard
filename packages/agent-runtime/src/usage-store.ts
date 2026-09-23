@@ -27,6 +27,7 @@ export interface AgentUsageSummary {
   reasoningTokens?: number;
   totalTokens?: number;
   reportedCostUsd?: number;
+  estimatedCostUsd?: number;
   durationMs?: number;
 }
 
@@ -130,6 +131,18 @@ function isUsage(
     if (
       !nonNegativeNumber(usage.reportedCost.amount) ||
       usage.reportedCost.currency !== 'USD'
+    ) {
+      return false;
+    }
+  }
+
+  if (usage.estimatedCost !== undefined) {
+    if (
+      !nonNegativeNumber(usage.estimatedCost.amount) ||
+      usage.estimatedCost.currency !== 'USD' ||
+      typeof usage.estimatedCost.pricingVersion !== 'string' ||
+      usage.estimatedCost.pricingVersion.length === 0 ||
+      usage.estimatedCost.pricingVersion.length > 128
     ) {
       return false;
     }
@@ -282,6 +295,10 @@ export class AgentUsageStore {
       records,
       (usage) => usage.reportedCost?.amount,
     );
+    const estimatedCostUsd = metricTotal(
+      records,
+      (usage) => usage.estimatedCost?.amount,
+    );
     const durationMs = metricTotal(records, (usage) => usage.durationMs);
 
     return {
@@ -293,6 +310,7 @@ export class AgentUsageStore {
       ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
       ...(totalTokens !== undefined ? { totalTokens } : {}),
       ...(reportedCostUsd !== undefined ? { reportedCostUsd } : {}),
+      ...(estimatedCostUsd !== undefined ? { estimatedCostUsd } : {}),
       ...(durationMs !== undefined ? { durationMs } : {}),
     };
   }
