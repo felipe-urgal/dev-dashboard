@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 
 import {
   AgentAuditStore,
+  AgentBudgetStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
   AgentUsageStore,
@@ -312,6 +313,7 @@ function createAgentRuntimeApiService(
   });
   const auditStore = new AgentAuditStore({ stateDirectory });
   const usageStore = new AgentUsageStore({ stateDirectory });
+  const budgetStore = new AgentBudgetStore({ stateDirectory });
   const providerRegistry = createLocalAgentProviderRegistry({
     resolveCwd: (request) => {
       const executionContext =
@@ -357,6 +359,7 @@ function createAgentRuntimeApiService(
     taskContextSnapshotReader: taskContextService,
     activityEventStore: context.activityEventRepository,
     usageStore,
+    budgetStore,
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),
