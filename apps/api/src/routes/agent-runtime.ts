@@ -442,6 +442,11 @@ function mapAgentError(error: unknown): unknown {
         message: error.message,
       });
     case 'AGENT_API_TASK_CONTEXT_NOT_FOUND':
+      return new ApiError({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: error.message,
+      });
     case 'AGENT_API_TASK_NOT_FOUND':
     case 'AGENT_WORKFLOW_TASK_NOT_FOUND':
     case 'AGENT_WORKFLOW_TASK_PROJECT_MISMATCH':
