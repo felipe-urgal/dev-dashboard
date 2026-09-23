@@ -137,7 +137,7 @@ export interface AgentRuntimeApiServiceOptions {
   activityEventStore?: Pick<ActivityEventRepository, 'append'>;
   usageStore?: {
     append(record: AgentUsageRecord): Promise<AgentUsageRecord>;
-    summary(query?: {
+    summary?(query?: {
       projectId?: string;
       taskId?: string;
       providerId?: 'codex' | 'claude-code' | 'chatgpt-browser';
@@ -562,7 +562,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     if (taskId) await this.getTask(projectId, taskId);
 
     const usageStore = this.options.usageStore;
-    if (!usageStore) {
+    if (!usageStore?.summary) {
       return {
         total: { executionCount: 0 },
         byProvider: {},
