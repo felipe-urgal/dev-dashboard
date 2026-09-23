@@ -957,3 +957,169 @@ test('AgentRuntimeApiService não deixa falha do Activity bloquear task canônic
   assert.equal(record.task.id, 'task-activity-isolation');
   assert.equal(record.task.state, 'queued');
 });
+
+test('AgentRuntimeApiService avalia soft budget somente com métricas observadas', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'queued',
+      summary: 'Executar task',
+      requestedCapabilities: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      updatedAt: '2026-09-23T12:00:00.000Z',
+    },
+    null,
+  );
+
+  let savedBudget: {
+    projectId: string;
+    taskId: string;
+    maxTotalTokens?: number;
+    maxEstimatedCostUsd?: number;
+    updatedAt: string;
+  } | null = null;
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    usageStore: {
+      append: async (record) => record,
+      summary: async () => ({
+        executionCount: 2,
+        totalTokens: 12_000,
+        estimatedCostUsd: 0.4,
+      }),
+    },
+    budgetStore: {
+      get: async () => savedBudget,
+      set: async (budget) => {
+        savedBudget = budget;
+        return budget;
+      },
+      clear: async () => {
+        savedBudget = null;
+      },
+    },
+    now: () => '2026-09-23T12:05:00.000Z',
+  });
+
+  const result = await service.setBudget('project-1', 'task-1', {
+    maxTotalTokens: 10_000,
+    maxEstimatedCostUsd: 0.5,
+  });
+
+  assert.equal(result.budget?.maxTotalTokens, 10_000);
+  assert.deepEqual(result.alerts, [
+    {
+      kind: 'total-tokens',
+      observed: 12_000,
+      threshold: 10_000,
+    },
+  ]);
+
+  savedBudget = {
+    projectId: 'project-1',
+    taskId: 'task-1',
+    maxEstimatedCostUsd: 0.3,
+    updatedAt: '2026-09-23T12:05:00.000Z',
+  };
+  assert.deepEqual((await service.budget('project-1', 'task-1')).alerts, [
+    {
+      kind: 'estimated-cost-usd',
+      observed: 0.4,
+      threshold: 0.3,
+    },
+  ]);
+});
+
+test('AgentRuntimeApiService não alerta budget sem métrica observada', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'queued',
+      summary: 'Executar task',
+      requestedCapabilities: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      updatedAt: '2026-09-23T12:00:00.000Z',
+    },
+    null,
+  );
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    usageStore: {
+      append: async (record) => record,
+      summary: async () => ({ executionCount: 1, inputTokens: 500 }),
+    },
+    budgetStore: {
+      get: async () => ({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        maxTotalTokens: 100,
+        maxEstimatedCostUsd: 0.01,
+        updatedAt: '2026-09-23T12:00:00.000Z',
+      }),
+      set: async (budget) => budget,
+      clear: async () => undefined,
+    },
+  });
+
+  assert.deepEqual((await service.budget('project-1', 'task-1')).alerts, []);
+});

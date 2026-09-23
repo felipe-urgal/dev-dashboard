@@ -225,3 +225,10 @@ export {
   withEstimatedAgentUsageCost,
 } from './pricing.js';
 export type { AgentPricingCatalog, AgentPricingRate } from './pricing.js';
+
+export { AgentBudgetStore, AgentBudgetStoreError } from './budget-store.js';
+export type {
+  AgentBudgetStoreErrorCode,
+  AgentBudgetStoreOptions,
+  AgentTaskBudget,
+} from './budget-store.js';
