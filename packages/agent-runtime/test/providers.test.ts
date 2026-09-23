@@ -113,6 +113,23 @@ test('Codex doctor checks version and authentication before execution', async ()
   ]);
 });
 
+test('CLI provider inclui instrução de continuação no prompt', async () => {
+  const fake = createProviderRunner();
+  const provider = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute({
+    ...request(),
+    continuationInstruction: 'Continue after explicit checkpoint approval.',
+  });
+
+  const prompt = String(fake.calls.at(-1)?.args.at(-1) ?? '');
+  assert.match(prompt, /Continuation instruction:/);
+  assert.match(prompt, /explicit checkpoint approval/);
+});
+
 test('Codex uses read-only sandbox when workspace write is not granted', async () => {
   const fake = createProviderRunner();
   const provider = new CodexAgentProvider({
