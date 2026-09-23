@@ -428,7 +428,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   private async taskContextEvidence(
     task: AgentTask,
     executionId: string,
-  ): Promise<AgentWorkflowExecutionResult['providerResult']['evidence']> {
+  ): Promise<
+    NonNullable<AgentWorkflowExecutionResult['providerResult']['evidence']>
+  > {
     if (!task.taskContextId || !this.options.taskContextSnapshotReader) {
       return [];
     }
