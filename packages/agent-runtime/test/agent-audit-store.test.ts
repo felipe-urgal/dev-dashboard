@@ -143,6 +143,7 @@ test('AgentAuditStore persiste evidence bounded com ownership da execução', as
   await store.appendExecutionResult(
     'task-1',
     'execution-1',
+    'codex',
     'Execution completed.',
     '2026-09-23T11:05:00.000Z',
     [
@@ -179,6 +180,7 @@ test('AgentAuditStore persiste evidence bounded com ownership da execução', as
     ['evidence-2', 'evidence-3'],
   );
   assert.equal(snapshot.events[0]?.type, 'execution-state');
+  assert.equal(snapshot.events[0]?.providerId, 'codex');
   assert.equal(
     snapshot.events.filter((item) => item.type === 'evidence').length,
     3,
@@ -188,6 +190,7 @@ test('AgentAuditStore persiste evidence bounded com ownership da execução', as
     store.appendExecutionResult(
       'task-1',
       'execution-1',
+      'codex',
       'x',
       '2026-09-23T11:06:00.000Z',
       [

@@ -37,12 +37,14 @@ import {
   type AgentTaskStatus,
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
+import ProjectTaskContextSummary from './ProjectTaskContextSummary.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
 const props = defineProps<{
   project: Project;
   environmentInstanceId?: string;
+  currentBranch?: string;
 }>();
 
 const capabilities: Array<{
@@ -140,6 +142,13 @@ const providerOptions = computed<AgentProviderStatus[]>(() =>
       },
   ),
 );
+
+const lastConcreteProviderId = computed(() => {
+  const events = [...(activity.value?.events ?? [])].reverse();
+  return events.find(
+    (event) => event.type === 'execution-state' && event.providerId,
+  )?.providerId;
+});
 
 const currentProvider = computed(
   () =>
@@ -823,9 +832,11 @@ onBeforeUnmount(() => {
                 <strong>{{
                   latestExecution
                     ? providerLabel(latestExecution.execution.providerId)
-                    : status?.activeExecution
-                      ? providerLabel(selectedProviderId)
-                      : '—'
+                    : lastConcreteProviderId
+                      ? providerLabel(lastConcreteProviderId)
+                      : status?.activeExecution
+                        ? 'Em seleção'
+                        : '—'
                 }}</strong>
               </span>
             </div>
@@ -950,6 +961,20 @@ onBeforeUnmount(() => {
                 </button>
               </div>
             </div>
+          </section>
+
+          <section class="agent-card">
+            <div class="agent-section-heading">
+              <div>
+                <span>Contexto</span>
+                <strong>Contexto do projeto</strong>
+              </div>
+            </div>
+            <ProjectTaskContextSummary
+              :project-id="project.id"
+              :current-branch="currentBranch"
+              :environment-instance-id="environmentInstanceId"
+            />
           </section>
 
           <section class="agent-card">

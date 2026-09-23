@@ -354,6 +354,7 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
   assert.deepEqual(auditWrite, [
     'task-1',
     'execution-1',
+    'codex',
     'Concluído.',
     '2026-09-23T11:02:00.000Z',
     result.providerResult.evidence,

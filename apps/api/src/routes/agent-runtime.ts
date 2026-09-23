@@ -201,6 +201,10 @@ const eventSchema = {
     id: { type: 'string' },
     taskId: { type: 'string' },
     executionId: { type: 'string' },
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
     type: {
       type: 'string',
       enum: [

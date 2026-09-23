@@ -529,6 +529,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :key="`agent-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         :environment-instance-id="environmentInstanceId"
+        :current-branch="gitBranch"
       />
 
       <ProjectSelfUpdateProductionPanel
