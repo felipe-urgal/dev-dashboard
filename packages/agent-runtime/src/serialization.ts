@@ -29,6 +29,7 @@ const TASK_KEYS = new Set([
   'id',
   'projectId',
   'environmentInstanceId',
+  'taskContextId',
   'state',
   'summary',
   'continuationInstruction',
@@ -114,6 +115,16 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     throw new AgentSerializationError(
       'Invalid AgentTask.continuationInstruction',
     );
+  }
+
+  const taskContextId = parsed.taskContextId;
+  if (
+    taskContextId !== undefined &&
+    (typeof taskContextId !== 'string' ||
+      taskContextId.length === 0 ||
+      taskContextId.length > 256)
+  ) {
+    throw new AgentSerializationError('Invalid AgentTask.taskContextId');
   }
 
   const environmentInstanceId = parsed.environmentInstanceId;
