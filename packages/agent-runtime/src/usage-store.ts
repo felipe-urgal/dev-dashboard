@@ -263,54 +263,39 @@ export class AgentUsageStore {
     query: AgentUsageQuery = {},
   ): Promise<AgentUsageSummary> {
     const records = await this.list(query);
+    const inputTokens = metricTotal(records, (usage) => usage.inputTokens);
+    const cachedInputTokens = metricTotal(
+      records,
+      (usage) => usage.cachedInputTokens,
+    );
+    const cacheWriteInputTokens = metricTotal(
+      records,
+      (usage) => usage.cacheWriteInputTokens,
+    );
+    const outputTokens = metricTotal(records, (usage) => usage.outputTokens);
+    const reasoningTokens = metricTotal(
+      records,
+      (usage) => usage.reasoningTokens,
+    );
+    const totalTokens = metricTotal(records, (usage) => usage.totalTokens);
+    const reportedCostUsd = metricTotal(
+      records,
+      (usage) => usage.reportedCost?.amount,
+    );
+    const durationMs = metricTotal(records, (usage) => usage.durationMs);
+
     return {
       executionCount: records.length,
-      ...(metricTotal(records, (usage) => usage.inputTokens) !== undefined
-        ? { inputTokens: metricTotal(records, (usage) => usage.inputTokens) }
+      ...(inputTokens !== undefined ? { inputTokens } : {}),
+      ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
+      ...(cacheWriteInputTokens !== undefined
+        ? { cacheWriteInputTokens }
         : {}),
-      ...(metricTotal(records, (usage) => usage.cachedInputTokens) !== undefined
-        ? {
-            cachedInputTokens: metricTotal(
-              records,
-              (usage) => usage.cachedInputTokens,
-            ),
-          }
-        : {}),
-      ...(metricTotal(records, (usage) => usage.cacheWriteInputTokens) !==
-      undefined
-        ? {
-            cacheWriteInputTokens: metricTotal(
-              records,
-              (usage) => usage.cacheWriteInputTokens,
-            ),
-          }
-        : {}),
-      ...(metricTotal(records, (usage) => usage.outputTokens) !== undefined
-        ? { outputTokens: metricTotal(records, (usage) => usage.outputTokens) }
-        : {}),
-      ...(metricTotal(records, (usage) => usage.reasoningTokens) !== undefined
-        ? {
-            reasoningTokens: metricTotal(
-              records,
-              (usage) => usage.reasoningTokens,
-            ),
-          }
-        : {}),
-      ...(metricTotal(records, (usage) => usage.totalTokens) !== undefined
-        ? { totalTokens: metricTotal(records, (usage) => usage.totalTokens) }
-        : {}),
-      ...(metricTotal(records, (usage) => usage.reportedCost?.amount) !==
-      undefined
-        ? {
-            reportedCostUsd: metricTotal(
-              records,
-              (usage) => usage.reportedCost?.amount,
-            ),
-          }
-        : {}),
-      ...(metricTotal(records, (usage) => usage.durationMs) !== undefined
-        ? { durationMs: metricTotal(records, (usage) => usage.durationMs) }
-        : {}),
+      ...(outputTokens !== undefined ? { outputTokens } : {}),
+      ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+      ...(totalTokens !== undefined ? { totalTokens } : {}),
+      ...(reportedCostUsd !== undefined ? { reportedCostUsd } : {}),
+      ...(durationMs !== undefined ? { durationMs } : {}),
     };
   }
 
