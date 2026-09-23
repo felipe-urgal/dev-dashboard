@@ -382,6 +382,126 @@ function codexUsageFromJsonl(stdout: string): AgentUsage | undefined {
   return normalized;
 }
 
+function nonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+function claudeUsageFromJsonl(stdout: string): AgentUsage | undefined {
+  let model: string | undefined;
+  let inputTokens = 0;
+  let cachedInputTokens = 0;
+  let cacheWriteInputTokens = 0;
+  let outputTokens = 0;
+  let hasTokenUsage = false;
+  let reportedCost: AgentUsage['reportedCost'];
+  let durationMs: number | undefined;
+
+  for (const line of stdout.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value) continue;
+
+    let event: unknown;
+    try {
+      event = JSON.parse(value);
+    } catch {
+      continue;
+    }
+
+    if (!event || typeof event !== 'object') continue;
+    const record = event as Record<string, unknown>;
+
+    if (record.type === 'system' && record.subtype === 'init') {
+      if (typeof record.model === 'string' && record.model.trim()) {
+        model = record.model.trim();
+      }
+      continue;
+    }
+
+    if (record.type === 'assistant') {
+      const message = record.message;
+      if (!message || typeof message !== 'object') continue;
+      const messageRecord = message as Record<string, unknown>;
+
+      if (
+        typeof messageRecord.model === 'string' &&
+        messageRecord.model.trim()
+      ) {
+        model = messageRecord.model.trim();
+      }
+
+      const rawUsage = messageRecord.usage;
+      if (!rawUsage || typeof rawUsage !== 'object') continue;
+      const usage = rawUsage as Record<string, unknown>;
+
+      const turnInput = nonNegativeInteger(usage.input_tokens);
+      const turnCached = nonNegativeInteger(usage.cache_read_input_tokens);
+      const turnCacheWrite = nonNegativeInteger(
+        usage.cache_creation_input_tokens,
+      );
+      const turnOutput = nonNegativeInteger(usage.output_tokens);
+
+      if (turnInput !== undefined) {
+        inputTokens += turnInput;
+        hasTokenUsage = true;
+      }
+      if (turnCached !== undefined) {
+        cachedInputTokens += turnCached;
+        hasTokenUsage = true;
+      }
+      if (turnCacheWrite !== undefined) {
+        cacheWriteInputTokens += turnCacheWrite;
+        hasTokenUsage = true;
+      }
+      if (turnOutput !== undefined) {
+        outputTokens += turnOutput;
+        hasTokenUsage = true;
+      }
+      continue;
+    }
+
+    if (record.type === 'result') {
+      const cost = nonNegativeNumber(record.total_cost_usd);
+      const duration = nonNegativeInteger(record.duration_ms);
+      if (cost !== undefined) {
+        reportedCost = { amount: cost, currency: 'USD' };
+      }
+      if (duration !== undefined) durationMs = duration;
+    }
+  }
+
+  if (
+    !model &&
+    !hasTokenUsage &&
+    !reportedCost &&
+    durationMs === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    providerId: 'claude-code',
+    source: 'provider',
+    ...(model ? { model } : {}),
+    ...(hasTokenUsage
+      ? {
+          inputTokens,
+          cachedInputTokens,
+          cacheWriteInputTokens,
+          outputTokens,
+          totalTokens:
+            inputTokens +
+            cachedInputTokens +
+            cacheWriteInputTokens +
+            outputTokens,
+        }
+      : {}),
+    ...(reportedCost ? { reportedCost } : {}),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  };
+}
+
 function normalizeProcessResult(
   providerId: AgentConcreteProviderId,
   label: string,
@@ -608,9 +728,14 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
       'none',
       '--no-session-persistence',
       '--output-format',
-      'text',
+      'stream-json',
+      '--verbose',
       prompt,
     ];
+  }
+
+  protected usage(result: AgentCliProcessResult): AgentUsage | undefined {
+    return claudeUsageFromJsonl(result.stdout);
   }
 }
 
