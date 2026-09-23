@@ -304,8 +304,8 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       await this.recordActivity({
         projectId,
         ...(taskRecord.task.environmentInstanceId
-        ? { environmentInstanceId: taskRecord.task.environmentInstanceId }
-        : {}),
+          ? { environmentInstanceId: taskRecord.task.environmentInstanceId }
+          : {}),
         type: 'agent.execution.failed',
         status: 'failed',
         summary: 'Agent execution failed.',
@@ -415,8 +415,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       projectId,
       ...(nextStatus.task.task.environmentInstanceId
         ? {
-            environmentInstanceId:
-              nextStatus.task.task.environmentInstanceId,
+            environmentInstanceId: nextStatus.task.task.environmentInstanceId,
           }
         : {}),
       type: 'agent.execution.cancelled',
@@ -468,8 +467,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       projectId,
       ...(nextStatus.task.task.environmentInstanceId
         ? {
-            environmentInstanceId:
-              nextStatus.task.task.environmentInstanceId,
+            environmentInstanceId: nextStatus.task.task.environmentInstanceId,
           }
         : {}),
       type: 'agent.recover',
