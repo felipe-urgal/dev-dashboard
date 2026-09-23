@@ -169,6 +169,12 @@ test('executes one queued task and only forwards explicitly requested grants', a
     providerId: 'codex',
     outcome: 'succeeded',
     summary: 'Implementation finished',
+    usage: {
+      providerId: 'codex',
+      source: 'provider',
+      inputTokens: 120,
+      outputTokens: 30,
+    },
   }));
   const { runtime, store, runtimeStateStore } = await fixture(t, provider);
 
@@ -183,6 +189,12 @@ test('executes one queued task and only forwards explicitly requested grants', a
   assert.equal(result.execution.state, 'succeeded');
   assert.equal(result.execution.providerId, 'codex');
   assert.equal(result.execution.requestedProviderId, 'codex');
+  assert.deepEqual(result.execution.usage, {
+    providerId: 'codex',
+    source: 'provider',
+    inputTokens: 120,
+    outputTokens: 30,
+  });
   assert.deepEqual(provider.lastRequest?.allowedCapabilities, [
     'workspace:write',
   ]);

@@ -103,14 +103,62 @@ test('Codex doctor checks version and authentication before execution', async ()
 
   const executionCall = fake.calls.at(-1);
   assert.equal(executionCall?.cwd, '/workspace/project');
-  assert.deepEqual(executionCall?.args.slice(0, 6), [
+  assert.deepEqual(executionCall?.args.slice(0, 7), [
     'exec',
+    '--json',
     '--skip-git-repo-check',
     '--sandbox',
     'workspace-write',
     '--ask-for-approval',
     'never',
   ]);
+});
+
+test('Codex captures provider-reported usage without persisting raw JSONL', async () => {
+  const fake = createProviderRunner();
+  const provider = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: async (input) => {
+      if (input.args[0] === '--version' || input.args[0] === 'login') {
+        return fake.runner(input);
+      }
+
+      return result({
+        stdout: [
+          JSON.stringify({ type: 'thread.started', thread_id: 'thread-1' }),
+          JSON.stringify({
+            type: 'turn.completed',
+            usage: {
+              input_tokens: 120,
+              cached_input_tokens: 40,
+              cache_write_input_tokens: 5,
+              output_tokens: 30,
+              reasoning_output_tokens: 7,
+              total_tokens: 150,
+            },
+          }),
+          'SECRET_SHOULD_NOT_BE_PERSISTED',
+        ].join('\n'),
+      });
+    },
+  });
+
+  const execution = await provider.execute(request());
+
+  assert.deepEqual(execution.usage, {
+    providerId: 'codex',
+    source: 'provider',
+    inputTokens: 120,
+    cachedInputTokens: 40,
+    cacheWriteInputTokens: 5,
+    outputTokens: 30,
+    reasoningTokens: 7,
+    totalTokens: 150,
+  });
+  assert.equal(
+    JSON.stringify(execution).includes('SECRET_SHOULD_NOT_BE_PERSISTED'),
+    false,
+  );
 });
 
 test('CLI provider inclui instrução de continuação no prompt', async () => {
@@ -141,7 +189,7 @@ test('Codex uses read-only sandbox when workspace write is not granted', async (
   assert.equal(execution.outcome, 'succeeded');
 
   const executionCall = fake.calls.at(-1);
-  assert.equal(executionCall?.args[3], 'read-only');
+  assert.equal(executionCall?.args[4], 'read-only');
 });
 
 test('Claude doctor validates supported version and auth before auto mode', async () => {

@@ -27,6 +27,8 @@ export type {
   AgentTaskRecord,
   AgentTaskState,
   AgentTaskStore,
+  AgentUsage,
+  AgentUsageSource,
 } from './contracts.js';
 
 export {

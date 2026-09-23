@@ -395,6 +395,7 @@ export class AgentWorkflowRuntime {
         startedAt,
         finishedAt,
         ...(providerResult.failure ? { failure: providerResult.failure } : {}),
+        ...(providerResult.usage ? { usage: providerResult.usage } : {}),
       };
 
       return {
