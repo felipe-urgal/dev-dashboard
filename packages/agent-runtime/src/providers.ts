@@ -13,6 +13,7 @@ import type {
   AgentProviderRegistry,
   AgentProviderResult,
   AgentProviderStatus,
+  AgentUsage,
 } from './contracts.js';
 import {
   AgentCliProcessError,
@@ -314,10 +315,80 @@ function normalizeExecutionFailure(
   };
 }
 
+function nonNegativeInteger(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+    ? Number(value)
+    : undefined;
+}
+
+function codexUsageFromJsonl(stdout: string): AgentUsage | undefined {
+  let normalized: AgentUsage | undefined;
+
+  for (const line of stdout.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value) continue;
+
+    let event: unknown;
+    try {
+      event = JSON.parse(value);
+    } catch {
+      continue;
+    }
+
+    if (
+      !event ||
+      typeof event !== 'object' ||
+      (event as { type?: unknown }).type !== 'turn.completed'
+    ) {
+      continue;
+    }
+
+    const rawUsage = (event as { usage?: unknown }).usage;
+    if (!rawUsage || typeof rawUsage !== 'object') continue;
+    const usage = rawUsage as Record<string, unknown>;
+
+    const inputTokens = nonNegativeInteger(usage.input_tokens);
+    const cachedInputTokens = nonNegativeInteger(usage.cached_input_tokens);
+    const cacheWriteInputTokens = nonNegativeInteger(
+      usage.cache_write_input_tokens,
+    );
+    const outputTokens = nonNegativeInteger(usage.output_tokens);
+    const reasoningTokens = nonNegativeInteger(usage.reasoning_output_tokens);
+    const totalTokens = nonNegativeInteger(usage.total_tokens);
+
+    if (
+      inputTokens === undefined &&
+      cachedInputTokens === undefined &&
+      cacheWriteInputTokens === undefined &&
+      outputTokens === undefined &&
+      reasoningTokens === undefined &&
+      totalTokens === undefined
+    ) {
+      continue;
+    }
+
+    normalized = {
+      providerId: 'codex',
+      source: 'provider',
+      ...(inputTokens !== undefined ? { inputTokens } : {}),
+      ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
+      ...(cacheWriteInputTokens !== undefined
+        ? { cacheWriteInputTokens }
+        : {}),
+      ...(outputTokens !== undefined ? { outputTokens } : {}),
+      ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+      ...(totalTokens !== undefined ? { totalTokens } : {}),
+    };
+  }
+
+  return normalized;
+}
+
 function normalizeProcessResult(
   providerId: AgentConcreteProviderId,
   label: string,
   result: AgentCliProcessResult,
+  usage?: AgentUsage,
 ): AgentProviderResult {
   if (result.signal !== null || result.exitCode === null) {
     return {
@@ -337,6 +408,7 @@ function normalizeProcessResult(
       providerId,
       outcome: 'succeeded',
       summary: label + ' completed successfully',
+      ...(usage ? { usage } : {}),
     };
   }
 
@@ -349,6 +421,7 @@ function normalizeProcessResult(
       code: 'provider-exit-' + result.exitCode,
       message: label + ' exited with a non-zero status',
     },
+    ...(usage ? { usage } : {}),
   };
 }
 
@@ -370,6 +443,10 @@ abstract class LocalCliAgentProvider implements AgentProvider {
     request: AgentProviderExecutionRequest,
     prompt: string,
   ): readonly string[];
+
+  protected usage(_result: AgentCliProcessResult): AgentUsage | undefined {
+    return undefined;
+  }
 
   async status(): Promise<AgentProviderStatus> {
     try {
@@ -421,7 +498,12 @@ abstract class LocalCliAgentProvider implements AgentProvider {
 
     try {
       const result = await this.runtime.runProcess(processRequest);
-      return normalizeProcessResult(this.id, this.label, result);
+      return normalizeProcessResult(
+        this.id,
+        this.label,
+        result,
+        this.usage(result),
+      );
     } catch (error) {
       return normalizeExecutionFailure(this.id, this.label, error);
     }
@@ -462,6 +544,7 @@ export class CodexAgentProvider extends LocalCliAgentProvider {
 
     return [
       'exec',
+      '--json',
       '--skip-git-repo-check',
       '--sandbox',
       sandbox,
@@ -469,6 +552,10 @@ export class CodexAgentProvider extends LocalCliAgentProvider {
       'never',
       prompt,
     ];
+  }
+
+  protected usage(result: AgentCliProcessResult): AgentUsage | undefined {
+    return codexUsageFromJsonl(result.stdout);
   }
 }
 
