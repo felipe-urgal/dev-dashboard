@@ -513,7 +513,6 @@ test('AgentRuntimeApiService resolve checkpoint somente via workflow backend-own
   ]);
 });
 
-
 test('AgentRuntimeApiService deriva worktree do Task Context e rejeita associação ambígua', async () => {
   const taskStore = new MemoryTaskStore();
   const context = {
@@ -569,8 +568,7 @@ test('AgentRuntimeApiService deriva worktree do Task Context e rejeita associaç
       },
     },
     taskContextRepository: {
-      find: (taskContextId) =>
-        taskContextId === context.id ? context : null,
+      find: (taskContextId) => (taskContextId === context.id ? context : null),
     },
     now: () => '2026-09-23T12:31:00.000Z',
     createTaskId: () => 'task-context-bound',
@@ -692,8 +690,7 @@ test('AgentRuntimeApiService revalida contexto e anexa PR, HEAD e Readiness como
       resolveForProject: () => null,
     },
     taskContextRepository: {
-      find: (taskContextId) =>
-        taskContextId === context.id ? context : null,
+      find: (taskContextId) => (taskContextId === context.id ? context : null),
     },
     taskContextSnapshotReader: {
       snapshot: async () => ({
