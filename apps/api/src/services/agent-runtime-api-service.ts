@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import type { TaskContext, TaskContextSnapshot } from '@dev-dashboard/contracts';
+
 import type {
   AgentAuditSnapshot,
   AgentAuthorization,
@@ -27,6 +29,7 @@ import type { ProjectStore } from '../store/project-store.js';
 export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_PROJECT_NOT_FOUND'
   | 'AGENT_API_ENVIRONMENT_NOT_FOUND'
+  | 'AGENT_API_TASK_CONTEXT_NOT_FOUND'
   | 'AGENT_API_TASK_NOT_FOUND'
   | 'AGENT_API_INVALID_REQUEST'
   | AgentWorkflowRuntimeErrorCode;
@@ -44,6 +47,7 @@ export class AgentRuntimeApiServiceError extends Error {
 export interface AgentTaskCreateInput {
   summary: string;
   environmentInstanceId?: string;
+  taskContextId?: string;
   requestedCapabilities?: readonly AgentCapability[];
 }
 
@@ -106,8 +110,18 @@ export interface AgentRuntimeApiServiceOptions {
     DevelopmentEnvironmentInstanceStore,
     'resolveForProject'
   >;
+  taskContextRepository: {
+    find(taskContextId: string): TaskContext | null;
+  };
+  taskContextSnapshotReader?: {
+    snapshot(
+      projectId: string,
+      taskContextId: string,
+    ): Promise<TaskContextSnapshot>;
+  };
   now?: () => string;
   createTaskId?: () => string;
+  createEvidenceId?: () => string;
 }
 
 const MAX_SUMMARY_CHARS = 4_000;
@@ -121,10 +135,12 @@ function uniqueCapabilities(
 export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   private readonly now: () => string;
   private readonly createTaskId: () => string;
+  private readonly createEvidenceId: () => string;
 
   public constructor(private readonly options: AgentRuntimeApiServiceOptions) {
     this.now = options.now ?? (() => new Date().toISOString());
     this.createTaskId = options.createTaskId ?? randomUUID;
+    this.createEvidenceId = options.createEvidenceId ?? randomUUID;
   }
 
   public async listProviders(): Promise<AgentProviderStatus[]> {
@@ -152,10 +168,26 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       );
     }
 
+    const taskContext = input.taskContextId
+      ? this.requireTaskContext(projectId, input.taskContextId)
+      : null;
+    if (
+      taskContext?.environmentInstanceId &&
+      input.environmentInstanceId &&
+      taskContext.environmentInstanceId !== input.environmentInstanceId
+    ) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task environment must match the selected Task Context.',
+      );
+    }
+
+    const requestedEnvironmentInstanceId =
+      taskContext?.environmentInstanceId ?? input.environmentInstanceId;
     const executionContext =
       this.options.developmentEnvironmentInstanceStore.resolveForProject(
         projectId,
-        input.environmentInstanceId,
+        requestedEnvironmentInstanceId,
       );
     if (!executionContext) {
       throw new AgentRuntimeApiServiceError(
@@ -177,6 +209,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       id: taskId,
       projectId,
       environmentInstanceId: executionContext.environmentInstanceId,
+      ...(taskContext ? { taskContextId: taskContext.id } : {}),
       state: 'queued',
       summary,
       requestedCapabilities: uniqueCapabilities(
@@ -219,7 +252,8 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     taskId: string,
     providerId?: AgentProviderId,
   ): Promise<AgentWorkflowExecutionResult> {
-    await this.getTask(projectId, taskId);
+    const taskRecord = await this.getTask(projectId, taskId);
+    this.validateTaskContextBinding(taskRecord.task);
     const authorizations =
       await this.options.auditStore.listAuthorizations(taskId);
     const result = await this.withRuntimeErrors(() =>
@@ -231,11 +265,18 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       }),
     );
 
-    const evidence = (result.providerResult.evidence ?? []).map((item) => ({
-      ...item,
-      taskId,
-      executionId: result.execution.id,
-    }));
+    const providerEvidence = (result.providerResult.evidence ?? []).map(
+      (item) => ({
+        ...item,
+        taskId,
+        executionId: result.execution.id,
+      }),
+    );
+    const contextEvidence = await this.taskContextEvidence(
+      taskRecord.task,
+      result.execution.id,
+    );
+    const evidence = [...providerEvidence, ...contextEvidence];
     await this.options.auditStore.appendExecutionResult(
       taskId,
       result.execution.id,
@@ -348,6 +389,99 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
   public async shutdown(): Promise<void> {
     await this.options.workflowRuntime.shutdown();
+  }
+
+  private requireTaskContext(
+    projectId: string,
+    taskContextId: string,
+  ): TaskContext {
+    const context = this.options.taskContextRepository.find(taskContextId);
+    if (!context || context.projectId !== projectId) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_TASK_CONTEXT_NOT_FOUND',
+        'Task Context was not found for this project.',
+      );
+    }
+    if (!context.environmentInstanceId) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Task Context does not identify a Development Environment Instance.',
+      );
+    }
+    return context;
+  }
+
+  private validateTaskContextBinding(task: AgentTask): void {
+    if (!task.taskContextId) return;
+    const context = this.requireTaskContext(task.projectId, task.taskContextId);
+    if (context.environmentInstanceId !== task.environmentInstanceId) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task no longer matches its Task Context environment.',
+      );
+    }
+  }
+
+  private async taskContextEvidence(
+    task: AgentTask,
+    executionId: string,
+  ): Promise<AgentWorkflowExecutionResult['providerResult']['evidence']> {
+    if (!task.taskContextId || !this.options.taskContextSnapshotReader) {
+      return [];
+    }
+
+    let snapshot: TaskContextSnapshot;
+    try {
+      snapshot = await this.options.taskContextSnapshotReader.snapshot(
+        task.projectId,
+        task.taskContextId,
+      );
+    } catch {
+      return [];
+    }
+
+    const evidence: NonNullable<
+      AgentWorkflowExecutionResult['providerResult']['evidence']
+    > = [];
+    const observedAt = snapshot.evidence?.observedAt ?? this.now();
+
+    if (snapshot.evidence?.headSha) {
+      evidence.push({
+        id: this.createEvidenceId(),
+        taskId: task.id,
+        executionId,
+        kind: 'other',
+        summary: `Task Context HEAD ${snapshot.evidence.headSha}.`,
+        reference: snapshot.evidence.headSha,
+        observedAt,
+      });
+    }
+
+    if (snapshot.evidence?.pullRequest) {
+      const pullRequest = snapshot.evidence.pullRequest;
+      evidence.push({
+        id: this.createEvidenceId(),
+        taskId: task.id,
+        executionId,
+        kind: 'pull-request',
+        summary: `PR #${pullRequest.number}: ${pullRequest.title}.`,
+        reference: pullRequest.url,
+        observedAt: snapshot.evidence.pullRequestObservedAt ?? observedAt,
+      });
+    }
+
+    if (snapshot.evidence?.readiness) {
+      evidence.push({
+        id: this.createEvidenceId(),
+        taskId: task.id,
+        executionId,
+        kind: 'readiness',
+        summary: `Release Readiness: ${snapshot.evidence.readiness.status}.`,
+        observedAt: snapshot.evidence.readiness.observedAt,
+      });
+    }
+
+    return evidence;
   }
 
   private requireProject(projectId: string): void {
