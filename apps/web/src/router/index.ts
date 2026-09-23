@@ -93,6 +93,11 @@ export const router = createRouter({
       component: () => import('../views/ProjectDetailsView.vue'),
     },
     {
+      path: '/projects/:projectId/agent',
+      name: 'project-agent',
+      component: () => import('../views/ProjectDetailsView.vue'),
+    },
+    {
       path: '/projects/:projectId/production',
       name: 'project-production',
       component: () => import('../views/ProjectDetailsView.vue'),
