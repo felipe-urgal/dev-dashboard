@@ -58,6 +58,7 @@ const providerIds = [
   'claude-code',
   'chatgpt-browser',
 ] as const;
+const concreteProviderIds = ['codex', 'claude-code', 'chatgpt-browser'] as const;
 const capabilities = [
   'workspace:write',
   'git:commit',
@@ -285,6 +286,42 @@ const taskRecordSchema = {
   properties: {
     task: taskSchema,
     version: { type: 'integer', minimum: 1 },
+  },
+} as const;
+
+const usageSummarySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['executionCount'],
+  properties: {
+    executionCount: { type: 'integer', minimum: 0 },
+    inputTokens: { type: 'integer', minimum: 0 },
+    cachedInputTokens: { type: 'integer', minimum: 0 },
+    cacheWriteInputTokens: { type: 'integer', minimum: 0 },
+    outputTokens: { type: 'integer', minimum: 0 },
+    reasoningTokens: { type: 'integer', minimum: 0 },
+    totalTokens: { type: 'integer', minimum: 0 },
+    reportedCostUsd: { type: 'number', minimum: 0 },
+    durationMs: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
+const usageOverviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['total', 'byProvider'],
+  properties: {
+    total: usageSummarySchema,
+    byProvider: {
+      type: 'object',
+      additionalProperties: false,
+      properties: Object.fromEntries(
+        concreteProviderIds.map((providerId) => [
+          providerId,
+          usageSummarySchema,
+        ]),
+      ),
+    },
   },
 } as const;
 
@@ -659,6 +696,43 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.projectId,
           request.params.taskId,
           request.body?.providerId,
+        ),
+      ),
+  );
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/agent/usage',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: usageOverviewSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.usage(request.params.projectId),
+      ),
+  );
+
+  app.get<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/usage',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: usageOverviewSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.usage(
+          request.params.projectId,
+          request.params.taskId,
         ),
       ),
   );
