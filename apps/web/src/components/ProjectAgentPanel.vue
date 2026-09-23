@@ -977,7 +977,11 @@ onBeforeUnmount(() => {
 
         <ProjectAgentIntegrationsCard
           :project="project"
-          :environment-instance-id="environmentInstanceId"
+          v-bind="
+            environmentInstanceId
+              ? { environmentInstanceId }
+              : {}
+          "
         />
 
         <section class="agent-composer agent-card">
