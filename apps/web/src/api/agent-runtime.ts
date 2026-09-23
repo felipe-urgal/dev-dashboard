@@ -129,6 +129,23 @@ export interface AgentActivity {
   evidence: AgentEvidence[];
 }
 
+export interface AgentUsageSummary {
+  executionCount: number;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  cacheWriteInputTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+  totalTokens?: number;
+  reportedCostUsd?: number;
+  durationMs?: number;
+}
+
+export interface AgentUsageOverview {
+  total: AgentUsageSummary;
+  byProvider: Partial<Record<AgentConcreteProviderId, AgentUsageSummary>>;
+}
+
 export interface AgentExecution {
   id: string;
   taskId: string;
@@ -235,6 +252,16 @@ export async function fetchAgentActivity(
   taskId: string,
 ): Promise<AgentActivity> {
   return requestJson<AgentActivity>(taskPath(projectId, taskId) + '/activity');
+}
+
+export async function fetchAgentUsage(
+  projectId: string,
+  taskId?: string,
+): Promise<AgentUsageOverview> {
+  const url = taskId
+    ? taskPath(projectId, taskId) + '/usage'
+    : '/api/projects/' + encodeURIComponent(projectId) + '/agent/usage';
+  return requestJson<AgentUsageOverview>(url);
 }
 
 export async function executeAgentTask(
