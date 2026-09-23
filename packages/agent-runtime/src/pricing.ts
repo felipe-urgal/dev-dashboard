@@ -1,7 +1,4 @@
-import type {
-  AgentConcreteProviderId,
-  AgentUsage,
-} from './contracts.js';
+import type { AgentConcreteProviderId, AgentUsage } from './contracts.js';
 
 export interface AgentPricingRate {
   providerId: AgentConcreteProviderId;
@@ -90,10 +87,7 @@ export function estimateAgentUsageCost(
     return undefined;
   }
 
-  if (
-    cachedInputTokens > 0 &&
-    rate.cachedInputUsdPerMillion === undefined
-  ) {
+  if (cachedInputTokens > 0 && rate.cachedInputUsdPerMillion === undefined) {
     return undefined;
   }
 

@@ -224,7 +224,4 @@ export {
   estimateAgentUsageCost,
   withEstimatedAgentUsageCost,
 } from './pricing.js';
-export type {
-  AgentPricingCatalog,
-  AgentPricingRate,
-} from './pricing.js';
+export type { AgentPricingCatalog, AgentPricingRate } from './pricing.js';
