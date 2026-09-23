@@ -395,7 +395,7 @@ test.describe('Qualificação da aba Agente', () => {
         task: {
           id: 'unavailable-provider-task',
           projectId,
-          environmentInstanceId: \`environment:primary:\${projectId}\`,
+          environmentInstanceId: `environment:primary:${projectId}`,
           state: 'queued',
           summary: input.summary,
           requestedCapabilities: input.requestedCapabilities,
@@ -442,7 +442,7 @@ test.describe('Qualificação da aba Agente', () => {
       new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
     );
 
-    await gotoBootstrapped(page, \`/projects/\${projectId}/agent\`);
+    await gotoBootstrapped(page, `/projects/${projectId}/agent`);
     await page
       .getByLabel('Instrução para nova task do Agente')
       .fill('Validar provider indisponível');
@@ -484,7 +484,7 @@ test.describe('Qualificação da aba Agente', () => {
         task: {
           id: 'retry-task',
           projectId,
-          environmentInstanceId: \`environment:primary:\${projectId}\`,
+          environmentInstanceId: `environment:primary:${projectId}`,
           state: 'failed',
           summary: 'Retry qualification',
           requestedCapabilities: ['workspace:write'],
@@ -544,7 +544,7 @@ test.describe('Qualificação da aba Agente', () => {
       new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
     );
 
-    await gotoBootstrapped(page, \`/projects/\${projectId}/agent\`);
+    await gotoBootstrapped(page, `/projects/${projectId}/agent`);
     await expect(page.getByText('Falhou', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Retry' }).click();
     await expect(page.getByText('Na fila', { exact: true })).toBeVisible();
@@ -581,7 +581,7 @@ test.describe('Qualificação da aba Agente', () => {
         task: {
           id: 'recover-task',
           projectId,
-          environmentInstanceId: \`environment:primary:\${projectId}\`,
+          environmentInstanceId: `environment:primary:${projectId}`,
           state: 'blocked',
           summary: 'Recovery qualification',
           requestedCapabilities: ['workspace:write'],
@@ -652,7 +652,7 @@ test.describe('Qualificação da aba Agente', () => {
       new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
     );
 
-    await gotoBootstrapped(page, \`/projects/\${projectId}/agent\`);
+    await gotoBootstrapped(page, `/projects/${projectId}/agent`);
     await expect(page.getByText('Bloqueada', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Recover' }).click();
     await expect(page.getByText('Na fila', { exact: true })).toBeVisible();
