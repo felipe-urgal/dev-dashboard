@@ -157,7 +157,7 @@ test('AgentRuntimeApiService cancela somente ownership ativo resolvido no backen
       shutdown: async () => undefined,
     },
     projectStore: {
-      findProject: () => ({ id: 'project-1' } as never),
+      findProject: () => ({ id: 'project-1' }) as never,
     },
     developmentEnvironmentInstanceStore: {
       resolveForProject: () => null,

@@ -239,7 +239,14 @@ const executionSchema = {
     },
     state: {
       type: 'string',
-      enum: ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'unknown'],
+      enum: [
+        'queued',
+        'running',
+        'succeeded',
+        'failed',
+        'cancelled',
+        'unknown',
+      ],
     },
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
@@ -352,9 +359,7 @@ function mapAgentError(error: unknown): unknown {
   return error;
 }
 
-async function withAgentErrors<T>(
-  operation: () => Promise<T> | T,
-): Promise<T> {
+async function withAgentErrors<T>(operation: () => Promise<T> | T): Promise<T> {
   try {
     return await operation();
   } catch (error) {

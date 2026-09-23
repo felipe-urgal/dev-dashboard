@@ -254,7 +254,8 @@ export function createAppComposition(
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
   const agentRuntimeApiService =
-    options.agentRuntimeApiService ?? createAgentRuntimeApiService(context, options);
+    options.agentRuntimeApiService ??
+    createAgentRuntimeApiService(context, options);
 
   return {
     databaseExplorerSessionStore,
