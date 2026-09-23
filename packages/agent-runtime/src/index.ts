@@ -51,6 +51,15 @@ export {
 } from './serialization.js';
 
 export { AgentAuditStore, AgentAuditStoreError } from './agent-audit-store.js';
+
+export { AgentUsageStore, AgentUsageStoreError } from './usage-store.js';
+export type {
+  AgentUsageQuery,
+  AgentUsageRecord,
+  AgentUsageStoreErrorCode,
+  AgentUsageStoreOptions,
+  AgentUsageSummary,
+} from './usage-store.js';
 export type {
   AgentAuditSnapshot,
   AgentAuditStoreErrorCode,
