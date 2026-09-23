@@ -907,6 +907,23 @@ onBeforeUnmount(() => {
           <p v-if="currentProvider?.reason" class="agent-hint">
             {{ currentProvider.reason }}
           </p>
+          <p
+            v-if="
+              currentProvider?.providerId !== 'automatic' &&
+              currentProvider?.quota
+            "
+            class="agent-hint"
+          >
+            Uso do plano:
+            {{
+              currentProvider.quota.status === 'available'
+                ? (currentProvider.quota.label ?? 'Disponível')
+                : 'Indisponível'
+            }}
+            <template v-if="currentProvider.quota.reason">
+              · {{ currentProvider.quota.reason }}
+            </template>
+          </p>
         </section>
 
         <section class="agent-section agent-history">

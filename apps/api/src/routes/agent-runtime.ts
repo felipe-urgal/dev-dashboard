@@ -416,6 +416,20 @@ const providerStatusSchema = {
     observedAt: { type: 'string' },
     version: { type: 'string' },
     reason: { type: 'string' },
+    quota: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'source'],
+      properties: {
+        status: { type: 'string', enum: ['available', 'unavailable'] },
+        label: { type: 'string' },
+        used: { type: 'number', minimum: 0 },
+        remaining: { type: 'number', minimum: 0 },
+        resetAt: { type: 'string' },
+        source: { type: 'string', enum: ['provider', 'unavailable'] },
+        reason: { type: 'string' },
+      },
+    },
   },
 } as const;
 

@@ -48,6 +48,15 @@ export interface AgentProviderStatus {
   observedAt: string;
   version?: string;
   reason?: string;
+  quota?: {
+    status: 'available' | 'unavailable';
+    label?: string;
+    used?: number;
+    remaining?: number;
+    resetAt?: string;
+    source: 'provider' | 'unavailable';
+    reason?: string;
+  };
 }
 
 export interface AgentRuntimeState {

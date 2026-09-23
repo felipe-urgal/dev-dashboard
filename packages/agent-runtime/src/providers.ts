@@ -564,6 +564,14 @@ abstract class LocalCliAgentProvider implements AgentProvider {
         availability: 'available',
         observedAt: this.runtime.now(),
         ...(version ? { version } : {}),
+        quota: {
+          status: 'unavailable',
+          source: 'unavailable',
+          reason:
+            this.id === 'codex'
+              ? 'Codex quota is only documented through interactive status/usage surfaces.'
+              : 'Claude Code quota is not exposed here through a supported machine-readable CLI interface.',
+        },
       };
     } catch (error) {
       const failure = probeReason(error);
