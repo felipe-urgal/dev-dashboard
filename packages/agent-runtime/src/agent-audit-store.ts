@@ -406,9 +406,7 @@ export class AgentAuditStore {
       state.events.push({
         id: this.requireEventId(),
         taskId,
-        ...(resolved.executionId
-          ? { executionId: resolved.executionId }
-          : {}),
+        ...(resolved.executionId ? { executionId: resolved.executionId } : {}),
         type: 'checkpoint',
         summary: `Checkpoint ${status}.${
           instruction ? ' Continuation instruction recorded.' : ''
