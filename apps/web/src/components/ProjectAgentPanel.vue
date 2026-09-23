@@ -44,6 +44,7 @@ import {
   type AgentUsageOverview,
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
+import ProjectAgentIntegrationsCard from './ProjectAgentIntegrationsCard.vue';
 import ProjectTaskContextSummary from './ProjectTaskContextSummary.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
@@ -973,6 +974,11 @@ onBeforeUnmount(() => {
           <span>{{ errorMessage }}</span>
           <button type="button" @click="errorMessage = ''">Fechar</button>
         </div>
+
+        <ProjectAgentIntegrationsCard
+          :project="project"
+          :environment-instance-id="environmentInstanceId"
+        />
 
         <section class="agent-composer agent-card">
           <div class="agent-section-heading">
