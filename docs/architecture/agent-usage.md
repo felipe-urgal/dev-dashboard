@@ -123,3 +123,15 @@ Os agregados de usage aceitam um intervalo opcional por `observedAt`:
 Os limites são inclusivos e validados no backend. A filtragem acontece sobre o mesmo store bounded já existente; nenhum histórico paralelo é criado.
 
 Na aba Agente há presets simples para todo o período, últimas 24 horas, 7 dias e 30 dias. O soft budget continua sendo avaliado sobre o total da task, não sobre o filtro visual de período.
+
+
+## Quota e uso de plano
+
+Quota de plano só entra no contrato quando o provider expõe uma interface suportada e machine-readable.
+
+No estado atual:
+- Codex: a documentação oficial orienta usar a página de uso ou `/status` em sessão interativa; o Dashboard marca quota como `unavailable` em vez de fazer scraping;
+- Claude Code: sem interface CLI estruturada confiável para quota neste fluxo; marcado como `unavailable`;
+- ChatGPT Browser: o bridge não expõe quota da assinatura; marcado como `unavailable`.
+
+O contrato permite futura quota `available` com label, usado, restante e resetAt, mantendo provenance explícita.
