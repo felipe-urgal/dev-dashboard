@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type {
+  AgentCapability,
   AgentProviderRegistry,
   AgentTask,
   AgentTaskRecord,
@@ -49,7 +50,7 @@ function auditStore() {
     listAuthorizations: async () => [],
     setAuthorization: async (
       taskId: string,
-      capability: 'workspace:write',
+      capability: AgentCapability,
       granted: boolean,
       observedAt: string,
     ) => ({ taskId, capability, granted, observedAt }),
