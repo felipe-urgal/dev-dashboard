@@ -222,7 +222,8 @@ const canExecute = computed(
     currentTask.value?.task.state === 'queued' &&
     !executing.value &&
     !mutating.value &&
-    currentProvider.value?.availability !== 'unavailable',
+    currentProvider.value !== null &&
+    currentProvider.value.availability !== 'unavailable',
 );
 
 const canCreate = computed(
