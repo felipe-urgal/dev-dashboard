@@ -24,6 +24,15 @@ const task = {
   version: 1,
 };
 
+
+function realtimeService() {
+  return {
+    attach: async () => {
+      throw new Error('unused');
+    },
+  };
+}
+
 function service(
   overrides: Partial<AgentRuntimeApiServicePort> = {},
 ): AgentRuntimeApiServicePort {
@@ -135,6 +144,7 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
   registerApiErrorHandling(app);
   app.register(agentRuntimeRoutes, {
     prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
     agentRuntimeApiService: service({
       createTask: async (_projectId, input) => {
         creates.push(input);
@@ -190,6 +200,7 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
   registerApiErrorHandling(app);
   app.register(agentRuntimeRoutes, {
     prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
     agentRuntimeApiService: service({
       listProviders: async () =>
         [
@@ -275,6 +286,7 @@ test('Agent Runtime HTTP expõe autorização específica e activity bounded', a
   registerApiErrorHandling(app);
   app.register(agentRuntimeRoutes, {
     prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
     agentRuntimeApiService: service({
       setAuthorization: async (...args) => {
         calls.push(args);
