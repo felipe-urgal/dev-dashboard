@@ -12,7 +12,7 @@ const TASK_TRANSITIONS: Readonly<
     'completed',
     'cancelled',
   ],
-  checkpoint: ['running', 'review', 'blocked', 'cancelled'],
+  checkpoint: ['queued', 'running', 'review', 'blocked', 'cancelled'],
   review: ['running', 'blocked', 'failed', 'completed', 'cancelled'],
   blocked: ['queued', 'failed', 'cancelled'],
   failed: ['queued', 'cancelled'],
