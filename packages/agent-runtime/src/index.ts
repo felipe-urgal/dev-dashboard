@@ -218,3 +218,13 @@ export type {
   AgentWorkflowRuntimeOptions,
   AgentWorkflowTaskStatus,
 } from './workflow-runtime.js';
+
+export {
+  DEFAULT_AGENT_PRICING_CATALOG,
+  estimateAgentUsageCost,
+  withEstimatedAgentUsageCost,
+} from './pricing.js';
+export type {
+  AgentPricingCatalog,
+  AgentPricingRate,
+} from './pricing.js';
