@@ -7,7 +7,8 @@ export type ActivityDomain =
   | 'compose'
   | 'deployment'
   | 'ci'
-  | 'security';
+  | 'security'
+  | 'agent';
 
 export type ActivityEventStatus =
   'started' | 'succeeded' | 'failed' | 'cancelled' | 'warning';
@@ -43,6 +44,9 @@ export interface ActivityJob {
   startedAt?: string;
   finishedAt?: string;
   resourceRef?: ActivityResourceRef;
+  taskContextId?: string;
+  providerId?: 'codex' | 'claude-code' | 'chatgpt-browser';
+  stage?: string;
   cancelSupported: boolean;
 }
 
