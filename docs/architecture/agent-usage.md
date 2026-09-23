@@ -93,11 +93,21 @@ O catálogo representa uma referência de preço por token, não uma cobrança d
 
 ## Budgets
 
-Ainda fora deste recorte:
+O soft budget é persistido separadamente por task e pode definir:
 
-- soft budget por task;
-- alertas por tokens/custo;
-- hard stop somente quando observável e seguro;
-- agregados por período.
+- limite de `totalTokens`;
+- limite de custo estimado em USD.
 
-Budgets devem ser construídos sobre `AgentUsage` sem alterar recovery/idempotência nem cancelar uma mutação ambígua.
+A avaliação usa somente métricas realmente presentes no agregado. Se `totalTokens` ou `estimatedCostUsd` estiverem ausentes, o Dashboard não infere valores e não dispara alerta para aquela dimensão.
+
+O soft budget é estritamente observacional:
+
+- não cancela execução;
+- não altera estado da task;
+- não interfere em retry/recovery;
+- não transforma ausência de telemetria em violação;
+- configuração e alertas são expostos na aba Agente.
+
+Hard stop permanece fora deste recorte e só deve existir quando houver uma condição tecnicamente segura que não interrompa uma mutação ambígua.
+
+Ainda fora deste recorte: agregados por período e hard stop seguro.
