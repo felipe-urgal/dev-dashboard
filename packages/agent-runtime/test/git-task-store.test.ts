@@ -91,6 +91,27 @@ test('creates a private canonical Git store and versions task updates', async (t
   assert.match(marker, /dev-dashboard-agent-runtime/u);
 });
 
+test('persiste vínculo com Task Context e recupera após reabrir o store', async (t) => {
+  const { repositoryDirectory, store } = await fixture(t);
+
+  await store.save(
+    agentTask({
+      environmentInstanceId: 'environment:worktree:project-1:worktree-1',
+      taskContextId: 'context-1',
+    }),
+    null,
+  );
+
+  const reopened = new GitAgentTaskStore({ repositoryDirectory });
+  const restored = await reopened.get('task-1');
+
+  assert.equal(restored?.task.taskContextId, 'context-1');
+  assert.equal(
+    restored?.task.environmentInstanceId,
+    'environment:worktree:project-1:worktree-1',
+  );
+});
+
 test('rejects stale expected versions without changing canonical state', async (t) => {
   const { store } = await fixture(t);
   await store.save(agentTask(), null);

@@ -12,8 +12,9 @@ import {
   StopIcon,
 } from '@heroicons/vue/24/outline';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
+import { fetchTaskContexts } from '../api/task-contexts';
 import {
   agentRuntimeWebSocketUrl,
   cancelAgentTask,
@@ -97,6 +98,8 @@ const providerIds: AgentProviderId[] = [
   'chatgpt-browser',
 ];
 const tasks = ref<AgentTaskRecord[]>([]);
+const taskContexts = ref<TaskContext[]>([]);
+const selectedTaskContextId = ref('');
 const selectedTaskId = ref('');
 const selectedProviderId = ref<AgentProviderId>('automatic');
 const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
@@ -125,6 +128,20 @@ const selectedTask = computed(
   () =>
     tasks.value.find((record) => record.task.id === selectedTaskId.value) ??
     null,
+);
+
+const selectedCreateTaskContext = computed(
+  () =>
+    taskContexts.value.find(
+      (context) => context.id === selectedTaskContextId.value,
+    ) ?? null,
+);
+
+const boundTaskContext = computed(
+  () =>
+    taskContexts.value.find(
+      (context) => context.id === currentTask.value?.task.taskContextId,
+    ) ?? null,
 );
 
 const currentTask = computed(() => status.value?.task ?? selectedTask.value);
@@ -395,13 +412,28 @@ async function load(): Promise<void> {
   closeSocket();
 
   try {
-    const [nextProviders, nextTasks] = await Promise.all([
+    const [nextProviders, nextTasks, nextTaskContexts] = await Promise.all([
       fetchAgentProviders(),
       fetchAgentTasks(props.project.id),
+      fetchTaskContexts(props.project.id),
     ]);
     if (requestGeneration !== generation) return;
     providers.value = nextProviders;
     tasks.value = nextTasks;
+    taskContexts.value = nextTaskContexts;
+
+    const matchingContext =
+      nextTaskContexts.find(
+        (context) =>
+          context.environmentInstanceId === props.environmentInstanceId &&
+          (!props.currentBranch || context.branch === props.currentBranch),
+      ) ??
+      nextTaskContexts.find(
+        (context) =>
+          !props.currentBranch || context.branch === props.currentBranch,
+      ) ??
+      nextTaskContexts[0];
+    selectedTaskContextId.value = matchingContext?.id ?? '';
 
     const provider = nextProviders.find(
       (item) =>
@@ -459,9 +491,11 @@ async function createTask(): Promise<void> {
   try {
     const record = await createAgentTask(props.project.id, {
       summary: instruction.value.trim(),
-      ...(props.environmentInstanceId
-        ? { environmentInstanceId: props.environmentInstanceId }
-        : {}),
+      ...(selectedTaskContextId.value
+        ? { taskContextId: selectedTaskContextId.value }
+        : props.environmentInstanceId
+          ? { environmentInstanceId: props.environmentInstanceId }
+          : {}),
       requestedCapabilities: [...requestedCapabilities.value],
     });
     replaceTask(record);
@@ -764,6 +798,34 @@ onBeforeUnmount(() => {
             @keydown="handleComposerKeydown"
           />
 
+          <label class="agent-field">
+            <span>Task Context</span>
+            <select
+              v-model="selectedTaskContextId"
+              aria-label="Task Context da nova task"
+            >
+              <option value="">Sem vínculo explícito</option>
+              <option
+                v-for="context in taskContexts"
+                :key="context.id"
+                :value="context.id"
+              >
+                {{ context.branch }}
+                · {{ context.worktreeId ? 'worktree' : 'primary' }}
+                <template v-if="context.issue">
+                  · issue #{{ context.issue.number }}
+                </template>
+              </option>
+            </select>
+          </label>
+          <p v-if="selectedCreateTaskContext" class="agent-hint">
+            A Environment Instance será derivada deste contexto:
+            {{
+              selectedCreateTaskContext.environmentInstanceId ??
+              'não informada'
+            }}.
+          </p>
+
           <div class="agent-capability-picker">
             <span>Capabilities solicitadas</span>
             <label
@@ -972,8 +1034,11 @@ onBeforeUnmount(() => {
             </div>
             <ProjectTaskContextSummary
               :project-id="project.id"
-              :current-branch="currentBranch"
-              :environment-instance-id="environmentInstanceId"
+              :current-branch="boundTaskContext?.branch ?? currentBranch"
+              :environment-instance-id="
+                currentTask.task.environmentInstanceId ?? environmentInstanceId
+              "
+              :task-context-id="currentTask.task.taskContextId"
             />
           </section>
 
