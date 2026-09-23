@@ -804,7 +804,6 @@ test('AgentRuntimeApiService revalida contexto e anexa PR, HEAD e Readiness como
   );
 });
 
-
 test('AgentRuntimeApiService não deixa falha do Activity bloquear task canônica', async () => {
   const service = new AgentRuntimeApiService({
     taskStore: new MemoryTaskStore(),

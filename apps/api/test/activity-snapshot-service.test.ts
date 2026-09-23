@@ -237,7 +237,6 @@ test('agrega visão global reutilizando uma única leitura de processos', async 
   );
 });
 
-
 test('agrega Agent job sanitizado com contexto, provider, stage e cancelamento suportado', async () => {
   const agentRuntime: Pick<
     AgentRuntimeApiServicePort,
@@ -309,14 +308,19 @@ test('agrega Agent job sanitizado com contexto, provider, stage e cancelamento s
     }),
   };
 
-  const snapshot = await createService({ agentRuntime }).readProject(project.id);
+  const snapshot = await createService({ agentRuntime }).readProject(
+    project.id,
+  );
   const job = snapshot.jobs.find((item) => item.id === 'agent:agent-task-1');
 
   assert.ok(job);
   assert.equal(job.domain, 'agent');
   assert.equal(job.action, 'Agent task');
   assert.equal(job.status, 'running');
-  assert.equal(job.environmentInstanceId, 'environment:worktree:project-a:wt-agent');
+  assert.equal(
+    job.environmentInstanceId,
+    'environment:worktree:project-a:wt-agent',
+  );
   assert.equal(job.taskContextId, 'context-agent-1');
   assert.equal(job.providerId, 'codex');
   assert.equal(job.stage, 'running');
@@ -347,7 +351,9 @@ test('falha do Agent degrada somente o domínio agent sem derrubar outros jobs',
     },
   };
 
-  const snapshot = await createService({ agentRuntime }).readProject(project.id);
+  const snapshot = await createService({ agentRuntime }).readProject(
+    project.id,
+  );
 
   assert.equal(snapshot.partial, true);
   assert.equal(snapshot.unavailableDomains.includes('agent'), true);
