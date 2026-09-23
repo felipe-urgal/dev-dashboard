@@ -614,7 +614,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
 
     const observedFrom =
-      period.observedFrom !== undefined ? Date.parse(period.observedFrom) : null;
+      period.observedFrom !== undefined
+        ? Date.parse(period.observedFrom)
+        : null;
     const observedTo =
       period.observedTo !== undefined ? Date.parse(period.observedTo) : null;
     if (
