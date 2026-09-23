@@ -48,6 +48,20 @@ Ausência ou JSON parcial de usage não falha a execução.
 
 Permanece conservador: sem tokens/custo enquanto não houver fonte confiável fornecida pelo provider. O Dashboard não infere custo de assinatura ChatGPT.
 
+## Persistência e agregação
+
+A telemetria sanitizada é persistida em `AgentUsageStore` após a execução, keyed por `executionId`.
+
+Regras:
+
+- retenção bounded;
+- append idempotente por execução;
+- conflito de dados para o mesmo `executionId` é rejeitado;
+- filtros por projeto, task e provider;
+- agregados somam somente métricas presentes;
+- falha do storage é observacional e não altera o estado da task;
+- prompts, outputs e payloads brutos não são persistidos no usage store.
+
 ## Custo e budgets
 
 Fora deste primeiro recorte:
