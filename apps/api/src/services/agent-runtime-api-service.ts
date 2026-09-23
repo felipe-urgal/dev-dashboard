@@ -9,9 +9,9 @@ import type {
   AppendActivityEventInput,
 } from '@dev-dashboard/core';
 
-import {
-  AgentIntegrationDiscoveryError,
-  type AgentAuditSnapshot,
+import { AgentIntegrationDiscoveryError } from '@dev-dashboard/agent-runtime';
+import type {
+  AgentAuditSnapshot,
   AgentAuthorization,
   AgentConcreteProviderId,
   AgentIntegration,
