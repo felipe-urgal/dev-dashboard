@@ -197,9 +197,7 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
   }
 }
 
-export class BrowserCapabilityIntegrationProvider
-  implements AgentIntegrationProvider
-{
+export class BrowserCapabilityIntegrationProvider implements AgentIntegrationProvider {
   readonly id = 'chatgpt-browser' as const;
 
   async list(): Promise<AgentIntegration[]> {

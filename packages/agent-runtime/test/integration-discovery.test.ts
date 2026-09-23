@@ -95,7 +95,6 @@ test('integration provider registry rejects duplicate providers', () => {
   );
 });
 
-
 test('Browser integration discovery mirrors the local tool allowlist', async () => {
   const provider = new BrowserCapabilityIntegrationProvider();
   const integrations = await provider.list({ cwd: '/workspace/project' });
