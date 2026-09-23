@@ -111,3 +111,15 @@ O soft budget é estritamente observacional:
 Hard stop permanece fora deste recorte e só deve existir quando houver uma condição tecnicamente segura que não interrompa uma mutação ambígua.
 
 Ainda fora deste recorte: agregados por período e hard stop seguro.
+
+
+## Períodos
+
+Os agregados de usage aceitam um intervalo opcional por `observedAt`:
+
+- `observedFrom`;
+- `observedTo`.
+
+Os limites são inclusivos e validados no backend. A filtragem acontece sobre o mesmo store bounded já existente; nenhum histórico paralelo é criado.
+
+Na aba Agente há presets simples para todo o período, últimas 24 horas, 7 dias e 30 dias. O soft budget continua sendo avaliado sobre o total da task, não sobre o filtro visual de período.

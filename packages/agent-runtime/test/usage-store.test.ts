@@ -165,3 +165,53 @@ test('rejects provider mismatch and corrupt persisted state', async (t) => {
       error.code === 'AGENT_USAGE_CORRUPT',
   );
 });
+
+test('filters summaries by inclusive observation period', async (t) => {
+  const store = new AgentUsageStore({
+    stateDirectory: await tempDirectory(t),
+  });
+
+  await store.append(
+    record('execution-1', {
+      observedAt: '2026-09-20T10:00:00.000Z',
+      usage: {
+        providerId: 'codex',
+        source: 'provider',
+        totalTokens: 100,
+      },
+    }),
+  );
+  await store.append(
+    record('execution-2', {
+      observedAt: '2026-09-22T10:00:00.000Z',
+      usage: {
+        providerId: 'codex',
+        source: 'provider',
+        totalTokens: 200,
+      },
+    }),
+  );
+
+  assert.deepEqual(
+    await store.summary({
+      projectId: 'project-1',
+      observedFrom: '2026-09-21T00:00:00.000Z',
+      observedTo: '2026-09-22T10:00:00.000Z',
+    }),
+    {
+      executionCount: 1,
+      totalTokens: 200,
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      store.summary({
+        observedFrom: '2026-09-23T00:00:00.000Z',
+        observedTo: '2026-09-22T00:00:00.000Z',
+      }),
+    (error: unknown) =>
+      error instanceof AgentUsageStoreError &&
+      error.code === 'AGENT_USAGE_INVALID',
+  );
+});

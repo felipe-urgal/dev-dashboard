@@ -278,11 +278,16 @@ export async function fetchAgentActivity(
 export async function fetchAgentUsage(
   projectId: string,
   taskId?: string,
+  period: { observedFrom?: string; observedTo?: string } = {},
 ): Promise<AgentUsageOverview> {
-  const url = taskId
+  const base = taskId
     ? taskPath(projectId, taskId) + '/usage'
     : '/api/projects/' + encodeURIComponent(projectId) + '/agent/usage';
-  return requestJson<AgentUsageOverview>(url);
+  const query = new URLSearchParams();
+  if (period.observedFrom) query.set('observedFrom', period.observedFrom);
+  if (period.observedTo) query.set('observedTo', period.observedTo);
+  const suffix = query.size > 0 ? '?' + query.toString() : '';
+  return requestJson<AgentUsageOverview>(base + suffix);
 }
 
 export async function fetchAgentBudget(

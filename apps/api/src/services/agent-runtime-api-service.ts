@@ -68,6 +68,11 @@ export interface AgentUsageOverview {
   >;
 }
 
+export interface AgentUsagePeriod {
+  observedFrom?: string;
+  observedTo?: string;
+}
+
 export interface AgentTaskBudgetInput {
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
@@ -110,7 +115,11 @@ export interface AgentRuntimeApiServicePort {
     continuationInstruction?: string,
   ): Promise<AgentWorkflowCheckpointResolution>;
   activity(projectId: string, taskId: string): Promise<AgentAuditSnapshot>;
-  usage(projectId: string, taskId?: string): Promise<AgentUsageOverview>;
+  usage(
+    projectId: string,
+    taskId?: string,
+    period?: AgentUsagePeriod,
+  ): Promise<AgentUsageOverview>;
   budget(projectId: string, taskId: string): Promise<AgentBudgetOverview>;
   setBudget(
     projectId: string,
@@ -168,6 +177,8 @@ export interface AgentRuntimeApiServiceOptions {
       projectId?: string;
       taskId?: string;
       providerId?: 'codex' | 'claude-code' | 'chatgpt-browser';
+      observedFrom?: string;
+      observedTo?: string;
     }): Promise<AgentUsageSummary>;
   };
   budgetStore?: {
@@ -589,6 +600,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   public async usage(
     projectId: string,
     taskId?: string,
+    period: AgentUsagePeriod = {},
   ): Promise<AgentUsageOverview> {
     this.requireProject(projectId);
     if (taskId) await this.getTask(projectId, taskId);
@@ -601,9 +613,30 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       };
     }
 
+    const observedFrom =
+      period.observedFrom !== undefined
+        ? Date.parse(period.observedFrom)
+        : null;
+    const observedTo =
+      period.observedTo !== undefined ? Date.parse(period.observedTo) : null;
+    if (
+      (observedFrom !== null && !Number.isFinite(observedFrom)) ||
+      (observedTo !== null && !Number.isFinite(observedTo)) ||
+      (observedFrom !== null &&
+        observedTo !== null &&
+        observedFrom > observedTo)
+    ) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent usage period is invalid.',
+      );
+    }
+
     const query = {
       projectId,
       ...(taskId ? { taskId } : {}),
+      ...(period.observedFrom ? { observedFrom: period.observedFrom } : {}),
+      ...(period.observedTo ? { observedTo: period.observedTo } : {}),
     };
     const [total, codex, claudeCode, chatgptBrowser] = await Promise.all([
       usageStore.summary(query),

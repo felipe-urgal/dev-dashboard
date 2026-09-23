@@ -35,6 +35,8 @@ export interface AgentUsageQuery {
   projectId?: string;
   taskId?: string;
   providerId?: AgentConcreteProviderId;
+  observedFrom?: string;
+  observedTo?: string;
 }
 
 interface PersistedAgentUsageState {
@@ -258,6 +260,22 @@ export class AgentUsageStore {
         'Agent usage provider id is invalid.',
       );
     }
+    const observedFrom =
+      query.observedFrom !== undefined ? Date.parse(query.observedFrom) : null;
+    const observedTo =
+      query.observedTo !== undefined ? Date.parse(query.observedTo) : null;
+    if (
+      (observedFrom !== null && !Number.isFinite(observedFrom)) ||
+      (observedTo !== null && !Number.isFinite(observedTo)) ||
+      (observedFrom !== null &&
+        observedTo !== null &&
+        observedFrom > observedTo)
+    ) {
+      throw new AgentUsageStoreError(
+        'AGENT_USAGE_INVALID',
+        'Agent usage observation range is invalid.',
+      );
+    }
 
     const state = await this.readState();
     return state.records
@@ -267,7 +285,10 @@ export class AgentUsageStore {
             record.projectId === query.projectId) &&
           (query.taskId === undefined || record.taskId === query.taskId) &&
           (query.providerId === undefined ||
-            record.providerId === query.providerId),
+            record.providerId === query.providerId) &&
+          (observedFrom === null ||
+            Date.parse(record.observedAt) >= observedFrom) &&
+          (observedTo === null || Date.parse(record.observedAt) <= observedTo),
       )
       .map((record) => structuredClone(record));
   }
