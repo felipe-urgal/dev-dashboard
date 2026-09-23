@@ -34,6 +34,7 @@ interface CheckpointParams extends TaskParams {
 interface CreateTaskBody {
   summary: string;
   environmentInstanceId?: string;
+  taskContextId?: string;
   requestedCapabilities?: AgentCapability[];
 }
 
@@ -114,6 +115,7 @@ const createTaskBodySchema = {
   properties: {
     summary: { type: 'string', minLength: 1, maxLength: 4000 },
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    taskContextId: { type: 'string', minLength: 1, maxLength: 256 },
     requestedCapabilities: {
       type: 'array',
       uniqueItems: true,
@@ -263,6 +265,7 @@ const taskSchema = {
     id: { type: 'string' },
     projectId: { type: 'string' },
     environmentInstanceId: { type: 'string' },
+    taskContextId: { type: 'string' },
     state: { type: 'string', enum: [...taskStates] },
     summary: { type: 'string' },
     continuationInstruction: { type: 'string' },
@@ -438,6 +441,7 @@ function mapAgentError(error: unknown): unknown {
         code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
         message: error.message,
       });
+    case 'AGENT_API_TASK_CONTEXT_NOT_FOUND':
     case 'AGENT_API_TASK_NOT_FOUND':
     case 'AGENT_WORKFLOW_TASK_NOT_FOUND':
     case 'AGENT_WORKFLOW_TASK_PROJECT_MISMATCH':
