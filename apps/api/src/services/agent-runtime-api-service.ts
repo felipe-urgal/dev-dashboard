@@ -21,6 +21,7 @@ import type {
   AgentTask,
   AgentTaskRecord,
   AgentTaskStore,
+  AgentUsageRecord,
   AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowTaskStatus,
@@ -127,6 +128,7 @@ export interface AgentRuntimeApiServiceOptions {
     ): Promise<TaskContextSnapshot>;
   };
   activityEventStore?: Pick<ActivityEventRepository, 'append'>;
+  usageStore?: { append(record: AgentUsageRecord): Promise<AgentUsageRecord> };
   now?: () => string;
   createTaskId?: () => string;
   createEvidenceId?: () => string;
@@ -336,6 +338,21 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       result.execution.finishedAt ?? this.now(),
       evidence,
     );
+
+    if (result.execution.usage && this.options.usageStore) {
+      try {
+        await this.options.usageStore.append({
+          executionId: result.execution.id,
+          taskId,
+          projectId,
+          providerId: result.execution.providerId,
+          observedAt: result.execution.finishedAt ?? this.now(),
+          usage: result.execution.usage,
+        });
+      } catch {
+        // Usage is observational and must not change execution authority/state.
+      }
+    }
 
     await this.recordActivity({
       projectId,
