@@ -113,7 +113,7 @@ export interface AgentRuntimeApiServiceOptions {
     DevelopmentEnvironmentInstanceStore,
     'resolveForProject'
   >;
-  taskContextRepository: {
+  taskContextRepository?: {
     find(taskContextId: string): TaskContext | null;
   };
   taskContextSnapshotReader?: {
@@ -398,7 +398,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     projectId: string,
     taskContextId: string,
   ): TaskContext {
-    const context = this.options.taskContextRepository.find(taskContextId);
+    const context = this.options.taskContextRepository?.find(taskContextId);
     if (!context || context.projectId !== projectId) {
       throw new AgentRuntimeApiServiceError(
         'AGENT_API_TASK_CONTEXT_NOT_FOUND',
