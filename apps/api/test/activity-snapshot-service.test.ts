@@ -324,6 +324,9 @@ test('agrega Agent job sanitizado com contexto, provider, stage e cancelamento s
   assert.equal(job.taskContextId, 'context-agent-1');
   assert.equal(job.providerId, 'codex');
   assert.equal(job.stage, 'running');
+  assert.equal(job.stageStartedAt, '2026-09-19T10:05:00.000Z');
+  assert.equal(job.attempts, 2);
+  assert.equal(job.timingIncomplete, false);
   assert.equal(job.cancelSupported, true);
   assert.deepEqual(job.resourceRef, {
     kind: 'agent-task',
