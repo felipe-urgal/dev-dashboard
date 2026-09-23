@@ -18,6 +18,9 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Exclusão por task/owner | automatizado | coberto | lock manager e ownership tests |
 | Browser bridge/tool safety | automatizado | coberto | testes de browser provider/bridge/tool policy |
 | Activity/Jobs sem prompt/output bruto | automatizado | coberto | testes de Activity da #776 |
+| Provider indisponível | automatizado | coberto | UI mantém estado explícito e execução bloqueada |
+| Retry após falha | automatizado | coberto | E2E devolve task `failed` para `queued` somente por ação explícita |
+| Recover após interrupção | automatizado | coberto | E2E exige ação `Recover` e reconstrói estado `queued` |
 | E2E real Codex | provider real | pendente | executar protocolo abaixo |
 | E2E real Claude Code | provider real | pendente | executar protocolo abaixo |
 | E2E real ChatGPT Browser | provider real | pendente | bridge + extensão + sessão ChatGPT |
@@ -27,6 +30,10 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Mesmo target com exclusão | sistema real | pendente | comprovar lock/serialização no target real |
 | PR/readiness real | integração externa | pendente | criar PR real e registrar readiness |
 | GitHub remoto indisponível | integração externa | pendente | degradar vínculo remoto sem derrubar runtime |
+
+## Estado do tracker
+
+Em 2026-09-23, a epic #768 e o roadmap #596 foram sincronizados com o estado real: #773–#776 estão concluídas e #777 permanece aberta para os gates reais de paridade. As issues #599/#600 foram reconciliadas como concluídas e #589 continua parcial apenas na convergência da execução mutável.
 
 ## E2E automatizado do control plane
 
