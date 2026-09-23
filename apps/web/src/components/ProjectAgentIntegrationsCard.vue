@@ -216,6 +216,74 @@ watch(
 </template>
 
 <style scoped>
+.agent-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.agent-section-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-section-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.agent-section-heading span {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.agent-section-heading strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+}
+
+.agent-icon-button {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.agent-icon-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.agent-icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.agent-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
 .agent-integrations-card {
   display: grid;
   gap: 12px;
