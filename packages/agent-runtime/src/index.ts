@@ -234,14 +234,22 @@ export type {
 } from './budget-store.js';
 
 export {
+  AgentIntegrationDiscoveryError,
+  CodexMcpIntegrationProvider,
   StaticAgentIntegrationCapabilityRegistry,
+  StaticAgentIntegrationProviderRegistry,
   createDefaultAgentIntegrationCapabilityRegistry,
+  createDefaultAgentIntegrationProviderRegistry,
 } from './integrations.js';
 export type {
+  AgentIntegration,
   AgentIntegrationCapability,
   AgentIntegrationCapabilityRegistry,
   AgentIntegrationKind,
+  AgentIntegrationListRequest,
   AgentIntegrationOperation,
+  AgentIntegrationProvider,
+  AgentIntegrationProviderRegistry,
   AgentIntegrationProviderCapabilities,
   AgentIntegrationScope,
 } from './integrations.js';

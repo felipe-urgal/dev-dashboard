@@ -47,6 +47,11 @@ interface UsageQuery {
   observedTo?: string;
 }
 
+interface IntegrationQuery {
+  providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
+  environmentInstanceId?: string;
+}
+
 interface AuthorizationBody {
   capability: AgentCapability;
   granted: boolean;
@@ -147,6 +152,42 @@ const usageQuerySchema = {
   properties: {
     observedFrom: { type: 'string', format: 'date-time' },
     observedTo: { type: 'string', format: 'date-time' },
+  },
+} as const;
+
+const integrationQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+  },
+} as const;
+
+const integrationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'providerId', 'kind', 'name'],
+  properties: {
+    id: { type: 'string' },
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    name: { type: 'string' },
+    enabled: { type: 'boolean' },
+    authStatus: {
+      type: 'string',
+      enum: ['authenticated', 'unauthenticated', 'unsupported', 'unknown'],
+    },
   },
 } as const;
 
@@ -654,12 +695,14 @@ function mapAgentError(error: unknown): unknown {
         code: 'BAD_REQUEST',
         message: error.message,
       });
+    case 'AGENT_API_INTEGRATION_DISCOVERY_FAILED':
     case 'AGENT_WORKFLOW_PROVIDER_FAILED':
       return new ApiError({
         statusCode: 502,
         code: 'INTERNAL_ERROR',
         message: error.message,
       });
+    case 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE':
     case 'AGENT_WORKFLOW_CLOSING':
       return new ApiError({
         statusCode: 503,
@@ -746,6 +789,38 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     async () => ({
       providers: options.agentRuntimeApiService.listIntegrationCapabilities(),
     }),
+  );
+
+  app.get<{ Params: ProjectParams; Querystring: IntegrationQuery }>(
+    '/projects/:projectId/agent/integrations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: integrationQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['integrations'],
+            properties: {
+              integrations: {
+                type: 'array',
+                items: integrationSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        integrations: await options.agentRuntimeApiService.listIntegrations(
+          request.params.projectId,
+          request.query.providerId,
+          request.query.environmentInstanceId,
+        ),
+      })),
   );
 
   app.get<{ Params: ProjectParams }>(

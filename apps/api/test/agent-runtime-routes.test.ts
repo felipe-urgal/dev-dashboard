@@ -44,6 +44,8 @@ function service(
         version: '1.0.0',
       },
     ],
+    listIntegrationCapabilities: () => [],
+    listIntegrations: async () => [],
     listTasks: async () => [task],
     createTask: async () => task,
     getTask: async () => task,
@@ -250,6 +252,53 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
     payload: { providerId: 'codex', cwd: '/tmp/escape' },
   });
   assert.equal(executeAbuse.statusCode, 200);
+});
+
+test('Agent Runtime HTTP lista integrações sem expor configuração sensível', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      listIntegrations: async (...args) => {
+        calls.push(args);
+        return [
+          {
+            id: 'codex:mcp-server:github',
+            providerId: 'codex',
+            kind: 'mcp-server',
+            name: 'github',
+            enabled: true,
+            authStatus: 'authenticated',
+            command: 'npx',
+            env: { TOKEN: 'SECRET_SHOULD_NOT_LEAK' },
+          },
+        ] as never;
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/api/projects/project-1/agent/integrations' +
+      '?providerId=codex&environmentInstanceId=environment%3Aprimary%3Aproject-1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    ['project-1', 'codex', 'environment:primary:project-1'],
+  ]);
+  const body = response.json<{
+    integrations: Array<Record<string, unknown>>;
+  }>();
+  assert.equal(body.integrations[0]?.name, 'github');
+  assert.equal(body.integrations[0]?.command, undefined);
+  assert.equal(body.integrations[0]?.env, undefined);
+  assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
 
 test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
