@@ -144,7 +144,13 @@ test('browser doctor differentiates bridge, extension and session failures', asy
     heartbeatAt: observedAt,
     sessionState: 'available',
   };
-  assert.equal((await provider.status()).availability, 'available');
+  const available = await provider.status();
+  assert.equal(available.availability, 'available');
+  assert.deepEqual(available.quota, {
+    status: 'unavailable',
+    source: 'unavailable',
+    reason: 'ChatGPT plan quota is not exposed by the Browser bridge.',
+  });
 
   const offlineBridge = new StubBridge();
   offlineBridge.health = async () => {
