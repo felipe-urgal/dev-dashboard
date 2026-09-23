@@ -78,6 +78,26 @@ test('filtra por projeto, ambiente e domínio sem criar nova engine de jobs', as
   );
 });
 
+test('aceita domínio agent com resumo bounded sem prompt bruto', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'activity-agent-'));
+  const repository = new ActivityEventRepository(directory);
+
+  const event = await repository.append({
+    projectId: 'project-a',
+    environmentInstanceId: 'environment-a',
+    domain: 'agent',
+    type: 'agent.execution.started',
+    status: 'started',
+    summary: 'Agent execution started.',
+    resourceRef: { kind: 'agent-task', id: 'task-a' },
+    jobId: 'task-a',
+  });
+
+  assert.equal(event.domain, 'agent');
+  assert.equal(event.summary, 'Agent execution started.');
+  assert.equal(repository.list({ domain: 'agent' })[0]?.id, event.id);
+});
+
 test('aplica retenção por tempo e quantidade', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'activity-events-'));
   let tick = 0;

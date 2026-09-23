@@ -74,6 +74,7 @@ const ACTIVITY_DOMAINS = new Set<ActivityDomain>([
   'deployment',
   'ci',
   'security',
+  'agent',
 ]);
 
 const ACTIVITY_STATUSES = new Set<ActivityEventStatus>([

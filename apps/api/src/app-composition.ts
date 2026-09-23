@@ -152,15 +152,6 @@ export function createAppComposition(
     deploymentReader: deploymentService,
     ...(options.now ? { now: options.now } : {}),
   });
-  const activitySnapshotService = new ActivitySnapshotService({
-    eventStore: context.activityEventRepository,
-    gitHistory: context.gitMutationHistoryService,
-    testHistory: context.testExecutionHistoryService,
-    scriptHistory: context.scriptExecutionService,
-    processReader: context.processManager,
-    projectStore: context.projectStore,
-    ...(options.now ? { now: () => new Date(options.now!()) } : {}),
-  });
   const attentionCenterService = new AttentionCenterService({
     processReader: context.processManager,
     gitReader: context.gitService,
@@ -261,6 +252,16 @@ export function createAppComposition(
   const agentRuntimeRealtimeService = new AgentRuntimeRealtimeService(
     agentRuntimeApiService,
   );
+  const activitySnapshotService = new ActivitySnapshotService({
+    eventStore: context.activityEventRepository,
+    gitHistory: context.gitMutationHistoryService,
+    testHistory: context.testExecutionHistoryService,
+    scriptHistory: context.scriptExecutionService,
+    processReader: context.processManager,
+    projectStore: context.projectStore,
+    agentRuntime: agentRuntimeApiService,
+    ...(options.now ? { now: () => new Date(options.now!()) } : {}),
+  });
 
   return {
     databaseExplorerSessionStore,
@@ -352,6 +353,7 @@ function createAgentRuntimeApiService(
       context.developmentEnvironmentInstanceStore,
     taskContextRepository: context.taskContextRepository,
     taskContextSnapshotReader: taskContextService,
+    activityEventStore: context.activityEventRepository,
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),

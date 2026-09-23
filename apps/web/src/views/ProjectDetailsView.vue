@@ -114,6 +114,12 @@ const projectId = computed(() => {
   return Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
 });
 
+const agentTaskId = computed(() => {
+  const value = route.query.taskId;
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return typeof candidate === 'string' && candidate ? candidate : undefined;
+});
+
 const environmentInstanceId = computed(() => {
   const value = route.query.environmentInstanceId;
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -530,6 +536,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :project="project"
         :environment-instance-id="environmentInstanceId"
         :current-branch="gitBranch"
+        :initial-task-id="agentTaskId"
       />
 
       <ProjectSelfUpdateProductionPanel

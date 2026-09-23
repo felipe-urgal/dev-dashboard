@@ -48,6 +48,23 @@ test.describe('navegação principal', () => {
     ).toHaveAttribute('aria-pressed', 'false');
   });
 
+  test('página de Atividade abre Jobs Center e Timeline', async ({ page }) => {
+    await gotoBootstrapped(page, '/activity');
+
+    await expect(
+      page.getByRole('region', { name: 'Atividade e jobs' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Atividade' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Em andamento' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Atividade recente' }),
+    ).toBeVisible();
+  });
+
   test('página global de processos renderiza', async ({ page }) => {
     await gotoBootstrapped(page, '/processes');
     await expect(

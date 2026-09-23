@@ -4,6 +4,7 @@ import {
   CircleStackIcon,
   HomeIcon,
   PlusIcon,
+  QueueListIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onMounted, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
@@ -149,6 +150,17 @@ onMounted(() => {
           >
             <HomeIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Visão geral</span>
+          </RouterLink>
+
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'activity' }"
+            :to="{ name: 'activity' }"
+            :aria-label="sidebarCollapsed ? 'Atividade' : undefined"
+            :title="sidebarCollapsed ? 'Atividade' : undefined"
+          >
+            <QueueListIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Atividade</span>
           </RouterLink>
 
           <RouterLink
