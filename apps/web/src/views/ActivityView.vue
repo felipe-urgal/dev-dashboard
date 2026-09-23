@@ -159,11 +159,7 @@ onMounted(() => {
     />
 
     <template v-else>
-      <p
-        v-if="snapshot?.partial"
-        class="activity-center-partial"
-        role="status"
-      >
+      <p v-if="snapshot?.partial" class="activity-center-partial" role="status">
         Snapshot parcial. Indisponível:
         {{ snapshot.unavailableDomains.join(', ') }}.
       </p>
@@ -187,7 +183,10 @@ onMounted(() => {
 
         <div v-else class="activity-job-list">
           <article v-for="job in jobs" :key="job.id" class="activity-job-card">
-            <div class="activity-job-icon" :class="{ 'is-agent': job.domain === 'agent' }">
+            <div
+              class="activity-job-icon"
+              :class="{ 'is-agent': job.domain === 'agent' }"
+            >
               <CpuChipIcon v-if="job.domain === 'agent'" aria-hidden="true" />
               <PlayPauseIcon v-else aria-hidden="true" />
             </div>
@@ -195,19 +194,25 @@ onMounted(() => {
             <div class="activity-job-copy">
               <div class="activity-job-title">
                 <strong>{{ projectName(job.projectId) }}</strong>
-                <StatusBadge :tone="jobTone(job)">{{ jobLabel(job) }}</StatusBadge>
+                <StatusBadge :tone="jobTone(job)">{{
+                  jobLabel(job)
+                }}</StatusBadge>
               </div>
               <p>
                 {{ job.domain === 'agent' ? 'Agente' : job.action }}
                 <template v-if="job.stage"> · {{ job.stage }}</template>
-                <template v-if="job.providerId"> · {{ job.providerId }}</template>
+                <template v-if="job.providerId">
+                  · {{ job.providerId }}</template
+                >
               </p>
               <small>
                 Início {{ formatTime(job.startedAt) }}
                 <template v-if="job.attempts !== undefined">
                   · {{ job.attempts }} tentativa(s)
                 </template>
-                <template v-if="job.timingIncomplete"> · timing incompleto</template>
+                <template v-if="job.timingIncomplete">
+                  · timing incompleto</template
+                >
               </small>
             </div>
 
@@ -226,7 +231,10 @@ onMounted(() => {
               <RouterLink
                 v-else
                 class="secondary-button link-button"
-                :to="{ name: 'project-details', params: { projectId: job.projectId } }"
+                :to="{
+                  name: 'project-details',
+                  params: { projectId: job.projectId },
+                }"
               >
                 Abrir projeto
               </RouterLink>
@@ -270,7 +278,9 @@ onMounted(() => {
               </StatusBadge>
             </div>
             <p>{{ event.summary }}</p>
-            <small>{{ event.domain }} · {{ formatTime(event.occurredAt) }}</small>
+            <small
+              >{{ event.domain }} · {{ formatTime(event.occurredAt) }}</small
+            >
             <RouterLink
               v-if="
                 event.domain === 'agent' &&
