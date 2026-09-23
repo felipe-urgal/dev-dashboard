@@ -325,6 +325,7 @@ export class AgentWorkflowRuntime {
       let checkpoint: AgentCheckpoint | undefined;
       if (providerResult.outcome === 'checkpoint') {
         const requestCheckpoint = providerResult.checkpoint;
+        const checkpointId = this.createCheckpointId().trim();
         if (
           !requestCheckpoint ||
           !requestCheckpoint.summary.trim() ||
@@ -332,33 +333,49 @@ export class AgentWorkflowRuntime {
           requestCheckpoint.requiredCapabilities.some(
             (capability) =>
               !runningRecord.task.requestedCapabilities.includes(capability),
-          )
+          ) ||
+          !checkpointId
         ) {
+          settledRecord = await this.taskStore.save(
+            transitionAgentTask(
+              runningRecord.task,
+              'blocked',
+              finishedAt,
+            ),
+            runningRecord.version,
+          );
           throw new AgentWorkflowRuntimeError(
             'AGENT_WORKFLOW_CHECKPOINT_INVALID',
             'Agent provider returned an invalid checkpoint request.',
           );
         }
 
-        const checkpointId = this.createCheckpointId().trim();
-        if (!checkpointId) {
+        try {
+          checkpoint = await this.checkpointStore.createCheckpoint({
+            id: checkpointId,
+            taskId: runningRecord.task.id,
+            executionId,
+            status: 'pending',
+            summary: requestCheckpoint.summary.trim(),
+            requiredCapabilities: [
+              ...new Set(requestCheckpoint.requiredCapabilities),
+            ],
+            createdAt: finishedAt,
+          });
+        } catch {
+          settledRecord = await this.taskStore.save(
+            transitionAgentTask(
+              runningRecord.task,
+              'blocked',
+              finishedAt,
+            ),
+            runningRecord.version,
+          );
           throw new AgentWorkflowRuntimeError(
             'AGENT_WORKFLOW_CHECKPOINT_INVALID',
-            'Agent checkpoint identity could not be created.',
+            'Agent checkpoint could not be persisted.',
           );
         }
-
-        checkpoint = await this.checkpointStore.createCheckpoint({
-          id: checkpointId,
-          taskId: runningRecord.task.id,
-          executionId,
-          status: 'pending',
-          summary: requestCheckpoint.summary.trim(),
-          requiredCapabilities: [
-            ...new Set(requestCheckpoint.requiredCapabilities),
-          ],
-          createdAt: finishedAt,
-        });
       }
 
       const finalTask = transitionAgentTask(
