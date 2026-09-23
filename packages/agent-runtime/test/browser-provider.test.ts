@@ -212,10 +212,7 @@ test('browser provider inclui instrução de continuação no prompt', async () 
   });
 
   assert.match(bridge.created[0]?.prompt ?? '', /Continuation instruction:/);
-  assert.match(
-    bridge.created[0]?.prompt ?? '',
-    /explicit checkpoint approval/,
-  );
+  assert.match(bridge.created[0]?.prompt ?? '', /explicit checkpoint approval/);
 });
 
 test('browser cancellation cancels only the owned job', async () => {
