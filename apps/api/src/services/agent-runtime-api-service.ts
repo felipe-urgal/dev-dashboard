@@ -12,6 +12,8 @@ import type {
 import type {
   AgentAuditSnapshot,
   AgentAuthorization,
+  AgentIntegrationCapabilityRegistry,
+  AgentIntegrationProviderCapabilities,
   AgentTaskBudget,
   AgentAuditStore,
   AgentCapability,
@@ -95,6 +97,7 @@ export interface AgentBudgetOverview {
 
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
+  listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[];
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
   createTask(
     projectId: string,
@@ -149,6 +152,7 @@ export interface AgentRuntimeApiServiceOptions {
     | 'appendExecutionResult'
   >;
   providerRegistry: AgentProviderRegistry;
+  integrationCapabilityRegistry?: AgentIntegrationCapabilityRegistry;
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
     | 'status'
@@ -217,6 +221,10 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     return Promise.all(
       this.options.providerRegistry.list().map((provider) => provider.status()),
     );
+  }
+
+  public listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[] {
+    return this.options.integrationCapabilityRegistry?.list() ?? [];
   }
 
   public async listTasks(projectId: string): Promise<AgentTaskRecord[]> {

@@ -437,6 +437,63 @@ const providerStatusSchema = {
   },
 } as const;
 
+const integrationCapabilitySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['kind', 'scopes', 'operations', 'availability'],
+  properties: {
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    scopes: {
+      type: 'array',
+      uniqueItems: true,
+      items: {
+        type: 'string',
+        enum: ['user', 'project', 'local', 'session'],
+      },
+    },
+    operations: {
+      type: 'array',
+      uniqueItems: true,
+      items: {
+        type: 'string',
+        enum: [
+          'list',
+          'inspect',
+          'install',
+          'enable',
+          'disable',
+          'uninstall',
+          'authenticate',
+        ],
+      },
+    },
+    availability: {
+      type: 'string',
+      enum: ['supported', 'unavailable'],
+    },
+    reason: { type: 'string' },
+  },
+} as const;
+
+const integrationProviderCapabilitiesSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'integrations'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    integrations: {
+      type: 'array',
+      items: integrationCapabilitySchema,
+    },
+  },
+} as const;
+
 const runtimeStateSchema = {
   type: 'object',
   additionalProperties: false,
@@ -664,6 +721,31 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       withAgentErrors(async () => ({
         providers: await options.agentRuntimeApiService.listProviders(),
       })),
+  );
+
+  app.get(
+    '/agent/integrations/capabilities',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['providers'],
+            properties: {
+              providers: {
+                type: 'array',
+                items: integrationProviderCapabilitiesSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async () => ({
+      providers: options.agentRuntimeApiService.listIntegrationCapabilities(),
+    }),
   );
 
   app.get<{ Params: ProjectParams }>(

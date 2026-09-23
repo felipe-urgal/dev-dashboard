@@ -10,6 +10,7 @@ import {
   AgentUsageStore,
   AgentWorkflowRuntime,
   GitAgentTaskStore,
+  createDefaultAgentIntegrationCapabilityRegistry,
   createLocalAgentProviderRegistry,
 } from '@dev-dashboard/agent-runtime';
 
@@ -351,6 +352,8 @@ function createAgentRuntimeApiService(
     taskStore,
     auditStore,
     providerRegistry,
+    integrationCapabilityRegistry:
+      createDefaultAgentIntegrationCapabilityRegistry(),
     workflowRuntime,
     projectStore: context.projectStore,
     developmentEnvironmentInstanceStore:
