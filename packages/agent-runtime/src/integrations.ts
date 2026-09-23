@@ -55,7 +55,10 @@ export interface AgentIntegrationProviderRegistry {
 export class AgentIntegrationDiscoveryError extends Error {
   constructor(
     readonly code:
-      'provider-unavailable' | 'command-failed' | 'invalid-response',
+      | 'provider-unavailable'
+      | 'command-failed'
+      | 'invalid-request'
+      | 'invalid-response',
     message: string,
   ) {
     super(message);
@@ -210,19 +213,19 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
   ): Promise<AgentIntegration> {
     if (!request.confirmed) {
       throw new AgentIntegrationDiscoveryError(
-        'invalid-response',
+        'invalid-request',
         'Codex MCP installation requires explicit confirmation.',
       );
     }
     if (request.kind !== 'mcp-server') {
       throw new AgentIntegrationDiscoveryError(
-        'invalid-response',
+        'invalid-request',
         'Codex only supports MCP installation through this adapter.',
       );
     }
     if (request.scope !== 'user') {
       throw new AgentIntegrationDiscoveryError(
-        'invalid-response',
+        'invalid-request',
         'Codex MCP installation currently supports only explicit user scope.',
       );
     }
@@ -230,7 +233,7 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
     const name = request.name.trim();
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) {
       throw new AgentIntegrationDiscoveryError(
-        'invalid-response',
+        'invalid-request',
         'Codex MCP server name is invalid.',
       );
     }
@@ -240,13 +243,13 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       url = new URL(request.url ?? '');
     } catch {
       throw new AgentIntegrationDiscoveryError(
-        'invalid-response',
+        'invalid-request',
         'Codex MCP server URL is invalid.',
       );
     }
     if (url.protocol !== 'https:') {
       throw new AgentIntegrationDiscoveryError(
-        'invalid-response',
+        'invalid-request',
         'Codex MCP server URL must use HTTPS.',
       );
     }
