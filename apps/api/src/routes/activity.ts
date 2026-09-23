@@ -113,6 +113,9 @@ const activityJobSchema = {
       enum: ['codex', 'claude-code', 'chatgpt-browser'],
     },
     stage: { type: 'string' },
+    stageStartedAt: { type: 'string' },
+    attempts: { type: 'integer', minimum: 0 },
+    timingIncomplete: { type: 'boolean' },
     cancelSupported: { type: 'boolean' },
   },
 } as const;
