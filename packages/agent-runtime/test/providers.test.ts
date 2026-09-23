@@ -87,6 +87,12 @@ test('Codex doctor checks version and authentication before execution', async ()
   const status = await provider.status();
   assert.equal(status.availability, 'available');
   assert.equal(status.version, 'codex-cli 1.2.3');
+  assert.deepEqual(status.quota, {
+    status: 'unavailable',
+    source: 'unavailable',
+    reason:
+      'Codex quota is only documented through interactive status/usage surfaces.',
+  });
   assert.deepEqual(
     fake.calls.map((call) => call.args),
     [['--version'], ['login', 'status']],
@@ -204,6 +210,12 @@ test('Claude doctor validates supported version and auth before auto mode', asyn
   const status = await provider.status();
   assert.equal(status.availability, 'available');
   assert.match(status.version ?? '', /2\.1\.259/);
+  assert.deepEqual(status.quota, {
+    status: 'unavailable',
+    source: 'unavailable',
+    reason:
+      'Claude Code quota is not exposed here through a supported machine-readable CLI interface.',
+  });
   assert.deepEqual(
     fake.calls.map((call) => call.args),
     [['--version'], ['auth', 'status']],
