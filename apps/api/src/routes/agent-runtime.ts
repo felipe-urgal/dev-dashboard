@@ -437,7 +437,6 @@ const providerStatusSchema = {
   },
 } as const;
 
-
 const integrationCapabilitySchema = {
   type: 'object',
   additionalProperties: false,
@@ -723,7 +722,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         providers: await options.agentRuntimeApiService.listProviders(),
       })),
   );
-
 
   app.get(
     '/agent/integrations/capabilities',

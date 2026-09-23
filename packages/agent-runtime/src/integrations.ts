@@ -1,10 +1,7 @@
 import type { AgentConcreteProviderId } from './contracts.js';
 
 export type AgentIntegrationKind =
-  | 'mcp-server'
-  | 'skill'
-  | 'plugin'
-  | 'browser-capability';
+  'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
 
 export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
 
@@ -55,17 +52,13 @@ function freezeCapabilities(
   });
 }
 
-export class StaticAgentIntegrationCapabilityRegistry
-  implements AgentIntegrationCapabilityRegistry
-{
+export class StaticAgentIntegrationCapabilityRegistry implements AgentIntegrationCapabilityRegistry {
   private readonly providers = new Map<
     AgentConcreteProviderId,
     AgentIntegrationProviderCapabilities
   >();
 
-  constructor(
-    capabilities: readonly AgentIntegrationProviderCapabilities[],
-  ) {
+  constructor(capabilities: readonly AgentIntegrationProviderCapabilities[]) {
     for (const capability of capabilities) {
       if (this.providers.has(capability.providerId)) {
         throw new Error(
@@ -75,10 +68,7 @@ export class StaticAgentIntegrationCapabilityRegistry
 
       this.providers.set(
         capability.providerId,
-        freezeCapabilities(
-          capability.providerId,
-          capability.integrations,
-        ),
+        freezeCapabilities(capability.providerId, capability.integrations),
       );
     }
   }

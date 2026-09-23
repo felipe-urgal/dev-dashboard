@@ -233,7 +233,6 @@ export type {
   AgentTaskBudget,
 } from './budget-store.js';
 
-
 export {
   StaticAgentIntegrationCapabilityRegistry,
   createDefaultAgentIntegrationCapabilityRegistry,
