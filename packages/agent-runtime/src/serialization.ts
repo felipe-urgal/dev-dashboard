@@ -31,6 +31,7 @@ const TASK_KEYS = new Set([
   'environmentInstanceId',
   'state',
   'summary',
+  'continuationInstruction',
   'requestedCapabilities',
   'createdAt',
   'updatedAt',
@@ -103,6 +104,18 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     return capability as AgentCapability;
   });
 
+  const continuationInstruction = parsed.continuationInstruction;
+  if (
+    continuationInstruction !== undefined &&
+    (typeof continuationInstruction !== 'string' ||
+      continuationInstruction.length === 0 ||
+      continuationInstruction.length > 4_000)
+  ) {
+    throw new AgentSerializationError(
+      'Invalid AgentTask.continuationInstruction',
+    );
+  }
+
   const environmentInstanceId = parsed.environmentInstanceId;
   if (
     environmentInstanceId !== undefined &&
@@ -119,6 +132,9 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     projectId: requiredString(parsed, 'projectId'),
     state: state as AgentTaskState,
     summary: requiredString(parsed, 'summary'),
+    ...(continuationInstruction !== undefined
+      ? { continuationInstruction }
+      : {}),
     requestedCapabilities: capabilities,
     createdAt: requiredString(parsed, 'createdAt'),
     updatedAt: requiredString(parsed, 'updatedAt'),

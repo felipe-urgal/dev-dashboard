@@ -3,6 +3,7 @@ export type {
   AgentCancellationRequest,
   AgentCapability,
   AgentCheckpoint,
+  AgentCheckpointRequest,
   AgentCheckpointStatus,
   AgentClock,
   AgentConcreteProviderId,
@@ -200,6 +201,7 @@ export {
 } from './workflow-runtime.js';
 export type {
   AgentWorkflowExecuteRequest,
+  AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowRuntimeErrorCode,
   AgentWorkflowRuntimeOptions,

@@ -14,7 +14,13 @@ export type AgentTaskState =
   | 'cancelled';
 
 export type AgentExecutionState =
-  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+  | 'queued'
+  | 'running'
+  | 'checkpoint'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'unknown';
 
 export type AgentCapability =
   | 'workspace:write'
@@ -31,6 +37,7 @@ export interface AgentTask {
   environmentInstanceId?: string;
   state: AgentTaskState;
   summary: string;
+  continuationInstruction?: string;
   requestedCapabilities: AgentCapability[];
   createdAt: string;
   updatedAt: string;
@@ -77,6 +84,12 @@ export interface AgentCheckpoint {
   requiredCapabilities: AgentCapability[];
   createdAt: string;
   resolvedAt?: string;
+  continuationInstruction?: string;
+}
+
+export interface AgentCheckpointRequest {
+  summary: string;
+  requiredCapabilities: AgentCapability[];
 }
 
 export interface AgentAuthorization {
@@ -134,13 +147,15 @@ export interface AgentProviderExecutionRequest {
   environmentInstanceId?: string;
   summary: string;
   allowedCapabilities: readonly AgentCapability[];
+  continuationInstruction?: string;
   signal?: AbortSignal;
 }
 
 export interface AgentProviderResult {
   providerId: AgentConcreteProviderId;
-  outcome: 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+  outcome: 'checkpoint' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
   summary: string;
+  checkpoint?: AgentCheckpointRequest;
   evidence?: AgentEvidence[];
   failure?: AgentExecutionFailure;
 }

@@ -1,10 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { grantedAgentCapabilities } from './authorization.js';
+import type { AgentAuditStore } from './agent-audit-store.js';
 import type {
   AgentAuthorization,
   AgentCancellationRequest,
   AgentCapability,
+  AgentCheckpoint,
+  AgentCheckpointStatus,
   AgentExecution,
   AgentExecutionOwnership,
   AgentProvider,
@@ -30,7 +33,9 @@ export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_PROVIDER_FAILED'
   | 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE'
   | 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH'
-  | 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED';
+  | 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED'
+  | 'AGENT_WORKFLOW_CHECKPOINT_INVALID'
+  | 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING';
 
 export class AgentWorkflowRuntimeError extends Error {
   public constructor(
@@ -49,8 +54,13 @@ export interface AgentWorkflowRuntimeOptions {
   };
   runtimeStateStore: AgentRuntimeStateStore;
   lockManager: AgentTaskLockManager;
+  checkpointStore: Pick<
+    AgentAuditStore,
+    'createCheckpoint' | 'listCheckpoints' | 'resolveCheckpoint'
+  >;
   now?: () => string;
   createExecutionId?: () => string;
+  createCheckpointId?: () => string;
 }
 
 export interface AgentWorkflowExecuteRequest {
@@ -64,6 +74,12 @@ export interface AgentWorkflowExecutionResult {
   execution: AgentExecution;
   task: AgentTaskRecord;
   providerResult: AgentProviderResult;
+  checkpoint?: AgentCheckpoint;
+}
+
+export interface AgentWorkflowCheckpointResolution {
+  task: AgentTaskRecord;
+  checkpoint: AgentCheckpoint;
 }
 
 export interface AgentWorkflowTaskStatus {
@@ -104,6 +120,8 @@ function sameOwnership(
 
 function executionState(result: AgentProviderResult): AgentExecution['state'] {
   switch (result.outcome) {
+    case 'checkpoint':
+      return 'checkpoint';
     case 'succeeded':
       return 'succeeded';
     case 'failed':
@@ -117,8 +135,10 @@ function executionState(result: AgentProviderResult): AgentExecution['state'] {
 
 function taskStateForResult(
   result: AgentProviderResult,
-): 'review' | 'failed' | 'cancelled' | 'blocked' {
+): 'checkpoint' | 'review' | 'failed' | 'cancelled' | 'blocked' {
   switch (result.outcome) {
+    case 'checkpoint':
+      return 'checkpoint';
     case 'succeeded':
       return 'review';
     case 'failed':
@@ -135,8 +155,10 @@ export class AgentWorkflowRuntime {
   private readonly providerRegistry: AgentWorkflowRuntimeOptions['providerRegistry'];
   private readonly runtimeStateStore: AgentRuntimeStateStore;
   private readonly lockManager: AgentTaskLockManager;
+  private readonly checkpointStore: AgentWorkflowRuntimeOptions['checkpointStore'];
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
+  private readonly createCheckpointId: () => string;
   private readonly active = new Map<string, ActiveExecution>();
   private closing = false;
 
@@ -145,8 +167,10 @@ export class AgentWorkflowRuntime {
     this.providerRegistry = options.providerRegistry;
     this.runtimeStateStore = options.runtimeStateStore;
     this.lockManager = options.lockManager;
+    this.checkpointStore = options.checkpointStore;
     this.now = options.now ?? (() => new Date().toISOString());
     this.createExecutionId = options.createExecutionId ?? randomUUID;
+    this.createCheckpointId = options.createCheckpointId ?? randomUUID;
   }
 
   public async status(
@@ -193,6 +217,16 @@ export class AgentWorkflowRuntime {
         );
       }
 
+      const pendingCheckpoints = (
+        await this.checkpointStore.listCheckpoints(current.task.id)
+      ).filter((checkpoint) => checkpoint.status === 'pending');
+      if (pendingCheckpoints.length > 0) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_TASK_NOT_RUNNABLE',
+          'Agent task has a pending checkpoint.',
+        );
+      }
+
       const providerId = request.providerId ?? 'automatic';
       const provider = this.providerRegistry.get(providerId);
       if (!provider) {
@@ -214,8 +248,13 @@ export class AgentWorkflowRuntime {
         );
       }
 
+      const continuationInstruction = current.task.continuationInstruction;
+      const {
+        continuationInstruction: _consumedInstruction,
+        ...taskWithoutInstruction
+      } = current.task;
       const runningTask = transitionAgentTask(
-        current.task,
+        taskWithoutInstruction,
         'running',
         this.now(),
       );
@@ -259,6 +298,7 @@ export class AgentWorkflowRuntime {
             : {}),
           summary: runningRecord.task.summary,
           allowedCapabilities,
+          ...(continuationInstruction ? { continuationInstruction } : {}),
           signal: controller.signal,
         });
       } catch {
@@ -282,6 +322,54 @@ export class AgentWorkflowRuntime {
       }
 
       const finishedAt = this.now();
+      let checkpoint: AgentCheckpoint | undefined;
+      if (providerResult.outcome === 'checkpoint') {
+        const requestCheckpoint = providerResult.checkpoint;
+        const checkpointId = this.createCheckpointId().trim();
+        if (
+          !requestCheckpoint ||
+          !requestCheckpoint.summary.trim() ||
+          requestCheckpoint.summary.length > 4_000 ||
+          requestCheckpoint.requiredCapabilities.some(
+            (capability) =>
+              !runningRecord.task.requestedCapabilities.includes(capability),
+          ) ||
+          !checkpointId
+        ) {
+          settledRecord = await this.taskStore.save(
+            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
+            runningRecord.version,
+          );
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CHECKPOINT_INVALID',
+            'Agent provider returned an invalid checkpoint request.',
+          );
+        }
+
+        try {
+          checkpoint = await this.checkpointStore.createCheckpoint({
+            id: checkpointId,
+            taskId: runningRecord.task.id,
+            executionId,
+            status: 'pending',
+            summary: requestCheckpoint.summary.trim(),
+            requiredCapabilities: [
+              ...new Set(requestCheckpoint.requiredCapabilities),
+            ],
+            createdAt: finishedAt,
+          });
+        } catch {
+          settledRecord = await this.taskStore.save(
+            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
+            runningRecord.version,
+          );
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CHECKPOINT_INVALID',
+            'Agent checkpoint could not be persisted.',
+          );
+        }
+      }
+
       const finalTask = transitionAgentTask(
         runningRecord.task,
         taskStateForResult(providerResult),
@@ -313,6 +401,7 @@ export class AgentWorkflowRuntime {
         execution,
         task: settledRecord,
         providerResult,
+        ...(checkpoint ? { checkpoint } : {}),
       };
     } finally {
       try {
@@ -328,6 +417,69 @@ export class AgentWorkflowRuntime {
         }
         await release();
       }
+    }
+  }
+
+  public async resolveCheckpoint(
+    projectId: string,
+    taskId: string,
+    checkpointId: string,
+    status: Exclude<AgentCheckpointStatus, 'pending'>,
+    continuationInstruction?: string,
+  ): Promise<AgentWorkflowCheckpointResolution> {
+    const release = await this.lockManager.acquire(
+      executionLockKey(projectId, taskId),
+    );
+
+    try {
+      const current = await this.requireOwnedTask(projectId, taskId);
+      if (current.task.state !== 'checkpoint') {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING',
+          'Agent task is not waiting on a checkpoint.',
+        );
+      }
+
+      const checkpoint = (
+        await this.checkpointStore.listCheckpoints(taskId)
+      ).find((item) => item.id === checkpointId);
+      if (!checkpoint || checkpoint.status !== 'pending') {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING',
+          'Agent checkpoint is not pending.',
+        );
+      }
+
+      const instruction = continuationInstruction?.trim();
+      if (instruction && instruction.length > 4_000) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_CHECKPOINT_INVALID',
+          'Agent continuation instruction is invalid.',
+        );
+      }
+
+      const target = status === 'approved' ? 'queued' : 'blocked';
+      const transitioned = transitionAgentTask(
+        current.task,
+        target,
+        this.now(),
+      );
+      const nextTask =
+        status === 'approved' && instruction
+          ? { ...transitioned, continuationInstruction: instruction }
+          : transitioned;
+      const saved = await this.taskStore.save(nextTask, current.version);
+      const resolved = await this.checkpointStore.resolveCheckpoint(
+        taskId,
+        checkpointId,
+        status,
+        this.now(),
+        instruction,
+      );
+
+      return { task: saved, checkpoint: resolved };
+    } finally {
+      await release();
     }
   }
 

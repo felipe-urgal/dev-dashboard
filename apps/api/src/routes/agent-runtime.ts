@@ -27,6 +27,10 @@ interface TaskParams extends ProjectParams {
   taskId: string;
 }
 
+interface CheckpointParams extends TaskParams {
+  checkpointId: string;
+}
+
 interface CreateTaskBody {
   summary: string;
   environmentInstanceId?: string;
@@ -40,6 +44,11 @@ interface ExecuteBody {
 interface AuthorizationBody {
   capability: AgentCapability;
   granted: boolean;
+}
+
+interface CheckpointResolutionBody {
+  decision: 'approved' | 'rejected';
+  instruction?: string;
 }
 
 const providerIds = [
@@ -74,6 +83,17 @@ const projectParamsSchema = {
   required: ['projectId'],
   properties: {
     projectId: { type: 'string', minLength: 1, maxLength: 256 },
+  },
+} as const;
+
+const checkpointParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'taskId', 'checkpointId'],
+  properties: {
+    projectId: { type: 'string', minLength: 1, maxLength: 256 },
+    taskId: { type: 'string', minLength: 1, maxLength: 256 },
+    checkpointId: { type: 'string', minLength: 1, maxLength: 256 },
   },
 } as const;
 
@@ -118,6 +138,46 @@ const authorizationBodySchema = {
   properties: {
     capability: { type: 'string', enum: [...capabilities] },
     granted: { type: 'boolean' },
+  },
+} as const;
+
+const checkpointResolutionBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['decision'],
+  properties: {
+    decision: { type: 'string', enum: ['approved', 'rejected'] },
+    instruction: { type: 'string', minLength: 1, maxLength: 4000 },
+  },
+} as const;
+
+const checkpointSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'taskId',
+    'status',
+    'summary',
+    'requiredCapabilities',
+    'createdAt',
+  ],
+  properties: {
+    id: { type: 'string' },
+    taskId: { type: 'string' },
+    executionId: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['pending', 'approved', 'rejected'],
+    },
+    summary: { type: 'string' },
+    requiredCapabilities: {
+      type: 'array',
+      items: { type: 'string', enum: [...capabilities] },
+    },
+    createdAt: { type: 'string' },
+    resolvedAt: { type: 'string' },
+    continuationInstruction: { type: 'string' },
   },
 } as const;
 
@@ -201,6 +261,7 @@ const taskSchema = {
     environmentInstanceId: { type: 'string' },
     state: { type: 'string', enum: [...taskStates] },
     summary: { type: 'string' },
+    continuationInstruction: { type: 'string' },
     requestedCapabilities: {
       type: 'array',
       items: { type: 'string', enum: [...capabilities] },
@@ -321,6 +382,7 @@ const executionSchema = {
       enum: [
         'queued',
         'running',
+        'checkpoint',
         'succeeded',
         'failed',
         'cancelled',
@@ -344,7 +406,7 @@ const providerResultSchema = {
     },
     outcome: {
       type: 'string',
-      enum: ['succeeded', 'failed', 'cancelled', 'unknown'],
+      enum: ['checkpoint', 'succeeded', 'failed', 'cancelled', 'unknown'],
     },
     summary: { type: 'string' },
     failure: failureSchema,
@@ -383,6 +445,7 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_API_INVALID_REQUEST':
     case 'AGENT_WORKFLOW_PROVIDER_NOT_FOUND':
     case 'AGENT_WORKFLOW_AUTHORIZATION_INVALID':
+    case 'AGENT_WORKFLOW_CHECKPOINT_INVALID':
       return new ApiError({
         statusCode: 400,
         code: 'BAD_REQUEST',
@@ -404,6 +467,7 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE':
     case 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH':
     case 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED':
+    case 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING':
       return new ApiError({
         statusCode: 409,
         code: 'CONFLICT',
@@ -569,6 +633,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
               execution: executionSchema,
               task: taskRecordSchema,
               providerResult: providerResultSchema,
+              checkpoint: checkpointSchema,
             },
           },
           ...commonErrorResponseSchemas,
@@ -614,12 +679,17 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['authorizations', 'events', 'evidence'],
+            required: ['authorizations', 'checkpoints', 'events', 'evidence'],
             properties: {
               authorizations: {
                 type: 'array',
                 maxItems: capabilities.length,
                 items: authorizationSchema,
+              },
+              checkpoints: {
+                type: 'array',
+                maxItems: 200,
+                items: checkpointSchema,
               },
               events: {
                 type: 'array',
@@ -665,6 +735,41 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.taskId,
           request.body.capability,
           request.body.granted,
+        ),
+      ),
+  );
+
+  app.post<{
+    Params: CheckpointParams;
+    Body: CheckpointResolutionBody;
+  }>(
+    '/projects/:projectId/agent/tasks/:taskId/checkpoints/:checkpointId/resolve',
+    {
+      schema: {
+        params: checkpointParamsSchema,
+        body: checkpointResolutionBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['task', 'checkpoint'],
+            properties: {
+              task: taskRecordSchema,
+              checkpoint: checkpointSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.resolveCheckpoint(
+          request.params.projectId,
+          request.params.taskId,
+          request.params.checkpointId,
+          request.body.decision,
+          request.body.instruction,
         ),
       ),
   );

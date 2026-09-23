@@ -235,6 +235,13 @@ function buildProviderPrompt(request: AgentProviderExecutionRequest): string {
 
   return [
     request.summary.trim(),
+    ...(request.continuationInstruction
+      ? [
+          '',
+          'Continuation instruction:',
+          request.continuationInstruction.trim(),
+        ]
+      : []),
     '',
     'Execution boundary:',
     '- Work only inside the backend-selected working directory.',

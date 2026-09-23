@@ -327,6 +327,7 @@ function createAgentRuntimeApiService(
   const workflowRuntime = new AgentWorkflowRuntime({
     taskStore,
     providerRegistry,
+    checkpointStore: auditStore,
     runtimeStateStore: new AgentRuntimeStateStore({
       stateDirectory,
       ...(options.now ? { now: () => new Date(options.now!()) } : {}),

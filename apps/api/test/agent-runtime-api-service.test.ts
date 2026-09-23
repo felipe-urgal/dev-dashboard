@@ -44,6 +44,7 @@ function auditStore() {
   return {
     snapshot: async () => ({
       authorizations: [],
+      checkpoints: [],
       events: [],
       evidence: [],
     }),
@@ -76,6 +77,9 @@ test('AgentRuntimeApiService deriva Environment Instance no backend ao criar tas
         throw new Error('unused');
       },
       recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
         throw new Error('unused');
       },
       shutdown: async () => undefined,
@@ -175,6 +179,9 @@ test('AgentRuntimeApiService cancela somente ownership ativo resolvido no backen
       recover: async () => {
         throw new Error('unused');
       },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
       shutdown: async () => undefined,
     },
     projectStore: {
@@ -210,6 +217,9 @@ test('AgentRuntimeApiService falha fechado para projeto/ambiente ausente', async
         throw new Error('unused');
       },
       recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
         throw new Error('unused');
       },
       shutdown: async () => undefined,
@@ -312,6 +322,9 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
       recover: async () => {
         throw new Error('unused');
       },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
       shutdown: async () => undefined,
     },
     projectStore: {
@@ -392,6 +405,9 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
       recover: async () => {
         throw new Error('unused');
       },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
       shutdown: async () => undefined,
     },
     projectStore: {
@@ -420,4 +436,78 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
       error.code === 'AGENT_API_INVALID_REQUEST',
   );
   assert.equal(writes.length, 1);
+});
+
+test('AgentRuntimeApiService resolve checkpoint somente via workflow backend-owned', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'checkpoint',
+      summary: 'x',
+      requestedCapabilities: ['workspace:write'],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      updatedAt: '2026-09-23T12:00:00.000Z',
+    },
+    null,
+  );
+
+  const calls: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async (...args) => {
+        calls.push(args);
+        return {
+          task: (await taskStore.get('task-1'))!,
+          checkpoint: {
+            id: 'checkpoint-1',
+            taskId: 'task-1',
+            status: 'approved',
+            summary: 'Approve.',
+            requiredCapabilities: [],
+            createdAt: '2026-09-23T12:00:00.000Z',
+            resolvedAt: '2026-09-23T12:01:00.000Z',
+            continuationInstruction: 'Continue safely.',
+          },
+        };
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+  });
+
+  const result = await service.resolveCheckpoint(
+    'project-1',
+    'task-1',
+    'checkpoint-1',
+    'approved',
+    'Continue safely.',
+  );
+
+  assert.equal(result.checkpoint.status, 'approved');
+  assert.deepEqual(calls, [
+    ['project-1', 'task-1', 'checkpoint-1', 'approved', 'Continue safely.'],
+  ]);
 });

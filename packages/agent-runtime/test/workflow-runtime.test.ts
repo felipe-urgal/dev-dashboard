@@ -5,6 +5,7 @@ import path from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import {
+  AgentAuditStore,
   AgentRuntimeStateStore,
   AgentTaskLockError,
   AgentTaskLockManager,
@@ -118,6 +119,9 @@ async function fixture(
   const base = Date.parse('2026-09-22T15:00:00.000Z');
   const now = () => new Date(base + tick++).toISOString();
   const store = new MemoryTaskStore(initialTask);
+  const auditStore = new AgentAuditStore({
+    stateDirectory: root,
+  });
   const runtimeStateStore = new AgentRuntimeStateStore({
     stateDirectory: root,
     processId: 101,
@@ -134,11 +138,13 @@ async function fixture(
     providerRegistry: new StaticAgentProviderRegistry([provider]),
     runtimeStateStore,
     lockManager,
+    checkpointStore: auditStore,
     now,
     createExecutionId: () => 'execution-1',
+    createCheckpointId: () => 'checkpoint-1',
   });
 
-  return { runtime, store, runtimeStateStore };
+  return { runtime, store, runtimeStateStore, auditStore };
 }
 
 function authorizations(): AgentAuthorization[] {
@@ -184,6 +190,124 @@ test('executes one queued task and only forwards explicitly requested grants', a
   const persisted = await store.get('task-1');
   assert.equal(persisted?.task.state, 'review');
   assert.equal((await runtimeStateStore.read(persisted!)).state, 'idle');
+});
+
+test('provider checkpoint pausa task e aprovação explícita persiste continuação', async (t) => {
+  const provider = new StubProvider(async (request) => {
+    if (request.continuationInstruction) {
+      return {
+        providerId: 'codex',
+        outcome: 'succeeded',
+        summary: 'Continued successfully',
+      };
+    }
+
+    return {
+      providerId: 'codex',
+      outcome: 'checkpoint',
+      summary: 'Approval required',
+      checkpoint: {
+        summary: 'Allow workspace write before continuing.',
+        requiredCapabilities: ['workspace:write'],
+      },
+    };
+  });
+  const { runtime, store, auditStore } = await fixture(t, provider);
+
+  const paused = await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  assert.equal(paused.task.task.state, 'checkpoint');
+  assert.equal(paused.execution.state, 'checkpoint');
+  assert.equal(paused.checkpoint?.id, 'checkpoint-1');
+  assert.equal(paused.checkpoint?.status, 'pending');
+  assert.equal((await auditStore.snapshot('task-1')).checkpoints.length, 1);
+
+  const approved = await runtime.resolveCheckpoint(
+    'project-1',
+    'task-1',
+    'checkpoint-1',
+    'approved',
+    'Continue with the requested workspace change.',
+  );
+
+  assert.equal(approved.task.task.state, 'queued');
+  assert.equal(
+    approved.task.task.continuationInstruction,
+    'Continue with the requested workspace change.',
+  );
+  assert.equal(approved.checkpoint.status, 'approved');
+
+  const continued = await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  assert.equal(continued.task.task.state, 'review');
+  assert.equal(
+    provider.lastRequest?.continuationInstruction,
+    'Continue with the requested workspace change.',
+  );
+  assert.equal(
+    (await store.get('task-1'))?.task.continuationInstruction,
+    undefined,
+  );
+});
+
+test('rejected checkpoint blocks task and pending checkpoint prevents execution', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'checkpoint',
+    summary: 'Approval required',
+    checkpoint: {
+      summary: 'Need permission.',
+      requiredCapabilities: [],
+    },
+  }));
+  const { runtime } = await fixture(t, provider);
+
+  await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_TASK_NOT_RUNNABLE',
+  );
+
+  const rejected = await runtime.resolveCheckpoint(
+    'project-1',
+    'task-1',
+    'checkpoint-1',
+    'rejected',
+  );
+  assert.equal(rejected.task.task.state, 'blocked');
+
+  await assert.rejects(
+    () =>
+      runtime.resolveCheckpoint(
+        'project-1',
+        'task-1',
+        'checkpoint-1',
+        'approved',
+      ),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING',
+  );
 });
 
 test('ambiguous provider result blocks the task and cannot use automatic retry', async (t) => {

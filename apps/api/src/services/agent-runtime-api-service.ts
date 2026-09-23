@@ -5,12 +5,14 @@ import type {
   AgentAuthorization,
   AgentAuditStore,
   AgentCapability,
+  AgentCheckpointStatus,
   AgentProviderId,
   AgentProviderRegistry,
   AgentProviderStatus,
   AgentTask,
   AgentTaskRecord,
   AgentTaskStore,
+  AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowTaskStatus,
 } from '@dev-dashboard/agent-runtime';
@@ -62,6 +64,13 @@ export interface AgentRuntimeApiServicePort {
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
   recover(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
+  resolveCheckpoint(
+    projectId: string,
+    taskId: string,
+    checkpointId: string,
+    status: Exclude<AgentCheckpointStatus, 'pending'>,
+    continuationInstruction?: string,
+  ): Promise<AgentWorkflowCheckpointResolution>;
   activity(projectId: string, taskId: string): Promise<AgentAuditSnapshot>;
   setAuthorization(
     projectId: string,
@@ -84,7 +93,13 @@ export interface AgentRuntimeApiServiceOptions {
   providerRegistry: AgentProviderRegistry;
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
-    'status' | 'execute' | 'cancel' | 'retry' | 'recover' | 'shutdown'
+    | 'status'
+    | 'execute'
+    | 'cancel'
+    | 'retry'
+    | 'recover'
+    | 'resolveCheckpoint'
+    | 'shutdown'
   >;
   projectStore: Pick<ProjectStore, 'findProject'>;
   developmentEnvironmentInstanceStore: Pick<
@@ -279,6 +294,25 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       this.options.workflowRuntime.recover(projectId, taskId),
     );
     return this.options.workflowRuntime.status(projectId, taskId);
+  }
+
+  public async resolveCheckpoint(
+    projectId: string,
+    taskId: string,
+    checkpointId: string,
+    status: Exclude<AgentCheckpointStatus, 'pending'>,
+    continuationInstruction?: string,
+  ): Promise<AgentWorkflowCheckpointResolution> {
+    await this.getTask(projectId, taskId);
+    return this.withRuntimeErrors(() =>
+      this.options.workflowRuntime.resolveCheckpoint(
+        projectId,
+        taskId,
+        checkpointId,
+        status,
+        continuationInstruction,
+      ),
+    );
   }
 
   public async activity(

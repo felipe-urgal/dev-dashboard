@@ -40,6 +40,7 @@ test('Agent realtime entrega snapshot inicial, deduplica e faz detach sem cancel
       calls.push('activity');
       return {
         authorizations: [],
+        checkpoints: [],
         events: [],
         evidence: [],
       };
@@ -110,6 +111,7 @@ test('Agent realtime shutdown desconecta feeds sem mutar task', async () => {
     },
     activity: async () => ({
       authorizations: [],
+      checkpoints: [],
       events: [],
       evidence: [],
     }),
