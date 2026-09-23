@@ -1,4 +1,9 @@
 import type { AgentConcreteProviderId } from './contracts.js';
+import {
+  AgentCliProcessError,
+  runAgentCliProcess,
+  type AgentCliProcessRunner,
+} from './cli-process.js';
 
 export type AgentIntegrationKind =
   'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
@@ -13,6 +18,187 @@ export type AgentIntegrationOperation =
   | 'disable'
   | 'uninstall'
   | 'authenticate';
+
+
+export interface AgentIntegration {
+  id: string;
+  providerId: AgentConcreteProviderId;
+  kind: AgentIntegrationKind;
+  name: string;
+  enabled?: boolean;
+  authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
+}
+
+export interface AgentIntegrationListRequest {
+  cwd: string;
+}
+
+export interface AgentIntegrationProvider {
+  readonly id: AgentConcreteProviderId;
+  list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]>;
+}
+
+export interface AgentIntegrationProviderRegistry {
+  get(providerId: AgentConcreteProviderId): AgentIntegrationProvider | null;
+  list(): AgentIntegrationProvider[];
+}
+
+export class AgentIntegrationDiscoveryError extends Error {
+  constructor(
+    readonly code:
+      | 'provider-unavailable'
+      | 'command-failed'
+      | 'invalid-response',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'AgentIntegrationDiscoveryError';
+  }
+}
+
+export class StaticAgentIntegrationProviderRegistry
+  implements AgentIntegrationProviderRegistry
+{
+  private readonly providers = new Map<
+    AgentConcreteProviderId,
+    AgentIntegrationProvider
+  >();
+
+  constructor(providers: readonly AgentIntegrationProvider[]) {
+    for (const provider of providers) {
+      if (this.providers.has(provider.id)) {
+        throw new Error('duplicate integration provider: ' + provider.id);
+      }
+      this.providers.set(provider.id, provider);
+    }
+  }
+
+  get(providerId: AgentConcreteProviderId): AgentIntegrationProvider | null {
+    return this.providers.get(providerId) ?? null;
+  }
+
+  list(): AgentIntegrationProvider[] {
+    return [...this.providers.values()];
+  }
+}
+
+interface CodexMcpIntegrationProviderOptions {
+  command?: string;
+  runProcess?: AgentCliProcessRunner;
+  timeoutMs?: number;
+}
+
+function normalizeAuthStatus(
+  value: unknown,
+): AgentIntegration['authStatus'] | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (
+    value === 'authenticated' ||
+    value === 'unauthenticated' ||
+    value === 'unsupported'
+  ) {
+    return value;
+  }
+  return 'unknown';
+}
+
+export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
+  readonly id = 'codex' as const;
+  private readonly command: string;
+  private readonly runProcess: AgentCliProcessRunner;
+  private readonly timeoutMs: number;
+
+  constructor(options: CodexMcpIntegrationProviderOptions = {}) {
+    this.command = options.command ?? 'codex';
+    this.runProcess = options.runProcess ?? runAgentCliProcess;
+    this.timeoutMs = options.timeoutMs ?? 10_000;
+  }
+
+  async list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]> {
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: ['mcp', 'list', '--json'],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Codex MCP discovery',
+      });
+    } catch (error) {
+      if (error instanceof AgentCliProcessError && error.code === 'spawn-failed') {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Codex command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP discovery failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP discovery returned a non-zero result.',
+      );
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(result.stdout);
+    } catch {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Codex MCP discovery returned invalid JSON.',
+      );
+    }
+
+    if (!Array.isArray(payload)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Codex MCP discovery returned an unexpected payload.',
+      );
+    }
+
+    return payload.map((entry, index) => {
+      if (
+        !entry ||
+        typeof entry !== 'object' ||
+        typeof (entry as { name?: unknown }).name !== 'string' ||
+        !(entry as { name: string }).name.trim()
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'invalid-response',
+          'Codex MCP discovery returned an invalid server at index ' + index + '.',
+        );
+      }
+
+      const item = entry as {
+        name: string;
+        enabled?: unknown;
+        auth_status?: unknown;
+      };
+      const name = item.name.trim();
+      const authStatus = normalizeAuthStatus(item.auth_status);
+
+      return {
+        id: 'codex:mcp-server:' + name,
+        providerId: 'codex',
+        kind: 'mcp-server',
+        name,
+        ...(typeof item.enabled === 'boolean' ? { enabled: item.enabled } : {}),
+        ...(authStatus ? { authStatus } : {}),
+      };
+    });
+  }
+}
+
+export function createDefaultAgentIntegrationProviderRegistry(): AgentIntegrationProviderRegistry {
+  return new StaticAgentIntegrationProviderRegistry([
+    new CodexMcpIntegrationProvider(),
+  ]);
+}
 
 export interface AgentIntegrationCapability {
   kind: AgentIntegrationKind;
