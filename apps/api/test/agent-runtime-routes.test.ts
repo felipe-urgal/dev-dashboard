@@ -130,9 +130,7 @@ function service(
         requiredCapabilities: ['workspace:write'],
         createdAt: '2026-09-23T10:04:00.000Z',
         resolvedAt: '2026-09-23T10:05:00.000Z',
-        ...(continuationInstruction
-          ? { continuationInstruction }
-          : {}),
+        ...(continuationInstruction ? { continuationInstruction } : {}),
       },
     }),
     activity: async () => ({
@@ -395,7 +393,6 @@ test('Agent Runtime HTTP expõe autorização específica e activity bounded', a
   assert.equal(invalid.statusCode, 400);
 });
 
-
 test('Agent Runtime HTTP resolve checkpoint exige decisão explícita e sanitiza payload', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
@@ -436,13 +433,7 @@ test('Agent Runtime HTTP resolve checkpoint exige decisão explícita e sanitiza
   });
   assert.equal(response.statusCode, 200);
   assert.deepEqual(calls, [
-    [
-      'project-1',
-      'task-1',
-      'checkpoint-1',
-      'approved',
-      'Continue with tests.',
-    ],
+    ['project-1', 'task-1', 'checkpoint-1', 'approved', 'Continue with tests.'],
   ]);
 
   const invalid = await app.inject({

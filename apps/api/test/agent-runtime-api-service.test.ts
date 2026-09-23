@@ -438,7 +438,6 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
   assert.equal(writes.length, 1);
 });
 
-
 test('AgentRuntimeApiService resolve checkpoint somente via workflow backend-owned', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(
@@ -509,12 +508,6 @@ test('AgentRuntimeApiService resolve checkpoint somente via workflow backend-own
 
   assert.equal(result.checkpoint.status, 'approved');
   assert.deepEqual(calls, [
-    [
-      'project-1',
-      'task-1',
-      'checkpoint-1',
-      'approved',
-      'Continue safely.',
-    ],
+    ['project-1', 'task-1', 'checkpoint-1', 'approved', 'Continue safely.'],
   ]);
 });
