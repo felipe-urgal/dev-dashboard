@@ -7,7 +7,7 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-test('Agent realtime entrega snapshot inicial, deduplica e detach não cancela runtime', async () => {
+test('Agent realtime entrega snapshot inicial, deduplica e faz detach sem cancelar runtime', async () => {
   let version = 1;
   const calls: string[] = [];
   const reader = {
