@@ -201,6 +201,7 @@ export {
 } from './workflow-runtime.js';
 export type {
   AgentWorkflowExecuteRequest,
+  AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowRuntimeErrorCode,
   AgentWorkflowRuntimeOptions,
