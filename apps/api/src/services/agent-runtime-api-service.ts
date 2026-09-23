@@ -76,7 +76,10 @@ export interface AgentRuntimeApiServiceOptions {
   taskStore: AgentTaskStore;
   auditStore: Pick<
     AgentAuditStore,
-    'snapshot' | 'listAuthorizations' | 'setAuthorization' | 'appendExecutionResult'
+    | 'snapshot'
+    | 'listAuthorizations'
+    | 'setAuthorization'
+    | 'appendExecutionResult'
   >;
   providerRegistry: AgentProviderRegistry;
   workflowRuntime: Pick<

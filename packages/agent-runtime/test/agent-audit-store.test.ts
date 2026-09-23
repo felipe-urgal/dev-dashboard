@@ -68,7 +68,9 @@ test('AgentAuditStore persiste autorização atual e audit trail bounded', async
   assert.equal(snapshot.events[2]?.id, 'event-4');
 
   const auditDir = path.join(root, 'audit');
-  const [name] = await import('node:fs/promises').then((fs) => fs.readdir(auditDir));
+  const [name] = await import('node:fs/promises').then((fs) =>
+    fs.readdir(auditDir),
+  );
   assert.ok(name);
   const mode = (await stat(path.join(auditDir, name!))).mode & 0o777;
   assert.equal(mode, 0o600);

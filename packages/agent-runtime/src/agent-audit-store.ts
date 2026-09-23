@@ -39,8 +39,7 @@ export interface AgentAuditStoreOptions {
 }
 
 export type AgentAuditStoreErrorCode =
-  | 'AGENT_AUDIT_INVALID'
-  | 'AGENT_AUDIT_CORRUPT';
+  'AGENT_AUDIT_INVALID' | 'AGENT_AUDIT_CORRUPT';
 
 export class AgentAuditStoreError extends Error {
   public constructor(
@@ -98,7 +97,10 @@ function assertSummary(value: string): void {
   }
 }
 
-function isAuthorization(value: unknown, taskId: string): value is AgentAuthorization {
+function isAuthorization(
+  value: unknown,
+  taskId: string,
+): value is AgentAuthorization {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AgentAuthorization>;
   return (
@@ -250,9 +252,7 @@ export class AgentAuditStore {
           (current) => current.capability !== capability,
         ),
         authorization,
-      ].sort((left, right) =>
-        left.capability.localeCompare(right.capability),
-      );
+      ].sort((left, right) => left.capability.localeCompare(right.capability));
 
       state.events.push({
         id: this.requireEventId(),
@@ -382,7 +382,9 @@ export class AgentAuditStore {
       candidate.version !== STORE_VERSION ||
       candidate.taskId !== taskId ||
       !Array.isArray(candidate.authorizations) ||
-      !candidate.authorizations.every((item) => isAuthorization(item, taskId)) ||
+      !candidate.authorizations.every((item) =>
+        isAuthorization(item, taskId),
+      ) ||
       !Array.isArray(candidate.events) ||
       !candidate.events.every((item) => isEvent(item, taskId)) ||
       !Array.isArray(candidate.evidence) ||
@@ -418,14 +420,12 @@ export class AgentAuditStore {
       await fs.chmod(target, 0o600);
     } finally {
       await fs.unlink(temporary).catch((error: unknown) => {
-        if (
-          !(
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            (error as { code?: unknown }).code === 'ENOENT'
-          )
-        ) {
+        if (!(
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code?: unknown }).code === 'ENOENT'
+        )) {
           throw error;
         }
       });
