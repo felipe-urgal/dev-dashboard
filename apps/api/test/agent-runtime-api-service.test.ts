@@ -7,6 +7,7 @@ import type {
   AgentTask,
   AgentTaskRecord,
   AgentTaskStore,
+  AgentUsageRecord,
 } from '@dev-dashboard/agent-runtime';
 
 import {
@@ -267,6 +268,7 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
   let executeRequest: unknown;
   let auditWrite: unknown;
   const activityWrites: unknown[] = [];
+  const usageWrites: AgentUsageRecord[] = [];
   const service = new AgentRuntimeApiService({
     taskStore,
     auditStore: {
@@ -298,6 +300,12 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
             providerId: 'codex',
             state: 'succeeded',
             finishedAt: '2026-09-23T11:02:00.000Z',
+            usage: {
+              providerId: 'codex',
+              source: 'provider',
+              inputTokens: 100,
+              outputTokens: 20,
+            },
           },
           task: (await taskStore.get('task-1'))!,
           providerResult: {
@@ -344,6 +352,12 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
         };
       },
     },
+    usageStore: {
+      append: async (record) => {
+        usageWrites.push(record);
+        return record;
+      },
+    },
   });
 
   const result = await service.execute('project-1', 'task-1', 'codex');
@@ -370,6 +384,21 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
     '2026-09-23T11:02:00.000Z',
     result.providerResult.evidence,
   ]);
+  assert.deepEqual(usageWrites, [
+    {
+      executionId: 'execution-1',
+      taskId: 'task-1',
+      projectId: 'project-1',
+      providerId: 'codex',
+      observedAt: '2026-09-23T11:02:00.000Z',
+      usage: {
+        providerId: 'codex',
+        source: 'provider',
+        inputTokens: 100,
+        outputTokens: 20,
+      },
+    },
+  ]);
   assert.deepEqual(
     activityWrites.map((value) => (value as { type: string }).type),
     [
@@ -382,6 +411,79 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
   assert.equal(serializedActivity.includes('Executar task'), false);
   assert.equal(serializedActivity.includes('Concluído.'), false);
   assert.equal(serializedActivity.includes('Testes passaram.'), false);
+});
+
+test('AgentRuntimeApiService não transforma falha de usage em falha da execução', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'queued',
+      summary: 'Executar task',
+      requestedCapabilities: [],
+      createdAt: '2026-09-23T11:00:00.000Z',
+      updatedAt: '2026-09-23T11:00:00.000Z',
+    },
+    null,
+  );
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => ({
+        execution: {
+          id: 'execution-1',
+          taskId: 'task-1',
+          projectId: 'project-1',
+          providerId: 'claude-code',
+          state: 'succeeded',
+          finishedAt: '2026-09-23T11:02:00.000Z',
+          usage: {
+            providerId: 'claude-code',
+            source: 'provider',
+            reportedCost: { amount: 0.02, currency: 'USD' },
+          },
+        },
+        task: (await taskStore.get('task-1'))!,
+        providerResult: {
+          providerId: 'claude-code',
+          outcome: 'succeeded',
+          summary: 'Concluído.',
+        },
+      }),
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    usageStore: {
+      append: async () => {
+        throw new Error('disk unavailable');
+      },
+    },
+  });
+
+  const result = await service.execute('project-1', 'task-1', 'claude-code');
+  assert.equal(result.execution.state, 'succeeded');
 });
 
 test('AgentRuntimeApiService só autoriza capability solicitada pela task', async () => {

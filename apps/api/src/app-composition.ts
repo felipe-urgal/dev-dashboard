@@ -6,6 +6,7 @@ import {
   AgentAuditStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
+  AgentUsageStore,
   AgentWorkflowRuntime,
   GitAgentTaskStore,
   createLocalAgentProviderRegistry,
@@ -310,6 +311,7 @@ function createAgentRuntimeApiService(
     repositoryDirectory: path.join(stateDirectory, 'tasks'),
   });
   const auditStore = new AgentAuditStore({ stateDirectory });
+  const usageStore = new AgentUsageStore({ stateDirectory });
   const providerRegistry = createLocalAgentProviderRegistry({
     resolveCwd: (request) => {
       const executionContext =
@@ -354,6 +356,7 @@ function createAgentRuntimeApiService(
     taskContextRepository: context.taskContextRepository,
     taskContextSnapshotReader: taskContextService,
     activityEventStore: context.activityEventRepository,
+    usageStore,
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),
