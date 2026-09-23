@@ -120,6 +120,7 @@ const usagePeriod = ref<'all' | '24h' | '7d' | '30d'>('all');
 const budget = ref<AgentBudgetOverview | null>(null);
 const budgetTokens = ref('');
 const budgetCost = ref('');
+const budgetMode = ref<'soft' | 'hard'>('soft');
 const loading = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
@@ -274,7 +275,8 @@ const canExecute = computed(
     !executing.value &&
     !mutating.value &&
     currentProvider.value !== null &&
-    currentProvider.value.availability !== 'unavailable',
+    currentProvider.value.availability !== 'unavailable' &&
+    !budget.value?.blocking,
 );
 
 const canCreate = computed(
@@ -311,6 +313,7 @@ function syncBudgetInputs(next: AgentBudgetOverview): void {
     next.budget?.maxEstimatedCostUsd !== undefined
       ? String(next.budget.maxEstimatedCostUsd)
       : '';
+  budgetMode.value = next.budget?.mode ?? 'soft';
 }
 
 const usageHasMetrics = computed(() => {
@@ -471,6 +474,7 @@ async function loadTask(
     budget.value = null;
     budgetTokens.value = '';
     budgetCost.value = '';
+    budgetMode.value = 'soft';
     closeSocket();
     return;
   }
@@ -584,6 +588,7 @@ async function selectTask(taskId: string): Promise<void> {
   budget.value = null;
   budgetTokens.value = '';
   budgetCost.value = '';
+  budgetMode.value = 'soft';
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -668,7 +673,7 @@ async function saveBudget(): Promise<void> {
     : undefined;
 
   if (maxTotalTokens === undefined && maxEstimatedCostUsd === undefined) {
-    errorMessage.value = 'Informe pelo menos um limite de soft budget.';
+    errorMessage.value = 'Informe pelo menos um limite de budget.';
     return;
   }
 
@@ -679,13 +684,14 @@ async function saveBudget(): Promise<void> {
       await setAgentBudget(props.project.id, record.task.id, {
         ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
         ...(maxEstimatedCostUsd !== undefined ? { maxEstimatedCostUsd } : {}),
+        mode: budgetMode.value,
       }),
     );
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível salvar o soft budget.';
+        : 'Não foi possível salvar o budget.';
   } finally {
     mutating.value = false;
   }
@@ -702,7 +708,7 @@ async function clearBudget(): Promise<void> {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível remover o soft budget.';
+        : 'Não foi possível remover o budget.';
   } finally {
     mutating.value = false;
   }
@@ -1147,14 +1153,25 @@ onBeforeUnmount(() => {
             <div class="agent-budget">
               <div class="agent-budget-heading">
                 <div>
-                  <small>Soft budget</small>
-                  <strong>Alerta sem interromper a execução</strong>
+                  <small>Budget</small>
+                  <strong>{{
+                    budgetMode === 'hard'
+                      ? 'Bloqueia nova execução ao atingir o limite'
+                      : 'Alerta sem interromper a execução'
+                  }}</strong>
                 </div>
                 <StatusBadge v-if="budgetAlertMessage" tone="warning">
                   Limite atingido
                 </StatusBadge>
               </div>
               <div class="agent-budget-fields">
+                <label>
+                  <span>Modo</span>
+                  <select v-model="budgetMode">
+                    <option value="soft">Soft · só alerta</option>
+                    <option value="hard">Hard · bloqueia nova execução</option>
+                  </select>
+                </label>
                 <label>
                   <span>Total de tokens</span>
                   <input
@@ -1197,9 +1214,13 @@ onBeforeUnmount(() => {
               </div>
               <p v-if="budgetAlertMessage" class="agent-budget-alert">
                 {{ budgetAlertMessage }}
+                <template v-if="budget?.blocking">
+                  · Nova execução bloqueada até ajustar ou remover o budget.
+                </template>
               </p>
               <p v-else class="agent-hint">
-                O budget é somente informativo: não cancela nem altera recovery.
+                Hard budget é verificado antes do provider iniciar; nunca cancela
+                uma execução em andamento nem altera recovery.
               </p>
             </div>
 
@@ -1914,7 +1935,8 @@ onBeforeUnmount(() => {
   gap: 5px;
 }
 
-.agent-budget-fields input {
+.agent-budget-fields input,
+.agent-budget-fields select {
   min-height: 34px;
   box-sizing: border-box;
   padding: 0 9px;
