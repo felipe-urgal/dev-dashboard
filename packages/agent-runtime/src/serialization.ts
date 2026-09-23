@@ -154,6 +154,9 @@ export function deserializeAgentTask(serialized: string): AgentTask {
   if (environmentInstanceId !== undefined) {
     task.environmentInstanceId = environmentInstanceId;
   }
+  if (taskContextId !== undefined) {
+    task.taskContextId = taskContextId;
+  }
 
   return task;
 }
