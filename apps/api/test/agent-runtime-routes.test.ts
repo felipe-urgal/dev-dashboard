@@ -365,7 +365,10 @@ test('Agent Runtime HTTP expõe usage agregado por projeto e task', async (conte
     url: '/api/projects/project-1/agent/tasks/task-1/usage',
   });
   assert.equal(taskUsage.statusCode, 200);
-  assert.equal(taskUsage.json().byProvider['claude-code'].reportedCostUsd, 0.02);
+  assert.equal(
+    taskUsage.json().byProvider['claude-code'].reportedCostUsd,
+    0.02,
+  );
   assert.deepEqual(calls, [
     ['project-1', undefined],
     ['project-1', 'task-1'],

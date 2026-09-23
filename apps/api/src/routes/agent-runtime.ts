@@ -58,7 +58,11 @@ const providerIds = [
   'claude-code',
   'chatgpt-browser',
 ] as const;
-const concreteProviderIds = ['codex', 'claude-code', 'chatgpt-browser'] as const;
+const concreteProviderIds = [
+  'codex',
+  'claude-code',
+  'chatgpt-browser',
+] as const;
 const capabilities = [
   'workspace:write',
   'git:commit',

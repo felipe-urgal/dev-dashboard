@@ -62,7 +62,9 @@ export interface AgentTaskCreateInput {
 
 export interface AgentUsageOverview {
   total: AgentUsageSummary;
-  byProvider: Partial<Record<'codex' | 'claude-code' | 'chatgpt-browser', AgentUsageSummary>>;
+  byProvider: Partial<
+    Record<'codex' | 'claude-code' | 'chatgpt-browser', AgentUsageSummary>
+  >;
 }
 
 export interface AgentRuntimeApiServicePort {
@@ -584,9 +586,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       total,
       byProvider: {
         ...(codex.executionCount > 0 ? { codex } : {}),
-        ...(claudeCode.executionCount > 0
-          ? { 'claude-code': claudeCode }
-          : {}),
+        ...(claudeCode.executionCount > 0 ? { 'claude-code': claudeCode } : {}),
         ...(chatgptBrowser.executionCount > 0
           ? { 'chatgpt-browser': chatgptBrowser }
           : {}),
