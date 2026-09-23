@@ -12,6 +12,7 @@ import type {
 import type {
   AgentAuditSnapshot,
   AgentAuthorization,
+  AgentTaskBudget,
   AgentAuditStore,
   AgentCapability,
   AgentCheckpointStatus,
@@ -67,6 +68,23 @@ export interface AgentUsageOverview {
   >;
 }
 
+export interface AgentTaskBudgetInput {
+  maxTotalTokens?: number;
+  maxEstimatedCostUsd?: number;
+}
+
+export interface AgentBudgetAlert {
+  kind: 'total-tokens' | 'estimated-cost-usd';
+  observed: number;
+  threshold: number;
+}
+
+export interface AgentBudgetOverview {
+  budget: AgentTaskBudget | null;
+  usage: AgentUsageSummary;
+  alerts: AgentBudgetAlert[];
+}
+
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
@@ -93,6 +111,13 @@ export interface AgentRuntimeApiServicePort {
   ): Promise<AgentWorkflowCheckpointResolution>;
   activity(projectId: string, taskId: string): Promise<AgentAuditSnapshot>;
   usage(projectId: string, taskId?: string): Promise<AgentUsageOverview>;
+  budget(projectId: string, taskId: string): Promise<AgentBudgetOverview>;
+  setBudget(
+    projectId: string,
+    taskId: string,
+    input: AgentTaskBudgetInput,
+  ): Promise<AgentBudgetOverview>;
+  clearBudget(projectId: string, taskId: string): Promise<AgentBudgetOverview>;
   setAuthorization(
     projectId: string,
     taskId: string,
@@ -144,6 +169,11 @@ export interface AgentRuntimeApiServiceOptions {
       taskId?: string;
       providerId?: 'codex' | 'claude-code' | 'chatgpt-browser';
     }): Promise<AgentUsageSummary>;
+  };
+  budgetStore?: {
+    get(projectId: string, taskId: string): Promise<AgentTaskBudget | null>;
+    set(budget: AgentTaskBudget): Promise<AgentTaskBudget>;
+    clear(projectId: string, taskId: string): Promise<void>;
   };
   now?: () => string;
   createTaskId?: () => string;
@@ -592,6 +622,103 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           : {}),
       },
     };
+  }
+
+  public async budget(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentBudgetOverview> {
+    await this.getTask(projectId, taskId);
+    const [budget, usage] = await Promise.all([
+      this.options.budgetStore?.get(projectId, taskId) ?? Promise.resolve(null),
+      this.options.usageStore?.summary?.({ projectId, taskId }) ??
+        Promise.resolve({ executionCount: 0 }),
+    ]);
+
+    return {
+      budget,
+      usage,
+      alerts: this.evaluateBudgetAlerts(budget, usage),
+    };
+  }
+
+  public async setBudget(
+    projectId: string,
+    taskId: string,
+    input: AgentTaskBudgetInput,
+  ): Promise<AgentBudgetOverview> {
+    await this.getTask(projectId, taskId);
+    const maxTotalTokens = input.maxTotalTokens;
+    const maxEstimatedCostUsd = input.maxEstimatedCostUsd;
+    if (
+      (maxTotalTokens === undefined && maxEstimatedCostUsd === undefined) ||
+      (maxTotalTokens !== undefined &&
+        (!Number.isSafeInteger(maxTotalTokens) || maxTotalTokens <= 0)) ||
+      (maxEstimatedCostUsd !== undefined &&
+        (!Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0))
+    ) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task soft budget is invalid.',
+      );
+    }
+    if (!this.options.budgetStore) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task soft budgets are unavailable.',
+      );
+    }
+
+    await this.options.budgetStore.set({
+      projectId,
+      taskId,
+      ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
+      ...(maxEstimatedCostUsd !== undefined
+        ? { maxEstimatedCostUsd }
+        : {}),
+      updatedAt: this.now(),
+    });
+    return this.budget(projectId, taskId);
+  }
+
+  public async clearBudget(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentBudgetOverview> {
+    await this.getTask(projectId, taskId);
+    await this.options.budgetStore?.clear(projectId, taskId);
+    return this.budget(projectId, taskId);
+  }
+
+  private evaluateBudgetAlerts(
+    budget: AgentTaskBudget | null,
+    usage: AgentUsageSummary,
+  ): AgentBudgetAlert[] {
+    if (!budget) return [];
+    const alerts: AgentBudgetAlert[] = [];
+    if (
+      budget.maxTotalTokens !== undefined &&
+      usage.totalTokens !== undefined &&
+      usage.totalTokens >= budget.maxTotalTokens
+    ) {
+      alerts.push({
+        kind: 'total-tokens',
+        observed: usage.totalTokens,
+        threshold: budget.maxTotalTokens,
+      });
+    }
+    if (
+      budget.maxEstimatedCostUsd !== undefined &&
+      usage.estimatedCostUsd !== undefined &&
+      usage.estimatedCostUsd >= budget.maxEstimatedCostUsd
+    ) {
+      alerts.push({
+        kind: 'estimated-cost-usd',
+        observed: usage.estimatedCostUsd,
+        threshold: budget.maxEstimatedCostUsd,
+      });
+    }
+    return alerts;
   }
 
   public async setAuthorization(
