@@ -47,6 +47,9 @@ export interface ActivityJob {
   taskContextId?: string;
   providerId?: 'codex' | 'claude-code' | 'chatgpt-browser';
   stage?: string;
+  stageStartedAt?: string;
+  attempts?: number;
+  timingIncomplete?: boolean;
   cancelSupported: boolean;
 }
 
