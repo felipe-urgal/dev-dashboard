@@ -490,11 +490,6 @@ function claudeUsageFromJsonl(stdout: string): AgentUsage | undefined {
           cachedInputTokens,
           cacheWriteInputTokens,
           outputTokens,
-          totalTokens:
-            inputTokens +
-            cachedInputTokens +
-            cacheWriteInputTokens +
-            outputTokens,
         }
       : {}),
     ...(reportedCost ? { reportedCost } : {}),
