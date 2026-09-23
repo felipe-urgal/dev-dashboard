@@ -91,7 +91,7 @@ test('creates a private canonical Git store and versions task updates', async (t
   assert.match(marker, /dev-dashboard-agent-runtime/u);
 });
 
-test('persiste Task Context junto da task e recupera após reabrir o store', async (t) => {
+test('persiste vínculo com Task Context e recupera após reabrir o store', async (t) => {
   const { repositoryDirectory, store } = await fixture(t);
 
   await store.save(
