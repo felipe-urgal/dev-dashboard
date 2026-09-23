@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
 import {
   AgentUsageStore,
@@ -10,7 +10,7 @@ import {
   type AgentUsageRecord,
 } from '../src/index.js';
 
-async function tempDirectory(t: test.TestContext): Promise<string> {
+async function tempDirectory(t: TestContext): Promise<string> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-usage-'));
   t.after(async () => {
     await fs.rm(directory, { recursive: true, force: true });
