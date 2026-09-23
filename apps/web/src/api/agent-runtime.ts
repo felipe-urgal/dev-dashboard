@@ -1,10 +1,7 @@
 import { requestJson } from './core';
 
 export type AgentProviderId =
-  | 'automatic'
-  | 'codex'
-  | 'claude-code'
-  | 'chatgpt-browser';
+  'automatic' | 'codex' | 'claude-code' | 'chatgpt-browser';
 
 export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 
@@ -63,9 +60,7 @@ export interface AgentRuntimeState {
   startedAt?: string;
   updatedAt: string;
   lastReason?:
-    | 'process-interrupted'
-    | 'canonical-task-advanced'
-    | 'operator-recovered';
+    'process-interrupted' | 'canonical-task-advanced' | 'operator-recovered';
 }
 
 export interface AgentExecutionOwnership {
@@ -119,13 +114,7 @@ export interface AgentEvidence {
   taskId: string;
   executionId?: string;
   kind:
-    | 'diff'
-    | 'test'
-    | 'log'
-    | 'commit'
-    | 'pull-request'
-    | 'readiness'
-    | 'other';
+    'diff' | 'test' | 'log' | 'commit' | 'pull-request' | 'readiness' | 'other';
   summary: string;
   reference?: string;
   observedAt: string;
@@ -164,12 +153,7 @@ export interface AgentExecution {
 
 export interface AgentProviderResult {
   providerId: AgentConcreteProviderId;
-  outcome:
-    | 'checkpoint'
-    | 'succeeded'
-    | 'failed'
-    | 'cancelled'
-    | 'unknown';
+  outcome: 'checkpoint' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
   summary: string;
   evidence?: AgentEvidence[];
   failure?: {
@@ -210,7 +194,8 @@ function taskPath(projectId: string, taskId?: string): string {
 }
 
 export async function fetchAgentProviders(): Promise<AgentProviderStatus[]> {
-  return (await requestJson<ProvidersResponse>('/api/agent/providers')).providers;
+  return (await requestJson<ProvidersResponse>('/api/agent/providers'))
+    .providers;
 }
 
 export async function fetchAgentTasks(
