@@ -551,9 +551,7 @@ test.describe('Qualificação da aba Agente', () => {
     await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
   });
 
-  test('runtime interrompido exige recover explícito', async ({
-    page,
-  }) => {
+  test('runtime interrompido exige recover explícito', async ({ page }) => {
     const observedAt = '2026-09-23T14:20:00.000Z';
     let projectId = '';
     let task: TaskRecord | null = null;
