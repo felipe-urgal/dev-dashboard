@@ -458,13 +458,14 @@ async function loadTask(
   }
 
   try {
-    const [nextStatus, nextActivity, nextUsage, nextBudget] =
-      await Promise.all([
+    const [nextStatus, nextActivity, nextUsage, nextBudget] = await Promise.all(
+      [
         fetchAgentTaskStatus(props.project.id, taskId),
         fetchAgentActivity(props.project.id, taskId),
         fetchAgentUsage(props.project.id, taskId),
         fetchAgentBudget(props.project.id, taskId),
-      ]);
+      ],
+    );
     if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
@@ -646,9 +647,7 @@ async function saveBudget(): Promise<void> {
     syncBudgetInputs(
       await setAgentBudget(props.project.id, record.task.id, {
         ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
-        ...(maxEstimatedCostUsd !== undefined
-          ? { maxEstimatedCostUsd }
-          : {}),
+        ...(maxEstimatedCostUsd !== undefined ? { maxEstimatedCostUsd } : {}),
       }),
     );
   } catch (error) {
@@ -667,9 +666,7 @@ async function clearBudget(): Promise<void> {
   mutating.value = true;
   errorMessage.value = '';
   try {
-    syncBudgetInputs(
-      await clearAgentBudget(props.project.id, record.task.id),
-    );
+    syncBudgetInputs(await clearAgentBudget(props.project.id, record.task.id));
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -1092,10 +1089,7 @@ onBeforeUnmount(() => {
                   <small>Soft budget</small>
                   <strong>Alerta sem interromper a execução</strong>
                 </div>
-                <StatusBadge
-                  v-if="budgetAlertMessage"
-                  tone="warning"
-                >
+                <StatusBadge v-if="budgetAlertMessage" tone="warning">
                   Limite atingido
                 </StatusBadge>
               </div>

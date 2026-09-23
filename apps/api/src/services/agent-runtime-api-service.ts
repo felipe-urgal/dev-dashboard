@@ -673,9 +673,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       projectId,
       taskId,
       ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
-      ...(maxEstimatedCostUsd !== undefined
-        ? { maxEstimatedCostUsd }
-        : {}),
+      ...(maxEstimatedCostUsd !== undefined ? { maxEstimatedCostUsd } : {}),
       updatedAt: this.now(),
     });
     return this.budget(projectId, taskId);

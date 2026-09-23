@@ -973,15 +973,13 @@ test('AgentRuntimeApiService avalia soft budget somente com métricas observadas
     null,
   );
 
-  let savedBudget:
-    | {
-        projectId: string;
-        taskId: string;
-        maxTotalTokens?: number;
-        maxEstimatedCostUsd?: number;
-        updatedAt: string;
-      }
-    | null = null;
+  let savedBudget: {
+    projectId: string;
+    taskId: string;
+    maxTotalTokens?: number;
+    maxEstimatedCostUsd?: number;
+    updatedAt: string;
+  } | null = null;
 
   const service = new AgentRuntimeApiService({
     taskStore,

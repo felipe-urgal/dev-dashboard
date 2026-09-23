@@ -25,8 +25,7 @@ export interface AgentBudgetStoreOptions {
 }
 
 export type AgentBudgetStoreErrorCode =
-  | 'AGENT_BUDGET_INVALID'
-  | 'AGENT_BUDGET_CORRUPT';
+  'AGENT_BUDGET_INVALID' | 'AGENT_BUDGET_CORRUPT';
 
 export class AgentBudgetStoreError extends Error {
   public constructor(

@@ -4,10 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { type TestContext } from 'node:test';
 
-import {
-  AgentBudgetStore,
-  AgentBudgetStoreError,
-} from '../src/index.js';
+import { AgentBudgetStore, AgentBudgetStoreError } from '../src/index.js';
 
 async function tempDirectory(t: TestContext): Promise<string> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-budget-'));
