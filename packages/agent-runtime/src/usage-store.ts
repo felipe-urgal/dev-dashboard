@@ -288,7 +288,9 @@ export class AgentUsageStore {
       executionCount: records.length,
       ...(inputTokens !== undefined ? { inputTokens } : {}),
       ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
-      ...(cacheWriteInputTokens !== undefined ? { cacheWriteInputTokens } : {}),
+      ...(cacheWriteInputTokens !== undefined
+        ? { cacheWriteInputTokens }
+        : {}),
       ...(outputTokens !== undefined ? { outputTokens } : {}),
       ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
       ...(totalTokens !== undefined ? { totalTokens } : {}),
