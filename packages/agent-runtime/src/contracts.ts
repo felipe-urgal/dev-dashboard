@@ -37,6 +37,7 @@ export interface AgentTask {
   environmentInstanceId?: string;
   state: AgentTaskState;
   summary: string;
+  continuationInstruction?: string;
   requestedCapabilities: AgentCapability[];
   createdAt: string;
   updatedAt: string;
