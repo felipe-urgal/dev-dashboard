@@ -358,6 +358,9 @@ function buildPrompt(
 
   return [
     summary,
+    ...(request.continuationInstruction
+      ? ['', 'Continuation instruction:', request.continuationInstruction.trim()]
+      : []),
     '',
     'Browser Local Tool Gateway:',
     '- Use only the structured tools exposed by the Browser Bridge.',
