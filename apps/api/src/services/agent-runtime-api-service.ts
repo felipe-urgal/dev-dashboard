@@ -9,11 +9,15 @@ import type {
   AppendActivityEventInput,
 } from '@dev-dashboard/core';
 
-import type {
-  AgentAuditSnapshot,
+import {
+  AgentIntegrationDiscoveryError,
+  type AgentAuditSnapshot,
   AgentAuthorization,
+  AgentConcreteProviderId,
+  AgentIntegration,
   AgentIntegrationCapabilityRegistry,
   AgentIntegrationProviderCapabilities,
+  AgentIntegrationProviderRegistry,
   AgentTaskBudget,
   AgentAuditStore,
   AgentCapability,
@@ -45,6 +49,8 @@ export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_TASK_NOT_FOUND'
   | 'AGENT_API_INVALID_REQUEST'
   | 'AGENT_API_BUDGET_EXCEEDED'
+  | 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
+  | 'AGENT_API_INTEGRATION_DISCOVERY_FAILED'
   | AgentWorkflowRuntimeErrorCode;
 
 export class AgentRuntimeApiServiceError extends Error {
@@ -98,6 +104,11 @@ export interface AgentBudgetOverview {
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
   listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[];
+  listIntegrations(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegration[]>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
   createTask(
     projectId: string,
@@ -153,6 +164,7 @@ export interface AgentRuntimeApiServiceOptions {
   >;
   providerRegistry: AgentProviderRegistry;
   integrationCapabilityRegistry?: AgentIntegrationCapabilityRegistry;
+  integrationProviderRegistry?: AgentIntegrationProviderRegistry;
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
     | 'status'
@@ -225,6 +237,47 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
   public listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[] {
     return this.options.integrationCapabilityRegistry?.list() ?? [];
+  }
+
+  public async listIntegrations(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegration[]> {
+    this.requireProject(projectId);
+    const provider = this.options.integrationProviderRegistry?.get(providerId);
+    if (!provider) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
+        'Agent integration discovery is unavailable for this provider.',
+      );
+    }
+
+    const executionContext =
+      this.options.developmentEnvironmentInstanceStore.resolveForProject(
+        projectId,
+        environmentInstanceId,
+      );
+    if (!executionContext || executionContext.runtime !== 'host') {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_ENVIRONMENT_NOT_FOUND',
+        'Development environment instance was not found for this project.',
+      );
+    }
+
+    try {
+      return await provider.list({ cwd: executionContext.cwd });
+    } catch (error) {
+      if (error instanceof AgentIntegrationDiscoveryError) {
+        throw new AgentRuntimeApiServiceError(
+          error.code === 'provider-unavailable'
+            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
+            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
+          error.message,
+        );
+      }
+      throw error;
+    }
   }
 
   public async listTasks(projectId: string): Promise<AgentTaskRecord[]> {
