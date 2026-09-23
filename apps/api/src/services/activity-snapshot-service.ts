@@ -10,16 +10,29 @@ import type {
   TestExecutionRecord,
 } from '@dev-dashboard/contracts';
 import type { ActivityEventRepository } from '@dev-dashboard/core';
+import type {
+  AgentAuditSnapshot,
+  AgentTaskRecord,
+  AgentWorkflowTaskStatus,
+} from '@dev-dashboard/agent-runtime';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 import type { GitMutationHistoryService } from './git-mutation-history-service.js';
 import type { ScriptExecutionService } from './script-execution-service.js';
 import type { TestExecutionHistoryService } from './test-execution-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import type { AgentRuntimeApiServicePort } from './agent-runtime-api-service.js';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 const ACTIVE_PROCESS_STATUSES = new Set(['starting', 'running', 'stopping']);
+const ACTIVE_AGENT_TASK_STATES = new Set([
+  'queued',
+  'running',
+  'checkpoint',
+  'blocked',
+  'failed',
+]);
 
 type ActivityEventStore = Pick<ActivityEventRepository, 'list'>;
 type GitHistoryReader = Pick<GitMutationHistoryService, 'history'>;
@@ -27,6 +40,10 @@ type TestHistoryReader = Pick<TestExecutionHistoryService, 'history'>;
 type ScriptHistoryReader = Pick<ScriptExecutionService, 'history'>;
 type ProcessReader = Pick<ProcessManager, 'listProcesses'>;
 type ProjectStoreView = Pick<ProjectStore, 'findProject' | 'listProjects'>;
+type AgentRuntimeReader = Pick<
+  AgentRuntimeApiServicePort,
+  'listTasks' | 'status' | 'activity'
+>;
 
 export interface ActivitySnapshotServiceDependencies {
   eventStore: ActivityEventStore;
@@ -35,6 +52,7 @@ export interface ActivitySnapshotServiceDependencies {
   scriptHistory: ScriptHistoryReader;
   processReader: ProcessReader;
   projectStore: ProjectStoreView;
+  agentRuntime?: AgentRuntimeReader;
   now?: () => Date;
 }
 
@@ -158,6 +176,53 @@ function scriptJob(execution: ScriptExecution): ActivityJob {
   };
 }
 
+function agentJobStatus(
+  record: AgentTaskRecord,
+): ActivityJob['status'] {
+  if (record.task.state === 'running') return 'running';
+  if (record.task.state === 'blocked' || record.task.state === 'failed') {
+    return 'failed';
+  }
+  return 'queued';
+}
+
+function latestAgentProvider(
+  activity: AgentAuditSnapshot | undefined,
+): ActivityJob['providerId'] | undefined {
+  if (!activity) return undefined;
+  for (let index = activity.events.length - 1; index >= 0; index -= 1) {
+    const providerId = activity.events[index]?.providerId;
+    if (providerId) return providerId;
+  }
+  return undefined;
+}
+
+function agentJob(
+  record: AgentTaskRecord,
+  status: AgentWorkflowTaskStatus,
+  activity?: AgentAuditSnapshot,
+): ActivityJob {
+  const providerId = latestAgentProvider(activity);
+  return {
+    id: `agent:${record.task.id}`,
+    projectId: record.task.projectId,
+    ...(record.task.environmentInstanceId
+      ? { environmentInstanceId: record.task.environmentInstanceId }
+      : {}),
+    domain: 'agent',
+    action: 'Agent task',
+    status: agentJobStatus(record),
+    startedAt: status.runtime.startedAt ?? record.task.createdAt,
+    resourceRef: { kind: 'agent-task', id: record.task.id },
+    ...(record.task.taskContextId
+      ? { taskContextId: record.task.taskContextId }
+      : {}),
+    ...(providerId ? { providerId } : {}),
+    stage: record.task.state,
+    cancelSupported: Boolean(status.activeExecution),
+  };
+}
+
 function pushUnavailable(
   unavailable: ActivityDomain[],
   domain: ActivityDomain,
@@ -232,6 +297,38 @@ export class ActivitySnapshotService {
     };
   }
 
+  private async readAgentJobs(
+    projectId: string,
+  ): Promise<Captured<ActivityJob[]>> {
+    const runtime = this.dependencies.agentRuntime;
+    if (!runtime) return { value: [], failed: false };
+
+    const tasks = await capture(() => runtime.listTasks(projectId));
+    if (tasks.failed || !tasks.value) return { failed: true };
+
+    const candidates = tasks.value.filter((record) =>
+      ACTIVE_AGENT_TASK_STATES.has(record.task.state),
+    );
+    let failed = false;
+    const jobs = (
+      await Promise.all(
+        candidates.map(async (record) => {
+          const [status, activity] = await Promise.all([
+            capture(() => runtime.status(projectId, record.task.id)),
+            capture(() => runtime.activity(projectId, record.task.id)),
+          ]);
+          if (status.failed || !status.value) {
+            failed = true;
+            return null;
+          }
+          return agentJob(record, status.value, activity.value);
+        }),
+      )
+    ).filter((job): job is ActivityJob => job !== null);
+
+    return { value: jobs, failed };
+  }
+
   private normalizeLimit(requestedLimit: number): number {
     return Math.min(Math.max(1, Math.trunc(requestedLimit)), MAX_LIMIT);
   }
@@ -241,12 +338,13 @@ export class ActivitySnapshotService {
     limit: number,
     processes: Captured<ManagedProcess[]>,
   ): Promise<ActivitySnapshot> {
-    const [git, tests, scripts] = await Promise.all([
+    const [git, tests, scripts, agentJobs] = await Promise.all([
       capture(() => this.dependencies.gitHistory.history(projectId, 1, limit)),
       capture(() => this.dependencies.testHistory.history(projectId, 1, limit)),
       capture(() =>
         this.dependencies.scriptHistory.history(projectId, 1, limit),
       ),
+      this.readAgentJobs(projectId),
     ]);
 
     const unavailableDomains: ActivityDomain[] = [];
@@ -254,6 +352,7 @@ export class ActivitySnapshotService {
     pushUnavailable(unavailableDomains, 'test', tests.failed);
     pushUnavailable(unavailableDomains, 'script', scripts.failed);
     pushUnavailable(unavailableDomains, 'process', processes.failed);
+    pushUnavailable(unavailableDomains, 'agent', agentJobs.failed);
 
     const events: ActivityEvent[] = [
       ...this.dependencies.eventStore.list({ projectId, limit }),
@@ -276,6 +375,7 @@ export class ActivitySnapshotService {
     const jobs = [
       ...activeProcesses.map(processJob),
       ...activeScripts.map(scriptJob),
+      ...(agentJobs.value ?? []),
     ].sort((left, right) =>
       (right.startedAt ?? '').localeCompare(left.startedAt ?? ''),
     );
