@@ -24,6 +24,7 @@ import {
   fetchAgentProviders,
   fetchAgentTasks,
   fetchAgentTaskStatus,
+  fetchAgentUsage,
   recoverAgentTask,
   resolveAgentCheckpoint,
   retryAgentTask,
@@ -36,6 +37,7 @@ import {
   type AgentRealtimeSnapshot,
   type AgentTaskRecord,
   type AgentTaskStatus,
+  type AgentUsageOverview,
 } from '../api/agent-runtime';
 import EmptyState from './EmptyState.vue';
 import ProjectTaskContextSummary from './ProjectTaskContextSummary.vue';
@@ -109,6 +111,7 @@ const checkpointInstruction = ref('');
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
+const usage = ref<AgentUsageOverview | null>(null);
 const loading = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
@@ -278,6 +281,39 @@ const recentEvidence = computed(() =>
   [...(activity.value?.evidence ?? [])].reverse().slice(0, 8),
 );
 
+const usageHasMetrics = computed(() => {
+  const summary = usage.value?.total;
+  if (!summary) return false;
+  return (
+    summary.inputTokens !== undefined ||
+    summary.cachedInputTokens !== undefined ||
+    summary.cacheWriteInputTokens !== undefined ||
+    summary.outputTokens !== undefined ||
+    summary.reasoningTokens !== undefined ||
+    summary.totalTokens !== undefined ||
+    summary.reportedCostUsd !== undefined ||
+    summary.durationMs !== undefined
+  );
+});
+
+function formatTokens(value: number | undefined): string {
+  if (value === undefined) return '—';
+  if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + 'M';
+  if (value >= 1_000) return (value / 1_000).toFixed(1) + 'k';
+  return String(value);
+}
+
+function formatDuration(value: number | undefined): string {
+  if (value === undefined) return '—';
+  if (value < 1_000) return value + ' ms';
+  return (value / 1_000).toFixed(value >= 10_000 ? 0 : 1) + ' s';
+}
+
+function formatReportedCost(value: number | undefined): string {
+  if (value === undefined) return 'Indisponível';
+  return 'US$ ' + value.toFixed(value < 0.01 ? 4 : 2);
+}
+
 function closeSocket(): void {
   const current = socket;
   socket = undefined;
@@ -381,20 +417,23 @@ async function loadTask(
   if (!taskId) {
     status.value = null;
     activity.value = null;
+    usage.value = null;
     closeSocket();
     return;
   }
 
   try {
-    const [nextStatus, nextActivity] = await Promise.all([
+    const [nextStatus, nextActivity, nextUsage] = await Promise.all([
       fetchAgentTaskStatus(props.project.id, taskId),
       fetchAgentActivity(props.project.id, taskId),
+      fetchAgentUsage(props.project.id, taskId),
     ]);
     if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
     status.value = nextStatus;
     activity.value = nextActivity;
+    usage.value = nextUsage;
     replaceTask(nextStatus.task);
     connect(taskId);
   } catch (error) {
@@ -484,6 +523,7 @@ async function selectTask(taskId: string): Promise<void> {
   selectedTaskId.value = taskId;
   status.value = null;
   activity.value = null;
+  usage.value = null;
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -908,6 +948,44 @@ onBeforeUnmount(() => {
                 }}</strong>
               </span>
             </div>
+
+            <div class="agent-usage-strip">
+              <span>
+                <small>Execuções medidas</small>
+                <strong>{{ usage?.total.executionCount ?? 0 }}</strong>
+              </span>
+              <span>
+                <small>Entrada</small>
+                <strong>{{ formatTokens(usage?.total.inputTokens) }}</strong>
+              </span>
+              <span>
+                <small>Cache</small>
+                <strong>{{
+                  formatTokens(usage?.total.cachedInputTokens)
+                }}</strong>
+              </span>
+              <span>
+                <small>Saída</small>
+                <strong>{{ formatTokens(usage?.total.outputTokens) }}</strong>
+              </span>
+              <span>
+                <small>Duração</small>
+                <strong>{{ formatDuration(usage?.total.durationMs) }}</strong>
+              </span>
+              <span>
+                <small>Custo reportado</small>
+                <strong>{{
+                  formatReportedCost(usage?.total.reportedCostUsd)
+                }}</strong>
+              </span>
+            </div>
+            <p
+              v-if="usage && !usageHasMetrics"
+              class="agent-hint agent-usage-hint"
+            >
+              O provider não reportou telemetria confiável para esta task.
+              Tokens e custo permanecem indisponíveis.
+            </p>
 
             <div class="agent-actions">
               <button
@@ -1494,6 +1572,42 @@ onBeforeUnmount(() => {
 
 .agent-runtime-strip > span:last-child {
   border-right: 0;
+}
+
+.agent-usage-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.agent-usage-strip > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 9px 10px;
+  border-right: 1px solid var(--border);
+}
+
+.agent-usage-strip > span:last-child {
+  border-right: 0;
+}
+
+.agent-usage-strip small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-usage-strip strong {
+  overflow: hidden;
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-usage-hint {
+  margin-top: -4px;
 }
 
 .agent-runtime-strip small {

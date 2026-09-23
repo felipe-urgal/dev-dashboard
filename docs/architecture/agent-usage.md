@@ -62,6 +62,12 @@ Regras:
 - falha do storage é observacional e não altera o estado da task;
 - prompts, outputs e payloads brutos não são persistidos no usage store.
 
+## API e apresentação
+
+Os agregados sanitizados são expostos por projeto e por task, com breakdown por provider concreto. A API não retorna registros brutos do usage store.
+
+Na aba Agente, o resumo mostra apenas métricas presentes: execuções medidas, input/cache/output, duração e custo reportado. Métricas ausentes aparecem como indisponíveis; em especial, o Browser provider não recebe tokens ou custo inferidos.
+
 ## Custo e budgets
 
 Fora deste primeiro recorte:

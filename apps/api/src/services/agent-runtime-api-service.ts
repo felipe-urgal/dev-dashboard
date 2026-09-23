@@ -22,6 +22,7 @@ import type {
   AgentTaskRecord,
   AgentTaskStore,
   AgentUsageRecord,
+  AgentUsageSummary,
   AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowTaskStatus,
@@ -59,6 +60,13 @@ export interface AgentTaskCreateInput {
   requestedCapabilities?: readonly AgentCapability[];
 }
 
+export interface AgentUsageOverview {
+  total: AgentUsageSummary;
+  byProvider: Partial<
+    Record<'codex' | 'claude-code' | 'chatgpt-browser', AgentUsageSummary>
+  >;
+}
+
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
@@ -84,6 +92,7 @@ export interface AgentRuntimeApiServicePort {
     continuationInstruction?: string,
   ): Promise<AgentWorkflowCheckpointResolution>;
   activity(projectId: string, taskId: string): Promise<AgentAuditSnapshot>;
+  usage(projectId: string, taskId?: string): Promise<AgentUsageOverview>;
   setAuthorization(
     projectId: string,
     taskId: string,
@@ -128,7 +137,14 @@ export interface AgentRuntimeApiServiceOptions {
     ): Promise<TaskContextSnapshot>;
   };
   activityEventStore?: Pick<ActivityEventRepository, 'append'>;
-  usageStore?: { append(record: AgentUsageRecord): Promise<AgentUsageRecord> };
+  usageStore?: {
+    append(record: AgentUsageRecord): Promise<AgentUsageRecord>;
+    summary?(query?: {
+      projectId?: string;
+      taskId?: string;
+      providerId?: 'codex' | 'claude-code' | 'chatgpt-browser';
+    }): Promise<AgentUsageSummary>;
+  };
   now?: () => string;
   createTaskId?: () => string;
   createEvidenceId?: () => string;
@@ -538,6 +554,44 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   ): Promise<AgentAuditSnapshot> {
     await this.getTask(projectId, taskId);
     return this.options.auditStore.snapshot(taskId);
+  }
+
+  public async usage(
+    projectId: string,
+    taskId?: string,
+  ): Promise<AgentUsageOverview> {
+    this.requireProject(projectId);
+    if (taskId) await this.getTask(projectId, taskId);
+
+    const usageStore = this.options.usageStore;
+    if (!usageStore?.summary) {
+      return {
+        total: { executionCount: 0 },
+        byProvider: {},
+      };
+    }
+
+    const query = {
+      projectId,
+      ...(taskId ? { taskId } : {}),
+    };
+    const [total, codex, claudeCode, chatgptBrowser] = await Promise.all([
+      usageStore.summary(query),
+      usageStore.summary({ ...query, providerId: 'codex' }),
+      usageStore.summary({ ...query, providerId: 'claude-code' }),
+      usageStore.summary({ ...query, providerId: 'chatgpt-browser' }),
+    ]);
+
+    return {
+      total,
+      byProvider: {
+        ...(codex.executionCount > 0 ? { codex } : {}),
+        ...(claudeCode.executionCount > 0 ? { 'claude-code': claudeCode } : {}),
+        ...(chatgptBrowser.executionCount > 0
+          ? { 'chatgpt-browser': chatgptBrowser }
+          : {}),
+      },
+    };
   }
 
   public async setAuthorization(

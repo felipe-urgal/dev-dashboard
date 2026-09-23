@@ -146,6 +146,10 @@ function service(
       events: [],
       evidence: [],
     }),
+    usage: async () => ({
+      total: { executionCount: 0 },
+      byProvider: {},
+    }),
     setAuthorization: async (_projectId, taskId, capability, granted) => ({
       taskId,
       capability,
@@ -309,6 +313,66 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
     ).statusCode,
     200,
   );
+});
+
+test('Agent Runtime HTTP expõe usage agregado por projeto e task', async (context) => {
+  const calls: Array<[string, string?]> = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      usage: async (projectId, taskId) => {
+        calls.push([projectId, taskId]);
+        return {
+          total: {
+            executionCount: 2,
+            inputTokens: 150,
+            outputTokens: 42,
+            reportedCostUsd: 0.02,
+            durationMs: 4_000,
+          },
+          byProvider: {
+            codex: {
+              executionCount: 1,
+              inputTokens: 100,
+              outputTokens: 30,
+            },
+            'claude-code': {
+              executionCount: 1,
+              inputTokens: 50,
+              outputTokens: 12,
+              reportedCostUsd: 0.02,
+              durationMs: 4_000,
+            },
+          },
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const projectUsage = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/usage',
+  });
+  assert.equal(projectUsage.statusCode, 200);
+  assert.equal(projectUsage.json().total.executionCount, 2);
+
+  const taskUsage = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks/task-1/usage',
+  });
+  assert.equal(taskUsage.statusCode, 200);
+  assert.equal(
+    taskUsage.json().byProvider['claude-code'].reportedCostUsd,
+    0.02,
+  );
+  assert.deepEqual(calls, [
+    ['project-1', undefined],
+    ['project-1', 'task-1'],
+  ]);
 });
 
 test('Agent Runtime HTTP expõe autorização específica e activity bounded', async (context) => {
