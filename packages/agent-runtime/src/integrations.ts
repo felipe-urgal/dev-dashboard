@@ -1,4 +1,5 @@
 import type { AgentConcreteProviderId } from './contracts.js';
+import { BROWSER_TOOL_NAMES } from './browser-tool-policy.js';
 import {
   AgentCliProcessError,
   runAgentCliProcess,
@@ -196,9 +197,27 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
   }
 }
 
+export class BrowserCapabilityIntegrationProvider
+  implements AgentIntegrationProvider
+{
+  readonly id = 'chatgpt-browser' as const;
+
+  async list(): Promise<AgentIntegration[]> {
+    return BROWSER_TOOL_NAMES.map((tool) => ({
+      id: 'chatgpt-browser:browser-capability:' + tool,
+      providerId: 'chatgpt-browser',
+      kind: 'browser-capability',
+      name: tool,
+      enabled: true,
+      authStatus: 'unsupported',
+    }));
+  }
+}
+
 export function createDefaultAgentIntegrationProviderRegistry(): AgentIntegrationProviderRegistry {
   return new StaticAgentIntegrationProviderRegistry([
     new CodexMcpIntegrationProvider(),
+    new BrowserCapabilityIntegrationProvider(),
   ]);
 }
 
