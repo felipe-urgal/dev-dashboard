@@ -164,6 +164,10 @@ function isEvent(value: unknown, taskId: string): value is AgentEvent {
     (candidate.executionId === undefined ||
       (typeof candidate.executionId === 'string' &&
         candidate.executionId.length > 0)) &&
+    (candidate.providerId === undefined ||
+      candidate.providerId === 'codex' ||
+      candidate.providerId === 'claude-code' ||
+      candidate.providerId === 'chatgpt-browser') &&
     (candidate.type === 'task-state' ||
       candidate.type === 'execution-state' ||
       candidate.type === 'checkpoint' ||
@@ -432,6 +436,7 @@ export class AgentAuditStore {
   public async appendExecutionResult(
     taskId: string,
     executionId: string,
+    providerId: 'codex' | 'claude-code' | 'chatgpt-browser',
     summary: string,
     occurredAt: string,
     evidence: readonly AgentEvidence[],
@@ -456,6 +461,7 @@ export class AgentAuditStore {
         id: this.requireEventId(),
         taskId,
         executionId,
+        providerId,
         type: 'execution-state',
         summary,
         occurredAt,
