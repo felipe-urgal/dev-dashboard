@@ -47,6 +47,13 @@ export {
   serializeAgentTask,
 } from './serialization.js';
 
+export { AgentAuditStore, AgentAuditStoreError } from './agent-audit-store.js';
+export type {
+  AgentAuditSnapshot,
+  AgentAuditStoreErrorCode,
+  AgentAuditStoreOptions,
+} from './agent-audit-store.js';
+
 export { AgentTaskLockError, AgentTaskLockManager } from './task-lock.js';
 export type {
   AgentTaskLockAcquireOptions,
