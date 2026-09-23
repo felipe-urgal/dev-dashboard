@@ -116,7 +116,12 @@ test('Agent realtime shutdown desconecta feeds sem mutar task', async () => {
   };
 
   const service = new AgentRuntimeRealtimeService(reader, { intervalMs: 100 });
-  await service.attach('project-1', 'task-1', () => undefined, () => undefined);
+  await service.attach(
+    'project-1',
+    'task-1',
+    () => undefined,
+    () => undefined,
+  );
   assert.equal(reads, 1);
 
   service.close();
@@ -124,7 +129,12 @@ test('Agent realtime shutdown desconecta feeds sem mutar task', async () => {
   assert.equal(reads, 1);
 
   await assert.rejects(
-    service.attach('project-1', 'task-1', () => undefined, () => undefined),
+    service.attach(
+      'project-1',
+      'task-1',
+      () => undefined,
+      () => undefined,
+    ),
     /closed/,
   );
 });
