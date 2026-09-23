@@ -471,12 +471,7 @@ function claudeUsageFromJsonl(stdout: string): AgentUsage | undefined {
     }
   }
 
-  if (
-    !model &&
-    !hasTokenUsage &&
-    !reportedCost &&
-    durationMs === undefined
-  ) {
+  if (!model && !hasTokenUsage && !reportedCost && durationMs === undefined) {
     return undefined;
   }
 
