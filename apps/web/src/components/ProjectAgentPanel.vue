@@ -116,6 +116,7 @@ const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
 const usage = ref<AgentUsageOverview | null>(null);
+const usagePeriod = ref<'all' | '24h' | '7d' | '30d'>('all');
 const budget = ref<AgentBudgetOverview | null>(null);
 const budgetTokens = ref('');
 const budgetCost = ref('');
@@ -346,6 +347,23 @@ function formatCost(value: number | undefined): string {
   return 'US$ ' + value.toFixed(value < 0.01 ? 4 : 2);
 }
 
+function usagePeriodRange(): { observedFrom?: string } {
+  if (usagePeriod.value === 'all') return {};
+  const hours =
+    usagePeriod.value === '24h' ? 24 : usagePeriod.value === '7d' ? 168 : 720;
+  return {
+    observedFrom: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString(),
+  };
+}
+
+async function reloadUsage(taskId: string): Promise<void> {
+  usage.value = await fetchAgentUsage(
+    props.project.id,
+    taskId,
+    usagePeriodRange(),
+  );
+}
+
 function closeSocket(): void {
   const current = socket;
   socket = undefined;
@@ -462,7 +480,7 @@ async function loadTask(
       [
         fetchAgentTaskStatus(props.project.id, taskId),
         fetchAgentActivity(props.project.id, taskId),
-        fetchAgentUsage(props.project.id, taskId),
+        fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
         fetchAgentBudget(props.project.id, taskId),
       ],
     );
@@ -622,6 +640,19 @@ async function executeCurrent(): Promise<void> {
     await loadTask(record.task.id);
   } finally {
     executing.value = false;
+  }
+}
+
+async function changeUsagePeriod(): Promise<void> {
+  const taskId = currentTask.value?.task.id;
+  if (!taskId) return;
+  try {
+    await reloadUsage(taskId);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar o período de usage.';
   }
 }
 
@@ -1041,6 +1072,19 @@ onBeforeUnmount(() => {
                         : '—'
                 }}</strong>
               </span>
+            </div>
+
+            <div class="agent-usage-heading">
+              <div>
+                <small>Consumo observado</small>
+                <strong>Resumo do período</strong>
+              </div>
+              <select v-model="usagePeriod" @change="changeUsagePeriod">
+                <option value="all">Todo período</option>
+                <option value="24h">Últimas 24h</option>
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+              </select>
             </div>
 
             <div class="agent-usage-strip">
@@ -1727,6 +1771,38 @@ onBeforeUnmount(() => {
 
 .agent-runtime-strip > span:last-child {
   border-right: 0;
+}
+
+.agent-usage-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-usage-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-usage-heading small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-usage-heading strong {
+  font-size: var(--font-xs);
+}
+
+.agent-usage-heading select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-0);
+  font: inherit;
+  font-size: var(--font-xs);
 }
 
 .agent-usage-strip {
