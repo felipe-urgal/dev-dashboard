@@ -245,6 +245,7 @@ export type {
   AgentIntegration,
   AgentIntegrationCapability,
   AgentIntegrationCapabilityRegistry,
+  AgentIntegrationInstallRequest,
   AgentIntegrationKind,
   AgentIntegrationListRequest,
   AgentIntegrationOperation,
