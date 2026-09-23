@@ -337,11 +337,7 @@ export class AgentWorkflowRuntime {
           !checkpointId
         ) {
           settledRecord = await this.taskStore.save(
-            transitionAgentTask(
-              runningRecord.task,
-              'blocked',
-              finishedAt,
-            ),
+            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
             runningRecord.version,
           );
           throw new AgentWorkflowRuntimeError(
@@ -364,11 +360,7 @@ export class AgentWorkflowRuntime {
           });
         } catch {
           settledRecord = await this.taskStore.save(
-            transitionAgentTask(
-              runningRecord.task,
-              'blocked',
-              finishedAt,
-            ),
+            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
             runningRecord.version,
           );
           throw new AgentWorkflowRuntimeError(
