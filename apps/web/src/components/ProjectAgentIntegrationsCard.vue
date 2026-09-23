@@ -81,7 +81,6 @@ const authLabel = (integration: AgentIntegration): string => {
   }
 };
 
-
 async function installCodexMcp(): Promise<void> {
   if (
     selectedProviderId.value !== 'codex' ||
@@ -231,7 +230,6 @@ watch(
       </div>
     </div>
 
-
     <form
       v-if="selectedProviderId === 'codex'"
       class="agent-integration-install"
@@ -262,7 +260,11 @@ watch(
         />
       </label>
       <label class="agent-integration-confirmation">
-        <input v-model="installConfirmed" type="checkbox" :disabled="installing" />
+        <input
+          v-model="installConfirmed"
+          type="checkbox"
+          :disabled="installing"
+        />
         <span>
           Confirmo que este MCP será adicionado à configuração compartilhada do
           meu usuário Codex.
