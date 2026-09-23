@@ -18,9 +18,11 @@ import { fetchTaskContexts } from '../api/task-contexts';
 import {
   agentRuntimeWebSocketUrl,
   cancelAgentTask,
+  clearAgentBudget,
   createAgentTask,
   executeAgentTask,
   fetchAgentActivity,
+  fetchAgentBudget,
   fetchAgentProviders,
   fetchAgentTasks,
   fetchAgentTaskStatus,
@@ -28,8 +30,10 @@ import {
   recoverAgentTask,
   resolveAgentCheckpoint,
   retryAgentTask,
+  setAgentBudget,
   setAgentAuthorization,
   type AgentActivity,
+  type AgentBudgetOverview,
   type AgentCapability,
   type AgentExecutionResult,
   type AgentProviderId,
@@ -112,6 +116,9 @@ const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
 const latestExecution = ref<AgentExecutionResult | null>(null);
 const usage = ref<AgentUsageOverview | null>(null);
+const budget = ref<AgentBudgetOverview | null>(null);
+const budgetTokens = ref('');
+const budgetCost = ref('');
 const loading = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
@@ -281,6 +288,30 @@ const recentEvidence = computed(() =>
   [...(activity.value?.evidence ?? [])].reverse().slice(0, 8),
 );
 
+const budgetAlertMessage = computed(() => {
+  const alerts = budget.value?.alerts ?? [];
+  if (!alerts.length) return '';
+  return alerts
+    .map((alert) =>
+      alert.kind === 'total-tokens'
+        ? `Limite de tokens atingido: ${formatTokens(alert.observed)} / ${formatTokens(alert.threshold)}`
+        : `Limite de custo estimado atingido: ${formatCost(alert.observed)} / ${formatCost(alert.threshold)}`,
+    )
+    .join(' · ');
+});
+
+function syncBudgetInputs(next: AgentBudgetOverview): void {
+  budget.value = next;
+  budgetTokens.value =
+    next.budget?.maxTotalTokens !== undefined
+      ? String(next.budget.maxTotalTokens)
+      : '';
+  budgetCost.value =
+    next.budget?.maxEstimatedCostUsd !== undefined
+      ? String(next.budget.maxEstimatedCostUsd)
+      : '';
+}
+
 const usageHasMetrics = computed(() => {
   const summary = usage.value?.total;
   if (!summary) return false;
@@ -419,22 +450,28 @@ async function loadTask(
     status.value = null;
     activity.value = null;
     usage.value = null;
+    budget.value = null;
+    budgetTokens.value = '';
+    budgetCost.value = '';
     closeSocket();
     return;
   }
 
   try {
-    const [nextStatus, nextActivity, nextUsage] = await Promise.all([
-      fetchAgentTaskStatus(props.project.id, taskId),
-      fetchAgentActivity(props.project.id, taskId),
-      fetchAgentUsage(props.project.id, taskId),
-    ]);
+    const [nextStatus, nextActivity, nextUsage, nextBudget] =
+      await Promise.all([
+        fetchAgentTaskStatus(props.project.id, taskId),
+        fetchAgentActivity(props.project.id, taskId),
+        fetchAgentUsage(props.project.id, taskId),
+        fetchAgentBudget(props.project.id, taskId),
+      ]);
     if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
     status.value = nextStatus;
     activity.value = nextActivity;
     usage.value = nextUsage;
+    syncBudgetInputs(nextBudget);
     replaceTask(nextStatus.task);
     connect(taskId);
   } catch (error) {
@@ -525,6 +562,9 @@ async function selectTask(taskId: string): Promise<void> {
   status.value = null;
   activity.value = null;
   usage.value = null;
+  budget.value = null;
+  budgetTokens.value = '';
+  budgetCost.value = '';
   latestExecution.value = null;
   errorMessage.value = '';
   await loadTask(taskId);
@@ -581,6 +621,62 @@ async function executeCurrent(): Promise<void> {
     await loadTask(record.task.id);
   } finally {
     executing.value = false;
+  }
+}
+
+async function saveBudget(): Promise<void> {
+  const record = currentTask.value;
+  if (!record || mutating.value) return;
+
+  const maxTotalTokens = budgetTokens.value.trim()
+    ? Number(budgetTokens.value)
+    : undefined;
+  const maxEstimatedCostUsd = budgetCost.value.trim()
+    ? Number(budgetCost.value)
+    : undefined;
+
+  if (maxTotalTokens === undefined && maxEstimatedCostUsd === undefined) {
+    errorMessage.value = 'Informe pelo menos um limite de soft budget.';
+    return;
+  }
+
+  mutating.value = true;
+  errorMessage.value = '';
+  try {
+    syncBudgetInputs(
+      await setAgentBudget(props.project.id, record.task.id, {
+        ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
+        ...(maxEstimatedCostUsd !== undefined
+          ? { maxEstimatedCostUsd }
+          : {}),
+      }),
+    );
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível salvar o soft budget.';
+  } finally {
+    mutating.value = false;
+  }
+}
+
+async function clearBudget(): Promise<void> {
+  const record = currentTask.value;
+  if (!record || mutating.value) return;
+  mutating.value = true;
+  errorMessage.value = '';
+  try {
+    syncBudgetInputs(
+      await clearAgentBudget(props.project.id, record.task.id),
+    );
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover o soft budget.';
+  } finally {
+    mutating.value = false;
   }
 }
 
@@ -989,6 +1085,68 @@ onBeforeUnmount(() => {
               O provider não reportou telemetria confiável para esta task.
               Tokens e custo permanecem indisponíveis.
             </p>
+
+            <div class="agent-budget">
+              <div class="agent-budget-heading">
+                <div>
+                  <small>Soft budget</small>
+                  <strong>Alerta sem interromper a execução</strong>
+                </div>
+                <StatusBadge
+                  v-if="budgetAlertMessage"
+                  tone="warning"
+                >
+                  Limite atingido
+                </StatusBadge>
+              </div>
+              <div class="agent-budget-fields">
+                <label>
+                  <span>Total de tokens</span>
+                  <input
+                    v-model="budgetTokens"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Sem limite"
+                  />
+                </label>
+                <label>
+                  <span>Custo estimado (US$)</span>
+                  <input
+                    v-model="budgetCost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Sem limite"
+                  />
+                </label>
+                <div class="agent-budget-actions">
+                  <button
+                    class="secondary-button"
+                    type="button"
+                    :disabled="mutating"
+                    @click="saveBudget"
+                  >
+                    Salvar limite
+                  </button>
+                  <button
+                    v-if="budget?.budget"
+                    class="secondary-button"
+                    type="button"
+                    :disabled="mutating"
+                    @click="clearBudget"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+              <p v-if="budgetAlertMessage" class="agent-budget-alert">
+                {{ budgetAlertMessage }}
+              </p>
+              <p v-else class="agent-hint">
+                O budget é somente informativo: não cancela nem altera recovery.
+              </p>
+            </div>
 
             <div class="agent-actions">
               <button
@@ -1624,6 +1782,72 @@ onBeforeUnmount(() => {
   font-size: var(--font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-budget {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-budget-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-budget-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-budget-heading small,
+.agent-budget-fields span {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-budget-heading strong {
+  font-size: var(--font-xs);
+}
+
+.agent-budget-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.agent-budget-fields label {
+  display: grid;
+  gap: 5px;
+}
+
+.agent-budget-fields input {
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-1);
+  font: inherit;
+}
+
+.agent-budget-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.agent-budget-alert {
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
 }
 
 .agent-actions {
