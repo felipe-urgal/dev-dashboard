@@ -93,6 +93,12 @@ const capabilities: Array<{
 ];
 
 const providers = ref<AgentProviderStatus[]>([]);
+const providerIds: AgentProviderId[] = [
+  'automatic',
+  'codex',
+  'claude-code',
+  'chatgpt-browser',
+];
 const tasks = ref<AgentTaskRecord[]>([]);
 const selectedTaskId = ref('');
 const selectedProviderId = ref<AgentProviderId>('automatic');
@@ -128,9 +134,21 @@ const currentTask = computed(
   () => status.value?.task ?? selectedTask.value,
 );
 
+const providerOptions = computed<AgentProviderStatus[]>(() =>
+  providerIds.map(
+    (providerId) =>
+      providers.value.find((provider) => provider.providerId === providerId) ?? {
+        providerId,
+        availability: 'unavailable',
+        observedAt: '',
+        reason: 'Provider não configurado neste runtime.',
+      },
+  ),
+);
+
 const currentProvider = computed(
   () =>
-    providers.value.find(
+    providerOptions.value.find(
       (provider) => provider.providerId === selectedProviderId.value,
     ) ?? null,
 );
@@ -571,7 +589,7 @@ async function resolveCheckpoint(
       record.task.id,
       checkpoint.id,
       decision,
-      checkpointInstruction.value,
+      decision === 'approved' ? checkpointInstruction.value : undefined,
     );
     replaceTask(result.task);
     checkpointInstruction.value = '';
@@ -657,7 +675,7 @@ onBeforeUnmount(() => {
             <span>Provider da próxima execução</span>
             <select v-model="selectedProviderId" :disabled="executing">
               <option
-                v-for="provider in providers"
+                v-for="provider in providerOptions"
                 :key="provider.providerId"
                 :value="provider.providerId"
                 :disabled="provider.availability === 'unavailable'"
