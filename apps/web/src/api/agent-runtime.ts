@@ -5,12 +5,8 @@ export type AgentProviderId =
 
 export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 
-
 export type AgentIntegrationKind =
-  | 'mcp-server'
-  | 'skill'
-  | 'plugin'
-  | 'browser-capability';
+  'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
 
 export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
 
@@ -288,7 +284,6 @@ export async function fetchAgentProviders(): Promise<AgentProviderStatus[]> {
   return (await requestJson<ProvidersResponse>('/api/agent/providers'))
     .providers;
 }
-
 
 export async function fetchAgentIntegrationCapabilities(): Promise<
   AgentIntegrationProviderCapabilities[]

@@ -121,7 +121,10 @@ watch(
 </script>
 
 <template>
-  <section class="agent-integrations-card agent-card" aria-label="Integrações do Agente">
+  <section
+    class="agent-integrations-card agent-card"
+    aria-label="Integrações do Agente"
+  >
     <div class="agent-section-heading">
       <div>
         <span>Integrações</span>
@@ -138,7 +141,11 @@ watch(
       </button>
     </div>
 
-    <div class="agent-integrations-provider-tabs" role="tablist" aria-label="Provider">
+    <div
+      class="agent-integrations-provider-tabs"
+      role="tablist"
+      aria-label="Provider"
+    >
       <button
         v-for="providerId in providerIds"
         :key="providerId"
@@ -161,7 +168,9 @@ watch(
           <small>{{ capability.scopes.join(' · ') || 'Sem escopo' }}</small>
         </div>
         <StatusBadge
-          :tone="capability.availability === 'supported' ? 'success' : 'neutral'"
+          :tone="
+            capability.availability === 'supported' ? 'success' : 'neutral'
+          "
         >
           {{
             capability.availability === 'supported'
