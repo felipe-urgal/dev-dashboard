@@ -144,6 +144,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     securityScannerProvider,
     securityScanSnapshotStore,
     agentRuntimeApiService,
+    agentRuntimeRealtimeService,
   } = composition;
   registerAppLifecycle(app, context, composition);
 
@@ -221,6 +222,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(agentRuntimeRoutes, {
     prefix: '/api',
     agentRuntimeApiService,
+    agentRuntimeRealtimeService,
   });
 
   app.register(projectRoutes, {
