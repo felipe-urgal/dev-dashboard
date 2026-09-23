@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import type { TaskContext, TaskContextSnapshot } from '@dev-dashboard/contracts';
+import type {
+  TaskContext,
+  TaskContextSnapshot,
+} from '@dev-dashboard/contracts';
 
 import type {
   AgentAuditSnapshot,

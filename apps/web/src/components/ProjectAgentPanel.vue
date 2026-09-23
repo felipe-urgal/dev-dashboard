@@ -412,12 +412,11 @@ async function load(): Promise<void> {
   closeSocket();
 
   try {
-    const [nextProviders, nextTasks, nextTaskContexts] =
-      await Promise.all([
-        fetchAgentProviders(),
-        fetchAgentTasks(props.project.id),
-        fetchTaskContexts(props.project.id),
-      ]);
+    const [nextProviders, nextTasks, nextTaskContexts] = await Promise.all([
+      fetchAgentProviders(),
+      fetchAgentTasks(props.project.id),
+      fetchTaskContexts(props.project.id),
+    ]);
     if (requestGeneration !== generation) return;
     providers.value = nextProviders;
     tasks.value = nextTasks;
