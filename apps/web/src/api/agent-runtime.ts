@@ -99,6 +99,7 @@ export interface AgentEvent {
   id: string;
   taskId: string;
   executionId?: string;
+  providerId?: AgentConcreteProviderId;
   type:
     | 'task-state'
     | 'execution-state'
