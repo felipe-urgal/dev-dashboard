@@ -1124,7 +1124,6 @@ test('AgentRuntimeApiService não alerta budget sem métrica observada', async (
   assert.deepEqual((await service.budget('project-1', 'task-1')).alerts, []);
 });
 
-
 test('AgentRuntimeApiService bloqueia nova execução antes do provider ao atingir hard budget', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(

@@ -1219,8 +1219,8 @@ onBeforeUnmount(() => {
                 </template>
               </p>
               <p v-else class="agent-hint">
-                Hard budget é verificado antes do provider iniciar; nunca cancela
-                uma execução em andamento nem altera recovery.
+                Hard budget é verificado antes do provider iniciar; nunca
+                cancela uma execução em andamento nem altera recovery.
               </p>
             </div>
 
