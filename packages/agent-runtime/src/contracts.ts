@@ -50,6 +50,24 @@ export interface AgentExecutionFailure {
   message: string;
 }
 
+export type AgentUsageSource =
+  | 'provider'
+  | 'estimated'
+  | 'mixed'
+  | 'unavailable';
+
+export interface AgentUsage {
+  providerId: AgentConcreteProviderId;
+  source: AgentUsageSource;
+  model?: string;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  cacheWriteInputTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+  totalTokens?: number;
+}
+
 export interface AgentExecution {
   id: string;
   taskId: string;
@@ -61,6 +79,7 @@ export interface AgentExecution {
   startedAt?: string;
   finishedAt?: string;
   failure?: AgentExecutionFailure;
+  usage?: AgentUsage;
 }
 
 export type AgentProviderAvailability =
@@ -160,6 +179,7 @@ export interface AgentProviderResult {
   checkpoint?: AgentCheckpointRequest;
   evidence?: AgentEvidence[];
   failure?: AgentExecutionFailure;
+  usage?: AgentUsage;
 }
 
 export interface AgentProvider {
