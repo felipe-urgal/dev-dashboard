@@ -563,6 +563,11 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       availability: 'available',
       observedAt: this.now(),
       ...(health.heartbeatVersion ? { version: health.heartbeatVersion } : {}),
+      quota: {
+        status: 'unavailable',
+        source: 'unavailable',
+        reason: 'ChatGPT plan quota is not exposed by the Browser bridge.',
+      },
     };
   }
 
