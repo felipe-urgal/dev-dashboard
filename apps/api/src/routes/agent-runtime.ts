@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
+import type { WebSocket } from 'ws';
 
 import type {
   AgentCapability,
@@ -11,9 +12,11 @@ import {
   AgentRuntimeApiServiceError,
   type AgentRuntimeApiServicePort,
 } from '../services/agent-runtime-api-service.js';
+import type { AgentRuntimeRealtimeService } from '../services/agent-runtime-realtime-service.js';
 
 interface Options extends FastifyPluginOptions {
   agentRuntimeApiService: AgentRuntimeApiServicePort;
+  agentRuntimeRealtimeService: Pick<AgentRuntimeRealtimeService, 'attach'>;
 }
 
 interface ProjectParams {
@@ -419,6 +422,12 @@ async function withAgentErrors<T>(operation: () => Promise<T> | T): Promise<T> {
   }
 }
 
+function sendJson(socket: WebSocket, message: unknown): void {
+  if (socket.readyState === socket.OPEN) {
+    socket.send(JSON.stringify(message));
+  }
+}
+
 export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
@@ -703,5 +712,61 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.taskId,
         ),
       ),
+  );
+
+  app.get<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/connect',
+    {
+      websocket: true,
+      schema: { params: taskParamsSchema },
+    },
+    (socket, request) => {
+      let detached = false;
+      const detach = () => {
+        detached = true;
+      };
+
+      void options.agentRuntimeRealtimeService
+        .attach(
+          request.params.projectId,
+          request.params.taskId,
+          (snapshot) => {
+            if (!detached) sendJson(socket, { type: 'update', snapshot });
+          },
+          () => {
+            if (detached) return;
+            sendJson(socket, {
+              type: 'error',
+              message: 'Agent realtime status is unavailable.',
+            });
+            socket.close(1011, 'Agent realtime unavailable');
+          },
+        )
+        .then((attachment) => {
+          if (detached) {
+            attachment.detach();
+            return;
+          }
+
+          sendJson(socket, { type: 'ready', snapshot: attachment.snapshot });
+          const close = () => {
+            detached = true;
+            attachment.detach();
+          };
+          socket.once('close', close);
+          socket.once('error', close);
+        })
+        .catch(() => {
+          if (detached) return;
+          sendJson(socket, {
+            type: 'error',
+            message: 'Agent task is unavailable.',
+          });
+          socket.close(1008, 'Agent task unavailable');
+        });
+
+      socket.once('close', detach);
+      socket.once('error', detach);
+    },
   );
 };
