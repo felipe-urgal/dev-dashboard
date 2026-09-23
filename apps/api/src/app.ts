@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 import { attentionRoutes } from './routes/attention.js';
 import { taskContextRoutes } from './routes/task-contexts.js';
 import { activityRoutes } from './routes/activity.js';
+import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -142,6 +143,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     dockerComposeOwnershipStore,
     securityScannerProvider,
     securityScanSnapshotStore,
+    agentRuntimeApiService,
   } = composition;
   registerAppLifecycle(app, context, composition);
 
@@ -214,6 +216,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(activityRoutes, {
     prefix: '/api',
     activitySnapshotService,
+  });
+
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeApiService,
   });
 
   app.register(projectRoutes, {
