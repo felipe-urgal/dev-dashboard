@@ -28,6 +28,7 @@ export interface AgentTask {
   id: string;
   projectId: string;
   environmentInstanceId?: string;
+  taskContextId?: string;
   state: AgentTaskState;
   summary: string;
   continuationInstruction?: string;
@@ -210,6 +211,7 @@ export async function createAgentTask(
   input: {
     summary: string;
     environmentInstanceId?: string;
+    taskContextId?: string;
     requestedCapabilities: AgentCapability[];
   },
 ): Promise<AgentTaskRecord> {
