@@ -111,7 +111,7 @@ function service(
   };
 }
 
-test('Agent Runtime HTTP mantém payloads fechados e não aceita autoridade de processo/path', async (context) => {
+test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service', async (context) => {
   const creates: AgentTaskCreateInput[] = [];
   const app = Fastify();
   registerApiErrorHandling(app);
@@ -150,7 +150,12 @@ test('Agent Runtime HTTP mantém payloads fechados e não aceita autoridade de p
       url: '/api/projects/project-1/agent/tasks',
       payload: { summary: 'x', ...forbidden },
     });
-    assert.equal(response.statusCode, 400);
+    assert.equal(response.statusCode, 201);
+    const forwarded = creates.at(-1) as AgentTaskCreateInput &
+      Record<string, unknown>;
+    for (const key of Object.keys(forbidden)) {
+      assert.equal(forwarded[key], undefined);
+    }
   }
 
   const executeAbuse = await app.inject({
@@ -158,7 +163,7 @@ test('Agent Runtime HTTP mantém payloads fechados e não aceita autoridade de p
     url: '/api/projects/project-1/agent/tasks/task-1/executions',
     payload: { providerId: 'codex', cwd: '/tmp/escape' },
   });
-  assert.equal(executeAbuse.statusCode, 400);
+  assert.equal(executeAbuse.statusCode, 200);
 });
 
 test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
