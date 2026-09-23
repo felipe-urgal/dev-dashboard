@@ -238,7 +238,6 @@ test('AgentRuntimeApiService falha fechado para projeto/ambiente ausente', async
   );
 });
 
-
 test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste evidence', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(
@@ -411,12 +410,7 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
     true,
   );
   assert.deepEqual(writes, [
-    [
-      'task-1',
-      'workspace:write',
-      true,
-      '2026-09-23T11:05:00.000Z',
-    ],
+    ['task-1', 'workspace:write', true, '2026-09-23T11:05:00.000Z'],
   ]);
 
   await assert.rejects(

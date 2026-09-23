@@ -269,7 +269,6 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
   );
 });
 
-
 test('Agent Runtime HTTP expõe autorização específica e activity bounded', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
@@ -329,9 +328,7 @@ test('Agent Runtime HTTP expõe autorização específica e activity bounded', a
     },
   });
   assert.equal(authorization.statusCode, 200);
-  assert.deepEqual(calls, [
-    ['project-1', 'task-1', 'workspace:write', true],
-  ]);
+  assert.deepEqual(calls, [['project-1', 'task-1', 'workspace:write', true]]);
 
   const activity = await app.inject({
     method: 'GET',
