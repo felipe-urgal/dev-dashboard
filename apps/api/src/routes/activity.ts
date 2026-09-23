@@ -49,6 +49,7 @@ const domainValues = [
   'deployment',
   'ci',
   'security',
+  'agent',
 ] as const;
 
 const resourceRefSchema = {
@@ -106,6 +107,12 @@ const activityJobSchema = {
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
     resourceRef: resourceRefSchema,
+    taskContextId: { type: 'string' },
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    stage: { type: 'string' },
     cancelSupported: { type: 'boolean' },
   },
 } as const;
