@@ -19,7 +19,6 @@ export type AgentIntegrationOperation =
   | 'uninstall'
   | 'authenticate';
 
-
 export interface AgentIntegration {
   id: string;
   providerId: AgentConcreteProviderId;
@@ -46,9 +45,7 @@ export interface AgentIntegrationProviderRegistry {
 export class AgentIntegrationDiscoveryError extends Error {
   constructor(
     readonly code:
-      | 'provider-unavailable'
-      | 'command-failed'
-      | 'invalid-response',
+      'provider-unavailable' | 'command-failed' | 'invalid-response',
     message: string,
   ) {
     super(message);
@@ -56,9 +53,7 @@ export class AgentIntegrationDiscoveryError extends Error {
   }
 }
 
-export class StaticAgentIntegrationProviderRegistry
-  implements AgentIntegrationProviderRegistry
-{
+export class StaticAgentIntegrationProviderRegistry implements AgentIntegrationProviderRegistry {
   private readonly providers = new Map<
     AgentConcreteProviderId,
     AgentIntegrationProvider
@@ -114,7 +109,9 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
     this.timeoutMs = options.timeoutMs ?? 10_000;
   }
 
-  async list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]> {
+  async list(
+    request: AgentIntegrationListRequest,
+  ): Promise<AgentIntegration[]> {
     let result;
     try {
       result = await this.runProcess({
@@ -125,7 +122,10 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
         label: 'Codex MCP discovery',
       });
     } catch (error) {
-      if (error instanceof AgentCliProcessError && error.code === 'spawn-failed') {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
         throw new AgentIntegrationDiscoveryError(
           'provider-unavailable',
           'Codex command is unavailable.',
@@ -170,7 +170,9 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       ) {
         throw new AgentIntegrationDiscoveryError(
           'invalid-response',
-          'Codex MCP discovery returned an invalid server at index ' + index + '.',
+          'Codex MCP discovery returned an invalid server at index ' +
+            index +
+            '.',
         );
       }
 

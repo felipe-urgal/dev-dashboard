@@ -63,7 +63,10 @@ test('Codex MCP discovery returns only safe metadata', async () => {
       authStatus: 'authenticated',
     },
   ]);
-  assert.equal(JSON.stringify(integrations).includes('SECRET_SHOULD_NOT_LEAK'), false);
+  assert.equal(
+    JSON.stringify(integrations).includes('SECRET_SHOULD_NOT_LEAK'),
+    false,
+  );
   assert.equal(JSON.stringify(integrations).includes('secret-arg'), false);
 });
 

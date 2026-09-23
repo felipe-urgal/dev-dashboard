@@ -155,7 +155,6 @@ const usageQuerySchema = {
   },
 } as const;
 
-
 const integrationQuerySchema = {
   type: 'object',
   additionalProperties: false,
@@ -791,7 +790,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       providers: options.agentRuntimeApiService.listIntegrationCapabilities(),
     }),
   );
-
 
   app.get<{ Params: ProjectParams; Querystring: IntegrationQuery }>(
     '/projects/:projectId/agent/integrations',
