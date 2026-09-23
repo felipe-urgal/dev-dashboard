@@ -322,7 +322,7 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_WORKFLOW_TASK_PROJECT_MISMATCH':
       return new ApiError({
         statusCode: 404,
-        code: 'AGENT_TASK_NOT_FOUND',
+        code: 'NOT_FOUND',
         message: 'Agent task was not found.',
       });
     case 'AGENT_API_INVALID_REQUEST':
@@ -330,19 +330,19 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_WORKFLOW_AUTHORIZATION_INVALID':
       return new ApiError({
         statusCode: 400,
-        code: 'AGENT_INVALID_REQUEST',
+        code: 'BAD_REQUEST',
         message: error.message,
       });
     case 'AGENT_WORKFLOW_PROVIDER_FAILED':
       return new ApiError({
         statusCode: 502,
-        code: 'AGENT_PROVIDER_FAILED',
+        code: 'INTERNAL_ERROR',
         message: error.message,
       });
     case 'AGENT_WORKFLOW_CLOSING':
       return new ApiError({
         statusCode: 503,
-        code: 'AGENT_RUNTIME_CLOSING',
+        code: 'INTERNAL_ERROR',
         message: error.message,
       });
     case 'AGENT_WORKFLOW_TASK_NOT_RUNNABLE':
@@ -351,7 +351,7 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED':
       return new ApiError({
         statusCode: 409,
-        code: 'AGENT_CONFLICT',
+        code: 'CONFLICT',
         message: error.message,
       });
   }
