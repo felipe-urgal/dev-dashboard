@@ -114,6 +114,27 @@ function service(
         lastReason: 'operator-recovered',
       },
     }),
+    resolveCheckpoint: async (
+      _projectId,
+      taskId,
+      checkpointId,
+      status,
+      continuationInstruction,
+    ) => ({
+      task,
+      checkpoint: {
+        id: checkpointId,
+        taskId,
+        status,
+        summary: 'Approval required.',
+        requiredCapabilities: ['workspace:write'],
+        createdAt: '2026-09-23T10:04:00.000Z',
+        resolvedAt: '2026-09-23T10:05:00.000Z',
+        ...(continuationInstruction
+          ? { continuationInstruction }
+          : {}),
+      },
+    }),
     activity: async () => ({
       authorizations: [
         {
@@ -123,6 +144,7 @@ function service(
           observedAt: '2026-09-23T10:04:00.000Z',
         },
       ],
+      checkpoints: [],
       events: [],
       evidence: [],
     }),
@@ -305,6 +327,17 @@ test('Agent Runtime HTTP expõe autorização específica e activity bounded', a
             observedAt: '2026-09-23T11:00:00.000Z',
           },
         ],
+        checkpoints: [
+          {
+            id: 'checkpoint-1',
+            taskId: 'task-1',
+            executionId: 'execution-1',
+            status: 'pending',
+            summary: 'Approval required.',
+            requiredCapabilities: ['workspace:write'],
+            createdAt: '2026-09-23T10:59:00.000Z',
+          },
+        ],
         events: [
           {
             id: 'event-1',
@@ -358,6 +391,64 @@ test('Agent Runtime HTTP expõe autorização específica e activity bounded', a
       capability: 'shell:arbitrary',
       granted: true,
     },
+  });
+  assert.equal(invalid.statusCode, 400);
+});
+
+
+test('Agent Runtime HTTP resolve checkpoint exige decisão explícita e sanitiza payload', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      resolveCheckpoint: async (...args) => {
+        calls.push(args);
+        return {
+          task,
+          checkpoint: {
+            id: args[2],
+            taskId: args[1],
+            status: args[3],
+            summary: 'Approval required.',
+            requiredCapabilities: ['workspace:write'],
+            createdAt: '2026-09-23T11:00:00.000Z',
+            resolvedAt: '2026-09-23T11:01:00.000Z',
+            ...(args[4] ? { continuationInstruction: args[4] } : {}),
+          },
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/checkpoints/checkpoint-1/resolve',
+    payload: {
+      decision: 'approved',
+      instruction: 'Continue with tests.',
+      cwd: '/tmp/ignored',
+      executable: 'bash',
+    },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'task-1',
+      'checkpoint-1',
+      'approved',
+      'Continue with tests.',
+    ],
+  ]);
+
+  const invalid = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/checkpoints/checkpoint-1/resolve',
+    payload: { decision: 'maybe' },
   });
   assert.equal(invalid.statusCode, 400);
 });
