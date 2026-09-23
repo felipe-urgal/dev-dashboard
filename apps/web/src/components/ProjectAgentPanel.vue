@@ -46,6 +46,7 @@ const props = defineProps<{
   project: Project;
   environmentInstanceId?: string;
   currentBranch?: string;
+  initialTaskId?: string;
 }>();
 
 const capabilities: Array<{
@@ -449,7 +450,11 @@ async function load(): Promise<void> {
     const sorted = [...nextTasks].sort((left, right) =>
       right.task.updatedAt.localeCompare(left.task.updatedAt),
     );
+    const requested = props.initialTaskId
+      ? sorted.find((record) => record.task.id === props.initialTaskId)
+      : undefined;
     const active =
+      requested ??
       sorted.find((record) =>
         [
           'queued',
