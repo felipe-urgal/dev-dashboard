@@ -24,7 +24,6 @@ const task = {
   version: 1,
 };
 
-
 function realtimeService() {
   return {
     attach: async () => {
