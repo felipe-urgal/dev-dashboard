@@ -359,7 +359,11 @@ function buildPrompt(
   return [
     summary,
     ...(request.continuationInstruction
-      ? ['', 'Continuation instruction:', request.continuationInstruction.trim()]
+      ? [
+          '',
+          'Continuation instruction:',
+          request.continuationInstruction.trim(),
+        ]
       : []),
     '',
     'Browser Local Tool Gateway:',

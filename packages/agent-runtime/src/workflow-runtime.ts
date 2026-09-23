@@ -249,8 +249,10 @@ export class AgentWorkflowRuntime {
       }
 
       const continuationInstruction = current.task.continuationInstruction;
-      const { continuationInstruction: _consumedInstruction, ...taskWithoutInstruction } =
-        current.task;
+      const {
+        continuationInstruction: _consumedInstruction,
+        ...taskWithoutInstruction
+      } = current.task;
       const runningTask = transitionAgentTask(
         taskWithoutInstruction,
         'running',
@@ -296,9 +298,7 @@ export class AgentWorkflowRuntime {
             : {}),
           summary: runningRecord.task.summary,
           allowedCapabilities,
-          ...(continuationInstruction
-            ? { continuationInstruction }
-            : {}),
+          ...(continuationInstruction ? { continuationInstruction } : {}),
           signal: controller.signal,
         });
       } catch {

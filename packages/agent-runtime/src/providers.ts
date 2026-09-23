@@ -236,7 +236,11 @@ function buildProviderPrompt(request: AgentProviderExecutionRequest): string {
   return [
     request.summary.trim(),
     ...(request.continuationInstruction
-      ? ['', 'Continuation instruction:', request.continuationInstruction.trim()]
+      ? [
+          '',
+          'Continuation instruction:',
+          request.continuationInstruction.trim(),
+        ]
       : []),
     '',
     'Execution boundary:',
