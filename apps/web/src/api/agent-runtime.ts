@@ -5,6 +5,42 @@ export type AgentProviderId =
 
 export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 
+export type AgentIntegrationKind =
+  'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+
+export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
+
+export type AgentIntegrationOperation =
+  | 'list'
+  | 'inspect'
+  | 'install'
+  | 'enable'
+  | 'disable'
+  | 'uninstall'
+  | 'authenticate';
+
+export interface AgentIntegrationCapability {
+  kind: AgentIntegrationKind;
+  scopes: AgentIntegrationScope[];
+  operations: AgentIntegrationOperation[];
+  availability: 'supported' | 'unavailable';
+  reason?: string;
+}
+
+export interface AgentIntegrationProviderCapabilities {
+  providerId: AgentConcreteProviderId;
+  integrations: AgentIntegrationCapability[];
+}
+
+export interface AgentIntegration {
+  id: string;
+  providerId: AgentConcreteProviderId;
+  kind: AgentIntegrationKind;
+  name: string;
+  enabled?: boolean;
+  authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
+}
+
 export type AgentCapability =
   | 'workspace:write'
   | 'git:commit'
@@ -247,6 +283,34 @@ function taskPath(projectId: string, taskId?: string): string {
 export async function fetchAgentProviders(): Promise<AgentProviderStatus[]> {
   return (await requestJson<ProvidersResponse>('/api/agent/providers'))
     .providers;
+}
+
+export async function fetchAgentIntegrationCapabilities(): Promise<
+  AgentIntegrationProviderCapabilities[]
+> {
+  return (
+    await requestJson<{ providers: AgentIntegrationProviderCapabilities[] }>(
+      '/api/agent/integrations/capabilities',
+    )
+  ).providers;
+}
+
+export async function fetchAgentIntegrations(
+  projectId: string,
+  providerId: AgentConcreteProviderId,
+  environmentInstanceId?: string,
+): Promise<AgentIntegration[]> {
+  const query = new URLSearchParams({ providerId });
+  if (environmentInstanceId) {
+    query.set('environmentInstanceId', environmentInstanceId);
+  }
+  const path =
+    '/api/projects/' +
+    encodeURIComponent(projectId) +
+    '/agent/integrations?' +
+    query.toString();
+  return (await requestJson<{ integrations: AgentIntegration[] }>(path))
+    .integrations;
 }
 
 export async function fetchAgentTasks(
