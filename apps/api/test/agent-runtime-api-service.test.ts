@@ -1123,3 +1123,173 @@ test('AgentRuntimeApiService não alerta budget sem métrica observada', async (
 
   assert.deepEqual((await service.budget('project-1', 'task-1')).alerts, []);
 });
+
+
+test('AgentRuntimeApiService bloqueia nova execução antes do provider ao atingir hard budget', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'queued',
+      summary: 'Executar task',
+      requestedCapabilities: [],
+      createdAt: '2026-09-23T13:00:00.000Z',
+      updatedAt: '2026-09-23T13:00:00.000Z',
+    },
+    null,
+  );
+
+  let executeCalls = 0;
+  const activityWrites: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        executeCalls += 1;
+        throw new Error('provider must not be called');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    usageStore: {
+      append: async (record) => record,
+      summary: async () => ({
+        executionCount: 2,
+        totalTokens: 12_000,
+      }),
+    },
+    budgetStore: {
+      get: async () => ({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        maxTotalTokens: 10_000,
+        mode: 'hard',
+        updatedAt: '2026-09-23T13:00:00.000Z',
+      }),
+      set: async (budget) => budget,
+      clear: async () => undefined,
+    },
+    activityEventStore: {
+      append: async (input) => {
+        activityWrites.push(input);
+        return {
+          id: 'activity-1',
+          occurredAt: input.occurredAt ?? '2026-09-23T13:00:00.000Z',
+          ...input,
+        };
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.execute('project-1', 'task-1', 'codex'),
+    (error: unknown) =>
+      error instanceof AgentRuntimeApiServiceError &&
+      error.code === 'AGENT_API_BUDGET_EXCEEDED',
+  );
+
+  assert.equal(executeCalls, 0);
+  assert.equal(activityWrites.length, 0);
+});
+
+test('AgentRuntimeApiService não bloqueia hard budget sem métrica observada', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'queued',
+      summary: 'Executar task',
+      requestedCapabilities: [],
+      createdAt: '2026-09-23T13:00:00.000Z',
+      updatedAt: '2026-09-23T13:00:00.000Z',
+    },
+    null,
+  );
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => ({
+        execution: {
+          id: 'execution-1',
+          taskId: 'task-1',
+          projectId: 'project-1',
+          providerId: 'codex',
+          state: 'succeeded',
+          finishedAt: '2026-09-23T13:01:00.000Z',
+        },
+        task: (await taskStore.get('task-1'))!,
+        providerResult: {
+          providerId: 'codex',
+          outcome: 'succeeded',
+          summary: 'done',
+        },
+      }),
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    usageStore: {
+      append: async (record) => record,
+      summary: async () => ({
+        executionCount: 1,
+        inputTokens: 500,
+      }),
+    },
+    budgetStore: {
+      get: async () => ({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        maxTotalTokens: 100,
+        mode: 'hard',
+        updatedAt: '2026-09-23T13:00:00.000Z',
+      }),
+      set: async (budget) => budget,
+      clear: async () => undefined,
+    },
+  });
+
+  const result = await service.execute('project-1', 'task-1', 'codex');
+  assert.equal(result.execution.state, 'succeeded');
+});
