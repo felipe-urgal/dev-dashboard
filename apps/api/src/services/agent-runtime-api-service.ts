@@ -230,7 +230,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     const record = await this.options.taskStore.save(task, null);
     await this.recordActivity({
       projectId,
-      environmentInstanceId: task.environmentInstanceId,
+      ...(task.environmentInstanceId
+        ? { environmentInstanceId: task.environmentInstanceId }
+        : {}),
       type: 'agent.task.created',
       status: 'started',
       summary: 'Agent task created.',
@@ -277,7 +279,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       await this.options.auditStore.listAuthorizations(taskId);
     await this.recordActivity({
       projectId,
-      environmentInstanceId: taskRecord.task.environmentInstanceId,
+      ...(taskRecord.task.environmentInstanceId
+        ? { environmentInstanceId: taskRecord.task.environmentInstanceId }
+        : {}),
       type: 'agent.execution.started',
       status: 'started',
       summary: 'Agent execution started.',
@@ -299,7 +303,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     } catch (error) {
       await this.recordActivity({
         projectId,
-        environmentInstanceId: taskRecord.task.environmentInstanceId,
+        ...(taskRecord.task.environmentInstanceId
+        ? { environmentInstanceId: taskRecord.task.environmentInstanceId }
+        : {}),
         type: 'agent.execution.failed',
         status: 'failed',
         summary: 'Agent execution failed.',
@@ -333,7 +339,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
     await this.recordActivity({
       projectId,
-      environmentInstanceId: result.execution.environmentInstanceId,
+      ...(result.execution.environmentInstanceId
+        ? { environmentInstanceId: result.execution.environmentInstanceId }
+        : {}),
       type: 'agent.provider.selected',
       status: 'succeeded',
       summary: `Agent provider selected: ${result.providerResult.providerId}.`,
@@ -343,7 +351,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     });
     await this.recordActivity({
       projectId,
-      environmentInstanceId: result.execution.environmentInstanceId,
+      ...(result.execution.environmentInstanceId
+        ? { environmentInstanceId: result.execution.environmentInstanceId }
+        : {}),
       type: `agent.execution.${result.providerResult.outcome}`,
       status:
         result.providerResult.outcome === 'succeeded'
@@ -403,7 +413,12 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
     await this.recordActivity({
       projectId,
-      environmentInstanceId: nextStatus.task.task.environmentInstanceId,
+      ...(nextStatus.task.task.environmentInstanceId
+        ? {
+            environmentInstanceId:
+              nextStatus.task.task.environmentInstanceId,
+          }
+        : {}),
       type: 'agent.execution.cancelled',
       status: 'cancelled',
       summary: 'Agent execution cancellation requested.',
@@ -424,7 +439,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
     await this.recordActivity({
       projectId,
-      environmentInstanceId: record.task.environmentInstanceId,
+      ...(record.task.environmentInstanceId
+        ? { environmentInstanceId: record.task.environmentInstanceId }
+        : {}),
       type: 'agent.retry',
       status: 'started',
       summary: 'Agent task queued for retry.',
@@ -449,7 +466,12 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
     await this.recordActivity({
       projectId,
-      environmentInstanceId: nextStatus.task.task.environmentInstanceId,
+      ...(nextStatus.task.task.environmentInstanceId
+        ? {
+            environmentInstanceId:
+              nextStatus.task.task.environmentInstanceId,
+          }
+        : {}),
       type: 'agent.recover',
       status: 'succeeded',
       summary: 'Agent task recovery completed.',
@@ -479,7 +501,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
     await this.recordActivity({
       projectId,
-      environmentInstanceId: taskRecord.task.environmentInstanceId,
+      ...(taskRecord.task.environmentInstanceId
+        ? { environmentInstanceId: taskRecord.task.environmentInstanceId }
+        : {}),
       type: `agent.checkpoint.${status}`,
       status: status === 'approved' ? 'succeeded' : 'warning',
       summary:
@@ -524,7 +548,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
     await this.recordActivity({
       projectId,
-      environmentInstanceId: record.task.environmentInstanceId,
+      ...(record.task.environmentInstanceId
+        ? { environmentInstanceId: record.task.environmentInstanceId }
+        : {}),
       type: granted
         ? 'agent.authorization.granted'
         : 'agent.authorization.revoked',
