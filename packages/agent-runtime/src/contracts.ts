@@ -92,12 +92,23 @@ export interface AgentExecution {
 export type AgentProviderAvailability =
   'available' | 'degraded' | 'unavailable';
 
+export interface AgentProviderQuota {
+  status: 'available' | 'unavailable';
+  label?: string;
+  used?: number;
+  remaining?: number;
+  resetAt?: string;
+  source: 'provider' | 'unavailable';
+  reason?: string;
+}
+
 export interface AgentProviderStatus {
   providerId: AgentProviderId;
   availability: AgentProviderAvailability;
   observedAt: string;
   version?: string;
   reason?: string;
+  quota?: AgentProviderQuota;
 }
 
 export type AgentCheckpointStatus = 'pending' | 'approved' | 'rejected';
