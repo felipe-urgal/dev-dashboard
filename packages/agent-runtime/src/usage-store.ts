@@ -1,10 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type {
-  AgentConcreteProviderId,
-  AgentUsage,
-} from './contracts.js';
+import type { AgentConcreteProviderId, AgentUsage } from './contracts.js';
 import { AgentTaskLockManager } from './task-lock.js';
 
 const STORE_VERSION = 1;
@@ -51,9 +48,7 @@ export interface AgentUsageStoreOptions {
 }
 
 export type AgentUsageStoreErrorCode =
-  | 'AGENT_USAGE_INVALID'
-  | 'AGENT_USAGE_CORRUPT'
-  | 'AGENT_USAGE_CONFLICT';
+  'AGENT_USAGE_INVALID' | 'AGENT_USAGE_CORRUPT' | 'AGENT_USAGE_CONFLICT';
 
 export class AgentUsageStoreError extends Error {
   public constructor(
@@ -80,26 +75,16 @@ function assertIdentity(value: string, label: string): void {
 }
 
 function nonNegativeInteger(value: unknown): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isSafeInteger(value) &&
-    value >= 0
-  );
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 function nonNegativeNumber(value: unknown): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isFinite(value) &&
-    value >= 0
-  );
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
 function isProviderId(value: unknown): value is AgentConcreteProviderId {
   return (
-    value === 'codex' ||
-    value === 'claude-code' ||
-    value === 'chatgpt-browser'
+    value === 'codex' || value === 'claude-code' || value === 'chatgpt-browser'
   );
 }
 
@@ -254,10 +239,7 @@ export class AgentUsageStore {
     if (query.taskId !== undefined) {
       assertIdentity(query.taskId, 'Agent usage task id');
     }
-    if (
-      query.providerId !== undefined &&
-      !isProviderId(query.providerId)
-    ) {
+    if (query.providerId !== undefined && !isProviderId(query.providerId)) {
       throw new AgentUsageStoreError(
         'AGENT_USAGE_INVALID',
         'Agent usage provider id is invalid.',
