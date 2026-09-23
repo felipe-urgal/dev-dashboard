@@ -4,6 +4,10 @@ import type {
   TaskContext,
   TaskContextSnapshot,
 } from '@dev-dashboard/contracts';
+import type {
+  ActivityEventRepository,
+  AppendActivityEventInput,
+} from '@dev-dashboard/core';
 
 import type {
   AgentAuditSnapshot,
@@ -122,6 +126,7 @@ export interface AgentRuntimeApiServiceOptions {
       taskContextId: string,
     ): Promise<TaskContextSnapshot>;
   };
+  activityEventStore?: Pick<ActivityEventRepository, 'append'>;
   now?: () => string;
   createTaskId?: () => string;
   createEvidenceId?: () => string;
@@ -222,7 +227,18 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       updatedAt: observedAt,
     };
 
-    return this.options.taskStore.save(task, null);
+    const record = await this.options.taskStore.save(task, null);
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: task.environmentInstanceId,
+      type: 'agent.task.created',
+      status: 'started',
+      summary: 'Agent task created.',
+      occurredAt: observedAt,
+      resourceRef: { kind: 'agent-task', id: task.id },
+      jobId: task.id,
+    });
+    return record;
   }
 
   public async getTask(
@@ -259,14 +275,40 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     this.validateTaskContextBinding(taskRecord.task);
     const authorizations =
       await this.options.auditStore.listAuthorizations(taskId);
-    const result = await this.withRuntimeErrors(() =>
-      this.options.workflowRuntime.execute({
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: taskRecord.task.environmentInstanceId,
+      type: 'agent.execution.started',
+      status: 'started',
+      summary: 'Agent execution started.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+
+    let result: AgentWorkflowExecutionResult;
+    try {
+      result = await this.withRuntimeErrors(() =>
+        this.options.workflowRuntime.execute({
+          projectId,
+          taskId,
+          ...(providerId ? { providerId } : {}),
+          authorizations,
+        }),
+      );
+    } catch (error) {
+      await this.recordActivity({
         projectId,
-        taskId,
-        ...(providerId ? { providerId } : {}),
-        authorizations,
-      }),
-    );
+        environmentInstanceId: taskRecord.task.environmentInstanceId,
+        type: 'agent.execution.failed',
+        status: 'failed',
+        summary: 'Agent execution failed.',
+        occurredAt: this.now(),
+        resourceRef: { kind: 'agent-task', id: taskId },
+        jobId: taskId,
+      });
+      throw error;
+    }
 
     const providerEvidence = (result.providerResult.evidence ?? []).map(
       (item) => ({
@@ -288,6 +330,44 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       result.execution.finishedAt ?? this.now(),
       evidence,
     );
+
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: result.execution.environmentInstanceId,
+      type: 'agent.provider.selected',
+      status: 'succeeded',
+      summary: `Agent provider selected: ${result.providerResult.providerId}.`,
+      occurredAt: result.execution.finishedAt ?? this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: result.execution.environmentInstanceId,
+      type: `agent.execution.${result.providerResult.outcome}`,
+      status:
+        result.providerResult.outcome === 'succeeded'
+          ? 'succeeded'
+          : result.providerResult.outcome === 'cancelled'
+            ? 'cancelled'
+            : result.providerResult.outcome === 'checkpoint' ||
+                result.providerResult.outcome === 'unknown'
+              ? 'warning'
+              : 'failed',
+      summary:
+        result.providerResult.outcome === 'succeeded'
+          ? 'Agent execution completed.'
+          : result.providerResult.outcome === 'checkpoint'
+            ? 'Agent execution opened a checkpoint.'
+            : result.providerResult.outcome === 'cancelled'
+              ? 'Agent execution was cancelled.'
+              : result.providerResult.outcome === 'unknown'
+                ? 'Agent execution ended with unknown outcome.'
+                : 'Agent execution failed.',
+      occurredAt: result.execution.finishedAt ?? this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
 
     return {
       ...result,
@@ -317,7 +397,21 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       });
     });
 
-    return this.options.workflowRuntime.status(projectId, taskId);
+    const nextStatus = await this.options.workflowRuntime.status(
+      projectId,
+      taskId,
+    );
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: nextStatus.task.task.environmentInstanceId,
+      type: 'agent.execution.cancelled',
+      status: 'cancelled',
+      summary: 'Agent execution cancellation requested.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return nextStatus;
   }
 
   public async retry(
@@ -325,9 +419,20 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     taskId: string,
   ): Promise<AgentTaskRecord> {
     await this.getTask(projectId, taskId);
-    return this.withRuntimeErrors(() =>
+    const record = await this.withRuntimeErrors(() =>
       this.options.workflowRuntime.retry(projectId, taskId),
     );
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: record.task.environmentInstanceId,
+      type: 'agent.retry',
+      status: 'started',
+      summary: 'Agent task queued for retry.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return record;
   }
 
   public async recover(
@@ -338,7 +443,21 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     await this.withRuntimeErrors(() =>
       this.options.workflowRuntime.recover(projectId, taskId),
     );
-    return this.options.workflowRuntime.status(projectId, taskId);
+    const nextStatus = await this.options.workflowRuntime.status(
+      projectId,
+      taskId,
+    );
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: nextStatus.task.task.environmentInstanceId,
+      type: 'agent.recover',
+      status: 'succeeded',
+      summary: 'Agent task recovery completed.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return nextStatus;
   }
 
   public async resolveCheckpoint(
@@ -348,8 +467,8 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     status: Exclude<AgentCheckpointStatus, 'pending'>,
     continuationInstruction?: string,
   ): Promise<AgentWorkflowCheckpointResolution> {
-    await this.getTask(projectId, taskId);
-    return this.withRuntimeErrors(() =>
+    const taskRecord = await this.getTask(projectId, taskId);
+    const resolution = await this.withRuntimeErrors(() =>
       this.options.workflowRuntime.resolveCheckpoint(
         projectId,
         taskId,
@@ -358,6 +477,20 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         continuationInstruction,
       ),
     );
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: taskRecord.task.environmentInstanceId,
+      type: `agent.checkpoint.${status}`,
+      status: status === 'approved' ? 'succeeded' : 'warning',
+      summary:
+        status === 'approved'
+          ? 'Agent checkpoint approved.'
+          : 'Agent checkpoint rejected.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return resolution;
   }
 
   public async activity(
@@ -382,16 +515,42 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       );
     }
 
-    return this.options.auditStore.setAuthorization(
+    const observedAt = this.now();
+    const authorization = await this.options.auditStore.setAuthorization(
       taskId,
       capability,
       granted,
-      this.now(),
+      observedAt,
     );
+    await this.recordActivity({
+      projectId,
+      environmentInstanceId: record.task.environmentInstanceId,
+      type: granted ? 'agent.authorization.granted' : 'agent.authorization.revoked',
+      status: granted ? 'succeeded' : 'warning',
+      summary: `Agent capability ${capability} ${granted ? 'granted' : 'revoked'}.`,
+      occurredAt: observedAt,
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return authorization;
   }
 
   public async shutdown(): Promise<void> {
     await this.options.workflowRuntime.shutdown();
+  }
+
+  private async recordActivity(
+    input: Omit<AppendActivityEventInput, 'domain'>,
+  ): Promise<void> {
+    if (!this.options.activityEventStore) return;
+    try {
+      await this.options.activityEventStore.append({
+        ...input,
+        domain: 'agent',
+      });
+    } catch {
+      // Activity is observational; it must never become Agent authority.
+    }
   }
 
   private requireTaskContext(
