@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowPathIcon,
@@ -130,14 +125,14 @@ const selectedTask = computed(
     null,
 );
 
-const currentTask = computed(
-  () => status.value?.task ?? selectedTask.value,
-);
+const currentTask = computed(() => status.value?.task ?? selectedTask.value);
 
 const providerOptions = computed<AgentProviderStatus[]>(() =>
   providerIds.map(
     (providerId) =>
-      providers.value.find((provider) => provider.providerId === providerId) ?? {
+      providers.value.find(
+        (provider) => provider.providerId === providerId,
+      ) ?? {
         providerId,
         availability: 'unavailable',
         observedAt: '',
@@ -270,7 +265,9 @@ function closeSocket(): void {
 }
 
 function replaceTask(record: AgentTaskRecord): void {
-  const index = tasks.value.findIndex((item) => item.task.id === record.task.id);
+  const index = tasks.value.findIndex(
+    (item) => item.task.id === record.task.id,
+  );
   if (index >= 0) {
     tasks.value = tasks.value.map((item, itemIndex) =>
       itemIndex === index ? record : item,
@@ -286,7 +283,9 @@ function applySnapshot(snapshot: AgentRealtimeSnapshot): void {
   replaceTask(snapshot.status.task);
 }
 
-function parseSocketMessage(data: unknown):
+function parseSocketMessage(
+  data: unknown,
+):
   | { type: 'ready' | 'update'; snapshot: AgentRealtimeSnapshot }
   | { type: 'error'; message: string }
   | null {
@@ -364,10 +363,7 @@ async function loadTask(
       fetchAgentTaskStatus(props.project.id, taskId),
       fetchAgentActivity(props.project.id, taskId),
     ]);
-    if (
-      requestGeneration !== generation ||
-      selectedTaskId.value !== taskId
-    ) {
+    if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
     status.value = nextStatus;
@@ -414,9 +410,14 @@ async function load(): Promise<void> {
     );
     const active =
       sorted.find((record) =>
-        ['queued', 'running', 'checkpoint', 'review', 'blocked', 'failed'].includes(
-          record.task.state,
-        ),
+        [
+          'queued',
+          'running',
+          'checkpoint',
+          'review',
+          'blocked',
+          'failed',
+        ].includes(record.task.state),
       ) ?? sorted[0];
 
     selectedTaskId.value = active?.task.id ?? '';
@@ -524,7 +525,9 @@ async function retryCurrent(): Promise<void> {
     await loadTask(next.task.id);
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível tentar novamente.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível tentar novamente.';
   } finally {
     mutating.value = false;
   }
@@ -542,7 +545,9 @@ async function recoverCurrent(): Promise<void> {
     activity.value = await fetchAgentActivity(props.project.id, record.task.id);
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível recuperar a task.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível recuperar a task.';
   } finally {
     mutating.value = false;
   }
@@ -714,7 +719,9 @@ onBeforeUnmount(() => {
             v-for="record in sortedTasks"
             :key="record.task.id"
             class="agent-task-item"
-            :class="{ 'agent-task-item-active': record.task.id === selectedTaskId }"
+            :class="{
+              'agent-task-item-active': record.task.id === selectedTaskId,
+            }"
             type="button"
             @click="selectTask(record.task.id)"
           >
@@ -1009,7 +1016,9 @@ onBeforeUnmount(() => {
                 <li v-for="event in recentEvents" :key="event.id">
                   <span>{{ event.type }}</span>
                   <strong>{{ event.summary }}</strong>
-                  <small>{{ new Date(event.occurredAt).toLocaleString() }}</small>
+                  <small>{{
+                    new Date(event.occurredAt).toLocaleString()
+                  }}</small>
                 </li>
               </ol>
             </section>
