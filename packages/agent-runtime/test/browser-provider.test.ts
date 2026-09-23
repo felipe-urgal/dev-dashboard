@@ -197,6 +197,27 @@ test('browser provider executes one bounded structured job', async () => {
   assert.match(created?.prompt ?? '', /terminal_result/);
 });
 
+test('browser provider inclui instrução de continuação no prompt', async () => {
+  const bridge = new StubBridge();
+  const provider = new ChatGptBrowserAgentProvider({
+    bridge,
+    resolveCwd: () => '/workspace/project',
+    now: () => observedAt,
+    sleep: async () => {},
+  });
+
+  await provider.execute({
+    ...request(),
+    continuationInstruction: 'Continue after explicit checkpoint approval.',
+  });
+
+  assert.match(bridge.created[0]?.prompt ?? '', /Continuation instruction:/);
+  assert.match(
+    bridge.created[0]?.prompt ?? '',
+    /explicit checkpoint approval/,
+  );
+});
+
 test('browser cancellation cancels only the owned job', async () => {
   const bridge = new StubBridge();
   bridge.states = [{ id: 'job-1', state: 'running' }];
