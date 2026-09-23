@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type {
+  AgentCapability,
   AgentProviderRegistry,
   AgentTask,
   AgentTaskRecord,
@@ -39,10 +40,29 @@ const registry: AgentProviderRegistry = {
   list: () => [],
 };
 
+function auditStore() {
+  return {
+    snapshot: async () => ({
+      authorizations: [],
+      events: [],
+      evidence: [],
+    }),
+    listAuthorizations: async () => [],
+    setAuthorization: async (
+      taskId: string,
+      capability: AgentCapability,
+      granted: boolean,
+      observedAt: string,
+    ) => ({ taskId, capability, granted, observedAt }),
+    appendExecutionResult: async () => undefined,
+  };
+}
+
 test('AgentRuntimeApiService deriva Environment Instance no backend ao criar task', async () => {
   const taskStore = new MemoryTaskStore();
   const service = new AgentRuntimeApiService({
     taskStore,
+    auditStore: auditStore(),
     providerRegistry: registry,
     workflowRuntime: {
       status: async () => {
@@ -127,6 +147,7 @@ test('AgentRuntimeApiService cancela somente ownership ativo resolvido no backen
 
   const service = new AgentRuntimeApiService({
     taskStore,
+    auditStore: auditStore(),
     providerRegistry: registry,
     workflowRuntime: {
       status: async () => ({
@@ -175,6 +196,7 @@ test('AgentRuntimeApiService cancela somente ownership ativo resolvido no backen
 test('AgentRuntimeApiService falha fechado para projeto/ambiente ausente', async () => {
   const service = new AgentRuntimeApiService({
     taskStore: new MemoryTaskStore(),
+    auditStore: auditStore(),
     providerRegistry: registry,
     workflowRuntime: {
       status: async () => {
@@ -214,4 +236,188 @@ test('AgentRuntimeApiService falha fechado para projeto/ambiente ausente', async
       error instanceof AgentRuntimeApiServiceError &&
       error.code === 'AGENT_API_ENVIRONMENT_NOT_FOUND',
   );
+});
+
+test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste evidence', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:primary:project-1',
+      state: 'queued',
+      summary: 'Executar task',
+      requestedCapabilities: ['workspace:write', 'git:commit'],
+      createdAt: '2026-09-23T11:00:00.000Z',
+      updatedAt: '2026-09-23T11:00:00.000Z',
+    },
+    null,
+  );
+
+  let executeRequest: unknown;
+  let auditWrite: unknown;
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: {
+      ...auditStore(),
+      listAuthorizations: async () => [
+        {
+          taskId: 'task-1',
+          capability: 'workspace:write' as const,
+          granted: true,
+          observedAt: '2026-09-23T11:01:00.000Z',
+        },
+      ],
+      appendExecutionResult: async (...args) => {
+        auditWrite = args;
+      },
+    },
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async (request) => {
+        executeRequest = request;
+        return {
+          execution: {
+            id: 'execution-1',
+            taskId: 'task-1',
+            projectId: 'project-1',
+            providerId: 'codex',
+            state: 'succeeded',
+            finishedAt: '2026-09-23T11:02:00.000Z',
+          },
+          task: (await taskStore.get('task-1'))!,
+          providerResult: {
+            providerId: 'codex',
+            outcome: 'succeeded',
+            summary: 'Concluído.',
+            evidence: [
+              {
+                id: 'evidence-1',
+                taskId: 'provider-supplied-task',
+                kind: 'test',
+                summary: 'Testes passaram.',
+                observedAt: '2026-09-23T11:01:30.000Z',
+              },
+            ],
+          },
+        };
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+  });
+
+  const result = await service.execute('project-1', 'task-1', 'codex');
+  assert.deepEqual(executeRequest, {
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+    authorizations: [
+      {
+        taskId: 'task-1',
+        capability: 'workspace:write',
+        granted: true,
+        observedAt: '2026-09-23T11:01:00.000Z',
+      },
+    ],
+  });
+  assert.equal(result.providerResult.evidence?.[0]?.taskId, 'task-1');
+  assert.equal(result.providerResult.evidence?.[0]?.executionId, 'execution-1');
+  assert.deepEqual(auditWrite, [
+    'task-1',
+    'execution-1',
+    'Concluído.',
+    '2026-09-23T11:02:00.000Z',
+    result.providerResult.evidence,
+  ]);
+});
+
+test('AgentRuntimeApiService só autoriza capability solicitada pela task', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      state: 'queued',
+      summary: 'x',
+      requestedCapabilities: ['workspace:write'],
+      createdAt: '2026-09-23T11:00:00.000Z',
+      updatedAt: '2026-09-23T11:00:00.000Z',
+    },
+    null,
+  );
+
+  const writes: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: {
+      ...auditStore(),
+      setAuthorization: async (...args) => {
+        writes.push(args);
+        return {
+          taskId: args[0],
+          capability: args[1],
+          granted: args[2],
+          observedAt: args[3],
+        };
+      },
+    },
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    now: () => '2026-09-23T11:05:00.000Z',
+  });
+
+  await service.setAuthorization(
+    'project-1',
+    'task-1',
+    'workspace:write',
+    true,
+  );
+  assert.deepEqual(writes, [
+    ['task-1', 'workspace:write', true, '2026-09-23T11:05:00.000Z'],
+  ]);
+
+  await assert.rejects(
+    service.setAuthorization('project-1', 'task-1', 'git:push', true),
+    (error: unknown) =>
+      error instanceof AgentRuntimeApiServiceError &&
+      error.code === 'AGENT_API_INVALID_REQUEST',
+  );
+  assert.equal(writes.length, 1);
 });

@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  AgentAuditSnapshot,
+  AgentAuthorization,
+  AgentAuditStore,
   AgentCapability,
   AgentProviderId,
   AgentProviderRegistry,
@@ -59,11 +62,25 @@ export interface AgentRuntimeApiServicePort {
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
   recover(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
+  activity(projectId: string, taskId: string): Promise<AgentAuditSnapshot>;
+  setAuthorization(
+    projectId: string,
+    taskId: string,
+    capability: AgentCapability,
+    granted: boolean,
+  ): Promise<AgentAuthorization>;
   shutdown(): Promise<void>;
 }
 
 export interface AgentRuntimeApiServiceOptions {
   taskStore: AgentTaskStore;
+  auditStore: Pick<
+    AgentAuditStore,
+    | 'snapshot'
+    | 'listAuthorizations'
+    | 'setAuthorization'
+    | 'appendExecutionResult'
+  >;
   providerRegistry: AgentProviderRegistry;
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
@@ -188,13 +205,37 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     providerId?: AgentProviderId,
   ): Promise<AgentWorkflowExecutionResult> {
     await this.getTask(projectId, taskId);
-    return this.withRuntimeErrors(() =>
+    const authorizations =
+      await this.options.auditStore.listAuthorizations(taskId);
+    const result = await this.withRuntimeErrors(() =>
       this.options.workflowRuntime.execute({
         projectId,
         taskId,
         ...(providerId ? { providerId } : {}),
+        authorizations,
       }),
     );
+
+    const evidence = (result.providerResult.evidence ?? []).map((item) => ({
+      ...item,
+      taskId,
+      executionId: result.execution.id,
+    }));
+    await this.options.auditStore.appendExecutionResult(
+      taskId,
+      result.execution.id,
+      result.providerResult.summary,
+      result.execution.finishedAt ?? this.now(),
+      evidence,
+    );
+
+    return {
+      ...result,
+      providerResult: {
+        ...result.providerResult,
+        ...(evidence.length > 0 ? { evidence } : {}),
+      },
+    };
   }
 
   public async cancel(
@@ -238,6 +279,36 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       this.options.workflowRuntime.recover(projectId, taskId),
     );
     return this.options.workflowRuntime.status(projectId, taskId);
+  }
+
+  public async activity(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentAuditSnapshot> {
+    await this.getTask(projectId, taskId);
+    return this.options.auditStore.snapshot(taskId);
+  }
+
+  public async setAuthorization(
+    projectId: string,
+    taskId: string,
+    capability: AgentCapability,
+    granted: boolean,
+  ): Promise<AgentAuthorization> {
+    const record = await this.getTask(projectId, taskId);
+    if (!record.task.requestedCapabilities.includes(capability)) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent capability was not requested by this task.',
+      );
+    }
+
+    return this.options.auditStore.setAuthorization(
+      taskId,
+      capability,
+      granted,
+      this.now(),
+    );
   }
 
   public async shutdown(): Promise<void> {

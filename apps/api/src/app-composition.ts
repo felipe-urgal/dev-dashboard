@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 
 import {
+  AgentAuditStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
   AgentWorkflowRuntime,
@@ -301,6 +302,7 @@ function createAgentRuntimeApiService(
   const taskStore = new GitAgentTaskStore({
     repositoryDirectory: path.join(stateDirectory, 'tasks'),
   });
+  const auditStore = new AgentAuditStore({ stateDirectory });
   const providerRegistry = createLocalAgentProviderRegistry({
     resolveCwd: (request) => {
       const executionContext =
@@ -335,6 +337,7 @@ function createAgentRuntimeApiService(
 
   return new AgentRuntimeApiService({
     taskStore,
+    auditStore,
     providerRegistry,
     workflowRuntime,
     projectStore: context.projectStore,
