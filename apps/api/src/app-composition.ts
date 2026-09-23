@@ -257,7 +257,7 @@ export function createAppComposition(
 
   const agentRuntimeApiService =
     options.agentRuntimeApiService ??
-    createAgentRuntimeApiService(context, options);
+    createAgentRuntimeApiService(context, options, taskContextService);
   const agentRuntimeRealtimeService = new AgentRuntimeRealtimeService(
     agentRuntimeApiService,
   );
@@ -299,6 +299,7 @@ export function createAppComposition(
 function createAgentRuntimeApiService(
   context: AppContext,
   options: AppCompositionOptions,
+  taskContextService: Pick<TaskContextService, 'snapshot'>,
 ): AgentRuntimeApiService {
   const stateDirectory = path.join(
     context.processManager.stateDirectory,
@@ -349,6 +350,8 @@ function createAgentRuntimeApiService(
     projectStore: context.projectStore,
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
+    taskContextRepository: context.taskContextRepository,
+    taskContextSnapshotReader: taskContextService,
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),
