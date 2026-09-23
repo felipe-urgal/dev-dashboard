@@ -35,6 +35,7 @@ export interface AgentTask {
   id: string;
   projectId: string;
   environmentInstanceId?: string;
+  taskContextId?: string;
   state: AgentTaskState;
   summary: string;
   continuationInstruction?: string;
