@@ -266,6 +266,7 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
 
   let executeRequest: unknown;
   let auditWrite: unknown;
+  const activityWrites: unknown[] = [];
   const service = new AgentRuntimeApiService({
     taskStore,
     auditStore: {
@@ -333,6 +334,16 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
     developmentEnvironmentInstanceStore: {
       resolveForProject: () => null,
     },
+    activityEventStore: {
+      append: async (input) => {
+        activityWrites.push(input);
+        return {
+          id: `activity-${activityWrites.length}`,
+          occurredAt: input.occurredAt ?? '2026-09-23T11:02:00.000Z',
+          ...input,
+        };
+      },
+    },
   });
 
   const result = await service.execute('project-1', 'task-1', 'codex');
@@ -359,6 +370,18 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
     '2026-09-23T11:02:00.000Z',
     result.providerResult.evidence,
   ]);
+  assert.deepEqual(
+    activityWrites.map((value) => (value as { type: string }).type),
+    [
+      'agent.execution.started',
+      'agent.provider.selected',
+      'agent.execution.succeeded',
+    ],
+  );
+  const serializedActivity = JSON.stringify(activityWrites);
+  assert.equal(serializedActivity.includes('Executar task'), false);
+  assert.equal(serializedActivity.includes('Concluído.'), false);
+  assert.equal(serializedActivity.includes('Testes passaram.'), false);
 });
 
 test('AgentRuntimeApiService só autoriza capability solicitada pela task', async () => {
@@ -779,4 +802,57 @@ test('AgentRuntimeApiService revalida contexto e anexa PR, HEAD e Readiness como
       error instanceof AgentRuntimeApiServiceError &&
       error.code === 'AGENT_API_INVALID_REQUEST',
   );
+});
+
+
+test('AgentRuntimeApiService não deixa falha do Activity bloquear task canônica', async () => {
+  const service = new AgentRuntimeApiService({
+    taskStore: new MemoryTaskStore(),
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'project-1',
+        environmentInstanceId: 'environment:primary:project-1',
+        cwd: '/workspace/project-1',
+        runtime: 'host',
+      }),
+    },
+    activityEventStore: {
+      append: async () => {
+        throw new Error('activity unavailable');
+      },
+    },
+    now: () => '2026-09-23T13:00:00.000Z',
+    createTaskId: () => 'task-activity-isolation',
+  });
+
+  const record = await service.createTask('project-1', {
+    summary: 'Segredo que não pertence à Activity',
+  });
+
+  assert.equal(record.task.id, 'task-activity-isolation');
+  assert.equal(record.task.state, 'queued');
 });
