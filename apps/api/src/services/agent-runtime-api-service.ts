@@ -239,6 +239,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     await this.options.auditStore.appendExecutionResult(
       taskId,
       result.execution.id,
+      result.providerResult.providerId,
       result.providerResult.summary,
       result.execution.finishedAt ?? this.now(),
       evidence,
