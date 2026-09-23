@@ -351,4 +351,312 @@ test.describe('Qualificação da aba Agente', () => {
     await expect(page.getByText('Codex', { exact: true })).toBeVisible();
     expect(executions).toBe(2);
   });
+
+  test('provider indisponível permanece explícito e não executa task', async ({
+    page,
+  }) => {
+    const observedAt = '2026-09-23T14:00:00.000Z';
+    let projectId = '';
+    let task: TaskRecord | null = null;
+
+    await page.route('**/api/agent/providers', (route) =>
+      json(route, {
+        providers: [
+          {
+            providerId: 'automatic',
+            availability: 'unavailable',
+            observedAt,
+            reason: 'Nenhum provider saudável disponível.',
+          },
+        ],
+      }),
+    );
+
+    await page.route('**/api/projects/*/task-contexts', (route) =>
+      json(route, { contexts: [] }),
+    );
+
+    await page.route('**/api/projects/*/agent/tasks', async (route) => {
+      const request = route.request();
+      const parts = new URL(request.url()).pathname.split('/');
+      projectId = decodeURIComponent(parts[3] ?? '');
+
+      if (request.method() === 'GET') {
+        await json(route, { tasks: task ? [task] : [] });
+        return;
+      }
+
+      const input = request.postDataJSON() as {
+        summary: string;
+        requestedCapabilities: string[];
+      };
+      task = {
+        version: 1,
+        task: {
+          id: 'unavailable-provider-task',
+          projectId,
+          environmentInstanceId: \`environment:primary:\${projectId}\`,
+          state: 'queued',
+          summary: input.summary,
+          requestedCapabilities: input.requestedCapabilities,
+          createdAt: observedAt,
+          updatedAt: observedAt,
+        },
+      };
+      await json(route, { task });
+    });
+
+    await page.route(
+      '**/api/projects/*/agent/tasks/unavailable-provider-task/status',
+      (route) =>
+        json(route, {
+          task,
+          runtime: {
+            taskId: 'unavailable-provider-task',
+            projectId,
+            canonicalVersion: task?.version ?? 1,
+            state: 'idle',
+            attempts: 0,
+            updatedAt: observedAt,
+          },
+        }),
+    );
+
+    await page.route(
+      '**/api/projects/*/agent/tasks/unavailable-provider-task/activity',
+      (route) =>
+        json(route, {
+          authorizations: [],
+          checkpoints: [],
+          events: [],
+          evidence: [],
+        }),
+    );
+
+    await gotoBootstrapped(page, '/');
+    const projectHref = await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .getAttribute('href');
+    if (!projectHref) throw new Error('Projeto de fixture não encontrado.');
+    projectId = decodeURIComponent(
+      new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
+    );
+
+    await gotoBootstrapped(page, \`/projects/\${projectId}/agent\`);
+    await page
+      .getByLabel('Instrução para nova task do Agente')
+      .fill('Validar provider indisponível');
+    await page.getByRole('button', { name: 'Criar task' }).click();
+
+    await expect(page.getByText('Indisponível', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Executar' })).toBeDisabled();
+    await expect(
+      page.getByRole('link', { name: 'Ver testes' }),
+    ).toBeVisible();
+  });
+
+  test('task falha pode voltar para fila por retry explícito', async ({
+    page,
+  }) => {
+    const observedAt = '2026-09-23T14:10:00.000Z';
+    let projectId = '';
+    let task: TaskRecord | null = null;
+
+    await page.route('**/api/agent/providers', (route) =>
+      json(route, {
+        providers: [
+          {
+            providerId: 'automatic',
+            availability: 'available',
+            observedAt,
+          },
+        ],
+      }),
+    );
+    await page.route('**/api/projects/*/task-contexts', (route) =>
+      json(route, { contexts: [] }),
+    );
+    await page.route('**/api/projects/*/agent/tasks', (route) => {
+      const parts = new URL(route.request().url()).pathname.split('/');
+      projectId = decodeURIComponent(parts[3] ?? '');
+      task ??= {
+        version: 1,
+        task: {
+          id: 'retry-task',
+          projectId,
+          environmentInstanceId: \`environment:primary:\${projectId}\`,
+          state: 'failed',
+          summary: 'Retry qualification',
+          requestedCapabilities: ['workspace:write'],
+          createdAt: observedAt,
+          updatedAt: observedAt,
+        },
+      };
+      return json(route, { tasks: [task] });
+    });
+    await page.route(
+      '**/api/projects/*/agent/tasks/retry-task/status',
+      (route) =>
+        json(route, {
+          task,
+          runtime: {
+            taskId: 'retry-task',
+            projectId,
+            canonicalVersion: task?.version ?? 1,
+            state: 'idle',
+            attempts: 1,
+            updatedAt: observedAt,
+          },
+        }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/retry-task/activity',
+      (route) =>
+        json(route, {
+          authorizations: [],
+          checkpoints: [],
+          events: [],
+          evidence: [],
+        }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/retry-task/retry',
+      async (route) => {
+        if (!task) throw new Error('Task fixture missing.');
+        task = {
+          version: 2,
+          task: {
+            ...task.task,
+            state: 'queued',
+            updatedAt: observedAt,
+          },
+        };
+        await json(route, { task });
+      },
+    );
+
+    await gotoBootstrapped(page, '/');
+    const projectHref = await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .getAttribute('href');
+    if (!projectHref) throw new Error('Projeto de fixture não encontrado.');
+    projectId = decodeURIComponent(
+      new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
+    );
+
+    await gotoBootstrapped(page, \`/projects/\${projectId}/agent\`);
+    await expect(page.getByText('Falhou', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByText('Na fila', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+  });
+
+  test('runtime interrompido exige recover explícito antes de continuar', async ({
+    page,
+  }) => {
+    const observedAt = '2026-09-23T14:20:00.000Z';
+    let projectId = '';
+    let task: TaskRecord | null = null;
+    let interrupted = true;
+
+    await page.route('**/api/agent/providers', (route) =>
+      json(route, {
+        providers: [
+          {
+            providerId: 'automatic',
+            availability: 'available',
+            observedAt,
+          },
+        ],
+      }),
+    );
+    await page.route('**/api/projects/*/task-contexts', (route) =>
+      json(route, { contexts: [] }),
+    );
+    await page.route('**/api/projects/*/agent/tasks', (route) => {
+      const parts = new URL(route.request().url()).pathname.split('/');
+      projectId = decodeURIComponent(parts[3] ?? '');
+      task ??= {
+        version: 1,
+        task: {
+          id: 'recover-task',
+          projectId,
+          environmentInstanceId: \`environment:primary:\${projectId}\`,
+          state: 'blocked',
+          summary: 'Recovery qualification',
+          requestedCapabilities: ['workspace:write'],
+          createdAt: observedAt,
+          updatedAt: observedAt,
+        },
+      };
+      return json(route, { tasks: [task] });
+    });
+    await page.route(
+      '**/api/projects/*/agent/tasks/recover-task/status',
+      (route) =>
+        json(route, {
+          task,
+          runtime: {
+            taskId: 'recover-task',
+            projectId,
+            canonicalVersion: task?.version ?? 1,
+            state: interrupted ? 'interrupted' : 'idle',
+            attempts: 1,
+            updatedAt: observedAt,
+          },
+        }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/recover-task/activity',
+      (route) =>
+        json(route, {
+          authorizations: [],
+          checkpoints: [],
+          events: [],
+          evidence: [],
+        }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/recover-task/recover',
+      async (route) => {
+        if (!task) throw new Error('Task fixture missing.');
+        interrupted = false;
+        task = {
+          version: 2,
+          task: {
+            ...task.task,
+            state: 'queued',
+            updatedAt: observedAt,
+          },
+        };
+        await json(route, {
+          task,
+          runtime: {
+            taskId: 'recover-task',
+            projectId,
+            canonicalVersion: task.version,
+            state: 'idle',
+            attempts: 1,
+            updatedAt: observedAt,
+          },
+        });
+      },
+    );
+
+    await gotoBootstrapped(page, '/');
+    const projectHref = await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .getAttribute('href');
+    if (!projectHref) throw new Error('Projeto de fixture não encontrado.');
+    projectId = decodeURIComponent(
+      new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
+    );
+
+    await gotoBootstrapped(page, \`/projects/\${projectId}/agent\`);
+    await expect(page.getByText('Bloqueada', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Recover' }).click();
+    await expect(page.getByText('Na fila', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Recover' })).toHaveCount(0);
+  });
+
 });
