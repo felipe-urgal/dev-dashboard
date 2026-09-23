@@ -316,8 +316,10 @@ function normalizeExecutionFailure(
 }
 
 function nonNegativeInteger(value: unknown): number | undefined {
-  return Number.isSafeInteger(value) && Number(value) >= 0
-    ? Number(value)
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
     : undefined;
 }
 
