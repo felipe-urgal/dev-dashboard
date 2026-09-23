@@ -176,9 +176,7 @@ function scriptJob(execution: ScriptExecution): ActivityJob {
   };
 }
 
-function agentJobStatus(
-  record: AgentTaskRecord,
-): ActivityJob['status'] {
+function agentJobStatus(record: AgentTaskRecord): ActivityJob['status'] {
   if (record.task.state === 'running') return 'running';
   if (record.task.state === 'blocked' || record.task.state === 'failed') {
     return 'failed';

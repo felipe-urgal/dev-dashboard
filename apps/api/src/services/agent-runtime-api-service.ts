@@ -525,7 +525,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     await this.recordActivity({
       projectId,
       environmentInstanceId: record.task.environmentInstanceId,
-      type: granted ? 'agent.authorization.granted' : 'agent.authorization.revoked',
+      type: granted
+        ? 'agent.authorization.granted'
+        : 'agent.authorization.revoked',
       status: granted ? 'succeeded' : 'warning',
       summary: `Agent capability ${capability} ${granted ? 'granted' : 'revoked'}.`,
       occurredAt: observedAt,
