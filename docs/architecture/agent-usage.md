@@ -93,24 +93,28 @@ O catálogo representa uma referência de preço por token, não uma cobrança d
 
 ## Budgets
 
-O soft budget é persistido separadamente por task e pode definir:
+O budget é persistido separadamente por task e pode definir:
 
 - limite de `totalTokens`;
 - limite de custo estimado em USD.
 
 A avaliação usa somente métricas realmente presentes no agregado. Se `totalTokens` ou `estimatedCostUsd` estiverem ausentes, o Dashboard não infere valores e não dispara alerta para aquela dimensão.
 
-O soft budget é estritamente observacional:
+O modo `soft` é estritamente observacional:
 
 - não cancela execução;
 - não altera estado da task;
 - não interfere em retry/recovery;
-- não transforma ausência de telemetria em violação;
-- configuração e alertas são expostos na aba Agente e pela API de budget da task (`GET`, `PUT` e `DELETE`).
+- não transforma ausência de telemetria em violação.
 
-Hard stop permanece fora deste recorte e só deve existir quando houver uma condição tecnicamente segura que não interrompa uma mutação ambígua.
+O modo `hard` também nunca cancela uma execução em andamento. A única enforcement permitida é um preflight antes de iniciar uma nova execução:
 
-Ainda fora deste recorte: agregados por período e hard stop seguro.
+1. carrega o budget persistido da task;
+2. calcula os alertas usando apenas métricas observadas no agregado all-time;
+3. se o modo for `hard` e algum limite observado já tiver sido atingido, retorna conflito antes de chamar o provider;
+4. se a métrica necessária estiver ausente, não bloqueia.
+
+Isso preserva recovery/idempotência e elimina cancelamento em janela ambígua. Ajustar ou remover o budget libera uma nova execução. Configuração, alertas e estado de bloqueio são expostos na aba Agente e pela API de budget da task (`GET`, `PUT` e `DELETE`).
 
 
 ## Períodos
@@ -122,7 +126,7 @@ Os agregados de usage aceitam um intervalo opcional por `observedAt`:
 
 Os limites são inclusivos e validados no backend. A filtragem acontece sobre o mesmo store bounded já existente; nenhum histórico paralelo é criado.
 
-Na aba Agente há presets simples para todo o período, últimas 24 horas, 7 dias e 30 dias. O soft budget continua sendo avaliado sobre o total da task, não sobre o filtro visual de período.
+Na aba Agente há presets simples para todo o período, últimas 24 horas, 7 dias e 30 dias. Budgets continuam sendo avaliados sobre o total all-time da task, não sobre o filtro visual de período.
 
 
 ## Quota e uso de plano

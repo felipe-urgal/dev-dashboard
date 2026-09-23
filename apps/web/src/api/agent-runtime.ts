@@ -161,6 +161,7 @@ export interface AgentTaskBudget {
   taskId: string;
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
+  mode?: 'soft' | 'hard';
   updatedAt: string;
 }
 
@@ -174,6 +175,7 @@ export interface AgentBudgetOverview {
   budget: AgentTaskBudget | null;
   usage: AgentUsageSummary;
   alerts: AgentBudgetAlert[];
+  blocking: boolean;
 }
 
 export interface AgentExecution {
@@ -314,6 +316,7 @@ export async function setAgentBudget(
   input: {
     maxTotalTokens?: number;
     maxEstimatedCostUsd?: number;
+    mode?: 'soft' | 'hard';
   },
 ): Promise<AgentBudgetOverview> {
   return requestJson<AgentBudgetOverview>(

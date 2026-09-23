@@ -154,6 +154,7 @@ function service(
       budget: null,
       usage: { executionCount: 0 },
       alerts: [],
+      blocking: false,
     }),
     setBudget: async (_projectId, _taskId, input) => ({
       budget: {
@@ -164,11 +165,13 @@ function service(
       },
       usage: { executionCount: 0 },
       alerts: [],
+      blocking: false,
     }),
     clearBudget: async () => ({
       budget: null,
       usage: { executionCount: 0 },
       alerts: [],
+      blocking: false,
     }),
     setAuthorization: async (_projectId, taskId, capability, granted) => ({
       taskId,
@@ -395,7 +398,7 @@ test('Agent Runtime HTTP expõe usage agregado por projeto e task', async (conte
   ]);
 });
 
-test('Agent Runtime HTTP configura e remove soft budget por task', async (context) => {
+test('Agent Runtime HTTP configura e remove budget soft/hard por task', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
   registerApiErrorHandling(app);
@@ -410,6 +413,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
             projectId,
             taskId,
             maxTotalTokens: 10_000,
+            mode: 'hard',
             updatedAt: '2026-09-23T12:00:00.000Z',
           },
           usage: { executionCount: 1, totalTokens: 12_000 },
@@ -420,6 +424,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
               threshold: 10_000,
             },
           ],
+          blocking: true,
         };
       },
       setBudget: async (projectId, taskId, input) => {
@@ -433,6 +438,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
           },
           usage: { executionCount: 0 },
           alerts: [],
+          blocking: false,
         };
       },
       clearBudget: async (projectId, taskId) => {
@@ -441,6 +447,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
           budget: null,
           usage: { executionCount: 0 },
           alerts: [],
+          blocking: false,
         };
       },
     }),
@@ -460,6 +467,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
     payload: {
       maxTotalTokens: 20_000,
       maxEstimatedCostUsd: 1.5,
+      mode: 'hard',
       hardStop: true,
     },
   });
@@ -469,7 +477,11 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
     'set',
     'project-1',
     'task-1',
-    { maxTotalTokens: 20_000, maxEstimatedCostUsd: 1.5 },
+    {
+      maxTotalTokens: 20_000,
+      maxEstimatedCostUsd: 1.5,
+      mode: 'hard',
+    },
   ]);
 
   const invalid = await app.inject({

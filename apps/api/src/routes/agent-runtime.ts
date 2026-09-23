@@ -55,6 +55,7 @@ interface AuthorizationBody {
 interface BudgetBody {
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
+  mode?: 'soft' | 'hard';
 }
 
 interface CheckpointResolutionBody {
@@ -164,6 +165,7 @@ const budgetBodySchema = {
   properties: {
     maxTotalTokens: { type: 'integer', minimum: 1 },
     maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
+    mode: { type: 'string', enum: ['soft', 'hard'] },
   },
 } as const;
 
@@ -368,6 +370,7 @@ const budgetSchema = {
     taskId: { type: 'string' },
     maxTotalTokens: { type: 'integer', minimum: 1 },
     maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
+    mode: { type: 'string', enum: ['soft', 'hard'] },
     updatedAt: { type: 'string' },
   },
 } as const;
@@ -389,7 +392,7 @@ const budgetAlertSchema = {
 const budgetOverviewSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['budget', 'usage', 'alerts'],
+  required: ['budget', 'usage', 'alerts', 'blocking'],
   properties: {
     budget: {
       anyOf: [budgetSchema, { type: 'null' }],
@@ -400,6 +403,7 @@ const budgetOverviewSchema = {
       maxItems: 2,
       items: budgetAlertSchema,
     },
+    blocking: { type: 'boolean' },
   },
 } as const;
 
@@ -605,6 +609,7 @@ function mapAgentError(error: unknown): unknown {
         code: 'INTERNAL_ERROR',
         message: error.message,
       });
+    case 'AGENT_API_BUDGET_EXCEEDED':
     case 'AGENT_WORKFLOW_TASK_NOT_RUNNABLE':
     case 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE':
     case 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH':

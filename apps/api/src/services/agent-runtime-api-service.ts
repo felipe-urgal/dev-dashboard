@@ -42,6 +42,7 @@ export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_TASK_CONTEXT_NOT_FOUND'
   | 'AGENT_API_TASK_NOT_FOUND'
   | 'AGENT_API_INVALID_REQUEST'
+  | 'AGENT_API_BUDGET_EXCEEDED'
   | AgentWorkflowRuntimeErrorCode;
 
 export class AgentRuntimeApiServiceError extends Error {
@@ -76,6 +77,7 @@ export interface AgentUsagePeriod {
 export interface AgentTaskBudgetInput {
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
+  mode?: 'soft' | 'hard';
 }
 
 export interface AgentBudgetAlert {
@@ -88,6 +90,7 @@ export interface AgentBudgetOverview {
   budget: AgentTaskBudget | null;
   usage: AgentUsageSummary;
   alerts: AgentBudgetAlert[];
+  blocking: boolean;
 }
 
 export interface AgentRuntimeApiServicePort {
@@ -334,6 +337,13 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   ): Promise<AgentWorkflowExecutionResult> {
     const taskRecord = await this.getTask(projectId, taskId);
     this.validateTaskContextBinding(taskRecord.task);
+    const budgetOverview = await this.budget(projectId, taskId);
+    if (budgetOverview.blocking) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_BUDGET_EXCEEDED',
+        'Agent hard budget has been reached. Adjust or remove the budget before starting a new execution.',
+      );
+    }
     const authorizations =
       await this.options.auditStore.listAuthorizations(taskId);
     await this.recordActivity({
@@ -668,10 +678,12 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         Promise.resolve({ executionCount: 0 }),
     ]);
 
+    const alerts = this.evaluateBudgetAlerts(budget, usage);
     return {
       budget,
       usage,
-      alerts: this.evaluateBudgetAlerts(budget, usage),
+      alerts,
+      blocking: budget?.mode === 'hard' && alerts.length > 0,
     };
   }
 
@@ -683,22 +695,24 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     await this.getTask(projectId, taskId);
     const maxTotalTokens = input.maxTotalTokens;
     const maxEstimatedCostUsd = input.maxEstimatedCostUsd;
+    const mode = input.mode ?? 'soft';
     if (
       (maxTotalTokens === undefined && maxEstimatedCostUsd === undefined) ||
       (maxTotalTokens !== undefined &&
         (!Number.isSafeInteger(maxTotalTokens) || maxTotalTokens <= 0)) ||
       (maxEstimatedCostUsd !== undefined &&
-        (!Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0))
+        (!Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0)) ||
+      (mode !== 'soft' && mode !== 'hard')
     ) {
       throw new AgentRuntimeApiServiceError(
         'AGENT_API_INVALID_REQUEST',
-        'Agent task soft budget is invalid.',
+        'Agent task budget is invalid.',
       );
     }
     if (!this.options.budgetStore) {
       throw new AgentRuntimeApiServiceError(
         'AGENT_API_INVALID_REQUEST',
-        'Agent task soft budgets are unavailable.',
+        'Agent task budgets are unavailable.',
       );
     }
 
@@ -707,6 +721,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       taskId,
       ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
       ...(maxEstimatedCostUsd !== undefined ? { maxEstimatedCostUsd } : {}),
+      mode,
       updatedAt: this.now(),
     });
     return this.budget(projectId, taskId);

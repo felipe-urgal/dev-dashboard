@@ -23,6 +23,7 @@ test('persists, updates and clears a soft budget per task', async (t) => {
     taskId: 'task-1',
     maxTotalTokens: 10_000,
     maxEstimatedCostUsd: 0.5,
+    mode: 'hard',
     updatedAt: '2026-09-23T12:00:00.000Z',
   });
 
@@ -31,6 +32,7 @@ test('persists, updates and clears a soft budget per task', async (t) => {
     taskId: 'task-1',
     maxTotalTokens: 10_000,
     maxEstimatedCostUsd: 0.5,
+    mode: 'hard',
     updatedAt: '2026-09-23T12:00:00.000Z',
   });
 
