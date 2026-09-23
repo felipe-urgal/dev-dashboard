@@ -179,12 +179,24 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
     payload: {
       summary: '  Implementar API do agente  ',
       environmentInstanceId: 'environment:primary:project-1',
+      taskContextId: 'context-1',
       requestedCapabilities: ['workspace:write'],
+      branch: 'caller-controlled',
+      worktreeId: 'caller-controlled',
     },
   });
   assert.equal(created.statusCode, 201);
   assert.equal(creates.length, 1);
   assert.equal(creates[0]?.summary, '  Implementar API do agente  ');
+  assert.equal(creates[0]?.taskContextId, 'context-1');
+  assert.equal(
+    (creates[0] as AgentTaskCreateInput & Record<string, unknown>).branch,
+    undefined,
+  );
+  assert.equal(
+    (creates[0] as AgentTaskCreateInput & Record<string, unknown>).worktreeId,
+    undefined,
+  );
 
   for (const forbidden of [
     { cwd: '/tmp/owned' },
