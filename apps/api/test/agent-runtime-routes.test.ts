@@ -154,6 +154,7 @@ function service(
       budget: null,
       usage: { executionCount: 0 },
       alerts: [],
+      blocking: false,
     }),
     setBudget: async (_projectId, _taskId, input) => ({
       budget: {
@@ -164,11 +165,13 @@ function service(
       },
       usage: { executionCount: 0 },
       alerts: [],
+      blocking: false,
     }),
     clearBudget: async () => ({
       budget: null,
       usage: { executionCount: 0 },
       alerts: [],
+      blocking: false,
     }),
     setAuthorization: async (_projectId, taskId, capability, granted) => ({
       taskId,
@@ -420,6 +423,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
               threshold: 10_000,
             },
           ],
+          blocking: true,
         };
       },
       setBudget: async (projectId, taskId, input) => {
@@ -433,6 +437,8 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
           },
           usage: { executionCount: 0 },
           alerts: [],
+          blocking: false,
+      blocking: false,
         };
       },
       clearBudget: async (projectId, taskId) => {
@@ -441,6 +447,8 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
           budget: null,
           usage: { executionCount: 0 },
           alerts: [],
+          blocking: false,
+      blocking: false,
         };
       },
     }),
@@ -460,6 +468,7 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
     payload: {
       maxTotalTokens: 20_000,
       maxEstimatedCostUsd: 1.5,
+      mode: 'hard',
       hardStop: true,
     },
   });
@@ -469,7 +478,11 @@ test('Agent Runtime HTTP configura e remove soft budget por task', async (contex
     'set',
     'project-1',
     'task-1',
-    { maxTotalTokens: 20_000, maxEstimatedCostUsd: 1.5 },
+    {
+      maxTotalTokens: 20_000,
+      maxEstimatedCostUsd: 1.5,
+      mode: 'hard',
+    },
   ]);
 
   const invalid = await app.inject({
