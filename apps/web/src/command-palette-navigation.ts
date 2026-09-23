@@ -12,6 +12,7 @@ export type CommandPaletteNavigationGroup =
 
 export type CommandPaletteNavigationIcon =
   | 'home'
+  | 'activity'
   | 'production'
   | 'database'
   | 'workspace'
@@ -191,6 +192,16 @@ export function buildCommandPaletteNavigationItems(
       mode: 'page',
       to: { name: 'dashboard' },
       aliases: 'home início projetos repositórios',
+    }),
+    item({
+      id: 'page-activity',
+      group: 'Páginas',
+      label: 'Atividade',
+      description: 'Jobs ativos e timeline recente',
+      icon: 'activity',
+      mode: 'page',
+      to: { name: 'activity' },
+      aliases: 'activity timeline jobs execuções agente',
     }),
     item({
       id: 'page-database',
