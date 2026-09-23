@@ -106,7 +106,7 @@ O soft budget é estritamente observacional:
 - não altera estado da task;
 - não interfere em retry/recovery;
 - não transforma ausência de telemetria em violação;
-- configuração e alertas são expostos na aba Agente.
+- configuração e alertas são expostos na aba Agente e pela API de budget da task (`GET`, `PUT` e `DELETE`).
 
 Hard stop permanece fora deste recorte e só deve existir quando houver uma condição tecnicamente segura que não interrompa uma mutação ambígua.
 
