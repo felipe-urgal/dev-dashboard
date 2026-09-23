@@ -11,6 +11,7 @@ export interface AgentTaskBudget {
   taskId: string;
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
+  mode?: 'soft' | 'hard';
   updatedAt: string;
 }
 
@@ -85,6 +86,13 @@ function isBudget(value: unknown): value is AgentTaskBudget {
   if (
     budget.maxEstimatedCostUsd !== undefined &&
     !validNumber(budget.maxEstimatedCostUsd)
+  ) {
+    return false;
+  }
+  if (
+    budget.mode !== undefined &&
+    budget.mode !== 'soft' &&
+    budget.mode !== 'hard'
   ) {
     return false;
   }
