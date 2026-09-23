@@ -31,6 +31,10 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | PR/readiness real | integração externa | pendente | criar PR real e registrar readiness |
 | GitHub remoto indisponível | integração externa | pendente | degradar vínculo remoto sem derrubar runtime |
 
+## Estado do tracker
+
+Em 2026-09-23, a epic #768 e o roadmap #596 foram sincronizados com o estado real: #773–#776 estão concluídas e #777 permanece aberta para os gates reais de paridade. As issues #599/#600 foram reconciliadas como concluídas e #589 continua parcial apenas na convergência da execução mutável.
+
 ## E2E automatizado do control plane
 
 Rodar:
