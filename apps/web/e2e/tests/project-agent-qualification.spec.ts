@@ -448,11 +448,11 @@ test.describe('Qualificação da aba Agente', () => {
       .fill('Validar provider indisponível');
     await page.getByRole('button', { name: 'Criar task' }).click();
 
-    await expect(page.getByText('Indisponível', { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Executar' })).toBeDisabled();
     await expect(
-      page.getByRole('link', { name: 'Ver testes' }),
+      page.getByText('Indisponível', { exact: true }).first(),
     ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Executar' })).toBeDisabled();
+    await expect(page.getByRole('link', { name: 'Ver testes' })).toBeVisible();
   });
 
   test('task falha pode voltar para fila por retry explícito', async ({
@@ -658,5 +658,4 @@ test.describe('Qualificação da aba Agente', () => {
     await expect(page.getByText('Na fila', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Recover' })).toHaveCount(0);
   });
-
 });
