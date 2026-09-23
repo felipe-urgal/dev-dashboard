@@ -20,6 +20,7 @@ const props = defineProps<{
   projectId: string;
   currentBranch?: string | undefined;
   environmentInstanceId?: string | undefined;
+  taskContextId?: string | undefined;
 }>();
 
 const contexts = ref<TaskContext[]>([]);
@@ -115,6 +116,11 @@ function scoreContext(context: TaskContext): number {
 }
 
 function chooseDefaultContext(items: TaskContext[]): TaskContext | undefined {
+  const explicit = props.taskContextId
+    ? items.find((context) => context.id === props.taskContextId)
+    : undefined;
+  if (explicit) return explicit;
+
   return [...items].sort((left, right) => {
     const score = scoreContext(right) - scoreContext(left);
     if (score !== 0) return score;
@@ -182,7 +188,12 @@ async function loadContexts(): Promise<void> {
 }
 
 watch(
-  () => [props.projectId, props.currentBranch, props.environmentInstanceId],
+  () => [
+    props.projectId,
+    props.currentBranch,
+    props.environmentInstanceId,
+    props.taskContextId,
+  ],
   () => void loadContexts(),
   { immediate: true },
 );
