@@ -192,7 +192,7 @@ test('executes one queued task and only forwards explicitly requested grants', a
   assert.equal((await runtimeStateStore.read(persisted!)).state, 'idle');
 });
 
-test('provider checkpoint pauses task and explicit approval persists continuation', async (t) => {
+test('provider checkpoint pausa task e aprovação explícita persiste continuação', async (t) => {
   const provider = new StubProvider(async (request) => {
     if (request.continuationInstruction) {
       return {
