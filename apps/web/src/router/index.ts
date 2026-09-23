@@ -11,7 +11,7 @@ export const router = createRouter({
     {
       path: '/activity',
       name: 'activity',
-      redirect: { name: 'dashboard' },
+      component: () => import('../views/ActivityView.vue'),
     },
     {
       path: '/processes',
