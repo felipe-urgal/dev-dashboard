@@ -12,6 +12,7 @@ import {
   BeakerIcon,
   CodeBracketIcon,
   CommandLineIcon,
+  CpuChipIcon,
   RocketLaunchIcon,
   ServerStackIcon,
   ShareIcon,
@@ -92,6 +93,9 @@ const ProjectTerminalPanel = lazyTool(
 const ProjectTestsPanel = lazyTool(
   () => import('../components/ProjectTestsPanel.vue'),
 );
+const ProjectAgentPanel = lazyTool(
+  () => import('../components/ProjectAgentPanel.vue'),
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -131,6 +135,7 @@ const isServerRoute = computed(
 const isGitRoute = computed(() => route.name === 'project-git');
 const isWorktreesRoute = computed(() => route.name === 'project-worktrees');
 const isTestsRoute = computed(() => route.name === 'project-tests');
+const isAgentRoute = computed(() => route.name === 'project-agent');
 const isProductionRoute = computed(() => route.name === 'project-production');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
@@ -397,6 +402,22 @@ onBeforeUnmount(stopGitOverviewRefresh);
             </RouterLink>
 
             <RouterLink
+              class="project-details-tab"
+              :class="{ 'project-details-tab-active': isAgentRoute }"
+              :aria-current="isAgentRoute ? 'page' : undefined"
+              :to="{
+                name: 'project-agent',
+                params: { projectId: project.id },
+                ...(environmentInstanceId
+                  ? { query: { environmentInstanceId } }
+                  : {}),
+              }"
+            >
+              <CpuChipIcon aria-hidden="true" />
+              <span>Agente</span>
+            </RouterLink>
+
+            <RouterLink
               v-if="project.capabilities.includes('production')"
               class="project-details-tab"
               :class="{ 'project-details-tab-active': isProductionRoute }"
@@ -499,6 +520,13 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectTestsPanel
         v-else-if="isTestsRoute"
         :key="`tests-${project.id}-${environmentInstanceId ?? 'primary'}`"
+        :project="project"
+        :environment-instance-id="environmentInstanceId"
+      />
+
+      <ProjectAgentPanel
+        v-else-if="isAgentRoute"
+        :key="`agent-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
         :environment-instance-id="environmentInstanceId"
       />

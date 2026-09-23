@@ -81,6 +81,25 @@ test.describe('navegação principal', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
 
+  test('abre a aba Agente pelo detalhe do projeto', async ({ page }) => {
+    await gotoBootstrapped(page, '/');
+    await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .click();
+
+    await page.getByRole('link', { name: 'Agente', exact: true }).click();
+
+    await expect(page).toHaveURL(
+      /\/projects\/sample-node-app-[a-f0-9]{8}\/agent$/,
+    );
+    await expect(
+      page.getByRole('link', { name: 'Agente', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      page.getByRole('region', { name: 'Agente do projeto' }),
+    ).toBeVisible();
+  });
+
   test('não repete as detecções ao abrir um projeto Rails', async ({
     page,
   }) => {

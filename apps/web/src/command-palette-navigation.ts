@@ -19,6 +19,7 @@ export type CommandPaletteNavigationIcon =
   | 'server'
   | 'git'
   | 'tests'
+  | 'agent'
   | 'dependencies'
   | 'environment'
   | 'doctor'
@@ -117,6 +118,14 @@ function buildProjectTools(project: Project): CommandPaletteNavigationItem[] {
           }),
         ]
       : []),
+    projectTool(project, {
+      id: 'agent',
+      label: 'Agente',
+      description: 'Tasks, providers, checkpoints e autorizações',
+      icon: 'agent',
+      to: { name: 'project-agent', params },
+      aliases: 'agent agente codex claude chatgpt automation automação',
+    }),
     ...(project.capabilities.includes('production')
       ? [
           projectTool(project, {
