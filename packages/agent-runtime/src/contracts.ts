@@ -67,6 +67,11 @@ export interface AgentUsage {
     amount: number;
     currency: 'USD';
   };
+  estimatedCost?: {
+    amount: number;
+    currency: 'USD';
+    pricingVersion: string;
+  };
   durationMs?: number;
 }
 

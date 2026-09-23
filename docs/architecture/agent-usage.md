@@ -66,16 +66,38 @@ Regras:
 
 Os agregados sanitizados são expostos por projeto e por task, com breakdown por provider concreto. A API não retorna registros brutos do usage store.
 
-Na aba Agente, o resumo mostra apenas métricas presentes: execuções medidas, input/cache/output, duração e custo reportado. Métricas ausentes aparecem como indisponíveis; em especial, o Browser provider não recebe tokens ou custo inferidos.
+Na aba Agente, o resumo mostra apenas métricas presentes: execuções medidas, input/cache/output, duração, custo reportado e custo estimado. Reportado e estimado aparecem em campos separados. Métricas ausentes aparecem como indisponíveis; em especial, o Browser provider não recebe tokens ou custo inferidos.
 
-## Custo e budgets
+## Pricing versionado
 
-Fora deste primeiro recorte:
+O catálogo padrão é metadata versionada por data e usa apenas correspondência exata de `providerId + model`.
 
-- custo reportado;
-- tabela versionada de preço;
-- custo estimado;
-- agregados por task/projeto/período;
-- soft/hard budgets.
+Versão inicial: `2026-09-23`.
 
-Esses itens devem ser construídos sobre `AgentUsage` sem alterar a proveniência da métrica.
+Fontes de referência consultadas para esta versão:
+
+- OpenAI ChatGPT Work/Codex token pricing para `gpt-5.6-sol` e `gpt-5.3-codex`;
+- Anthropic Claude Sonnet 5 para input/output, com cache read seguindo o multiplicador documentado de prompt caching.
+
+Guardrails do estimador:
+
+- sem model ID exato, não há estimativa;
+- custo reportado pelo provider tem precedência e não é sobrescrito;
+- cache-write não é estimado enquanto a modalidade/TTL não for conhecida de forma suficiente;
+- cached input do Codex é tratado como subconjunto do input total;
+- reasoning não é cobrado separadamente quando já faz parte da semântica de output do provider;
+- toda estimativa registra `pricingVersion`;
+- mudança de tabela é coberta por teste determinístico.
+
+O catálogo representa uma referência de preço por token, não uma cobrança da assinatura/plano do usuário.
+
+## Budgets
+
+Ainda fora deste recorte:
+
+- soft budget por task;
+- alertas por tokens/custo;
+- hard stop somente quando observável e seguro;
+- agregados por período.
+
+Budgets devem ser construídos sobre `AgentUsage` sem alterar recovery/idempotência nem cancelar uma mutação ambígua.

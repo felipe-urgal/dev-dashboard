@@ -138,6 +138,7 @@ export interface AgentUsageSummary {
   reasoningTokens?: number;
   totalTokens?: number;
   reportedCostUsd?: number;
+  estimatedCostUsd?: number;
   durationMs?: number;
 }
 

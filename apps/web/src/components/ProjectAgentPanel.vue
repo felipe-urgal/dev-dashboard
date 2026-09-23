@@ -292,6 +292,7 @@ const usageHasMetrics = computed(() => {
     summary.reasoningTokens !== undefined ||
     summary.totalTokens !== undefined ||
     summary.reportedCostUsd !== undefined ||
+    summary.estimatedCostUsd !== undefined ||
     summary.durationMs !== undefined
   );
 });
@@ -309,7 +310,7 @@ function formatDuration(value: number | undefined): string {
   return (value / 1_000).toFixed(value >= 10_000 ? 0 : 1) + ' s';
 }
 
-function formatReportedCost(value: number | undefined): string {
+function formatCost(value: number | undefined): string {
   if (value === undefined) return 'Indisponível';
   return 'US$ ' + value.toFixed(value < 0.01 ? 4 : 2);
 }
@@ -974,9 +975,11 @@ onBeforeUnmount(() => {
               </span>
               <span>
                 <small>Custo reportado</small>
-                <strong>{{
-                  formatReportedCost(usage?.total.reportedCostUsd)
-                }}</strong>
+                <strong>{{ formatCost(usage?.total.reportedCostUsd) }}</strong>
+              </span>
+              <span>
+                <small>Custo estimado</small>
+                <strong>{{ formatCost(usage?.total.estimatedCostUsd) }}</strong>
               </span>
             </div>
             <p
@@ -1576,7 +1579,7 @@ onBeforeUnmount(() => {
 
 .agent-usage-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;

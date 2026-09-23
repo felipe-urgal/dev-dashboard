@@ -306,6 +306,7 @@ const usageSummarySchema = {
     reasoningTokens: { type: 'integer', minimum: 0 },
     totalTokens: { type: 'integer', minimum: 0 },
     reportedCostUsd: { type: 'number', minimum: 0 },
+    estimatedCostUsd: { type: 'number', minimum: 0 },
     durationMs: { type: 'integer', minimum: 0 },
   },
 } as const;
