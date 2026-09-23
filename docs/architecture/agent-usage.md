@@ -28,7 +28,21 @@ Campos ausentes permanecem ausentes. Em particular, reasoning/model não são in
 
 ## Claude Code
 
-Ainda não instrumentado neste recorte. A integração futura deve usar uma saída machine-readable suportada pelo provider. Ausência de usage não pode falhar a execução.
+O provider Claude Code usa `--output-format stream-json --verbose` no modo não interativo.
+
+A normalização aceita apenas metadados estruturados:
+
+- `system/init.model` ou `assistant.message.model`;
+- `assistant.message.usage.input_tokens`;
+- `assistant.message.usage.cache_read_input_tokens`;
+- `assistant.message.usage.cache_creation_input_tokens`;
+- `assistant.message.usage.output_tokens`;
+- `result.total_cost_usd` como custo **reportado** em USD;
+- `result.duration_ms`.
+
+Contadores de múltiplas mensagens de assistant são somados. `totalTokens` não é inferido quando o provider não entrega esse campo com semântica explícita. O conteúdo de `result.result`, prompts e mensagens brutas não entram em `AgentUsage`.
+
+Ausência ou JSON parcial de usage não falha a execução.
 
 ## ChatGPT Browser
 

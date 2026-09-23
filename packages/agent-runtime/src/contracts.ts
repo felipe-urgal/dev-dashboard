@@ -63,6 +63,11 @@ export interface AgentUsage {
   outputTokens?: number;
   reasoningTokens?: number;
   totalTokens?: number;
+  reportedCost?: {
+    amount: number;
+    currency: 'USD';
+  };
+  durationMs?: number;
 }
 
 export interface AgentExecution {
