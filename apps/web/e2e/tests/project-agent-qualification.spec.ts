@@ -179,7 +179,8 @@ test.describe('Qualificação da aba Agente', () => {
     await page.route(
       '**/api/projects/*/agent/tasks/qualification-task/authorizations',
       async (route) => {
-        granted = (route.request().postDataJSON() as { granted: boolean }).granted;
+        granted = (route.request().postDataJSON() as { granted: boolean })
+          .granted;
         await json(route, {
           taskId: 'qualification-task',
           capability: 'workspace:write',
