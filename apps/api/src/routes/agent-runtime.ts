@@ -42,6 +42,11 @@ interface ExecuteBody {
   providerId?: AgentProviderId;
 }
 
+interface UsageQuery {
+  observedFrom?: string;
+  observedTo?: string;
+}
+
 interface AuthorizationBody {
   capability: AgentCapability;
   granted: boolean;
@@ -132,6 +137,15 @@ const createTaskBodySchema = {
       maxItems: capabilities.length,
       items: { type: 'string', enum: [...capabilities] },
     },
+  },
+} as const;
+
+const usageQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    observedFrom: { type: 'string', format: 'date-time' },
+    observedTo: { type: 'string', format: 'date-time' },
   },
 } as const;
 
@@ -764,11 +778,12 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       ),
   );
 
-  app.get<{ Params: ProjectParams }>(
+  app.get<{ Params: ProjectParams; Querystring: UsageQuery }>(
     '/projects/:projectId/agent/usage',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: usageQuerySchema,
         response: {
           200: usageOverviewSchema,
           ...commonErrorResponseSchemas,
@@ -777,15 +792,20 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(() =>
-        options.agentRuntimeApiService.usage(request.params.projectId),
+        options.agentRuntimeApiService.usage(
+          request.params.projectId,
+          undefined,
+          request.query,
+        ),
       ),
   );
 
-  app.get<{ Params: TaskParams }>(
+  app.get<{ Params: TaskParams; Querystring: UsageQuery }>(
     '/projects/:projectId/agent/tasks/:taskId/usage',
     {
       schema: {
         params: taskParamsSchema,
+        querystring: usageQuerySchema,
         response: {
           200: usageOverviewSchema,
           ...commonErrorResponseSchemas,
@@ -797,6 +817,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         options.agentRuntimeApiService.usage(
           request.params.projectId,
           request.params.taskId,
+          request.query,
         ),
       ),
   );
