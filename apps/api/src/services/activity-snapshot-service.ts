@@ -201,6 +201,13 @@ function agentJob(
   activity?: AgentAuditSnapshot,
 ): ActivityJob {
   const providerId = latestAgentProvider(activity);
+  const pendingCheckpoint = [...(activity?.checkpoints ?? [])]
+    .reverse()
+    .find((checkpoint) => checkpoint.status === 'pending');
+  const stageStartedAt =
+    record.task.state === 'checkpoint'
+      ? pendingCheckpoint?.createdAt
+      : status.runtime.startedAt;
   return {
     id: `agent:${record.task.id}`,
     projectId: record.task.projectId,
@@ -217,6 +224,9 @@ function agentJob(
       : {}),
     ...(providerId ? { providerId } : {}),
     stage: record.task.state,
+    ...(stageStartedAt ? { stageStartedAt } : {}),
+    attempts: status.runtime.attempts,
+    timingIncomplete: !stageStartedAt,
     cancelSupported: Boolean(status.activeExecution),
   };
 }
