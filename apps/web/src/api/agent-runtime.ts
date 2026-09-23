@@ -147,6 +147,26 @@ export interface AgentUsageOverview {
   byProvider: Partial<Record<AgentConcreteProviderId, AgentUsageSummary>>;
 }
 
+export interface AgentTaskBudget {
+  projectId: string;
+  taskId: string;
+  maxTotalTokens?: number;
+  maxEstimatedCostUsd?: number;
+  updatedAt: string;
+}
+
+export interface AgentBudgetAlert {
+  kind: 'total-tokens' | 'estimated-cost-usd';
+  observed: number;
+  threshold: number;
+}
+
+export interface AgentBudgetOverview {
+  budget: AgentTaskBudget | null;
+  usage: AgentUsageSummary;
+  alerts: AgentBudgetAlert[];
+}
+
 export interface AgentExecution {
   id: string;
   taskId: string;
@@ -263,6 +283,45 @@ export async function fetchAgentUsage(
     ? taskPath(projectId, taskId) + '/usage'
     : '/api/projects/' + encodeURIComponent(projectId) + '/agent/usage';
   return requestJson<AgentUsageOverview>(url);
+}
+
+export async function fetchAgentBudget(
+  projectId: string,
+  taskId: string,
+): Promise<AgentBudgetOverview> {
+  return requestJson<AgentBudgetOverview>(
+    taskPath(projectId, taskId) + '/budget',
+  );
+}
+
+export async function setAgentBudget(
+  projectId: string,
+  taskId: string,
+  input: {
+    maxTotalTokens?: number;
+    maxEstimatedCostUsd?: number;
+  },
+): Promise<AgentBudgetOverview> {
+  return requestJson<AgentBudgetOverview>(
+    taskPath(projectId, taskId) + '/budget',
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function clearAgentBudget(
+  projectId: string,
+  taskId: string,
+): Promise<AgentBudgetOverview> {
+  return requestJson<AgentBudgetOverview>(
+    taskPath(projectId, taskId) + '/budget',
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 export async function executeAgentTask(
