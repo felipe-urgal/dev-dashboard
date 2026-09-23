@@ -150,6 +150,26 @@ function service(
       total: { executionCount: 0 },
       byProvider: {},
     }),
+    budget: async () => ({
+      budget: null,
+      usage: { executionCount: 0 },
+      alerts: [],
+    }),
+    setBudget: async (_projectId, _taskId, input) => ({
+      budget: {
+        projectId: 'project-1',
+        taskId: 'task-1',
+        ...input,
+        updatedAt: '2026-09-23T12:00:00.000Z',
+      },
+      usage: { executionCount: 0 },
+      alerts: [],
+    }),
+    clearBudget: async () => ({
+      budget: null,
+      usage: { executionCount: 0 },
+      alerts: [],
+    }),
     setAuthorization: async (_projectId, taskId, capability, granted) => ({
       taskId,
       capability,
@@ -373,6 +393,98 @@ test('Agent Runtime HTTP expõe usage agregado por projeto e task', async (conte
     ['project-1', undefined],
     ['project-1', 'task-1'],
   ]);
+});
+
+test('Agent Runtime HTTP configura e remove soft budget por task', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      budget: async (projectId, taskId) => {
+        calls.push(['get', projectId, taskId]);
+        return {
+          budget: {
+            projectId,
+            taskId,
+            maxTotalTokens: 10_000,
+            updatedAt: '2026-09-23T12:00:00.000Z',
+          },
+          usage: { executionCount: 1, totalTokens: 12_000 },
+          alerts: [
+            {
+              kind: 'total-tokens',
+              observed: 12_000,
+              threshold: 10_000,
+            },
+          ],
+        };
+      },
+      setBudget: async (projectId, taskId, input) => {
+        calls.push(['set', projectId, taskId, input]);
+        return {
+          budget: {
+            projectId,
+            taskId,
+            ...input,
+            updatedAt: '2026-09-23T12:00:00.000Z',
+          },
+          usage: { executionCount: 0 },
+          alerts: [],
+        };
+      },
+      clearBudget: async (projectId, taskId) => {
+        calls.push(['clear', projectId, taskId]);
+        return {
+          budget: null,
+          usage: { executionCount: 0 },
+          alerts: [],
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const current = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks/task-1/budget',
+  });
+  assert.equal(current.statusCode, 200);
+  assert.equal(current.json().alerts[0].kind, 'total-tokens');
+
+  const saved = await app.inject({
+    method: 'PUT',
+    url: '/api/projects/project-1/agent/tasks/task-1/budget',
+    payload: {
+      maxTotalTokens: 20_000,
+      maxEstimatedCostUsd: 1.5,
+      hardStop: true,
+    },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.json().budget.maxEstimatedCostUsd, 1.5);
+  assert.deepEqual(calls[1], [
+    'set',
+    'project-1',
+    'task-1',
+    { maxTotalTokens: 20_000, maxEstimatedCostUsd: 1.5 },
+  ]);
+
+  const invalid = await app.inject({
+    method: 'PUT',
+    url: '/api/projects/project-1/agent/tasks/task-1/budget',
+    payload: {},
+  });
+  assert.equal(invalid.statusCode, 400);
+
+  const cleared = await app.inject({
+    method: 'DELETE',
+    url: '/api/projects/project-1/agent/tasks/task-1/budget',
+  });
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(cleared.json().budget, null);
 });
 
 test('Agent Runtime HTTP expõe autorização específica e activity bounded', async (context) => {
