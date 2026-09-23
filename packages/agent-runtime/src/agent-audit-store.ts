@@ -5,6 +5,8 @@ import path from 'node:path';
 import type {
   AgentAuthorization,
   AgentCapability,
+  AgentCheckpoint,
+  AgentCheckpointStatus,
   AgentEvent,
   AgentEvidence,
 } from './contracts.js';
@@ -20,12 +22,14 @@ interface PersistedAgentAuditState {
   version: 1;
   taskId: string;
   authorizations: AgentAuthorization[];
+  checkpoints: AgentCheckpoint[];
   events: AgentEvent[];
   evidence: AgentEvidence[];
 }
 
 export interface AgentAuditSnapshot {
   authorizations: AgentAuthorization[];
+  checkpoints: AgentCheckpoint[];
   events: AgentEvent[];
   evidence: AgentEvidence[];
 }
@@ -113,6 +117,43 @@ function isAuthorization(
   );
 }
 
+function isCheckpoint(
+  value: unknown,
+  taskId: string,
+): value is AgentCheckpoint {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<AgentCheckpoint>;
+  return (
+    typeof candidate.id === 'string' &&
+    candidate.id.length > 0 &&
+    candidate.taskId === taskId &&
+    (candidate.executionId === undefined ||
+      (typeof candidate.executionId === 'string' &&
+        candidate.executionId.length > 0)) &&
+    (candidate.status === 'pending' ||
+      candidate.status === 'approved' ||
+      candidate.status === 'rejected') &&
+    typeof candidate.summary === 'string' &&
+    candidate.summary.length > 0 &&
+    candidate.summary.length <= MAX_SUMMARY_CHARS &&
+    Array.isArray(candidate.requiredCapabilities) &&
+    candidate.requiredCapabilities.every(
+      (capability) =>
+        typeof capability === 'string' &&
+        capabilities.has(capability as AgentCapability),
+    ) &&
+    typeof candidate.createdAt === 'string' &&
+    Number.isFinite(Date.parse(candidate.createdAt)) &&
+    (candidate.resolvedAt === undefined ||
+      (typeof candidate.resolvedAt === 'string' &&
+        Number.isFinite(Date.parse(candidate.resolvedAt)))) &&
+    (candidate.continuationInstruction === undefined ||
+      (typeof candidate.continuationInstruction === 'string' &&
+        candidate.continuationInstruction.length > 0 &&
+        candidate.continuationInstruction.length <= MAX_SUMMARY_CHARS))
+  );
+}
+
 function isEvent(value: unknown, taskId: string): value is AgentEvent {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AgentEvent>;
@@ -170,6 +211,7 @@ function emptyState(taskId: string): PersistedAgentAuditState {
     version: STORE_VERSION,
     taskId,
     authorizations: [],
+    checkpoints: [],
     events: [],
     evidence: [],
   };
@@ -214,6 +256,7 @@ export class AgentAuditStore {
     const state = await this.read(taskId);
     return {
       authorizations: [...state.authorizations],
+      checkpoints: [...state.checkpoints],
       events: [...state.events],
       evidence: [...state.evidence],
     };
@@ -264,6 +307,128 @@ export class AgentAuditStore {
       state.events = state.events.slice(-this.maxEvents);
       return authorization;
     });
+  }
+
+  public async listCheckpoints(taskId: string): Promise<AgentCheckpoint[]> {
+    return (await this.snapshot(taskId)).checkpoints;
+  }
+
+  public async createCheckpoint(
+    checkpoint: AgentCheckpoint,
+  ): Promise<AgentCheckpoint> {
+    assertIdentity(checkpoint.taskId, 'Agent task id');
+    assertIdentity(checkpoint.id, 'Agent checkpoint id');
+    if (checkpoint.executionId) {
+      assertIdentity(checkpoint.executionId, 'Agent execution id');
+    }
+    assertSummary(checkpoint.summary);
+    assertTimestamp(checkpoint.createdAt, 'Agent checkpoint timestamp');
+    if (checkpoint.status !== 'pending') {
+      throw new AgentAuditStoreError(
+        'AGENT_AUDIT_INVALID',
+        'New agent checkpoint must be pending.',
+      );
+    }
+    for (const capability of checkpoint.requiredCapabilities) {
+      if (!capabilities.has(capability)) {
+        throw new AgentAuditStoreError(
+          'AGENT_AUDIT_INVALID',
+          'Agent checkpoint capability is invalid.',
+        );
+      }
+    }
+
+    return this.mutate(checkpoint.taskId, async (state) => {
+      if (state.checkpoints.some((item) => item.id === checkpoint.id)) {
+        throw new AgentAuditStoreError(
+          'AGENT_AUDIT_INVALID',
+          'Agent checkpoint identity already exists.',
+        );
+      }
+
+      const normalized: AgentCheckpoint = {
+        ...checkpoint,
+        requiredCapabilities: [...new Set(checkpoint.requiredCapabilities)],
+      };
+      state.checkpoints.push(normalized);
+      state.events.push({
+        id: this.requireEventId(),
+        taskId: checkpoint.taskId,
+        ...(checkpoint.executionId
+          ? { executionId: checkpoint.executionId }
+          : {}),
+        type: 'checkpoint',
+        summary: checkpoint.summary,
+        occurredAt: checkpoint.createdAt,
+      });
+      state.events = state.events.slice(-this.maxEvents);
+      return normalized;
+    });
+  }
+
+  public async resolveCheckpoint(
+    taskId: string,
+    checkpointId: string,
+    status: Exclude<AgentCheckpointStatus, 'pending'>,
+    resolvedAt: string,
+    continuationInstruction?: string,
+  ): Promise<AgentCheckpoint> {
+    assertIdentity(taskId, 'Agent task id');
+    assertIdentity(checkpointId, 'Agent checkpoint id');
+    assertTimestamp(resolvedAt, 'Agent checkpoint resolution timestamp');
+    const instruction = continuationInstruction?.trim();
+    if (instruction && instruction.length > MAX_SUMMARY_CHARS) {
+      throw new AgentAuditStoreError(
+        'AGENT_AUDIT_INVALID',
+        'Agent continuation instruction is invalid.',
+      );
+    }
+
+    return this.mutate(taskId, async (state) => {
+      const index = state.checkpoints.findIndex(
+        (item) => item.id === checkpointId,
+      );
+      const current = state.checkpoints[index];
+      if (!current || current.status !== 'pending') {
+        throw new AgentAuditStoreError(
+          'AGENT_AUDIT_INVALID',
+          'Agent checkpoint is not pending.',
+        );
+      }
+
+      const resolved: AgentCheckpoint = {
+        ...current,
+        status,
+        resolvedAt,
+        ...(instruction ? { continuationInstruction: instruction } : {}),
+      };
+      state.checkpoints[index] = resolved;
+      state.events.push({
+        id: this.requireEventId(),
+        taskId,
+        ...(resolved.executionId
+          ? { executionId: resolved.executionId }
+          : {}),
+        type: 'checkpoint',
+        summary: `Checkpoint ${status}.${
+          instruction ? ' Continuation instruction recorded.' : ''
+        }`,
+        occurredAt: resolvedAt,
+      });
+      state.events = state.events.slice(-this.maxEvents);
+      return resolved;
+    });
+  }
+
+  public async latestApprovedCheckpoint(
+    taskId: string,
+  ): Promise<AgentCheckpoint | null> {
+    const checkpoints = (await this.snapshot(taskId)).checkpoints;
+    for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
+      const checkpoint = checkpoints[index];
+      if (checkpoint?.status === 'approved') return checkpoint;
+    }
+    return null;
   }
 
   public async appendExecutionResult(
@@ -385,6 +550,10 @@ export class AgentAuditStore {
       !candidate.authorizations.every((item) =>
         isAuthorization(item, taskId),
       ) ||
+      !Array.isArray(candidate.checkpoints ?? []) ||
+      !(candidate.checkpoints ?? []).every((item) =>
+        isCheckpoint(item, taskId),
+      ) ||
       !Array.isArray(candidate.events) ||
       !candidate.events.every((item) => isEvent(item, taskId)) ||
       !Array.isArray(candidate.evidence) ||
@@ -400,6 +569,7 @@ export class AgentAuditStore {
       version: STORE_VERSION,
       taskId,
       authorizations: candidate.authorizations,
+      checkpoints: [...(candidate.checkpoints ?? [])],
       events: candidate.events.slice(-this.maxEvents),
       evidence: candidate.evidence.slice(-this.maxEvidence),
     };
