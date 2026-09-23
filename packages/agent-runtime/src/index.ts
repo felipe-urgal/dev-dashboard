@@ -3,6 +3,7 @@ export type {
   AgentCancellationRequest,
   AgentCapability,
   AgentCheckpoint,
+  AgentCheckpointRequest,
   AgentCheckpointStatus,
   AgentClock,
   AgentConcreteProviderId,
