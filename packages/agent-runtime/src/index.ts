@@ -232,3 +232,17 @@ export type {
   AgentBudgetStoreOptions,
   AgentTaskBudget,
 } from './budget-store.js';
+
+
+export {
+  StaticAgentIntegrationCapabilityRegistry,
+  createDefaultAgentIntegrationCapabilityRegistry,
+} from './integrations.js';
+export type {
+  AgentIntegrationCapability,
+  AgentIntegrationCapabilityRegistry,
+  AgentIntegrationKind,
+  AgentIntegrationOperation,
+  AgentIntegrationProviderCapabilities,
+  AgentIntegrationScope,
+} from './integrations.js';
