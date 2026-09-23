@@ -79,6 +79,55 @@ test('AgentAuditStore persiste autorização atual com audit trail bounded', asy
   assert.doesNotMatch(serialized, /cwd|argv|secret/i);
 });
 
+test('AgentAuditStore persiste e resolve checkpoint explicitamente', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-checkpoint-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  let nextId = 0;
+  const store = new AgentAuditStore({
+    stateDirectory: root,
+    createEventId: () => `event-${++nextId}`,
+  });
+
+  const created = await store.createCheckpoint({
+    id: 'checkpoint-1',
+    taskId: 'task-1',
+    executionId: 'execution-1',
+    status: 'pending',
+    summary: 'Approval required.',
+    requiredCapabilities: ['workspace:write', 'workspace:write'],
+    createdAt: '2026-09-23T11:10:00.000Z',
+  });
+
+  assert.deepEqual(created.requiredCapabilities, ['workspace:write']);
+  assert.equal((await store.snapshot('task-1')).checkpoints.length, 1);
+
+  const resolved = await store.resolveCheckpoint(
+    'task-1',
+    'checkpoint-1',
+    'approved',
+    '2026-09-23T11:11:00.000Z',
+    'Continue with the change.',
+  );
+
+  assert.equal(resolved.status, 'approved');
+  assert.equal(resolved.continuationInstruction, 'Continue with the change.');
+  assert.equal(
+    (await store.latestApprovedCheckpoint('task-1'))?.id,
+    'checkpoint-1',
+  );
+
+  await assert.rejects(
+    store.resolveCheckpoint(
+      'task-1',
+      'checkpoint-1',
+      'rejected',
+      '2026-09-23T11:12:00.000Z',
+    ),
+    /not pending/,
+  );
+});
+
 test('AgentAuditStore persiste evidence bounded com ownership da execução', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-evidence-'));
   context.after(() => rm(root, { recursive: true, force: true }));
