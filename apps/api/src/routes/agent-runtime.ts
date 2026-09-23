@@ -178,7 +178,6 @@ const integrationQuerySchema = {
   },
 } as const;
 
-
 const installIntegrationBodySchema = {
   type: 'object',
   additionalProperties: false,
