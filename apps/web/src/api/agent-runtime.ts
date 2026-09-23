@@ -310,7 +310,7 @@ export async function resolveAgentCheckpoint(
   decision: 'approved' | 'rejected',
   instruction?: string,
 ): Promise<{ task: AgentTaskRecord; checkpoint: AgentCheckpoint }> {
-  return requestJson(
+  return requestJson<{ task: AgentTaskRecord; checkpoint: AgentCheckpoint }>(
     taskPath(projectId, taskId) +
       '/checkpoints/' +
       encodeURIComponent(checkpointId) +
