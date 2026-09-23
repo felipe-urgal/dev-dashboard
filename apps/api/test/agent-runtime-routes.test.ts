@@ -161,7 +161,7 @@ test('Agent Runtime HTTP mantém payloads fechados e não aceita autoridade de p
   assert.equal(executeAbuse.statusCode, 400);
 });
 
-test('Agent Runtime HTTP expõe providers, lifecycle e remove campos internos por schema', async (context) => {
+test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
   const calls: string[] = [];
   const app = Fastify();
   registerApiErrorHandling(app);
