@@ -186,11 +186,17 @@ function agentJobStatus(record: AgentTaskRecord): ActivityJob['status'] {
 
 function latestAgentProvider(
   activity: AgentAuditSnapshot | undefined,
+  activeExecutionId?: string,
 ): ActivityJob['providerId'] | undefined {
   if (!activity) return undefined;
   for (let index = activity.events.length - 1; index >= 0; index -= 1) {
-    const providerId = activity.events[index]?.providerId;
-    if (providerId) return providerId;
+    const event = activity.events[index];
+    if (
+      event?.providerId &&
+      (!activeExecutionId || event.executionId === activeExecutionId)
+    ) {
+      return event.providerId;
+    }
   }
   return undefined;
 }
@@ -200,7 +206,10 @@ function agentJob(
   status: AgentWorkflowTaskStatus,
   activity?: AgentAuditSnapshot,
 ): ActivityJob {
-  const providerId = latestAgentProvider(activity);
+  const providerId = latestAgentProvider(
+    activity,
+    status.activeExecution?.executionId,
+  );
   const pendingCheckpoint = [...(activity?.checkpoints ?? [])]
     .reverse()
     .find((checkpoint) => checkpoint.status === 'pending');
