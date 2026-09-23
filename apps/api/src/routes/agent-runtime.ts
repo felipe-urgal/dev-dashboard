@@ -34,6 +34,11 @@ interface ExecuteBody {
   providerId?: AgentProviderId;
 }
 
+interface AuthorizationBody {
+  capability: AgentCapability;
+  granted: boolean;
+}
+
 const providerIds = [
   'automatic',
   'codex',
@@ -100,6 +105,77 @@ const executeBodySchema = {
   additionalProperties: false,
   properties: {
     providerId: { type: 'string', enum: [...providerIds] },
+  },
+} as const;
+
+const authorizationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['capability', 'granted'],
+  properties: {
+    capability: { type: 'string', enum: [...capabilities] },
+    granted: { type: 'boolean' },
+  },
+} as const;
+
+const authorizationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['taskId', 'capability', 'granted', 'observedAt'],
+  properties: {
+    taskId: { type: 'string' },
+    capability: { type: 'string', enum: [...capabilities] },
+    granted: { type: 'boolean' },
+    observedAt: { type: 'string' },
+  },
+} as const;
+
+const eventSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'taskId', 'type', 'summary', 'occurredAt'],
+  properties: {
+    id: { type: 'string' },
+    taskId: { type: 'string' },
+    executionId: { type: 'string' },
+    type: {
+      type: 'string',
+      enum: [
+        'task-state',
+        'execution-state',
+        'checkpoint',
+        'authorization',
+        'evidence',
+      ],
+    },
+    summary: { type: 'string' },
+    occurredAt: { type: 'string' },
+  },
+} as const;
+
+const evidenceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'taskId', 'kind', 'summary', 'observedAt'],
+  properties: {
+    id: { type: 'string' },
+    taskId: { type: 'string' },
+    executionId: { type: 'string' },
+    kind: {
+      type: 'string',
+      enum: [
+        'diff',
+        'test',
+        'log',
+        'commit',
+        'pull-request',
+        'readiness',
+        'other',
+      ],
+    },
+    summary: { type: 'string' },
+    reference: { type: 'string' },
+    observedAt: { type: 'string' },
   },
 } as const;
 
@@ -272,31 +348,7 @@ const providerResultSchema = {
     evidence: {
       type: 'array',
       maxItems: 100,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['id', 'taskId', 'kind', 'summary', 'observedAt'],
-        properties: {
-          id: { type: 'string' },
-          taskId: { type: 'string' },
-          executionId: { type: 'string' },
-          kind: {
-            type: 'string',
-            enum: [
-              'diff',
-              'test',
-              'log',
-              'commit',
-              'pull-request',
-              'readiness',
-              'other',
-            ],
-          },
-          summary: { type: 'string' },
-          reference: { type: 'string' },
-          observedAt: { type: 'string' },
-        },
-      },
+      items: evidenceSchema,
     },
   },
 } as const;
@@ -540,6 +592,70 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         options.agentRuntimeApiService.cancel(
           request.params.projectId,
           request.params.taskId,
+        ),
+      ),
+  );
+
+  app.get<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/activity',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['authorizations', 'events', 'evidence'],
+            properties: {
+              authorizations: {
+                type: 'array',
+                maxItems: capabilities.length,
+                items: authorizationSchema,
+              },
+              events: {
+                type: 'array',
+                maxItems: 200,
+                items: eventSchema,
+              },
+              evidence: {
+                type: 'array',
+                maxItems: 100,
+                items: evidenceSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.activity(
+          request.params.projectId,
+          request.params.taskId,
+        ),
+      ),
+  );
+
+  app.post<{ Params: TaskParams; Body: AuthorizationBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/authorizations',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: authorizationBodySchema,
+        response: {
+          200: authorizationSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.setAuthorization(
+          request.params.projectId,
+          request.params.taskId,
+          request.body.capability,
+          request.body.granted,
         ),
       ),
   );
