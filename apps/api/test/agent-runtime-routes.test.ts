@@ -106,6 +106,24 @@ function service(
         lastReason: 'operator-recovered',
       },
     }),
+    activity: async () => ({
+      authorizations: [
+        {
+          taskId: 'task-1',
+          capability: 'workspace:write',
+          granted: true,
+          observedAt: '2026-09-23T10:04:00.000Z',
+        },
+      ],
+      events: [],
+      evidence: [],
+    }),
+    setAuthorization: async (_projectId, taskId, capability, granted) => ({
+      taskId,
+      capability,
+      granted,
+      observedAt: '2026-09-23T10:04:00.000Z',
+    }),
     shutdown: async () => undefined,
     ...overrides,
   };
@@ -249,4 +267,89 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
     ).statusCode,
     200,
   );
+});
+
+
+test('Agent Runtime HTTP expõe autorização específica e activity bounded', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeApiService: service({
+      setAuthorization: async (...args) => {
+        calls.push(args);
+        return {
+          taskId: args[1],
+          capability: args[2],
+          granted: args[3],
+          observedAt: '2026-09-23T11:00:00.000Z',
+        };
+      },
+      activity: async () => ({
+        authorizations: [
+          {
+            taskId: 'task-1',
+            capability: 'workspace:write',
+            granted: true,
+            observedAt: '2026-09-23T11:00:00.000Z',
+          },
+        ],
+        events: [
+          {
+            id: 'event-1',
+            taskId: 'task-1',
+            type: 'authorization',
+            summary: 'Capability workspace:write granted.',
+            occurredAt: '2026-09-23T11:00:00.000Z',
+          },
+        ],
+        evidence: [
+          {
+            id: 'evidence-1',
+            taskId: 'task-1',
+            executionId: 'execution-1',
+            kind: 'test',
+            summary: 'Tests passed.',
+            observedAt: '2026-09-23T11:01:00.000Z',
+          },
+        ],
+      }),
+    }),
+  });
+  context.after(() => app.close());
+
+  const authorization = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/authorizations',
+    payload: {
+      capability: 'workspace:write',
+      granted: true,
+      cwd: '/tmp/ignored',
+    },
+  });
+  assert.equal(authorization.statusCode, 200);
+  assert.deepEqual(calls, [
+    ['project-1', 'task-1', 'workspace:write', true],
+  ]);
+
+  const activity = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks/task-1/activity',
+  });
+  assert.equal(activity.statusCode, 200);
+  assert.equal(
+    activity.json<{ authorizations: unknown[] }>().authorizations.length,
+    1,
+  );
+
+  const invalid = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/authorizations',
+    payload: {
+      capability: 'shell:arbitrary',
+      granted: true,
+    },
+  });
+  assert.equal(invalid.statusCode, 400);
 });
