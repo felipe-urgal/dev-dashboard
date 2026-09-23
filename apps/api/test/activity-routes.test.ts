@@ -47,6 +47,16 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     summary: 'Snapshot concluído',
     occurredAt: '2026-09-19T12:00:00.000Z',
   });
+  await appContext.activityEventRepository.append({
+    projectId: project.id,
+    domain: 'agent',
+    type: 'agent.task.created',
+    status: 'started',
+    summary: 'Agent task created.',
+    occurredAt: '2026-09-19T12:01:00.000Z',
+    resourceRef: { kind: 'agent-task', id: 'task-1' },
+    jobId: 'task-1',
+  });
 
   const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => {
@@ -84,6 +94,13 @@ test('Activity HTTP expõe snapshots por projeto/global com autenticação e lim
     true,
   );
   assert.equal(Array.isArray(projectActivity.jobs), true);
+  assert.equal(
+    projectActivity.events.some(
+      (event) =>
+        event.domain === 'agent' && event.type === 'agent.task.created',
+    ),
+    true,
+  );
 
   const globalResponse = await app.inject({
     method: 'GET',
