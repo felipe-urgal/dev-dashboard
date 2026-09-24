@@ -5,7 +5,9 @@ const CONTAINER_ID_PATTERN = /^[a-f0-9]{12,128}$/u;
 const OWNERSHIP_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const INSPECT_FORMAT =
-  '{{.Id}}|{{index .Config.Labels "devdashboard.environment"}}|{{.State.Running}}';
+  '{{.Id}}|{{index .Config.Labels "' +
+  DEV_CONTAINER_OWNERSHIP_LABEL +
+  '"}}|{{.State.Running}}';
 
 export interface DevContainerDockerStructuredCommand {
   program: 'docker';
