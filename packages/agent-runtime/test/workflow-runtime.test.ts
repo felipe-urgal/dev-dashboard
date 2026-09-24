@@ -419,7 +419,6 @@ test('known failed task can be reset to queued by explicit retry', async (t) => 
   assert.equal(retried.task.state, 'queued');
 });
 
-
 test('explicit retry enforces bounded attempts and capped exponential backoff', async (t) => {
   let executionCount = 0;
   const provider = new StubProvider(async () => {

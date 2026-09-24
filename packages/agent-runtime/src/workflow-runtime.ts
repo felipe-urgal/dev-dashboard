@@ -541,7 +541,8 @@ export class AgentWorkflowRuntime {
         this.maxRetryBackoffMs,
       );
       const observedAt = this.now();
-      const retryAvailableAt = Date.parse(runtimeState.updatedAt) + retryDelayMs;
+      const retryAvailableAt =
+        Date.parse(runtimeState.updatedAt) + retryDelayMs;
       if (Date.parse(observedAt) < retryAvailableAt) {
         throw new AgentWorkflowRuntimeError(
           'AGENT_WORKFLOW_RETRY_NOT_ALLOWED',
