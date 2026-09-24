@@ -113,6 +113,7 @@ O comando futuro de criação já possui um adapter puro, ainda sem execução:
 - programa fixo `devcontainer`;
 - subcomando fixo `up`;
 - `--workspace-folder` e `--config` derivados somente do contexto/backend;
+- `--override-config <snapshot privado>`, também backend-owned, para congelar os bytes já confirmados;
 - `--id-label devdashboard.environment=<token>` usando a reserva de ownership;
 - `--skip-post-create` para não executar hooks pós-criação neste estágio;
 - `--no-lockfile` para não modificar o repositório como efeito colateral do start;
@@ -124,6 +125,24 @@ O parser procura somente o envelope final `outcome: success | error` na cauda li
 `composeProjectName` é mantido internamente para permitir que o executor futuro detecte fail-closed uma configuração que tenha mudado para Compose depois do preflight.
 
 Este adapter não chama `execFile`/`spawn`; ele apenas fecha argv e parsing antes do lifecycle mutável.
+
+## Snapshot privado da configuração
+
+Antes do futuro `devcontainer up`, o backend pode materializar os bytes exatos associados ao `configurationHash` confirmado em um snapshot temporário privado.
+
+O snapshot:
+
+- aceita apenas workspace absoluto, config source conhecido e SHA-256 válido;
+- relê somente arquivo regular de até 1 MiB;
+- compara inode/device e metadata durante a leitura;
+- recalcula o SHA-256 e falha fechado se o conteúdo divergir da confirmação;
+- grava a cópia em diretório `0700` e arquivo `0600`;
+- usa identificador backend-owned bounded, sem path traversal;
+- devolve `dispose()` idempotente para remoção imediata após o comando.
+
+O adapter de `up` agora exige esse caminho absoluto como `--override-config`, mantendo também `--config` apontando para a localização original. Isso faz a Dev Container CLI preservar a base de resolução do arquivo original, mas ler o conteúdo congelado do snapshot durante a criação.
+
+Nenhum snapshot é exposto na API/UI e este corte ainda não executa `devcontainer up`. O executor futuro deve manter o snapshot apenas durante a chamada da CLI e invocar `dispose()` em `finally`, inclusive em falhas.
 
 ## Cleanup Docker scoped preparado
 
@@ -192,7 +211,7 @@ Os cortes entregues até aqui não:
 - executam comandos dentro do runtime;
 - alteram `ExecutionContext`;
 - abrem Terminal no container;
-- fazem rebuild/stop/cleanup;
+- expõem rebuild/stop/cleanup na API/UI;
 - integram Compose ou Port Registry;
 - concedem qualquer autoridade mutável pela API.
 

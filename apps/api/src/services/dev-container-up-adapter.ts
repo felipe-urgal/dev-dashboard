@@ -20,6 +20,7 @@ export interface DevContainerUpStructuredCommand {
 export interface DevContainerUpCommandInput {
   workspaceFolder: string;
   configSource: DevContainerConfigurationSource;
+  overrideConfigPath: string;
   ownershipToken: string;
 }
 
@@ -91,6 +92,8 @@ export function buildDevContainerUpCommand(
     !validText(input.workspaceFolder, MAX_WORKSPACE_PATH_LENGTH) ||
     !path.isAbsolute(input.workspaceFolder) ||
     !validConfigSource(input.configSource) ||
+    !validText(input.overrideConfigPath, MAX_WORKSPACE_PATH_LENGTH) ||
+    !path.isAbsolute(input.overrideConfigPath) ||
     !OWNERSHIP_TOKEN_PATTERN.test(input.ownershipToken)
   ) {
     throw new DevContainerUpAdapterError(
@@ -119,6 +122,8 @@ export function buildDevContainerUpCommand(
       workspaceFolder,
       '--config',
       configPath,
+      '--override-config',
+      path.resolve(input.overrideConfigPath),
       '--id-label',
       ownershipLabel,
       '--skip-post-create',
