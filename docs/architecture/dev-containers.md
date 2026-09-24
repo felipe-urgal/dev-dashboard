@@ -159,6 +159,28 @@ Somente preflight `review` de configuração `image | dockerfile`, em runtime `h
 
 Este corte não expõe endpoint de confirmação e ainda não executa criação.
 
+## Cleanup owned executável internamente
+
+Sobre o adapter Docker scoped, existe um serviço interno de cleanup. Ele ainda não possui rota/UI, mas já fecha o lifecycle de remoção para um runtime owned:
+
+1. resolve a Environment Instance no backend, inclusive quando está `degraded` após restart;
+2. lê o ownership persistido pelo vínculo exato projeto + Environment Instance + path;
+3. localiza o container somente pelo label opaco;
+4. quando o ownership já está `owned`, exige que o ID encontrado seja o mesmo `containerId` persistido;
+5. reinspeciona ID + label antes de mutar;
+6. marca a Environment Instance como `stopping`;
+7. executa `docker container stop <id>` somente quando necessário;
+8. comprova que o container parou ou desapareceu;
+9. executa `docker container rm <id>` sem force/volumes;
+10. comprova ausência pelo mesmo label;
+11. só então libera ownership e volta a Environment Instance para `runtime=host, lifecycle=ready`.
+
+Uma reserva `starting` também pode ser recuperada pelo label caso uma futura criação falhe depois de criar o container mas antes de persistir o `containerId`.
+
+Se o container já não existir, o serviço libera apenas o registro de ownership e normaliza o ambiente para host; nenhum recurso externo é removido. Ambiguidade, mismatch, falha de Docker ou falha ao liberar ownership deixam o estado fail-closed e, após mutation iniciada, marcam o lifecycle como `failed`.
+
+Os comandos são executados sem shell, com timeout e buffer limitados, e erros brutos de Docker/filesystem não entram no erro de domínio.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
