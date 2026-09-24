@@ -41,6 +41,7 @@ test('default integration capabilities keep providers explicit and conservative'
   assert.equal(claudePlugin?.availability, 'supported');
   assert.deepEqual(claudePlugin?.operations, [
     'list',
+    'install',
     'enable',
     'disable',
     'uninstall',
@@ -51,11 +52,8 @@ test('default integration capabilities keep providers explicit and conservative'
     'local',
     'managed',
   ]);
-  assert.match(
-    claudePlugin?.reason ?? '',
-    /available marketplace plugins are listed read-only/i,
-  );
-  assert.doesNotMatch(claudePlugin?.reason ?? '', /install.*supported/i);
+  assert.match(claudePlugin?.reason ?? '', /structured JSON/i);
+  assert.match(claudePlugin?.reason ?? '', /fails closed/i);
   const claudeMarketplace = claude.integrations.find(
     (item) => item.kind === 'marketplace',
   );
