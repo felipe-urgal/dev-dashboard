@@ -69,7 +69,7 @@ function preflight(
       kind: 'image',
       lifecycleHooks: [],
     },
-    limitations: ['cleanup-adapter-pending'],
+    limitations: [],
     diagnostic: 'Revisão necessária.',
     ...overrides,
   };
