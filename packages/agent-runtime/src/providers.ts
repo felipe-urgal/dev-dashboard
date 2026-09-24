@@ -669,13 +669,13 @@ export class CodexAgentProvider extends LocalCliAgentProvider {
       : 'read-only';
 
     return [
+      '--ask-for-approval',
+      'never',
       'exec',
       '--json',
       '--skip-git-repo-check',
       '--sandbox',
       sandbox,
-      '--ask-for-approval',
-      'never',
       prompt,
     ];
   }
