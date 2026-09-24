@@ -247,7 +247,6 @@ test('Codex MCP install reconciles a timeout after the CLI persisted the server'
   assert.equal(integration.authStatus, 'unauthenticated');
 });
 
-
 test('Codex MCP install reconciles a non-zero result after persistence', async () => {
   let installed = false;
   const provider = new CodexMcpIntegrationProvider({
