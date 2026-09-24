@@ -36,7 +36,8 @@ describe('Dev Container no shell do projeto', () => {
     expect(projectDetailsSource).toContain(
       "route.name === 'project-dev-container'",
     );
-    expect(apiSource).toContain('/dev-container');
+    expect(apiSource).toContain('/dev-container/lifecycle-preflight');
+    expect(panelSource).toContain('fetchDevContainerLifecyclePreflight');
     expect(apiSource).toContain('/dev-container/lifecycle-preflight');
   });
 
@@ -53,6 +54,7 @@ describe('Dev Container no shell do projeto', () => {
     expect(panelSource).toContain('Execução desabilitada neste estágio');
     expect(panelSource).not.toContain('devcontainer up');
     expect(panelSource).not.toContain('run-user-commands');
+    expect(moreToolsSource).toContain('environmentInstanceId');
     expect(apiSource).not.toContain("method: 'POST'");
   });
 });
