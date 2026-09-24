@@ -1,5 +1,7 @@
 # Dev Containers
 
+Issue de origem: #595.
+
 A integração de Dev Containers reutiliza a `DevelopmentEnvironmentInstance` existente. Ela não cria uma segunda identidade de ambiente nem uma engine paralela de execução.
 
 ## Primeiro corte: discovery read-only
@@ -34,16 +36,26 @@ Valores de `remoteEnv`, `containerEnv`, comandos de lifecycle, mounts, paths int
 
 Falhas de CLI, parse ou filesystem viram estados explícitos e mensagens sanitizadas. Ausência de evidência não é promovida a ambiente utilizável.
 
+## Superfície HTTP read-only
+
+O discovery é exposto por:
+
+`GET /api/projects/:projectId/dev-container`
+
+A rota resolve o `Project` no backend e devolve somente o snapshot sanitizado do discovery. O schema HTTP é fechado: campos internos extras, configuração bruta, env, mounts, comandos e outros dados não declarados são descartados.
+
+Estados como `cli-missing`, `unavailable` e `invalid-output` continuam respostas válidas de inspeção; a API não os promove a runtime utilizável.
+
 ## Fora deste corte
 
-Este recorte não:
+Os cortes entregues até aqui não:
 
-- cria ou sobe containers;
-- executa comandos dentro do runtime;
-- altera `ExecutionContext`;
-- abre Terminal no container;
-- faz rebuild/stop/cleanup;
-- integra Compose ou Port Registry;
-- expõe API/UI nova.
+- criam ou sobem containers;
+- executam comandos dentro do runtime;
+- alteram `ExecutionContext`;
+- abrem Terminal no container;
+- fazem rebuild/stop/cleanup;
+- integram Compose ou Port Registry;
+- concedem qualquer autoridade mutável pela API.
 
 Lifecycle entra em recortes posteriores, com ownership comprovado, confirmação explícita e reuso dos domínios existentes.

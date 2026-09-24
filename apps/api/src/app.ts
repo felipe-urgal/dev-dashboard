@@ -11,6 +11,7 @@ import { agentRuntimeRoutes } from './routes/agent-runtime.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
+import { devContainerRoutes } from './routes/dev-container.js';
 import { releaseReadinessRoutes } from './routes/release-readiness.js';
 import { dependencyHealthRoutes } from './routes/dependency-health.js';
 import { dependencyUpgradePlanRoutes } from './routes/dependency-upgrade-plan.js';
@@ -118,6 +119,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const {
     databaseExplorerSessionStore,
     projectDoctorService,
+    devContainerDiscoveryService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -236,6 +238,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectDoctorService,
+  });
+
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    devContainerDiscoveryService,
   });
 
   app.register(releaseReadinessRoutes, {
