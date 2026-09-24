@@ -145,6 +145,37 @@ describe('ProjectDevContainerPanel', () => {
     wrapper.unmount();
   });
 
+  it('mostra o runtime real quando a Environment Instance já é devcontainer', async () => {
+    fetchDevContainerLifecyclePreflight.mockResolvedValueOnce({
+      projectId: project.id,
+      operation: 'create',
+      state: 'blocked',
+      reason: 'runtime-not-host',
+      observedAt: '2026-09-24T22:22:30.000Z',
+      environmentInstanceId: 'environment:worktree:project-devcontainer:runtime',
+      runtime: 'devcontainer',
+      executionEnabled: false,
+      requiresConfirmation: false,
+      limitations: ['cleanup-adapter-pending'],
+      diagnostic:
+        'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
+    });
+
+    const wrapper = mount(ProjectDevContainerPanel, {
+      props: {
+        project,
+        environmentInstanceId:
+          'environment:worktree:project-devcontainer:runtime',
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Runtime atual');
+    expect(wrapper.text()).toContain('Dev Container');
+    expect(wrapper.text()).toContain('Bloqueado');
+    wrapper.unmount();
+  });
+
   it('recarrega ao trocar a Environment Instance', async () => {
     fetchDevContainerLifecyclePreflight
       .mockResolvedValueOnce({
