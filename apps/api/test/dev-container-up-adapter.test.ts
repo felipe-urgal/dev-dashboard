@@ -15,6 +15,7 @@ test('adapter constrói devcontainer up com argv fechado e ownership backend-own
   const command = buildDevContainerUpCommand({
     workspaceFolder: '/workspace/project',
     configSource: '.devcontainer/devcontainer.json',
+    overrideConfigPath: '/state/devcontainer/snapshot/devcontainer.json',
     ownershipToken: TOKEN,
   });
 
@@ -26,6 +27,8 @@ test('adapter constrói devcontainer up com argv fechado e ownership backend-own
       '/workspace/project',
       '--config',
       '/workspace/project/.devcontainer/devcontainer.json',
+      '--override-config',
+      '/state/devcontainer/snapshot/devcontainer.json',
       '--id-label',
       DEV_CONTAINER_OWNERSHIP_LABEL + '=' + TOKEN,
       '--skip-post-create',
@@ -45,6 +48,7 @@ test('adapter rejeita workspace relativo e token fora do contrato', () => {
       buildDevContainerUpCommand({
         workspaceFolder: 'workspace/project',
         configSource: '.devcontainer.json',
+        overrideConfigPath: '/state/devcontainer/snapshot/devcontainer.json',
         ownershipToken: TOKEN,
       }),
     (error: unknown) =>
@@ -57,7 +61,23 @@ test('adapter rejeita workspace relativo e token fora do contrato', () => {
       buildDevContainerUpCommand({
         workspaceFolder: '/workspace/project',
         configSource: '.devcontainer.json',
+        overrideConfigPath: '/state/devcontainer/snapshot/devcontainer.json',
         ownershipToken: 'token-controlado',
+      }),
+    (error: unknown) =>
+      error instanceof DevContainerUpAdapterError &&
+      error.code === 'DEV_CONTAINER_UP_INPUT_INVALID',
+  );
+});
+
+test('adapter rejeita override-config relativo', () => {
+  assert.throws(
+    () =>
+      buildDevContainerUpCommand({
+        workspaceFolder: '/workspace/project',
+        configSource: '.devcontainer.json',
+        overrideConfigPath: 'snapshot/devcontainer.json',
+        ownershipToken: TOKEN,
       }),
     (error: unknown) =>
       error instanceof DevContainerUpAdapterError &&
