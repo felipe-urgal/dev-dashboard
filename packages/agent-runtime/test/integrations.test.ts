@@ -30,7 +30,8 @@ test('default integration capabilities keep providers explicit and conservative'
   assert.ok(claude);
   assert.ok(
     claude.integrations.every(
-      (item) => item.availability === 'unavailable' && item.operations.length === 0,
+      (item) =>
+        item.availability === 'unavailable' && item.operations.length === 0,
     ),
   );
 
