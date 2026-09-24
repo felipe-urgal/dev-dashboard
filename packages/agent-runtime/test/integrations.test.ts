@@ -25,9 +25,11 @@ test('default integration capabilities keep providers explicit and conservative'
     'inspect',
     'install',
     'uninstall',
+    'authenticate',
   ]);
   assert.deepEqual(codexMcp?.scopes, ['user']);
-  assert.match(codexMcp?.reason ?? '', /does not expose origin/i);
+  assert.match(codexMcp?.reason ?? '', /without inventing origin/i);
+  assert.match(codexMcp?.reason ?? '', /interactive project terminal/i);
   assert.equal(
     codex.integrations.find((item) => item.kind === 'plugin')?.availability,
     'unavailable',
