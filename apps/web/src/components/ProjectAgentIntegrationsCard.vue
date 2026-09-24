@@ -182,7 +182,7 @@ async function toggleIntegration(integration: AgentIntegration): Promise<void> {
     const current = integrations.value.find(
       (item) => item.id === integration.id,
     );
-    if (current) {
+    if (current && updated.enabled !== undefined) {
       current.enabled = updated.enabled;
     }
   } catch (error) {
@@ -506,7 +506,6 @@ watch(
                   : 'Detalhes'
             }}
           </button>
-
           <button
             v-if="canToggleIntegration(integration)"
             class="agent-integration-details-button"
