@@ -474,9 +474,7 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
     }
 
     const before = await this.list({ cwd: request.cwd });
-    if (
-      before.integrations.some((integration) => integration.name === name)
-    ) {
+    if (before.integrations.some((integration) => integration.name === name)) {
       throw new AgentIntegrationDiscoveryError(
         'invalid-request',
         'Codex MCP server name is already configured in the effective project context.',

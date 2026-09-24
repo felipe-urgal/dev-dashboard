@@ -199,9 +199,10 @@ test('Codex MCP install rejects an existing effective server before mutation', a
       /already configured/.test(error.message),
   );
 
-  assert.deepEqual(calls.map((call) => call.args), [
-    ['mcp', 'list', '--json'],
-  ]);
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [['mcp', 'list', '--json']],
+  );
 });
 
 test('Codex MCP install reconciles a timeout after the CLI persisted the server', async () => {
