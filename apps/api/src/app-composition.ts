@@ -10,10 +10,15 @@ import {
   AgentTaskLockManager,
   AgentUsageStore,
   AgentWorkflowRuntime,
+  BrowserBridge,
   GitAgentTaskStore,
+  HttpBrowserBridgeClient,
   createDefaultAgentIntegrationCapabilityRegistry,
   createDefaultAgentIntegrationProviderRegistry,
   createLocalAgentProviderRegistry,
+  readBrowserBridgeToken,
+  type AgentProviderExecutionRequest,
+  type BrowserBridgePort,
 } from '@dev-dashboard/agent-runtime';
 
 import type { AppContext } from './app-context.js';
@@ -58,6 +63,12 @@ import { SecurityScanSnapshotStore } from './services/security-scan-snapshot-sto
 import { TrivySecurityProvider } from './services/trivy-security-provider.js';
 import type { SecurityScanResult } from './services/trivy-security-scanner.js';
 
+export interface AgentBrowserRuntimePort {
+  bridge: BrowserBridgePort;
+  start(): Promise<void>;
+  close(): Promise<void>;
+}
+
 export interface AppCompositionOptions {
   now?: () => number;
   dockerComposeProvider?: Pick<DockerComposeProvider, 'inspect'>;
@@ -93,6 +104,7 @@ export interface AppCompositionOptions {
   >;
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
   securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
+  agentBrowserRuntime?: AgentBrowserRuntimePort;
   agentRuntimeApiService?: AgentRuntimeApiServicePort;
 }
 
@@ -251,9 +263,21 @@ export function createAppComposition(
   const securityScannerProvider =
     options.securityScannerProvider ?? new TrivySecurityProvider();
 
+  const agentBrowserRuntime = options.agentRuntimeApiService
+    ? null
+    : (options.agentBrowserRuntime ??
+      createAgentBrowserRuntime(
+        path.join(context.processManager.stateDirectory, 'agent-runtime'),
+        options.now,
+      ));
   const agentRuntimeApiService =
     options.agentRuntimeApiService ??
-    createAgentRuntimeApiService(context, options, taskContextService);
+    createAgentRuntimeApiService(
+      context,
+      options,
+      taskContextService,
+      agentBrowserRuntime?.bridge ?? null,
+    );
   const agentRuntimeRealtimeService = new AgentRuntimeRealtimeService(
     agentRuntimeApiService,
   );
@@ -297,8 +321,31 @@ export function createAppComposition(
     dependencyUpgradePlanService,
     securityScannerProvider,
     securityScanSnapshotStore,
+    agentBrowserRuntime,
     agentRuntimeApiService,
     agentRuntimeRealtimeService,
+  };
+}
+
+function createAgentBrowserRuntime(
+  stateDirectory: string,
+  now?: () => number,
+): AgentBrowserRuntimePort {
+  const bridgeServer = new BrowserBridge({
+    stateDir: stateDirectory,
+    ...(now ? { now } : {}),
+  });
+
+  return {
+    bridge: new HttpBrowserBridgeClient({
+      getToken: () => readBrowserBridgeToken(stateDirectory),
+    }),
+    start: async () => {
+      await bridgeServer.start();
+    },
+    close: async () => {
+      await bridgeServer.close();
+    },
   };
 }
 
@@ -306,6 +353,7 @@ function createAgentRuntimeApiService(
   context: AppContext,
   options: AppCompositionOptions,
   taskContextService: Pick<TaskContextService, 'snapshot'>,
+  browserBridge: BrowserBridgePort | null,
 ): AgentRuntimeApiService {
   const stateDirectory = path.join(
     context.processManager.stateDirectory,
@@ -320,6 +368,17 @@ function createAgentRuntimeApiService(
   const providerPreferenceStore = new AgentProviderPreferenceStore({
     stateDirectory,
   });
+  const resolveCwd = (request: AgentProviderExecutionRequest): string => {
+    const executionContext =
+      context.developmentEnvironmentInstanceStore.resolveForProject(
+        request.projectId,
+        request.environmentInstanceId,
+      );
+    if (!executionContext || executionContext.runtime !== 'host') {
+      throw new Error('Agent execution environment is unavailable.');
+    }
+    return executionContext.cwd;
+  };
   const providerRegistry = createLocalAgentProviderRegistry({
     resolveAutomaticPreference: async (request) => {
       const preference = await providerPreferenceStore.get(request.projectId);
@@ -330,17 +389,18 @@ function createAgentRuntimeApiService(
           }
         : null;
     },
-    resolveCwd: (request) => {
-      const executionContext =
-        context.developmentEnvironmentInstanceStore.resolveForProject(
-          request.projectId,
-          request.environmentInstanceId,
-        );
-      if (!executionContext || executionContext.runtime !== 'host') {
-        throw new Error('Agent execution environment is unavailable.');
-      }
-      return executionContext.cwd;
-    },
+    resolveCwd,
+    ...(browserBridge
+      ? {
+          browser: {
+            bridge: browserBridge,
+            resolveCwd,
+            ...(options.now
+              ? { now: () => new Date(options.now!()).toISOString() }
+              : {}),
+          },
+        }
+      : {}),
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),
@@ -426,12 +486,21 @@ export function registerAppLifecycle(
   context: AppContext,
   composition: AppComposition,
 ): void {
+  app.addHook('onListen', async () => {
+    try {
+      await composition.agentBrowserRuntime?.start();
+    } catch (error) {
+      app.log.warn({ err: error }, 'agent browser bridge unavailable');
+    }
+  });
+
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     composition.localCiExecutionService?.shutdown();
     composition.agentRuntimeRealtimeService.close();
     await composition.agentRuntimeApiService.shutdown();
+    await composition.agentBrowserRuntime?.close();
     await context.detachableExecutionService?.close();
     composition.databaseExplorerSessionStore.close();
     composition.projectLanguageServerService.close();
