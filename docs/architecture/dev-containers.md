@@ -60,7 +60,7 @@ A UI deixa explícitos:
 - versão da Dev Container CLI;
 - origem, nome seguro e serviço Compose quando disponíveis;
 - nomes dos lifecycle hooks declarados;
-- diagnóstico e limitações conhecidas, incluindo cleanup pendente e hooks diferidos.
+- diagnóstico e limitações conhecidas, incluindo blockers estruturais e hooks pós-criação diferidos.
 
 A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser. A tela oferece apenas atualização do preflight e não possui ações de `up`, rebuild, exec, Terminal ou cleanup; `executionEnabled=false` permanece explícito.
 
@@ -87,7 +87,7 @@ Regras fail-closed do primeiro corte:
 - todo plano em `review` exige confirmação futura;
 - **nenhum plano habilita execução neste corte**.
 
-A decisão de manter `executionEnabled=false` também evita criar um recurso sem cleanup completo: a Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`. Além disso, `--skip-post-create` omite os hooks pós-criação, mas não lista `initializeCommand` entre os hooks suprimidos. O executor mutável só deve entrar quando ownership e cleanup estiverem definidos de ponta a ponta.
+O contrato HTTP continua com `executionEnabled=false` porque o preflight público permanece somente leitura. Ownership e cleanup já existem internamente; a criação passa primeiro por um executor backend-only qualificado antes de qualquer endpoint/UI. A Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`, por isso o cleanup continua scoped ao container owned via Docker. `--skip-post-create` omite hooks pós-criação, enquanto `initializeCommand` segue como blocker explícito do preflight.
 
 ## Ownership persistente preparado
 
@@ -104,7 +104,7 @@ O token foi desenhado para virar um `--id-label` backend-owned no executor futur
 
 O estado é escrito atomicamente fora do repositório. Arquivo ausente significa nenhum ownership conhecido; arquivo existente mas inválido/corrompido falha fechado. `release` exige projeto + Environment Instance + path + token exatos.
 
-Este corte ainda não executa `up`, Docker stop/rm nem altera a Environment Instance.
+O store não executa lifecycle por conta própria; ele é consumido pelos serviços internos de start/cleanup descritos abaixo.
 
 ## Adapter estruturado de criação
 
@@ -142,7 +142,7 @@ O snapshot:
 
 O adapter de `up` agora exige esse caminho absoluto como `--override-config`, mantendo também `--config` apontando para a localização original. Isso faz a Dev Container CLI preservar a base de resolução do arquivo original, mas ler o conteúdo congelado do snapshot durante a criação.
 
-Nenhum snapshot é exposto na API/UI e este corte ainda não executa `devcontainer up`. O executor futuro deve manter o snapshot apenas durante a chamada da CLI e invocar `dispose()` em `finally`, inclusive em falhas.
+Nenhum snapshot é exposto na API/UI. O executor interno mantém o snapshot apenas durante a chamada da CLI e invoca `dispose()` em `finally`, inclusive em falhas.
 
 ## Cleanup Docker scoped preparado
 
@@ -179,7 +179,7 @@ Timestamp de observação e texto diagnóstico não entram no fingerprint, para 
 
 Somente preflight `review` de configuração `image | dockerfile`, em runtime `host` e marcado como `requiresConfirmation=true`, pode gerar ou consumir confirmação. Tokens expiram em 60 segundos por padrão e são consumidos uma única vez.
 
-Este corte não expõe endpoint de confirmação e ainda não executa criação.
+A confirmação ainda não possui endpoint próprio. Neste estágio ela é consumida somente pelo executor interno de criação; a API/UI continuam read-only.
 
 ## Cleanup owned executável internamente
 
@@ -203,16 +203,38 @@ Se o container já não existir, o serviço libera apenas o registro de ownershi
 
 Os comandos são executados sem shell, com timeout e buffer limitados, e erros brutos de Docker/filesystem não entram no erro de domínio.
 
+## Executor interno de criação
+
+A criação de configurações `image | dockerfile` possui um executor **backend-only**, ainda sem rota/UI.
+
+A sequência é deliberadamente fail-closed:
+
+1. recalcula um preflight fresco para a Environment Instance selecionada;
+2. exige Environment Instance `host/ready`;
+3. consome confirmação curta e single-use vinculada ao preflight atual;
+4. cria snapshot privado cujo SHA-256 precisa continuar igual ao `configurationHash` confirmado;
+5. persiste ownership em fase `starting`;
+6. marca a Environment Instance como `starting`;
+7. executa o argv fechado de `devcontainer up` sem shell, usando `--override-config`, ownership label, `--skip-post-create` e `--no-lockfile`;
+8. preserva somente a cauda bounded de stdout para localizar o envelope estruturado; stderr bruto não vira contrato;
+9. rejeita envelope de erro ou resolução inesperada para Compose;
+10. associa o `containerId` retornado ao ownership;
+11. remove o snapshot privado;
+12. só então persiste `runtime=devcontainer`, `runtimeId=<containerId>` e `lifecycle=ready`.
+
+Qualquer falha depois da reserva de ownership chama o cleanup owned. O timeout primeiro encerra o processo da Dev Container CLI e aguarda seu fechamento; o rollback não começa enquanto a CLI ainda pode estar criando recursos. Se o cleanup não puder ser comprovado, o erro final é `DEV_CONTAINER_START_ROLLBACK_FAILED`.
+
+O executor ainda não é autoridade pública: não há endpoint/botão para start e o preflight HTTP continua com `executionEnabled=false`. Esse isolamento permite validar lifecycle/rollback antes de conceder mutation ao browser.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
 
-- criam ou sobem containers;
-- executam comandos dentro do runtime;
-- alteram `ExecutionContext`;
-- abrem Terminal no container;
+- expõem criação/subida de Dev Container na API/UI;
+- executam comandos arbitrários do Dashboard dentro do runtime;
+- adaptam Terminal, Scripts ou Testes ao runtime `devcontainer`;
 - expõem rebuild/stop/cleanup na API/UI;
-- integram Compose ou Port Registry;
-- concedem qualquer autoridade mutável pela API.
+- integram Dev Container Compose ao ownership do domínio Docker Compose;
+- concedem qualquer autoridade mutável ao browser.
 
 Lifecycle entra em recortes posteriores, com ownership comprovado, confirmação explícita e reuso dos domínios existentes.
