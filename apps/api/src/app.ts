@@ -120,6 +120,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     databaseExplorerSessionStore,
     projectDoctorService,
     devContainerDiscoveryService,
+    devContainerLifecyclePlanningService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -244,6 +245,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     devContainerDiscoveryService,
+    devContainerLifecyclePlanningService,
   });
 
   app.register(releaseReadinessRoutes, {
