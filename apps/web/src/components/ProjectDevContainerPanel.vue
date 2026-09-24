@@ -350,7 +350,7 @@ watch(
 
 .devcontainer-hooks {
   padding-top: var(--space-4);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 760px) {
