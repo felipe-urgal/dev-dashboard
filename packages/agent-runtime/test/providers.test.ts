@@ -195,7 +195,7 @@ test('Codex uses read-only sandbox when workspace write is not granted', async (
   assert.equal(execution.outcome, 'succeeded');
 
   const executionCall = fake.calls.at(-1);
-  assert.equal(executionCall?.args[4], 'read-only');
+  assert.equal(executionCall?.args[6], 'read-only');
 });
 
 test('Claude doctor validates supported version and auth before auto mode', async () => {
