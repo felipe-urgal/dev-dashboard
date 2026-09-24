@@ -111,13 +111,19 @@ async function fixture(
   t: TestContext,
   provider: StubProvider,
   initialTask = task(),
+  retryPolicy: {
+    maxExecutionAttempts?: number;
+    retryBackoffMs?: number;
+    maxRetryBackoffMs?: number;
+  } = {},
 ) {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-workflow-runtime-'));
   t.after(async () => rm(root, { recursive: true, force: true }));
 
   let tick = 0;
+  let clockOffsetMs = 0;
   const base = Date.parse('2026-09-22T15:00:00.000Z');
-  const now = () => new Date(base + tick++).toISOString();
+  const now = () => new Date(base + clockOffsetMs + tick++).toISOString();
   const store = new MemoryTaskStore(initialTask);
   const auditStore = new AgentAuditStore({
     stateDirectory: root,
@@ -142,9 +148,19 @@ async function fixture(
     now,
     createExecutionId: () => 'execution-1',
     createCheckpointId: () => 'checkpoint-1',
+    retryBackoffMs: 0,
+    ...retryPolicy,
   });
 
-  return { runtime, store, runtimeStateStore, auditStore };
+  return {
+    runtime,
+    store,
+    runtimeStateStore,
+    auditStore,
+    advanceTime: (milliseconds: number) => {
+      clockOffsetMs += milliseconds;
+    },
+  };
 }
 
 function authorizations(): AgentAuthorization[] {
@@ -401,6 +417,92 @@ test('known failed task can be reset to queued by explicit retry', async (t) => 
 
   const retried = await runtime.retry('project-1', 'task-1');
   assert.equal(retried.task.state, 'queued');
+});
+
+test('explicit retry enforces bounded attempts and capped exponential backoff', async (t) => {
+  let executionCount = 0;
+  const provider = new StubProvider(async () => {
+    executionCount += 1;
+    return {
+      providerId: 'codex',
+      outcome: 'failed',
+      summary: 'Known failure',
+      failure: {
+        kind: 'known',
+        code: 'known-failure',
+        message: 'Known failure',
+      },
+    };
+  });
+  const { runtime, advanceTime } = await fixture(t, provider, task(), {
+    maxExecutionAttempts: 3,
+    retryBackoffMs: 100,
+    maxRetryBackoffMs: 150,
+  });
+
+  await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  await assert.rejects(
+    () => runtime.retry('project-1', 'task-1'),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED' &&
+      /backoff/.test(error.message),
+  );
+
+  advanceTime(100);
+  await runtime.retry('project-1', 'task-1');
+  await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  await assert.rejects(
+    () => runtime.retry('project-1', 'task-1'),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED' &&
+      /backoff/.test(error.message),
+  );
+
+  advanceTime(150);
+  await runtime.retry('project-1', 'task-1');
+  await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  advanceTime(1_000);
+  await assert.rejects(
+    () => runtime.retry('project-1', 'task-1'),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED' &&
+      /attempt limit/.test(error.message),
+  );
+  assert.equal(executionCount, 3);
+});
+
+test('invalid retry policy is rejected at runtime construction', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'failed',
+    summary: 'Known failure',
+  }));
+
+  await assert.rejects(
+    async () =>
+      fixture(t, provider, task(), {
+        maxExecutionAttempts: 0,
+      }),
+    /retry policy is invalid/,
+  );
 });
 
 test('execution lock prevents two executions of the same task', async (t) => {

@@ -23,6 +23,10 @@ import {
 import { transitionAgentTask } from './state-machine.js';
 import { AgentTaskLockManager } from './task-lock.js';
 
+const DEFAULT_MAX_EXECUTION_ATTEMPTS = 3;
+const DEFAULT_RETRY_BACKOFF_MS = 1_000;
+const DEFAULT_MAX_RETRY_BACKOFF_MS = 30_000;
+
 export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_CLOSING'
   | 'AGENT_WORKFLOW_TASK_NOT_FOUND'
@@ -61,6 +65,9 @@ export interface AgentWorkflowRuntimeOptions {
   now?: () => string;
   createExecutionId?: () => string;
   createCheckpointId?: () => string;
+  maxExecutionAttempts?: number;
+  retryBackoffMs?: number;
+  maxRetryBackoffMs?: number;
 }
 
 export interface AgentWorkflowExecuteRequest {
@@ -159,6 +166,9 @@ export class AgentWorkflowRuntime {
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
   private readonly createCheckpointId: () => string;
+  private readonly maxExecutionAttempts: number;
+  private readonly retryBackoffMs: number;
+  private readonly maxRetryBackoffMs: number;
   private readonly active = new Map<string, ActiveExecution>();
   private closing = false;
 
@@ -171,6 +181,22 @@ export class AgentWorkflowRuntime {
     this.now = options.now ?? (() => new Date().toISOString());
     this.createExecutionId = options.createExecutionId ?? randomUUID;
     this.createCheckpointId = options.createCheckpointId ?? randomUUID;
+    this.maxExecutionAttempts =
+      options.maxExecutionAttempts ?? DEFAULT_MAX_EXECUTION_ATTEMPTS;
+    this.retryBackoffMs = options.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS;
+    this.maxRetryBackoffMs =
+      options.maxRetryBackoffMs ?? DEFAULT_MAX_RETRY_BACKOFF_MS;
+
+    if (
+      !Number.isSafeInteger(this.maxExecutionAttempts) ||
+      this.maxExecutionAttempts < 1 ||
+      !Number.isSafeInteger(this.retryBackoffMs) ||
+      this.retryBackoffMs < 0 ||
+      !Number.isSafeInteger(this.maxRetryBackoffMs) ||
+      this.maxRetryBackoffMs < this.retryBackoffMs
+    ) {
+      throw new Error('Agent workflow retry policy is invalid.');
+    }
   }
 
   public async status(
@@ -497,12 +523,35 @@ export class AgentWorkflowRuntime {
       if (current.task.state !== 'failed') {
         throw new AgentWorkflowRuntimeError(
           'AGENT_WORKFLOW_RETRY_NOT_ALLOWED',
-          'Only a known failed agent task can be retried automatically.',
+          'Only a known failed agent task can be retried explicitly.',
+        );
+      }
+
+      const runtimeState = await this.runtimeStateStore.read(current);
+      if (runtimeState.attempts >= this.maxExecutionAttempts) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_RETRY_NOT_ALLOWED',
+          'Agent task reached the configured execution attempt limit.',
+        );
+      }
+
+      const exponent = Math.max(0, runtimeState.attempts - 1);
+      const retryDelayMs = Math.min(
+        this.retryBackoffMs * 2 ** exponent,
+        this.maxRetryBackoffMs,
+      );
+      const observedAt = this.now();
+      const retryAvailableAt =
+        Date.parse(runtimeState.updatedAt) + retryDelayMs;
+      if (Date.parse(observedAt) < retryAvailableAt) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_RETRY_NOT_ALLOWED',
+          'Agent task retry backoff is still active.',
         );
       }
 
       return this.taskStore.save(
-        transitionAgentTask(current.task, 'queued', this.now()),
+        transitionAgentTask(current.task, 'queued', observedAt),
         current.version,
       );
     } finally {
