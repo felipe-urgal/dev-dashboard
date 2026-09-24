@@ -311,7 +311,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       );
     }
 
-    const fallbackOrder =
+    const fallbackOrder: Array<'codex' | 'claude-code'> =
       input.fallbackOrder ??
       (input.preferredProviderId === 'codex' ? ['claude-code'] : ['codex']);
     if (
