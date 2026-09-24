@@ -24,18 +24,16 @@ function sha256(content: string | Buffer): string {
 }
 
 test('snapshot copia bytes confirmados para arquivo privado e dispose remove tudo', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-config-snapshot-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const workspace = path.join(root, 'workspace');
   const state = path.join(root, 'state', 'snapshots');
   await mkdir(path.join(workspace, '.devcontainer'), { recursive: true });
   const content =
     '{\n  // segredo permanece apenas no snapshot privado\n  "image": "node:22"\n}\n';
-  const configPath = path.join(
-    workspace,
-    '.devcontainer',
-    'devcontainer.json',
-  );
+  const configPath = path.join(workspace, '.devcontainer', 'devcontainer.json');
   await writeFile(configPath, content);
 
   const service = new DevContainerConfigSnapshotService(
@@ -53,8 +51,8 @@ test('snapshot copia bytes confirmados para arquivo privado e dispose remove tud
   assert.equal(await readFile(snapshot.overrideConfigPath, 'utf8'), content);
 
   if (process.platform !== 'win32') {
-    const directoryMode = (await lstat(path.dirname(snapshot.overrideConfigPath)))
-      .mode & 0o777;
+    const directoryMode =
+      (await lstat(path.dirname(snapshot.overrideConfigPath))).mode & 0o777;
     const fileMode = (await lstat(snapshot.overrideConfigPath)).mode & 0o777;
     assert.equal(directoryMode, 0o700);
     assert.equal(fileMode, 0o600);
@@ -67,16 +65,18 @@ test('snapshot copia bytes confirmados para arquivo privado e dispose remove tud
     (error: unknown) =>
       Boolean(
         error &&
-          typeof error === 'object' &&
-          'code' in error &&
-          (error as { code?: unknown }).code === 'ENOENT',
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'ENOENT',
       ),
   );
   assert.equal(await readFile(configPath, 'utf8'), content);
 });
 
 test('snapshot falha fechado quando conteúdo não corresponde ao hash confirmado', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-config-snapshot-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const workspace = path.join(root, 'workspace');
   await mkdir(workspace);
@@ -103,7 +103,9 @@ test('snapshot falha fechado quando conteúdo não corresponde ao hash confirmad
 });
 
 test('snapshot rejeita symlink e configuração acima do limite', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-config-snapshot-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
 
   const external = path.join(root, 'external.json');

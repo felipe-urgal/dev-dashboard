@@ -1,11 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  lstat,
-  mkdir,
-  open,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { lstat, mkdir, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { DevContainerConfigurationSource } from './dev-container-discovery-service.js';
@@ -118,7 +112,9 @@ export class DevContainerConfigSnapshotService {
       await handle.close();
     }
 
-    const configurationHash = createHash('sha256').update(content).digest('hex');
+    const configurationHash = createHash('sha256')
+      .update(content)
+      .digest('hex');
     if (configurationHash !== input.expectedConfigurationHash) {
       throw new DevContainerConfigSnapshotError(
         'DEV_CONTAINER_CONFIG_SNAPSHOT_CHANGED',
