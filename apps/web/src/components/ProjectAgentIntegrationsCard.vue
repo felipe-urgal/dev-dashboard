@@ -10,6 +10,7 @@ import {
   fetchAgentIntegrations,
   installAgentIntegration,
   setAgentIntegrationEnabled,
+  uninstallAgentIntegration,
   type AgentConcreteProviderId,
   type AgentIntegration,
   type AgentIntegrationDetails,
@@ -42,6 +43,7 @@ const integrationDetails = ref<Record<string, AgentIntegrationDetails>>({});
 const expandedIntegrationId = ref<string | null>(null);
 const inspectingIntegrationId = ref<string | null>(null);
 const togglingIntegrationId = ref<string | null>(null);
+const uninstallingIntegrationId = ref<string | null>(null);
 
 const selectedCapabilities = computed(
   () =>
@@ -192,6 +194,55 @@ async function toggleIntegration(integration: AgentIntegration): Promise<void> {
         : 'Não foi possível alterar o estado do plugin.';
   } finally {
     togglingIntegrationId.value = null;
+  }
+}
+
+
+async function uninstallIntegration(
+  integration: AgentIntegration,
+): Promise<void> {
+  if (
+    !canToggleIntegration(integration) ||
+    !integration.marketplace ||
+    !integration.scope ||
+    uninstallingIntegrationId.value
+  ) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    'Remover ' +
+      integration.name +
+      ' do escopo ' +
+      integrationScopeLabel(integration) +
+      '? Os dados persistentes do plugin serão preservados.',
+  );
+  if (!confirmed) return;
+
+  uninstallingIntegrationId.value = integration.id;
+  errorMessage.value = '';
+  try {
+    await uninstallAgentIntegration(props.project.id, {
+      providerId: 'claude-code',
+      ...(props.environmentInstanceId
+        ? { environmentInstanceId: props.environmentInstanceId }
+        : {}),
+      kind: 'plugin',
+      name: integration.name,
+      marketplace: integration.marketplace,
+      scope: integration.scope,
+      confirmed: true,
+    });
+    integrations.value = integrations.value.filter(
+      (item) => item.id !== integration.id,
+    );
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover o plugin.';
+  } finally {
+    uninstallingIntegrationId.value = null;
   }
 }
 
@@ -489,38 +540,66 @@ watch(
               </template>
             </small>
           </div>
-          <button
+          <div
             v-if="
-              canInspectSelectedProvider && integration.kind === 'mcp-server'
+              (canInspectSelectedProvider &&
+                integration.kind === 'mcp-server') ||
+              canToggleIntegration(integration)
             "
-            class="agent-integration-details-button"
-            type="button"
-            :disabled="inspectingIntegrationId === integration.id"
-            @click="inspectIntegration(integration)"
+            class="agent-integration-actions"
           >
-            {{
-              inspectingIntegrationId === integration.id
-                ? 'Carregando…'
-                : expandedIntegrationId === integration.id
-                  ? 'Ocultar'
-                  : 'Detalhes'
-            }}
-          </button>
-          <button
-            v-if="canToggleIntegration(integration)"
-            class="agent-integration-details-button"
-            type="button"
-            :disabled="togglingIntegrationId === integration.id"
-            @click="toggleIntegration(integration)"
-          >
-            {{
-              togglingIntegrationId === integration.id
-                ? 'Aplicando…'
-                : integration.enabled
-                  ? 'Desativar'
-                  : 'Ativar'
-            }}
-          </button>
+            <button
+              v-if="
+                canInspectSelectedProvider && integration.kind === 'mcp-server'
+              "
+              class="agent-integration-details-button"
+              type="button"
+              :disabled="inspectingIntegrationId === integration.id"
+              @click="inspectIntegration(integration)"
+            >
+              {{
+                inspectingIntegrationId === integration.id
+                  ? 'Carregando…'
+                  : expandedIntegrationId === integration.id
+                    ? 'Ocultar'
+                    : 'Detalhes'
+              }}
+            </button>
+            <button
+              v-if="canToggleIntegration(integration)"
+              class="agent-integration-details-button"
+              type="button"
+              :disabled="
+                togglingIntegrationId === integration.id ||
+                uninstallingIntegrationId === integration.id
+              "
+              @click="toggleIntegration(integration)"
+            >
+              {{
+                togglingIntegrationId === integration.id
+                  ? 'Aplicando…'
+                  : integration.enabled
+                    ? 'Desativar'
+                    : 'Ativar'
+              }}
+            </button>
+            <button
+              v-if="canToggleIntegration(integration)"
+              class="agent-integration-details-button"
+              type="button"
+              :disabled="
+                uninstallingIntegrationId === integration.id ||
+                togglingIntegrationId === integration.id
+              "
+              @click="uninstallIntegration(integration)"
+            >
+              {{
+                uninstallingIntegrationId === integration.id
+                  ? 'Removendo…'
+                  : 'Remover'
+              }}
+            </button>
+          </div>
           <div
             v-if="
               expandedIntegrationId === integration.id &&
@@ -837,6 +916,12 @@ watch(
 .agent-integration-provenance {
   margin-top: 2px;
   color: var(--text-dim);
+}
+
+.agent-integration-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .agent-integration-details-button {
