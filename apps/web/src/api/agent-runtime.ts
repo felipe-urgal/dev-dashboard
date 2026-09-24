@@ -13,6 +13,7 @@ export type AgentIntegrationScope =
 
 export type AgentIntegrationOrigin =
   | 'codex-global-config'
+  | 'claude-mcp-config'
   | 'claude-plugin-inventory'
   | 'claude-plugin-catalog'
   | 'claude-marketplace-inventory'

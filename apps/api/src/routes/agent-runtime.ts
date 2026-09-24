@@ -450,6 +450,7 @@ const integrationSchema = {
       type: 'string',
       enum: [
         'codex-global-config',
+        'claude-mcp-config',
         'claude-plugin-inventory',
         'claude-plugin-catalog',
         'claude-marketplace-inventory',

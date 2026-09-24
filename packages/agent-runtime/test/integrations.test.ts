@@ -35,6 +35,14 @@ test('default integration capabilities keep providers explicit and conservative'
 
   const claude = registry.get('claude-code');
   assert.ok(claude);
+  const claudeMcp = claude.integrations.find(
+    (item) => item.kind === 'mcp-server',
+  );
+  assert.equal(claudeMcp?.availability, 'supported');
+  assert.deepEqual(claudeMcp?.operations, ['list']);
+  assert.deepEqual(claudeMcp?.scopes, ['local', 'project', 'user']);
+  assert.match(claudeMcp?.reason ?? '', /scope precedence/i);
+
   const claudePlugin = claude.integrations.find(
     (item) => item.kind === 'plugin',
   );
@@ -63,7 +71,7 @@ test('default integration capabilities keep providers explicit and conservative'
   assert.match(claudeMarketplace?.reason ?? '', /sanitized source type/i);
   assert.ok(
     claude.integrations
-      .filter((item) => item.kind !== 'plugin' && item.kind !== 'marketplace')
+      .filter((item) => item.kind === 'skill')
       .every(
         (item) =>
           item.availability === 'unavailable' && item.operations.length === 0,
