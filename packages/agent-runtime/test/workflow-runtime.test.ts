@@ -111,10 +111,11 @@ async function fixture(
   t: TestContext,
   provider: StubProvider,
   initialTask = task(),
-  retryPolicy: {
+  runtimeOptions: {
     maxExecutionAttempts?: number;
     retryBackoffMs?: number;
     maxRetryBackoffMs?: number;
+    gitRefVerifier?: import('../src/index.js').AgentGitRefVerifier;
   } = {},
 ) {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-workflow-runtime-'));
@@ -149,7 +150,7 @@ async function fixture(
     createExecutionId: () => 'execution-1',
     createCheckpointId: () => 'checkpoint-1',
     retryBackoffMs: 0,
-    ...retryPolicy,
+    ...runtimeOptions,
   });
 
   return {
@@ -503,6 +504,122 @@ test('invalid retry policy is rejected at runtime construction', async (t) => {
       }),
     /retry policy is invalid/,
   );
+});
+
+
+test('adopts only an explicitly confirmed and verified existing Git ref', async (t) => {
+  const verificationCalls: unknown[] = [];
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Done',
+  }));
+  const { runtime } = await fixture(t, provider, task(), {
+    gitRefVerifier: {
+      verify: async (agentTask, reference) => {
+        verificationCalls.push([agentTask.id, reference]);
+        return true;
+      },
+    },
+  });
+
+  const commitHash = 'A'.repeat(40);
+  await assert.rejects(
+    () =>
+      runtime.adoptGitRef('project-1', 'task-1', {
+        branch: 'feature/existing',
+        commitHash,
+        confirmed: false,
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED',
+  );
+  assert.equal(verificationCalls.length, 0);
+
+  const adopted = await runtime.adoptGitRef('project-1', 'task-1', {
+    branch: ' feature/existing ',
+    commitHash,
+    confirmed: true,
+  });
+
+  assert.deepEqual(adopted.task.adoptedGitRef, {
+    branch: 'feature/existing',
+    commitHash: 'a'.repeat(40),
+    verifiedAt: adopted.task.updatedAt,
+  });
+  assert.deepEqual(adopted.task.requestedCapabilities, [
+    'workspace:write',
+    'git:push',
+  ]);
+  assert.equal(verificationCalls.length, 1);
+});
+
+test('reverifies adopted Git ref before provider dispatch and fails closed on drift', async (t) => {
+  let matches = true;
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Done',
+  }));
+  const { runtime, store } = await fixture(t, provider, task(), {
+    gitRefVerifier: {
+      verify: async () => matches,
+    },
+  });
+
+  await runtime.adoptGitRef('project-1', 'task-1', {
+    branch: 'feature/existing',
+    commitHash: 'b'.repeat(40),
+    confirmed: true,
+  });
+
+  matches = false;
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH',
+  );
+
+  assert.equal(provider.lastRequest, undefined);
+  assert.equal((await store.get('task-1'))?.task.state, 'queued');
+});
+
+test('adopted Git ref can execute after successful pre-dispatch reverification', async (t) => {
+  let verificationCount = 0;
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Done',
+  }));
+  const { runtime } = await fixture(t, provider, task(), {
+    gitRefVerifier: {
+      verify: async () => {
+        verificationCount += 1;
+        return true;
+      },
+    },
+  });
+
+  await runtime.adoptGitRef('project-1', 'task-1', {
+    branch: 'feature/existing',
+    commitHash: 'c'.repeat(40),
+    confirmed: true,
+  });
+  const result = await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  assert.equal(result.task.task.state, 'review');
+  assert.equal(verificationCount, 2);
 });
 
 test('execution lock prevents two executions of the same task', async (t) => {
