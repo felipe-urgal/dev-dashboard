@@ -4,6 +4,8 @@ const MAX_OUTPUT_BYTES = 128 * 1024;
 const CONTAINER_ID_PATTERN = /^[a-f0-9]{12,128}$/u;
 const OWNERSHIP_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const INSPECT_FORMAT =
+  '{{.Id}}|{{index .Config.Labels "devdashboard.environment"}}|{{.State.Running}}';
 
 export interface DevContainerDockerStructuredCommand {
   program: 'docker';
@@ -125,7 +127,14 @@ export function buildInspectOwnedDevContainerCommand(
 ): DevContainerDockerStructuredCommand {
   return {
     program: 'docker',
-    args: ['inspect', '--type', 'container', requireContainerId(containerId)],
+    args: [
+      'inspect',
+      '--type',
+      'container',
+      '--format',
+      INSPECT_FORMAT,
+      requireContainerId(containerId),
+    ],
   };
 }
 
@@ -136,70 +145,44 @@ export function parseOwnedDevContainerInspectOutput(
 ): DevContainerOwnedContainerInspection {
   const containerId = requireContainerId(expectedContainerId);
   const token = requireOwnershipToken(ownershipToken);
+  const lines = boundedOutput(output)
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(boundedOutput(output));
-  } catch {
+  if (lines.length !== 1) {
     throw new DevContainerDockerCleanupAdapterError(
       'DEV_CONTAINER_DOCKER_OUTPUT_INVALID',
-      'O Docker retornou inspect em formato inválido.',
+      'O Docker não retornou exatamente um snapshot de ownership.',
     );
   }
 
-  if (!Array.isArray(parsed) || parsed.length !== 1) {
+  const parts = lines[0]!.split('|');
+  if (parts.length !== 3) {
     throw new DevContainerDockerCleanupAdapterError(
       'DEV_CONTAINER_DOCKER_OUTPUT_INVALID',
-      'O Docker não retornou exatamente um container no inspect.',
+      'O snapshot de ownership retornado pelo Docker é inválido.',
     );
   }
 
-  const record = parsed[0];
-  if (!record || typeof record !== 'object' || Array.isArray(record)) {
-    throw new DevContainerDockerCleanupAdapterError(
-      'DEV_CONTAINER_DOCKER_OUTPUT_INVALID',
-      'O inspect do Dev Container é inválido.',
-    );
-  }
-
-  const inspected = record as Record<string, unknown>;
-  if (inspected.Id !== containerId) {
+  const [inspectedContainerId, inspectedToken, runningText] = parts;
+  if (inspectedContainerId !== containerId || inspectedToken !== token) {
     throw new DevContainerDockerCleanupAdapterError(
       'DEV_CONTAINER_DOCKER_OWNERSHIP_MISMATCH',
-      'O container inspecionado não corresponde ao containerId owned.',
+      'O container inspecionado não corresponde ao ownership esperado.',
     );
   }
 
-  const config =
-    inspected.Config && typeof inspected.Config === 'object'
-      ? (inspected.Config as Record<string, unknown>)
-      : undefined;
-  const labels =
-    config?.Labels && typeof config.Labels === 'object'
-      ? (config.Labels as Record<string, unknown>)
-      : undefined;
-
-  if (labels?.[DEV_CONTAINER_OWNERSHIP_LABEL] !== token) {
-    throw new DevContainerDockerCleanupAdapterError(
-      'DEV_CONTAINER_DOCKER_OWNERSHIP_MISMATCH',
-      'O container não possui o label de ownership esperado.',
-    );
-  }
-
-  const state =
-    inspected.State && typeof inspected.State === 'object'
-      ? (inspected.State as Record<string, unknown>)
-      : undefined;
-  if (typeof state?.Running !== 'boolean') {
+  if (runningText !== 'true' && runningText !== 'false') {
     throw new DevContainerDockerCleanupAdapterError(
       'DEV_CONTAINER_DOCKER_OUTPUT_INVALID',
-      'O inspect não contém estado de execução válido.',
+      'O snapshot de ownership não contém estado de execução válido.',
     );
   }
 
   return {
     containerId,
-    running: state.Running,
+    running: runningText === 'true',
   };
 }
 
