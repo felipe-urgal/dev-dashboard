@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AgentCliProcessError,
   AgentIntegrationDiscoveryError,
   BrowserCapabilityIntegrationProvider,
   ClaudePluginIntegrationProvider,
@@ -97,12 +98,29 @@ test('integration provider registry rejects duplicate providers', () => {
   );
 });
 
-test('Codex MCP install uses fixed structured args and requires confirmation', async () => {
+test('Codex MCP install uses fixed structured args and reconciles persisted state', async () => {
   const calls: AgentCliProcessRequest[] = [];
+  let installed = false;
   const provider = new CodexMcpIntegrationProvider({
     runProcess: async (request) => {
       calls.push(request);
-      return result();
+      if (request.args[1] === 'add') {
+        installed = true;
+        return result({ stdout: "Added global MCP server 'docs'.\n" });
+      }
+      return result({
+        stdout: JSON.stringify(
+          installed
+            ? [
+                {
+                  name: 'docs',
+                  enabled: true,
+                  auth_status: 'unauthenticated',
+                },
+              ]
+            : [],
+        ),
+      });
     },
   });
 
@@ -128,13 +146,14 @@ test('Codex MCP install uses fixed structured args and requires confirmation', a
     url: 'https://example.com/mcp',
   });
 
-  assert.deepEqual(calls[0]?.args, [
-    'mcp',
-    'add',
-    'docs',
-    '--url',
-    'https://example.com/mcp',
-  ]);
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [
+      ['mcp', 'list', '--json'],
+      ['mcp', 'add', 'docs', '--url', 'https://example.com/mcp'],
+      ['mcp', 'list', '--json'],
+    ],
+  );
   assert.deepEqual(integration, {
     id: 'codex:mcp-server:docs',
     providerId: 'codex',
@@ -143,8 +162,115 @@ test('Codex MCP install uses fixed structured args and requires confirmation', a
     scope: 'user',
     origin: 'codex-global-config',
     enabled: true,
-    authStatus: 'unknown',
+    authStatus: 'unauthenticated',
   });
+});
+
+test('Codex MCP install rejects an existing effective server before mutation', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      return result({
+        stdout: JSON.stringify([
+          {
+            name: 'docs',
+            enabled: true,
+            auth_status: 'authenticated',
+          },
+        ]),
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-request' &&
+      /already configured/.test(error.message),
+  );
+
+  assert.deepEqual(calls.map((call) => call.args), [
+    ['mcp', 'list', '--json'],
+  ]);
+});
+
+test('Codex MCP install reconciles a timeout after the CLI persisted the server', async () => {
+  let installed = false;
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      if (request.args[1] === 'add') {
+        installed = true;
+        throw new AgentCliProcessError(
+          'timeout',
+          'OAuth flow waited for user interaction',
+        );
+      }
+      return result({
+        stdout: JSON.stringify(
+          installed
+            ? [
+                {
+                  name: 'docs',
+                  enabled: true,
+                  auth_status: 'unauthenticated',
+                },
+              ]
+            : [],
+        ),
+      });
+    },
+  });
+
+  const integration = await provider.install!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'user',
+    confirmed: true,
+    url: 'https://example.com/mcp',
+  });
+
+  assert.equal(integration.name, 'docs');
+  assert.equal(integration.scope, 'user');
+  assert.equal(integration.origin, 'codex-global-config');
+  assert.equal(integration.authStatus, 'unauthenticated');
+});
+
+test('Codex MCP install fails when a timeout did not persist the server', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      if (request.args[1] === 'add') {
+        throw new AgentCliProcessError('timeout', 'timed out before write');
+      }
+      return result({ stdout: '[]' });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'command-failed' &&
+      /without persisting/.test(error.message),
+  );
 });
 
 test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope', async () => {
