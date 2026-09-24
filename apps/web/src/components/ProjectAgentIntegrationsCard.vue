@@ -470,6 +470,10 @@ watch(selectedProviderId, () => {
   selectedIntegrationView.value = 'all';
 });
 
+watch(showIntegrationViewFilters, (showFilters) => {
+  if (!showFilters) selectedIntegrationView.value = 'all';
+});
+
 watch(
   () => [
     props.project.id,
