@@ -1204,19 +1204,143 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     integrations.push(...effectiveByName.values());
   }
 
-  async install(
+  private async discoverMcpConfig(
+    request: AgentIntegrationListRequest,
+  ): Promise<AgentIntegrationListResult> {
+    const integrations: AgentIntegration[] = [];
+    const issues: AgentIntegrationIssue[] = [];
+    await this.appendMcpConfigIntegrations(request, integrations, issues);
+    return { integrations, issues };
+  }
+
+  private assertMcpConfigReadable(
+    discovery: AgentIntegrationListResult,
+  ): void {
+    if (discovery.issues.some((issue) => issue.source === 'mcp-server')) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude MCP configuration could not be safely reconciled.',
+      );
+    }
+  }
+
+  private async installMcpServer(
+    request: AgentIntegrationInstallRequest,
+  ): Promise<AgentIntegration> {
+    if (!request.confirmed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP installation requires explicit confirmation.',
+      );
+    }
+    if (
+      request.scope !== 'user' &&
+      request.scope !== 'project' &&
+      request.scope !== 'local'
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP installation supports only user, project, or local scope.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server name is invalid.',
+      );
+    }
+
+    let url: URL;
+    try {
+      url = new URL(request.url ?? '');
+    } catch {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server URL is invalid.',
+      );
+    }
+    if (url.protocol !== 'https:') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server URL must use HTTPS.',
+      );
+    }
+
+    const before = await this.discoverMcpConfig({ cwd: request.cwd });
+    this.assertMcpConfigReadable(before);
+    if (before.integrations.some((integration) => integration.name === name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server name is already configured in the effective project context.',
+      );
+    }
+
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: [
+          'mcp',
+          'add',
+          '--transport',
+          'http',
+          '--scope',
+          request.scope,
+          name,
+          url.toString(),
+        ],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude MCP installation',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Claude command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude MCP installation failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude MCP installation returned a non-zero result.',
+      );
+    }
+
+    const after = await this.discoverMcpConfig({ cwd: request.cwd });
+    this.assertMcpConfigReadable(after);
+    const installed = after.integrations.find(
+      (integration) =>
+        integration.name === name && integration.scope === request.scope,
+    );
+    if (!installed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude MCP installation completed but persisted state could not be verified.',
+      );
+    }
+
+    return installed;
+  }
+
+  private async installPlugin(
     request: AgentIntegrationInstallRequest,
   ): Promise<AgentIntegration> {
     if (!request.confirmed) {
       throw new AgentIntegrationDiscoveryError(
         'invalid-request',
         'Claude plugin installation requires explicit confirmation.',
-      );
-    }
-    if (request.kind !== 'plugin') {
-      throw new AgentIntegrationDiscoveryError(
-        'invalid-request',
-        'Claude only supports plugin installation through this adapter.',
       );
     }
 
@@ -1349,6 +1473,21 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     };
   }
 
+  async install(
+    request: AgentIntegrationInstallRequest,
+  ): Promise<AgentIntegration> {
+    if (request.kind === 'mcp-server') {
+      return this.installMcpServer(request);
+    }
+    if (request.kind === 'plugin') {
+      return this.installPlugin(request);
+    }
+    throw new AgentIntegrationDiscoveryError(
+      'invalid-request',
+      'Claude only supports MCP and plugin installation through this adapter.',
+    );
+  }
+
   async setEnabled(
     request: AgentIntegrationSetEnabledRequest,
   ): Promise<AgentIntegration> {
@@ -1467,19 +1606,110 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     };
   }
 
-  async uninstall(
+  private async uninstallMcpServer(
+    request: AgentIntegrationUninstallRequest,
+  ): Promise<AgentIntegrationUninstallResult> {
+    if (!request.confirmed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP removal requires explicit confirmation.',
+      );
+    }
+    if (
+      request.scope !== 'user' &&
+      request.scope !== 'project' &&
+      request.scope !== 'local'
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP removal supports only user, project, or local scope.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server name is invalid.',
+      );
+    }
+
+    const before = await this.discoverMcpConfig({ cwd: request.cwd });
+    this.assertMcpConfigReadable(before);
+    if (
+      !before.integrations.some(
+        (integration) =>
+          integration.name === name && integration.scope === request.scope,
+      )
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server is not configured at the requested effective scope.',
+      );
+    }
+
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: ['mcp', 'remove', name, '--scope', request.scope],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude MCP removal',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Claude command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude MCP removal failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude MCP removal returned a non-zero result.',
+      );
+    }
+
+    const after = await this.discoverMcpConfig({ cwd: request.cwd });
+    this.assertMcpConfigReadable(after);
+    if (
+      after.integrations.some(
+        (integration) =>
+          integration.name === name && integration.scope === request.scope,
+      )
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude MCP removal completed but persisted state could not be verified.',
+      );
+    }
+
+    return {
+      providerId: 'claude-code',
+      kind: 'mcp-server',
+      name,
+      scope: request.scope,
+      dataPreserved: false,
+    };
+  }
+
+  private async uninstallPlugin(
     request: AgentIntegrationUninstallRequest,
   ): Promise<AgentIntegrationUninstallResult> {
     if (!request.confirmed) {
       throw new AgentIntegrationDiscoveryError(
         'invalid-request',
         'Claude plugin uninstall requires explicit confirmation.',
-      );
-    }
-    if (request.kind !== 'plugin') {
-      throw new AgentIntegrationDiscoveryError(
-        'invalid-request',
-        'Claude only supports plugin uninstall through this adapter.',
       );
     }
 
@@ -1594,6 +1824,22 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       dataPreserved: true,
     };
   }
+
+  async uninstall(
+    request: AgentIntegrationUninstallRequest,
+  ): Promise<AgentIntegrationUninstallResult> {
+    if (request.kind === 'mcp-server') {
+      return this.uninstallMcpServer(request);
+    }
+    if (request.kind === 'plugin') {
+      return this.uninstallPlugin(request);
+    }
+    throw new AgentIntegrationDiscoveryError(
+      'invalid-request',
+      'Claude only supports MCP and plugin removal through this adapter.',
+    );
+  }
+
 }
 
 export class BrowserCapabilityIntegrationProvider implements AgentIntegrationProvider {
@@ -1731,10 +1977,10 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['local', 'project', 'user'],
-          operations: ['list'],
+          operations: ['list', 'install', 'uninstall'],
           availability: 'supported',
           reason:
-            'MCP discovery reads Claude Code documented local, project, and user JSON configuration directly, applies scope precedence, and exposes only sanitized server identity and scope.',
+            'MCP discovery reads Claude Code documented local, project, and user JSON configuration directly with scope precedence. Remote HTTPS servers can be added or removed with fixed CLI arguments and explicit scope; headers, stdio commands, and authentication remain outside this slice.',
         },
         {
           kind: 'skill',
