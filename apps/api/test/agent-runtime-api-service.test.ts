@@ -181,6 +181,11 @@ test('AgentRuntimeApiService valida preferência de provider por projeto', async
   });
   assert.deepEqual(writes, [saved]);
 
+  const defaulted = await service.setProviderPreference('project-1', {
+    preferredProviderId: 'codex',
+  });
+  assert.deepEqual(defaulted.fallbackOrder, ['claude-code']);
+
   await assert.rejects(
     service.setProviderPreference('project-1', {
       preferredProviderId: 'codex',
@@ -190,7 +195,7 @@ test('AgentRuntimeApiService valida preferência de provider por projeto', async
       error instanceof AgentRuntimeApiServiceError &&
       error.code === 'AGENT_API_INVALID_REQUEST',
   );
-  assert.equal(writes.length, 1);
+  assert.equal(writes.length, 2);
 });
 
 test('AgentRuntimeApiService adota ref via runtime sem ampliar capabilities', async () => {
