@@ -94,16 +94,16 @@ export interface AgentIntegrationAuthenticationRequest {
   cwd: string;
   kind: AgentIntegrationKind;
   name: string;
-  scope: AgentIntegrationScope;
+  scope?: AgentIntegrationScope;
 }
 
 export interface AgentIntegrationAuthenticationHandoff {
   providerId: AgentConcreteProviderId;
   kind: AgentIntegrationKind;
   name: string;
-  scope: AgentIntegrationScope;
+  scope?: AgentIntegrationScope;
   mode: 'interactive-terminal';
-  program: 'claude';
+  program: 'claude' | 'codex';
   args: string[];
   requiresInteractiveTerminal: true;
 }
@@ -451,6 +451,43 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       ...(disabledTools ? { disabledTools } : {}),
       ...(startupTimeoutSec !== undefined ? { startupTimeoutSec } : {}),
       ...(toolTimeoutSec !== undefined ? { toolTimeoutSec } : {}),
+    };
+  }
+
+  async prepareAuthentication(
+    request: AgentIntegrationAuthenticationRequest,
+  ): Promise<AgentIntegrationAuthenticationHandoff> {
+    if (request.kind !== 'mcp-server') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex authentication handoff only supports MCP servers.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server name is invalid.',
+      );
+    }
+
+    const discovery = await this.list({ cwd: request.cwd });
+    if (!discovery.integrations.some((integration) => integration.name === name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server is not configured in the effective project context.',
+      );
+    }
+
+    return {
+      providerId: 'codex',
+      kind: 'mcp-server',
+      name,
+      mode: 'interactive-terminal',
+      program: 'codex',
+      args: ['mcp', 'login', name],
+      requiresInteractiveTerminal: true,
     };
   }
 
@@ -2020,10 +2057,16 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['user'],
-          operations: ['list', 'inspect', 'install', 'uninstall'],
+          operations: [
+            'list',
+            'inspect',
+            'install',
+            'uninstall',
+            'authenticate',
+          ],
           availability: 'supported',
           reason:
-            'Discovery uses the effective Codex configuration and does not expose origin; install and uninstall target explicit user-global configuration only.',
+            'Discovery and OAuth authentication use the effective Codex configuration without inventing origin. Install and uninstall target explicit user-global configuration only; authentication is handed off as fixed argv to the interactive project terminal.',
         },
         {
           kind: 'skill',
