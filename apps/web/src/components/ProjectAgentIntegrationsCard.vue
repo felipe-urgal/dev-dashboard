@@ -81,6 +81,8 @@ const integrationKindLabel = (kind: AgentIntegration['kind']): string => {
       return 'Skill';
     case 'plugin':
       return 'Plugin';
+    case 'marketplace':
+      return 'Marketplace';
     case 'browser-capability':
       return 'Browser';
   }
@@ -126,10 +128,29 @@ const integrationOriginLabel = (integration: AgentIntegration): string => {
       return 'Configuração global do Codex';
     case 'claude-plugin-inventory':
       return 'Inventário de plugins do Claude Code';
+    case 'claude-marketplace-inventory':
+      return 'Marketplaces do Claude Code';
     case 'browser-local-allowlist':
       return 'Allowlist local do Browser';
     default:
       return 'Origem não informada';
+  }
+};
+
+const marketplaceSourceLabel = (integration: AgentIntegration): string => {
+  switch (integration.marketplaceSource) {
+    case 'github':
+      return 'GitHub';
+    case 'git':
+      return 'Git';
+    case 'url':
+      return 'URL remota';
+    case 'local':
+      return 'Local';
+    case 'claude-ai':
+      return 'claude.ai';
+    default:
+      return 'Fonte não informada';
   }
 };
 
@@ -579,13 +600,19 @@ watch(
               · {{ authLabel(integration) }}
             </small>
             <small class="agent-integration-provenance">
-              {{ integrationScopeLabel(integration) }}
-              · {{ integrationOriginLabel(integration) }}
-              <template v-if="integration.marketplace">
-                · Marketplace: {{ integration.marketplace }}
+              <template v-if="integration.kind === 'marketplace'">
+                {{ integrationOriginLabel(integration) }}
+                · {{ marketplaceSourceLabel(integration) }}
               </template>
-              <template v-if="integration.version">
-                · v{{ integration.version }}
+              <template v-else>
+                {{ integrationScopeLabel(integration) }}
+                · {{ integrationOriginLabel(integration) }}
+                <template v-if="integration.marketplace">
+                  · Marketplace: {{ integration.marketplace }}
+                </template>
+                <template v-if="integration.version">
+                  · v{{ integration.version }}
+                </template>
               </template>
             </small>
           </div>
