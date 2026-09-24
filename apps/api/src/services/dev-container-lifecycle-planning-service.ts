@@ -6,6 +6,7 @@ import type {
   DevContainerConfigurationSource,
   DevContainerDiscoveryService,
   DevContainerLifecycleHook,
+  DevContainerInspection,
 } from './dev-container-discovery-service.js';
 
 const POST_CREATE_HOOKS = new Set<DevContainerLifecycleHook>([
@@ -122,7 +123,7 @@ export class DevContainerLifecyclePlanningService {
       };
     }
 
-    let inspection;
+    let inspection: DevContainerInspection;
     try {
       inspection = await this.discovery.inspect(
         scopedProject(project, executionContext.cwd),
