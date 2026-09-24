@@ -32,7 +32,7 @@ function review(
       name: 'Workspace',
       lifecycleHooks: ['postCreateCommand'],
     },
-    limitations: ['cleanup-adapter-pending', 'post-create-hooks-deferred'],
+    limitations: ['post-create-hooks-deferred'],
     diagnostic: 'Revisão humana necessária.',
     ...overrides,
   };
