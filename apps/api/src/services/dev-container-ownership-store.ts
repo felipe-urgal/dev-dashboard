@@ -38,8 +38,7 @@ export interface DevContainerOwnershipBinding {
   projectPath: string;
 }
 
-export interface DevContainerOwnershipReservation
-  extends DevContainerOwnershipBinding {
+export interface DevContainerOwnershipReservation extends DevContainerOwnershipBinding {
   configSource: DevContainerConfigurationSource;
 }
 
@@ -49,8 +48,7 @@ export interface DevContainerOwnershipAttachment {
   containerId: string;
 }
 
-export interface DevContainerOwnershipRelease
-  extends DevContainerOwnershipBinding {
+export interface DevContainerOwnershipRelease extends DevContainerOwnershipBinding {
   ownershipToken: string;
 }
 
@@ -74,10 +72,7 @@ export interface DevContainerOwnershipStoreOptions {
   createOwnershipToken?: () => string;
 }
 
-function validText(
-  value: unknown,
-  maxLength: number,
-): value is string {
+function validText(value: unknown, maxLength: number): value is string {
   return (
     typeof value === 'string' &&
     value.length > 0 &&
@@ -349,9 +344,7 @@ export class DevContainerOwnershipStore {
     return record && matchesBinding(record, binding) ? record : undefined;
   }
 
-  public async release(
-    input: DevContainerOwnershipRelease,
-  ): Promise<boolean> {
+  public async release(input: DevContainerOwnershipRelease): Promise<boolean> {
     await this.ensureLoaded();
     const binding = normalizedBinding(input);
     const current = this.records.get(binding.environmentInstanceId);

@@ -15,7 +15,9 @@ const CONTAINER_A = 'a'.repeat(64);
 const CONTAINER_B = 'b'.repeat(64);
 
 test('ownership Dev Container reserva antes do runtime e sobrevive restart', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const statePath = path.join(root, 'ownership.json');
   let now = new Date('2026-09-24T22:30:00.000Z');
@@ -38,9 +40,7 @@ test('ownership Dev Container reserva antes do runtime e sobrevive restart', asy
   const persisted = JSON.parse(await readFile(statePath, 'utf8')) as {
     records: Array<{ ownershipToken: string; phase: string }>;
   };
-  assert.deepEqual(persisted.records, [
-    { ...reserved },
-  ]);
+  assert.deepEqual(persisted.records, [{ ...reserved }]);
 
   now = new Date('2026-09-24T22:31:00.000Z');
   const reloaded = new DevContainerOwnershipStore(statePath, {
@@ -58,12 +58,17 @@ test('ownership Dev Container reserva antes do runtime e sobrevive restart', asy
 });
 
 test('ownership Dev Container não sobrescreve Environment Instance ou path já reservado', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   let token = TOKEN_A;
-  const store = new DevContainerOwnershipStore(path.join(root, 'ownership.json'), {
-    createOwnershipToken: () => token,
-  });
+  const store = new DevContainerOwnershipStore(
+    path.join(root, 'ownership.json'),
+    {
+      createOwnershipToken: () => token,
+    },
+  );
 
   await store.reserve({
     projectId: 'project-1',
@@ -100,12 +105,17 @@ test('ownership Dev Container não sobrescreve Environment Instance ou path já 
 });
 
 test('ownership Dev Container associa apenas containerId estruturado à reserva exata', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
-  const store = new DevContainerOwnershipStore(path.join(root, 'ownership.json'), {
-    now: () => new Date('2026-09-24T22:32:00.000Z'),
-    createOwnershipToken: () => TOKEN_A,
-  });
+  const store = new DevContainerOwnershipStore(
+    path.join(root, 'ownership.json'),
+    {
+      now: () => new Date('2026-09-24T22:32:00.000Z'),
+      createOwnershipToken: () => TOKEN_A,
+    },
+  );
 
   await store.reserve({
     projectId: 'project-1',
@@ -155,11 +165,16 @@ test('ownership Dev Container associa apenas containerId estruturado à reserva 
 });
 
 test('release exige projeto, Environment Instance, path e token exatos', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
-  const store = new DevContainerOwnershipStore(path.join(root, 'ownership.json'), {
-    createOwnershipToken: () => TOKEN_A,
-  });
+  const store = new DevContainerOwnershipStore(
+    path.join(root, 'ownership.json'),
+    {
+      createOwnershipToken: () => TOKEN_A,
+    },
+  );
 
   await store.reserve({
     projectId: 'project-1',
@@ -197,7 +212,9 @@ test('release exige projeto, Environment Instance, path e token exatos', async (
 });
 
 test('estado persistido inválido falha fechado em vez de parecer sem ownership', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const statePath = path.join(root, 'ownership.json');
   await writeFile(statePath, '{"version":1,"records":"corrompido"}\n');
