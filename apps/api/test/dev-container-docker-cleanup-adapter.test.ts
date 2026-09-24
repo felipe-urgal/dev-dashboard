@@ -52,25 +52,19 @@ test('lookup aceita ausÃªncia ou um container e falha fechado quando ownership Ã
 });
 
 test('inspect exige containerId e label de ownership exatos', () => {
-  assert.deepEqual(buildInspectOwnedDevContainerCommand(CONTAINER_ID), {
-    program: 'docker',
-    args: ['inspect', '--type', 'container', CONTAINER_ID],
-  });
+  const command = buildInspectOwnedDevContainerCommand(CONTAINER_ID);
+  assert.equal(command.program, 'docker');
+  assert.deepEqual(command.args.slice(0, 4), [
+    'inspect',
+    '--type',
+    'container',
+    '--format',
+  ]);
+  assert.match(command.args[4] ?? '', /devdashboard\.environment/);
+  assert.equal(command.args[5], CONTAINER_ID);
 
   const result = parseOwnedDevContainerInspectOutput(
-    JSON.stringify([
-      {
-        Id: CONTAINER_ID,
-        Config: {
-          Labels: {
-            [DEV_CONTAINER_OWNERSHIP_LABEL]: TOKEN,
-            other: 'ignored',
-          },
-        },
-        State: { Running: true, Status: 'running' },
-        Mounts: [{ Name: 'volume-nao-pode-virar-autoridade' }],
-      },
-    ]),
+    CONTAINER_ID + '|' + TOKEN + '|true\n',
     CONTAINER_ID,
     TOKEN,
   );
@@ -79,23 +73,13 @@ test('inspect exige containerId e label de ownership exatos', () => {
     containerId: CONTAINER_ID,
     running: true,
   });
-  assert.equal(
-    JSON.stringify(result).includes('volume-nao-pode-virar-autoridade'),
-    false,
-  );
 });
 
 test('inspect rejeita container diferente ou label divergente', () => {
   assert.throws(
     () =>
       parseOwnedDevContainerInspectOutput(
-        JSON.stringify([
-          {
-            Id: OTHER_CONTAINER_ID,
-            Config: { Labels: { [DEV_CONTAINER_OWNERSHIP_LABEL]: TOKEN } },
-            State: { Running: false },
-          },
-        ]),
+        OTHER_CONTAINER_ID + '|' + TOKEN + '|false\n',
         CONTAINER_ID,
         TOKEN,
       ),
@@ -107,18 +91,8 @@ test('inspect rejeita container diferente ou label divergente', () => {
   assert.throws(
     () =>
       parseOwnedDevContainerInspectOutput(
-        JSON.stringify([
-          {
-            Id: CONTAINER_ID,
-            Config: {
-              Labels: {
-                [DEV_CONTAINER_OWNERSHIP_LABEL]:
-                  '22222222-2222-4222-8222-222222222222',
-              },
-            },
-            State: { Running: false },
-          },
-        ]),
+        CONTAINER_ID +
+          '|22222222-2222-4222-8222-222222222222|false\n',
         CONTAINER_ID,
         TOKEN,
       ),
