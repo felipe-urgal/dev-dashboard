@@ -157,6 +157,11 @@ const canToggleIntegration = (integration: AgentIntegration): boolean =>
     integration.scope === 'local') &&
   typeof integration.enabled === 'boolean';
 
+const canUninstallIntegration = (integration: AgentIntegration): boolean =>
+  (integration.providerId === 'codex' &&
+    integration.kind === 'mcp-server') ||
+  canToggleIntegration(integration);
+
 async function toggleIntegration(integration: AgentIntegration): Promise<void> {
   if (
     !canToggleIntegration(integration) ||
@@ -201,14 +206,51 @@ async function toggleIntegration(integration: AgentIntegration): Promise<void> {
 async function uninstallIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
-  if (
-    !canToggleIntegration(integration) ||
-    !integration.marketplace ||
-    !integration.scope ||
-    uninstallingIntegrationId.value
-  ) {
+  if (!canUninstallIntegration(integration) || uninstallingIntegrationId.value) {
     return;
   }
+
+  if (integration.providerId === 'codex') {
+    const confirmed = await confirmDialog({
+      title: 'Remover MCP global do Codex',
+      message:
+        'Remover a entrada global do usuário para ' +
+        integration.name +
+        '? Se este MCP também estiver configurado no projeto, ele continuará listado.',
+      confirmLabel: 'Remover MCP global',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    uninstallingIntegrationId.value = integration.id;
+    errorMessage.value = '';
+    try {
+      await uninstallAgentIntegration(props.project.id, {
+        providerId: 'codex',
+        ...(props.environmentInstanceId
+          ? { environmentInstanceId: props.environmentInstanceId }
+          : {}),
+        kind: 'mcp-server',
+        name: integration.name,
+        scope: 'user',
+        confirmed: true,
+      });
+      integrations.value = integrations.value.filter(
+        (item) => item.id !== integration.id,
+      );
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível remover o MCP global do Codex.';
+    } finally {
+      uninstallingIntegrationId.value = null;
+    }
+    return;
+  }
+
+  if (!integration.marketplace || !integration.scope) return;
 
   const confirmed = await confirmDialog({
     title: 'Remover plugin',
@@ -250,7 +292,6 @@ async function uninstallIntegration(
     uninstallingIntegrationId.value = null;
   }
 }
-
 async function inspectIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
@@ -549,7 +590,7 @@ watch(
             v-if="
               (canInspectSelectedProvider &&
                 integration.kind === 'mcp-server') ||
-              canToggleIntegration(integration)
+              canUninstallIntegration(integration)
             "
             class="agent-integration-actions"
           >
@@ -589,7 +630,7 @@ watch(
               }}
             </button>
             <button
-              v-if="canToggleIntegration(integration)"
+              v-if="canUninstallIntegration(integration)"
               class="agent-integration-details-button"
               type="button"
               :disabled="
