@@ -7,6 +7,7 @@ import type { DevContainerConfigurationSource } from './dev-container-discovery-
 const MAX_CONFIG_BYTES = 1024 * 1024;
 const MAX_WORKSPACE_PATH_LENGTH = 4096;
 const CONFIG_HASH_PATTERN = /^[a-f0-9]{64}$/u;
+const SNAPSHOT_ID_PATTERN = /^[a-zA-Z0-9._-]{1,128}$/u;
 
 export interface DevContainerConfigSnapshotInput {
   workspaceFolder: string;
@@ -60,6 +61,7 @@ export class DevContainerConfigSnapshotService {
       input.workspaceFolder.length === 0 ||
       input.workspaceFolder.length > MAX_WORKSPACE_PATH_LENGTH ||
       !path.isAbsolute(input.workspaceFolder) ||
+      !path.isAbsolute(this.snapshotRoot) ||
       !validConfigSource(input.configSource) ||
       !CONFIG_HASH_PATTERN.test(input.expectedConfigurationHash)
     ) {
@@ -96,6 +98,12 @@ export class DevContainerConfigSnapshotService {
       }
 
       content = await handle.readFile();
+      if (content.byteLength > MAX_CONFIG_BYTES) {
+        throw new DevContainerConfigSnapshotError(
+          'DEV_CONTAINER_CONFIG_SNAPSHOT_CHANGED',
+          'A configuração Dev Container cresceu além do limite durante o snapshot.',
+        );
+      }
       const after = await handle.stat();
       if (
         after.dev !== opened.dev ||
@@ -122,7 +130,15 @@ export class DevContainerConfigSnapshotService {
       );
     }
 
-    const snapshotDirectory = path.join(this.snapshotRoot, this.createId());
+    const snapshotId = this.createId();
+    if (!SNAPSHOT_ID_PATTERN.test(snapshotId)) {
+      throw new DevContainerConfigSnapshotError(
+        'DEV_CONTAINER_CONFIG_SNAPSHOT_WRITE_FAILED',
+        'O identificador interno do snapshot Dev Container é inválido.',
+      );
+    }
+
+    const snapshotDirectory = path.join(this.snapshotRoot, snapshotId);
     const overrideConfigPath = path.join(
       snapshotDirectory,
       'devcontainer.json',
@@ -168,8 +184,10 @@ export class DevContainerConfigSnapshotService {
     };
   }
 
-  private async safeLstat(target: string) {
-    let info;
+  private async safeLstat(
+    target: string,
+  ): Promise<Awaited<ReturnType<typeof lstat>>> {
+    let info: Awaited<ReturnType<typeof lstat>>;
     try {
       info = await lstat(target);
     } catch {
