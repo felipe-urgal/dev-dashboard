@@ -1053,7 +1053,9 @@ watch(
                 type="button"
                 @click="copyAuthenticationCommand"
               >
-                {{ authenticationHandoff.copied ? 'Copiado' : 'Copiar comando' }}
+                {{
+                  authenticationHandoff.copied ? 'Copiado' : 'Copiar comando'
+                }}
               </button>
               <RouterLink
                 class="agent-integration-details-button"
