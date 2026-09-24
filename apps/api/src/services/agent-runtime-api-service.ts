@@ -24,6 +24,7 @@ import type {
   AgentIntegrationUninstallRequest,
   AgentIntegrationUninstallResult,
   AgentIntegrationProviderCapabilities,
+  AgentGitRefAdoptionRequest,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
   AgentAuditStore,
@@ -146,6 +147,11 @@ export interface AgentRuntimeApiServicePort {
     input: AgentTaskCreateInput,
   ): Promise<AgentTaskRecord>;
   getTask(projectId: string, taskId: string): Promise<AgentTaskRecord>;
+  adoptGitRef(
+    projectId: string,
+    taskId: string,
+    input: AgentGitRefAdoptionRequest,
+  ): Promise<AgentTaskRecord>;
   status(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   execute(
     projectId: string,
@@ -203,6 +209,7 @@ export interface AgentRuntimeApiServiceOptions {
     | 'cancel'
     | 'retry'
     | 'recover'
+    | 'adoptGitRef'
     | 'resolveCheckpoint'
     | 'shutdown'
   >;
@@ -613,6 +620,30 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         'Agent task was not found.',
       );
     }
+    return record;
+  }
+
+  public async adoptGitRef(
+    projectId: string,
+    taskId: string,
+    input: AgentGitRefAdoptionRequest,
+  ): Promise<AgentTaskRecord> {
+    await this.getTask(projectId, taskId);
+    const record = await this.withRuntimeErrors(() =>
+      this.options.workflowRuntime.adoptGitRef(projectId, taskId, input),
+    );
+    await this.recordActivity({
+      projectId,
+      ...(record.task.environmentInstanceId
+        ? { environmentInstanceId: record.task.environmentInstanceId }
+        : {}),
+      type: 'agent.ref.adopted',
+      status: 'succeeded',
+      summary: 'Existing Git reference adopted for agent task.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
     return record;
   }
 
