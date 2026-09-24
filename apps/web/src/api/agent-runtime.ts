@@ -8,7 +8,12 @@ export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 export type AgentIntegrationKind =
   'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
 
-export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
+export type AgentIntegrationScope =
+  | 'user'
+  | 'project'
+  | 'local'
+  | 'managed'
+  | 'session';
 
 export type AgentIntegrationOrigin =
   'codex-global-config' | 'browser-local-allowlist';
@@ -42,6 +47,8 @@ export interface AgentIntegration {
   name: string;
   scope?: AgentIntegrationScope;
   origin?: AgentIntegrationOrigin;
+  version?: string;
+  marketplace?: string;
   enabled?: boolean;
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
