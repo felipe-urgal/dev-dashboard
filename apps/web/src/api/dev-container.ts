@@ -56,10 +56,13 @@ export interface DevContainerLifecyclePreflight {
   runtime: 'host' | 'devcontainer';
   executionEnabled: false;
   requiresConfirmation: boolean;
+  discoveryState?: DevContainerInspectionState;
   configSource?: '.devcontainer/devcontainer.json' | '.devcontainer.json';
   cliVersion?: string;
   configuration?: {
     kind: DevContainerConfigurationKind;
+    name?: string;
+    service?: string;
     lifecycleHooks: DevContainerLifecycleHook[];
   };
   limitations: DevContainerLifecycleLimitation[];
