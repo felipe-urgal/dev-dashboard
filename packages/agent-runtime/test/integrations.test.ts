@@ -40,7 +40,10 @@ test('default integration capabilities keep providers explicit and conservative'
     'local',
     'managed',
   ]);
-  assert.match(claudePlugin?.reason ?? '', /managed plugins are listed read-only/i);
+  assert.match(
+    claudePlugin?.reason ?? '',
+    /managed plugins are listed read-only/i,
+  );
   assert.ok(
     claude.integrations
       .filter((item) => item.kind !== 'plugin')
