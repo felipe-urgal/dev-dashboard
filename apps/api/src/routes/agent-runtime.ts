@@ -240,6 +240,14 @@ const integrationSchema = {
       enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
     },
     name: { type: 'string' },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'session'],
+    },
+    origin: {
+      type: 'string',
+      enum: ['codex-global-config', 'browser-local-allowlist'],
+    },
     enabled: { type: 'boolean' },
     authStatus: {
       type: 'string',
