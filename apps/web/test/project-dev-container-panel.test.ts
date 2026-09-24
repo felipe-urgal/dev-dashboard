@@ -47,10 +47,7 @@ describe('ProjectDevContainerPanel', () => {
         name: 'Workspace',
         lifecycleHooks: ['postCreateCommand', 'postStartCommand'],
       },
-      limitations: [
-        'cleanup-adapter-pending',
-        'post-create-hooks-deferred',
-      ],
+      limitations: ['cleanup-adapter-pending', 'post-create-hooks-deferred'],
       diagnostic: 'A configuração pode avançar para revisão humana.',
     });
 
@@ -152,7 +149,8 @@ describe('ProjectDevContainerPanel', () => {
       state: 'blocked',
       reason: 'runtime-not-host',
       observedAt: '2026-09-24T22:22:30.000Z',
-      environmentInstanceId: 'environment:worktree:project-devcontainer:runtime',
+      environmentInstanceId:
+        'environment:worktree:project-devcontainer:runtime',
       runtime: 'devcontainer',
       executionEnabled: false,
       requiresConfirmation: false,
@@ -198,7 +196,8 @@ describe('ProjectDevContainerPanel', () => {
         state: 'review',
         reason: 'review-required',
         observedAt: '2026-09-24T22:24:00.000Z',
-        environmentInstanceId: 'environment:worktree:project-devcontainer:feature',
+        environmentInstanceId:
+          'environment:worktree:project-devcontainer:feature',
         runtime: 'host',
         executionEnabled: false,
         requiresConfirmation: true,

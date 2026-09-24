@@ -262,10 +262,7 @@ watch(
           <InformationCircleIcon aria-hidden="true" />
           <div>
             <strong>Limitações atuais</strong>
-            <span
-              v-for="limitation in preflight.limitations"
-              :key="limitation"
-            >
+            <span v-for="limitation in preflight.limitations" :key="limitation">
               {{ limitationLabels[limitation] }}
             </span>
           </div>
