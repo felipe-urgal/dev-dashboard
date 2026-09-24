@@ -175,10 +175,7 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
             name: 'Workspace',
             lifecycleHooks: ['postCreateCommand'],
           },
-          limitations: [
-            'cleanup-adapter-pending',
-            'post-create-hooks-deferred',
-          ],
+          limitations: ['post-create-hooks-deferred'],
           diagnostic: 'Revisão humana necessária.',
           internalSecret: 'não pode sair',
         } as DevContainerLifecyclePreflight & { internalSecret: string };
