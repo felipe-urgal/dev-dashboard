@@ -77,6 +77,7 @@ interface InstallIntegrationBody {
   name: string;
   scope: 'user' | 'project' | 'local' | 'session';
   confirmed: boolean;
+  marketplace?: string;
   url?: string;
 }
 
@@ -320,7 +321,8 @@ const installIntegrationBodySchema = {
         'browser-capability',
       ],
     },
-    name: { type: 'string', minLength: 1, maxLength: 64 },
+    name: { type: 'string', minLength: 1, maxLength: 128 },
+    marketplace: { type: 'string', minLength: 1, maxLength: 128 },
     scope: {
       type: 'string',
       enum: ['user', 'project', 'local', 'managed', 'session'],
@@ -1319,6 +1321,9 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             name: request.body.name,
             scope: request.body.scope,
             confirmed: request.body.confirmed,
+            ...(request.body.marketplace
+              ? { marketplace: request.body.marketplace }
+              : {}),
             ...(request.body.url ? { url: request.body.url } : {}),
           },
           request.body.environmentInstanceId,
