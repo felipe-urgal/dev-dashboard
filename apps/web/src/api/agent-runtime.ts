@@ -382,6 +382,31 @@ export async function installAgentIntegration(
   ).integration;
 }
 
+export async function setAgentIntegrationEnabled(
+  projectId: string,
+  input: {
+    providerId: AgentConcreteProviderId;
+    environmentInstanceId?: string;
+    kind: AgentIntegrationKind;
+    name: string;
+    marketplace?: string;
+    scope: AgentIntegrationScope;
+    enabled: boolean;
+  },
+): Promise<AgentIntegration> {
+  const path =
+    '/api/projects/' +
+    encodeURIComponent(projectId) +
+    '/agent/integrations/enabled';
+  return (
+    await requestJson<{ integration: AgentIntegration }>(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+  ).integration;
+}
+
 export async function fetchAgentTasks(
   projectId: string,
 ): Promise<AgentTaskRecord[]> {

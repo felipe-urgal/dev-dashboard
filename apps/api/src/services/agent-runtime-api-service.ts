@@ -20,6 +20,7 @@ import type {
   AgentIntegrationInspectRequest,
   AgentIntegrationInstallRequest,
   AgentIntegrationListResult,
+  AgentIntegrationSetEnabledRequest,
   AgentIntegrationProviderCapabilities,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
@@ -123,6 +124,12 @@ export interface AgentRuntimeApiServicePort {
     projectId: string,
     providerId: AgentConcreteProviderId,
     input: Omit<AgentIntegrationInstallRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegration>;
+  setIntegrationEnabled(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationSetEnabledRequest, 'cwd'>,
     environmentInstanceId?: string,
   ): Promise<AgentIntegration>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
@@ -376,6 +383,57 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
     try {
       return await provider.install({
+        ...input,
+        cwd: executionContext.cwd,
+      });
+    } catch (error) {
+      if (error instanceof AgentIntegrationDiscoveryError) {
+        if (error.code === 'invalid-request') {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            error.message,
+          );
+        }
+        throw new AgentRuntimeApiServiceError(
+          error.code === 'provider-unavailable'
+            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
+            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
+          error.message,
+        );
+      }
+      throw error;
+    }
+  }
+
+  public async setIntegrationEnabled(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationSetEnabledRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegration> {
+    this.requireProject(projectId);
+    const provider = this.options.integrationProviderRegistry?.get(providerId);
+    if (!provider?.setEnabled) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
+        'Agent integration enablement is unavailable for this provider.',
+      );
+    }
+
+    const executionContext =
+      this.options.developmentEnvironmentInstanceStore.resolveForProject(
+        projectId,
+        environmentInstanceId,
+      );
+    if (!executionContext || executionContext.runtime !== 'host') {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_ENVIRONMENT_NOT_FOUND',
+        'Development environment instance was not found for this project.',
+      );
+    }
+
+    try {
+      return await provider.setEnabled({
         ...input,
         cwd: executionContext.cwd,
       });

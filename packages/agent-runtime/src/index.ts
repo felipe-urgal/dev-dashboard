@@ -259,5 +259,6 @@ export type {
   AgentIntegrationProvider,
   AgentIntegrationProviderRegistry,
   AgentIntegrationProviderCapabilities,
+  AgentIntegrationSetEnabledRequest,
   AgentIntegrationScope,
 } from './integrations.js';
