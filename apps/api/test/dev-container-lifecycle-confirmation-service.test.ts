@@ -8,6 +8,7 @@ import {
 import type { DevContainerLifecyclePreflight } from '../src/services/dev-container-lifecycle-planning-service.js';
 
 const TOKEN = 'a'.repeat(64);
+const CONFIG_HASH = 'c'.repeat(64);
 
 function review(
   overrides: Partial<DevContainerLifecyclePreflight> = {},
@@ -24,6 +25,7 @@ function review(
     requiresConfirmation: true,
     discoveryState: 'available',
     configSource: '.devcontainer/devcontainer.json',
+    configurationHash: CONFIG_HASH,
     cliVersion: '0.82.0',
     configuration: {
       kind: 'image',
@@ -93,6 +95,27 @@ test('mudança de configuração ou Environment Instance invalida confirmação'
             kind: 'dockerfile',
             lifecycleHooks: ['postCreateCommand'],
           },
+        }),
+        TOKEN,
+      ),
+    (error: unknown) =>
+      error instanceof DevContainerLifecycleConfirmationError &&
+      error.code === 'DEV_CONTAINER_CONFIRMATION_REQUIRED',
+  );
+});
+
+test('mudança apenas do conteúdo da configuração invalida confirmação', () => {
+  const service = new DevContainerLifecycleConfirmationService({
+    createToken: () => TOKEN,
+  });
+  const plan = review();
+  service.prepare(plan);
+
+  assert.throws(
+    () =>
+      service.consume(
+        review({
+          configurationHash: 'd'.repeat(64),
         }),
         TOKEN,
       ),

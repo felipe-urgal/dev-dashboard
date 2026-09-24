@@ -63,6 +63,7 @@ test('Dev Container HTTP expõe discovery sanitizado e 404 determinístico', asy
         calls.push(selectedProject.id);
         return {
           ...inspection,
+          configurationHash: 'e'.repeat(64),
           internalSecret: 'não pode sair',
           configuration: {
             ...inspection.configuration!,
@@ -82,6 +83,7 @@ test('Dev Container HTTP expõe discovery sanitizado e 404 determinístico', asy
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { inspection });
   assert.equal(response.body.includes('não pode sair'), false);
+  assert.equal(response.body.includes('eeeeeeee'), false);
   assert.deepEqual(calls, ['project-1']);
 
   const missing = await app.inject({
@@ -166,6 +168,7 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
           requiresConfirmation: true,
           discoveryState: 'available',
           configSource: '.devcontainer/devcontainer.json',
+          configurationHash: 'f'.repeat(64),
           cliVersion: '0.80.1',
           configuration: {
             kind: 'image',
@@ -199,6 +202,7 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
       environmentInstanceId: string;
       discoveryState?: string;
       configuration?: { name?: string };
+      configurationHash?: string;
       internalSecret?: string;
     };
   }>();
@@ -206,6 +210,7 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
   assert.equal(body.preflight.executionEnabled, false);
   assert.equal(body.preflight.discoveryState, 'available');
   assert.equal(body.preflight.configuration?.name, 'Workspace');
+  assert.equal(body.preflight.configurationHash, undefined);
   assert.equal(
     body.preflight.environmentInstanceId,
     'environment:worktree:project-1:feature',

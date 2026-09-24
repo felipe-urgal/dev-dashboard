@@ -44,6 +44,7 @@ export interface DevContainerLifecyclePreflight {
   requiresConfirmation: boolean;
   discoveryState?: DevContainerInspectionState;
   configSource?: DevContainerConfigurationSource;
+  configurationHash?: string;
   cliVersion?: string;
   configuration?: {
     kind: DevContainerConfigurationKind;
@@ -160,10 +161,17 @@ export class DevContainerLifecyclePlanningService {
       ...(inspection.configSource
         ? { configSource: inspection.configSource }
         : {}),
+      ...(inspection.configurationHash
+        ? { configurationHash: inspection.configurationHash }
+        : {}),
       ...(inspection.cliVersion ? { cliVersion: inspection.cliVersion } : {}),
     };
 
-    if (inspection.state !== 'available' || !inspection.configuration) {
+    if (
+      inspection.state !== 'available' ||
+      !inspection.configuration ||
+      !inspection.configurationHash
+    ) {
       return {
         ...base,
         state: 'unavailable',

@@ -20,6 +20,8 @@ const project: Project = {
   capabilities: [],
 };
 
+const CONFIG_HASH = 'b'.repeat(64);
+
 const hostContext: ExecutionContext = {
   projectId: project.id,
   environmentInstanceId: 'environment:primary:project-1',
@@ -52,6 +54,7 @@ test('preflight deixa image/dockerfile apenas em review e nunca habilita execuç
     observedAt: '2026-09-24T22:00:00.000Z',
     configSource: '.devcontainer/devcontainer.json',
     cliVersion: '0.80.1',
+    configurationHash: CONFIG_HASH,
     configuration: {
       kind: 'image',
       name: 'Workspace',
@@ -66,6 +69,7 @@ test('preflight deixa image/dockerfile apenas em review e nunca habilita execuç
   assert.equal(plan.executionEnabled, false);
   assert.equal(plan.requiresConfirmation, true);
   assert.equal(plan.discoveryState, 'available');
+  assert.equal(plan.configurationHash, CONFIG_HASH);
   assert.equal(plan.configuration?.name, 'Workspace');
   assert.deepEqual(plan.limitations, [
     'cleanup-adapter-pending',
@@ -84,6 +88,7 @@ test('preflight bloqueia initializeCommand porque pode executar no host', async 
     observedAt: '2026-09-24T22:01:00.000Z',
     configSource: '.devcontainer.json',
     cliVersion: '0.80.1',
+    configurationHash: CONFIG_HASH,
     configuration: {
       kind: 'dockerfile',
       lifecycleHooks: ['initializeCommand', 'postCreateCommand'],
@@ -105,6 +110,7 @@ test('preflight bloqueia Compose até existir ownership compartilhado', async ()
     observedAt: '2026-09-24T22:02:00.000Z',
     configSource: '.devcontainer/devcontainer.json',
     cliVersion: '0.80.1',
+    configurationHash: CONFIG_HASH,
     configuration: {
       kind: 'compose',
       service: 'api',
@@ -118,6 +124,26 @@ test('preflight bloqueia Compose até existir ownership compartilhado', async ()
   assert.equal(plan.reason, 'compose-ownership-required');
   assert.equal(plan.executionEnabled, false);
   assert.match(plan.diagnostic, /stacks duplicadas/);
+});
+
+test('preflight não promove configuração available sem fingerprint', async () => {
+  const { service } = planner({
+    state: 'available',
+    observedAt: '2026-09-24T22:02:30.000Z',
+    configSource: '.devcontainer.json',
+    cliVersion: '0.80.1',
+    configuration: {
+      kind: 'image',
+      lifecycleHooks: [],
+    },
+  });
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'unavailable');
+  assert.equal(plan.reason, 'discovery-not-ready');
+  assert.equal(plan.requiresConfirmation, false);
+  assert.equal(plan.configurationHash, undefined);
 });
 
 test('preflight preserva discovery inconclusivo sem promover disponibilidade', async () => {
@@ -150,6 +176,7 @@ test('preflight usa cwd da Environment Instance e falha para ambiente inválido'
       observedAt: '2026-09-24T22:04:00.000Z',
       configSource: '.devcontainer.json',
       cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
       configuration: { kind: 'dockerfile', lifecycleHooks: [] },
     },
     worktreeContext,

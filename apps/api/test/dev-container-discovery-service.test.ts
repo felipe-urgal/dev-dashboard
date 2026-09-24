@@ -81,6 +81,10 @@ test('inspeciona somente versão e read-configuration com argv estruturado', asy
   assert.equal(result.state, 'available');
   assert.equal(result.configSource, '.devcontainer/devcontainer.json');
   assert.equal(result.cliVersion, '0.80.1');
+  assert.equal(
+    result.configurationHash,
+    'ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356',
+  );
   assert.deepEqual(result.configuration, {
     kind: 'image',
     name: 'Workspace seguro',
@@ -103,6 +107,37 @@ test('inspeciona somente versão e read-configuration com argv estruturado', asy
       cwd: root,
     },
   ]);
+});
+
+test('discovery falha fechado quando a configuração muda durante read-configuration', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-'),
+  );
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  const configPath = path.join(root, '.devcontainer.json');
+  await writeFile(configPath, '{}\n');
+
+  const runner: DevContainerCommandRunner = async (command) => {
+    if (command.args[0] === '--version') {
+      return '0.80.1\n';
+    }
+
+    await writeFile(configPath, '{"image":"node:20"}\n');
+    return JSON.stringify({
+      configuration: {
+        image: 'node:22',
+      },
+    });
+  };
+
+  const result = await new DevContainerDiscoveryService(
+    runner,
+    () => NOW,
+  ).inspect(project(root));
+
+  assert.equal(result.state, 'unavailable');
+  assert.equal(result.configurationHash, undefined);
+  assert.match(result.diagnostic ?? '', /mudou durante o discovery/i);
 });
 
 test('resume compose e lifecycle sem transportar env, commands ou secrets', async (context) => {
