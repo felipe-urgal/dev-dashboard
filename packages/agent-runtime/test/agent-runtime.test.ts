@@ -96,6 +96,33 @@ test('task serialization is bounded to the public contract', () => {
   assert.equal(serialized.includes('secret'), false);
 });
 
+
+test('task serialization preserves only verified adopted Git ref metadata', () => {
+  const adopted = {
+    ...task(),
+    adoptedGitRef: {
+      branch: 'feature/existing',
+      commitHash: 'a'.repeat(40),
+      verifiedAt: '2026-09-21T21:00:30.000Z',
+    },
+  };
+
+  assert.deepEqual(deserializeAgentTask(serializeAgentTask(adopted)), adopted);
+  assert.throws(
+    () =>
+      deserializeAgentTask(
+        JSON.stringify({
+          ...adopted,
+          adoptedGitRef: {
+            ...adopted.adoptedGitRef,
+            cwd: '/tmp/authority',
+          },
+        }),
+      ),
+    AgentSerializationError,
+  );
+});
+
 test('deserialization rejects authority-bearing or unknown fields', () => {
   const unsafe = JSON.stringify({
     ...task(),
