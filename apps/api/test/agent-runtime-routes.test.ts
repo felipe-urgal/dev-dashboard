@@ -331,6 +331,20 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
               sourceUrl: 'https://token:SECRET@example.com/private.git',
               installLocation: '/secret/marketplace/cache',
             },
+            {
+              id: 'claude-code:plugin-catalog:security@official',
+              providerId: 'claude-code',
+              kind: 'plugin',
+              name: 'security',
+              origin: 'claude-plugin-catalog',
+              marketplace: 'official',
+              version: '2.4.0',
+              authStatus: 'unsupported',
+              description: 'SECRET_CATALOG_DESCRIPTION',
+              source: {
+                url: 'https://token:SECRET@example.com/plugin',
+              },
+            },
           ],
           issues: [
             {
@@ -382,6 +396,12 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.integrations[2]?.marketplaceSource, 'github');
   assert.equal(body.integrations[2]?.sourceUrl, undefined);
   assert.equal(body.integrations[2]?.installLocation, undefined);
+  assert.equal(body.integrations[3]?.kind, 'plugin');
+  assert.equal(body.integrations[3]?.origin, 'claude-plugin-catalog');
+  assert.equal(body.integrations[3]?.marketplace, 'official');
+  assert.equal(body.integrations[3]?.version, '2.4.0');
+  assert.equal(body.integrations[3]?.description, undefined);
+  assert.equal(body.integrations[3]?.source, undefined);
   assert.equal(body.issues[0]?.code, 'invalid-entry');
   assert.equal(body.issues[0]?.raw, undefined);
   assert.equal(body.issues[1]?.code, 'source-unavailable');
@@ -391,6 +411,10 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
   assert.equal(
     JSON.stringify(body).includes('SECRET_MARKETPLACE_ERROR'),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(body).includes('SECRET_CATALOG_DESCRIPTION'),
     false,
   );
 });

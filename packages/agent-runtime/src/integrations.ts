@@ -15,6 +15,7 @@ export type AgentIntegrationScope =
 export type AgentIntegrationOrigin =
   | 'codex-global-config'
   | 'claude-plugin-inventory'
+  | 'claude-plugin-catalog'
   | 'claude-marketplace-inventory'
   | 'browser-local-allowlist';
 
@@ -746,54 +747,6 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       });
     }
 
-    let marketplaceResult;
-    try {
-      marketplaceResult = await this.runProcess({
-        command: this.command,
-        args: ['plugin', 'marketplace', 'list', '--json'],
-        cwd: request.cwd,
-        timeoutMs: this.timeoutMs,
-        label: 'Claude marketplace discovery',
-      });
-    } catch {
-      issues.push({
-        code: 'source-unavailable',
-        source: 'marketplace',
-        message: 'Claude marketplace discovery is unavailable.',
-      });
-      return { integrations, issues };
-    }
-
-    if (marketplaceResult.signal !== null || marketplaceResult.exitCode !== 0) {
-      issues.push({
-        code: 'source-unavailable',
-        source: 'marketplace',
-        message: 'Claude marketplace discovery returned a non-zero result.',
-      });
-      return { integrations, issues };
-    }
-
-    let marketplacePayload: unknown;
-    try {
-      marketplacePayload = JSON.parse(marketplaceResult.stdout);
-    } catch {
-      issues.push({
-        code: 'source-unavailable',
-        source: 'marketplace',
-        message: 'Claude marketplace discovery returned invalid JSON.',
-      });
-      return { integrations, issues };
-    }
-
-    if (!Array.isArray(marketplacePayload)) {
-      issues.push({
-        code: 'source-unavailable',
-        source: 'marketplace',
-        message: 'Claude marketplace discovery returned an unexpected payload.',
-      });
-      return { integrations, issues };
-    }
-
     const normalizeMarketplaceSource = (
       value: unknown,
       hasClaudeAiId: boolean,
@@ -807,56 +760,241 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       if (raw === 'github') return 'github';
       if (raw === 'git') return 'git';
       if (raw === 'url') return 'url';
-      if (raw === 'local') return 'local';
+      if (raw === 'local' || raw === 'directory') return 'local';
       if (raw === 'claude.ai' || raw === 'claudeai' || hasClaudeAiId) {
         return 'claude-ai';
       }
       return 'unknown';
     };
 
-    for (const [index, entry] of marketplacePayload.entries()) {
-      if (!entry || typeof entry !== 'object') {
+    let marketplacePayload: unknown = null;
+    try {
+      const marketplaceResult = await this.runProcess({
+        command: this.command,
+        args: ['plugin', 'marketplace', 'list', '--json'],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude marketplace discovery',
+      });
+      if (
+        marketplaceResult.signal !== null ||
+        marketplaceResult.exitCode !== 0
+      ) {
         issues.push({
-          code: 'invalid-entry',
+          code: 'source-unavailable',
           source: 'marketplace',
-          index,
-          message:
-            'Claude marketplace discovery ignored an invalid marketplace entry.',
+          message: 'Claude marketplace discovery returned a non-zero result.',
         });
-        continue;
+      } else {
+        try {
+          marketplacePayload = JSON.parse(marketplaceResult.stdout);
+        } catch {
+          issues.push({
+            code: 'source-unavailable',
+            source: 'marketplace',
+            message: 'Claude marketplace discovery returned invalid JSON.',
+          });
+        }
       }
-
-      const item = entry as {
-        name?: unknown;
-        source?: unknown;
-        marketplaceId?: unknown;
-      };
-      const name = typeof item.name === 'string' ? item.name.trim() : '';
-      if (!name || name.length > 128 || /[\u0000-\u001f\u007f]/.test(name)) {
-        issues.push({
-          code: 'invalid-entry',
-          source: 'marketplace',
-          index,
-          message:
-            'Claude marketplace discovery ignored an invalid marketplace entry.',
-        });
-        continue;
-      }
-
-      integrations.push({
-        id: 'claude-code:marketplace:' + name,
-        providerId: 'claude-code',
-        kind: 'marketplace',
-        name,
-        origin: 'claude-marketplace-inventory',
-        marketplaceSource: normalizeMarketplaceSource(
-          item.source,
-          typeof item.marketplaceId === 'string' && Boolean(item.marketplaceId),
-        ),
-        authStatus: 'unsupported',
+    } catch {
+      issues.push({
+        code: 'source-unavailable',
+        source: 'marketplace',
+        message: 'Claude marketplace discovery is unavailable.',
       });
     }
 
+    if (marketplacePayload !== null) {
+      if (!Array.isArray(marketplacePayload)) {
+        issues.push({
+          code: 'source-unavailable',
+          source: 'marketplace',
+          message:
+            'Claude marketplace discovery returned an unexpected payload.',
+        });
+      } else {
+        for (const [index, entry] of marketplacePayload.entries()) {
+          if (!entry || typeof entry !== 'object') {
+            issues.push({
+              code: 'invalid-entry',
+              source: 'marketplace',
+              index,
+              message:
+                'Claude marketplace discovery ignored an invalid marketplace entry.',
+            });
+            continue;
+          }
+
+          const item = entry as {
+            name?: unknown;
+            source?: unknown;
+            marketplaceId?: unknown;
+          };
+          const name = typeof item.name === 'string' ? item.name.trim() : '';
+          if (
+            !name ||
+            name.length > 128 ||
+            /[\u0000-\u001f\u007f]/.test(name)
+          ) {
+            issues.push({
+              code: 'invalid-entry',
+              source: 'marketplace',
+              index,
+              message:
+                'Claude marketplace discovery ignored an invalid marketplace entry.',
+            });
+            continue;
+          }
+
+          integrations.push({
+            id: 'claude-code:marketplace:' + name,
+            providerId: 'claude-code',
+            kind: 'marketplace',
+            name,
+            origin: 'claude-marketplace-inventory',
+            marketplaceSource: normalizeMarketplaceSource(
+              item.source,
+              typeof item.marketplaceId === 'string' &&
+                Boolean(item.marketplaceId),
+            ),
+            authStatus: 'unsupported',
+          });
+        }
+      }
+    }
+
+    try {
+      const catalogResult = await this.runProcess({
+        command: this.command,
+        args: ['plugin', 'list', '--json', '--available'],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude plugin catalog discovery',
+      });
+      if (catalogResult.signal !== null || catalogResult.exitCode !== 0) {
+        issues.push({
+          code: 'source-unavailable',
+          source: 'plugin',
+          message:
+            'Claude plugin catalog discovery returned a non-zero result.',
+        });
+      } else {
+        let catalogPayload: unknown;
+        try {
+          catalogPayload = JSON.parse(catalogResult.stdout);
+        } catch {
+          issues.push({
+            code: 'source-unavailable',
+            source: 'plugin',
+            message: 'Claude plugin catalog discovery returned invalid JSON.',
+          });
+          catalogPayload = null;
+        }
+
+        if (catalogPayload !== null) {
+          const available =
+            catalogPayload &&
+            typeof catalogPayload === 'object' &&
+            Array.isArray((catalogPayload as { available?: unknown }).available)
+              ? (catalogPayload as { available: unknown[] }).available
+              : null;
+
+          if (!available) {
+            issues.push({
+              code: 'source-unavailable',
+              source: 'plugin',
+              message:
+                'Claude plugin catalog discovery returned an unexpected payload.',
+            });
+          } else {
+            const installedIds = new Set(
+              integrations
+                .filter(
+                  (integration) =>
+                    integration.kind === 'plugin' &&
+                    integration.origin === 'claude-plugin-inventory' &&
+                    integration.marketplace,
+                )
+                .map(
+                  (integration) =>
+                    integration.name + '@' + integration.marketplace,
+                ),
+            );
+
+            for (const [index, entry] of available.entries()) {
+              if (!entry || typeof entry !== 'object') {
+                issues.push({
+                  code: 'invalid-entry',
+                  source: 'plugin',
+                  index,
+                  message:
+                    'Claude plugin catalog discovery ignored an invalid plugin entry.',
+                });
+                continue;
+              }
+
+              const item = entry as {
+                pluginId?: unknown;
+                name?: unknown;
+                marketplaceName?: unknown;
+                version?: unknown;
+              };
+              const name =
+                typeof item.name === 'string' ? item.name.trim() : '';
+              const marketplace =
+                typeof item.marketplaceName === 'string'
+                  ? item.marketplaceName.trim()
+                  : '';
+              const pluginId =
+                typeof item.pluginId === 'string' ? item.pluginId.trim() : '';
+              const qualifiedId = name + '@' + marketplace;
+
+              if (
+                !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) ||
+                !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(marketplace) ||
+                (pluginId && pluginId !== qualifiedId)
+              ) {
+                issues.push({
+                  code: 'invalid-entry',
+                  source: 'plugin',
+                  index,
+                  message:
+                    'Claude plugin catalog discovery ignored an invalid plugin entry.',
+                });
+                continue;
+              }
+
+              if (installedIds.has(qualifiedId)) continue;
+
+              const version =
+                typeof item.version === 'string' &&
+                item.version.trim() &&
+                item.version.length <= 128 &&
+                !/[\u0000-\u001f\u007f]/.test(item.version)
+                  ? item.version.trim()
+                  : undefined;
+
+              integrations.push({
+                id: 'claude-code:plugin-catalog:' + qualifiedId,
+                providerId: 'claude-code',
+                kind: 'plugin',
+                name,
+                origin: 'claude-plugin-catalog',
+                marketplace,
+                ...(version ? { version } : {}),
+                authStatus: 'unsupported',
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      issues.push({
+        code: 'source-unavailable',
+        source: 'plugin',
+        message: 'Claude plugin catalog discovery is unavailable.',
+      });
+    }
     return { integrations, issues };
   }
 
@@ -1261,7 +1399,7 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
           operations: ['list', 'enable', 'disable', 'uninstall'],
           availability: 'supported',
           reason:
-            'Managed plugins are listed read-only; enable and disable apply only to user, project, and local scopes.',
+            'Installed plugins can be enabled, disabled, or uninstalled only at user, project, and local scopes. Managed and available marketplace plugins are listed read-only; installation stays unavailable until machine-readable pre-install component inspection is wired.',
         },
         {
           kind: 'marketplace',

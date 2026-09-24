@@ -128,6 +128,8 @@ const integrationOriginLabel = (integration: AgentIntegration): string => {
       return 'Configuração global do Codex';
     case 'claude-plugin-inventory':
       return 'Inventário de plugins do Claude Code';
+    case 'claude-plugin-catalog':
+      return 'Catálogo de plugins do Claude Code';
     case 'claude-marketplace-inventory':
       return 'Marketplaces do Claude Code';
     case 'browser-local-allowlist':
@@ -589,6 +591,9 @@ watch(
             <strong>{{ integration.name }}</strong>
             <small v-if="integration.kind === 'marketplace'">
               Marketplace configurado
+            </small>
+            <small v-else-if="integration.origin === 'claude-plugin-catalog'">
+              Plugin disponível para instalar
             </small>
             <small v-else>
               {{ integrationKindLabel(integration.kind) }}

@@ -380,6 +380,7 @@ const integrationSchema = {
       enum: [
         'codex-global-config',
         'claude-plugin-inventory',
+        'claude-plugin-catalog',
         'claude-marketplace-inventory',
         'browser-local-allowlist',
       ],
