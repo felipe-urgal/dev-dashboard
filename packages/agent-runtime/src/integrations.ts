@@ -473,15 +473,24 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       );
     }
 
-    let result;
+    const before = await this.list({ cwd: request.cwd });
+    if (before.integrations.some((integration) => integration.name === name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server name is already configured in the effective project context.',
+      );
+    }
+
+    let mutationFailed = false;
     try {
-      result = await this.runProcess({
+      const result = await this.runProcess({
         command: this.command,
         args: ['mcp', 'add', name, '--url', url.toString()],
         cwd: request.cwd,
         timeoutMs: this.timeoutMs,
         label: 'Codex MCP installation',
       });
+      mutationFailed = result.signal !== null || result.exitCode !== 0;
     } catch (error) {
       if (
         error instanceof AgentCliProcessError &&
@@ -492,28 +501,37 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
           'Codex command is unavailable.',
         );
       }
+      mutationFailed = true;
+    }
+
+    let after: AgentIntegrationListResult;
+    try {
+      after = await this.list({ cwd: request.cwd });
+    } catch {
       throw new AgentIntegrationDiscoveryError(
-        'command-failed',
-        'Codex MCP installation failed.',
+        mutationFailed ? 'command-failed' : 'invalid-response',
+        mutationFailed
+          ? 'Codex MCP installation failed and persisted state could not be verified.'
+          : 'Codex MCP installation completed but persisted state could not be verified.',
       );
     }
 
-    if (result.signal !== null || result.exitCode !== 0) {
+    const installed = after.integrations.find(
+      (integration) => integration.name === name,
+    );
+    if (!installed) {
       throw new AgentIntegrationDiscoveryError(
-        'command-failed',
-        'Codex MCP installation returned a non-zero result.',
+        mutationFailed ? 'command-failed' : 'invalid-response',
+        mutationFailed
+          ? 'Codex MCP installation failed without persisting the server.'
+          : 'Codex MCP installation did not persist the server.',
       );
     }
 
     return {
-      id: 'codex:mcp-server:' + name,
-      providerId: 'codex',
-      kind: 'mcp-server',
-      name,
+      ...installed,
       scope: 'user',
       origin: 'codex-global-config',
-      enabled: true,
-      authStatus: 'unknown',
     };
   }
 
