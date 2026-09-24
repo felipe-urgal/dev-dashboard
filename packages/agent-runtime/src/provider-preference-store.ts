@@ -124,6 +124,7 @@ export class AgentProviderPreferenceStore {
 
     const release = await this.lockManager.acquire(
       'agent-provider-preferences-store',
+      { wait: true },
     );
     try {
       const state = await this.readState();
@@ -146,6 +147,7 @@ export class AgentProviderPreferenceStore {
     assertProjectId(projectId);
     const release = await this.lockManager.acquire(
       'agent-provider-preferences-store',
+      { wait: true },
     );
     try {
       const state = await this.readState();
