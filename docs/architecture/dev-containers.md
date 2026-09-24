@@ -142,7 +142,7 @@ O snapshot:
 
 O adapter de `up` agora exige esse caminho absoluto como `--override-config`, mantendo também `--config` apontando para a localização original. Isso faz a Dev Container CLI preservar a base de resolução do arquivo original, mas ler o conteúdo congelado do snapshot durante a criação.
 
-Nenhum snapshot é exposto na API/UI e este corte ainda não executa `devcontainer up`.
+Nenhum snapshot é exposto na API/UI e este corte ainda não executa `devcontainer up`. O executor futuro deve manter o snapshot apenas durante a chamada da CLI e invocar `dispose()` em `finally`, inclusive em falhas.
 
 ## Cleanup Docker scoped preparado
 
