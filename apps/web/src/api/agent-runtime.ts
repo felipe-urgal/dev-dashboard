@@ -12,9 +12,7 @@ export type AgentIntegrationScope =
   'user' | 'project' | 'local' | 'managed' | 'session';
 
 export type AgentIntegrationOrigin =
-  | 'codex-global-config'
-  | 'claude-plugin-inventory'
-  | 'browser-local-allowlist';
+  'codex-global-config' | 'claude-plugin-inventory' | 'browser-local-allowlist';
 
 export type AgentIntegrationOperation =
   | 'list'
