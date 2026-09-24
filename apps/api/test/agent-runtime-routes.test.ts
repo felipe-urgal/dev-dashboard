@@ -414,7 +414,7 @@ test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturad
   ]);
   assert.equal(response.json().integration.enabled, false);
 
-  const rejected = await app.inject({
+  const sanitized = await app.inject({
     method: 'PATCH',
     url: '/api/projects/project-1/agent/integrations/enabled',
     payload: {
@@ -427,8 +427,19 @@ test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturad
       command: 'bash -lc whoami',
     },
   });
-  assert.equal(rejected.statusCode, 400);
-  assert.equal(calls.length, 1);
+  assert.equal(sanitized.statusCode, 200);
+  assert.deepEqual(calls[1], [
+    'project-1',
+    'claude-code',
+    {
+      kind: 'plugin',
+      name: 'review',
+      marketplace: 'company-tools',
+      scope: 'project',
+      enabled: true,
+    },
+    undefined,
+  ]);
 });
 
 test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
