@@ -32,19 +32,20 @@
     return `${messages.length}:${children}:${length}`;
   }
 
-  function renderedExecutableEnvelope(message) {
-    if (!message?.querySelectorAll) return null;
+  function executableJson(text) {
+    if (typeof text !== 'string') return null;
+    const trimmed = text.trim();
+    if (!trimmed) return null;
 
-    const candidates = [];
-    for (const block of [...message.querySelectorAll('pre')]) {
-      const code = block.querySelector?.('code') ?? block;
-      const text =
-        typeof code?.textContent === 'string' ? code.textContent.trim() : '';
-      if (!text) continue;
+    const variants = [
+      trimmed,
+      trimmed.replace(/^agent-workflow-browser\s*/i, ''),
+    ];
 
+    for (const candidate of variants) {
       let value;
       try {
-        value = JSON.parse(text);
+        value = JSON.parse(candidate);
       } catch {
         continue;
       }
@@ -55,13 +56,33 @@
         !Array.isArray(value) &&
         (value.type === 'tool_request' || value.type === 'terminal_result')
       ) {
-        candidates.push(text);
+        return candidate;
       }
     }
 
-    if (candidates.length !== 1) return null;
+    return null;
+  }
+
+  function renderedExecutableEnvelope(message) {
+    if (!message) return null;
+
+    const candidates = new Set();
+    if (message.querySelectorAll) {
+      for (const block of [...message.querySelectorAll('pre, code')]) {
+        const text =
+          typeof block?.textContent === 'string' ? block.textContent : '';
+        const candidate = executableJson(text);
+        if (candidate) candidates.add(candidate);
+      }
+    }
+
+    const wholeMessage = executableJson(message.textContent);
+    if (wholeMessage) candidates.add(wholeMessage);
+
+    if (candidates.size !== 1) return null;
+    const [candidate] = candidates;
     const fence = String.fromCharCode(96).repeat(3);
-    return fence + 'agent-workflow-browser\n' + candidates[0] + '\n' + fence;
+    return fence + 'agent-workflow-browser\n' + candidate + '\n' + fence;
   }
 
   function lastAssistantText() {
