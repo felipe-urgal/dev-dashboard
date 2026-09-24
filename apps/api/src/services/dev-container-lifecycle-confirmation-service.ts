@@ -62,6 +62,7 @@ function stablePreflightHash(
     reason: preflight.reason,
     discoveryState: preflight.discoveryState ?? null,
     configSource: preflight.configSource ?? null,
+    configurationHash: preflight.configurationHash ?? null,
     cliVersion: preflight.cliVersion ?? null,
     configuration,
     limitations: [...preflight.limitations].sort(),
@@ -146,6 +147,8 @@ export class DevContainerLifecycleConfirmationService {
       preflight.runtime !== 'host' ||
       preflight.requiresConfirmation !== true ||
       !preflight.configSource ||
+      !preflight.configurationHash ||
+      !/^[a-f0-9]{64}$/u.test(preflight.configurationHash) ||
       !preflight.configuration ||
       (preflight.configuration.kind !== 'image' &&
         preflight.configuration.kind !== 'dockerfile')
