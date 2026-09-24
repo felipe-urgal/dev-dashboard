@@ -268,3 +268,12 @@ export type {
   AgentIntegrationUninstallResult,
   AgentIntegrationScope,
 } from './integrations.js';
+
+export {
+  AgentProviderPreferenceStore,
+  AgentProviderPreferenceStoreError,
+  type AgentLocalProviderId,
+  type AgentProviderPreference,
+  type AgentProviderPreferenceStoreErrorCode,
+  type AgentProviderPreferenceStoreOptions,
+} from './provider-preference-store.js';
