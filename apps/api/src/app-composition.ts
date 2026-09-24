@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   AgentAuditStore,
   AgentBudgetStore,
+  AgentProviderPreferenceStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
   AgentUsageStore,
@@ -316,7 +317,19 @@ function createAgentRuntimeApiService(
   const auditStore = new AgentAuditStore({ stateDirectory });
   const usageStore = new AgentUsageStore({ stateDirectory });
   const budgetStore = new AgentBudgetStore({ stateDirectory });
+  const providerPreferenceStore = new AgentProviderPreferenceStore({
+    stateDirectory,
+  });
   const providerRegistry = createLocalAgentProviderRegistry({
+    resolveAutomaticPreference: async (request) => {
+      const preference = await providerPreferenceStore.get(request.projectId);
+      return preference
+        ? {
+            preferredProviderId: preference.preferredProviderId,
+            fallbackOrder: preference.fallbackOrder,
+          }
+        : null;
+    },
     resolveCwd: (request) => {
       const executionContext =
         context.developmentEnvironmentInstanceStore.resolveForProject(
@@ -381,6 +394,7 @@ function createAgentRuntimeApiService(
     taskStore,
     auditStore,
     providerRegistry,
+    providerPreferenceStore,
     integrationCapabilityRegistry:
       createDefaultAgentIntegrationCapabilityRegistry(),
     integrationProviderRegistry:
