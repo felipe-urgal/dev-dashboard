@@ -29,8 +29,7 @@ export type DevContainerLifecyclePreflightReason =
   | 'compose-ownership-required'
   | 'configuration-kind-unknown';
 
-export type DevContainerLifecycleLimitation =
-  'cleanup-adapter-pending' | 'post-create-hooks-deferred';
+export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
@@ -122,7 +121,7 @@ export class DevContainerLifecyclePlanningService {
         runtime: executionContext.runtime,
         executionEnabled: false,
         requiresConfirmation: false,
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic:
           'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
       };
@@ -144,7 +143,7 @@ export class DevContainerLifecyclePlanningService {
         runtime: executionContext.runtime,
         executionEnabled: false,
         requiresConfirmation: false,
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic:
           'O discovery de Dev Container falhou; o lifecycle permanece indisponível.',
       };
@@ -177,7 +176,7 @@ export class DevContainerLifecyclePlanningService {
         state: 'unavailable',
         reason: 'discovery-not-ready',
         requiresConfirmation: false,
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic:
           inspection.diagnostic ??
           'O discovery não comprovou uma configuração Dev Container utilizável.',
@@ -206,7 +205,7 @@ export class DevContainerLifecyclePlanningService {
         state: 'blocked',
         reason: 'initialize-command-declared',
         requiresConfirmation: false,
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic:
           'A configuração declara initializeCommand, que pode executar no host durante a inicialização e ainda não possui uma autorização segura neste lifecycle.',
       };
@@ -218,7 +217,7 @@ export class DevContainerLifecyclePlanningService {
         state: 'blocked',
         reason: 'compose-ownership-required',
         requiresConfirmation: false,
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic:
           'Dev Containers baseados em Compose permanecem bloqueados até compartilhar ownership com o domínio Docker Compose e evitar stacks duplicadas.',
       };
@@ -230,7 +229,7 @@ export class DevContainerLifecyclePlanningService {
         state: 'blocked',
         reason: 'configuration-kind-unknown',
         requiresConfirmation: false,
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic:
           'O tipo da configuração não foi comprovado; o lifecycle não pode assumir como criar ou limpar o runtime.',
       };
@@ -241,14 +240,11 @@ export class DevContainerLifecyclePlanningService {
       state: 'review',
       reason: 'review-required',
       requiresConfirmation: true,
-      limitations: [
-        'cleanup-adapter-pending',
-        ...(hasPostCreateHooks(lifecycleHooks)
-          ? (['post-create-hooks-deferred'] as const)
-          : []),
-      ],
+      limitations: hasPostCreateHooks(lifecycleHooks)
+        ? ['post-create-hooks-deferred']
+        : [],
       diagnostic:
-        'A configuração pode avançar para revisão humana, mas a execução permanece desabilitada até existir ownership/cleanup completo e confirmação explícita.',
+        'A configuração pode avançar para revisão humana. A execução pública permanece desabilitada enquanto o executor interno é qualificado e ainda exige confirmação explícita.',
     };
   }
 }
