@@ -126,13 +126,17 @@ function defaultCommandRunner(
       reject(error);
     });
 
-    child.once('close', () => {
+    child.once('close', (code, signal) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (forceKillTimer) clearTimeout(forceKillTimer);
       if (timedOut) {
         reject(new Error('Dev Container command timed out.'));
+        return;
+      }
+      if (code !== 0 || signal !== null) {
+        reject(new Error('Dev Container command exited unsuccessfully.'));
         return;
       }
       resolve(tail.toString('utf8'));
