@@ -90,6 +90,24 @@ export interface AgentIntegrationInstallRequest {
   url?: string;
 }
 
+export interface AgentIntegrationAuthenticationRequest {
+  cwd: string;
+  kind: AgentIntegrationKind;
+  name: string;
+  scope: AgentIntegrationScope;
+}
+
+export interface AgentIntegrationAuthenticationHandoff {
+  providerId: AgentConcreteProviderId;
+  kind: AgentIntegrationKind;
+  name: string;
+  scope: AgentIntegrationScope;
+  mode: 'interactive-terminal';
+  program: 'claude';
+  args: string[];
+  requiresInteractiveTerminal: true;
+}
+
 export interface AgentIntegrationSetEnabledRequest {
   cwd: string;
   kind: AgentIntegrationKind;
@@ -126,6 +144,9 @@ export interface AgentIntegrationProvider {
     request: AgentIntegrationInspectRequest,
   ): Promise<AgentIntegrationDetails>;
   install?(request: AgentIntegrationInstallRequest): Promise<AgentIntegration>;
+  prepareAuthentication?(
+    request: AgentIntegrationAuthenticationRequest,
+  ): Promise<AgentIntegrationAuthenticationHandoff>;
   setEnabled?(
     request: AgentIntegrationSetEnabledRequest,
   ): Promise<AgentIntegration>;
@@ -1222,6 +1243,60 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     }
   }
 
+  async prepareAuthentication(
+    request: AgentIntegrationAuthenticationRequest,
+  ): Promise<AgentIntegrationAuthenticationHandoff> {
+    if (request.kind !== 'mcp-server') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude authentication handoff only supports MCP servers.',
+      );
+    }
+    if (
+      request.scope !== 'user' &&
+      request.scope !== 'project' &&
+      request.scope !== 'local'
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP authentication supports only user, project, or local scope.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server name is invalid.',
+      );
+    }
+
+    const discovery = await this.discoverMcpConfig({ cwd: request.cwd });
+    this.assertMcpConfigReadable(discovery);
+    if (
+      !discovery.integrations.some(
+        (integration) =>
+          integration.name === name && integration.scope === request.scope,
+      )
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude MCP server is not the effective server at the requested scope.',
+      );
+    }
+
+    return {
+      providerId: 'claude-code',
+      kind: 'mcp-server',
+      name,
+      scope: request.scope,
+      mode: 'interactive-terminal',
+      program: 'claude',
+      args: ['mcp', 'login', name],
+      requiresInteractiveTerminal: true,
+    };
+  }
+
   private async installMcpServer(
     request: AgentIntegrationInstallRequest,
   ): Promise<AgentIntegration> {
@@ -1974,10 +2049,10 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['local', 'project', 'user'],
-          operations: ['list', 'install', 'uninstall'],
+          operations: ['list', 'install', 'uninstall', 'authenticate'],
           availability: 'supported',
           reason:
-            'MCP discovery reads Claude Code documented local, project, and user JSON configuration directly with scope precedence. Remote HTTPS servers can be added or removed with fixed CLI arguments and explicit scope; headers, stdio commands, and authentication remain outside this slice.',
+            'MCP discovery reads Claude Code documented local, project, and user JSON configuration directly with scope precedence. Remote HTTPS servers can be added or removed with fixed CLI arguments and explicit scope. OAuth authentication uses a structured handoff to the project terminal because Claude MCP login requires an interactive terminal; the browser never executes the login command directly.',
         },
         {
           kind: 'skill',
