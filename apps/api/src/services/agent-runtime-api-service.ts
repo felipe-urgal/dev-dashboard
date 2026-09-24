@@ -21,6 +21,8 @@ import type {
   AgentIntegrationInstallRequest,
   AgentIntegrationListResult,
   AgentIntegrationSetEnabledRequest,
+  AgentIntegrationUninstallRequest,
+  AgentIntegrationUninstallResult,
   AgentIntegrationProviderCapabilities,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
@@ -132,6 +134,12 @@ export interface AgentRuntimeApiServicePort {
     input: Omit<AgentIntegrationSetEnabledRequest, 'cwd'>,
     environmentInstanceId?: string,
   ): Promise<AgentIntegration>;
+  uninstallIntegration(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationUninstallRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegrationUninstallResult>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
   createTask(
     projectId: string,
@@ -434,6 +442,57 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
     try {
       return await provider.setEnabled({
+        ...input,
+        cwd: executionContext.cwd,
+      });
+    } catch (error) {
+      if (error instanceof AgentIntegrationDiscoveryError) {
+        if (error.code === 'invalid-request') {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            error.message,
+          );
+        }
+        throw new AgentRuntimeApiServiceError(
+          error.code === 'provider-unavailable'
+            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
+            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
+          error.message,
+        );
+      }
+      throw error;
+    }
+  }
+
+  public async uninstallIntegration(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationUninstallRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegrationUninstallResult> {
+    this.requireProject(projectId);
+    const provider = this.options.integrationProviderRegistry?.get(providerId);
+    if (!provider?.uninstall) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
+        'Agent integration uninstall is unavailable for this provider.',
+      );
+    }
+
+    const executionContext =
+      this.options.developmentEnvironmentInstanceStore.resolveForProject(
+        projectId,
+        environmentInstanceId,
+      );
+    if (!executionContext || executionContext.runtime !== 'host') {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_ENVIRONMENT_NOT_FOUND',
+        'Development environment instance was not found for this project.',
+      );
+    }
+
+    try {
+      return await provider.uninstall({
         ...input,
         cwd: executionContext.cwd,
       });
