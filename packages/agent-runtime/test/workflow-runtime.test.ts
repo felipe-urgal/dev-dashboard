@@ -116,6 +116,10 @@ async function fixture(
     retryBackoffMs?: number;
     maxRetryBackoffMs?: number;
     gitRefVerifier?: import('../src/index.js').AgentGitRefVerifier;
+    executionResultStore?: Pick<
+      import('../src/index.js').AgentAuditStore,
+      'appendExecutionResult'
+    >;
   } = {},
 ) {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-workflow-runtime-'));
@@ -146,6 +150,7 @@ async function fixture(
     runtimeStateStore,
     lockManager,
     checkpointStore: auditStore,
+    executionResultStore: runtimeOptions.executionResultStore ?? auditStore,
     now,
     createExecutionId: () => 'execution-1',
     createCheckpointId: () => 'checkpoint-1',
@@ -620,6 +625,107 @@ test('adopted Git ref can execute after successful pre-dispatch reverification',
 
   assert.equal(result.task.task.state, 'review');
   assert.equal(verificationCount, 2);
+});
+
+
+test('persists provider evidence while task is still running before final state', async (t) => {
+  let stateAtPersistence: AgentTask['state'] | undefined;
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Implementation finished',
+    evidence: [
+      {
+        id: 'evidence-1',
+        taskId: 'provider-task',
+        executionId: 'provider-execution',
+        kind: 'test',
+        summary: 'Tests passed.',
+        observedAt: '2026-09-22T15:00:10.000Z',
+      },
+    ],
+  }));
+
+  let storeRef: MemoryTaskStore | undefined;
+  const executionResultStore = {
+    appendExecutionResult: async (
+      taskId: string,
+      executionId: string,
+      providerId: 'codex' | 'claude-code' | 'chatgpt-browser',
+      summary: string,
+      occurredAt: string,
+      evidence: readonly import('../src/index.js').AgentEvidence[],
+    ) => {
+      stateAtPersistence = (await storeRef?.get('task-1'))?.task.state;
+      assert.equal(taskId, 'task-1');
+      assert.equal(executionId, 'execution-1');
+      assert.equal(providerId, 'codex');
+      assert.equal(summary, 'Implementation finished');
+      assert.equal(occurredAt.length > 0, true);
+      assert.deepEqual(evidence, [
+        {
+          id: 'evidence-1',
+          taskId: 'task-1',
+          executionId: 'execution-1',
+          kind: 'test',
+          summary: 'Tests passed.',
+          observedAt: '2026-09-22T15:00:10.000Z',
+        },
+      ]);
+    },
+  };
+
+  const fixtureResult = await fixture(t, provider, task(), {
+    executionResultStore,
+  });
+  storeRef = fixtureResult.store;
+
+  const result = await fixtureResult.runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+  });
+
+  assert.equal(stateAtPersistence, 'running');
+  assert.equal(result.task.task.state, 'review');
+});
+
+test('evidence persistence failure blocks task before successful state advance', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Implementation finished',
+    evidence: [
+      {
+        id: 'evidence-1',
+        taskId: 'task-1',
+        kind: 'test',
+        summary: 'Tests passed.',
+        observedAt: '2026-09-22T15:00:10.000Z',
+      },
+    ],
+  }));
+  const { runtime, store } = await fixture(t, provider, task(), {
+    executionResultStore: {
+      appendExecutionResult: async () => {
+        throw new Error('audit unavailable');
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_EVIDENCE_PERSIST_FAILED',
+  );
+
+  assert.equal((await store.get('task-1'))?.task.state, 'blocked');
 });
 
 test('execution lock prevents two executions of the same task', async (t) => {
