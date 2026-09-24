@@ -53,14 +53,14 @@ interface IntegrationQuery {
 }
 
 interface InspectIntegrationQuery extends IntegrationQuery {
-  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
   name: string;
 }
 
 interface InstallIntegrationBody {
   providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
   environmentInstanceId?: string;
-  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
   name: string;
   scope: 'user' | 'project' | 'local' | 'session';
   confirmed: boolean;
@@ -70,7 +70,7 @@ interface InstallIntegrationBody {
 interface SetIntegrationEnabledBody {
   providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
   environmentInstanceId?: string;
-  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
   name: string;
   marketplace?: string;
   scope: 'user' | 'project' | 'local' | 'managed' | 'session';
@@ -80,7 +80,7 @@ interface SetIntegrationEnabledBody {
 interface UninstallIntegrationBody {
   providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
   environmentInstanceId?: string;
-  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
   name: string;
   marketplace?: string;
   scope: 'user' | 'project' | 'local' | 'managed' | 'session';
@@ -215,7 +215,7 @@ const inspectIntegrationQuerySchema = {
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     name: { type: 'string', minLength: 1, maxLength: 64 },
   },
@@ -233,7 +233,7 @@ const installIntegrationBodySchema = {
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     name: { type: 'string', minLength: 1, maxLength: 64 },
     scope: {
@@ -257,7 +257,7 @@ const setIntegrationEnabledBodySchema = {
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     name: { type: 'string', minLength: 1, maxLength: 128 },
     marketplace: { type: 'string', minLength: 1, maxLength: 128 },
@@ -281,7 +281,7 @@ const uninstallIntegrationBodySchema = {
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     name: { type: 'string', minLength: 1, maxLength: 128 },
     marketplace: { type: 'string', minLength: 1, maxLength: 128 },
@@ -304,7 +304,7 @@ const integrationUninstallResultSchema = {
     },
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     name: { type: 'string' },
     scope: {
@@ -328,7 +328,7 @@ const integrationSchema = {
     },
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     name: { type: 'string' },
     scope: {
@@ -340,11 +340,16 @@ const integrationSchema = {
       enum: [
         'codex-global-config',
         'claude-plugin-inventory',
+        'claude-marketplace-inventory',
         'browser-local-allowlist',
       ],
     },
     version: { type: 'string', maxLength: 128 },
     marketplace: { type: 'string', maxLength: 128 },
+    marketplaceSource: {
+      type: 'string',
+      enum: ['github', 'git', 'url', 'local', 'claude-ai', 'unknown'],
+    },
     enabled: { type: 'boolean' },
     authStatus: {
       type: 'string',
@@ -356,11 +361,18 @@ const integrationSchema = {
 const integrationIssueSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['code', 'message', 'index'],
+  required: ['code', 'message'],
   properties: {
-    code: { type: 'string', enum: ['invalid-entry'] },
+    code: {
+      type: 'string',
+      enum: ['invalid-entry', 'source-unavailable'],
+    },
     message: { type: 'string' },
     index: { type: 'integer', minimum: 0 },
+    source: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
+    },
   },
 } as const;
 
@@ -681,7 +693,7 @@ const integrationCapabilitySchema = {
   properties: {
     kind: {
       type: 'string',
-      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+      enum: ['mcp-server', 'skill', 'plugin', 'marketplace', 'browser-capability'],
     },
     scopes: {
       type: 'array',
