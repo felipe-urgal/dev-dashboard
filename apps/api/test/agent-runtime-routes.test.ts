@@ -67,6 +67,14 @@ function service(
       ...(input.marketplace ? { marketplace: input.marketplace } : {}),
       enabled: input.enabled,
     }),
+    uninstallIntegration: async (_projectId, providerId, input) => ({
+      providerId,
+      kind: input.kind,
+      name: input.name,
+      scope: input.scope,
+      ...(input.marketplace ? { marketplace: input.marketplace } : {}),
+      dataPreserved: true,
+    }),
     listTasks: async () => [task],
     createTask: async () => task,
     getTask: async () => task,
@@ -440,6 +448,64 @@ test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturad
     },
     undefined,
   ]);
+});
+
+
+
+test('Agent Runtime HTTP remove plugin Claude com confirmação e preserva dados', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      uninstallIntegration: async (...args) => {
+        calls.push(args);
+        return {
+          providerId: 'claude-code',
+          kind: 'plugin',
+          name: 'review',
+          scope: 'project',
+          marketplace: 'company-tools',
+          dataPreserved: true,
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'DELETE',
+    url: '/api/projects/project-1/agent/integrations',
+    payload: {
+      providerId: 'claude-code',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'plugin',
+      name: 'review',
+      marketplace: 'company-tools',
+      scope: 'project',
+      confirmed: true,
+      command: 'rm -rf /',
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'claude-code',
+      {
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        confirmed: true,
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  assert.equal(response.json().result.dataPreserved, true);
 });
 
 test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
