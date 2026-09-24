@@ -247,6 +247,47 @@ test('Codex MCP install reconciles a timeout after the CLI persisted the server'
   assert.equal(integration.authStatus, 'unauthenticated');
 });
 
+
+test('Codex MCP install reconciles a non-zero result after persistence', async () => {
+  let installed = false;
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      if (request.args[1] === 'add') {
+        installed = true;
+        return result({
+          exitCode: 1,
+          stderr: 'OAuth continuation failed after config write',
+        });
+      }
+      return result({
+        stdout: JSON.stringify(
+          installed
+            ? [
+                {
+                  name: 'docs',
+                  enabled: true,
+                  auth_status: 'unauthenticated',
+                },
+              ]
+            : [],
+        ),
+      });
+    },
+  });
+
+  const integration = await provider.install!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'user',
+    confirmed: true,
+    url: 'https://example.com/mcp',
+  });
+
+  assert.equal(integration.name, 'docs');
+  assert.equal(integration.authStatus, 'unauthenticated');
+});
+
 test('Codex MCP install fails when a timeout did not persist the server', async () => {
   const provider = new CodexMcpIntegrationProvider({
     runProcess: async (request) => {
