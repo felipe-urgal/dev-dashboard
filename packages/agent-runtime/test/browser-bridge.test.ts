@@ -309,6 +309,7 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
     );
     assert.equal(rejectedStatus.status, 200);
     assert.equal(rejectedStatus.body.state, 'failed');
+    assert.equal(mutableExecutions, 1);
 
     const patch = [
       '--- a/sample.txt',
@@ -334,7 +335,7 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
     );
     assert.equal(firstPatch.status, 200);
     assert.equal(firstPatch.body.type, 'tool_result');
-    assert.equal(mutableExecutions, 1);
+    assert.equal(mutableExecutions, 2);
 
     const replay = await requestJson(
       baseUrl,
@@ -343,7 +344,7 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
       { method: 'POST', body: patchRequest, leaseId },
     );
     assert.deepEqual(replay.body, firstPatch.body);
-    assert.equal(mutableExecutions, 1);
+    assert.equal(mutableExecutions, 2);
     assert.equal(
       await fs.readFile(path.join(repo, 'sample.txt'), 'utf8'),
       'after\n',
