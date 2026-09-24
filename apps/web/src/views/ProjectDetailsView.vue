@@ -69,6 +69,9 @@ const ProjectSecurityCenterPanel = lazyTool(
 const ProjectLocalCiPanel = lazyTool(
   () => import('../components/ProjectLocalCiPanel.vue'),
 );
+const ProjectDevContainerPanel = lazyTool(
+  () => import('../components/ProjectDevContainerPanel.vue'),
+);
 const ProjectDockerComposePanel = lazyTool(
   () => import('../components/ProjectDockerComposePanel.vue'),
 );
@@ -134,6 +137,9 @@ const isSecurityRoute = computed(
   () => route.name === 'project-security-center',
 );
 const isLocalCiRoute = computed(() => route.name === 'project-local-ci');
+const isDevContainerRoute = computed(
+  () => route.name === 'project-dev-container',
+);
 const isComposeRoute = computed(() => route.name === 'project-compose');
 const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
@@ -493,6 +499,12 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <ProjectLocalCiPanel
         v-else-if="isLocalCiRoute"
         :key="`local-ci-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectDevContainerPanel
+        v-else-if="isDevContainerRoute"
+        :key="`dev-container-${project.id}`"
         :project="project"
       />
 
