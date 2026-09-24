@@ -24,6 +24,7 @@ import {
 } from './dev-container-up-adapter.js';
 
 const COMMAND_TIMEOUT_MS = 30 * 60_000;
+const COMMAND_KILL_GRACE_MS = 5_000;
 const OUTPUT_TAIL_BYTES = 512 * 1024;
 
 export interface DevContainerStartInput {
@@ -100,12 +101,16 @@ function defaultCommandRunner(
     });
     let tail = Buffer.alloc(0);
     let settled = false;
+    let timedOut = false;
+    let forceKillTimer: NodeJS.Timeout | undefined;
 
     const timer = setTimeout(() => {
       if (settled) return;
-      settled = true;
+      timedOut = true;
       child.kill('SIGTERM');
-      reject(new Error('Dev Container command timed out.'));
+      forceKillTimer = setTimeout(() => {
+        if (!settled) child.kill('SIGKILL');
+      }, COMMAND_KILL_GRACE_MS);
     }, options.timeoutMs);
 
     child.stdout.on('data', (chunk: Buffer | string) => {
@@ -117,6 +122,7 @@ function defaultCommandRunner(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
       reject(error);
     });
 
@@ -124,6 +130,11 @@ function defaultCommandRunner(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
+      if (timedOut) {
+        reject(new Error('Dev Container command timed out.'));
+        return;
+      }
       resolve(tail.toString('utf8'));
     });
   });
@@ -224,6 +235,14 @@ export class DevContainerStartService {
       throw new DevContainerStartError(
         'DEV_CONTAINER_START_CONFIG_CHANGED',
         'A configuração Dev Container mudou depois da confirmação.',
+      );
+    }
+
+    if (snapshot.configurationHash !== preflight.configurationHash) {
+      await snapshot.dispose().catch(() => undefined);
+      throw new DevContainerStartError(
+        'DEV_CONTAINER_START_CONFIG_CHANGED',
+        'O snapshot Dev Container não corresponde ao fingerprint confirmado.',
       );
     }
 
@@ -328,7 +347,7 @@ export class DevContainerStartService {
           ...instance,
           runtime: {
             kind: 'devcontainer',
-            runtimeId: ownership.containerId,
+            runtimeId: envelope.containerId,
           },
           lifecycle: 'ready',
         });
@@ -343,7 +362,7 @@ export class DevContainerStartService {
       return {
         environmentInstanceId: instance.id,
         runtime: 'devcontainer',
-        containerId: ownership.containerId!,
+        containerId: envelope.containerId,
       };
     } catch (error) {
       throw error instanceof DevContainerStartError
