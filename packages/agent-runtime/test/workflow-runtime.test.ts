@@ -645,7 +645,7 @@ test('persists provider evidence while task is still running before final state'
     ],
   }));
 
-  let storeRef: MemoryTaskStore | undefined;
+  const storeRef: { current?: MemoryTaskStore } = {};
   const executionResultStore = {
     appendExecutionResult: async (
       taskId: string,
@@ -655,7 +655,7 @@ test('persists provider evidence while task is still running before final state'
       occurredAt: string,
       evidence: readonly import('../src/index.js').AgentEvidence[],
     ) => {
-      stateAtPersistence = (await storeRef?.get('task-1'))?.task.state;
+      stateAtPersistence = (await storeRef.current?.get('task-1'))?.task.state;
       assert.equal(taskId, 'task-1');
       assert.equal(executionId, 'execution-1');
       assert.equal(providerId, 'codex');
@@ -677,7 +677,7 @@ test('persists provider evidence while task is still running before final state'
   const fixtureResult = await fixture(t, provider, task(), {
     executionResultStore,
   });
-  storeRef = fixtureResult.store;
+  storeRef.current = fixtureResult.store;
 
   const result = await fixtureResult.runtime.execute({
     projectId: 'project-1',
