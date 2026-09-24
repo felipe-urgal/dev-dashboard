@@ -123,6 +123,23 @@ O parser procura somente o envelope final `outcome: success | error` na cauda li
 
 Este adapter não chama `execFile`/`spawn`; ele apenas fecha argv e parsing antes do lifecycle mutável.
 
+## Cleanup Docker scoped preparado
+
+Como a Dev Container CLI de referência ainda não implementa `stop`/`down`, o cleanup futuro de configurações `image`/`dockerfile` usa um adapter Docker estritamente limitado ao ownership do Dashboard.
+
+O adapter é puro e ainda não executa comandos. Ele prepara:
+
+- descoberta por `docker container ls --all --quiet --no-trunc --filter label=devdashboard.environment=<token>`;
+- falha fechada quando um token aponta para mais de um container;
+- inspect do container exato com `--type container` e `--format` constante que retorna apenas `containerId | ownershipToken | running`;
+- validação conjunta de `containerId` + label antes de qualquer cleanup;
+- `docker container stop <containerId>`;
+- `docker container rm <containerId>` sem `--force` e sem `--volumes`.
+
+O inspect deliberadamente não retorna o objeto Docker completo, evitando transportar labels, mounts, env ou metadata que não participam da prova de ownership. A remoção não solicita exclusão de volumes.
+
+Configurações Dev Container baseadas em Compose continuam fora deste adapter e permanecem bloqueadas até compartilhar ownership com o domínio Docker Compose existente.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
