@@ -77,6 +77,16 @@ interface SetIntegrationEnabledBody {
   enabled: boolean;
 }
 
+interface UninstallIntegrationBody {
+  providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
+  environmentInstanceId?: string;
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  name: string;
+  marketplace?: string;
+  scope: 'user' | 'project' | 'local' | 'managed' | 'session';
+  confirmed: boolean;
+}
+
 interface AuthorizationBody {
   capability: AgentCapability;
   granted: boolean;
@@ -256,6 +266,53 @@ const setIntegrationEnabledBodySchema = {
       enum: ['user', 'project', 'local', 'managed', 'session'],
     },
     enabled: { type: 'boolean' },
+  },
+} as const;
+
+const uninstallIntegrationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'kind', 'name', 'scope', 'confirmed'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    name: { type: 'string', minLength: 1, maxLength: 128 },
+    marketplace: { type: 'string', minLength: 1, maxLength: 128 },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'managed', 'session'],
+    },
+    confirmed: { type: 'boolean' },
+  },
+} as const;
+
+const integrationUninstallResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'kind', 'name', 'scope', 'dataPreserved'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    name: { type: 'string' },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'managed', 'session'],
+    },
+    marketplace: { type: 'string', maxLength: 128 },
+    dataPreserved: { type: 'boolean' },
   },
 } as const;
 
@@ -1067,6 +1124,44 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
               : {}),
             scope: request.body.scope,
             enabled: request.body.enabled,
+          },
+          request.body.environmentInstanceId,
+        ),
+      })),
+  );
+
+  app.delete<{ Params: ProjectParams; Body: UninstallIntegrationBody }>(
+    '/projects/:projectId/agent/integrations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: uninstallIntegrationBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: integrationUninstallResultSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        result: await options.agentRuntimeApiService.uninstallIntegration(
+          request.params.projectId,
+          request.body.providerId,
+          {
+            kind: request.body.kind,
+            name: request.body.name,
+            ...(request.body.marketplace
+              ? { marketplace: request.body.marketplace }
+              : {}),
+            scope: request.body.scope,
+            confirmed: request.body.confirmed,
           },
           request.body.environmentInstanceId,
         ),

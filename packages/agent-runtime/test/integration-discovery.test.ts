@@ -530,3 +530,104 @@ test('Claude plugin toggle rejects managed scope and mismatched JSON confirmatio
       error.code === 'invalid-response',
   );
 });
+
+test('Claude plugin uninstall requires confirmation and preserves plugin data', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      return result({
+        stdout:
+          'informational line\n' +
+          JSON.stringify({
+            command: 'uninstall',
+            outcome: 'ok',
+            pluginId: 'review@company-tools',
+            scope: 'project',
+          }),
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        confirmed: false,
+      }),
+    /requires explicit confirmation/,
+  );
+
+  const removed = await provider.uninstall!({
+    cwd: '/workspace/project',
+    kind: 'plugin',
+    name: 'review',
+    marketplace: 'company-tools',
+    scope: 'project',
+    confirmed: true,
+  });
+
+  assert.deepEqual(calls[0]?.args, [
+    'plugin',
+    'uninstall',
+    'review@company-tools',
+    '--scope',
+    'project',
+    '--keep-data',
+    '--json',
+  ]);
+  assert.deepEqual(removed, {
+    providerId: 'claude-code',
+    kind: 'plugin',
+    name: 'review',
+    scope: 'project',
+    marketplace: 'company-tools',
+    dataPreserved: true,
+  });
+});
+
+test('Claude plugin uninstall rejects managed scope and mismatched JSON confirmation', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify({
+          command: 'uninstall',
+          outcome: 'ok',
+          pluginId: 'other@company-tools',
+          scope: 'project',
+        }),
+      }),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'managed',
+        confirmed: true,
+      }),
+    /managed plugins cannot be uninstalled/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        confirmed: true,
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response',
+  );
+});

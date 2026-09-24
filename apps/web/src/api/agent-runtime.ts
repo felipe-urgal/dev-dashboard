@@ -60,6 +60,15 @@ export interface AgentIntegrationListResult {
   issues: AgentIntegrationIssue[];
 }
 
+export interface AgentIntegrationUninstallResult {
+  providerId: AgentConcreteProviderId;
+  kind: AgentIntegrationKind;
+  name: string;
+  scope: AgentIntegrationScope;
+  marketplace?: string;
+  dataPreserved: boolean;
+}
+
 export interface AgentIntegrationDetails extends AgentIntegration {
   transportType?: 'stdio' | 'streamable-http';
   enabledTools?: string[];
@@ -405,6 +414,29 @@ export async function setAgentIntegrationEnabled(
       body: JSON.stringify(input),
     })
   ).integration;
+}
+
+export async function uninstallAgentIntegration(
+  projectId: string,
+  input: {
+    providerId: AgentConcreteProviderId;
+    environmentInstanceId?: string;
+    kind: AgentIntegrationKind;
+    name: string;
+    marketplace?: string;
+    scope: AgentIntegrationScope;
+    confirmed: boolean;
+  },
+): Promise<AgentIntegrationUninstallResult> {
+  const path =
+    '/api/projects/' + encodeURIComponent(projectId) + '/agent/integrations';
+  return (
+    await requestJson<{ result: AgentIntegrationUninstallResult }>(path, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+  ).result;
 }
 
 export async function fetchAgentTasks(
