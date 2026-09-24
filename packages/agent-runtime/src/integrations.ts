@@ -277,8 +277,6 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
         providerId: 'codex',
         kind: 'mcp-server',
         name,
-        scope: 'user',
-        origin: 'codex-global-config',
         ...(typeof item.enabled === 'boolean' ? { enabled: item.enabled } : {}),
         ...(authStatus ? { authStatus } : {}),
       });
@@ -411,8 +409,6 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       providerId: 'codex',
       kind: 'mcp-server',
       name,
-      scope: 'user',
-      origin: 'codex-global-config',
       enabled: item.enabled,
       ...(transportType ? { transportType } : {}),
       ...(enabledTools ? { enabledTools } : {}),
@@ -509,6 +505,87 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       origin: 'codex-global-config',
       enabled: true,
       authStatus: 'unknown',
+    };
+  }
+
+  async uninstall(
+    request: AgentIntegrationUninstallRequest,
+  ): Promise<AgentIntegrationUninstallResult> {
+    if (!request.confirmed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP removal requires explicit confirmation.',
+      );
+    }
+    if (request.kind !== 'mcp-server') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex only supports MCP removal through this adapter.',
+      );
+    }
+    if (request.scope !== 'user') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP removal currently targets only explicit user scope.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server name is invalid.',
+      );
+    }
+
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: ['mcp', 'remove', name],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Codex MCP removal',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Codex command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP removal failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP removal returned a non-zero result.',
+      );
+    }
+
+    const discovery = await this.list({ cwd: request.cwd });
+    if (
+      discovery.integrations.some((integration) => integration.name === name)
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server remains configured in the effective project context; global removal could not be confirmed.',
+      );
+    }
+
+    return {
+      providerId: 'codex',
+      kind: 'mcp-server',
+      name,
+      scope: 'user',
+      dataPreserved: true,
     };
   }
 }
@@ -1017,8 +1094,10 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['user'],
-          operations: ['list', 'inspect', 'install'],
+          operations: ['list', 'inspect', 'install', 'uninstall'],
           availability: 'supported',
+          reason:
+            'Discovery uses the effective Codex configuration and does not expose origin; install and uninstall target explicit user-global configuration only.',
         },
         {
           kind: 'skill',
