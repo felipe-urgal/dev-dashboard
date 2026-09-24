@@ -606,7 +606,11 @@ export class BrowserBridge {
         );
         return storedToolEnvelope(succeeded) as Record<string, unknown>;
       } catch (error) {
-        if (mutable) {
+        const knownNoEffect =
+          error instanceof BrowserToolExecutionError &&
+          error.mutationEffect === 'none';
+
+        if (mutable && !knownNoEffect) {
           const ambiguous = await this.toolStore.markAmbiguous(
             job.id,
             request.toolCallId,
