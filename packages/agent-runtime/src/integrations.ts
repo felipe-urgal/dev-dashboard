@@ -9,10 +9,17 @@ import {
 export type AgentIntegrationKind =
   'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
 
-export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
+export type AgentIntegrationScope =
+  | 'user'
+  | 'project'
+  | 'local'
+  | 'managed'
+  | 'session';
 
 export type AgentIntegrationOrigin =
-  'codex-global-config' | 'browser-local-allowlist';
+  | 'codex-global-config'
+  | 'claude-plugin-inventory'
+  | 'browser-local-allowlist';
 
 export type AgentIntegrationOperation =
   | 'list'
@@ -30,6 +37,8 @@ export interface AgentIntegration {
   name: string;
   scope?: AgentIntegrationScope;
   origin?: AgentIntegrationOrigin;
+  version?: string;
+  marketplace?: string;
   enabled?: boolean;
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
@@ -477,6 +486,160 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
   }
 }
 
+interface ClaudePluginIntegrationProviderOptions {
+  command?: string;
+  runProcess?: AgentCliProcessRunner;
+  timeoutMs?: number;
+}
+
+export class ClaudePluginIntegrationProvider
+  implements AgentIntegrationProvider
+{
+  readonly id = 'claude-code' as const;
+  private readonly command: string;
+  private readonly runProcess: AgentCliProcessRunner;
+  private readonly timeoutMs: number;
+
+  constructor(options: ClaudePluginIntegrationProviderOptions = {}) {
+    this.command = options.command ?? 'claude';
+    this.runProcess = options.runProcess ?? runAgentCliProcess;
+    this.timeoutMs = options.timeoutMs ?? 15_000;
+  }
+
+  async list(
+    request: AgentIntegrationListRequest,
+  ): Promise<AgentIntegrationListResult> {
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: ['plugin', 'list', '--json'],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude plugin discovery',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Claude command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude plugin discovery failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude plugin discovery returned a non-zero result.',
+      );
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(result.stdout);
+    } catch {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin discovery returned invalid JSON.',
+      );
+    }
+
+    if (!Array.isArray(payload)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin discovery returned an unexpected payload.',
+      );
+    }
+
+    const integrations: AgentIntegration[] = [];
+    const issues: AgentIntegrationIssue[] = [];
+    const validScopes = new Set<AgentIntegrationScope>([
+      'user',
+      'project',
+      'local',
+      'managed',
+    ]);
+
+    for (const [index, entry] of payload.entries()) {
+      if (!entry || typeof entry !== 'object') {
+        issues.push({
+          code: 'invalid-entry',
+          index,
+          message: 'Claude plugin discovery ignored an invalid plugin entry.',
+        });
+        continue;
+      }
+
+      const item = entry as {
+        id?: unknown;
+        version?: unknown;
+        scope?: unknown;
+        enabled?: unknown;
+      };
+      const id = typeof item.id === 'string' ? item.id.trim() : '';
+      const scope =
+        typeof item.scope === 'string' &&
+        validScopes.has(item.scope as AgentIntegrationScope)
+          ? (item.scope as AgentIntegrationScope)
+          : undefined;
+
+      if (
+        !id ||
+        id.length > 256 ||
+        /[\u0000-\u001f\u007f]/.test(id) ||
+        !scope ||
+        typeof item.enabled !== 'boolean'
+      ) {
+        issues.push({
+          code: 'invalid-entry',
+          index,
+          message: 'Claude plugin discovery ignored an invalid plugin entry.',
+        });
+        continue;
+      }
+
+      const at = id.lastIndexOf('@');
+      const pluginName = at > 0 ? id.slice(0, at) : id;
+      const marketplace = at > 0 && at < id.length - 1 ? id.slice(at + 1) : '';
+      const safeMarketplace =
+        marketplace &&
+        marketplace.length <= 128 &&
+        /^[A-Za-z0-9._-]+$/.test(marketplace)
+          ? marketplace
+          : undefined;
+      const version =
+        typeof item.version === 'string' &&
+        item.version.trim() &&
+        item.version.length <= 128 &&
+        !/[\u0000-\u001f\u007f]/.test(item.version)
+          ? item.version.trim()
+          : undefined;
+
+      integrations.push({
+        id: 'claude-code:plugin:' + id,
+        providerId: 'claude-code',
+        kind: 'plugin',
+        name: pluginName,
+        scope,
+        origin: 'claude-plugin-inventory',
+        ...(version ? { version } : {}),
+        ...(safeMarketplace ? { marketplace: safeMarketplace } : {}),
+        enabled: item.enabled,
+        authStatus: 'unsupported',
+      });
+    }
+
+    return { integrations, issues };
+  }
+}
+
 export class BrowserCapabilityIntegrationProvider implements AgentIntegrationProvider {
   readonly id = 'chatgpt-browser' as const;
 
@@ -500,6 +663,7 @@ export class BrowserCapabilityIntegrationProvider implements AgentIntegrationPro
 export function createDefaultAgentIntegrationProviderRegistry(): AgentIntegrationProviderRegistry {
   return new StaticAgentIntegrationProviderRegistry([
     new CodexMcpIntegrationProvider(),
+    new ClaudePluginIntegrationProvider(),
     new BrowserCapabilityIntegrationProvider(),
   ]);
 }
@@ -624,11 +788,9 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         },
         {
           kind: 'plugin',
-          scopes: ['user', 'project', 'local'],
-          operations: [],
-          availability: 'unavailable',
-          reason:
-            'Claude plugins are not managed until a stable machine-readable discovery adapter is wired.',
+          scopes: ['user', 'project', 'local', 'managed'],
+          operations: ['list'],
+          availability: 'supported',
         },
       ],
     },
