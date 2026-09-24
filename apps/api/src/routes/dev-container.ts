@@ -112,7 +112,7 @@ const lifecyclePreflightSchema = {
     observedAt: { type: 'string' },
     environmentInstanceId: { type: 'string' },
     runtime: { type: 'string', enum: ['host', 'devcontainer'] },
-    executionEnabled: { type: 'boolean' },
+    executionEnabled: { type: 'boolean', enum: [false] },
     requiresConfirmation: { type: 'boolean' },
     configSource: {
       type: 'string',
