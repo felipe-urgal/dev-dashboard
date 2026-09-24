@@ -246,6 +246,29 @@ test('start cria runtime somente após confirmação, ownership e snapshot desca
   });
 });
 
+test('start rejeita preflight bloqueado antes de consumir confirmação', async () => {
+  const f = fixture({
+    plan: preflight({
+      state: 'blocked',
+      reason: 'initialize-command-declared',
+      requiresConfirmation: false,
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      f.service.start(project, {
+        confirmationToken: CONFIRMATION,
+      }),
+    (error: unknown) =>
+      error instanceof DevContainerStartError &&
+      error.code === 'DEV_CONTAINER_START_PREFLIGHT_NOT_READY',
+  );
+
+  assert.deepEqual(f.events, ['plan']);
+  assert.equal(f.cleanupCalls(), 0);
+});
+
 test('start exige confirmação antes de snapshot ou ownership', async () => {
   const f = fixture();
 
@@ -259,6 +282,56 @@ test('start exige confirmação antes de snapshot ou ownership', async () => {
   assert.deepEqual(f.events, ['plan', 'confirm']);
   assert.equal(f.cleanupCalls(), 0);
   assert.equal(f.disposed(), 0);
+});
+
+test('start rejeita snapshot cujo hash não corresponde ao preflight', async () => {
+  const current = instance();
+  const events: string[] = [];
+  let disposed = 0;
+  const service = new DevContainerStartService(
+    { plan: async () => preflight() },
+    { consume: () => undefined },
+    {
+      create: async () => ({
+        ...snapshot(() => {
+          disposed += 1;
+        }),
+        configurationHash: 'd'.repeat(64),
+      }),
+    },
+    {
+      reserve: async () => {
+        events.push('reserve');
+        return ownership();
+      },
+      attach: async () => ownership({ phase: 'owned', containerId: CONTAINER_ID }),
+    },
+    {
+      cleanup: async () => ({
+        state: 'already-absent' as const,
+        environmentInstanceId: current.id,
+      }),
+    },
+    {
+      findById: () => current,
+      findPrimaryByProjectId: () => current,
+      upsert: () => undefined,
+    },
+    async () => JSON.stringify({ outcome: 'success', containerId: CONTAINER_ID }),
+  );
+
+  await assert.rejects(
+    () =>
+      service.start(project, {
+        confirmationToken: CONFIRMATION,
+      }),
+    (error: unknown) =>
+      error instanceof DevContainerStartError &&
+      error.code === 'DEV_CONTAINER_START_CONFIG_CHANGED',
+  );
+
+  assert.equal(disposed, 1);
+  assert.deepEqual(events, []);
 });
 
 test('start falha antes de ownership quando snapshot não corresponde à confirmação', async () => {
