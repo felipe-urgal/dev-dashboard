@@ -827,6 +827,7 @@ export class AutomaticAgentProvider implements AgentProvider {
           providerId: this.id,
           availability: 'available',
           observedAt: this.now(),
+          selectedProviderId: providerId,
           reason: 'selected ' + providerId,
         };
       }

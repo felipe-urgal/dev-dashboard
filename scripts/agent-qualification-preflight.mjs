@@ -13,6 +13,7 @@ const PROVIDERS = new Set([
   'chatgpt-browser',
   'automatic',
 ]);
+const CONCRETE_PROVIDERS = new Set(['codex', 'claude-code', 'chatgpt-browser']);
 
 function lastNonEmptyLine(value) {
   return String(value ?? '')
@@ -192,6 +193,9 @@ async function fetchProviderStatus(fetchImpl, apiUrl, provider, token) {
           ? item.availability
           : 'unavailable',
       ...(typeof item.version === 'string' ? { version: item.version } : {}),
+      ...(CONCRETE_PROVIDERS.has(item.selectedProviderId)
+        ? { selectedProviderId: item.selectedProviderId }
+        : {}),
       ...(typeof item.observedAt === 'string'
         ? { observedAt: item.observedAt }
         : {}),
@@ -251,9 +255,13 @@ export async function runAgentQualificationPreflight(
   );
   const providerStatus = providerLookup.status;
 
+  const automaticSelectionReady =
+    options.provider !== 'automatic' ||
+    CONCRETE_PROVIDERS.has(providerStatus?.selectedProviderId);
   const ready =
     providerStatus?.availability === 'available' &&
-    (cli === null || cli.available === true);
+    (cli === null || cli.available === true) &&
+    automaticSelectionReady;
 
   stdout.write(
     JSON.stringify(
