@@ -31,11 +31,12 @@ const providerIds: AgentConcreteProviderId[] = [
 ];
 
 type IntegrationView = 'all' | 'installed' | 'available';
-type ClaudePluginInstallScope = 'user' | 'project' | 'local';
+type ClaudeMutableScope = 'user' | 'project' | 'local';
 
 const selectedProviderId = ref<AgentConcreteProviderId>('codex');
 const selectedIntegrationView = ref<IntegrationView>('all');
-const claudePluginInstallScope = ref<ClaudePluginInstallScope>('local');
+const claudePluginInstallScope = ref<ClaudeMutableScope>('local');
+const claudeMcpInstallScope = ref<ClaudeMutableScope>('local');
 const capabilities = ref<AgentIntegrationProviderCapabilities[]>([]);
 const integrations = ref<AgentIntegration[]>([]);
 const integrationIssues = ref<string[]>([]);
@@ -226,6 +227,11 @@ const canToggleIntegration = (integration: AgentIntegration): boolean =>
 
 const canUninstallIntegration = (integration: AgentIntegration): boolean =>
   (integration.providerId === 'codex' && integration.kind === 'mcp-server') ||
+  (integration.providerId === 'claude-code' &&
+    integration.kind === 'mcp-server' &&
+    (integration.scope === 'local' ||
+      integration.scope === 'project' ||
+      integration.scope === 'user')) ||
   canToggleIntegration(integration);
 
 async function installClaudePlugin(
@@ -379,6 +385,56 @@ async function uninstallIntegration(
     return;
   }
 
+  if (
+    integration.providerId === 'claude-code' &&
+    integration.kind === 'mcp-server' &&
+    integration.scope
+  ) {
+    const confirmed = await confirmDialog({
+      title: 'Remover MCP do Claude Code',
+      message:
+        'Remover ' +
+        integration.name +
+        ' do escopo ' +
+        integrationScopeLabel(integration) +
+        '? Para servidores remotos, o Claude Code também pode remover credenciais OAuth armazenadas para este servidor.',
+      confirmLabel: 'Remover MCP',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    uninstallingIntegrationId.value = integration.id;
+    errorMessage.value = '';
+    try {
+      await uninstallAgentIntegration(props.project.id, {
+        providerId: 'claude-code',
+        ...(props.environmentInstanceId
+          ? { environmentInstanceId: props.environmentInstanceId }
+          : {}),
+        kind: 'mcp-server',
+        name: integration.name,
+        scope: integration.scope,
+        confirmed: true,
+      });
+      const discovery = await fetchAgentIntegrations(
+        props.project.id,
+        'claude-code',
+        props.environmentInstanceId,
+      );
+      integrations.value = discovery.integrations;
+      integrationIssues.value = discovery.issues.map((issue) => issue.message);
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível remover o MCP do Claude Code.';
+    } finally {
+      uninstallingIntegrationId.value = null;
+    }
+    return;
+  }
+
   if (!integration.marketplace || !integration.scope) return;
 
   const confirmed = await confirmDialog({
@@ -457,9 +513,10 @@ async function inspectIntegration(
   }
 }
 
-async function installCodexMcp(): Promise<void> {
+async function installMcp(): Promise<void> {
   if (
-    selectedProviderId.value !== 'codex' ||
+    (selectedProviderId.value !== 'codex' &&
+      selectedProviderId.value !== 'claude-code') ||
     installing.value ||
     !installConfirmed.value ||
     !installName.value.trim() ||
@@ -468,17 +525,21 @@ async function installCodexMcp(): Promise<void> {
     return;
   }
 
+  const providerId = selectedProviderId.value;
+  const scope =
+    providerId === 'codex' ? 'user' : claudeMcpInstallScope.value;
+
   installing.value = true;
   errorMessage.value = '';
   try {
     await installAgentIntegration(props.project.id, {
-      providerId: 'codex',
+      providerId,
       ...(props.environmentInstanceId
         ? { environmentInstanceId: props.environmentInstanceId }
         : {}),
       kind: 'mcp-server',
       name: installName.value.trim(),
-      scope: 'user',
+      scope,
       confirmed: true,
       url: installUrl.value.trim(),
     });
@@ -487,7 +548,7 @@ async function installCodexMcp(): Promise<void> {
     installConfirmed.value = false;
     const discovery = await fetchAgentIntegrations(
       props.project.id,
-      'codex',
+      providerId,
       props.environmentInstanceId,
     );
     integrations.value = discovery.integrations;
@@ -496,7 +557,9 @@ async function installCodexMcp(): Promise<void> {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível adicionar o MCP do Codex.';
+        : providerId === 'codex'
+          ? 'Não foi possível adicionar o MCP do Codex.'
+          : 'Não foi possível adicionar o MCP do Claude Code.';
   } finally {
     installing.value = false;
   }
@@ -626,13 +689,21 @@ watch(
     </div>
 
     <form
-      v-if="selectedProviderId === 'codex'"
+      v-if="
+        selectedProviderId === 'codex' || selectedProviderId === 'claude-code'
+      "
       class="agent-integration-install"
-      @submit.prevent="installCodexMcp"
+      @submit.prevent="installMcp"
     >
       <div class="agent-integrations-list-heading">
         <span>Adicionar MCP remoto</span>
-        <small>Escopo global do usuário</small>
+        <small>
+          {{
+            selectedProviderId === 'codex'
+              ? 'Escopo global do usuário'
+              : capabilityScopeLabel(claudeMcpInstallScope)
+          }}
+        </small>
       </div>
       <label>
         <span>Nome</span>
@@ -654,6 +725,17 @@ watch(
           :disabled="installing"
         />
       </label>
+      <label
+        v-if="selectedProviderId === 'claude-code'"
+        class="agent-integration-install-field"
+      >
+        <span>Escopo</span>
+        <select v-model="claudeMcpInstallScope" :disabled="installing">
+          <option value="local">Local</option>
+          <option value="project">Projeto</option>
+          <option value="user">Usuário global</option>
+        </select>
+      </label>
       <label class="agent-integration-confirmation">
         <input
           v-model="installConfirmed"
@@ -661,14 +743,18 @@ watch(
           :disabled="installing"
         />
         <span>
-          Confirmo que este MCP será adicionado à configuração compartilhada do
-          meu usuário Codex.
+          {{
+            selectedProviderId === 'codex'
+              ? 'Confirmo que este MCP será adicionado à configuração compartilhada do meu usuário Codex.'
+              : 'Confirmo a adição deste MCP remoto ao escopo selecionado do Claude Code.'
+          }}
         </span>
       </label>
       <div class="agent-integration-install-actions">
         <p>
-          O dashboard envia apenas nome e URL ao backend. Comandos, argumentos e
-          variáveis de ambiente não são aceitos por este formulário.
+          O dashboard envia apenas nome, URL HTTPS e escopo ao backend. Headers,
+          comandos, argumentos e variáveis de ambiente não são aceitos por este
+          formulário.
         </p>
         <button
           class="secondary-button"
@@ -1150,6 +1236,18 @@ watch(
 .agent-integration-install > label:not(.agent-integration-confirmation) {
   display: grid;
   gap: 5px;
+}
+
+.agent-integration-install-field select {
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-1);
+  font: inherit;
+  font-size: var(--font-xs);
 }
 
 .agent-integration-install label > span {
