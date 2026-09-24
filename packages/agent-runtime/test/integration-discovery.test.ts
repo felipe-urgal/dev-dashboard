@@ -432,3 +432,102 @@ test('Claude plugin discovery isolates invalid rows and fails closed on invalid 
       error.code === 'invalid-response',
   );
 });
+
+
+test('Claude plugin toggle uses qualified identity, explicit scope and JSON result', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      const command = request.args[1];
+      return result({
+        stdout:
+          'informational line\n' +
+          JSON.stringify({
+            command,
+            outcome: 'ok',
+            pluginId: 'review@company-tools',
+            scope: 'project',
+          }),
+      });
+    },
+  });
+
+  const disabled = await provider.setEnabled!({
+    cwd: '/workspace/project',
+    kind: 'plugin',
+    name: 'review',
+    marketplace: 'company-tools',
+    scope: 'project',
+    enabled: false,
+  });
+  assert.deepEqual(calls[0]?.args, [
+    'plugin',
+    'disable',
+    'review@company-tools',
+    '--scope',
+    'project',
+    '--json',
+  ]);
+  assert.equal(disabled.enabled, false);
+
+  const enabled = await provider.setEnabled!({
+    cwd: '/workspace/project',
+    kind: 'plugin',
+    name: 'review',
+    marketplace: 'company-tools',
+    scope: 'project',
+    enabled: true,
+  });
+  assert.deepEqual(calls[1]?.args, [
+    'plugin',
+    'enable',
+    'review@company-tools',
+    '--scope',
+    'project',
+    '--json',
+  ]);
+  assert.equal(enabled.enabled, true);
+});
+
+test('Claude plugin toggle rejects managed scope and mismatched JSON confirmation', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify({
+          command: 'disable',
+          outcome: 'ok',
+          pluginId: 'other@company-tools',
+          scope: 'project',
+        }),
+      }),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.setEnabled!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'managed',
+        enabled: false,
+      }),
+    /managed plugins cannot be changed/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.setEnabled!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        enabled: false,
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response',
+  );
+});
