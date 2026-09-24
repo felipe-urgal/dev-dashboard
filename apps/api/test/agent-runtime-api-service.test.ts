@@ -126,7 +126,6 @@ test('AgentRuntimeApiService deriva Environment Instance no backend ao criar tas
   });
 });
 
-
 test('AgentRuntimeApiService valida preferência de provider por projeto', async () => {
   const writes: unknown[] = [];
   const service = new AgentRuntimeApiService({

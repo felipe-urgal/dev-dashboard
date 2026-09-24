@@ -304,7 +304,6 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
   assert.equal(executeAbuse.statusCode, 200);
 });
 
-
 test('Agent Runtime HTTP configura preferência de provider por projeto', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
