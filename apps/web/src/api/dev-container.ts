@@ -43,8 +43,7 @@ export type DevContainerLifecyclePreflightReason =
   | 'compose-ownership-required'
   | 'configuration-kind-unknown';
 
-export type DevContainerLifecycleLimitation =
-  'cleanup-adapter-pending' | 'post-create-hooks-deferred';
+export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
