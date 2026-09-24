@@ -81,6 +81,7 @@ export interface AgentIntegrationInstallRequest {
   name: string;
   scope: AgentIntegrationScope;
   confirmed: boolean;
+  marketplace?: string;
   url?: string;
 }
 
@@ -1016,6 +1017,151 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     return { integrations, issues };
   }
 
+  async install(
+    request: AgentIntegrationInstallRequest,
+  ): Promise<AgentIntegration> {
+    if (!request.confirmed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude plugin installation requires explicit confirmation.',
+      );
+    }
+    if (request.kind !== 'plugin') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude only supports plugin installation through this adapter.',
+      );
+    }
+
+    const name = request.name.trim();
+    const marketplace = request.marketplace?.trim() ?? '';
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(marketplace)
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude plugin identity is invalid.',
+      );
+    }
+    if (
+      request.scope !== 'user' &&
+      request.scope !== 'project' &&
+      request.scope !== 'local'
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude plugin installation supports only user, project, or local scope.',
+      );
+    }
+
+    const pluginId = name + '@' + marketplace;
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: [
+          'plugin',
+          'install',
+          pluginId,
+          '--scope',
+          request.scope,
+          '--json',
+        ],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude plugin install',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Claude command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude plugin installation failed.',
+      );
+    }
+
+    const lines = result.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(lines.at(-1) ?? '');
+    } catch {
+      if (result.signal !== null || result.exitCode !== 0) {
+        throw new AgentIntegrationDiscoveryError(
+          'command-failed',
+          'Claude plugin installation returned a non-zero result.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin installation returned invalid JSON.',
+      );
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin installation returned an unexpected payload.',
+      );
+    }
+
+    const item = payload as {
+      command?: unknown;
+      outcome?: unknown;
+      pluginId?: unknown;
+      scope?: unknown;
+      shownCommand?: unknown;
+    };
+    if (item.shownCommand !== undefined) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude plugin installation requires review of a marketplace-declared command; the dashboard did not execute it.',
+      );
+    }
+    if (
+      result.signal !== null ||
+      result.exitCode !== 0 ||
+      item.outcome === 'failed'
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude plugin installation failed.',
+      );
+    }
+    if (
+      item.command !== 'install' ||
+      item.outcome !== 'ok' ||
+      (item.pluginId !== undefined && item.pluginId !== pluginId) ||
+      (item.scope !== undefined && item.scope !== request.scope)
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin installation did not confirm the requested plugin and scope.',
+      );
+    }
+
+    return {
+      id: 'claude-code:plugin:' + pluginId,
+      providerId: 'claude-code',
+      kind: 'plugin',
+      name,
+      scope: request.scope,
+      origin: 'claude-plugin-inventory',
+      marketplace,
+      authStatus: 'unsupported',
+    };
+  }
+
   async setEnabled(
     request: AgentIntegrationSetEnabledRequest,
   ): Promise<AgentIntegration> {
@@ -1414,10 +1560,10 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'plugin',
           scopes: ['user', 'project', 'local', 'managed'],
-          operations: ['list', 'enable', 'disable', 'uninstall'],
+          operations: ['list', 'install', 'enable', 'disable', 'uninstall'],
           availability: 'supported',
           reason:
-            'Installed plugins can be enabled, disabled, or uninstalled only at user, project, and local scopes. Managed and available marketplace plugins are listed read-only; installation stays unavailable until machine-readable pre-install component inspection is wired.',
+            'Marketplace plugins can be installed, enabled, disabled, or uninstalled only at user, project, and local scopes. Managed plugins stay read-only. Install uses structured JSON and fails closed when a marketplace-declared command requires separate human review.',
         },
         {
           kind: 'marketplace',

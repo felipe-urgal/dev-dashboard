@@ -31,9 +31,11 @@ const providerIds: AgentConcreteProviderId[] = [
 ];
 
 type IntegrationView = 'all' | 'installed' | 'available';
+type ClaudePluginInstallScope = 'user' | 'project' | 'local';
 
 const selectedProviderId = ref<AgentConcreteProviderId>('codex');
 const selectedIntegrationView = ref<IntegrationView>('all');
+const claudePluginInstallScope = ref<ClaudePluginInstallScope>('local');
 const capabilities = ref<AgentIntegrationProviderCapabilities[]>([]);
 const integrations = ref<AgentIntegration[]>([]);
 const integrationIssues = ref<string[]>([]);
@@ -47,6 +49,7 @@ const integrationDetails = ref<Record<string, AgentIntegrationDetails>>({});
 const expandedIntegrationId = ref<string | null>(null);
 const inspectingIntegrationId = ref<string | null>(null);
 const togglingIntegrationId = ref<string | null>(null);
+const installingIntegrationId = ref<string | null>(null);
 const uninstallingIntegrationId = ref<string | null>(null);
 
 const selectedCapabilities = computed(
@@ -204,6 +207,12 @@ const authLabel = (integration: AgentIntegration): string => {
   }
 };
 
+const canInstallIntegration = (integration: AgentIntegration): boolean =>
+  integration.providerId === 'claude-code' &&
+  integration.kind === 'plugin' &&
+  integration.origin === 'claude-plugin-catalog' &&
+  Boolean(integration.marketplace);
+
 const canToggleIntegration = (integration: AgentIntegration): boolean =>
   integration.providerId === 'claude-code' &&
   integration.kind === 'plugin' &&
@@ -216,6 +225,66 @@ const canToggleIntegration = (integration: AgentIntegration): boolean =>
 const canUninstallIntegration = (integration: AgentIntegration): boolean =>
   (integration.providerId === 'codex' && integration.kind === 'mcp-server') ||
   canToggleIntegration(integration);
+
+async function installClaudePlugin(
+  integration: AgentIntegration,
+): Promise<void> {
+  if (
+    !canInstallIntegration(integration) ||
+    !integration.marketplace ||
+    installingIntegrationId.value
+  ) {
+    return;
+  }
+
+  const scopeLabel = capabilityScopeLabel(claudePluginInstallScope.value);
+  const confirmed = await confirmDialog({
+    title: 'Instalar plugin do Claude Code',
+    message:
+      'Instalar ' +
+      integration.name +
+      '@' +
+      integration.marketplace +
+      ' no escopo ' +
+      scopeLabel +
+      '? Plugins podem incluir skills, agents, hooks, MCP servers e LSP. Comandos declarados pelo marketplace não serão aceitos automaticamente.',
+    confirmLabel: 'Instalar plugin',
+    cancelLabel: 'Cancelar',
+    tone: 'warning',
+  });
+  if (!confirmed) return;
+
+  installingIntegrationId.value = integration.id;
+  errorMessage.value = '';
+  try {
+    await installAgentIntegration(props.project.id, {
+      providerId: 'claude-code',
+      ...(props.environmentInstanceId
+        ? { environmentInstanceId: props.environmentInstanceId }
+        : {}),
+      kind: 'plugin',
+      name: integration.name,
+      marketplace: integration.marketplace,
+      scope: claudePluginInstallScope.value,
+      confirmed: true,
+    });
+
+    const discovery = await fetchAgentIntegrations(
+      props.project.id,
+      'claude-code',
+      props.environmentInstanceId,
+    );
+    integrations.value = discovery.integrations;
+    integrationIssues.value = discovery.issues.map((issue) => issue.message);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível instalar o plugin do Claude Code.';
+  } finally {
+    installingIntegrationId.value = null;
+  }
+}
 
 async function toggleIntegration(integration: AgentIntegration): Promise<void> {
   if (
@@ -653,6 +722,21 @@ watch(
         </button>
       </div>
 
+      <label
+        v-if="showIntegrationViewFilters"
+        class="agent-integration-install-scope"
+      >
+        <span>Escopo para instalar plugins</span>
+        <select
+          v-model="claudePluginInstallScope"
+          :disabled="Boolean(installingIntegrationId)"
+        >
+          <option value="local">Local</option>
+          <option value="project">Projeto</option>
+          <option value="user">Usuário global</option>
+        </select>
+      </label>
+
       <div v-if="filteredIntegrations.length" class="agent-integrations-items">
         <article
           v-for="integration in filteredIntegrations"
@@ -701,6 +785,7 @@ watch(
             v-if="
               (canInspectSelectedProvider &&
                 integration.kind === 'mcp-server') ||
+              canInstallIntegration(integration) ||
               canUninstallIntegration(integration)
             "
             class="agent-integration-actions"
@@ -720,6 +805,19 @@ watch(
                   : expandedIntegrationId === integration.id
                     ? 'Ocultar'
                     : 'Detalhes'
+              }}
+            </button>
+            <button
+              v-if="canInstallIntegration(integration)"
+              class="agent-integration-details-button"
+              type="button"
+              :disabled="Boolean(installingIntegrationId)"
+              @click="installClaudePlugin(integration)"
+            >
+              {{
+                installingIntegrationId === integration.id
+                  ? 'Instalando…'
+                  : 'Instalar'
               }}
             </button>
             <button
@@ -965,6 +1063,26 @@ watch(
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.agent-integration-install-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-integration-install-scope select {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-0);
+  font: inherit;
+  font-size: var(--font-xs);
 }
 
 .agent-integrations-capabilities,
