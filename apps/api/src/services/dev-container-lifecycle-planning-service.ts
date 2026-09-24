@@ -7,6 +7,7 @@ import type {
   DevContainerDiscoveryService,
   DevContainerLifecycleHook,
   DevContainerInspection,
+  DevContainerInspectionState,
 } from './dev-container-discovery-service.js';
 
 const POST_CREATE_HOOKS = new Set<DevContainerLifecycleHook>([
@@ -41,10 +42,13 @@ export interface DevContainerLifecyclePreflight {
   runtime: 'host' | 'devcontainer';
   executionEnabled: false;
   requiresConfirmation: boolean;
+  discoveryState?: DevContainerInspectionState;
   configSource?: DevContainerConfigurationSource;
   cliVersion?: string;
   configuration?: {
     kind: DevContainerConfigurationKind;
+    name?: string;
+    service?: string;
     lifecycleHooks: DevContainerLifecycleHook[];
   };
   limitations: DevContainerLifecycleLimitation[];
@@ -152,6 +156,7 @@ export class DevContainerLifecyclePlanningService {
       environmentInstanceId: executionContext.environmentInstanceId,
       runtime: executionContext.runtime,
       executionEnabled: false as const,
+      discoveryState: inspection.state,
       ...(inspection.configSource
         ? { configSource: inspection.configSource }
         : {}),
@@ -173,6 +178,12 @@ export class DevContainerLifecyclePlanningService {
 
     const configuration = {
       kind: inspection.configuration.kind,
+      ...(inspection.configuration.name
+        ? { name: inspection.configuration.name }
+        : {}),
+      ...(inspection.configuration.service
+        ? { service: inspection.configuration.service }
+        : {}),
       lifecycleHooks: [...inspection.configuration.lifecycleHooks],
     };
     const lifecycleHooks = configuration.lifecycleHooks;
