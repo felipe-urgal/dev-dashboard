@@ -48,18 +48,19 @@ Estados como `cli-missing`, `unavailable` e `invalid-output` continuam respostas
 
 ## UI read-only
 
-A ferramenta `Dev Container` no projeto consome somente esse endpoint e deixa explícitos:
+A ferramenta `Dev Container` no projeto consome o lifecycle preflight da Environment Instance selecionada. O preflight reutiliza internamente o discovery e preserva o resumo sanitizado necessário para que a tela faça **uma única inspeção por refresh**.
 
-- estado do discovery;
-- runtime atual ainda como `Host`;
+A UI deixa explícitos:
+
+- estado `review | blocked | unavailable`, refinado pelo estado do discovery quando indisponível;
+- runtime real da Environment Instance: `host | devcontainer`;
 - tipo resumido da configuração;
 - versão da Dev Container CLI;
-- origem da configuração e serviço Compose quando disponíveis;
-- nomes dos lifecycle hooks declarados, sem transportar seus comandos.
+- origem, nome seguro e serviço Compose quando disponíveis;
+- nomes dos lifecycle hooks declarados;
+- diagnóstico e limitações conhecidas, incluindo cleanup pendente e hooks diferidos.
 
-A tela oferece apenas atualização do snapshot. Ela também consulta o lifecycle preflight da Environment Instance selecionada e exibe `review | blocked | unavailable`, runtime real, diagnóstico e limitações conhecidas. A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser.
-
-A UI não possui ações de `up`, rebuild, exec, Terminal ou cleanup; `executionEnabled=false` permanece explícito.
+A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser. A tela oferece apenas atualização do preflight e não possui ações de `up`, rebuild, exec, Terminal ou cleanup; `executionEnabled=false` permanece explícito.
 
 ## Lifecycle preflight read-only
 
