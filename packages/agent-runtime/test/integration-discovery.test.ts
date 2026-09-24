@@ -473,12 +473,7 @@ test('Claude plugin discovery returns sanitized installed plugin metadata', asyn
 
   assert.deepEqual(calls[0]?.args, ['plugin', 'list', '--json']);
   assert.deepEqual(calls[1]?.args, ['plugin', 'marketplace', 'list', '--json']);
-  assert.deepEqual(calls[2]?.args, [
-    'plugin',
-    'list',
-    '--json',
-    '--available',
-  ]);
+  assert.deepEqual(calls[2]?.args, ['plugin', 'list', '--json', '--available']);
   assert.equal(calls[0]?.cwd, '/workspace/project');
   assert.equal(calls[1]?.cwd, '/workspace/project');
   assert.equal(calls[2]?.cwd, '/workspace/project');
@@ -671,7 +666,6 @@ test('Claude marketplace discovery failure does not hide installed plugins', asy
   );
 });
 
-
 test('Claude plugin catalog returns sanitized available plugins and skips installed duplicates', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({
@@ -729,12 +723,7 @@ test('Claude plugin catalog returns sanitized available plugins and skips instal
     (integration) => integration.origin === 'claude-plugin-catalog',
   );
 
-  assert.deepEqual(calls[2]?.args, [
-    'plugin',
-    'list',
-    '--json',
-    '--available',
-  ]);
+  assert.deepEqual(calls[2]?.args, ['plugin', 'list', '--json', '--available']);
   assert.deepEqual(catalog, [
     {
       id: 'claude-code:plugin-catalog:security@official',
@@ -757,9 +746,7 @@ test('Claude plugin catalog failure is isolated from installed plugins and marke
     runProcess: async (request) => {
       if (request.args[1] === 'marketplace') {
         return result({
-          stdout: JSON.stringify([
-            { name: 'company-tools', source: 'github' },
-          ]),
+          stdout: JSON.stringify([{ name: 'company-tools', source: 'github' }]),
         });
       }
       if (request.args.includes('--available')) {
@@ -790,7 +777,10 @@ test('Claude plugin catalog failure is isolated from installed plugins and marke
       message: 'Claude plugin catalog discovery returned a non-zero result.',
     },
   ]);
-  assert.equal(JSON.stringify(discovery).includes('SECRET_CATALOG_ERROR'), false);
+  assert.equal(
+    JSON.stringify(discovery).includes('SECRET_CATALOG_ERROR'),
+    false,
+  );
 });
 
 test('Claude plugin catalog ignores malformed entries without exposing free text', async () => {
