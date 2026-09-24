@@ -412,8 +412,11 @@ test('Automatic selection uses healthy providers in deterministic order', async 
     now: () => observedAt,
   });
 
+  const status = await automatic.status();
   const execution = await automatic.execute(request());
 
+  assert.equal(status.availability, 'available');
+  assert.equal(status.selectedProviderId, 'codex');
   assert.equal(execution.providerId, 'codex');
   assert.equal(claude.executions, 0);
   assert.equal(codex.executions, 1);
