@@ -91,6 +91,7 @@ test('buildApp gerencia o Browser Bridge junto do servidor HTTP', async () => {
     assert.equal(startCalls, 0);
     await app.listen({ host: '127.0.0.1', port: 0 });
     assert.equal(startCalls, 1);
+    assert.equal(closeCalls, 0);
 
     await app.close();
     assert.equal(closeCalls, 1);
