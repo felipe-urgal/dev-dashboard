@@ -9,11 +9,7 @@ export type AgentIntegrationKind =
   'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
 
 export type AgentIntegrationScope =
-  | 'user'
-  | 'project'
-  | 'local'
-  | 'managed'
-  | 'session';
+  'user' | 'project' | 'local' | 'managed' | 'session';
 
 export type AgentIntegrationOrigin =
   'codex-global-config' | 'browser-local-allowlist';

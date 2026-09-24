@@ -10,16 +10,10 @@ export type AgentIntegrationKind =
   'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
 
 export type AgentIntegrationScope =
-  | 'user'
-  | 'project'
-  | 'local'
-  | 'managed'
-  | 'session';
+  'user' | 'project' | 'local' | 'managed' | 'session';
 
 export type AgentIntegrationOrigin =
-  | 'codex-global-config'
-  | 'claude-plugin-inventory'
-  | 'browser-local-allowlist';
+  'codex-global-config' | 'claude-plugin-inventory' | 'browser-local-allowlist';
 
 export type AgentIntegrationOperation =
   | 'list'
@@ -492,9 +486,7 @@ interface ClaudePluginIntegrationProviderOptions {
   timeoutMs?: number;
 }
 
-export class ClaudePluginIntegrationProvider
-  implements AgentIntegrationProvider
-{
+export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider {
   readonly id = 'claude-code' as const;
   private readonly command: string;
   private readonly runProcess: AgentCliProcessRunner;

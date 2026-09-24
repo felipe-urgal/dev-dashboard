@@ -332,7 +332,6 @@ test('Codex MCP inspection fails closed on mismatched or malformed metadata', as
   );
 });
 
-
 test('Claude plugin discovery returns sanitized installed plugin metadata', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({
@@ -392,8 +391,14 @@ test('Claude plugin discovery returns sanitized installed plugin metadata', asyn
     },
   ]);
   assert.deepEqual(discovery.issues, []);
-  assert.equal(JSON.stringify(discovery).includes('SECRET_SHOULD_NOT_LEAK'), false);
-  assert.equal(JSON.stringify(discovery).includes('/secret/plugin/path'), false);
+  assert.equal(
+    JSON.stringify(discovery).includes('SECRET_SHOULD_NOT_LEAK'),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(discovery).includes('/secret/plugin/path'),
+    false,
+  );
   assert.equal(JSON.stringify(discovery).includes('SECRET_NOTE'), false);
 });
 
