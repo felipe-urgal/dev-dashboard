@@ -73,6 +73,28 @@ test('snapshot copia bytes confirmados para arquivo privado e dispose remove tud
   assert.equal(await readFile(configPath, 'utf8'), content);
 });
 
+test('dispose permanece idempotente depois de remover o snapshot', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  const workspace = path.join(root, 'workspace');
+  await mkdir(workspace);
+  const content = '{}\n';
+  await writeFile(path.join(workspace, '.devcontainer.json'), content);
+
+  const snapshot = await new DevContainerConfigSnapshotService(
+    path.join(root, 'snapshots'),
+    () => 'snapshot-idempotent',
+  ).create({
+    workspaceFolder: workspace,
+    configSource: '.devcontainer.json',
+    expectedConfigurationHash: sha256(content),
+  });
+
+  await snapshot.dispose();
+  await snapshot.dispose();
+  await assert.rejects(() => access(snapshot.overrideConfigPath));
+});
+
 test('snapshot falha fechado quando conteúdo não corresponde ao hash confirmado', async (context) => {
   const root = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-config-snapshot-'),
