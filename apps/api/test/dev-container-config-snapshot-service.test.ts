@@ -74,7 +74,9 @@ test('snapshot copia bytes confirmados para arquivo privado e dispose remove tud
 });
 
 test('dispose permanece idempotente depois de remover o snapshot', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-config-snapshot-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const workspace = path.join(root, 'workspace');
   await mkdir(workspace);
