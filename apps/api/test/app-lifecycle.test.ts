@@ -45,7 +45,6 @@ test('buildApp fecha o serviço compartilhado de PTYs destacáveis no shutdown',
   }
 });
 
-
 test('buildApp gerencia o Browser Bridge junto do servidor HTTP', async () => {
   const fixtureRoot = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-api-browser-lifecycle-'),
