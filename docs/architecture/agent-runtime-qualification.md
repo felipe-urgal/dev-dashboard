@@ -46,6 +46,33 @@ npm run test:e2e --workspace=@dev-dashboard/web -- project-agent-qualification.s
 
 Esse teste usa providers simulados de forma deliberada. Ele prova o fluxo da UI/API client e as transições esperadas, mas **não** prova disponibilidade/autenticação/comportamento real de Codex, Claude ou ChatGPT Browser.
 
+## Preflight do gate real
+
+Antes de uma execução real, rode o preflight somente contra a API loopback do Dashboard:
+
+```bash
+npm run agent:qualification:preflight -- --provider codex
+npm run agent:qualification:preflight -- --provider claude-code
+npm run agent:qualification:preflight -- --provider chatgpt-browser
+npm run agent:qualification:preflight -- --provider automatic
+```
+
+Opcionalmente, quando a API usa outra porta local:
+
+```bash
+npm run agent:qualification:preflight -- --provider codex --api http://127.0.0.1:4444
+```
+
+O comando registra somente:
+
+- commit e indicador de working tree suja, sem listar paths;
+- provider alvo;
+- versão local do CLI quando aplicável;
+- status sanitizado retornado por `/api/agent/providers`;
+- `ready: true|false`.
+
+Ele rejeita API não-loopback, não imprime `reason` bruto do provider e não transporta tokens, cookies, stdout/stderr do provider ou configuração MCP. `ready: true` comprova apenas que o ambiente está pronto para começar o gate; **não** conta como E2E real nem como paridade.
+
 ## Protocolo de qualificação real por provider
 
 Para cada provider (`codex`, `claude-code`, `chatgpt-browser` e depois `automatic`):
