@@ -82,6 +82,21 @@ const integrationKindLabel = (kind: AgentIntegration['kind']): string => {
 };
 
 
+const capabilityScopeLabel = (scope: string): string => {
+  switch (scope) {
+    case 'user':
+      return 'Usuário global';
+    case 'project':
+      return 'Projeto';
+    case 'local':
+      return 'Local';
+    case 'session':
+      return 'Sessão';
+    default:
+      return scope;
+  }
+};
+
 const integrationScopeLabel = (integration: AgentIntegration): string => {
   switch (integration.scope) {
     case 'user':
@@ -296,7 +311,12 @@ watch(
       >
         <div>
           <strong>{{ integrationKindLabel(capability.kind) }}</strong>
-          <small>{{ capability.scopes.join(' · ') || 'Sem escopo' }}</small>
+          <small>
+            {{
+              capability.scopes.map(capabilityScopeLabel).join(' · ') ||
+              'Sem escopo'
+            }}
+          </small>
         </div>
         <StatusBadge
           :tone="
