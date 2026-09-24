@@ -294,6 +294,7 @@ async function uninstallIntegration(
     uninstallingIntegrationId.value = null;
   }
 }
+
 async function inspectIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
