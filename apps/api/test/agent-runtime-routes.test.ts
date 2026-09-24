@@ -533,6 +533,67 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(JSON.stringify(body).includes('SECRET_MCP'), false);
 });
 
+test('Agent Runtime HTTP instala MCP remoto Claude sem aceitar headers ou comando livre', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      installIntegration: async (...args) => {
+        calls.push(args);
+        return {
+          id: 'claude-code:mcp-server:docs',
+          providerId: 'claude-code',
+          kind: 'mcp-server',
+          name: 'docs',
+          scope: 'project',
+          origin: 'claude-mcp-config',
+          authStatus: 'unknown',
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/integrations',
+    payload: {
+      providerId: 'claude-code',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'mcp-server',
+      name: 'docs',
+      scope: 'project',
+      confirmed: true,
+      url: 'https://example.com/mcp',
+      headers: { Authorization: 'Bearer SECRET' },
+      command: 'npx unsafe-server',
+      args: ['--unsafe'],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'claude-code',
+      {
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'project',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  assert.equal(JSON.stringify(calls).includes('SECRET'), false);
+  assert.equal(JSON.stringify(calls).includes('npx unsafe-server'), false);
+  assert.equal(JSON.stringify(calls).includes('--unsafe'), false);
+});
+
 test('Agent Runtime HTTP instala plugin Claude com marketplace e confirmação estruturados', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
@@ -677,6 +738,62 @@ test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturad
     },
     undefined,
   ]);
+});
+
+test('Agent Runtime HTTP remove MCP Claude com escopo explícito e payload sanitizado', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      uninstallIntegration: async (...args) => {
+        calls.push(args);
+        return {
+          providerId: 'claude-code',
+          kind: 'mcp-server',
+          name: 'docs',
+          scope: 'local',
+          dataPreserved: false,
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'DELETE',
+    url: '/api/projects/project-1/agent/integrations',
+    payload: {
+      providerId: 'claude-code',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'mcp-server',
+      name: 'docs',
+      scope: 'local',
+      confirmed: true,
+      command: 'rm -rf /',
+      headers: { Authorization: 'Bearer SECRET' },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'claude-code',
+      {
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'local',
+        confirmed: true,
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  assert.equal(response.json().result.dataPreserved, false);
+  assert.equal(JSON.stringify(calls).includes('SECRET'), false);
+  assert.equal(JSON.stringify(calls).includes('rm -rf'), false);
 });
 
 test('Agent Runtime HTTP remove plugin Claude com confirmação e preserva dados', async (context) => {
