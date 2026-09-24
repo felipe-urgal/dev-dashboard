@@ -147,7 +147,9 @@ test('snapshot rejeita symlink e configuração acima do limite', async (context
 });
 
 test('snapshot rejeita root relativo e identificador interno inseguro', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-config-snapshot-'),
+  );
   context.after(async () => rm(root, { recursive: true, force: true }));
   const workspace = path.join(root, 'workspace');
   await mkdir(workspace);
