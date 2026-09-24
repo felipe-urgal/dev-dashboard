@@ -21,10 +21,10 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Provider indisponível | automatizado | coberto | UI mantém estado explícito e execução bloqueada |
 | Retry após falha | automatizado | coberto | E2E devolve task `failed` para `queued` somente por ação explícita |
 | Recover após interrupção | automatizado | coberto | E2E exige ação `Recover` e reconstrói estado `queued` |
-| E2E real Codex | provider real | pendente | executar protocolo abaixo |
-| E2E real Claude Code | provider real | pendente | executar protocolo abaixo |
-| E2E real ChatGPT Browser | provider real | pendente | bridge + extensão + sessão ChatGPT |
-| Automatic com providers reais | provider real | pendente | confirmar seleção determinística por preflight |
+| E2E real Codex | provider real | concluído | execução real em 2026-09-24; evidência consolidada na #777 |
+| E2E real Claude Code | provider real | bloqueado externo | CLI presente, mas autenticação/entitlement indisponível; evidência na #777 |
+| E2E real ChatGPT Browser | provider real | concluído | execução real em 2026-09-24 e hardening do #925; evidência na #777 |
+| Automatic com providers reais | provider real | próximo gate | confirmar seleção determinística entre os providers locais reais por preflight e execução |
 | Restart do Dashboard durante execução real | sistema real | pendente | matar/reiniciar processo e registrar recovery |
 | Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
 | Mesmo target com exclusão | sistema real | pendente | comprovar lock/serialização no target real |
@@ -34,6 +34,15 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 ## Estado do tracker
 
 Em 2026-09-23, a epic #768 e o roadmap #596 foram sincronizados com o estado real: #773–#776 estão concluídas e #777 permanece aberta para os gates reais de paridade. As issues #599/#600 foram reconciliadas como concluídas e #589 continua parcial apenas na convergência da execução mutável.
+
+## Evidência real consolidada — 2026-09-24
+
+- **Codex**: E2E real concluído com provider concreto `codex`, capability `workspace:write` e execução chegando a `review`. O diff ficou restrito ao arquivo esperado e a validação direcionada passou. Nenhum commit, push ou PR foi autorizado ao provider.
+- **Claude Code**: preflight real encontrou CLI compatível, mas `claude auth status` permaneceu sem autenticação. A tentativa interativa confirmou dependência externa de plano elegível ou chave de API. O gate continua pendente sem ser tratado como falha do runtime.
+- **ChatGPT Browser**: E2E real concluído com provider concreto `chatgpt-browser`, capability `workspace:write`, diff restrito ao teste esperado e validação direcionada verde. A qualificação revelou gaps reais de envelope renderizado, classificação de `apply_patch` e persistência do token do Browser Bridge, corrigidos no #925.
+- **Automatic**: é o próximo gate real executável. O contrato de #771 seleciona deterministicamente apenas os providers locais Codex/Claude Code; ChatGPT Browser ficou explicitamente fora do escopo dessa seleção. No ambiente qualificado atual, Codex está disponível e Claude permanece bloqueado externamente, então a execução real deve comprovar a escolha concreta de Codex sem fallback silencioso depois do início.
+
+A reinicialização do Browser Bridge com token persistido já foi comprovada, mas isso **não** substitui o gate separado de restart/recovery durante uma execução real.
 
 ## E2E automatizado do control plane
 
