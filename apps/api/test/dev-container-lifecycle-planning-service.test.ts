@@ -54,6 +54,7 @@ test('preflight deixa image/dockerfile apenas em review e nunca habilita execuç
     cliVersion: '0.80.1',
     configuration: {
       kind: 'image',
+      name: 'Workspace',
       lifecycleHooks: ['postCreateCommand', 'postStartCommand'],
     },
   });
@@ -64,6 +65,8 @@ test('preflight deixa image/dockerfile apenas em review e nunca habilita execuç
   assert.equal(plan.reason, 'review-required');
   assert.equal(plan.executionEnabled, false);
   assert.equal(plan.requiresConfirmation, true);
+  assert.equal(plan.discoveryState, 'available');
+  assert.equal(plan.configuration?.name, 'Workspace');
   assert.deepEqual(plan.limitations, [
     'cleanup-adapter-pending',
     'post-create-hooks-deferred',
@@ -131,6 +134,7 @@ test('preflight preserva discovery inconclusivo sem promover disponibilidade', a
   assert.equal(plan.reason, 'discovery-not-ready');
   assert.equal(plan.executionEnabled, false);
   assert.equal(plan.requiresConfirmation, false);
+  assert.equal(plan.discoveryState, 'cli-missing');
   assert.equal(plan.diagnostic, 'CLI indisponível.');
 });
 
