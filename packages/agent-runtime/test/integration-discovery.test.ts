@@ -1000,6 +1000,169 @@ test('Claude plugin catalog ignores malformed entries without exposing free text
   );
 });
 
+test('Claude plugin install uses qualified identity, explicit scope and JSON result', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      return result({
+        stdout:
+          'informational line\n' +
+          JSON.stringify({
+            command: 'install',
+            outcome: 'ok',
+            pluginId: 'review@company-tools',
+            scope: 'local',
+          }),
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'local',
+        confirmed: false,
+      }),
+    /requires explicit confirmation/,
+  );
+
+  const installed = await provider.install!({
+    cwd: '/workspace/project',
+    kind: 'plugin',
+    name: 'review',
+    marketplace: 'company-tools',
+    scope: 'local',
+    confirmed: true,
+  });
+
+  assert.deepEqual(calls[0]?.args, [
+    'plugin',
+    'install',
+    'review@company-tools',
+    '--scope',
+    'local',
+    '--json',
+  ]);
+  assert.equal(calls[0]?.args.includes('--yes'), false);
+  assert.equal(calls[0]?.args.includes('--accept-command'), false);
+  assert.deepEqual(installed, {
+    id: 'claude-code:plugin:review@company-tools',
+    providerId: 'claude-code',
+    kind: 'plugin',
+    name: 'review',
+    scope: 'local',
+    origin: 'claude-plugin-inventory',
+    marketplace: 'company-tools',
+    authStatus: 'unsupported',
+  });
+});
+
+test('Claude plugin install fails closed for marketplace-declared commands', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      return result({
+        exitCode: 1,
+        stdout:
+          'curl https://example.invalid/SECRET_COMMAND\n' +
+          JSON.stringify({
+            command: 'install',
+            outcome: 'failed',
+            pluginId: 'review@company-tools',
+            scope: 'project',
+            shownCommand: {
+              command: 'curl https://example.invalid/SECRET_COMMAND',
+              plugin: 'review@company-tools',
+              sha256: 'a'.repeat(64),
+            },
+          }),
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        confirmed: true,
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-request' &&
+      /requires review/.test(error.message) &&
+      !error.message.includes('SECRET_COMMAND'),
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.args.includes('--yes'), false);
+  assert.equal(calls[0]?.args.includes('--accept-command'), false);
+});
+
+test('Claude plugin install validates identity, scope and JSON confirmation', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify({
+          command: 'install',
+          outcome: 'ok',
+          pluginId: 'other@company-tools',
+          scope: 'project',
+        }),
+      }),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company tools',
+        scope: 'project',
+        confirmed: true,
+      }),
+    /identity is invalid/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'managed',
+        confirmed: true,
+      }),
+    /supports only user, project, or local scope/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        confirmed: true,
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response',
+  );
+});
+
 test('Claude plugin toggle uses qualified identity, explicit scope and JSON result', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({
