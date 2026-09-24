@@ -162,6 +162,8 @@ const integrationOriginLabel = (integration: AgentIntegration): string => {
   switch (integration.origin) {
     case 'codex-global-config':
       return 'Configuração global do Codex';
+    case 'claude-mcp-config':
+      return 'Configuração MCP do Claude Code';
     case 'claude-plugin-inventory':
       return 'Inventário de plugins do Claude Code';
     case 'claude-plugin-catalog':
