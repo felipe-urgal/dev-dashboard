@@ -180,6 +180,30 @@ test('preflight Automatic preserva provider concreto sem expor reason bruto', as
   );
 });
 
+test('preflight Automatic falha fechado sem seleção concreta válida', async () => {
+  const stdout = capture();
+  const stderr = capture();
+
+  const code = await runAgentQualificationPreflight(
+    ['--provider', 'automatic'],
+    {
+      runner: baseRunner([]),
+      fetchImpl: readyFetch('automatic', {
+        selectedProviderId: 'automatic',
+      }),
+      readToken: async () => 'fixture-local-token',
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    },
+  );
+
+  assert.equal(code, 1);
+  const output = JSON.parse(stdout.read());
+  assert.equal(output.ready, false);
+  assert.equal(output.status.selectedProviderId, undefined);
+  assert.match(stderr.read(), /nenhum teste de paridade foi declarado/i);
+});
+
 test('preflight falha fechado quando provider real não está pronto', async () => {
   const stdout = capture();
   const stderr = capture();
