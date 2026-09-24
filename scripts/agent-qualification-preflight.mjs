@@ -255,9 +255,13 @@ export async function runAgentQualificationPreflight(
   );
   const providerStatus = providerLookup.status;
 
+  const automaticSelectionReady =
+    options.provider !== 'automatic' ||
+    CONCRETE_PROVIDERS.has(providerStatus?.selectedProviderId);
   const ready =
     providerStatus?.availability === 'available' &&
-    (cli === null || cli.available === true);
+    (cli === null || cli.available === true) &&
+    automaticSelectionReady;
 
   stdout.write(
     JSON.stringify(
