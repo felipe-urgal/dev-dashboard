@@ -526,8 +526,7 @@ async function installMcp(): Promise<void> {
   }
 
   const providerId = selectedProviderId.value;
-  const scope =
-    providerId === 'codex' ? 'user' : claudeMcpInstallScope.value;
+  const scope = providerId === 'codex' ? 'user' : claudeMcpInstallScope.value;
 
   installing.value = true;
   errorMessage.value = '';
