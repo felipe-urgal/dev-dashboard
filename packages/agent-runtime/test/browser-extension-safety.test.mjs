@@ -3,6 +3,32 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 
+async function loadChatGptAdapter({ assistant } = {}) {
+  const code = await fs.readFile(
+    new URL('../browser-extension/chatgpt-adapter.js', import.meta.url),
+    'utf8',
+  );
+  const document = {
+    querySelector() {
+      return null;
+    },
+    querySelectorAll(selector) {
+      return selector === '[data-message-author-role="assistant"]' && assistant
+        ? [assistant]
+        : [];
+    },
+  };
+  const context = {
+    document,
+    globalThis: null,
+    setTimeout,
+    clearTimeout,
+  };
+  context.globalThis = context;
+  vm.runInNewContext(code, context);
+  return context.ChatGPTAdapter;
+}
+
 async function loadContentScript({ initialStorage = [], assistantSignature = '0:0:0' } = {}) {
   const code = await fs.readFile(new URL('../browser-extension/content-script.js', import.meta.url), 'utf8');
   let listener;
@@ -56,6 +82,53 @@ async function loadContentScript({ initialStorage = [], assistantSignature = '0:
     storage,
   };
 }
+
+test('adapter reconstrói envelope executável a partir de code block renderizado', async () => {
+  const payload = JSON.stringify({
+    type: 'terminal_result',
+    status: 'completed',
+  });
+  const codeNode = { textContent: payload };
+  const preNode = {
+    querySelector(selector) {
+      return selector === 'code' ? codeNode : null;
+    },
+  };
+  const assistant = {
+    textContent: 'agent-workflow-browser' + payload,
+    querySelectorAll(selector) {
+      return selector === 'pre' ? [preNode] : [];
+    },
+  };
+
+  const adapter = await loadChatGptAdapter({ assistant });
+  const text = adapter.lastAssistantText();
+
+  assert.match(text, /^\x60{3}agent-workflow-browser\n/);
+  assert.match(text, /"type":"terminal_result"/);
+  assert.match(text, /\n\x60{3}$/);
+});
+
+test('adapter não escolhe entre múltiplos envelopes renderizados', async () => {
+  const payloads = [
+    JSON.stringify({ type: 'tool_request', toolCallId: 'a' }),
+    JSON.stringify({ type: 'terminal_result', status: 'completed' }),
+  ];
+  const assistant = {
+    textContent: 'rendered fallback',
+    querySelectorAll(selector) {
+      if (selector !== 'pre') return [];
+      return payloads.map((payload) => ({
+        querySelector(inner) {
+          return inner === 'code' ? { textContent: payload } : null;
+        },
+      }));
+    },
+  };
+
+  const adapter = await loadChatGptAdapter({ assistant });
+  assert.equal(adapter.lastAssistantText(), 'rendered fallback');
+});
 
 test('content script never resubmits a job once submit was armed', async () => {
   const x = await loadContentScript();
