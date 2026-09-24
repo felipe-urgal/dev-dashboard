@@ -52,6 +52,11 @@ test('Dev Container HTTP expõe discovery sanitizado e 404 determinístico', asy
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: projectStore(),
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
     devContainerDiscoveryService: {
       inspect: async (selectedProject) => {
         calls.push(selectedProject.id);
@@ -93,6 +98,11 @@ test('Dev Container HTTP preserva estados fail-closed sem inventar configuration
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: projectStore(),
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
     devContainerDiscoveryService: {
       inspect: async () => ({
         state: 'cli-missing',
@@ -118,4 +128,129 @@ test('Dev Container HTTP preserva estados fail-closed sem inventar configuration
       diagnostic: 'A Dev Container CLI não está disponível no PATH da API.',
     },
   });
+});
+
+
+test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminha Environment Instance', async (context) => {
+  const calls: Array<{ projectId: string; environmentInstanceId?: string }> = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-24T22:10:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async (selectedProject, input) => {
+        calls.push({
+          projectId: selectedProject.id,
+          ...(input.environmentInstanceId
+            ? { environmentInstanceId: input.environmentInstanceId }
+            : {}),
+        });
+        return {
+          projectId: selectedProject.id,
+          operation: 'create',
+          state: 'review',
+          reason: 'review-required',
+          observedAt: '2026-09-24T22:10:00.000Z',
+          environmentInstanceId:
+            input.environmentInstanceId ?? 'environment:primary:project-1',
+          runtime: 'host',
+          executionEnabled: false,
+          requiresConfirmation: true,
+          configSource: '.devcontainer/devcontainer.json',
+          cliVersion: '0.80.1',
+          configuration: {
+            kind: 'image',
+            lifecycleHooks: ['postCreateCommand'],
+          },
+          limitations: [
+            'cleanup-adapter-pending',
+            'post-create-hooks-deferred',
+          ],
+          diagnostic: 'Revisão humana necessária.',
+          internalSecret: 'não pode sair',
+        } as Awaited<
+          ReturnType<
+            import('../src/services/dev-container-lifecycle-planning-service.js').DevContainerLifecyclePlanningService['plan']
+          >
+        >;
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/api/projects/project-1/dev-container/lifecycle-preflight?' +
+      'environmentInstanceId=environment%3Aworktree%3Aproject-1%3Afeature',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = response.json<{
+    preflight: {
+      state: string;
+      executionEnabled: boolean;
+      environmentInstanceId: string;
+      internalSecret?: string;
+    };
+  }>();
+  assert.equal(body.preflight.state, 'review');
+  assert.equal(body.preflight.executionEnabled, false);
+  assert.equal(
+    body.preflight.environmentInstanceId,
+    'environment:worktree:project-1:feature',
+  );
+  assert.equal(body.preflight.internalSecret, undefined);
+  assert.deepEqual(calls, [
+    {
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:worktree:project-1:feature',
+    },
+  ]);
+});
+
+test('Dev Container lifecycle preflight converte ambiente inexistente em 404', async (context) => {
+  const { DevContainerLifecyclePlanningError } =
+    await import('../src/services/dev-container-lifecycle-planning-service.js');
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-24T22:11:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new DevContainerLifecyclePlanningError(
+          'DEV_CONTAINER_ENVIRONMENT_NOT_FOUND',
+          'Ambiente indisponível.',
+        );
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/api/projects/project-1/dev-container/lifecycle-preflight?' +
+      'environmentInstanceId=missing',
+  });
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(
+    response.json<{ error: string }>().error,
+    'ENVIRONMENT_INSTANCE_NOT_FOUND',
+  );
 });
