@@ -9,6 +9,7 @@ import {
   fetchAgentIntegrationDetails,
   fetchAgentIntegrations,
   installAgentIntegration,
+  setAgentIntegrationEnabled,
   type AgentConcreteProviderId,
   type AgentIntegration,
   type AgentIntegrationDetails,
@@ -40,6 +41,7 @@ const installConfirmed = ref(false);
 const integrationDetails = ref<Record<string, AgentIntegrationDetails>>({});
 const expandedIntegrationId = ref<string | null>(null);
 const inspectingIntegrationId = ref<string | null>(null);
+const togglingIntegrationId = ref<string | null>(null);
 
 const selectedCapabilities = computed(
   () =>
@@ -142,6 +144,59 @@ const authLabel = (integration: AgentIntegration): string => {
       return 'Auth não informada';
   }
 };
+
+
+const canToggleIntegration = (integration: AgentIntegration): boolean =>
+  integration.providerId === 'claude-code' &&
+  integration.kind === 'plugin' &&
+  Boolean(integration.marketplace) &&
+  (integration.scope === 'user' ||
+    integration.scope === 'project' ||
+    integration.scope === 'local') &&
+  typeof integration.enabled === 'boolean';
+
+async function toggleIntegration(
+  integration: AgentIntegration,
+): Promise<void> {
+  if (
+    !canToggleIntegration(integration) ||
+    !integration.marketplace ||
+    !integration.scope ||
+    integration.enabled === undefined ||
+    togglingIntegrationId.value
+  ) {
+    return;
+  }
+
+  togglingIntegrationId.value = integration.id;
+  errorMessage.value = '';
+  try {
+    const updated = await setAgentIntegrationEnabled(props.project.id, {
+      providerId: 'claude-code',
+      ...(props.environmentInstanceId
+        ? { environmentInstanceId: props.environmentInstanceId }
+        : {}),
+      kind: 'plugin',
+      name: integration.name,
+      marketplace: integration.marketplace,
+      scope: integration.scope,
+      enabled: !integration.enabled,
+    });
+    const current = integrations.value.find(
+      (item) => item.id === integration.id,
+    );
+    if (current) {
+      current.enabled = updated.enabled;
+    }
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível alterar o estado do plugin.';
+  } finally {
+    togglingIntegrationId.value = null;
+  }
+}
 
 async function inspectIntegration(
   integration: AgentIntegration,
@@ -452,6 +507,22 @@ watch(
                 : expandedIntegrationId === integration.id
                   ? 'Ocultar'
                   : 'Detalhes'
+            }}
+          </button>
+
+          <button
+            v-if="canToggleIntegration(integration)"
+            class="agent-integration-details-button"
+            type="button"
+            :disabled="togglingIntegrationId === integration.id"
+            @click="toggleIntegration(integration)"
+          >
+            {{
+              togglingIntegrationId === integration.id
+                ? 'Aplicando…'
+                : integration.enabled
+                  ? 'Desativar'
+                  : 'Ativar'
             }}
           </button>
           <div
