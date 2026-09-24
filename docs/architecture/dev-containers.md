@@ -46,6 +46,19 @@ A rota resolve o `Project` no backend e devolve somente o snapshot sanitizado do
 
 Estados como `cli-missing`, `unavailable` e `invalid-output` continuam respostas válidas de inspeção; a API não os promove a runtime utilizável.
 
+## UI read-only
+
+A ferramenta `Dev Container` no projeto consome somente esse endpoint e deixa explícitos:
+
+- estado do discovery;
+- runtime atual ainda como `Host`;
+- tipo resumido da configuração;
+- versão da Dev Container CLI;
+- origem da configuração e serviço Compose quando disponíveis;
+- nomes dos lifecycle hooks declarados, sem transportar seus comandos.
+
+A tela oferece apenas atualização do snapshot. Ela não possui ações de `up`, rebuild, exec, Terminal ou cleanup.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:

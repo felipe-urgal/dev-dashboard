@@ -6,6 +6,7 @@ import {
   CodeBracketIcon,
   CommandLineIcon,
   CubeIcon,
+  CubeTransparentIcon,
   DocumentTextIcon,
   FolderIcon,
   LockClosedIcon,
@@ -51,6 +52,19 @@ const route = useRoute();
   >
     <CubeIcon aria-hidden="true" />
     <span>Dependências</span>
+  </RouterLink>
+  <RouterLink
+    class="project-details-tab"
+    :class="{
+      'project-details-tab-active': route.name === 'project-dev-container',
+    }"
+    :to="{
+      name: 'project-dev-container',
+      params: { projectId: project.id },
+    }"
+  >
+    <CubeTransparentIcon aria-hidden="true" />
+    <span>Dev Container</span>
   </RouterLink>
   <RouterLink
     class="project-details-tab"
