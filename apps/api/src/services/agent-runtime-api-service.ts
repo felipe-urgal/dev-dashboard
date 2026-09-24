@@ -16,6 +16,7 @@ import type {
   AgentConcreteProviderId,
   AgentIntegration,
   AgentIntegrationCapabilityRegistry,
+  AgentIntegrationInstallRequest,
   AgentIntegrationProviderCapabilities,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
@@ -109,6 +110,12 @@ export interface AgentRuntimeApiServicePort {
     providerId: AgentConcreteProviderId,
     environmentInstanceId?: string,
   ): Promise<AgentIntegration[]>;
+  installIntegration(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationInstallRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegration>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
   createTask(
     projectId: string,
@@ -269,6 +276,57 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       return await provider.list({ cwd: executionContext.cwd });
     } catch (error) {
       if (error instanceof AgentIntegrationDiscoveryError) {
+        throw new AgentRuntimeApiServiceError(
+          error.code === 'provider-unavailable'
+            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
+            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
+          error.message,
+        );
+      }
+      throw error;
+    }
+  }
+
+  public async installIntegration(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationInstallRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegration> {
+    this.requireProject(projectId);
+    const provider = this.options.integrationProviderRegistry?.get(providerId);
+    if (!provider?.install) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
+        'Agent integration installation is unavailable for this provider.',
+      );
+    }
+
+    const executionContext =
+      this.options.developmentEnvironmentInstanceStore.resolveForProject(
+        projectId,
+        environmentInstanceId,
+      );
+    if (!executionContext || executionContext.runtime !== 'host') {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_ENVIRONMENT_NOT_FOUND',
+        'Development environment instance was not found for this project.',
+      );
+    }
+
+    try {
+      return await provider.install({
+        ...input,
+        cwd: executionContext.cwd,
+      });
+    } catch (error) {
+      if (error instanceof AgentIntegrationDiscoveryError) {
+        if (error.code === 'invalid-request') {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            error.message,
+          );
+        }
         throw new AgentRuntimeApiServiceError(
           error.code === 'provider-unavailable'
             ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'

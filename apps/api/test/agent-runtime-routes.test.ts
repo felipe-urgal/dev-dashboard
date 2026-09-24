@@ -46,6 +46,12 @@ function service(
     ],
     listIntegrationCapabilities: () => [],
     listIntegrations: async () => [],
+    installIntegration: async (_projectId, providerId, input) => ({
+      id: providerId + ':' + input.kind + ':' + input.name,
+      providerId,
+      kind: input.kind,
+      name: input.name,
+    }),
     listTasks: async () => [task],
     createTask: async () => task,
     getTask: async () => task,
@@ -691,4 +697,60 @@ test('Agent Runtime HTTP resolve checkpoint exige decisão explícita e sanitiza
     payload: { decision: 'maybe' },
   });
   assert.equal(invalid.statusCode, 400);
+});
+
+test('Agent Runtime HTTP instala MCP estruturado com confirmação explícita', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      installIntegration: async (...args) => {
+        calls.push(args);
+        return {
+          id: 'codex:mcp-server:docs',
+          providerId: 'codex',
+          kind: 'mcp-server',
+          name: 'docs',
+          enabled: true,
+          authStatus: 'unknown',
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/integrations',
+    payload: {
+      providerId: 'codex',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'mcp-server',
+      name: 'docs',
+      scope: 'user',
+      confirmed: true,
+      url: 'https://example.com/mcp',
+      command: 'npx bad',
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'codex',
+      {
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  assert.equal(response.json().integration.name, 'docs');
 });

@@ -33,9 +33,19 @@ export interface AgentIntegrationListRequest {
   cwd: string;
 }
 
+export interface AgentIntegrationInstallRequest {
+  cwd: string;
+  kind: AgentIntegrationKind;
+  name: string;
+  scope: AgentIntegrationScope;
+  confirmed: boolean;
+  url?: string;
+}
+
 export interface AgentIntegrationProvider {
   readonly id: AgentConcreteProviderId;
   list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]>;
+  install?(request: AgentIntegrationInstallRequest): Promise<AgentIntegration>;
 }
 
 export interface AgentIntegrationProviderRegistry {
@@ -46,7 +56,10 @@ export interface AgentIntegrationProviderRegistry {
 export class AgentIntegrationDiscoveryError extends Error {
   constructor(
     readonly code:
-      'provider-unavailable' | 'command-failed' | 'invalid-response',
+      | 'provider-unavailable'
+      | 'command-failed'
+      | 'invalid-request'
+      | 'invalid-response',
     message: string,
   ) {
     super(message);
@@ -194,6 +207,94 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
         ...(authStatus ? { authStatus } : {}),
       };
     });
+  }
+
+  async install(
+    request: AgentIntegrationInstallRequest,
+  ): Promise<AgentIntegration> {
+    if (!request.confirmed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP installation requires explicit confirmation.',
+      );
+    }
+    if (request.kind !== 'mcp-server') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex only supports MCP installation through this adapter.',
+      );
+    }
+    if (request.scope !== 'user') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP installation currently supports only explicit user scope.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server name is invalid.',
+      );
+    }
+
+    let url: URL;
+    try {
+      url = new URL(request.url ?? '');
+    } catch {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server URL is invalid.',
+      );
+    }
+    if (url.protocol !== 'https:') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server URL must use HTTPS.',
+      );
+    }
+
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: ['mcp', 'add', name, '--url', url.toString()],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Codex MCP installation',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Codex command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP installation failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP installation returned a non-zero result.',
+      );
+    }
+
+    return {
+      id: 'codex:mcp-server:' + name,
+      providerId: 'codex',
+      kind: 'mcp-server',
+      name,
+      enabled: true,
+      authStatus: 'unknown',
+    };
   }
 }
 

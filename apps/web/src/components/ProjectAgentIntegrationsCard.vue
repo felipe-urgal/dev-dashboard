@@ -7,6 +7,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import {
   fetchAgentIntegrationCapabilities,
   fetchAgentIntegrations,
+  installAgentIntegration,
   type AgentConcreteProviderId,
   type AgentIntegration,
   type AgentIntegrationProviderCapabilities,
@@ -28,7 +29,11 @@ const selectedProviderId = ref<AgentConcreteProviderId>('codex');
 const capabilities = ref<AgentIntegrationProviderCapabilities[]>([]);
 const integrations = ref<AgentIntegration[]>([]);
 const loading = ref(false);
+const installing = ref(false);
 const errorMessage = ref('');
+const installName = ref('');
+const installUrl = ref('');
+const installConfirmed = ref(false);
 
 const selectedCapabilities = computed(
   () =>
@@ -75,6 +80,49 @@ const authLabel = (integration: AgentIntegration): string => {
       return 'Auth não informada';
   }
 };
+
+async function installCodexMcp(): Promise<void> {
+  if (
+    selectedProviderId.value !== 'codex' ||
+    installing.value ||
+    !installConfirmed.value ||
+    !installName.value.trim() ||
+    !installUrl.value.trim()
+  ) {
+    return;
+  }
+
+  installing.value = true;
+  errorMessage.value = '';
+  try {
+    await installAgentIntegration(props.project.id, {
+      providerId: 'codex',
+      ...(props.environmentInstanceId
+        ? { environmentInstanceId: props.environmentInstanceId }
+        : {}),
+      kind: 'mcp-server',
+      name: installName.value.trim(),
+      scope: 'user',
+      confirmed: true,
+      url: installUrl.value.trim(),
+    });
+    installName.value = '';
+    installUrl.value = '';
+    installConfirmed.value = false;
+    integrations.value = await fetchAgentIntegrations(
+      props.project.id,
+      'codex',
+      props.environmentInstanceId,
+    );
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível adicionar o MCP do Codex.';
+  } finally {
+    installing.value = false;
+  }
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -181,6 +229,66 @@ watch(
         <p v-if="capability.reason">{{ capability.reason }}</p>
       </div>
     </div>
+
+    <form
+      v-if="selectedProviderId === 'codex'"
+      class="agent-integration-install"
+      @submit.prevent="installCodexMcp"
+    >
+      <div class="agent-integrations-list-heading">
+        <span>Adicionar MCP remoto</span>
+        <small>Escopo global do usuário</small>
+      </div>
+      <label>
+        <span>Nome</span>
+        <input
+          v-model="installName"
+          type="text"
+          maxlength="64"
+          placeholder="openaiDeveloperDocs"
+          :disabled="installing"
+        />
+      </label>
+      <label>
+        <span>URL HTTPS</span>
+        <input
+          v-model="installUrl"
+          type="url"
+          maxlength="2048"
+          placeholder="https://example.com/mcp"
+          :disabled="installing"
+        />
+      </label>
+      <label class="agent-integration-confirmation">
+        <input
+          v-model="installConfirmed"
+          type="checkbox"
+          :disabled="installing"
+        />
+        <span>
+          Confirmo que este MCP será adicionado à configuração compartilhada do
+          meu usuário Codex.
+        </span>
+      </label>
+      <div class="agent-integration-install-actions">
+        <p>
+          O dashboard envia apenas nome e URL ao backend. Comandos, argumentos e
+          variáveis de ambiente não são aceitos por este formulário.
+        </p>
+        <button
+          class="secondary-button"
+          type="submit"
+          :disabled="
+            installing ||
+            !installConfirmed ||
+            !installName.trim() ||
+            !installUrl.trim()
+          "
+        >
+          {{ installing ? 'Adicionando…' : 'Adicionar MCP' }}
+        </button>
+      </div>
+    </form>
 
     <div class="agent-integrations-list">
       <div class="agent-integrations-list-heading">
@@ -372,6 +480,69 @@ watch(
   grid-column: 1 / -1;
   margin: 0;
   line-height: 1.45;
+}
+
+.agent-integration-install {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-integration-install > label:not(.agent-integration-confirmation) {
+  display: grid;
+  gap: 5px;
+}
+
+.agent-integration-install label > span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.agent-integration-install input[type='text'],
+.agent-integration-install input[type='url'] {
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-1);
+  font: inherit;
+  font-size: var(--font-xs);
+}
+
+.agent-integration-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.agent-integration-confirmation span {
+  font-weight: normal;
+  line-height: 1.45;
+}
+
+.agent-integration-install-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-integration-install-actions p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.agent-integration-install-actions button {
+  flex: 0 0 auto;
 }
 
 .agent-integrations-list {

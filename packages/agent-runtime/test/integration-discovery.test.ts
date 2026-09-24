@@ -95,6 +95,97 @@ test('integration provider registry rejects duplicate providers', () => {
   );
 });
 
+test('Codex MCP install uses fixed structured args and requires confirmation', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      return result();
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: false,
+        url: 'https://example.com/mcp',
+      }),
+    /explicit confirmation/,
+  );
+
+  const integration = await provider.install!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'user',
+    confirmed: true,
+    url: 'https://example.com/mcp',
+  });
+
+  assert.deepEqual(calls[0]?.args, [
+    'mcp',
+    'add',
+    'docs',
+    '--url',
+    'https://example.com/mcp',
+  ]);
+  assert.deepEqual(integration, {
+    id: 'codex:mcp-server:docs',
+    providerId: 'codex',
+    kind: 'mcp-server',
+    name: 'docs',
+    enabled: true,
+    authStatus: 'unknown',
+  });
+});
+
+test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async () => result(),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'bad name',
+        scope: 'user',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      }),
+    /name is invalid/,
+  );
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: true,
+        url: 'http://example.com/mcp',
+      }),
+    /must use HTTPS/,
+  );
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'project',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      }),
+    /only explicit user scope/,
+  );
+});
+
 test('Browser integration discovery mirrors the local tool allowlist', async () => {
   const provider = new BrowserCapabilityIntegrationProvider();
   const integrations = await provider.list({ cwd: '/workspace/project' });

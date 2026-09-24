@@ -313,6 +313,29 @@ export async function fetchAgentIntegrations(
     .integrations;
 }
 
+export async function installAgentIntegration(
+  projectId: string,
+  input: {
+    providerId: AgentConcreteProviderId;
+    environmentInstanceId?: string;
+    kind: AgentIntegrationKind;
+    name: string;
+    scope: AgentIntegrationScope;
+    confirmed: boolean;
+    url?: string;
+  },
+): Promise<AgentIntegration> {
+  const path =
+    '/api/projects/' + encodeURIComponent(projectId) + '/agent/integrations';
+  return (
+    await requestJson<{ integration: AgentIntegration }>(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+  ).integration;
+}
+
 export async function fetchAgentTasks(
   projectId: string,
 ): Promise<AgentTaskRecord[]> {

@@ -52,6 +52,16 @@ interface IntegrationQuery {
   environmentInstanceId?: string;
 }
 
+interface InstallIntegrationBody {
+  providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
+  environmentInstanceId?: string;
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  name: string;
+  scope: 'user' | 'project' | 'local' | 'session';
+  confirmed: boolean;
+  url?: string;
+}
+
 interface AuthorizationBody {
   capability: AgentCapability;
   granted: boolean;
@@ -165,6 +175,30 @@ const integrationQuerySchema = {
       enum: ['codex', 'claude-code', 'chatgpt-browser'],
     },
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+  },
+} as const;
+
+const installIntegrationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'kind', 'name', 'scope', 'confirmed'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    name: { type: 'string', minLength: 1, maxLength: 64 },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'session'],
+    },
+    confirmed: { type: 'boolean' },
+    url: { type: 'string', minLength: 1, maxLength: 2048 },
   },
 } as const;
 
@@ -819,6 +853,42 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.projectId,
           request.query.providerId,
           request.query.environmentInstanceId,
+        ),
+      })),
+  );
+
+  app.post<{ Params: ProjectParams; Body: InstallIntegrationBody }>(
+    '/projects/:projectId/agent/integrations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: installIntegrationBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['integration'],
+            properties: {
+              integration: integrationSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        integration: await options.agentRuntimeApiService.installIntegration(
+          request.params.projectId,
+          request.body.providerId,
+          {
+            kind: request.body.kind,
+            name: request.body.name,
+            scope: request.body.scope,
+            confirmed: request.body.confirmed,
+            ...(request.body.url ? { url: request.body.url } : {}),
+          },
+          request.body.environmentInstanceId,
         ),
       })),
   );
