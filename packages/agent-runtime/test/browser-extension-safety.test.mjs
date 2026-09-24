@@ -29,7 +29,7 @@ async function loadChatGptAdapter({ assistant } = {}) {
   return context.ChatGPTAdapter;
 }
 
-async function loadContentScript({ initialStorage = [], assistantSignature = '0:0:0' } = {}) {
+async function loadContentScript({ initialStorage = [], assistantSignature = '0:0:0', assistantText } = {}) {
   const code = await fs.readFile(new URL('../browser-extension/content-script.js', import.meta.url), 'utf8');
   let listener;
   let submits = 0;
@@ -50,7 +50,7 @@ async function loadContentScript({ initialStorage = [], assistantSignature = '0:
       hasUnexpectedInteraction() { return false; },
       assistantSignature() { return assistantSignature; },
       lastAssistantText() {
-        return '~~~placeholder~~~'.replace(
+        return assistantText ?? '~~~placeholder~~~'.replace(
           '~~~placeholder~~~',
           '```agent-workflow-browser\n{"type":"terminal_result","status":"completed"}\n```',
         );
@@ -128,6 +128,25 @@ test('adapter não escolhe entre múltiplos envelopes renderizados', async () =>
 
   const adapter = await loadChatGptAdapter({ assistant });
   assert.equal(adapter.lastAssistantText(), 'rendered fallback');
+});
+
+test('content script classifica ausência de envelope sem vazar conteúdo', async () => {
+  const x = await loadContentScript({
+    assistantText: 'texto livre sem envelope executável',
+  });
+
+  await x.run({
+    type: 'RUN_BROWSER_JOB',
+    jobId: 'job-protocol-missing',
+    prompt: 'hello',
+    quietMs: 0,
+    timeoutMs: 1000,
+  });
+
+  const failure = x.events.find((event) => event.event === 'fail');
+  assert.equal(failure?.errorCode, 'browser_protocol_envelope_missing');
+  assert.equal(failure?.browserPhase, 'browser_loop');
+  assert.equal(JSON.stringify(failure).includes('texto livre'), false);
 });
 
 test('content script never resubmits a job once submit was armed', async () => {
