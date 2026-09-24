@@ -104,6 +104,25 @@ O estado é escrito atomicamente fora do repositório. Arquivo ausente significa
 
 Este corte ainda não executa `up`, Docker stop/rm nem altera a Environment Instance.
 
+## Adapter estruturado de criação
+
+O comando futuro de criação já possui um adapter puro, ainda sem execução:
+
+- programa fixo `devcontainer`;
+- subcomando fixo `up`;
+- `--workspace-folder` e `--config` derivados somente do contexto/backend;
+- `--id-label devdashboard.environment=<token>` usando a reserva de ownership;
+- `--skip-post-create` para não executar hooks pós-criação neste estágio;
+- `--no-lockfile` para não modificar o repositório como efeito colateral do start;
+- `--log-format json` para localizar o envelope final estruturado;
+- nenhum `--remove-existing-container`, mount ou env adicional.
+
+O parser procura somente o envelope final `outcome: success | error` na cauda limitada da saída. Em sucesso, preserva apenas `containerId`, usuário/workspace remotos bounded e `composeProjectName` quando presente. Em erro, preserva apenas `containerId` e `didStopContainer` quando estruturados. Mensagens, configuração, env e logs brutos não viram contrato.
+
+`composeProjectName` é mantido internamente para permitir que o executor futuro detecte fail-closed uma configuração que tenha mudado para Compose depois do preflight.
+
+Este adapter não chama `execFile`/`spawn`; ele apenas fecha argv e parsing antes do lifecycle mutável.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
