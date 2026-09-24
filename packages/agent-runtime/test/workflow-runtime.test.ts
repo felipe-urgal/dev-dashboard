@@ -144,6 +144,7 @@ async function fixture(
     processId: 101,
     isProcessAlive: (processId) => processId === 101,
   });
+  let executionSequence = 0;
   const runtime = new AgentWorkflowRuntime({
     taskStore: store,
     providerRegistry: new StaticAgentProviderRegistry([provider]),
@@ -152,7 +153,7 @@ async function fixture(
     checkpointStore: auditStore,
     executionResultStore: runtimeOptions.executionResultStore ?? auditStore,
     now,
-    createExecutionId: () => 'execution-1',
+    createExecutionId: () => `execution-${++executionSequence}`,
     createCheckpointId: () => 'checkpoint-1',
     retryBackoffMs: 0,
     ...runtimeOptions,
