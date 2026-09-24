@@ -209,10 +209,10 @@ export interface AgentRuntimeApiServiceOptions {
     | 'cancel'
     | 'retry'
     | 'recover'
-    | 'adoptGitRef'
     | 'resolveCheckpoint'
     | 'shutdown'
-  >;
+  > &
+    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef'>>;
   projectStore: Pick<ProjectStore, 'findProject'>;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
@@ -629,8 +629,15 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     input: AgentGitRefAdoptionRequest,
   ): Promise<AgentTaskRecord> {
     await this.getTask(projectId, taskId);
+    const adoptGitRef = this.options.workflowRuntime.adoptGitRef;
+    if (!adoptGitRef) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent Git reference adoption is unavailable.',
+      );
+    }
     const record = await this.withRuntimeErrors(() =>
-      this.options.workflowRuntime.adoptGitRef(projectId, taskId, input),
+      adoptGitRef.call(this.options.workflowRuntime, projectId, taskId, input),
     );
     await this.recordActivity({
       projectId,
