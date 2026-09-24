@@ -128,8 +128,11 @@ function fixture(
       },
     },
     {
-      consume: () => {
+      consume: (_plan, token) => {
         events.push('confirm');
+        if (token !== CONFIRMATION) {
+          throw new Error('confirmation required');
+        }
       },
     },
     {
@@ -241,6 +244,21 @@ test('start cria runtime somente após confirmação, ownership e snapshot desca
     },
     lifecycle: 'ready',
   });
+});
+
+test('start exige confirmação antes de snapshot ou ownership', async () => {
+  const f = fixture();
+
+  await assert.rejects(
+    () => f.service.start(project),
+    (error: unknown) =>
+      error instanceof DevContainerStartError &&
+      error.code === 'DEV_CONTAINER_START_CONFIRMATION_REQUIRED',
+  );
+
+  assert.deepEqual(f.events, ['plan', 'confirm']);
+  assert.equal(f.cleanupCalls(), 0);
+  assert.equal(f.disposed(), 0);
 });
 
 test('start falha antes de ownership quando snapshot não corresponde à confirmação', async () => {
