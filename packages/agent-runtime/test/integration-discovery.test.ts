@@ -50,11 +50,11 @@ test('Codex MCP discovery returns only safe metadata', async () => {
     command: 'codex-test',
     runProcess: runner,
   });
-  const integrations = await provider.list({ cwd: '/workspace/project' });
+  const discovery = await provider.list({ cwd: '/workspace/project' });
 
   assert.deepEqual(calls[0]?.args, ['mcp', 'list', '--json']);
   assert.equal(calls[0]?.cwd, '/workspace/project');
-  assert.deepEqual(integrations, [
+  assert.deepEqual(discovery.integrations, [
     {
       id: 'codex:mcp-server:github',
       providerId: 'codex',
@@ -64,11 +64,12 @@ test('Codex MCP discovery returns only safe metadata', async () => {
       authStatus: 'authenticated',
     },
   ]);
+  assert.deepEqual(discovery.issues, []);
   assert.equal(
-    JSON.stringify(integrations).includes('SECRET_SHOULD_NOT_LEAK'),
+    JSON.stringify(discovery).includes('SECRET_SHOULD_NOT_LEAK'),
     false,
   );
-  assert.equal(JSON.stringify(integrations).includes('secret-arg'), false);
+  assert.equal(JSON.stringify(discovery).includes('secret-arg'), false);
 });
 
 test('Codex MCP discovery fails closed on malformed output', async () => {
@@ -188,10 +189,10 @@ test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope',
 
 test('Browser integration discovery mirrors the local tool allowlist', async () => {
   const provider = new BrowserCapabilityIntegrationProvider();
-  const integrations = await provider.list({ cwd: '/workspace/project' });
+  const discovery = await provider.list({ cwd: '/workspace/project' });
 
   assert.deepEqual(
-    integrations.map((integration) => integration.name),
+    discovery.integrations.map((integration) => integration.name),
     [
       'list_files',
       'read_file',
@@ -205,7 +206,7 @@ test('Browser integration discovery mirrors the local tool allowlist', async () 
     ],
   );
   assert.ok(
-    integrations.every(
+    discovery.integrations.every(
       (integration) =>
         integration.providerId === 'chatgpt-browser' &&
         integration.kind === 'browser-capability' &&
@@ -213,6 +214,40 @@ test('Browser integration discovery mirrors the local tool allowlist', async () 
         integration.authStatus === 'unsupported',
     ),
   );
+  assert.deepEqual(discovery.issues, []);
+});
+
+test('Codex MCP discovery isolates malformed entries without hiding degradation', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify([
+          { name: 'docs', enabled: true, auth_status: 'authenticated' },
+          { name: '' },
+          null,
+          { name: 'github', enabled: false, auth_status: 'unsupported' },
+        ]),
+      }),
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+
+  assert.deepEqual(
+    discovery.integrations.map((integration) => integration.name),
+    ['docs', 'github'],
+  );
+  assert.deepEqual(discovery.issues, [
+    {
+      code: 'invalid-entry',
+      index: 1,
+      message: 'Codex MCP discovery ignored an invalid server entry.',
+    },
+    {
+      code: 'invalid-entry',
+      index: 2,
+      message: 'Codex MCP discovery ignored an invalid server entry.',
+    },
+  ]);
 });
 
 test('Codex MCP inspection returns only sanitized structured details', async () => {
