@@ -8,6 +8,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { devContainerRoutes } from '../src/routes/dev-container.js';
 import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
+import type { DevContainerLifecyclePreflight } from '../src/services/dev-container-lifecycle-planning-service.js';
 import { ProjectStore } from '../src/store/project-store.js';
 
 const project: Project = {
@@ -175,11 +176,7 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
           ],
           diagnostic: 'Revisão humana necessária.',
           internalSecret: 'não pode sair',
-        } as Awaited<
-          ReturnType<
-            import('../src/services/dev-container-lifecycle-planning-service.js').DevContainerLifecyclePlanningService['plan']
-          >
-        >;
+        } as DevContainerLifecyclePreflight & { internalSecret: string };
       },
     },
   });
