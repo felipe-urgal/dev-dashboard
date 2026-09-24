@@ -5,6 +5,7 @@ import {
   CubeTransparentIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
+  LockClosedIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
@@ -12,17 +13,25 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   fetchDevContainerInspection,
+  fetchDevContainerLifecyclePreflight,
   type DevContainerConfigurationKind,
   type DevContainerInspection,
   type DevContainerInspectionState,
+  type DevContainerLifecycleLimitation,
+  type DevContainerLifecyclePreflight,
+  type DevContainerLifecyclePreflightState,
 } from '../api/dev-container';
 import Card from './Card.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string;
+}>();
 
 const inspection = ref<DevContainerInspection | null>(null);
+const preflight = ref<DevContainerLifecyclePreflight | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
 let generation = 0;
@@ -64,6 +73,35 @@ const stateCopy = computed(() => {
   return state ? values[state] : null;
 });
 
+const lifecycleCopy = computed(() => {
+  const state = preflight.value?.state;
+  const values: Record<
+    DevContainerLifecyclePreflightState,
+    { label: string; tone: StatusBadgeTone; icon: typeof InformationCircleIcon }
+  > = {
+    review: {
+      label: 'Revisão necessária',
+      tone: 'warning',
+      icon: InformationCircleIcon,
+    },
+    blocked: {
+      label: 'Bloqueado',
+      tone: 'danger',
+      icon: LockClosedIcon,
+    },
+    unavailable: {
+      label: 'Indisponível',
+      tone: 'warning',
+      icon: ExclamationTriangleIcon,
+    },
+  };
+  return state ? values[state] : null;
+});
+
+const effectiveConfiguration = computed(
+  () => preflight.value?.configuration ?? inspection.value?.configuration,
+);
+
 const kindLabel = computed(() => {
   const values: Record<DevContainerConfigurationKind, string> = {
     image: 'Imagem',
@@ -71,13 +109,31 @@ const kindLabel = computed(() => {
     compose: 'Docker Compose',
     unknown: 'Não identificado',
   };
-  return inspection.value?.configuration
-    ? values[inspection.value.configuration.kind]
+  return effectiveConfiguration.value
+    ? values[effectiveConfiguration.value.kind]
     : '—';
 });
 
 const hooks = computed(
-  () => inspection.value?.configuration?.lifecycleHooks ?? [],
+  () => effectiveConfiguration.value?.lifecycleHooks ?? [],
+);
+
+const runtimeLabel = computed(() =>
+  preflight.value?.runtime === 'devcontainer' ? 'Dev Container' : 'Host',
+);
+
+const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
+  'cleanup-adapter-pending': 'Cleanup seguro ainda não disponível',
+  'post-create-hooks-deferred':
+    'Hooks pós-criação permanecem fora da execução automática',
+};
+
+const visibleConfigSource = computed(
+  () => preflight.value?.configSource ?? inspection.value?.configSource,
+);
+
+const visibleCliVersion = computed(
+  () => preflight.value?.cliVersion ?? inspection.value?.cliVersion,
 );
 
 function formatDate(value: string): string {
@@ -95,11 +151,20 @@ async function load(): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const result = await fetchDevContainerInspection(props.project.id);
-    if (current === generation) inspection.value = result;
+    const [inspectionResult, preflightResult] = await Promise.all([
+      fetchDevContainerInspection(props.project.id),
+      fetchDevContainerLifecyclePreflight(
+        props.project.id,
+        props.environmentInstanceId,
+      ),
+    ]);
+    if (current !== generation) return;
+    inspection.value = inspectionResult;
+    preflight.value = preflightResult;
   } catch (error) {
     if (current === generation) {
       inspection.value = null;
+      preflight.value = null;
       errorMessage.value =
         error instanceof Error
           ? error.message
@@ -111,9 +176,10 @@ async function load(): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  [() => props.project.id, () => props.environmentInstanceId],
   () => {
     inspection.value = null;
+    preflight.value = null;
     void load();
   },
   { immediate: true },
@@ -131,8 +197,8 @@ watch(
           <div>
             <h3 id="devcontainer-title">Dev Container</h3>
             <p>
-              Discovery somente leitura. Nenhum container ou lifecycle hook é
-              executado nesta tela.
+              Discovery e preflight somente leitura. Nenhum container ou
+              lifecycle hook é executado nesta tela.
             </p>
           </div>
         </div>
@@ -154,7 +220,7 @@ watch(
 
       <div v-if="loading && !inspection" class="devcontainer-message">
         <ArrowPathIcon class="is-spinning" aria-hidden="true" />
-        <span>Inspecionando configuração e Dev Container CLI…</span>
+        <span>Inspecionando configuração, CLI e lifecycle…</span>
       </div>
 
       <div
@@ -169,7 +235,7 @@ watch(
       <template v-else-if="inspection && stateCopy">
         <div class="devcontainer-summary">
           <div>
-            <span class="devcontainer-label">Estado</span>
+            <span class="devcontainer-label">Discovery</span>
             <div class="devcontainer-value">
               <StatusBadge :tone="stateCopy.tone">
                 {{ stateCopy.label }}
@@ -178,7 +244,7 @@ watch(
           </div>
           <div>
             <span class="devcontainer-label">Runtime atual</span>
-            <strong>Host</strong>
+            <strong>{{ runtimeLabel }}</strong>
           </div>
           <div>
             <span class="devcontainer-label">Tipo</span>
@@ -186,7 +252,7 @@ watch(
           </div>
           <div>
             <span class="devcontainer-label">CLI</span>
-            <strong>{{ inspection.cliVersion ?? '—' }}</strong>
+            <strong>{{ visibleCliVersion ?? '—' }}</strong>
           </div>
         </div>
 
@@ -208,12 +274,12 @@ watch(
         </div>
 
         <dl
-          v-if="inspection.configSource || inspection.configuration?.service"
+          v-if="visibleConfigSource || inspection.configuration?.service"
           class="devcontainer-details"
         >
-          <div v-if="inspection.configSource">
+          <div v-if="visibleConfigSource">
             <dt>Configuração</dt>
-            <dd>{{ inspection.configSource }}</dd>
+            <dd>{{ visibleConfigSource }}</dd>
           </div>
           <div v-if="inspection.configuration?.name">
             <dt>Nome</dt>
@@ -229,15 +295,47 @@ watch(
           <ExclamationTriangleIcon aria-hidden="true" />
           <div>
             <strong>Hooks declarados · {{ hooks.length }}</strong>
-            <p>
-              {{ hooks.join(' · ') }}
-            </p>
+            <p>{{ hooks.join(' · ') }}</p>
             <span>
               Apenas os nomes são exibidos; os comandos não são retornados nem
               executados pelo discovery.
             </span>
           </div>
         </div>
+
+        <section
+          v-if="preflight && lifecycleCopy"
+          class="devcontainer-lifecycle"
+          aria-labelledby="devcontainer-lifecycle-title"
+        >
+          <div class="devcontainer-lifecycle-heading">
+            <component :is="lifecycleCopy.icon" aria-hidden="true" />
+            <div>
+              <span class="devcontainer-label">Lifecycle</span>
+              <div class="devcontainer-lifecycle-title-row">
+                <h4 id="devcontainer-lifecycle-title">Criação do runtime</h4>
+                <StatusBadge :tone="lifecycleCopy.tone">
+                  {{ lifecycleCopy.label }}
+                </StatusBadge>
+              </div>
+            </div>
+          </div>
+
+          <p>{{ preflight.diagnostic }}</p>
+
+          <ul v-if="preflight.limitations.length > 0">
+            <li v-for="limitation in preflight.limitations" :key="limitation">
+              {{ limitationLabels[limitation] }}
+            </li>
+          </ul>
+
+          <span class="devcontainer-lifecycle-footnote">
+            Execução desabilitada neste estágio
+            <template v-if="preflight.requiresConfirmation">
+              · confirmação explícita será obrigatória
+            </template>
+          </span>
+        </section>
       </template>
     </Card>
   </section>
@@ -257,13 +355,19 @@ watch(
 
 .devcontainer-heading h3,
 .devcontainer-heading p,
-.devcontainer-hooks p {
+.devcontainer-hooks p,
+.devcontainer-lifecycle h4,
+.devcontainer-lifecycle p,
+.devcontainer-lifecycle ul {
   margin: 0;
 }
 
 .devcontainer-heading p,
 .devcontainer-note span,
-.devcontainer-hooks span {
+.devcontainer-hooks span,
+.devcontainer-lifecycle p,
+.devcontainer-lifecycle li,
+.devcontainer-lifecycle-footnote {
   color: var(--text-muted);
 }
 
@@ -279,7 +383,8 @@ watch(
 .devcontainer-refresh svg,
 .devcontainer-message svg,
 .devcontainer-note svg,
-.devcontainer-hooks svg {
+.devcontainer-hooks svg,
+.devcontainer-lifecycle-heading > svg {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
@@ -319,11 +424,18 @@ watch(
 
 .devcontainer-message,
 .devcontainer-note,
-.devcontainer-hooks {
+.devcontainer-hooks,
+.devcontainer-lifecycle {
+  margin-top: var(--space-5);
+}
+
+.devcontainer-message,
+.devcontainer-note,
+.devcontainer-hooks,
+.devcontainer-lifecycle-heading {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  margin-top: var(--space-5);
 }
 
 .devcontainer-message.is-error {
@@ -331,7 +443,8 @@ watch(
 }
 
 .devcontainer-note div,
-.devcontainer-hooks div {
+.devcontainer-hooks div,
+.devcontainer-lifecycle-heading div {
   display: grid;
   gap: var(--space-1);
 }
@@ -348,9 +461,30 @@ watch(
   overflow-wrap: anywhere;
 }
 
-.devcontainer-hooks {
+.devcontainer-hooks,
+.devcontainer-lifecycle {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border);
+}
+
+.devcontainer-lifecycle {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.devcontainer-lifecycle-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.devcontainer-lifecycle ul {
+  padding-left: 20px;
+}
+
+.devcontainer-lifecycle-footnote {
+  font-size: var(--font-xs);
 }
 
 @media (max-width: 760px) {
