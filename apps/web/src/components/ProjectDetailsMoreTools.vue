@@ -61,6 +61,7 @@ const route = useRoute();
     :to="{
       name: 'project-dev-container',
       params: { projectId: project.id },
+      ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
   >
     <CubeTransparentIcon aria-hidden="true" />

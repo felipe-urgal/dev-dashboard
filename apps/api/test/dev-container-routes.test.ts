@@ -164,10 +164,12 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
           runtime: 'host',
           executionEnabled: false,
           requiresConfirmation: true,
+          discoveryState: 'available',
           configSource: '.devcontainer/devcontainer.json',
           cliVersion: '0.80.1',
           configuration: {
             kind: 'image',
+            name: 'Workspace',
             lifecycleHooks: ['postCreateCommand'],
           },
           limitations: [
@@ -195,11 +197,15 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
       state: string;
       executionEnabled: boolean;
       environmentInstanceId: string;
+      discoveryState?: string;
+      configuration?: { name?: string };
       internalSecret?: string;
     };
   }>();
   assert.equal(body.preflight.state, 'review');
   assert.equal(body.preflight.executionEnabled, false);
+  assert.equal(body.preflight.discoveryState, 'available');
+  assert.equal(body.preflight.configuration?.name, 'Workspace');
   assert.equal(
     body.preflight.environmentInstanceId,
     'environment:worktree:project-1:feature',

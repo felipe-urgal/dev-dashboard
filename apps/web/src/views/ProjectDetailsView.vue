@@ -504,8 +504,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectDevContainerPanel
         v-else-if="isDevContainerRoute"
-        :key="`dev-container-${project.id}`"
+        :key="`dev-container-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectDockerComposePanel

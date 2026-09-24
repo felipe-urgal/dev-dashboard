@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   ArrowPathIcon,
-  CheckCircleIcon,
   CubeTransparentIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
@@ -11,57 +10,66 @@ import { computed, ref, watch } from 'vue';
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
-  fetchDevContainerInspection,
+  fetchDevContainerLifecyclePreflight,
   type DevContainerConfigurationKind,
-  type DevContainerInspection,
-  type DevContainerInspectionState,
+  type DevContainerLifecycleLimitation,
+  type DevContainerLifecyclePreflight,
 } from '../api/dev-container';
 import Card from './Card.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string | undefined;
+}>();
 
-const inspection = ref<DevContainerInspection | null>(null);
+const preflight = ref<DevContainerLifecyclePreflight | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
 let generation = 0;
 
 const stateCopy = computed(() => {
-  const state = inspection.value?.state;
-  const values: Record<
-    DevContainerInspectionState,
-    { label: string; detail: string; tone: StatusBadgeTone }
-  > = {
-    available: {
-      label: 'Disponível',
-      detail: 'Configuração resolvida pela Dev Container CLI.',
-      tone: 'success',
-    },
-    'not-configured': {
+  const value = preflight.value;
+  if (!value) return null;
+
+  if (value.state === 'review') {
+    return {
+      label: 'Revisão necessária',
+      tone: 'warning' as StatusBadgeTone,
+    };
+  }
+
+  if (value.state === 'blocked') {
+    return {
+      label: 'Bloqueado',
+      tone: 'danger' as StatusBadgeTone,
+    };
+  }
+
+  if (value.discoveryState === 'not-configured') {
+    return {
       label: 'Não configurado',
-      detail: 'Este projeto não declara uma configuração Dev Container padrão.',
-      tone: 'neutral',
-    },
-    'cli-missing': {
+      tone: 'neutral' as StatusBadgeTone,
+    };
+  }
+  if (value.discoveryState === 'cli-missing') {
+    return {
       label: 'CLI ausente',
-      detail:
-        'A configuração existe, mas a Dev Container CLI não está disponível.',
-      tone: 'warning',
-    },
-    unavailable: {
-      label: 'Indisponível',
-      detail: 'A configuração não pôde ser inspecionada com segurança.',
-      tone: 'warning',
-    },
-    'invalid-output': {
+      tone: 'warning' as StatusBadgeTone,
+    };
+  }
+  if (value.discoveryState === 'invalid-output') {
+    return {
       label: 'Saída inválida',
-      detail:
-        'A CLI respondeu, mas o resultado estruturado não pôde ser validado.',
-      tone: 'danger',
-    },
+      tone: 'danger' as StatusBadgeTone,
+    };
+  }
+
+  return {
+    label: 'Indisponível',
+    tone: 'warning' as StatusBadgeTone,
   };
-  return state ? values[state] : null;
 });
 
 const kindLabel = computed(() => {
@@ -71,14 +79,25 @@ const kindLabel = computed(() => {
     compose: 'Docker Compose',
     unknown: 'Não identificado',
   };
-  return inspection.value?.configuration
-    ? values[inspection.value.configuration.kind]
+  return preflight.value?.configuration
+    ? values[preflight.value.configuration.kind]
     : '—';
 });
 
-const hooks = computed(
-  () => inspection.value?.configuration?.lifecycleHooks ?? [],
+const runtimeLabel = computed(() =>
+  preflight.value?.runtime === 'devcontainer' ? 'Dev Container' : 'Host',
 );
+
+const hooks = computed(
+  () => preflight.value?.configuration?.lifecycleHooks ?? [],
+);
+
+const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
+  'cleanup-adapter-pending':
+    'Cleanup/stop seguro ainda precisa de ownership ponta a ponta.',
+  'post-create-hooks-deferred':
+    'Hooks pós-criação permanecem diferidos neste lifecycle.',
+};
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -95,15 +114,18 @@ async function load(): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const result = await fetchDevContainerInspection(props.project.id);
-    if (current === generation) inspection.value = result;
+    const result = await fetchDevContainerLifecyclePreflight(
+      props.project.id,
+      props.environmentInstanceId,
+    );
+    if (current === generation) preflight.value = result;
   } catch (error) {
     if (current === generation) {
-      inspection.value = null;
+      preflight.value = null;
       errorMessage.value =
         error instanceof Error
           ? error.message
-          : 'Não foi possível inspecionar o Dev Container.';
+          : 'Não foi possível carregar o preflight do Dev Container.';
     }
   } finally {
     if (current === generation) loading.value = false;
@@ -111,9 +133,9 @@ async function load(): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  [() => props.project.id, () => props.environmentInstanceId],
   () => {
-    inspection.value = null;
+    preflight.value = null;
     void load();
   },
   { immediate: true },
@@ -131,7 +153,7 @@ watch(
           <div>
             <h3 id="devcontainer-title">Dev Container</h3>
             <p>
-              Discovery somente leitura. Nenhum container ou lifecycle hook é
+              Preflight somente leitura. Nenhum container ou lifecycle hook é
               executado nesta tela.
             </p>
           </div>
@@ -152,9 +174,9 @@ watch(
         </button>
       </template>
 
-      <div v-if="loading && !inspection" class="devcontainer-message">
+      <div v-if="loading && !preflight" class="devcontainer-message">
         <ArrowPathIcon class="is-spinning" aria-hidden="true" />
-        <span>Inspecionando configuração e Dev Container CLI…</span>
+        <span>Validando configuração, ambiente e lifecycle…</span>
       </div>
 
       <div
@@ -166,7 +188,7 @@ watch(
         <span>{{ errorMessage }}</span>
       </div>
 
-      <template v-else-if="inspection && stateCopy">
+      <template v-else-if="preflight && stateCopy">
         <div class="devcontainer-summary">
           <div>
             <span class="devcontainer-label">Estado</span>
@@ -178,7 +200,7 @@ watch(
           </div>
           <div>
             <span class="devcontainer-label">Runtime atual</span>
-            <strong>Host</strong>
+            <strong>{{ runtimeLabel }}</strong>
           </div>
           <div>
             <span class="devcontainer-label">Tipo</span>
@@ -186,44 +208,65 @@ watch(
           </div>
           <div>
             <span class="devcontainer-label">CLI</span>
-            <strong>{{ inspection.cliVersion ?? '—' }}</strong>
+            <strong>{{ preflight.cliVersion ?? '—' }}</strong>
           </div>
         </div>
 
-        <div class="devcontainer-note">
-          <CheckCircleIcon
-            v-if="inspection.state === 'available'"
+        <div
+          class="devcontainer-note"
+          :class="{ 'is-blocked': preflight.state === 'blocked' }"
+        >
+          <ExclamationTriangleIcon
+            v-if="preflight.state === 'blocked'"
             aria-hidden="true"
           />
           <InformationCircleIcon v-else aria-hidden="true" />
           <div>
-            <strong>{{ stateCopy.detail }}</strong>
-            <span v-if="inspection.diagnostic">{{
-              inspection.diagnostic
-            }}</span>
-            <span v-else>
-              Observado em {{ formatDate(inspection.observedAt) }}
+            <strong>{{ preflight.diagnostic }}</strong>
+            <span>
+              Execução desabilitada · observado em
+              {{ formatDate(preflight.observedAt) }}
+            </span>
+            <span v-if="preflight.requiresConfirmation">
+              Uma futura criação exigirá confirmação explícita após revalidação.
             </span>
           </div>
         </div>
 
         <dl
-          v-if="inspection.configSource || inspection.configuration?.service"
+          v-if="
+            preflight.configSource ||
+            preflight.configuration?.name ||
+            preflight.configuration?.service
+          "
           class="devcontainer-details"
         >
-          <div v-if="inspection.configSource">
+          <div v-if="preflight.configSource">
             <dt>Configuração</dt>
-            <dd>{{ inspection.configSource }}</dd>
+            <dd>{{ preflight.configSource }}</dd>
           </div>
-          <div v-if="inspection.configuration?.name">
+          <div v-if="preflight.configuration?.name">
             <dt>Nome</dt>
-            <dd>{{ inspection.configuration.name }}</dd>
+            <dd>{{ preflight.configuration.name }}</dd>
           </div>
-          <div v-if="inspection.configuration?.service">
+          <div v-if="preflight.configuration?.service">
             <dt>Serviço Compose</dt>
-            <dd>{{ inspection.configuration.service }}</dd>
+            <dd>{{ preflight.configuration.service }}</dd>
           </div>
         </dl>
+
+        <div
+          v-if="preflight.limitations.length > 0"
+          class="devcontainer-limitations"
+        >
+          <InformationCircleIcon aria-hidden="true" />
+          <div>
+            <strong>Limitações atuais</strong>
+            <span v-for="limitation in preflight.limitations" :key="limitation">
+              {{ limitationLabels[limitation] }}
+            </span>
+          </div>
+        </div>
 
         <div v-if="hooks.length > 0" class="devcontainer-hooks">
           <ExclamationTriangleIcon aria-hidden="true" />
@@ -234,7 +277,7 @@ watch(
             </p>
             <span>
               Apenas os nomes são exibidos; os comandos não são retornados nem
-              executados pelo discovery.
+              executados pelo preflight.
             </span>
           </div>
         </div>
@@ -263,6 +306,7 @@ watch(
 
 .devcontainer-heading p,
 .devcontainer-note span,
+.devcontainer-limitations span,
 .devcontainer-hooks span {
   color: var(--text-muted);
 }
@@ -279,6 +323,7 @@ watch(
 .devcontainer-refresh svg,
 .devcontainer-message svg,
 .devcontainer-note svg,
+.devcontainer-limitations svg,
 .devcontainer-hooks svg {
   width: 18px;
   height: 18px;
@@ -319,6 +364,7 @@ watch(
 
 .devcontainer-message,
 .devcontainer-note,
+.devcontainer-limitations,
 .devcontainer-hooks {
   display: flex;
   align-items: flex-start;
@@ -326,11 +372,13 @@ watch(
   margin-top: var(--space-5);
 }
 
-.devcontainer-message.is-error {
+.devcontainer-message.is-error,
+.devcontainer-note.is-blocked {
   color: var(--danger-text);
 }
 
 .devcontainer-note div,
+.devcontainer-limitations div,
 .devcontainer-hooks div {
   display: grid;
   gap: var(--space-1);
@@ -348,6 +396,7 @@ watch(
   overflow-wrap: anywhere;
 }
 
+.devcontainer-limitations,
 .devcontainer-hooks {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border);
