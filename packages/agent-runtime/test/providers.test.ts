@@ -419,6 +419,30 @@ test('Automatic selection uses healthy providers in deterministic order', async 
   assert.equal(codex.executions, 1);
 });
 
+
+test('Automatic resolves provider preference per execution project', async () => {
+  const claude = stubProvider({ id: 'claude-code' });
+  const codex = stubProvider({ id: 'codex' });
+  const registry = new StaticAgentProviderRegistry([claude, codex]);
+  const automatic = new AutomaticAgentProvider({
+    registry,
+    fallbackOrder: ['codex', 'claude-code'],
+    resolvePreference: async (agentRequest) =>
+      agentRequest.projectId === 'project-1'
+        ? {
+            preferredProviderId: 'claude-code',
+            fallbackOrder: ['codex'],
+          }
+        : null,
+  });
+
+  const execution = await automatic.execute(request());
+
+  assert.equal(execution.providerId, 'claude-code');
+  assert.equal(claude.executions, 1);
+  assert.equal(codex.executions, 0);
+});
+
 test('Automatic selection never silently switches after execution starts', async () => {
   const claude = stubProvider({ id: 'claude-code', outcome: 'failed' });
   const codex = stubProvider({ id: 'codex' });
