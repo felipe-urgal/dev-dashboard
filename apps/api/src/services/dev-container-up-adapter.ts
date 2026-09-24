@@ -38,8 +38,7 @@ export type DevContainerUpEnvelope =
     };
 
 export type DevContainerUpAdapterErrorCode =
-  | 'DEV_CONTAINER_UP_INPUT_INVALID'
-  | 'DEV_CONTAINER_UP_OUTPUT_INVALID';
+  'DEV_CONTAINER_UP_INPUT_INVALID' | 'DEV_CONTAINER_UP_OUTPUT_INVALID';
 
 export class DevContainerUpAdapterError extends Error {
   public constructor(
@@ -51,10 +50,7 @@ export class DevContainerUpAdapterError extends Error {
   }
 }
 
-function validText(
-  value: unknown,
-  maxLength: number,
-): value is string {
+function validText(value: unknown, maxLength: number): value is string {
   return (
     typeof value === 'string' &&
     value.length > 0 &&
@@ -65,10 +61,7 @@ function validText(
   );
 }
 
-function optionalText(
-  value: unknown,
-  maxLength: number,
-): string | undefined {
+function optionalText(value: unknown, maxLength: number): string | undefined {
   return validText(value, maxLength) ? value : undefined;
 }
 
