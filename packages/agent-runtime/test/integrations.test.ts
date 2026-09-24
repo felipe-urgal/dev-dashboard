@@ -21,6 +21,7 @@ test('default integration capabilities keep providers explicit and conservative'
   );
   assert.equal(codexMcp?.availability, 'supported');
   assert.deepEqual(codexMcp?.operations, ['list', 'inspect', 'install']);
+  assert.deepEqual(codexMcp?.scopes, ['user']);
   assert.equal(
     codex.integrations.find((item) => item.kind === 'plugin')?.availability,
     'unavailable',
