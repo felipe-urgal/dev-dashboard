@@ -304,7 +304,8 @@ test('start rejeita snapshot cujo hash não corresponde ao preflight', async () 
         events.push('reserve');
         return ownership();
       },
-      attach: async () => ownership({ phase: 'owned', containerId: CONTAINER_ID }),
+      attach: async () =>
+        ownership({ phase: 'owned', containerId: CONTAINER_ID }),
     },
     {
       cleanup: async () => ({
@@ -317,7 +318,8 @@ test('start rejeita snapshot cujo hash não corresponde ao preflight', async () 
       findPrimaryByProjectId: () => current,
       upsert: () => undefined,
     },
-    async () => JSON.stringify({ outcome: 'success', containerId: CONTAINER_ID }),
+    async () =>
+      JSON.stringify({ outcome: 'success', containerId: CONTAINER_ID }),
   );
 
   await assert.rejects(
