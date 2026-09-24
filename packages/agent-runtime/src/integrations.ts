@@ -7,13 +7,19 @@ import {
 } from './cli-process.js';
 
 export type AgentIntegrationKind =
-  'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
 
 export type AgentIntegrationScope =
   'user' | 'project' | 'local' | 'managed' | 'session';
 
 export type AgentIntegrationOrigin =
-  'codex-global-config' | 'claude-plugin-inventory' | 'browser-local-allowlist';
+  | 'codex-global-config'
+  | 'claude-plugin-inventory'
+  | 'claude-marketplace-inventory'
+  | 'browser-local-allowlist';
+
+export type AgentIntegrationMarketplaceSource =
+  'github' | 'git' | 'url' | 'local' | 'claude-ai' | 'unknown';
 
 export type AgentIntegrationOperation =
   | 'list'
@@ -33,6 +39,7 @@ export interface AgentIntegration {
   origin?: AgentIntegrationOrigin;
   version?: string;
   marketplace?: string;
+  marketplaceSource?: AgentIntegrationMarketplaceSource;
   enabled?: boolean;
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
@@ -50,9 +57,10 @@ export interface AgentIntegrationListRequest {
 }
 
 export interface AgentIntegrationIssue {
-  code: 'invalid-entry';
+  code: 'invalid-entry' | 'source-unavailable';
   message: string;
-  index: number;
+  index?: number;
+  source?: AgentIntegrationKind;
 }
 
 export interface AgentIntegrationListResult {
@@ -738,6 +746,117 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       });
     }
 
+    let marketplaceResult;
+    try {
+      marketplaceResult = await this.runProcess({
+        command: this.command,
+        args: ['plugin', 'marketplace', 'list', '--json'],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude marketplace discovery',
+      });
+    } catch {
+      issues.push({
+        code: 'source-unavailable',
+        source: 'marketplace',
+        message: 'Claude marketplace discovery is unavailable.',
+      });
+      return { integrations, issues };
+    }
+
+    if (marketplaceResult.signal !== null || marketplaceResult.exitCode !== 0) {
+      issues.push({
+        code: 'source-unavailable',
+        source: 'marketplace',
+        message: 'Claude marketplace discovery returned a non-zero result.',
+      });
+      return { integrations, issues };
+    }
+
+    let marketplacePayload: unknown;
+    try {
+      marketplacePayload = JSON.parse(marketplaceResult.stdout);
+    } catch {
+      issues.push({
+        code: 'source-unavailable',
+        source: 'marketplace',
+        message: 'Claude marketplace discovery returned invalid JSON.',
+      });
+      return { integrations, issues };
+    }
+
+    if (!Array.isArray(marketplacePayload)) {
+      issues.push({
+        code: 'source-unavailable',
+        source: 'marketplace',
+        message: 'Claude marketplace discovery returned an unexpected payload.',
+      });
+      return { integrations, issues };
+    }
+
+    const normalizeMarketplaceSource = (
+      value: unknown,
+      hasClaudeAiId: boolean,
+    ): AgentIntegrationMarketplaceSource => {
+      const raw =
+        typeof value === 'string'
+          ? value
+          : value && typeof value === 'object'
+            ? (value as { source?: unknown }).source
+            : undefined;
+      if (raw === 'github') return 'github';
+      if (raw === 'git') return 'git';
+      if (raw === 'url') return 'url';
+      if (raw === 'local') return 'local';
+      if (raw === 'claude.ai' || raw === 'claudeai' || hasClaudeAiId) {
+        return 'claude-ai';
+      }
+      return 'unknown';
+    };
+
+    for (const [index, entry] of marketplacePayload.entries()) {
+      if (!entry || typeof entry !== 'object') {
+        issues.push({
+          code: 'invalid-entry',
+          source: 'marketplace',
+          index,
+          message:
+            'Claude marketplace discovery ignored an invalid marketplace entry.',
+        });
+        continue;
+      }
+
+      const item = entry as {
+        name?: unknown;
+        source?: unknown;
+        marketplaceId?: unknown;
+      };
+      const name = typeof item.name === 'string' ? item.name.trim() : '';
+      if (!name || name.length > 128 || /[\u0000-\u001f\u007f]/.test(name)) {
+        issues.push({
+          code: 'invalid-entry',
+          source: 'marketplace',
+          index,
+          message:
+            'Claude marketplace discovery ignored an invalid marketplace entry.',
+        });
+        continue;
+      }
+
+      integrations.push({
+        id: 'claude-code:marketplace:' + name,
+        providerId: 'claude-code',
+        kind: 'marketplace',
+        name,
+        origin: 'claude-marketplace-inventory',
+        marketplaceSource: normalizeMarketplaceSource(
+          item.source,
+          typeof item.marketplaceId === 'string' && Boolean(item.marketplaceId),
+        ),
+        authStatus: 'unsupported',
+      });
+    }
+
     return { integrations, issues };
   }
 
@@ -1143,6 +1262,14 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
           availability: 'supported',
           reason:
             'Managed plugins are listed read-only; enable and disable apply only to user, project, and local scopes.',
+        },
+        {
+          kind: 'marketplace',
+          scopes: ['user', 'project'],
+          operations: ['list'],
+          availability: 'supported',
+          reason:
+            'Marketplace discovery is read-only and exposes only sanitized source type; local paths and source URLs are not returned.',
         },
       ],
     },

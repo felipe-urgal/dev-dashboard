@@ -320,6 +320,17 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
               authStatus: 'unsupported',
               installPath: '/secret/plugin/path',
             },
+            {
+              id: 'claude-code:marketplace:company-tools',
+              providerId: 'claude-code',
+              kind: 'marketplace',
+              name: 'company-tools',
+              origin: 'claude-marketplace-inventory',
+              marketplaceSource: 'github',
+              authStatus: 'unsupported',
+              sourceUrl: 'https://token:SECRET@example.com/private.git',
+              installLocation: '/secret/marketplace/cache',
+            },
           ],
           issues: [
             {
@@ -327,6 +338,12 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
               index: 2,
               message: 'Codex MCP discovery ignored an invalid server entry.',
               raw: 'SECRET_SHOULD_NOT_LEAK',
+            },
+            {
+              code: 'source-unavailable',
+              source: 'marketplace',
+              message: 'Claude marketplace discovery is unavailable.',
+              raw: 'SECRET_MARKETPLACE_ERROR',
             },
           ],
         } as never;
@@ -360,9 +377,22 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.integrations[1]?.version, '1.2.3');
   assert.equal(body.integrations[1]?.marketplace, 'company-tools');
   assert.equal(body.integrations[1]?.installPath, undefined);
+  assert.equal(body.integrations[2]?.kind, 'marketplace');
+  assert.equal(body.integrations[2]?.origin, 'claude-marketplace-inventory');
+  assert.equal(body.integrations[2]?.marketplaceSource, 'github');
+  assert.equal(body.integrations[2]?.sourceUrl, undefined);
+  assert.equal(body.integrations[2]?.installLocation, undefined);
   assert.equal(body.issues[0]?.code, 'invalid-entry');
   assert.equal(body.issues[0]?.raw, undefined);
+  assert.equal(body.issues[1]?.code, 'source-unavailable');
+  assert.equal(body.issues[1]?.source, 'marketplace');
+  assert.equal(body.issues[1]?.index, undefined);
+  assert.equal(body.issues[1]?.raw, undefined);
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
+  assert.equal(
+    JSON.stringify(body).includes('SECRET_MARKETPLACE_ERROR'),
+    false,
+  );
 });
 
 test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturados', async (context) => {

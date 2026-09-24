@@ -254,6 +254,7 @@ export type {
   AgentIntegrationKind,
   AgentIntegrationListRequest,
   AgentIntegrationListResult,
+  AgentIntegrationMarketplaceSource,
   AgentIntegrationOperation,
   AgentIntegrationOrigin,
   AgentIntegrationProvider,

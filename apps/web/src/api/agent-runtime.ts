@@ -6,13 +6,19 @@ export type AgentProviderId =
 export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 
 export type AgentIntegrationKind =
-  'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
 
 export type AgentIntegrationScope =
   'user' | 'project' | 'local' | 'managed' | 'session';
 
 export type AgentIntegrationOrigin =
-  'codex-global-config' | 'claude-plugin-inventory' | 'browser-local-allowlist';
+  | 'codex-global-config'
+  | 'claude-plugin-inventory'
+  | 'claude-marketplace-inventory'
+  | 'browser-local-allowlist';
+
+export type AgentIntegrationMarketplaceSource =
+  'github' | 'git' | 'url' | 'local' | 'claude-ai' | 'unknown';
 
 export type AgentIntegrationOperation =
   | 'list'
@@ -45,14 +51,16 @@ export interface AgentIntegration {
   origin?: AgentIntegrationOrigin;
   version?: string;
   marketplace?: string;
+  marketplaceSource?: AgentIntegrationMarketplaceSource;
   enabled?: boolean;
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
 
 export interface AgentIntegrationIssue {
-  code: 'invalid-entry';
+  code: 'invalid-entry' | 'source-unavailable';
   message: string;
-  index: number;
+  index?: number;
+  source?: AgentIntegrationKind;
 }
 
 export interface AgentIntegrationListResult {

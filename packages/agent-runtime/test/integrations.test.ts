@@ -55,9 +55,16 @@ test('default integration capabilities keep providers explicit and conservative'
     claudePlugin?.reason ?? '',
     /managed plugins are listed read-only/i,
   );
+  const claudeMarketplace = claude.integrations.find(
+    (item) => item.kind === 'marketplace',
+  );
+  assert.equal(claudeMarketplace?.availability, 'supported');
+  assert.deepEqual(claudeMarketplace?.operations, ['list']);
+  assert.deepEqual(claudeMarketplace?.scopes, ['user', 'project']);
+  assert.match(claudeMarketplace?.reason ?? '', /sanitized source type/i);
   assert.ok(
     claude.integrations
-      .filter((item) => item.kind !== 'plugin')
+      .filter((item) => item.kind !== 'plugin' && item.kind !== 'marketplace')
       .every(
         (item) =>
           item.availability === 'unavailable' && item.operations.length === 0,
