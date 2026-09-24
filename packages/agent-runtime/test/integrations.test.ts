@@ -29,11 +29,24 @@ test('default integration capabilities keep providers explicit and conservative'
 
   const claude = registry.get('claude-code');
   assert.ok(claude);
+  const claudePlugin = claude.integrations.find(
+    (item) => item.kind === 'plugin',
+  );
+  assert.equal(claudePlugin?.availability, 'supported');
+  assert.deepEqual(claudePlugin?.operations, ['list']);
+  assert.deepEqual(claudePlugin?.scopes, [
+    'user',
+    'project',
+    'local',
+    'managed',
+  ]);
   assert.ok(
-    claude.integrations.every(
-      (item) =>
-        item.availability === 'unavailable' && item.operations.length === 0,
-    ),
+    claude.integrations
+      .filter((item) => item.kind !== 'plugin')
+      .every(
+        (item) =>
+          item.availability === 'unavailable' && item.operations.length === 0,
+      ),
   );
 
   const browser = registry.get('chatgpt-browser');
