@@ -30,7 +30,10 @@ const providerIds: AgentConcreteProviderId[] = [
   'chatgpt-browser',
 ];
 
+type IntegrationView = 'all' | 'installed' | 'available';
+
 const selectedProviderId = ref<AgentConcreteProviderId>('codex');
+const selectedIntegrationView = ref<IntegrationView>('all');
 const capabilities = ref<AgentIntegrationProviderCapabilities[]>([]);
 const integrations = ref<AgentIntegration[]>([]);
 const integrationIssues = ref<string[]>([]);
@@ -61,6 +64,36 @@ const canInspectSelectedProvider = computed(
         capability.operations.includes('inspect'),
     ) ?? false,
 );
+
+const isAvailableIntegration = (integration: AgentIntegration): boolean =>
+  integration.origin === 'claude-plugin-catalog';
+
+const availableIntegrationCount = computed(
+  () => integrations.value.filter(isAvailableIntegration).length,
+);
+
+const installedIntegrationCount = computed(
+  () => integrations.value.length - availableIntegrationCount.value,
+);
+
+const showIntegrationViewFilters = computed(
+  () =>
+    selectedProviderId.value === 'claude-code' &&
+    availableIntegrationCount.value > 0,
+);
+
+const filteredIntegrations = computed(() => {
+  switch (selectedIntegrationView.value) {
+    case 'installed':
+      return integrations.value.filter(
+        (integration) => !isAvailableIntegration(integration),
+      );
+    case 'available':
+      return integrations.value.filter(isAvailableIntegration);
+    default:
+      return integrations.value;
+  }
+});
 
 const providerLabel = (providerId: AgentConcreteProviderId): string => {
   switch (providerId) {
@@ -433,6 +466,10 @@ async function load(): Promise<void> {
   }
 }
 
+watch(selectedProviderId, () => {
+  selectedIntegrationView.value = 'all';
+});
+
 watch(
   () => [
     props.project.id,
@@ -577,12 +614,43 @@ watch(
       <div class="agent-integrations-list-heading">
         <span>Descoberta atual</span>
         <small v-if="loading">Atualizando…</small>
-        <small v-else>{{ integrations.length }} item(ns)</small>
+        <small v-else>
+          {{ filteredIntegrations.length }} de {{ integrations.length }} item(ns)
+        </small>
       </div>
 
-      <div v-if="integrations.length" class="agent-integrations-items">
+      <div
+        v-if="showIntegrationViewFilters"
+        class="agent-integrations-view-tabs"
+        role="group"
+        aria-label="Filtrar integrações"
+      >
+        <button
+          type="button"
+          :class="{ active: selectedIntegrationView === 'all' }"
+          @click="selectedIntegrationView = 'all'"
+        >
+          Todos · {{ integrations.length }}
+        </button>
+        <button
+          type="button"
+          :class="{ active: selectedIntegrationView === 'installed' }"
+          @click="selectedIntegrationView = 'installed'"
+        >
+          Instalados · {{ installedIntegrationCount }}
+        </button>
+        <button
+          type="button"
+          :class="{ active: selectedIntegrationView === 'available' }"
+          @click="selectedIntegrationView = 'available'"
+        >
+          Disponíveis · {{ availableIntegrationCount }}
+        </button>
+      </div>
+
+      <div v-if="filteredIntegrations.length" class="agent-integrations-items">
         <article
-          v-for="integration in integrations"
+          v-for="integration in filteredIntegrations"
           :key="integration.id"
           class="agent-integration-item"
         >
@@ -743,7 +811,11 @@ watch(
       </div>
 
       <p v-else-if="!loading && !errorMessage" class="agent-hint">
-        Nenhuma integração encontrada para este provider.
+        {{
+          integrations.length
+            ? 'Nenhuma integração neste filtro.'
+            : 'Nenhuma integração encontrada para este provider.'
+        }}
       </p>
 
       <div v-if="integrationIssues.length" class="agent-integrations-warning">
@@ -860,6 +932,31 @@ watch(
 
 .agent-integrations-provider-tabs button:hover,
 .agent-integrations-provider-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.agent-integrations-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.agent-integrations-view-tabs button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.agent-integrations-view-tabs button:hover,
+.agent-integrations-view-tabs button.active {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
