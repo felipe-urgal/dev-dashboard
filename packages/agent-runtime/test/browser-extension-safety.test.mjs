@@ -206,6 +206,7 @@ test('service worker reports ChatGPT session state in heartbeat', async () => {
     new URL('../browser-extension/service-worker.js', import.meta.url),
     'utf8',
   );
+  assert.match(code, /version: chrome\.runtime\.getManifest\(\)\.version/);
   assert.match(code, /sessionState: await detectSessionState\(\)/);
   assert.match(code, /PING_CHATGPT_SESSION/);
 });
