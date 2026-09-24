@@ -158,8 +158,7 @@ const canToggleIntegration = (integration: AgentIntegration): boolean =>
   typeof integration.enabled === 'boolean';
 
 const canUninstallIntegration = (integration: AgentIntegration): boolean =>
-  (integration.providerId === 'codex' &&
-    integration.kind === 'mcp-server') ||
+  (integration.providerId === 'codex' && integration.kind === 'mcp-server') ||
   canToggleIntegration(integration);
 
 async function toggleIntegration(integration: AgentIntegration): Promise<void> {
@@ -206,7 +205,10 @@ async function toggleIntegration(integration: AgentIntegration): Promise<void> {
 async function uninstallIntegration(
   integration: AgentIntegration,
 ): Promise<void> {
-  if (!canUninstallIntegration(integration) || uninstallingIntegrationId.value) {
+  if (
+    !canUninstallIntegration(integration) ||
+    uninstallingIntegrationId.value
+  ) {
     return;
   }
 

@@ -190,8 +190,6 @@ test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope',
   );
 });
 
-
-
 test('Codex MCP removal targets only global user config and verifies effective disappearance', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new CodexMcpIntegrationProvider({
@@ -222,10 +220,13 @@ test('Codex MCP removal targets only global user config and verifies effective d
     confirmed: true,
   });
 
-  assert.deepEqual(calls.map((call) => call.args), [
-    ['mcp', 'remove', 'docs'],
-    ['mcp', 'list', '--json'],
-  ]);
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [
+      ['mcp', 'remove', 'docs'],
+      ['mcp', 'list', '--json'],
+    ],
+  );
   assert.deepEqual(removed, {
     providerId: 'codex',
     kind: 'mcp-server',
