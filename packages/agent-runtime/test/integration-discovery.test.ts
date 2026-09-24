@@ -61,8 +61,6 @@ test('Codex MCP discovery returns only safe metadata', async () => {
       providerId: 'codex',
       kind: 'mcp-server',
       name: 'github',
-      scope: 'user',
-      origin: 'codex-global-config',
       enabled: true,
       authStatus: 'authenticated',
     },
@@ -192,6 +190,109 @@ test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope',
   );
 });
 
+
+
+test('Codex MCP removal targets only global user config and verifies effective disappearance', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      if (request.args[1] === 'remove') return result({ stdout: '' });
+      return result({ stdout: '[]' });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: false,
+      }),
+    /explicit confirmation/,
+  );
+
+  const removed = await provider.uninstall!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'user',
+    confirmed: true,
+  });
+
+  assert.deepEqual(calls.map((call) => call.args), [
+    ['mcp', 'remove', 'docs'],
+    ['mcp', 'list', '--json'],
+  ]);
+  assert.deepEqual(removed, {
+    providerId: 'codex',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'user',
+    dataPreserved: true,
+  });
+});
+
+test('Codex MCP removal fails closed when effective config still contains the server', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      if (request.args[1] === 'remove') return result({ stdout: '' });
+      return result({
+        stdout: JSON.stringify([
+          { name: 'docs', enabled: true, auth_status: 'unsupported' },
+        ]),
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'user',
+        confirmed: true,
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-request' &&
+      /effective project context/.test(error.message),
+  );
+});
+
+test('Codex MCP removal rejects non-user scope and unsafe server names', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async () => result(),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'project',
+        confirmed: true,
+      }),
+    /only explicit user scope/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.uninstall!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'bad name',
+        scope: 'user',
+        confirmed: true,
+      }),
+    /name is invalid/,
+  );
+});
+
 test('Browser integration discovery mirrors the local tool allowlist', async () => {
   const provider = new BrowserCapabilityIntegrationProvider();
   const discovery = await provider.list({ cwd: '/workspace/project' });
@@ -293,8 +394,6 @@ test('Codex MCP inspection returns only sanitized structured details', async () 
     providerId: 'codex',
     kind: 'mcp-server',
     name: 'docs',
-    scope: 'user',
-    origin: 'codex-global-config',
     enabled: true,
     transportType: 'streamable-http',
     enabledTools: ['search'],
