@@ -30,7 +30,6 @@ test('provider preference persists by project and can be cleared', async (t) => 
   assert.equal(await restarted.get('project-1'), null);
 });
 
-
 test('provider preference serializes updates to the shared state file', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-provider-pref-'));
   t.after(async () => rm(root, { recursive: true, force: true }));
