@@ -705,7 +705,10 @@ test('Claude MCP discovery reads documented scopes with local precedence and no 
   assert.equal(JSON.stringify(discovery).includes('SECRET_USER'), false);
   assert.equal(JSON.stringify(discovery).includes('SECRET_LOCAL'), false);
   assert.equal(JSON.stringify(discovery).includes('SECRET_PROJECT'), false);
-  assert.equal(JSON.stringify(discovery).includes('SECRET_USER_COMMAND'), false);
+  assert.equal(
+    JSON.stringify(discovery).includes('SECRET_USER_COMMAND'),
+    false,
+  );
 });
 
 test('Claude MCP discovery isolates malformed config without hiding plugin discovery', async () => {

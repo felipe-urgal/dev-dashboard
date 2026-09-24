@@ -556,7 +556,11 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       userServers = readServerMap(globalConfig.mcpServers);
       const projects = globalConfig.projects;
       if (projects !== undefined) {
-        if (!projects || typeof projects !== 'object' || Array.isArray(projects)) {
+        if (
+          !projects ||
+          typeof projects !== 'object' ||
+          Array.isArray(projects)
+        ) {
           issues.push({
             code: 'source-unavailable',
             source: 'mcp-server',
@@ -564,7 +568,9 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
               'Claude MCP user/local configuration has an invalid projects object.',
           });
         } else {
-          const projectEntry = (projects as Record<string, unknown>)[resolvedCwd];
+          const projectEntry = (projects as Record<string, unknown>)[
+            resolvedCwd
+          ];
           if (projectEntry !== undefined) {
             if (
               !projectEntry ||
