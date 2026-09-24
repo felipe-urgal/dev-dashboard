@@ -126,7 +126,6 @@ test('AgentRuntimeApiService deriva Environment Instance no backend ao criar tas
   });
 });
 
-
 test('AgentRuntimeApiService adota ref via runtime sem ampliar capabilities', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(

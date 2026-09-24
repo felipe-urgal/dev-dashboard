@@ -96,7 +96,6 @@ test('task serialization is bounded to the public contract', () => {
   assert.equal(serialized.includes('secret'), false);
 });
 
-
 test('task serialization preserves only verified adopted Git ref metadata', () => {
   const adopted = {
     ...task(),

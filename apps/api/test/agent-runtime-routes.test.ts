@@ -659,7 +659,6 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
   );
 });
 
-
 test('Agent Runtime HTTP adota ref somente por payload estruturado', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();

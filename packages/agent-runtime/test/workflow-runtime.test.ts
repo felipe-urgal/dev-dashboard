@@ -506,7 +506,6 @@ test('invalid retry policy is rejected at runtime construction', async (t) => {
   );
 });
 
-
 test('adopts only an explicitly confirmed and verified existing Git ref', async (t) => {
   const verificationCalls: unknown[] = [];
   const provider = new StubProvider(async () => ({
