@@ -87,6 +87,23 @@ Regras fail-closed do primeiro corte:
 
 A decisão de manter `executionEnabled=false` também evita criar um recurso sem cleanup completo: a Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`. Além disso, `--skip-post-create` omite os hooks pós-criação, mas não lista `initializeCommand` entre os hooks suprimidos. O executor mutável só deve entrar quando ownership e cleanup estiverem definidos de ponta a ponta.
 
+## Ownership persistente preparado
+
+Antes de habilitar `devcontainer up`, o backend mantém uma base de ownership separada por `environmentInstanceId`.
+
+O store usa duas fases:
+
+- `starting`: reserva persistida **antes** de criar o runtime, com token opaco gerado pelo backend;
+- `owned`: a mesma reserva recebe o `containerId` estruturado retornado pela Dev Container CLI.
+
+O vínculo inclui projeto, Environment Instance, path resolvido pelo backend e origem da configuração. Uma Environment Instance ou path já reservado não pode ser sobrescrito por outra criação.
+
+O token foi desenhado para virar um `--id-label` backend-owned no executor futuro. Assim, se `devcontainer up` criar um container e falhar antes de retornar o envelope final, o cleanup poderá localizar apenas recursos marcados por uma reserva previamente persistida, em vez de inferir ownership por nome ou por containers globais.
+
+O estado é escrito atomicamente fora do repositório. Arquivo ausente significa nenhum ownership conhecido; arquivo existente mas inválido/corrompido falha fechado. `release` exige projeto + Environment Instance + path + token exatos.
+
+Este corte ainda não executa `up`, Docker stop/rm nem altera a Environment Instance.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
