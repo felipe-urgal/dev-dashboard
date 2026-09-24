@@ -913,6 +913,8 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
           scopes: ['user', 'project', 'local', 'managed'],
           operations: ['list', 'enable', 'disable'],
           availability: 'supported',
+          reason:
+            'Managed plugins are listed read-only; enable and disable apply only to user, project, and local scopes.',
         },
       ],
     },
