@@ -107,6 +107,7 @@ export type {
   AgentExecutionCwdResolver,
   AgentProviderErrorCode,
   AutomaticAgentProviderOptions,
+  AutomaticAgentProviderPreference,
   LocalAgentProviderOptions,
   LocalAgentProviderRegistryOptions,
 } from './providers.js';
