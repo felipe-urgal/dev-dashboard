@@ -13,11 +13,7 @@ const PROVIDERS = new Set([
   'chatgpt-browser',
   'automatic',
 ]);
-const CONCRETE_PROVIDERS = new Set([
-  'codex',
-  'claude-code',
-  'chatgpt-browser',
-]);
+const CONCRETE_PROVIDERS = new Set(['codex', 'claude-code', 'chatgpt-browser']);
 
 function lastNonEmptyLine(value) {
   return String(value ?? '')
