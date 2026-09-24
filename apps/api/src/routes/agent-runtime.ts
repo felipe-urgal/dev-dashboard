@@ -67,6 +67,16 @@ interface InstallIntegrationBody {
   url?: string;
 }
 
+interface SetIntegrationEnabledBody {
+  providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
+  environmentInstanceId?: string;
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  name: string;
+  marketplace?: string;
+  scope: 'user' | 'project' | 'local' | 'managed' | 'session';
+  enabled: boolean;
+}
+
 interface AuthorizationBody {
   capability: AgentCapability;
   granted: boolean;
@@ -222,6 +232,31 @@ const installIntegrationBodySchema = {
     },
     confirmed: { type: 'boolean' },
     url: { type: 'string', minLength: 1, maxLength: 2048 },
+  },
+} as const;
+
+
+const setIntegrationEnabledBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'kind', 'name', 'scope', 'enabled'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    name: { type: 'string', minLength: 1, maxLength: 128 },
+    marketplace: { type: 'string', minLength: 1, maxLength: 128 },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'managed', 'session'],
+    },
+    enabled: { type: 'boolean' },
   },
 } as const;
 
@@ -995,6 +1030,45 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             scope: request.body.scope,
             confirmed: request.body.confirmed,
             ...(request.body.url ? { url: request.body.url } : {}),
+          },
+          request.body.environmentInstanceId,
+        ),
+      })),
+  );
+
+
+  app.patch<{ Params: ProjectParams; Body: SetIntegrationEnabledBody }>(
+    '/projects/:projectId/agent/integrations/enabled',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: setIntegrationEnabledBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['integration'],
+            properties: {
+              integration: integrationSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        integration: await options.agentRuntimeApiService.setIntegrationEnabled(
+          request.params.projectId,
+          request.body.providerId,
+          {
+            kind: request.body.kind,
+            name: request.body.name,
+            ...(request.body.marketplace
+              ? { marketplace: request.body.marketplace }
+              : {}),
+            scope: request.body.scope,
+            enabled: request.body.enabled,
           },
           request.body.environmentInstanceId,
         ),
