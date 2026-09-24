@@ -186,7 +186,6 @@ test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope',
   );
 });
 
-
 test('Browser integration discovery mirrors the local tool allowlist', async () => {
   const provider = new BrowserCapabilityIntegrationProvider();
   const integrations = await provider.list({ cwd: '/workspace/project' });
