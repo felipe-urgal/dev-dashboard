@@ -34,6 +34,8 @@ O snapshot interno preserva somente:
 
 Valores de `remoteEnv`, `containerEnv`, comandos de lifecycle, mounts, paths internos e stdout/stderr brutos não entram no snapshot.
 
+Internamente, quando o arquivo de configuração é estável, o discovery calcula `configurationHash` SHA-256 sobre os bytes exatos do arquivo regular. O hash é lido antes e depois de `read-configuration`; se mudar, o discovery falha fechado. Esse fingerprint participa do preflight e da confirmação, mas é deliberadamente removido pelos schemas HTTP e não aparece na UI.
+
 Falhas de CLI, parse ou filesystem viram estados explícitos e mensagens sanitizadas. Ausência de evidência não é promovida a ambiente utilizável.
 
 ## Superfície HTTP read-only
@@ -150,6 +152,7 @@ A primeira criação terá confirmação explícita e curta. O serviço de confi
 - estado/reason do preflight;
 - estado do discovery;
 - origem/versão da CLI;
+- hash SHA-256 interno do arquivo de configuração;
 - tipo, nome/serviço e nomes de hooks;
 - limitações conhecidas.
 
