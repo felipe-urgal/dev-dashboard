@@ -72,10 +72,20 @@ export interface LocalAgentProviderOptions {
   now?: () => string;
 }
 
-export interface AutomaticAgentProviderOptions {
-  registry: AgentProviderRegistry;
+export interface AutomaticAgentProviderPreference {
   preferredProviderId?: AgentConcreteProviderId;
   fallbackOrder?: readonly AgentConcreteProviderId[];
+}
+
+export interface AutomaticAgentProviderOptions
+  extends AutomaticAgentProviderPreference {
+  registry: AgentProviderRegistry;
+  resolvePreference?: (
+    request: AgentProviderExecutionRequest,
+  ) =>
+    | AutomaticAgentProviderPreference
+    | null
+    | Promise<AutomaticAgentProviderPreference | null>;
   now?: () => string;
 }
 
@@ -87,6 +97,7 @@ export interface LocalAgentProviderRegistryOptions extends Omit<
   claudeCommand?: string;
   preferredProviderId?: AgentConcreteProviderId;
   fallbackOrder?: readonly AgentConcreteProviderId[];
+  resolveAutomaticPreference?: AutomaticAgentProviderOptions['resolvePreference'];
   browser?: ChatGptBrowserAgentProviderOptions;
 }
 
@@ -796,11 +807,11 @@ function uniqueProviderOrder(
 
 export class AutomaticAgentProvider implements AgentProvider {
   readonly id = 'automatic' as const;
-  private readonly order: AgentConcreteProviderId[];
+  private readonly defaultOrder: AgentConcreteProviderId[];
   private readonly now: () => string;
 
   constructor(private readonly options: AutomaticAgentProviderOptions) {
-    this.order = uniqueProviderOrder(
+    this.defaultOrder = uniqueProviderOrder(
       options.preferredProviderId,
       options.fallbackOrder ?? LOCAL_PROVIDER_IDS,
     );
@@ -808,7 +819,7 @@ export class AutomaticAgentProvider implements AgentProvider {
   }
 
   async status(): Promise<AgentProviderStatus> {
-    for (const providerId of this.order) {
+    for (const providerId of this.defaultOrder) {
       const provider = this.options.registry.get(providerId);
       if (!provider) continue;
       const status = await provider.status();
@@ -833,7 +844,17 @@ export class AutomaticAgentProvider implements AgentProvider {
   async execute(
     request: AgentProviderExecutionRequest,
   ): Promise<AgentProviderResult> {
-    for (const providerId of this.order) {
+    const preference = this.options.resolvePreference
+      ? await this.options.resolvePreference(request)
+      : null;
+    const order = preference
+      ? uniqueProviderOrder(
+          preference.preferredProviderId,
+          preference.fallbackOrder ?? LOCAL_PROVIDER_IDS,
+        )
+      : this.defaultOrder;
+
+    for (const providerId of order) {
       const provider = this.options.registry.get(providerId);
       if (!provider) continue;
 
@@ -898,6 +919,9 @@ export function createLocalAgentProviderRegistry(
       ? { preferredProviderId: options.preferredProviderId }
       : {}),
     ...(options.fallbackOrder ? { fallbackOrder: options.fallbackOrder } : {}),
+    ...(options.resolveAutomaticPreference
+      ? { resolvePreference: options.resolveAutomaticPreference }
+      : {}),
     ...(options.now ? { now: options.now } : {}),
   });
 
