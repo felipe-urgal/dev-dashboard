@@ -818,6 +818,111 @@ test('Claude MCP discovery ignores invalid entries without exposing their payloa
   assert.equal(JSON.stringify(discovery).includes('SECRET_HEADER'), false);
 });
 
+test('Claude MCP authentication prepares a fixed interactive terminal handoff', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') {
+        return JSON.stringify({
+          projects: {
+            '/workspace/project': {
+              mcpServers: {
+                sentry: {
+                  type: 'http',
+                  url: 'https://token:SECRET_AUTH@example.com/mcp',
+                },
+              },
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async () => result({ stdout: '[]' }),
+  });
+
+  const handoff = await provider.prepareAuthentication!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'sentry',
+    scope: 'local',
+  });
+
+  assert.deepEqual(handoff, {
+    providerId: 'claude-code',
+    kind: 'mcp-server',
+    name: 'sentry',
+    scope: 'local',
+    mode: 'interactive-terminal',
+    program: 'claude',
+    args: ['mcp', 'login', 'sentry'],
+    requiresInteractiveTerminal: true,
+  });
+  assert.equal(handoff.args.includes('--no-browser'), false);
+  assert.equal(JSON.stringify(handoff).includes('SECRET_AUTH'), false);
+  assert.equal(JSON.stringify(handoff).includes('example.com'), false);
+});
+
+test('Claude MCP authentication rejects a shadowed scope and malformed config', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') {
+        return JSON.stringify({
+          mcpServers: {
+            sentry: {
+              type: 'http',
+              url: 'https://example.com/user',
+            },
+          },
+          projects: {
+            '/workspace/project': {
+              mcpServers: {
+                sentry: {
+                  type: 'http',
+                  url: 'https://example.com/local',
+                },
+              },
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async () => result({ stdout: '[]' }),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.prepareAuthentication!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'sentry',
+        scope: 'user',
+      }),
+    /not the effective server/,
+  );
+
+  const malformed = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async () => '{invalid',
+    runProcess: async () => result({ stdout: '[]' }),
+  });
+
+  await assert.rejects(
+    () =>
+      malformed.prepareAuthentication!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'sentry',
+        scope: 'local',
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response',
+  );
+});
+
 test('Claude MCP install uses fixed HTTPS args and verifies persisted scoped config', async () => {
   const calls: AgentCliProcessRequest[] = [];
   let localServers: Record<string, unknown> = {};

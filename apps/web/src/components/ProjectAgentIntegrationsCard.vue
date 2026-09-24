@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ArrowPathIcon, PuzzlePieceIcon } from '@heroicons/vue/24/outline';
+import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -9,6 +10,7 @@ import {
   fetchAgentIntegrationDetails,
   fetchAgentIntegrations,
   installAgentIntegration,
+  prepareAgentIntegrationAuthentication,
   setAgentIntegrationEnabled,
   uninstallAgentIntegration,
   type AgentConcreteProviderId,
@@ -17,6 +19,7 @@ import {
   type AgentIntegrationProviderCapabilities,
 } from '../api/agent-runtime';
 import { confirmDialog } from '../stores/app-dialog';
+import { copyTextToClipboard } from '../utils/terminal-clipboard';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{
@@ -52,6 +55,12 @@ const inspectingIntegrationId = ref<string | null>(null);
 const togglingIntegrationId = ref<string | null>(null);
 const installingIntegrationId = ref<string | null>(null);
 const uninstallingIntegrationId = ref<string | null>(null);
+const authenticatingIntegrationId = ref<string | null>(null);
+const authenticationHandoff = ref<{
+  integrationId: string;
+  command: string;
+  copied: boolean;
+} | null>(null);
 
 const selectedCapabilities = computed(
   () =>
@@ -66,6 +75,15 @@ const canInspectSelectedProvider = computed(
       (capability) =>
         capability.kind === 'mcp-server' &&
         capability.operations.includes('inspect'),
+    ) ?? false,
+);
+
+const canAuthenticateSelectedProvider = computed(
+  () =>
+    selectedCapabilities.value?.integrations.some(
+      (capability) =>
+        capability.kind === 'mcp-server' &&
+        capability.operations.includes('authenticate'),
     ) ?? false,
 );
 
@@ -216,6 +234,14 @@ const canInstallIntegration = (integration: AgentIntegration): boolean =>
   integration.origin === 'claude-plugin-catalog' &&
   Boolean(integration.marketplace);
 
+const canAuthenticateIntegration = (integration: AgentIntegration): boolean =>
+  canAuthenticateSelectedProvider.value &&
+  integration.providerId === 'claude-code' &&
+  integration.kind === 'mcp-server' &&
+  (integration.scope === 'local' ||
+    integration.scope === 'project' ||
+    integration.scope === 'user');
+
 const canToggleIntegration = (integration: AgentIntegration): boolean =>
   integration.providerId === 'claude-code' &&
   integration.kind === 'plugin' &&
@@ -292,6 +318,61 @@ async function installClaudePlugin(
   } finally {
     installingIntegrationId.value = null;
   }
+}
+
+async function prepareAuthentication(
+  integration: AgentIntegration,
+): Promise<void> {
+  if (
+    !canAuthenticateIntegration(integration) ||
+    !integration.scope ||
+    authenticatingIntegrationId.value
+  ) {
+    return;
+  }
+
+  authenticatingIntegrationId.value = integration.id;
+  authenticationHandoff.value = null;
+  errorMessage.value = '';
+  try {
+    const handoff = await prepareAgentIntegrationAuthentication(
+      props.project.id,
+      {
+        providerId: 'claude-code',
+        ...(props.environmentInstanceId
+          ? { environmentInstanceId: props.environmentInstanceId }
+          : {}),
+        kind: 'mcp-server',
+        name: integration.name,
+        scope: integration.scope,
+      },
+    );
+    authenticationHandoff.value = {
+      integrationId: integration.id,
+      command: [handoff.program, ...handoff.args].join(' '),
+      copied: false,
+    };
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível preparar a autenticação do MCP.';
+  } finally {
+    authenticatingIntegrationId.value = null;
+  }
+}
+
+async function copyAuthenticationCommand(): Promise<void> {
+  const handoff = authenticationHandoff.value;
+  if (!handoff) return;
+
+  const copied = await copyTextToClipboard(handoff.command);
+  if (!copied) {
+    errorMessage.value = 'Não foi possível copiar o comando de autenticação.';
+    return;
+  }
+
+  handoff.copied = true;
 }
 
 async function toggleIntegration(integration: AgentIntegration): Promise<void> {
@@ -601,6 +682,7 @@ async function load(): Promise<void> {
 
 watch(selectedProviderId, () => {
   selectedIntegrationView.value = 'all';
+  authenticationHandoff.value = null;
 });
 
 watch(showIntegrationViewFilters, (showFilters) => {
@@ -873,6 +955,7 @@ watch(
               (canInspectSelectedProvider &&
                 integration.kind === 'mcp-server') ||
               canInstallIntegration(integration) ||
+              canAuthenticateIntegration(integration) ||
               canUninstallIntegration(integration)
             "
             class="agent-integration-actions"
@@ -905,6 +988,19 @@ watch(
                 installingIntegrationId === integration.id
                   ? 'Instalando…'
                   : 'Instalar'
+              }}
+            </button>
+            <button
+              v-if="canAuthenticateIntegration(integration)"
+              class="agent-integration-details-button"
+              type="button"
+              :disabled="authenticatingIntegrationId === integration.id"
+              @click="prepareAuthentication(integration)"
+            >
+              {{
+                authenticatingIntegrationId === integration.id
+                  ? 'Preparando…'
+                  : 'Autenticar'
               }}
             </button>
             <button
@@ -941,6 +1037,39 @@ watch(
                   : 'Remover'
               }}
             </button>
+          </div>
+          <div
+            v-if="authenticationHandoff?.integrationId === integration.id"
+            class="agent-integration-auth-handoff"
+          >
+            <span>
+              O OAuth do Claude Code precisa de um terminal interativo. O
+              dashboard não executa este comando pelo navegador.
+            </span>
+            <code>{{ authenticationHandoff.command }}</code>
+            <div class="agent-integration-auth-actions">
+              <button
+                class="agent-integration-details-button"
+                type="button"
+                @click="copyAuthenticationCommand"
+              >
+                {{
+                  authenticationHandoff.copied ? 'Copiado' : 'Copiar comando'
+                }}
+              </button>
+              <RouterLink
+                class="agent-integration-details-button"
+                :to="{
+                  name: 'project-terminal',
+                  params: { projectId: project.id },
+                  ...(environmentInstanceId
+                    ? { query: { environmentInstanceId } }
+                    : {}),
+                }"
+              >
+                Abrir terminal
+              </RouterLink>
+            </div>
           </div>
           <div
             v-if="
@@ -1342,6 +1471,39 @@ watch(
 .agent-integration-details-button:disabled {
   cursor: default;
   opacity: 0.55;
+}
+
+.agent-integration-auth-handoff {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-integration-auth-handoff code {
+  overflow-x: auto;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.agent-integration-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agent-integration-auth-actions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .agent-integration-details {

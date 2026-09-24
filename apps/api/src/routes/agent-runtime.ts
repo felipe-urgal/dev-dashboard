@@ -81,6 +81,15 @@ interface InstallIntegrationBody {
   url?: string;
 }
 
+interface AuthenticateIntegrationBody {
+  providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
+  environmentInstanceId?: string;
+  kind:
+    'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
+  name: string;
+  scope: 'user' | 'project' | 'local' | 'managed' | 'session';
+}
+
 interface SetIntegrationEnabledBody {
   providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
   environmentInstanceId?: string;
@@ -332,6 +341,34 @@ const installIntegrationBodySchema = {
   },
 } as const;
 
+const authenticateIntegrationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'kind', 'name', 'scope'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    kind: {
+      type: 'string',
+      enum: [
+        'mcp-server',
+        'skill',
+        'plugin',
+        'marketplace',
+        'browser-capability',
+      ],
+    },
+    name: { type: 'string', minLength: 1, maxLength: 128 },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'managed', 'session'],
+    },
+  },
+} as const;
+
 const setIntegrationEnabledBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -389,6 +426,50 @@ const uninstallIntegrationBodySchema = {
       enum: ['user', 'project', 'local', 'managed', 'session'],
     },
     confirmed: { type: 'boolean' },
+  },
+} as const;
+
+const integrationAuthenticationHandoffSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'providerId',
+    'kind',
+    'name',
+    'scope',
+    'mode',
+    'program',
+    'args',
+    'requiresInteractiveTerminal',
+  ],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    kind: {
+      type: 'string',
+      enum: [
+        'mcp-server',
+        'skill',
+        'plugin',
+        'marketplace',
+        'browser-capability',
+      ],
+    },
+    name: { type: 'string', maxLength: 128 },
+    scope: {
+      type: 'string',
+      enum: ['user', 'project', 'local', 'managed', 'session'],
+    },
+    mode: { type: 'string', enum: ['interactive-terminal'] },
+    program: { type: 'string', enum: ['claude'] },
+    args: {
+      type: 'array',
+      maxItems: 8,
+      items: { type: 'string', maxLength: 256 },
+    },
+    requiresInteractiveTerminal: { type: 'boolean' },
   },
 } as const;
 
@@ -1329,6 +1410,41 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           },
           request.body.environmentInstanceId,
         ),
+      })),
+  );
+
+  app.post<{ Params: ProjectParams; Body: AuthenticateIntegrationBody }>(
+    '/projects/:projectId/agent/integrations/authentication',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: authenticateIntegrationBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['handoff'],
+            properties: {
+              handoff: integrationAuthenticationHandoffSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        handoff:
+          await options.agentRuntimeApiService.prepareIntegrationAuthentication(
+            request.params.projectId,
+            request.body.providerId,
+            {
+              kind: request.body.kind,
+              name: request.body.name,
+              scope: request.body.scope,
+            },
+            request.body.environmentInstanceId,
+          ),
       })),
   );
 

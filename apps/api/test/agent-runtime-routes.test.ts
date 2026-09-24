@@ -66,6 +66,20 @@ function service(
       kind: input.kind,
       name: input.name,
     }),
+    prepareIntegrationAuthentication: async (
+      _projectId,
+      providerId,
+      input,
+    ) => ({
+      providerId,
+      kind: input.kind,
+      name: input.name,
+      scope: input.scope,
+      mode: 'interactive-terminal',
+      program: 'claude',
+      args: ['mcp', 'login', input.name],
+      requiresInteractiveTerminal: true,
+    }),
     setIntegrationEnabled: async (_projectId, providerId, input) => ({
       id: providerId + ':' + input.kind + ':' + input.name,
       providerId,
@@ -531,6 +545,77 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
     false,
   );
   assert.equal(JSON.stringify(body).includes('SECRET_MCP'), false);
+});
+
+test('Agent Runtime HTTP prepara autenticação MCP Claude sem executar shell', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      prepareIntegrationAuthentication: async (...args) => {
+        calls.push(args);
+        return {
+          providerId: 'claude-code',
+          kind: 'mcp-server',
+          name: 'sentry',
+          scope: 'local',
+          mode: 'interactive-terminal',
+          program: 'claude',
+          args: ['mcp', 'login', 'sentry'],
+          requiresInteractiveTerminal: true,
+          secret: 'SECRET_SHOULD_NOT_LEAK',
+        } as never;
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/integrations/authentication',
+    payload: {
+      providerId: 'claude-code',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'mcp-server',
+      name: 'sentry',
+      scope: 'local',
+      command: 'bash -lc whoami',
+      token: 'SECRET_REQUEST',
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'claude-code',
+      {
+        kind: 'mcp-server',
+        name: 'sentry',
+        scope: 'local',
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  const body = response.json<{
+    handoff: Record<string, unknown>;
+  }>();
+  assert.deepEqual(body.handoff, {
+    providerId: 'claude-code',
+    kind: 'mcp-server',
+    name: 'sentry',
+    scope: 'local',
+    mode: 'interactive-terminal',
+    program: 'claude',
+    args: ['mcp', 'login', 'sentry'],
+    requiresInteractiveTerminal: true,
+  });
+  assert.equal(JSON.stringify(calls).includes('bash -lc'), false);
+  assert.equal(JSON.stringify(calls).includes('SECRET_REQUEST'), false);
+  assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
 
 test('Agent Runtime HTTP instala MCP remoto Claude sem aceitar headers ou comando livre', async (context) => {

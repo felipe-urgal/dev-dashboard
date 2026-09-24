@@ -70,6 +70,17 @@ export interface AgentIntegrationListResult {
   issues: AgentIntegrationIssue[];
 }
 
+export interface AgentIntegrationAuthenticationHandoff {
+  providerId: AgentConcreteProviderId;
+  kind: AgentIntegrationKind;
+  name: string;
+  scope: AgentIntegrationScope;
+  mode: 'interactive-terminal';
+  program: 'claude';
+  args: string[];
+  requiresInteractiveTerminal: true;
+}
+
 export interface AgentIntegrationUninstallResult {
   providerId: AgentConcreteProviderId;
   kind: AgentIntegrationKind;
@@ -400,6 +411,32 @@ export async function installAgentIntegration(
       body: JSON.stringify(input),
     })
   ).integration;
+}
+
+export async function prepareAgentIntegrationAuthentication(
+  projectId: string,
+  input: {
+    providerId: AgentConcreteProviderId;
+    environmentInstanceId?: string;
+    kind: AgentIntegrationKind;
+    name: string;
+    scope: AgentIntegrationScope;
+  },
+): Promise<AgentIntegrationAuthenticationHandoff> {
+  const path =
+    '/api/projects/' +
+    encodeURIComponent(projectId) +
+    '/agent/integrations/authentication';
+  return (
+    await requestJson<{ handoff: AgentIntegrationAuthenticationHandoff }>(
+      path,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    )
+  ).handoff;
 }
 
 export async function setAgentIntegrationEnabled(
