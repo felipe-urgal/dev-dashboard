@@ -87,7 +87,7 @@ interface AuthenticateIntegrationBody {
   kind:
     'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
   name: string;
-  scope: 'user' | 'project' | 'local' | 'managed' | 'session';
+  scope?: 'user' | 'project' | 'local' | 'managed' | 'session';
 }
 
 interface SetIntegrationEnabledBody {
@@ -344,7 +344,7 @@ const installIntegrationBodySchema = {
 const authenticateIntegrationBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['providerId', 'kind', 'name', 'scope'],
+  required: ['providerId', 'kind', 'name'],
   properties: {
     providerId: {
       type: 'string',
@@ -436,7 +436,6 @@ const integrationAuthenticationHandoffSchema = {
     'providerId',
     'kind',
     'name',
-    'scope',
     'mode',
     'program',
     'args',
@@ -463,7 +462,7 @@ const integrationAuthenticationHandoffSchema = {
       enum: ['user', 'project', 'local', 'managed', 'session'],
     },
     mode: { type: 'string', enum: ['interactive-terminal'] },
-    program: { type: 'string', enum: ['claude'] },
+    program: { type: 'string', enum: ['claude', 'codex'] },
     args: {
       type: 'array',
       maxItems: 8,
@@ -1441,7 +1440,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
             {
               kind: request.body.kind,
               name: request.body.name,
-              scope: request.body.scope,
+              ...(request.body.scope ? { scope: request.body.scope } : {}),
             },
             request.body.environmentInstanceId,
           ),
