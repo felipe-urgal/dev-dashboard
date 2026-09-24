@@ -986,6 +986,12 @@ function mapAgentError(error: unknown): unknown {
         code: 'BAD_REQUEST',
         message: error.message,
       });
+    case 'AGENT_WORKFLOW_EVIDENCE_PERSIST_FAILED':
+      return new ApiError({
+        statusCode: 500,
+        code: 'INTERNAL_ERROR',
+        message: error.message,
+      });
     case 'AGENT_API_INTEGRATION_DISCOVERY_FAILED':
     case 'AGENT_WORKFLOW_PROVIDER_FAILED':
       return new ApiError({
