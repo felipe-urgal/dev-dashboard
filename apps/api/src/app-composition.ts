@@ -265,11 +265,11 @@ export function createAppComposition(
 
   const agentBrowserRuntime = options.agentRuntimeApiService
     ? null
-    : (options.agentBrowserRuntime ??
+    : options.agentBrowserRuntime ??
       createAgentBrowserRuntime(
         path.join(context.processManager.stateDirectory, 'agent-runtime'),
         options.now,
-      ));
+      );
   const agentRuntimeApiService =
     options.agentRuntimeApiService ??
     createAgentRuntimeApiService(
