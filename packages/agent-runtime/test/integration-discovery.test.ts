@@ -441,6 +441,11 @@ test('Claude plugin discovery returns sanitized installed plugin metadata', asyn
       if (request.args[1] === 'marketplace') {
         return result({ stdout: '[]' });
       }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
       return result({
         stdout: JSON.stringify([
           {
@@ -468,8 +473,15 @@ test('Claude plugin discovery returns sanitized installed plugin metadata', asyn
 
   assert.deepEqual(calls[0]?.args, ['plugin', 'list', '--json']);
   assert.deepEqual(calls[1]?.args, ['plugin', 'marketplace', 'list', '--json']);
+  assert.deepEqual(calls[2]?.args, [
+    'plugin',
+    'list',
+    '--json',
+    '--available',
+  ]);
   assert.equal(calls[0]?.cwd, '/workspace/project');
   assert.equal(calls[1]?.cwd, '/workspace/project');
+  assert.equal(calls[2]?.cwd, '/workspace/project');
   assert.deepEqual(discovery.integrations, [
     {
       id: 'claude-code:plugin:code-review@company-tools',
@@ -509,17 +521,24 @@ test('Claude plugin discovery returns sanitized installed plugin metadata', asyn
 
 test('Claude plugin discovery isolates invalid rows and fails closed on invalid JSON', async () => {
   const provider = new ClaudePluginIntegrationProvider({
-    runProcess: async (request) =>
-      request.args[1] === 'marketplace'
-        ? result({ stdout: '[]' })
-        : result({
-            stdout: JSON.stringify([
-              { id: 'valid@market', scope: 'user', enabled: true },
-              { id: '', scope: 'user', enabled: true },
-              { id: 'bad-scope', scope: 'session', enabled: true },
-              null,
-            ]),
-          }),
+    runProcess: async (request) => {
+      if (request.args[1] === 'marketplace') {
+        return result({ stdout: '[]' });
+      }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
+      return result({
+        stdout: JSON.stringify([
+          { id: 'valid@market', scope: 'user', enabled: true },
+          { id: '', scope: 'user', enabled: true },
+          { id: 'bad-scope', scope: 'session', enabled: true },
+          null,
+        ]),
+      });
+    },
   });
 
   const discovery = await provider.list({ cwd: '/workspace/project' });
@@ -543,6 +562,11 @@ test('Claude plugin discovery isolates invalid rows and fails closed on invalid 
 test('Claude marketplace discovery exposes only safe source metadata', async () => {
   const provider = new ClaudePluginIntegrationProvider({
     runProcess: async (request) => {
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
       if (request.args[1] !== 'marketplace') {
         return result({ stdout: '[]' });
       }
@@ -611,6 +635,11 @@ test('Claude marketplace discovery failure does not hide installed plugins', asy
       if (request.args[1] === 'marketplace') {
         return result({ exitCode: 1, stderr: 'SECRET_MARKETPLACE_ERROR' });
       }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
       return result({
         stdout: JSON.stringify([
           {
@@ -638,6 +667,177 @@ test('Claude marketplace discovery failure does not hide installed plugins', asy
   ]);
   assert.equal(
     JSON.stringify(discovery).includes('SECRET_MARKETPLACE_ERROR'),
+    false,
+  );
+});
+
+
+test('Claude plugin catalog returns sanitized available plugins and skips installed duplicates', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      if (request.args[1] === 'marketplace') {
+        return result({ stdout: '[]' });
+      }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({
+            installed: [{ pluginId: 'review@company-tools' }],
+            available: [
+              {
+                pluginId: 'review@company-tools',
+                name: 'review',
+                marketplaceName: 'company-tools',
+                version: '1.2.3',
+                description: 'SECRET_DESCRIPTION',
+                source: {
+                  source: 'github',
+                  repo: 'private-org/private-marketplace',
+                },
+              },
+              {
+                pluginId: 'security@official',
+                name: 'security',
+                marketplaceName: 'official',
+                version: '2.4.0',
+                description: 'Should not cross the boundary',
+                source: {
+                  source: 'url',
+                  url: 'https://token:SECRET@example.com/plugin',
+                },
+              },
+            ],
+          }),
+        });
+      }
+      return result({
+        stdout: JSON.stringify([
+          {
+            id: 'review@company-tools',
+            version: '1.2.3',
+            scope: 'user',
+            enabled: true,
+          },
+        ]),
+      });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+  const catalog = discovery.integrations.filter(
+    (integration) => integration.origin === 'claude-plugin-catalog',
+  );
+
+  assert.deepEqual(calls[2]?.args, [
+    'plugin',
+    'list',
+    '--json',
+    '--available',
+  ]);
+  assert.deepEqual(catalog, [
+    {
+      id: 'claude-code:plugin-catalog:security@official',
+      providerId: 'claude-code',
+      kind: 'plugin',
+      name: 'security',
+      origin: 'claude-plugin-catalog',
+      marketplace: 'official',
+      version: '2.4.0',
+      authStatus: 'unsupported',
+    },
+  ]);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_DESCRIPTION'), false);
+  assert.equal(JSON.stringify(discovery).includes('private-org'), false);
+  assert.equal(JSON.stringify(discovery).includes('token:SECRET'), false);
+});
+
+test('Claude plugin catalog failure is isolated from installed plugins and marketplaces', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      if (request.args[1] === 'marketplace') {
+        return result({
+          stdout: JSON.stringify([
+            { name: 'company-tools', source: 'github' },
+          ]),
+        });
+      }
+      if (request.args.includes('--available')) {
+        return result({ exitCode: 1, stderr: 'SECRET_CATALOG_ERROR' });
+      }
+      return result({
+        stdout: JSON.stringify([
+          {
+            id: 'review@company-tools',
+            scope: 'project',
+            enabled: true,
+          },
+        ]),
+      });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+
+  assert.deepEqual(
+    discovery.integrations.map((integration) => integration.name),
+    ['review', 'company-tools'],
+  );
+  assert.deepEqual(discovery.issues, [
+    {
+      code: 'source-unavailable',
+      source: 'plugin',
+      message: 'Claude plugin catalog discovery returned a non-zero result.',
+    },
+  ]);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_CATALOG_ERROR'), false);
+});
+
+test('Claude plugin catalog ignores malformed entries without exposing free text', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async (request) => {
+      if (request.args[1] === 'marketplace') {
+        return result({ stdout: '[]' });
+      }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({
+            installed: [],
+            available: [
+              null,
+              {
+                pluginId: 'mismatch@market',
+                name: 'other',
+                marketplaceName: 'market',
+                description: 'SECRET_INVALID_DESCRIPTION',
+              },
+              {
+                pluginId: 'valid@market',
+                name: 'valid',
+                marketplaceName: 'market',
+              },
+            ],
+          }),
+        });
+      }
+      return result({ stdout: '[]' });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+
+  assert.deepEqual(
+    discovery.integrations.map((integration) => integration.name),
+    ['valid'],
+  );
+  assert.equal(
+    discovery.issues.filter(
+      (issue) => issue.code === 'invalid-entry' && issue.source === 'plugin',
+    ).length,
+    2,
+  );
+  assert.equal(
+    JSON.stringify(discovery).includes('SECRET_INVALID_DESCRIPTION'),
     false,
   );
 });
