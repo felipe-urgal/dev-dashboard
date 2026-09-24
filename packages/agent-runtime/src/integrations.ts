@@ -681,14 +681,7 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     try {
       result = await this.runProcess({
         command: this.command,
-        args: [
-          'plugin',
-          command,
-          pluginId,
-          '--scope',
-          request.scope,
-          '--json',
-        ],
+        args: ['plugin', command, pluginId, '--scope', request.scope, '--json'],
         cwd: request.cwd,
         timeoutMs: this.timeoutMs,
         label: 'Claude plugin ' + command,
