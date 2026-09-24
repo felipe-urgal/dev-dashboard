@@ -459,8 +459,7 @@ export class AgentAuditStore {
 
       const existingExecutionEvent = state.events.find(
         (event) =>
-          event.type === 'execution-state' &&
-          event.executionId === executionId,
+          event.type === 'execution-state' && event.executionId === executionId,
       );
       if (existingExecutionEvent) {
         if (
