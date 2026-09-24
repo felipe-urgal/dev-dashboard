@@ -31,6 +31,7 @@ import type {
   AgentCapability,
   AgentCheckpointStatus,
   AgentProviderId,
+  AgentProviderPreference,
   AgentProviderRegistry,
   AgentProviderStatus,
   AgentTask,
@@ -90,6 +91,11 @@ export interface AgentUsagePeriod {
   observedTo?: string;
 }
 
+export interface AgentProviderPreferenceInput {
+  preferredProviderId: 'codex' | 'claude-code';
+  fallbackOrder?: Array<'codex' | 'claude-code'>;
+}
+
 export interface AgentTaskBudgetInput {
   maxTotalTokens?: number;
   maxEstimatedCostUsd?: number;
@@ -111,6 +117,14 @@ export interface AgentBudgetOverview {
 
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
+  getProviderPreference(
+    projectId: string,
+  ): Promise<AgentProviderPreference | null>;
+  setProviderPreference(
+    projectId: string,
+    input: AgentProviderPreferenceInput,
+  ): Promise<AgentProviderPreference>;
+  clearProviderPreference(projectId: string): Promise<void>;
   listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[];
   listIntegrations(
     projectId: string,
@@ -200,6 +214,11 @@ export interface AgentRuntimeApiServiceOptions {
     | 'appendExecutionResult'
   >;
   providerRegistry: AgentProviderRegistry;
+  providerPreferenceStore?: {
+    get(projectId: string): Promise<AgentProviderPreference | null>;
+    set(preference: AgentProviderPreference): Promise<AgentProviderPreference>;
+    clear(projectId: string): Promise<void>;
+  };
   integrationCapabilityRegistry?: AgentIntegrationCapabilityRegistry;
   integrationProviderRegistry?: AgentIntegrationProviderRegistry;
   workflowRuntime: Pick<
@@ -271,6 +290,51 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     return Promise.all(
       this.options.providerRegistry.list().map((provider) => provider.status()),
     );
+  }
+
+  public async getProviderPreference(
+    projectId: string,
+  ): Promise<AgentProviderPreference | null> {
+    this.requireProject(projectId);
+    return this.options.providerPreferenceStore?.get(projectId) ?? null;
+  }
+
+  public async setProviderPreference(
+    projectId: string,
+    input: AgentProviderPreferenceInput,
+  ): Promise<AgentProviderPreference> {
+    this.requireProject(projectId);
+    if (!this.options.providerPreferenceStore) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent provider preference storage is unavailable.',
+      );
+    }
+
+    const fallbackOrder: Array<'codex' | 'claude-code'> =
+      input.fallbackOrder ??
+      (input.preferredProviderId === 'codex' ? ['claude-code'] : ['codex']);
+    if (
+      new Set(fallbackOrder).size !== fallbackOrder.length ||
+      fallbackOrder.includes(input.preferredProviderId)
+    ) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent provider fallback order is invalid.',
+      );
+    }
+
+    return this.options.providerPreferenceStore.set({
+      projectId,
+      preferredProviderId: input.preferredProviderId,
+      fallbackOrder: [...fallbackOrder],
+      updatedAt: this.now(),
+    });
+  }
+
+  public async clearProviderPreference(projectId: string): Promise<void> {
+    this.requireProject(projectId);
+    await this.options.providerPreferenceStore?.clear(projectId);
   }
 
   public listIntegrationCapabilities(): AgentIntegrationProviderCapabilities[] {

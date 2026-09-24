@@ -126,6 +126,78 @@ test('AgentRuntimeApiService deriva Environment Instance no backend ao criar tas
   });
 });
 
+test('AgentRuntimeApiService valida preferência de provider por projeto', async () => {
+  const writes: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore: new MemoryTaskStore(),
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    providerPreferenceStore: {
+      get: async () => null,
+      set: async (preference) => {
+        writes.push(preference);
+        return preference;
+      },
+      clear: async () => undefined,
+    },
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: (projectId) =>
+        projectId === 'project-1' ? ({ id: projectId } as never) : null,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    now: () => '2026-09-24T13:40:00.000Z',
+  });
+
+  const saved = await service.setProviderPreference('project-1', {
+    preferredProviderId: 'claude-code',
+    fallbackOrder: ['codex'],
+  });
+  assert.deepEqual(saved, {
+    projectId: 'project-1',
+    preferredProviderId: 'claude-code',
+    fallbackOrder: ['codex'],
+    updatedAt: '2026-09-24T13:40:00.000Z',
+  });
+  assert.deepEqual(writes, [saved]);
+
+  const defaulted = await service.setProviderPreference('project-1', {
+    preferredProviderId: 'codex',
+  });
+  assert.deepEqual(defaulted.fallbackOrder, ['claude-code']);
+
+  await assert.rejects(
+    service.setProviderPreference('project-1', {
+      preferredProviderId: 'codex',
+      fallbackOrder: ['codex'],
+    }),
+    (error: unknown) =>
+      error instanceof AgentRuntimeApiServiceError &&
+      error.code === 'AGENT_API_INVALID_REQUEST',
+  );
+  assert.equal(writes.length, 2);
+});
+
 test('AgentRuntimeApiService adota ref via runtime sem ampliar capabilities', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(
