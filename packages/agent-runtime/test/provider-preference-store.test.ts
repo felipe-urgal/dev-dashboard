@@ -30,6 +30,34 @@ test('provider preference persists by project and can be cleared', async (t) => 
   assert.equal(await restarted.get('project-1'), null);
 });
 
+
+test('provider preference serializes updates to the shared state file', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-provider-pref-'));
+  t.after(async () => rm(root, { recursive: true, force: true }));
+
+  const store = new AgentProviderPreferenceStore({ stateDirectory: root });
+  await Promise.all([
+    store.set({
+      projectId: 'project-1',
+      preferredProviderId: 'codex',
+      fallbackOrder: ['claude-code'],
+      updatedAt: '2026-09-24T13:40:00.000Z',
+    }),
+    store.set({
+      projectId: 'project-2',
+      preferredProviderId: 'claude-code',
+      fallbackOrder: ['codex'],
+      updatedAt: '2026-09-24T13:40:00.000Z',
+    }),
+  ]);
+
+  assert.equal((await store.get('project-1'))?.preferredProviderId, 'codex');
+  assert.equal(
+    (await store.get('project-2'))?.preferredProviderId,
+    'claude-code',
+  );
+});
+
 test('provider preference rejects invalid providers and corrupt state', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-provider-pref-'));
   t.after(async () => rm(root, { recursive: true, force: true }));
