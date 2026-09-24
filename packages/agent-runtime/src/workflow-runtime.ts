@@ -180,7 +180,7 @@ export class AgentWorkflowRuntime {
   private readonly runtimeStateStore: AgentRuntimeStateStore;
   private readonly lockManager: AgentTaskLockManager;
   private readonly checkpointStore: AgentWorkflowRuntimeOptions['checkpointStore'];
-  private readonly gitRefVerifier?: AgentGitRefVerifier;
+  private readonly gitRefVerifier: AgentGitRefVerifier | undefined;
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
   private readonly createCheckpointId: () => string;
