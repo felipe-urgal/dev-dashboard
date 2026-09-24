@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
+import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
 import {
   DevContainerLifecyclePlanningError,
   DevContainerLifecyclePlanningService,
@@ -27,15 +28,7 @@ const hostContext: ExecutionContext = {
 };
 
 function planner(
-  inspection: Parameters<
-    ConstructorParameters<typeof DevContainerLifecyclePlanningService>[0]['inspect']
-  > extends never
-    ? never
-    : Awaited<
-        ReturnType<
-          ConstructorParameters<typeof DevContainerLifecyclePlanningService>[0]['inspect']
-        >
-      >,
+  inspection: DevContainerInspection,
   context: ExecutionContext | null = hostContext,
 ) {
   const inspectedPaths: string[] = [];
