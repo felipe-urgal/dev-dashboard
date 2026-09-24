@@ -106,6 +106,8 @@ const integrationScopeLabel = (integration: AgentIntegration): string => {
       return 'Projeto';
     case 'local':
       return 'Local';
+    case 'managed':
+      return 'Gerenciado';
     case 'session':
       return 'Sessão';
     default:
