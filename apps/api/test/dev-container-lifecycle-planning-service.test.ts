@@ -176,6 +176,7 @@ test('preflight usa cwd da Environment Instance e falha para ambiente inválido'
       observedAt: '2026-09-24T22:04:00.000Z',
       configSource: '.devcontainer.json',
       cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
       configuration: { kind: 'dockerfile', lifecycleHooks: [] },
     },
     worktreeContext,
