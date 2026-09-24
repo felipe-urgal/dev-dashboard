@@ -442,6 +442,17 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
                 url: 'https://token:SECRET@example.com/plugin',
               },
             },
+            {
+              id: 'claude-code:mcp-server:docs',
+              providerId: 'claude-code',
+              kind: 'mcp-server',
+              name: 'docs',
+              scope: 'local',
+              origin: 'claude-mcp-config',
+              authStatus: 'unknown',
+              url: 'https://token:SECRET_MCP@example.com/mcp',
+              headers: { Authorization: 'Bearer SECRET_MCP' },
+            },
           ],
           issues: [
             {
@@ -499,6 +510,11 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.integrations[3]?.version, '2.4.0');
   assert.equal(body.integrations[3]?.description, undefined);
   assert.equal(body.integrations[3]?.source, undefined);
+  assert.equal(body.integrations[4]?.kind, 'mcp-server');
+  assert.equal(body.integrations[4]?.scope, 'local');
+  assert.equal(body.integrations[4]?.origin, 'claude-mcp-config');
+  assert.equal(body.integrations[4]?.url, undefined);
+  assert.equal(body.integrations[4]?.headers, undefined);
   assert.equal(body.issues[0]?.code, 'invalid-entry');
   assert.equal(body.issues[0]?.raw, undefined);
   assert.equal(body.issues[1]?.code, 'source-unavailable');
@@ -514,6 +530,7 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
     JSON.stringify(body).includes('SECRET_CATALOG_DESCRIPTION'),
     false,
   );
+  assert.equal(JSON.stringify(body).includes('SECRET_MCP'), false);
 });
 
 test('Agent Runtime HTTP instala plugin Claude com marketplace e confirmação estruturados', async (context) => {
