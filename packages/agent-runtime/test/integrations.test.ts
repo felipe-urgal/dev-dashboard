@@ -53,8 +53,9 @@ test('default integration capabilities keep providers explicit and conservative'
   ]);
   assert.match(
     claudePlugin?.reason ?? '',
-    /managed plugins are listed read-only/i,
+    /available marketplace plugins are listed read-only/i,
   );
+  assert.doesNotMatch(claudePlugin?.reason ?? '', /install.*supported/i);
   const claudeMarketplace = claude.integrations.find(
     (item) => item.kind === 'marketplace',
   );
