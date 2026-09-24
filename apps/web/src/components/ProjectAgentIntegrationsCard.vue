@@ -16,6 +16,7 @@ import {
   type AgentIntegrationDetails,
   type AgentIntegrationProviderCapabilities,
 } from '../api/agent-runtime';
+import { confirmDialog } from '../stores/app-dialog';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{
@@ -209,13 +210,18 @@ async function uninstallIntegration(
     return;
   }
 
-  const confirmed = window.confirm(
-    'Remover ' +
+  const confirmed = await confirmDialog({
+    title: 'Remover plugin',
+    message:
+      'Remover ' +
       integration.name +
       ' do escopo ' +
       integrationScopeLabel(integration) +
       '? Os dados persistentes do plugin serão preservados.',
-  );
+    confirmLabel: 'Remover plugin',
+    cancelLabel: 'Cancelar',
+    tone: 'danger',
+  });
   if (!confirmed) return;
 
   uninstallingIntegrationId.value = integration.id;
