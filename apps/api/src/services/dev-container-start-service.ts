@@ -241,7 +241,6 @@ export class DevContainerStartService {
     }
 
     let rollbackRequired = true;
-    let primaryError: DevContainerStartError | undefined;
 
     try {
       try {
@@ -347,31 +346,24 @@ export class DevContainerStartService {
         containerId: ownership.containerId!,
       };
     } catch (error) {
-      primaryError =
-        error instanceof DevContainerStartError
-          ? error
-          : new DevContainerStartError(
-              'DEV_CONTAINER_START_COMMAND_FAILED',
-              'A criação do Dev Container falhou.',
-            );
-      throw primaryError;
+      throw error instanceof DevContainerStartError
+        ? error
+        : new DevContainerStartError(
+            'DEV_CONTAINER_START_COMMAND_FAILED',
+            'A criação do Dev Container falhou.',
+          );
     } finally {
-      if (!rollbackRequired) return;
+      if (rollbackRequired) {
+        await snapshot.dispose().catch(() => undefined);
 
-      await snapshot.dispose().catch(() => undefined);
-
-      try {
-        await this.cleanupService.cleanup(project, instance.id);
-      } catch {
-        throw new DevContainerStartError(
-          'DEV_CONTAINER_START_ROLLBACK_FAILED',
-          'A criação falhou e o rollback do Dev Container não pôde ser comprovado.',
-        );
-      }
-
-      if (primaryError) {
-        // O erro original já foi lançado no bloco catch. O finally existe
-        // apenas para garantir rollback antes que ele seja observado.
+        try {
+          await this.cleanupService.cleanup(project, instance.id);
+        } catch {
+          throw new DevContainerStartError(
+            'DEV_CONTAINER_START_ROLLBACK_FAILED',
+            'A criação falhou e o rollback do Dev Container não pôde ser comprovado.',
+          );
+        }
       }
     }
   }
