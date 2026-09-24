@@ -175,6 +175,28 @@ test('preflight usa cwd da Environment Instance e falha para ambiente inválido'
   );
 });
 
+test('preflight falha fechado quando o discovery lança erro inesperado', async () => {
+  const service = new DevContainerLifecyclePlanningService(
+    {
+      inspect: async () => {
+        throw new Error('raw secret output');
+      },
+    },
+    {
+      resolveForProject: () => hostContext,
+    },
+    () => new Date('2026-09-24T22:05:30.000Z'),
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'unavailable');
+  assert.equal(plan.reason, 'discovery-not-ready');
+  assert.equal(plan.executionEnabled, false);
+  assert.equal(plan.observedAt, '2026-09-24T22:05:30.000Z');
+  assert.equal(JSON.stringify(plan).includes('raw secret output'), false);
+});
+
 test('preflight bloqueia quando a Environment Instance já usa runtime devcontainer', async () => {
   const { service, inspectedPaths } = planner(
     {
