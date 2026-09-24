@@ -93,8 +93,6 @@ const hooks = computed(
 );
 
 const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
-  'cleanup-adapter-pending':
-    'Cleanup/stop seguro ainda precisa de ownership ponta a ponta.',
   'post-create-hooks-deferred':
     'Hooks pós-criação permanecem diferidos neste lifecycle.',
 };
