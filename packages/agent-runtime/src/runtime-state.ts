@@ -155,7 +155,6 @@ export class AgentRuntimeStateStore {
     }
 
     const previous = await this.read(record);
-    const canonicalAdvanced = previous.canonicalVersion !== record.version;
     const observedAt = this.now().toISOString();
 
     return this.write(record, {
@@ -164,7 +163,7 @@ export class AgentRuntimeStateStore {
       state: 'running',
       executionId,
       processId: this.processId,
-      attempts: canonicalAdvanced ? 0 : previous.attempts,
+      attempts: previous.attempts,
       startedAt: observedAt,
       updatedAt: observedAt,
     });
