@@ -10,6 +10,10 @@ export type AgentIntegrationKind =
 
 export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
 
+export type AgentIntegrationOrigin =
+  | 'codex-global-config'
+  | 'browser-local-allowlist';
+
 export type AgentIntegrationOperation =
   | 'list'
   | 'inspect'
@@ -37,6 +41,8 @@ export interface AgentIntegration {
   providerId: AgentConcreteProviderId;
   kind: AgentIntegrationKind;
   name: string;
+  scope?: AgentIntegrationScope;
+  origin?: AgentIntegrationOrigin;
   enabled?: boolean;
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
