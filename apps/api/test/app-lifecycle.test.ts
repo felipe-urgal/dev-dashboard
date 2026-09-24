@@ -44,3 +44,63 @@ test('buildApp fecha o serviço compartilhado de PTYs destacáveis no shutdown',
     await rm(fixtureRoot, { recursive: true, force: true });
   }
 });
+
+
+test('buildApp gerencia o Browser Bridge junto do servidor HTTP', async () => {
+  const fixtureRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-api-browser-lifecycle-'),
+  );
+  const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
+  process.env.DEV_DASHBOARD_STATE_DIR = path.join(fixtureRoot, 'state');
+
+  try {
+    const [{ buildApp }, { createAppContext }] = await Promise.all([
+      import('../src/app.js'),
+      import('../src/app-context.js'),
+    ]);
+    const context = createAppContext();
+    let startCalls = 0;
+    let closeCalls = 0;
+
+    const agentBrowserRuntime = {
+      bridge: {
+        health: async () => ({ ok: true }),
+        createJob: async () => {
+          throw new Error('unused');
+        },
+        getJob: async () => {
+          throw new Error('unused');
+        },
+        cancelJob: async () => {
+          throw new Error('unused');
+        },
+      },
+      start: async () => {
+        startCalls += 1;
+      },
+      close: async () => {
+        closeCalls += 1;
+      },
+    };
+
+    const app = await buildApp({
+      localToken: TOKEN,
+      context,
+      agentBrowserRuntime,
+    });
+
+    assert.equal(startCalls, 0);
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    assert.equal(startCalls, 1);
+
+    await app.close();
+    assert.equal(closeCalls, 1);
+  } finally {
+    if (previousStateDirectory === undefined) {
+      delete process.env.DEV_DASHBOARD_STATE_DIR;
+    } else {
+      process.env.DEV_DASHBOARD_STATE_DIR = previousStateDirectory;
+    }
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
