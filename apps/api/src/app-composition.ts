@@ -31,6 +31,7 @@ import {
 } from './services/agent-runtime-api-service.js';
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
+import { DevContainerLifecycleConfirmationService } from './services/dev-container-lifecycle-confirmation-service.js';
 import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
 import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
@@ -93,6 +94,10 @@ export interface AppCompositionOptions {
     DevContainerLifecyclePlanningService,
     'plan'
   >;
+  devContainerLifecycleConfirmationService?: Pick<
+    DevContainerLifecycleConfirmationService,
+    'prepare' | 'consume'
+  >;
   devContainerOwnershipStore?: Pick<
     DevContainerOwnershipStore,
     'reserve' | 'attach' | 'get' | 'release'
@@ -146,6 +151,11 @@ export function createAppComposition(
       devContainerDiscoveryService,
       context.developmentEnvironmentInstanceStore,
       options.now ? () => new Date(options.now!()) : undefined,
+    );
+  const devContainerLifecycleConfirmationService =
+    options.devContainerLifecycleConfirmationService ??
+    new DevContainerLifecycleConfirmationService(
+      options.now ? { now: options.now } : {},
     );
   const devContainerOwnershipStore =
     options.devContainerOwnershipStore ??
@@ -331,6 +341,7 @@ export function createAppComposition(
     projectDoctorService,
     devContainerDiscoveryService,
     devContainerLifecyclePlanningService,
+    devContainerLifecycleConfirmationService,
     devContainerOwnershipStore,
     portInspectorService,
     dockerComposeProvider,

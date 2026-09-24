@@ -140,6 +140,25 @@ O inspect deliberadamente não retorna o objeto Docker completo, evitando transp
 
 Configurações Dev Container baseadas em Compose continuam fora deste adapter e permanecem bloqueadas até compartilhar ownership com o domínio Docker Compose existente.
 
+## Confirmação de lifecycle preparada
+
+A primeira criação terá confirmação explícita e curta. O serviço de confirmação é efêmero, single-use e vincula o token a um fingerprint semântico do preflight:
+
+- projeto e Environment Instance;
+- operação;
+- runtime;
+- estado/reason do preflight;
+- estado do discovery;
+- origem/versão da CLI;
+- tipo, nome/serviço e nomes de hooks;
+- limitações conhecidas.
+
+Timestamp de observação e texto diagnóstico não entram no fingerprint, para permitir revalidação equivalente em outro instante. Qualquer mudança operacional relevante invalida a confirmação.
+
+Somente preflight `review` de configuração `image | dockerfile`, em runtime `host` e marcado como `requiresConfirmation=true`, pode gerar ou consumir confirmação. Tokens expiram em 60 segundos por padrão e são consumidos uma única vez.
+
+Este corte não expõe endpoint de confirmação e ainda não executa criação.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
