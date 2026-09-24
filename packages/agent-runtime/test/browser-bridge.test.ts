@@ -11,6 +11,7 @@ import {
   BrowserToolExecutionError,
   HttpBrowserBridgeClient,
   browserToolsForCapabilities,
+  readBrowserBridgeToken,
   buildBrowserToolPolicy,
   createBrowserToolExecutor,
   type BrowserToolExecutor,
@@ -90,6 +91,33 @@ test('browser job recovery marks interrupted running work unknown', async () => 
   } finally {
     await fs.rm(stateDir, { recursive: true, force: true });
     await fs.rm(repo, { recursive: true, force: true });
+  }
+});
+
+test('browser bridge preserva token gerado após restart', async () => {
+  const stateDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-browser-token-'),
+  );
+  let first: BrowserBridge | null = null;
+  let second: BrowserBridge | null = null;
+
+  try {
+    first = new BrowserBridge({ stateDir, port: 0 });
+    await first.start();
+    const before = await readBrowserBridgeToken(stateDir);
+    assert.match(before, /^[a-f0-9]{64}$/i);
+    await first.close();
+    first = null;
+
+    second = new BrowserBridge({ stateDir, port: 0 });
+    await second.start();
+    const after = await readBrowserBridgeToken(stateDir);
+
+    assert.equal(after, before);
+  } finally {
+    await first?.close();
+    await second?.close();
+    await fs.rm(stateDir, { recursive: true, force: true });
   }
 });
 
