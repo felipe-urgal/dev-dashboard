@@ -274,6 +274,42 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
     assert.equal(read.status, 200);
     assert.equal(read.body.type, 'tool_result');
 
+    const rejectedPatchRequest = {
+      type: 'tool_request',
+      toolCallId: 'patch-rejected',
+      tool: 'apply_patch',
+      repo: 'project',
+      args: {
+        path: 'sample.txt',
+        patch: [
+          '--- a/sample.txt',
+          '+++ b/sample.txt',
+          '@@ -1 +1 @@',
+          '-does-not-match',
+          '+after',
+          '',
+        ].join('\n'),
+      },
+    };
+    const rejectedPatch = await requestJson(
+      baseUrl,
+      token,
+      `/v1/jobs/${created.id}/tools/patch-rejected/execute`,
+      { method: 'POST', body: rejectedPatchRequest, leaseId },
+    );
+    assert.equal(rejectedPatch.status, 200);
+    assert.equal(rejectedPatch.body.type, 'tool_error');
+    assert.equal(rejectedPatch.body.code, 'patch-failed');
+
+    const rejectedStatus = await requestJson(
+      baseUrl,
+      token,
+      `/v1/jobs/${created.id}/tools/patch-rejected`,
+      { leaseId },
+    );
+    assert.equal(rejectedStatus.status, 200);
+    assert.equal(rejectedStatus.body.state, 'failed');
+
     const patch = [
       '--- a/sample.txt',
       '+++ b/sample.txt',
