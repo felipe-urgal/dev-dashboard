@@ -84,6 +84,24 @@ export interface AgentIntegrationSetEnabledRequest {
   enabled: boolean;
 }
 
+export interface AgentIntegrationUninstallRequest {
+  cwd: string;
+  kind: AgentIntegrationKind;
+  name: string;
+  marketplace?: string;
+  scope: AgentIntegrationScope;
+  confirmed: boolean;
+}
+
+export interface AgentIntegrationUninstallResult {
+  providerId: AgentConcreteProviderId;
+  kind: AgentIntegrationKind;
+  name: string;
+  scope: AgentIntegrationScope;
+  marketplace?: string;
+  dataPreserved: boolean;
+}
+
 export interface AgentIntegrationProvider {
   readonly id: AgentConcreteProviderId;
   list(
@@ -96,6 +114,9 @@ export interface AgentIntegrationProvider {
   setEnabled?(
     request: AgentIntegrationSetEnabledRequest,
   ): Promise<AgentIntegration>;
+  uninstall?(
+    request: AgentIntegrationUninstallRequest,
+  ): Promise<AgentIntegrationUninstallResult>;
 }
 
 export interface AgentIntegrationProviderRegistry {
@@ -760,6 +781,134 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       authStatus: 'unsupported',
     };
   }
+
+  async uninstall(
+    request: AgentIntegrationUninstallRequest,
+  ): Promise<AgentIntegrationUninstallResult> {
+    if (!request.confirmed) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude plugin uninstall requires explicit confirmation.',
+      );
+    }
+    if (request.kind !== 'plugin') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude only supports plugin uninstall through this adapter.',
+      );
+    }
+
+    const name = request.name.trim();
+    const marketplace = request.marketplace?.trim() ?? '';
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(marketplace)
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude plugin identity is invalid.',
+      );
+    }
+    if (
+      request.scope !== 'user' &&
+      request.scope !== 'project' &&
+      request.scope !== 'local'
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Claude managed plugins cannot be uninstalled by this adapter.',
+      );
+    }
+
+    const pluginId = name + '@' + marketplace;
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: [
+          'plugin',
+          'uninstall',
+          pluginId,
+          '--scope',
+          request.scope,
+          '--keep-data',
+          '--json',
+        ],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Claude plugin uninstall',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Claude command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude plugin uninstall failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Claude plugin uninstall returned a non-zero result.',
+      );
+    }
+
+    const lines = result.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(lines.at(-1) ?? '');
+    } catch {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin uninstall returned invalid JSON.',
+      );
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Claude plugin uninstall returned an unexpected payload.',
+      );
+    }
+
+    const item = payload as {
+      command?: unknown;
+      outcome?: unknown;
+      pluginId?: unknown;
+      scope?: unknown;
+    };
+    if (
+      item.command !== 'uninstall' ||
+      item.outcome !== 'ok' ||
+      (item.pluginId !== undefined && item.pluginId !== pluginId) ||
+      (item.scope !== undefined && item.scope !== request.scope)
+    ) {
+      throw new AgentIntegrationDiscoveryError(
+        item.outcome === 'failed' ? 'command-failed' : 'invalid-response',
+        'Claude plugin uninstall did not confirm the requested removal.',
+      );
+    }
+
+    return {
+      providerId: 'claude-code',
+      kind: 'plugin',
+      name,
+      scope: request.scope,
+      marketplace,
+      dataPreserved: true,
+    };
+  }
 }
 
 export class BrowserCapabilityIntegrationProvider implements AgentIntegrationProvider {
@@ -911,7 +1060,7 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'plugin',
           scopes: ['user', 'project', 'local', 'managed'],
-          operations: ['list', 'enable', 'disable'],
+          operations: ['list', 'enable', 'disable', 'uninstall'],
           availability: 'supported',
           reason:
             'Managed plugins are listed read-only; enable and disable apply only to user, project, and local scopes.',
