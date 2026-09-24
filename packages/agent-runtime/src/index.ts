@@ -249,6 +249,8 @@ export {
 } from './integrations.js';
 export type {
   AgentIntegration,
+  AgentIntegrationAuthenticationHandoff,
+  AgentIntegrationAuthenticationRequest,
   AgentIntegrationCapability,
   AgentIntegrationCapabilityRegistry,
   AgentIntegrationInstallRequest,
