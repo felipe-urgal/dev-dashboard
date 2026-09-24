@@ -98,6 +98,79 @@ test('integration provider registry rejects duplicate providers', () => {
   );
 });
 
+test('Codex MCP authentication prepares a fixed terminal handoff from effective discovery', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify([
+          {
+            name: 'sentry',
+            enabled: true,
+            auth_status: 'unauthenticated',
+            transport: {
+              type: 'streamable_http',
+              url: 'https://token:SECRET_CODEX@example.com/mcp',
+            },
+          },
+        ]),
+      }),
+  });
+
+  const handoff = await provider.prepareAuthentication!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'sentry',
+  });
+
+  assert.deepEqual(handoff, {
+    providerId: 'codex',
+    kind: 'mcp-server',
+    name: 'sentry',
+    mode: 'interactive-terminal',
+    program: 'codex',
+    args: ['mcp', 'login', 'sentry'],
+    requiresInteractiveTerminal: true,
+  });
+  assert.equal(handoff.args.includes('--no-browser'), false);
+  assert.equal(JSON.stringify(handoff).includes('SECRET_CODEX'), false);
+  assert.equal(JSON.stringify(handoff).includes('example.com'), false);
+});
+
+test('Codex MCP authentication rejects unknown or invalid server identities', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify([
+          {
+            name: 'docs',
+            enabled: true,
+            auth_status: 'unsupported',
+          },
+        ]),
+      }),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.prepareAuthentication!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'missing',
+      }),
+    /not configured in the effective project context/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.prepareAuthentication!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'bad name',
+      }),
+    /server name is invalid/,
+  );
+});
+
 test('Codex MCP install uses fixed structured args and reconciles persisted state', async () => {
   const calls: AgentCliProcessRequest[] = [];
   let installed = false;
