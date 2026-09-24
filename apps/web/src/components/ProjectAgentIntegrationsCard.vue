@@ -89,6 +89,8 @@ const capabilityScopeLabel = (scope: string): string => {
       return 'Projeto';
     case 'local':
       return 'Local';
+    case 'managed':
+      return 'Gerenciado';
     case 'session':
       return 'Sessão';
     default:
@@ -104,6 +106,8 @@ const integrationScopeLabel = (integration: AgentIntegration): string => {
       return 'Projeto';
     case 'local':
       return 'Local';
+    case 'managed':
+      return 'Gerenciado';
     case 'session':
       return 'Sessão';
     default:
@@ -115,6 +119,8 @@ const integrationOriginLabel = (integration: AgentIntegration): string => {
   switch (integration.origin) {
     case 'codex-global-config':
       return 'Configuração global do Codex';
+    case 'claude-plugin-inventory':
+      return 'Inventário de plugins do Claude Code';
     case 'browser-local-allowlist':
       return 'Allowlist local do Browser';
     default:
@@ -423,6 +429,12 @@ watch(
             <small class="agent-integration-provenance">
               {{ integrationScopeLabel(integration) }}
               · {{ integrationOriginLabel(integration) }}
+              <template v-if="integration.marketplace">
+                · Marketplace: {{ integration.marketplace }}
+              </template>
+              <template v-if="integration.version">
+                · v{{ integration.version }}
+              </template>
             </small>
           </div>
           <button

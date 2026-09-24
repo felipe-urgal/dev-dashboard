@@ -290,6 +290,19 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
               command: 'npx',
               env: { TOKEN: 'SECRET_SHOULD_NOT_LEAK' },
             },
+            {
+              id: 'claude-code:plugin:review@company-tools',
+              providerId: 'claude-code',
+              kind: 'plugin',
+              name: 'review',
+              scope: 'project',
+              origin: 'claude-plugin-inventory',
+              version: '1.2.3',
+              marketplace: 'company-tools',
+              enabled: true,
+              authStatus: 'unsupported',
+              installPath: '/secret/plugin/path',
+            },
           ],
           issues: [
             {
@@ -325,6 +338,11 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.integrations[0]?.origin, 'codex-global-config');
   assert.equal(body.integrations[0]?.command, undefined);
   assert.equal(body.integrations[0]?.env, undefined);
+  assert.equal(body.integrations[1]?.scope, 'project');
+  assert.equal(body.integrations[1]?.origin, 'claude-plugin-inventory');
+  assert.equal(body.integrations[1]?.version, '1.2.3');
+  assert.equal(body.integrations[1]?.marketplace, 'company-tools');
+  assert.equal(body.integrations[1]?.installPath, undefined);
   assert.equal(body.issues[0]?.code, 'invalid-entry');
   assert.equal(body.issues[0]?.raw, undefined);
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);

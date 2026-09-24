@@ -236,6 +236,7 @@ export type {
 export {
   AgentIntegrationDiscoveryError,
   BrowserCapabilityIntegrationProvider,
+  ClaudePluginIntegrationProvider,
   CodexMcpIntegrationProvider,
   StaticAgentIntegrationCapabilityRegistry,
   StaticAgentIntegrationProviderRegistry,

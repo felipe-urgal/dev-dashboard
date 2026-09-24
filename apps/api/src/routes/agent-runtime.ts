@@ -218,7 +218,7 @@ const installIntegrationBodySchema = {
     name: { type: 'string', minLength: 1, maxLength: 64 },
     scope: {
       type: 'string',
-      enum: ['user', 'project', 'local', 'session'],
+      enum: ['user', 'project', 'local', 'managed', 'session'],
     },
     confirmed: { type: 'boolean' },
     url: { type: 'string', minLength: 1, maxLength: 2048 },
@@ -242,12 +242,18 @@ const integrationSchema = {
     name: { type: 'string' },
     scope: {
       type: 'string',
-      enum: ['user', 'project', 'local', 'session'],
+      enum: ['user', 'project', 'local', 'managed', 'session'],
     },
     origin: {
       type: 'string',
-      enum: ['codex-global-config', 'browser-local-allowlist'],
+      enum: [
+        'codex-global-config',
+        'claude-plugin-inventory',
+        'browser-local-allowlist',
+      ],
     },
+    version: { type: 'string', maxLength: 128 },
+    marketplace: { type: 'string', maxLength: 128 },
     enabled: { type: 'boolean' },
     authStatus: {
       type: 'string',
@@ -591,7 +597,7 @@ const integrationCapabilitySchema = {
       uniqueItems: true,
       items: {
         type: 'string',
-        enum: ['user', 'project', 'local', 'session'],
+        enum: ['user', 'project', 'local', 'managed', 'session'],
       },
     },
     operations: {
