@@ -457,17 +457,48 @@ export class AgentAuditStore {
         return item;
       });
 
-      state.events.push({
-        id: this.requireEventId(),
-        taskId,
-        executionId,
-        providerId,
-        type: 'execution-state',
-        summary,
-        occurredAt,
-      });
+      const existingExecutionEvent = state.events.find(
+        (event) =>
+          event.type === 'execution-state' &&
+          event.executionId === executionId,
+      );
+      if (existingExecutionEvent) {
+        if (
+          existingExecutionEvent.providerId !== providerId ||
+          existingExecutionEvent.summary !== summary ||
+          existingExecutionEvent.occurredAt !== occurredAt
+        ) {
+          throw new AgentAuditStoreError(
+            'AGENT_AUDIT_INVALID',
+            'Agent execution audit already exists with different data.',
+          );
+        }
+      } else {
+        state.events.push({
+          id: this.requireEventId(),
+          taskId,
+          executionId,
+          providerId,
+          type: 'execution-state',
+          summary,
+          occurredAt,
+        });
+      }
 
       for (const item of normalizedEvidence) {
+        const existingEvidence = state.evidence.find(
+          (current) => current.id === item.id,
+        );
+        if (existingEvidence) {
+          if (JSON.stringify(existingEvidence) !== JSON.stringify(item)) {
+            throw new AgentAuditStoreError(
+              'AGENT_AUDIT_INVALID',
+              'Agent evidence identity already exists with different data.',
+            );
+          }
+          continue;
+        }
+
         state.evidence.push(item);
         state.events.push({
           id: this.requireEventId(),
