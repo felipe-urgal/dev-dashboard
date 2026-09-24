@@ -41,6 +41,17 @@ export interface AgentIntegration {
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
 
+export interface AgentIntegrationIssue {
+  code: 'invalid-entry';
+  message: string;
+  index: number;
+}
+
+export interface AgentIntegrationListResult {
+  integrations: AgentIntegration[];
+  issues: AgentIntegrationIssue[];
+}
+
 export interface AgentIntegrationDetails extends AgentIntegration {
   transportType?: 'stdio' | 'streamable-http';
   enabledTools?: string[];
@@ -307,7 +318,7 @@ export async function fetchAgentIntegrations(
   projectId: string,
   providerId: AgentConcreteProviderId,
   environmentInstanceId?: string,
-): Promise<AgentIntegration[]> {
+): Promise<AgentIntegrationListResult> {
   const query = new URLSearchParams({ providerId });
   if (environmentInstanceId) {
     query.set('environmentInstanceId', environmentInstanceId);
@@ -317,8 +328,7 @@ export async function fetchAgentIntegrations(
     encodeURIComponent(projectId) +
     '/agent/integrations?' +
     query.toString();
-  return (await requestJson<{ integrations: AgentIntegration[] }>(path))
-    .integrations;
+  return requestJson<AgentIntegrationListResult>(path);
 }
 
 export async function fetchAgentIntegrationDetails(
