@@ -52,6 +52,11 @@ interface IntegrationQuery {
   environmentInstanceId?: string;
 }
 
+interface InspectIntegrationQuery extends IntegrationQuery {
+  kind: 'mcp-server' | 'skill' | 'plugin' | 'browser-capability';
+  name: string;
+}
+
 interface InstallIntegrationBody {
   providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
   environmentInstanceId?: string;
@@ -178,6 +183,25 @@ const integrationQuerySchema = {
   },
 } as const;
 
+
+const inspectIntegrationQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['providerId', 'kind', 'name'],
+  properties: {
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    kind: {
+      type: 'string',
+      enum: ['mcp-server', 'skill', 'plugin', 'browser-capability'],
+    },
+    name: { type: 'string', minLength: 1, maxLength: 64 },
+  },
+} as const;
+
 const installIntegrationBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -222,6 +246,30 @@ const integrationSchema = {
       type: 'string',
       enum: ['authenticated', 'unauthenticated', 'unsupported', 'unknown'],
     },
+  },
+} as const;
+
+
+const integrationDetailsSchema = {
+  ...integrationSchema,
+  properties: {
+    ...integrationSchema.properties,
+    transportType: {
+      type: 'string',
+      enum: ['stdio', 'streamable-http'],
+    },
+    enabledTools: {
+      type: 'array',
+      maxItems: 500,
+      items: { type: 'string' },
+    },
+    disabledTools: {
+      type: 'array',
+      maxItems: 500,
+      items: { type: 'string' },
+    },
+    startupTimeoutSec: { type: 'number', minimum: 0 },
+    toolTimeoutSec: { type: 'number', minimum: 0 },
   },
 } as const;
 
@@ -852,6 +900,40 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         integrations: await options.agentRuntimeApiService.listIntegrations(
           request.params.projectId,
           request.query.providerId,
+          request.query.environmentInstanceId,
+        ),
+      })),
+  );
+
+
+  app.get<{ Params: ProjectParams; Querystring: InspectIntegrationQuery }>(
+    '/projects/:projectId/agent/integrations/inspect',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: inspectIntegrationQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['integration'],
+            properties: {
+              integration: integrationDetailsSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        integration: await options.agentRuntimeApiService.inspectIntegration(
+          request.params.projectId,
+          request.query.providerId,
+          {
+            kind: request.query.kind,
+            name: request.query.name,
+          },
           request.query.environmentInstanceId,
         ),
       })),
