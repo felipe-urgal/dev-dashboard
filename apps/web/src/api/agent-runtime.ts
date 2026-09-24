@@ -6,11 +6,7 @@ export type AgentProviderId =
 export type AgentConcreteProviderId = Exclude<AgentProviderId, 'automatic'>;
 
 export type AgentIntegrationKind =
-  | 'mcp-server'
-  | 'skill'
-  | 'plugin'
-  | 'marketplace'
-  | 'browser-capability';
+  'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
 
 export type AgentIntegrationScope =
   'user' | 'project' | 'local' | 'managed' | 'session';
@@ -22,12 +18,7 @@ export type AgentIntegrationOrigin =
   | 'browser-local-allowlist';
 
 export type AgentIntegrationMarketplaceSource =
-  | 'github'
-  | 'git'
-  | 'url'
-  | 'local'
-  | 'claude-ai'
-  | 'unknown';
+  'github' | 'git' | 'url' | 'local' | 'claude-ai' | 'unknown';
 
 export type AgentIntegrationOperation =
   | 'list'

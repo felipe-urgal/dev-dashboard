@@ -7,11 +7,7 @@ import {
 } from './cli-process.js';
 
 export type AgentIntegrationKind =
-  | 'mcp-server'
-  | 'skill'
-  | 'plugin'
-  | 'marketplace'
-  | 'browser-capability';
+  'mcp-server' | 'skill' | 'plugin' | 'marketplace' | 'browser-capability';
 
 export type AgentIntegrationScope =
   'user' | 'project' | 'local' | 'managed' | 'session';
@@ -23,12 +19,7 @@ export type AgentIntegrationOrigin =
   | 'browser-local-allowlist';
 
 export type AgentIntegrationMarketplaceSource =
-  | 'github'
-  | 'git'
-  | 'url'
-  | 'local'
-  | 'claude-ai'
-  | 'unknown';
+  'github' | 'git' | 'url' | 'local' | 'claude-ai' | 'unknown';
 
 export type AgentIntegrationOperation =
   | 'list'
@@ -841,11 +832,7 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
         marketplaceId?: unknown;
       };
       const name = typeof item.name === 'string' ? item.name.trim() : '';
-      if (
-        !name ||
-        name.length > 128 ||
-        /[\u0000-\u001f\u007f]/.test(name)
-      ) {
+      if (!name || name.length > 128 || /[\u0000-\u001f\u007f]/.test(name)) {
         issues.push({
           code: 'invalid-entry',
           source: 'marketplace',
