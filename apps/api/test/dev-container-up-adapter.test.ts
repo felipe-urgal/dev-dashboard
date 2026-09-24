@@ -154,12 +154,19 @@ test('parser falha fechado sem envelope ou com containerId inválido', () => {
   );
 });
 
-test('parser limita output antes de procurar envelope', () => {
-  const oversized = 'x'.repeat(256 * 1024 + 1);
-  assert.throws(
-    () => parseDevContainerUpOutput(oversized),
-    (error: unknown) =>
-      error instanceof DevContainerUpAdapterError &&
-      error.code === 'DEV_CONTAINER_UP_OUTPUT_INVALID',
+test('parser ignora logs antigos quando a saída excede o limite de análise', () => {
+  const oversizedLogs = 'x'.repeat(256 * 1024 + 1);
+  const result = parseDevContainerUpOutput(
+    oversizedLogs +
+      '\n' +
+      JSON.stringify({
+        outcome: 'success',
+        containerId: CONTAINER_ID,
+      }),
   );
+
+  assert.deepEqual(result, {
+    outcome: 'success',
+    containerId: CONTAINER_ID,
+  });
 });
