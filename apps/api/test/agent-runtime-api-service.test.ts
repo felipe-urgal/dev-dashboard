@@ -126,6 +126,93 @@ test('AgentRuntimeApiService deriva Environment Instance no backend ao criar tas
   });
 });
 
+
+test('AgentRuntimeApiService adota ref via runtime sem ampliar capabilities', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:primary:project-1',
+      state: 'queued',
+      summary: 'x',
+      requestedCapabilities: ['workspace:write'],
+      createdAt: '2026-09-23T10:00:00.000Z',
+      updatedAt: '2026-09-23T10:00:00.000Z',
+    },
+    null,
+  );
+
+  const calls: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      adoptGitRef: async (...args) => {
+        calls.push(args);
+        const current = (await taskStore.get('task-1'))!;
+        return taskStore.save(
+          {
+            ...current.task,
+            adoptedGitRef: {
+              branch: 'feature/existing',
+              commitHash: 'a'.repeat(40),
+              verifiedAt: '2026-09-23T10:01:00.000Z',
+            },
+            updatedAt: '2026-09-23T10:01:00.000Z',
+          },
+          current.version,
+        );
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    now: () => '2026-09-23T10:01:00.000Z',
+  });
+
+  const record = await service.adoptGitRef('project-1', 'task-1', {
+    branch: 'feature/existing',
+    commitHash: 'A'.repeat(40),
+    confirmed: true,
+  });
+
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'task-1',
+      {
+        branch: 'feature/existing',
+        commitHash: 'A'.repeat(40),
+        confirmed: true,
+      },
+    ],
+  ]);
+  assert.deepEqual(record.task.requestedCapabilities, ['workspace:write']);
+  assert.equal(record.task.adoptedGitRef?.commitHash, 'a'.repeat(40));
+});
+
 test('AgentRuntimeApiService cancela somente ownership ativo resolvido no backend', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(
