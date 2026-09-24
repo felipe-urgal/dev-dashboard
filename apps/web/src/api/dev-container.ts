@@ -8,10 +8,7 @@ export type DevContainerInspectionState =
   | 'invalid-output';
 
 export type DevContainerConfigurationKind =
-  | 'image'
-  | 'dockerfile'
-  | 'compose'
-  | 'unknown';
+  'image' | 'dockerfile' | 'compose' | 'unknown';
 
 export type DevContainerLifecycleHook =
   | 'initializeCommand'
@@ -36,9 +33,7 @@ export interface DevContainerInspection {
 }
 
 export type DevContainerLifecyclePreflightState =
-  | 'review'
-  | 'blocked'
-  | 'unavailable';
+  'review' | 'blocked' | 'unavailable';
 
 export type DevContainerLifecyclePreflightReason =
   | 'review-required'
@@ -49,8 +44,7 @@ export type DevContainerLifecyclePreflightReason =
   | 'configuration-kind-unknown';
 
 export type DevContainerLifecycleLimitation =
-  | 'cleanup-adapter-pending'
-  | 'post-create-hooks-deferred';
+  'cleanup-adapter-pending' | 'post-create-hooks-deferred';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
