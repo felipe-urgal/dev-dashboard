@@ -627,7 +627,6 @@ test('adopted Git ref can execute after successful pre-dispatch reverification',
   assert.equal(verificationCount, 2);
 });
 
-
 test('persists provider evidence while task is still running before final state', async (t) => {
   let stateAtPersistence: AgentTask['state'] | undefined;
   const provider = new StubProvider(async () => ({

@@ -128,7 +128,6 @@ test('AgentAuditStore persiste e resolve checkpoint explicitamente', async (cont
   );
 });
 
-
 test('AgentAuditStore reaplica resultado de execução de forma idempotente e permite enrichment', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-idempotent-'));
   context.after(() => rm(root, { recursive: true, force: true }));
