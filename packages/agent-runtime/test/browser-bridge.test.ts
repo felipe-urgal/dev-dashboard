@@ -11,6 +11,7 @@ import {
   BrowserToolExecutionError,
   HttpBrowserBridgeClient,
   browserToolsForCapabilities,
+  readBrowserBridgeToken,
   buildBrowserToolPolicy,
   createBrowserToolExecutor,
   type BrowserToolExecutor,
@@ -90,6 +91,33 @@ test('browser job recovery marks interrupted running work unknown', async () => 
   } finally {
     await fs.rm(stateDir, { recursive: true, force: true });
     await fs.rm(repo, { recursive: true, force: true });
+  }
+});
+
+test('browser bridge preserva token gerado após restart', async () => {
+  const stateDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-browser-token-'),
+  );
+  let first: BrowserBridge | null = null;
+  let second: BrowserBridge | null = null;
+
+  try {
+    first = new BrowserBridge({ stateDir, port: 0 });
+    await first.start();
+    const before = await readBrowserBridgeToken(stateDir);
+    assert.match(before, /^[a-f0-9]{64}$/i);
+    await first.close();
+    first = null;
+
+    second = new BrowserBridge({ stateDir, port: 0 });
+    await second.start();
+    const after = await readBrowserBridgeToken(stateDir);
+
+    assert.equal(after, before);
+  } finally {
+    await first?.close();
+    await second?.close();
+    await fs.rm(stateDir, { recursive: true, force: true });
   }
 });
 
@@ -274,6 +302,43 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
     assert.equal(read.status, 200);
     assert.equal(read.body.type, 'tool_result');
 
+    const rejectedPatchRequest = {
+      type: 'tool_request',
+      toolCallId: 'patch-rejected',
+      tool: 'apply_patch',
+      repo: 'project',
+      args: {
+        path: 'sample.txt',
+        patch: [
+          '--- a/sample.txt',
+          '+++ b/sample.txt',
+          '@@ -1 +1 @@',
+          '-does-not-match',
+          '+after',
+          '',
+        ].join('\n'),
+      },
+    };
+    const rejectedPatch = await requestJson(
+      baseUrl,
+      token,
+      `/v1/jobs/${created.id}/tools/patch-rejected/execute`,
+      { method: 'POST', body: rejectedPatchRequest, leaseId },
+    );
+    assert.equal(rejectedPatch.status, 200);
+    assert.equal(rejectedPatch.body.type, 'tool_error');
+    assert.equal(rejectedPatch.body.code, 'patch-failed');
+
+    const rejectedStatus = await requestJson(
+      baseUrl,
+      token,
+      `/v1/jobs/${created.id}/tools/patch-rejected`,
+      { leaseId },
+    );
+    assert.equal(rejectedStatus.status, 200);
+    assert.equal(rejectedStatus.body.state, 'failed');
+    assert.equal(mutableExecutions, 1);
+
     const patch = [
       '--- a/sample.txt',
       '+++ b/sample.txt',
@@ -298,7 +363,7 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
     );
     assert.equal(firstPatch.status, 200);
     assert.equal(firstPatch.body.type, 'tool_result');
-    assert.equal(mutableExecutions, 1);
+    assert.equal(mutableExecutions, 2);
 
     const replay = await requestJson(
       baseUrl,
@@ -307,7 +372,7 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
       { method: 'POST', body: patchRequest, leaseId },
     );
     assert.deepEqual(replay.body, firstPatch.body);
-    assert.equal(mutableExecutions, 1);
+    assert.equal(mutableExecutions, 2);
     assert.equal(
       await fs.readFile(path.join(repo, 'sample.txt'), 'utf8'),
       'after\n',

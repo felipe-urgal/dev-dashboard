@@ -3,7 +3,33 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 
-async function loadContentScript({ initialStorage = [], assistantSignature = '0:0:0' } = {}) {
+async function loadChatGptAdapter({ assistant } = {}) {
+  const code = await fs.readFile(
+    new URL('../browser-extension/chatgpt-adapter.js', import.meta.url),
+    'utf8',
+  );
+  const document = {
+    querySelector() {
+      return null;
+    },
+    querySelectorAll(selector) {
+      return selector === '[data-message-author-role="assistant"]' && assistant
+        ? [assistant]
+        : [];
+    },
+  };
+  const context = {
+    document,
+    globalThis: null,
+    setTimeout,
+    clearTimeout,
+  };
+  context.globalThis = context;
+  vm.runInNewContext(code, context);
+  return context.ChatGPTAdapter;
+}
+
+async function loadContentScript({ initialStorage = [], assistantSignature = '0:0:0', assistantText } = {}) {
   const code = await fs.readFile(new URL('../browser-extension/content-script.js', import.meta.url), 'utf8');
   let listener;
   let submits = 0;
@@ -24,7 +50,7 @@ async function loadContentScript({ initialStorage = [], assistantSignature = '0:
       hasUnexpectedInteraction() { return false; },
       assistantSignature() { return assistantSignature; },
       lastAssistantText() {
-        return '~~~placeholder~~~'.replace(
+        return assistantText ?? '~~~placeholder~~~'.replace(
           '~~~placeholder~~~',
           '```agent-workflow-browser\n{"type":"terminal_result","status":"completed"}\n```',
         );
@@ -56,6 +82,91 @@ async function loadContentScript({ initialStorage = [], assistantSignature = '0:
     storage,
   };
 }
+
+test('adapter reconstrói envelope executável a partir de code block renderizado', async () => {
+  const payload = JSON.stringify({
+    type: 'terminal_result',
+    status: 'completed',
+  });
+  const codeNode = { textContent: payload };
+  const preNode = {
+    querySelector(selector) {
+      return selector === 'code' ? codeNode : null;
+    },
+  };
+  const assistant = {
+    textContent: 'agent-workflow-browser' + payload,
+    querySelectorAll(selector) {
+      return selector === 'pre' ? [preNode] : [];
+    },
+  };
+
+  const adapter = await loadChatGptAdapter({ assistant });
+  const text = adapter.lastAssistantText();
+
+  assert.match(text, /^\x60{3}agent-workflow-browser\n/);
+  assert.match(text, /"type":"terminal_result"/);
+  assert.match(text, /\n\x60{3}$/);
+});
+
+test('adapter aceita JSON renderizado exato sem elemento pre', async () => {
+  const payload = JSON.stringify({
+    type: 'terminal_result',
+    status: 'completed',
+  });
+  const assistant = {
+    textContent: 'agent-workflow-browser\n' + payload,
+    querySelectorAll() {
+      return [];
+    },
+  };
+
+  const adapter = await loadChatGptAdapter({ assistant });
+  const text = adapter.lastAssistantText();
+
+  assert.match(text, /^\x60{3}agent-workflow-browser\n/);
+  assert.match(text, /"type":"terminal_result"/);
+});
+
+test('adapter não escolhe entre múltiplos envelopes renderizados', async () => {
+  const payloads = [
+    JSON.stringify({ type: 'tool_request', toolCallId: 'a' }),
+    JSON.stringify({ type: 'terminal_result', status: 'completed' }),
+  ];
+  const assistant = {
+    textContent: 'rendered fallback',
+    querySelectorAll(selector) {
+      if (selector !== 'pre') return [];
+      return payloads.map((payload) => ({
+        querySelector(inner) {
+          return inner === 'code' ? { textContent: payload } : null;
+        },
+      }));
+    },
+  };
+
+  const adapter = await loadChatGptAdapter({ assistant });
+  assert.equal(adapter.lastAssistantText(), 'rendered fallback');
+});
+
+test('content script classifica ausência de envelope sem vazar conteúdo', async () => {
+  const x = await loadContentScript({
+    assistantText: 'texto livre sem envelope executável',
+  });
+
+  await x.run({
+    type: 'RUN_BROWSER_JOB',
+    jobId: 'job-protocol-missing',
+    prompt: 'hello',
+    quietMs: 0,
+    timeoutMs: 1000,
+  });
+
+  const failure = x.events.find((event) => event.event === 'fail');
+  assert.equal(failure?.errorCode, 'browser_protocol_envelope_missing');
+  assert.equal(failure?.browserPhase, 'browser_loop');
+  assert.equal(JSON.stringify(failure).includes('texto livre'), false);
+});
 
 test('content script never resubmits a job once submit was armed', async () => {
   const x = await loadContentScript();
@@ -95,6 +206,7 @@ test('service worker reports ChatGPT session state in heartbeat', async () => {
     new URL('../browser-extension/service-worker.js', import.meta.url),
     'utf8',
   );
+  assert.match(code, /version: chrome\.runtime\.getManifest\(\)\.version/);
   assert.match(code, /sessionState: await detectSessionState\(\)/);
   assert.match(code, /PING_CHATGPT_SESSION/);
 });

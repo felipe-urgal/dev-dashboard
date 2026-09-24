@@ -409,10 +409,28 @@ export class BrowserBridge {
 
   private async prepareToken(): Promise<void> {
     const browserDir = path.dirname(browserBridgeTokenPath(this.stateDir));
-    await fs.mkdir(browserDir, { recursive: true, mode: 0o700 });
-    this.token ||= crypto.randomBytes(32).toString('hex');
-
     const tokenPath = browserBridgeTokenPath(this.stateDir);
+    await fs.mkdir(browserDir, { recursive: true, mode: 0o700 });
+
+    if (!this.token) {
+      try {
+        const existing = (await fs.readFile(tokenPath, 'utf8')).trim();
+        if (/^[a-f0-9]{64}$/i.test(existing)) {
+          this.token = existing;
+        }
+      } catch (error) {
+        if (
+          !error ||
+          typeof error !== 'object' ||
+          !('code' in error) ||
+          error.code !== 'ENOENT'
+        ) {
+          throw error;
+        }
+      }
+    }
+
+    this.token ||= crypto.randomBytes(32).toString('hex');
     await fs.writeFile(tokenPath, `${this.token}\n`, { mode: 0o600 });
     try {
       await fs.chmod(browserDir, 0o700);
@@ -606,7 +624,11 @@ export class BrowserBridge {
         );
         return storedToolEnvelope(succeeded) as Record<string, unknown>;
       } catch (error) {
-        if (mutable) {
+        const knownNoEffect =
+          error instanceof BrowserToolExecutionError &&
+          error.mutationEffect === 'none';
+
+        if (mutable && !knownNoEffect) {
           const ambiguous = await this.toolStore.markAmbiguous(
             job.id,
             request.toolCallId,

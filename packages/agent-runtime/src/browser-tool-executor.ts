@@ -10,10 +10,13 @@ import {
   type BrowserToolPolicy,
 } from './browser-tool-policy.js';
 
+export type BrowserToolMutationEffect = 'none' | 'unknown';
+
 export class BrowserToolExecutionError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    readonly mutationEffect: BrowserToolMutationEffect = 'none',
   ) {
     super(message);
     this.name = 'BrowserToolExecutionError';
@@ -53,8 +56,12 @@ function redact(value: string): string {
   );
 }
 
-function fail(code: string, message: string): BrowserToolExecutionError {
-  return new BrowserToolExecutionError(code, redact(message));
+function fail(
+  code: string,
+  message: string,
+  mutationEffect: BrowserToolMutationEffect = 'none',
+): BrowserToolExecutionError {
+  return new BrowserToolExecutionError(code, redact(message), mutationEffect);
 }
 
 function hasCode(error: unknown, code: string): boolean {
@@ -285,7 +292,7 @@ async function collect(
         } catch {
           // Best effort.
         }
-        finish(reject, fail(code, message));
+        finish(reject, fail(code, message, 'unknown'));
       }, 1_000);
     };
 
@@ -313,7 +320,7 @@ async function collect(
         finish(reject, fail(termination.code, termination.message));
         return;
       }
-      finish(reject, fail('process-failed', error.message));
+      finish(reject, fail('process-failed', error.message, 'unknown'));
     });
     child.once('close', (code, signal) => {
       if (termination) {
@@ -804,7 +811,6 @@ export function createBrowserToolExecutor(
         patchText,
       );
       await writeTarget(repo, target.relative);
-      await gitInput(repo, ['apply', '--whitespace=nowarn', '-'], patchText);
     } catch (error) {
       if (
         error instanceof BrowserToolExecutionError &&
@@ -823,7 +829,28 @@ export function createBrowserToolExecutor(
       );
     }
 
-    const after = await git(repo, ['status', '--short', '--', target.relative]);
+    try {
+      await gitInput(repo, ['apply', '--whitespace=nowarn', '-'], patchText);
+    } catch (error) {
+      throw fail(
+        'patch-failed',
+        error instanceof Error ? error.message : 'browser patch failed',
+        'unknown',
+      );
+    }
+
+    let after;
+    try {
+      after = await git(repo, ['status', '--short', '--', target.relative]);
+    } catch (error) {
+      throw fail(
+        'patch-verification-failed',
+        error instanceof Error
+          ? error.message
+          : 'browser patch verification failed',
+        'unknown',
+      );
+    }
     return sanitizeBrowserToolResult(
       {
         path: target.relative,

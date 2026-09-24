@@ -40,22 +40,24 @@
   }
 
   function parseAgentWorkflowEnvelope(text) {
-    if (typeof text !== 'string') throw Object.assign(new Error('assistant turn is not text'), { code: 'browser_protocol_error' });
+    if (typeof text !== 'string') throw Object.assign(new Error('assistant turn is not text'), { code: 'browser_protocol_turn_not_text' });
     const pattern = /```agent-workflow-browser[ \t]*\r?\n([\s\S]*?)\r?\n```/g;
     const matches = [...text.matchAll(pattern)];
     if (matches.length !== 1) {
       throw Object.assign(new Error(matches.length ? 'multiple executable envelopes' : 'executable envelope missing'), {
-        code: 'browser_protocol_error',
+        code: matches.length
+          ? 'browser_protocol_multiple_envelopes'
+          : 'browser_protocol_envelope_missing',
       });
     }
     let value;
     try { value = JSON.parse(matches[0][1].trim()); }
-    catch { throw Object.assign(new Error('invalid executable envelope JSON'), { code: 'browser_protocol_error' }); }
+    catch { throw Object.assign(new Error('invalid executable envelope JSON'), { code: 'browser_protocol_envelope_invalid_json' }); }
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw Object.assign(new Error('invalid executable envelope'), { code: 'browser_protocol_error' });
+      throw Object.assign(new Error('invalid executable envelope'), { code: 'browser_protocol_envelope_invalid' });
     }
     if (!['tool_request', 'terminal_result'].includes(value.type)) {
-      throw Object.assign(new Error('unsupported executable envelope type'), { code: 'browser_protocol_error' });
+      throw Object.assign(new Error('unsupported executable envelope type'), { code: 'browser_protocol_envelope_unsupported' });
     }
     return value;
   }
@@ -138,7 +140,7 @@
       }
 
       if (typeof envelope.toolCallId !== 'string' || !envelope.toolCallId) {
-        throw Object.assign(new Error('toolCallId missing'), { code: 'browser_protocol_error' });
+        throw Object.assign(new Error('toolCallId missing'), { code: 'browser_protocol_tool_call_id_missing' });
       }
 
       const response = await chrome.runtime.sendMessage({
@@ -162,7 +164,7 @@
       });
     }
 
-    throw Object.assign(new Error('tool turn limit exceeded'), { code: 'browser_protocol_error' });
+    throw Object.assign(new Error('tool turn limit exceeded'), { code: 'browser_protocol_turn_limit' });
   }
 
   async function runJob(message) {
