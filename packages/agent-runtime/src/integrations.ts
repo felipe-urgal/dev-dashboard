@@ -41,6 +41,17 @@ export interface AgentIntegrationListRequest {
   cwd: string;
 }
 
+export interface AgentIntegrationIssue {
+  code: 'invalid-entry';
+  message: string;
+  index: number;
+}
+
+export interface AgentIntegrationListResult {
+  integrations: AgentIntegration[];
+  issues: AgentIntegrationIssue[];
+}
+
 export interface AgentIntegrationInspectRequest {
   cwd: string;
   kind: AgentIntegrationKind;
@@ -58,7 +69,9 @@ export interface AgentIntegrationInstallRequest {
 
 export interface AgentIntegrationProvider {
   readonly id: AgentConcreteProviderId;
-  list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]>;
+  list(
+    request: AgentIntegrationListRequest,
+  ): Promise<AgentIntegrationListResult>;
   inspect?(
     request: AgentIntegrationInspectRequest,
   ): Promise<AgentIntegrationDetails>;
@@ -142,7 +155,7 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
 
   async list(
     request: AgentIntegrationListRequest,
-  ): Promise<AgentIntegration[]> {
+  ): Promise<AgentIntegrationListResult> {
     let result;
     try {
       result = await this.runProcess({
@@ -192,19 +205,22 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       );
     }
 
-    return payload.map((entry, index) => {
+    const integrations: AgentIntegration[] = [];
+    const issues: AgentIntegrationIssue[] = [];
+
+    for (const [index, entry] of payload.entries()) {
       if (
         !entry ||
         typeof entry !== 'object' ||
         typeof (entry as { name?: unknown }).name !== 'string' ||
         !(entry as { name: string }).name.trim()
       ) {
-        throw new AgentIntegrationDiscoveryError(
-          'invalid-response',
-          'Codex MCP discovery returned an invalid server at index ' +
-            index +
-            '.',
-        );
+        issues.push({
+          code: 'invalid-entry',
+          index,
+          message: 'Codex MCP discovery ignored an invalid server entry.',
+        });
+        continue;
       }
 
       const item = entry as {
@@ -215,15 +231,17 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       const name = item.name.trim();
       const authStatus = normalizeAuthStatus(item.auth_status);
 
-      return {
+      integrations.push({
         id: 'codex:mcp-server:' + name,
         providerId: 'codex',
         kind: 'mcp-server',
         name,
         ...(typeof item.enabled === 'boolean' ? { enabled: item.enabled } : {}),
         ...(authStatus ? { authStatus } : {}),
-      };
-    });
+      });
+    }
+
+    return { integrations, issues };
   }
 
   async inspect(
@@ -451,15 +469,18 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
 export class BrowserCapabilityIntegrationProvider implements AgentIntegrationProvider {
   readonly id = 'chatgpt-browser' as const;
 
-  async list(): Promise<AgentIntegration[]> {
-    return BROWSER_TOOL_NAMES.map((tool) => ({
-      id: 'chatgpt-browser:browser-capability:' + tool,
-      providerId: 'chatgpt-browser',
-      kind: 'browser-capability',
-      name: tool,
-      enabled: true,
-      authStatus: 'unsupported',
-    }));
+  async list(): Promise<AgentIntegrationListResult> {
+    return {
+      integrations: BROWSER_TOOL_NAMES.map((tool) => ({
+        id: 'chatgpt-browser:browser-capability:' + tool,
+        providerId: 'chatgpt-browser',
+        kind: 'browser-capability',
+        name: tool,
+        enabled: true,
+        authStatus: 'unsupported',
+      })),
+      issues: [],
+    };
   }
 }
 
