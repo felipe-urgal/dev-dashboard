@@ -382,7 +382,6 @@ export async function installAgentIntegration(
   ).integration;
 }
 
-
 export async function setAgentIntegrationEnabled(
   projectId: string,
   input: {

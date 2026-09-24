@@ -357,8 +357,6 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
 
-
-
 test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturados', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();

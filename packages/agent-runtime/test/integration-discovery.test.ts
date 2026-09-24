@@ -433,7 +433,6 @@ test('Claude plugin discovery isolates invalid rows and fails closed on invalid 
   );
 });
 
-
 test('Claude plugin toggle uses qualified identity, explicit scope and JSON result', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({

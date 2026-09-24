@@ -145,7 +145,6 @@ const authLabel = (integration: AgentIntegration): string => {
   }
 };
 
-
 const canToggleIntegration = (integration: AgentIntegration): boolean =>
   integration.providerId === 'claude-code' &&
   integration.kind === 'plugin' &&
@@ -155,9 +154,7 @@ const canToggleIntegration = (integration: AgentIntegration): boolean =>
     integration.scope === 'local') &&
   typeof integration.enabled === 'boolean';
 
-async function toggleIntegration(
-  integration: AgentIntegration,
-): Promise<void> {
+async function toggleIntegration(integration: AgentIntegration): Promise<void> {
   if (
     !canToggleIntegration(integration) ||
     !integration.marketplace ||

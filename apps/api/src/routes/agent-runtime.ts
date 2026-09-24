@@ -235,7 +235,6 @@ const installIntegrationBodySchema = {
   },
 } as const;
 
-
 const setIntegrationEnabledBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -1035,7 +1034,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         ),
       })),
   );
-
 
   app.patch<{ Params: ProjectParams; Body: SetIntegrationEnabledBody }>(
     '/projects/:projectId/agent/integrations/enabled',
