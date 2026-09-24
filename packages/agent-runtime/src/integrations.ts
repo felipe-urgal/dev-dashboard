@@ -875,7 +875,8 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
         issues.push({
           code: 'source-unavailable',
           source: 'plugin',
-          message: 'Claude plugin catalog discovery returned a non-zero result.',
+          message:
+            'Claude plugin catalog discovery returned a non-zero result.',
         });
       } else {
         let catalogPayload: unknown;
@@ -938,7 +939,8 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
                 marketplaceName?: unknown;
                 version?: unknown;
               };
-              const name = typeof item.name === 'string' ? item.name.trim() : '';
+              const name =
+                typeof item.name === 'string' ? item.name.trim() : '';
               const marketplace =
                 typeof item.marketplaceName === 'string'
                   ? item.marketplaceName.trim()
