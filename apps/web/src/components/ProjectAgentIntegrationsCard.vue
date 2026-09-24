@@ -81,7 +81,6 @@ const integrationKindLabel = (kind: AgentIntegration['kind']): string => {
   }
 };
 
-
 const capabilityScopeLabel = (scope: string): string => {
   switch (scope) {
     case 'user':
