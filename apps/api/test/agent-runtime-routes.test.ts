@@ -74,9 +74,9 @@ function service(
       providerId,
       kind: input.kind,
       name: input.name,
-      scope: input.scope,
+      ...(input.scope ? { scope: input.scope } : {}),
       mode: 'interactive-terminal',
-      program: 'claude',
+      program: providerId === 'codex' ? 'codex' : 'claude',
       args: ['mcp', 'login', input.name],
       requiresInteractiveTerminal: true,
     }),
@@ -545,6 +545,74 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
     false,
   );
   assert.equal(JSON.stringify(body).includes('SECRET_MCP'), false);
+});
+
+test('Agent Runtime HTTP prepara autenticação MCP Codex sem inventar escopo', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      prepareIntegrationAuthentication: async (...args) => {
+        calls.push(args);
+        return {
+          providerId: 'codex',
+          kind: 'mcp-server',
+          name: 'sentry',
+          mode: 'interactive-terminal',
+          program: 'codex',
+          args: ['mcp', 'login', 'sentry'],
+          requiresInteractiveTerminal: true,
+          secret: 'SECRET_SHOULD_NOT_LEAK',
+        } as never;
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/integrations/authentication',
+    payload: {
+      providerId: 'codex',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'mcp-server',
+      name: 'sentry',
+      command: 'bash -lc whoami',
+      token: 'SECRET_REQUEST',
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'codex',
+      {
+        kind: 'mcp-server',
+        name: 'sentry',
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  const body = response.json<{
+    handoff: Record<string, unknown>;
+  }>();
+  assert.deepEqual(body.handoff, {
+    providerId: 'codex',
+    kind: 'mcp-server',
+    name: 'sentry',
+    mode: 'interactive-terminal',
+    program: 'codex',
+    args: ['mcp', 'login', 'sentry'],
+    requiresInteractiveTerminal: true,
+  });
+  assert.equal(body.handoff.scope, undefined);
+  assert.equal(JSON.stringify(calls).includes('bash -lc'), false);
+  assert.equal(JSON.stringify(calls).includes('SECRET_REQUEST'), false);
+  assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
 
 test('Agent Runtime HTTP prepara autenticação MCP Claude sem executar shell', async (context) => {
