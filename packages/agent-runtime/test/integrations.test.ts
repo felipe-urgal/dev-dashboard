@@ -33,7 +33,7 @@ test('default integration capabilities keep providers explicit and conservative'
     (item) => item.kind === 'plugin',
   );
   assert.equal(claudePlugin?.availability, 'supported');
-  assert.deepEqual(claudePlugin?.operations, ['list']);
+  assert.deepEqual(claudePlugin?.operations, ['list', 'enable', 'disable']);
   assert.deepEqual(claudePlugin?.scopes, [
     'user',
     'project',
