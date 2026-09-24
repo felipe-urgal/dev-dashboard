@@ -600,6 +600,221 @@ test('Codex MCP inspection fails closed on mismatched or malformed metadata', as
   );
 });
 
+test('Claude MCP discovery reads documented scopes with local precedence and no secret leakage', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') {
+        return JSON.stringify({
+          mcpServers: {
+            shared: {
+              type: 'http',
+              url: 'https://user:SECRET_USER@example.com/mcp',
+            },
+            userOnly: {
+              type: 'stdio',
+              command: 'SECRET_USER_COMMAND',
+            },
+          },
+          projects: {
+            '/workspace/project': {
+              mcpServers: {
+                shared: {
+                  type: 'stdio',
+                  command: 'SECRET_LOCAL_COMMAND',
+                },
+                localOnly: {
+                  type: 'http',
+                  headers: { Authorization: 'Bearer SECRET_LOCAL' },
+                },
+              },
+            },
+          },
+        });
+      }
+      if (filePath === '/workspace/project/.mcp.json') {
+        return JSON.stringify({
+          mcpServers: {
+            shared: {
+              type: 'http',
+              url: 'https://project:SECRET_PROJECT@example.com/mcp',
+            },
+            projectOnly: {
+              type: 'http',
+              url: 'https://example.com/project',
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async (request) => {
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
+      return result({ stdout: '[]' });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+  const mcpServers = discovery.integrations.filter(
+    (integration) => integration.kind === 'mcp-server',
+  );
+
+  assert.deepEqual(mcpServers, [
+    {
+      id: 'claude-code:mcp-server:shared',
+      providerId: 'claude-code',
+      kind: 'mcp-server',
+      name: 'shared',
+      scope: 'local',
+      origin: 'claude-mcp-config',
+      authStatus: 'unknown',
+    },
+    {
+      id: 'claude-code:mcp-server:localOnly',
+      providerId: 'claude-code',
+      kind: 'mcp-server',
+      name: 'localOnly',
+      scope: 'local',
+      origin: 'claude-mcp-config',
+      authStatus: 'unknown',
+    },
+    {
+      id: 'claude-code:mcp-server:projectOnly',
+      providerId: 'claude-code',
+      kind: 'mcp-server',
+      name: 'projectOnly',
+      scope: 'project',
+      origin: 'claude-mcp-config',
+      authStatus: 'unknown',
+    },
+    {
+      id: 'claude-code:mcp-server:userOnly',
+      providerId: 'claude-code',
+      kind: 'mcp-server',
+      name: 'userOnly',
+      scope: 'user',
+      origin: 'claude-mcp-config',
+      authStatus: 'unknown',
+    },
+  ]);
+  assert.deepEqual(discovery.issues, []);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_USER'), false);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_LOCAL'), false);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_PROJECT'), false);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_USER_COMMAND'), false);
+});
+
+test('Claude MCP discovery isolates malformed config without hiding plugin discovery', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/workspace/project/.mcp.json') {
+        return '{invalid';
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async (request) => {
+      if (request.args[1] === 'marketplace') {
+        return result({ stdout: '[]' });
+      }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
+      return result({
+        stdout: JSON.stringify([
+          {
+            id: 'review@company-tools',
+            scope: 'project',
+            enabled: true,
+          },
+        ]),
+      });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+
+  assert.equal(
+    discovery.integrations.some(
+      (integration) =>
+        integration.kind === 'plugin' && integration.name === 'review',
+    ),
+    true,
+  );
+  assert.deepEqual(discovery.issues, [
+    {
+      code: 'source-unavailable',
+      source: 'mcp-server',
+      message: 'Claude MCP project configuration contains invalid JSON.',
+    },
+  ]);
+});
+
+test('Claude MCP discovery ignores invalid entries without exposing their payload', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') {
+        return JSON.stringify({
+          mcpServers: {
+            'bad name': {
+              type: 'http',
+              url: 'https://SECRET_INVALID.example.com/mcp',
+            },
+            valid_user: {
+              type: 'http',
+              headers: { Authorization: 'SECRET_HEADER' },
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async (request) => {
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
+      return result({ stdout: '[]' });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+
+  assert.deepEqual(
+    discovery.integrations.filter(
+      (integration) => integration.kind === 'mcp-server',
+    ),
+    [
+      {
+        id: 'claude-code:mcp-server:valid_user',
+        providerId: 'claude-code',
+        kind: 'mcp-server',
+        name: 'valid_user',
+        scope: 'user',
+        origin: 'claude-mcp-config',
+        authStatus: 'unknown',
+      },
+    ],
+  );
+  assert.equal(
+    discovery.issues.some(
+      (issue) =>
+        issue.code === 'invalid-entry' && issue.source === 'mcp-server',
+    ),
+    true,
+  );
+  assert.equal(JSON.stringify(discovery).includes('SECRET_INVALID'), false);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_HEADER'), false);
+});
+
 test('Claude plugin discovery returns sanitized installed plugin metadata', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({
