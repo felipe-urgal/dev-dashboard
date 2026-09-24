@@ -32,6 +32,7 @@ import {
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
 import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
+import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -92,6 +93,10 @@ export interface AppCompositionOptions {
     DevContainerLifecyclePlanningService,
     'plan'
   >;
+  devContainerOwnershipStore?: Pick<
+    DevContainerOwnershipStore,
+    'reserve' | 'attach' | 'get' | 'release'
+  >;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
@@ -141,6 +146,15 @@ export function createAppComposition(
       devContainerDiscoveryService,
       context.developmentEnvironmentInstanceStore,
       options.now ? () => new Date(options.now!()) : undefined,
+    );
+  const devContainerOwnershipStore =
+    options.devContainerOwnershipStore ??
+    new DevContainerOwnershipStore(
+      path.join(
+        context.processManager.stateDirectory,
+        'dev-container-ownership.json',
+      ),
+      options.now ? { now: () => new Date(options.now!()) } : {},
     );
   const portInspectorService =
     options.portInspectorService ?? new PortInspectorService();
@@ -317,6 +331,7 @@ export function createAppComposition(
     projectDoctorService,
     devContainerDiscoveryService,
     devContainerLifecyclePlanningService,
+    devContainerOwnershipStore,
     portInspectorService,
     dockerComposeProvider,
     dockerComposePreflightService,
