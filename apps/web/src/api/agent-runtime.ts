@@ -386,6 +386,7 @@ export async function installAgentIntegration(
     name: string;
     scope: AgentIntegrationScope;
     confirmed: boolean;
+    marketplace?: string;
     url?: string;
   },
 ): Promise<AgentIntegration> {
