@@ -285,6 +285,7 @@ test('Codex MCP install reconciles a non-zero result after persistence', async (
 
   assert.equal(integration.name, 'docs');
   assert.equal(integration.authStatus, 'unauthenticated');
+  assert.equal(integration.enabled, true);
 });
 
 test('Codex MCP install fails when a timeout did not persist the server', async () => {
