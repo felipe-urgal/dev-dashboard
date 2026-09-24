@@ -235,6 +235,7 @@ export type {
 
 export {
   AgentIntegrationDiscoveryError,
+  BrowserCapabilityIntegrationProvider,
   CodexMcpIntegrationProvider,
   StaticAgentIntegrationCapabilityRegistry,
   StaticAgentIntegrationProviderRegistry,
