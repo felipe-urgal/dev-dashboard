@@ -39,9 +39,10 @@ test('default integration capabilities keep providers explicit and conservative'
     (item) => item.kind === 'mcp-server',
   );
   assert.equal(claudeMcp?.availability, 'supported');
-  assert.deepEqual(claudeMcp?.operations, ['list']);
+  assert.deepEqual(claudeMcp?.operations, ['list', 'install', 'uninstall']);
   assert.deepEqual(claudeMcp?.scopes, ['local', 'project', 'user']);
   assert.match(claudeMcp?.reason ?? '', /scope precedence/i);
+  assert.match(claudeMcp?.reason ?? '', /remote HTTPS/i);
 
   const claudePlugin = claude.integrations.find(
     (item) => item.kind === 'plugin',

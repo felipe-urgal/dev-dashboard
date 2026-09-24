@@ -818,6 +818,207 @@ test('Claude MCP discovery ignores invalid entries without exposing their payloa
   assert.equal(JSON.stringify(discovery).includes('SECRET_HEADER'), false);
 });
 
+test('Claude MCP install uses fixed HTTPS args and verifies persisted scoped config', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  let localServers: Record<string, unknown> = {};
+  const provider = new ClaudePluginIntegrationProvider({
+    command: 'claude-test',
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') {
+        return JSON.stringify({
+          projects: {
+            '/workspace/project': {
+              mcpServers: localServers,
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async (request) => {
+      calls.push(request);
+      if (request.args[0] === 'mcp' && request.args[1] === 'add') {
+        localServers = {
+          docs: {
+            type: 'http',
+            url: 'https://token:SECRET@example.com/mcp',
+          },
+        };
+        return result({ stdout: 'Added HTTP MCP server docs.\n' });
+      }
+      if (request.args[1] === 'marketplace') {
+        return result({ stdout: '[]' });
+      }
+      if (request.args.includes('--available')) {
+        return result({
+          stdout: JSON.stringify({ installed: [], available: [] }),
+        });
+      }
+      return result({ stdout: '[]' });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'local',
+        confirmed: false,
+        url: 'https://example.com/mcp',
+      }),
+    /explicit confirmation/,
+  );
+
+  const installed = await provider.install!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'local',
+    confirmed: true,
+    url: 'https://example.com/mcp',
+  });
+
+  assert.deepEqual(calls[0]?.args, [
+    'mcp',
+    'add',
+    '--transport',
+    'http',
+    '--scope',
+    'local',
+    'docs',
+    'https://example.com/mcp',
+  ]);
+  assert.equal(calls[0]?.args.includes('--header'), false);
+  assert.equal(calls[0]?.args.includes('--env'), false);
+  assert.deepEqual(installed, {
+    id: 'claude-code:mcp-server:docs',
+    providerId: 'claude-code',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'local',
+    origin: 'claude-mcp-config',
+    authStatus: 'unknown',
+  });
+  assert.equal(JSON.stringify(installed).includes('SECRET'), false);
+});
+
+test('Claude MCP install rejects unsafe transport input and fails closed when config cannot be reconciled', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') return '{invalid';
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async () => result(),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'project',
+        confirmed: true,
+        url: 'http://example.com/mcp',
+      }),
+    /must use HTTPS/,
+  );
+
+  await assert.rejects(
+    () =>
+      provider.install!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+        scope: 'project',
+        confirmed: true,
+        url: 'https://example.com/mcp',
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response' &&
+      /safely reconciled/.test(error.message),
+  );
+});
+
+test('Claude MCP remove uses explicit scope and reveals lower-precedence config after verification', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  let localPresent = true;
+  const provider = new ClaudePluginIntegrationProvider({
+    command: 'claude-test',
+    claudeConfigPath: '/home/test/.claude.json',
+    readFile: async (filePath) => {
+      if (filePath === '/home/test/.claude.json') {
+        return JSON.stringify({
+          mcpServers: {
+            docs: {
+              type: 'http',
+              url: 'https://user:SECRET_USER@example.com/mcp',
+            },
+          },
+          projects: {
+            '/workspace/project': {
+              mcpServers: localPresent
+                ? {
+                    docs: {
+                      type: 'http',
+                      url: 'https://local:SECRET_LOCAL@example.com/mcp',
+                    },
+                  }
+                : {},
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+    runProcess: async (request) => {
+      calls.push(request);
+      if (request.args[0] === 'mcp' && request.args[1] === 'remove') {
+        localPresent = false;
+        return result({ stdout: 'Removed MCP server docs.\n' });
+      }
+      return result();
+    },
+  });
+
+  const removed = await provider.uninstall!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'local',
+    confirmed: true,
+  });
+
+  assert.deepEqual(calls[0]?.args, [
+    'mcp',
+    'remove',
+    'docs',
+    '--scope',
+    'local',
+  ]);
+  assert.deepEqual(removed, {
+    providerId: 'claude-code',
+    kind: 'mcp-server',
+    name: 'docs',
+    scope: 'local',
+    dataPreserved: false,
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+  const docs = discovery.integrations.find(
+    (integration) =>
+      integration.kind === 'mcp-server' && integration.name === 'docs',
+  );
+  assert.equal(docs?.scope, 'user');
+  assert.equal(JSON.stringify(discovery).includes('SECRET_USER'), false);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_LOCAL'), false);
+});
+
 test('Claude plugin discovery returns sanitized installed plugin metadata', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({
