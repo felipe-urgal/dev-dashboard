@@ -81,6 +81,47 @@ const integrationKindLabel = (kind: AgentIntegration['kind']): string => {
   }
 };
 
+const capabilityScopeLabel = (scope: string): string => {
+  switch (scope) {
+    case 'user':
+      return 'Usuário global';
+    case 'project':
+      return 'Projeto';
+    case 'local':
+      return 'Local';
+    case 'session':
+      return 'Sessão';
+    default:
+      return scope;
+  }
+};
+
+const integrationScopeLabel = (integration: AgentIntegration): string => {
+  switch (integration.scope) {
+    case 'user':
+      return 'Usuário global';
+    case 'project':
+      return 'Projeto';
+    case 'local':
+      return 'Local';
+    case 'session':
+      return 'Sessão';
+    default:
+      return 'Escopo não informado';
+  }
+};
+
+const integrationOriginLabel = (integration: AgentIntegration): string => {
+  switch (integration.origin) {
+    case 'codex-global-config':
+      return 'Configuração global do Codex';
+    case 'browser-local-allowlist':
+      return 'Allowlist local do Browser';
+    default:
+      return 'Origem não informada';
+  }
+};
+
 const authLabel = (integration: AgentIntegration): string => {
   switch (integration.authStatus) {
     case 'authenticated':
@@ -269,7 +310,12 @@ watch(
       >
         <div>
           <strong>{{ integrationKindLabel(capability.kind) }}</strong>
-          <small>{{ capability.scopes.join(' · ') || 'Sem escopo' }}</small>
+          <small>
+            {{
+              capability.scopes.map(capabilityScopeLabel).join(' · ') ||
+              'Sem escopo'
+            }}
+          </small>
         </div>
         <StatusBadge
           :tone="
@@ -373,6 +419,10 @@ watch(
                     : 'Desativado'
               }}
               · {{ authLabel(integration) }}
+            </small>
+            <small class="agent-integration-provenance">
+              {{ integrationScopeLabel(integration) }}
+              · {{ integrationOriginLabel(integration) }}
             </small>
           </div>
           <button
@@ -703,6 +753,11 @@ watch(
 .agent-integration-item {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.agent-integration-provenance {
+  margin-top: 2px;
+  color: var(--text-dim);
 }
 
 .agent-integration-details-button {

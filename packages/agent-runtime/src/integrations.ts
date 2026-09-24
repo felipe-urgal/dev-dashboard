@@ -11,6 +11,9 @@ export type AgentIntegrationKind =
 
 export type AgentIntegrationScope = 'user' | 'project' | 'local' | 'session';
 
+export type AgentIntegrationOrigin =
+  'codex-global-config' | 'browser-local-allowlist';
+
 export type AgentIntegrationOperation =
   | 'list'
   | 'inspect'
@@ -25,6 +28,8 @@ export interface AgentIntegration {
   providerId: AgentConcreteProviderId;
   kind: AgentIntegrationKind;
   name: string;
+  scope?: AgentIntegrationScope;
+  origin?: AgentIntegrationOrigin;
   enabled?: boolean;
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
@@ -236,6 +241,8 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
         providerId: 'codex',
         kind: 'mcp-server',
         name,
+        scope: 'user',
+        origin: 'codex-global-config',
         ...(typeof item.enabled === 'boolean' ? { enabled: item.enabled } : {}),
         ...(authStatus ? { authStatus } : {}),
       });
@@ -368,6 +375,8 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       providerId: 'codex',
       kind: 'mcp-server',
       name,
+      scope: 'user',
+      origin: 'codex-global-config',
       enabled: item.enabled,
       ...(transportType ? { transportType } : {}),
       ...(enabledTools ? { enabledTools } : {}),
@@ -460,6 +469,8 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
       providerId: 'codex',
       kind: 'mcp-server',
       name,
+      scope: 'user',
+      origin: 'codex-global-config',
       enabled: true,
       authStatus: 'unknown',
     };
@@ -476,6 +487,8 @@ export class BrowserCapabilityIntegrationProvider implements AgentIntegrationPro
         providerId: 'chatgpt-browser',
         kind: 'browser-capability',
         name: tool,
+        scope: 'session',
+        origin: 'browser-local-allowlist',
         enabled: true,
         authStatus: 'unsupported',
       })),
@@ -568,7 +581,7 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
       integrations: [
         {
           kind: 'mcp-server',
-          scopes: ['user', 'project'],
+          scopes: ['user'],
           operations: ['list', 'inspect', 'install'],
           availability: 'supported',
         },

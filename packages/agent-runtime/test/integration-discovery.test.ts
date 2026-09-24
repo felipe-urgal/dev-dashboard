@@ -60,6 +60,8 @@ test('Codex MCP discovery returns only safe metadata', async () => {
       providerId: 'codex',
       kind: 'mcp-server',
       name: 'github',
+      scope: 'user',
+      origin: 'codex-global-config',
       enabled: true,
       authStatus: 'authenticated',
     },
@@ -139,6 +141,8 @@ test('Codex MCP install uses fixed structured args and requires confirmation', a
     providerId: 'codex',
     kind: 'mcp-server',
     name: 'docs',
+    scope: 'user',
+    origin: 'codex-global-config',
     enabled: true,
     authStatus: 'unknown',
   });
@@ -210,6 +214,8 @@ test('Browser integration discovery mirrors the local tool allowlist', async () 
       (integration) =>
         integration.providerId === 'chatgpt-browser' &&
         integration.kind === 'browser-capability' &&
+        integration.scope === 'session' &&
+        integration.origin === 'browser-local-allowlist' &&
         integration.enabled === true &&
         integration.authStatus === 'unsupported',
     ),
@@ -286,6 +292,8 @@ test('Codex MCP inspection returns only sanitized structured details', async () 
     providerId: 'codex',
     kind: 'mcp-server',
     name: 'docs',
+    scope: 'user',
+    origin: 'codex-global-config',
     enabled: true,
     transportType: 'streamable-http',
     enabledTools: ['search'],
