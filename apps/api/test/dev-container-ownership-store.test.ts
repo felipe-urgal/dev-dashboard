@@ -14,10 +14,6 @@ const TOKEN_B = '22222222-2222-4222-8222-222222222222';
 const CONTAINER_A = 'a'.repeat(64);
 const CONTAINER_B = 'b'.repeat(64);
 
-async function fixture(context: Parameters<typeof test>[1] extends never ? never : never) {
-  return context;
-}
-
 test('ownership Dev Container reserva antes do runtime e sobrevive restart', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-devcontainer-owner-'));
   context.after(async () => rm(root, { recursive: true, force: true }));
