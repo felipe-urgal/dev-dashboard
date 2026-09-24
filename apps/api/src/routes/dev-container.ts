@@ -134,7 +134,7 @@ const lifecyclePreflightSchema = {
       type: 'array',
       items: {
         type: 'string',
-        enum: ['cleanup-adapter-pending', 'post-create-hooks-deferred'],
+        enum: ['post-create-hooks-deferred'],
       },
     },
     diagnostic: { type: 'string' },
