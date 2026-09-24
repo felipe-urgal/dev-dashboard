@@ -283,6 +283,8 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
               providerId: 'codex',
               kind: 'mcp-server',
               name: 'github',
+              scope: 'user',
+              origin: 'codex-global-config',
               enabled: true,
               authStatus: 'authenticated',
               command: 'npx',
@@ -319,6 +321,8 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
     issues: Array<Record<string, unknown>>;
   }>();
   assert.equal(body.integrations[0]?.name, 'github');
+  assert.equal(body.integrations[0]?.scope, 'user');
+  assert.equal(body.integrations[0]?.origin, 'codex-global-config');
   assert.equal(body.integrations[0]?.command, undefined);
   assert.equal(body.integrations[0]?.env, undefined);
   assert.equal(body.issues[0]?.code, 'invalid-entry');
