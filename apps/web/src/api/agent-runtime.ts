@@ -60,7 +60,6 @@ export interface AgentIntegrationListResult {
   issues: AgentIntegrationIssue[];
 }
 
-
 export interface AgentIntegrationUninstallResult {
   providerId: AgentConcreteProviderId;
   kind: AgentIntegrationKind;
@@ -416,7 +415,6 @@ export async function setAgentIntegrationEnabled(
     })
   ).integration;
 }
-
 
 export async function uninstallAgentIntegration(
   projectId: string,

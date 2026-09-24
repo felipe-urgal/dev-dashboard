@@ -269,7 +269,6 @@ const setIntegrationEnabledBodySchema = {
   },
 } as const;
 
-
 const uninstallIntegrationBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -1130,7 +1129,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         ),
       })),
   );
-
 
   app.delete<{ Params: ProjectParams; Body: UninstallIntegrationBody }>(
     '/projects/:projectId/agent/integrations',
