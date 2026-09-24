@@ -69,10 +69,7 @@ function parseArgs(argv) {
   return { provider, apiUrl: apiUrl.replace(/\/$/, '') };
 }
 
-function resolveConfigDirectory(
-  environment = process.env,
-  home = homedir(),
-) {
+function resolveConfigDirectory(environment = process.env, home = homedir()) {
   const configured = environment.DEV_DASHBOARD_CONFIG_DIR?.trim();
   if (configured) return path.resolve(configured);
 
