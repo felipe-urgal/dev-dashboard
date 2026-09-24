@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   AgentIntegrationDiscoveryError,
+  BrowserCapabilityIntegrationProvider,
   CodexMcpIntegrationProvider,
   StaticAgentIntegrationProviderRegistry,
   type AgentCliProcessRequest,
@@ -182,5 +183,35 @@ test('Codex MCP install rejects unsafe names, non-HTTPS URLs and project scope',
         url: 'https://example.com/mcp',
       }),
     /only explicit user scope/,
+  );
+});
+
+
+test('Browser integration discovery mirrors the local tool allowlist', async () => {
+  const provider = new BrowserCapabilityIntegrationProvider();
+  const integrations = await provider.list({ cwd: '/workspace/project' });
+
+  assert.deepEqual(
+    integrations.map((integration) => integration.name),
+    [
+      'list_files',
+      'read_file',
+      'search_text',
+      'git_status',
+      'git_diff',
+      'git_log',
+      'git_branch',
+      'apply_patch',
+      'run_process',
+    ],
+  );
+  assert.ok(
+    integrations.every(
+      (integration) =>
+        integration.providerId === 'chatgpt-browser' &&
+        integration.kind === 'browser-capability' &&
+        integration.enabled === true &&
+        integration.authStatus === 'unsupported',
+    ),
   );
 });
