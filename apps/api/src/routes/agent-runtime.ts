@@ -248,7 +248,6 @@ const integrationSchema = {
   },
 } as const;
 
-
 const integrationIssueSchema = {
   type: 'object',
   additionalProperties: false,
