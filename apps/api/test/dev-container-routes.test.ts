@@ -130,9 +130,9 @@ test('Dev Container HTTP preserva estados fail-closed sem inventar configuration
   });
 });
 
-
 test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminha Environment Instance', async (context) => {
-  const calls: Array<{ projectId: string; environmentInstanceId?: string }> = [];
+  const calls: Array<{ projectId: string; environmentInstanceId?: string }> =
+    [];
   const app = Fastify();
   registerApiErrorHandling(app);
   app.register(devContainerRoutes, {

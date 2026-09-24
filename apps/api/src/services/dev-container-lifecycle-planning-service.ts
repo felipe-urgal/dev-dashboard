@@ -17,9 +17,7 @@ const POST_CREATE_HOOKS = new Set<DevContainerLifecycleHook>([
 ]);
 
 export type DevContainerLifecyclePreflightState =
-  | 'review'
-  | 'blocked'
-  | 'unavailable';
+  'review' | 'blocked' | 'unavailable';
 
 export type DevContainerLifecyclePreflightReason =
   | 'review-required'
@@ -30,8 +28,7 @@ export type DevContainerLifecyclePreflightReason =
   | 'configuration-kind-unknown';
 
 export type DevContainerLifecycleLimitation =
-  | 'cleanup-adapter-pending'
-  | 'post-create-hooks-deferred';
+  'cleanup-adapter-pending' | 'post-create-hooks-deferred';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
@@ -80,7 +77,9 @@ function scopedProject(project: Project, cwd: string): Project {
   return { ...project, path: cwd };
 }
 
-function hasPostCreateHooks(hooks: readonly DevContainerLifecycleHook[]): boolean {
+function hasPostCreateHooks(
+  hooks: readonly DevContainerLifecycleHook[],
+): boolean {
   return hooks.some((hook) => POST_CREATE_HOOKS.has(hook));
 }
 

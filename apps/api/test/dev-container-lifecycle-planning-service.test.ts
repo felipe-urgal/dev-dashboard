@@ -154,7 +154,10 @@ test('preflight usa cwd da Environment Instance e falha para ambiente inválido'
   const plan = await service.plan(project, {
     environmentInstanceId: worktreeContext.environmentInstanceId,
   });
-  assert.equal(plan.environmentInstanceId, worktreeContext.environmentInstanceId);
+  assert.equal(
+    plan.environmentInstanceId,
+    worktreeContext.environmentInstanceId,
+  );
   assert.deepEqual(inspectedPaths, [worktreeContext.cwd]);
 
   const missing = planner(

@@ -230,8 +230,7 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
             {
               ...(request.query.environmentInstanceId
                 ? {
-                    environmentInstanceId:
-                      request.query.environmentInstanceId,
+                    environmentInstanceId: request.query.environmentInstanceId,
                   }
                 : {}),
             },
