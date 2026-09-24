@@ -41,6 +41,14 @@ export interface AgentIntegration {
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
 
+export interface AgentIntegrationDetails extends AgentIntegration {
+  transportType?: 'stdio' | 'streamable-http';
+  enabledTools?: string[];
+  disabledTools?: string[];
+  startupTimeoutSec?: number;
+  toolTimeoutSec?: number;
+}
+
 export type AgentCapability =
   | 'workspace:write'
   | 'git:commit'
@@ -311,6 +319,28 @@ export async function fetchAgentIntegrations(
     query.toString();
   return (await requestJson<{ integrations: AgentIntegration[] }>(path))
     .integrations;
+}
+
+
+export async function fetchAgentIntegrationDetails(
+  projectId: string,
+  providerId: AgentConcreteProviderId,
+  kind: AgentIntegrationKind,
+  name: string,
+  environmentInstanceId?: string,
+): Promise<AgentIntegrationDetails> {
+  const query = new URLSearchParams({ providerId, kind, name });
+  if (environmentInstanceId) {
+    query.set('environmentInstanceId', environmentInstanceId);
+  }
+  const path =
+    '/api/projects/' +
+    encodeURIComponent(projectId) +
+    '/agent/integrations/inspect?' +
+    query.toString();
+  return (
+    await requestJson<{ integration: AgentIntegrationDetails }>(path)
+  ).integration;
 }
 
 export async function installAgentIntegration(
