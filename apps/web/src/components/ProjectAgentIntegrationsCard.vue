@@ -6,10 +6,12 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   fetchAgentIntegrationCapabilities,
+  fetchAgentIntegrationDetails,
   fetchAgentIntegrations,
   installAgentIntegration,
   type AgentConcreteProviderId,
   type AgentIntegration,
+  type AgentIntegrationDetails,
   type AgentIntegrationProviderCapabilities,
 } from '../api/agent-runtime';
 import StatusBadge from './StatusBadge.vue';
@@ -34,12 +36,25 @@ const errorMessage = ref('');
 const installName = ref('');
 const installUrl = ref('');
 const installConfirmed = ref(false);
+const integrationDetails = ref<Record<string, AgentIntegrationDetails>>({});
+const expandedIntegrationId = ref<string | null>(null);
+const inspectingIntegrationId = ref<string | null>(null);
 
 const selectedCapabilities = computed(
   () =>
     capabilities.value.find(
       (provider) => provider.providerId === selectedProviderId.value,
     ) ?? null,
+);
+
+
+const canInspectSelectedProvider = computed(
+  () =>
+    selectedCapabilities.value?.integrations.some(
+      (capability) =>
+        capability.kind === 'mcp-server' &&
+        capability.operations.includes('inspect'),
+    ) ?? false,
 );
 
 const providerLabel = (providerId: AgentConcreteProviderId): string => {
@@ -80,6 +95,42 @@ const authLabel = (integration: AgentIntegration): string => {
       return 'Auth não informada';
   }
 };
+
+
+async function inspectIntegration(
+  integration: AgentIntegration,
+): Promise<void> {
+  if (!canInspectSelectedProvider.value) return;
+
+  if (expandedIntegrationId.value === integration.id) {
+    expandedIntegrationId.value = null;
+    return;
+  }
+
+  expandedIntegrationId.value = integration.id;
+  if (integrationDetails.value[integration.id]) return;
+
+  inspectingIntegrationId.value = integration.id;
+  errorMessage.value = '';
+  try {
+    integrationDetails.value[integration.id] =
+      await fetchAgentIntegrationDetails(
+        props.project.id,
+        integration.providerId,
+        integration.kind,
+        integration.name,
+        props.environmentInstanceId,
+      );
+  } catch (error) {
+    expandedIntegrationId.value = null;
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar os detalhes da integração.';
+  } finally {
+    inspectingIntegrationId.value = null;
+  }
+}
 
 async function installCodexMcp(): Promise<void> {
   if (
@@ -318,6 +369,66 @@ watch(
               }}
               · {{ authLabel(integration) }}
             </small>
+          </div>
+          <button
+            v-if="
+              canInspectSelectedProvider &&
+              integration.kind === 'mcp-server'
+            "
+            class="agent-integration-details-button"
+            type="button"
+            :disabled="inspectingIntegrationId === integration.id"
+            @click="inspectIntegration(integration)"
+          >
+            {{
+              inspectingIntegrationId === integration.id
+                ? 'Carregando…'
+                : expandedIntegrationId === integration.id
+                  ? 'Ocultar'
+                  : 'Detalhes'
+            }}
+          </button>
+          <div
+            v-if="
+              expandedIntegrationId === integration.id &&
+              integrationDetails[integration.id]
+            "
+            class="agent-integration-details"
+          >
+            <span v-if="integrationDetails[integration.id]?.transportType">
+              Transporte:
+              <strong>{{ integrationDetails[integration.id]?.transportType }}</strong>
+            </span>
+            <span v-if="integrationDetails[integration.id]?.enabledTools">
+              Tools permitidas:
+              <strong>
+                {{
+                  integrationDetails[integration.id]?.enabledTools?.join(', ') ||
+                  'nenhuma'
+                }}
+              </strong>
+            </span>
+            <span v-if="integrationDetails[integration.id]?.disabledTools">
+              Tools bloqueadas:
+              <strong>
+                {{
+                  integrationDetails[integration.id]?.disabledTools?.join(', ') ||
+                  'nenhuma'
+                }}
+              </strong>
+            </span>
+            <span v-if="integrationDetails[integration.id]?.startupTimeoutSec !== undefined">
+              Startup timeout:
+              <strong>
+                {{ integrationDetails[integration.id]?.startupTimeoutSec }}s
+              </strong>
+            </span>
+            <span v-if="integrationDetails[integration.id]?.toolTimeoutSec !== undefined">
+              Tool timeout:
+              <strong>
+                {{ integrationDetails[integration.id]?.toolTimeoutSec }}s
+              </strong>
+            </span>
           </div>
         </article>
       </div>
@@ -559,8 +670,41 @@ watch(
 }
 
 .agent-integration-item {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.agent-integration-details-button {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.agent-integration-details-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.agent-integration-details {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-integration-details strong {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
 }
 
 .agent-integration-item svg {
