@@ -551,6 +551,7 @@ test('adopts only an explicitly confirmed and verified existing Git ref', async 
     'workspace:write',
     'git:push',
   ]);
+  assert.equal(adopted.task.state, 'queued');
   assert.equal(verificationCalls.length, 1);
 });
 
