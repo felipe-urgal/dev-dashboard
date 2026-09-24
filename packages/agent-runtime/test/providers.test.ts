@@ -110,13 +110,13 @@ test('Codex doctor checks version and authentication before execution', async ()
   const executionCall = fake.calls.at(-1);
   assert.equal(executionCall?.cwd, '/workspace/project');
   assert.deepEqual(executionCall?.args.slice(0, 7), [
+    '--ask-for-approval',
+    'never',
     'exec',
     '--json',
     '--skip-git-repo-check',
     '--sandbox',
     'workspace-write',
-    '--ask-for-approval',
-    'never',
   ]);
 });
 
