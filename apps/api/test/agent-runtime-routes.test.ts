@@ -58,6 +58,15 @@ function service(
       kind: input.kind,
       name: input.name,
     }),
+    setIntegrationEnabled: async (_projectId, providerId, input) => ({
+      id: providerId + ':' + input.kind + ':' + input.name,
+      providerId,
+      kind: input.kind,
+      name: input.name,
+      scope: input.scope,
+      ...(input.marketplace ? { marketplace: input.marketplace } : {}),
+      enabled: input.enabled,
+    }),
     listTasks: async () => [task],
     createTask: async () => task,
     getTask: async () => task,
@@ -346,6 +355,82 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.issues[0]?.code, 'invalid-entry');
   assert.equal(body.issues[0]?.raw, undefined);
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
+});
+
+
+
+test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturados', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      setIntegrationEnabled: async (...args) => {
+        calls.push(args);
+        return {
+          id: 'claude-code:plugin:review@company-tools',
+          providerId: 'claude-code',
+          kind: 'plugin',
+          name: 'review',
+          scope: 'project',
+          origin: 'claude-plugin-inventory',
+          marketplace: 'company-tools',
+          enabled: false,
+          authStatus: 'unsupported',
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'PATCH',
+    url: '/api/projects/project-1/agent/integrations/enabled',
+    payload: {
+      providerId: 'claude-code',
+      environmentInstanceId: 'environment:primary:project-1',
+      kind: 'plugin',
+      name: 'review',
+      marketplace: 'company-tools',
+      scope: 'project',
+      enabled: false,
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'claude-code',
+      {
+        kind: 'plugin',
+        name: 'review',
+        marketplace: 'company-tools',
+        scope: 'project',
+        enabled: false,
+      },
+      'environment:primary:project-1',
+    ],
+  ]);
+  assert.equal(response.json().integration.enabled, false);
+
+  const rejected = await app.inject({
+    method: 'PATCH',
+    url: '/api/projects/project-1/agent/integrations/enabled',
+    payload: {
+      providerId: 'claude-code',
+      kind: 'plugin',
+      name: 'review',
+      marketplace: 'company-tools',
+      scope: 'project',
+      enabled: true,
+      command: 'bash -lc whoami',
+    },
+  });
+  assert.equal(rejected.statusCode, 400);
+  assert.equal(calls.length, 1);
 });
 
 test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas por schema', async (context) => {
