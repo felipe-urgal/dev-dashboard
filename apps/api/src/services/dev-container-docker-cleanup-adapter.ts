@@ -11,8 +11,7 @@ export interface DevContainerDockerStructuredCommand {
 }
 
 export type DevContainerOwnedContainerLookup =
-  | { state: 'absent' }
-  | { state: 'present'; containerId: string };
+  { state: 'absent' } | { state: 'present'; containerId: string };
 
 export interface DevContainerOwnedContainerInspection {
   containerId: string;
