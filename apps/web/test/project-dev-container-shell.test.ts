@@ -4,7 +4,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const webRoot = process.cwd();
-const routerSource = readFileSync(resolve(webRoot, 'src/router/index.ts'), 'utf8');
+const routerSource = readFileSync(
+  resolve(webRoot, 'src/router/index.ts'),
+  'utf8',
+);
 const projectDetailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
@@ -42,6 +45,6 @@ describe('Dev Container no shell do projeto', () => {
     expect(panelSource).toContain('Discovery somente leitura');
     expect(panelSource).not.toContain('devcontainer up');
     expect(panelSource).not.toContain('run-user-commands');
-    expect(apiSource).not.toContain('method: \'POST\'');
+    expect(apiSource).not.toContain("method: 'POST'");
   });
 });

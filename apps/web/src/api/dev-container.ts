@@ -8,10 +8,7 @@ export type DevContainerInspectionState =
   | 'invalid-output';
 
 export type DevContainerConfigurationKind =
-  | 'image'
-  | 'dockerfile'
-  | 'compose'
-  | 'unknown';
+  'image' | 'dockerfile' | 'compose' | 'unknown';
 
 export type DevContainerLifecycleHook =
   | 'initializeCommand'

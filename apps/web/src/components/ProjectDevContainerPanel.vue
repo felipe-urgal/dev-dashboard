@@ -45,7 +45,8 @@ const stateCopy = computed(() => {
     },
     'cli-missing': {
       label: 'CLI ausente',
-      detail: 'A configuração existe, mas a Dev Container CLI não está disponível.',
+      detail:
+        'A configuração existe, mas a Dev Container CLI não está disponível.',
       tone: 'warning',
     },
     unavailable: {
@@ -55,7 +56,8 @@ const stateCopy = computed(() => {
     },
     'invalid-output': {
       label: 'Saída inválida',
-      detail: 'A CLI respondeu, mas o resultado estruturado não pôde ser validado.',
+      detail:
+        'A CLI respondeu, mas o resultado estruturado não pôde ser validado.',
       tone: 'danger',
     },
   };
@@ -155,7 +157,11 @@ watch(
         <span>Inspecionando configuração e Dev Container CLI…</span>
       </div>
 
-      <div v-else-if="errorMessage" class="devcontainer-message is-error" role="alert">
+      <div
+        v-else-if="errorMessage"
+        class="devcontainer-message is-error"
+        role="alert"
+      >
         <ExclamationTriangleIcon aria-hidden="true" />
         <span>{{ errorMessage }}</span>
       </div>
@@ -192,7 +198,9 @@ watch(
           <InformationCircleIcon v-else aria-hidden="true" />
           <div>
             <strong>{{ stateCopy.detail }}</strong>
-            <span v-if="inspection.diagnostic">{{ inspection.diagnostic }}</span>
+            <span v-if="inspection.diagnostic">{{
+              inspection.diagnostic
+            }}</span>
             <span v-else>
               Observado em {{ formatDate(inspection.observedAt) }}
             </span>
