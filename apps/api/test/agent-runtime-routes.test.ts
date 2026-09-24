@@ -1016,10 +1016,11 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
       listProviders: async () =>
         [
           {
-            providerId: 'codex',
+            providerId: 'automatic',
             availability: 'available',
             observedAt: '2026-09-23T10:00:00.000Z',
-            version: '1.0.0',
+            selectedProviderId: 'codex',
+            reason: 'selected codex',
             internalSecret: 'hidden',
           },
         ] as never,
@@ -1036,11 +1037,14 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
     url: '/api/agent/providers',
   });
   assert.equal(providers.statusCode, 200);
-  assert.equal(
-    providers.json<{ providers: Array<{ internalSecret?: string }> }>()
-      .providers[0]?.internalSecret,
-    undefined,
-  );
+  const providerStatus = providers.json<{
+    providers: Array<{
+      selectedProviderId?: string;
+      internalSecret?: string;
+    }>;
+  }>().providers[0];
+  assert.equal(providerStatus?.selectedProviderId, 'codex');
+  assert.equal(providerStatus?.internalSecret, undefined);
 
   const list = await app.inject({
     method: 'GET',
