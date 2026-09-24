@@ -877,6 +877,10 @@ const providerStatusSchema = {
     },
     observedAt: { type: 'string' },
     version: { type: 'string' },
+    selectedProviderId: {
+      type: 'string',
+      enum: [...concreteProviderIds],
+    },
     reason: { type: 'string' },
     quota: {
       type: 'object',
