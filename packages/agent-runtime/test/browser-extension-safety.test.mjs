@@ -109,6 +109,25 @@ test('adapter reconstrói envelope executável a partir de code block renderizad
   assert.match(text, /\n\x60{3}$/);
 });
 
+test('adapter aceita JSON renderizado exato sem elemento pre', async () => {
+  const payload = JSON.stringify({
+    type: 'terminal_result',
+    status: 'completed',
+  });
+  const assistant = {
+    textContent: 'agent-workflow-browser\n' + payload,
+    querySelectorAll() {
+      return [];
+    },
+  };
+
+  const adapter = await loadChatGptAdapter({ assistant });
+  const text = adapter.lastAssistantText();
+
+  assert.match(text, /^\x60{3}agent-workflow-browser\n/);
+  assert.match(text, /"type":"terminal_result"/);
+});
+
 test('adapter não escolhe entre múltiplos envelopes renderizados', async () => {
   const payloads = [
     JSON.stringify({ type: 'tool_request', toolCallId: 'a' }),
