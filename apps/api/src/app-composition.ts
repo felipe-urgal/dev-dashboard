@@ -336,6 +336,7 @@ function createAgentRuntimeApiService(
     taskStore,
     providerRegistry,
     checkpointStore: auditStore,
+    executionResultStore: auditStore,
     gitRefVerifier: {
       verify: async (task, reference) => {
         const executionContext =
