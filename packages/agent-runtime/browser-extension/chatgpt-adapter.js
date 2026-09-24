@@ -32,9 +32,45 @@
     return `${messages.length}:${children}:${length}`;
   }
 
+  function renderedExecutableEnvelope(message) {
+    if (!message?.querySelectorAll) return null;
+
+    const candidates = [];
+    for (const block of [...message.querySelectorAll('pre')]) {
+      const code = block.querySelector?.('code') ?? block;
+      const text =
+        typeof code?.textContent === 'string' ? code.textContent.trim() : '';
+      if (!text) continue;
+
+      let value;
+      try {
+        value = JSON.parse(text);
+      } catch {
+        continue;
+      }
+
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        (value.type === 'tool_request' || value.type === 'terminal_result')
+      ) {
+        candidates.push(text);
+      }
+    }
+
+    if (candidates.length !== 1) return null;
+    const fence = String.fromCharCode(96).repeat(3);
+    return fence + 'agent-workflow-browser\n' + candidates[0] + '\n' + fence;
+  }
+
   function lastAssistantText() {
-    const messages = [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+    const messages = [
+      ...document.querySelectorAll('[data-message-author-role="assistant"]'),
+    ];
     const last = messages.at(-1);
+    const renderedEnvelope = renderedExecutableEnvelope(last);
+    if (renderedEnvelope) return renderedEnvelope;
     return typeof last?.textContent === 'string' ? last.textContent : '';
   }
 
