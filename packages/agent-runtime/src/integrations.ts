@@ -473,7 +473,9 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
     }
 
     const discovery = await this.list({ cwd: request.cwd });
-    if (!discovery.integrations.some((integration) => integration.name === name)) {
+    if (
+      !discovery.integrations.some((integration) => integration.name === name)
+    ) {
       throw new AgentIntegrationDiscoveryError(
         'invalid-request',
         'Codex MCP server is not configured in the effective project context.',
