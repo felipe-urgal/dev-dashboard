@@ -175,11 +175,11 @@ export class DevContainerConfigSnapshotService {
       configurationHash,
       dispose: async () => {
         if (disposed) return;
-        disposed = true;
         await rm(snapshotDirectory, {
           recursive: true,
           force: true,
         });
+        disposed = true;
       },
     };
   }
