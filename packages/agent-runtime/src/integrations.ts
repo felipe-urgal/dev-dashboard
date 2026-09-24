@@ -398,15 +398,7 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['user', 'project'],
-          operations: [
-            'list',
-            'inspect',
-            'install',
-            'enable',
-            'disable',
-            'uninstall',
-            'authenticate',
-          ],
+          operations: ['list', 'install'],
           availability: 'supported',
         },
         {
@@ -433,35 +425,26 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['user', 'project', 'local'],
-          operations: [
-            'list',
-            'inspect',
-            'install',
-            'enable',
-            'disable',
-            'uninstall',
-            'authenticate',
-          ],
-          availability: 'supported',
+          operations: [],
+          availability: 'unavailable',
+          reason:
+            'Claude MCP management is not advertised until a stable machine-readable discovery adapter is wired.',
         },
         {
           kind: 'skill',
           scopes: ['user', 'project'],
-          operations: ['list', 'inspect'],
-          availability: 'supported',
+          operations: [],
+          availability: 'unavailable',
+          reason:
+            'Claude skills are not managed until a stable machine-readable discovery adapter is wired.',
         },
         {
           kind: 'plugin',
           scopes: ['user', 'project', 'local'],
-          operations: [
-            'list',
-            'inspect',
-            'install',
-            'enable',
-            'disable',
-            'uninstall',
-          ],
-          availability: 'supported',
+          operations: [],
+          availability: 'unavailable',
+          reason:
+            'Claude plugins are not managed until a stable machine-readable discovery adapter is wired.',
         },
       ],
     },
@@ -471,7 +454,7 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'browser-capability',
           scopes: ['session'],
-          operations: ['list', 'inspect'],
+          operations: ['list'],
           availability: 'supported',
         },
         {
