@@ -57,7 +57,9 @@ A ferramenta `Dev Container` no projeto consome somente esse endpoint e deixa ex
 - origem da configuração e serviço Compose quando disponíveis;
 - nomes dos lifecycle hooks declarados, sem transportar seus comandos.
 
-A tela oferece apenas atualização do snapshot. Ela não possui ações de `up`, rebuild, exec, Terminal ou cleanup.
+A tela oferece apenas atualização do snapshot. Ela também consulta o lifecycle preflight da Environment Instance selecionada e exibe `review | blocked | unavailable`, runtime real, diagnóstico e limitações conhecidas. A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser.
+
+A UI não possui ações de `up`, rebuild, exec, Terminal ou cleanup; `executionEnabled=false` permanece explícito.
 
 ## Lifecycle preflight read-only
 
