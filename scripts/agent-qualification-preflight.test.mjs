@@ -151,6 +151,35 @@ test('preflight Browser usa status do runtime sem inventar CLI local', async () 
   );
 });
 
+test('preflight Automatic preserva provider concreto sem expor reason bruto', async () => {
+  const calls = [];
+  const stdout = capture();
+
+  const code = await runAgentQualificationPreflight(
+    ['--provider', 'automatic'],
+    {
+      runner: baseRunner(calls),
+      fetchImpl: readyFetch('automatic', {
+        selectedProviderId: 'codex',
+      }),
+      readToken: async () => 'fixture-local-token',
+      stdout: stdout.stream,
+      stderr: capture().stream,
+    },
+  );
+
+  assert.equal(code, 0);
+  const output = JSON.parse(stdout.read());
+  assert.equal(output.provider, 'automatic');
+  assert.equal(output.cli, undefined);
+  assert.equal(output.status.selectedProviderId, 'codex');
+  assert.equal(stdout.read().includes('SECRET_SHOULD_NOT_LEAK'), false);
+  assert.deepEqual(
+    calls.map((call) => call.command),
+    ['git', 'git'],
+  );
+});
+
 test('preflight falha fechado quando provider real não está pronto', async () => {
   const stdout = capture();
   const stderr = capture();
