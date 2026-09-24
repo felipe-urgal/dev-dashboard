@@ -79,16 +79,13 @@ test('preflight Codex prova somente readiness sanitizado e usa subprocess sem sh
   const stdout = capture();
   const stderr = capture();
 
-  const code = await runAgentQualificationPreflight(
-    ['--provider', 'codex'],
-    {
-      runner: baseRunner(calls),
-      fetchImpl: readyFetch('codex'),
-      stdout: stdout.stream,
-      stderr: stderr.stream,
-      cwd: '/workspace/project',
-    },
-  );
+  const code = await runAgentQualificationPreflight(['--provider', 'codex'], {
+    runner: baseRunner(calls),
+    fetchImpl: readyFetch('codex'),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    cwd: '/workspace/project',
+  });
 
   assert.equal(code, 0);
   assert.equal(stderr.read(), '');
@@ -169,12 +166,7 @@ test('preflight rejeita API não-loopback antes de executar comandos', async () 
   const stderr = capture();
 
   const code = await runAgentQualificationPreflight(
-    [
-      '--provider',
-      'codex',
-      '--api',
-      'https://dashboard.example.com',
-    ],
+    ['--provider', 'codex', '--api', 'https://dashboard.example.com'],
     {
       runner: (...args) => {
         calls.push(args);

@@ -134,7 +134,9 @@ async function fetchProviderStatus(fetchImpl, apiUrl, provider) {
   }
 
   const providers = Array.isArray(payload?.providers) ? payload.providers : [];
-  const item = providers.find((candidate) => candidate?.providerId === provider);
+  const item = providers.find(
+    (candidate) => candidate?.providerId === provider,
+  );
   if (!item || typeof item !== 'object') return null;
 
   return {
