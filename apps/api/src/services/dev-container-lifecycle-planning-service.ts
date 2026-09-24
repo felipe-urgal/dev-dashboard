@@ -87,6 +87,7 @@ export class DevContainerLifecyclePlanningService {
   public constructor(
     private readonly discovery: DiscoveryReader,
     private readonly environmentInstanceStore: EnvironmentResolver,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   public async plan(
@@ -110,7 +111,7 @@ export class DevContainerLifecyclePlanningService {
         operation: 'create',
         state: 'blocked',
         reason: 'runtime-not-host',
-        observedAt: new Date().toISOString(),
+        observedAt: this.now().toISOString(),
         environmentInstanceId: executionContext.environmentInstanceId,
         runtime: executionContext.runtime,
         executionEnabled: false,
@@ -121,9 +122,27 @@ export class DevContainerLifecyclePlanningService {
       };
     }
 
-    const inspection = await this.discovery.inspect(
-      scopedProject(project, executionContext.cwd),
-    );
+    let inspection;
+    try {
+      inspection = await this.discovery.inspect(
+        scopedProject(project, executionContext.cwd),
+      );
+    } catch {
+      return {
+        projectId: project.id,
+        operation: 'create',
+        state: 'unavailable',
+        reason: 'discovery-not-ready',
+        observedAt: this.now().toISOString(),
+        environmentInstanceId: executionContext.environmentInstanceId,
+        runtime: executionContext.runtime,
+        executionEnabled: false,
+        requiresConfirmation: false,
+        limitations: ['cleanup-adapter-pending'],
+        diagnostic:
+          'O discovery de Dev Container falhou; o lifecycle permanece indisponível.',
+      };
+    }
 
     const base = {
       projectId: project.id,
