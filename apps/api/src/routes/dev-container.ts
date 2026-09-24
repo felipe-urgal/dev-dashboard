@@ -114,6 +114,16 @@ const lifecyclePreflightSchema = {
     runtime: { type: 'string', enum: ['host', 'devcontainer'] },
     executionEnabled: { type: 'boolean', enum: [false] },
     requiresConfirmation: { type: 'boolean' },
+    discoveryState: {
+      type: 'string',
+      enum: [
+        'not-configured',
+        'available',
+        'cli-missing',
+        'unavailable',
+        'invalid-output',
+      ],
+    },
     configSource: {
       type: 'string',
       enum: ['.devcontainer/devcontainer.json', '.devcontainer.json'],
