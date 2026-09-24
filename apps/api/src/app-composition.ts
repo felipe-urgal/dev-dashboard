@@ -31,10 +31,12 @@ import {
 } from './services/agent-runtime-api-service.js';
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { DevContainerCleanupService } from './services/dev-container-cleanup-service.js';
+import { DevContainerConfigSnapshotService } from './services/dev-container-config-snapshot-service.js';
 import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
 import { DevContainerLifecycleConfirmationService } from './services/dev-container-lifecycle-confirmation-service.js';
 import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
 import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
+import { DevContainerStartService } from './services/dev-container-start-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -107,6 +109,7 @@ export interface AppCompositionOptions {
     DevContainerCleanupService,
     'inspect' | 'cleanup'
   >;
+  devContainerStartService?: Pick<DevContainerStartService, 'start'>;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
@@ -176,6 +179,23 @@ export function createAppComposition(
     new DevContainerCleanupService(
       context.developmentEnvironmentInstanceStore,
       devContainerOwnershipStore,
+    );
+  const devContainerConfigSnapshotService =
+    new DevContainerConfigSnapshotService(
+      path.join(
+        context.processManager.stateDirectory,
+        'dev-container-snapshots',
+      ),
+    );
+  const devContainerStartService =
+    options.devContainerStartService ??
+    new DevContainerStartService(
+      devContainerLifecyclePlanningService,
+      devContainerLifecycleConfirmationService,
+      devContainerConfigSnapshotService,
+      devContainerOwnershipStore,
+      devContainerCleanupService,
+      context.developmentEnvironmentInstanceStore,
     );
   const portInspectorService =
     options.portInspectorService ?? new PortInspectorService();
@@ -355,6 +375,7 @@ export function createAppComposition(
     devContainerLifecycleConfirmationService,
     devContainerOwnershipStore,
     devContainerCleanupService,
+    devContainerStartService,
     portInspectorService,
     dockerComposeProvider,
     dockerComposePreflightService,
