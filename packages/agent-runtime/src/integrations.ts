@@ -433,177 +433,6 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
     };
   }
 
-  private async appendMcpConfigIntegrations(
-    request: AgentIntegrationListRequest,
-    integrations: AgentIntegration[],
-    issues: AgentIntegrationIssue[],
-  ): Promise<void> {
-    const readOptionalJson = async (
-      filePath: string,
-      label: string,
-    ): Promise<Record<string, unknown> | null> => {
-      let raw: string;
-      try {
-        raw = await this.readFile(filePath);
-      } catch (error) {
-        if (
-          error &&
-          typeof error === 'object' &&
-          'code' in error &&
-          (error as { code?: unknown }).code === 'ENOENT'
-        ) {
-          return null;
-        }
-        issues.push({
-          code: 'source-unavailable',
-          source: 'mcp-server',
-          message: label + ' could not be read.',
-        });
-        return null;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        issues.push({
-          code: 'source-unavailable',
-          source: 'mcp-server',
-          message: label + ' contains invalid JSON.',
-        });
-        return null;
-      }
-
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        issues.push({
-          code: 'source-unavailable',
-          source: 'mcp-server',
-          message: label + ' has an unexpected shape.',
-        });
-        return null;
-      }
-
-      return parsed as Record<string, unknown>;
-    };
-
-    const readServerMap = (
-      value: unknown,
-    ): Record<string, unknown> | null | undefined => {
-      if (value === undefined) return undefined;
-      if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return null;
-      }
-      return value as Record<string, unknown>;
-    };
-
-    const effectiveByName = new Map<string, AgentIntegration>();
-    const addScope = (
-      scope: 'local' | 'project' | 'user',
-      servers: Record<string, unknown> | null | undefined,
-      label: string,
-    ): void => {
-      if (servers === null) {
-        issues.push({
-          code: 'source-unavailable',
-          source: 'mcp-server',
-          message: label + ' has an invalid mcpServers object.',
-        });
-        return;
-      }
-      if (!servers) return;
-
-      for (const [name, entry] of Object.entries(servers)) {
-        if (
-          !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(name) ||
-          !entry ||
-          typeof entry !== 'object' ||
-          Array.isArray(entry)
-        ) {
-          issues.push({
-            code: 'invalid-entry',
-            source: 'mcp-server',
-            message: label + ' ignored an invalid MCP server entry.',
-          });
-          continue;
-        }
-        if (effectiveByName.has(name)) continue;
-
-        effectiveByName.set(name, {
-          id: 'claude-code:mcp-server:' + name,
-          providerId: 'claude-code',
-          kind: 'mcp-server',
-          name,
-          scope,
-          origin: 'claude-mcp-config',
-          authStatus: 'unknown',
-        });
-      }
-    };
-
-    const resolvedCwd = path.resolve(request.cwd);
-    const globalConfig = await readOptionalJson(
-      this.claudeConfigPath,
-      'Claude MCP user/local configuration',
-    );
-    const projectConfig = await readOptionalJson(
-      path.join(resolvedCwd, '.mcp.json'),
-      'Claude MCP project configuration',
-    );
-
-    let localServers: Record<string, unknown> | null | undefined;
-    let userServers: Record<string, unknown> | null | undefined;
-    if (globalConfig) {
-      userServers = readServerMap(globalConfig.mcpServers);
-      const projects = globalConfig.projects;
-      if (projects !== undefined) {
-        if (
-          !projects ||
-          typeof projects !== 'object' ||
-          Array.isArray(projects)
-        ) {
-          issues.push({
-            code: 'source-unavailable',
-            source: 'mcp-server',
-            message:
-              'Claude MCP user/local configuration has an invalid projects object.',
-          });
-        } else {
-          const projectEntry = (projects as Record<string, unknown>)[
-            resolvedCwd
-          ];
-          if (projectEntry !== undefined) {
-            if (
-              !projectEntry ||
-              typeof projectEntry !== 'object' ||
-              Array.isArray(projectEntry)
-            ) {
-              issues.push({
-                code: 'source-unavailable',
-                source: 'mcp-server',
-                message:
-                  'Claude MCP local configuration has an invalid project entry.',
-              });
-            } else {
-              localServers = readServerMap(
-                (projectEntry as Record<string, unknown>).mcpServers,
-              );
-            }
-          }
-        }
-      }
-    }
-
-    const projectServers = projectConfig
-      ? readServerMap(projectConfig.mcpServers)
-      : undefined;
-
-    addScope('local', localServers, 'Claude MCP local configuration');
-    addScope('project', projectServers, 'Claude MCP project configuration');
-    addScope('user', userServers, 'Claude MCP user configuration');
-
-    integrations.push(...effectiveByName.values());
-  }
-
   async install(
     request: AgentIntegrationInstallRequest,
   ): Promise<AgentIntegration> {
@@ -1202,6 +1031,177 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       });
     }
     return { integrations, issues };
+  }
+
+  private async appendMcpConfigIntegrations(
+    request: AgentIntegrationListRequest,
+    integrations: AgentIntegration[],
+    issues: AgentIntegrationIssue[],
+  ): Promise<void> {
+    const readOptionalJson = async (
+      filePath: string,
+      label: string,
+    ): Promise<Record<string, unknown> | null> => {
+      let raw: string;
+      try {
+        raw = await this.readFile(filePath);
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code?: unknown }).code === 'ENOENT'
+        ) {
+          return null;
+        }
+        issues.push({
+          code: 'source-unavailable',
+          source: 'mcp-server',
+          message: label + ' could not be read.',
+        });
+        return null;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        issues.push({
+          code: 'source-unavailable',
+          source: 'mcp-server',
+          message: label + ' contains invalid JSON.',
+        });
+        return null;
+      }
+
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        issues.push({
+          code: 'source-unavailable',
+          source: 'mcp-server',
+          message: label + ' has an unexpected shape.',
+        });
+        return null;
+      }
+
+      return parsed as Record<string, unknown>;
+    };
+
+    const readServerMap = (
+      value: unknown,
+    ): Record<string, unknown> | null | undefined => {
+      if (value === undefined) return undefined;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+      }
+      return value as Record<string, unknown>;
+    };
+
+    const effectiveByName = new Map<string, AgentIntegration>();
+    const addScope = (
+      scope: 'local' | 'project' | 'user',
+      servers: Record<string, unknown> | null | undefined,
+      label: string,
+    ): void => {
+      if (servers === null) {
+        issues.push({
+          code: 'source-unavailable',
+          source: 'mcp-server',
+          message: label + ' has an invalid mcpServers object.',
+        });
+        return;
+      }
+      if (!servers) return;
+
+      for (const [name, entry] of Object.entries(servers)) {
+        if (
+          !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(name) ||
+          !entry ||
+          typeof entry !== 'object' ||
+          Array.isArray(entry)
+        ) {
+          issues.push({
+            code: 'invalid-entry',
+            source: 'mcp-server',
+            message: label + ' ignored an invalid MCP server entry.',
+          });
+          continue;
+        }
+        if (effectiveByName.has(name)) continue;
+
+        effectiveByName.set(name, {
+          id: 'claude-code:mcp-server:' + name,
+          providerId: 'claude-code',
+          kind: 'mcp-server',
+          name,
+          scope,
+          origin: 'claude-mcp-config',
+          authStatus: 'unknown',
+        });
+      }
+    };
+
+    const resolvedCwd = path.resolve(request.cwd);
+    const globalConfig = await readOptionalJson(
+      this.claudeConfigPath,
+      'Claude MCP user/local configuration',
+    );
+    const projectConfig = await readOptionalJson(
+      path.join(resolvedCwd, '.mcp.json'),
+      'Claude MCP project configuration',
+    );
+
+    let localServers: Record<string, unknown> | null | undefined;
+    let userServers: Record<string, unknown> | null | undefined;
+    if (globalConfig) {
+      userServers = readServerMap(globalConfig.mcpServers);
+      const projects = globalConfig.projects;
+      if (projects !== undefined) {
+        if (
+          !projects ||
+          typeof projects !== 'object' ||
+          Array.isArray(projects)
+        ) {
+          issues.push({
+            code: 'source-unavailable',
+            source: 'mcp-server',
+            message:
+              'Claude MCP user/local configuration has an invalid projects object.',
+          });
+        } else {
+          const projectEntry = (projects as Record<string, unknown>)[
+            resolvedCwd
+          ];
+          if (projectEntry !== undefined) {
+            if (
+              !projectEntry ||
+              typeof projectEntry !== 'object' ||
+              Array.isArray(projectEntry)
+            ) {
+              issues.push({
+                code: 'source-unavailable',
+                source: 'mcp-server',
+                message:
+                  'Claude MCP local configuration has an invalid project entry.',
+              });
+            } else {
+              localServers = readServerMap(
+                (projectEntry as Record<string, unknown>).mcpServers,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    const projectServers = projectConfig
+      ? readServerMap(projectConfig.mcpServers)
+      : undefined;
+
+    addScope('local', localServers, 'Claude MCP local configuration');
+    addScope('project', projectServers, 'Claude MCP project configuration');
+    addScope('user', userServers, 'Claude MCP user configuration');
+
+    integrations.push(...effectiveByName.values());
   }
 
   async install(
