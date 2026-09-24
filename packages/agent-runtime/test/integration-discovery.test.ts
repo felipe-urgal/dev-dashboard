@@ -858,6 +858,7 @@ test('Claude MCP authentication prepares a fixed interactive terminal handoff', 
     args: ['mcp', 'login', 'sentry'],
     requiresInteractiveTerminal: true,
   });
+  assert.equal(handoff.args.includes('--no-browser'), false);
   assert.equal(JSON.stringify(handoff).includes('SECRET_AUTH'), false);
   assert.equal(JSON.stringify(handoff).includes('example.com'), false);
 });
