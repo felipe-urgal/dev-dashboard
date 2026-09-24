@@ -38,7 +38,6 @@ describe('Dev Container no shell do projeto', () => {
     );
     expect(apiSource).toContain('/dev-container/lifecycle-preflight');
     expect(panelSource).toContain('fetchDevContainerLifecyclePreflight');
-    expect(apiSource).toContain('/dev-container/lifecycle-preflight');
   });
 
   it('expõe a ferramenta sem lifecycle ou autoridade de execução', () => {
@@ -50,8 +49,8 @@ describe('Dev Container no shell do projeto', () => {
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',
     );
-    expect(panelSource).toContain('Discovery e preflight somente leitura');
-    expect(panelSource).toContain('Execução desabilitada neste estágio');
+    expect(panelSource).toContain('Preflight somente leitura');
+    expect(panelSource).toContain('Execução desabilitada');
     expect(panelSource).not.toContain('devcontainer up');
     expect(panelSource).not.toContain('run-user-commands');
     expect(moreToolsSource).toContain('environmentInstanceId');
