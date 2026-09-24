@@ -615,7 +615,8 @@ watch(
         <span>Descoberta atual</span>
         <small v-if="loading">Atualizando…</small>
         <small v-else>
-          {{ filteredIntegrations.length }} de {{ integrations.length }} item(ns)
+          {{ filteredIntegrations.length }} de
+          {{ integrations.length }} item(ns)
         </small>
       </div>
 
