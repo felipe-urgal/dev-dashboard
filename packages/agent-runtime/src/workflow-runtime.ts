@@ -36,6 +36,7 @@ export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_PROVIDER_NOT_FOUND'
   | 'AGENT_WORKFLOW_AUTHORIZATION_INVALID'
   | 'AGENT_WORKFLOW_PROVIDER_FAILED'
+  | 'AGENT_WORKFLOW_EVIDENCE_PERSIST_FAILED'
   | 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE'
   | 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH'
   | 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED'
@@ -78,6 +79,7 @@ export interface AgentWorkflowRuntimeOptions {
     AgentAuditStore,
     'createCheckpoint' | 'listCheckpoints' | 'resolveCheckpoint'
   >;
+  executionResultStore: Pick<AgentAuditStore, 'appendExecutionResult'>;
   gitRefVerifier?: AgentGitRefVerifier;
   now?: () => string;
   createExecutionId?: () => string;
@@ -180,6 +182,7 @@ export class AgentWorkflowRuntime {
   private readonly runtimeStateStore: AgentRuntimeStateStore;
   private readonly lockManager: AgentTaskLockManager;
   private readonly checkpointStore: AgentWorkflowRuntimeOptions['checkpointStore'];
+  private readonly executionResultStore: AgentWorkflowRuntimeOptions['executionResultStore'];
   private readonly gitRefVerifier: AgentGitRefVerifier | undefined;
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
@@ -196,6 +199,7 @@ export class AgentWorkflowRuntime {
     this.runtimeStateStore = options.runtimeStateStore;
     this.lockManager = options.lockManager;
     this.checkpointStore = options.checkpointStore;
+    this.executionResultStore = options.executionResultStore;
     this.gitRefVerifier = options.gitRefVerifier;
     this.now = options.now ?? (() => new Date().toISOString());
     this.createExecutionId = options.createExecutionId ?? randomUUID;
@@ -383,6 +387,7 @@ export class AgentWorkflowRuntime {
 
       const finishedAt = this.now();
       let checkpoint: AgentCheckpoint | undefined;
+      let checkpointToPersist: AgentCheckpoint | undefined;
       if (providerResult.outcome === 'checkpoint') {
         const requestCheckpoint = providerResult.checkpoint;
         const checkpointId = this.createCheckpointId().trim();
@@ -406,18 +411,48 @@ export class AgentWorkflowRuntime {
           );
         }
 
+        checkpointToPersist = {
+          id: checkpointId,
+          taskId: runningRecord.task.id,
+          executionId,
+          status: 'pending',
+          summary: requestCheckpoint.summary.trim(),
+          requiredCapabilities: [
+            ...new Set(requestCheckpoint.requiredCapabilities),
+          ],
+          createdAt: finishedAt,
+        };
+      }
+
+      const providerEvidence = (providerResult.evidence ?? []).map((item) => ({
+        ...item,
+        taskId: runningRecord.task.id,
+        executionId,
+      }));
+      try {
+        await this.executionResultStore.appendExecutionResult(
+          runningRecord.task.id,
+          executionId,
+          providerResult.providerId,
+          providerResult.summary,
+          finishedAt,
+          providerEvidence,
+        );
+      } catch {
+        settledRecord = await this.taskStore.save(
+          transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
+          runningRecord.version,
+        );
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_EVIDENCE_PERSIST_FAILED',
+          'Agent execution evidence could not be persisted.',
+        );
+      }
+
+      if (checkpointToPersist) {
         try {
-          checkpoint = await this.checkpointStore.createCheckpoint({
-            id: checkpointId,
-            taskId: runningRecord.task.id,
-            executionId,
-            status: 'pending',
-            summary: requestCheckpoint.summary.trim(),
-            requiredCapabilities: [
-              ...new Set(requestCheckpoint.requiredCapabilities),
-            ],
-            createdAt: finishedAt,
-          });
+          checkpoint =
+            await this.checkpointStore.createCheckpoint(checkpointToPersist);
         } catch {
           settledRecord = await this.taskStore.save(
             transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
