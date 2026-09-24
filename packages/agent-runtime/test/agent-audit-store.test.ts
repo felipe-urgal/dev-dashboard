@@ -128,6 +128,88 @@ test('AgentAuditStore persiste e resolve checkpoint explicitamente', async (cont
   );
 });
 
+
+test('AgentAuditStore reaplica resultado de execução de forma idempotente e permite enrichment', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-idempotent-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  let nextId = 0;
+  const store = new AgentAuditStore({
+    stateDirectory: root,
+    createEventId: () => `event-${++nextId}`,
+  });
+  const firstEvidence = {
+    id: 'evidence-1',
+    taskId: 'task-1',
+    executionId: 'execution-1',
+    kind: 'test' as const,
+    summary: 'Tests passed.',
+    observedAt: '2026-09-23T11:04:00.000Z',
+  };
+  const contextEvidence = {
+    id: 'evidence-2',
+    taskId: 'task-1',
+    executionId: 'execution-1',
+    kind: 'readiness' as const,
+    summary: 'Readiness passed.',
+    observedAt: '2026-09-23T11:04:30.000Z',
+  };
+
+  await store.appendExecutionResult(
+    'task-1',
+    'execution-1',
+    'codex',
+    'Execution completed.',
+    '2026-09-23T11:05:00.000Z',
+    [firstEvidence],
+  );
+  await store.appendExecutionResult(
+    'task-1',
+    'execution-1',
+    'codex',
+    'Execution completed.',
+    '2026-09-23T11:05:00.000Z',
+    [firstEvidence, contextEvidence],
+  );
+
+  const snapshot = await store.snapshot('task-1');
+  assert.equal(
+    snapshot.events.filter((event) => event.type === 'execution-state').length,
+    1,
+  );
+  assert.equal(
+    snapshot.events.filter((event) => event.type === 'evidence').length,
+    2,
+  );
+  assert.deepEqual(
+    snapshot.evidence.map((item) => item.id),
+    ['evidence-1', 'evidence-2'],
+  );
+
+  await assert.rejects(
+    store.appendExecutionResult(
+      'task-1',
+      'execution-1',
+      'codex',
+      'Different summary.',
+      '2026-09-23T11:05:00.000Z',
+      [firstEvidence],
+    ),
+    /already exists with different data/,
+  );
+  await assert.rejects(
+    store.appendExecutionResult(
+      'task-1',
+      'execution-1',
+      'codex',
+      'Execution completed.',
+      '2026-09-23T11:05:00.000Z',
+      [{ ...firstEvidence, summary: 'Changed evidence.' }],
+    ),
+    /already exists with different data/,
+  );
+});
+
 test('AgentAuditStore persiste evidence bounded com ownership da execução', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-evidence-'));
   context.after(() => rm(root, { recursive: true, force: true }));
