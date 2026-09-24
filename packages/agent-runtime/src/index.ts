@@ -260,5 +260,7 @@ export type {
   AgentIntegrationProviderRegistry,
   AgentIntegrationProviderCapabilities,
   AgentIntegrationSetEnabledRequest,
+  AgentIntegrationUninstallRequest,
+  AgentIntegrationUninstallResult,
   AgentIntegrationScope,
 } from './integrations.js';
