@@ -74,9 +74,9 @@ export interface AgentIntegrationAuthenticationHandoff {
   providerId: AgentConcreteProviderId;
   kind: AgentIntegrationKind;
   name: string;
-  scope: AgentIntegrationScope;
+  scope?: AgentIntegrationScope;
   mode: 'interactive-terminal';
-  program: 'claude';
+  program: 'claude' | 'codex';
   args: string[];
   requiresInteractiveTerminal: true;
 }
@@ -420,7 +420,7 @@ export async function prepareAgentIntegrationAuthentication(
     environmentInstanceId?: string;
     kind: AgentIntegrationKind;
     name: string;
-    scope: AgentIntegrationScope;
+    scope?: AgentIntegrationScope;
   },
 ): Promise<AgentIntegrationAuthenticationHandoff> {
   const path =

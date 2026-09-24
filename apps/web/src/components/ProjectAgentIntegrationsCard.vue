@@ -58,6 +58,7 @@ const uninstallingIntegrationId = ref<string | null>(null);
 const authenticatingIntegrationId = ref<string | null>(null);
 const authenticationHandoff = ref<{
   integrationId: string;
+  providerId: AgentConcreteProviderId;
   command: string;
   copied: boolean;
 } | null>(null);
@@ -234,13 +235,21 @@ const canInstallIntegration = (integration: AgentIntegration): boolean =>
   integration.origin === 'claude-plugin-catalog' &&
   Boolean(integration.marketplace);
 
-const canAuthenticateIntegration = (integration: AgentIntegration): boolean =>
-  canAuthenticateSelectedProvider.value &&
-  integration.providerId === 'claude-code' &&
-  integration.kind === 'mcp-server' &&
-  (integration.scope === 'local' ||
-    integration.scope === 'project' ||
-    integration.scope === 'user');
+const canAuthenticateIntegration = (integration: AgentIntegration): boolean => {
+  if (
+    !canAuthenticateSelectedProvider.value ||
+    integration.kind !== 'mcp-server'
+  ) {
+    return false;
+  }
+  if (integration.providerId === 'codex') return true;
+  return (
+    integration.providerId === 'claude-code' &&
+    (integration.scope === 'local' ||
+      integration.scope === 'project' ||
+      integration.scope === 'user')
+  );
+};
 
 const canToggleIntegration = (integration: AgentIntegration): boolean =>
   integration.providerId === 'claude-code' &&
@@ -325,7 +334,7 @@ async function prepareAuthentication(
 ): Promise<void> {
   if (
     !canAuthenticateIntegration(integration) ||
-    !integration.scope ||
+    (integration.providerId === 'claude-code' && !integration.scope) ||
     authenticatingIntegrationId.value
   ) {
     return;
@@ -338,17 +347,18 @@ async function prepareAuthentication(
     const handoff = await prepareAgentIntegrationAuthentication(
       props.project.id,
       {
-        providerId: 'claude-code',
+        providerId: integration.providerId,
         ...(props.environmentInstanceId
           ? { environmentInstanceId: props.environmentInstanceId }
           : {}),
         kind: 'mcp-server',
         name: integration.name,
-        scope: integration.scope,
+        ...(integration.scope ? { scope: integration.scope } : {}),
       },
     );
     authenticationHandoff.value = {
       integrationId: integration.id,
+      providerId: handoff.providerId,
       command: [handoff.program, ...handoff.args].join(' '),
       copied: false,
     };
@@ -1043,8 +1053,10 @@ watch(
             class="agent-integration-auth-handoff"
           >
             <span>
-              O OAuth do Claude Code precisa de um terminal interativo. O
-              dashboard não executa este comando pelo navegador.
+              O OAuth do
+              {{ providerLabel(authenticationHandoff.providerId) }} precisa de
+              um terminal interativo. O dashboard não executa este comando pelo
+              navegador.
             </span>
             <code>{{ authenticationHandoff.command }}</code>
             <div class="agent-integration-auth-actions">
