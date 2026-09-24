@@ -761,7 +761,6 @@ test('Agent Runtime HTTP instala MCP estruturado com confirmação explícita', 
   assert.equal(response.json().integration.name, 'docs');
 });
 
-
 test('Agent Runtime HTTP inspeciona integração com resposta sanitizada', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();

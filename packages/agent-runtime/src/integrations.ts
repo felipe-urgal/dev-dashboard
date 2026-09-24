@@ -311,7 +311,10 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
 
     const normalizeTools = (value: unknown): string[] | undefined => {
       if (value === null || value === undefined) return undefined;
-      if (!Array.isArray(value) || value.some((tool) => typeof tool !== 'string')) {
+      if (
+        !Array.isArray(value) ||
+        value.some((tool) => typeof tool !== 'string')
+      ) {
         throw new AgentIntegrationDiscoveryError(
           'invalid-response',
           'Codex MCP inspection returned an invalid tool list.',

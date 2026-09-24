@@ -183,7 +183,6 @@ const integrationQuerySchema = {
   },
 } as const;
 
-
 const inspectIntegrationQuerySchema = {
   type: 'object',
   additionalProperties: false,
@@ -248,7 +247,6 @@ const integrationSchema = {
     },
   },
 } as const;
-
 
 const integrationDetailsSchema = {
   ...integrationSchema,
@@ -904,7 +902,6 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         ),
       })),
   );
-
 
   app.get<{ Params: ProjectParams; Querystring: InspectIntegrationQuery }>(
     '/projects/:projectId/agent/integrations/inspect',

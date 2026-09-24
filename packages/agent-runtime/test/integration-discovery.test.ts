@@ -215,7 +215,6 @@ test('Browser integration discovery mirrors the local tool allowlist', async () 
   );
 });
 
-
 test('Codex MCP inspection returns only sanitized structured details', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new CodexMcpIntegrationProvider({

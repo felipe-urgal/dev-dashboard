@@ -321,7 +321,6 @@ export async function fetchAgentIntegrations(
     .integrations;
 }
 
-
 export async function fetchAgentIntegrationDetails(
   projectId: string,
   providerId: AgentConcreteProviderId,
@@ -338,9 +337,8 @@ export async function fetchAgentIntegrationDetails(
     encodeURIComponent(projectId) +
     '/agent/integrations/inspect?' +
     query.toString();
-  return (
-    await requestJson<{ integration: AgentIntegrationDetails }>(path)
-  ).integration;
+  return (await requestJson<{ integration: AgentIntegrationDetails }>(path))
+    .integration;
 }
 
 export async function installAgentIntegration(

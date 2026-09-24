@@ -47,7 +47,6 @@ const selectedCapabilities = computed(
     ) ?? null,
 );
 
-
 const canInspectSelectedProvider = computed(
   () =>
     selectedCapabilities.value?.integrations.some(
@@ -95,7 +94,6 @@ const authLabel = (integration: AgentIntegration): string => {
       return 'Auth não informada';
   }
 };
-
 
 async function inspectIntegration(
   integration: AgentIntegration,
@@ -372,8 +370,7 @@ watch(
           </div>
           <button
             v-if="
-              canInspectSelectedProvider &&
-              integration.kind === 'mcp-server'
+              canInspectSelectedProvider && integration.kind === 'mcp-server'
             "
             class="agent-integration-details-button"
             type="button"
@@ -397,14 +394,17 @@ watch(
           >
             <span v-if="integrationDetails[integration.id]?.transportType">
               Transporte:
-              <strong>{{ integrationDetails[integration.id]?.transportType }}</strong>
+              <strong>{{
+                integrationDetails[integration.id]?.transportType
+              }}</strong>
             </span>
             <span v-if="integrationDetails[integration.id]?.enabledTools">
               Tools permitidas:
               <strong>
                 {{
-                  integrationDetails[integration.id]?.enabledTools?.join(', ') ||
-                  'nenhuma'
+                  integrationDetails[integration.id]?.enabledTools?.join(
+                    ', ',
+                  ) || 'nenhuma'
                 }}
               </strong>
             </span>
@@ -412,18 +412,28 @@ watch(
               Tools bloqueadas:
               <strong>
                 {{
-                  integrationDetails[integration.id]?.disabledTools?.join(', ') ||
-                  'nenhuma'
+                  integrationDetails[integration.id]?.disabledTools?.join(
+                    ', ',
+                  ) || 'nenhuma'
                 }}
               </strong>
             </span>
-            <span v-if="integrationDetails[integration.id]?.startupTimeoutSec !== undefined">
+            <span
+              v-if="
+                integrationDetails[integration.id]?.startupTimeoutSec !==
+                undefined
+              "
+            >
               Startup timeout:
               <strong>
                 {{ integrationDetails[integration.id]?.startupTimeoutSec }}s
               </strong>
             </span>
-            <span v-if="integrationDetails[integration.id]?.toolTimeoutSec !== undefined">
+            <span
+              v-if="
+                integrationDetails[integration.id]?.toolTimeoutSec !== undefined
+              "
+            >
               Tool timeout:
               <strong>
                 {{ integrationDetails[integration.id]?.toolTimeoutSec }}s
