@@ -114,6 +114,7 @@ export interface AgentProviderStatus {
   availability: AgentProviderAvailability;
   observedAt: string;
   version?: string;
+  selectedProviderId?: AgentConcreteProviderId;
   reason?: string;
   quota?: AgentProviderQuota;
 }
