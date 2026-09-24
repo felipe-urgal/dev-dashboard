@@ -248,6 +248,17 @@ const integrationSchema = {
   },
 } as const;
 
+const integrationIssueSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['code', 'message', 'index'],
+  properties: {
+    code: { type: 'string', enum: ['invalid-entry'] },
+    message: { type: 'string' },
+    index: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
 const integrationDetailsSchema = {
   ...integrationSchema,
   properties: {
@@ -881,11 +892,15 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['integrations'],
+            required: ['integrations', 'issues'],
             properties: {
               integrations: {
                 type: 'array',
                 items: integrationSchema,
+              },
+              issues: {
+                type: 'array',
+                items: integrationIssueSchema,
               },
             },
           },
@@ -894,13 +909,13 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(async () => ({
-        integrations: await options.agentRuntimeApiService.listIntegrations(
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.listIntegrations(
           request.params.projectId,
           request.query.providerId,
           request.query.environmentInstanceId,
         ),
-      })),
+      ),
   );
 
   app.get<{ Params: ProjectParams; Querystring: InspectIntegrationQuery }>(

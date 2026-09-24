@@ -45,7 +45,7 @@ function service(
       },
     ],
     listIntegrationCapabilities: () => [],
-    listIntegrations: async () => [],
+    listIntegrations: async () => ({ integrations: [], issues: [] }),
     inspectIntegration: async (_projectId, providerId, input) => ({
       id: providerId + ':' + input.kind + ':' + input.name,
       providerId,
@@ -276,18 +276,28 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
     agentRuntimeApiService: service({
       listIntegrations: async (...args) => {
         calls.push(args);
-        return [
-          {
-            id: 'codex:mcp-server:github',
-            providerId: 'codex',
-            kind: 'mcp-server',
-            name: 'github',
-            enabled: true,
-            authStatus: 'authenticated',
-            command: 'npx',
-            env: { TOKEN: 'SECRET_SHOULD_NOT_LEAK' },
-          },
-        ] as never;
+        return {
+          integrations: [
+            {
+              id: 'codex:mcp-server:github',
+              providerId: 'codex',
+              kind: 'mcp-server',
+              name: 'github',
+              enabled: true,
+              authStatus: 'authenticated',
+              command: 'npx',
+              env: { TOKEN: 'SECRET_SHOULD_NOT_LEAK' },
+            },
+          ],
+          issues: [
+            {
+              code: 'invalid-entry',
+              index: 2,
+              message: 'Codex MCP discovery ignored an invalid server entry.',
+              raw: 'SECRET_SHOULD_NOT_LEAK',
+            },
+          ],
+        } as never;
       },
     }),
   });
@@ -306,10 +316,13 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   ]);
   const body = response.json<{
     integrations: Array<Record<string, unknown>>;
+    issues: Array<Record<string, unknown>>;
   }>();
   assert.equal(body.integrations[0]?.name, 'github');
   assert.equal(body.integrations[0]?.command, undefined);
   assert.equal(body.integrations[0]?.env, undefined);
+  assert.equal(body.issues[0]?.code, 'invalid-entry');
+  assert.equal(body.issues[0]?.raw, undefined);
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
 

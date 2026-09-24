@@ -30,6 +30,7 @@ const providerIds: AgentConcreteProviderId[] = [
 const selectedProviderId = ref<AgentConcreteProviderId>('codex');
 const capabilities = ref<AgentIntegrationProviderCapabilities[]>([]);
 const integrations = ref<AgentIntegration[]>([]);
+const integrationIssues = ref<string[]>([]);
 const loading = ref(false);
 const installing = ref(false);
 const errorMessage = ref('');
@@ -158,11 +159,13 @@ async function installCodexMcp(): Promise<void> {
     installName.value = '';
     installUrl.value = '';
     installConfirmed.value = false;
-    integrations.value = await fetchAgentIntegrations(
+    const discovery = await fetchAgentIntegrations(
       props.project.id,
       'codex',
       props.environmentInstanceId,
     );
+    integrations.value = discovery.integrations;
+    integrationIssues.value = discovery.issues.map((issue) => issue.message);
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -180,13 +183,16 @@ async function load(): Promise<void> {
   try {
     capabilities.value = await fetchAgentIntegrationCapabilities();
     try {
-      integrations.value = await fetchAgentIntegrations(
+      const discovery = await fetchAgentIntegrations(
         props.project.id,
         selectedProviderId.value,
         props.environmentInstanceId,
       );
+      integrations.value = discovery.integrations;
+      integrationIssues.value = discovery.issues.map((issue) => issue.message);
     } catch (error) {
       integrations.value = [];
+      integrationIssues.value = [];
       errorMessage.value =
         error instanceof Error
           ? error.message
@@ -195,6 +201,7 @@ async function load(): Promise<void> {
   } catch (error) {
     capabilities.value = [];
     integrations.value = [];
+    integrationIssues.value = [];
     errorMessage.value =
       error instanceof Error
         ? error.message
@@ -446,6 +453,20 @@ watch(
       <p v-else-if="!loading && !errorMessage" class="agent-hint">
         Nenhuma integração encontrada para este provider.
       </p>
+
+      <div v-if="integrationIssues.length" class="agent-integrations-warning">
+        <strong>Descoberta parcial</strong>
+        <span>
+          {{ integrationIssues.length }}
+          {{
+            integrationIssues.length === 1
+              ? 'entrada foi ignorada'
+              : 'entradas foram ignoradas'
+          }}
+          por resposta inválida do provider.
+        </span>
+      </div>
+
       <p v-if="errorMessage" class="agent-integrations-warning">
         {{ errorMessage }}
       </p>
@@ -724,6 +745,8 @@ watch(
 }
 
 .agent-integrations-warning {
+  display: grid;
+  gap: 2px;
   margin: 0;
   padding: 9px 10px;
   border: 1px solid var(--border);

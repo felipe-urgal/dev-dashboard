@@ -19,6 +19,7 @@ import type {
   AgentIntegrationDetails,
   AgentIntegrationInspectRequest,
   AgentIntegrationInstallRequest,
+  AgentIntegrationListResult,
   AgentIntegrationProviderCapabilities,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
@@ -111,7 +112,7 @@ export interface AgentRuntimeApiServicePort {
     projectId: string,
     providerId: AgentConcreteProviderId,
     environmentInstanceId?: string,
-  ): Promise<AgentIntegration[]>;
+  ): Promise<AgentIntegrationListResult>;
   inspectIntegration(
     projectId: string,
     providerId: AgentConcreteProviderId,
@@ -258,7 +259,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     projectId: string,
     providerId: AgentConcreteProviderId,
     environmentInstanceId?: string,
-  ): Promise<AgentIntegration[]> {
+  ): Promise<AgentIntegrationListResult> {
     this.requireProject(projectId);
     const provider = this.options.integrationProviderRegistry?.get(providerId);
     if (!provider) {
