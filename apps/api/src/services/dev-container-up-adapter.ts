@@ -186,17 +186,19 @@ function parseEnvelope(value: unknown): DevContainerUpEnvelope | undefined {
 export function parseDevContainerUpOutput(
   output: string,
 ): DevContainerUpEnvelope {
-  if (
-    typeof output !== 'string' ||
-    Buffer.byteLength(output, 'utf8') > MAX_OUTPUT_BYTES
-  ) {
+  if (typeof output !== 'string') {
     throw new DevContainerUpAdapterError(
       'DEV_CONTAINER_UP_OUTPUT_INVALID',
-      'A saída da Dev Container CLI excedeu o limite seguro.',
+      'A saída da Dev Container CLI é inválida.',
     );
   }
 
-  const lines = output.split(/\r?\n/u);
+  const buffer = Buffer.from(output, 'utf8');
+  const boundedOutput =
+    buffer.byteLength > MAX_OUTPUT_BYTES
+      ? buffer.subarray(buffer.byteLength - MAX_OUTPUT_BYTES).toString('utf8')
+      : output;
+  const lines = boundedOutput.split(/\r?\n/u);
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index]?.trim();
     if (!line) continue;
