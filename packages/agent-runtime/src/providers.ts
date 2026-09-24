@@ -77,8 +77,7 @@ export interface AutomaticAgentProviderPreference {
   fallbackOrder?: readonly AgentConcreteProviderId[];
 }
 
-export interface AutomaticAgentProviderOptions
-  extends AutomaticAgentProviderPreference {
+export interface AutomaticAgentProviderOptions extends AutomaticAgentProviderPreference {
   registry: AgentProviderRegistry;
   resolvePreference?: (
     request: AgentProviderExecutionRequest,

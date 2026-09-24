@@ -234,12 +234,7 @@ const providerPreferenceBodySchema = {
 const providerPreferenceSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'projectId',
-    'preferredProviderId',
-    'fallbackOrder',
-    'updatedAt',
-  ],
+  required: ['projectId', 'preferredProviderId', 'fallbackOrder', 'updatedAt'],
   properties: {
     projectId: { type: 'string' },
     preferredProviderId: {
@@ -1141,10 +1136,9 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(async () => ({
-        preference:
-          await options.agentRuntimeApiService.getProviderPreference(
-            request.params.projectId,
-          ),
+        preference: await options.agentRuntimeApiService.getProviderPreference(
+          request.params.projectId,
+        ),
       })),
   );
 
@@ -1169,16 +1163,15 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(async () => ({
-        preference:
-          await options.agentRuntimeApiService.setProviderPreference(
-            request.params.projectId,
-            {
-              preferredProviderId: request.body.preferredProviderId,
-              ...(request.body.fallbackOrder
-                ? { fallbackOrder: request.body.fallbackOrder }
-                : {}),
-            },
-          ),
+        preference: await options.agentRuntimeApiService.setProviderPreference(
+          request.params.projectId,
+          {
+            preferredProviderId: request.body.preferredProviderId,
+            ...(request.body.fallbackOrder
+              ? { fallbackOrder: request.body.fallbackOrder }
+              : {}),
+          },
+        ),
       })),
   );
 

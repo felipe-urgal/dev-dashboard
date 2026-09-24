@@ -419,7 +419,6 @@ test('Automatic selection uses healthy providers in deterministic order', async 
   assert.equal(codex.executions, 1);
 });
 
-
 test('Automatic resolves provider preference per execution project', async () => {
   const claude = stubProvider({ id: 'claude-code' });
   const codex = stubProvider({ id: 'codex' });

@@ -30,8 +30,7 @@ export interface AgentProviderPreferenceStoreOptions {
 }
 
 export type AgentProviderPreferenceStoreErrorCode =
-  | 'AGENT_PROVIDER_PREFERENCE_INVALID'
-  | 'AGENT_PROVIDER_PREFERENCE_CORRUPT';
+  'AGENT_PROVIDER_PREFERENCE_INVALID' | 'AGENT_PROVIDER_PREFERENCE_CORRUPT';
 
 export class AgentProviderPreferenceStoreError extends Error {
   public constructor(
@@ -73,7 +72,8 @@ function isPreference(value: unknown): value is AgentProviderPreference {
     Array.isArray(preference.fallbackOrder) &&
     preference.fallbackOrder.length <= 2 &&
     preference.fallbackOrder.every(isLocalProviderId) &&
-    new Set(preference.fallbackOrder).size === preference.fallbackOrder.length &&
+    new Set(preference.fallbackOrder).size ===
+      preference.fallbackOrder.length &&
     Number.isFinite(Date.parse(preference.updatedAt ?? ''))
   );
 }
