@@ -31,6 +31,7 @@ import {
 } from './services/agent-runtime-api-service.js';
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
 import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
+import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -87,6 +88,10 @@ export interface AppCompositionOptions {
   >;
   projectDoctorService?: ProjectDoctorService;
   devContainerDiscoveryService?: Pick<DevContainerDiscoveryService, 'inspect'>;
+  devContainerLifecyclePlanningService?: Pick<
+    DevContainerLifecyclePlanningService,
+    'plan'
+  >;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
@@ -128,6 +133,13 @@ export function createAppComposition(
     options.devContainerDiscoveryService ??
     new DevContainerDiscoveryService(
       undefined,
+      options.now ? () => new Date(options.now!()) : undefined,
+    );
+  const devContainerLifecyclePlanningService =
+    options.devContainerLifecyclePlanningService ??
+    new DevContainerLifecyclePlanningService(
+      devContainerDiscoveryService,
+      context.developmentEnvironmentInstanceStore,
       options.now ? () => new Date(options.now!()) : undefined,
     );
   const portInspectorService =
@@ -304,6 +316,7 @@ export function createAppComposition(
     databaseExplorerSessionStore,
     projectDoctorService,
     devContainerDiscoveryService,
+    devContainerLifecyclePlanningService,
     portInspectorService,
     dockerComposeProvider,
     dockerComposePreflightService,

@@ -59,6 +59,31 @@ A ferramenta `Dev Container` no projeto consome somente esse endpoint e deixa ex
 
 A tela oferece apenas atualização do snapshot. Ela não possui ações de `up`, rebuild, exec, Terminal ou cleanup.
 
+## Lifecycle preflight read-only
+
+Antes de qualquer mutation, o backend oferece:
+
+`GET /api/projects/:projectId/dev-container/lifecycle-preflight`
+
+Opcionalmente, a rota aceita somente `environmentInstanceId`. O backend resolve o `cwd` e o runtime a partir da Environment Instance; path, programa, argv, mounts e env não são autoridade do browser.
+
+O preflight usa três estados:
+
+- `review`: configuração `image` ou `dockerfile` estruturalmente elegível para revisão humana, mas ainda com `executionEnabled=false`;
+- `blocked`: existe um blocker conhecido que impede avançar;
+- `unavailable`: discovery/configuração não produziram evidência suficiente.
+
+Regras fail-closed do primeiro corte:
+
+- `initializeCommand` bloqueia o lifecycle, pois é um hook executado no host durante inicialização;
+- configurações baseadas em Compose ficam bloqueadas até compartilhar ownership com o domínio Docker Compose;
+- configuração de tipo `unknown` não recebe lifecycle;
+- hooks pós-criação ficam apenas sinalizados como diferidos para futura execução controlada;
+- todo plano em `review` exige confirmação futura;
+- **nenhum plano habilita execução neste corte**.
+
+A decisão de manter `executionEnabled=false` também evita criar um recurso sem cleanup completo: a Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`. Além disso, `--skip-post-create` omite os hooks pós-criação, mas não lista `initializeCommand` entre os hooks suprimidos. O executor mutável só deve entrar quando ownership e cleanup estiverem definidos de ponta a ponta.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
