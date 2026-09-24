@@ -110,13 +110,13 @@ test('Codex doctor checks version and authentication before execution', async ()
   const executionCall = fake.calls.at(-1);
   assert.equal(executionCall?.cwd, '/workspace/project');
   assert.deepEqual(executionCall?.args.slice(0, 7), [
+    '--ask-for-approval',
+    'never',
     'exec',
     '--json',
     '--skip-git-repo-check',
     '--sandbox',
     'workspace-write',
-    '--ask-for-approval',
-    'never',
   ]);
 });
 
@@ -195,7 +195,7 @@ test('Codex uses read-only sandbox when workspace write is not granted', async (
   assert.equal(execution.outcome, 'succeeded');
 
   const executionCall = fake.calls.at(-1);
-  assert.equal(executionCall?.args[4], 'read-only');
+  assert.equal(executionCall?.args[6], 'read-only');
 });
 
 test('Claude doctor validates supported version and auth before auto mode', async () => {
