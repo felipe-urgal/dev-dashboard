@@ -450,8 +450,6 @@ test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturad
   ]);
 });
 
-
-
 test('Agent Runtime HTTP remove plugin Claude com confirmação e preserva dados', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();

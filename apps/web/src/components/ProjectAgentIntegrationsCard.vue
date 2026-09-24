@@ -197,7 +197,6 @@ async function toggleIntegration(integration: AgentIntegration): Promise<void> {
   }
 }
 
-
 async function uninstallIntegration(
   integration: AgentIntegration,
 ): Promise<void> {

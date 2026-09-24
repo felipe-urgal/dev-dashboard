@@ -531,7 +531,6 @@ test('Claude plugin toggle rejects managed scope and mismatched JSON confirmatio
   );
 });
 
-
 test('Claude plugin uninstall requires confirmation and preserves plugin data', async () => {
   const calls: AgentCliProcessRequest[] = [];
   const provider = new ClaudePluginIntegrationProvider({
