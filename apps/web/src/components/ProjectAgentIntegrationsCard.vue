@@ -587,7 +587,10 @@ watch(
           <PuzzlePieceIcon aria-hidden="true" />
           <div>
             <strong>{{ integration.name }}</strong>
-            <small>
+            <small v-if="integration.kind === 'marketplace'">
+              Marketplace configurado
+            </small>
+            <small v-else>
               {{ integrationKindLabel(integration.kind) }}
               ·
               {{
@@ -744,10 +747,10 @@ watch(
           {{ integrationIssues.length }}
           {{
             integrationIssues.length === 1
-              ? 'entrada foi ignorada'
-              : 'entradas foram ignoradas'
+              ? 'problema foi isolado'
+              : 'problemas foram isolados'
           }}
-          por resposta inválida do provider.
+          durante a descoberta.
         </span>
       </div>
 
