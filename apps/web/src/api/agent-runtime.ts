@@ -14,6 +14,7 @@ export type AgentIntegrationScope =
 export type AgentIntegrationOrigin =
   | 'codex-global-config'
   | 'claude-plugin-inventory'
+  | 'claude-plugin-catalog'
   | 'claude-marketplace-inventory'
   | 'browser-local-allowlist';
 
