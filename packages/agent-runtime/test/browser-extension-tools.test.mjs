@@ -159,7 +159,7 @@ test('geração sem envelope executável falha protocolo sem finish', async () =
   await x.run({ type: 'RUN_BROWSER_JOB', jobId: 'job-1', prompt: 'bootstrap', quietMs: 0, timeoutMs: 10_000 });
   assert.equal(x.events.some((event) => event.event === 'finish'), false);
   const failure = x.events.find((event) => event.event === 'fail');
-  assert.equal(failure.errorCode, 'browser_protocol_error');
+  assert.equal(failure.errorCode, 'browser_protocol_envelope_missing');
   assert.equal(failure.browserPhase, 'browser_loop');
 });
 
