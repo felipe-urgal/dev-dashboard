@@ -46,6 +46,12 @@ function service(
     ],
     listIntegrationCapabilities: () => [],
     listIntegrations: async () => [],
+    inspectIntegration: async (_projectId, providerId, input) => ({
+      id: providerId + ':' + input.kind + ':' + input.name,
+      providerId,
+      kind: input.kind,
+      name: input.name,
+    }),
     installIntegration: async (_projectId, providerId, input) => ({
       id: providerId + ':' + input.kind + ':' + input.name,
       providerId,
@@ -753,4 +759,56 @@ test('Agent Runtime HTTP instala MCP estruturado com confirmação explícita', 
     ],
   ]);
   assert.equal(response.json().integration.name, 'docs');
+});
+
+
+test('Agent Runtime HTTP inspeciona integração com resposta sanitizada', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      inspectIntegration: async (...args) => {
+        calls.push(args);
+        return {
+          id: 'codex:mcp-server:docs',
+          providerId: 'codex',
+          kind: 'mcp-server',
+          name: 'docs',
+          enabled: true,
+          transportType: 'streamable-http',
+          enabledTools: ['search'],
+          command: 'secret-command',
+          env: { TOKEN: 'SECRET_SHOULD_NOT_LEAK' },
+        } as never;
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/api/projects/project-1/agent/integrations/inspect' +
+      '?providerId=codex&kind=mcp-server&name=docs' +
+      '&environmentInstanceId=environment%3Aprimary%3Aproject-1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'codex',
+      { kind: 'mcp-server', name: 'docs' },
+      'environment:primary:project-1',
+    ],
+  ]);
+  const body = response.json<{ integration: Record<string, unknown> }>();
+  assert.equal(body.integration.transportType, 'streamable-http');
+  assert.deepEqual(body.integration.enabledTools, ['search']);
+  assert.equal(body.integration.command, undefined);
+  assert.equal(body.integration.env, undefined);
+  assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
