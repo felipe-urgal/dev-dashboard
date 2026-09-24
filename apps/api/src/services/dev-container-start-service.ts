@@ -40,6 +40,7 @@ export interface DevContainerStartResult {
 
 export type DevContainerStartErrorCode =
   | 'DEV_CONTAINER_START_ENVIRONMENT_NOT_READY'
+  | 'DEV_CONTAINER_START_PREFLIGHT_NOT_READY'
   | 'DEV_CONTAINER_START_CONFIRMATION_REQUIRED'
   | 'DEV_CONTAINER_START_CONFIG_CHANGED'
   | 'DEV_CONTAINER_START_OWNERSHIP_FAILED'
@@ -203,6 +204,17 @@ export class DevContainerStartService {
       throw new DevContainerStartError(
         'DEV_CONTAINER_START_ENVIRONMENT_NOT_READY',
         'A Environment Instance não está pronta para criar um Dev Container.',
+      );
+    }
+
+    if (
+      preflight.state !== 'review' ||
+      preflight.runtime !== 'host' ||
+      preflight.requiresConfirmation !== true
+    ) {
+      throw new DevContainerStartError(
+        'DEV_CONTAINER_START_PREFLIGHT_NOT_READY',
+        'O preflight atual não autoriza avançar para criação do Dev Container.',
       );
     }
 
