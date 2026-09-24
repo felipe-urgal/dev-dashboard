@@ -467,12 +467,7 @@ test('Claude plugin discovery returns sanitized installed plugin metadata', asyn
   const discovery = await provider.list({ cwd: '/workspace/project' });
 
   assert.deepEqual(calls[0]?.args, ['plugin', 'list', '--json']);
-  assert.deepEqual(calls[1]?.args, [
-    'plugin',
-    'marketplace',
-    'list',
-    '--json',
-  ]);
+  assert.deepEqual(calls[1]?.args, ['plugin', 'marketplace', 'list', '--json']);
   assert.equal(calls[0]?.cwd, '/workspace/project');
   assert.equal(calls[1]?.cwd, '/workspace/project');
   assert.deepEqual(discovery.integrations, [
@@ -545,7 +540,6 @@ test('Claude plugin discovery isolates invalid rows and fails closed on invalid 
   );
 });
 
-
 test('Claude marketplace discovery exposes only safe source metadata', async () => {
   const provider = new ClaudePluginIntegrationProvider({
     runProcess: async (request) => {
@@ -596,7 +590,10 @@ test('Claude marketplace discovery exposes only safe source metadata', async () 
       authStatus: 'unsupported',
     },
   ]);
-  assert.equal(JSON.stringify(discovery).includes('/secret/local/cache'), false);
+  assert.equal(
+    JSON.stringify(discovery).includes('/secret/local/cache'),
+    false,
+  );
   assert.equal(JSON.stringify(discovery).includes('SECRET'), false);
   assert.equal(
     JSON.stringify(discovery).includes('marketplace-secret-id'),
@@ -639,7 +636,10 @@ test('Claude marketplace discovery failure does not hide installed plugins', asy
       message: 'Claude marketplace discovery returned a non-zero result.',
     },
   ]);
-  assert.equal(JSON.stringify(discovery).includes('SECRET_MARKETPLACE_ERROR'), false);
+  assert.equal(
+    JSON.stringify(discovery).includes('SECRET_MARKETPLACE_ERROR'),
+    false,
+  );
 });
 
 test('Claude plugin toggle uses qualified identity, explicit scope and JSON result', async () => {

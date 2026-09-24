@@ -378,10 +378,7 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.integrations[1]?.marketplace, 'company-tools');
   assert.equal(body.integrations[1]?.installPath, undefined);
   assert.equal(body.integrations[2]?.kind, 'marketplace');
-  assert.equal(
-    body.integrations[2]?.origin,
-    'claude-marketplace-inventory',
-  );
+  assert.equal(body.integrations[2]?.origin, 'claude-marketplace-inventory');
   assert.equal(body.integrations[2]?.marketplaceSource, 'github');
   assert.equal(body.integrations[2]?.sourceUrl, undefined);
   assert.equal(body.integrations[2]?.installLocation, undefined);
@@ -392,7 +389,10 @@ test('Agent Runtime HTTP lista integrações sem expor configuração sensível'
   assert.equal(body.issues[1]?.index, undefined);
   assert.equal(body.issues[1]?.raw, undefined);
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
-  assert.equal(JSON.stringify(body).includes('SECRET_MARKETPLACE_ERROR'), false);
+  assert.equal(
+    JSON.stringify(body).includes('SECRET_MARKETPLACE_ERROR'),
+    false,
+  );
 });
 
 test('Agent Runtime HTTP altera plugin Claude com identidade e escopo estruturados', async (context) => {
