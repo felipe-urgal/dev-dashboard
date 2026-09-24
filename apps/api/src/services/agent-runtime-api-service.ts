@@ -15,6 +15,8 @@ import type {
   AgentAuthorization,
   AgentConcreteProviderId,
   AgentIntegration,
+  AgentIntegrationAuthenticationHandoff,
+  AgentIntegrationAuthenticationRequest,
   AgentIntegrationCapabilityRegistry,
   AgentIntegrationDetails,
   AgentIntegrationInspectRequest,
@@ -143,6 +145,12 @@ export interface AgentRuntimeApiServicePort {
     input: Omit<AgentIntegrationInstallRequest, 'cwd'>,
     environmentInstanceId?: string,
   ): Promise<AgentIntegration>;
+  prepareIntegrationAuthentication(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationAuthenticationRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegrationAuthenticationHandoff>;
   setIntegrationEnabled(
     projectId: string,
     providerId: AgentConcreteProviderId,
@@ -462,6 +470,57 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
     try {
       return await provider.install({
+        ...input,
+        cwd: executionContext.cwd,
+      });
+    } catch (error) {
+      if (error instanceof AgentIntegrationDiscoveryError) {
+        if (error.code === 'invalid-request') {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            error.message,
+          );
+        }
+        throw new AgentRuntimeApiServiceError(
+          error.code === 'provider-unavailable'
+            ? 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
+            : 'AGENT_API_INTEGRATION_DISCOVERY_FAILED',
+          error.message,
+        );
+      }
+      throw error;
+    }
+  }
+
+  public async prepareIntegrationAuthentication(
+    projectId: string,
+    providerId: AgentConcreteProviderId,
+    input: Omit<AgentIntegrationAuthenticationRequest, 'cwd'>,
+    environmentInstanceId?: string,
+  ): Promise<AgentIntegrationAuthenticationHandoff> {
+    this.requireProject(projectId);
+    const provider = this.options.integrationProviderRegistry?.get(providerId);
+    if (!provider?.prepareAuthentication) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE',
+        'Agent integration authentication is unavailable for this provider.',
+      );
+    }
+
+    const executionContext =
+      this.options.developmentEnvironmentInstanceStore.resolveForProject(
+        projectId,
+        environmentInstanceId,
+      );
+    if (!executionContext || executionContext.runtime !== 'host') {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_ENVIRONMENT_NOT_FOUND',
+        'Development environment instance was not found for this project.',
+      );
+    }
+
+    try {
+      return await provider.prepareAuthentication({
         ...input,
         cwd: executionContext.cwd,
       });
