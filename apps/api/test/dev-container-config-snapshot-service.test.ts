@@ -146,6 +146,44 @@ test('snapshot rejeita symlink e configuração acima do limite', async (context
   );
 });
 
+test('snapshot rejeita root relativo e identificador interno inseguro', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-config-snapshot-'));
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  const workspace = path.join(root, 'workspace');
+  await mkdir(workspace);
+  const content = '{}\n';
+  await writeFile(path.join(workspace, '.devcontainer.json'), content);
+
+  const relativeRoot = new DevContainerConfigSnapshotService('snapshots');
+  await assert.rejects(
+    () =>
+      relativeRoot.create({
+        workspaceFolder: workspace,
+        configSource: '.devcontainer.json',
+        expectedConfigurationHash: sha256(content),
+      }),
+    (error: unknown) =>
+      error instanceof DevContainerConfigSnapshotError &&
+      error.code === 'DEV_CONTAINER_CONFIG_SNAPSHOT_INPUT_INVALID',
+  );
+
+  const unsafeId = new DevContainerConfigSnapshotService(
+    path.join(root, 'snapshots'),
+    () => '../escape',
+  );
+  await assert.rejects(
+    () =>
+      unsafeId.create({
+        workspaceFolder: workspace,
+        configSource: '.devcontainer.json',
+        expectedConfigurationHash: sha256(content),
+      }),
+    (error: unknown) =>
+      error instanceof DevContainerConfigSnapshotError &&
+      error.code === 'DEV_CONTAINER_CONFIG_SNAPSHOT_WRITE_FAILED',
+  );
+});
+
 test('snapshot rejeita workspace relativo e hash inválido antes de tocar o filesystem', async () => {
   const service = new DevContainerConfigSnapshotService('/tmp/snapshots');
 
