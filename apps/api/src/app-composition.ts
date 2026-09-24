@@ -140,6 +140,7 @@ export function createAppComposition(
     new DevContainerLifecyclePlanningService(
       devContainerDiscoveryService,
       context.developmentEnvironmentInstanceStore,
+      options.now ? () => new Date(options.now!()) : undefined,
     );
   const portInspectorService =
     options.portInspectorService ?? new PortInspectorService();
