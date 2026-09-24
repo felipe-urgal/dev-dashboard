@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 
 const DEFAULT_API_URL = 'http://127.0.0.1:4343';
@@ -66,6 +69,39 @@ function parseArgs(argv) {
   return { provider, apiUrl: apiUrl.replace(/\/$/, '') };
 }
 
+function resolveConfigDirectory(
+  environment = process.env,
+  home = homedir(),
+) {
+  const configured = environment.DEV_DASHBOARD_CONFIG_DIR?.trim();
+  if (configured) return path.resolve(configured);
+
+  const xdgConfigHome = environment.XDG_CONFIG_HOME?.trim();
+  if (xdgConfigHome) {
+    return path.join(path.resolve(xdgConfigHome), 'dev-dashboard');
+  }
+
+  return path.join(home, '.config', 'dev-dashboard');
+}
+
+async function readLocalApiToken({
+  readFileImpl = readFile,
+  environment = process.env,
+  home = homedir(),
+} = {}) {
+  const tokenPath = path.join(
+    resolveConfigDirectory(environment, home),
+    'api-token',
+  );
+  const token = (await readFileImpl(tokenPath, 'utf8')).trim();
+
+  if (!/^[a-f0-9]{64}$/.test(token)) {
+    throw new Error('Token local do Dev Dashboard possui formato inválido.');
+  }
+
+  return token;
+}
+
 function runCommand(runner, command, args, cwd) {
   return runner(command, args, {
     cwd,
@@ -114,43 +150,56 @@ function inspectCli(runner, provider, cwd) {
   };
 }
 
-async function fetchProviderStatus(fetchImpl, apiUrl, provider) {
+async function fetchProviderStatus(fetchImpl, apiUrl, provider, token) {
   let response;
   try {
     response = await fetchImpl(apiUrl + '/api/agent/providers', {
-      headers: { accept: 'application/json' },
+      headers: {
+        accept: 'application/json',
+        'x-dev-dashboard-token': token,
+      },
     });
   } catch {
-    return null;
+    return { status: null, error: 'api-unreachable' };
   }
 
-  if (!response.ok) return null;
+  if (response.status === 401) {
+    return { status: null, error: 'api-auth-failed' };
+  }
+  if (!response.ok) {
+    return { status: null, error: 'api-http-error' };
+  }
 
   let payload;
   try {
     payload = await response.json();
   } catch {
-    return null;
+    return { status: null, error: 'api-invalid-response' };
   }
 
   const providers = Array.isArray(payload?.providers) ? payload.providers : [];
   const item = providers.find(
     (candidate) => candidate?.providerId === provider,
   );
-  if (!item || typeof item !== 'object') return null;
+  if (!item || typeof item !== 'object') {
+    return { status: null, error: 'provider-status-missing' };
+  }
 
   return {
-    providerId: provider,
-    availability:
-      item.availability === 'available' ||
-      item.availability === 'degraded' ||
-      item.availability === 'unavailable'
-        ? item.availability
-        : 'unavailable',
-    ...(typeof item.version === 'string' ? { version: item.version } : {}),
-    ...(typeof item.observedAt === 'string'
-      ? { observedAt: item.observedAt }
-      : {}),
+    status: {
+      providerId: provider,
+      availability:
+        item.availability === 'available' ||
+        item.availability === 'degraded' ||
+        item.availability === 'unavailable'
+          ? item.availability
+          : 'unavailable',
+      ...(typeof item.version === 'string' ? { version: item.version } : {}),
+      ...(typeof item.observedAt === 'string'
+        ? { observedAt: item.observedAt }
+        : {}),
+    },
+    error: null,
   };
 }
 
@@ -159,6 +208,7 @@ export async function runAgentQualificationPreflight(
   {
     runner = spawnSync,
     fetchImpl = fetch,
+    readToken = readLocalApiToken,
     stdout = process.stdout,
     stderr = process.stderr,
     cwd = process.cwd(),
@@ -185,11 +235,24 @@ export async function runAgentQualificationPreflight(
   }
 
   const cli = inspectCli(runner, options.provider, cwd);
-  const providerStatus = await fetchProviderStatus(
+
+  let token;
+  try {
+    token = await readToken();
+  } catch {
+    stderr.write(
+      'Não foi possível ler o token local do Dev Dashboard para o preflight.\n',
+    );
+    return 1;
+  }
+
+  const providerLookup = await fetchProviderStatus(
     fetchImpl,
     options.apiUrl,
     options.provider,
+    token,
   );
+  const providerStatus = providerLookup.status;
 
   const ready =
     providerStatus?.availability === 'available' &&
@@ -204,10 +267,8 @@ export async function runAgentQualificationPreflight(
         provider: options.provider,
         api: 'loopback',
         ...(cli ? { cli } : {}),
-        status: providerStatus ?? {
-          providerId: options.provider,
-          availability: 'unavailable',
-        },
+        status: providerStatus,
+        ...(providerLookup.error ? { apiError: providerLookup.error } : {}),
         ready,
       },
       null,
@@ -217,7 +278,9 @@ export async function runAgentQualificationPreflight(
 
   if (!ready) {
     stderr.write(
-      'Provider não está pronto para o gate real; nenhum teste de paridade foi declarado.\n',
+      providerLookup.error
+        ? 'O status real do provider não pôde ser lido pela API local; nenhum teste de paridade foi declarado.\n'
+        : 'Provider não está pronto para o gate real; nenhum teste de paridade foi declarado.\n',
     );
     return 1;
   }
