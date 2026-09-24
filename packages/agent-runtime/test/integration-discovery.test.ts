@@ -214,3 +214,76 @@ test('Browser integration discovery mirrors the local tool allowlist', async () 
     ),
   );
 });
+
+test('Codex MCP inspection returns only sanitized structured details', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async (request) => {
+      calls.push(request);
+      return result({
+        stdout: JSON.stringify({
+          name: 'docs',
+          enabled: true,
+          enabled_tools: ['search'],
+          disabled_tools: ['write'],
+          startup_timeout_sec: 5,
+          tool_timeout_sec: 30,
+          transport: {
+            type: 'streamable_http',
+            url: 'https://secret.example.com/mcp',
+            bearer_token_env_var: 'SECRET_TOKEN',
+            http_headers: { Authorization: 'Bearer secret' },
+          },
+        }),
+      });
+    },
+  });
+
+  const details = await provider.inspect!({
+    cwd: '/workspace/project',
+    kind: 'mcp-server',
+    name: 'docs',
+  });
+
+  assert.deepEqual(calls[0]?.args, ['mcp', 'get', 'docs', '--json']);
+  assert.deepEqual(details, {
+    id: 'codex:mcp-server:docs',
+    providerId: 'codex',
+    kind: 'mcp-server',
+    name: 'docs',
+    enabled: true,
+    transportType: 'streamable-http',
+    enabledTools: ['search'],
+    disabledTools: ['write'],
+    startupTimeoutSec: 5,
+    toolTimeoutSec: 30,
+  });
+  assert.equal(JSON.stringify(details).includes('secret.example.com'), false);
+  assert.equal(JSON.stringify(details).includes('SECRET_TOKEN'), false);
+  assert.equal(JSON.stringify(details).includes('Bearer secret'), false);
+});
+
+test('Codex MCP inspection fails closed on mismatched or malformed metadata', async () => {
+  const provider = new CodexMcpIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify({
+          name: 'other',
+          enabled: true,
+          transport: { type: 'stdio', command: 'secret-command' },
+        }),
+      }),
+  });
+
+  await assert.rejects(
+    () =>
+      provider.inspect!({
+        cwd: '/workspace/project',
+        kind: 'mcp-server',
+        name: 'docs',
+      }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response',
+  );
+});

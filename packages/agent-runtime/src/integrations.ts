@@ -29,8 +29,22 @@ export interface AgentIntegration {
   authStatus?: 'authenticated' | 'unauthenticated' | 'unsupported' | 'unknown';
 }
 
+export interface AgentIntegrationDetails extends AgentIntegration {
+  transportType?: 'stdio' | 'streamable-http';
+  enabledTools?: string[];
+  disabledTools?: string[];
+  startupTimeoutSec?: number;
+  toolTimeoutSec?: number;
+}
+
 export interface AgentIntegrationListRequest {
   cwd: string;
+}
+
+export interface AgentIntegrationInspectRequest {
+  cwd: string;
+  kind: AgentIntegrationKind;
+  name: string;
 }
 
 export interface AgentIntegrationInstallRequest {
@@ -45,6 +59,9 @@ export interface AgentIntegrationInstallRequest {
 export interface AgentIntegrationProvider {
   readonly id: AgentConcreteProviderId;
   list(request: AgentIntegrationListRequest): Promise<AgentIntegration[]>;
+  inspect?(
+    request: AgentIntegrationInspectRequest,
+  ): Promise<AgentIntegrationDetails>;
   install?(request: AgentIntegrationInstallRequest): Promise<AgentIntegration>;
 }
 
@@ -207,6 +224,139 @@ export class CodexMcpIntegrationProvider implements AgentIntegrationProvider {
         ...(authStatus ? { authStatus } : {}),
       };
     });
+  }
+
+  async inspect(
+    request: AgentIntegrationInspectRequest,
+  ): Promise<AgentIntegrationDetails> {
+    if (request.kind !== 'mcp-server') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex only supports MCP inspection through this adapter.',
+      );
+    }
+
+    const name = request.name.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-request',
+        'Codex MCP server name is invalid.',
+      );
+    }
+
+    let result;
+    try {
+      result = await this.runProcess({
+        command: this.command,
+        args: ['mcp', 'get', name, '--json'],
+        cwd: request.cwd,
+        timeoutMs: this.timeoutMs,
+        label: 'Codex MCP inspection',
+      });
+    } catch (error) {
+      if (
+        error instanceof AgentCliProcessError &&
+        error.code === 'spawn-failed'
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'provider-unavailable',
+          'Codex command is unavailable.',
+        );
+      }
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP inspection failed.',
+      );
+    }
+
+    if (result.signal !== null || result.exitCode !== 0) {
+      throw new AgentIntegrationDiscoveryError(
+        'command-failed',
+        'Codex MCP inspection returned a non-zero result.',
+      );
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(result.stdout);
+    } catch {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Codex MCP inspection returned invalid JSON.',
+      );
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Codex MCP inspection returned an unexpected payload.',
+      );
+    }
+
+    const item = payload as {
+      name?: unknown;
+      enabled?: unknown;
+      transport?: unknown;
+      enabled_tools?: unknown;
+      disabled_tools?: unknown;
+      startup_timeout_sec?: unknown;
+      tool_timeout_sec?: unknown;
+    };
+    if (item.name !== name || typeof item.enabled !== 'boolean') {
+      throw new AgentIntegrationDiscoveryError(
+        'invalid-response',
+        'Codex MCP inspection returned invalid server metadata.',
+      );
+    }
+
+    const normalizeTools = (value: unknown): string[] | undefined => {
+      if (value === null || value === undefined) return undefined;
+      if (
+        !Array.isArray(value) ||
+        value.some((tool) => typeof tool !== 'string')
+      ) {
+        throw new AgentIntegrationDiscoveryError(
+          'invalid-response',
+          'Codex MCP inspection returned an invalid tool list.',
+        );
+      }
+      return value;
+    };
+    const normalizeTimeout = (value: unknown): number | undefined => {
+      if (value === null || value === undefined) return undefined;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        throw new AgentIntegrationDiscoveryError(
+          'invalid-response',
+          'Codex MCP inspection returned an invalid timeout.',
+        );
+      }
+      return value;
+    };
+
+    let transportType: AgentIntegrationDetails['transportType'];
+    if (item.transport && typeof item.transport === 'object') {
+      const type = (item.transport as { type?: unknown }).type;
+      if (type === 'stdio') transportType = 'stdio';
+      if (type === 'streamable_http') transportType = 'streamable-http';
+    }
+
+    const enabledTools = normalizeTools(item.enabled_tools);
+    const disabledTools = normalizeTools(item.disabled_tools);
+    const startupTimeoutSec = normalizeTimeout(item.startup_timeout_sec);
+    const toolTimeoutSec = normalizeTimeout(item.tool_timeout_sec);
+
+    return {
+      id: 'codex:mcp-server:' + name,
+      providerId: 'codex',
+      kind: 'mcp-server',
+      name,
+      enabled: item.enabled,
+      ...(transportType ? { transportType } : {}),
+      ...(enabledTools ? { enabledTools } : {}),
+      ...(disabledTools ? { disabledTools } : {}),
+      ...(startupTimeoutSec !== undefined ? { startupTimeoutSec } : {}),
+      ...(toolTimeoutSec !== undefined ? { toolTimeoutSec } : {}),
+    };
   }
 
   async install(
@@ -398,7 +548,7 @@ export function createDefaultAgentIntegrationCapabilityRegistry(): AgentIntegrat
         {
           kind: 'mcp-server',
           scopes: ['user', 'project'],
-          operations: ['list', 'install'],
+          operations: ['list', 'inspect', 'install'],
           availability: 'supported',
         },
         {
