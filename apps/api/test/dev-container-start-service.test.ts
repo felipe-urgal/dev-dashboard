@@ -93,8 +93,7 @@ function ownership(
 
 function snapshot(onDispose: () => void): DevContainerConfigSnapshot {
   return {
-    originalConfigPath:
-      '/workspace/project/.devcontainer/devcontainer.json',
+    originalConfigPath: '/workspace/project/.devcontainer/devcontainer.json',
     overrideConfigPath:
       '/state/dev-container-snapshots/snapshot/devcontainer.json',
     configurationHash: CONFIG_HASH,
@@ -104,15 +103,17 @@ function snapshot(onDispose: () => void): DevContainerConfigSnapshot {
   };
 }
 
-function fixture(options: {
-  currentInstance?: DevelopmentEnvironmentInstance;
-  plan?: DevContainerLifecyclePreflight;
-  commandRunner?: DevContainerStartCommandRunner;
-  snapshotCreateError?: Error;
-  reserveError?: Error;
-  attachError?: Error;
-  cleanupError?: Error;
-} = {}) {
+function fixture(
+  options: {
+    currentInstance?: DevelopmentEnvironmentInstance;
+    plan?: DevContainerLifecyclePreflight;
+    commandRunner?: DevContainerStartCommandRunner;
+    snapshotCreateError?: Error;
+    reserveError?: Error;
+    attachError?: Error;
+    cleanupError?: Error;
+  } = {},
+) {
   const current = options.currentInstance ?? instance();
   const upserts: DevelopmentEnvironmentInstance[] = [];
   const events: string[] = [];
@@ -183,9 +184,7 @@ function fixture(options: {
         events.push('command');
         assert.equal(command.program, 'devcontainer');
         assert.equal(
-          command.args.includes(
-            DEV_CONTAINER_OWNERSHIP_LABEL + '=' + TOKEN,
-          ),
+          command.args.includes(DEV_CONTAINER_OWNERSHIP_LABEL + '=' + TOKEN),
           true,
         );
         assert.equal(

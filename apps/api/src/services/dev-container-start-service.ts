@@ -80,11 +80,7 @@ type EnvironmentStore = Pick<
   'findById' | 'findPrimaryByProjectId' | 'upsert'
 >;
 
-function appendTail(
-  current: Buffer,
-  chunk: Buffer,
-  maxBytes: number,
-): Buffer {
+function appendTail(current: Buffer, chunk: Buffer, maxBytes: number): Buffer {
   const next = Buffer.concat([current, chunk]);
   return next.byteLength > maxBytes
     ? next.subarray(next.byteLength - maxBytes)
@@ -165,8 +161,7 @@ export class DevContainerStartService {
     private readonly ownershipStore: OwnershipStore,
     private readonly cleanupService: CleanupService,
     private readonly environmentStore: EnvironmentStore,
-    private readonly runCommand: DevContainerStartCommandRunner =
-      defaultCommandRunner,
+    private readonly runCommand: DevContainerStartCommandRunner = defaultCommandRunner,
   ) {}
 
   public async start(
