@@ -17,25 +17,29 @@ function capture() {
   };
 }
 
-function readyFetch(providerId, overrides = {}) {
-  return async () => ({
-    ok: true,
-    async json() {
-      return {
-        providers: [
-          {
-            providerId,
-            availability: 'available',
-            observedAt: '2026-09-24T16:00:00.000Z',
-            version: 'provider-version',
-            reason: 'token=SECRET_SHOULD_NOT_LEAK',
-            internalSecret: 'SECRET_INTERNAL',
-            ...overrides,
-          },
-        ],
-      };
-    },
-  });
+function readyFetch(providerId, overrides = {}, requests = []) {
+  return async (url, init) => {
+    requests.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          providers: [
+            {
+              providerId,
+              availability: 'available',
+              observedAt: '2026-09-24T16:00:00.000Z',
+              version: 'provider-version',
+              reason: 'token=SECRET_SHOULD_NOT_LEAK',
+              internalSecret: 'SECRET_INTERNAL',
+              ...overrides,
+            },
+          ],
+        };
+      },
+    };
+  };
 }
 
 function baseRunner(calls, { dirty = false, cliAvailable = true } = {}) {
@@ -79,9 +83,11 @@ test('preflight Codex prova somente readiness sanitizado e usa subprocess sem sh
   const stdout = capture();
   const stderr = capture();
 
+  const requests = [];
   const code = await runAgentQualificationPreflight(['--provider', 'codex'], {
     runner: baseRunner(calls),
-    fetchImpl: readyFetch('codex'),
+    fetchImpl: readyFetch('codex', {}, requests),
+    readToken: async () => 'fixture-local-token',
     stdout: stdout.stream,
     stderr: stderr.stream,
     cwd: '/workspace/project',
@@ -110,6 +116,11 @@ test('preflight Codex prova somente readiness sanitizado e usa subprocess sem sh
   });
   assert.equal(stdout.read().includes('SECRET_SHOULD_NOT_LEAK'), false);
   assert.equal(stdout.read().includes('SECRET_INTERNAL'), false);
+  assert.equal(stdout.read().includes('fixture-local-token'), false);
+  assert.equal(
+    requests[0]?.init?.headers?.['x-dev-dashboard-token'],
+    'fixture-local-token',
+  );
   assert.ok(calls.every((call) => call.options.shell === false));
   assert.ok(calls.every((call) => call.options.cwd === '/workspace/project'));
 });
@@ -123,6 +134,7 @@ test('preflight Browser usa status do runtime sem inventar CLI local', async () 
     {
       runner: baseRunner(calls, { dirty: true }),
       fetchImpl: readyFetch('chatgpt-browser'),
+      readToken: async () => 'fixture-local-token',
       stdout: stdout.stream,
       stderr: capture().stream,
     },
@@ -148,6 +160,7 @@ test('preflight falha fechado quando provider real não está pronto', async () 
     {
       runner: baseRunner([], { cliAvailable: false }),
       fetchImpl: readyFetch('claude-code', { availability: 'degraded' }),
+      readToken: async () => 'fixture-local-token',
       stdout: stdout.stream,
       stderr: stderr.stream,
     },
@@ -159,6 +172,33 @@ test('preflight falha fechado quando provider real não está pronto', async () 
   assert.deepEqual(output.cli, { available: false });
   assert.equal(stdout.read().includes('SECRET_PROVIDER_ERROR'), false);
   assert.match(stderr.read(), /nenhum teste de paridade foi declarado/i);
+});
+
+test('preflight diferencia falha de autenticação da API de provider indisponível', async () => {
+  const stdout = capture();
+  const stderr = capture();
+
+  const code = await runAgentQualificationPreflight(['--provider', 'codex'], {
+    runner: baseRunner([]),
+    fetchImpl: async () => ({
+      ok: false,
+      status: 401,
+      async json() {
+        return {};
+      },
+    }),
+    readToken: async () => 'fixture-local-token',
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(code, 1);
+  const output = JSON.parse(stdout.read());
+  assert.equal(output.status, null);
+  assert.equal(output.apiError, 'api-auth-failed');
+  assert.equal(output.ready, false);
+  assert.equal(stdout.read().includes('fixture-local-token'), false);
+  assert.match(stderr.read(), /status real do provider/i);
 });
 
 test('preflight rejeita API não-loopback antes de executar comandos', async () => {
@@ -175,6 +215,7 @@ test('preflight rejeita API não-loopback antes de executar comandos', async () 
       fetchImpl: async () => {
         throw new Error('fetch should not run');
       },
+      readToken: async () => 'fixture-local-token',
       stdout: capture().stream,
       stderr: stderr.stream,
     },

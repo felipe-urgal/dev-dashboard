@@ -71,7 +71,7 @@ O comando registra somente:
 - status sanitizado retornado por `/api/agent/providers`;
 - `ready: true|false`.
 
-Ele rejeita API não-loopback, não imprime `reason` bruto do provider e não transporta tokens, cookies, stdout/stderr do provider ou configuração MCP. `ready: true` comprova apenas que o ambiente está pronto para começar o gate; **não** conta como E2E real nem como paridade.
+Ele rejeita API não-loopback, lê o token local já gerenciado pelo Dashboard apenas para autenticar a chamada loopback e nunca o imprime. Também não imprime `reason` bruto do provider nem transporta cookies, stdout/stderr do provider ou configuração MCP. Falha de autenticação/transporte da API é reportada separadamente de `availability: unavailable` do provider. `ready: true` comprova apenas que o ambiente está pronto para começar o gate; **não** conta como E2E real nem como paridade.
 
 ## Protocolo de qualificação real por provider
 
