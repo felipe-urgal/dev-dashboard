@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   AgentIntegrationDiscoveryError,
   BrowserCapabilityIntegrationProvider,
+  ClaudePluginIntegrationProvider,
   CodexMcpIntegrationProvider,
   StaticAgentIntegrationProviderRegistry,
   type AgentCliProcessRequest,
@@ -325,6 +326,102 @@ test('Codex MCP inspection fails closed on mismatched or malformed metadata', as
         kind: 'mcp-server',
         name: 'docs',
       }),
+    (error: unknown) =>
+      error instanceof AgentIntegrationDiscoveryError &&
+      error.code === 'invalid-response',
+  );
+});
+
+
+test('Claude plugin discovery returns sanitized installed plugin metadata', async () => {
+  const calls: AgentCliProcessRequest[] = [];
+  const provider = new ClaudePluginIntegrationProvider({
+    command: 'claude-test',
+    runProcess: async (request) => {
+      calls.push(request);
+      return result({
+        stdout: JSON.stringify([
+          {
+            id: 'code-review@company-tools',
+            version: '1.2.3',
+            scope: 'project',
+            enabled: true,
+            installPath: '/secret/plugin/path',
+            errors: ['token=SECRET_SHOULD_NOT_LEAK'],
+            errorDetails: [{ type: 'load', file: '/secret/file' }],
+          },
+          {
+            id: 'synced-skill',
+            version: '2.0.0',
+            scope: 'managed',
+            enabled: false,
+            notes: ['SECRET_NOTE'],
+          },
+        ]),
+      });
+    },
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+
+  assert.deepEqual(calls[0]?.args, ['plugin', 'list', '--json']);
+  assert.equal(calls[0]?.cwd, '/workspace/project');
+  assert.deepEqual(discovery.integrations, [
+    {
+      id: 'claude-code:plugin:code-review@company-tools',
+      providerId: 'claude-code',
+      kind: 'plugin',
+      name: 'code-review',
+      scope: 'project',
+      origin: 'claude-plugin-inventory',
+      version: '1.2.3',
+      marketplace: 'company-tools',
+      enabled: true,
+      authStatus: 'unsupported',
+    },
+    {
+      id: 'claude-code:plugin:synced-skill',
+      providerId: 'claude-code',
+      kind: 'plugin',
+      name: 'synced-skill',
+      scope: 'managed',
+      origin: 'claude-plugin-inventory',
+      version: '2.0.0',
+      enabled: false,
+      authStatus: 'unsupported',
+    },
+  ]);
+  assert.deepEqual(discovery.issues, []);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_SHOULD_NOT_LEAK'), false);
+  assert.equal(JSON.stringify(discovery).includes('/secret/plugin/path'), false);
+  assert.equal(JSON.stringify(discovery).includes('SECRET_NOTE'), false);
+});
+
+test('Claude plugin discovery isolates invalid rows and fails closed on invalid JSON', async () => {
+  const provider = new ClaudePluginIntegrationProvider({
+    runProcess: async () =>
+      result({
+        stdout: JSON.stringify([
+          { id: 'valid@market', scope: 'user', enabled: true },
+          { id: '', scope: 'user', enabled: true },
+          { id: 'bad-scope', scope: 'session', enabled: true },
+          null,
+        ]),
+      }),
+  });
+
+  const discovery = await provider.list({ cwd: '/workspace/project' });
+  assert.deepEqual(
+    discovery.integrations.map((integration) => integration.name),
+    ['valid'],
+  );
+  assert.equal(discovery.issues.length, 3);
+
+  const malformed = new ClaudePluginIntegrationProvider({
+    runProcess: async () => result({ stdout: '{invalid' }),
+  });
+  await assert.rejects(
+    () => malformed.list({ cwd: '/workspace/project' }),
     (error: unknown) =>
       error instanceof AgentIntegrationDiscoveryError &&
       error.code === 'invalid-response',
