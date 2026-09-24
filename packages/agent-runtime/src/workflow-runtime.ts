@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { grantedAgentCapabilities } from './authorization.js';
 import type { AgentAuditStore } from './agent-audit-store.js';
 import type {
+  AgentAdoptedGitRef,
   AgentAuthorization,
   AgentCancellationRequest,
   AgentCapability,
@@ -38,6 +39,8 @@ export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE'
   | 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH'
   | 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED'
+  | 'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED'
+  | 'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH'
   | 'AGENT_WORKFLOW_CHECKPOINT_INVALID'
   | 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING';
 
@@ -51,6 +54,19 @@ export class AgentWorkflowRuntimeError extends Error {
   }
 }
 
+export interface AgentGitRefVerifier {
+  verify(
+    task: AgentTaskRecord['task'],
+    reference: Pick<AgentAdoptedGitRef, 'branch' | 'commitHash'>,
+  ): Promise<boolean>;
+}
+
+export interface AgentGitRefAdoptionRequest {
+  branch: string;
+  commitHash: string;
+  confirmed: boolean;
+}
+
 export interface AgentWorkflowRuntimeOptions {
   taskStore: AgentTaskStore;
   providerRegistry: {
@@ -62,6 +78,7 @@ export interface AgentWorkflowRuntimeOptions {
     AgentAuditStore,
     'createCheckpoint' | 'listCheckpoints' | 'resolveCheckpoint'
   >;
+  gitRefVerifier?: AgentGitRefVerifier;
   now?: () => string;
   createExecutionId?: () => string;
   createCheckpointId?: () => string;
@@ -163,6 +180,7 @@ export class AgentWorkflowRuntime {
   private readonly runtimeStateStore: AgentRuntimeStateStore;
   private readonly lockManager: AgentTaskLockManager;
   private readonly checkpointStore: AgentWorkflowRuntimeOptions['checkpointStore'];
+  private readonly gitRefVerifier?: AgentGitRefVerifier;
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
   private readonly createCheckpointId: () => string;
@@ -178,6 +196,7 @@ export class AgentWorkflowRuntime {
     this.runtimeStateStore = options.runtimeStateStore;
     this.lockManager = options.lockManager;
     this.checkpointStore = options.checkpointStore;
+    this.gitRefVerifier = options.gitRefVerifier;
     this.now = options.now ?? (() => new Date().toISOString());
     this.createExecutionId = options.createExecutionId ?? randomUUID;
     this.createCheckpointId = options.createCheckpointId ?? randomUUID;
@@ -241,6 +260,21 @@ export class AgentWorkflowRuntime {
           'AGENT_WORKFLOW_TASK_NOT_RUNNABLE',
           'Agent task must be queued before execution starts.',
         );
+      }
+
+      if (current.task.adoptedGitRef) {
+        if (
+          !this.gitRefVerifier ||
+          !(await this.gitRefVerifier.verify(
+            current.task,
+            current.task.adoptedGitRef,
+          ))
+        ) {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH',
+            'Adopted Git reference no longer matches the task environment.',
+          );
+        }
       }
 
       const pendingCheckpoints = (
@@ -505,6 +539,81 @@ export class AgentWorkflowRuntime {
       );
 
       return { task: saved, checkpoint: resolved };
+    } finally {
+      await release();
+    }
+  }
+
+  public async adoptGitRef(
+    projectId: string,
+    taskId: string,
+    request: AgentGitRefAdoptionRequest,
+  ): Promise<AgentTaskRecord> {
+    const release = await this.lockManager.acquire(
+      executionLockKey(projectId, taskId),
+    );
+
+    try {
+      const current = await this.requireOwnedTask(projectId, taskId);
+      if (current.task.state !== 'queued') {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED',
+          'Git reference can only be adopted while the task is queued.',
+        );
+      }
+      if (!request.confirmed) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED',
+          'Explicit confirmation is required to adopt existing Git work.',
+        );
+      }
+
+      const branch = request.branch.trim();
+      const commitHash = request.commitHash.trim().toLowerCase();
+      if (
+        !branch ||
+        branch.length > 256 ||
+        /[\u0000-\u001f\u007f]/u.test(branch) ||
+        !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(commitHash)
+      ) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED',
+          'Git reference adoption request is invalid.',
+        );
+      }
+      if (!this.gitRefVerifier) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED',
+          'Git reference verification is unavailable.',
+        );
+      }
+
+      const verified = await this.gitRefVerifier.verify(current.task, {
+        branch,
+        commitHash,
+      });
+      if (!verified) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH',
+          'Git reference does not match the task environment.',
+        );
+      }
+
+      const verifiedAt = this.now();
+      const requestedCapabilities = [...current.task.requestedCapabilities];
+      return this.taskStore.save(
+        {
+          ...current.task,
+          adoptedGitRef: {
+            branch,
+            commitHash,
+            verifiedAt,
+          },
+          requestedCapabilities,
+          updatedAt: verifiedAt,
+        },
+        current.version,
+      );
     } finally {
       await release();
     }
