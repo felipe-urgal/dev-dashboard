@@ -1,11 +1,13 @@
 import { execFile } from 'node:child_process';
-import { lstat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { lstat, open } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Project } from '@dev-dashboard/contracts';
 
 const COMMAND_TIMEOUT_MS = 5_000;
 const COMMAND_MAX_BUFFER_BYTES = 1024 * 1024;
+const MAX_CONFIG_BYTES = 1024 * 1024;
 const MAX_LABEL_LENGTH = 256;
 
 const CONFIG_CANDIDATES = [
@@ -48,6 +50,7 @@ export interface DevContainerInspection {
   state: DevContainerInspectionState;
   observedAt: string;
   configSource?: DevContainerConfigurationSource;
+  configurationHash?: string;
   cliVersion?: string;
   configuration?: DevContainerConfigurationSummary;
   diagnostic?: string;
@@ -201,6 +204,45 @@ async function findConfigurationSource(
   return undefined;
 }
 
+async function fingerprintConfiguration(
+  projectPath: string,
+  configSource: DevContainerConfigurationSource,
+): Promise<string> {
+  const target = path.join(projectPath, configSource);
+  const before = await lstat(target);
+  if (!before.isFile() || before.size > MAX_CONFIG_BYTES) {
+    throw new Error('Dev Container config is not a bounded regular file.');
+  }
+
+  const handle = await open(target, 'r');
+  try {
+    const opened = await handle.stat();
+    if (
+      !opened.isFile() ||
+      opened.size > MAX_CONFIG_BYTES ||
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino
+    ) {
+      throw new Error('Dev Container config changed before it was opened.');
+    }
+
+    const content = await handle.readFile();
+    const after = await handle.stat();
+    if (
+      after.dev !== opened.dev ||
+      after.ino !== opened.ino ||
+      after.size !== opened.size ||
+      after.mtimeMs !== opened.mtimeMs
+    ) {
+      throw new Error('Dev Container config changed while it was read.');
+    }
+
+    return createHash('sha256').update(content).digest('hex');
+  } finally {
+    await handle.close();
+  }
+}
+
 function versionCommand(): DevContainerStructuredCommand {
   return {
     program: 'devcontainer',
@@ -298,6 +340,23 @@ export class DevContainerDiscoveryService {
       };
     }
 
+    let configurationHashBefore: string;
+    try {
+      configurationHashBefore = await fingerprintConfiguration(
+        project.path,
+        configSource,
+      );
+    } catch {
+      return {
+        state: 'unavailable',
+        observedAt,
+        configSource,
+        cliVersion,
+        diagnostic:
+          'A configuração Dev Container mudou ou não pôde ser lida com segurança.',
+      };
+    }
+
     let configurationOutput: string;
     try {
       configurationOutput = await this.runCommand(
@@ -315,6 +374,34 @@ export class DevContainerDiscoveryService {
       };
     }
 
+    let configurationHashAfter: string;
+    try {
+      configurationHashAfter = await fingerprintConfiguration(
+        project.path,
+        configSource,
+      );
+    } catch {
+      return {
+        state: 'unavailable',
+        observedAt,
+        configSource,
+        cliVersion,
+        diagnostic:
+          'A configuração Dev Container mudou ou não pôde ser lida com segurança.',
+      };
+    }
+
+    if (configurationHashBefore !== configurationHashAfter) {
+      return {
+        state: 'unavailable',
+        observedAt,
+        configSource,
+        cliVersion,
+        diagnostic:
+          'A configuração Dev Container mudou durante o discovery; tente novamente.',
+      };
+    }
+
     try {
       const configuration = summarizeConfiguration(
         parseStructuredOutput(configurationOutput),
@@ -324,6 +411,7 @@ export class DevContainerDiscoveryService {
         state: 'available',
         observedAt,
         configSource,
+        configurationHash: configurationHashAfter,
         cliVersion,
         configuration,
       };
