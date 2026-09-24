@@ -1213,9 +1213,7 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
     return { integrations, issues };
   }
 
-  private assertMcpConfigReadable(
-    discovery: AgentIntegrationListResult,
-  ): void {
+  private assertMcpConfigReadable(discovery: AgentIntegrationListResult): void {
     if (discovery.issues.some((issue) => issue.source === 'mcp-server')) {
       throw new AgentIntegrationDiscoveryError(
         'invalid-response',
@@ -1839,7 +1837,6 @@ export class ClaudePluginIntegrationProvider implements AgentIntegrationProvider
       'Claude only supports MCP and plugin removal through this adapter.',
     );
   }
-
 }
 
 export class BrowserCapabilityIntegrationProvider implements AgentIntegrationProvider {
