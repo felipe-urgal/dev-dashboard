@@ -1,4 +1,5 @@
 export type {
+  AgentAdoptedGitRef,
   AgentAuthorization,
   AgentCancellationRequest,
   AgentCapability,
@@ -211,6 +212,8 @@ export {
   AgentWorkflowRuntimeError,
 } from './workflow-runtime.js';
 export type {
+  AgentGitRefAdoptionRequest,
+  AgentGitRefVerifier,
   AgentWorkflowExecuteRequest,
   AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,

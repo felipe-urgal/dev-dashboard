@@ -42,6 +42,12 @@ interface ExecuteBody {
   providerId?: AgentProviderId;
 }
 
+interface AdoptGitRefBody {
+  branch: string;
+  commitHash: string;
+  confirmed: boolean;
+}
+
 interface UsageQuery {
   observedFrom?: string;
   observedTo?: string;
@@ -182,6 +188,20 @@ const createTaskBodySchema = {
       maxItems: capabilities.length,
       items: { type: 'string', enum: [...capabilities] },
     },
+  },
+} as const;
+
+const adoptGitRefBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['branch', 'commitHash', 'confirmed'],
+  properties: {
+    branch: { type: 'string', minLength: 1, maxLength: 256 },
+    commitHash: {
+      type: 'string',
+      pattern: '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$',
+    },
+    confirmed: { type: 'boolean' },
   },
 } as const;
 
@@ -601,6 +621,16 @@ const taskSchema = {
     state: { type: 'string', enum: [...taskStates] },
     summary: { type: 'string' },
     continuationInstruction: { type: 'string' },
+    adoptedGitRef: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['branch', 'commitHash', 'verifiedAt'],
+      properties: {
+        branch: { type: 'string' },
+        commitHash: { type: 'string' },
+        verifiedAt: { type: 'string' },
+      },
+    },
     requestedCapabilities: {
       type: 'array',
       items: { type: 'string', enum: [...capabilities] },
@@ -975,6 +1005,8 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE':
     case 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH':
     case 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED':
+    case 'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED':
+    case 'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH':
     case 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING':
       return new ApiError({
         statusCode: 409,
@@ -1308,6 +1340,37 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         task: await options.agentRuntimeApiService.getTask(
           request.params.projectId,
           request.params.taskId,
+        ),
+      })),
+  );
+
+  app.post<{ Params: TaskParams; Body: AdoptGitRefBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/adopt-ref',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: adoptGitRefBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['task'],
+            properties: { task: taskRecordSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        task: await options.agentRuntimeApiService.adoptGitRef(
+          request.params.projectId,
+          request.params.taskId,
+          {
+            branch: request.body.branch,
+            commitHash: request.body.commitHash,
+            confirmed: request.body.confirmed,
+          },
         ),
       })),
   );

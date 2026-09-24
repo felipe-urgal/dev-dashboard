@@ -24,6 +24,7 @@ import type {
   AgentIntegrationUninstallRequest,
   AgentIntegrationUninstallResult,
   AgentIntegrationProviderCapabilities,
+  AgentGitRefAdoptionRequest,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
   AgentAuditStore,
@@ -146,6 +147,11 @@ export interface AgentRuntimeApiServicePort {
     input: AgentTaskCreateInput,
   ): Promise<AgentTaskRecord>;
   getTask(projectId: string, taskId: string): Promise<AgentTaskRecord>;
+  adoptGitRef(
+    projectId: string,
+    taskId: string,
+    input: AgentGitRefAdoptionRequest,
+  ): Promise<AgentTaskRecord>;
   status(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   execute(
     projectId: string,
@@ -205,7 +211,8 @@ export interface AgentRuntimeApiServiceOptions {
     | 'recover'
     | 'resolveCheckpoint'
     | 'shutdown'
-  >;
+  > &
+    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef'>>;
   projectStore: Pick<ProjectStore, 'findProject'>;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
@@ -613,6 +620,37 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         'Agent task was not found.',
       );
     }
+    return record;
+  }
+
+  public async adoptGitRef(
+    projectId: string,
+    taskId: string,
+    input: AgentGitRefAdoptionRequest,
+  ): Promise<AgentTaskRecord> {
+    await this.getTask(projectId, taskId);
+    const adoptGitRef = this.options.workflowRuntime.adoptGitRef;
+    if (!adoptGitRef) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent Git reference adoption is unavailable.',
+      );
+    }
+    const record = await this.withRuntimeErrors(() =>
+      adoptGitRef.call(this.options.workflowRuntime, projectId, taskId, input),
+    );
+    await this.recordActivity({
+      projectId,
+      ...(record.task.environmentInstanceId
+        ? { environmentInstanceId: record.task.environmentInstanceId }
+        : {}),
+      type: 'agent.ref.adopted',
+      status: 'succeeded',
+      summary: 'Existing Git reference adopted for agent task.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
     return record;
   }
 

@@ -336,6 +336,33 @@ function createAgentRuntimeApiService(
     taskStore,
     providerRegistry,
     checkpointStore: auditStore,
+    gitRefVerifier: {
+      verify: async (task, reference) => {
+        const executionContext =
+          context.developmentEnvironmentInstanceStore.resolveForProject(
+            task.projectId,
+            task.environmentInstanceId,
+          );
+        if (!executionContext || executionContext.runtime !== 'host') {
+          return false;
+        }
+
+        try {
+          const overview = await context.gitService.getOverview(
+            executionContext.cwd,
+          );
+          return (
+            overview.repository &&
+            !overview.detached &&
+            overview.branch === reference.branch &&
+            overview.latestCommit?.hash.toLowerCase() ===
+              reference.commitHash.toLowerCase()
+          );
+        } catch {
+          return false;
+        }
+      },
+    },
     runtimeStateStore: new AgentRuntimeStateStore({
       stateDirectory,
       ...(options.now ? { now: () => new Date(options.now!()) } : {}),

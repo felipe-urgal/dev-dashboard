@@ -33,6 +33,7 @@ const TASK_KEYS = new Set([
   'state',
   'summary',
   'continuationInstruction',
+  'adoptedGitRef',
   'requestedCapabilities',
   'createdAt',
   'updatedAt',
@@ -117,6 +118,36 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     );
   }
 
+  const adoptedGitRef = parsed.adoptedGitRef;
+  if (adoptedGitRef !== undefined) {
+    if (!isRecord(adoptedGitRef)) {
+      throw new AgentSerializationError('Invalid AgentTask.adoptedGitRef');
+    }
+    const allowedAdoptedRefKeys = new Set([
+      'branch',
+      'commitHash',
+      'verifiedAt',
+    ]);
+    for (const key of Object.keys(adoptedGitRef)) {
+      if (!allowedAdoptedRefKeys.has(key)) {
+        throw new AgentSerializationError(
+          'Unexpected AgentTask.adoptedGitRef field',
+        );
+      }
+    }
+    if (
+      typeof adoptedGitRef.branch !== 'string' ||
+      adoptedGitRef.branch.length === 0 ||
+      adoptedGitRef.branch.length > 256 ||
+      typeof adoptedGitRef.commitHash !== 'string' ||
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(adoptedGitRef.commitHash) ||
+      typeof adoptedGitRef.verifiedAt !== 'string' ||
+      !Number.isFinite(Date.parse(adoptedGitRef.verifiedAt))
+    ) {
+      throw new AgentSerializationError('Invalid AgentTask.adoptedGitRef');
+    }
+  }
+
   const taskContextId = parsed.taskContextId;
   if (
     taskContextId !== undefined &&
@@ -145,6 +176,15 @@ export function deserializeAgentTask(serialized: string): AgentTask {
     summary: requiredString(parsed, 'summary'),
     ...(continuationInstruction !== undefined
       ? { continuationInstruction }
+      : {}),
+    ...(adoptedGitRef !== undefined
+      ? {
+          adoptedGitRef: {
+            branch: adoptedGitRef.branch as string,
+            commitHash: adoptedGitRef.commitHash as string,
+            verifiedAt: adoptedGitRef.verifiedAt as string,
+          },
+        }
       : {}),
     requestedCapabilities: capabilities,
     createdAt: requiredString(parsed, 'createdAt'),

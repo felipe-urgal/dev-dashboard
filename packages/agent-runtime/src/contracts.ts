@@ -31,6 +31,12 @@ export type AgentCapability =
   | 'deployment:run'
   | 'release:run';
 
+export interface AgentAdoptedGitRef {
+  branch: string;
+  commitHash: string;
+  verifiedAt: string;
+}
+
 export interface AgentTask {
   id: string;
   projectId: string;
@@ -39,6 +45,7 @@ export interface AgentTask {
   state: AgentTaskState;
   summary: string;
   continuationInstruction?: string;
+  adoptedGitRef?: AgentAdoptedGitRef;
   requestedCapabilities: AgentCapability[];
   createdAt: string;
   updatedAt: string;

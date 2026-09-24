@@ -78,6 +78,19 @@ function service(
     listTasks: async () => [task],
     createTask: async () => task,
     getTask: async () => task,
+    adoptGitRef: async (_projectId, _taskId, input) => ({
+      ...task,
+      task: {
+        ...task.task,
+        adoptedGitRef: {
+          branch: input.branch,
+          commitHash: input.commitHash.toLowerCase(),
+          verifiedAt: '2026-09-23T10:00:30.000Z',
+        },
+        updatedAt: '2026-09-23T10:00:30.000Z',
+      },
+      version: 2,
+    }),
     status: async () => ({
       task,
       runtime: {
@@ -644,6 +657,66 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
     ).statusCode,
     200,
   );
+});
+
+test('Agent Runtime HTTP adota ref somente por payload estruturado', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      adoptGitRef: async (...args) => {
+        calls.push(args);
+        return {
+          ...task,
+          task: {
+            ...task.task,
+            adoptedGitRef: {
+              branch: 'feature/existing',
+              commitHash: 'a'.repeat(40),
+              verifiedAt: '2026-09-23T10:00:30.000Z',
+            },
+            updatedAt: '2026-09-23T10:00:30.000Z',
+          },
+          version: 2,
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/adopt-ref',
+    payload: {
+      branch: 'feature/existing',
+      commitHash: 'A'.repeat(40),
+      confirmed: true,
+      cwd: '/tmp/ignored',
+      argv: ['rev-parse', 'HEAD'],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'task-1',
+      {
+        branch: 'feature/existing',
+        commitHash: 'A'.repeat(40),
+        confirmed: true,
+      },
+    ],
+  ]);
+  assert.equal(
+    response.json().task.task.adoptedGitRef.commitHash,
+    'a'.repeat(40),
+  );
+  assert.equal(JSON.stringify(calls).includes('/tmp/ignored'), false);
+  assert.equal(JSON.stringify(calls).includes('rev-parse'), false);
 });
 
 test('Agent Runtime HTTP expõe usage agregado por projeto e task', async (context) => {
