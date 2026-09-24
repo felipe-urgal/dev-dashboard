@@ -53,6 +53,11 @@ interface UsageQuery {
   observedTo?: string;
 }
 
+interface ProviderPreferenceBody {
+  preferredProviderId: 'codex' | 'claude-code';
+  fallbackOrder?: Array<'codex' | 'claude-code'>;
+}
+
 interface IntegrationQuery {
   providerId: 'codex' | 'claude-code' | 'chatgpt-browser';
   environmentInstanceId?: string;
@@ -202,6 +207,55 @@ const adoptGitRefBodySchema = {
       pattern: '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$',
     },
     confirmed: { type: 'boolean' },
+  },
+} as const;
+
+const providerPreferenceBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['preferredProviderId'],
+  properties: {
+    preferredProviderId: {
+      type: 'string',
+      enum: ['codex', 'claude-code'],
+    },
+    fallbackOrder: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: 2,
+      items: {
+        type: 'string',
+        enum: ['codex', 'claude-code'],
+      },
+    },
+  },
+} as const;
+
+const providerPreferenceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'projectId',
+    'preferredProviderId',
+    'fallbackOrder',
+    'updatedAt',
+  ],
+  properties: {
+    projectId: { type: 'string' },
+    preferredProviderId: {
+      type: 'string',
+      enum: ['codex', 'claude-code'],
+    },
+    fallbackOrder: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: 2,
+      items: {
+        type: 'string',
+        enum: ['codex', 'claude-code'],
+      },
+    },
+    updatedAt: { type: 'string' },
   },
 } as const;
 
@@ -1063,6 +1117,90 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       withAgentErrors(async () => ({
         providers: await options.agentRuntimeApiService.listProviders(),
       })),
+  );
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/agent/provider-preference',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['preference'],
+            properties: {
+              preference: {
+                anyOf: [providerPreferenceSchema, { type: 'null' }],
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        preference:
+          await options.agentRuntimeApiService.getProviderPreference(
+            request.params.projectId,
+          ),
+      })),
+  );
+
+  app.put<{ Params: ProjectParams; Body: ProviderPreferenceBody }>(
+    '/projects/:projectId/agent/provider-preference',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: providerPreferenceBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['preference'],
+            properties: {
+              preference: providerPreferenceSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        preference:
+          await options.agentRuntimeApiService.setProviderPreference(
+            request.params.projectId,
+            {
+              preferredProviderId: request.body.preferredProviderId,
+              ...(request.body.fallbackOrder
+                ? { fallbackOrder: request.body.fallbackOrder }
+                : {}),
+            },
+          ),
+      })),
+  );
+
+  app.delete<{ Params: ProjectParams }>(
+    '/projects/:projectId/agent/provider-preference',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          204: { type: 'null' },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      await withAgentErrors(() =>
+        options.agentRuntimeApiService.clearProviderPreference(
+          request.params.projectId,
+        ),
+      );
+      return reply.code(204).send();
+    },
   );
 
   app.get(
