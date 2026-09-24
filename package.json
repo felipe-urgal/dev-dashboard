@@ -47,7 +47,8 @@
     "pretest:coverage": "npm run build:packages",
     "predev:api": "npm run build:packages",
     "predev:web": "npm run build:packages",
-    "test:e2e:agent-qualification": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web -- project-agent-qualification.spec.ts"
+    "test:e2e:agent-qualification": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web -- project-agent-qualification.spec.ts",
+    "agent:qualification:preflight": "node scripts/agent-qualification-preflight.mjs"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
