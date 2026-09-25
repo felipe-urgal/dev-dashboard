@@ -5,9 +5,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
-import { ProjectTerminalService } from '../src/services/project-terminal-service.js';
+import {
+  ProjectTerminalError,
+  ProjectTerminalService,
+} from '../src/services/project-terminal-service.js';
 
 class FakePty extends EventEmitter {
   public readonly writes: string[] = [];
@@ -188,6 +191,104 @@ test('fluxo completo: conecta, troca input/output, redimensiona e encerra', asyn
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('shell usa devcontainer exec para a Environment Instance selecionada', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-terminal-'));
+  try {
+    const runtimeId = 'a'.repeat(64);
+    const executionContext: ExecutionContext = {
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:primary:project-1',
+      cwd: root,
+      runtime: 'devcontainer',
+      runtimeId,
+    };
+    let spawnedFile: string | undefined;
+    let spawnedArgs: readonly string[] | undefined;
+    let resolveCommandCalls = 0;
+    const fakePty = new FakePty();
+    const service = new ProjectTerminalService({
+      spawnPty: (file, args) => {
+        spawnedFile = file;
+        spawnedArgs = args;
+        return fakePty as never;
+      },
+      resolveCommand: async () => {
+        resolveCommandCalls += 1;
+        return { file: '/bin/bash', args: [] };
+      },
+    });
+    const testProject = project(root);
+
+    const status = service.status(testProject, 'shell', executionContext);
+    assert.equal(status.supported, true);
+    assert.match(status.message, /Dev Container/u);
+
+    const confirmation = service.prepareConfirmation(
+      testProject,
+      'shell',
+      executionContext,
+    );
+    const socket = new FakeSocket();
+    await service.attach(
+      testProject,
+      'shell',
+      confirmation.token,
+      socket as never,
+      executionContext,
+    );
+
+    assert.equal(resolveCommandCalls, 0);
+    assert.equal(spawnedFile, 'devcontainer');
+    assert.deepEqual(spawnedArgs, [
+      'exec',
+      '--container-id',
+      runtimeId,
+      '/bin/sh',
+    ]);
+    assert.deepEqual(socket.sent[0], {
+      type: 'ready',
+      environmentInstanceId: executionContext.environmentInstanceId,
+    });
+    socket.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('runtime Dev Container falha fechado sem runtimeId e não amplia Console Rails', () => {
+  const service = new ProjectTerminalService();
+  const testProject = project('/tmp/x');
+  const withoutRuntimeId: ExecutionContext = {
+    projectId: testProject.id,
+    environmentInstanceId: 'environment:primary:project-1',
+    cwd: '/tmp/x',
+    runtime: 'devcontainer',
+  };
+  const withRuntimeId: ExecutionContext = {
+    ...withoutRuntimeId,
+    runtimeId: 'b'.repeat(64),
+  };
+
+  assert.equal(service.status(testProject, 'shell', withoutRuntimeId).supported, false);
+  assert.match(
+    service.status(testProject, 'shell', withoutRuntimeId).message,
+    /identidade executável válida/u,
+  );
+  assert.equal(
+    service.status(testProject, 'rails-console', withRuntimeId).supported,
+    false,
+  );
+  assert.throws(
+    () =>
+      service.prepareConfirmation(
+        testProject,
+        'rails-console',
+        withRuntimeId,
+      ),
+    ProjectTerminalError,
+  );
 });
 
 test('confirmação é de uso único e expira', async () => {
