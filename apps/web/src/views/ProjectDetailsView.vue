@@ -366,8 +366,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
             </div>
           </div>
         </header>
+      </div>
 
-        <nav class="project-details-tabs" aria-label="Áreas do projeto">
+      <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <div class="project-details-primary-tabs">
             <RouterLink
               v-if="project.capabilities.includes('server')"
@@ -462,9 +463,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
               :webpack-detected="webpackDetected"
               :environment-instance-id="environmentInstanceId"
             />
-          </div>
-        </nav>
-      </div>
+        </div>
+      </nav>
 
       <ProjectReadmePanel
         v-if="isReadmeRoute"
