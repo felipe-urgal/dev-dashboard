@@ -451,6 +451,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
               :to="{
                 name: 'project-terminal',
                 params: { projectId: project.id },
+                ...(environmentInstanceId
+                  ? { query: { environmentInstanceId } }
+                  : {}),
               }"
             >
               <CommandLineIcon aria-hidden="true" />
@@ -576,8 +579,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectTerminalPanel
         v-else-if="isTerminalRoute"
-        :key="`terminal-${project.id}`"
+        :key="`terminal-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
         kind="shell"
         title="Terminal"
         description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
@@ -586,8 +590,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectTerminalPanel
         v-else-if="isConsoleRoute"
-        :key="`console-${project.id}`"
+        :key="`console-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
         kind="rails-console"
         title="Console Rails"
         description="Abre `bin/rails console` (ou `bundle exec rails console`) na raiz do projeto."
