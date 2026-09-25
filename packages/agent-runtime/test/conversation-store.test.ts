@@ -154,6 +154,19 @@ test('AgentConversationStore mantém metadata de provider fora de turnos do usu�
       error instanceof AgentConversationStoreError &&
       error.code === 'AGENT_CONVERSATION_INVALID',
   );
+
+  await assert.rejects(
+    store.append({
+      id: 'turn-3',
+      taskId: 'task-1',
+      role: 'agent',
+      content: 'Resposta sem execução.',
+      createdAt: '2026-09-25T14:04:30.000Z',
+    }),
+    (error: unknown) =>
+      error instanceof AgentConversationStoreError &&
+      error.code === 'AGENT_CONVERSATION_INVALID',
+  );
 });
 
 test('AgentConversationStore falha fechado para estado corrompido', async (context) => {
