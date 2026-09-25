@@ -115,17 +115,6 @@ onMounted(() => {
       </button>
 
       <header id="primary-navigation" class="sidebar topbar">
-        <div class="brand topbar-brand">
-          <div class="brand-mark" aria-hidden="true">
-            <CodeBracketIcon />
-          </div>
-
-          <div class="brand-copy">
-            <strong>Dev Dashboard</strong>
-            <span>Local workspace</span>
-          </div>
-        </div>
-
         <div class="sidebar-section topbar-workspace">
           <span class="sidebar-label">Workspace ativo</span>
           <div class="sidebar-workspace-row">
