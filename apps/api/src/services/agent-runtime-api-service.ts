@@ -210,7 +210,7 @@ export interface AgentRuntimeApiServicePort {
     input: AgentGitRefAdoptionRequest,
   ): Promise<AgentTaskRecord>;
   status(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
-  conversation?(
+  conversation(
     projectId: string,
     taskId: string,
   ): Promise<AgentConversationTurn[]>;
@@ -272,7 +272,6 @@ export interface AgentRuntimeApiServiceOptions {
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
     | 'status'
-    | 'conversation'
     | 'execute'
     | 'cancel'
     | 'retry'
@@ -280,7 +279,7 @@ export interface AgentRuntimeApiServiceOptions {
     | 'resolveCheckpoint'
     | 'shutdown'
   > &
-    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef'>>;
+    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef' | 'conversation'>>;
   projectStore: Pick<ProjectStore, 'findProject'>;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
@@ -1023,8 +1022,15 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     taskId: string,
   ): Promise<AgentConversationTurn[]> {
     await this.getTask(projectId, taskId);
+    const conversation = this.options.workflowRuntime.conversation;
+    if (!conversation) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent conversation storage is unavailable.',
+      );
+    }
     return this.withRuntimeErrors(() =>
-      this.options.workflowRuntime.conversation(projectId, taskId),
+      conversation.call(this.options.workflowRuntime, projectId, taskId),
     );
   }
 
