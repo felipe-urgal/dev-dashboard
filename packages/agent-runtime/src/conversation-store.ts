@@ -136,6 +136,12 @@ function canonicalTurn(turn: AgentConversationTurn): AgentConversationTurn {
       'User conversation turns cannot own provider execution metadata.',
     );
   }
+  if (turn.role === 'agent' && !hasExecution) {
+    throw new AgentConversationStoreError(
+      'AGENT_CONVERSATION_INVALID',
+      'Agent conversation turns require provider execution metadata.',
+    );
+  }
   if (hasExecution) {
     assertIdentity(turn.executionId!, 'Agent execution id');
     if (!isConcreteProviderId(turn.providerId)) {
