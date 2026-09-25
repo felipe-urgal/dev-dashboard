@@ -1,0 +1,257 @@
+/* Global shell: the former left rail becomes a compact top navigation bar. */
+.app-shell.app-shell-topnav {
+  --app-topbar-height: 72px;
+  display: block;
+  min-height: 100vh;
+  background: var(--surface-0);
+}
+
+.app-shell-topnav > .topbar {
+  position: sticky;
+  z-index: 60;
+  top: 0;
+  display: flex;
+  width: 100%;
+  height: var(--app-topbar-height);
+  min-height: var(--app-topbar-height);
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  overflow: visible;
+  padding: 10px 16px;
+  border-right: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 94%, var(--surface-2) 6%);
+}
+
+.app-shell-topnav .topbar .brand {
+  min-width: max-content;
+  min-height: 0;
+  flex: 0 0 auto;
+  gap: 10px;
+  padding: 0 16px 0 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+.app-shell-topnav .topbar .brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.app-shell-topnav .topbar .brand-mark svg {
+  width: 23px;
+  height: 23px;
+}
+
+.app-shell-topnav .topbar .brand-copy {
+  min-width: 0;
+}
+
+.app-shell-topnav .topbar .brand strong {
+  font-size: 14px;
+}
+
+.app-shell-topnav .topbar .brand span {
+  margin-top: 2px;
+  font-size: 9px;
+}
+
+.app-shell-topnav .topbar .sidebar-section {
+  min-width: 210px;
+  max-width: 260px;
+  flex: 0 1 240px;
+  margin: 0;
+  padding: 0;
+}
+
+.app-shell-topnav .topbar .sidebar-label {
+  display: none;
+}
+
+.app-shell-topnav .topbar .sidebar-workspace-row {
+  gap: 7px;
+}
+
+.app-shell-topnav .topbar .sidebar-workspace-select {
+  min-height: 40px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.app-shell-topnav .topbar .sidebar-workspace-add-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
+}
+
+.app-shell-topnav .topbar .navigation {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.app-shell-topnav .topbar .navigation::-webkit-scrollbar {
+  display: none;
+}
+
+.app-shell-topnav .topbar .navigation-item {
+  min-height: 40px;
+  flex: 0 0 auto;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.app-shell-topnav .topbar .navigation-item::before {
+  display: none;
+}
+
+.app-shell-topnav .topbar .navigation-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.app-shell-topnav .topbar .navigation-item-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.app-shell-topnav .topbar .sidebar-tools {
+  display: block;
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+}
+
+.app-shell-topnav .topbar .sidebar-theme-toggle {
+  width: 148px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app-shell-topnav .topbar .sidebar-theme-toggle button {
+  min-height: 34px;
+  justify-content: center;
+  padding: 6px 8px;
+}
+
+.app-shell-topnav .main-content {
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height));
+}
+
+.app-shell-topnav .content {
+  min-height: calc(100vh - var(--app-topbar-height));
+}
+
+@media (max-width: 1100px) {
+  .app-shell-topnav .topbar {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .app-shell-topnav .topbar .brand {
+    padding-right: 12px;
+  }
+
+  .app-shell-topnav .topbar .brand-copy span {
+    display: none;
+  }
+
+  .app-shell-topnav .topbar .sidebar-section {
+    min-width: 180px;
+    flex-basis: 200px;
+  }
+
+  .app-shell-topnav .topbar .navigation-item {
+    padding-inline: 9px;
+  }
+
+  .app-shell-topnav .topbar .sidebar-theme-toggle {
+    width: 126px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell.app-shell-topnav {
+    --app-topbar-height: 116px;
+  }
+
+  .app-shell-topnav > .topbar {
+    height: var(--app-topbar-height);
+    min-height: var(--app-topbar-height);
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 8px 10px;
+    padding: 8px 10px;
+  }
+
+  .app-shell-topnav .topbar .brand {
+    order: 1;
+    padding-right: 10px;
+  }
+
+  .app-shell-topnav .topbar .sidebar-section {
+    order: 2;
+    min-width: 150px;
+    max-width: none;
+    flex: 1 1 180px;
+  }
+
+  .app-shell-topnav .topbar .sidebar-tools {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .app-shell-topnav .topbar .navigation {
+    order: 4;
+    flex: 1 1 100%;
+    min-height: 40px;
+  }
+
+  .app-shell-topnav .topbar .sidebar-theme-toggle {
+    width: 112px;
+  }
+}
+
+@media (max-width: 620px) {
+  .app-shell-topnav .topbar .brand-copy {
+    display: none;
+  }
+
+  .app-shell-topnav .topbar .brand {
+    padding-right: 8px;
+  }
+
+  .app-shell-topnav .topbar .sidebar-section {
+    min-width: 0;
+  }
+
+  .app-shell-topnav .topbar .sidebar-theme-toggle {
+    width: 76px;
+  }
+
+  .app-shell-topnav .topbar .sidebar-theme-toggle button {
+    padding-inline: 6px;
+    font-size: 0;
+  }
+
+  .app-shell-topnav .topbar .sidebar-theme-toggle button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .app-shell-topnav .topbar .navigation-item {
+    padding-inline: 8px;
+  }
+}
