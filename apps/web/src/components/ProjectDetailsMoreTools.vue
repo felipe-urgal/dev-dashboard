@@ -22,6 +22,7 @@ import type { Project } from '@dev-dashboard/contracts';
 
 defineProps<{
   project: Project;
+  sidebarCollapsed: boolean;
   sidekiqDetected: boolean;
   webpackDetected: boolean;
   environmentInstanceId?: string | undefined;
@@ -38,7 +39,9 @@ const route = useRoute();
       'project-details-tab-active': route.name === 'project-worktrees',
     }"
     :to="{ name: 'project-worktrees', params: { projectId: project.id } }"
-  >
+
+    aria-label="Worktrees"
+    :title="sidebarCollapsed ? 'Worktrees' : undefined"  >
     <FolderIcon aria-hidden="true" />
     <span>Worktrees</span>
   </RouterLink>
@@ -49,7 +52,9 @@ const route = useRoute();
       'project-details-tab-active': route.name === 'project-dependencies',
     }"
     :to="{ name: 'project-dependencies', params: { projectId: project.id } }"
-  >
+
+    aria-label="Dependências"
+    :title="sidebarCollapsed ? 'Dependências' : undefined"  >
     <CubeIcon aria-hidden="true" />
     <span>Dependências</span>
   </RouterLink>
@@ -63,7 +68,9 @@ const route = useRoute();
       params: { projectId: project.id },
       ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
-  >
+
+    aria-label="Dev Container"
+    :title="sidebarCollapsed ? 'Dev Container' : undefined"  >
     <CubeTransparentIcon aria-hidden="true" />
     <span>Dev Container</span>
   </RouterLink>
@@ -77,7 +84,9 @@ const route = useRoute();
       params: { projectId: project.id },
       ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
-  >
+
+    aria-label="Compose"
+    :title="sidebarCollapsed ? 'Compose' : undefined"  >
     <ServerStackIcon aria-hidden="true" />
     <span>Compose</span>
   </RouterLink>
@@ -92,7 +101,9 @@ const route = useRoute();
       params: { projectId: project.id },
       ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
-  >
+
+    aria-label="Console"
+    :title="sidebarCollapsed ? 'Console' : undefined"  >
     <CommandLineIcon aria-hidden="true" />
     <span>Console</span>
   </RouterLink>
@@ -107,7 +118,9 @@ const route = useRoute();
       params: { projectId: project.id },
       ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
-  >
+
+    aria-label="Sidekiq"
+    :title="sidebarCollapsed ? 'Sidekiq' : undefined"  >
     <QueueListIcon aria-hidden="true" />
     <span>Sidekiq</span>
   </RouterLink>
@@ -122,7 +135,9 @@ const route = useRoute();
       params: { projectId: project.id },
       ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
-  >
+
+    aria-label="Webpack"
+    :title="sidebarCollapsed ? 'Webpack' : undefined"  >
     <CodeBracketIcon aria-hidden="true" />
     <span>Webpack</span>
   </RouterLink>
@@ -132,7 +147,9 @@ const route = useRoute();
       'project-details-tab-active': route.name === 'project-environment',
     }"
     :to="{ name: 'project-environment', params: { projectId: project.id } }"
-  >
+
+    aria-label="Variáveis de ambiente"
+    :title="sidebarCollapsed ? 'Variáveis de ambiente' : undefined"  >
     <AdjustmentsHorizontalIcon aria-hidden="true" />
     <span>Variáveis de ambiente</span>
   </RouterLink>
@@ -146,7 +163,9 @@ const route = useRoute();
       params: { projectId: project.id },
       ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
     }"
-  >
+
+    aria-label="Migrations"
+    :title="sidebarCollapsed ? 'Migrations' : undefined"  >
     <CircleStackIcon aria-hidden="true" />
     <span>Migrations</span>
   </RouterLink>
@@ -156,7 +175,9 @@ const route = useRoute();
       'project-details-tab-active': route.name === 'project-local-ci',
     }"
     :to="{ name: 'project-local-ci', params: { projectId: project.id } }"
-  >
+
+    aria-label="Local CI"
+    :title="sidebarCollapsed ? 'Local CI' : undefined"  >
     <PlayCircleIcon aria-hidden="true" />
     <span>Local CI</span>
   </RouterLink>
@@ -166,7 +187,9 @@ const route = useRoute();
       'project-details-tab-active': route.name === 'project-readiness',
     }"
     :to="{ name: 'project-readiness', params: { projectId: project.id } }"
-  >
+
+    aria-label="Readiness"
+    :title="sidebarCollapsed ? 'Readiness' : undefined"  >
     <CheckBadgeIcon aria-hidden="true" />
     <span>Readiness</span>
   </RouterLink>
@@ -176,7 +199,9 @@ const route = useRoute();
       'project-details-tab-active': route.name === 'project-security-center',
     }"
     :to="{ name: 'project-security-center', params: { projectId: project.id } }"
-  >
+
+    aria-label="Segurança"
+    :title="sidebarCollapsed ? 'Segurança' : undefined"  >
     <LockClosedIcon aria-hidden="true" />
     <span>Segurança</span>
   </RouterLink>
@@ -184,7 +209,9 @@ const route = useRoute();
     class="project-details-tab"
     :class="{ 'project-details-tab-active': route.name === 'project-doctor' }"
     :to="{ name: 'project-doctor', params: { projectId: project.id } }"
-  >
+
+    aria-label="Diagnóstico"
+    :title="sidebarCollapsed ? 'Diagnóstico' : undefined"  >
     <ShieldCheckIcon aria-hidden="true" />
     <span>Diagnóstico</span>
   </RouterLink>
@@ -192,7 +219,9 @@ const route = useRoute();
     class="project-details-tab"
     :class="{ 'project-details-tab-active': route.name === 'project-readme' }"
     :to="{ name: 'project-readme', params: { projectId: project.id } }"
-  >
+
+    aria-label="README"
+    :title="sidebarCollapsed ? 'README' : undefined"  >
     <DocumentTextIcon aria-hidden="true" />
     <span>README</span>
   </RouterLink>
