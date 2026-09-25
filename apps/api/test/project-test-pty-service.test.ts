@@ -256,6 +256,164 @@ test('start() falha fechado antes do spawn quando .env.check.local é inválido'
   assert.equal(spawned, false);
 });
 
+test('start() executa a suíte completa dentro do Dev Container selecionado', async (t) => {
+  const directory = await temporaryProject(t);
+  const runtimeId = 'a'.repeat(64);
+  const targetProject = project({ path: directory });
+  const context: ExecutionContext = {
+    projectId: targetProject.id,
+    environmentInstanceId: 'environment:primary:projeto-1',
+    cwd: directory,
+    runtime: 'devcontainer',
+    runtimeId,
+  };
+  const fakePty = new FakePty();
+  let spawnedFile: string | undefined;
+  let spawnedArgs: readonly string[] | undefined;
+  let spawnedEnvironment: NodeJS.ProcessEnv | undefined;
+  const detachable = new DetachableExecutionService({
+    spawnPty: (file, args, options) => {
+      spawnedFile = file;
+      spawnedArgs = args;
+      spawnedEnvironment = options.env;
+      return fakePty as never;
+    },
+  });
+  const service = new ProjectTestPtyService(
+    detachable,
+    stubDetection({ command: 'npm', args: ['run', 'test'] }),
+  );
+
+  const snapshot = await service.start(targetProject, 'full-suite', context);
+
+  assert.equal(snapshot.status, 'running');
+  assert.equal(spawnedFile, 'devcontainer');
+  assert.deepEqual(spawnedArgs, [
+    'exec',
+    '--container-id',
+    runtimeId,
+    '--workspace-folder',
+    directory,
+    'npm',
+    'run',
+    'test',
+  ]);
+  assert.equal(spawnedEnvironment?.VERCEL_TOKEN, '');
+  assert.equal(spawnedEnvironment?.VERCEL_TEAM_ID, '');
+});
+
+test('start() mantém RAILS_ENV/RACK_ENV fixos no Dev Container sem incluir secrets locais em argv', async (t) => {
+  const directory = await temporaryProject(t);
+  const targetProject = project({ path: directory, type: 'rails' });
+  const runtimeId = 'b'.repeat(64);
+  const context: ExecutionContext = {
+    projectId: targetProject.id,
+    environmentInstanceId: 'environment:primary:projeto-1',
+    cwd: directory,
+    runtime: 'devcontainer',
+    runtimeId,
+  };
+  let spawnedArgs: readonly string[] | undefined;
+  const detachable = new DetachableExecutionService({
+    spawnPty: (_file, args) => {
+      spawnedArgs = args;
+      return new FakePty() as never;
+    },
+  });
+  const service = new ProjectTestPtyService(
+    detachable,
+    stubDetection({ command: 'bundle', args: ['exec', 'rspec'] }),
+  );
+
+  await service.start(targetProject, 'rails-rspec', context);
+
+  assert.deepEqual(spawnedArgs, [
+    'exec',
+    '--container-id',
+    runtimeId,
+    '--workspace-folder',
+    directory,
+    '--remote-env',
+    'RAILS_ENV=test',
+    '--remote-env',
+    'RACK_ENV=test',
+    'bundle',
+    'exec',
+    'rspec',
+  ]);
+});
+
+test('start() bloqueia .env.check.local no Dev Container sem vazar valores para o processo', async (t) => {
+  const directory = await temporaryProject(t);
+  const dashboardDirectory = path.join(directory, '.dev-dashboard');
+  await mkdir(dashboardDirectory);
+  await writeFile(
+    path.join(dashboardDirectory, '.env.check.local'),
+    'DATABASE_URL="postgresql://secret.example/app"\n',
+  );
+  const targetProject = project({ path: directory });
+  const context: ExecutionContext = {
+    projectId: targetProject.id,
+    environmentInstanceId: 'environment:primary:projeto-1',
+    cwd: directory,
+    runtime: 'devcontainer',
+    runtimeId: 'c'.repeat(64),
+  };
+  let spawned = false;
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => {
+      spawned = true;
+      return new FakePty() as never;
+    },
+  });
+  const service = new ProjectTestPtyService(
+    detachable,
+    stubDetection({ command: 'npm', args: ['test'] }),
+  );
+
+  await assert.rejects(
+    () => service.start(targetProject, 'full-suite', context),
+    (error: unknown) =>
+      error instanceof ProjectTestPtyError &&
+      error.code === 'RUNTIME_UNSUPPORTED' &&
+      /\.env\.check\.local/u.test(error.message) &&
+      !error.message.includes('secret.example'),
+  );
+  assert.equal(spawned, false);
+});
+
+test('start() falha fechado para Dev Container sem containerId válido', async (t) => {
+  const directory = await temporaryProject(t);
+  const targetProject = project({ path: directory });
+  const context: ExecutionContext = {
+    projectId: targetProject.id,
+    environmentInstanceId: 'environment:primary:projeto-1',
+    cwd: directory,
+    runtime: 'devcontainer',
+    runtimeId: 'runtime-1',
+  };
+  let spawned = false;
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => {
+      spawned = true;
+      return new FakePty() as never;
+    },
+  });
+  const service = new ProjectTestPtyService(
+    detachable,
+    stubDetection({ command: 'npm', args: ['test'] }),
+  );
+
+  await assert.rejects(
+    () => service.start(targetProject, 'full-suite', context),
+    (error: unknown) =>
+      error instanceof ProjectTestPtyError &&
+      error.code === 'RUNTIME_UNSUPPORTED' &&
+      /identidade executável válida/u.test(error.message),
+  );
+  assert.equal(spawned, false);
+});
+
 test('start() lança TEST_COMMAND_NOT_FOUND quando o comando não existe', async () => {
   const detachable = new DetachableExecutionService();
   const service = new ProjectTestPtyService(detachable, stubDetection(null));
