@@ -16,6 +16,7 @@ import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
 import { fetchTaskContexts } from '../api/task-contexts';
 import {
+  adoptAgentBacklog,
   agentRuntimeWebSocketUrl,
   cancelAgentTask,
   clearAgentBudget,
@@ -33,6 +34,7 @@ import {
   setAgentBudget,
   setAgentAuthorization,
   type AgentActivity,
+  type AgentBacklogIssue,
   type AgentBudgetOverview,
   type AgentCapability,
   type AgentExecutionResult,
@@ -112,6 +114,8 @@ const selectedTaskId = ref('');
 const selectedProviderId = ref<AgentProviderId>('automatic');
 const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
 const instruction = ref('');
+const backlogCandidates = ref<AgentBacklogIssue[]>([]);
+const backlogSelectionSource = ref('');
 const checkpointInstruction = ref('');
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
@@ -283,6 +287,17 @@ const canExecute = computed(
 const canCreate = computed(
   () => instruction.value.trim().length > 0 && !mutating.value,
 );
+
+const backlogSelectionMessage = computed(() => {
+  if (!backlogSelectionSource.value) return '';
+  if (backlogSelectionSource.value === 'no-eligible-issues') {
+    return 'Nenhuma issue aberta elegível foi encontrada no backlog.';
+  }
+  if (backlogSelectionSource.value === 'priority-tie') {
+    return 'Mais de uma issue possui a mesma prioridade explícita. Escolha uma delas.';
+  }
+  return 'Não existe prioridade explícita suficiente para escolher uma única issue. Escolha uma candidata.';
+});
 
 const recentEvents = computed(() =>
   [...(activity.value?.events ?? [])].reverse().slice(0, 12),
@@ -595,12 +610,68 @@ async function selectTask(taskId: string): Promise<void> {
   await loadTask(taskId);
 }
 
+function parseBacklogInstruction(
+  value: string,
+): { issueNumber?: number } | null {
+  const normalized = value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
+  if (
+    normalized === 'pegue a próxima atividade' ||
+    normalized === 'pegue a proxima atividade' ||
+    normalized === 'pegue a próxima issue' ||
+    normalized === 'pegue a proxima issue'
+  ) {
+    return {};
+  }
+
+  const specific = /^pegue a #(\d+)$/.exec(normalized);
+  if (!specific) return null;
+  const issueNumber = Number(specific[1]);
+  return Number.isSafeInteger(issueNumber) && issueNumber > 0
+    ? { issueNumber }
+    : null;
+}
+
+function chooseBacklogIssue(issue: AgentBacklogIssue): void {
+  instruction.value = 'pegue a #' + issue.number;
+}
+
 async function createTask(): Promise<void> {
   if (!canCreate.value) return;
   mutating.value = true;
   errorMessage.value = '';
 
   try {
+    const backlogIntent = parseBacklogInstruction(instruction.value);
+    if (backlogIntent) {
+      const environmentInstanceId =
+        selectedCreateTaskContext.value?.environmentInstanceId ??
+        props.environmentInstanceId;
+      const result = await adoptAgentBacklog(props.project.id, {
+        ...backlogIntent,
+        ...(environmentInstanceId ? { environmentInstanceId } : {}),
+        requestedCapabilities: [...requestedCapabilities.value],
+      });
+
+      if (result.status === 'ambiguous') {
+        backlogCandidates.value = result.candidates;
+        backlogSelectionSource.value = result.source;
+        return;
+      }
+
+      backlogCandidates.value = [];
+      backlogSelectionSource.value = '';
+      replaceTask(result.task);
+      selectedTaskId.value = result.task.task.id;
+      instruction.value = '';
+      latestExecution.value = null;
+      taskContexts.value = await fetchTaskContexts(props.project.id);
+      selectedTaskContextId.value = result.task.task.taskContextId ?? '';
+      await loadTask(result.task.task.id);
+      return;
+    }
+
+    backlogCandidates.value = [];
+    backlogSelectionSource.value = '';
     const record = await createAgentTask(props.project.id, {
       summary: instruction.value.trim(),
       ...(selectedTaskContextId.value
@@ -997,6 +1068,27 @@ onBeforeUnmount(() => {
             aria-label="Instrução para nova task do Agente"
             @keydown="handleComposerKeydown"
           />
+
+          <p class="agent-hint">
+            Para adotar o backlog real: “pegue a próxima atividade” ou “pegue a #123”.
+          </p>
+
+          <div
+            v-if="backlogSelectionSource"
+            class="agent-backlog-candidates"
+            role="status"
+          >
+            <strong>{{ backlogSelectionMessage }}</strong>
+            <button
+              v-for="candidate in backlogCandidates"
+              :key="candidate.repository + '#' + candidate.number"
+              type="button"
+              @click="chooseBacklogIssue(candidate)"
+            >
+              <span>#{{ candidate.number }}</span>
+              {{ candidate.title }}
+            </button>
+          </div>
 
           <label class="agent-field">
             <span>Task Context</span>
@@ -1726,6 +1818,42 @@ onBeforeUnmount(() => {
 .agent-shortcut {
   color: var(--text-dim);
   font-size: 9px;
+}
+
+.agent-backlog-candidates {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-backlog-candidates > strong {
+  font-size: var(--font-xs);
+}
+
+.agent-backlog-candidates button {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-backlog-candidates button:hover {
+  background: var(--surface-2);
+}
+
+.agent-backlog-candidates button span {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: var(--font-weight-strong);
 }
 
 .agent-capability-picker {
