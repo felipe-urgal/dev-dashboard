@@ -95,9 +95,7 @@ function isConcreteProviderId(
   value: unknown,
 ): value is AgentConcreteProviderId {
   return (
-    value === 'codex' ||
-    value === 'claude-code' ||
-    value === 'chatgpt-browser'
+    value === 'codex' || value === 'claude-code' || value === 'chatgpt-browser'
   );
 }
 
@@ -198,7 +196,9 @@ function isPersistedTurn(
   }
 
   try {
-    const canonical = canonicalTurn(candidate as unknown as AgentConversationTurn);
+    const canonical = canonicalTurn(
+      candidate as unknown as AgentConversationTurn,
+    );
     return canonical.taskId === taskId;
   } catch {
     return false;

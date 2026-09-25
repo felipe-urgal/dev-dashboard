@@ -111,9 +111,7 @@ test('AgentConversationStore serializa appends concorrentes por task', async (co
         taskId: 'task-1',
         role: 'user',
         content: `Mensagem ${index}`,
-        createdAt: new Date(
-          Date.UTC(2026, 8, 25, 14, 3, index),
-        ).toISOString(),
+        createdAt: new Date(Date.UTC(2026, 8, 25, 14, 3, index)).toISOString(),
       }),
     ),
   );
@@ -122,7 +120,9 @@ test('AgentConversationStore serializa appends concorrentes por task', async (co
 });
 
 test('AgentConversationStore mantém metadata de provider fora de turnos do usuário', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'agent-conversation-provider-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'agent-conversation-provider-'),
+  );
   context.after(() => rm(root, { recursive: true, force: true }));
 
   const store = new AgentConversationStore({ stateDirectory: root });
@@ -157,7 +157,9 @@ test('AgentConversationStore mantém metadata de provider fora de turnos do usu�
 });
 
 test('AgentConversationStore falha fechado para estado corrompido', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'agent-conversation-corrupt-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'agent-conversation-corrupt-'),
+  );
   context.after(() => rm(root, { recursive: true, force: true }));
 
   const filePath = conversationPath(root, 'task-1');
