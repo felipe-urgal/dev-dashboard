@@ -108,6 +108,39 @@ test('AgentConversationStore redige secrets antes de persistir ou retornar histÃ
   assert.deepEqual(await store.list('task-1'), [persisted]);
 });
 
+test('AgentConversationStore migra secrets de histÃ³rico legado ao ler', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-conversation-migrate-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const filePath = conversationPath(root, 'task-1');
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(
+    filePath,
+    JSON.stringify({
+      version: 1,
+      taskId: 'task-1',
+      turns: [
+        {
+          id: 'turn-legacy',
+          taskId: 'task-1',
+          role: 'user',
+          content: 'GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz123456',
+          createdAt: '2026-09-25T14:01:45.000Z',
+        },
+      ],
+    }),
+    { mode: 0o600 },
+  );
+
+  const store = new AgentConversationStore({ stateDirectory: root });
+  const turns = await store.list('task-1');
+
+  assert.equal(turns[0]?.content, 'GITHUB_TOKEN=[REDACTED]');
+  const migrated = await readFile(filePath, 'utf8');
+  assert.doesNotMatch(migrated, /ghp_abcdefghijklmnopqrstuvwxyz123456/);
+  assert.match(migrated, /\[REDACTED\]/);
+});
+
 test('AgentConversationStore reaplica o mesmo turnId de forma idempotente', async (context) => {
   const root = await mkdtemp(
     path.join(tmpdir(), 'agent-conversation-idempotent-'),
