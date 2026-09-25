@@ -58,6 +58,41 @@ for (const viewport of VIEWPORTS) {
 test.describe('sidebar do projeto em desktop baixo', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  test('mostra tooltips somente quando a sidebar está recolhida', async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      ({ storageKey }) => {
+        localStorage.setItem(storageKey, 'true');
+      },
+      { storageKey: SIDEBAR_COLLAPSED_STORAGE_KEY },
+    );
+
+    await gotoBootstrapped(page, '/');
+    await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .click();
+
+    const serverLink = page.getByRole('link', {
+      name: 'Servidor',
+      exact: true,
+    });
+    const readmeLink = page.getByRole('link', {
+      name: 'README',
+      exact: true,
+    });
+
+    await expect(serverLink).toHaveAttribute('title', 'Servidor');
+    await expect(readmeLink).toHaveAttribute('title', 'README');
+
+    await page
+      .getByRole('button', { name: 'Expandir sidebar do projeto' })
+      .click();
+
+    await expect(serverLink).not.toHaveAttribute('title', 'Servidor');
+    await expect(readmeLink).not.toHaveAttribute('title', 'README');
+  });
+
   test('mantém todos os atalhos visíveis sem rolagem vertical', async ({
     page,
   }) => {
