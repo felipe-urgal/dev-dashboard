@@ -129,7 +129,7 @@ describe('dashboard principal', () => {
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
   });
 
-  it('oculta o próprio dev-dashboard da listagem', () => {
+  it('mantém o próprio dev-dashboard na listagem', () => {
     dashboardStore.projects.value = [
       project,
       {
@@ -142,9 +142,9 @@ describe('dashboard principal', () => {
 
     const wrapper = mountView();
 
-    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
+    expect(wrapper.findAll('.project-stub')).toHaveLength(2);
     expect(wrapper.text()).toContain('Projeto Node');
-    expect(wrapper.text()).not.toContain('dev-dashboard');
+    expect(wrapper.text()).toContain('dev-dashboard');
   });
 
   it('aciona a atualização do workspace pelo cabeçalho', async () => {
