@@ -146,19 +146,18 @@ function canonicalTurn(turn: AgentConversationTurn): AgentConversationTurn {
     }
   }
 
-  return {
+  const canonical: AgentConversationTurn = {
     id: turn.id,
     taskId: turn.taskId,
     role: turn.role,
     content: turn.content,
     createdAt: turn.createdAt,
-    ...(hasExecution
-      ? {
-          executionId: turn.executionId,
-          providerId: turn.providerId,
-        }
-      : {}),
   };
+  if (hasExecution) {
+    canonical.executionId = turn.executionId!;
+    canonical.providerId = turn.providerId as AgentConcreteProviderId;
+  }
+  return canonical;
 }
 
 function sameTurn(
