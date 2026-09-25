@@ -183,10 +183,7 @@ export class ProjectTestPtyService {
       );
     }
 
-    const environment = await testEnvironment(
-      scopedProject,
-      executionContext,
-    );
+    const environment = await testEnvironment(scopedProject, executionContext);
     const command =
       executionContext.runtime === 'devcontainer'
         ? devContainerTestCommand(scopedProject, executionContext, resolved)

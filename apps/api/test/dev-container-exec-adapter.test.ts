@@ -25,7 +25,6 @@ test('rejeita runtimeId que não é containerId estruturado', () => {
   );
 });
 
-
 test('constrói execução de testes no workspace sem aceitar path remoto do browser', () => {
   const runtimeId = 'b'.repeat(64);
   assert.deepEqual(
