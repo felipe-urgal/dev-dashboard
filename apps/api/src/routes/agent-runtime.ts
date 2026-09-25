@@ -1813,7 +1813,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(async () => ({
-        turns: await options.agentRuntimeApiService.conversation!(
+        turns: await options.agentRuntimeApiService.conversation(
           request.params.projectId,
           request.params.taskId,
         ),
