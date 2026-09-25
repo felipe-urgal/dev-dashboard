@@ -307,7 +307,7 @@
     box-shadow: inset 0 0 0 2px var(--accent);
   }
 
-  .app-shell-project-sidebar-collapsed {
+  .app-shell.app-shell-topnav.app-shell-project-sidebar-collapsed {
     --project-sidebar-width: 64px;
   }
 
