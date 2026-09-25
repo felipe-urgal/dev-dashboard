@@ -257,7 +257,7 @@ O rebuild só entra em `review` quando:
 - discovery e fingerprint da configuração continuam válidos;
 - os mesmos blockers de `initializeCommand`, Compose e tipo desconhecido continuam aplicados.
 
-A confirmação é curta e single-use e fica vinculada internamente a `runtimeId + ownershipToken + fingerprint`. Esses identificadores não entram no DTO HTTP. Neste corte a confirmação de rebuild pode ser preparada, mas **nenhuma mutation pública de rebuild é executada ainda**; o endpoint de start continua aceitando exclusivamente planos `operation=create`.
+A confirmação é curta e single-use e fica vinculada internamente a `runtimeId + ownershipToken + fingerprint`. Esses identificadores não entram no DTO HTTP. Neste corte a confirmação de rebuild pode ser preparada, mas **nenhuma mutation pública de rebuild é executada ainda**; o endpoint de start continua aceitando exclusivamente planos `operation=create` e a UI não oferece ação de rebuild.
 
 ## Testes via Execution Context
 
