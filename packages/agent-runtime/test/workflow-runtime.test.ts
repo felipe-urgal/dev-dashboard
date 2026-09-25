@@ -306,15 +306,10 @@ test('conversation context é bounded, preserva provider anterior e redige secre
     outcome: 'succeeded',
     summary: 'Context applied',
   }));
-  const fixtureResult = await fixture(
-    t,
-    provider,
-    task({ state: 'review' }),
-    {
-      providerConversationMaxTurns: 2,
-      providerConversationMaxChars: 80,
-    },
-  );
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }), {
+    providerConversationMaxTurns: 2,
+    providerConversationMaxChars: 80,
+  });
 
   await fixtureResult.conversationStore.append({
     id: 'turn-user-old',
@@ -370,7 +365,10 @@ test('conversation context é bounded, preserva provider anterior e redige secre
   );
 
   const persisted = await fixtureResult.conversationStore.list('task-1');
-  assert.equal(persisted.at(-2)?.content.includes('abcdefghijklmnopqrstuvwxyz'), false);
+  assert.equal(
+    persisted.at(-2)?.content.includes('abcdefghijklmnopqrstuvwxyz'),
+    false,
+  );
   assert.equal(persisted.at(-2)?.content.includes('[REDACTED]'), true);
 });
 

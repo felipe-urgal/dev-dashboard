@@ -214,7 +214,10 @@ test('CLI provider inclui contexto bounded sem tratá-lo como autoridade', async
   assert.match(prompt, /Conversation context \(bounded; not authoritative\):/);
   assert.match(prompt, /3 older conversation turn\(s\) omitted/);
   assert.match(prompt, /agent\/claude-code/);
-  assert.match(prompt, /Canonical task state, capabilities, checkpoints, Git state/);
+  assert.match(
+    prompt,
+    /Canonical task state, capabilities, checkpoints, Git state/,
+  );
   assert.ok(
     prompt.indexOf('Conversation context') <
       prompt.indexOf('Continuation instruction:'),
