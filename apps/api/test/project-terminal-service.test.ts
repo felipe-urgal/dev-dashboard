@@ -290,6 +290,46 @@ test('runtime Dev Container falha fechado sem runtimeId e não amplia Console Ra
   );
 });
 
+test('confirmação não atravessa mudança de host para Dev Container', async () => {
+  let spawnCalls = 0;
+  const service = new ProjectTerminalService({
+    spawnPty: () => {
+      spawnCalls += 1;
+      return new FakePty() as never;
+    },
+  });
+  const testProject = project('/tmp/x');
+  const environmentInstanceId = 'environment:primary:project-1';
+  const hostContext: ExecutionContext = {
+    projectId: testProject.id,
+    environmentInstanceId,
+    cwd: '/tmp/x',
+    runtime: 'host',
+  };
+  const devContainerContext: ExecutionContext = {
+    ...hostContext,
+    runtime: 'devcontainer',
+    runtimeId: 'c'.repeat(64),
+  };
+  const confirmation = service.prepareConfirmation(
+    testProject,
+    'shell',
+    hostContext,
+  );
+  const socket = new FakeSocket();
+
+  await service.attach(
+    testProject,
+    'shell',
+    confirmation.token,
+    socket as never,
+    devContainerContext,
+  );
+
+  assert.equal(socket.closeCode, 1008);
+  assert.equal(spawnCalls, 0);
+});
+
 test('confirmação é de uso único e expira', async () => {
   let now = 0;
   const service = new ProjectTerminalService({ now: () => now });
