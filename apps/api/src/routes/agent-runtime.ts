@@ -1160,6 +1160,7 @@ const providerResultSchema = {
       enum: ['checkpoint', 'succeeded', 'failed', 'cancelled', 'unknown'],
     },
     summary: { type: 'string' },
+    responseText: { type: 'string', maxLength: 16000 },
     failure: failureSchema,
     evidence: {
       type: 'array',
