@@ -278,6 +278,10 @@ test('propaga Environment Instance para overview, PTY e WebSocket', async () => 
     'projeto-1',
     environmentInstanceId,
   ]);
+  assert.equal(
+    wrapper.get('[aria-label="Ambiente de execução"]').text(),
+    'Environment Instance',
+  );
 
   const button = wrapper
     .findAll('button')
