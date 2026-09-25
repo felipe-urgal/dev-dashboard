@@ -159,7 +159,8 @@ describe('ProjectDevContainerPanel', () => {
           lifecycleHooks: ['postCreateCommand'],
         },
         limitations: ['post-create-hooks-deferred'],
-        diagnostic: 'O Dev Container owned pode avançar para revisão de rebuild.',
+        diagnostic:
+          'O Dev Container owned pode avançar para revisão de rebuild.',
       });
     prepareDevContainerLifecycleConfirmation.mockResolvedValueOnce({
       token: 'a'.repeat(64),
