@@ -54,3 +54,31 @@ for (const viewport of VIEWPORTS) {
     });
   });
 }
+
+test.describe('sidebar do projeto em desktop baixo', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('mantém todos os atalhos visíveis sem rolagem vertical', async ({
+    page,
+  }) => {
+    await gotoBootstrapped(page, '/');
+    await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .click();
+
+    const sidebar = page.locator('.project-details-tabs');
+    await expect(
+      page.getByRole('link', { name: 'Servidor', exact: true }),
+    ).toBeInViewport();
+    await expect(
+      page.getByRole('link', { name: 'README', exact: true }),
+    ).toBeInViewport();
+
+    const overflow = await sidebar.evaluate((element) => ({
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    }));
+
+    expect(overflow.scrollHeight).toBeLessThanOrEqual(overflow.clientHeight);
+  });
+});
