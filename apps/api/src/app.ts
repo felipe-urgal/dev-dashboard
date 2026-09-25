@@ -121,6 +121,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectDoctorService,
     devContainerDiscoveryService,
     devContainerLifecyclePlanningService,
+    devContainerLifecycleConfirmationService,
+    devContainerStartService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -246,6 +248,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     devContainerDiscoveryService,
     devContainerLifecyclePlanningService,
+    devContainerLifecycleConfirmationService,
+    devContainerStartService,
   });
 
   app.register(releaseReadinessRoutes, {
