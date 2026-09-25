@@ -1,6 +1,7 @@
 /* Global shell: the former left rail becomes a compact top navigation bar. */
 .app-shell.app-shell-topnav {
   --app-topbar-height: 72px;
+  --project-sidebar-width: 216px;
   display: block;
   min-height: 100vh;
   background: var(--surface-0);
@@ -253,5 +254,83 @@
 
   .app-shell-topnav .topbar .navigation-item {
     padding-inline: 8px;
+  }
+}
+
+
+/* Em páginas de projeto, a marca ocupa a mesma coluna da sidebar e funciona
+   como controle de recolhimento da rail. */
+.project-sidebar-brand-toggle {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+@media (min-width: 901px) {
+  .app-shell-project-sidebar > .topbar {
+    padding-left: 0;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-brand {
+    width: var(--project-sidebar-width);
+    min-width: var(--project-sidebar-width);
+    flex: 0 0 var(--project-sidebar-width);
+    align-self: stretch;
+    padding: 0 16px;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition:
+      width 180ms ease,
+      min-width 180ms ease,
+      flex-basis 180ms ease,
+      padding 180ms ease;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-brand:hover,
+  .app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
+    color: var(--text);
+    background: var(--surface-2);
+    outline: none;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+
+  .app-shell-project-sidebar-collapsed {
+    --project-sidebar-width: 64px;
+  }
+
+  .app-shell-project-sidebar-collapsed .topbar .topbar-brand {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 8px;
+  }
+
+  .app-shell-project-sidebar-collapsed .topbar .brand-copy {
+    display: none;
+  }
+
+  .app-shell-project-sidebar-collapsed
+    .project-details-page-ready
+    .project-details-tabs {
+    padding-inline: 8px;
+  }
+
+  .app-shell-project-sidebar-collapsed
+    .project-details-page-ready
+    .project-details-tab {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .app-shell-project-sidebar-collapsed
+    .project-details-page-ready
+    .project-details-tab
+    span {
+    display: none;
   }
 }
