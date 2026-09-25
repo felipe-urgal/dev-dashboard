@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   AgentAuditStore,
   AgentBudgetStore,
+  AgentConversationStore,
   AgentProviderPreferenceStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
@@ -454,6 +455,14 @@ function createAgentRuntimeApiService(
   const providerPreferenceStore = new AgentProviderPreferenceStore({
     stateDirectory,
   });
+  const lockManager = new AgentTaskLockManager({
+    stateDirectory,
+    ...(options.now ? { now: options.now } : {}),
+  });
+  const conversationStore = new AgentConversationStore({
+    stateDirectory,
+    lockManager,
+  });
   const resolveCwd = (request: AgentProviderExecutionRequest): string => {
     const executionContext =
       context.developmentEnvironmentInstanceStore.resolveForProject(
@@ -496,6 +505,7 @@ function createAgentRuntimeApiService(
     providerRegistry,
     checkpointStore: auditStore,
     executionResultStore: auditStore,
+    conversationStore,
     gitRefVerifier: {
       verify: async (task, reference) => {
         const executionContext =
@@ -527,10 +537,7 @@ function createAgentRuntimeApiService(
       stateDirectory,
       ...(options.now ? { now: () => new Date(options.now!()) } : {}),
     }),
-    lockManager: new AgentTaskLockManager({
-      stateDirectory,
-      ...(options.now ? { now: options.now } : {}),
-    }),
+    lockManager,
     ...(options.now
       ? { now: () => new Date(options.now!()).toISOString() }
       : {}),
