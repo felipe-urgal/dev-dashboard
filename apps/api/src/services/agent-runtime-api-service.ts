@@ -292,7 +292,10 @@ export interface AgentRuntimeApiServiceOptions {
     ): Promise<TaskContext>;
   };
   backlogReader?: {
-    select(projectPath: string, issueNumber?: number): Promise<AgentBacklogSelection>;
+    select(
+      projectPath: string,
+      issueNumber?: number,
+    ): Promise<AgentBacklogSelection>;
   };
   taskContextSnapshotReader?: {
     snapshot(
@@ -705,7 +708,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     input: AgentBacklogAdoptInput,
   ): Promise<AgentBacklogAdoptResult> {
     const lockKey =
-      projectId + ':' + (input.issueNumber === undefined ? 'next' : input.issueNumber);
+      projectId +
+      ':' +
+      (input.issueNumber === undefined ? 'next' : input.issueNumber);
     const existing = this.adoptionLocks.get(lockKey);
     if (existing) return existing;
 
@@ -770,7 +775,8 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       .find(
         (context) =>
           context.issue?.number === issue.number &&
-          context.issue.repository.toLowerCase() === issue.repository.toLowerCase(),
+          context.issue.repository.toLowerCase() ===
+            issue.repository.toLowerCase(),
       );
 
     if (!taskContext) {

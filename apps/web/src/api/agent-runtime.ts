@@ -542,9 +542,7 @@ export async function adoptAgentBacklog(
   },
 ): Promise<AgentBacklogAdoptionResult> {
   const response = await requestJson<{ result: AgentBacklogAdoptionResult }>(
-    '/api/projects/' +
-      encodeURIComponent(projectId) +
-      '/agent/adopt-backlog',
+    '/api/projects/' + encodeURIComponent(projectId) + '/agent/adopt-backlog',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
