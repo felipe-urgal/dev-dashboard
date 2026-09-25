@@ -4,6 +4,7 @@ import {
   CubeTransparentIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
+  PlayIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
@@ -11,6 +12,8 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   fetchDevContainerLifecyclePreflight,
+  prepareDevContainerLifecycleConfirmation,
+  startDevContainer,
   type DevContainerConfigurationKind,
   type DevContainerLifecycleLimitation,
   type DevContainerLifecyclePreflight,
@@ -26,7 +29,10 @@ const props = defineProps<{
 
 const preflight = ref<DevContainerLifecyclePreflight | null>(null);
 const loading = ref(false);
+const creating = ref(false);
+const createConfirmationVisible = ref(false);
 const errorMessage = ref('');
+const mutationErrorMessage = ref('');
 let generation = 0;
 
 const stateCopy = computed(() => {
@@ -92,6 +98,19 @@ const hooks = computed(
   () => preflight.value?.configuration?.lifecycleHooks ?? [],
 );
 
+const canCreate = computed(() => {
+  const value = preflight.value;
+  return (
+    value?.state === 'review' &&
+    value.runtime === 'host' &&
+    value.requiresConfirmation === true &&
+    (value.configuration?.kind === 'image' ||
+      value.configuration?.kind === 'dockerfile')
+  );
+});
+
+const busy = computed(() => loading.value || creating.value);
+
 const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
   'post-create-hooks-deferred':
     'Hooks pós-criação permanecem diferidos neste lifecycle.',
@@ -104,6 +123,60 @@ function formatDate(value: string): string {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date);
+}
+
+function openCreateConfirmation(): void {
+  if (!canCreate.value || busy.value) return;
+  mutationErrorMessage.value = '';
+  createConfirmationVisible.value = true;
+}
+
+function cancelCreateConfirmation(): void {
+  if (creating.value) return;
+  mutationErrorMessage.value = '';
+  createConfirmationVisible.value = false;
+}
+
+async function createDevContainer(): Promise<void> {
+  const currentPreflight = preflight.value;
+  if (!currentPreflight || !canCreate.value || creating.value) return;
+
+  const currentGeneration = generation;
+  const environmentInstanceId = currentPreflight.environmentInstanceId;
+  creating.value = true;
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareDevContainerLifecycleConfirmation(
+      props.project.id,
+      environmentInstanceId,
+    );
+    if (confirmation.environmentInstanceId !== environmentInstanceId) {
+      throw new Error(
+        'A confirmação retornada não corresponde ao ambiente selecionado.',
+      );
+    }
+
+    await startDevContainer(
+      props.project.id,
+      confirmation.token,
+      environmentInstanceId,
+    );
+
+    if (currentGeneration === generation) {
+      createConfirmationVisible.value = false;
+      await load();
+    }
+  } catch (error) {
+    if (currentGeneration === generation) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível criar o Dev Container.';
+    }
+  } finally {
+    creating.value = false;
+  }
 }
 
 async function load(): Promise<void> {
@@ -134,6 +207,8 @@ watch(
   [() => props.project.id, () => props.environmentInstanceId],
   () => {
     preflight.value = null;
+    createConfirmationVisible.value = false;
+    mutationErrorMessage.value = '';
     void load();
   },
   { immediate: true },
@@ -151,25 +226,37 @@ watch(
           <div>
             <h3 id="devcontainer-title">Dev Container</h3>
             <p>
-              Preflight somente leitura. Nenhum container ou lifecycle hook é
-              executado nesta tela.
+              Revise o preflight e crie o runtime somente por ação explícita.
+              Lifecycle hooks continuam protegidos pelos blockers atuais.
             </p>
           </div>
         </div>
       </template>
       <template #actions>
-        <button
-          class="secondary-button devcontainer-refresh"
-          type="button"
-          :disabled="loading"
-          @click="load"
-        >
-          <ArrowPathIcon
-            aria-hidden="true"
-            :class="{ 'is-spinning': loading }"
-          />
-          Atualizar
-        </button>
+        <div class="devcontainer-actions">
+          <button
+            v-if="canCreate && !createConfirmationVisible"
+            class="secondary-button devcontainer-create"
+            type="button"
+            :disabled="busy"
+            @click="openCreateConfirmation"
+          >
+            <PlayIcon aria-hidden="true" />
+            Criar Dev Container
+          </button>
+          <button
+            class="secondary-button devcontainer-refresh"
+            type="button"
+            :disabled="busy"
+            @click="load"
+          >
+            <ArrowPathIcon
+              aria-hidden="true"
+              :class="{ 'is-spinning': loading }"
+            />
+            Atualizar
+          </button>
+        </div>
       </template>
 
       <div v-if="loading && !preflight" class="devcontainer-message">
@@ -222,12 +309,66 @@ watch(
           <div>
             <strong>{{ preflight.diagnostic }}</strong>
             <span>
-              Execução desabilitada · observado em
+              Preflight somente leitura · observado em
               {{ formatDate(preflight.observedAt) }}
             </span>
             <span v-if="preflight.requiresConfirmation">
-              Uma futura criação exigirá confirmação explícita após revalidação.
+              A criação exige confirmação explícita e nova revalidação no
+              backend.
             </span>
+          </div>
+        </div>
+
+        <div
+          v-if="createConfirmationVisible && canCreate"
+          class="devcontainer-confirmation"
+        >
+          <ExclamationTriangleIcon aria-hidden="true" />
+          <div>
+            <strong>Criar este Dev Container?</strong>
+            <span>
+              O Dashboard revalidará o preflight, emitirá uma confirmação de uso
+              único e executará somente o lifecycle já aprovado para esta
+              Environment Instance.
+            </span>
+            <span
+              v-if="
+                preflight.limitations.includes('post-create-hooks-deferred')
+              "
+            >
+              Hooks pós-criação continuarão diferidos.
+            </span>
+            <div
+              v-if="mutationErrorMessage"
+              class="devcontainer-confirmation-error"
+              role="alert"
+            >
+              {{ mutationErrorMessage }}
+            </div>
+            <div class="devcontainer-confirmation-actions">
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="creating"
+                @click="cancelCreateConfirmation"
+              >
+                Cancelar
+              </button>
+              <button
+                class="secondary-button devcontainer-confirm-action"
+                type="button"
+                :disabled="creating"
+                @click="createDevContainer"
+              >
+                <ArrowPathIcon
+                  v-if="creating"
+                  class="is-spinning"
+                  aria-hidden="true"
+                />
+                <PlayIcon v-else aria-hidden="true" />
+                {{ creating ? 'Criando…' : 'Confirmar criação' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -304,6 +445,7 @@ watch(
 
 .devcontainer-heading p,
 .devcontainer-note span,
+.devcontainer-confirmation span,
 .devcontainer-limitations span,
 .devcontainer-hooks span {
   color: var(--text-muted);
@@ -319,8 +461,10 @@ watch(
 
 .devcontainer-icon svg,
 .devcontainer-refresh svg,
+.devcontainer-create svg,
 .devcontainer-message svg,
 .devcontainer-note svg,
+.devcontainer-confirmation svg,
 .devcontainer-limitations svg,
 .devcontainer-hooks svg {
   width: 18px;
@@ -328,10 +472,25 @@ watch(
   flex: 0 0 auto;
 }
 
-.devcontainer-refresh {
-  display: inline-flex;
+.devcontainer-actions,
+.devcontainer-refresh,
+.devcontainer-create,
+.devcontainer-confirmation-actions,
+.devcontainer-confirm-action {
+  display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.devcontainer-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.devcontainer-refresh,
+.devcontainer-create,
+.devcontainer-confirm-action {
+  display: inline-flex;
 }
 
 .devcontainer-summary {
@@ -362,6 +521,7 @@ watch(
 
 .devcontainer-message,
 .devcontainer-note,
+.devcontainer-confirmation,
 .devcontainer-limitations,
 .devcontainer-hooks {
   display: flex;
@@ -371,15 +531,31 @@ watch(
 }
 
 .devcontainer-message.is-error,
-.devcontainer-note.is-blocked {
+.devcontainer-note.is-blocked,
+.devcontainer-confirmation-error {
   color: var(--danger-text);
 }
 
 .devcontainer-note div,
+.devcontainer-confirmation > div,
 .devcontainer-limitations div,
 .devcontainer-hooks div {
   display: grid;
   gap: var(--space-1);
+}
+
+.devcontainer-confirmation {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.devcontainer-confirmation-actions {
+  margin-top: var(--space-2);
+}
+
+.devcontainer-confirmation-error {
+  margin-top: var(--space-1);
 }
 
 .devcontainer-details {

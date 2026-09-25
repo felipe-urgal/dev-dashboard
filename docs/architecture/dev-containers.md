@@ -48,7 +48,7 @@ A rota resolve o `Project` no backend e devolve somente o snapshot sanitizado do
 
 Estados como `cli-missing`, `unavailable` e `invalid-output` continuam respostas válidas de inspeção; a API não os promove a runtime utilizável.
 
-## UI read-only
+## UI de criação explícita
 
 A ferramenta `Dev Container` no projeto consome o lifecycle preflight da Environment Instance selecionada. O preflight reutiliza internamente o discovery e preserva o resumo sanitizado necessário para que a tela faça **uma única inspeção por refresh**.
 
@@ -62,7 +62,9 @@ A UI deixa explícitos:
 - nomes dos lifecycle hooks declarados;
 - diagnóstico e limitações conhecidas, incluindo blockers estruturais e hooks pós-criação diferidos.
 
-A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser. A tela oferece apenas atualização do preflight e não possui ações de `up`, rebuild, exec, Terminal ou cleanup; `executionEnabled=false` permanece explícito.
+Quando o preflight está em `review`, o runtime é `host` e a configuração é `image | dockerfile`, a tela oferece somente `Criar Dev Container`. O primeiro clique abre uma confirmação local; a confirmação final chama o endpoint de confirmação, recebe um token efêmero e imediatamente chama o endpoint de start para a mesma `environmentInstanceId`.
+
+A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser. O browser nunca escolhe programa, argv, configuração, ownership ou cleanup. O preflight continua `executionEnabled=false`: a mutation existe apenas pela sequência explícita confirmação → start. Falha de confirmação/start mantém o preflight conhecido visível e permite nova tentativa explícita. Rebuild, exec, Terminal e cleanup continuam fora da UI neste corte.
 
 ## Lifecycle preflight read-only
 
@@ -85,7 +87,7 @@ Regras fail-closed do primeiro corte:
 - configuração de tipo `unknown` não recebe lifecycle;
 - hooks pós-criação ficam apenas sinalizados como diferidos para futura execução controlada;
 - todo plano em `review` exige confirmação futura;
-- **nenhum plano habilita execução neste corte**.
+- nenhum preflight concede execução diretamente; mutation exige a sequência separada de confirmação + start.
 
 O contrato HTTP continua com `executionEnabled=false` porque o preflight público permanece somente leitura e não concede mutation por si só. A criação usa endpoints separados de confirmação e start, sempre após revalidar o preflight no backend. A Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`, por isso o cleanup continua scoped ao container owned via Docker. `--skip-post-create` omite hooks pós-criação, enquanto `initializeCommand` segue como blocker explícito do preflight.
 
@@ -205,7 +207,7 @@ Os comandos são executados sem shell, com timeout e buffer limitados, e erros b
 
 ## Executor de criação
 
-A criação de configurações `image | dockerfile` possui um executor backend-owned. Ele é exposto por `POST /api/projects/:projectId/dev-container/start`, mas continua sem UI mutável neste corte.
+A criação de configurações `image | dockerfile` possui um executor backend-owned. Ele é exposto por `POST /api/projects/:projectId/dev-container/start` e consumido pela ação explícita de criação da UI.
 
 A rota aceita somente `environmentInstanceId` opcional e `confirmationToken`. Projeto, cwd, configuração, programa, argv, ownership e rollback são resolvidos no backend.
 
@@ -232,7 +234,6 @@ O endpoint de start chama o mesmo executor já qualificado e devolve somente `en
 
 Os cortes entregues até aqui não:
 
-- expõem criação/subida de Dev Container na UI;
 - expõem rebuild/stop/cleanup como mutation pública;
 - executam comandos arbitrários do Dashboard dentro do runtime;
 - adaptam Terminal, Scripts ou Testes ao runtime `devcontainer`;

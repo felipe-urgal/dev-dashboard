@@ -76,6 +76,27 @@ interface DevContainerLifecyclePreflightResponse {
   preflight: DevContainerLifecyclePreflight;
 }
 
+export interface DevContainerLifecycleConfirmation {
+  token: string;
+  environmentInstanceId: string;
+  operation: 'create';
+  expiresAt: string;
+}
+
+export interface DevContainerStartResult {
+  environmentInstanceId: string;
+  runtime: 'devcontainer';
+  containerId: string;
+}
+
+interface DevContainerLifecycleConfirmationResponse {
+  confirmation: DevContainerLifecycleConfirmation;
+}
+
+interface DevContainerStartResponse {
+  result: DevContainerStartResult;
+}
+
 export async function fetchDevContainerInspection(
   projectId: string,
 ): Promise<DevContainerInspection> {
@@ -103,4 +124,44 @@ export async function fetchDevContainerLifecyclePreflight(
     base + query,
   );
   return response.preflight;
+}
+
+function environmentBody(environmentInstanceId?: string): string {
+  return JSON.stringify(environmentInstanceId ? { environmentInstanceId } : {});
+}
+
+export async function prepareDevContainerLifecycleConfirmation(
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerLifecycleConfirmation> {
+  const response = await requestJson<DevContainerLifecycleConfirmationResponse>(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/lifecycle-confirmation',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: environmentBody(environmentInstanceId),
+    },
+  );
+  return response.confirmation;
+}
+
+export async function startDevContainer(
+  projectId: string,
+  confirmationToken: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerStartResult> {
+  const response = await requestJson<DevContainerStartResponse>(
+    '/api/projects/' + encodeURIComponent(projectId) + '/dev-container/start',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(environmentInstanceId ? { environmentInstanceId } : {}),
+        confirmationToken,
+      }),
+    },
+  );
+  return response.result;
 }

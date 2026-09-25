@@ -4,10 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '@dev-dashboard/contracts';
 
 const fetchDevContainerLifecyclePreflight = vi.hoisted(() => vi.fn());
+const prepareDevContainerLifecycleConfirmation = vi.hoisted(() => vi.fn());
+const startDevContainer = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/api/dev-container', () => ({
   fetchDevContainerLifecyclePreflight: (...args: unknown[]) =>
     fetchDevContainerLifecyclePreflight(...args),
+  prepareDevContainerLifecycleConfirmation: (...args: unknown[]) =>
+    prepareDevContainerLifecycleConfirmation(...args),
+  startDevContainer: (...args: unknown[]) => startDevContainer(...args),
 }));
 
 import ProjectDevContainerPanel from '../src/components/ProjectDevContainerPanel.vue';
@@ -28,7 +33,7 @@ describe('ProjectDevContainerPanel', () => {
     vi.clearAllMocks();
   });
 
-  it('mostra review sanitizado sem oferecer lifecycle mutável', async () => {
+  it('mostra review sanitizado e oferece somente criação explícita', async () => {
     fetchDevContainerLifecyclePreflight.mockResolvedValueOnce({
       projectId: project.id,
       operation: 'create',
@@ -70,10 +75,11 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain('0.80.1');
     expect(wrapper.text()).toContain('Workspace');
     expect(wrapper.text()).toContain('postCreateCommand · postStartCommand');
-    expect(wrapper.text()).toContain('Execução desabilitada');
-    expect(wrapper.text()).not.toContain('Iniciar');
+    expect(wrapper.text()).toContain('Preflight somente leitura');
+    expect(wrapper.text()).toContain('Criar Dev Container');
     expect(wrapper.text()).not.toContain('Rebuild');
-    expect(wrapper.text()).not.toContain('Executar');
+    expect(wrapper.text()).not.toContain('Stop');
+    expect(wrapper.text()).not.toContain('Terminal');
     wrapper.unmount();
   });
 
@@ -105,9 +111,101 @@ describe('ProjectDevContainerPanel', () => {
 
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('initializeCommand');
-    expect(wrapper.text()).toContain('Execução desabilitada');
+    expect(wrapper.text()).toContain('Preflight somente leitura');
+    expect(wrapper.text()).not.toContain('Criar Dev Container');
     expect(wrapper.findAll('button')).toHaveLength(1);
     expect(wrapper.get('button').text()).toContain('Atualizar');
+    wrapper.unmount();
+  });
+
+  it('confirma e cria usando a Environment Instance do preflight antes de recarregar', async () => {
+    const environmentInstanceId = 'environment:primary:project-devcontainer';
+    fetchDevContainerLifecyclePreflight
+      .mockResolvedValueOnce({
+        projectId: project.id,
+        operation: 'create',
+        state: 'review',
+        reason: 'review-required',
+        observedAt: '2026-09-25T10:10:00.000Z',
+        environmentInstanceId,
+        runtime: 'host',
+        executionEnabled: false,
+        requiresConfirmation: true,
+        discoveryState: 'available',
+        configSource: '.devcontainer/devcontainer.json',
+        cliVersion: '0.80.1',
+        configuration: {
+          kind: 'image',
+          lifecycleHooks: ['postCreateCommand'],
+        },
+        limitations: ['post-create-hooks-deferred'],
+        diagnostic: 'Revisão humana necessária.',
+      })
+      .mockResolvedValueOnce({
+        projectId: project.id,
+        operation: 'create',
+        state: 'blocked',
+        reason: 'runtime-not-host',
+        observedAt: '2026-09-25T10:11:00.000Z',
+        environmentInstanceId,
+        runtime: 'devcontainer',
+        executionEnabled: false,
+        requiresConfirmation: false,
+        limitations: [],
+        diagnostic:
+          'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
+      });
+    prepareDevContainerLifecycleConfirmation.mockResolvedValueOnce({
+      token: 'a'.repeat(64),
+      environmentInstanceId,
+      operation: 'create',
+      expiresAt: '2026-09-25T10:11:00.000Z',
+    });
+    startDevContainer.mockResolvedValueOnce({
+      environmentInstanceId,
+      runtime: 'devcontainer',
+      containerId: 'b'.repeat(64),
+    });
+
+    const wrapper = mount(ProjectDevContainerPanel, {
+      props: { project, environmentInstanceId },
+    });
+    await flushPromises();
+
+    const createButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Criar Dev Container'));
+    expect(createButton).toBeDefined();
+    await createButton!.trigger('click');
+
+    expect(prepareDevContainerLifecycleConfirmation).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Criar este Dev Container?');
+    expect(wrapper.text()).toContain('Confirmar criação');
+    expect(wrapper.text()).toContain(
+      'Hooks pós-criação continuarão diferidos.',
+    );
+
+    const confirmButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Confirmar criação'));
+    expect(confirmButton).toBeDefined();
+    await confirmButton!.trigger('click');
+    await flushPromises();
+
+    expect(prepareDevContainerLifecycleConfirmation).toHaveBeenCalledWith(
+      project.id,
+      environmentInstanceId,
+    );
+    expect(startDevContainer).toHaveBeenCalledWith(
+      project.id,
+      'a'.repeat(64),
+      environmentInstanceId,
+    );
+    expect(fetchDevContainerLifecyclePreflight).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).toContain('Runtime atual');
+    expect(wrapper.text()).toContain('Dev Container');
+    expect(wrapper.text()).toContain('Bloqueado');
+    expect(wrapper.text()).not.toContain('Confirmar criação');
     wrapper.unmount();
   });
 
