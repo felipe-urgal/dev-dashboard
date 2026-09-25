@@ -214,6 +214,7 @@ export interface AgentProviderResult {
   providerId: AgentConcreteProviderId;
   outcome: 'checkpoint' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
   summary: string;
+  responseText?: string;
   checkpoint?: AgentCheckpointRequest;
   evidence?: AgentEvidence[];
   failure?: AgentExecutionFailure;

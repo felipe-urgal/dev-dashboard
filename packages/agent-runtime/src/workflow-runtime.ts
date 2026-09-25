@@ -605,7 +605,8 @@ export class AgentWorkflowRuntime {
               'agent-' + createHash('sha256').update(executionId).digest('hex'),
             taskId: runningRecord.task.id,
             role: 'agent',
-            content: providerResult.summary,
+            content:
+              providerResult.responseText?.trim() || providerResult.summary,
             createdAt: finishedAt,
             executionId,
             providerId: providerResult.providerId,

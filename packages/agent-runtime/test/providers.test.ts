@@ -133,6 +133,13 @@ test('Codex captures provider-reported usage without persisting raw JSONL', asyn
         stdout: [
           JSON.stringify({ type: 'thread.started', thread_id: 'thread-1' }),
           JSON.stringify({
+            type: 'item.completed',
+            item: {
+              type: 'agent_message',
+              text: 'Updated dependency handling. OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz',
+            },
+          }),
+          JSON.stringify({
             type: 'turn.completed',
             usage: {
               input_tokens: 120,
@@ -151,6 +158,10 @@ test('Codex captures provider-reported usage without persisting raw JSONL', asyn
 
   const execution = await provider.execute(request());
 
+  assert.equal(
+    execution.responseText,
+    'Updated dependency handling. OPENAI_API_KEY=[REDACTED]',
+  );
   assert.deepEqual(execution.usage, {
     providerId: 'codex',
     source: 'provider',
@@ -326,7 +337,8 @@ test('Claude captures structured model, tokens, cost and duration', async () => 
             subtype: 'success',
             total_cost_usd: 0.0123,
             duration_ms: 2450,
-            result: 'SECRET_SHOULD_NOT_BE_PERSISTED',
+            result:
+              'Updated dependency handling. ANTHROPIC_API_KEY=sk-ant-abcdefghijklmnopqrstuvwxyz',
           }),
         ].join('\n'),
       });
@@ -335,6 +347,10 @@ test('Claude captures structured model, tokens, cost and duration', async () => 
 
   const execution = await provider.execute(request());
 
+  assert.equal(
+    execution.responseText,
+    'Updated dependency handling. ANTHROPIC_API_KEY=[REDACTED]',
+  );
   assert.deepEqual(execution.usage, {
     providerId: 'claude-code',
     source: 'provider',
@@ -379,6 +395,7 @@ test('Claude execution succeeds when structured usage is absent', async () => {
   const execution = await provider.execute(request());
 
   assert.equal(execution.outcome, 'succeeded');
+  assert.equal(execution.responseText, 'done');
   assert.equal(execution.usage, undefined);
 });
 

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AgentCapability } from './contracts.js';
+import { sanitizeAgentConversationContent } from './conversation-store.js';
 import type {
   BrowserBridgeCreateJobRequest,
   BrowserBridgeJobState,
@@ -30,6 +31,7 @@ export interface BrowserStoredJob {
   leaseId: string | null;
   errorCode: string | null;
   browserPhase: string | null;
+  responseText?: string | null;
 }
 
 export type BrowserJobStoreErrorCode =
@@ -77,6 +79,7 @@ const TRANSITIONS: Partial<
 };
 const JOB_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const REPO_ALIAS_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const MAX_PROVIDER_RESPONSE_CHARS = 16_000;
 const TOOL_SET = new Set<string>(BROWSER_TOOL_NAMES);
 const CAPABILITY_SET = new Set<AgentCapability>([
   'workspace:write',
@@ -106,6 +109,13 @@ function hasCode(error: unknown, code: string): boolean {
 
 function clone<T>(value: T): T {
   return structuredClone(value);
+}
+
+function normalizeResponseText(value: string | undefined): string | null {
+  if (value === undefined) return null;
+  const normalized = sanitizeAgentConversationContent(value).trim();
+  if (!normalized) return null;
+  return normalized.slice(0, MAX_PROVIDER_RESPONSE_CHARS);
 }
 
 function safeJobId(value: string): string {
@@ -378,6 +388,7 @@ export class BrowserJobStore {
         leaseId: null,
         errorCode: null,
         browserPhase: 'queued',
+        responseText: null,
       };
 
       if (!path.isAbsolute(request.cwd) || request.cwd.includes('\0')) {
@@ -425,7 +436,11 @@ export class BrowserJobStore {
     });
   }
 
-  async finish(id: string, leaseId: string): Promise<BrowserStoredJob> {
+  async finish(
+    id: string,
+    leaseId: string,
+    responseText?: string,
+  ): Promise<BrowserStoredJob> {
     return this.exclusive(async () => {
       const job = await this.expire(await this.get(id));
       assertLease(job, leaseId);
@@ -433,6 +448,7 @@ export class BrowserJobStore {
       job.state = 'finished';
       job.finishedAt = new Date(this.now()).toISOString();
       job.browserPhase = 'finished';
+      job.responseText = normalizeResponseText(responseText);
       return this.write(job);
     });
   }

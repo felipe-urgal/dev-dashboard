@@ -386,14 +386,28 @@ test('loopback bridge runs claimed jobs and replays mutable tool calls exactly o
         method: 'POST',
         body: {
           leaseId,
-          terminalResult: { type: 'terminal_result', status: 'completed' },
+          terminalResult: {
+            type: 'terminal_result',
+            status: 'completed',
+            message:
+              'sample.txt updated. OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz',
+          },
         },
       },
     );
     assert.equal(finished.status, 200);
     assert.equal(finished.body.state, 'finished');
+    assert.equal(
+      finished.body.responseText,
+      'sample.txt updated. OPENAI_API_KEY=[REDACTED]',
+    );
 
-    assert.equal((await client.getJob(created.id)).state, 'finished');
+    const persisted = await client.getJob(created.id);
+    assert.equal(persisted.state, 'finished');
+    assert.equal(
+      persisted.responseText,
+      'sample.txt updated. OPENAI_API_KEY=[REDACTED]',
+    );
   } finally {
     await bridge?.close();
     await fs.rm(stateDir, { recursive: true, force: true });

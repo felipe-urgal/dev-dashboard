@@ -42,6 +42,33 @@ test('browser envelope parser accepts one bounded structured request', () => {
   assert.deepEqual(parseBrowserAgentEnvelope(envelope), toolRequest());
 });
 
+test('browser envelope parser accepts a bounded terminal response message', () => {
+  const terminal = {
+    type: 'terminal_result',
+    status: 'completed',
+    message: 'Implemented the requested change and verified tests.',
+  };
+  const envelope = [
+    fence + 'agent-workflow-browser',
+    JSON.stringify(terminal),
+    fence,
+  ].join('\n');
+
+  assert.deepEqual(parseBrowserAgentEnvelope(envelope), terminal);
+
+  const oversized = [
+    fence + 'agent-workflow-browser',
+    JSON.stringify({ ...terminal, message: 'x'.repeat(16_001) }),
+    fence,
+  ].join('\n');
+  assert.throws(
+    () => parseBrowserAgentEnvelope(oversized),
+    (error: unknown) =>
+      error instanceof BrowserToolProtocolError &&
+      error.code === 'invalid-tool-request',
+  );
+});
+
 test('browser envelope parser rejects unknown fields and multiple envelopes', () => {
   const unknownField = [
     fence + 'agent-workflow-browser',

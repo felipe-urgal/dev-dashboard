@@ -7,6 +7,7 @@ export const MAX_AGENT_WORKFLOW_PAYLOAD_BYTES = 32 * 1024;
 export const MAX_BROWSER_TOOL_CALL_ID_LENGTH = 128;
 export const MAX_BROWSER_TOOL_NAME_LENGTH = 64;
 export const MAX_BROWSER_REPO_ALIAS_LENGTH = 128;
+const MAX_BROWSER_RESPONSE_CHARS = 16_000;
 
 const TOOL_CALL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -36,6 +37,7 @@ export interface BrowserToolRequest {
 export interface BrowserTerminalResult {
   type: typeof BROWSER_TERMINAL_RESULT_TYPE;
   status: typeof BROWSER_TERMINAL_RESULT_STATUS;
+  message?: string;
 }
 
 export type BrowserAgentEnvelope = BrowserToolRequest | BrowserTerminalResult;
@@ -149,7 +151,7 @@ export function assertBrowserTerminalResult(
   assertPlainObject(value, BROWSER_TERMINAL_RESULT_TYPE);
   assertKnownFields(
     value,
-    new Set(['type', 'status']),
+    new Set(['type', 'status', 'message']),
     BROWSER_TERMINAL_RESULT_TYPE,
   );
   assertRequiredFields(value, ['type', 'status'], BROWSER_TERMINAL_RESULT_TYPE);
@@ -161,9 +163,22 @@ export function assertBrowserTerminalResult(
     fail(`terminal status is invalid: ${String(value.status)}`);
   }
 
+  let message: string | undefined;
+  if (value.message !== undefined) {
+    if (
+      typeof value.message !== 'string' ||
+      !value.message.trim() ||
+      value.message.length > MAX_BROWSER_RESPONSE_CHARS
+    ) {
+      fail('terminal message is invalid');
+    }
+    message = value.message.trim();
+  }
+
   return {
     type: BROWSER_TERMINAL_RESULT_TYPE,
     status: BROWSER_TERMINAL_RESULT_STATUS,
+    ...(message ? { message } : {}),
   };
 }
 

@@ -134,6 +134,7 @@ function publicJob(
     finishedAt: job.finishedAt,
     errorCode: job.errorCode,
     browserPhase: job.browserPhase,
+    responseText: job.responseText ?? null,
     repositories: Object.keys(job.repositories),
     capabilities: { ...job.capabilities },
     tools: [...job.tools],
@@ -912,8 +913,8 @@ export class BrowserBridge {
       }
 
       const current = await this.jobStore.get(id);
+      const terminalResult = assertBrowserTerminalResult(body.terminalResult);
       if (current.tools.length > 0) {
-        assertBrowserTerminalResult(body.terminalResult);
         const unresolved = await this.toolStore.unresolved(id);
         if (unresolved.length > 0) {
           throw fail(
@@ -923,7 +924,11 @@ export class BrowserBridge {
           );
         }
       }
-      job = await this.jobStore.finish(id, body.leaseId);
+      job = await this.jobStore.finish(
+        id,
+        body.leaseId,
+        terminalResult.message,
+      );
     } else if (action === 'fail') {
       job = await this.jobStore.fail(
         id,

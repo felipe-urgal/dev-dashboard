@@ -322,6 +322,7 @@ export interface AgentProviderResult {
   providerId: AgentConcreteProviderId;
   outcome: 'checkpoint' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
   summary: string;
+  responseText?: string;
   evidence?: AgentEvidence[];
   failure?: {
     kind: 'known' | 'ambiguous';

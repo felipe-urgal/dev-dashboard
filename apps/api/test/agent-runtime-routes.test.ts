@@ -370,7 +370,8 @@ test('Agent Runtime HTTP expõe conversa e submete turno sem autoridade extra', 
           providerResult: {
             providerId: 'codex',
             outcome: 'succeeded',
-            summary: 'Estado vazio ajustado.',
+            summary: 'Agent execution completed.',
+            responseText: 'Estado vazio ajustado.',
           },
           userTurn,
           agentTurn,
@@ -400,6 +401,10 @@ test('Agent Runtime HTTP expõe conversa e submete turno sem autoridade extra', 
   });
   assert.equal(submitted.statusCode, 200);
   assert.equal(submitted.json().agentTurn.executionId, 'execution-2');
+  assert.equal(
+    submitted.json().providerResult.responseText,
+    'Estado vazio ajustado.',
+  );
   assert.deepEqual(calls, [
     ['conversation', 'project-1', 'task-1'],
     [
