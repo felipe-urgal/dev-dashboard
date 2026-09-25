@@ -6,6 +6,7 @@ import type { Project } from '@dev-dashboard/contracts';
 const fetchDevContainerLifecyclePreflight = vi.hoisted(() => vi.fn());
 const prepareDevContainerLifecycleConfirmation = vi.hoisted(() => vi.fn());
 const startDevContainer = vi.hoisted(() => vi.fn());
+const rebuildDevContainer = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/api/dev-container', () => ({
   fetchDevContainerLifecyclePreflight: (...args: unknown[]) =>
@@ -13,6 +14,7 @@ vi.mock('../src/api/dev-container', () => ({
   prepareDevContainerLifecycleConfirmation: (...args: unknown[]) =>
     prepareDevContainerLifecycleConfirmation(...args),
   startDevContainer: (...args: unknown[]) => startDevContainer(...args),
+  rebuildDevContainer: (...args: unknown[]) => rebuildDevContainer(...args),
 }));
 
 import ProjectDevContainerPanel from '../src/components/ProjectDevContainerPanel.vue';
@@ -248,35 +250,49 @@ describe('ProjectDevContainerPanel', () => {
     wrapper.unmount();
   });
 
-  it('mostra rebuild em review quando a Environment Instance já é Dev Container owned', async () => {
-    fetchDevContainerLifecyclePreflight.mockResolvedValueOnce({
+  it('confirma e executa rebuild somente para o runtime owned selecionado', async () => {
+    const environmentInstanceId =
+      'environment:worktree:project-devcontainer:runtime';
+    const rebuildPreflight = {
       projectId: project.id,
-      operation: 'rebuild',
-      state: 'review',
-      reason: 'review-required',
-      observedAt: '2026-09-24T22:22:30.000Z',
-      environmentInstanceId:
-        'environment:worktree:project-devcontainer:runtime',
-      runtime: 'devcontainer',
-      executionEnabled: false,
+      operation: 'rebuild' as const,
+      state: 'review' as const,
+      reason: 'review-required' as const,
+      observedAt: '2026-09-25T12:30:00.000Z',
+      environmentInstanceId,
+      runtime: 'devcontainer' as const,
+      executionEnabled: false as const,
       requiresConfirmation: true,
-      discoveryState: 'available',
-      configSource: '.devcontainer/devcontainer.json',
+      discoveryState: 'available' as const,
+      configSource: '.devcontainer/devcontainer.json' as const,
       cliVersion: '0.80.1',
       configuration: {
-        kind: 'image',
+        kind: 'image' as const,
         lifecycleHooks: [],
       },
       limitations: [],
       diagnostic: 'O Dev Container owned pode avançar para revisão de rebuild.',
+    };
+    fetchDevContainerLifecyclePreflight
+      .mockResolvedValueOnce(rebuildPreflight)
+      .mockResolvedValueOnce({
+        ...rebuildPreflight,
+        observedAt: '2026-09-25T12:31:00.000Z',
+      });
+    prepareDevContainerLifecycleConfirmation.mockResolvedValueOnce({
+      token: 'c'.repeat(64),
+      environmentInstanceId,
+      operation: 'rebuild',
+      expiresAt: '2026-09-25T12:31:00.000Z',
+    });
+    rebuildDevContainer.mockResolvedValueOnce({
+      environmentInstanceId,
+      runtime: 'devcontainer',
+      containerId: 'd'.repeat(64),
     });
 
     const wrapper = mount(ProjectDevContainerPanel, {
-      props: {
-        project,
-        environmentInstanceId:
-          'environment:worktree:project-devcontainer:runtime',
-      },
+      props: { project, environmentInstanceId },
     });
     await flushPromises();
 
@@ -285,6 +301,40 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain('Revisão necessária');
     expect(wrapper.text()).toContain('rebuild exige confirmação explícita');
     expect(wrapper.text()).not.toContain('Criar Dev Container');
+
+    const rebuildButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Rebuild');
+    expect(rebuildButton).toBeDefined();
+    await rebuildButton!.trigger('click');
+
+    expect(prepareDevContainerLifecycleConfirmation).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Reconstruir este Dev Container?');
+    expect(wrapper.text()).toContain('Confirmar rebuild');
+    expect(wrapper.text()).toContain(
+      'Volumes não são removidos implicitamente',
+    );
+
+    const confirmButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Confirmar rebuild'));
+    expect(confirmButton).toBeDefined();
+    await confirmButton!.trigger('click');
+    await flushPromises();
+
+    expect(prepareDevContainerLifecycleConfirmation).toHaveBeenCalledWith(
+      project.id,
+      environmentInstanceId,
+    );
+    expect(rebuildDevContainer).toHaveBeenCalledWith(
+      project.id,
+      'c'.repeat(64),
+      environmentInstanceId,
+    );
+    expect(startDevContainer).not.toHaveBeenCalled();
+    expect(fetchDevContainerLifecyclePreflight).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).toContain('Rebuild');
+    expect(wrapper.text()).not.toContain('Confirmar rebuild');
     wrapper.unmount();
   });
 

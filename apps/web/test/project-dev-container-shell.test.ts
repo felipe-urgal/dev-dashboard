@@ -48,7 +48,7 @@ describe('Dev Container no shell do projeto', () => {
     expect(panelSource).toContain('fetchDevContainerLifecyclePreflight');
   });
 
-  it('expõe somente a criação confirmada sem autoridade de execução arbitrária', () => {
+  it('expõe criação e rebuild confirmados sem autoridade de execução arbitrária', () => {
     expect(moreToolsSource).toContain("route.name === 'project-dev-container'");
     expect(moreToolsSource).toContain('<span>Dev Container</span>');
     expect(moreToolsSource).toContain(
@@ -60,12 +60,14 @@ describe('Dev Container no shell do projeto', () => {
     expect(panelSource).toContain('Preflight somente leitura');
     expect(panelSource).toContain('Criar Dev Container');
     expect(panelSource).toContain('Confirmar criação');
+    expect(panelSource).toContain('Rebuild');
+    expect(panelSource).toContain('Confirmar rebuild');
     expect(panelSource).not.toContain('devcontainer up');
     expect(panelSource).not.toContain('run-user-commands');
-    expect(panelSource).not.toContain('Rebuild');
     expect(moreToolsSource).toContain('environmentInstanceId');
     expect(apiSource).toContain('/dev-container/lifecycle-confirmation');
     expect(apiSource).toContain('/dev-container/start');
+    expect(apiSource).toContain('/dev-container/rebuild');
     expect(apiSource).toContain("method: 'POST'");
     expect(apiSource).not.toContain('workspaceFolder');
     expect(apiSource).not.toContain('overrideConfigPath');
