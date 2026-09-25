@@ -33,6 +33,13 @@ function json(route: Route, body: unknown): Promise<void> {
 }
 
 test.describe('Qualificação da aba Agente', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(
+      '**/api/projects/*/agent/tasks/*/conversation',
+      (route) => json(route, { turns: [] }),
+    );
+  });
+
   test('task -> autorização -> checkpoint -> continuação -> conclusão', async ({
     page,
   }) => {
@@ -350,6 +357,195 @@ test.describe('Qualificação da aba Agente', () => {
     ).toBeVisible();
     await expect(page.getByText('Codex', { exact: true })).toBeVisible();
     expect(executions).toBe(2);
+  });
+
+  test('histórico persistido permite continuar a mesma task em review', async ({
+    page,
+  }) => {
+    const observedAt = '2026-09-25T18:00:00.000Z';
+    let projectId = '';
+    let submittedTurns = 0;
+    const task: TaskRecord = {
+      version: 3,
+      task: {
+        id: 'conversation-task',
+        projectId: '',
+        environmentInstanceId: 'environment:primary:conversation',
+        state: 'review',
+        summary: 'Ajustar experiência vazia',
+        requestedCapabilities: ['workspace:write'],
+        createdAt: observedAt,
+        updatedAt: observedAt,
+      },
+    };
+    const turns: Array<{
+      id: string;
+      taskId: string;
+      role: 'user' | 'agent';
+      content: string;
+      createdAt: string;
+      executionId?: string;
+      providerId?: 'codex';
+    }> = [
+      {
+        id: 'turn-1',
+        taskId: task.task.id,
+        role: 'user',
+        content: 'Implemente o estado vazio.',
+        createdAt: observedAt,
+      },
+      {
+        id: 'agent-turn-1',
+        taskId: task.task.id,
+        role: 'agent',
+        content: 'Estado vazio implementado.',
+        createdAt: observedAt,
+        executionId: 'execution-1',
+        providerId: 'codex',
+      },
+    ];
+
+    await page.route('**/api/agent/providers', (route) =>
+      json(route, {
+        providers: [
+          {
+            providerId: 'automatic',
+            availability: 'available',
+            observedAt,
+          },
+          {
+            providerId: 'codex',
+            availability: 'available',
+            observedAt,
+          },
+        ],
+      }),
+    );
+    await page.route('**/api/projects/*/task-contexts', (route) =>
+      json(route, { contexts: [] }),
+    );
+    await page.route('**/api/projects/*/agent/tasks', (route) => {
+      const parts = new URL(route.request().url()).pathname.split('/');
+      projectId = decodeURIComponent(parts[3] ?? '');
+      task.task.projectId = projectId;
+      return json(route, { tasks: [task] });
+    });
+    await page.route(
+      '**/api/projects/*/agent/tasks/conversation-task/status',
+      (route) =>
+        json(route, {
+          task,
+          runtime: {
+            taskId: task.task.id,
+            projectId,
+            canonicalVersion: task.version,
+            state: 'idle',
+            attempts: 1 + submittedTurns,
+            updatedAt: observedAt,
+          },
+        }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/conversation-task/activity',
+      (route) =>
+        json(route, {
+          authorizations: [
+            {
+              taskId: task.task.id,
+              capability: 'workspace:write',
+              granted: true,
+              observedAt,
+            },
+          ],
+          checkpoints: [],
+          events: [],
+          evidence: [],
+        }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/conversation-task/conversation',
+      (route) => json(route, { turns }),
+    );
+    await page.route(
+      '**/api/projects/*/agent/tasks/conversation-task/turns',
+      async (route) => {
+        const input = route.request().postDataJSON() as {
+          id: string;
+          content: string;
+          providerId: string;
+        };
+        submittedTurns += 1;
+        const userTurn = {
+          id: input.id,
+          taskId: task.task.id,
+          role: 'user' as const,
+          content: input.content,
+          createdAt: observedAt,
+        };
+        const agentTurn = {
+          id: 'agent-turn-2',
+          taskId: task.task.id,
+          role: 'agent' as const,
+          content: 'Ajuste complementar concluído.',
+          createdAt: observedAt,
+          executionId: 'execution-2',
+          providerId: 'codex' as const,
+        };
+        turns.push(userTurn, agentTurn);
+        task.version += 1;
+
+        await json(route, {
+          execution: {
+            id: 'execution-2',
+            taskId: task.task.id,
+            projectId,
+            environmentInstanceId: task.task.environmentInstanceId,
+            requestedProviderId: input.providerId,
+            providerId: 'codex',
+            state: 'succeeded',
+            startedAt: observedAt,
+            finishedAt: observedAt,
+          },
+          task,
+          providerResult: {
+            providerId: 'codex',
+            outcome: 'succeeded',
+            summary: 'Conversation turn completed.',
+            responseText: agentTurn.content,
+          },
+          userTurn,
+          agentTurn,
+        });
+      },
+    );
+
+    await gotoBootstrapped(page, '/');
+    const projectHref = await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .getAttribute('href');
+    if (!projectHref) throw new Error('Projeto de fixture não encontrado.');
+    projectId = decodeURIComponent(
+      new URL(projectHref, 'http://localhost').pathname.split('/').at(-1) ?? '',
+    );
+
+    await gotoBootstrapped(page, `/projects/${projectId}/agent`);
+
+    await expect(page.getByText('Estado vazio implementado.')).toBeVisible();
+    await page
+      .getByLabel('Instrução para continuar a task do Agente')
+      .fill('Ajuste também o espaçamento.');
+    await page.getByRole('button', { name: 'Enviar instrução' }).click();
+
+    await expect(page.getByText('Ajuste também o espaçamento.')).toBeVisible();
+    await expect(
+      page.getByText('Ajuste complementar concluído.'),
+    ).toBeVisible();
+    expect(submittedTurns).toBe(1);
+
+    await gotoBootstrapped(page, `/projects/${projectId}/agent`);
+    await expect(
+      page.getByText('Ajuste complementar concluído.'),
+    ).toBeVisible();
   });
 
   test('provider indisponível permanece explícito e não executa task', async ({

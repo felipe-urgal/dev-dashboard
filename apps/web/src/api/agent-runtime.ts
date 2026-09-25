@@ -338,6 +338,21 @@ export interface AgentExecutionResult {
   checkpoint?: AgentCheckpoint;
 }
 
+export interface AgentConversationTurn {
+  id: string;
+  taskId: string;
+  role: 'user' | 'agent';
+  content: string;
+  createdAt: string;
+  executionId?: string;
+  providerId?: AgentConcreteProviderId;
+}
+
+export interface AgentConversationExecutionResult extends AgentExecutionResult {
+  userTurn: AgentConversationTurn;
+  agentTurn: AgentConversationTurn;
+}
+
 export interface AgentRealtimeSnapshot {
   status: AgentTaskStatus;
   activity: AgentActivity;
@@ -565,6 +580,36 @@ export async function fetchAgentActivity(
   taskId: string,
 ): Promise<AgentActivity> {
   return requestJson<AgentActivity>(taskPath(projectId, taskId) + '/activity');
+}
+
+export async function fetchAgentConversation(
+  projectId: string,
+  taskId: string,
+): Promise<AgentConversationTurn[]> {
+  return (
+    await requestJson<{ turns: AgentConversationTurn[] }>(
+      taskPath(projectId, taskId) + '/conversation',
+    )
+  ).turns;
+}
+
+export async function executeAgentConversationTurn(
+  projectId: string,
+  taskId: string,
+  input: {
+    id: string;
+    content: string;
+    providerId?: AgentProviderId;
+  },
+): Promise<AgentConversationExecutionResult> {
+  return requestJson<AgentConversationExecutionResult>(
+    taskPath(projectId, taskId) + '/turns',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export async function fetchAgentUsage(

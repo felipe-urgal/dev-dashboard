@@ -21,9 +21,11 @@ import {
   cancelAgentTask,
   clearAgentBudget,
   createAgentTask,
+  executeAgentConversationTurn,
   executeAgentTask,
   fetchAgentActivity,
   fetchAgentBudget,
+  fetchAgentConversation,
   fetchAgentProviders,
   fetchAgentTasks,
   fetchAgentTaskStatus,
@@ -37,6 +39,7 @@ import {
   type AgentBacklogIssue,
   type AgentBudgetOverview,
   type AgentCapability,
+  type AgentConversationTurn,
   type AgentExecutionResult,
   type AgentProviderId,
   type AgentProviderStatus,
@@ -114,6 +117,8 @@ const selectedTaskId = ref('');
 const selectedProviderId = ref<AgentProviderId>('automatic');
 const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
 const instruction = ref('');
+const conversationInstruction = ref('');
+const conversationTurns = ref<AgentConversationTurn[]>([]);
 const backlogCandidates = ref<AgentBacklogIssue[]>([]);
 const backlogSelectionSource = ref('');
 const backlogAdoptionNotice = ref<{
@@ -292,6 +297,18 @@ const canExecute = computed(
 
 const canCreate = computed(
   () => instruction.value.trim().length > 0 && !mutating.value,
+);
+
+const canContinue = computed(
+  () =>
+    currentTask.value?.task.state === 'review' &&
+    conversationInstruction.value.trim().length > 0 &&
+    !executing.value &&
+    !mutating.value &&
+    !status.value?.activeExecution &&
+    currentProvider.value !== null &&
+    currentProvider.value.availability !== 'unavailable' &&
+    !budget.value?.blocking,
 );
 
 const backlogSelectionMessage = computed(() => {
@@ -502,6 +519,8 @@ async function loadTask(
   if (!taskId) {
     status.value = null;
     activity.value = null;
+    conversationTurns.value = [];
+    conversationInstruction.value = '';
     usage.value = null;
     budget.value = null;
     budgetTokens.value = '';
@@ -512,19 +531,25 @@ async function loadTask(
   }
 
   try {
-    const [nextStatus, nextActivity, nextUsage, nextBudget] = await Promise.all(
-      [
-        fetchAgentTaskStatus(props.project.id, taskId),
-        fetchAgentActivity(props.project.id, taskId),
-        fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
-        fetchAgentBudget(props.project.id, taskId),
-      ],
-    );
+    const [
+      nextStatus,
+      nextActivity,
+      nextConversation,
+      nextUsage,
+      nextBudget,
+    ] = await Promise.all([
+      fetchAgentTaskStatus(props.project.id, taskId),
+      fetchAgentActivity(props.project.id, taskId),
+      fetchAgentConversation(props.project.id, taskId),
+      fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
+      fetchAgentBudget(props.project.id, taskId),
+    ]);
     if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
     status.value = nextStatus;
     activity.value = nextActivity;
+    conversationTurns.value = nextConversation;
     usage.value = nextUsage;
     syncBudgetInputs(nextBudget);
     replaceTask(nextStatus.task);
@@ -616,6 +641,8 @@ async function selectTask(taskId: string): Promise<void> {
   selectedTaskId.value = taskId;
   status.value = null;
   activity.value = null;
+  conversationTurns.value = [];
+  conversationInstruction.value = '';
   usage.value = null;
   budget.value = null;
   budgetTokens.value = '';
@@ -743,6 +770,44 @@ async function executeCurrent(): Promise<void> {
       error instanceof Error
         ? error.message
         : 'A execução do Agente não foi concluída.';
+    await loadTask(record.task.id);
+  } finally {
+    executing.value = false;
+  }
+}
+
+async function continueCurrentConversation(): Promise<void> {
+  const record = currentTask.value;
+  const content = conversationInstruction.value.trim();
+  if (!record || !content || !canContinue.value) return;
+
+  executing.value = true;
+  errorMessage.value = '';
+
+  try {
+    const result = await executeAgentConversationTurn(
+      props.project.id,
+      record.task.id,
+      {
+        id: globalThis.crypto.randomUUID(),
+        content,
+        providerId: selectedProviderId.value,
+      },
+    );
+    latestExecution.value = result;
+    replaceTask(result.task);
+    conversationInstruction.value = '';
+    conversationTurns.value = [
+      ...conversationTurns.value,
+      result.userTurn,
+      result.agentTurn,
+    ];
+    await loadTask(record.task.id);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível continuar a conversa da task.';
     await loadTask(record.task.id);
   } finally {
     executing.value = false;
@@ -934,6 +999,13 @@ function handleComposerKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();
     void createTask();
+  }
+}
+
+function handleConversationKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    void continueCurrentConversation();
   }
 }
 
@@ -1437,6 +1509,78 @@ onBeforeUnmount(() => {
           </section>
 
           <section
+            class="agent-conversation agent-card"
+            aria-label="Conversa da task"
+          >
+            <div class="agent-section-heading">
+              <div>
+                <span>Conversa</span>
+                <strong>Continuidade da Agent Task</strong>
+              </div>
+              <span class="agent-shortcut">Ctrl/⌘ + Enter</span>
+            </div>
+
+            <p v-if="!conversationTurns.length" class="agent-hint">
+              Ainda não há turnos persistidos nesta task.
+            </p>
+            <ol v-else class="agent-conversation-list">
+              <li
+                v-for="turn in conversationTurns"
+                :key="turn.id"
+                class="agent-message"
+                :class="{ 'agent-message-user': turn.role === 'user' }"
+              >
+                <div class="agent-message-meta">
+                  <strong>
+                    {{
+                      turn.role === 'user'
+                        ? 'Você'
+                        : turn.providerId
+                          ? providerLabel(turn.providerId)
+                          : 'Agente'
+                    }}
+                  </strong>
+                  <span v-if="turn.executionId">
+                    {{ turn.executionId }}
+                  </span>
+                  <small>{{ new Date(turn.createdAt).toLocaleString() }}</small>
+                </div>
+                <p>{{ turn.content }}</p>
+              </li>
+            </ol>
+
+            <template v-if="currentTask.task.state === 'review'">
+              <textarea
+                v-model="conversationInstruction"
+                rows="3"
+                maxlength="16000"
+                placeholder="Continue a mesma task com uma nova instrução..."
+                aria-label="Instrução para continuar a task do Agente"
+                :disabled="executing || mutating"
+                @keydown="handleConversationKeydown"
+              />
+              <div class="agent-composer-actions">
+                <p>
+                  A mensagem usa a mesma task, contexto e autorizações; nenhuma
+                  capability nova é concedida automaticamente.
+                </p>
+                <button
+                  class="primary-button"
+                  type="button"
+                  :disabled="!canContinue"
+                  @click="continueCurrentConversation"
+                >
+                  <BoltIcon aria-hidden="true" />
+                  {{ executing ? 'Executando…' : 'Enviar instrução' }}
+                </button>
+              </div>
+            </template>
+            <p v-else class="agent-hint">
+              A continuação fica disponível quando a task retorna para revisão.
+            </p>
+          </section>
+
+          <section
             v-if="pendingCheckpoint"
             class="agent-checkpoint agent-card"
             aria-label="Checkpoint pendente"
@@ -1737,6 +1881,7 @@ onBeforeUnmount(() => {
 
 .agent-field select,
 .agent-composer textarea,
+.agent-conversation textarea,
 .agent-checkpoint textarea {
   width: 100%;
   box-sizing: border-box;
@@ -1753,6 +1898,7 @@ onBeforeUnmount(() => {
 }
 
 .agent-composer textarea,
+.agent-conversation textarea,
 .agent-checkpoint textarea {
   resize: vertical;
   padding: 11px 12px;
@@ -1860,9 +2006,69 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.agent-composer {
+.agent-composer,
+.agent-conversation {
   display: grid;
   gap: 12px;
+}
+
+.agent-conversation-list {
+  display: grid;
+  max-height: 420px;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.agent-message {
+  display: grid;
+  gap: 6px;
+  max-width: min(760px, 92%);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-message-user {
+  justify-self: end;
+  background: var(--surface-2);
+}
+
+.agent-message-meta {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-message-meta strong {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.agent-message-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-message-meta small {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.agent-message p {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .agent-shortcut {
