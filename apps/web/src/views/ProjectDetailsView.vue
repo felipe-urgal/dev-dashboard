@@ -584,7 +584,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
         :environment-instance-id="environmentInstanceId"
         kind="shell"
         title="Terminal"
-        description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
+        description="Abre um shell interativo na Environment Instance selecionada."
         auto-start
       />
 
