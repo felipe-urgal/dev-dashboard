@@ -74,11 +74,14 @@ test.describe('sidebar do projeto em desktop baixo', () => {
       page.getByRole('link', { name: 'README', exact: true }),
     ).toBeInViewport();
 
-    const overflow = await sidebar.evaluate((element) => ({
+    const metrics = await sidebar.evaluate((element) => ({
       scrollHeight: element.scrollHeight,
       clientHeight: element.clientHeight,
+      bottom: element.getBoundingClientRect().bottom,
+      viewportHeight: window.innerHeight,
     }));
 
-    expect(overflow.scrollHeight).toBeLessThanOrEqual(overflow.clientHeight);
+    expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.clientHeight);
+    expect(Math.round(metrics.bottom)).toBe(metrics.viewportHeight);
   });
 });
