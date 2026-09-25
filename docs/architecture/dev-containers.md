@@ -87,7 +87,7 @@ Regras fail-closed do primeiro corte:
 - configuração de tipo `unknown` não recebe lifecycle;
 - hooks pós-criação ficam apenas sinalizados como diferidos para futura execução controlada;
 - todo plano em `review` exige confirmação futura;
-- **nenhum plano habilita execução neste corte**.
+- nenhum preflight concede execução diretamente; mutation exige a sequência separada de confirmação + start.
 
 O contrato HTTP continua com `executionEnabled=false` porque o preflight público permanece somente leitura e não concede mutation por si só. A criação usa endpoints separados de confirmação e start, sempre após revalidar o preflight no backend. A Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`, por isso o cleanup continua scoped ao container owned via Docker. `--skip-post-create` omite hooks pós-criação, enquanto `initializeCommand` segue como blocker explícito do preflight.
 
