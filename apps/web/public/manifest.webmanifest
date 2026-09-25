@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Dev Dashboard",
+  "short_name": "Dev Dashboard",
+  "description": "Dashboard local para gerenciamento de projetos de desenvolvimento",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/dev-dashboard.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

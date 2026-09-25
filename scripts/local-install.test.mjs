@@ -1,18 +1,32 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  LOCAL_DESKTOP_WM_CLASS,
   LOCAL_SERVICE_NAME,
+  MANAGED_DESKTOP_MARKER,
+  MANAGED_ICON_MARKER,
   MANAGED_UNIT_MARKER,
+  buildDesktopEntry,
   buildLocalOrigin,
   buildRuntimeEnvironment,
   buildSystemdUnit,
+  desktopExecQuote,
   installLocal,
   localStatus,
+  openAppLocal,
   openLocal,
+  resolveChromiumBrowserCommand,
   resolveLocalInstallPaths,
   systemdQuote,
   uninstallLocal,
@@ -26,11 +40,23 @@ async function fixture(t) {
   const home = path.join(root, 'home');
   await mkdir(repositoryRoot, { recursive: true });
   await mkdir(home, { recursive: true });
+
+  const iconSource = path.join(
+    repositoryRoot,
+    'apps',
+    'web',
+    'public',
+    'dev-dashboard.svg',
+  );
+  await mkdir(path.dirname(iconSource), { recursive: true });
+  await writeFile(iconSource, MANAGED_ICON_MARKER + '\n<svg></svg>\n');
+
   t.after(async () => rm(root, { recursive: true, force: true }));
   const environment = {
     PATH: '/usr/bin:/bin',
     XDG_CONFIG_HOME: path.join(home, '.config-custom'),
     XDG_STATE_HOME: path.join(home, '.state-custom'),
+    XDG_DATA_HOME: path.join(home, '.data-custom'),
   };
   return { root, repositoryRoot, home, environment };
 }
@@ -61,6 +87,38 @@ test('escapa valores da unit sem permitir quebra de diretiva', () => {
   assert.throws(() => systemdQuote('a\nb'), /systemd/);
 });
 
+test('desktop entry usa launcher gerenciado sem shell', () => {
+  assert.equal(desktopExecQuote('/tmp/a b%'), '"/tmp/a b%%"');
+  assert.throws(() => desktopExecQuote('a\nb'), /desktop entry/);
+
+  const desktopEntry = buildDesktopEntry({
+    repositoryRoot: '/home/test/dev dashboard',
+    nodePath: '/opt/node/bin/node',
+  });
+
+  assert.ok(desktopEntry.startsWith(MANAGED_DESKTOP_MARKER + '\n'));
+  assert.match(
+    desktopEntry,
+    /Exec="\/opt\/node\/bin\/node" "\/home\/test\/dev dashboard\/scripts\/local-install\.mjs" open-app/,
+  );
+  assert.match(desktopEntry, /^Icon=dev-dashboard$/m);
+  assert.match(desktopEntry, /^Terminal=false$/m);
+  assert.match(
+    desktopEntry,
+    new RegExp('^StartupWMClass=' + LOCAL_DESKTOP_WM_CLASS + '$', 'm'),
+  );
+  assert.doesNotMatch(desktopEntry, /sudo|sh -c|bash -c/);
+});
+
+test('resolve browser Chromium apenas para desktop ids conhecidos', () => {
+  assert.equal(resolveChromiumBrowserCommand('chromium.desktop\n'), 'chromium');
+  assert.equal(
+    resolveChromiumBrowserCommand('google-chrome.desktop'),
+    'google-chrome',
+  );
+  assert.equal(resolveChromiumBrowserCommand('firefox.desktop'), null);
+});
+
 test('unit carrega ambiente local antes do ambiente gerenciado', () => {
   const unit = buildSystemdUnit({
     repositoryRoot: '/home/test/.dev-dashboard',
@@ -72,7 +130,7 @@ test('unit carrega ambiente local antes do ambiente gerenciado', () => {
     runtimePath: '/home/test/.nvm/node/bin:/usr/bin:/bin',
   });
 
-  assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
+  assert.ok(unit.startsWith(MANAGED_UNIT_MARKER + '\n'));
   assert.match(unit, /ExecStart="\/home\/test\/\.nvm\/node\/bin\/node"/);
   assert.match(unit, /scripts\/dev-web\.mjs" --installed/);
   const localEnvironmentIndex = unit.indexOf(
@@ -118,7 +176,7 @@ test('ambiente gerenciado fixa paths, porta e origem sem persistir secrets', () 
   assert.doesNotMatch(runtimeEnvironment, /TOKEN|SECRET|VERCEL/);
 });
 
-test('install é idempotente, reinicia a unit e grava apenas metadados não sensíveis', async (t) => {
+test('install é idempotente e grava integração desktop gerenciada', async (t) => {
   const { repositoryRoot, home, environment } = await fixture(t);
   const calls = [];
   const run = successfulRunner(calls);
@@ -141,6 +199,7 @@ test('install é idempotente, reinicia a unit e grava apenas metadados não sens
 
   assert.equal(first.origin, 'http://dev-dashboard.localhost:4343');
   assert.equal(second.unit, LOCAL_SERVICE_NAME);
+
   const paths = resolveLocalInstallPaths(environment, home);
   const unit = await readFile(paths.unitPath, 'utf8');
   const runtimeEnvironment = await readFile(
@@ -148,7 +207,10 @@ test('install é idempotente, reinicia a unit e grava apenas metadados não sens
     'utf8',
   );
   const metadata = await readFile(paths.metadataPath, 'utf8');
-  assert.ok(unit.startsWith(`${MANAGED_UNIT_MARKER}\n`));
+  const desktopEntry = await readFile(paths.desktopEntryPath, 'utf8');
+  const desktopIcon = await readFile(paths.desktopIconPath, 'utf8');
+
+  assert.ok(unit.startsWith(MANAGED_UNIT_MARKER + '\n'));
   assert.match(unit, /local-runtime\.env/);
   assert.match(runtimeEnvironment, /DEV_DASHBOARD_API_PORT=4343/);
   assert.match(
@@ -158,20 +220,27 @@ test('install é idempotente, reinicia a unit e grava apenas metadados não sens
   assert.doesNotMatch(unit, /TOKEN|SECRET|VERCEL_TOKEN=/);
   assert.doesNotMatch(runtimeEnvironment, /TOKEN|SECRET|VERCEL/);
   assert.doesNotMatch(metadata, /TOKEN|SECRET|VERCEL/);
+
+  assert.ok(desktopEntry.startsWith(MANAGED_DESKTOP_MARKER + '\n'));
+  assert.match(desktopEntry, /open-app/);
+  assert.ok(desktopIcon.startsWith(MANAGED_ICON_MARKER + '\n'));
+  assert.equal((await stat(paths.desktopEntryPath)).mode & 0o777, 0o644);
+  assert.equal((await stat(paths.desktopIconPath)).mode & 0o777, 0o644);
+
   assert.equal(
     calls.filter((entry) => entry.args.join(' ') === 'run build').length,
     2,
   );
   assert.equal(
     calls.filter(
-      (entry) => entry.args.join(' ') === `--user enable ${LOCAL_SERVICE_NAME}`,
+      (entry) => entry.args.join(' ') === '--user enable ' + LOCAL_SERVICE_NAME,
     ).length,
     2,
   );
   assert.equal(
     calls.filter(
       (entry) =>
-        entry.args.join(' ') === `--user restart ${LOCAL_SERVICE_NAME}`,
+        entry.args.join(' ') === '--user restart ' + LOCAL_SERVICE_NAME,
     ).length,
     2,
   );
@@ -209,7 +278,7 @@ test('install aguarda readiness transitória depois do restart', async (t) => {
   assert.equal(healthChecks, 3);
   assert.equal(sleeps, 2);
   const restartIndex = calls.findIndex(
-    (entry) => entry.args.join(' ') === `--user restart ${LOCAL_SERVICE_NAME}`,
+    (entry) => entry.args.join(' ') === '--user restart ' + LOCAL_SERVICE_NAME,
   );
   assert.ok(restartIndex >= 0);
 });
@@ -243,7 +312,7 @@ test('install falha com diagnóstico quando API não fica saudável', async (t) 
   assert.ok(
     calls.some(
       (entry) =>
-        entry.args.join(' ') === `--user restart ${LOCAL_SERVICE_NAME}`,
+        entry.args.join(' ') === '--user restart ' + LOCAL_SERVICE_NAME,
     ),
   );
 });
@@ -273,7 +342,32 @@ test('install recusa sobrescrever unit não gerenciada', async (t) => {
   assert.equal(calls, 0);
 });
 
-test('status combina unit, ambiente gerenciado, systemd e health reais da instalação', async (t) => {
+test('install recusa sobrescrever launcher não gerenciado', async (t) => {
+  const { repositoryRoot, home, environment } = await fixture(t);
+  const paths = resolveLocalInstallPaths(environment, home);
+  await mkdir(paths.applicationsDirectory, { recursive: true });
+  await writeFile(paths.desktopEntryPath, '[Desktop Entry]\nName=Outro App\n');
+  let calls = 0;
+
+  await assert.rejects(
+    installLocal({
+      platform: 'linux',
+      rootDirectory: repositoryRoot,
+      homeDirectory: home,
+      environment,
+      nodePath: '/opt/node/bin/node',
+      resolveRealpath: async (value) => value,
+      runCommand: async () => {
+        calls += 1;
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    }),
+    /não pertence/,
+  );
+  assert.equal(calls, 0);
+});
+
+test('status combina serviço, desktop e health reais da instalação', async (t) => {
   const { repositoryRoot, home, environment } = await fixture(t);
   await installLocal({
     platform: 'linux',
@@ -305,6 +399,7 @@ test('status combina unit, ambiente gerenciado, systemd e health reais da instal
   assert.deepEqual(
     {
       installed: status.installed,
+      desktopInstalled: status.desktopInstalled,
       enabled: status.enabled,
       active: status.active,
       healthy: status.healthy,
@@ -312,6 +407,7 @@ test('status combina unit, ambiente gerenciado, systemd e health reais da instal
     },
     {
       installed: true,
+      desktopInstalled: true,
       enabled: true,
       active: true,
       healthy: true,
@@ -347,7 +443,103 @@ test('status considera incompleta instalação sem ambiente gerenciado', async (
   assert.equal(status.installed, false);
 });
 
-test('open usa xdg-open sem shell e uninstall preserva checkout/config funcional', async (t) => {
+test('status considera incompleta instalação sem launcher desktop', async (t) => {
+  const { repositoryRoot, home, environment } = await fixture(t);
+  await installLocal({
+    platform: 'linux',
+    rootDirectory: repositoryRoot,
+    homeDirectory: home,
+    environment,
+    nodePath: '/opt/node/bin/node',
+    resolveRealpath: async (value) => value,
+    runCommand: successfulRunner([]),
+    fetchImpl: healthyFetch(),
+    readinessAttempts: 1,
+    readinessIntervalMs: 0,
+  });
+  const paths = resolveLocalInstallPaths(environment, home);
+  await rm(paths.desktopEntryPath);
+
+  const status = await localStatus({
+    homeDirectory: home,
+    environment,
+    runCommand: successfulRunner([]),
+    fetchImpl: async () => healthyResponse(),
+  });
+
+  assert.equal(status.installed, false);
+  assert.equal(status.desktopInstalled, false);
+});
+
+test('open-app usa app-mode no Chromium padrão e fallback no navegador', async (t) => {
+  const { repositoryRoot, home, environment } = await fixture(t);
+  await installLocal({
+    platform: 'linux',
+    rootDirectory: repositoryRoot,
+    homeDirectory: home,
+    environment,
+    nodePath: '/opt/node/bin/node',
+    resolveRealpath: async (value) => value,
+    runCommand: successfulRunner([]),
+    fetchImpl: healthyFetch(),
+    readinessAttempts: 1,
+    readinessIntervalMs: 0,
+  });
+
+  const launched = [];
+  const appRunCalls = [];
+  const appResult = await openAppLocal({
+    homeDirectory: home,
+    environment,
+    runCommand: async (command, args, options) => {
+      appRunCalls.push({ command, args, options });
+      if (command === 'xdg-settings') {
+        return {
+          code: 0,
+          stdout: 'chromium.desktop\n',
+          stderr: '',
+        };
+      }
+      return { code: 0, stdout: '', stderr: '' };
+    },
+    launchDetached: async (command, args, options) => {
+      launched.push({ command, args, options });
+      return true;
+    },
+  });
+
+  assert.equal(appResult.mode, 'app');
+  assert.equal(appResult.browser, 'chromium');
+  assert.deepEqual(launched[0].args, [
+    '--class=' + LOCAL_DESKTOP_WM_CLASS,
+    '--app=http://dev-dashboard.localhost:4343',
+  ]);
+  assert.equal(
+    appRunCalls.some((entry) => entry.command === 'xdg-open'),
+    false,
+  );
+
+  const fallbackCalls = [];
+  const fallback = await openAppLocal({
+    homeDirectory: home,
+    environment,
+    runCommand: async (command, args, options) => {
+      fallbackCalls.push({ command, args, options });
+      if (command === 'xdg-settings') {
+        return { code: 0, stdout: 'firefox.desktop\n', stderr: '' };
+      }
+      return { code: 0, stdout: '', stderr: '' };
+    },
+    launchDetached: async () => {
+      throw new Error('não deveria lançar Chromium');
+    },
+  });
+
+  assert.equal(fallback.mode, 'browser');
+  assert.ok(fallbackCalls.some((entry) => entry.command === 'xdg-open'));
+});
+
+test('open usa xdg-open e uninstall preserva checkout/config funcional', async (t) => {
   const { repositoryRoot, home, environment } = await fixture(t);
   await installLocal({
     platform: 'linux',
@@ -381,17 +573,20 @@ test('open usa xdg-open sem shell e uninstall preserva checkout/config funcional
     environment,
     runCommand: successfulRunner(uninstallCalls),
   });
+
   await assert.rejects(readFile(paths.unitPath, 'utf8'), /ENOENT/);
   await assert.rejects(
     readFile(paths.runtimeEnvironmentPath, 'utf8'),
     /ENOENT/,
   );
   await assert.rejects(readFile(paths.metadataPath, 'utf8'), /ENOENT/);
+  await assert.rejects(readFile(paths.desktopEntryPath, 'utf8'), /ENOENT/);
+  await assert.rejects(readFile(paths.desktopIconPath, 'utf8'), /ENOENT/);
   assert.equal(await readFile(preserved, 'utf8'), 'segredo-local');
   assert.ok(
     uninstallCalls.some(
       (entry) =>
-        entry.args.join(' ') === `--user disable --now ${LOCAL_SERVICE_NAME}`,
+        entry.args.join(' ') === '--user disable --now ' + LOCAL_SERVICE_NAME,
     ),
   );
 });

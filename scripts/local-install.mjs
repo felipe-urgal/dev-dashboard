@@ -20,7 +20,14 @@ export const LOCAL_SERVICE_NAME = 'dev-dashboard.service';
 export const LOCAL_INSTALL_FILE = 'local-install.json';
 export const LOCAL_RUNTIME_ENV_FILE = 'local-runtime.env';
 export const LOCAL_ORIGIN_HOSTNAME = 'dev-dashboard.localhost';
+export const LOCAL_DESKTOP_FILE = 'dev-dashboard.desktop';
+export const LOCAL_DESKTOP_ICON_FILE = 'dev-dashboard.svg';
+export const LOCAL_DESKTOP_WM_CLASS = 'dev-dashboard';
 export const MANAGED_UNIT_MARKER = '# Managed by dev-dashboard local:install';
+export const MANAGED_DESKTOP_MARKER =
+  '# Managed by dev-dashboard local:install';
+export const MANAGED_ICON_MARKER =
+  '<!-- Managed by dev-dashboard local:install -->';
 
 export const ROOT_DIRECTORY = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -73,6 +80,25 @@ export function systemdPathValue(value, label = 'Caminho') {
   return escaped;
 }
 
+function assertSafeDesktopValue(value, label) {
+  if (typeof value !== 'string' || /[\0\r\n]/u.test(value)) {
+    throw new Error(label + ' contém caracteres inválidos para desktop entry.');
+  }
+}
+
+export function desktopExecQuote(value) {
+  assertSafeDesktopValue(value, 'Valor');
+  return (
+    '"' +
+    value
+      .replaceAll('\\', '\\\\')
+      .replaceAll('"', '\\"')
+      .replaceAll('`', '\\`')
+      .replaceAll('$', '\\$')
+      .replaceAll('%', '%%') +
+    '"'
+  );
+}
 function environmentFileQuote(value, label) {
   assertSafeSystemdValue(value, label);
   return `"${value
@@ -138,6 +164,10 @@ export function resolveLocalInstallPaths(
     'XDG_STATE_HOME',
     ['.local', 'state'],
   );
+  const xdgDataHome = resolveXdgDirectory(environment, home, 'XDG_DATA_HOME', [
+    '.local',
+    'share',
+  ]);
   const configDirectory = environment.DEV_DASHBOARD_CONFIG_DIR?.trim()
     ? path.resolve(environment.DEV_DASHBOARD_CONFIG_DIR.trim())
     : path.join(xdgConfigHome, 'dev-dashboard');
@@ -145,6 +175,14 @@ export function resolveLocalInstallPaths(
     ? path.resolve(environment.DEV_DASHBOARD_STATE_DIR.trim())
     : path.join(xdgStateHome, 'dev-dashboard');
   const unitDirectory = path.join(xdgConfigHome, 'systemd', 'user');
+  const applicationsDirectory = path.join(xdgDataHome, 'applications');
+  const desktopIconDirectory = path.join(
+    xdgDataHome,
+    'icons',
+    'hicolor',
+    'scalable',
+    'apps',
+  );
 
   return {
     configDirectory,
@@ -153,6 +191,10 @@ export function resolveLocalInstallPaths(
     runtimeEnvironmentPath: path.join(configDirectory, LOCAL_RUNTIME_ENV_FILE),
     unitDirectory,
     unitPath: path.join(unitDirectory, LOCAL_SERVICE_NAME),
+    applicationsDirectory,
+    desktopEntryPath: path.join(applicationsDirectory, LOCAL_DESKTOP_FILE),
+    desktopIconDirectory,
+    desktopIconPath: path.join(desktopIconDirectory, LOCAL_DESKTOP_ICON_FILE),
   };
 }
 
@@ -168,6 +210,31 @@ export function buildLocalOrigin(port) {
   return `http://${LOCAL_ORIGIN_HOSTNAME}:${port}`;
 }
 
+export function buildDesktopEntry({ repositoryRoot, nodePath }) {
+  assertSafeDesktopValue(repositoryRoot, 'Checkout');
+  assertSafeDesktopValue(nodePath, 'Node');
+  const entrypoint = path.join(repositoryRoot, 'scripts', 'local-install.mjs');
+
+  return [
+    MANAGED_DESKTOP_MARKER,
+    '[Desktop Entry]',
+    'Version=1.0',
+    'Type=Application',
+    'Name=Dev Dashboard',
+    'Comment=Dashboard local para gerenciamento de projetos de desenvolvimento',
+    'Exec=' +
+      desktopExecQuote(nodePath) +
+      ' ' +
+      desktopExecQuote(entrypoint) +
+      ' open-app',
+    'Icon=dev-dashboard',
+    'Terminal=false',
+    'Categories=Development;Utility;',
+    'StartupNotify=true',
+    'StartupWMClass=' + LOCAL_DESKTOP_WM_CLASS,
+    '',
+  ].join('\n');
+}
 export function buildSystemdUnit({
   repositoryRoot,
   nodePath,
@@ -273,25 +340,64 @@ async function readTextIfExists(file) {
   }
 }
 
-export async function isManagedUnit(unitPath) {
-  const contents = await readTextIfExists(unitPath);
-  if (contents === null) return false;
-  return contents.startsWith(`${MANAGED_UNIT_MARKER}\n`);
+async function isManagedFile(file, marker) {
+  let metadata;
+  try {
+    metadata = await lstat(file);
+  } catch (error) {
+    if (isErrnoCode(error, 'ENOENT')) return false;
+    throw error;
+  }
+  if (!metadata.isFile() || metadata.isSymbolicLink()) return false;
+  const contents = await readFile(file, 'utf8');
+  return contents.startsWith(marker + '\n');
 }
 
-async function assertUnitCanBeManaged(unitPath) {
-  const contents = await readTextIfExists(unitPath);
-  if (contents === null || contents.startsWith(`${MANAGED_UNIT_MARKER}\n`)) {
-    return;
+async function assertManagedFileCanBeManaged(file, marker) {
+  let metadata;
+  try {
+    metadata = await lstat(file);
+  } catch (error) {
+    if (isErrnoCode(error, 'ENOENT')) return;
+    throw error;
   }
+  if (!metadata.isFile() || metadata.isSymbolicLink()) {
+    throw new Error(
+      file +
+        ' já existe e não pertence ao instalador do Dev Dashboard. Nenhum arquivo foi sobrescrito.',
+    );
+  }
+  const contents = await readFile(file, 'utf8');
+  if (contents.startsWith(marker + '\n')) return;
   throw new Error(
-    `${unitPath} já existe e não pertence ao instalador do Dev Dashboard. Nenhum arquivo foi sobrescrito.`,
+    file +
+      ' já existe e não pertence ao instalador do Dev Dashboard. Nenhum arquivo foi sobrescrito.',
   );
 }
 
+export async function isManagedUnit(unitPath) {
+  return isManagedFile(unitPath, MANAGED_UNIT_MARKER);
+}
+
+export async function isManagedDesktopEntry(desktopEntryPath) {
+  return isManagedFile(desktopEntryPath, MANAGED_DESKTOP_MARKER);
+}
+
+export async function isManagedDesktopIcon(desktopIconPath) {
+  return isManagedFile(desktopIconPath, MANAGED_ICON_MARKER);
+}
+
+async function assertUnitCanBeManaged(unitPath) {
+  return assertManagedFileCanBeManaged(unitPath, MANAGED_UNIT_MARKER);
+}
 async function writePrivateFile(file, contents) {
   await writeFile(file, contents, { encoding: 'utf8', mode: 0o600 });
   await chmod(file, 0o600);
+}
+
+async function writePublicFile(file, contents) {
+  await writeFile(file, contents, { encoding: 'utf8', mode: 0o644 });
+  await chmod(file, 0o644);
 }
 
 export async function readLocalInstallMetadata(metadataPath) {
@@ -392,6 +498,26 @@ export async function installLocal(options = {}) {
   const runtimePath = buildRuntimePath(nodePath, environment.PATH);
 
   await assertUnitCanBeManaged(paths.unitPath);
+  await assertManagedFileCanBeManaged(
+    paths.desktopEntryPath,
+    MANAGED_DESKTOP_MARKER,
+  );
+  await assertManagedFileCanBeManaged(
+    paths.desktopIconPath,
+    MANAGED_ICON_MARKER,
+  );
+
+  const desktopIconSource = path.join(
+    root,
+    'apps',
+    'web',
+    'public',
+    LOCAL_DESKTOP_ICON_FILE,
+  );
+  const desktopIcon = await readFile(desktopIconSource, 'utf8');
+  if (!desktopIcon.startsWith(MANAGED_ICON_MARKER + '\n')) {
+    throw new Error('Ícone desktop gerenciado é inválido.');
+  }
 
   const systemd = await run('systemctl', ['--user', 'show-environment'], {
     cwd: root,
@@ -472,7 +598,20 @@ export async function installLocal(options = {}) {
     intervalMs: options.readinessIntervalMs ?? INSTALL_READINESS_INTERVAL_MS,
   });
 
-  return { ...localInstall, unitPath: paths.unitPath };
+  await mkdir(paths.applicationsDirectory, { recursive: true, mode: 0o755 });
+  await mkdir(paths.desktopIconDirectory, { recursive: true, mode: 0o755 });
+  await writePublicFile(
+    paths.desktopEntryPath,
+    buildDesktopEntry({ repositoryRoot: root, nodePath }),
+  );
+  await writePublicFile(paths.desktopIconPath, desktopIcon);
+
+  return {
+    ...localInstall,
+    unitPath: paths.unitPath,
+    desktopEntryPath: paths.desktopEntryPath,
+    desktopIconPath: paths.desktopIconPath,
+  };
 }
 
 async function systemdState(run, args, options) {
@@ -500,6 +639,11 @@ export async function localStatus(options = {}) {
   );
   const metadata = await readLocalInstallMetadata(paths.metadataPath);
   const managedUnit = await isManagedUnit(paths.unitPath);
+  const managedDesktopEntry = await isManagedDesktopEntry(
+    paths.desktopEntryPath,
+  );
+  const managedDesktopIcon = await isManagedDesktopIcon(paths.desktopIconPath);
+  const desktopInstalled = managedDesktopEntry && managedDesktopIcon;
   const runtimeEnvironment = await readTextIfExists(
     paths.runtimeEnvironmentPath,
   );
@@ -523,7 +667,13 @@ export async function localStatus(options = {}) {
     : false;
 
   return {
-    installed: Boolean(metadata && managedUnit && runtimeEnvironment !== null),
+    installed: Boolean(
+      metadata &&
+      managedUnit &&
+      runtimeEnvironment !== null &&
+      desktopInstalled,
+    ),
+    desktopInstalled,
     enabled: enabled.ok,
     active: active.ok,
     healthy,
@@ -531,6 +681,8 @@ export async function localStatus(options = {}) {
     activeState: active.value,
     origin: metadata?.origin ?? null,
     unitPath: paths.unitPath,
+    desktopEntryPath: paths.desktopEntryPath,
+    desktopIconPath: paths.desktopIconPath,
   };
 }
 
@@ -560,6 +712,122 @@ export async function openLocal(options = {}) {
   return { opened: false, origin: metadata.origin };
 }
 
+const CHROMIUM_BROWSER_COMMANDS = new Map([
+  ['google-chrome.desktop', 'google-chrome'],
+  ['google-chrome-stable.desktop', 'google-chrome-stable'],
+  ['chromium.desktop', 'chromium'],
+  ['chromium_chromium.desktop', 'chromium'],
+  ['brave-browser.desktop', 'brave-browser'],
+  ['microsoft-edge.desktop', 'microsoft-edge'],
+  ['microsoft-edge-stable.desktop', 'microsoft-edge-stable'],
+]);
+
+export function resolveChromiumBrowserCommand(desktopId) {
+  if (typeof desktopId !== 'string') return null;
+  return CHROMIUM_BROWSER_COMMANDS.get(desktopId.trim()) ?? null;
+}
+
+function launchDetached(command, args, options = {}) {
+  const spawnProcess = options.spawnProcess ?? spawn;
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawnProcess(command, args, {
+        cwd: options.cwd,
+        env: options.env ?? process.env,
+        shell: false,
+        stdio: 'ignore',
+        detached: true,
+      });
+    } catch {
+      resolve(false);
+      return;
+    }
+
+    let settled = false;
+    child.once('error', () => {
+      if (settled) return;
+      settled = true;
+      resolve(false);
+    });
+    child.once('spawn', () => {
+      if (settled) return;
+      settled = true;
+      child.unref();
+      resolve(true);
+    });
+  });
+}
+
+export async function openAppLocal(options = {}) {
+  const environment = options.environment ?? process.env;
+  const run = options.runCommand ?? runCommand;
+  const launch = options.launchDetached ?? launchDetached;
+  const paths = resolveLocalInstallPaths(
+    environment,
+    options.homeDirectory ?? homedir(),
+  );
+  const metadata = await readLocalInstallMetadata(paths.metadataPath);
+  if (!metadata) {
+    throw new Error(
+      'Dev Dashboard local não está instalado. Execute npm run local:install.',
+    );
+  }
+
+  let browserCommand = null;
+  try {
+    const defaultBrowser = await run(
+      'xdg-settings',
+      ['get', 'default-web-browser'],
+      { cwd: metadata.repositoryRoot, env: environment },
+    );
+    if (defaultBrowser.code === 0) {
+      browserCommand = resolveChromiumBrowserCommand(defaultBrowser.stdout);
+    }
+  } catch {
+    browserCommand = null;
+  }
+
+  if (browserCommand) {
+    const opened = await launch(
+      browserCommand,
+      ['--class=' + LOCAL_DESKTOP_WM_CLASS, '--app=' + metadata.origin],
+      { cwd: metadata.repositoryRoot, env: environment },
+    );
+    if (opened) {
+      return {
+        opened: true,
+        origin: metadata.origin,
+        mode: 'app',
+        browser: browserCommand,
+      };
+    }
+  }
+
+  try {
+    const opened = await run('xdg-open', [metadata.origin], {
+      cwd: metadata.repositoryRoot,
+      env: environment,
+    });
+    if (opened.code === 0) {
+      return {
+        opened: true,
+        origin: metadata.origin,
+        mode: 'browser',
+        browser: null,
+      };
+    }
+  } catch {
+    // O chamador ainda recebe a URL para diagnóstico/fallback manual.
+  }
+
+  return {
+    opened: false,
+    origin: metadata.origin,
+    mode: 'browser',
+    browser: null,
+  };
+}
 export async function uninstallLocal(options = {}) {
   const environment = options.environment ?? process.env;
   const run = options.runCommand ?? runCommand;
@@ -567,12 +835,20 @@ export async function uninstallLocal(options = {}) {
     environment,
     options.homeDirectory ?? homedir(),
   );
+
+  await assertManagedFileCanBeManaged(paths.unitPath, MANAGED_UNIT_MARKER);
+  await assertManagedFileCanBeManaged(
+    paths.desktopEntryPath,
+    MANAGED_DESKTOP_MARKER,
+  );
+  await assertManagedFileCanBeManaged(
+    paths.desktopIconPath,
+    MANAGED_ICON_MARKER,
+  );
+
   const contents = await readTextIfExists(paths.unitPath);
-  if (contents !== null && !contents.startsWith(`${MANAGED_UNIT_MARKER}\n`)) {
-    throw new Error(
-      `${paths.unitPath} não pertence ao instalador do Dev Dashboard; remoção recusada.`,
-    );
-  }
+  const desktopEntry = await readTextIfExists(paths.desktopEntryPath);
+  const desktopIcon = await readTextIfExists(paths.desktopIconPath);
 
   if (contents !== null) {
     await run('systemctl', ['--user', 'disable', '--now', LOCAL_SERVICE_NAME], {
@@ -584,6 +860,8 @@ export async function uninstallLocal(options = {}) {
   await rm(paths.unitPath, { force: true });
   await rm(paths.runtimeEnvironmentPath, { force: true });
   await rm(paths.metadataPath, { force: true });
+  await rm(paths.desktopEntryPath, { force: true });
+  await rm(paths.desktopIconPath, { force: true });
 
   if (contents !== null) {
     const reload = await run('systemctl', ['--user', 'daemon-reload'], {
@@ -593,13 +871,18 @@ export async function uninstallLocal(options = {}) {
     assertCommandSuccess(reload, 'Falha ao recarregar o systemd do usuário');
   }
 
-  return { removed: contents !== null, unitPath: paths.unitPath };
+  return {
+    removed: contents !== null || desktopEntry !== null || desktopIcon !== null,
+    unitPath: paths.unitPath,
+    desktopEntryPath: paths.desktopEntryPath,
+    desktopIconPath: paths.desktopIconPath,
+  };
 }
-
 function printStatus(status) {
   const icon = (value) => (value ? '✓' : '✗');
   console.log('Dev Dashboard local\n');
   console.log(`${icon(status.installed)} instalado`);
+  console.log(`${icon(status.desktopInstalled)} integração desktop`);
   console.log(`${icon(status.enabled)} autostart habilitado`);
   console.log(`${icon(status.active)} serviço ativo`);
   console.log(`${icon(status.healthy)} API saudável`);
@@ -631,6 +914,15 @@ export async function main(args = process.argv.slice(2)) {
     }
     return 0;
   }
+  if (command === 'open-app') {
+    const result = await openAppLocal();
+    if (!result.opened) {
+      console.log(
+        `Não foi possível abrir o aplicativo automaticamente.\n${result.origin}`,
+      );
+    }
+    return result.opened ? 0 : 1;
+  }
   if (command === 'uninstall') {
     await uninstallLocal();
     console.log(
@@ -640,7 +932,7 @@ export async function main(args = process.argv.slice(2)) {
   }
 
   throw new Error(
-    'Uso: node scripts/local-install.mjs <install|status|open|uninstall>',
+    'Uso: node scripts/local-install.mjs <install|status|open|open-app|uninstall>',
   );
 }
 
