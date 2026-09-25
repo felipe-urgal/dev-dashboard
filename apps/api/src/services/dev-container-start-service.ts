@@ -226,7 +226,9 @@ function creationAuthority(
   };
 }
 
-function rebuildErrorFromStart(error: DevContainerStartError): DevContainerRebuildError {
+function rebuildErrorFromStart(
+  error: DevContainerStartError,
+): DevContainerRebuildError {
   if (error.code === 'DEV_CONTAINER_START_CONFIG_CHANGED') {
     return new DevContainerRebuildError(
       'DEV_CONTAINER_REBUILD_CONFIG_CHANGED',

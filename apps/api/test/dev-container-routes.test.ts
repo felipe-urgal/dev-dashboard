@@ -49,10 +49,7 @@ const unusedStartService = {
   start: async (_project: Project, _input: DevContainerStartInput = {}) => {
     throw new Error('não usado');
   },
-  rebuild: async (
-    _project: Project,
-    _input: DevContainerRebuildInput = {},
-  ) => {
+  rebuild: async (_project: Project, _input: DevContainerRebuildInput = {}) => {
     throw new Error('não usado');
   },
 };

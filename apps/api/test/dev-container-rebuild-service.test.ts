@@ -105,13 +105,15 @@ function snapshot(onDispose: () => void): DevContainerConfigSnapshot {
   };
 }
 
-function fixture(options: {
-  plan?: DevContainerLifecyclePreflight;
-  ownership?: DevContainerOwnershipRecord | undefined;
-  snapshotError?: Error;
-  cleanupErrorAt?: number;
-  commandError?: Error;
-} = {}) {
+function fixture(
+  options: {
+    plan?: DevContainerLifecyclePreflight;
+    ownership?: DevContainerOwnershipRecord | undefined;
+    snapshotError?: Error;
+    cleanupErrorAt?: number;
+    commandError?: Error;
+  } = {},
+) {
   let current = devContainerInstance();
   let disposed = 0;
   let cleanupCalls = 0;
@@ -186,8 +188,7 @@ function fixture(options: {
         return {
           state: 'cleaned' as const,
           environmentInstanceId: current.id,
-          containerId:
-            cleanupCalls === 1 ? OLD_CONTAINER_ID : NEW_CONTAINER_ID,
+          containerId: cleanupCalls === 1 ? OLD_CONTAINER_ID : NEW_CONTAINER_ID,
         };
       },
     },
@@ -303,12 +304,7 @@ test('rebuild não limpa runtime atual se o snapshot confirmado não puder ser c
   );
 
   assert.equal(f.cleanupCalls(), 0);
-  assert.deepEqual(f.events, [
-    'plan',
-    'confirm',
-    'ownership:get',
-    'snapshot',
-  ]);
+  assert.deepEqual(f.events, ['plan', 'confirm', 'ownership:get', 'snapshot']);
 });
 
 test('rebuild descarta snapshot e não recria se cleanup do runtime antigo falhar', async () => {
