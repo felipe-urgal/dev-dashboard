@@ -1629,12 +1629,22 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(async () => ({
-        result: await options.agentRuntimeApiService.adoptBacklog(
-          request.params.projectId,
-          request.body ?? {},
-        ),
-      })),
+      withAgentErrors(async () => {
+        const adoptBacklog = options.agentRuntimeApiService.adoptBacklog;
+        if (!adoptBacklog) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_BACKLOG_UNAVAILABLE',
+            'GitHub backlog adoption is unavailable.',
+          );
+        }
+        return {
+          result: await adoptBacklog.call(
+            options.agentRuntimeApiService,
+            request.params.projectId,
+            request.body ?? {},
+          ),
+        };
+      }),
   );
 
   app.post<{ Params: ProjectParams; Body: CreateTaskBody }>(
