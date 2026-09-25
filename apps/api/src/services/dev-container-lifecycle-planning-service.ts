@@ -2,6 +2,10 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type {
+  DevContainerOwnershipRecord,
+  DevContainerOwnershipStore,
+} from './dev-container-ownership-store.js';
+import type {
   DevContainerConfigurationKind,
   DevContainerConfigurationSource,
   DevContainerDiscoveryService,
@@ -23,7 +27,7 @@ export type DevContainerLifecyclePreflightState =
 
 export type DevContainerLifecyclePreflightReason =
   | 'review-required'
-  | 'runtime-not-host'
+  | 'rebuild-ownership-required'
   | 'discovery-not-ready'
   | 'initialize-command-declared'
   | 'compose-ownership-required'
@@ -33,12 +37,16 @@ export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
-  operation: 'create';
+  operation: 'create' | 'rebuild';
   state: DevContainerLifecyclePreflightState;
   reason: DevContainerLifecyclePreflightReason;
   observedAt: string;
   environmentInstanceId: string;
   runtime: 'host' | 'devcontainer';
+  /** Evidência interna; o schema HTTP não expõe este campo. */
+  runtimeId?: string;
+  /** Evidência interna; o schema HTTP não expõe este campo. */
+  ownershipToken?: string;
   executionEnabled: false;
   requiresConfirmation: boolean;
   discoveryState?: DevContainerInspectionState;
@@ -77,6 +85,7 @@ type EnvironmentResolver = Pick<
   DevelopmentEnvironmentInstanceStore,
   'resolveForProject'
 >;
+type OwnershipReader = Pick<DevContainerOwnershipStore, 'get'>;
 
 function scopedProject(project: Project, cwd: string): Project {
   return { ...project, path: cwd };
@@ -93,6 +102,7 @@ export class DevContainerLifecyclePlanningService {
     private readonly discovery: DiscoveryReader,
     private readonly environmentInstanceStore: EnvironmentResolver,
     private readonly now: () => Date = () => new Date(),
+    private readonly ownershipStore?: OwnershipReader,
   ) {}
 
   public async plan(
@@ -110,21 +120,45 @@ export class DevContainerLifecyclePlanningService {
       );
     }
 
-    if (executionContext.runtime !== 'host') {
-      return {
-        projectId: project.id,
-        operation: 'create',
-        state: 'blocked',
-        reason: 'runtime-not-host',
-        observedAt: this.now().toISOString(),
-        environmentInstanceId: executionContext.environmentInstanceId,
-        runtime: executionContext.runtime,
-        executionEnabled: false,
-        requiresConfirmation: false,
-        limitations: [],
-        diagnostic:
-          'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
-      };
+    const operation =
+      executionContext.runtime === 'devcontainer' ? 'rebuild' : 'create';
+    let ownedRuntime: DevContainerOwnershipRecord | undefined;
+
+    if (operation === 'rebuild') {
+      try {
+        ownedRuntime = await this.ownershipStore?.get({
+          projectId: project.id,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          projectPath: executionContext.cwd,
+        });
+      } catch {
+        ownedRuntime = undefined;
+      }
+
+      if (
+        !ownedRuntime ||
+        ownedRuntime.phase !== 'owned' ||
+        !ownedRuntime.containerId ||
+        ownedRuntime.containerId !== executionContext.runtimeId
+      ) {
+        return {
+          projectId: project.id,
+          operation,
+          state: 'blocked',
+          reason: 'rebuild-ownership-required',
+          observedAt: this.now().toISOString(),
+          environmentInstanceId: executionContext.environmentInstanceId,
+          runtime: executionContext.runtime,
+          ...(executionContext.runtimeId
+            ? { runtimeId: executionContext.runtimeId }
+            : {}),
+          executionEnabled: false,
+          requiresConfirmation: false,
+          limitations: [],
+          diagnostic:
+            'Rebuild exige um Dev Container atual com ownership comprovado para esta Environment Instance.',
+        };
+      }
     }
 
     let inspection: DevContainerInspection;
@@ -135,12 +169,18 @@ export class DevContainerLifecyclePlanningService {
     } catch {
       return {
         projectId: project.id,
-        operation: 'create',
+        operation,
         state: 'unavailable',
         reason: 'discovery-not-ready',
         observedAt: this.now().toISOString(),
         environmentInstanceId: executionContext.environmentInstanceId,
         runtime: executionContext.runtime,
+        ...(executionContext.runtimeId
+          ? { runtimeId: executionContext.runtimeId }
+          : {}),
+        ...(ownedRuntime
+          ? { ownershipToken: ownedRuntime.ownershipToken }
+          : {}),
         executionEnabled: false,
         requiresConfirmation: false,
         limitations: [],
@@ -151,10 +191,14 @@ export class DevContainerLifecyclePlanningService {
 
     const base = {
       projectId: project.id,
-      operation: 'create' as const,
+      operation,
       observedAt: inspection.observedAt,
       environmentInstanceId: executionContext.environmentInstanceId,
       runtime: executionContext.runtime,
+      ...(executionContext.runtimeId
+        ? { runtimeId: executionContext.runtimeId }
+        : {}),
+      ...(ownedRuntime ? { ownershipToken: ownedRuntime.ownershipToken } : {}),
       executionEnabled: false as const,
       discoveryState: inspection.state,
       ...(inspection.configSource
@@ -244,7 +288,9 @@ export class DevContainerLifecyclePlanningService {
         ? ['post-create-hooks-deferred']
         : [],
       diagnostic:
-        'A configuração pode avançar para revisão humana. A execução pública permanece desabilitada enquanto o executor interno é qualificado e ainda exige confirmação explícita.',
+        operation === 'rebuild'
+          ? 'O Dev Container owned pode avançar para revisão de rebuild. A execução continua bloqueada até confirmação explícita.'
+          : 'A configuração pode avançar para revisão humana. A execução pública permanece desabilitada enquanto o executor interno é qualificado e ainda exige confirmação explícita.',
     };
   }
 }
