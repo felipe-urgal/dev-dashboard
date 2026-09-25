@@ -12,7 +12,7 @@ const MAX_CONTENT_CHARS = 16_000;
 const MAX_STATE_BYTES = 8 * 1024 * 1024;
 const REDACTED_SECRET = '[REDACTED]';
 const SECRET_ASSIGNMENT =
-  /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|CLIENT_SECRET|ACCESS_KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*([:=])\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s"'\`,;]+)/gi;
+  /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|CLIENT_SECRET|ACCESS_KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*([:=])\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s"',;]+)/gi;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+\/-]{12,}={0,2}/gi;
 const WELL_KNOWN_TOKEN =
   /\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:ant-)?[A-Za-z0-9_-]{16,})\b/g;
