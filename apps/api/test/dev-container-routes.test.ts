@@ -10,7 +10,9 @@ import { devContainerRoutes } from '../src/routes/dev-container.js';
 import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
 import type { DevContainerLifecyclePreflight } from '../src/services/dev-container-lifecycle-planning-service.js';
 import {
+  DevContainerRebuildError,
   DevContainerStartError,
+  type DevContainerRebuildInput,
   type DevContainerStartInput,
 } from '../src/services/dev-container-start-service.js';
 import { ProjectStore } from '../src/store/project-store.js';
@@ -45,6 +47,12 @@ const unusedLifecycleConfirmationService = {
 
 const unusedStartService = {
   start: async (_project: Project, _input: DevContainerStartInput = {}) => {
+    throw new Error('não usado');
+  },
+  rebuild: async (
+    _project: Project,
+    _input: DevContainerRebuildInput = {},
+  ) => {
     throw new Error('não usado');
   },
 };
@@ -493,6 +501,7 @@ test('Dev Container start encaminha somente Environment Instance e confirmação
           internalSecret: 'não pode sair',
         };
       },
+      rebuild: unusedStartService.rebuild,
     },
   });
   context.after(() => app.close());
@@ -527,6 +536,123 @@ test('Dev Container start encaminha somente Environment Instance e confirmação
   ]);
 });
 
+test('Dev Container rebuild encaminha somente Environment Instance e confirmação ao executor', async (context) => {
+  const calls: Array<{
+    projectId: string;
+    input: DevContainerRebuildInput;
+  }> = [];
+  const environmentInstanceId =
+    'environment:worktree:project-1:devcontainer-rebuild-runtime';
+  const confirmationToken = 'e'.repeat(64);
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-25T11:25:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: {
+      start: unusedStartService.start,
+      rebuild: async (selectedProject, input = {}) => {
+        calls.push({ projectId: selectedProject.id, input });
+        return {
+          environmentInstanceId,
+          runtime: 'devcontainer',
+          containerId: 'b'.repeat(64),
+          internalSecret: 'não pode sair',
+        };
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/rebuild',
+    payload: {
+      environmentInstanceId,
+      confirmationToken,
+      ignored: 'não aceito',
+    },
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(response.json(), {
+    result: {
+      environmentInstanceId,
+      runtime: 'devcontainer',
+      containerId: 'b'.repeat(64),
+    },
+  });
+  assert.equal(response.body.includes('não pode sair'), false);
+  assert.deepEqual(calls, [
+    {
+      projectId: 'project-1',
+      input: {
+        environmentInstanceId,
+        confirmationToken,
+      },
+    },
+  ]);
+});
+
+test('Dev Container rebuild preserva ownership drift como conflito sanitizado', async (context) => {
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-25T11:26:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: {
+      start: unusedStartService.start,
+      rebuild: async () => {
+        throw new DevContainerRebuildError(
+          'DEV_CONTAINER_REBUILD_OWNERSHIP_CHANGED',
+          'O ownership do Dev Container mudou depois da confirmação.',
+        );
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/rebuild',
+    payload: {
+      confirmationToken: 'f'.repeat(64),
+    },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.deepEqual(response.json(), {
+    error: 'DEV_CONTAINER_REBUILD_OWNERSHIP_CHANGED',
+    message: 'O ownership do Dev Container mudou depois da confirmação.',
+  });
+});
+
 test('Dev Container start preserva erro sanitizado de confirmação como conflito', async (context) => {
   const app = Fastify();
   registerApiErrorHandling(app);
@@ -553,6 +679,7 @@ test('Dev Container start preserva erro sanitizado de confirmação como conflit
           'Uma confirmação válida e atual é obrigatória para criar o Dev Container.',
         );
       },
+      rebuild: unusedStartService.rebuild,
     },
   });
   context.after(() => app.close());
