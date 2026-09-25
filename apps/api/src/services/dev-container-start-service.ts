@@ -12,7 +12,10 @@ import type {
   DevContainerConfigSnapshotService,
 } from './dev-container-config-snapshot-service.js';
 import type { DevContainerLifecycleConfirmationService } from './dev-container-lifecycle-confirmation-service.js';
-import type { DevContainerLifecyclePlanningService } from './dev-container-lifecycle-planning-service.js';
+import type {
+  DevContainerLifecyclePlanningService,
+  DevContainerLifecyclePreflight,
+} from './dev-container-lifecycle-planning-service.js';
 import type {
   DevContainerOwnershipRecord,
   DevContainerOwnershipStore,
@@ -36,6 +39,29 @@ export interface DevContainerStartResult {
   environmentInstanceId: string;
   runtime: 'devcontainer';
   containerId: string;
+}
+
+export type DevContainerRebuildInput = DevContainerStartInput;
+export type DevContainerRebuildResult = DevContainerStartResult;
+
+export type DevContainerRebuildErrorCode =
+  | 'DEV_CONTAINER_REBUILD_ENVIRONMENT_NOT_READY'
+  | 'DEV_CONTAINER_REBUILD_PREFLIGHT_NOT_READY'
+  | 'DEV_CONTAINER_REBUILD_CONFIRMATION_REQUIRED'
+  | 'DEV_CONTAINER_REBUILD_CONFIG_CHANGED'
+  | 'DEV_CONTAINER_REBUILD_OWNERSHIP_CHANGED'
+  | 'DEV_CONTAINER_REBUILD_CLEANUP_FAILED'
+  | 'DEV_CONTAINER_REBUILD_CREATE_FAILED'
+  | 'DEV_CONTAINER_REBUILD_ROLLBACK_FAILED';
+
+export class DevContainerRebuildError extends Error {
+  public constructor(
+    public readonly code: DevContainerRebuildErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DevContainerRebuildError';
+  }
 }
 
 export type DevContainerStartErrorCode =
@@ -75,7 +101,10 @@ type ConfirmationService = Pick<
   'consume'
 >;
 type SnapshotService = Pick<DevContainerConfigSnapshotService, 'create'>;
-type OwnershipStore = Pick<DevContainerOwnershipStore, 'reserve' | 'attach'>;
+type OwnershipStore = Pick<
+  DevContainerOwnershipStore,
+  'reserve' | 'attach' | 'get'
+>;
 type CleanupService = Pick<DevContainerCleanupService, 'cleanup'>;
 type EnvironmentStore = Pick<
   DevelopmentEnvironmentInstanceStore,
