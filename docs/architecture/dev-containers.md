@@ -230,13 +230,27 @@ Qualquer falha depois da reserva de ownership chama o cleanup owned. O timeout p
 
 O endpoint de start chama o mesmo executor já qualificado e devolve somente `environmentInstanceId`, `runtime=devcontainer` e `containerId`. Mudança de preflight/configuração, confirmação inválida ou estado incompatível falham antes da mutation; falhas de comando/estado/rollback continuam sanitizadas. O preflight HTTP permanece com `executionEnabled=false`, deixando explícito que inspeção não equivale a autorização.
 
+## Terminal via Execution Context
+
+O Terminal agora consome a mesma `ExecutionContext` resolvida pela `DevelopmentEnvironmentInstance`. O contrato interno inclui o `runtimeId` backend-owned quando o runtime é `devcontainer`; esse identificador não é enviado ao browser.
+
+Para `runtime=host`, o comportamento existente permanece inalterado. Para `runtime=devcontainer`, somente o Terminal `shell` é habilitado neste corte:
+
+- a UI preserva apenas `environmentInstanceId` na navegação e nas chamadas de status/confirmação/WebSocket;
+- o backend resolve `runtime + runtimeId + cwd` a partir da Environment Instance;
+- `runtimeId` precisa ser um `containerId` estruturado já persistido pelo lifecycle;
+- o processo PTY executa argv fechado `devcontainer exec --container-id <runtimeId> /bin/sh`;
+- stdin/stdout permanecem no WebSocket/PTY já existente, sem introduzir uma segunda engine de terminal;
+- nenhuma configuração, containerId, path remoto ou argv arbitrário é aceito do browser.
+
+O Console Rails compartilhado preserva a Environment Instance selecionada, mas continua bloqueado para `runtime=devcontainer` até existir resolução de comando dentro do container. Isso evita cair silenciosamente para o host quando o usuário selecionou o runtime Dev Container.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
 
 - expõem rebuild/stop/cleanup como mutation pública;
-- executam comandos arbitrários do Dashboard dentro do runtime;
-- adaptam Terminal, Scripts ou Testes ao runtime `devcontainer`;
+- migram Scripts ou Testes ao runtime `devcontainer`;
 - integram Dev Container Compose ao ownership do domínio Docker Compose;
 - concedem qualquer autoridade mutável ao browser.
 
