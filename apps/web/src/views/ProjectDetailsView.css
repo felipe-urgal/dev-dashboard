@@ -965,7 +965,7 @@
   }
 }
 
-@media (min-width: 901px) and (max-height: 760px) {
+@media (min-width: 901px) and (max-height: 860px) {
   .project-details-page-ready .project-details-tabs {
     padding: 12px 10px 10px;
   }
