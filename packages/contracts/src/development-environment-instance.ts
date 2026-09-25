@@ -29,5 +29,7 @@ export interface ExecutionContext {
   environmentInstanceId: string;
   cwd: string;
   runtime: DevelopmentEnvironmentRuntimeKind;
+  /** Identidade backend-owned do runtime quando a execução não ocorre no host. */
+  runtimeId?: string;
   environmentProfileId?: string;
 }
