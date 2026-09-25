@@ -245,12 +245,28 @@ Para `runtime=host`, o comportamento existente permanece inalterado. Para `runti
 
 O Console Rails compartilhado preserva a Environment Instance selecionada, mas continua bloqueado para `runtime=devcontainer` até existir resolução de comando dentro do container. Isso evita cair silenciosamente para o host quando o usuário selecionou o runtime Dev Container.
 
+## Testes via Execution Context
+
+A primeira integração de Testes com `runtime=devcontainer` fica restrita à suíte completa executada pelo fluxo PTY destacável existente. A UI continua enviando apenas `environmentInstanceId + commandId`; o backend resolve o comando detectado, `cwd`, runtime e `runtimeId`.
+
+Para Dev Container:
+
+- o comando é encapsulado em `devcontainer exec --container-id <runtimeId> --workspace-folder <cwd> ...`;
+- comandos absolutos só são aceitos quando pertencem ao workspace e são convertidos para caminho relativo dentro do container;
+- Rails recebe somente os overrides fixos `RAILS_ENV=test` e `RACK_ENV=test`;
+- valores de `.env.check.local` **não** são colocados em argv ou `--remote-env`; enquanto não existir um canal de secret injection sem exposição em process list/logs, a execução Dev Container falha fechado quando esse arquivo declara valores;
+- o ambiente do processo host que executa a CLI continua isolando credenciais do Dashboard;
+- status, reconnect e cancelamento permanecem isolados pela mesma Environment Instance.
+
+Esse recorte não migra execução targeted por arquivo/caso/nome nem o fluxo legado de Testes baseado em ProcessManager.
+
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
 
 - expõem rebuild/stop/cleanup como mutation pública;
-- migram Scripts ou Testes ao runtime `devcontainer`;
+- migram Scripts ou testes targeted por arquivo/caso/nome ao runtime `devcontainer`;
+- injetam `.env.check.local` no runtime Dev Container;
 - integram Dev Container Compose ao ownership do domínio Docker Compose;
 - concedem qualquer autoridade mutável ao browser.
 
