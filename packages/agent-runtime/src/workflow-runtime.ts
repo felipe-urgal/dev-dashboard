@@ -560,7 +560,6 @@ export class AgentWorkflowRuntime {
         }
       }
 
-
       if (checkpointToPersist) {
         try {
           checkpoint =
