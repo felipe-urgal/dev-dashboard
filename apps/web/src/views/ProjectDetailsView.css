@@ -631,7 +631,7 @@
   }
 }
 
-.project-details-tab svg {
+:deep(.project-details-tab svg) {
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
@@ -777,7 +777,7 @@
   }
 
   .project-details-page-ready .project-details-hero {
-    grid-column: 1 / -1;
+    grid-column: 2;
     grid-row: 1;
   }
 
@@ -786,7 +786,7 @@
     z-index: 20;
     top: var(--app-topbar-height, 72px);
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1 / 3;
     display: block;
     align-self: start;
     width: 216px;
