@@ -87,7 +87,11 @@ const route = useRoute();
     :class="{
       'project-details-tab-active': route.name === 'project-console',
     }"
-    :to="{ name: 'project-console', params: { projectId: project.id } }"
+    :to="{
+      name: 'project-console',
+      params: { projectId: project.id },
+      ...(environmentInstanceId ? { query: { environmentInstanceId } } : {}),
+    }"
   >
     <CommandLineIcon aria-hidden="true" />
     <span>Console</span>

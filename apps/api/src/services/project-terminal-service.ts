@@ -15,6 +15,11 @@ import type {
 } from '@dev-dashboard/contracts';
 import type { RawData, WebSocket } from 'ws';
 
+import {
+  buildDevContainerShellCommand,
+  isValidDevContainerRuntimeId,
+} from './dev-container-exec-adapter.js';
+
 const MAX_MESSAGE_BYTES = 65_536;
 const MAX_TOTAL_SESSIONS = 16;
 const MAX_SESSIONS_PER_KEY = 4;
@@ -44,6 +49,8 @@ interface ConfirmationRecord {
   projectId: string;
   kind: ProjectTerminalKind;
   environmentInstanceId?: string;
+  runtime?: ExecutionContext['runtime'];
+  runtimeId?: string;
   expiresAt: number;
 }
 
@@ -138,14 +145,19 @@ async function defaultResolveCommand(
 
 function executionContextMessage(
   project: Project,
+  kind: ProjectTerminalKind,
   executionContext?: ExecutionContext,
 ): string | undefined {
   if (!executionContext) return undefined;
   if (executionContext.projectId !== project.id) {
     return 'O ambiente selecionado não pertence a este projeto.';
   }
-  if (executionContext.runtime !== 'host') {
-    return 'O Terminal ainda não executa diretamente em runtime Dev Container.';
+  if (executionContext.runtime === 'host') return undefined;
+  if (kind !== 'shell') {
+    return 'O Console Rails ainda não executa diretamente em runtime Dev Container.';
+  }
+  if (!isValidDevContainerRuntimeId(executionContext.runtimeId)) {
+    return 'O runtime Dev Container selecionado não possui uma identidade executável válida.';
   }
   return undefined;
 }
@@ -181,7 +193,11 @@ export class ProjectTerminalService {
     kind: ProjectTerminalKind,
     executionContext?: ExecutionContext,
   ): ProjectTerminalStatus {
-    const contextMessage = executionContextMessage(project, executionContext);
+    const contextMessage = executionContextMessage(
+      project,
+      kind,
+      executionContext,
+    );
     const supported = this.supports(project, kind) && !contextMessage;
     const environmentInstanceId = executionContext?.environmentInstanceId;
     const activeSessions = this.countActive(
@@ -199,7 +215,9 @@ export class ProjectTerminalService {
         : !this.supports(project, kind)
           ? 'Este projeto não é reconhecido como Rails, então o console não está disponível.'
           : kind === 'shell'
-            ? 'Terminal disponível. Abre um shell interativo no ambiente selecionado.'
+            ? executionContext?.runtime === 'devcontainer'
+              ? 'Terminal disponível. Abre um shell interativo no Dev Container selecionado.'
+              : 'Terminal disponível. Abre um shell interativo no ambiente selecionado.'
             : 'Console Rails disponível. Abre `bin/rails console` (ou `bundle exec rails console`) no ambiente selecionado.',
     };
   }
@@ -209,7 +227,11 @@ export class ProjectTerminalService {
     kind: ProjectTerminalKind,
     executionContext?: ExecutionContext,
   ): ProjectTerminalConfirmation {
-    const contextMessage = executionContextMessage(project, executionContext);
+    const contextMessage = executionContextMessage(
+      project,
+      kind,
+      executionContext,
+    );
     if (contextMessage) throw new ProjectTerminalError(contextMessage);
 
     this.sweepConfirmations();
@@ -221,6 +243,10 @@ export class ProjectTerminalService {
       projectId: project.id,
       kind,
       ...(environmentInstanceId ? { environmentInstanceId } : {}),
+      ...(executionContext ? { runtime: executionContext.runtime } : {}),
+      ...(executionContext?.runtimeId
+        ? { runtimeId: executionContext.runtimeId }
+        : {}),
       expiresAt,
     });
     return {
@@ -237,7 +263,11 @@ export class ProjectTerminalService {
     socket: WebSocket,
     executionContext?: ExecutionContext,
   ): Promise<void> {
-    const contextMessage = executionContextMessage(project, executionContext);
+    const contextMessage = executionContextMessage(
+      project,
+      kind,
+      executionContext,
+    );
     if (contextMessage) {
       sendJson(socket, { type: 'error', message: contextMessage });
       socket.close(1008, 'Ambiente inválido');
@@ -253,7 +283,9 @@ export class ProjectTerminalService {
       !record ||
       record.projectId !== project.id ||
       record.kind !== kind ||
-      record.environmentInstanceId !== environmentInstanceId
+      record.environmentInstanceId !== environmentInstanceId ||
+      record.runtime !== executionContext?.runtime ||
+      record.runtimeId !== executionContext?.runtimeId
     ) {
       sendJson(socket, {
         type: 'error',
@@ -289,7 +321,10 @@ export class ProjectTerminalService {
 
     const requestedRoot = executionContext?.cwd ?? project.path;
     const root = await realpath(requestedRoot).catch(() => requestedRoot);
-    const command = await this.resolveCommand(project, root, kind);
+    const command =
+      executionContext?.runtime === 'devcontainer'
+        ? buildDevContainerShellCommand(executionContext.runtimeId!)
+        : await this.resolveCommand(project, root, kind);
     if (!command) {
       sendJson(socket, {
         type: 'error',

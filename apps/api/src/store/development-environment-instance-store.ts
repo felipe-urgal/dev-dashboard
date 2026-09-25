@@ -295,6 +295,9 @@ export class DevelopmentEnvironmentInstanceStore {
       environmentInstanceId: instance.id,
       cwd: instance.source.path,
       runtime: instance.runtime.kind,
+      ...(instance.runtime.runtimeId
+        ? { runtimeId: instance.runtime.runtimeId }
+        : {}),
     };
   }
 

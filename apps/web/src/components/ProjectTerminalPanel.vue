@@ -27,6 +27,7 @@ const props = withDefaults(
     title: string;
     description: string;
     autoStart?: boolean;
+    environmentInstanceId?: string | undefined;
   }>(),
   { autoStart: false },
 );
@@ -63,6 +64,7 @@ async function loadStatus(): Promise<void> {
     const status = await fetchProjectTerminalStatus(
       props.project.id,
       props.kind,
+      props.environmentInstanceId,
     );
     supported.value = status.supported;
     statusMessage.value = status.message;
@@ -195,11 +197,13 @@ async function startSession(): Promise<void> {
     const confirmation = await prepareProjectTerminalConfirmation(
       props.project.id,
       props.kind,
+      props.environmentInstanceId,
     );
     const url = projectTerminalWebSocketUrl(
       props.project.id,
       props.kind,
       confirmation.token,
+      props.environmentInstanceId,
     );
     const newSocket = new WebSocket(url);
     socket = newSocket;
@@ -287,7 +291,8 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 watch(
-  () => `${props.project.id}:${props.kind}`,
+  () =>
+    `${props.project.id}:${props.kind}:${props.environmentInstanceId ?? 'primary'}`,
   () => {
     disconnect();
     disposeTerminal();
@@ -353,9 +358,9 @@ onBeforeUnmount(() => {
       </template>
       <div class="terminal-start">
         <p class="terminal-warning">
-          Esta sessão executa comandos com as mesmas permissões do seu usuário,
-          sem restrição de catálogo. Use apenas em projetos e comandos em que
-          você confia.
+          Esta sessão permite comandos interativos sem restrição de catálogo no
+          ambiente selecionado. Use apenas em projetos e comandos em que você
+          confia.
         </p>
         <button type="button" class="primary-button" @click="startSession">
           {{

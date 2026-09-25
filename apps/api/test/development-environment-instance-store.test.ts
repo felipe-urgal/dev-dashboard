@@ -186,6 +186,13 @@ test('persists identity/runtime outside the project tree and reconciles restart 
       runtime: { kind: 'devcontainer', runtimeId: 'runtime-1' },
       lifecycle: 'ready',
     });
+    assert.deepEqual(firstStore.resolveExecutionContext(environmentId), {
+      projectId: 'project-a',
+      environmentInstanceId: environmentId,
+      cwd: worktree.path,
+      runtime: 'devcontainer',
+      runtimeId: 'runtime-1',
+    });
 
     const restartedProjectStore = new ProjectStore();
     const restartedStore = new DevelopmentEnvironmentInstanceStore(
