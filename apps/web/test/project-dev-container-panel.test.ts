@@ -311,7 +311,9 @@ describe('ProjectDevContainerPanel', () => {
     expect(prepareDevContainerLifecycleConfirmation).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('Reconstruir este Dev Container?');
     expect(wrapper.text()).toContain('Confirmar rebuild');
-    expect(wrapper.text()).toContain('Volumes não são removidos implicitamente');
+    expect(wrapper.text()).toContain(
+      'Volumes não são removidos implicitamente',
+    );
 
     const confirmButton = wrapper
       .findAll('button')
