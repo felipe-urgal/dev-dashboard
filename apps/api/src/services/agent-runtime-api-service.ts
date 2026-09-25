@@ -772,8 +772,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       };
     }
 
-    const issueLockKey =
-      projectId + ':issue:' + String(selection.issue.number);
+    const issueLockKey = projectId + ':issue:' + String(selection.issue.number);
     const existing = this.issueAdoptionLocks.get(issueLockKey);
     if (existing) return existing;
 
