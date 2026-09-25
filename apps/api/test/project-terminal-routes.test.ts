@@ -6,6 +6,8 @@ import { test } from 'node:test';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import { primaryEnvironmentInstanceId } from '../src/store/development-environment-instance-store.js';
+
 const TOKEN = 't'.repeat(64);
 
 interface StatusResponse {
@@ -15,7 +17,11 @@ interface StatusResponse {
   message: string;
 }
 interface ConfirmationResponse {
-  confirmation: { token: string; expiresAt: string };
+  confirmation: {
+    token: string;
+    expiresAt: string;
+    environmentInstanceId?: string;
+  };
 }
 interface ErrorResponse {
   error?: string;
@@ -137,6 +143,49 @@ test('rotas de terminal/console do projeto', async (context) => {
     const { confirmation } = response.json<ConfirmationResponse>();
     assert.equal(confirmation.token.length, 64);
   });
+
+  await context.test(
+    'status e confirmação usam a Environment Instance Dev Container selecionada',
+    async () => {
+      const environmentInstanceId = primaryEnvironmentInstanceId(nodeProject.id);
+      const instance =
+        appContext.developmentEnvironmentInstanceStore.findById(
+          environmentInstanceId,
+        );
+      assert.ok(instance);
+      appContext.developmentEnvironmentInstanceStore.upsert({
+        ...instance,
+        runtime: { kind: 'devcontainer', runtimeId: 'a'.repeat(64) },
+        lifecycle: 'ready',
+      });
+
+      const query =
+        '?environmentInstanceId=' + encodeURIComponent(environmentInstanceId);
+      const statusResponse = await app.inject({
+        method: 'GET',
+        url: '/api/projects/node-project/terminal/shell' + query,
+        headers,
+      });
+      assert.equal(statusResponse.statusCode, 200);
+      const status = statusResponse.json<StatusResponse>();
+      assert.equal(status.supported, true);
+      assert.match(status.message, /Dev Container/u);
+
+      const confirmationResponse = await app.inject({
+        method: 'POST',
+        url:
+          '/api/projects/node-project/terminal/shell/confirmations' + query,
+        headers,
+        payload: {},
+      });
+      assert.equal(confirmationResponse.statusCode, 201);
+      assert.equal(
+        confirmationResponse.json<ConfirmationResponse>().confirmation
+          .environmentInstanceId,
+        environmentInstanceId,
+      );
+    },
+  );
 
   await context.test('rota de status exige autenticação', async () => {
     const response = await app.inject({
