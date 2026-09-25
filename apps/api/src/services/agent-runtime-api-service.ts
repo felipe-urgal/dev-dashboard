@@ -67,6 +67,7 @@ export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_TASK_NOT_FOUND'
   | 'AGENT_API_INVALID_REQUEST'
   | 'AGENT_API_BUDGET_EXCEEDED'
+  | 'AGENT_API_EXECUTION_CONFLICT'
   | 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
   | 'AGENT_API_INTEGRATION_DISCOVERY_FAILED'
   | 'AGENT_API_BACKLOG_UNAVAILABLE'
@@ -1637,6 +1638,19 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     try {
       return await operation();
     } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'AGENT_TASK_LOCKED'
+      ) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_EXECUTION_CONFLICT',
+          error instanceof Error
+            ? error.message
+            : 'Agent task already has an active operation.',
+        );
+      }
       if (
         error &&
         typeof error === 'object' &&
