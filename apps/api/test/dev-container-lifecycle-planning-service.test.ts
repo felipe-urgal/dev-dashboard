@@ -60,7 +60,8 @@ function planner(
           ? {
               projectId: project.id,
               environmentInstanceId:
-                context?.environmentInstanceId ?? hostContext.environmentInstanceId,
+                context?.environmentInstanceId ??
+                hostContext.environmentInstanceId,
               projectPath: context?.cwd ?? project.path,
               configSource: '.devcontainer/devcontainer.json',
               phase: ownership.phase,
@@ -266,15 +267,11 @@ test('preflight oferece rebuild somente para runtime Dev Container owned', async
     configurationHash: CONFIG_HASH,
     configuration: { kind: 'image', lifecycleHooks: ['postCreateCommand'] },
   };
-  const { service, inspectedPaths } = planner(
-    inspection,
-    devContainerContext,
-    {
-      phase: 'owned',
-      containerId: RUNTIME_ID,
-      ownershipToken: OWNERSHIP_TOKEN,
-    },
-  );
+  const { service, inspectedPaths } = planner(inspection, devContainerContext, {
+    phase: 'owned',
+    containerId: RUNTIME_ID,
+    ownershipToken: OWNERSHIP_TOKEN,
+  });
 
   const plan = await service.plan(project);
 
