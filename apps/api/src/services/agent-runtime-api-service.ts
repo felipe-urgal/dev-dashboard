@@ -340,6 +340,10 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     string,
     Promise<AgentBacklogAdoptResult>
   >();
+  private readonly issueAdoptionLocks = new Map<
+    string,
+    Promise<AgentBacklogAdoptResult>
+  >();
 
   public constructor(private readonly options: AgentRuntimeApiServiceOptions) {
     this.now = options.now ?? (() => new Date().toISOString());
@@ -707,19 +711,19 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     projectId: string,
     input: AgentBacklogAdoptInput,
   ): Promise<AgentBacklogAdoptResult> {
-    const lockKey =
+    const requestLockKey =
       projectId +
       ':' +
       (input.issueNumber === undefined ? 'next' : input.issueNumber);
-    const existing = this.adoptionLocks.get(lockKey);
+    const existing = this.adoptionLocks.get(requestLockKey);
     if (existing) return existing;
 
     const pending = this.adoptBacklogUnlocked(projectId, input).finally(() => {
-      if (this.adoptionLocks.get(lockKey) === pending) {
-        this.adoptionLocks.delete(lockKey);
+      if (this.adoptionLocks.get(requestLockKey) === pending) {
+        this.adoptionLocks.delete(requestLockKey);
       }
     });
-    this.adoptionLocks.set(lockKey, pending);
+    this.adoptionLocks.set(requestLockKey, pending);
     return pending;
   }
 
@@ -768,6 +772,29 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       };
     }
 
+    const issueLockKey =
+      projectId + ':issue:' + String(selection.issue.number);
+    const existing = this.issueAdoptionLocks.get(issueLockKey);
+    if (existing) return existing;
+
+    const pending = this.adoptSelectedBacklogIssue(
+      projectId,
+      input,
+      selection,
+    ).finally(() => {
+      if (this.issueAdoptionLocks.get(issueLockKey) === pending) {
+        this.issueAdoptionLocks.delete(issueLockKey);
+      }
+    });
+    this.issueAdoptionLocks.set(issueLockKey, pending);
+    return pending;
+  }
+
+  private async adoptSelectedBacklogIssue(
+    projectId: string,
+    input: AgentBacklogAdoptInput,
+    selection: Extract<AgentBacklogSelection, { status: 'selected' }>,
+  ): Promise<AgentBacklogAdoptResult> {
     const issue = selection.issue;
     const contexts =
       this.options.taskContextRepository?.list?.(projectId) ?? [];
