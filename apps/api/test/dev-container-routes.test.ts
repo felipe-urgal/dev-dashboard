@@ -246,6 +246,98 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
   ]);
 });
 
+test('Dev Container rebuild expõe operação sem vazar runtimeId ou ownershipToken', async (context) => {
+  const environmentInstanceId =
+    'environment:worktree:project-1:devcontainer-rebuild';
+  const runtimeId = 'a'.repeat(64);
+  const ownershipToken = '11111111-1111-4111-8111-111111111111';
+  const preparedOperations: string[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-25T10:50:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async (selectedProject, input) => ({
+        projectId: selectedProject.id,
+        operation: 'rebuild',
+        state: 'review',
+        reason: 'review-required',
+        observedAt: '2026-09-25T10:50:00.000Z',
+        environmentInstanceId:
+          input.environmentInstanceId ?? environmentInstanceId,
+        runtime: 'devcontainer',
+        runtimeId,
+        ownershipToken,
+        executionEnabled: false,
+        requiresConfirmation: true,
+        discoveryState: 'available',
+        configSource: '.devcontainer/devcontainer.json',
+        configurationHash: 'f'.repeat(64),
+        cliVersion: '0.80.1',
+        configuration: {
+          kind: 'image',
+          lifecycleHooks: [],
+        },
+        limitations: [],
+        diagnostic: 'Rebuild exige revisão humana.',
+      }),
+    },
+    devContainerLifecycleConfirmationService: {
+      prepare: (preflight) => {
+        preparedOperations.push(preflight.operation);
+        assert.equal(preflight.runtimeId, runtimeId);
+        assert.equal(preflight.ownershipToken, ownershipToken);
+        return {
+          token: 'e'.repeat(64),
+          projectId: preflight.projectId,
+          environmentInstanceId: preflight.environmentInstanceId,
+          operation: 'rebuild',
+          preflightHash: 'f'.repeat(64),
+          expiresAt: '2026-09-25T10:51:00.000Z',
+        };
+      },
+    },
+    devContainerStartService: unusedStartService,
+  });
+  context.after(() => app.close());
+
+  const query =
+    '?environmentInstanceId=' + encodeURIComponent(environmentInstanceId);
+  const preflightResponse = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/dev-container/lifecycle-preflight' + query,
+  });
+  assert.equal(preflightResponse.statusCode, 200);
+  assert.equal(preflightResponse.json().preflight.operation, 'rebuild');
+  assert.equal(preflightResponse.body.includes(runtimeId), false);
+  assert.equal(preflightResponse.body.includes(ownershipToken), false);
+
+  const confirmationResponse = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/lifecycle-confirmation',
+    payload: { environmentInstanceId },
+  });
+  assert.equal(confirmationResponse.statusCode, 201);
+  assert.deepEqual(confirmationResponse.json(), {
+    confirmation: {
+      token: 'e'.repeat(64),
+      environmentInstanceId,
+      operation: 'rebuild',
+      expiresAt: '2026-09-25T10:51:00.000Z',
+    },
+  });
+  assert.equal(confirmationResponse.body.includes(runtimeId), false);
+  assert.equal(confirmationResponse.body.includes(ownershipToken), false);
+  assert.deepEqual(preparedOperations, ['rebuild']);
+});
+
 test('Dev Container lifecycle preflight converte ambiente inexistente em 404', async (context) => {
   const { DevContainerLifecyclePlanningError } =
     await import('../src/services/dev-container-lifecycle-planning-service.js');
