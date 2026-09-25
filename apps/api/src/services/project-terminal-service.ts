@@ -49,6 +49,8 @@ interface ConfirmationRecord {
   projectId: string;
   kind: ProjectTerminalKind;
   environmentInstanceId?: string;
+  runtime?: ExecutionContext['runtime'];
+  runtimeId?: string;
   expiresAt: number;
 }
 
@@ -241,6 +243,10 @@ export class ProjectTerminalService {
       projectId: project.id,
       kind,
       ...(environmentInstanceId ? { environmentInstanceId } : {}),
+      ...(executionContext ? { runtime: executionContext.runtime } : {}),
+      ...(executionContext?.runtimeId
+        ? { runtimeId: executionContext.runtimeId }
+        : {}),
       expiresAt,
     });
     return {
@@ -277,7 +283,9 @@ export class ProjectTerminalService {
       !record ||
       record.projectId !== project.id ||
       record.kind !== kind ||
-      record.environmentInstanceId !== environmentInstanceId
+      record.environmentInstanceId !== environmentInstanceId ||
+      record.runtime !== executionContext?.runtime ||
+      record.runtimeId !== executionContext?.runtimeId
     ) {
       sendJson(socket, {
         type: 'error',
