@@ -6,7 +6,7 @@ import {
   PlusIcon,
   QueueListIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, provide, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
@@ -37,6 +37,7 @@ loadVisualPreferences();
 
 const workspaceManagerOpen = ref(false);
 const projectSidebarCollapsed = ref(readSidebarCollapsed());
+provide('projectSidebarCollapsed', projectSidebarCollapsed);
 
 const route = useRoute();
 const router = useRouter();
