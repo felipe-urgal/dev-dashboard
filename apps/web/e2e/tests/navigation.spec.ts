@@ -7,6 +7,9 @@ test.describe('navegação principal', () => {
     page,
   }) => {
     await gotoBootstrapped(page, '/');
+    await expect(page.locator('#primary-navigation .topbar-brand')).toHaveCount(
+      0,
+    );
     await expect(
       page.locator('#repositories').getByText('Repositórios', { exact: true }),
     ).toBeVisible();
