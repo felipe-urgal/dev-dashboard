@@ -288,7 +288,6 @@ test('Dev Container lifecycle preflight converte ambiente inexistente em 404', a
   );
 });
 
-
 test('Dev Container lifecycle confirmation revalida preflight e não expõe fingerprint interno', async (context) => {
   const prepared: string[] = [];
   const environmentInstanceId =
