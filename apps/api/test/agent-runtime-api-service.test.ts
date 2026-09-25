@@ -1452,7 +1452,6 @@ test('AgentRuntimeApiService não bloqueia hard budget sem métrica observada', 
   assert.equal(result.execution.state, 'succeeded');
 });
 
-
 test('AgentRuntimeApiService adota issue em Task Context e reutiliza vínculo persistido', async () => {
   const taskStore = new MemoryTaskStore();
   const contexts: TaskContext[] = [];

@@ -1568,7 +1568,6 @@ test('Agent Runtime HTTP inspeciona integração com resposta sanitizada', async
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
 
-
 test('Agent Runtime HTTP adota backlog por intenção estruturada sem aceitar autoridade extra', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
@@ -1666,7 +1665,9 @@ test('Agent Runtime HTTP expõe ambiguidade do backlog sem escolher silenciosame
   assert.equal(response.statusCode, 200);
   assert.equal(response.json().result.status, 'ambiguous');
   assert.deepEqual(
-    response.json().result.candidates.map((issue: { number: number }) => issue.number),
+    response
+      .json()
+      .result.candidates.map((issue: { number: number }) => issue.number),
     [893, 895],
   );
 });
