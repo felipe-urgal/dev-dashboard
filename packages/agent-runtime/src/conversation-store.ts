@@ -12,8 +12,8 @@ const MAX_CONTENT_CHARS = 16_000;
 const MAX_STATE_BYTES = 8 * 1024 * 1024;
 const REDACTED_SECRET = '[REDACTED]';
 const SECRET_ASSIGNMENT =
-  /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|CLIENT_SECRET|ACCESS_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*[:=]\s*)(["']?)([^\s"'\`,;]+)\2/gi;
-const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+\/-]{12,}={0,2}\b/gi;
+  /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|CLIENT_SECRET|ACCESS_KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*([:=])\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s"'\`,;]+)/gi;
+const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+\/-]{12,}={0,2}/gi;
 const WELL_KNOWN_TOKEN =
   /\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:ant-)?[A-Za-z0-9_-]{16,})\b/g;
 const PRIVATE_KEY_BLOCK =
@@ -116,7 +116,8 @@ export function sanitizeAgentConversationContent(content: string): string {
     .replace(WELL_KNOWN_TOKEN, REDACTED_SECRET)
     .replace(
       SECRET_ASSIGNMENT,
-      (_match, prefix: string) => prefix + REDACTED_SECRET,
+      (_match, key: string, delimiter: string) =>
+        key + delimiter + REDACTED_SECRET,
     );
 }
 
@@ -264,7 +265,14 @@ export class AgentConversationStore {
 
   public async list(taskId: string): Promise<AgentConversationTurn[]> {
     assertIdentity(taskId, 'Agent task id');
-    return (await this.read(taskId)).turns.map((turn) => ({ ...turn }));
+    const release = await this.lockManager.acquire(conversationLockKey(taskId), {
+      wait: true,
+    });
+    try {
+      return (await this.read(taskId)).turns.map((turn) => ({ ...turn }));
+    } finally {
+      await release();
+    }
   }
 
   public async append(
@@ -368,11 +376,22 @@ export class AgentConversationStore {
         );
       }
 
-      return {
+      const canonicalTurns = turns.map((turn) => canonicalTurn(turn));
+      const normalized: PersistedAgentConversation = {
         version: STORE_VERSION,
         taskId,
-        turns: turns.map((turn) => canonicalTurn(turn)),
+        turns: canonicalTurns,
       };
+      if (
+        turns.some(
+          (turn, index) =>
+            canonicalTurns[index] !== undefined &&
+            !sameTurn(turn, canonicalTurns[index]!),
+        )
+      ) {
+        await this.write(normalized);
+      }
+      return normalized;
     } catch (error) {
       if (isEnoent(error)) return emptyConversation(taskId);
       if (error instanceof AgentConversationStoreError) throw error;
