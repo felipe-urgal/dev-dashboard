@@ -269,7 +269,7 @@ O backend também expõe agora uma mutation explícita de rebuild. Ela:
 - se a nova criação falhar depois de reservar/criar recursos, reutiliza o cleanup owned como rollback;
 - falha fechado quando o rollback não pode ser comprovado.
 
-A UI ainda não oferece o botão de rebuild neste corte; a API existe para qualificar separadamente o executor destrutivo antes de expor a ação ao usuário.
+A UI ainda não oferece o botão de rebuild neste corte; a API existe para qualificar separadamente o executor destrutivo antes de expor a ação ao usuário. A confirmação permanece obrigatória por chamada e nunca é reaproveitada pela recriação interna.
 
 ## Testes via Execution Context
 
