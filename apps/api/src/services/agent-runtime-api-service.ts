@@ -846,6 +846,23 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       taskContextId: taskContext.id,
       requestedCapabilities: input.requestedCapabilities ?? [],
     });
+    await this.recordActivity({
+      projectId,
+      ...(task.task.environmentInstanceId
+        ? { environmentInstanceId: task.task.environmentInstanceId }
+        : {}),
+      type: 'agent.backlog.adopted',
+      status: 'succeeded',
+      summary:
+        'GitHub issue #' +
+        issue.number +
+        ' adopted from backlog via ' +
+        selection.source +
+        '.',
+      occurredAt: this.now(),
+      resourceRef: { kind: 'agent-task', id: task.task.id },
+      jobId: task.task.id,
+    });
     return {
       status: 'adopted',
       source: selection.source,
