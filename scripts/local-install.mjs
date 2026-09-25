@@ -82,25 +82,36 @@ export function systemdPathValue(value, label = 'Caminho') {
 
 function assertSafeDesktopValue(value, label) {
   if (typeof value !== 'string' || /[\0\r\n]/u.test(value)) {
-    throw new Error(`${label} contém caracteres inválidos para desktop entry.`);
+    throw new Error(label + ' contém caracteres inválidos para desktop entry.');
   }
 }
 
 export function desktopExecQuote(value) {
   assertSafeDesktopValue(value, 'Valor');
-  return `"${value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('"', '\\"')
-    .replaceAll('`', '\\`')
-    .replaceAll('
-  assertSafeSystemdValue(value, label);
-  return `"${value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('"', '\\"')
-    .replaceAll('$', '\\$')
-    .replaceAll('`', '\\`')}"`;
+  return (
+    '"' +
+    value
+      .replaceAll('\\', '\\\\')
+      .replaceAll('"', '\\"')
+      .replaceAll('`', '\\`')
+      .replaceAll('$', '\\$')
+      .replaceAll('%', '%%') +
+    '"'
+  );
 }
 
+function environmentFileQuote(value, label) {
+  assertSafeSystemdValue(value, label);
+  return (
+    '"' +
+    value
+      .replaceAll('\\', '\\\\')
+      .replaceAll('"', '\\"')
+      .replaceAll('$', '\\$')
+      .replaceAll('`', '\\`') +
+    '"'
+  );
+}
 export function buildRuntimeEnvironment({
   port,
   origin,
