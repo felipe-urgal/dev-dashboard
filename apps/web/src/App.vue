@@ -6,7 +6,7 @@ import {
   PlusIcon,
   QueueListIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
@@ -22,11 +22,6 @@ import {
   currentTheme,
   loadVisualPreferences,
 } from './utils/visual-preferences';
-import {
-  readSidebarCollapsed,
-  storeSidebarCollapsed,
-} from './utils/sidebar-preferences';
-
 const naiveTheme = computed(() =>
   currentTheme.value === 'dark' ? darkTheme : null,
 );
@@ -37,7 +32,6 @@ const naiveThemeOverrides = computed(() =>
 loadVisualPreferences();
 
 const workspaceManagerOpen = ref(false);
-const sidebarCollapsed = ref(readSidebarCollapsed());
 
 const route = useRoute();
 const router = useRouter();
@@ -58,14 +52,6 @@ function handleWorkspaceSwitch(event: Event): void {
   void switchWorkspace(target.value);
 }
 
-function toggleSidebarCollapsed(): void {
-  sidebarCollapsed.value = !sidebarCollapsed.value;
-}
-
-watch(sidebarCollapsed, (collapsed) => {
-  storeSidebarCollapsed(collapsed);
-});
-
 onMounted(() => {
   void dashboardStore.ensureDashboardLoaded();
 });
@@ -73,28 +59,9 @@ onMounted(() => {
 
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides">
-    <div
-      class="app-shell"
-      :class="{ 'app-shell-sidebar-collapsed': sidebarCollapsed }"
-    >
-      <aside
-        id="primary-sidebar"
-        class="sidebar"
-        :class="{ 'sidebar-collapsed': sidebarCollapsed }"
-      >
-        <button
-          class="brand brand-toggle"
-          type="button"
-          aria-controls="primary-sidebar"
-          :aria-expanded="!sidebarCollapsed"
-          :aria-label="
-            sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'
-          "
-          :title="
-            sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'
-          "
-          @click="toggleSidebarCollapsed"
-        >
+    <div class="app-shell app-shell-topnav">
+      <header id="primary-navigation" class="sidebar topbar">
+        <div class="brand topbar-brand">
           <div class="brand-mark" aria-hidden="true">
             <CodeBracketIcon />
           </div>
@@ -103,9 +70,9 @@ onMounted(() => {
             <strong>Dev Dashboard</strong>
             <span>Local workspace</span>
           </div>
-        </button>
+        </div>
 
-        <div class="sidebar-section">
+        <div class="sidebar-section topbar-workspace">
           <span class="sidebar-label">Workspace ativo</span>
           <div class="sidebar-workspace-row">
             <select
@@ -138,15 +105,16 @@ onMounted(() => {
           </div>
         </div>
 
-        <nav class="navigation" aria-label="Navegação principal">
+        <nav
+          class="navigation topbar-navigation"
+          aria-label="Navegação principal"
+        >
           <span class="sidebar-label navigation-label">Navegação</span>
 
           <RouterLink
             class="navigation-item"
             :class="{ 'navigation-item-active': route.name === 'dashboard' }"
             :to="{ name: 'dashboard' }"
-            :aria-label="sidebarCollapsed ? 'Visão geral' : undefined"
-            :title="sidebarCollapsed ? 'Visão geral' : undefined"
           >
             <HomeIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Visão geral</span>
@@ -156,8 +124,6 @@ onMounted(() => {
             class="navigation-item"
             :class="{ 'navigation-item-active': route.name === 'activity' }"
             :to="{ name: 'activity' }"
-            :aria-label="sidebarCollapsed ? 'Atividade' : undefined"
-            :title="sidebarCollapsed ? 'Atividade' : undefined"
           >
             <QueueListIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Atividade</span>
@@ -167,18 +133,16 @@ onMounted(() => {
             class="navigation-item"
             :class="{ 'navigation-item-active': route.name === 'database' }"
             :to="{ name: 'database' }"
-            :aria-label="sidebarCollapsed ? 'Banco de dados' : undefined"
-            :title="sidebarCollapsed ? 'Banco de dados' : undefined"
           >
             <CircleStackIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Banco de dados</span>
           </RouterLink>
         </nav>
 
-        <div class="sidebar-tools">
+        <div class="sidebar-tools topbar-tools">
           <VisualPreferences />
         </div>
-      </aside>
+      </header>
 
       <main class="main-content">
         <RouterView />
