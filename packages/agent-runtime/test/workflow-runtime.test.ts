@@ -241,13 +241,15 @@ test('executes one queued task and only forwards explicitly requested grants', a
 });
 
 test('conversation turn is persisted before provider execution and response is linked', async (t) => {
-  let conversationStore: Pick<AgentConversationStore, 'list'> | undefined;
+  const conversation = {
+    store: undefined as Pick<AgentConversationStore, 'list'> | undefined,
+  };
   let observedBeforeProvider: Awaited<
     ReturnType<AgentConversationStore['list']>
   > = [];
 
   const provider = new StubProvider(async (request) => {
-    observedBeforeProvider = await conversationStore!.list(request.taskId);
+    observedBeforeProvider = await conversation.store!.list(request.taskId);
     return {
       providerId: 'codex',
       outcome: 'succeeded',
@@ -255,7 +257,7 @@ test('conversation turn is persisted before provider execution and response is l
     };
   });
   const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
-  conversationStore = fixtureResult.conversationStore;
+  conversation.store = fixtureResult.conversationStore;
 
   const result = await fixtureResult.runtime.execute({
     projectId: 'project-1',
