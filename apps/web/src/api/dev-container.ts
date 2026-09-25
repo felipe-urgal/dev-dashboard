@@ -165,3 +165,22 @@ export async function startDevContainer(
   );
   return response.result;
 }
+
+export async function rebuildDevContainer(
+  projectId: string,
+  confirmationToken: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerStartResult> {
+  const response = await requestJson<DevContainerStartResponse>(
+    '/api/projects/' + encodeURIComponent(projectId) + '/dev-container/rebuild',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(environmentInstanceId ? { environmentInstanceId } : {}),
+        confirmationToken,
+      }),
+    },
+  );
+  return response.result;
+}
