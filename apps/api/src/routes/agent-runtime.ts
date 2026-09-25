@@ -1238,6 +1238,7 @@ function mapAgentError(error: unknown): unknown {
         message: error.message,
       });
     case 'AGENT_API_BUDGET_EXCEEDED':
+    case 'AGENT_API_EXECUTION_CONFLICT':
     case 'AGENT_WORKFLOW_TASK_NOT_RUNNABLE':
     case 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE':
     case 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH':
