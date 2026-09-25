@@ -187,6 +187,17 @@ export interface AgentCancellationRequest {
   requestedAt: string;
 }
 
+export interface AgentProviderConversationTurn {
+  role: 'user' | 'agent';
+  content: string;
+  providerId?: AgentConcreteProviderId;
+}
+
+export interface AgentProviderConversationContext {
+  turns: readonly AgentProviderConversationTurn[];
+  omittedTurns: number;
+}
+
 export interface AgentProviderExecutionRequest {
   taskId: string;
   executionId: string;
@@ -195,6 +206,7 @@ export interface AgentProviderExecutionRequest {
   summary: string;
   allowedCapabilities: readonly AgentCapability[];
   continuationInstruction?: string;
+  conversationContext?: AgentProviderConversationContext;
   signal?: AbortSignal;
 }
 
