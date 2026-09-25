@@ -42,6 +42,12 @@ interface ExecuteBody {
   providerId?: AgentProviderId;
 }
 
+interface ConversationTurnBody {
+  id: string;
+  content: string;
+  providerId?: AgentProviderId;
+}
+
 interface AdoptBacklogBody {
   issueNumber?: number;
   environmentInstanceId?: string;
@@ -627,6 +633,35 @@ const executeBodySchema = {
   },
 } as const;
 
+const conversationTurnBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'content'],
+  properties: {
+    id: { type: 'string', minLength: 1, maxLength: 256 },
+    content: { type: 'string', minLength: 1, maxLength: 16000 },
+    providerId: { type: 'string', enum: [...providerIds] },
+  },
+} as const;
+
+const conversationTurnSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'taskId', 'role', 'content', 'createdAt'],
+  properties: {
+    id: { type: 'string' },
+    taskId: { type: 'string' },
+    role: { type: 'string', enum: ['user', 'agent'] },
+    content: { type: 'string' },
+    createdAt: { type: 'string' },
+    executionId: { type: 'string' },
+    providerId: {
+      type: 'string',
+      enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+  },
+} as const;
+
 const budgetBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -1180,6 +1215,7 @@ function mapAgentError(error: unknown): unknown {
         message: error.message,
       });
     case 'AGENT_WORKFLOW_EVIDENCE_PERSIST_FAILED':
+    case 'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED':
       return new ApiError({
         statusCode: 500,
         code: 'INTERNAL_ERROR',
@@ -1194,6 +1230,7 @@ function mapAgentError(error: unknown): unknown {
       });
     case 'AGENT_API_BACKLOG_UNAVAILABLE':
     case 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE':
+    case 'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE':
     case 'AGENT_WORKFLOW_CLOSING':
       return new ApiError({
         statusCode: 503,
@@ -1201,6 +1238,7 @@ function mapAgentError(error: unknown): unknown {
         message: error.message,
       });
     case 'AGENT_API_BUDGET_EXCEEDED':
+    case 'AGENT_API_EXECUTION_CONFLICT':
     case 'AGENT_WORKFLOW_TASK_NOT_RUNNABLE':
     case 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE':
     case 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH':
@@ -1208,6 +1246,7 @@ function mapAgentError(error: unknown): unknown {
     case 'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED':
     case 'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH':
     case 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING':
+    case 'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED':
       return new ApiError({
         statusCode: 409,
         code: 'CONFLICT',
@@ -1747,6 +1786,81 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         options.agentRuntimeApiService.status(
           request.params.projectId,
           request.params.taskId,
+        ),
+      ),
+  );
+
+  app.get<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/conversation',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['turns'],
+            properties: {
+              turns: {
+                type: 'array',
+                maxItems: 2000,
+                items: conversationTurnSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        turns: await options.agentRuntimeApiService.conversation(
+          request.params.projectId,
+          request.params.taskId,
+        ),
+      })),
+  );
+
+  app.post<{ Params: TaskParams; Body: ConversationTurnBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/turns',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: conversationTurnBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'execution',
+              'task',
+              'providerResult',
+              'userTurn',
+              'agentTurn',
+            ],
+            properties: {
+              execution: executionSchema,
+              task: taskRecordSchema,
+              providerResult: providerResultSchema,
+              checkpoint: checkpointSchema,
+              userTurn: conversationTurnSchema,
+              agentTurn: conversationTurnSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.execute(
+          request.params.projectId,
+          request.params.taskId,
+          request.body.providerId,
+          {
+            id: request.body.id,
+            content: request.body.content,
+          },
         ),
       ),
   );

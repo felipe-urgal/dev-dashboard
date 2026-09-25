@@ -3,9 +3,10 @@ import test from 'node:test';
 
 import Fastify from 'fastify';
 
-import type {
-  AgentRuntimeApiServicePort,
-  AgentTaskCreateInput,
+import {
+  AgentRuntimeApiServiceError,
+  type AgentRuntimeApiServicePort,
+  type AgentTaskCreateInput,
 } from '../src/services/agent-runtime-api-service.js';
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { agentRuntimeRoutes } from '../src/routes/agent-runtime.js';
@@ -124,6 +125,7 @@ function service(
         updatedAt: '2026-09-23T10:00:00.000Z',
       },
     }),
+    conversation: async () => [],
     execute: async () => ({
       execution: {
         id: 'execution-1',
@@ -316,6 +318,129 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
     payload: { providerId: 'codex', cwd: '/tmp/escape' },
   });
   assert.equal(executeAbuse.statusCode, 200);
+});
+
+test('Agent Runtime HTTP expõe conversa e submete turno sem autoridade extra', async (context) => {
+  const calls: unknown[] = [];
+  const userTurn = {
+    id: 'turn-user-2',
+    taskId: 'task-1',
+    role: 'user' as const,
+    content: 'Ajuste também o estado vazio.',
+    createdAt: '2026-09-23T10:06:00.000Z',
+  };
+  const agentTurn = {
+    id: 'turn-agent-2',
+    taskId: 'task-1',
+    role: 'agent' as const,
+    content: 'Estado vazio ajustado.',
+    createdAt: '2026-09-23T10:07:00.000Z',
+    executionId: 'execution-2',
+    providerId: 'codex' as const,
+  };
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      conversation: async (...args) => {
+        calls.push(['conversation', ...args]);
+        return [userTurn, agentTurn];
+      },
+      execute: async (...args) => {
+        calls.push(['execute', ...args]);
+        return {
+          execution: {
+            id: 'execution-2',
+            taskId: 'task-1',
+            projectId: 'project-1',
+            environmentInstanceId: 'environment:primary:project-1',
+            requestedProviderId: 'codex',
+            providerId: 'codex',
+            state: 'succeeded',
+            startedAt: '2026-09-23T10:06:00.000Z',
+            finishedAt: '2026-09-23T10:07:00.000Z',
+          },
+          task: {
+            ...task,
+            task: { ...task.task, state: 'review' },
+            version: 2,
+          },
+          providerResult: {
+            providerId: 'codex',
+            outcome: 'succeeded',
+            summary: 'Estado vazio ajustado.',
+          },
+          userTurn,
+          agentTurn,
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const conversation = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/agent/tasks/task-1/conversation',
+  });
+  assert.equal(conversation.statusCode, 200);
+  assert.deepEqual(conversation.json().turns, [userTurn, agentTurn]);
+
+  const submitted = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/turns',
+    payload: {
+      id: 'turn-user-2',
+      content: 'Ajuste também o estado vazio.',
+      providerId: 'codex',
+      cwd: '/tmp/escape',
+      requestedCapabilities: ['github:merge'],
+    },
+  });
+  assert.equal(submitted.statusCode, 200);
+  assert.equal(submitted.json().agentTurn.executionId, 'execution-2');
+  assert.deepEqual(calls, [
+    ['conversation', 'project-1', 'task-1'],
+    [
+      'execute',
+      'project-1',
+      'task-1',
+      'codex',
+      {
+        id: 'turn-user-2',
+        content: 'Ajuste também o estado vazio.',
+      },
+    ],
+  ]);
+});
+
+test('Agent Runtime HTTP rejeita reenvio do mesmo turnId como conflito', async (context) => {
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      execute: async () => {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
+          'Agent conversation turn was already submitted.',
+        );
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/turns',
+    payload: {
+      id: 'turn-repeat',
+      content: 'Continue.',
+    },
+  });
+  assert.equal(response.statusCode, 409);
 });
 
 test('Agent Runtime HTTP configura preferência de provider por projeto', async (context) => {

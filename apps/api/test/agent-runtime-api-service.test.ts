@@ -425,6 +425,7 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
   );
 
   let executeRequest: unknown;
+  let conversationRequest: unknown;
   let auditWrite: unknown;
   const activityWrites: unknown[] = [];
   const usageWrites: AgentUsageRecord[] = [];
@@ -448,6 +449,18 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
     workflowRuntime: {
       status: async () => {
         throw new Error('unused');
+      },
+      conversation: async (...args) => {
+        conversationRequest = args;
+        return [
+          {
+            id: 'turn-user-2',
+            taskId: 'task-1',
+            role: 'user',
+            content: 'Continue.',
+            createdAt: '2026-09-23T11:01:00.000Z',
+          },
+        ];
       },
       execute: async (request) => {
         executeRequest = request;
@@ -519,7 +532,10 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
     },
   });
 
-  const result = await service.execute('project-1', 'task-1', 'codex');
+  const result = await service.execute('project-1', 'task-1', 'codex', {
+    id: 'turn-user-2',
+    content: 'Continue.',
+  });
   assert.deepEqual(executeRequest, {
     projectId: 'project-1',
     taskId: 'task-1',
@@ -532,7 +548,14 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
         observedAt: '2026-09-23T11:01:00.000Z',
       },
     ],
+    userTurn: {
+      id: 'turn-user-2',
+      content: 'Continue.',
+    },
   });
+  const conversation = await service.conversation('project-1', 'task-1');
+  assert.deepEqual(conversationRequest, ['project-1', 'task-1']);
+  assert.equal(conversation[0]?.id, 'turn-user-2');
   assert.equal(result.providerResult.evidence?.[0]?.taskId, 'task-1');
   assert.equal(result.providerResult.evidence?.[0]?.executionId, 'execution-1');
   assert.deepEqual(auditWrite, [

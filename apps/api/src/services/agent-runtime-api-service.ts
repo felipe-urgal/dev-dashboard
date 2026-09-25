@@ -14,6 +14,7 @@ import type {
   AgentAuditSnapshot,
   AgentAuthorization,
   AgentConcreteProviderId,
+  AgentConversationTurn,
   AgentIntegration,
   AgentIntegrationAuthenticationHandoff,
   AgentIntegrationAuthenticationRequest,
@@ -44,6 +45,7 @@ import type {
   AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowTaskStatus,
+  AgentWorkflowUserTurnInput,
 } from '@dev-dashboard/agent-runtime';
 import type {
   AgentWorkflowRuntime,
@@ -65,6 +67,7 @@ export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_TASK_NOT_FOUND'
   | 'AGENT_API_INVALID_REQUEST'
   | 'AGENT_API_BUDGET_EXCEEDED'
+  | 'AGENT_API_EXECUTION_CONFLICT'
   | 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
   | 'AGENT_API_INTEGRATION_DISCOVERY_FAILED'
   | 'AGENT_API_BACKLOG_UNAVAILABLE'
@@ -208,10 +211,15 @@ export interface AgentRuntimeApiServicePort {
     input: AgentGitRefAdoptionRequest,
   ): Promise<AgentTaskRecord>;
   status(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
+  conversation(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentConversationTurn[]>;
   execute(
     projectId: string,
     taskId: string,
     providerId?: AgentProviderId,
+    userTurn?: AgentWorkflowUserTurnInput,
   ): Promise<AgentWorkflowExecutionResult>;
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
@@ -272,7 +280,7 @@ export interface AgentRuntimeApiServiceOptions {
     | 'resolveCheckpoint'
     | 'shutdown'
   > &
-    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef'>>;
+    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef' | 'conversation'>>;
   projectStore: Pick<ProjectStore, 'findProject'>;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
@@ -1010,10 +1018,28 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
   }
 
+  public async conversation(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentConversationTurn[]> {
+    await this.getTask(projectId, taskId);
+    const conversation = this.options.workflowRuntime.conversation;
+    if (!conversation) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent conversation storage is unavailable.',
+      );
+    }
+    return this.withRuntimeErrors(() =>
+      conversation.call(this.options.workflowRuntime, projectId, taskId),
+    );
+  }
+
   public async execute(
     projectId: string,
     taskId: string,
     providerId?: AgentProviderId,
+    userTurn?: AgentWorkflowUserTurnInput,
   ): Promise<AgentWorkflowExecutionResult> {
     const taskRecord = await this.getTask(projectId, taskId);
     this.validateTaskContextBinding(taskRecord.task);
@@ -1047,6 +1073,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           taskId,
           ...(providerId ? { providerId } : {}),
           authorizations,
+          ...(userTurn ? { userTurn } : {}),
         }),
       );
     } catch (error) {
@@ -1611,6 +1638,19 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     try {
       return await operation();
     } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'AGENT_TASK_LOCKED'
+      ) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_EXECUTION_CONFLICT',
+          error instanceof Error
+            ? error.message
+            : 'Agent task already has an active operation.',
+        );
+      }
       if (
         error &&
         typeof error === 'object' &&
