@@ -116,6 +116,12 @@ const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
 const instruction = ref('');
 const backlogCandidates = ref<AgentBacklogIssue[]>([]);
 const backlogSelectionSource = ref('');
+const backlogAdoptionNotice = ref<{
+  source: string;
+  issue: AgentBacklogIssue;
+  reused: boolean;
+  taskContextId?: string;
+} | null>(null);
 const checkpointInstruction = ref('');
 const status = ref<AgentTaskStatus | null>(null);
 const activity = ref<AgentActivity | null>(null);
@@ -297,6 +303,16 @@ const backlogSelectionMessage = computed(() => {
     return 'Mais de uma issue possui a mesma prioridade explícita. Escolha uma delas.';
   }
   return 'Não existe prioridade explícita suficiente para escolher uma única issue. Escolha uma candidata.';
+});
+
+const backlogAdoptionSourceLabel = computed(() => {
+  const source = backlogAdoptionNotice.value?.source;
+  if (!source) return '';
+  if (source === 'specific-issue') return 'issue informada explicitamente';
+  if (source.startsWith('label:')) {
+    return 'prioridade explícita ' + source.slice('label:'.length);
+  }
+  return source;
 });
 
 const recentEvents = computed(() =>
@@ -658,11 +674,20 @@ async function createTask(): Promise<void> {
       if (result.status === 'ambiguous') {
         backlogCandidates.value = result.candidates;
         backlogSelectionSource.value = result.source;
+        backlogAdoptionNotice.value = null;
         return;
       }
 
       backlogCandidates.value = [];
       backlogSelectionSource.value = '';
+      backlogAdoptionNotice.value = {
+        source: result.source,
+        issue: result.issue,
+        reused: result.reused,
+        ...(result.task.task.taskContextId
+          ? { taskContextId: result.task.task.taskContextId }
+          : {}),
+      };
       replaceTask(result.task);
       selectedTaskId.value = result.task.task.id;
       instruction.value = '';
@@ -675,6 +700,7 @@ async function createTask(): Promise<void> {
 
     backlogCandidates.value = [];
     backlogSelectionSource.value = '';
+    backlogAdoptionNotice.value = null;
     const record = await createAgentTask(props.project.id, {
       summary: instruction.value.trim(),
       ...(selectedTaskContextId.value
@@ -1092,6 +1118,26 @@ onBeforeUnmount(() => {
               <span>#{{ candidate.number }}</span>
               {{ candidate.title }}
             </button>
+          </div>
+
+          <div
+            v-if="backlogAdoptionNotice"
+            class="agent-backlog-adopted"
+            role="status"
+          >
+            <strong>
+              #{{ backlogAdoptionNotice.issue.number }} ·
+              {{ backlogAdoptionNotice.issue.title }}
+            </strong>
+            <span>
+              Seleção: {{ backlogAdoptionSourceLabel }} · Task Context:
+              {{ backlogAdoptionNotice.taskContextId ?? 'indisponível' }} ·
+              {{
+                backlogAdoptionNotice.reused
+                  ? 'vínculo existente reutilizado'
+                  : 'novo vínculo criado'
+              }}
+            </span>
           </div>
 
           <label class="agent-field">
@@ -1858,6 +1904,24 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   color: var(--accent);
   font-weight: var(--font-weight-strong);
+}
+
+.agent-backlog-adopted {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-backlog-adopted strong {
+  font-size: var(--font-xs);
+}
+
+.agent-backlog-adopted span {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
 }
 
 .agent-capability-picker {
