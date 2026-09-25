@@ -399,9 +399,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
                     }
                   : {}),
               }"
-
               aria-label="Servidor"
-              :title="projectSidebarCollapsed ? 'Servidor' : undefined"            >
+              :title="projectSidebarCollapsed ? 'Servidor' : undefined"
+            >
               <ServerStackIcon aria-hidden="true" />
               <span>Servidor</span>
             </RouterLink>
@@ -411,9 +411,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
               :class="{ 'project-details-tab-active': isGitRoute }"
               :aria-current="isGitRoute ? 'page' : undefined"
               :to="{ name: 'project-git', params: { projectId: project.id } }"
-
               aria-label="Git"
-              :title="projectSidebarCollapsed ? 'Git' : undefined"            >
+              :title="projectSidebarCollapsed ? 'Git' : undefined"
+            >
               <CodeBracketIcon aria-hidden="true" />
               <span>Git</span>
             </RouterLink>
@@ -429,9 +429,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
                   ? { query: { environmentInstanceId } }
                   : {}),
               }"
-
               aria-label="Testes"
-              :title="projectSidebarCollapsed ? 'Testes' : undefined"            >
+              :title="projectSidebarCollapsed ? 'Testes' : undefined"
+            >
               <BeakerIcon aria-hidden="true" />
               <span>Testes</span>
             </RouterLink>
@@ -447,9 +447,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
                   ? { query: { environmentInstanceId } }
                   : {}),
               }"
-
               aria-label="Agente"
-              :title="projectSidebarCollapsed ? 'Agente' : undefined"            >
+              :title="projectSidebarCollapsed ? 'Agente' : undefined"
+            >
               <CpuChipIcon aria-hidden="true" />
               <span>Agente</span>
             </RouterLink>
@@ -463,9 +463,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
                 name: 'project-production',
                 params: { projectId: project.id },
               }"
-
               aria-label="Produção"
-              :title="projectSidebarCollapsed ? 'Produção' : undefined"            >
+              :title="projectSidebarCollapsed ? 'Produção' : undefined"
+            >
               <RocketLaunchIcon aria-hidden="true" />
               <span>Produção</span>
             </RouterLink>
@@ -481,9 +481,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
                   ? { query: { environmentInstanceId } }
                   : {}),
               }"
-
               aria-label="Terminal"
-              :title="projectSidebarCollapsed ? 'Terminal' : undefined"            >
+              :title="projectSidebarCollapsed ? 'Terminal' : undefined"
+            >
               <CommandLineIcon aria-hidden="true" />
               <span>Terminal</span>
             </RouterLink>
