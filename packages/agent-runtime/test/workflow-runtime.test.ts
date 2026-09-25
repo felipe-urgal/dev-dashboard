@@ -254,11 +254,7 @@ test('conversation turn is persisted before provider execution and response is l
       summary: 'Second turn completed',
     };
   });
-  const fixtureResult = await fixture(
-    t,
-    provider,
-    task({ state: 'review' }),
-  );
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
   conversationStore = fixtureResult.conversationStore;
 
   const result = await fixtureResult.runtime.execute({
@@ -294,10 +290,7 @@ test('conversation turn is persisted before provider execution and response is l
   assert.equal(result.agentTurn?.providerId, 'codex');
   assert.equal(result.agentTurn?.content, 'Second turn completed');
 
-  const turns = await fixtureResult.runtime.conversation(
-    'project-1',
-    'task-1',
-  );
+  const turns = await fixtureResult.runtime.conversation('project-1', 'task-1');
   assert.equal(turns.length, 2);
   assert.equal(turns[0]?.role, 'user');
   assert.equal(turns[1]?.role, 'agent');
