@@ -327,8 +327,8 @@ watch(
           <div>
             <strong>Criar este Dev Container?</strong>
             <span>
-              O Dashboard revalidará o preflight, emitirá uma confirmação de
-              uso único e executará somente o lifecycle já aprovado para esta
+              O Dashboard revalidará o preflight, emitirá uma confirmação de uso
+              único e executará somente o lifecycle já aprovado para esta
               Environment Instance.
             </span>
             <span

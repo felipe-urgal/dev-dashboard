@@ -119,8 +119,7 @@ describe('ProjectDevContainerPanel', () => {
   });
 
   it('confirma e cria usando a Environment Instance do preflight antes de recarregar', async () => {
-    const environmentInstanceId =
-      'environment:primary:project-devcontainer';
+    const environmentInstanceId = 'environment:primary:project-devcontainer';
     fetchDevContainerLifecyclePreflight
       .mockResolvedValueOnce({
         projectId: project.id,
@@ -182,7 +181,9 @@ describe('ProjectDevContainerPanel', () => {
     expect(prepareDevContainerLifecycleConfirmation).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('Criar este Dev Container?');
     expect(wrapper.text()).toContain('Confirmar criação');
-    expect(wrapper.text()).toContain('Hooks pós-criação continuarão diferidos.');
+    expect(wrapper.text()).toContain(
+      'Hooks pós-criação continuarão diferidos.',
+    );
 
     const confirmButton = wrapper
       .findAll('button')
