@@ -4,9 +4,17 @@ import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { DevContainerDiscoveryService } from '../services/dev-container-discovery-service.js';
 import {
+  DevContainerLifecycleConfirmationError,
+  type DevContainerLifecycleConfirmationService,
+} from '../services/dev-container-lifecycle-confirmation-service.js';
+import {
   DevContainerLifecyclePlanningError,
   type DevContainerLifecyclePlanningService,
 } from '../services/dev-container-lifecycle-planning-service.js';
+import {
+  DevContainerStartError,
+  type DevContainerStartService,
+} from '../services/dev-container-start-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
@@ -16,6 +24,11 @@ interface Options extends FastifyPluginOptions {
     DevContainerLifecyclePlanningService,
     'plan'
   >;
+  devContainerLifecycleConfirmationService: Pick<
+    DevContainerLifecycleConfirmationService,
+    'prepare'
+  >;
+  devContainerStartService: Pick<DevContainerStartService, 'start'>;
 }
 
 interface Params {
@@ -24,6 +37,14 @@ interface Params {
 
 interface LifecyclePreflightQuery {
   environmentInstanceId?: string;
+}
+
+interface LifecycleConfirmationBody {
+  environmentInstanceId?: string;
+}
+
+interface LifecycleStartBody extends LifecycleConfirmationBody {
+  confirmationToken: string;
 }
 
 const paramsSchema = {
@@ -35,14 +56,39 @@ const paramsSchema = {
   },
 } as const;
 
+const environmentInstanceIdSchema = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 512,
+} as const;
+
 const lifecyclePreflightQuerySchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    environmentInstanceId: {
+    environmentInstanceId: environmentInstanceIdSchema,
+  },
+} as const;
+
+const lifecycleConfirmationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: environmentInstanceIdSchema,
+  },
+} as const;
+
+const lifecycleStartBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmationToken'],
+  properties: {
+    environmentInstanceId: environmentInstanceIdSchema,
+    confirmationToken: {
       type: 'string',
       minLength: 1,
-      maxLength: 512,
+      maxLength: 256,
+      pattern: '^[a-f0-9]{64}$',
     },
   },
 } as const;
@@ -141,6 +187,29 @@ const lifecyclePreflightSchema = {
   },
 } as const;
 
+const lifecycleConfirmationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'environmentInstanceId', 'operation', 'expiresAt'],
+  properties: {
+    token: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    environmentInstanceId: { type: 'string' },
+    operation: { type: 'string', enum: ['create'] },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+const lifecycleStartResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['environmentInstanceId', 'runtime', 'containerId'],
+  properties: {
+    environmentInstanceId: { type: 'string' },
+    runtime: { type: 'string', enum: ['devcontainer'] },
+    containerId: { type: 'string' },
+  },
+} as const;
+
 const inspectionSchema = {
   type: 'object',
   additionalProperties: false,
@@ -177,6 +246,52 @@ function requireProject(store: ProjectStore, projectId: string) {
     });
   }
   return project;
+}
+
+async function planLifecycle(
+  options: Options,
+  project: ReturnType<typeof requireProject>,
+  environmentInstanceId?: string,
+) {
+  try {
+    return await options.devContainerLifecyclePlanningService.plan(project, {
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
+    });
+  } catch (error) {
+    if (error instanceof DevContainerLifecyclePlanningError) {
+      throw new ApiError({
+        statusCode: 404,
+        code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+        message:
+          'Ambiente de desenvolvimento não encontrado para este projeto.',
+      });
+    }
+    throw error;
+  }
+}
+
+function confirmationApiError(
+  error: DevContainerLifecycleConfirmationError,
+): ApiError {
+  return new ApiError({
+    statusCode: 409,
+    code: error.code,
+    message: error.message,
+  });
+}
+
+function startApiError(error: DevContainerStartError): ApiError {
+  const statusCode =
+    error.code === 'DEV_CONTAINER_START_COMMAND_FAILED' ||
+    error.code === 'DEV_CONTAINER_START_STATE_FAILED' ||
+    error.code === 'DEV_CONTAINER_START_ROLLBACK_FAILED'
+      ? 500
+      : 409;
+  return new ApiError({
+    statusCode,
+    code: error.code,
+    message: error.message,
+  });
 }
 
 export const devContainerRoutes: FastifyPluginAsync<Options> = async (
@@ -232,20 +347,98 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         options.projectStore,
         request.params.projectId,
       );
+      return {
+        preflight: await planLifecycle(
+          options,
+          project,
+          request.query.environmentInstanceId,
+        ),
+      };
+    },
+  );
+
+  app.post<{ Params: Params; Body: LifecycleConfirmationBody }>(
+    '/projects/:projectId/dev-container/lifecycle-confirmation',
+    {
+      schema: {
+        params: paramsSchema,
+        body: lifecycleConfirmationBodySchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: {
+              confirmation: lifecycleConfirmationSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const preflight = await planLifecycle(
+        options,
+        project,
+        request.body.environmentInstanceId,
+      );
 
       try {
-        return {
-          preflight: await options.devContainerLifecyclePlanningService.plan(
-            project,
-            {
-              ...(request.query.environmentInstanceId
-                ? {
-                    environmentInstanceId: request.query.environmentInstanceId,
-                  }
-                : {}),
+        const confirmation =
+          options.devContainerLifecycleConfirmationService.prepare(preflight);
+        return reply.code(201).send({
+          confirmation: {
+            token: confirmation.token,
+            environmentInstanceId: confirmation.environmentInstanceId,
+            operation: confirmation.operation,
+            expiresAt: confirmation.expiresAt,
+          },
+        });
+      } catch (error) {
+        if (error instanceof DevContainerLifecycleConfirmationError) {
+          throw confirmationApiError(error);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: Params; Body: LifecycleStartBody }>(
+    '/projects/:projectId/dev-container/start',
+    {
+      schema: {
+        params: paramsSchema,
+        body: lifecycleStartBodySchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: lifecycleStartResultSchema,
             },
-          ),
-        };
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      try {
+        const result = await options.devContainerStartService.start(project, {
+          ...(request.body.environmentInstanceId
+            ? { environmentInstanceId: request.body.environmentInstanceId }
+            : {}),
+          confirmationToken: request.body.confirmationToken,
+        });
+        return reply.code(201).send({ result });
       } catch (error) {
         if (error instanceof DevContainerLifecyclePlanningError) {
           throw new ApiError({
@@ -254,6 +447,9 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
             message:
               'Ambiente de desenvolvimento não encontrado para este projeto.',
           });
+        }
+        if (error instanceof DevContainerStartError) {
+          throw startApiError(error);
         }
         throw error;
       }

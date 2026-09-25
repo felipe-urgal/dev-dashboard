@@ -9,6 +9,10 @@ import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { devContainerRoutes } from '../src/routes/dev-container.js';
 import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
 import type { DevContainerLifecyclePreflight } from '../src/services/dev-container-lifecycle-planning-service.js';
+import {
+  DevContainerStartError,
+  type DevContainerStartInput,
+} from '../src/services/dev-container-start-service.js';
 import { ProjectStore } from '../src/store/project-store.js';
 
 const project: Project = {
@@ -33,6 +37,18 @@ function projectStore(): ProjectStore {
   return store;
 }
 
+const unusedLifecycleConfirmationService = {
+  prepare: (_preflight: DevContainerLifecyclePreflight) => {
+    throw new Error('não usado');
+  },
+};
+
+const unusedStartService = {
+  start: async (_project: Project, _input: DevContainerStartInput = {}) => {
+    throw new Error('não usado');
+  },
+};
+
 test('Dev Container HTTP expõe discovery sanitizado e 404 determinístico', async (context) => {
   const calls: string[] = [];
   const inspection: DevContainerInspection = {
@@ -53,6 +69,9 @@ test('Dev Container HTTP expõe discovery sanitizado e 404 determinístico', asy
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: projectStore(),
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: unusedStartService,
     devContainerLifecyclePlanningService: {
       plan: async () => {
         throw new Error('não usado');
@@ -101,6 +120,9 @@ test('Dev Container HTTP preserva estados fail-closed sem inventar configuration
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: projectStore(),
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: unusedStartService,
     devContainerLifecyclePlanningService: {
       plan: async () => {
         throw new Error('não usado');
@@ -141,6 +163,9 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: projectStore(),
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: unusedStartService,
     devContainerDiscoveryService: {
       inspect: async () => ({
         state: 'not-configured',
@@ -229,6 +254,9 @@ test('Dev Container lifecycle preflight converte ambiente inexistente em 404', a
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: projectStore(),
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: unusedStartService,
     devContainerDiscoveryService: {
       inspect: async () => ({
         state: 'not-configured',
@@ -258,4 +286,197 @@ test('Dev Container lifecycle preflight converte ambiente inexistente em 404', a
     response.json<{ error: string }>().error,
     'ENVIRONMENT_INSTANCE_NOT_FOUND',
   );
+});
+
+test('Dev Container lifecycle confirmation revalida preflight e não expõe fingerprint interno', async (context) => {
+  const prepared: string[] = [];
+  const environmentInstanceId =
+    'environment:worktree:project-1:devcontainer-confirmation';
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-25T09:00:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async (selectedProject, input) => ({
+        projectId: selectedProject.id,
+        operation: 'create',
+        state: 'review',
+        reason: 'review-required',
+        observedAt: '2026-09-25T09:00:00.000Z',
+        environmentInstanceId:
+          input.environmentInstanceId ?? 'environment:primary:project-1',
+        runtime: 'host',
+        executionEnabled: false,
+        requiresConfirmation: true,
+        discoveryState: 'available',
+        configSource: '.devcontainer/devcontainer.json',
+        configurationHash: 'f'.repeat(64),
+        cliVersion: '0.80.1',
+        configuration: {
+          kind: 'image',
+          lifecycleHooks: [],
+        },
+        limitations: [],
+        diagnostic: 'Revisão humana necessária.',
+      }),
+    },
+    devContainerLifecycleConfirmationService: {
+      prepare: (preflight) => {
+        prepared.push(preflight.environmentInstanceId);
+        return {
+          token: 'a'.repeat(64),
+          projectId: preflight.projectId,
+          environmentInstanceId: preflight.environmentInstanceId,
+          operation: 'create',
+          preflightHash: 'b'.repeat(64),
+          expiresAt: '2026-09-25T09:01:00.000Z',
+          internalSecret: 'não pode sair',
+        };
+      },
+    },
+    devContainerStartService: unusedStartService,
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/lifecycle-confirmation',
+    payload: { environmentInstanceId },
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(response.json(), {
+    confirmation: {
+      token: 'a'.repeat(64),
+      environmentInstanceId,
+      operation: 'create',
+      expiresAt: '2026-09-25T09:01:00.000Z',
+    },
+  });
+  assert.equal(response.body.includes('preflightHash'), false);
+  assert.equal(response.body.includes('não pode sair'), false);
+  assert.deepEqual(prepared, [environmentInstanceId]);
+});
+
+test('Dev Container start encaminha somente Environment Instance e confirmação ao executor', async (context) => {
+  const calls: Array<{
+    projectId: string;
+    input: DevContainerStartInput;
+  }> = [];
+  const environmentInstanceId =
+    'environment:worktree:project-1:devcontainer-start';
+  const confirmationToken = 'c'.repeat(64);
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-25T09:02:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: {
+      start: async (selectedProject, input = {}) => {
+        calls.push({ projectId: selectedProject.id, input });
+        return {
+          environmentInstanceId,
+          runtime: 'devcontainer',
+          containerId: 'a'.repeat(64),
+          internalSecret: 'não pode sair',
+        };
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/start',
+    payload: {
+      environmentInstanceId,
+      confirmationToken,
+      ignored: 'não aceito',
+    },
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(response.json(), {
+    result: {
+      environmentInstanceId,
+      runtime: 'devcontainer',
+      containerId: 'a'.repeat(64),
+    },
+  });
+  assert.equal(response.body.includes('não pode sair'), false);
+  assert.deepEqual(calls, [
+    {
+      projectId: 'project-1',
+      input: {
+        environmentInstanceId,
+        confirmationToken,
+      },
+    },
+  ]);
+});
+
+test('Dev Container start preserva erro sanitizado de confirmação como conflito', async (context) => {
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-09-25T09:03:00.000Z',
+      }),
+    },
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: {
+      start: async () => {
+        throw new DevContainerStartError(
+          'DEV_CONTAINER_START_CONFIRMATION_REQUIRED',
+          'Uma confirmação válida e atual é obrigatória para criar o Dev Container.',
+        );
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/start',
+    payload: {
+      confirmationToken: 'd'.repeat(64),
+    },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.deepEqual(response.json(), {
+    error: 'DEV_CONTAINER_START_CONFIRMATION_REQUIRED',
+    message:
+      'Uma confirmação válida e atual é obrigatória para criar o Dev Container.',
+  });
 });
