@@ -191,7 +191,11 @@ export class ProjectTerminalService {
     kind: ProjectTerminalKind,
     executionContext?: ExecutionContext,
   ): ProjectTerminalStatus {
-    const contextMessage = executionContextMessage(project, kind, executionContext);
+    const contextMessage = executionContextMessage(
+      project,
+      kind,
+      executionContext,
+    );
     const supported = this.supports(project, kind) && !contextMessage;
     const environmentInstanceId = executionContext?.environmentInstanceId;
     const activeSessions = this.countActive(
@@ -221,7 +225,11 @@ export class ProjectTerminalService {
     kind: ProjectTerminalKind,
     executionContext?: ExecutionContext,
   ): ProjectTerminalConfirmation {
-    const contextMessage = executionContextMessage(project, kind, executionContext);
+    const contextMessage = executionContextMessage(
+      project,
+      kind,
+      executionContext,
+    );
     if (contextMessage) throw new ProjectTerminalError(contextMessage);
 
     this.sweepConfirmations();
@@ -249,7 +257,11 @@ export class ProjectTerminalService {
     socket: WebSocket,
     executionContext?: ExecutionContext,
   ): Promise<void> {
-    const contextMessage = executionContextMessage(project, kind, executionContext);
+    const contextMessage = executionContextMessage(
+      project,
+      kind,
+      executionContext,
+    );
     if (contextMessage) {
       sendJson(socket, { type: 'error', message: contextMessage });
       socket.close(1008, 'Ambiente inválido');

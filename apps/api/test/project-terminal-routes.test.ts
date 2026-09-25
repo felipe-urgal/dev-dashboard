@@ -147,11 +147,12 @@ test('rotas de terminal/console do projeto', async (context) => {
   await context.test(
     'status e confirmação usam a Environment Instance Dev Container selecionada',
     async () => {
-      const environmentInstanceId = primaryEnvironmentInstanceId(nodeProject.id);
-      const instance =
-        appContext.developmentEnvironmentInstanceStore.findById(
-          environmentInstanceId,
-        );
+      const environmentInstanceId = primaryEnvironmentInstanceId(
+        nodeProject.id,
+      );
+      const instance = appContext.developmentEnvironmentInstanceStore.findById(
+        environmentInstanceId,
+      );
       assert.ok(instance);
       appContext.developmentEnvironmentInstanceStore.upsert({
         ...instance,
@@ -173,8 +174,7 @@ test('rotas de terminal/console do projeto', async (context) => {
 
       const confirmationResponse = await app.inject({
         method: 'POST',
-        url:
-          '/api/projects/node-project/terminal/shell/confirmations' + query,
+        url: '/api/projects/node-project/terminal/shell/confirmations' + query,
         headers,
         payload: {},
       });

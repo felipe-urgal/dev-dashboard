@@ -70,20 +70,17 @@ describe('Dev Container no shell do projeto', () => {
     expect(apiSource).not.toContain('workspaceFolder');
     expect(apiSource).not.toContain('overrideConfigPath');
     expect(apiSource).not.toContain('ownershipToken');
-  it('leva a Environment Instance até o Terminal sem expor containerId no browser', () => {
-    expect(projectDetailsSource).toContain(
-      "name: 'project-terminal'",
-    );
-    expect(projectDetailsSource).toContain(
-      ':environment-instance-id="environmentInstanceId"',
-    );
-    expect(terminalPanelSource).toContain('props.environmentInstanceId');
-    expect(terminalApiSource).toContain('environmentInstanceId');
-    expect(terminalApiSource).toContain('/terminal/${kind}/connect');
-    expect(terminalApiSource).not.toContain('containerId');
-    expect(terminalApiSource).not.toContain('runtimeId');
-    expect(terminalPanelSource).not.toContain('devcontainer exec');
-  });
-
+    it('leva a Environment Instance até o Terminal sem expor containerId no browser', () => {
+      expect(projectDetailsSource).toContain("name: 'project-terminal'");
+      expect(projectDetailsSource).toContain(
+        ':environment-instance-id="environmentInstanceId"',
+      );
+      expect(terminalPanelSource).toContain('props.environmentInstanceId');
+      expect(terminalApiSource).toContain('environmentInstanceId');
+      expect(terminalApiSource).toContain('/terminal/${kind}/connect');
+      expect(terminalApiSource).not.toContain('containerId');
+      expect(terminalApiSource).not.toContain('runtimeId');
+      expect(terminalPanelSource).not.toContain('devcontainer exec');
+    });
   });
 });

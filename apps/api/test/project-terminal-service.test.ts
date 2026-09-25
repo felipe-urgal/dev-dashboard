@@ -271,7 +271,10 @@ test('runtime Dev Container falha fechado sem runtimeId e não amplia Console Ra
     runtimeId: 'b'.repeat(64),
   };
 
-  assert.equal(service.status(testProject, 'shell', withoutRuntimeId).supported, false);
+  assert.equal(
+    service.status(testProject, 'shell', withoutRuntimeId).supported,
+    false,
+  );
   assert.match(
     service.status(testProject, 'shell', withoutRuntimeId).message,
     /identidade executável válida/u,
@@ -282,11 +285,7 @@ test('runtime Dev Container falha fechado sem runtimeId e não amplia Console Ra
   );
   assert.throws(
     () =>
-      service.prepareConfirmation(
-        testProject,
-        'rails-console',
-        withRuntimeId,
-      ),
+      service.prepareConfirmation(testProject, 'rails-console', withRuntimeId),
     ProjectTerminalError,
   );
 });
