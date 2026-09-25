@@ -120,7 +120,7 @@ export class DevContainerLifecyclePlanningService {
       );
     }
 
-    const operation =
+    const operation: DevContainerLifecyclePreflight['operation'] =
       executionContext.runtime === 'devcontainer' ? 'rebuild' : 'create';
     let ownedRuntime: DevContainerOwnershipRecord | undefined;
 
