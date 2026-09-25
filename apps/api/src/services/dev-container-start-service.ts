@@ -82,7 +82,11 @@ type EnvironmentStore = Pick<
   'findById' | 'findPrimaryByProjectId' | 'upsert'
 >;
 
-function appendTail(current: Buffer, chunk: Buffer, maxBytes: number): Buffer {
+function appendTail(
+  current: Buffer<ArrayBufferLike>,
+  chunk: Buffer<ArrayBufferLike>,
+  maxBytes: number,
+): Buffer<ArrayBufferLike> {
   const next = Buffer.concat([current, chunk]);
   return next.byteLength > maxBytes
     ? next.subarray(next.byteLength - maxBytes)
@@ -100,7 +104,7 @@ function defaultCommandRunner(
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    let tail = Buffer.alloc(0);
+    let tail: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let settled = false;
     let timedOut = false;
     let forceKillTimer: NodeJS.Timeout | undefined;
@@ -114,7 +118,7 @@ function defaultCommandRunner(
       }, COMMAND_KILL_GRACE_MS);
     }, options.timeoutMs);
 
-    child.stdout.on('data', (chunk: Buffer | string) => {
+    child.stdout.on('data', (chunk: Buffer<ArrayBufferLike> | string) => {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       tail = appendTail(tail, buffer, options.outputTailBytes);
     });
