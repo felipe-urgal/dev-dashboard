@@ -270,10 +270,18 @@
 
 @media (min-width: 901px) {
   .app-shell-project-sidebar > .topbar {
-    padding-left: 0;
+    padding: 0;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-workspace,
+  .app-shell-project-sidebar .topbar .topbar-navigation,
+  .app-shell-project-sidebar .topbar .topbar-tools {
+    display: none;
   }
 
   .app-shell-project-sidebar .topbar .topbar-brand {
+    position: relative;
+    z-index: 62;
     width: var(--project-sidebar-width);
     min-width: var(--project-sidebar-width);
     flex: 0 0 var(--project-sidebar-width);

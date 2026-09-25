@@ -9,6 +9,7 @@ import {
 } from 'vue';
 
 import {
+  ArrowLeftIcon,
   BeakerIcon,
   CodeBracketIcon,
   CommandLineIcon,
@@ -338,6 +339,16 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <div class="project-details-sticky-header">
         <header class="project-details-hero">
           <div class="project-details-main">
+            <RouterLink
+              class="project-details-back"
+              :to="{ name: 'dashboard' }"
+              aria-label="Voltar para a listagem de projetos"
+              title="Voltar para projetos"
+            >
+              <ArrowLeftIcon aria-hidden="true" />
+              <span>Projetos</span>
+            </RouterLink>
+
             <div class="project-title-row">
               <h2>{{ project.name }}</h2>
               <div
