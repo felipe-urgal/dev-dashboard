@@ -58,6 +58,47 @@ for (const viewport of VIEWPORTS) {
 test.describe('sidebar do projeto em desktop baixo', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  test('mostra tooltips somente quando a sidebar está recolhida', async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      ({ storageKey }) => {
+        localStorage.setItem(storageKey, 'true');
+      },
+      { storageKey: SIDEBAR_COLLAPSED_STORAGE_KEY },
+    );
+
+    await gotoBootstrapped(page, '/');
+    await page
+      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+      .click();
+
+    const sidebarLinks = page.locator(
+      '.project-details-tabs .project-details-tab',
+    );
+    const collapsedTooltips = await sidebarLinks.evaluateAll((links) =>
+      links.map((link) => ({
+        label: link.getAttribute('aria-label'),
+        title: link.getAttribute('title'),
+      })),
+    );
+
+    expect(collapsedTooltips.length).toBeGreaterThan(0);
+    for (const item of collapsedTooltips) {
+      expect(item.label).toBeTruthy();
+      expect(item.title).toBe(item.label);
+    }
+
+    await page
+      .getByRole('button', { name: 'Expandir sidebar do projeto' })
+      .click();
+
+    const expandedTitles = await sidebarLinks.evaluateAll((links) =>
+      links.map((link) => link.getAttribute('title')),
+    );
+    expect(expandedTitles.every((title) => title === null)).toBe(true);
+  });
+
   test('mantém todos os atalhos visíveis sem rolagem vertical', async ({
     page,
   }) => {
