@@ -268,37 +268,37 @@
   text-align: left;
 }
 
-.app-shell-project-sidebar > .topbar {
-  padding-left: 0;
-}
-
-.app-shell-project-sidebar .topbar .topbar-brand {
-  width: var(--project-sidebar-width);
-  min-width: var(--project-sidebar-width);
-  flex: 0 0 var(--project-sidebar-width);
-  align-self: stretch;
-  padding: 0 16px;
-  border-right: 1px solid var(--border);
-  cursor: pointer;
-  transition:
-    width 180ms ease,
-    min-width 180ms ease,
-    flex-basis 180ms ease,
-    padding 180ms ease;
-}
-
-.app-shell-project-sidebar .topbar .topbar-brand:hover,
-.app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
-  color: var(--text);
-  background: var(--surface-2);
-  outline: none;
-}
-
-.app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-
 @media (min-width: 901px) {
+  .app-shell-project-sidebar > .topbar {
+    padding-left: 0;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-brand {
+    width: var(--project-sidebar-width);
+    min-width: var(--project-sidebar-width);
+    flex: 0 0 var(--project-sidebar-width);
+    align-self: stretch;
+    padding: 0 16px;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition:
+      width 180ms ease,
+      min-width 180ms ease,
+      flex-basis 180ms ease,
+      padding 180ms ease;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-brand:hover,
+  .app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
+    color: var(--text);
+    background: var(--surface-2);
+    outline: none;
+  }
+
+  .app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+
   .app-shell-project-sidebar-collapsed {
     --project-sidebar-width: 64px;
   }
