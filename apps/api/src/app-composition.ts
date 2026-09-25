@@ -153,18 +153,6 @@ export function createAppComposition(
       undefined,
       options.now ? () => new Date(options.now!()) : undefined,
     );
-  const devContainerLifecyclePlanningService =
-    options.devContainerLifecyclePlanningService ??
-    new DevContainerLifecyclePlanningService(
-      devContainerDiscoveryService,
-      context.developmentEnvironmentInstanceStore,
-      options.now ? () => new Date(options.now!()) : undefined,
-    );
-  const devContainerLifecycleConfirmationService =
-    options.devContainerLifecycleConfirmationService ??
-    new DevContainerLifecycleConfirmationService(
-      options.now ? { now: options.now } : {},
-    );
   const devContainerOwnershipStore =
     options.devContainerOwnershipStore ??
     new DevContainerOwnershipStore(
@@ -173,6 +161,19 @@ export function createAppComposition(
         'dev-container-ownership.json',
       ),
       options.now ? { now: () => new Date(options.now!()) } : {},
+    );
+  const devContainerLifecyclePlanningService =
+    options.devContainerLifecyclePlanningService ??
+    new DevContainerLifecyclePlanningService(
+      devContainerDiscoveryService,
+      context.developmentEnvironmentInstanceStore,
+      options.now ? () => new Date(options.now!()) : undefined,
+      devContainerOwnershipStore,
+    );
+  const devContainerLifecycleConfirmationService =
+    options.devContainerLifecycleConfirmationService ??
+    new DevContainerLifecycleConfirmationService(
+      options.now ? { now: options.now } : {},
     );
   const devContainerCleanupService =
     options.devContainerCleanupService ??
