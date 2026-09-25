@@ -445,6 +445,7 @@ watch(
 
 .devcontainer-heading p,
 .devcontainer-note span,
+.devcontainer-confirmation span,
 .devcontainer-limitations span,
 .devcontainer-hooks span {
   color: var(--text-muted);
