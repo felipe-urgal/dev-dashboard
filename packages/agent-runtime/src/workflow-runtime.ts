@@ -282,13 +282,17 @@ export class AgentWorkflowRuntime {
       !Number.isSafeInteger(this.retryBackoffMs) ||
       this.retryBackoffMs < 0 ||
       !Number.isSafeInteger(this.maxRetryBackoffMs) ||
-      this.maxRetryBackoffMs < this.retryBackoffMs ||
+      this.maxRetryBackoffMs < this.retryBackoffMs
+    ) {
+      throw new Error('Agent workflow retry policy is invalid.');
+    }
+    if (
       !Number.isSafeInteger(this.providerConversationMaxTurns) ||
       this.providerConversationMaxTurns < 1 ||
       !Number.isSafeInteger(this.providerConversationMaxChars) ||
       this.providerConversationMaxChars < 1
     ) {
-      throw new Error('Agent workflow retry policy is invalid.');
+      throw new Error('Agent workflow conversation context policy is invalid.');
     }
   }
 
