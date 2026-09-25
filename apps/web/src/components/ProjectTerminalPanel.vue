@@ -358,9 +358,9 @@ onBeforeUnmount(() => {
       </template>
       <div class="terminal-start">
         <p class="terminal-warning">
-          Esta sessão executa comandos com as mesmas permissões do seu usuário,
-          sem restrição de catálogo. Use apenas em projetos e comandos em que
-          você confia.
+          Esta sessão permite comandos interativos sem restrição de catálogo no
+          ambiente selecionado. Use apenas em projetos e comandos em que você
+          confia.
         </p>
         <button type="button" class="primary-button" @click="startSession">
           {{
