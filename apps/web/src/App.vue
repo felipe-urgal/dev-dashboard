@@ -92,11 +92,13 @@ onMounted(() => {
           class="brand topbar-brand project-sidebar-brand-toggle"
           type="button"
           :aria-label="
-            projectSidebarCollapsed
-              ? 'Expandir sidebar do projeto'
-              : 'Recolher sidebar do projeto'
+            isProjectRoute
+              ? projectSidebarCollapsed
+                ? 'Expandir sidebar do projeto'
+                : 'Recolher sidebar do projeto'
+              : undefined
           "
-          :aria-pressed="projectSidebarCollapsed"
+          :aria-pressed="isProjectRoute ? projectSidebarCollapsed : undefined"
           :title="
             isProjectRoute
               ? projectSidebarCollapsed
