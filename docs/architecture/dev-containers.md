@@ -64,7 +64,7 @@ A UI deixa explícitos:
 
 Quando o preflight está em `review`, o runtime é `host` e a configuração é `image | dockerfile`, a tela oferece somente `Criar Dev Container`. O primeiro clique abre uma confirmação local; a confirmação final chama o endpoint de confirmação, recebe um token efêmero e imediatamente chama o endpoint de start para a mesma `environmentInstanceId`.
 
-A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser. O browser nunca escolhe programa, argv, configuração, ownership ou cleanup. O preflight continua `executionEnabled=false`: a mutation existe apenas pela sequência explícita confirmação → start. Rebuild, exec, Terminal e cleanup continuam fora da UI neste corte.
+A navegação preserva `environmentInstanceId`, mas não concede autoridade de path/cwd ao browser. O browser nunca escolhe programa, argv, configuração, ownership ou cleanup. O preflight continua `executionEnabled=false`: a mutation existe apenas pela sequência explícita confirmação → start. Falha de confirmação/start mantém o preflight conhecido visível e permite nova tentativa explícita. Rebuild, exec, Terminal e cleanup continuam fora da UI neste corte.
 
 ## Lifecycle preflight read-only
 
