@@ -469,6 +469,8 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         throw error;
       }
     },
+  );
+
   app.post<{ Params: Params; Body: LifecycleStartBody }>(
     '/projects/:projectId/dev-container/rebuild',
     {
@@ -516,7 +518,5 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         throw error;
       }
     },
-  );
-
   );
 };
