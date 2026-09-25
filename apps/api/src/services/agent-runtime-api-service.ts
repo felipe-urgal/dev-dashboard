@@ -193,7 +193,7 @@ export interface AgentRuntimeApiServicePort {
     environmentInstanceId?: string,
   ): Promise<AgentIntegrationUninstallResult>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
-  adoptBacklog(
+  adoptBacklog?(
     projectId: string,
     input: AgentBacklogAdoptInput,
   ): Promise<AgentBacklogAdoptResult>;
@@ -280,7 +280,7 @@ export interface AgentRuntimeApiServiceOptions {
   >;
   taskContextRepository?: {
     find(taskContextId: string): TaskContext | null;
-    list(projectId: string): readonly TaskContext[];
+    list?(projectId: string): readonly TaskContext[];
   };
   taskContextCreator?: {
     create(
@@ -769,7 +769,8 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
 
     const issue = selection.issue;
-    const contexts = this.options.taskContextRepository?.list(projectId) ?? [];
+    const contexts =
+      this.options.taskContextRepository?.list?.(projectId) ?? [];
     let taskContext = [...contexts]
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       .find(
