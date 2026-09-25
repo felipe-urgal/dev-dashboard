@@ -21,6 +21,8 @@ const project: Project = {
 };
 
 const CONFIG_HASH = 'b'.repeat(64);
+const RUNTIME_ID = 'a'.repeat(64);
+const OWNERSHIP_TOKEN = '11111111-1111-4111-8111-111111111111';
 
 const hostContext: ExecutionContext = {
   projectId: project.id,
@@ -32,6 +34,13 @@ const hostContext: ExecutionContext = {
 function planner(
   inspection: DevContainerInspection,
   context: ExecutionContext | null = hostContext,
+  ownership:
+    | {
+        phase: 'owned';
+        containerId: string;
+        ownershipToken: string;
+      }
+    | undefined = undefined,
 ) {
   const inspectedPaths: string[] = [];
   const service = new DevContainerLifecyclePlanningService(
@@ -43,6 +52,24 @@ function planner(
     },
     {
       resolveForProject: () => context,
+    },
+    undefined,
+    {
+      get: async () =>
+        ownership
+          ? {
+              projectId: project.id,
+              environmentInstanceId:
+                context?.environmentInstanceId ?? hostContext.environmentInstanceId,
+              projectPath: context?.cwd ?? project.path,
+              configSource: '.devcontainer/devcontainer.json',
+              phase: ownership.phase,
+              containerId: ownership.containerId,
+              ownershipToken: ownership.ownershipToken,
+              claimedAt: '2026-09-24T21:59:00.000Z',
+              updatedAt: '2026-09-24T21:59:30.000Z',
+            }
+          : undefined,
     },
   );
   return { service, inspectedPaths };
@@ -225,20 +252,71 @@ test('preflight falha fechado quando o discovery lança erro inesperado', async 
   assert.equal(JSON.stringify(plan).includes('raw secret output'), false);
 });
 
-test('preflight bloqueia quando a Environment Instance já usa runtime devcontainer', async () => {
+test('preflight oferece rebuild somente para runtime Dev Container owned', async () => {
+  const devContainerContext: ExecutionContext = {
+    ...hostContext,
+    runtime: 'devcontainer',
+    runtimeId: RUNTIME_ID,
+  };
+  const inspection: DevContainerInspection = {
+    state: 'available',
+    observedAt: '2026-09-24T22:06:00.000Z',
+    configSource: '.devcontainer/devcontainer.json',
+    cliVersion: '0.80.1',
+    configurationHash: CONFIG_HASH,
+    configuration: { kind: 'image', lifecycleHooks: ['postCreateCommand'] },
+  };
   const { service, inspectedPaths } = planner(
+    inspection,
+    devContainerContext,
     {
-      state: 'available',
-      observedAt: '2026-09-24T22:06:00.000Z',
-      configuration: { kind: 'image', lifecycleHooks: [] },
+      phase: 'owned',
+      containerId: RUNTIME_ID,
+      ownershipToken: OWNERSHIP_TOKEN,
     },
-    { ...hostContext, runtime: 'devcontainer' },
   );
 
   const plan = await service.plan(project);
 
-  assert.equal(plan.state, 'blocked');
-  assert.equal(plan.reason, 'runtime-not-host');
+  assert.equal(plan.operation, 'rebuild');
+  assert.equal(plan.state, 'review');
+  assert.equal(plan.reason, 'review-required');
+  assert.equal(plan.runtime, 'devcontainer');
+  assert.equal(plan.runtimeId, RUNTIME_ID);
+  assert.equal(plan.ownershipToken, OWNERSHIP_TOKEN);
+  assert.equal(plan.requiresConfirmation, true);
   assert.equal(plan.executionEnabled, false);
+  assert.deepEqual(plan.limitations, ['post-create-hooks-deferred']);
+  assert.deepEqual(inspectedPaths, [project.path]);
+});
+
+test('preflight de rebuild falha fechado sem ownership exato', async () => {
+  const devContainerContext: ExecutionContext = {
+    ...hostContext,
+    runtime: 'devcontainer',
+    runtimeId: RUNTIME_ID,
+  };
+  const { service, inspectedPaths } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-09-24T22:07:00.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      configurationHash: CONFIG_HASH,
+      configuration: { kind: 'image', lifecycleHooks: [] },
+    },
+    devContainerContext,
+    {
+      phase: 'owned',
+      containerId: 'c'.repeat(64),
+      ownershipToken: OWNERSHIP_TOKEN,
+    },
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.operation, 'rebuild');
+  assert.equal(plan.state, 'blocked');
+  assert.equal(plan.reason, 'rebuild-ownership-required');
+  assert.equal(plan.requiresConfirmation, false);
   assert.deepEqual(inspectedPaths, []);
 });
