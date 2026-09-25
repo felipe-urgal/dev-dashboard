@@ -6,7 +6,7 @@ import {
   PlusIcon,
   QueueListIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
@@ -22,6 +22,10 @@ import {
   currentTheme,
   loadVisualPreferences,
 } from './utils/visual-preferences';
+import {
+  readSidebarCollapsed,
+  storeSidebarCollapsed,
+} from './utils/sidebar-preferences';
 const naiveTheme = computed(() =>
   currentTheme.value === 'dark' ? darkTheme : null,
 );
@@ -32,9 +36,16 @@ const naiveThemeOverrides = computed(() =>
 loadVisualPreferences();
 
 const workspaceManagerOpen = ref(false);
+const projectSidebarCollapsed = ref(readSidebarCollapsed());
 
 const route = useRoute();
 const router = useRouter();
+
+const isProjectRoute = computed(
+  () =>
+    typeof route.name === 'string' &&
+    (route.name === 'project-details' || route.name.startsWith('project-')),
+);
 
 nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
@@ -52,6 +63,15 @@ function handleWorkspaceSwitch(event: Event): void {
   void switchWorkspace(target.value);
 }
 
+function toggleProjectSidebar(): void {
+  if (!isProjectRoute.value) return;
+  projectSidebarCollapsed.value = !projectSidebarCollapsed.value;
+}
+
+watch(projectSidebarCollapsed, (collapsed) => {
+  storeSidebarCollapsed(collapsed);
+});
+
 onMounted(() => {
   void dashboardStore.ensureDashboardLoaded();
 });
@@ -59,7 +79,41 @@ onMounted(() => {
 
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides">
-    <div class="app-shell app-shell-topnav">
+    <div
+      class="app-shell app-shell-topnav"
+      :class="{
+        'app-shell-project-sidebar': isProjectRoute,
+        'app-shell-project-sidebar-collapsed':
+          isProjectRoute && projectSidebarCollapsed,
+      }"
+    >
+      <button
+        v-if="isProjectRoute"
+        class="brand project-sidebar-brand"
+        type="button"
+        :aria-label="
+          projectSidebarCollapsed
+            ? 'Expandir sidebar do projeto'
+            : 'Recolher sidebar do projeto'
+        "
+        :aria-pressed="projectSidebarCollapsed"
+        :title="
+          projectSidebarCollapsed
+            ? 'Expandir sidebar do projeto'
+            : 'Recolher sidebar do projeto'
+        "
+        @click="toggleProjectSidebar"
+      >
+        <div class="brand-mark" aria-hidden="true">
+          <CodeBracketIcon />
+        </div>
+
+        <div class="brand-copy">
+          <strong>Dev Dashboard</strong>
+          <span>Local workspace</span>
+        </div>
+      </button>
+
       <header id="primary-navigation" class="sidebar topbar">
         <div class="brand topbar-brand">
           <div class="brand-mark" aria-hidden="true">
