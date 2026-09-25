@@ -23,7 +23,11 @@ const {
 
 const manualRefreshing = ref(false);
 
-const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
+const sortedProjects = computed(() =>
+  sortProjectsByPriority(
+    projects.value.filter((project) => project.name !== 'dev-dashboard'),
+  ),
+);
 
 const workspaceTitle = computed(() => {
   const name = selectedWorkspace.value?.name ?? 'Projetos pessoais';

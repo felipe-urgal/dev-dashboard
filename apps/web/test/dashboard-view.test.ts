@@ -129,6 +129,24 @@ describe('dashboard principal', () => {
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
   });
 
+  it('oculta o próprio dev-dashboard da listagem', () => {
+    dashboardStore.projects.value = [
+      project,
+      {
+        ...project,
+        id: 'dev-dashboard',
+        name: 'dev-dashboard',
+        path: '/home/ubuntu/Projetos/dev-dashboard',
+      },
+    ];
+
+    const wrapper = mountView();
+
+    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
+    expect(wrapper.text()).toContain('Projeto Node');
+    expect(wrapper.text()).not.toContain('dev-dashboard');
+  });
+
   it('aciona a atualização do workspace pelo cabeçalho', async () => {
     dashboardStore.workspaces.value = [workspace];
     dashboardStore.selectedWorkspaceId.value = workspace.id;
