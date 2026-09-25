@@ -2,6 +2,7 @@
 import {
   computed,
   defineAsyncComponent,
+  inject,
   onBeforeUnmount,
   ref,
   watch,
@@ -103,6 +104,7 @@ const ProjectAgentPanel = lazyTool(
 
 const route = useRoute();
 const router = useRouter();
+const projectSidebarCollapsed = inject('projectSidebarCollapsed', ref(false));
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
@@ -394,6 +396,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
                     }
                   : {}),
               }"
+              aria-label="Servidor"
+              :title="projectSidebarCollapsed ? 'Servidor' : undefined"
             >
               <ServerStackIcon aria-hidden="true" />
               <span>Servidor</span>
@@ -404,6 +408,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
               :class="{ 'project-details-tab-active': isGitRoute }"
               :aria-current="isGitRoute ? 'page' : undefined"
               :to="{ name: 'project-git', params: { projectId: project.id } }"
+              aria-label="Git"
+              :title="projectSidebarCollapsed ? 'Git' : undefined"
             >
               <CodeBracketIcon aria-hidden="true" />
               <span>Git</span>
@@ -420,6 +426,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
                   ? { query: { environmentInstanceId } }
                   : {}),
               }"
+              aria-label="Testes"
+              :title="projectSidebarCollapsed ? 'Testes' : undefined"
             >
               <BeakerIcon aria-hidden="true" />
               <span>Testes</span>
@@ -436,6 +444,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
                   ? { query: { environmentInstanceId } }
                   : {}),
               }"
+              aria-label="Agente"
+              :title="projectSidebarCollapsed ? 'Agente' : undefined"
             >
               <CpuChipIcon aria-hidden="true" />
               <span>Agente</span>
@@ -450,6 +460,8 @@ onBeforeUnmount(stopGitOverviewRefresh);
                 name: 'project-production',
                 params: { projectId: project.id },
               }"
+              aria-label="Produção"
+              :title="projectSidebarCollapsed ? 'Produção' : undefined"
             >
               <RocketLaunchIcon aria-hidden="true" />
               <span>Produção</span>
@@ -466,12 +478,15 @@ onBeforeUnmount(stopGitOverviewRefresh);
                   ? { query: { environmentInstanceId } }
                   : {}),
               }"
+              aria-label="Terminal"
+              :title="projectSidebarCollapsed ? 'Terminal' : undefined"
             >
               <CommandLineIcon aria-hidden="true" />
               <span>Terminal</span>
             </RouterLink>
             <ProjectDetailsMoreTools
               :project="project"
+              :sidebar-collapsed="projectSidebarCollapsed"
               :sidekiq-detected="sidekiqDetected"
               :webpack-detected="webpackDetected"
               :environment-instance-id="environmentInstanceId"
