@@ -348,7 +348,11 @@ function codexResponseFromJsonl(stdout: string): string | undefined {
     const value = line.trim();
     if (!value) continue;
     let event: unknown;
-    try { event = JSON.parse(value); } catch { continue; }
+    try {
+      event = JSON.parse(value);
+    } catch {
+      continue;
+    }
     if (!event || typeof event !== 'object') continue;
     const record = event as Record<string, unknown>;
     if (record.type !== 'item.completed') continue;
@@ -368,7 +372,9 @@ function claudeMessageText(value: unknown): string | undefined {
   const parts = value.flatMap((block) => {
     if (!block || typeof block !== 'object' || Array.isArray(block)) return [];
     const record = block as Record<string, unknown>;
-    return record.type === 'text' && typeof record.text === 'string' ? [record.text] : [];
+    return record.type === 'text' && typeof record.text === 'string'
+      ? [record.text]
+      : [];
   });
   return normalizeProviderResponseText(parts.join('\n'));
 }
@@ -380,13 +386,20 @@ function claudeResponseFromJsonl(stdout: string): string | undefined {
     const value = line.trim();
     if (!value) continue;
     let event: unknown;
-    try { event = JSON.parse(value); } catch { continue; }
+    try {
+      event = JSON.parse(value);
+    } catch {
+      continue;
+    }
     if (!event || typeof event !== 'object') continue;
     const record = event as Record<string, unknown>;
     if (record.type === 'assistant') {
       const message = record.message;
-      if (!message || typeof message !== 'object' || Array.isArray(message)) continue;
-      const candidate = claudeMessageText((message as Record<string, unknown>).content);
+      if (!message || typeof message !== 'object' || Array.isArray(message))
+        continue;
+      const candidate = claudeMessageText(
+        (message as Record<string, unknown>).content,
+      );
       if (candidate) assistantText = candidate;
       continue;
     }

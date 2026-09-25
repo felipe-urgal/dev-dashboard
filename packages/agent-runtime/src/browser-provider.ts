@@ -358,7 +358,8 @@ function buildPrompt(
   const terminalExample = JSON.stringify({
     type: 'terminal_result',
     status: 'completed',
-    message: 'Implemented the requested change and verified the relevant tests.',
+    message:
+      'Implemented the requested change and verified the relevant tests.',
   });
 
   return [
