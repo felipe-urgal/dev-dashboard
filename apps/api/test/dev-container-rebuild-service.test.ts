@@ -149,13 +149,16 @@ function fixture(options: {
       },
       reserve: async () => {
         events.push('reserve');
-        return ownedRuntime({
+        return {
+          projectId: project.id,
+          environmentInstanceId: 'environment:primary:project-1',
+          projectPath: project.path,
+          configSource: '.devcontainer/devcontainer.json',
           ownershipToken: NEW_OWNERSHIP_TOKEN,
           phase: 'starting',
-          containerId: undefined,
           claimedAt: '2026-09-25T11:21:00.000Z',
           updatedAt: '2026-09-25T11:21:00.000Z',
-        });
+        };
       },
       attach: async ({ containerId }) => {
         events.push('attach');
