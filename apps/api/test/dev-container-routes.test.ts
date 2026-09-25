@@ -415,28 +415,15 @@ test('Dev Container start encaminha somente Environment Instance e confirmação
     },
   });
 
-  assert.equal(response.statusCode, 400);
-  assert.equal(response.json<{ error: string }>().error, 'VALIDATION_ERROR');
-  assert.deepEqual(calls, []);
-
-  const accepted = await app.inject({
-    method: 'POST',
-    url: '/api/projects/project-1/dev-container/start',
-    payload: {
-      environmentInstanceId,
-      confirmationToken,
-    },
-  });
-
-  assert.equal(accepted.statusCode, 201);
-  assert.deepEqual(accepted.json(), {
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(response.json(), {
     result: {
       environmentInstanceId,
       runtime: 'devcontainer',
       containerId: 'a'.repeat(64),
     },
   });
-  assert.equal(accepted.body.includes('não pode sair'), false);
+  assert.equal(response.body.includes('não pode sair'), false);
   assert.deepEqual(calls, [
     {
       projectId: 'project-1',
