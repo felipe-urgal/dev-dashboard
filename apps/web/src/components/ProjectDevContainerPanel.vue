@@ -101,7 +101,8 @@ const hooks = computed(
 const canCreate = computed(() => {
   const value = preflight.value;
   return (
-    value?.state === 'review' &&
+    value?.operation === 'create' &&
+    value.state === 'review' &&
     value.runtime === 'host' &&
     value.requiresConfirmation === true &&
     (value.configuration?.kind === 'image' ||
@@ -313,8 +314,11 @@ watch(
               {{ formatDate(preflight.observedAt) }}
             </span>
             <span v-if="preflight.requiresConfirmation">
-              A criação exige confirmação explícita e nova revalidação no
-              backend.
+              {{
+                preflight.operation === 'rebuild'
+                  ? 'O rebuild exige confirmação explícita e nova revalidação no backend.'
+                  : 'A criação exige confirmação explícita e nova revalidação no backend.'
+              }}
             </span>
           </div>
         </div>

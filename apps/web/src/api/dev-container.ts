@@ -37,7 +37,7 @@ export type DevContainerLifecyclePreflightState =
 
 export type DevContainerLifecyclePreflightReason =
   | 'review-required'
-  | 'runtime-not-host'
+  | 'rebuild-ownership-required'
   | 'discovery-not-ready'
   | 'initialize-command-declared'
   | 'compose-ownership-required'
@@ -47,7 +47,7 @@ export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
-  operation: 'create';
+  operation: 'create' | 'rebuild';
   state: DevContainerLifecyclePreflightState;
   reason: DevContainerLifecyclePreflightReason;
   observedAt: string;
@@ -79,7 +79,7 @@ interface DevContainerLifecyclePreflightResponse {
 export interface DevContainerLifecycleConfirmation {
   token: string;
   environmentInstanceId: string;
-  operation: 'create';
+  operation: 'create' | 'rebuild';
   expiresAt: string;
 }
 

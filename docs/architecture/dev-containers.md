@@ -245,6 +245,20 @@ Para `runtime=host`, o comportamento existente permanece inalterado. Para `runti
 
 O Console Rails compartilhado preserva a Environment Instance selecionada, mas continua bloqueado para `runtime=devcontainer` até existir resolução de comando dentro do container. Isso evita cair silenciosamente para o host quando o usuário selecionou o runtime Dev Container.
 
+## Rebuild: preflight e confirmação
+
+Quando a Environment Instance já está em `runtime=devcontainer`, o lifecycle agora diferencia `operation=rebuild` de criação inicial.
+
+O rebuild só entra em `review` quando:
+
+- a Environment Instance possui `runtimeId` válido;
+- existe ownership persistente em fase `owned`;
+- o `containerId` do ownership coincide exatamente com o `runtimeId` atual;
+- discovery e fingerprint da configuração continuam válidos;
+- os mesmos blockers de `initializeCommand`, Compose e tipo desconhecido continuam aplicados.
+
+A confirmação é curta e single-use e fica vinculada internamente a `runtimeId + ownershipToken + fingerprint`. Esses identificadores não entram no DTO HTTP. Neste corte a confirmação de rebuild pode ser preparada, mas **nenhuma mutation pública de rebuild é executada ainda**; o endpoint de start continua aceitando exclusivamente planos `operation=create` e a UI não oferece ação de rebuild.
+
 ## Testes via Execution Context
 
 A primeira integração de Testes com `runtime=devcontainer` fica restrita à suíte completa executada pelo fluxo PTY destacável existente. A UI continua enviando apenas `environmentInstanceId + commandId`; o backend resolve o comando detectado, `cwd`, runtime e `runtimeId`.

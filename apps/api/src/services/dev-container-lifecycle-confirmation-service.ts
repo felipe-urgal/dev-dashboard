@@ -21,7 +21,7 @@ interface StoredConfirmation {
   token: string;
   projectId: string;
   environmentInstanceId: string;
-  operation: 'create';
+  operation: 'create' | 'rebuild';
   preflightHash: string;
   expiresAt: number;
 }
@@ -30,7 +30,7 @@ export interface DevContainerLifecycleConfirmation {
   token: string;
   projectId: string;
   environmentInstanceId: string;
-  operation: 'create';
+  operation: 'create' | 'rebuild';
   preflightHash: string;
   expiresAt: string;
 }
@@ -58,6 +58,8 @@ function stablePreflightHash(
     operation: preflight.operation,
     environmentInstanceId: preflight.environmentInstanceId,
     runtime: preflight.runtime,
+    runtimeId: preflight.runtimeId ?? null,
+    ownershipToken: preflight.ownershipToken ?? null,
     state: preflight.state,
     reason: preflight.reason,
     discoveryState: preflight.discoveryState ?? null,
@@ -133,7 +135,7 @@ export class DevContainerLifecycleConfirmationService {
     ) {
       throw new DevContainerLifecycleConfirmationError(
         'DEV_CONTAINER_CONFIRMATION_REQUIRED',
-        'Uma confirmação válida e atual é obrigatória para criar o Dev Container.',
+        'Uma confirmação válida e atual é obrigatória para executar este lifecycle do Dev Container.',
       );
     }
 
@@ -141,10 +143,20 @@ export class DevContainerLifecycleConfirmationService {
   }
 
   private assertConfirmable(preflight: DevContainerLifecyclePreflight): void {
+    const operationReady =
+      (preflight.operation === 'create' && preflight.runtime === 'host') ||
+      (preflight.operation === 'rebuild' &&
+        preflight.runtime === 'devcontainer' &&
+        typeof preflight.runtimeId === 'string' &&
+        /^[a-f0-9]{12,128}$/u.test(preflight.runtimeId) &&
+        typeof preflight.ownershipToken === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+          preflight.ownershipToken,
+        ));
+
     if (
-      preflight.operation !== 'create' ||
+      !operationReady ||
       preflight.state !== 'review' ||
-      preflight.runtime !== 'host' ||
       preflight.requiresConfirmation !== true ||
       !preflight.configSource ||
       !preflight.configurationHash ||
@@ -155,7 +167,7 @@ export class DevContainerLifecycleConfirmationService {
     ) {
       throw new DevContainerLifecycleConfirmationError(
         'DEV_CONTAINER_PLAN_NOT_CONFIRMABLE',
-        'Somente um preflight elegível de criação pode ser confirmado.',
+        'Somente um preflight elegível e owned pode ser confirmado.',
       );
     }
   }

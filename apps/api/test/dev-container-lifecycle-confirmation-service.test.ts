@@ -159,6 +159,53 @@ test('mudança de hooks invalida confirmação, mas timestamp/diagnóstico não'
   );
 });
 
+test('confirma rebuild somente quando ownership e runtime permanecem iguais', () => {
+  const service = new DevContainerLifecycleConfirmationService({
+    createToken: () => TOKEN,
+  });
+  const rebuildPlan = review({
+    operation: 'rebuild',
+    runtime: 'devcontainer',
+    runtimeId: 'b'.repeat(64),
+    ownershipToken: '11111111-1111-4111-8111-111111111111',
+    diagnostic: 'Rebuild exige confirmação.',
+  });
+
+  const confirmation = service.prepare(rebuildPlan);
+  assert.equal(confirmation.operation, 'rebuild');
+  service.consume(rebuildPlan, TOKEN);
+
+  service.prepare(rebuildPlan);
+  assert.throws(
+    () =>
+      service.consume(
+        review({
+          ...rebuildPlan,
+          runtimeId: 'd'.repeat(64),
+        }),
+        TOKEN,
+      ),
+    (error: unknown) =>
+      error instanceof DevContainerLifecycleConfirmationError &&
+      error.code === 'DEV_CONTAINER_CONFIRMATION_REQUIRED',
+  );
+
+  service.prepare(rebuildPlan);
+  assert.throws(
+    () =>
+      service.consume(
+        review({
+          ...rebuildPlan,
+          ownershipToken: '22222222-2222-4222-8222-222222222222',
+        }),
+        TOKEN,
+      ),
+    (error: unknown) =>
+      error instanceof DevContainerLifecycleConfirmationError &&
+      error.code === 'DEV_CONTAINER_CONFIRMATION_REQUIRED',
+  );
+});
+
 test('preflight bloqueado ou indisponível não pode ser confirmado', () => {
   const service = new DevContainerLifecycleConfirmationService({
     createToken: () => TOKEN,

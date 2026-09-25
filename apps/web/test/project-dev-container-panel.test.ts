@@ -143,17 +143,24 @@ describe('ProjectDevContainerPanel', () => {
       })
       .mockResolvedValueOnce({
         projectId: project.id,
-        operation: 'create',
-        state: 'blocked',
-        reason: 'runtime-not-host',
+        operation: 'rebuild',
+        state: 'review',
+        reason: 'review-required',
         observedAt: '2026-09-25T10:11:00.000Z',
         environmentInstanceId,
         runtime: 'devcontainer',
         executionEnabled: false,
-        requiresConfirmation: false,
-        limitations: [],
+        requiresConfirmation: true,
+        discoveryState: 'available',
+        configSource: '.devcontainer/devcontainer.json',
+        cliVersion: '0.80.1',
+        configuration: {
+          kind: 'image',
+          lifecycleHooks: ['postCreateCommand'],
+        },
+        limitations: ['post-create-hooks-deferred'],
         diagnostic:
-          'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
+          'O Dev Container owned pode avançar para revisão de rebuild.',
       });
     prepareDevContainerLifecycleConfirmation.mockResolvedValueOnce({
       token: 'a'.repeat(64),
@@ -204,7 +211,11 @@ describe('ProjectDevContainerPanel', () => {
     expect(fetchDevContainerLifecyclePreflight).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).toContain('Runtime atual');
     expect(wrapper.text()).toContain('Dev Container');
-    expect(wrapper.text()).toContain('Bloqueado');
+    expect(wrapper.text()).toContain('Revisão necessária');
+    expect(wrapper.text()).toContain(
+      'O rebuild exige confirmação explícita e nova revalidação no backend.',
+    );
+    expect(wrapper.text()).not.toContain('Criar Dev Container');
     expect(wrapper.text()).not.toContain('Confirmar criação');
     wrapper.unmount();
   });
@@ -237,21 +248,27 @@ describe('ProjectDevContainerPanel', () => {
     wrapper.unmount();
   });
 
-  it('mostra o runtime real quando a Environment Instance já é devcontainer', async () => {
+  it('mostra rebuild em review quando a Environment Instance já é Dev Container owned', async () => {
     fetchDevContainerLifecyclePreflight.mockResolvedValueOnce({
       projectId: project.id,
-      operation: 'create',
-      state: 'blocked',
-      reason: 'runtime-not-host',
+      operation: 'rebuild',
+      state: 'review',
+      reason: 'review-required',
       observedAt: '2026-09-24T22:22:30.000Z',
       environmentInstanceId:
         'environment:worktree:project-devcontainer:runtime',
       runtime: 'devcontainer',
       executionEnabled: false,
-      requiresConfirmation: false,
+      requiresConfirmation: true,
+      discoveryState: 'available',
+      configSource: '.devcontainer/devcontainer.json',
+      cliVersion: '0.80.1',
+      configuration: {
+        kind: 'image',
+        lifecycleHooks: [],
+      },
       limitations: [],
-      diagnostic:
-        'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
+      diagnostic: 'O Dev Container owned pode avançar para revisão de rebuild.',
     });
 
     const wrapper = mount(ProjectDevContainerPanel, {
@@ -265,7 +282,9 @@ describe('ProjectDevContainerPanel', () => {
 
     expect(wrapper.text()).toContain('Runtime atual');
     expect(wrapper.text()).toContain('Dev Container');
-    expect(wrapper.text()).toContain('Bloqueado');
+    expect(wrapper.text()).toContain('Revisão necessária');
+    expect(wrapper.text()).toContain('rebuild exige confirmação explícita');
+    expect(wrapper.text()).not.toContain('Criar Dev Container');
     wrapper.unmount();
   });
 
