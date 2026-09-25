@@ -73,24 +73,28 @@ test.describe('sidebar do projeto em desktop baixo', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
 
-    const serverLink = page.getByRole('link', {
-      name: 'Servidor',
-      exact: true,
-    });
-    const readmeLink = page.getByRole('link', {
-      name: 'README',
-      exact: true,
-    });
+    const sidebarLinks = page.locator('.project-details-tabs .project-details-tab');
+    const collapsedTooltips = await sidebarLinks.evaluateAll((links) =>
+      links.map((link) => ({
+        label: link.getAttribute('aria-label'),
+        title: link.getAttribute('title'),
+      })),
+    );
 
-    await expect(serverLink).toHaveAttribute('title', 'Servidor');
-    await expect(readmeLink).toHaveAttribute('title', 'README');
+    expect(collapsedTooltips.length).toBeGreaterThan(0);
+    for (const item of collapsedTooltips) {
+      expect(item.label).toBeTruthy();
+      expect(item.title).toBe(item.label);
+    }
 
     await page
       .getByRole('button', { name: 'Expandir sidebar do projeto' })
       .click();
 
-    await expect(serverLink).not.toHaveAttribute('title', 'Servidor');
-    await expect(readmeLink).not.toHaveAttribute('title', 'README');
+    const expandedTitles = await sidebarLinks.evaluateAll((links) =>
+      links.map((link) => link.getAttribute('title')),
+    );
+    expect(expandedTitles.every((title) => title === null)).toBe(true);
   });
 
   test('mantém todos os atalhos visíveis sem rolagem vertical', async ({
