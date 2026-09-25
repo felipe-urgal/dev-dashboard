@@ -3,6 +3,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { grantedAgentCapabilities } from './authorization.js';
 import type { AgentAuditStore } from './agent-audit-store.js';
 import type {
+  AgentConversationStore,
+  AgentConversationTurn,
+} from './conversation-store.js';
+import type {
   AgentAdoptedGitRef,
   AgentAuthorization,
   AgentCancellationRequest,
@@ -37,6 +41,9 @@ export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_AUTHORIZATION_INVALID'
   | 'AGENT_WORKFLOW_PROVIDER_FAILED'
   | 'AGENT_WORKFLOW_EVIDENCE_PERSIST_FAILED'
+  | 'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE'
+  | 'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED'
+  | 'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED'
   | 'AGENT_WORKFLOW_CANCEL_NOT_ACTIVE'
   | 'AGENT_WORKFLOW_CANCEL_OWNERSHIP_MISMATCH'
   | 'AGENT_WORKFLOW_RETRY_NOT_ALLOWED'
@@ -80,6 +87,7 @@ export interface AgentWorkflowRuntimeOptions {
     'createCheckpoint' | 'listCheckpoints' | 'resolveCheckpoint'
   >;
   executionResultStore: Pick<AgentAuditStore, 'appendExecutionResult'>;
+  conversationStore?: Pick<AgentConversationStore, 'list' | 'append'>;
   gitRefVerifier?: AgentGitRefVerifier;
   now?: () => string;
   createExecutionId?: () => string;
@@ -89,11 +97,17 @@ export interface AgentWorkflowRuntimeOptions {
   maxRetryBackoffMs?: number;
 }
 
+export interface AgentWorkflowUserTurnInput {
+  id: string;
+  content: string;
+}
+
 export interface AgentWorkflowExecuteRequest {
   projectId: string;
   taskId: string;
   providerId?: AgentProviderId;
   authorizations?: readonly AgentAuthorization[];
+  userTurn?: AgentWorkflowUserTurnInput;
 }
 
 export interface AgentWorkflowExecutionResult {
@@ -101,6 +115,8 @@ export interface AgentWorkflowExecutionResult {
   task: AgentTaskRecord;
   providerResult: AgentProviderResult;
   checkpoint?: AgentCheckpoint;
+  userTurn?: AgentConversationTurn;
+  agentTurn?: AgentConversationTurn;
 }
 
 export interface AgentWorkflowCheckpointResolution {
@@ -183,6 +199,9 @@ export class AgentWorkflowRuntime {
   private readonly lockManager: AgentTaskLockManager;
   private readonly checkpointStore: AgentWorkflowRuntimeOptions['checkpointStore'];
   private readonly executionResultStore: AgentWorkflowRuntimeOptions['executionResultStore'];
+  private readonly conversationStore:
+    | AgentWorkflowRuntimeOptions['conversationStore']
+    | undefined;
   private readonly gitRefVerifier: AgentGitRefVerifier | undefined;
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
@@ -200,6 +219,7 @@ export class AgentWorkflowRuntime {
     this.lockManager = options.lockManager;
     this.checkpointStore = options.checkpointStore;
     this.executionResultStore = options.executionResultStore;
+    this.conversationStore = options.conversationStore;
     this.gitRefVerifier = options.gitRefVerifier;
     this.now = options.now ?? (() => new Date().toISOString());
     this.createExecutionId = options.createExecutionId ?? randomUUID;
@@ -236,6 +256,27 @@ export class AgentWorkflowRuntime {
     };
   }
 
+  public async conversation(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentConversationTurn[]> {
+    await this.requireOwnedTask(projectId, taskId);
+    if (!this.conversationStore) {
+      throw new AgentWorkflowRuntimeError(
+        'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE',
+        'Agent conversation storage is unavailable.',
+      );
+    }
+    try {
+      return await this.conversationStore.list(taskId);
+    } catch {
+      throw new AgentWorkflowRuntimeError(
+        'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
+        'Agent conversation could not be read.',
+      );
+    }
+  }
+
   public async execute(
     request: AgentWorkflowExecuteRequest,
   ): Promise<AgentWorkflowExecutionResult> {
@@ -259,11 +300,56 @@ export class AgentWorkflowRuntime {
         request.taskId,
       );
 
-      if (current.task.state !== 'queued') {
+      const isContinuation = request.userTurn !== undefined;
+      const expectedState = isContinuation ? 'review' : 'queued';
+      if (current.task.state !== expectedState) {
         throw new AgentWorkflowRuntimeError(
           'AGENT_WORKFLOW_TASK_NOT_RUNNABLE',
-          'Agent task must be queued before execution starts.',
+          isContinuation
+            ? 'Agent task must be in review before a new conversation turn.'
+            : 'Agent task must be queued before execution starts.',
         );
+      }
+
+      let persistedUserTurn: AgentConversationTurn | undefined;
+      if (request.userTurn) {
+        if (!this.conversationStore) {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE',
+            'Agent conversation storage is unavailable.',
+          );
+        }
+
+        let existingTurns: AgentConversationTurn[];
+        try {
+          existingTurns = await this.conversationStore.list(current.task.id);
+        } catch {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
+            'Agent conversation could not be read before execution.',
+          );
+        }
+        if (existingTurns.some((turn) => turn.id === request.userTurn!.id)) {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
+            'Agent conversation turn was already submitted.',
+          );
+        }
+
+        try {
+          persistedUserTurn = await this.conversationStore.append({
+            id: request.userTurn.id,
+            taskId: current.task.id,
+            role: 'user',
+            content: request.userTurn.content,
+            createdAt: this.now(),
+          });
+        } catch {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
+            'Agent conversation turn could not be persisted before execution.',
+          );
+        }
       }
 
       if (current.task.adoptedGitRef) {
@@ -312,7 +398,8 @@ export class AgentWorkflowRuntime {
         );
       }
 
-      const continuationInstruction = current.task.continuationInstruction;
+      const continuationInstruction =
+        request.userTurn?.content ?? current.task.continuationInstruction;
       const {
         continuationInstruction: _consumedInstruction,
         ...taskWithoutInstruction
@@ -465,6 +552,32 @@ export class AgentWorkflowRuntime {
         }
       }
 
+      let persistedAgentTurn: AgentConversationTurn | undefined;
+      if (persistedUserTurn) {
+        try {
+          persistedAgentTurn = await this.conversationStore!.append({
+            id:
+              'agent-' +
+              createHash('sha256').update(executionId).digest('hex'),
+            taskId: runningRecord.task.id,
+            role: 'agent',
+            content: providerResult.summary,
+            createdAt: finishedAt,
+            executionId,
+            providerId: providerResult.providerId,
+          });
+        } catch {
+          settledRecord = await this.taskStore.save(
+            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
+            runningRecord.version,
+          );
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
+            'Agent response could not be persisted in the conversation.',
+          );
+        }
+      }
+
       const finalTask = transitionAgentTask(
         runningRecord.task,
         taskStateForResult(providerResult),
@@ -498,6 +611,8 @@ export class AgentWorkflowRuntime {
         task: settledRecord,
         providerResult,
         ...(checkpoint ? { checkpoint } : {}),
+        ...(persistedUserTurn ? { userTurn: persistedUserTurn } : {}),
+        ...(persistedAgentTurn ? { agentTurn: persistedAgentTurn } : {}),
       };
     } finally {
       try {
