@@ -87,7 +87,7 @@ Regras fail-closed do primeiro corte:
 - todo plano em `review` exige confirmação futura;
 - **nenhum plano habilita execução neste corte**.
 
-O contrato HTTP continua com `executionEnabled=false` porque o preflight público permanece somente leitura. Ownership e cleanup já existem internamente; a criação passa primeiro por um executor backend-only qualificado antes de qualquer endpoint/UI. A Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`, por isso o cleanup continua scoped ao container owned via Docker. `--skip-post-create` omite hooks pós-criação, enquanto `initializeCommand` segue como blocker explícito do preflight.
+O contrato HTTP continua com `executionEnabled=false` porque o preflight público permanece somente leitura e não concede mutation por si só. A criação usa endpoints separados de confirmação e start, sempre após revalidar o preflight no backend. A Dev Container CLI atual oferece `up` e `exec`, mas ainda não implementa `stop`/`down`, por isso o cleanup continua scoped ao container owned via Docker. `--skip-post-create` omite hooks pós-criação, enquanto `initializeCommand` segue como blocker explícito do preflight.
 
 ## Ownership persistente preparado
 
@@ -179,7 +179,7 @@ Timestamp de observação e texto diagnóstico não entram no fingerprint, para 
 
 Somente preflight `review` de configuração `image | dockerfile`, em runtime `host` e marcado como `requiresConfirmation=true`, pode gerar ou consumir confirmação. Tokens expiram em 60 segundos por padrão e são consumidos uma única vez.
 
-A confirmação ainda não possui endpoint próprio. Neste estágio ela é consumida somente pelo executor interno de criação; a API/UI continuam read-only.
+A confirmação é exposta por `POST /api/projects/:projectId/dev-container/lifecycle-confirmation`. O browser pode informar somente a `environmentInstanceId`; o backend recalcula o preflight e só emite token para um plano ainda confirmável. A resposta pública contém token, Environment Instance, operação e expiração; `preflightHash`, `configurationHash` e demais evidências internas não saem do backend.
 
 ## Cleanup owned executável internamente
 
@@ -203,9 +203,11 @@ Se o container já não existir, o serviço libera apenas o registro de ownershi
 
 Os comandos são executados sem shell, com timeout e buffer limitados, e erros brutos de Docker/filesystem não entram no erro de domínio.
 
-## Executor interno de criação
+## Executor de criação
 
-A criação de configurações `image | dockerfile` possui um executor **backend-only**, ainda sem rota/UI.
+A criação de configurações `image | dockerfile` possui um executor backend-owned. Ele é exposto por `POST /api/projects/:projectId/dev-container/start`, mas continua sem UI mutável neste corte.
+
+A rota aceita somente `environmentInstanceId` opcional e `confirmationToken`. Projeto, cwd, configuração, programa, argv, ownership e rollback são resolvidos no backend.
 
 A sequência é deliberadamente fail-closed:
 
@@ -224,16 +226,16 @@ A sequência é deliberadamente fail-closed:
 
 Qualquer falha depois da reserva de ownership chama o cleanup owned. O timeout primeiro encerra o processo da Dev Container CLI e aguarda seu fechamento; o rollback não começa enquanto a CLI ainda pode estar criando recursos. Se o cleanup não puder ser comprovado, o erro final é `DEV_CONTAINER_START_ROLLBACK_FAILED`.
 
-O executor ainda não é autoridade pública: não há endpoint/botão para start e o preflight HTTP continua com `executionEnabled=false`. Esse isolamento permite validar lifecycle/rollback antes de conceder mutation ao browser.
+O endpoint de start chama o mesmo executor já qualificado e devolve somente `environmentInstanceId`, `runtime=devcontainer` e `containerId`. Mudança de preflight/configuração, confirmação inválida ou estado incompatível falham antes da mutation; falhas de comando/estado/rollback continuam sanitizadas. O preflight HTTP permanece com `executionEnabled=false`, deixando explícito que inspeção não equivale a autorização.
 
 ## Fora deste corte
 
 Os cortes entregues até aqui não:
 
-- expõem criação/subida de Dev Container na API/UI;
+- expõem criação/subida de Dev Container na UI;
+- expõem rebuild/stop/cleanup como mutation pública;
 - executam comandos arbitrários do Dashboard dentro do runtime;
 - adaptam Terminal, Scripts ou Testes ao runtime `devcontainer`;
-- expõem rebuild/stop/cleanup na API/UI;
 - integram Dev Container Compose ao ownership do domínio Docker Compose;
 - concedem qualquer autoridade mutável ao browser.
 
