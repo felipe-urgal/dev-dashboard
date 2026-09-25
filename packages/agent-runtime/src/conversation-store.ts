@@ -265,9 +265,12 @@ export class AgentConversationStore {
 
   public async list(taskId: string): Promise<AgentConversationTurn[]> {
     assertIdentity(taskId, 'Agent task id');
-    const release = await this.lockManager.acquire(conversationLockKey(taskId), {
-      wait: true,
-    });
+    const release = await this.lockManager.acquire(
+      conversationLockKey(taskId),
+      {
+        wait: true,
+      },
+    );
     try {
       return (await this.read(taskId)).turns.map((turn) => ({ ...turn }));
     } finally {

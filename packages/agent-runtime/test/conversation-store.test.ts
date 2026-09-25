@@ -109,7 +109,9 @@ test('AgentConversationStore redige secrets antes de persistir ou retornar histÃ
 });
 
 test('AgentConversationStore migra secrets de histÃ³rico legado ao ler', async (context) => {
-  const root = await mkdtemp(path.join(tmpdir(), 'agent-conversation-migrate-'));
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'agent-conversation-migrate-'),
+  );
   context.after(() => rm(root, { recursive: true, force: true }));
 
   const filePath = conversationPath(root, 'task-1');
