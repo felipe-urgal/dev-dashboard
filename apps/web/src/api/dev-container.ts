@@ -126,28 +126,24 @@ export async function fetchDevContainerLifecyclePreflight(
   return response.preflight;
 }
 
-
 function environmentBody(environmentInstanceId?: string): string {
-  return JSON.stringify(
-    environmentInstanceId ? { environmentInstanceId } : {},
-  );
+  return JSON.stringify(environmentInstanceId ? { environmentInstanceId } : {});
 }
 
 export async function prepareDevContainerLifecycleConfirmation(
   projectId: string,
   environmentInstanceId?: string,
 ): Promise<DevContainerLifecycleConfirmation> {
-  const response =
-    await requestJson<DevContainerLifecycleConfirmationResponse>(
-      '/api/projects/' +
-        encodeURIComponent(projectId) +
-        '/dev-container/lifecycle-confirmation',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: environmentBody(environmentInstanceId),
-      },
-    );
+  const response = await requestJson<DevContainerLifecycleConfirmationResponse>(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/lifecycle-confirmation',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: environmentBody(environmentInstanceId),
+    },
+  );
   return response.confirmation;
 }
 
@@ -157,9 +153,7 @@ export async function startDevContainer(
   environmentInstanceId?: string,
 ): Promise<DevContainerStartResult> {
   const response = await requestJson<DevContainerStartResponse>(
-    '/api/projects/' +
-      encodeURIComponent(projectId) +
-      '/dev-container/start',
+    '/api/projects/' + encodeURIComponent(projectId) + '/dev-container/start',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
