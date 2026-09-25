@@ -830,14 +830,26 @@
   }
 
   .project-details-page-ready .project-details-main {
+    position: relative;
+    justify-content: center;
     gap: 12px;
   }
 
   .project-details-page-ready .project-details-back {
+    position: absolute;
+    left: 0;
     border-right: 1px solid var(--border);
     border-radius: 0;
     padding-right: 14px;
     padding-left: 0;
+  }
+
+  .project-details-page-ready .project-title-row {
+    justify-content: center;
+  }
+
+  .project-details-page-ready .project-details-actions {
+    display: none;
   }
 
   .project-details-page-ready .project-title-row h2 {
