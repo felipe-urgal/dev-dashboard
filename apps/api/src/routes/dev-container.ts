@@ -139,7 +139,7 @@ const lifecyclePreflightSchema = {
   ],
   properties: {
     projectId: { type: 'string' },
-    operation: { type: 'string', enum: ['create'] },
+    operation: { type: 'string', enum: ['create', 'rebuild'] },
     state: {
       type: 'string',
       enum: ['review', 'blocked', 'unavailable'],
@@ -148,7 +148,7 @@ const lifecyclePreflightSchema = {
       type: 'string',
       enum: [
         'review-required',
-        'runtime-not-host',
+        'rebuild-ownership-required',
         'discovery-not-ready',
         'initialize-command-declared',
         'compose-ownership-required',
@@ -194,7 +194,7 @@ const lifecycleConfirmationSchema = {
   properties: {
     token: { type: 'string', pattern: '^[a-f0-9]{64}$' },
     environmentInstanceId: { type: 'string' },
-    operation: { type: 'string', enum: ['create'] },
+    operation: { type: 'string', enum: ['create', 'rebuild'] },
     expiresAt: { type: 'string' },
   },
 } as const;
