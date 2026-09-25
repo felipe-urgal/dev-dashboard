@@ -9,6 +9,7 @@ import type {
   AgentTaskStore,
   AgentUsageRecord,
 } from '@dev-dashboard/agent-runtime';
+import type { TaskContext } from '@dev-dashboard/contracts';
 
 import {
   AgentRuntimeApiService,
@@ -1449,4 +1450,184 @@ test('AgentRuntimeApiService não bloqueia hard budget sem métrica observada', 
 
   const result = await service.execute('project-1', 'task-1', 'codex');
   assert.equal(result.execution.state, 'succeeded');
+});
+
+
+test('AgentRuntimeApiService adota issue em Task Context e reutiliza vínculo persistido', async () => {
+  const taskStore = new MemoryTaskStore();
+  const contexts: TaskContext[] = [];
+  let contextCreations = 0;
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: (projectId) =>
+        projectId === 'project-1'
+          ? ({ id: projectId, path: '/workspace/project-1' } as never)
+          : null,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: (projectId, environmentInstanceId) =>
+        projectId === 'project-1' &&
+        (!environmentInstanceId ||
+          environmentInstanceId === 'environment:primary:project-1')
+          ? {
+              projectId,
+              environmentInstanceId: 'environment:primary:project-1',
+              cwd: '/workspace/project-1',
+              runtime: 'host',
+            }
+          : null,
+    },
+    taskContextRepository: {
+      find: (taskContextId) =>
+        contexts.find((context) => context.id === taskContextId) ?? null,
+      list: () => contexts,
+    },
+    taskContextCreator: {
+      create: async (projectId, input) => {
+        contextCreations += 1;
+        const context: TaskContext = {
+          id: 'context-893',
+          projectId,
+          branch: 'main',
+          environmentInstanceId:
+            input.environmentInstanceId ?? 'environment:primary:project-1',
+          ...(input.issue ? { issue: input.issue } : {}),
+          createdAt: '2026-09-25T12:40:00.000Z',
+          updatedAt: '2026-09-25T12:40:00.000Z',
+        };
+        contexts.push(context);
+        return context;
+      },
+    },
+    backlogReader: {
+      select: async () => ({
+        status: 'selected',
+        source: 'specific-issue',
+        issue: {
+          repository: 'felipe-urgal/dev-dashboard',
+          number: 893,
+          title: 'Adotar backlog pelo composer',
+          labels: [],
+        },
+        candidates: [],
+      }),
+    },
+    now: () => '2026-09-25T12:40:00.000Z',
+    createTaskId: () => 'task-893',
+  });
+
+  const first = await service.adoptBacklog('project-1', {
+    issueNumber: 893,
+    environmentInstanceId: 'environment:primary:project-1',
+    requestedCapabilities: ['workspace:write'],
+  });
+  assert.equal(first.status, 'adopted');
+  if (first.status !== 'adopted') return;
+  assert.equal(first.reused, false);
+  assert.equal(first.task.task.taskContextId, 'context-893');
+  assert.equal(first.task.task.summary, '#893 — Adotar backlog pelo composer');
+  assert.deepEqual(first.task.task.requestedCapabilities, ['workspace:write']);
+
+  const second = await service.adoptBacklog('project-1', {
+    issueNumber: 893,
+    environmentInstanceId: 'environment:primary:project-1',
+    requestedCapabilities: ['git:push'],
+  });
+  assert.equal(second.status, 'adopted');
+  if (second.status !== 'adopted') return;
+  assert.equal(second.reused, true);
+  assert.equal(second.task.task.id, 'task-893');
+  assert.deepEqual(second.task.task.requestedCapabilities, ['workspace:write']);
+  assert.equal(contextCreations, 1);
+});
+
+test('AgentRuntimeApiService não cria contexto quando o backlog é ambíguo', async () => {
+  let contextCreations = 0;
+  const service = new AgentRuntimeApiService({
+    taskStore: new MemoryTaskStore(),
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () =>
+        ({ id: 'project-1', path: '/workspace/project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    taskContextCreator: {
+      create: async () => {
+        contextCreations += 1;
+        throw new Error('should not create');
+      },
+    },
+    backlogReader: {
+      select: async () => ({
+        status: 'ambiguous',
+        source: 'no-explicit-priority',
+        candidates: [
+          {
+            repository: 'felipe-urgal/dev-dashboard',
+            number: 893,
+            title: 'A',
+            labels: [],
+          },
+          {
+            repository: 'felipe-urgal/dev-dashboard',
+            number: 895,
+            title: 'B',
+            labels: [],
+          },
+        ],
+      }),
+    },
+  });
+
+  const result = await service.adoptBacklog('project-1', {});
+  assert.equal(result.status, 'ambiguous');
+  assert.deepEqual(
+    result.candidates.map((issue) => issue.number),
+    [893, 895],
+  );
+  assert.equal(contextCreations, 0);
 });
