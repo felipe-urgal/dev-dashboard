@@ -14,6 +14,7 @@ import type {
   AgentAuditSnapshot,
   AgentAuthorization,
   AgentConcreteProviderId,
+  AgentConversationTurn,
   AgentIntegration,
   AgentIntegrationAuthenticationHandoff,
   AgentIntegrationAuthenticationRequest,
@@ -44,6 +45,7 @@ import type {
   AgentWorkflowCheckpointResolution,
   AgentWorkflowExecutionResult,
   AgentWorkflowTaskStatus,
+  AgentWorkflowUserTurnInput,
 } from '@dev-dashboard/agent-runtime';
 import type {
   AgentWorkflowRuntime,
@@ -208,10 +210,15 @@ export interface AgentRuntimeApiServicePort {
     input: AgentGitRefAdoptionRequest,
   ): Promise<AgentTaskRecord>;
   status(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
+  conversation?(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentConversationTurn[]>;
   execute(
     projectId: string,
     taskId: string,
     providerId?: AgentProviderId,
+    userTurn?: AgentWorkflowUserTurnInput,
   ): Promise<AgentWorkflowExecutionResult>;
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
@@ -265,6 +272,7 @@ export interface AgentRuntimeApiServiceOptions {
   workflowRuntime: Pick<
     AgentWorkflowRuntime,
     | 'status'
+    | 'conversation'
     | 'execute'
     | 'cancel'
     | 'retry'
@@ -1010,10 +1018,21 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
   }
 
+  public async conversation(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentConversationTurn[]> {
+    await this.getTask(projectId, taskId);
+    return this.withRuntimeErrors(() =>
+      this.options.workflowRuntime.conversation(projectId, taskId),
+    );
+  }
+
   public async execute(
     projectId: string,
     taskId: string,
     providerId?: AgentProviderId,
+    userTurn?: AgentWorkflowUserTurnInput,
   ): Promise<AgentWorkflowExecutionResult> {
     const taskRecord = await this.getTask(projectId, taskId);
     this.validateTaskContextBinding(taskRecord.task);
@@ -1047,6 +1066,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           taskId,
           ...(providerId ? { providerId } : {}),
           authorizations,
+          ...(userTurn ? { userTurn } : {}),
         }),
       );
     } catch (error) {
