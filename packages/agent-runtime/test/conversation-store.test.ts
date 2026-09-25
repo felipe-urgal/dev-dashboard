@@ -95,6 +95,10 @@ test('AgentConversationStore redige secrets antes de persistir ou retornar hist√
   });
 
   assert.equal(persisted.content, sanitizeAgentConversationContent(rawContent));
+  assert.equal(
+    sanitizeAgentConversationContent(persisted.content),
+    persisted.content,
+  );
   assert.match(persisted.content, /OPENAI_API_KEY=\[REDACTED\]/);
   assert.match(persisted.content, /Bearer \[REDACTED\]/);
   assert.match(persisted.content, /password=\[REDACTED\]/);
