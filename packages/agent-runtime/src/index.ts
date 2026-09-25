@@ -280,3 +280,14 @@ export {
   type AgentProviderPreferenceStoreErrorCode,
   type AgentProviderPreferenceStoreOptions,
 } from './provider-preference-store.js';
+
+export {
+  AgentConversationStore,
+  AgentConversationStoreError,
+} from './conversation-store.js';
+export type {
+  AgentConversationStoreErrorCode,
+  AgentConversationStoreOptions,
+  AgentConversationTurn,
+  AgentConversationTurnRole,
+} from './conversation-store.js';
