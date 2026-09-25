@@ -34,9 +34,8 @@ function json(route: Route, body: unknown): Promise<void> {
 
 test.describe('Qualificação da aba Agente', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route(
-      '**/api/projects/*/agent/tasks/*/conversation',
-      (route) => json(route, { turns: [] }),
+    await page.route('**/api/projects/*/agent/tasks/*/conversation', (route) =>
+      json(route, { turns: [] }),
     );
   });
 

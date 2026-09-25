@@ -531,19 +531,14 @@ async function loadTask(
   }
 
   try {
-    const [
-      nextStatus,
-      nextActivity,
-      nextConversation,
-      nextUsage,
-      nextBudget,
-    ] = await Promise.all([
-      fetchAgentTaskStatus(props.project.id, taskId),
-      fetchAgentActivity(props.project.id, taskId),
-      fetchAgentConversation(props.project.id, taskId),
-      fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
-      fetchAgentBudget(props.project.id, taskId),
-    ]);
+    const [nextStatus, nextActivity, nextConversation, nextUsage, nextBudget] =
+      await Promise.all([
+        fetchAgentTaskStatus(props.project.id, taskId),
+        fetchAgentActivity(props.project.id, taskId),
+        fetchAgentConversation(props.project.id, taskId),
+        fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
+        fetchAgentBudget(props.project.id, taskId),
+      ]);
     if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
