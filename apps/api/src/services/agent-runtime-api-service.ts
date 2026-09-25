@@ -52,6 +52,11 @@ import type {
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
+import type {
+  AgentBacklogIssue,
+  AgentBacklogSelection,
+} from './github-issue-backlog-service.js';
+import { GithubIssueBacklogError } from './github-issue-backlog-service.js';
 
 export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_PROJECT_NOT_FOUND'
@@ -62,6 +67,8 @@ export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_BUDGET_EXCEEDED'
   | 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE'
   | 'AGENT_API_INTEGRATION_DISCOVERY_FAILED'
+  | 'AGENT_API_BACKLOG_UNAVAILABLE'
+  | 'AGENT_API_BACKLOG_ISSUE_NOT_FOUND'
   | AgentWorkflowRuntimeErrorCode;
 
 export class AgentRuntimeApiServiceError extends Error {
@@ -80,6 +87,28 @@ export interface AgentTaskCreateInput {
   taskContextId?: string;
   requestedCapabilities?: readonly AgentCapability[];
 }
+
+export interface AgentBacklogAdoptInput {
+  issueNumber?: number;
+  environmentInstanceId?: string;
+  requestedCapabilities?: readonly AgentCapability[];
+}
+
+export type AgentBacklogAdoptResult =
+  | {
+      status: 'adopted';
+      source: string;
+      issue: AgentBacklogIssue;
+      candidates: [];
+      task: AgentTaskRecord;
+      reused: boolean;
+    }
+  | {
+      status: 'ambiguous';
+      source: string;
+      candidates: AgentBacklogIssue[];
+      reused: false;
+    };
 
 export interface AgentUsageOverview {
   total: AgentUsageSummary;
@@ -164,6 +193,10 @@ export interface AgentRuntimeApiServicePort {
     environmentInstanceId?: string,
   ): Promise<AgentIntegrationUninstallResult>;
   listTasks(projectId: string): Promise<AgentTaskRecord[]>;
+  adoptBacklog(
+    projectId: string,
+    input: AgentBacklogAdoptInput,
+  ): Promise<AgentBacklogAdoptResult>;
   createTask(
     projectId: string,
     input: AgentTaskCreateInput,
@@ -247,6 +280,19 @@ export interface AgentRuntimeApiServiceOptions {
   >;
   taskContextRepository?: {
     find(taskContextId: string): TaskContext | null;
+    list(projectId: string): readonly TaskContext[];
+  };
+  taskContextCreator?: {
+    create(
+      projectId: string,
+      input: {
+        environmentInstanceId?: string;
+        issue?: { repository: string; number: number };
+      },
+    ): Promise<TaskContext>;
+  };
+  backlogReader?: {
+    select(projectPath: string, issueNumber?: number): Promise<AgentBacklogSelection>;
   };
   taskContextSnapshotReader?: {
     snapshot(
@@ -287,6 +333,10 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   private readonly now: () => string;
   private readonly createTaskId: () => string;
   private readonly createEvidenceId: () => string;
+  private readonly adoptionLocks = new Map<
+    string,
+    Promise<AgentBacklogAdoptResult>
+  >();
 
   public constructor(private readonly options: AgentRuntimeApiServiceOptions) {
     this.now = options.now ?? (() => new Date().toISOString());
@@ -648,6 +698,129 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   public async listTasks(projectId: string): Promise<AgentTaskRecord[]> {
     this.requireProject(projectId);
     return this.options.taskStore.list(projectId);
+  }
+
+  public async adoptBacklog(
+    projectId: string,
+    input: AgentBacklogAdoptInput,
+  ): Promise<AgentBacklogAdoptResult> {
+    const lockKey =
+      projectId + ':' + (input.issueNumber === undefined ? 'next' : input.issueNumber);
+    const existing = this.adoptionLocks.get(lockKey);
+    if (existing) return existing;
+
+    const pending = this.adoptBacklogUnlocked(projectId, input).finally(() => {
+      if (this.adoptionLocks.get(lockKey) === pending) {
+        this.adoptionLocks.delete(lockKey);
+      }
+    });
+    this.adoptionLocks.set(lockKey, pending);
+    return pending;
+  }
+
+  private async adoptBacklogUnlocked(
+    projectId: string,
+    input: AgentBacklogAdoptInput,
+  ): Promise<AgentBacklogAdoptResult> {
+    const project = this.options.projectStore.findProject(projectId);
+    if (!project) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_PROJECT_NOT_FOUND',
+        'Project was not found.',
+      );
+    }
+    if (!this.options.backlogReader) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_BACKLOG_UNAVAILABLE',
+        'GitHub backlog discovery is unavailable.',
+      );
+    }
+
+    let selection: AgentBacklogSelection;
+    try {
+      selection = await this.options.backlogReader.select(
+        project.path,
+        input.issueNumber,
+      );
+    } catch (error) {
+      if (error instanceof GithubIssueBacklogError) {
+        throw new AgentRuntimeApiServiceError(
+          error.code === 'GITHUB_BACKLOG_ISSUE_NOT_FOUND'
+            ? 'AGENT_API_BACKLOG_ISSUE_NOT_FOUND'
+            : 'AGENT_API_BACKLOG_UNAVAILABLE',
+          error.message,
+        );
+      }
+      throw error;
+    }
+
+    if (selection.status === 'ambiguous') {
+      return {
+        status: 'ambiguous',
+        source: selection.source,
+        candidates: selection.candidates,
+        reused: false,
+      };
+    }
+
+    const issue = selection.issue;
+    const contexts = this.options.taskContextRepository?.list(projectId) ?? [];
+    let taskContext = [...contexts]
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .find(
+        (context) =>
+          context.issue?.number === issue.number &&
+          context.issue.repository.toLowerCase() === issue.repository.toLowerCase(),
+      );
+
+    if (!taskContext) {
+      if (!this.options.taskContextCreator) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_BACKLOG_UNAVAILABLE',
+          'Task Context creation is unavailable for backlog adoption.',
+        );
+      }
+      taskContext = await this.options.taskContextCreator.create(projectId, {
+        ...(input.environmentInstanceId
+          ? { environmentInstanceId: input.environmentInstanceId }
+          : {}),
+        issue: {
+          repository: issue.repository,
+          number: issue.number,
+        },
+      });
+    }
+
+    const existingTasks = await this.options.taskStore.list(projectId);
+    const existingTask = [...existingTasks]
+      .sort((left, right) =>
+        right.task.updatedAt.localeCompare(left.task.updatedAt),
+      )
+      .find((record) => record.task.taskContextId === taskContext.id);
+    if (existingTask) {
+      return {
+        status: 'adopted',
+        source: selection.source,
+        issue,
+        candidates: [],
+        task: existingTask,
+        reused: true,
+      };
+    }
+
+    const task = await this.createTask(projectId, {
+      summary: '#' + issue.number + ' — ' + issue.title,
+      taskContextId: taskContext.id,
+      requestedCapabilities: input.requestedCapabilities ?? [],
+    });
+    return {
+      status: 'adopted',
+      source: selection.source,
+      issue,
+      candidates: [],
+      task,
+      reused: false,
+    };
   }
 
   public async createTask(
