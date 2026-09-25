@@ -71,10 +71,7 @@ test('preflight deixa image/dockerfile apenas em review e nunca habilita execuç
   assert.equal(plan.discoveryState, 'available');
   assert.equal(plan.configurationHash, CONFIG_HASH);
   assert.equal(plan.configuration?.name, 'Workspace');
-  assert.deepEqual(plan.limitations, [
-    'cleanup-adapter-pending',
-    'post-create-hooks-deferred',
-  ]);
+  assert.deepEqual(plan.limitations, ['post-create-hooks-deferred']);
   assert.deepEqual(plan.configuration?.lifecycleHooks, [
     'postCreateCommand',
     'postStartCommand',

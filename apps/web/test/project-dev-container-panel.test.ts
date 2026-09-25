@@ -47,7 +47,7 @@ describe('ProjectDevContainerPanel', () => {
         name: 'Workspace',
         lifecycleHooks: ['postCreateCommand', 'postStartCommand'],
       },
-      limitations: ['cleanup-adapter-pending', 'post-create-hooks-deferred'],
+      limitations: ['post-create-hooks-deferred'],
       diagnostic: 'A configuração pode avançar para revisão humana.',
     });
 
@@ -71,9 +71,6 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain('Workspace');
     expect(wrapper.text()).toContain('postCreateCommand · postStartCommand');
     expect(wrapper.text()).toContain('Execução desabilitada');
-    expect(wrapper.text()).toContain(
-      'Cleanup/stop seguro ainda precisa de ownership ponta a ponta.',
-    );
     expect(wrapper.text()).not.toContain('Iniciar');
     expect(wrapper.text()).not.toContain('Rebuild');
     expect(wrapper.text()).not.toContain('Executar');
@@ -98,7 +95,7 @@ describe('ProjectDevContainerPanel', () => {
         kind: 'dockerfile',
         lifecycleHooks: ['initializeCommand'],
       },
-      limitations: ['cleanup-adapter-pending'],
+      limitations: [],
       diagnostic:
         'A configuração declara initializeCommand, que pode executar no host.',
     });
@@ -127,7 +124,7 @@ describe('ProjectDevContainerPanel', () => {
       requiresConfirmation: false,
       discoveryState: 'cli-missing',
       configSource: '.devcontainer.json',
-      limitations: ['cleanup-adapter-pending'],
+      limitations: [],
       diagnostic: 'A Dev Container CLI não está disponível no PATH da API.',
     });
 
@@ -154,7 +151,7 @@ describe('ProjectDevContainerPanel', () => {
       runtime: 'devcontainer',
       executionEnabled: false,
       requiresConfirmation: false,
-      limitations: ['cleanup-adapter-pending'],
+      limitations: [],
       diagnostic:
         'A criação inicial de Dev Container só pode ser planejada a partir de uma Environment Instance host.',
     });
@@ -187,7 +184,7 @@ describe('ProjectDevContainerPanel', () => {
         executionEnabled: false,
         requiresConfirmation: false,
         discoveryState: 'not-configured',
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic: 'Configuração ausente.',
       })
       .mockResolvedValueOnce({
@@ -207,7 +204,7 @@ describe('ProjectDevContainerPanel', () => {
           kind: 'dockerfile',
           lifecycleHooks: [],
         },
-        limitations: ['cleanup-adapter-pending'],
+        limitations: [],
         diagnostic: 'Revisão humana necessária.',
       });
 
