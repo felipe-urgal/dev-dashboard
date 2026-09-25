@@ -71,6 +71,7 @@ const PTY_ERROR_RESPONSE: Record<
 > = {
   TEST_COMMAND_NOT_FOUND: { statusCode: 404, code: 'TEST_COMMAND_NOT_FOUND' },
   ALREADY_RUNNING: { statusCode: 409, code: 'TEST_PTY_ALREADY_RUNNING' },
+  RUNTIME_UNSUPPORTED: { statusCode: 409, code: 'TEST_PTY_START_FAILED' },
   START_FAILED: { statusCode: 500, code: 'TEST_PTY_START_FAILED' },
 };
 
