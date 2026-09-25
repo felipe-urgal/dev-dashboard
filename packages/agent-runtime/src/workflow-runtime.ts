@@ -310,47 +310,6 @@ export class AgentWorkflowRuntime {
         );
       }
 
-      let persistedUserTurn: AgentConversationTurn | undefined;
-      if (request.userTurn) {
-        if (!this.conversationStore) {
-          throw new AgentWorkflowRuntimeError(
-            'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE',
-            'Agent conversation storage is unavailable.',
-          );
-        }
-
-        let existingTurns: AgentConversationTurn[];
-        try {
-          existingTurns = await this.conversationStore.list(current.task.id);
-        } catch {
-          throw new AgentWorkflowRuntimeError(
-            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
-            'Agent conversation could not be read before execution.',
-          );
-        }
-        if (existingTurns.some((turn) => turn.id === request.userTurn!.id)) {
-          throw new AgentWorkflowRuntimeError(
-            'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
-            'Agent conversation turn was already submitted.',
-          );
-        }
-
-        try {
-          persistedUserTurn = await this.conversationStore.append({
-            id: request.userTurn.id,
-            taskId: current.task.id,
-            role: 'user',
-            content: request.userTurn.content,
-            createdAt: this.now(),
-          });
-        } catch {
-          throw new AgentWorkflowRuntimeError(
-            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
-            'Agent conversation turn could not be persisted before execution.',
-          );
-        }
-      }
-
       if (current.task.adoptedGitRef) {
         if (
           !this.gitRefVerifier ||
@@ -395,6 +354,47 @@ export class AgentWorkflowRuntime {
           'AGENT_WORKFLOW_PROVIDER_FAILED',
           'Agent execution identity could not be created.',
         );
+      }
+
+      let persistedUserTurn: AgentConversationTurn | undefined;
+      if (request.userTurn) {
+        if (!this.conversationStore) {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE',
+            'Agent conversation storage is unavailable.',
+          );
+        }
+
+        let existingTurns: AgentConversationTurn[];
+        try {
+          existingTurns = await this.conversationStore.list(current.task.id);
+        } catch {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
+            'Agent conversation could not be read before execution.',
+          );
+        }
+        if (existingTurns.some((turn) => turn.id === request.userTurn!.id)) {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
+            'Agent conversation turn was already submitted.',
+          );
+        }
+
+        try {
+          persistedUserTurn = await this.conversationStore.append({
+            id: request.userTurn.id,
+            taskId: current.task.id,
+            role: 'user',
+            content: request.userTurn.content,
+            createdAt: this.now(),
+          });
+        } catch {
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
+            'Agent conversation turn could not be persisted before execution.',
+          );
+        }
       }
 
       const continuationInstruction =
@@ -535,22 +535,6 @@ export class AgentWorkflowRuntime {
         );
       }
 
-      if (checkpointToPersist) {
-        try {
-          checkpoint =
-            await this.checkpointStore.createCheckpoint(checkpointToPersist);
-        } catch {
-          settledRecord = await this.taskStore.save(
-            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
-            runningRecord.version,
-          );
-          throw new AgentWorkflowRuntimeError(
-            'AGENT_WORKFLOW_CHECKPOINT_INVALID',
-            'Agent checkpoint could not be persisted.',
-          );
-        }
-      }
-
       let persistedAgentTurn: AgentConversationTurn | undefined;
       if (persistedUserTurn) {
         try {
@@ -572,6 +556,23 @@ export class AgentWorkflowRuntime {
           throw new AgentWorkflowRuntimeError(
             'AGENT_WORKFLOW_CONVERSATION_PERSIST_FAILED',
             'Agent response could not be persisted in the conversation.',
+          );
+        }
+      }
+
+
+      if (checkpointToPersist) {
+        try {
+          checkpoint =
+            await this.checkpointStore.createCheckpoint(checkpointToPersist);
+        } catch {
+          settledRecord = await this.taskStore.save(
+            transitionAgentTask(runningRecord.task, 'blocked', finishedAt),
+            runningRecord.version,
+          );
+          throw new AgentWorkflowRuntimeError(
+            'AGENT_WORKFLOW_CHECKPOINT_INVALID',
+            'Agent checkpoint could not be persisted.',
           );
         }
       }
