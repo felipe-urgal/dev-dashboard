@@ -4,6 +4,7 @@ import {
   ChatGptBrowserAgentProvider,
   type ChatGptBrowserAgentProviderOptions,
 } from './browser-provider.js';
+import { sanitizeAgentConversationContent } from './conversation-store.js';
 import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
   AgentConcreteProviderId,
@@ -27,6 +28,7 @@ import {
 const DEFAULT_EXECUTION_TIMEOUT_MS = 45 * 60 * 1000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 const MAX_PROVIDER_SUMMARY_CHARS = 32_000;
+const MAX_PROVIDER_RESPONSE_CHARS = 16_000;
 const CLAUDE_CODE_MIN_VERSION = [2, 1, 259] as const;
 const LOCAL_PROVIDER_IDS = ['codex', 'claude-code'] as const;
 const ALL_PROVIDER_IDS = [
@@ -333,6 +335,69 @@ function nonNegativeInteger(value: unknown): number | undefined {
     : undefined;
 }
 
+function normalizeProviderResponseText(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = sanitizeAgentConversationContent(value).trim();
+  if (!normalized) return undefined;
+  return normalized.slice(0, MAX_PROVIDER_RESPONSE_CHARS);
+}
+
+function codexResponseFromJsonl(stdout: string): string | undefined {
+  let responseText: string | undefined;
+  for (const line of stdout.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value) continue;
+    let event: unknown;
+    try { event = JSON.parse(value); } catch { continue; }
+    if (!event || typeof event !== 'object') continue;
+    const record = event as Record<string, unknown>;
+    if (record.type !== 'item.completed') continue;
+    const item = record.item;
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const itemRecord = item as Record<string, unknown>;
+    if (itemRecord.type !== 'agent_message') continue;
+    const candidate = normalizeProviderResponseText(itemRecord.text);
+    if (candidate) responseText = candidate;
+  }
+  return responseText;
+}
+
+function claudeMessageText(value: unknown): string | undefined {
+  if (typeof value === 'string') return normalizeProviderResponseText(value);
+  if (!Array.isArray(value)) return undefined;
+  const parts = value.flatMap((block) => {
+    if (!block || typeof block !== 'object' || Array.isArray(block)) return [];
+    const record = block as Record<string, unknown>;
+    return record.type === 'text' && typeof record.text === 'string' ? [record.text] : [];
+  });
+  return normalizeProviderResponseText(parts.join('\n'));
+}
+
+function claudeResponseFromJsonl(stdout: string): string | undefined {
+  let assistantText: string | undefined;
+  let resultText: string | undefined;
+  for (const line of stdout.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value) continue;
+    let event: unknown;
+    try { event = JSON.parse(value); } catch { continue; }
+    if (!event || typeof event !== 'object') continue;
+    const record = event as Record<string, unknown>;
+    if (record.type === 'assistant') {
+      const message = record.message;
+      if (!message || typeof message !== 'object' || Array.isArray(message)) continue;
+      const candidate = claudeMessageText((message as Record<string, unknown>).content);
+      if (candidate) assistantText = candidate;
+      continue;
+    }
+    if (record.type === 'result') {
+      const candidate = normalizeProviderResponseText(record.result);
+      if (candidate) resultText = candidate;
+    }
+  }
+  return resultText ?? assistantText;
+}
+
 function codexUsageFromJsonl(stdout: string): AgentUsage | undefined {
   let normalized: AgentUsage | undefined;
 
@@ -509,6 +574,7 @@ function normalizeProcessResult(
   label: string,
   result: AgentCliProcessResult,
   usage?: AgentUsage,
+  responseText?: string,
 ): AgentProviderResult {
   if (result.signal !== null || result.exitCode === null) {
     return {
@@ -528,6 +594,7 @@ function normalizeProcessResult(
       providerId,
       outcome: 'succeeded',
       summary: label + ' completed successfully',
+      ...(responseText ? { responseText } : {}),
       ...(usage ? { usage } : {}),
     };
   }
@@ -565,6 +632,10 @@ abstract class LocalCliAgentProvider implements AgentProvider {
   ): readonly string[];
 
   protected usage(_result: AgentCliProcessResult): AgentUsage | undefined {
+    return undefined;
+  }
+
+  protected responseText(_result: AgentCliProcessResult): string | undefined {
     return undefined;
   }
 
@@ -631,6 +702,7 @@ abstract class LocalCliAgentProvider implements AgentProvider {
         this.label,
         result,
         this.usage(result),
+        this.responseText(result),
       );
     } catch (error) {
       return normalizeExecutionFailure(this.id, this.label, error);
@@ -684,6 +756,10 @@ export class CodexAgentProvider extends LocalCliAgentProvider {
 
   protected usage(result: AgentCliProcessResult): AgentUsage | undefined {
     return codexUsageFromJsonl(result.stdout);
+  }
+
+  protected responseText(result: AgentCliProcessResult): string | undefined {
+    return codexResponseFromJsonl(result.stdout);
   }
 }
 
@@ -746,6 +822,10 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
 
   protected usage(result: AgentCliProcessResult): AgentUsage | undefined {
     return claudeUsageFromJsonl(result.stdout);
+  }
+
+  protected responseText(result: AgentCliProcessResult): string | undefined {
+    return claudeResponseFromJsonl(result.stdout);
   }
 }
 

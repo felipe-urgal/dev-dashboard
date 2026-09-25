@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { browserToolsForCapabilities } from './browser-tool-policy.js';
+import { sanitizeAgentConversationContent } from './conversation-store.js';
 import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
   AgentCapability,
@@ -15,6 +16,7 @@ const DEFAULT_EXECUTION_TIMEOUT_MS = 45 * 60 * 1000;
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_HEARTBEAT_MAX_AGE_MS = 30_000;
 const MAX_PROVIDER_SUMMARY_CHARS = 32_000;
+const MAX_PROVIDER_RESPONSE_CHARS = 16_000;
 
 export type BrowserBridgeJobState =
   | 'queued'
@@ -43,6 +45,7 @@ export interface BrowserBridgeJob {
   finishedAt?: string | null;
   errorCode?: string | null;
   browserPhase?: string | null;
+  responseText?: string | null;
 }
 
 export interface BrowserBridgeCreateJobRequest {
@@ -355,6 +358,7 @@ function buildPrompt(
   const terminalExample = JSON.stringify({
     type: 'terminal_result',
     status: 'completed',
+    message: 'Implemented the requested change and verified the relevant tests.',
   });
 
   return [
@@ -373,6 +377,7 @@ function buildPrompt(
     '- Never request shell text, credentials, cookies or absolute host paths.',
     '- Emit exactly one executable envelope per assistant turn.',
     '- Executable envelopes must use a fenced block named agent-workflow-browser.',
+    '- On completion, include a concise user-facing message in terminal_result.',
     '- Granted capabilities: ' + capabilities + '.',
     '- Protected actions that are not explicitly exposed by a tool are forbidden.',
     '',
@@ -408,12 +413,21 @@ function capabilityMap(
   );
 }
 
+function normalizedBrowserResponseText(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = sanitizeAgentConversationContent(value).trim();
+  if (!normalized) return undefined;
+  return normalized.slice(0, MAX_PROVIDER_RESPONSE_CHARS);
+}
+
 function terminalResult(job: BrowserBridgeJob): AgentProviderResult | null {
   if (job.state === 'finished') {
+    const responseText = normalizedBrowserResponseText(job.responseText);
     return {
       providerId: 'chatgpt-browser',
       outcome: 'succeeded',
       summary: 'ChatGPT Browser completed successfully',
+      ...(responseText ? { responseText } : {}),
     };
   }
 

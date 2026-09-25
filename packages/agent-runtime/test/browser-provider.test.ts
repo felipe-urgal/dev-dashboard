@@ -170,7 +170,12 @@ test('browser provider executes one bounded structured job', async () => {
   const bridge = new StubBridge();
   bridge.states = [
     { id: 'job-1', state: 'running' },
-    { id: 'job-1', state: 'finished' },
+    {
+      id: 'job-1',
+      state: 'finished',
+      responseText:
+        'Updated the browser flow. OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz',
+    },
   ];
 
   const provider = new ChatGptBrowserAgentProvider({
@@ -184,6 +189,10 @@ test('browser provider executes one bounded structured job', async () => {
 
   assert.equal(result.providerId, 'chatgpt-browser');
   assert.equal(result.outcome, 'succeeded');
+  assert.equal(
+    result.responseText,
+    'Updated the browser flow. OPENAI_API_KEY=[REDACTED]',
+  );
   assert.equal(bridge.created.length, 1);
 
   const created = bridge.created[0];
@@ -201,6 +210,7 @@ test('browser provider executes one bounded structured job', async () => {
   assert.match(created?.prompt ?? '', /read_file args=/);
   assert.match(created?.prompt ?? '', /Repository aliases:/);
   assert.match(created?.prompt ?? '', /terminal_result/);
+  assert.match(created?.prompt ?? '', /concise user-facing message/);
 });
 
 test('browser provider inclui instrução de continuação no prompt', async () => {

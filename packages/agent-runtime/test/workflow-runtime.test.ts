@@ -256,6 +256,7 @@ test('conversation turn is persisted before provider execution and response is l
       providerId: 'codex',
       outcome: 'succeeded',
       summary: 'Second turn completed',
+      responseText: 'Adjusted the empty state and verified tests.',
     };
   });
   const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
@@ -292,7 +293,10 @@ test('conversation turn is persisted before provider execution and response is l
   assert.equal(result.userTurn?.id, 'turn-user-2');
   assert.equal(result.agentTurn?.executionId, result.execution.id);
   assert.equal(result.agentTurn?.providerId, 'codex');
-  assert.equal(result.agentTurn?.content, 'Second turn completed');
+  assert.equal(
+    result.agentTurn?.content,
+    'Adjusted the empty state and verified tests.',
+  );
 
   const turns = await fixtureResult.runtime.conversation('project-1', 'task-1');
   assert.equal(turns.length, 2);

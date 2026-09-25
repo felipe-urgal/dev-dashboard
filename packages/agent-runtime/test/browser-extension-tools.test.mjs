@@ -85,7 +85,11 @@ test('loop processa múltiplas tools e só finaliza em terminal_result', async (
     assistantTurns: [
       fenced({ type: 'tool_request', toolCallId: 'call-1', tool: 'read_file', repo: 'home-music', args: { path: 'README.md' } }),
       fenced({ type: 'tool_request', toolCallId: 'call-2', tool: 'git_status', repo: 'home-music', args: {} }),
-      fenced({ type: 'terminal_result', status: 'completed' }),
+      fenced({
+        type: 'terminal_result',
+        status: 'completed',
+        message: 'Arquivos atualizados e testes verificados.',
+      }),
     ],
     toolResponses: [
       { type: 'tool_result', toolCallId: 'call-1', ok: true, result: { content: 'hello' } },
@@ -110,7 +114,11 @@ test('loop processa múltiplas tools e só finaliza em terminal_result', async (
   const finishEvents = x.events.filter((event) => event.event === 'finish');
   assert.deepEqual(toolEvents.map((event) => event.request.toolCallId), ['call-1', 'call-2']);
   assert.equal(finishEvents.length, 1);
-  assert.deepEqual(finishEvents[0].terminalResult, { type: 'terminal_result', status: 'completed' });
+  assert.deepEqual(finishEvents[0].terminalResult, {
+    type: 'terminal_result',
+    status: 'completed',
+    message: 'Arquivos atualizados e testes verificados.',
+  });
 
   assert.equal(x.markerSnapshots[0], null);
   assert.match(x.markerSnapshots[1], /"toolCallId":"call-1".*"state":"armed"/);
