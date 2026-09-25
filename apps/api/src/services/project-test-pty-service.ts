@@ -11,10 +11,17 @@ import {
   DetachableExecutionService,
   type DetachableExecutionSnapshot,
 } from './detachable-execution-service.js';
+import {
+  buildDevContainerTestCommand,
+  isValidDevContainerRuntimeId,
+} from './dev-container-exec-adapter.js';
 import type { TestDetectionService } from './test-detection-service.js';
 
 export type ProjectTestPtyErrorCode =
-  'TEST_COMMAND_NOT_FOUND' | 'ALREADY_RUNNING' | 'START_FAILED';
+  | 'TEST_COMMAND_NOT_FOUND'
+  | 'ALREADY_RUNNING'
+  | 'RUNTIME_UNSUPPORTED'
+  | 'START_FAILED';
 
 export class ProjectTestPtyError extends Error {
   public constructor(
@@ -59,19 +66,72 @@ function projectForExecution(
   return { ...project, path: executionContext.cwd };
 }
 
-async function testEnvironment(project: Project): Promise<NodeJS.ProcessEnv> {
+async function testEnvironment(
+  project: Project,
+  executionContext: ExecutionContext,
+): Promise<NodeJS.ProcessEnv> {
   try {
     const environment = await loadProjectLocalEnvironment(
       project.path,
       'check',
     );
 
-    return buildProjectTestEnvironment(project, environment);
+    if (
+      executionContext.runtime === 'devcontainer' &&
+      Object.keys(environment).length > 0
+    ) {
+      throw new ProjectTestPtyError(
+        'RUNTIME_UNSUPPORTED',
+        'Testes em Dev Container ainda não injetam valores de .env.check.local. Remova esse override ou execute a suíte no host.',
+      );
+    }
+
+    return buildProjectTestEnvironment(
+      project,
+      executionContext.runtime === 'host' ? environment : {},
+    );
   } catch (error) {
+    if (error instanceof ProjectTestPtyError) throw error;
     if (!(error instanceof ProjectLocalEnvironmentError)) throw error;
     throw new ProjectTestPtyError(
       'START_FAILED',
       'O ambiente local de check do projeto é inválido ou não pôde ser lido.',
+    );
+  }
+}
+
+function devContainerRemoteEnvironment(
+  project: Project,
+): Readonly<Record<string, string>> {
+  return project.type === 'rails'
+    ? { RAILS_ENV: 'test', RACK_ENV: 'test' }
+    : {};
+}
+
+function devContainerTestCommand(
+  project: Project,
+  executionContext: ExecutionContext,
+  resolved: { command: string; args: readonly string[] },
+) {
+  if (!isValidDevContainerRuntimeId(executionContext.runtimeId)) {
+    throw new ProjectTestPtyError(
+      'RUNTIME_UNSUPPORTED',
+      'O runtime Dev Container selecionado não possui uma identidade executável válida.',
+    );
+  }
+
+  try {
+    return buildDevContainerTestCommand({
+      runtimeId: executionContext.runtimeId,
+      workspaceFolder: executionContext.cwd,
+      command: resolved.command,
+      args: resolved.args,
+      remoteEnvironment: devContainerRemoteEnvironment(project),
+    });
+  } catch {
+    throw new ProjectTestPtyError(
+      'RUNTIME_UNSUPPORTED',
+      'O comando de teste detectado não pode ser executado com segurança neste Dev Container.',
     );
   }
 }
@@ -123,14 +183,21 @@ export class ProjectTestPtyService {
       );
     }
 
-    const environment = await testEnvironment(scopedProject);
+    const environment = await testEnvironment(
+      scopedProject,
+      executionContext,
+    );
+    const command =
+      executionContext.runtime === 'devcontainer'
+        ? devContainerTestCommand(scopedProject, executionContext, resolved)
+        : { file: resolved.command, args: resolved.args };
 
     try {
       return this.detachable.start(
         executionKey(project.id, executionContext.environmentInstanceId),
         {
-          file: resolved.command,
-          args: resolved.args,
+          file: command.file,
+          args: command.args,
           cwd: executionContext.cwd,
           env: environment,
         },
