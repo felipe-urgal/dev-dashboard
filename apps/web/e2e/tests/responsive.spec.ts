@@ -73,7 +73,9 @@ test.describe('sidebar do projeto em desktop baixo', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
 
-    const sidebarLinks = page.locator('.project-details-tabs .project-details-tab');
+    const sidebarLinks = page.locator(
+      '.project-details-tabs .project-details-tab',
+    );
     const collapsedTooltips = await sidebarLinks.evaluateAll((links) =>
       links.map((link) => ({
         label: link.getAttribute('aria-label'),

@@ -104,10 +104,7 @@ const ProjectAgentPanel = lazyTool(
 
 const route = useRoute();
 const router = useRouter();
-const projectSidebarCollapsed = inject(
-  'projectSidebarCollapsed',
-  ref(false),
-);
+const projectSidebarCollapsed = inject('projectSidebarCollapsed', ref(false));
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
