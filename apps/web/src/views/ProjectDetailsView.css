@@ -782,9 +782,10 @@
   }
 
   .project-details-page-ready .project-details-tabs {
-    position: sticky;
+    position: fixed;
     z-index: 20;
     top: var(--app-topbar-height, 72px);
+    left: 0;
     grid-column: 1;
     grid-row: 1 / 3;
     display: block;
