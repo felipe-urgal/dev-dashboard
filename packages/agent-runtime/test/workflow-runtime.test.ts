@@ -116,6 +116,8 @@ async function fixture(
     maxExecutionAttempts?: number;
     retryBackoffMs?: number;
     maxRetryBackoffMs?: number;
+    providerConversationMaxTurns?: number;
+    providerConversationMaxChars?: number;
     gitRefVerifier?: import('../src/index.js').AgentGitRefVerifier;
     executionResultStore?: Pick<
       import('../src/index.js').AgentAuditStore,
@@ -296,6 +298,78 @@ test('conversation turn is persisted before provider execution and response is l
   assert.equal(turns.length, 2);
   assert.equal(turns[0]?.role, 'user');
   assert.equal(turns[1]?.role, 'agent');
+});
+
+test('conversation context é bounded, preserva provider anterior e redige secret do novo turno', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Context applied',
+  }));
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }), {
+    providerConversationMaxTurns: 2,
+    providerConversationMaxChars: 80,
+  });
+
+  await fixtureResult.conversationStore.append({
+    id: 'turn-user-old',
+    taskId: 'task-1',
+    role: 'user',
+    content: 'Primeira instrução antiga.',
+    createdAt: '2026-09-22T14:50:00.000Z',
+  });
+  await fixtureResult.conversationStore.append({
+    id: 'turn-agent-old',
+    taskId: 'task-1',
+    role: 'agent',
+    content: 'Resposta anterior via Claude.',
+    createdAt: '2026-09-22T14:51:00.000Z',
+    executionId: 'execution-old',
+    providerId: 'claude-code',
+  });
+  await fixtureResult.conversationStore.append({
+    id: 'turn-user-recent',
+    taskId: 'task-1',
+    role: 'user',
+    content: 'Segunda instrução.',
+    createdAt: '2026-09-22T14:52:00.000Z',
+  });
+
+  await fixtureResult.runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+    userTurn: {
+      id: 'turn-user-current',
+      content: 'Use OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz e continue.',
+    },
+  });
+
+  assert.deepEqual(provider.lastRequest?.conversationContext, {
+    turns: [
+      {
+        role: 'agent',
+        content: 'Resposta anterior via Claude.',
+        providerId: 'claude-code',
+      },
+      {
+        role: 'user',
+        content: 'Segunda instrução.',
+      },
+    ],
+    omittedTurns: 1,
+  });
+  assert.equal(
+    provider.lastRequest?.continuationInstruction,
+    'Use OPENAI_API_KEY=[REDACTED] e continue.',
+  );
+
+  const persisted = await fixtureResult.conversationStore.list('task-1');
+  assert.equal(
+    persisted.at(-2)?.content.includes('abcdefghijklmnopqrstuvwxyz'),
+    false,
+  );
+  assert.equal(persisted.at(-2)?.content.includes('[REDACTED]'), true);
 });
 
 test('duplicate conversation turn id is rejected without another provider execution', async (t) => {
@@ -646,6 +720,22 @@ test('invalid retry policy is rejected at runtime construction', async (t) => {
         maxExecutionAttempts: 0,
       }),
     /retry policy is invalid/,
+  );
+});
+
+test('invalid conversation context policy is rejected at runtime construction', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'done',
+  }));
+
+  await assert.rejects(
+    async () =>
+      fixture(t, provider, task(), {
+        providerConversationMaxTurns: 0,
+      }),
+    /conversation context policy is invalid/,
   );
 });
 

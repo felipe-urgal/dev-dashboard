@@ -16,6 +16,7 @@ import type {
   AgentExecution,
   AgentExecutionOwnership,
   AgentProvider,
+  AgentProviderConversationContext,
   AgentProviderId,
   AgentProviderResult,
   AgentTaskRecord,
@@ -31,6 +32,8 @@ import { AgentTaskLockManager } from './task-lock.js';
 const DEFAULT_MAX_EXECUTION_ATTEMPTS = 3;
 const DEFAULT_RETRY_BACKOFF_MS = 1_000;
 const DEFAULT_MAX_RETRY_BACKOFF_MS = 30_000;
+const DEFAULT_PROVIDER_CONVERSATION_MAX_TURNS = 12;
+const DEFAULT_PROVIDER_CONVERSATION_MAX_CHARS = 24_000;
 
 export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_CLOSING'
@@ -95,6 +98,8 @@ export interface AgentWorkflowRuntimeOptions {
   maxExecutionAttempts?: number;
   retryBackoffMs?: number;
   maxRetryBackoffMs?: number;
+  providerConversationMaxTurns?: number;
+  providerConversationMaxChars?: number;
 }
 
 export interface AgentWorkflowUserTurnInput {
@@ -175,6 +180,40 @@ function executionState(result: AgentProviderResult): AgentExecution['state'] {
   }
 }
 
+function buildProviderConversationContext(
+  turns: readonly AgentConversationTurn[],
+  maxTurns: number,
+  maxChars: number,
+): AgentProviderConversationContext | undefined {
+  if (turns.length === 0) return undefined;
+
+  const selected: AgentProviderConversationContext['turns'][number][] = [];
+  let usedChars = 0;
+
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (!turn || selected.length >= maxTurns) break;
+
+    const content = turn.content.trim();
+    if (usedChars + content.length > maxChars) break;
+
+    selected.push({
+      role: turn.role,
+      content,
+      ...(turn.providerId ? { providerId: turn.providerId } : {}),
+    });
+    usedChars += content.length;
+  }
+
+  if (selected.length === 0) return undefined;
+  selected.reverse();
+
+  return {
+    turns: selected,
+    omittedTurns: turns.length - selected.length,
+  };
+}
+
 function taskStateForResult(
   result: AgentProviderResult,
 ): 'checkpoint' | 'review' | 'failed' | 'cancelled' | 'blocked' {
@@ -208,6 +247,8 @@ export class AgentWorkflowRuntime {
   private readonly maxExecutionAttempts: number;
   private readonly retryBackoffMs: number;
   private readonly maxRetryBackoffMs: number;
+  private readonly providerConversationMaxTurns: number;
+  private readonly providerConversationMaxChars: number;
   private readonly active = new Map<string, ActiveExecution>();
   private closing = false;
 
@@ -228,6 +269,12 @@ export class AgentWorkflowRuntime {
     this.retryBackoffMs = options.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS;
     this.maxRetryBackoffMs =
       options.maxRetryBackoffMs ?? DEFAULT_MAX_RETRY_BACKOFF_MS;
+    this.providerConversationMaxTurns =
+      options.providerConversationMaxTurns ??
+      DEFAULT_PROVIDER_CONVERSATION_MAX_TURNS;
+    this.providerConversationMaxChars =
+      options.providerConversationMaxChars ??
+      DEFAULT_PROVIDER_CONVERSATION_MAX_CHARS;
 
     if (
       !Number.isSafeInteger(this.maxExecutionAttempts) ||
@@ -238,6 +285,14 @@ export class AgentWorkflowRuntime {
       this.maxRetryBackoffMs < this.retryBackoffMs
     ) {
       throw new Error('Agent workflow retry policy is invalid.');
+    }
+    if (
+      !Number.isSafeInteger(this.providerConversationMaxTurns) ||
+      this.providerConversationMaxTurns < 1 ||
+      !Number.isSafeInteger(this.providerConversationMaxChars) ||
+      this.providerConversationMaxChars < 1
+    ) {
+      throw new Error('Agent workflow conversation context policy is invalid.');
     }
   }
 
@@ -356,16 +411,8 @@ export class AgentWorkflowRuntime {
         );
       }
 
-      let persistedUserTurn: AgentConversationTurn | undefined;
-      if (request.userTurn) {
-        if (!this.conversationStore) {
-          throw new AgentWorkflowRuntimeError(
-            'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE',
-            'Agent conversation storage is unavailable.',
-          );
-        }
-
-        let existingTurns: AgentConversationTurn[];
+      let existingTurns: AgentConversationTurn[] = [];
+      if (this.conversationStore) {
         try {
           existingTurns = await this.conversationStore.list(current.task.id);
         } catch {
@@ -374,6 +421,15 @@ export class AgentWorkflowRuntime {
             'Agent conversation could not be read before execution.',
           );
         }
+      } else if (request.userTurn) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_CONVERSATION_UNAVAILABLE',
+          'Agent conversation storage is unavailable.',
+        );
+      }
+
+      let persistedUserTurn: AgentConversationTurn | undefined;
+      if (request.userTurn) {
         if (existingTurns.some((turn) => turn.id === request.userTurn!.id)) {
           throw new AgentWorkflowRuntimeError(
             'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
@@ -382,7 +438,7 @@ export class AgentWorkflowRuntime {
         }
 
         try {
-          persistedUserTurn = await this.conversationStore.append({
+          persistedUserTurn = await this.conversationStore!.append({
             id: request.userTurn.id,
             taskId: current.task.id,
             role: 'user',
@@ -397,8 +453,13 @@ export class AgentWorkflowRuntime {
         }
       }
 
+      const conversationContext = buildProviderConversationContext(
+        existingTurns,
+        this.providerConversationMaxTurns,
+        this.providerConversationMaxChars,
+      );
       const continuationInstruction =
-        request.userTurn?.content ?? current.task.continuationInstruction;
+        persistedUserTurn?.content ?? current.task.continuationInstruction;
       const {
         continuationInstruction: _consumedInstruction,
         ...taskWithoutInstruction
@@ -449,6 +510,7 @@ export class AgentWorkflowRuntime {
           summary: runningRecord.task.summary,
           allowedCapabilities,
           ...(continuationInstruction ? { continuationInstruction } : {}),
+          ...(conversationContext ? { conversationContext } : {}),
           signal: controller.signal,
         });
       } catch {

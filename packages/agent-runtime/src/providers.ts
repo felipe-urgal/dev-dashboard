@@ -4,6 +4,7 @@ import {
   ChatGptBrowserAgentProvider,
   type ChatGptBrowserAgentProviderOptions,
 } from './browser-provider.js';
+import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
   AgentConcreteProviderId,
   AgentProvider,
@@ -246,6 +247,7 @@ function buildProviderPrompt(request: AgentProviderExecutionRequest): string {
 
   return [
     request.summary.trim(),
+    ...formatAgentProviderConversationContext(request.conversationContext),
     ...(request.continuationInstruction
       ? [
           '',

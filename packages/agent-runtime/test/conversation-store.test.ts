@@ -15,6 +15,7 @@ import test from 'node:test';
 import {
   AgentConversationStore,
   AgentConversationStoreError,
+  sanitizeAgentConversationContent,
 } from '../src/conversation-store.js';
 
 function conversationPath(root: string, taskId: string): string {
@@ -68,6 +69,82 @@ test('AgentConversationStore persiste turnos em ordem e sobrevive a restart', as
   assert.equal((await stat(filePath)).mode & 0o777, 0o600);
   const serialized = await readFile(filePath, 'utf8');
   assert.doesNotMatch(serialized, /cwd|argv/i);
+});
+
+test('AgentConversationStore redige secrets antes de persistir ou retornar histórico', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-conversation-secret-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const store = new AgentConversationStore({ stateDirectory: root });
+  const rawContent = [
+    'OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz',
+    'Authorization: Bearer abcdefghijklmnopqrstuvwxyz',
+    'password="super-secret-password"',
+    'https://user:database-password@example.com/path',
+    '-----BEGIN PRIVATE KEY-----',
+    'private-key-material',
+    '-----END PRIVATE KEY-----',
+  ].join('\n');
+
+  const persisted = await store.append({
+    id: 'turn-secret',
+    taskId: 'task-1',
+    role: 'user',
+    content: rawContent,
+    createdAt: '2026-09-25T14:01:30.000Z',
+  });
+
+  assert.equal(persisted.content, sanitizeAgentConversationContent(rawContent));
+  assert.equal(
+    sanitizeAgentConversationContent(persisted.content),
+    persisted.content,
+  );
+  assert.match(persisted.content, /OPENAI_API_KEY=\[REDACTED\]/);
+  assert.match(persisted.content, /Bearer \[REDACTED\]/);
+  assert.match(persisted.content, /password=\[REDACTED\]/);
+  assert.match(persisted.content, /user:\[REDACTED\]@example\.com/);
+  assert.match(persisted.content, /\[REDACTED PRIVATE KEY\]/);
+
+  const serialized = await readFile(conversationPath(root, 'task-1'), 'utf8');
+  assert.doesNotMatch(serialized, /abcdefghijklmnopqrstuvwxyz/);
+  assert.doesNotMatch(serialized, /database-password/);
+  assert.doesNotMatch(serialized, /private-key-material/);
+  assert.deepEqual(await store.list('task-1'), [persisted]);
+});
+
+test('AgentConversationStore migra secrets de histórico legado ao ler', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'agent-conversation-migrate-'),
+  );
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const filePath = conversationPath(root, 'task-1');
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(
+    filePath,
+    JSON.stringify({
+      version: 1,
+      taskId: 'task-1',
+      turns: [
+        {
+          id: 'turn-legacy',
+          taskId: 'task-1',
+          role: 'user',
+          content: 'GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz123456',
+          createdAt: '2026-09-25T14:01:45.000Z',
+        },
+      ],
+    }),
+    { mode: 0o600 },
+  );
+
+  const store = new AgentConversationStore({ stateDirectory: root });
+  const turns = await store.list('task-1');
+
+  assert.equal(turns[0]?.content, 'GITHUB_TOKEN=[REDACTED]');
+  const migrated = await readFile(filePath, 'utf8');
+  assert.doesNotMatch(migrated, /ghp_abcdefghijklmnopqrstuvwxyz123456/);
+  assert.match(migrated, /\[REDACTED\]/);
 });
 
 test('AgentConversationStore reaplica o mesmo turnId de forma idempotente', async (context) => {

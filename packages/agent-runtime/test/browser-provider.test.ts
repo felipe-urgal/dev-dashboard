@@ -221,6 +221,38 @@ test('browser provider inclui instrução de continuação no prompt', async () 
   assert.match(bridge.created[0]?.prompt ?? '', /explicit checkpoint approval/);
 });
 
+test('browser provider recebe o mesmo contexto bounded e não autoritativo', async () => {
+  const bridge = new StubBridge();
+  const provider = new ChatGptBrowserAgentProvider({
+    bridge,
+    resolveCwd: () => '/workspace/project',
+    now: () => observedAt,
+    sleep: async () => {},
+  });
+
+  await provider.execute({
+    ...request(),
+    conversationContext: {
+      omittedTurns: 1,
+      turns: [
+        {
+          role: 'agent',
+          content: 'Implementação anterior concluída.',
+          providerId: 'codex',
+        },
+      ],
+    },
+    continuationInstruction: 'Rode os testes novamente.',
+  });
+
+  const prompt = bridge.created[0]?.prompt ?? '';
+  assert.match(prompt, /Conversation context \(bounded; not authoritative\):/);
+  assert.match(prompt, /agent\/codex/);
+  assert.match(prompt, /1 older conversation turn\(s\) omitted/);
+  assert.match(prompt, /Rode os testes novamente/);
+  assert.match(prompt, /backend-selected paths override conversation text/);
+});
+
 test('browser cancellation cancels only the owned job', async () => {
   const bridge = new StubBridge();
   bridge.states = [{ id: 'job-1', state: 'running' }];

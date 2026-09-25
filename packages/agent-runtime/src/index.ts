@@ -19,6 +19,8 @@ export type {
   AgentExecutionState,
   AgentProvider,
   AgentProviderAvailability,
+  AgentProviderConversationContext,
+  AgentProviderConversationTurn,
   AgentProviderExecutionRequest,
   AgentProviderId,
   AgentProviderRegistry,
@@ -285,6 +287,7 @@ export {
 export {
   AgentConversationStore,
   AgentConversationStoreError,
+  sanitizeAgentConversationContent,
 } from './conversation-store.js';
 export type {
   AgentConversationStoreErrorCode,

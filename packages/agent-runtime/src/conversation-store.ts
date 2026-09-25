@@ -10,6 +10,15 @@ const DEFAULT_MAX_TURNS = 2_000;
 const MAX_ID_CHARS = 256;
 const MAX_CONTENT_CHARS = 16_000;
 const MAX_STATE_BYTES = 8 * 1024 * 1024;
+const REDACTED_SECRET = '[REDACTED]';
+const SECRET_ASSIGNMENT =
+  /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|CLIENT_SECRET|ACCESS_KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*([:=])\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s"',;]+)/gi;
+const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+\/-]{12,}={0,2}/gi;
+const WELL_KNOWN_TOKEN =
+  /\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:ant-)?[A-Za-z0-9_-]{16,})\b/g;
+const PRIVATE_KEY_BLOCK =
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g;
+const URL_PASSWORD = /(https?:\/\/[^:\s/@]+:)[^@\s]+(@)/gi;
 
 export type AgentConversationTurnRole = 'user' | 'agent';
 
@@ -99,6 +108,19 @@ function isConcreteProviderId(
   );
 }
 
+export function sanitizeAgentConversationContent(content: string): string {
+  return content
+    .replace(PRIVATE_KEY_BLOCK, '[REDACTED PRIVATE KEY]')
+    .replace(URL_PASSWORD, '$1' + REDACTED_SECRET + '$2')
+    .replace(BEARER_TOKEN, 'Bearer ' + REDACTED_SECRET)
+    .replace(WELL_KNOWN_TOKEN, REDACTED_SECRET)
+    .replace(
+      SECRET_ASSIGNMENT,
+      (_match, key: string, delimiter: string) =>
+        key + delimiter + REDACTED_SECRET,
+    );
+}
+
 function canonicalTurn(turn: AgentConversationTurn): AgentConversationTurn {
   assertIdentity(turn.id, 'Agent conversation turn id');
   assertIdentity(turn.taskId, 'Agent task id');
@@ -156,7 +178,7 @@ function canonicalTurn(turn: AgentConversationTurn): AgentConversationTurn {
     id: turn.id,
     taskId: turn.taskId,
     role: turn.role,
-    content: turn.content,
+    content: sanitizeAgentConversationContent(turn.content),
     createdAt: turn.createdAt,
   };
   if (hasExecution) {
@@ -243,7 +265,17 @@ export class AgentConversationStore {
 
   public async list(taskId: string): Promise<AgentConversationTurn[]> {
     assertIdentity(taskId, 'Agent task id');
-    return (await this.read(taskId)).turns.map((turn) => ({ ...turn }));
+    const release = await this.lockManager.acquire(
+      conversationLockKey(taskId),
+      {
+        wait: true,
+      },
+    );
+    try {
+      return (await this.read(taskId)).turns.map((turn) => ({ ...turn }));
+    } finally {
+      await release();
+    }
   }
 
   public async append(
@@ -347,11 +379,22 @@ export class AgentConversationStore {
         );
       }
 
-      return {
+      const canonicalTurns = turns.map((turn) => canonicalTurn(turn));
+      const normalized: PersistedAgentConversation = {
         version: STORE_VERSION,
         taskId,
-        turns: turns.map((turn) => canonicalTurn(turn)),
+        turns: canonicalTurns,
       };
+      if (
+        turns.some(
+          (turn, index) =>
+            canonicalTurns[index] !== undefined &&
+            !sameTurn(turn, canonicalTurns[index]!),
+        )
+      ) {
+        await this.write(normalized);
+      }
+      return normalized;
     } catch (error) {
       if (isEnoent(error)) return emptyConversation(taskId);
       if (error instanceof AgentConversationStoreError) throw error;
