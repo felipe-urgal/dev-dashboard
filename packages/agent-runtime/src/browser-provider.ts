@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { browserToolsForCapabilities } from './browser-tool-policy.js';
+import { formatAgentProviderConversationContext } from './provider-context.js';
 import type {
   AgentCapability,
   AgentProvider,
@@ -358,6 +359,7 @@ function buildPrompt(
 
   return [
     summary,
+    ...formatAgentProviderConversationContext(request.conversationContext),
     ...(request.continuationInstruction
       ? [
           '',
