@@ -164,12 +164,10 @@ export function resolveLocalInstallPaths(
     'XDG_STATE_HOME',
     ['.local', 'state'],
   );
-  const xdgDataHome = resolveXdgDirectory(
-    environment,
-    home,
-    'XDG_DATA_HOME',
-    ['.local', 'share'],
-  );
+  const xdgDataHome = resolveXdgDirectory(environment, home, 'XDG_DATA_HOME', [
+    '.local',
+    'share',
+  ]);
   const configDirectory = environment.DEV_DASHBOARD_CONFIG_DIR?.trim()
     ? path.resolve(environment.DEV_DASHBOARD_CONFIG_DIR.trim())
     : path.join(xdgConfigHome, 'dev-dashboard');
@@ -670,7 +668,10 @@ export async function localStatus(options = {}) {
 
   return {
     installed: Boolean(
-      metadata && managedUnit && runtimeEnvironment !== null && desktopInstalled,
+      metadata &&
+      managedUnit &&
+      runtimeEnvironment !== null &&
+      desktopInstalled,
     ),
     desktopInstalled,
     enabled: enabled.ok,
@@ -790,10 +791,7 @@ export async function openAppLocal(options = {}) {
   if (browserCommand) {
     const opened = await launch(
       browserCommand,
-      [
-        '--class=' + LOCAL_DESKTOP_WM_CLASS,
-        '--app=' + metadata.origin,
-      ],
+      ['--class=' + LOCAL_DESKTOP_WM_CLASS, '--app=' + metadata.origin],
       { cwd: metadata.repositoryRoot, env: environment },
     );
     if (opened) {

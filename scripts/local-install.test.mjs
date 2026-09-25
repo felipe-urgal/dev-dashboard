@@ -233,8 +233,7 @@ test('install é idempotente e grava integração desktop gerenciada', async (t)
   );
   assert.equal(
     calls.filter(
-      (entry) =>
-        entry.args.join(' ') === '--user enable ' + LOCAL_SERVICE_NAME,
+      (entry) => entry.args.join(' ') === '--user enable ' + LOCAL_SERVICE_NAME,
     ).length,
     2,
   );
@@ -279,8 +278,7 @@ test('install aguarda readiness transitória depois do restart', async (t) => {
   assert.equal(healthChecks, 3);
   assert.equal(sleeps, 2);
   const restartIndex = calls.findIndex(
-    (entry) =>
-      entry.args.join(' ') === '--user restart ' + LOCAL_SERVICE_NAME,
+    (entry) => entry.args.join(' ') === '--user restart ' + LOCAL_SERVICE_NAME,
   );
   assert.ok(restartIndex >= 0);
 });
@@ -588,8 +586,7 @@ test('open usa xdg-open e uninstall preserva checkout/config funcional', async (
   assert.ok(
     uninstallCalls.some(
       (entry) =>
-        entry.args.join(' ') ===
-        '--user disable --now ' + LOCAL_SERVICE_NAME,
+        entry.args.join(' ') === '--user disable --now ' + LOCAL_SERVICE_NAME,
     ),
   );
 });
