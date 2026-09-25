@@ -613,7 +613,10 @@ async function selectTask(taskId: string): Promise<void> {
 function parseBacklogInstruction(
   value: string,
 ): { issueNumber?: number } | null {
-  const normalized = value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
+  const normalized = value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('pt-BR');
   if (
     normalized === 'pegue a próxima atividade' ||
     normalized === 'pegue a proxima atividade' ||
@@ -1070,7 +1073,8 @@ onBeforeUnmount(() => {
           />
 
           <p class="agent-hint">
-            Para adotar o backlog real: “pegue a próxima atividade” ou “pegue a #123”.
+            Para adotar o backlog real: “pegue a próxima atividade” ou “pegue a
+            #123”.
           </p>
 
           <div
