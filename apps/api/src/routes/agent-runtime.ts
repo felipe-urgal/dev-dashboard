@@ -42,6 +42,12 @@ interface ExecuteBody {
   providerId?: AgentProviderId;
 }
 
+interface AdoptBacklogBody {
+  issueNumber?: number;
+  environmentInstanceId?: string;
+  requestedCapabilities?: AgentCapability[];
+}
+
 interface AdoptGitRefBody {
   branch: string;
   commitHash: string;
@@ -197,6 +203,21 @@ const createTaskBodySchema = {
     summary: { type: 'string', minLength: 1, maxLength: 4000 },
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     taskContextId: { type: 'string', minLength: 1, maxLength: 256 },
+    requestedCapabilities: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: capabilities.length,
+      items: { type: 'string', enum: [...capabilities] },
+    },
+  },
+} as const;
+
+const adoptBacklogBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    issueNumber: { type: 'integer', minimum: 1 },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
     requestedCapabilities: {
       type: 'array',
       uniqueItems: true,
@@ -782,6 +803,36 @@ const taskRecordSchema = {
   },
 } as const;
 
+const backlogIssueSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['repository', 'number', 'title', 'labels'],
+  properties: {
+    repository: { type: 'string' },
+    number: { type: 'integer', minimum: 1 },
+    title: { type: 'string' },
+    labels: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+  },
+} as const;
+
+const backlogAdoptionResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'source', 'candidates', 'reused'],
+  properties: {
+    status: { type: 'string', enum: ['adopted', 'ambiguous'] },
+    source: { type: 'string' },
+    issue: backlogIssueSchema,
+    candidates: {
+      type: 'array',
+      maxItems: 10,
+      items: backlogIssueSchema,
+    },
+    task: taskRecordSchema,
+    reused: { type: 'boolean' },
+  },
+} as const;
+
 const usageSummarySchema = {
   type: 'object',
   additionalProperties: false,
@@ -1105,6 +1156,12 @@ function mapAgentError(error: unknown): unknown {
         code: 'NOT_FOUND',
         message: error.message,
       });
+    case 'AGENT_API_BACKLOG_ISSUE_NOT_FOUND':
+      return new ApiError({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: error.message,
+      });
     case 'AGENT_API_TASK_NOT_FOUND':
     case 'AGENT_WORKFLOW_TASK_NOT_FOUND':
     case 'AGENT_WORKFLOW_TASK_PROJECT_MISMATCH':
@@ -1135,6 +1192,7 @@ function mapAgentError(error: unknown): unknown {
         code: 'INTERNAL_ERROR',
         message: error.message,
       });
+    case 'AGENT_API_BACKLOG_UNAVAILABLE':
     case 'AGENT_API_INTEGRATION_PROVIDER_UNAVAILABLE':
     case 'AGENT_WORKFLOW_CLOSING':
       return new ApiError({
@@ -1551,6 +1609,42 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.projectId,
         ),
       })),
+  );
+
+  app.post<{ Params: ProjectParams; Body: AdoptBacklogBody }>(
+    '/projects/:projectId/agent/adopt-backlog',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: adoptBacklogBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: backlogAdoptionResultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => {
+        const adoptBacklog = options.agentRuntimeApiService.adoptBacklog;
+        if (!adoptBacklog) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_BACKLOG_UNAVAILABLE',
+            'GitHub backlog adoption is unavailable.',
+          );
+        }
+        return {
+          result: await adoptBacklog.call(
+            options.agentRuntimeApiService,
+            request.params.projectId,
+            request.body ?? {},
+          ),
+        };
+      }),
   );
 
   app.post<{ Params: ProjectParams; Body: CreateTaskBody }>(

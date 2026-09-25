@@ -50,6 +50,7 @@ import { ProjectDependencyHealthService } from './services/project-dependency-he
 import { ProjectDependencyUpgradePlanService } from './services/project-dependency-upgrade-plan-service.js';
 import { GitPullRequestService } from './services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from './services/git-pull-request-status-service.js';
+import { GithubIssueBacklogService } from './services/github-issue-backlog-service.js';
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DatabaseExplorerSessionStore } from './services/database-explorer-session-store.js';
@@ -437,7 +438,7 @@ function createAgentBrowserRuntime(
 function createAgentRuntimeApiService(
   context: AppContext,
   options: AppCompositionOptions,
-  taskContextService: Pick<TaskContextService, 'snapshot'>,
+  taskContextService: Pick<TaskContextService, 'snapshot' | 'create'>,
   browserBridge: BrowserBridgePort | null,
 ): AgentRuntimeApiService {
   const stateDirectory = path.join(
@@ -549,7 +550,9 @@ function createAgentRuntimeApiService(
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     taskContextRepository: context.taskContextRepository,
+    taskContextCreator: taskContextService,
     taskContextSnapshotReader: taskContextService,
+    backlogReader: new GithubIssueBacklogService(),
     activityEventStore: context.activityEventRepository,
     usageStore,
     budgetStore,

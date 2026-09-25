@@ -1567,3 +1567,107 @@ test('Agent Runtime HTTP inspeciona integração com resposta sanitizada', async
   assert.equal(body.integration.env, undefined);
   assert.equal(JSON.stringify(body).includes('SECRET_SHOULD_NOT_LEAK'), false);
 });
+
+test('Agent Runtime HTTP adota backlog por intenção estruturada sem aceitar autoridade extra', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      adoptBacklog: async (...args) => {
+        calls.push(args);
+        return {
+          status: 'adopted',
+          source: 'specific-issue',
+          issue: {
+            repository: 'felipe-urgal/dev-dashboard',
+            number: 893,
+            title: 'Adotar backlog pelo composer',
+            labels: [],
+          },
+          candidates: [],
+          task,
+          reused: false,
+          internalPath: '/secret/worktree',
+        } as never;
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/adopt-backlog',
+    payload: {
+      issueNumber: 893,
+      environmentInstanceId: 'environment:primary:project-1',
+      requestedCapabilities: ['workspace:write'],
+      cwd: '/tmp/caller-controlled',
+      argv: ['bash', '-lc', 'whoami'],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      {
+        issueNumber: 893,
+        environmentInstanceId: 'environment:primary:project-1',
+        requestedCapabilities: ['workspace:write'],
+      },
+    ],
+  ]);
+  assert.equal(response.json().result.issue.number, 893);
+  assert.equal(response.json().result.internalPath, undefined);
+  assert.equal(JSON.stringify(calls).includes('/tmp/caller-controlled'), false);
+  assert.equal(JSON.stringify(calls).includes('whoami'), false);
+});
+
+test('Agent Runtime HTTP expõe ambiguidade do backlog sem escolher silenciosamente', async (context) => {
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      adoptBacklog: async () => ({
+        status: 'ambiguous',
+        source: 'priority-tie',
+        candidates: [
+          {
+            repository: 'felipe-urgal/dev-dashboard',
+            number: 893,
+            title: 'A',
+            labels: ['priority:p1'],
+          },
+          {
+            repository: 'felipe-urgal/dev-dashboard',
+            number: 895,
+            title: 'B',
+            labels: ['priority:p1'],
+          },
+        ],
+        reused: false,
+      }),
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/adopt-backlog',
+    payload: {},
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().result.status, 'ambiguous');
+  assert.deepEqual(
+    response
+      .json()
+      .result.candidates.map((issue: { number: number }) => issue.number),
+    [893, 895],
+  );
+});
