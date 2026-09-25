@@ -26,7 +26,7 @@ const apiSource = readFileSync(
 );
 
 describe('Dev Container no shell do projeto', () => {
-  it('usa o ProjectDetailsView compartilhado e a API read-only', () => {
+  it('usa o ProjectDetailsView compartilhado e o preflight read-only', () => {
     expect(routerSource).toMatch(
       /path: '\/projects\/:projectId\/dev-container'[\s\S]*?name: 'project-dev-container'[\s\S]*?ProjectDetailsView\.vue/,
     );
@@ -40,7 +40,7 @@ describe('Dev Container no shell do projeto', () => {
     expect(panelSource).toContain('fetchDevContainerLifecyclePreflight');
   });
 
-  it('expõe a ferramenta sem lifecycle ou autoridade de execução', () => {
+  it('expõe somente a criação confirmada sem autoridade de execução arbitrária', () => {
     expect(moreToolsSource).toContain("route.name === 'project-dev-container'");
     expect(moreToolsSource).toContain('<span>Dev Container</span>');
     expect(moreToolsSource).toContain(
@@ -50,10 +50,17 @@ describe('Dev Container no shell do projeto', () => {
       ':environment-instance-id="environmentInstanceId"',
     );
     expect(panelSource).toContain('Preflight somente leitura');
-    expect(panelSource).toContain('Execução desabilitada');
+    expect(panelSource).toContain('Criar Dev Container');
+    expect(panelSource).toContain('Confirmar criação');
     expect(panelSource).not.toContain('devcontainer up');
     expect(panelSource).not.toContain('run-user-commands');
+    expect(panelSource).not.toContain('Rebuild');
     expect(moreToolsSource).toContain('environmentInstanceId');
-    expect(apiSource).not.toContain("method: 'POST'");
+    expect(apiSource).toContain('/dev-container/lifecycle-confirmation');
+    expect(apiSource).toContain('/dev-container/start');
+    expect(apiSource).toContain("method: 'POST'");
+    expect(apiSource).not.toContain('workspaceFolder');
+    expect(apiSource).not.toContain('overrideConfigPath');
+    expect(apiSource).not.toContain('ownershipToken');
   });
 });
