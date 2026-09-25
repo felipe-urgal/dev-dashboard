@@ -221,6 +221,7 @@ export type {
   AgentWorkflowRuntimeErrorCode,
   AgentWorkflowRuntimeOptions,
   AgentWorkflowTaskStatus,
+  AgentWorkflowUserTurnInput,
 } from './workflow-runtime.js';
 
 export {
