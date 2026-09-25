@@ -12,7 +12,10 @@ import type {
   DevContainerConfigSnapshotService,
 } from './dev-container-config-snapshot-service.js';
 import type { DevContainerLifecycleConfirmationService } from './dev-container-lifecycle-confirmation-service.js';
-import type { DevContainerLifecyclePlanningService } from './dev-container-lifecycle-planning-service.js';
+import type {
+  DevContainerLifecyclePlanningService,
+  DevContainerLifecyclePreflight,
+} from './dev-container-lifecycle-planning-service.js';
 import type {
   DevContainerOwnershipRecord,
   DevContainerOwnershipStore,
@@ -36,6 +39,29 @@ export interface DevContainerStartResult {
   environmentInstanceId: string;
   runtime: 'devcontainer';
   containerId: string;
+}
+
+export type DevContainerRebuildInput = DevContainerStartInput;
+export type DevContainerRebuildResult = DevContainerStartResult;
+
+export type DevContainerRebuildErrorCode =
+  | 'DEV_CONTAINER_REBUILD_ENVIRONMENT_NOT_READY'
+  | 'DEV_CONTAINER_REBUILD_PREFLIGHT_NOT_READY'
+  | 'DEV_CONTAINER_REBUILD_CONFIRMATION_REQUIRED'
+  | 'DEV_CONTAINER_REBUILD_CONFIG_CHANGED'
+  | 'DEV_CONTAINER_REBUILD_OWNERSHIP_CHANGED'
+  | 'DEV_CONTAINER_REBUILD_CLEANUP_FAILED'
+  | 'DEV_CONTAINER_REBUILD_CREATE_FAILED'
+  | 'DEV_CONTAINER_REBUILD_ROLLBACK_FAILED';
+
+export class DevContainerRebuildError extends Error {
+  public constructor(
+    public readonly code: DevContainerRebuildErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DevContainerRebuildError';
+  }
 }
 
 export type DevContainerStartErrorCode =
@@ -75,7 +101,10 @@ type ConfirmationService = Pick<
   'consume'
 >;
 type SnapshotService = Pick<DevContainerConfigSnapshotService, 'create'>;
-type OwnershipStore = Pick<DevContainerOwnershipStore, 'reserve' | 'attach'>;
+type OwnershipStore = Pick<
+  DevContainerOwnershipStore,
+  'reserve' | 'attach' | 'get'
+>;
 type CleanupService = Pick<DevContainerCleanupService, 'cleanup'>;
 type EnvironmentStore = Pick<
   DevelopmentEnvironmentInstanceStore,
@@ -173,6 +202,53 @@ function binding(
   };
 }
 
+interface DevContainerCreationAuthority {
+  configSource: '.devcontainer/devcontainer.json' | '.devcontainer.json';
+  configurationHash: string;
+}
+
+function creationAuthority(
+  preflight: DevContainerLifecyclePreflight,
+): DevContainerCreationAuthority | undefined {
+  if (
+    !preflight.configSource ||
+    !preflight.configurationHash ||
+    !preflight.configuration ||
+    (preflight.configuration.kind !== 'image' &&
+      preflight.configuration.kind !== 'dockerfile')
+  ) {
+    return undefined;
+  }
+
+  return {
+    configSource: preflight.configSource,
+    configurationHash: preflight.configurationHash,
+  };
+}
+
+function rebuildErrorFromStart(
+  error: DevContainerStartError,
+): DevContainerRebuildError {
+  if (error.code === 'DEV_CONTAINER_START_CONFIG_CHANGED') {
+    return new DevContainerRebuildError(
+      'DEV_CONTAINER_REBUILD_CONFIG_CHANGED',
+      'A configuração Dev Container mudou durante o rebuild.',
+    );
+  }
+
+  if (error.code === 'DEV_CONTAINER_START_ROLLBACK_FAILED') {
+    return new DevContainerRebuildError(
+      'DEV_CONTAINER_REBUILD_ROLLBACK_FAILED',
+      'O rebuild falhou e o rollback do novo runtime não pôde ser comprovado.',
+    );
+  }
+
+  return new DevContainerRebuildError(
+    'DEV_CONTAINER_REBUILD_CREATE_FAILED',
+    'O runtime antigo foi limpo, mas o novo Dev Container não pôde ser criado.',
+  );
+}
+
 export class DevContainerStartService {
   public constructor(
     private readonly planningService: PlanningService,
@@ -232,25 +308,169 @@ export class DevContainerStartService {
       );
     }
 
-    if (
-      !preflight.configSource ||
-      !preflight.configurationHash ||
-      !preflight.configuration ||
-      (preflight.configuration.kind !== 'image' &&
-        preflight.configuration.kind !== 'dockerfile')
-    ) {
+    const authority = creationAuthority(preflight);
+    if (!authority) {
       throw new DevContainerStartError(
         'DEV_CONTAINER_START_CONFIG_CHANGED',
         'O preflight não possui evidência suficiente para criar o Dev Container.',
       );
     }
 
+    return this.createOwnedRuntime(project, instance, authority);
+  }
+
+  public async rebuild(
+    project: Project,
+    input: DevContainerRebuildInput = {},
+  ): Promise<DevContainerRebuildResult> {
+    const preflight = await this.planningService.plan(project, {
+      ...(input.environmentInstanceId
+        ? { environmentInstanceId: input.environmentInstanceId }
+        : {}),
+    });
+    const instance = selectedInstance(
+      this.environmentStore,
+      project,
+      preflight.environmentInstanceId,
+    );
+
+    if (
+      !instance ||
+      instance.id !== preflight.environmentInstanceId ||
+      instance.runtime.kind !== 'devcontainer' ||
+      !instance.runtime.runtimeId ||
+      instance.runtime.runtimeId !== preflight.runtimeId ||
+      instance.lifecycle !== 'ready'
+    ) {
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_ENVIRONMENT_NOT_READY',
+        'A Environment Instance não está pronta para rebuild do Dev Container.',
+      );
+    }
+
+    if (
+      preflight.operation !== 'rebuild' ||
+      preflight.state !== 'review' ||
+      preflight.runtime !== 'devcontainer' ||
+      preflight.requiresConfirmation !== true
+    ) {
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_PREFLIGHT_NOT_READY',
+        'O preflight atual não autoriza rebuild do Dev Container.',
+      );
+    }
+
+    try {
+      this.confirmationService.consume(preflight, input.confirmationToken);
+    } catch {
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_CONFIRMATION_REQUIRED',
+        'Uma confirmação válida e atual é obrigatória para rebuild do Dev Container.',
+      );
+    }
+
+    const authority = creationAuthority(preflight);
+    if (!authority) {
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_CONFIG_CHANGED',
+        'O preflight não possui evidência suficiente para rebuild do Dev Container.',
+      );
+    }
+
+    let currentOwnership: DevContainerOwnershipRecord | undefined;
+    try {
+      currentOwnership = await this.ownershipStore.get(
+        binding(project, instance, authority.configSource),
+      );
+    } catch {
+      currentOwnership = undefined;
+    }
+
+    if (
+      !currentOwnership ||
+      currentOwnership.phase !== 'owned' ||
+      !currentOwnership.containerId ||
+      currentOwnership.containerId !== instance.runtime.runtimeId ||
+      currentOwnership.containerId !== preflight.runtimeId ||
+      currentOwnership.ownershipToken !== preflight.ownershipToken
+    ) {
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_OWNERSHIP_CHANGED',
+        'O ownership do Dev Container mudou depois da confirmação.',
+      );
+    }
+
+    let snapshot: DevContainerConfigSnapshot;
+    try {
+      snapshot = await this.createSnapshot(instance, authority);
+    } catch (error) {
+      if (
+        error instanceof DevContainerStartError &&
+        error.code === 'DEV_CONTAINER_START_CONFIG_CHANGED'
+      ) {
+        throw new DevContainerRebuildError(
+          'DEV_CONTAINER_REBUILD_CONFIG_CHANGED',
+          'A configuração Dev Container mudou depois da confirmação.',
+        );
+      }
+      throw error;
+    }
+
+    try {
+      await this.cleanupService.cleanup(project, instance.id);
+    } catch {
+      await snapshot.dispose().catch(() => undefined);
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_CLEANUP_FAILED',
+        'O runtime owned atual não pôde ser limpo com segurança para rebuild.',
+      );
+    }
+
+    const hostInstance = selectedInstance(
+      this.environmentStore,
+      project,
+      instance.id,
+    );
+    if (
+      !hostInstance ||
+      hostInstance.runtime.kind !== 'host' ||
+      hostInstance.lifecycle !== 'ready'
+    ) {
+      await snapshot.dispose().catch(() => undefined);
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_CLEANUP_FAILED',
+        'O cleanup não deixou a Environment Instance pronta para recriação.',
+      );
+    }
+
+    try {
+      return await this.createOwnedRuntime(
+        project,
+        hostInstance,
+        authority,
+        snapshot,
+      );
+    } catch (error) {
+      if (error instanceof DevContainerStartError) {
+        throw rebuildErrorFromStart(error);
+      }
+      throw new DevContainerRebuildError(
+        'DEV_CONTAINER_REBUILD_CREATE_FAILED',
+        'O runtime antigo foi limpo, mas o novo Dev Container não pôde ser criado.',
+      );
+    }
+  }
+
+  private async createSnapshot(
+    instance: DevelopmentEnvironmentInstance,
+    authority: DevContainerCreationAuthority,
+  ): Promise<DevContainerConfigSnapshot> {
     let snapshot: DevContainerConfigSnapshot;
     try {
       snapshot = await this.snapshotService.create({
         workspaceFolder: instance.source.path,
-        configSource: preflight.configSource,
-        expectedConfigurationHash: preflight.configurationHash,
+        configSource: authority.configSource,
+        expectedConfigurationHash: authority.configurationHash,
       });
     } catch {
       throw new DevContainerStartError(
@@ -259,7 +479,7 @@ export class DevContainerStartService {
       );
     }
 
-    if (snapshot.configurationHash !== preflight.configurationHash) {
+    if (snapshot.configurationHash !== authority.configurationHash) {
       await snapshot.dispose().catch(() => undefined);
       throw new DevContainerStartError(
         'DEV_CONTAINER_START_CONFIG_CHANGED',
@@ -267,10 +487,22 @@ export class DevContainerStartService {
       );
     }
 
+    return snapshot;
+  }
+
+  private async createOwnedRuntime(
+    project: Project,
+    instance: DevelopmentEnvironmentInstance,
+    authority: DevContainerCreationAuthority,
+    preparedSnapshot?: DevContainerConfigSnapshot,
+  ): Promise<DevContainerStartResult> {
+    const snapshot =
+      preparedSnapshot ?? (await this.createSnapshot(instance, authority));
+
     let ownership: DevContainerOwnershipRecord;
     try {
       ownership = await this.ownershipStore.reserve(
-        binding(project, instance, preflight.configSource),
+        binding(project, instance, authority.configSource),
       );
     } catch {
       await snapshot.dispose().catch(() => undefined);
@@ -300,7 +532,7 @@ export class DevContainerStartService {
         output = await this.runCommand(
           buildDevContainerUpCommand({
             workspaceFolder: instance.source.path,
-            configSource: preflight.configSource,
+            configSource: authority.configSource,
             overrideConfigPath: snapshot.overrideConfigPath,
             ownershipToken: ownership.ownershipToken,
           }),

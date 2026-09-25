@@ -257,7 +257,19 @@ O rebuild só entra em `review` quando:
 - discovery e fingerprint da configuração continuam válidos;
 - os mesmos blockers de `initializeCommand`, Compose e tipo desconhecido continuam aplicados.
 
-A confirmação é curta e single-use e fica vinculada internamente a `runtimeId + ownershipToken + fingerprint`. Esses identificadores não entram no DTO HTTP. Neste corte a confirmação de rebuild pode ser preparada, mas **nenhuma mutation pública de rebuild é executada ainda**; o endpoint de start continua aceitando exclusivamente planos `operation=create` e a UI não oferece ação de rebuild.
+A confirmação é curta e single-use e fica vinculada internamente a `runtimeId + ownershipToken + fingerprint`. Esses identificadores não entram no DTO HTTP. O endpoint de start continua aceitando exclusivamente planos `operation=create`.
+
+O backend também expõe agora uma mutation explícita de rebuild. Ela:
+
+- consome a confirmação de rebuild e revalida `runtimeId + ownershipToken + containerId` imediatamente antes da mutation;
+- cria o snapshot privado da configuração **antes** de remover o runtime atual;
+- executa cleanup somente do runtime owned comprovado;
+- exige que a Environment Instance volte a `host/ready` antes da recriação;
+- recria o Dev Container a partir do snapshot confirmado, com uma nova reserva de ownership;
+- se a nova criação falhar depois de reservar/criar recursos, reutiliza o cleanup owned como rollback;
+- falha fechado quando o rollback não pode ser comprovado.
+
+A UI ainda não oferece o botão de rebuild neste corte; a API existe para qualificar separadamente o executor destrutivo antes de expor a ação ao usuário. A confirmação permanece obrigatória por chamada e nunca é reaproveitada pela recriação interna.
 
 ## Testes via Execution Context
 

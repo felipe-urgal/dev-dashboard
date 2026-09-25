@@ -146,6 +146,7 @@ function fixture(
       },
     },
     {
+      get: async () => undefined,
       reserve: async () => {
         events.push('reserve');
         if (options.reserveError) throw options.reserveError;
@@ -300,6 +301,7 @@ test('start rejeita snapshot cujo hash não corresponde ao preflight', async () 
       }),
     },
     {
+      get: async () => undefined,
       reserve: async () => {
         events.push('reserve');
         return ownership();

@@ -12,6 +12,7 @@ import {
   type DevContainerLifecyclePlanningService,
 } from '../services/dev-container-lifecycle-planning-service.js';
 import {
+  DevContainerRebuildError,
   DevContainerStartError,
   type DevContainerStartService,
 } from '../services/dev-container-start-service.js';
@@ -28,7 +29,7 @@ interface Options extends FastifyPluginOptions {
     DevContainerLifecycleConfirmationService,
     'prepare'
   >;
-  devContainerStartService: Pick<DevContainerStartService, 'start'>;
+  devContainerStartService: Pick<DevContainerStartService, 'start' | 'rebuild'>;
 }
 
 interface Params {
@@ -294,6 +295,20 @@ function startApiError(error: DevContainerStartError): ApiError {
   });
 }
 
+function rebuildApiError(error: DevContainerRebuildError): ApiError {
+  const statusCode =
+    error.code === 'DEV_CONTAINER_REBUILD_CLEANUP_FAILED' ||
+    error.code === 'DEV_CONTAINER_REBUILD_CREATE_FAILED' ||
+    error.code === 'DEV_CONTAINER_REBUILD_ROLLBACK_FAILED'
+      ? 500
+      : 409;
+  return new ApiError({
+    statusCode,
+    code: error.code,
+    message: error.message,
+  });
+}
+
 export const devContainerRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
@@ -450,6 +465,55 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         }
         if (error instanceof DevContainerStartError) {
           throw startApiError(error);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: Params; Body: LifecycleStartBody }>(
+    '/projects/:projectId/dev-container/rebuild',
+    {
+      schema: {
+        params: paramsSchema,
+        body: lifecycleStartBodySchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: lifecycleStartResultSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      try {
+        const result = await options.devContainerStartService.rebuild(project, {
+          ...(request.body.environmentInstanceId
+            ? { environmentInstanceId: request.body.environmentInstanceId }
+            : {}),
+          confirmationToken: request.body.confirmationToken,
+        });
+        return reply.code(201).send({ result });
+      } catch (error) {
+        if (error instanceof DevContainerLifecyclePlanningError) {
+          throw new ApiError({
+            statusCode: 404,
+            code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+            message:
+              'Ambiente de desenvolvimento não encontrado para este projeto.',
+          });
+        }
+        if (error instanceof DevContainerRebuildError) {
+          throw rebuildApiError(error);
         }
         throw error;
       }
