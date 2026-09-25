@@ -109,7 +109,10 @@ export interface AppCompositionOptions {
     DevContainerCleanupService,
     'inspect' | 'cleanup'
   >;
-  devContainerStartService?: Pick<DevContainerStartService, 'start'>;
+  devContainerStartService?: Pick<
+    DevContainerStartService,
+    'start' | 'rebuild'
+  >;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
