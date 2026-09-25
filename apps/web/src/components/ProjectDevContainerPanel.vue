@@ -13,6 +13,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import {
   fetchDevContainerLifecyclePreflight,
   prepareDevContainerLifecycleConfirmation,
+  rebuildDevContainer,
   startDevContainer,
   type DevContainerConfigurationKind,
   type DevContainerLifecycleLimitation,
@@ -30,7 +31,9 @@ const props = defineProps<{
 const preflight = ref<DevContainerLifecyclePreflight | null>(null);
 const loading = ref(false);
 const creating = ref(false);
+const rebuilding = ref(false);
 const createConfirmationVisible = ref(false);
+const rebuildConfirmationVisible = ref(false);
 const errorMessage = ref('');
 const mutationErrorMessage = ref('');
 let generation = 0;
@@ -110,7 +113,21 @@ const canCreate = computed(() => {
   );
 });
 
-const busy = computed(() => loading.value || creating.value);
+const canRebuild = computed(() => {
+  const value = preflight.value;
+  return (
+    value?.operation === 'rebuild' &&
+    value.state === 'review' &&
+    value.runtime === 'devcontainer' &&
+    value.requiresConfirmation === true &&
+    (value.configuration?.kind === 'image' ||
+      value.configuration?.kind === 'dockerfile')
+  );
+});
+
+const busy = computed(
+  () => loading.value || creating.value || rebuilding.value,
+);
 
 const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
   'post-create-hooks-deferred':
@@ -180,6 +197,63 @@ async function createDevContainer(): Promise<void> {
   }
 }
 
+function openRebuildConfirmation(): void {
+  if (!canRebuild.value || busy.value) return;
+  mutationErrorMessage.value = '';
+  rebuildConfirmationVisible.value = true;
+}
+
+function cancelRebuildConfirmation(): void {
+  if (rebuilding.value) return;
+  mutationErrorMessage.value = '';
+  rebuildConfirmationVisible.value = false;
+}
+
+async function rebuildCurrentDevContainer(): Promise<void> {
+  const currentPreflight = preflight.value;
+  if (!currentPreflight || !canRebuild.value || rebuilding.value) return;
+
+  const currentGeneration = generation;
+  const environmentInstanceId = currentPreflight.environmentInstanceId;
+  rebuilding.value = true;
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareDevContainerLifecycleConfirmation(
+      props.project.id,
+      environmentInstanceId,
+    );
+    if (
+      confirmation.environmentInstanceId !== environmentInstanceId ||
+      confirmation.operation !== 'rebuild'
+    ) {
+      throw new Error(
+        'A confirmação retornada não corresponde ao rebuild do ambiente selecionado.',
+      );
+    }
+
+    await rebuildDevContainer(
+      props.project.id,
+      confirmation.token,
+      environmentInstanceId,
+    );
+
+    if (currentGeneration === generation) {
+      rebuildConfirmationVisible.value = false;
+      await load();
+    }
+  } catch (error) {
+    if (currentGeneration === generation) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível reconstruir o Dev Container.';
+    }
+  } finally {
+    rebuilding.value = false;
+  }
+}
+
 async function load(): Promise<void> {
   const current = ++generation;
   loading.value = true;
@@ -209,6 +283,7 @@ watch(
   () => {
     preflight.value = null;
     createConfirmationVisible.value = false;
+    rebuildConfirmationVisible.value = false;
     mutationErrorMessage.value = '';
     void load();
   },
@@ -227,8 +302,8 @@ watch(
           <div>
             <h3 id="devcontainer-title">Dev Container</h3>
             <p>
-              Revise o preflight e crie o runtime somente por ação explícita.
-              Lifecycle hooks continuam protegidos pelos blockers atuais.
+              Revise o preflight e altere o runtime somente por ação explícita.
+              Criação e rebuild continuam protegidos pelos blockers atuais.
             </p>
           </div>
         </div>
@@ -236,7 +311,11 @@ watch(
       <template #actions>
         <div class="devcontainer-actions">
           <button
-            v-if="canCreate && !createConfirmationVisible"
+            v-if="
+              canCreate &&
+              !createConfirmationVisible &&
+              !rebuildConfirmationVisible
+            "
             class="secondary-button devcontainer-create"
             type="button"
             :disabled="busy"
@@ -244,6 +323,20 @@ watch(
           >
             <PlayIcon aria-hidden="true" />
             Criar Dev Container
+          </button>
+          <button
+            v-if="
+              canRebuild &&
+              !rebuildConfirmationVisible &&
+              !createConfirmationVisible
+            "
+            class="secondary-button devcontainer-rebuild"
+            type="button"
+            :disabled="busy"
+            @click="openRebuildConfirmation"
+          >
+            <ArrowPathIcon aria-hidden="true" />
+            Rebuild
           </button>
           <button
             class="secondary-button devcontainer-refresh"
@@ -376,6 +469,54 @@ watch(
           </div>
         </div>
 
+        <div
+          v-if="rebuildConfirmationVisible && canRebuild"
+          class="devcontainer-confirmation"
+        >
+          <ExclamationTriangleIcon aria-hidden="true" />
+          <div>
+            <strong>Reconstruir este Dev Container?</strong>
+            <span>
+              O runtime owned atual será removido somente após a revalidação do
+              ownership e da configuração. Em seguida, o Dashboard recriará o
+              ambiente usando o snapshot confirmado.
+            </span>
+            <span>
+              Volumes não são removidos implicitamente e uma falha na nova
+              criação aciona o rollback scoped já protegido pelo backend.
+            </span>
+            <div
+              v-if="mutationErrorMessage"
+              class="devcontainer-confirmation-error"
+              role="alert"
+            >
+              {{ mutationErrorMessage }}
+            </div>
+            <div class="devcontainer-confirmation-actions">
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="rebuilding"
+                @click="cancelRebuildConfirmation"
+              >
+                Cancelar
+              </button>
+              <button
+                class="secondary-button devcontainer-confirm-action"
+                type="button"
+                :disabled="rebuilding"
+                @click="rebuildCurrentDevContainer"
+              >
+                <ArrowPathIcon
+                  :class="{ 'is-spinning': rebuilding }"
+                  aria-hidden="true"
+                />
+                {{ rebuilding ? 'Reconstruindo…' : 'Confirmar rebuild' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <dl
           v-if="
             preflight.configSource ||
@@ -466,6 +607,7 @@ watch(
 .devcontainer-icon svg,
 .devcontainer-refresh svg,
 .devcontainer-create svg,
+.devcontainer-rebuild svg,
 .devcontainer-message svg,
 .devcontainer-note svg,
 .devcontainer-confirmation svg,
@@ -479,6 +621,7 @@ watch(
 .devcontainer-actions,
 .devcontainer-refresh,
 .devcontainer-create,
+.devcontainer-rebuild,
 .devcontainer-confirmation-actions,
 .devcontainer-confirm-action {
   display: flex;
@@ -493,6 +636,7 @@ watch(
 
 .devcontainer-refresh,
 .devcontainer-create,
+.devcontainer-rebuild,
 .devcontainer-confirm-action {
   display: inline-flex;
 }
