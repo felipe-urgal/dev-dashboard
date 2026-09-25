@@ -370,99 +370,99 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
         <div class="project-details-primary-tabs">
-            <RouterLink
-              v-if="project.capabilities.includes('server')"
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isServerRoute }"
-              :aria-current="isServerRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-server',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? {
-                      query: { environmentInstanceId },
-                    }
-                  : {}),
-              }"
-            >
-              <ServerStackIcon aria-hidden="true" />
-              <span>Servidor</span>
-            </RouterLink>
+          <RouterLink
+            v-if="project.capabilities.includes('server')"
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isServerRoute }"
+            :aria-current="isServerRoute ? 'page' : undefined"
+            :to="{
+              name: 'project-server',
+              params: { projectId: project.id },
+              ...(environmentInstanceId
+                ? {
+                    query: { environmentInstanceId },
+                  }
+                : {}),
+            }"
+          >
+            <ServerStackIcon aria-hidden="true" />
+            <span>Servidor</span>
+          </RouterLink>
 
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isGitRoute }"
-              :aria-current="isGitRoute ? 'page' : undefined"
-              :to="{ name: 'project-git', params: { projectId: project.id } }"
-            >
-              <CodeBracketIcon aria-hidden="true" />
-              <span>Git</span>
-            </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isGitRoute }"
+            :aria-current="isGitRoute ? 'page' : undefined"
+            :to="{ name: 'project-git', params: { projectId: project.id } }"
+          >
+            <CodeBracketIcon aria-hidden="true" />
+            <span>Git</span>
+          </RouterLink>
 
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isTestsRoute }"
-              :aria-current="isTestsRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-tests',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? { query: { environmentInstanceId } }
-                  : {}),
-              }"
-            >
-              <BeakerIcon aria-hidden="true" />
-              <span>Testes</span>
-            </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isTestsRoute }"
+            :aria-current="isTestsRoute ? 'page' : undefined"
+            :to="{
+              name: 'project-tests',
+              params: { projectId: project.id },
+              ...(environmentInstanceId
+                ? { query: { environmentInstanceId } }
+                : {}),
+            }"
+          >
+            <BeakerIcon aria-hidden="true" />
+            <span>Testes</span>
+          </RouterLink>
 
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isAgentRoute }"
-              :aria-current="isAgentRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-agent',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? { query: { environmentInstanceId } }
-                  : {}),
-              }"
-            >
-              <CpuChipIcon aria-hidden="true" />
-              <span>Agente</span>
-            </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isAgentRoute }"
+            :aria-current="isAgentRoute ? 'page' : undefined"
+            :to="{
+              name: 'project-agent',
+              params: { projectId: project.id },
+              ...(environmentInstanceId
+                ? { query: { environmentInstanceId } }
+                : {}),
+            }"
+          >
+            <CpuChipIcon aria-hidden="true" />
+            <span>Agente</span>
+          </RouterLink>
 
-            <RouterLink
-              v-if="project.capabilities.includes('production')"
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isProductionRoute }"
-              :aria-current="isProductionRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-production',
-                params: { projectId: project.id },
-              }"
-            >
-              <RocketLaunchIcon aria-hidden="true" />
-              <span>Produção</span>
-            </RouterLink>
+          <RouterLink
+            v-if="project.capabilities.includes('production')"
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isProductionRoute }"
+            :aria-current="isProductionRoute ? 'page' : undefined"
+            :to="{
+              name: 'project-production',
+              params: { projectId: project.id },
+            }"
+          >
+            <RocketLaunchIcon aria-hidden="true" />
+            <span>Produção</span>
+          </RouterLink>
 
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isTerminalRoute }"
-              :aria-current="isTerminalRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-terminal',
-                params: { projectId: project.id },
-              }"
-            >
-              <CommandLineIcon aria-hidden="true" />
-              <span>Terminal</span>
-            </RouterLink>
-            <ProjectDetailsMoreTools
-              :project="project"
-              :sidekiq-detected="sidekiqDetected"
-              :webpack-detected="webpackDetected"
-              :environment-instance-id="environmentInstanceId"
-            />
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isTerminalRoute }"
+            :aria-current="isTerminalRoute ? 'page' : undefined"
+            :to="{
+              name: 'project-terminal',
+              params: { projectId: project.id },
+            }"
+          >
+            <CommandLineIcon aria-hidden="true" />
+            <span>Terminal</span>
+          </RouterLink>
+          <ProjectDetailsMoreTools
+            :project="project"
+            :sidekiq-detected="sidekiqDetected"
+            :webpack-detected="webpackDetected"
+            :environment-instance-id="environmentInstanceId"
+          />
         </div>
       </nav>
 
