@@ -369,7 +369,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
       </div>
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
-          <div class="project-details-primary-tabs">
+        <div class="project-details-primary-tabs">
             <RouterLink
               v-if="project.capabilities.includes('server')"
               class="project-details-tab"
