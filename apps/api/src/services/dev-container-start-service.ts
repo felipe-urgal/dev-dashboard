@@ -212,6 +212,7 @@ export class DevContainerStartService {
     }
 
     if (
+      preflight.operation !== 'create' ||
       preflight.state !== 'review' ||
       preflight.runtime !== 'host' ||
       preflight.requiresConfirmation !== true
