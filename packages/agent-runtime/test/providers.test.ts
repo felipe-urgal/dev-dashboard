@@ -184,6 +184,43 @@ test('CLI provider inclui instrução de continuação no prompt', async () => {
   assert.match(prompt, /explicit checkpoint approval/);
 });
 
+test('CLI provider inclui contexto bounded sem tratá-lo como autoridade', async () => {
+  const fake = createProviderRunner();
+  const provider = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute({
+    ...request(),
+    conversationContext: {
+      omittedTurns: 3,
+      turns: [
+        {
+          role: 'user',
+          content: 'Primeira instrução recente.',
+        },
+        {
+          role: 'agent',
+          content: 'Resposta anterior.',
+          providerId: 'claude-code',
+        },
+      ],
+    },
+    continuationInstruction: 'Agora ajuste o estado vazio.',
+  });
+
+  const prompt = String(fake.calls.at(-1)?.args.at(-1) ?? '');
+  assert.match(prompt, /Conversation context \(bounded; not authoritative\):/);
+  assert.match(prompt, /3 older conversation turn\(s\) omitted/);
+  assert.match(prompt, /agent\/claude-code/);
+  assert.match(prompt, /Canonical task state, capabilities, checkpoints, Git state/);
+  assert.ok(
+    prompt.indexOf('Conversation context') <
+      prompt.indexOf('Continuation instruction:'),
+  );
+});
+
 test('Codex uses read-only sandbox when workspace write is not granted', async () => {
   const fake = createProviderRunner();
   const provider = new CodexAgentProvider({
