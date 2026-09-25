@@ -258,12 +258,13 @@
 }
 
 
-/* Em páginas de projeto, a marca ocupa a mesma coluna da sidebar e funciona
-   como controle de recolhimento da rail. */
-.project-sidebar-brand-toggle {
+/* Dentro de um projeto, a marca pertence visual e funcionalmente à sidebar.
+   A navbar fica reservada ao contexto do projeto. */
+.project-sidebar-brand {
+  display: none;
   border: 0;
   color: inherit;
-  background: transparent;
+  background: var(--surface-1);
   font: inherit;
   text-align: left;
 }
@@ -271,39 +272,45 @@
 @media (min-width: 901px) {
   .app-shell-project-sidebar > .topbar {
     padding: 0;
+    background: transparent;
   }
 
+  .app-shell-project-sidebar .topbar .topbar-brand,
   .app-shell-project-sidebar .topbar .topbar-workspace,
   .app-shell-project-sidebar .topbar .topbar-navigation,
   .app-shell-project-sidebar .topbar .topbar-tools {
     display: none;
   }
 
-  .app-shell-project-sidebar .topbar .topbar-brand {
-    position: relative;
+  .app-shell-project-sidebar .project-sidebar-brand {
+    position: fixed;
     z-index: 62;
+    top: 0;
+    left: 0;
+    display: flex;
     width: var(--project-sidebar-width);
     min-width: var(--project-sidebar-width);
-    flex: 0 0 var(--project-sidebar-width);
-    align-self: stretch;
+    height: var(--app-topbar-height, 72px);
+    align-items: center;
+    gap: 10px;
     padding: 0 16px;
     border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition:
       width 180ms ease,
       min-width 180ms ease,
-      flex-basis 180ms ease,
       padding 180ms ease;
   }
 
-  .app-shell-project-sidebar .topbar .topbar-brand:hover,
-  .app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
+  .app-shell-project-sidebar .project-sidebar-brand:hover,
+  .app-shell-project-sidebar .project-sidebar-brand:focus-visible {
     color: var(--text);
     background: var(--surface-2);
     outline: none;
   }
 
-  .app-shell-project-sidebar .topbar .topbar-brand:focus-visible {
+  .app-shell-project-sidebar .project-sidebar-brand:focus-visible {
     box-shadow: inset 0 0 0 2px var(--accent);
   }
 
@@ -311,13 +318,13 @@
     --project-sidebar-width: 64px;
   }
 
-  .app-shell-project-sidebar-collapsed .topbar .topbar-brand {
+  .app-shell-project-sidebar-collapsed .project-sidebar-brand {
     justify-content: center;
     gap: 0;
     padding-inline: 8px;
   }
 
-  .app-shell-project-sidebar-collapsed .topbar .brand-copy {
+  .app-shell-project-sidebar-collapsed .project-sidebar-brand .brand-copy {
     display: none;
   }
 
