@@ -6,6 +6,7 @@ import test, { type TestContext } from 'node:test';
 
 import {
   AgentAuditStore,
+  AgentConversationStore,
   AgentRuntimeStateStore,
   AgentTaskLockError,
   AgentTaskLockManager,
@@ -120,6 +121,10 @@ async function fixture(
       import('../src/index.js').AgentAuditStore,
       'appendExecutionResult'
     >;
+    conversationStore?: Pick<
+      import('../src/index.js').AgentConversationStore,
+      'list' | 'append'
+    >;
   } = {},
 ) {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-workflow-runtime-'));
@@ -144,6 +149,12 @@ async function fixture(
     processId: 101,
     isProcessAlive: (processId) => processId === 101,
   });
+  const conversationStore =
+    runtimeOptions.conversationStore ??
+    new AgentConversationStore({
+      stateDirectory: root,
+      lockManager,
+    });
   let executionSequence = 0;
   const runtime = new AgentWorkflowRuntime({
     taskStore: store,
@@ -152,6 +163,7 @@ async function fixture(
     lockManager,
     checkpointStore: auditStore,
     executionResultStore: runtimeOptions.executionResultStore ?? auditStore,
+    conversationStore,
     now,
     createExecutionId: () => `execution-${++executionSequence}`,
     createCheckpointId: () => 'checkpoint-1',
@@ -164,6 +176,7 @@ async function fixture(
     store,
     runtimeStateStore,
     auditStore,
+    conversationStore,
     advanceTime: (milliseconds: number) => {
       clockOffsetMs += milliseconds;
     },
@@ -225,6 +238,135 @@ test('executes one queued task and only forwards explicitly requested grants', a
   const persisted = await store.get('task-1');
   assert.equal(persisted?.task.state, 'review');
   assert.equal((await runtimeStateStore.read(persisted!)).state, 'idle');
+});
+
+test('conversation turn is persisted before provider execution and response is linked', async (t) => {
+  let conversationStore: Pick<AgentConversationStore, 'list'> | undefined;
+  let observedBeforeProvider: Awaited<
+    ReturnType<AgentConversationStore['list']>
+  > = [];
+
+  const provider = new StubProvider(async (request) => {
+    observedBeforeProvider = await conversationStore!.list(request.taskId);
+    return {
+      providerId: 'codex',
+      outcome: 'succeeded',
+      summary: 'Second turn completed',
+    };
+  });
+  const fixtureResult = await fixture(
+    t,
+    provider,
+    task({ state: 'review' }),
+  );
+  conversationStore = fixtureResult.conversationStore;
+
+  const result = await fixtureResult.runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+    authorizations: authorizations(),
+    userTurn: {
+      id: 'turn-user-2',
+      content: 'Adjust the empty state too.',
+    },
+  });
+
+  assert.deepEqual(observedBeforeProvider, [
+    {
+      id: 'turn-user-2',
+      taskId: 'task-1',
+      role: 'user',
+      content: 'Adjust the empty state too.',
+      createdAt: observedBeforeProvider[0]?.createdAt,
+    },
+  ]);
+  assert.equal(
+    provider.lastRequest?.continuationInstruction,
+    'Adjust the empty state too.',
+  );
+  assert.deepEqual(provider.lastRequest?.allowedCapabilities, [
+    'workspace:write',
+  ]);
+  assert.equal(result.task.task.state, 'review');
+  assert.equal(result.userTurn?.id, 'turn-user-2');
+  assert.equal(result.agentTurn?.executionId, result.execution.id);
+  assert.equal(result.agentTurn?.providerId, 'codex');
+  assert.equal(result.agentTurn?.content, 'Second turn completed');
+
+  const turns = await fixtureResult.runtime.conversation(
+    'project-1',
+    'task-1',
+  );
+  assert.equal(turns.length, 2);
+  assert.equal(turns[0]?.role, 'user');
+  assert.equal(turns[1]?.role, 'agent');
+});
+
+test('duplicate conversation turn id is rejected without another provider execution', async (t) => {
+  let executions = 0;
+  const provider = new StubProvider(async () => {
+    executions += 1;
+    return {
+      providerId: 'codex',
+      outcome: 'succeeded',
+      summary: 'Done',
+    };
+  });
+  const { runtime } = await fixture(t, provider, task({ state: 'review' }));
+
+  await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+    userTurn: {
+      id: 'turn-repeat',
+      content: 'Continue.',
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+        userTurn: {
+          id: 'turn-repeat',
+          content: 'Continue.',
+        },
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
+  );
+  assert.equal(executions, 1);
+});
+
+test('conversation continuation is accepted only from review state', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Done',
+  }));
+  const { runtime } = await fixture(t, provider);
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+        userTurn: {
+          id: 'turn-invalid-state',
+          content: 'Continue.',
+        },
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_TASK_NOT_RUNNABLE',
+  );
+  assert.equal(provider.lastRequest, undefined);
 });
 
 test('provider checkpoint pausa task e aprovação explícita persiste continuação', async (t) => {
