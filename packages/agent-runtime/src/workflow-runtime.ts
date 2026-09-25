@@ -200,8 +200,7 @@ export class AgentWorkflowRuntime {
   private readonly checkpointStore: AgentWorkflowRuntimeOptions['checkpointStore'];
   private readonly executionResultStore: AgentWorkflowRuntimeOptions['executionResultStore'];
   private readonly conversationStore:
-    | AgentWorkflowRuntimeOptions['conversationStore']
-    | undefined;
+    AgentWorkflowRuntimeOptions['conversationStore'] | undefined;
   private readonly gitRefVerifier: AgentGitRefVerifier | undefined;
   private readonly now: () => string;
   private readonly createExecutionId: () => string;
@@ -557,8 +556,7 @@ export class AgentWorkflowRuntime {
         try {
           persistedAgentTurn = await this.conversationStore!.append({
             id:
-              'agent-' +
-              createHash('sha256').update(executionId).digest('hex'),
+              'agent-' + createHash('sha256').update(executionId).digest('hex'),
             taskId: runningRecord.task.id,
             role: 'agent',
             content: providerResult.summary,
