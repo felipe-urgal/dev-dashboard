@@ -135,6 +135,29 @@ export interface AgentTaskRecord {
   version: number;
 }
 
+export interface AgentBacklogIssue {
+  repository: string;
+  number: number;
+  title: string;
+  labels: string[];
+}
+
+export type AgentBacklogAdoptionResult =
+  | {
+      status: 'adopted';
+      source: string;
+      issue: AgentBacklogIssue;
+      candidates: [];
+      task: AgentTaskRecord;
+      reused: boolean;
+    }
+  | {
+      status: 'ambiguous';
+      source: string;
+      candidates: AgentBacklogIssue[];
+      reused: false;
+    };
+
 export interface AgentProviderStatus {
   providerId: AgentProviderId;
   availability: 'available' | 'degraded' | 'unavailable';
@@ -508,6 +531,27 @@ export async function createAgentTask(
     body: JSON.stringify(input),
   });
   return response.task;
+}
+
+export async function adoptAgentBacklog(
+  projectId: string,
+  input: {
+    issueNumber?: number;
+    environmentInstanceId?: string;
+    requestedCapabilities: AgentCapability[];
+  },
+): Promise<AgentBacklogAdoptionResult> {
+  const response = await requestJson<{ result: AgentBacklogAdoptionResult }>(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/agent/adopt-backlog',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.result;
 }
 
 export async function fetchAgentTaskStatus(
