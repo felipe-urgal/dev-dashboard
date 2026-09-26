@@ -224,7 +224,25 @@ const stopConfirmationSchema = {
   additionalProperties: false,
   required: ['token', 'environmentInstanceId', 'expiresAt'],
   properties: {
-    token: { type: 'string', pattern: '^[a-f0-9]{64}
+    token: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    environmentInstanceId: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+const stopResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state', 'environmentInstanceId'],
+  properties: {
+    state: { type: 'string', enum: ['cleaned', 'already-absent'] },
+    environmentInstanceId: { type: 'string' },
+    containerId: { type: 'string' },
+  },
+} as const;
+
+const lifecycleStartResultSchema = {
+  type: 'object',
   additionalProperties: false,
   required: ['environmentInstanceId', 'runtime', 'containerId'],
   properties: {
@@ -566,8 +584,7 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
           project,
           request.body.environmentInstanceId,
         );
-        const confirmation =
-          confirmationService.prepare(project, inspection);
+        const confirmation = confirmationService.prepare(project, inspection);
         return reply.code(201).send({ confirmation });
       } catch (error) {
         if (error instanceof DevContainerCleanupError) {
@@ -612,12 +629,11 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
           project,
           request.body.environmentInstanceId,
         );
-        const ownershipToken =
-          confirmationService.consume(
-            project,
-            inspection,
-            request.body.confirmationToken,
-          );
+        const ownershipToken = confirmationService.consume(
+          project,
+          inspection,
+          request.body.confirmationToken,
+        );
         const result = await cleanupService.cleanup(
           project,
           inspection.environmentInstanceId,
@@ -630,343 +646,6 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         }
         if (error instanceof DevContainerStopConfirmationError) {
           throw stopConfirmationApiError(error);
-        }
-        throw error;
-      }
-    },
-  );
-
-  app.post<{ Params: Params; Body: LifecycleStartBody }>(
-    '/projects/:projectId/dev-container/rebuild',
-    {
-      schema: {
-        params: paramsSchema,
-        body: lifecycleStartBodySchema,
-        response: {
-          201: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['result'],
-            properties: {
-              result: lifecycleStartResultSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request, reply) => {
-      const project = requireProject(
-        options.projectStore,
-        request.params.projectId,
-      );
-      try {
-        const result = await options.devContainerStartService.rebuild(project, {
-          ...(request.body.environmentInstanceId
-            ? { environmentInstanceId: request.body.environmentInstanceId }
-            : {}),
-          confirmationToken: request.body.confirmationToken,
-        });
-        return reply.code(201).send({ result });
-      } catch (error) {
-        if (error instanceof DevContainerLifecyclePlanningError) {
-          throw new ApiError({
-            statusCode: 404,
-            code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-            message:
-              'Ambiente de desenvolvimento não encontrado para este projeto.',
-          });
-        }
-        if (error instanceof DevContainerRebuildError) {
-          throw rebuildApiError(error);
-        }
-        throw error;
-      }
-    },
-  );
-};
- },
-    environmentInstanceId: { type: 'string' },
-    expiresAt: { type: 'string' },
-  },
-} as const;
-
-const stopResultSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['state', 'environmentInstanceId'],
-  properties: {
-    state: { type: 'string', enum: ['cleaned', 'already-absent'] },
-    environmentInstanceId: { type: 'string' },
-    containerId: { type: 'string' },
-  },
-} as const;
-
-const lifecycleStartResultSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['environmentInstanceId', 'runtime', 'containerId'],
-  properties: {
-    environmentInstanceId: { type: 'string' },
-    runtime: { type: 'string', enum: ['devcontainer'] },
-    containerId: { type: 'string' },
-  },
-} as const;
-
-const inspectionSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['state', 'observedAt'],
-  properties: {
-    state: {
-      type: 'string',
-      enum: [
-        'not-configured',
-        'available',
-        'cli-missing',
-        'unavailable',
-        'invalid-output',
-      ],
-    },
-    observedAt: { type: 'string' },
-    configSource: {
-      type: 'string',
-      enum: ['.devcontainer/devcontainer.json', '.devcontainer.json'],
-    },
-    cliVersion: { type: 'string' },
-    configuration: configurationSchema,
-    diagnostic: { type: 'string' },
-  },
-} as const;
-
-function requireProject(store: ProjectStore, projectId: string) {
-  const project = store.findProject(projectId);
-  if (!project) {
-    throw new ApiError({
-      statusCode: 404,
-      code: 'PROJECT_NOT_FOUND',
-      message: 'Projeto não encontrado.',
-    });
-  }
-  return project;
-}
-
-async function planLifecycle(
-  options: Options,
-  project: ReturnType<typeof requireProject>,
-  environmentInstanceId?: string,
-) {
-  try {
-    return await options.devContainerLifecyclePlanningService.plan(project, {
-      ...(environmentInstanceId ? { environmentInstanceId } : {}),
-    });
-  } catch (error) {
-    if (error instanceof DevContainerLifecyclePlanningError) {
-      throw new ApiError({
-        statusCode: 404,
-        code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-        message:
-          'Ambiente de desenvolvimento não encontrado para este projeto.',
-      });
-    }
-    throw error;
-  }
-}
-
-function confirmationApiError(
-  error: DevContainerLifecycleConfirmationError,
-): ApiError {
-  return new ApiError({
-    statusCode: 409,
-    code: error.code,
-    message: error.message,
-  });
-}
-
-function startApiError(error: DevContainerStartError): ApiError {
-  const statusCode =
-    error.code === 'DEV_CONTAINER_START_COMMAND_FAILED' ||
-    error.code === 'DEV_CONTAINER_START_STATE_FAILED' ||
-    error.code === 'DEV_CONTAINER_START_ROLLBACK_FAILED'
-      ? 500
-      : 409;
-  return new ApiError({
-    statusCode,
-    code: error.code,
-    message: error.message,
-  });
-}
-
-function rebuildApiError(error: DevContainerRebuildError): ApiError {
-  const statusCode =
-    error.code === 'DEV_CONTAINER_REBUILD_CLEANUP_FAILED' ||
-    error.code === 'DEV_CONTAINER_REBUILD_CREATE_FAILED' ||
-    error.code === 'DEV_CONTAINER_REBUILD_ROLLBACK_FAILED'
-      ? 500
-      : 409;
-  return new ApiError({
-    statusCode,
-    code: error.code,
-    message: error.message,
-  });
-}
-
-export const devContainerRoutes: FastifyPluginAsync<Options> = async (
-  app,
-  options,
-) => {
-  app.get<{ Params: Params }>(
-    '/projects/:projectId/dev-container',
-    {
-      schema: {
-        params: paramsSchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['inspection'],
-            properties: {
-              inspection: inspectionSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => ({
-      inspection: await options.devContainerDiscoveryService.inspect(
-        requireProject(options.projectStore, request.params.projectId),
-      ),
-    }),
-  );
-
-  app.get<{ Params: Params; Querystring: LifecyclePreflightQuery }>(
-    '/projects/:projectId/dev-container/lifecycle-preflight',
-    {
-      schema: {
-        params: paramsSchema,
-        querystring: lifecyclePreflightQuerySchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['preflight'],
-            properties: {
-              preflight: lifecyclePreflightSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = requireProject(
-        options.projectStore,
-        request.params.projectId,
-      );
-      return {
-        preflight: await planLifecycle(
-          options,
-          project,
-          request.query.environmentInstanceId,
-        ),
-      };
-    },
-  );
-
-  app.post<{ Params: Params; Body: LifecycleConfirmationBody }>(
-    '/projects/:projectId/dev-container/lifecycle-confirmation',
-    {
-      schema: {
-        params: paramsSchema,
-        body: lifecycleConfirmationBodySchema,
-        response: {
-          201: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['confirmation'],
-            properties: {
-              confirmation: lifecycleConfirmationSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request, reply) => {
-      const project = requireProject(
-        options.projectStore,
-        request.params.projectId,
-      );
-      const preflight = await planLifecycle(
-        options,
-        project,
-        request.body.environmentInstanceId,
-      );
-
-      try {
-        const confirmation =
-          options.devContainerLifecycleConfirmationService.prepare(preflight);
-        return reply.code(201).send({
-          confirmation: {
-            token: confirmation.token,
-            environmentInstanceId: confirmation.environmentInstanceId,
-            operation: confirmation.operation,
-            expiresAt: confirmation.expiresAt,
-          },
-        });
-      } catch (error) {
-        if (error instanceof DevContainerLifecycleConfirmationError) {
-          throw confirmationApiError(error);
-        }
-        throw error;
-      }
-    },
-  );
-
-  app.post<{ Params: Params; Body: LifecycleStartBody }>(
-    '/projects/:projectId/dev-container/start',
-    {
-      schema: {
-        params: paramsSchema,
-        body: lifecycleStartBodySchema,
-        response: {
-          201: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['result'],
-            properties: {
-              result: lifecycleStartResultSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request, reply) => {
-      const project = requireProject(
-        options.projectStore,
-        request.params.projectId,
-      );
-      try {
-        const result = await options.devContainerStartService.start(project, {
-          ...(request.body.environmentInstanceId
-            ? { environmentInstanceId: request.body.environmentInstanceId }
-            : {}),
-          confirmationToken: request.body.confirmationToken,
-        });
-        return reply.code(201).send({ result });
-      } catch (error) {
-        if (error instanceof DevContainerLifecyclePlanningError) {
-          throw new ApiError({
-            statusCode: 404,
-            code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-            message:
-              'Ambiente de desenvolvimento não encontrado para este projeto.',
-          });
-        }
-        if (error instanceof DevContainerStartError) {
-          throw startApiError(error);
         }
         throw error;
       }
