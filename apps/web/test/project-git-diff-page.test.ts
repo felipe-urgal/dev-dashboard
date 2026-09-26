@@ -279,7 +279,6 @@ test('não deixa um overview atrasado de um projeto anterior sobrescrever o mais
   );
 });
 
-
 test('estado vazio ocupa o workspace e esconde controles sem utilidade', async () => {
   const originalFetch = globalThis.fetch;
 
