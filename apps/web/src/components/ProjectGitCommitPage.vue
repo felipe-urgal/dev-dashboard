@@ -102,7 +102,10 @@ function submitAmend(): void {
       </label>
 
       <div class="git-commit-footer">
-        <div class="git-commit-tracked" aria-label="Alterações incluídas no commit">
+        <div
+          class="git-commit-tracked"
+          aria-label="Alterações incluídas no commit"
+        >
           <CheckCircleIcon aria-hidden="true" />
           <span>
             <strong>{{ trackedChanges.length }}</strong>

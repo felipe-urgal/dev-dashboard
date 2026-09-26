@@ -85,7 +85,10 @@ test('renderiza tela de commit minimalista sem resumo, abas ou histórico', asyn
   assert.equal(textarea.attributes('aria-label'), 'Mensagem do commit');
   assert.equal(textarea.attributes('placeholder'), 'Descreva as alterações');
   assert.match(wrapper.text(), /0\/500/);
-  assert.match(wrapper.text(), /2 alterações rastreadas incluídas automaticamente/);
+  assert.match(
+    wrapper.text(),
+    /2 alterações rastreadas incluídas automaticamente/,
+  );
   assert.match(wrapper.text(), /Amend último commit/);
   assert.match(wrapper.text(), /Criar commit/);
 
