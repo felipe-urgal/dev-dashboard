@@ -1444,7 +1444,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         : {}),
       ...(profile?.budget ? { budget: structuredClone(profile.budget) } : {}),
       requestedCapabilities: profile
-        ? [...profile.requestedCapabilities]
+        ? profile.requestedCapabilities.filter((capability) =>
+            taskRecord.task.requestedCapabilities.includes(capability),
+          )
         : [...taskRecord.task.requestedCapabilities],
       model: { status: 'unavailable' },
       effort: { status: 'unavailable' },
