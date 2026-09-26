@@ -301,10 +301,19 @@ function buildProviderPrompt(request: AgentProviderExecutionRequest): string {
     request.allowedCapabilities.length > 0
       ? request.allowedCapabilities.join(', ')
       : 'none';
+  const contextEvidence = (request.contextEvidence ?? [])
+    .slice(0, 12)
+    .map((evidence) => {
+      const reference = evidence.reference ? ` [${evidence.reference}]` : '';
+      return `- ${evidence.kind}: ${evidence.summary}${reference} (observed ${evidence.observedAt})`;
+    });
 
   return [
     request.summary.trim(),
     ...formatAgentProviderConversationContext(request.conversationContext),
+    ...(contextEvidence.length > 0
+      ? ['', 'Observed task context evidence:', ...contextEvidence]
+      : []),
     ...(request.continuationInstruction
       ? [
           '',
