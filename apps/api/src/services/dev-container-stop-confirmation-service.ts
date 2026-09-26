@@ -75,7 +75,8 @@ export class DevContainerStopConfirmationService {
       projectId: project.id,
       environmentInstanceId: inspection.environmentInstanceId,
       ownershipToken: ownership.ownershipToken,
-      containerId: ownership.phase === 'owned' ? (ownership.containerId ?? null) : null,
+      containerId:
+        ownership.phase === 'owned' ? (ownership.containerId ?? null) : null,
       expiresAt,
     });
 
