@@ -125,7 +125,8 @@ test('rotas de execução destacável de dependências/build', async (context) =
       });
       assert.equal(primaryResponse.statusCode, 200);
       assert.equal(
-        (primaryResponse.json() as { catalog: { total: number } }).catalog.total,
+        (primaryResponse.json() as { catalog: { total: number } }).catalog
+          .total,
         0,
       );
 

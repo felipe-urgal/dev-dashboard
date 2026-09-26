@@ -194,14 +194,12 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (
           project.id,
           request.query.environmentInstanceId,
         );
-      if (
-        options.developmentEnvironmentInstanceStore &&
-        !executionContext
-      ) {
+      if (options.developmentEnvironmentInstanceStore && !executionContext) {
         throw new ApiError({
           statusCode: 404,
           code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-          message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+          message:
+            'Ambiente de desenvolvimento não encontrado para este projeto.',
         });
       }
       const scopedProject = executionContext
