@@ -205,7 +205,6 @@ function buildProviderConversationContext(
     usedChars += content.length;
   }
 
-  if (selected.length === 0) return undefined;
   selected.reverse();
 
   return {
@@ -572,11 +571,43 @@ export class AgentWorkflowRuntime {
         };
       }
 
-      const providerEvidence = (providerResult.evidence ?? []).map((item) => ({
-        ...item,
-        taskId: runningRecord.task.id,
-        executionId,
-      }));
+      const conversationContextEvidence =
+        conversationContext && conversationContext.omittedTurns > 0
+          ? [
+              {
+                id:
+                  'conversation-context-' +
+                  createHash('sha256').update(executionId).digest('hex'),
+                taskId: runningRecord.task.id,
+                executionId,
+                kind: 'other' as const,
+                summary:
+                  'Conversation context bounded: omitted ' +
+                  conversationContext.omittedTurns +
+                  ' older turn(s); sent ' +
+                  conversationContext.turns.length +
+                  ' turn(s), ' +
+                  conversationContext.turns.reduce(
+                    (total, turn) => total + turn.content.length,
+                    0,
+                  ) +
+                  ' character(s); limits ' +
+                  this.providerConversationMaxTurns +
+                  ' turn(s) / ' +
+                  this.providerConversationMaxChars +
+                  ' character(s).',
+                observedAt: finishedAt,
+              },
+            ]
+          : [];
+      const providerEvidence = [
+        ...conversationContextEvidence,
+        ...(providerResult.evidence ?? []).map((item) => ({
+          ...item,
+          taskId: runningRecord.task.id,
+          executionId,
+        })),
+      ];
       try {
         await this.executionResultStore.appendExecutionResult(
           runningRecord.task.id,
