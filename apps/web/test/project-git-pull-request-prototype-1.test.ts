@@ -95,10 +95,7 @@ test('renderiza Pull Request minimalista e leva à criação sem informações d
 
   assert.equal(wrapper.findAll('.git-pr-summary-card').length, 0);
   assert.equal(wrapper.findAll('[role="tab"]').length, 0);
-  assert.equal(
-    wrapper.find('#git-pr-overview-panel h2').exists(),
-    false,
-  );
+  assert.equal(wrapper.find('#git-pr-overview-panel h2').exists(), false);
   assert.match(wrapper.find('#git-pr-overview-panel').text(), /Branch atual/);
   assert.match(
     wrapper.find('#git-pr-overview-panel').text(),
