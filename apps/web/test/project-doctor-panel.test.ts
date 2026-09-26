@@ -96,7 +96,8 @@ describe('ProjectDoctorPanel', () => {
     await flushPromises();
 
     expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false);
-    expect(wrapper.find('#project-doctor-title').text()).toBe('Diagnóstico');
+    expect(wrapper.find('#project-doctor-title').exists()).toBe(false);
+    expect(wrapper.find('.project-doctor-intro').exists()).toBe(true);
     expect(wrapper.text()).toContain('2 problemas encontrados');
     expect(wrapper.text()).toContain('2 de 4 verificações aprovadas');
     expect(wrapper.text()).toContain('Requer ação');
