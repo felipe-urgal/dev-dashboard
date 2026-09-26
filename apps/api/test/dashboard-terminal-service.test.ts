@@ -13,8 +13,7 @@ class FakePty {
   public killed = false;
   private dataListener: ((data: string) => void) | undefined;
   private exitListener:
-    | ((event: { exitCode: number; signal?: number }) => void)
-    | undefined;
+    ((event: { exitCode: number; signal?: number }) => void) | undefined;
 
   public onData(listener: (data: string) => void): { dispose(): void } {
     this.dataListener = listener;

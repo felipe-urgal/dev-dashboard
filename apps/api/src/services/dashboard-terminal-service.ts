@@ -133,24 +133,28 @@ export class DashboardTerminalService {
 
     let child: IPty;
     try {
-      child = this.spawnPty!('/bin/bash', [
-        '--noprofile',
-        '--norc',
-        '-c',
-        'unset DEV_LOADED; export DEV_SILENT=1; source "$1/init.sh" && dev-tools',
-        'dev-dashboard',
-        this.dashboardRoot,
-      ], {
-        name: 'xterm-256color',
-        cols: DEFAULT_COLS,
-        rows: DEFAULT_ROWS,
-        cwd: this.dashboardRoot,
-        env: {
-          ...process.env,
-          DEV_SILENT: '1',
-          TERM: 'xterm-256color',
+      child = this.spawnPty!(
+        '/bin/bash',
+        [
+          '--noprofile',
+          '--norc',
+          '-c',
+          'unset DEV_LOADED; export DEV_SILENT=1; source "$1/init.sh" && dev-tools',
+          'dev-dashboard',
+          this.dashboardRoot,
+        ],
+        {
+          name: 'xterm-256color',
+          cols: DEFAULT_COLS,
+          rows: DEFAULT_ROWS,
+          cwd: this.dashboardRoot,
+          env: {
+            ...process.env,
+            DEV_SILENT: '1',
+            TERM: 'xterm-256color',
+          },
         },
-      });
+      );
     } catch {
       sendJson(socket, {
         type: 'error',
