@@ -91,6 +91,7 @@ test('Dev Container HTTP expõe discovery sanitizado e 404 determinístico', asy
           internalSecret: 'não pode sair',
           configuration: {
             ...inspection.configuration!,
+            composeUsesDefaultConfiguration: true,
             internalSecret: 'não pode sair',
           },
         } as DevContainerInspection;
