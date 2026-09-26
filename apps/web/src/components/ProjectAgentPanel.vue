@@ -20,10 +20,12 @@ import {
   agentRuntimeWebSocketUrl,
   cancelAgentTask,
   clearAgentBudget,
+  createAgentAttachment,
   createAgentTask,
   executeAgentConversationTurn,
   executeAgentTask,
   fetchAgentActivity,
+  fetchAgentAttachments,
   fetchAgentBudget,
   fetchAgentConversation,
   fetchAgentProviders,
@@ -36,6 +38,7 @@ import {
   setAgentBudget,
   setAgentAuthorization,
   type AgentActivity,
+  type AgentAttachment,
   type AgentAuthorization,
   type AgentAuthorizationScope,
   type AgentBacklogIssue,
@@ -122,6 +125,9 @@ const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
 const instruction = ref('');
 const conversationInstruction = ref('');
 const conversationTurns = ref<AgentConversationTurn[]>([]);
+const attachments = ref<AgentAttachment[]>([]);
+const selectedAttachmentIds = ref<string[]>([]);
+const uploadingAttachment = ref(false);
 const backlogCandidates = ref<AgentBacklogIssue[]>([]);
 const backlogSelectionSource = ref('');
 const backlogAdoptionNotice = ref<{
@@ -619,6 +625,8 @@ async function loadTask(
     status.value = null;
     activity.value = null;
     conversationTurns.value = [];
+    attachments.value = [];
+    selectedAttachmentIds.value = [];
     conversationInstruction.value = '';
     usage.value = null;
     budget.value = null;
@@ -630,20 +638,31 @@ async function loadTask(
   }
 
   try {
-    const [nextStatus, nextActivity, nextConversation, nextUsage, nextBudget] =
-      await Promise.all([
-        fetchAgentTaskStatus(props.project.id, taskId),
-        fetchAgentActivity(props.project.id, taskId),
-        fetchAgentConversation(props.project.id, taskId),
-        fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
-        fetchAgentBudget(props.project.id, taskId),
-      ]);
+    const [
+      nextStatus,
+      nextActivity,
+      nextConversation,
+      nextAttachments,
+      nextUsage,
+      nextBudget,
+    ] = await Promise.all([
+      fetchAgentTaskStatus(props.project.id, taskId),
+      fetchAgentActivity(props.project.id, taskId),
+      fetchAgentConversation(props.project.id, taskId),
+      fetchAgentAttachments(props.project.id, taskId),
+      fetchAgentUsage(props.project.id, taskId, usagePeriodRange()),
+      fetchAgentBudget(props.project.id, taskId),
+    ]);
     if (requestGeneration !== generation || selectedTaskId.value !== taskId) {
       return;
     }
     status.value = nextStatus;
     activity.value = nextActivity;
     conversationTurns.value = nextConversation;
+    attachments.value = nextAttachments;
+    selectedAttachmentIds.value = selectedAttachmentIds.value.filter((id) =>
+      nextAttachments.some((attachment) => attachment.id === id),
+    );
     usage.value = nextUsage;
     syncBudgetInputs(nextBudget);
     replaceTask(nextStatus.task);
@@ -872,6 +891,7 @@ async function executeCurrent(): Promise<void> {
       props.project.id,
       record.task.id,
       selectedProviderId.value,
+      [...selectedAttachmentIds.value],
     );
     latestExecution.value = result;
     replaceTask(result.task);
@@ -903,6 +923,9 @@ async function continueCurrentConversation(): Promise<void> {
         id: globalThis.crypto.randomUUID(),
         content,
         providerId: selectedProviderId.value,
+        ...(selectedAttachmentIds.value.length
+          ? { attachmentIds: [...selectedAttachmentIds.value] }
+          : {}),
       },
     );
     latestExecution.value = result;
@@ -923,6 +946,86 @@ async function continueCurrentConversation(): Promise<void> {
   } finally {
     executing.value = false;
   }
+}
+
+function attachmentMediaType(file: File): AgentAttachment['mediaType'] | null {
+  const type = file.type || (file.name.endsWith('.md') ? 'text/markdown' : '');
+  if (
+    type === 'text/plain' ||
+    type === 'text/markdown' ||
+    type === 'application/json' ||
+    type === 'image/png' ||
+    type === 'image/jpeg' ||
+    type === 'image/webp'
+  ) {
+    return type;
+  }
+  return null;
+}
+
+async function fileBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Não foi possível ler o anexo.'));
+    reader.onload = () => {
+      const value = String(reader.result ?? '');
+      const separator = value.indexOf(',');
+      if (separator < 0) {
+        reject(new Error('Conteúdo do anexo inválido.'));
+        return;
+      }
+      resolve(value.slice(separator + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addAttachments(event: Event): Promise<void> {
+  const task = currentTask.value?.task;
+  const input = event.target as HTMLInputElement;
+  const files = [...(input.files ?? [])];
+  input.value = '';
+  if (!task || files.length === 0 || uploadingAttachment.value) return;
+
+  uploadingAttachment.value = true;
+  errorMessage.value = '';
+  try {
+    for (const file of files) {
+      if (attachments.value.length >= 8) {
+        throw new Error('A task aceita no máximo 8 anexos.');
+      }
+      if (file.size > 1024 * 1024) {
+        throw new Error('Cada anexo pode ter no máximo 1 MB.');
+      }
+      const mediaType = attachmentMediaType(file);
+      if (!mediaType) {
+        throw new Error('Tipo de anexo não suportado.');
+      }
+      const attachment = await createAgentAttachment(
+        props.project.id,
+        task.id,
+        {
+          filename: file.name,
+          mediaType,
+          contentBase64: await fileBase64(file),
+        },
+      );
+      attachments.value = [...attachments.value, attachment];
+      selectedAttachmentIds.value = [
+        ...selectedAttachmentIds.value,
+        attachment.id,
+      ];
+    }
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : 'Não foi possível anexar o arquivo.';
+  } finally {
+    uploadingAttachment.value = false;
+  }
+}
+
+function attachmentFor(id: string): AgentAttachment | undefined {
+  return attachments.value.find((attachment) => attachment.id === id);
 }
 
 async function changeUsagePeriod(): Promise<void> {
@@ -1791,6 +1894,66 @@ onBeforeUnmount(() => {
               "
               :task-context-id="currentTask.task.taskContextId"
             />
+          </section>
+
+          <section class="agent-card">
+            <div class="agent-section-heading">
+              <div>
+                <span>Contexto adicional</span>
+                <strong>Anexos da task</strong>
+              </div>
+            </div>
+            <label class="agent-field">
+              <span>Adicionar arquivo</span>
+              <input
+                type="file"
+                multiple
+                accept=".txt,.log,.md,.json,image/png,image/jpeg,image/webp"
+                :disabled="uploadingAttachment || attachments.length >= 8"
+                @change="addAttachments"
+              />
+            </label>
+            <p class="agent-hint">
+              Até 8 arquivos, 1 MB cada. Texto, Markdown, JSON, PNG, JPEG e WebP.
+              O conteúdo é tratado como dado não confiável.
+            </p>
+            <p v-if="!attachments.length" class="agent-hint">
+              Nenhum anexo nesta task.
+            </p>
+            <div v-else class="agent-authorization-list">
+              <label
+                v-for="attachment in attachments"
+                :key="attachment.id"
+                class="agent-authorization"
+              >
+                <div>
+                  <strong>{{ attachment.filename }}</strong>
+                  <small>
+                    {{ attachment.mediaType }} ·
+                    {{ Math.ceil(attachment.byteSize / 1024) }} KB
+                  </small>
+                </div>
+                <input
+                  v-model="selectedAttachmentIds"
+                  type="checkbox"
+                  :value="attachment.id"
+                />
+              </label>
+            </div>
+            <div
+              v-for="turn in conversationTurns.filter(
+                (item) => item.attachmentIds?.length,
+              )"
+              :key="'attachments-' + turn.id"
+              class="agent-hint"
+            >
+              Turno {{ turn.role }}:
+              {{
+                turn.attachmentIds
+                  ?.map((id) => attachmentFor(id)?.filename ?? id)
+                  .join(', ')
+              }}
+            </div>
           </section>
 
           <section class="agent-card">

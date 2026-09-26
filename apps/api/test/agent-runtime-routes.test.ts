@@ -126,6 +126,17 @@ function service(
       },
     }),
     conversation: async () => [],
+    listAttachments: async () => [],
+    createAttachment: async (_projectId, taskId, input) => ({
+      id: 'attachment-1',
+      taskId,
+      filename: input.filename,
+      mediaType: input.mediaType,
+      byteSize: 4,
+      sha256: 'a'.repeat(64),
+      source: 'user-upload',
+      createdAt: '2026-09-23T10:00:00.000Z',
+    }),
     execute: async () => ({
       execution: {
         id: 'execution-1',
@@ -2000,4 +2011,55 @@ test('Agent Runtime HTTP expõe ambiguidade do backlog sem escolher silenciosame
       .result.candidates.map((issue: { number: number }) => issue.number),
     [893, 895],
   );
+});
+
+
+test('Agent Runtime HTTP anexa por conteúdo bounded sem aceitar path do browser', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      createAttachment: async (...args) => {
+        calls.push(args);
+        return {
+          id: 'attachment-1',
+          taskId: args[1],
+          filename: args[2].filename,
+          mediaType: args[2].mediaType,
+          byteSize: 4,
+          sha256: 'b'.repeat(64),
+          source: 'user-upload',
+          createdAt: '2026-09-26T18:45:00.000Z',
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/attachments',
+    payload: {
+      filename: 'ci.log',
+      mediaType: 'text/plain',
+      contentBase64: Buffer.from('fail').toString('base64'),
+      path: '/tmp/escape',
+    },
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(calls, [
+    [
+      'project-1',
+      'task-1',
+      {
+        filename: 'ci.log',
+        mediaType: 'text/plain',
+        contentBase64: Buffer.from('fail').toString('base64'),
+      },
+    ],
+  ]);
 });

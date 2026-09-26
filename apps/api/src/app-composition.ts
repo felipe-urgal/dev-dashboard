@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 
 import {
+  AgentAttachmentStore,
   AgentAuditStore,
   AgentBudgetStore,
   AgentConversationStore,
@@ -480,6 +481,13 @@ function createAgentRuntimeApiService(
     stateDirectory,
     lockManager,
   });
+  const attachmentStore = new AgentAttachmentStore({
+    stateDirectory,
+    lockManager,
+    ...(options.now
+      ? { now: () => new Date(options.now!()).toISOString() }
+      : {}),
+  });
   const resolveCwd = (request: AgentProviderExecutionRequest): string => {
     const executionContext =
       context.developmentEnvironmentInstanceStore.resolveForProject(
@@ -564,6 +572,7 @@ function createAgentRuntimeApiService(
     taskStore,
     auditStore,
     providerRegistry,
+    attachmentStore,
     providerPreferenceStore,
     integrationCapabilityRegistry:
       createDefaultAgentIntegrationCapabilityRegistry(),
