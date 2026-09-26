@@ -346,3 +346,45 @@ test('inspect usa somente label de ownership conhecida e funciona com instance d
     running: false,
   });
 });
+
+test('cleanup confirmado falha antes da mutation quando ownership mudou', async () => {
+  const stores = fakeStores();
+  const calls: Array<{ args: readonly string[] }> = [];
+  const service = new DevContainerCleanupService(
+    stores.environmentStore,
+    stores.ownershipStore,
+    async (command) => {
+      calls.push(command);
+      if (command.args[0] === 'container' && command.args[1] === 'ls') {
+        return CONTAINER_ID + '\n';
+      }
+      if (command.args[0] === 'inspect') {
+        return CONTAINER_ID + '|' + TOKEN + '|true\n';
+      }
+      return '';
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      service.cleanup(
+        project,
+        undefined,
+        '22222222-2222-4222-8222-222222222222',
+      ),
+    (error: unknown) =>
+      error instanceof DevContainerCleanupError &&
+      error.code === 'DEV_CONTAINER_CLEANUP_OWNERSHIP_MISMATCH',
+  );
+
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.args[0] === 'container' &&
+        (call.args[1] === 'stop' || call.args[1] === 'rm'),
+    ),
+    false,
+  );
+  assert.equal(stores.released(), false);
+  assert.equal(stores.upserts.length, 0);
+});

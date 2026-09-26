@@ -4,6 +4,10 @@ import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { DevContainerDiscoveryService } from '../services/dev-container-discovery-service.js';
 import {
+  DevContainerCleanupError,
+  type DevContainerCleanupService,
+} from '../services/dev-container-cleanup-service.js';
+import {
   DevContainerLifecycleConfirmationError,
   type DevContainerLifecycleConfirmationService,
 } from '../services/dev-container-lifecycle-confirmation-service.js';
@@ -16,6 +20,10 @@ import {
   DevContainerStartError,
   type DevContainerStartService,
 } from '../services/dev-container-start-service.js';
+import {
+  DevContainerStopConfirmationError,
+  type DevContainerStopConfirmationService,
+} from '../services/dev-container-stop-confirmation-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
@@ -30,6 +38,14 @@ interface Options extends FastifyPluginOptions {
     'prepare'
   >;
   devContainerStartService: Pick<DevContainerStartService, 'start' | 'rebuild'>;
+  devContainerCleanupService?: Pick<
+    DevContainerCleanupService,
+    'inspect' | 'cleanup'
+  >;
+  devContainerStopConfirmationService?: Pick<
+    DevContainerStopConfirmationService,
+    'prepare' | 'consume'
+  >;
 }
 
 interface Params {
@@ -47,6 +63,9 @@ interface LifecycleConfirmationBody {
 interface LifecycleStartBody extends LifecycleConfirmationBody {
   confirmationToken: string;
 }
+
+type StopConfirmationBody = LifecycleConfirmationBody;
+type StopBody = LifecycleStartBody;
 
 const paramsSchema = {
   type: 'object',
@@ -200,6 +219,28 @@ const lifecycleConfirmationSchema = {
   },
 } as const;
 
+const stopConfirmationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'environmentInstanceId', 'expiresAt'],
+  properties: {
+    token: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    environmentInstanceId: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+const stopResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state', 'environmentInstanceId'],
+  properties: {
+    state: { type: 'string', enum: ['cleaned', 'already-absent'] },
+    environmentInstanceId: { type: 'string' },
+    containerId: { type: 'string' },
+  },
+} as const;
+
 const lifecycleStartResultSchema = {
   type: 'object',
   additionalProperties: false,
@@ -271,6 +312,19 @@ async function planLifecycle(
   }
 }
 
+function requireStopServices(options: Options) {
+  if (
+    !options.devContainerCleanupService ||
+    !options.devContainerStopConfirmationService
+  ) {
+    throw new Error('Dev Container stop services are not configured.');
+  }
+  return {
+    cleanupService: options.devContainerCleanupService,
+    confirmationService: options.devContainerStopConfirmationService,
+  };
+}
+
 function confirmationApiError(
   error: DevContainerLifecycleConfirmationError,
 ): ApiError {
@@ -290,6 +344,34 @@ function startApiError(error: DevContainerStartError): ApiError {
       : 409;
   return new ApiError({
     statusCode,
+    code: error.code,
+    message: error.message,
+  });
+}
+
+function cleanupApiError(error: DevContainerCleanupError): ApiError {
+  const statusCode =
+    error.code === 'DEV_CONTAINER_CLEANUP_DOCKER_LOOKUP_FAILED' ||
+    error.code === 'DEV_CONTAINER_CLEANUP_DOCKER_INSPECT_FAILED' ||
+    error.code === 'DEV_CONTAINER_CLEANUP_DOCKER_STOP_FAILED' ||
+    error.code === 'DEV_CONTAINER_CLEANUP_DOCKER_REMOVE_FAILED' ||
+    error.code === 'DEV_CONTAINER_CLEANUP_OWNERSHIP_RELEASE_FAILED'
+      ? 500
+      : error.code === 'DEV_CONTAINER_CLEANUP_ENVIRONMENT_NOT_FOUND'
+        ? 404
+        : 409;
+  return new ApiError({
+    statusCode,
+    code: error.code,
+    message: error.message,
+  });
+}
+
+function stopConfirmationApiError(
+  error: DevContainerStopConfirmationError,
+): ApiError {
+  return new ApiError({
+    statusCode: 409,
     code: error.code,
     message: error.message,
   });
@@ -465,6 +547,105 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         }
         if (error instanceof DevContainerStartError) {
           throw startApiError(error);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: Params; Body: StopConfirmationBody }>(
+    '/projects/:projectId/dev-container/stop-confirmation',
+    {
+      schema: {
+        params: paramsSchema,
+        body: lifecycleConfirmationBodySchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: {
+              confirmation: stopConfirmationSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      try {
+        const { cleanupService, confirmationService } =
+          requireStopServices(options);
+        const inspection = await cleanupService.inspect(
+          project,
+          request.body.environmentInstanceId,
+        );
+        const confirmation = confirmationService.prepare(project, inspection);
+        return reply.code(201).send({ confirmation });
+      } catch (error) {
+        if (error instanceof DevContainerCleanupError) {
+          throw cleanupApiError(error);
+        }
+        if (error instanceof DevContainerStopConfirmationError) {
+          throw stopConfirmationApiError(error);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: Params; Body: StopBody }>(
+    '/projects/:projectId/dev-container/stop',
+    {
+      schema: {
+        params: paramsSchema,
+        body: lifecycleStartBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: {
+              result: stopResultSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      try {
+        const { cleanupService, confirmationService } =
+          requireStopServices(options);
+        const inspection = await cleanupService.inspect(
+          project,
+          request.body.environmentInstanceId,
+        );
+        const ownershipToken = confirmationService.consume(
+          project,
+          inspection,
+          request.body.confirmationToken,
+        );
+        const result = await cleanupService.cleanup(
+          project,
+          inspection.environmentInstanceId,
+          ownershipToken,
+        );
+        return { result };
+      } catch (error) {
+        if (error instanceof DevContainerCleanupError) {
+          throw cleanupApiError(error);
+        }
+        if (error instanceof DevContainerStopConfirmationError) {
+          throw stopConfirmationApiError(error);
         }
         throw error;
       }

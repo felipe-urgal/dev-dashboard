@@ -7,6 +7,8 @@ const fetchDevContainerLifecyclePreflight = vi.hoisted(() => vi.fn());
 const prepareDevContainerLifecycleConfirmation = vi.hoisted(() => vi.fn());
 const startDevContainer = vi.hoisted(() => vi.fn());
 const rebuildDevContainer = vi.hoisted(() => vi.fn());
+const prepareDevContainerStopConfirmation = vi.hoisted(() => vi.fn());
+const stopDevContainer = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/api/dev-container', () => ({
   fetchDevContainerLifecyclePreflight: (...args: unknown[]) =>
@@ -15,6 +17,9 @@ vi.mock('../src/api/dev-container', () => ({
     prepareDevContainerLifecycleConfirmation(...args),
   startDevContainer: (...args: unknown[]) => startDevContainer(...args),
   rebuildDevContainer: (...args: unknown[]) => rebuildDevContainer(...args),
+  prepareDevContainerStopConfirmation: (...args: unknown[]) =>
+    prepareDevContainerStopConfirmation(...args),
+  stopDevContainer: (...args: unknown[]) => stopDevContainer(...args),
 }));
 
 import ProjectDevContainerPanel from '../src/components/ProjectDevContainerPanel.vue';

@@ -38,6 +38,7 @@ import { DevContainerLifecycleConfirmationService } from './services/dev-contain
 import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
 import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
 import { DevContainerStartService } from './services/dev-container-start-service.js';
+import { DevContainerStopConfirmationService } from './services/dev-container-stop-confirmation-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
@@ -115,6 +116,10 @@ export interface AppCompositionOptions {
     DevContainerStartService,
     'start' | 'rebuild'
   >;
+  devContainerStopConfirmationService?: Pick<
+    DevContainerStopConfirmationService,
+    'prepare' | 'consume'
+  >;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
@@ -185,6 +190,11 @@ export function createAppComposition(
     new DevContainerCleanupService(
       context.developmentEnvironmentInstanceStore,
       devContainerOwnershipStore,
+    );
+  const devContainerStopConfirmationService =
+    options.devContainerStopConfirmationService ??
+    new DevContainerStopConfirmationService(
+      options.now ? { now: options.now } : {},
     );
   const devContainerConfigSnapshotService =
     new DevContainerConfigSnapshotService(
@@ -382,6 +392,7 @@ export function createAppComposition(
     devContainerOwnershipStore,
     devContainerCleanupService,
     devContainerStartService,
+    devContainerStopConfirmationService,
     portInspectorService,
     dockerComposeProvider,
     dockerComposePreflightService,

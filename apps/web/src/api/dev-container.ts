@@ -89,12 +89,32 @@ export interface DevContainerStartResult {
   containerId: string;
 }
 
+export interface DevContainerStopConfirmation {
+  token: string;
+  environmentInstanceId: string;
+  expiresAt: string;
+}
+
+export interface DevContainerStopResult {
+  state: 'cleaned' | 'already-absent';
+  environmentInstanceId: string;
+  containerId?: string;
+}
+
 interface DevContainerLifecycleConfirmationResponse {
   confirmation: DevContainerLifecycleConfirmation;
 }
 
 interface DevContainerStartResponse {
   result: DevContainerStartResult;
+}
+
+interface DevContainerStopConfirmationResponse {
+  confirmation: DevContainerStopConfirmation;
+}
+
+interface DevContainerStopResponse {
+  result: DevContainerStopResult;
 }
 
 export async function fetchDevContainerInspection(
@@ -173,6 +193,42 @@ export async function rebuildDevContainer(
 ): Promise<DevContainerStartResult> {
   const response = await requestJson<DevContainerStartResponse>(
     '/api/projects/' + encodeURIComponent(projectId) + '/dev-container/rebuild',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(environmentInstanceId ? { environmentInstanceId } : {}),
+        confirmationToken,
+      }),
+    },
+  );
+  return response.result;
+}
+
+export async function prepareDevContainerStopConfirmation(
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerStopConfirmation> {
+  const response = await requestJson<DevContainerStopConfirmationResponse>(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/stop-confirmation',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: environmentBody(environmentInstanceId),
+    },
+  );
+  return response.confirmation;
+}
+
+export async function stopDevContainer(
+  projectId: string,
+  confirmationToken: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerStopResult> {
+  const response = await requestJson<DevContainerStopResponse>(
+    '/api/projects/' + encodeURIComponent(projectId) + '/dev-container/stop',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
