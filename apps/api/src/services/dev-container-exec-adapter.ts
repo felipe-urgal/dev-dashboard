@@ -52,19 +52,23 @@ export function buildDevContainerShellCommand(
   };
 }
 
-export function buildDevContainerTestCommand(options: {
+export interface DevContainerWorkspaceCommandOptions {
   runtimeId: string;
   workspaceFolder: string;
   command: string;
   args: readonly string[];
   remoteEnvironment?: Readonly<Record<string, string>>;
-}): DevContainerExecCommand {
+}
+
+export function buildDevContainerWorkspaceCommand(
+  options: DevContainerWorkspaceCommandOptions,
+): DevContainerExecCommand {
   requireRuntimeId(options.runtimeId);
   if (!path.isAbsolute(options.workspaceFolder)) {
     throw new Error('Workspace do Dev Container precisa ser absoluto.');
   }
   if (!options.command) {
-    throw new Error('Comando de teste do Dev Container ausente.');
+    throw new Error('Comando do Dev Container ausente.');
   }
 
   const remoteEnvironment = Object.entries(options.remoteEnvironment ?? {});
@@ -90,4 +94,10 @@ export function buildDevContainerTestCommand(options: {
       ...options.args,
     ],
   };
+}
+
+export function buildDevContainerTestCommand(
+  options: DevContainerWorkspaceCommandOptions,
+): DevContainerExecCommand {
+  return buildDevContainerWorkspaceCommand(options);
 }

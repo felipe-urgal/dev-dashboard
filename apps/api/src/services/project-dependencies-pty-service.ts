@@ -11,11 +11,18 @@ import {
   DetachableExecutionService,
   type DetachableExecutionSnapshot,
 } from './detachable-execution-service.js';
+import {
+  buildDevContainerWorkspaceCommand,
+  isValidDevContainerRuntimeId,
+} from './dev-container-exec-adapter.js';
 import type { ScriptDetectionService } from './script-detection-service.js';
 import { resolveCommand } from './script-execution/command-resolution.js';
 
 export type ProjectDependenciesPtyErrorCode =
-  'ACTION_NOT_FOUND' | 'ALREADY_RUNNING' | 'START_FAILED';
+  | 'ACTION_NOT_FOUND'
+  | 'ALREADY_RUNNING'
+  | 'RUNTIME_UNSUPPORTED'
+  | 'START_FAILED';
 
 export class ProjectDependenciesPtyError extends Error {
   public constructor(
@@ -56,6 +63,35 @@ function projectForExecution(
   return { ...project, path: executionContext.cwd };
 }
 
+function commandForExecution(
+  executionContext: ExecutionContext,
+  resolved: { command: string; args: readonly string[] },
+): { file: string; args: readonly string[] } {
+  if (executionContext.runtime === 'host') {
+    return { file: resolved.command, args: resolved.args };
+  }
+  if (!isValidDevContainerRuntimeId(executionContext.runtimeId)) {
+    throw new ProjectDependenciesPtyError(
+      'RUNTIME_UNSUPPORTED',
+      'O runtime Dev Container selecionado não possui uma identidade executável válida.',
+    );
+  }
+
+  try {
+    return buildDevContainerWorkspaceCommand({
+      runtimeId: executionContext.runtimeId,
+      workspaceFolder: executionContext.cwd,
+      command: resolved.command,
+      args: resolved.args,
+    });
+  } catch {
+    throw new ProjectDependenciesPtyError(
+      'RUNTIME_UNSUPPORTED',
+      'O comando de dependências/build não pode ser executado com segurança neste Dev Container.',
+    );
+  }
+}
+
 /**
  * Mesmo raciocínio de `projectScriptDestination` (apps/web/src/utils/
  * project-script-visibility.ts): instalar/atualizar gems ou pacotes Node, ou
@@ -74,8 +110,10 @@ function isDependenciesAction(action: ProjectScript): boolean {
 
 /**
  * Item 3 da task 234: mesmo padrão de ProjectTestPtyService/
- * RailsMigrationPtyService, aplicado às ações de dependências/build. Substitui
- * por completo o fluxo antigo (ScriptExecutionService via SSE, com
+ * RailsMigrationPtyService, aplicado às ações de dependências/build. O
+ * ExecutionContext selecionado define cwd e runtime sem aceitar identidade
+ * paralela do cliente. Substitui por completo o fluxo antigo
+ * (ScriptExecutionService via SSE, com
  * confirmação por token e histórico persistido) — mesma decisão tomada para
  * Migration: sem preservar o código antigo como referência.
  */
@@ -138,16 +176,20 @@ export class ProjectDependenciesPtyService {
       );
     }
 
+    const command = commandForExecution(executionContext, resolved);
     try {
       const key = executionKey(
         project.id,
         executionContext.environmentInstanceId,
       );
       const snapshot = this.detachable.start(key, {
-        file: resolved.command,
-        args: resolved.args,
+        file: command.file,
+        args: command.args,
         cwd: executionContext.cwd,
-        env: isolateProjectExecutionEnvironment(scopedProject, resolved.env),
+        env:
+          executionContext.runtime === 'host'
+            ? isolateProjectExecutionEnvironment(scopedProject, resolved.env)
+            : {},
       });
       this.runningAction.set(key, {
         id: action.id,

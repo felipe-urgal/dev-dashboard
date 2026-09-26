@@ -20,6 +20,7 @@ import {
   ScriptExecutionError,
   type ScriptExecutionService,
 } from '../services/script-execution-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Params {
@@ -31,6 +32,7 @@ interface Query {
   search?: string;
   origin?: ProjectScriptOrigin;
   risk?: ProjectScriptRisk;
+  environmentInstanceId?: string;
 }
 interface StartBody {
   actionId: string;
@@ -44,6 +46,10 @@ interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
+  developmentEnvironmentInstanceStore?: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'resolveForProject'
+  >;
 }
 
 const executionParamsSchema = {
@@ -155,6 +161,11 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (
               type: 'string',
               enum: ['read-only', 'mutable', 'destructive'],
             },
+            environmentInstanceId: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 512,
+            },
           },
         },
         response: {
@@ -178,9 +189,25 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (
           code: 'PROJECT_NOT_FOUND',
           message: 'Projeto não encontrado.',
         });
+      const executionContext =
+        options.developmentEnvironmentInstanceStore?.resolveForProject(
+          project.id,
+          request.query.environmentInstanceId,
+        );
+      if (options.developmentEnvironmentInstanceStore && !executionContext) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+          message:
+            'Ambiente de desenvolvimento não encontrado para este projeto.',
+        });
+      }
+      const scopedProject = executionContext
+        ? { ...project, path: executionContext.cwd }
+        : project;
       return {
         catalog: await options.scriptDetectionService.getCatalog(
-          project,
+          scopedProject,
           request.query,
         ),
       };

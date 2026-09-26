@@ -167,6 +167,70 @@ test('start() roda o script build declarado no package.json', async () => {
   assert.equal(snapshot.actionName, 'build');
 });
 
+test('start() encapsula dependências no Dev Container selecionado', async () => {
+  const fakePty = new FakePty();
+  let spawnedFile: string | undefined;
+  let spawnedArgs: readonly string[] | undefined;
+  let spawnedCwd: string | undefined;
+  const detachable = new DetachableExecutionService({
+    spawnPty: (file, args, options) => {
+      spawnedFile = file;
+      spawnedArgs = args;
+      spawnedCwd = options.cwd;
+      return fakePty as never;
+    },
+  });
+  const service = new ProjectDependenciesPtyService(
+    detachable,
+    new ScriptDetectionService(),
+  );
+  const project = await nodeFixture();
+  const runtimeId = 'a'.repeat(64);
+  const context: ExecutionContext = {
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:projeto',
+    cwd: project.path,
+    runtime: 'devcontainer',
+    runtimeId,
+  };
+
+  await service.start(project, 'package-manager:install', context);
+
+  assert.equal(spawnedFile, 'devcontainer');
+  assert.deepEqual(spawnedArgs, [
+    'exec',
+    '--container-id',
+    runtimeId,
+    '--workspace-folder',
+    project.path,
+    'npm',
+    'install',
+  ]);
+  assert.equal(spawnedCwd, project.path);
+});
+
+test('start() rejeita Dev Container sem runtimeId executável', async () => {
+  const service = new ProjectDependenciesPtyService(
+    new DetachableExecutionService(),
+    new ScriptDetectionService(),
+  );
+  const project = await nodeFixture();
+  const context: ExecutionContext = {
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:projeto',
+    cwd: project.path,
+    runtime: 'devcontainer',
+    runtimeId: 'container-invalido',
+  };
+
+  await assert.rejects(
+    () => service.start(project, 'package-manager:install', context),
+    (error: unknown) =>
+      error instanceof ProjectDependenciesPtyError &&
+      error.code === 'RUNTIME_UNSUPPORTED',
+  );
+});
+
 test('start() lança ACTION_NOT_FOUND para uma ação fora do catálogo de dependências', async () => {
   const detachable = new DetachableExecutionService();
   const service = new ProjectDependenciesPtyService(
