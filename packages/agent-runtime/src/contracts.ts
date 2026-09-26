@@ -160,11 +160,39 @@ export interface AgentCheckpointRequest {
   requiredCapabilities: AgentCapability[];
 }
 
+export type AgentAuthorizationScope =
+  | {
+      kind: 'environment';
+      projectId: string;
+      environmentInstanceId: string;
+    }
+  | {
+      kind: 'branch';
+      projectId: string;
+      branch: string;
+    }
+  | {
+      kind: 'repository-branch';
+      repository: string;
+      branch: string;
+    }
+  | {
+      kind: 'pull-request';
+      repository: string;
+      number: number;
+    }
+  | {
+      kind: 'release-target';
+      projectId: string;
+      target: string;
+    };
+
 export interface AgentAuthorization {
   taskId: string;
   capability: AgentCapability;
   granted: boolean;
   observedAt: string;
+  scope?: AgentAuthorizationScope;
 }
 
 export type AgentEvidenceKind =
@@ -227,6 +255,7 @@ export interface AgentProviderExecutionRequest {
   environmentInstanceId?: string;
   summary: string;
   allowedCapabilities: readonly AgentCapability[];
+  allowedAuthorizations?: readonly AgentAuthorization[];
   continuationInstruction?: string;
   conversationContext?: AgentProviderConversationContext;
   contextEvidence?: readonly Pick<
