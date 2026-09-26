@@ -345,6 +345,16 @@ function buildPrompt(
     request.allowedCapabilities.length > 0
       ? request.allowedCapabilities.join(', ')
       : 'none';
+  const scopedAuthorizations = (request.allowedAuthorizations ?? [])
+    .filter((authorization) => authorization.granted)
+    .map((authorization) =>
+      authorization.scope
+        ? '- ' +
+          authorization.capability +
+          ': ' +
+          JSON.stringify(authorization.scope)
+        : '- ' + authorization.capability + ': legacy unscoped grant',
+    );
   const aliases = Object.keys(repositories);
   const exampleRepo = aliases[0] ?? 'project';
 
@@ -380,6 +390,13 @@ function buildPrompt(
     '- Executable envelopes must use a fenced block named agent-workflow-browser.',
     '- On completion, include a concise user-facing message in terminal_result.',
     '- Granted capabilities: ' + capabilities + '.',
+    ...(scopedAuthorizations.length > 0
+      ? [
+          '- Granted resource scopes:',
+          ...scopedAuthorizations,
+          '- Resource scopes are backend-owned authority. Do not widen, reinterpret, or substitute another resource.',
+        ]
+      : []),
     '- Protected actions that are not explicitly exposed by a tool are forbidden.',
     '',
     'Repository aliases:',

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type {
+  AgentAuthorizationScope,
   AgentCapability,
   AgentProviderRegistry,
   AgentTask,
@@ -56,7 +57,14 @@ function auditStore() {
       capability: AgentCapability,
       granted: boolean,
       observedAt: string,
-    ) => ({ taskId, capability, granted, observedAt }),
+      scope?: AgentAuthorizationScope,
+    ) => ({
+      taskId,
+      capability,
+      granted,
+      observedAt,
+      ...(scope ? { scope } : {}),
+    }),
     appendExecutionResult: async () => undefined,
     appendEvidence: async () => undefined,
   };
@@ -684,6 +692,11 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
           capability: 'workspace:write' as const,
           granted: true,
           observedAt: '2026-09-23T11:01:00.000Z',
+          scope: {
+            kind: 'environment' as const,
+            projectId: 'project-1',
+            environmentInstanceId: 'environment:primary:project-1',
+          },
         },
       ],
       appendExecutionResult: async (...args) => {
@@ -791,6 +804,11 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
         capability: 'workspace:write',
         granted: true,
         observedAt: '2026-09-23T11:01:00.000Z',
+        scope: {
+          kind: 'environment',
+          projectId: 'project-1',
+          environmentInstanceId: 'environment:primary:project-1',
+        },
       },
     ],
     userTurn: {
@@ -913,12 +931,120 @@ test('AgentRuntimeApiService não transforma falha de usage em falha da execuç�
   assert.equal(result.execution.state, 'succeeded');
 });
 
+test('AgentRuntimeApiService deriva scope de branch e PR sem aceitar autoridade do caller', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-900',
+      taskContextId: 'context-900',
+      state: 'queued',
+      summary: 'Scoped auth',
+      requestedCapabilities: ['git:push', 'github:merge'],
+      createdAt: '2026-09-26T18:30:00.000Z',
+      updatedAt: '2026-09-26T18:30:00.000Z',
+    },
+    null,
+  );
+  const context: TaskContext = {
+    id: 'context-900',
+    projectId: 'project-1',
+    branch: 'feature/900-agent-resource-scoped-authorizations',
+    environmentInstanceId: 'environment:worktree:project-1:worktree-900',
+    worktreeId: 'worktree-900',
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 990,
+    },
+    createdAt: '2026-09-26T18:30:00.000Z',
+    updatedAt: '2026-09-26T18:30:00.000Z',
+  };
+
+  const writes: unknown[] = [];
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: {
+      ...auditStore(),
+      setAuthorization: async (...args) => {
+        writes.push(args);
+        return {
+          taskId: args[0],
+          capability: args[1],
+          granted: args[2],
+          observedAt: args[3],
+          ...(args[4] ? { scope: args[4] } : {}),
+        };
+      },
+    },
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    taskContextRepository: {
+      find: (id) => (id === context.id ? context : null),
+    },
+    now: () => '2026-09-26T18:31:00.000Z',
+  });
+
+  const push = await service.setAuthorization(
+    'project-1',
+    'task-1',
+    'git:push',
+    true,
+  );
+  const merge = await service.setAuthorization(
+    'project-1',
+    'task-1',
+    'github:merge',
+    true,
+  );
+
+  assert.deepEqual(push.scope, {
+    kind: 'branch',
+    projectId: 'project-1',
+    branch: 'feature/900-agent-resource-scoped-authorizations',
+  });
+  assert.deepEqual(merge.scope, {
+    kind: 'pull-request',
+    repository: 'felipe-urgal/dev-dashboard',
+    number: 990,
+  });
+  assert.deepEqual(
+    writes.map((args) => (args as unknown[])[4]),
+    [push.scope, merge.scope],
+  );
+});
+
 test('AgentRuntimeApiService só autoriza capability solicitada pela task', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(
     {
       id: 'task-1',
       projectId: 'project-1',
+      environmentInstanceId: 'environment:primary:project-1',
       state: 'queued',
       summary: 'x',
       requestedCapabilities: ['workspace:write'],
@@ -940,6 +1066,7 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
           capability: args[1],
           granted: args[2],
           observedAt: args[3],
+          ...(args[4] ? { scope: args[4] } : {}),
         };
       },
     },
@@ -979,7 +1106,17 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
     true,
   );
   assert.deepEqual(writes, [
-    ['task-1', 'workspace:write', true, '2026-09-23T11:05:00.000Z'],
+    [
+      'task-1',
+      'workspace:write',
+      true,
+      '2026-09-23T11:05:00.000Z',
+      {
+        kind: 'environment',
+        projectId: 'project-1',
+        environmentInstanceId: 'environment:primary:project-1',
+      },
+    ],
   ]);
 
   await assert.rejects(

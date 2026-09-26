@@ -192,6 +192,11 @@ function authorizations(): AgentAuthorization[] {
       capability: 'workspace:write',
       granted: true,
       observedAt: '2026-09-22T15:00:00.000Z',
+      scope: {
+        kind: 'environment',
+        projectId: 'project-1',
+        environmentInstanceId: 'env-1',
+      },
     },
     {
       taskId: 'task-1',
@@ -235,6 +240,19 @@ test('executes one queued task and only forwards explicitly requested grants', a
   });
   assert.deepEqual(provider.lastRequest?.allowedCapabilities, [
     'workspace:write',
+  ]);
+  assert.deepEqual(provider.lastRequest?.allowedAuthorizations, [
+    {
+      taskId: 'task-1',
+      capability: 'workspace:write',
+      granted: true,
+      observedAt: '2026-09-22T15:00:00.000Z',
+      scope: {
+        kind: 'environment',
+        projectId: 'project-1',
+        environmentInstanceId: 'env-1',
+      },
+    },
   ]);
 
   const persisted = await store.get('task-1');

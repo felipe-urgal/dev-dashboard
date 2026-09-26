@@ -749,6 +749,61 @@ const checkpointSchema = {
   },
 } as const;
 
+const authorizationScopeSchema = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'projectId', 'environmentInstanceId'],
+      properties: {
+        kind: { type: 'string', enum: ['environment'] },
+        projectId: { type: 'string' },
+        environmentInstanceId: { type: 'string' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'projectId', 'branch'],
+      properties: {
+        kind: { type: 'string', enum: ['branch'] },
+        projectId: { type: 'string' },
+        branch: { type: 'string' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'repository', 'branch'],
+      properties: {
+        kind: { type: 'string', enum: ['repository-branch'] },
+        repository: { type: 'string' },
+        branch: { type: 'string' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'repository', 'number'],
+      properties: {
+        kind: { type: 'string', enum: ['pull-request'] },
+        repository: { type: 'string' },
+        number: { type: 'integer', minimum: 1 },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'projectId', 'target'],
+      properties: {
+        kind: { type: 'string', enum: ['release-target'] },
+        projectId: { type: 'string' },
+        target: { type: 'string' },
+      },
+    },
+  ],
+} as const;
+
 const authorizationSchema = {
   type: 'object',
   additionalProperties: false,
@@ -758,6 +813,7 @@ const authorizationSchema = {
     capability: { type: 'string', enum: [...capabilities] },
     granted: { type: 'boolean' },
     observedAt: { type: 'string' },
+    scope: authorizationScopeSchema,
   },
 } as const;
 

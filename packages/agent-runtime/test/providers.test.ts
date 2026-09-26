@@ -235,6 +235,39 @@ test('CLI provider inclui contexto bounded sem tratá-lo como autoridade', async
   );
 });
 
+test('CLI provider inclui scope backend-owned sem permitir ampliação', async () => {
+  const fake = createProviderRunner();
+  const provider = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute({
+    ...request(['git:push']),
+    allowedAuthorizations: [
+      {
+        taskId: 'task-1',
+        capability: 'git:push',
+        granted: true,
+        observedAt: '2026-09-26T18:30:00.000Z',
+        scope: {
+          kind: 'branch',
+          projectId: 'project-1',
+          branch: 'feature/900-agent-resource-scoped-authorizations',
+        },
+      },
+    ],
+  });
+
+  const prompt = String(fake.calls.at(-1)?.args.at(-1) ?? '');
+  assert.match(prompt, /Granted resource scopes:/);
+  assert.match(prompt, /feature\/900-agent-resource-scoped-authorizations/);
+  assert.match(
+    prompt,
+    /Do not widen, reinterpret, or substitute another resource/,
+  );
+});
+
 test('CLI provider inclui PR evidence como dado não confiável e não como autoridade', async () => {
   const fake = createProviderRunner();
   const provider = new CodexAgentProvider({

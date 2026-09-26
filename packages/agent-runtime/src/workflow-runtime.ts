@@ -1,6 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { grantedAgentCapabilities } from './authorization.js';
+import {
+  grantedAgentAuthorizations,
+  grantedAgentCapabilities,
+} from './authorization.js';
 import type { AgentAuditStore } from './agent-audit-store.js';
 import type {
   AgentConversationStore,
@@ -408,6 +411,10 @@ export class AgentWorkflowRuntime {
         current,
         request.authorizations ?? [],
       );
+      const allowedAuthorizations = this.allowedAuthorizations(
+        current,
+        request.authorizations ?? [],
+      );
       const executionId = this.createExecutionId();
       if (!executionId) {
         throw new AgentWorkflowRuntimeError(
@@ -514,6 +521,7 @@ export class AgentWorkflowRuntime {
             : {}),
           summary: runningRecord.task.summary,
           allowedCapabilities,
+          allowedAuthorizations,
           ...(continuationInstruction ? { continuationInstruction } : {}),
           ...(conversationContext ? { conversationContext } : {}),
           ...(request.contextEvidence?.length
@@ -1001,6 +1009,25 @@ export class AgentWorkflowRuntime {
     const active = [...this.active.values()];
     for (const execution of active) execution.controller.abort();
     await Promise.all(active.map((execution) => execution.done));
+  }
+
+  private allowedAuthorizations(
+    record: AgentTaskRecord,
+    authorizations: readonly AgentAuthorization[],
+  ): AgentAuthorization[] {
+    for (const authorization of authorizations) {
+      if (authorization.taskId !== record.task.id) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_AUTHORIZATION_INVALID',
+          'Agent authorization does not belong to the requested task.',
+        );
+      }
+    }
+
+    const requested = new Set(record.task.requestedCapabilities);
+    return grantedAgentAuthorizations(authorizations).filter((authorization) =>
+      requested.has(authorization.capability),
+    );
   }
 
   private allowedCapabilities(

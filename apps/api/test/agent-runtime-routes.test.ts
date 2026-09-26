@@ -1709,6 +1709,11 @@ test('Agent Runtime HTTP expõe autorização específica e activity bounded', a
       capability: 'workspace:write',
       granted: true,
       cwd: '/tmp/ignored',
+      scope: {
+        kind: 'branch',
+        projectId: 'attacker-project',
+        branch: 'main',
+      },
     },
   });
   assert.equal(authorization.statusCode, 200);
