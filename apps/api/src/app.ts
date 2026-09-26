@@ -30,9 +30,11 @@ import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
 import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js';
 import { projectLanguageServerRoutes } from './routes/project-language-server.js';
 import { projectTerminalRoutes } from './routes/project-terminal.js';
+import { dashboardTerminalRoutes } from './routes/dashboard-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
 import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
+import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -116,6 +118,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
       languageServerLogger: app.log,
     });
   const composition = createAppComposition(context, options);
+  const dashboardTerminalService = new DashboardTerminalService();
+  app.addHook('onClose', () => {
+    dashboardTerminalService.close();
+  });
   const {
     databaseExplorerSessionStore,
     projectDoctorService,
@@ -433,6 +439,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     projectTerminalService,
+  });
+  app.register(dashboardTerminalRoutes, {
+    prefix: '/api',
+    dashboardTerminalService,
   });
   app.register(projectBrowserRoutes, {
     prefix: '/api',
