@@ -30,6 +30,7 @@ export interface AgentConversationTurn {
   createdAt: string;
   executionId?: string;
   providerId?: AgentConcreteProviderId;
+  attachmentIds?: string[];
 }
 
 interface PersistedAgentConversation {
@@ -164,6 +165,22 @@ function canonicalTurn(turn: AgentConversationTurn): AgentConversationTurn {
       'Agent conversation turns require provider execution metadata.',
     );
   }
+  if (turn.attachmentIds !== undefined) {
+    if (
+      !Array.isArray(turn.attachmentIds) ||
+      turn.attachmentIds.length > 8 ||
+      new Set(turn.attachmentIds).size !== turn.attachmentIds.length
+    ) {
+      throw new AgentConversationStoreError(
+        'AGENT_CONVERSATION_INVALID',
+        'Agent conversation attachment ids are invalid.',
+      );
+    }
+    for (const attachmentId of turn.attachmentIds) {
+      assertIdentity(attachmentId, 'Agent attachment id');
+    }
+  }
+
   if (hasExecution) {
     assertIdentity(turn.executionId!, 'Agent execution id');
     if (!isConcreteProviderId(turn.providerId)) {
@@ -180,6 +197,9 @@ function canonicalTurn(turn: AgentConversationTurn): AgentConversationTurn {
     role: turn.role,
     content: sanitizeAgentConversationContent(turn.content),
     createdAt: turn.createdAt,
+    ...(turn.attachmentIds?.length
+      ? { attachmentIds: [...turn.attachmentIds] }
+      : {}),
   };
   if (hasExecution) {
     canonical.executionId = turn.executionId!;
@@ -199,7 +219,9 @@ function sameTurn(
     left.content === right.content &&
     left.createdAt === right.createdAt &&
     left.executionId === right.executionId &&
-    left.providerId === right.providerId
+    left.providerId === right.providerId &&
+    JSON.stringify(left.attachmentIds ?? []) ===
+      JSON.stringify(right.attachmentIds ?? [])
   );
 }
 
@@ -217,6 +239,7 @@ function isPersistedTurn(
     'createdAt',
     'executionId',
     'providerId',
+    'attachmentIds',
   ]);
   if (Object.keys(candidate).some((key) => !allowedKeys.has(key))) {
     return false;

@@ -110,6 +110,7 @@ export interface AgentWorkflowRuntimeOptions {
 export interface AgentWorkflowUserTurnInput {
   id: string;
   content: string;
+  attachmentIds?: readonly string[];
 }
 
 export interface AgentWorkflowExecuteRequest {
@@ -456,6 +457,9 @@ export class AgentWorkflowRuntime {
             role: 'user',
             content: request.userTurn.content,
             createdAt: this.now(),
+            ...(request.userTurn.attachmentIds?.length
+              ? { attachmentIds: [...request.userTurn.attachmentIds] }
+              : {}),
           });
         } catch {
           throw new AgentWorkflowRuntimeError(

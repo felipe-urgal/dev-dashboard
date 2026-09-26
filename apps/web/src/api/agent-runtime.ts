@@ -386,6 +386,24 @@ export interface AgentExecutionResult {
   checkpoint?: AgentCheckpoint;
 }
 
+export interface AgentAttachment {
+  id: string;
+  taskId: string;
+  filename: string;
+  mediaType:
+    | 'text/plain'
+    | 'text/markdown'
+    | 'application/json'
+    | 'image/png'
+    | 'image/jpeg'
+    | 'image/webp';
+  byteSize: number;
+  sha256: string;
+  source: 'user-upload';
+  createdAt: string;
+  textPreview?: string;
+}
+
 export interface AgentConversationTurn {
   id: string;
   taskId: string;
@@ -394,6 +412,7 @@ export interface AgentConversationTurn {
   createdAt: string;
   executionId?: string;
   providerId?: AgentConcreteProviderId;
+  attachmentIds?: string[];
 }
 
 export interface AgentConversationExecutionResult extends AgentExecutionResult {
@@ -630,6 +649,36 @@ export async function fetchAgentActivity(
   return requestJson<AgentActivity>(taskPath(projectId, taskId) + '/activity');
 }
 
+export async function fetchAgentAttachments(
+  projectId: string,
+  taskId: string,
+): Promise<AgentAttachment[]> {
+  return (
+    await requestJson<{ attachments: AgentAttachment[] }>(
+      taskPath(projectId, taskId) + '/attachments',
+    )
+  ).attachments;
+}
+
+export async function createAgentAttachment(
+  projectId: string,
+  taskId: string,
+  input: {
+    filename: string;
+    mediaType: AgentAttachment['mediaType'];
+    contentBase64: string;
+  },
+): Promise<AgentAttachment> {
+  return requestJson<AgentAttachment>(
+    taskPath(projectId, taskId) + '/attachments',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export async function fetchAgentConversation(
   projectId: string,
   taskId: string,
@@ -648,6 +697,7 @@ export async function executeAgentConversationTurn(
     id: string;
     content: string;
     providerId?: AgentProviderId;
+    attachmentIds?: string[];
   },
 ): Promise<AgentConversationExecutionResult> {
   return requestJson<AgentConversationExecutionResult>(
@@ -719,13 +769,17 @@ export async function executeAgentTask(
   projectId: string,
   taskId: string,
   providerId: AgentProviderId,
+  attachmentIds: string[] = [],
 ): Promise<AgentExecutionResult> {
   return requestJson<AgentExecutionResult>(
     taskPath(projectId, taskId) + '/executions',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ providerId }),
+      body: JSON.stringify({
+        providerId,
+        ...(attachmentIds.length ? { attachmentIds } : {}),
+      }),
     },
   );
 }
