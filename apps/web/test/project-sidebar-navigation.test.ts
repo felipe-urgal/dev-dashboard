@@ -68,12 +68,16 @@ describe('ProjectSidebarNavigation', () => {
     expect(gitTrigger).toBeDefined();
     expect(gitTrigger?.element.tagName).toBe('BUTTON');
     expect(gitTrigger?.attributes('aria-expanded')).toBe('false');
-    expect(wrapper.find('#project-sidebar-git-menu').isVisible()).toBe(false);
+    expect(wrapper.find('#project-sidebar-git-menu').attributes('style')).toContain(
+      'display: none',
+    );
 
     await gitTrigger?.trigger('click');
 
     expect(gitTrigger?.attributes('aria-expanded')).toBe('true');
-    expect(wrapper.find('#project-sidebar-git-menu').isVisible()).toBe(true);
+    expect(
+      wrapper.find('#project-sidebar-git-menu').attributes('style') ?? '',
+    ).not.toContain('display: none');
     expect(wrapper.find('#project-sidebar-git-menu').text()).toContain(
       'Sincronização',
     );
@@ -94,9 +98,9 @@ describe('ProjectSidebarNavigation', () => {
       .find((button) => button.text().includes('Qualidade'));
 
     expect(qualityTrigger?.attributes('aria-expanded')).toBe('true');
-    expect(wrapper.find('#project-sidebar-quality-menu').isVisible()).toBe(
-      true,
-    );
+    expect(
+      wrapper.find('#project-sidebar-quality-menu').attributes('style') ?? '',
+    ).not.toContain('display: none');
   });
 
   it('expande a sidebar recolhida antes de abrir um grupo', async () => {
