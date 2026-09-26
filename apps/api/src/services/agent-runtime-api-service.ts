@@ -1413,10 +1413,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
 
     let effectiveProviderId = providerId ?? profile?.providerId;
-    if (
-      effectiveProviderId === 'automatic' &&
-      profile?.fallbackOrder?.length
-    ) {
+    if (effectiveProviderId === 'automatic' && profile?.fallbackOrder?.length) {
       const statuses = await this.listProviders();
       const selected = profile.fallbackOrder.find((candidate) =>
         statuses.some(
