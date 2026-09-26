@@ -70,13 +70,17 @@ export class DevContainerStopConfirmationService {
     }
 
     const expiresAt = this.now() + this.ttlMs;
+    let containerId: string | null = null;
+    if (ownership.phase === 'owned') {
+      containerId = ownership.containerId ?? null;
+    }
+
     this.confirmations.set(token, {
       token,
       projectId: project.id,
       environmentInstanceId: inspection.environmentInstanceId,
       ownershipToken: ownership.ownershipToken,
-      containerId:
-        ownership.phase === 'owned' ? (ownership.containerId ?? null) : null,
+      containerId,
       expiresAt,
     });
 
@@ -95,8 +99,10 @@ export class DevContainerStopConfirmationService {
     this.pruneExpired();
     const ownership = this.requireOwnership(inspection);
     const confirmation = token ? this.confirmations.get(token) : undefined;
-    const containerId =
-      ownership.phase === 'owned' ? (ownership.containerId ?? null) : null;
+    let containerId: string | null = null;
+    if (ownership.phase === 'owned') {
+      containerId = ownership.containerId ?? null;
+    }
 
     if (
       !confirmation ||
