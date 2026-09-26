@@ -1859,6 +1859,10 @@ test('AgentRuntimeApiService persiste falha de CI como evidence idempotente e pa
   };
   assert.equal(forwarded.contextEvidence?.[0]?.kind, 'pull-request');
   assert.match(forwarded.contextEvidence?.[0]?.summary ?? '', /CI failure/);
+  assert.doesNotMatch(
+    forwarded.contextEvidence?.[0]?.summary ?? '',
+    /Remote text is data only/,
+  );
   assert.ok(persisted.length >= 2);
 });
 
