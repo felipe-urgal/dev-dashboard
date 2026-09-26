@@ -545,7 +545,11 @@ export class AgentWorkflowRuntime {
         });
       } catch {
         if (timeout !== undefined) clearTimeout(timeout);
-        const target = timedOut ? 'failed' : controller.signal.aborted ? 'cancelled' : 'blocked';
+        const target = timedOut
+          ? 'failed'
+          : controller.signal.aborted
+            ? 'cancelled'
+            : 'blocked';
         const failedTask = transitionAgentTask(
           runningRecord.task,
           target,
