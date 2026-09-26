@@ -148,6 +148,23 @@ const isServerRoute = computed(
   () => route.name === 'project-server' || route.name === 'project-details',
 );
 const isGitRoute = computed(() => route.name === 'project-git');
+
+const gitSidebarTabs = [
+  { id: 'sync', label: 'Sincronização' },
+  { id: 'branches', label: 'Branches' },
+  { id: 'diff', label: 'Diff' },
+  { id: 'commit', label: 'Commit' },
+  { id: 'undo', label: 'Desfazer' },
+  { id: 'pull-request', label: 'Pull Request' },
+  { id: 'history', label: 'Histórico' },
+] as const;
+
+const activeGitSidebarTab = computed(() => {
+  const value = Array.isArray(route.query.tab)
+    ? route.query.tab[0]
+    : route.query.tab;
+  return gitSidebarTabs.some((tab) => tab.id === value) ? value : 'sync';
+});
 const isWorktreesRoute = computed(() => route.name === 'project-worktrees');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isAgentRoute = computed(() => route.name === 'project-agent');
@@ -403,17 +420,45 @@ onBeforeUnmount(stopGitOverviewRefresh);
               <span>Servidor</span>
             </RouterLink>
 
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isGitRoute }"
-              :aria-current="isGitRoute ? 'page' : undefined"
-              :to="{ name: 'project-git', params: { projectId: project.id } }"
-              aria-label="Git"
-              :title="projectSidebarCollapsed ? 'Git' : undefined"
-            >
-              <CodeBracketIcon aria-hidden="true" />
-              <span>Git</span>
-            </RouterLink>
+            <div class="project-details-git-group">
+              <RouterLink
+                class="project-details-tab"
+                :class="{ 'project-details-tab-active': isGitRoute }"
+                :aria-current="isGitRoute ? 'page' : undefined"
+                :to="{ name: 'project-git', params: { projectId: project.id } }"
+                aria-label="Git"
+                :title="projectSidebarCollapsed ? 'Git' : undefined"
+              >
+                <CodeBracketIcon aria-hidden="true" />
+                <span>Git</span>
+              </RouterLink>
+
+              <nav
+                v-if="isGitRoute && !projectSidebarCollapsed"
+                class="project-details-git-submenu"
+                aria-label="Áreas do Git"
+              >
+                <RouterLink
+                  v-for="tab in gitSidebarTabs"
+                  :key="tab.id"
+                  class="project-details-git-submenu-item"
+                  :class="{
+                    'project-details-git-submenu-item-active':
+                      activeGitSidebarTab === tab.id,
+                  }"
+                  :aria-current="
+                    activeGitSidebarTab === tab.id ? 'page' : undefined
+                  "
+                  :to="{
+                    name: 'project-git',
+                    params: { projectId: project.id },
+                    query: { tab: tab.id },
+                  }"
+                >
+                  <span>{{ tab.label }}</span>
+                </RouterLink>
+              </nav>
+            </div>
 
             <RouterLink
               class="project-details-tab"
