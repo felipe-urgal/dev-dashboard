@@ -170,6 +170,38 @@ function service(
       },
     }),
     retry: async () => task,
+    completeTask: async () => ({
+      task: {
+        ...task,
+        task: {
+          ...task.task,
+          state: 'completed',
+          updatedAt: '2026-09-23T10:03:30.000Z',
+        },
+        version: 2,
+      },
+      handoffEvidence: {
+        id: 'completion-1',
+        taskId: 'task-1',
+        kind: 'other',
+        summary: 'Agent task completed with explicit operator confirmation.',
+        observedAt: '2026-09-23T10:03:30.000Z',
+      },
+      cleanup: {
+        status: 'eligible',
+        worktreeId: 'worktree-123',
+        environmentInstanceId:
+          'environment:worktree:project-1:worktree-123',
+        confirmationToken: 'cleanup-token',
+        expiresAt: '2026-09-23T10:04:30.000Z',
+      },
+    }),
+    cleanupCompletedTask: async () => ({
+      status: 'removed',
+      worktreeId: 'worktree-123',
+      environmentInstanceId:
+        'environment:worktree:project-1:worktree-123',
+    }),
     recover: async () => ({
       task,
       runtime: {
@@ -341,6 +373,82 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
     payload: { providerId: 'codex', cwd: '/tmp/escape' },
   });
   assert.equal(executeAbuse.statusCode, 200);
+});
+
+test('Agent Runtime HTTP conclui task e confirma cleanup sem aceitar path/worktree do browser', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      completeTask: async (...args) => {
+        calls.push(['complete', ...args]);
+        return {
+          task: {
+            ...task,
+            task: {
+              ...task.task,
+              state: 'completed',
+              updatedAt: '2026-09-26T18:20:00.000Z',
+            },
+            version: 2,
+          },
+          handoffEvidence: {
+            id: 'completion-1',
+            taskId: 'task-1',
+            kind: 'other',
+            summary:
+              'Agent task completed with explicit operator confirmation.',
+            observedAt: '2026-09-26T18:20:00.000Z',
+          },
+          cleanup: {
+            status: 'eligible',
+            worktreeId: 'worktree-owned',
+            confirmationToken: 'owned-token',
+          },
+        };
+      },
+      cleanupCompletedTask: async (...args) => {
+        calls.push(['cleanup', ...args]);
+        return {
+          status: 'removed',
+          worktreeId: 'worktree-owned',
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const completed = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/complete',
+    payload: {
+      confirmed: true,
+      worktreeId: 'browser-controlled',
+      path: '/tmp/escape',
+    },
+  });
+  assert.equal(completed.statusCode, 200);
+  assert.equal(completed.json().task.task.state, 'completed');
+  assert.equal(completed.json().cleanup.worktreeId, 'worktree-owned');
+
+  const cleaned = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/cleanup',
+    payload: {
+      confirmationToken: 'owned-token',
+      worktreeId: 'browser-controlled',
+      path: '/tmp/escape',
+    },
+  });
+  assert.equal(cleaned.statusCode, 200);
+  assert.equal(cleaned.json().status, 'removed');
+  assert.deepEqual(calls, [
+    ['complete', 'project-1', 'task-1', true],
+    ['cleanup', 'project-1', 'task-1', 'owned-token'],
+  ]);
 });
 
 test('Agent Runtime HTTP expõe refresh explícito de feedback do PR', async (context) => {
