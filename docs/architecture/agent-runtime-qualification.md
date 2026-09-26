@@ -15,6 +15,7 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | Evidence após conclusão | automatizado | coberto | UI recebe evidence de teste após segunda execução |
 | Persistência/restart do task store | automatizado | coberto | testes do `GitAgentTaskStore` |
 | Runtime interrompido/recovery | automatizado | coberto | `packages/agent-runtime/test/recovery.test.ts` |
+| Conversa multi-turn sem replay após reabrir stores | automatizado | coberto | `packages/agent-runtime/test/conversation-recovery.test.ts` |
 | Exclusão por task/owner | automatizado | coberto | lock manager e ownership tests |
 | Browser bridge/tool safety | automatizado | coberto | testes de browser provider/bridge/tool policy |
 | Activity/Jobs sem prompt/output bruto | automatizado | coberto | testes de Activity da #776 |
@@ -32,6 +33,35 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | GitHub remoto indisponível | integração externa | pendente | degradar vínculo remoto sem derrubar runtime |
 
 ## Estado do tracker
+
+### Recovery da conversa multi-turn (#895)
+
+`conversation-recovery.test.ts` integra o runtime com os stores reais de task
+Git, conversa, auditoria e estado operacional em diretórios temporários. Cada
+reabertura cria novas instâncias sobre os mesmos arquivos. O provider e a
+detecção de processo encerrado são simulados; não é um teste de interrupção de
+um provider real.
+
+O teste cobre:
+
+- execução concluída: histórico e vínculo execution/provider sobrevivem à
+  reabertura; reenviar o mesmo `turnId`, inclusive com outro conteúdo, não executa
+  o provider nem altera a conversa;
+- falha depois de persistir a mensagem do usuário e antes de salvar `running`:
+  a mensagem permanece única e seu ID não pode ser reenviado;
+- falha depois de persistir a resposta e antes de salvar `review`: recovery
+  preserva as duas mensagens e o estado canônico, sem replay da execução.
+
+`Recover` restaura somente o bookkeeping operacional de `interrupted` para
+`idle`. Não transforma uma task canônica ainda `running` em `queued` ou `review`.
+Essa execução ambígua continua impedida de executar; retomar trabalho exige
+reconciliação canônica explícita, não reenvio automático. Da mesma forma, um
+turno persistido antes de uma falha de início não ganha retry implícito.
+
+A cobertura comprova ausência de duplicação nesses pontos de falha, não
+recuperação automática de qualquer execução interrompida. Qualificação
+multi-turn com providers reais, interrupção real do processo e observabilidade
+de compactação continuam como gates separados da #895/#777.
 
 Em 2026-09-23, a epic #768 e o roadmap #596 foram sincronizados com o estado real: #773–#776 estão concluídas e #777 permanece aberta para os gates reais de paridade. As issues #599/#600 foram reconciliadas como concluídas e #589 continua parcial apenas na convergência da execução mutável.
 
