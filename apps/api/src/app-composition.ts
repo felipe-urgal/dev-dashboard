@@ -571,6 +571,7 @@ function createAgentRuntimeApiService(
       createDefaultAgentIntegrationProviderRegistry(),
     workflowRuntime,
     projectStore: context.projectStore,
+    worktreeLifecycle: context.gitWorktreeLifecycleService,
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     taskContextRepository: context.taskContextRepository,
