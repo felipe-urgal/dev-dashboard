@@ -1765,8 +1765,7 @@ test('AgentRuntimeApiService persiste falha de CI como evidence idempotente e pa
             id: 'execution-1',
             taskId: 'task-1',
             projectId: 'project-1',
-            environmentInstanceId:
-              'environment:worktree:project-1:worktree-1',
+            environmentInstanceId: 'environment:worktree:project-1:worktree-1',
             providerId: 'codex',
             state: 'succeeded',
             finishedAt: '2026-09-26T15:02:00.000Z',
@@ -1798,8 +1797,7 @@ test('AgentRuntimeApiService persiste falha de CI como evidence idempotente e pa
     developmentEnvironmentInstanceStore: {
       resolveForProject: () => ({
         projectId: 'project-1',
-        environmentInstanceId:
-          'environment:worktree:project-1:worktree-1',
+        environmentInstanceId: 'environment:worktree:project-1:worktree-1',
         cwd: '/workspace/project-1-agent-898',
         runtime: 'host',
       }),
