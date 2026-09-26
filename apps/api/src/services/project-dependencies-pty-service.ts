@@ -110,8 +110,10 @@ function isDependenciesAction(action: ProjectScript): boolean {
 
 /**
  * Item 3 da task 234: mesmo padrão de ProjectTestPtyService/
- * RailsMigrationPtyService, aplicado às ações de dependências/build. Substitui
- * por completo o fluxo antigo (ScriptExecutionService via SSE, com
+ * RailsMigrationPtyService, aplicado às ações de dependências/build. O
+ * ExecutionContext selecionado define cwd e runtime sem aceitar identidade
+ * paralela do cliente. Substitui por completo o fluxo antigo
+ * (ScriptExecutionService via SSE, com
  * confirmação por token e histórico persistido) — mesma decisão tomada para
  * Migration: sem preservar o código antigo como referência.
  */
