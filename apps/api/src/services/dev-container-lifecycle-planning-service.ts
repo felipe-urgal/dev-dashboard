@@ -8,9 +8,18 @@ import type {
   DevContainerOwnershipRecord,
   DevContainerOwnershipStore,
 } from './dev-container-ownership-store.js';
-import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
-import type { DockerComposePreflightService } from './docker-compose-preflight-service.js';
-import type { DockerComposeProvider } from './docker-compose-provider.js';
+import type {
+  DockerComposeOwnershipRecord,
+  DockerComposeOwnershipStore,
+} from './docker-compose-ownership-store.js';
+import type {
+  DockerComposePortPreflight,
+  DockerComposePreflightService,
+} from './docker-compose-preflight-service.js';
+import type {
+  DockerComposeInspection,
+  DockerComposeProvider,
+} from './docker-compose-provider.js';
 import type {
   DevContainerConfigurationKind,
   DevContainerConfigurationSource,
@@ -141,7 +150,7 @@ async function composeBlockDiagnostic(
   }
 
   const composeProject = composeProjectForExecution(project, executionContext);
-  let inspection;
+  let inspection: DockerComposeInspection;
   try {
     inspection = await integration.provider.inspect(composeProject);
   } catch {
@@ -152,7 +161,7 @@ async function composeBlockDiagnostic(
     return 'O Docker Compose não produziu uma configuração comprovada para esta Environment Instance; o lifecycle Dev Container permanece bloqueado.';
   }
 
-  let preflight;
+  let preflight: DockerComposePortPreflight;
   try {
     preflight = await integration.preflight.inspect(
       composeProject,
@@ -170,7 +179,7 @@ async function composeBlockDiagnostic(
     return 'O preflight compartilhado de portas do Docker Compose está indisponível; o lifecycle Dev Container permanece bloqueado.';
   }
 
-  let ownership;
+  let ownership: DockerComposeOwnershipRecord | undefined;
   try {
     ownership = await integration.ownershipStore.get(composeProject);
   } catch {
