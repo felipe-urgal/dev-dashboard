@@ -60,6 +60,16 @@ test('rotas de terminal/console do projeto', async (context) => {
     warnings: [],
   });
 
+  for (const project of [railsProject, nodeProject]) {
+    appContext.developmentEnvironmentInstanceStore.upsert({
+      id: primaryEnvironmentInstanceId(project.id),
+      projectId: project.id,
+      source: { kind: 'primary', path: project.path },
+      runtime: { kind: 'host' },
+      lifecycle: 'ready',
+    });
+  }
+
   const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => {
     await app.close();
