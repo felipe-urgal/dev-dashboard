@@ -153,10 +153,7 @@ export interface AgentBudgetOverview {
 }
 
 export type AgentPullRequestFeedbackStatus =
-  | 'no-pull-request'
-  | 'ready'
-  | 'attention'
-  | 'unavailable';
+  'no-pull-request' | 'ready' | 'attention' | 'unavailable';
 
 export interface AgentPullRequestFeedback {
   status: AgentPullRequestFeedbackStatus;
@@ -169,9 +166,11 @@ export interface AgentPullRequestFeedback {
     url: string;
     headSha?: string;
     ciStatus?: 'success' | 'pending' | 'failure' | 'unknown';
-    reviewState?: 'approved' | 'changes-requested' | 'review-required' | 'unknown';
+    reviewState?:
+      'approved' | 'changes-requested' | 'review-required' | 'unknown';
     unresolvedConversationsCount?: number;
-    remoteStatus?: 'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
+    remoteStatus?:
+      'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
   };
 }
 
@@ -1706,7 +1705,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
   private async pullRequestFeedback(
     task: AgentTask,
-  ): Promise<Omit<AgentPullRequestFeedback, 'newEvidenceCount' | 'automaticContinuation'>> {
+  ): Promise<
+    Omit<AgentPullRequestFeedback, 'newEvidenceCount' | 'automaticContinuation'>
+  > {
     const observedAt = this.now();
     if (!task.taskContextId) {
       return { status: 'no-pull-request', observedAt, evidence: [] };

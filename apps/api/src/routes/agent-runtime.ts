@@ -788,7 +788,6 @@ const evidenceSchema = {
   },
 } as const;
 
-
 const pullRequestFeedbackSchema = {
   type: 'object',
   additionalProperties: false,
