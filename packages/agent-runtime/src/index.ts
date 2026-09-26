@@ -11,6 +11,7 @@ export type {
   AgentConcreteProviderId,
   AgentEvent,
   AgentEventType,
+  AgentEffectiveExecutionConfiguration,
   AgentEvidence,
   AgentEvidenceKind,
   AgentExecution,
