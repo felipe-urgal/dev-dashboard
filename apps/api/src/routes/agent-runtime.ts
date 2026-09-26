@@ -968,6 +968,33 @@ const providerStatusSchema = {
       enum: [...concreteProviderIds],
     },
     reason: { type: 'string' },
+    diagnostic: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['code'],
+      properties: {
+        code: {
+          type: 'string',
+          enum: [
+            'ready',
+            'command-unavailable',
+            'version-unsupported',
+            'authentication-required',
+            'preflight-timeout',
+            'runtime-failed',
+            'bridge-token-missing',
+            'bridge-unavailable',
+            'bridge-unhealthy',
+            'bridge-paused',
+            'browser-extension-unavailable',
+            'browser-extension-stale',
+            'browser-session-unavailable',
+            'automatic-unavailable',
+          ],
+        },
+        evidence: { type: 'string', maxLength: 512 },
+      },
+    },
     quota: {
       type: 'object',
       additionalProperties: false,
