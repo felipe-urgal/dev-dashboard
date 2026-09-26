@@ -174,11 +174,13 @@ async function fixture(
   });
 
   return {
+    root,
     runtime,
     store,
     runtimeStateStore,
     auditStore,
     conversationStore,
+    lockManager,
     advanceTime: (milliseconds: number) => {
       clockOffsetMs += milliseconds;
     },
@@ -553,6 +555,84 @@ test('duplicate conversation turn id is rejected without another provider execut
       error.code === 'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
   );
   assert.equal(executions, 1);
+});
+
+test('recovery após restart não duplica turno persistido nem redispara provider', async (t) => {
+  let executions = 0;
+  const provider = new StubProvider(async () => {
+    executions += 1;
+    return {
+      providerId: 'codex',
+      outcome: 'succeeded',
+      summary: 'Done',
+    };
+  });
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
+
+  await fixtureResult.conversationStore.append({
+    id: 'turn-recovery',
+    taskId: 'task-1',
+    role: 'user',
+    content: 'Continue depois do restart.',
+    createdAt: '2026-09-22T15:00:10.000Z',
+  });
+
+  const current = await fixtureResult.store.get('task-1');
+  assert.ok(current);
+
+  const crashedStateStore = new AgentRuntimeStateStore({
+    stateDirectory: fixtureResult.root,
+    processId: 202,
+    isProcessAlive: () => false,
+    now: () => new Date('2026-09-22T15:00:20.000Z'),
+  });
+  await crashedStateStore.markRunning(current, 'execution-before-restart');
+  assert.deepEqual(await crashedStateStore.recoverInterrupted([current]), [
+    'task-1',
+  ]);
+  assert.equal((await crashedStateStore.read(current)).state, 'interrupted');
+
+  const restartedRuntime = new AgentWorkflowRuntime({
+    taskStore: fixtureResult.store,
+    providerRegistry: new StaticAgentProviderRegistry([provider]),
+    runtimeStateStore: crashedStateStore,
+    lockManager: fixtureResult.lockManager,
+    checkpointStore: fixtureResult.auditStore,
+    executionResultStore: fixtureResult.auditStore,
+    conversationStore: fixtureResult.conversationStore,
+    now: () => '2026-09-22T15:00:30.000Z',
+    createExecutionId: () => 'execution-after-restart',
+    createCheckpointId: () => 'checkpoint-after-restart',
+    retryBackoffMs: 0,
+  });
+
+  await restartedRuntime.recover('project-1', 'task-1');
+  assert.equal((await crashedStateStore.read(current)).state, 'idle');
+
+  await assert.rejects(
+    () =>
+      restartedRuntime.execute({
+        projectId: 'project-1',
+        taskId: 'task-1',
+        providerId: 'codex',
+        authorizations: authorizations(),
+        userTurn: {
+          id: 'turn-recovery',
+          content: 'Continue depois do restart.',
+        },
+      }),
+    (error: unknown) =>
+      error instanceof AgentWorkflowRuntimeError &&
+      error.code === 'AGENT_WORKFLOW_TURN_ALREADY_SUBMITTED',
+  );
+
+  assert.equal(executions, 0);
+  assert.deepEqual(
+    (await restartedRuntime.conversation('project-1', 'task-1')).map(
+      (turn) => turn.id,
+    ),
+    ['turn-recovery'],
+  );
 });
 
 test('conversation continuation is accepted only from review state', async (t) => {
