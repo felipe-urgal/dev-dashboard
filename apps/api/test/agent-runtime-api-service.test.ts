@@ -1034,6 +1034,7 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
     {
       id: 'task-1',
       projectId: 'project-1',
+      environmentInstanceId: 'environment:primary:project-1',
       state: 'queued',
       summary: 'x',
       requestedCapabilities: ['workspace:write'],
@@ -1055,6 +1056,7 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
           capability: args[1],
           granted: args[2],
           observedAt: args[3],
+          ...(args[4] ? { scope: args[4] } : {}),
         };
       },
     },
@@ -1094,7 +1096,17 @@ test('AgentRuntimeApiService só autoriza capability solicitada pela task', asyn
     true,
   );
   assert.deepEqual(writes, [
-    ['task-1', 'workspace:write', true, '2026-09-23T11:05:00.000Z'],
+    [
+      'task-1',
+      'workspace:write',
+      true,
+      '2026-09-23T11:05:00.000Z',
+      {
+        kind: 'environment',
+        projectId: 'project-1',
+        environmentInstanceId: 'environment:primary:project-1',
+      },
+    ],
   ]);
 
   await assert.rejects(
