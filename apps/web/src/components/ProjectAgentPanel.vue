@@ -36,6 +36,8 @@ import {
   setAgentBudget,
   setAgentAuthorization,
   type AgentActivity,
+  type AgentAuthorization,
+  type AgentAuthorizationScope,
   type AgentBacklogIssue,
   type AgentBudgetOverview,
   type AgentCapability,
@@ -214,12 +216,33 @@ const pendingCheckpoint = computed(() => {
 });
 
 const authorizationByCapability = computed(() => {
-  const values = new Map<AgentCapability, boolean>();
+  const values = new Map<AgentCapability, AgentAuthorization>();
   for (const authorization of activity.value?.authorizations ?? []) {
-    values.set(authorization.capability, authorization.granted);
+    values.set(authorization.capability, authorization);
   }
   return values;
 });
+
+const authorizationGranted = (capability: AgentCapability): boolean =>
+  authorizationByCapability.value.get(capability)?.granted === true;
+
+const authorizationScopeLabel = (
+  scope: AgentAuthorizationScope | undefined,
+): string => {
+  if (!scope) return 'Sem escopo estruturado (legado)';
+  switch (scope.kind) {
+    case 'environment':
+      return 'Ambiente · ' + scope.environmentInstanceId;
+    case 'branch':
+      return 'Branch · ' + scope.branch;
+    case 'repository-branch':
+      return scope.repository + ' · ' + scope.branch;
+    case 'pull-request':
+      return scope.repository + ' · PR #' + scope.number;
+    case 'release-target':
+      return 'Target · ' + scope.target;
+  }
+};
 
 const providerLabel = (providerId: AgentProviderId): string => {
   switch (providerId) {
@@ -1793,10 +1816,20 @@ onBeforeUnmount(() => {
                 <div>
                   <strong>{{ capability }}</strong>
                   <small>{{
-                    authorizationByCapability.get(capability)
+                    authorizationGranted(capability)
                       ? 'Concedida'
                       : 'Não concedida'
                   }}</small>
+                  <small
+                    v-if="authorizationByCapability.get(capability)?.scope"
+                    class="agent-authorization-scope"
+                  >
+                    {{
+                      authorizationScopeLabel(
+                        authorizationByCapability.get(capability)?.scope,
+                      )
+                    }}
+                  </small>
                 </div>
                 <button
                   class="secondary-button"
@@ -1805,12 +1838,12 @@ onBeforeUnmount(() => {
                   @click="
                     toggleAuthorization(
                       capability,
-                      !authorizationByCapability.get(capability),
+                      !authorizationGranted(capability),
                     )
                   "
                 >
                   {{
-                    authorizationByCapability.get(capability)
+                    authorizationGranted(capability)
                       ? 'Revogar'
                       : 'Autorizar'
                   }}
