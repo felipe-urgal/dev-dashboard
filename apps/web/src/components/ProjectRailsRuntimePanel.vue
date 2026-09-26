@@ -16,7 +16,6 @@ import { ref, watch } from 'vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 import { processToneFor } from '../utils/status-tones';
-import Card from './Card.vue';
 import ProjectLogTerminal from './ProjectLogTerminal.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -80,7 +79,7 @@ function formatDate(value?: string): string {
       :data-worker-id="workerId"
       aria-label="Estado do processo"
     >
-      <Card class="rails-worker-card" :padded="false">
+      <div class="rails-worker-card">
         <p
           v-if="worker.errorMessage.value"
           class="rails-worker-error"
@@ -244,7 +243,7 @@ function formatDate(value?: string): string {
             </div>
           </section>
         </template>
-      </Card>
+      </div>
     </section>
   </div>
 </template>
@@ -252,65 +251,74 @@ function formatDate(value?: string): string {
 <style scoped>
 .rails-runtime-panel {
   display: flex;
-  min-height: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
   flex-direction: column;
-}
-
-.rails-worker-panel {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-1);
 }
 
 .rails-worker-panel,
-.rails-worker-card,
-.rails-worker-command {
-  min-width: 0;
-}
-
-:global(.dd-card.rails-worker-card) {
+.rails-worker-card {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  overflow: visible;
+}
+
+.rails-worker-card {
+  overflow: hidden;
+  background: var(--surface-1);
 }
 
 .rails-worker-error {
-  margin: 12px 12px 0;
-  padding: 10px 12px;
-  border: 1px solid var(--danger-text);
-  border-radius: var(--radius-sm);
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
   color: var(--danger-text);
   background: var(--danger-surface);
+  font-size: 10px;
 }
 
 .rails-worker-empty,
 .rails-worker-empty-state {
-  padding: var(--space-5);
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 18px;
   color: var(--text-muted);
   text-align: center;
+  font-size: 10px;
 }
 
 .rails-worker-empty-state strong {
   display: block;
   color: var(--text);
+  font-size: 12px;
 }
 
 .rails-worker-empty-state p {
   max-width: 620px;
-  margin: 6px auto 0;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .rails-worker-toolbar {
   display: flex;
-  min-height: 64px;
+  min-height: 54px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: 12px 14px;
-  background: var(--surface-2);
+  gap: 12px;
+  padding: 9px 12px 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .rails-worker-identity,
@@ -323,12 +331,12 @@ function formatDate(value?: string): string {
 
 .rails-worker-identity > strong {
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: 12px;
 }
 
 .rails-worker-status-dot {
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   flex: 0 0 auto;
   border-radius: 999px;
   background: var(--text-dim);
@@ -336,7 +344,7 @@ function formatDate(value?: string): string {
 
 .rails-worker-status-dot.is-running {
   background: var(--success-text);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-text) 16%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-text) 14%, transparent);
 }
 
 .rails-worker-actions {
@@ -346,16 +354,18 @@ function formatDate(value?: string): string {
 .rails-worker-actions button,
 .rails-worker-details-trigger {
   display: inline-flex;
-  min-height: 34px;
+  min-height: 32px;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
 }
 
 .rails-worker-actions svg,
 .rails-worker-details-trigger svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 
 .rails-worker-details {
@@ -363,12 +373,10 @@ function formatDate(value?: string): string {
 }
 
 .rails-worker-details-trigger {
-  padding: 0 10px;
+  padding: 0 9px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  background: var(--surface-1);
-  font-size: var(--font-xs);
+  background: transparent;
   font-weight: var(--font-weight-strong);
   cursor: pointer;
   list-style: none;
@@ -381,6 +389,7 @@ function formatDate(value?: string): string {
 .rails-worker-details-trigger:hover {
   border-color: var(--border-strong);
   color: var(--text);
+  background: var(--surface-2);
 }
 
 .rails-worker-details-chevron {
@@ -397,7 +406,7 @@ function formatDate(value?: string): string {
   z-index: 20;
   top: calc(100% + 8px);
   right: 0;
-  width: min(560px, calc(100vw - 64px));
+  width: min(520px, calc(100vw - 64px));
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -416,7 +425,7 @@ function formatDate(value?: string): string {
   margin-bottom: 4px;
   color: var(--text-dim);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: var(--font-weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -424,10 +433,11 @@ function formatDate(value?: string): string {
 .rails-worker-details-popover dd {
   margin: 0;
   color: var(--text);
-  font-size: var(--font-xs);
+  font-size: 10px;
 }
 
 .rails-worker-command {
+  min-width: 0;
   grid-column: 1 / -1;
 }
 
@@ -439,23 +449,24 @@ function formatDate(value?: string): string {
   color: var(--text-muted);
   background: var(--surface-0);
   font-family: var(--font-family-code);
+  font-size: 10px;
   white-space: nowrap;
 }
 
 .rails-worker-stop-button {
   display: inline-flex;
-  min-height: 34px;
+  min-height: 32px;
   align-items: center;
   gap: 6px;
-  padding: 0 11px;
+  padding: 0 10px;
   border: 1px solid var(--danger-text);
   border-radius: var(--radius-sm);
   color: #fff;
   background: var(--danger-text);
-  font: inherit;
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
   cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
 }
 
 .rails-worker-stop-button:hover:not(:disabled) {
@@ -469,12 +480,11 @@ function formatDate(value?: string): string {
 
 .rails-log-panel {
   display: flex;
-  min-height: 260px;
+  min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
-  border-top: 1px solid var(--border);
-  background: var(--surface-1);
+  background: var(--surface-0);
 }
 
 .rails-log-panel-expanded {
@@ -482,7 +492,6 @@ function formatDate(value?: string): string {
   z-index: 1000;
   inset: 0;
   min-height: 0;
-  border: 0;
   background: var(--surface-1);
 }
 
@@ -491,12 +500,45 @@ function formatDate(value?: string): string {
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
-  padding: 12px;
 }
 
 .rails-log-panel-body .project-log-terminal {
   min-height: 0;
   flex: 1 1 auto;
+}
+
+.rails-log-panel-body :deep(.project-log-viewer) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-0);
+}
+
+.rails-log-panel-body :deep(.project-log-viewer-header) {
+  min-height: 44px;
+  padding: 7px 12px;
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
+}
+
+.rails-log-panel-body :deep(.project-log-viewer-output) {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  background: var(--surface-0);
+}
+
+.rails-log-panel-body :deep(.project-log-viewer-output pre) {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px 20px;
+  background: var(--surface-0);
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .rails-log-panel-button {
@@ -505,24 +547,25 @@ function formatDate(value?: string): string {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 4px 9px;
-  border: 1px solid #484f58;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: #c9d1d9;
-  background: #21262d;
-  font: inherit;
-  font-size: var(--font-xs);
+  color: var(--text-muted);
+  background: transparent;
   cursor: pointer;
+  font: inherit;
+  font-size: 9px;
 }
 
 .rails-log-panel-button svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
 }
 
 .rails-log-panel-button:hover {
-  border-color: #8b949e;
-  color: #fff;
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 @media (max-width: 720px) {
@@ -538,7 +581,7 @@ function formatDate(value?: string): string {
 
   .rails-worker-details-popover {
     position: static;
-    width: min(100%, 560px);
+    width: min(100%, 520px);
     margin-top: 8px;
   }
 }
