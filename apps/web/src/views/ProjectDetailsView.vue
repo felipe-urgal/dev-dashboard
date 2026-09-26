@@ -286,6 +286,7 @@ onBeforeUnmount(stopGitOverviewRefresh);
     :class="{
       'project-details-page-ready': project !== null,
       'project-details-page-pty':
+        isServerRoute ||
         isTestsRoute ||
         isTerminalRoute ||
         isConsoleRoute ||
