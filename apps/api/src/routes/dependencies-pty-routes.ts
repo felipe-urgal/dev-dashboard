@@ -93,6 +93,10 @@ const PTY_ERROR_RESPONSE: Record<
     statusCode: 409,
     code: 'DEPENDENCIES_PTY_ALREADY_RUNNING',
   },
+  RUNTIME_UNSUPPORTED: {
+    statusCode: 409,
+    code: 'DEPENDENCIES_PTY_RUNTIME_UNSUPPORTED',
+  },
   START_FAILED: { statusCode: 500, code: 'DEPENDENCIES_PTY_START_FAILED' },
 };
 
