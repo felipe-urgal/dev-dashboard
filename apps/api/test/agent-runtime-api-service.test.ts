@@ -1022,10 +1022,10 @@ test('AgentRuntimeApiService deriva scope de branch e PR sem aceitar autoridade 
     repository: 'felipe-urgal/dev-dashboard',
     number: 990,
   });
-  assert.deepEqual(writes.map((args) => (args as unknown[])[4]), [
-    push.scope,
-    merge.scope,
-  ]);
+  assert.deepEqual(
+    writes.map((args) => (args as unknown[])[4]),
+    [push.scope, merge.scope],
+  );
 });
 
 test('AgentRuntimeApiService só autoriza capability solicitada pela task', async () => {
