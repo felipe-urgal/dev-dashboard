@@ -41,6 +41,7 @@ interface CreateTaskBody {
 interface ExecuteBody {
   providerId?: AgentProviderId;
   attachmentIds?: string[];
+  profileId?: string;
 }
 
 interface ConversationTurnBody {
@@ -48,6 +49,24 @@ interface ConversationTurnBody {
   content: string;
   providerId?: AgentProviderId;
   attachmentIds?: string[];
+  profileId?: string;
+}
+
+interface ExecutionProfileBody {
+  defaultProfileId?: string;
+  profiles: Array<{
+    id: string;
+    label: string;
+    providerId: AgentProviderId;
+    fallbackOrder?: Array<'codex' | 'claude-code'>;
+    timeoutMs?: number;
+    budget?: {
+      maxTotalTokens?: number;
+      maxEstimatedCostUsd?: number;
+      mode?: 'soft' | 'hard';
+    };
+    requestedCapabilities: AgentCapability[];
+  }>;
 }
 
 interface AttachmentBody {
@@ -309,6 +328,71 @@ const providerPreferenceSchema = {
         enum: ['codex', 'claude-code'],
       },
     },
+    updatedAt: { type: 'string' },
+  },
+} as const;
+
+const executionProfileSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'label', 'providerId', 'requestedCapabilities'],
+  properties: {
+    id: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 64,
+      pattern: '^[a-z0-9][a-z0-9-]*$',
+    },
+    label: { type: 'string', minLength: 1, maxLength: 80 },
+    providerId: { type: 'string', enum: [...providerIds] },
+    fallbackOrder: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: 2,
+      items: { type: 'string', enum: ['codex', 'claude-code'] },
+    },
+    timeoutMs: { type: 'integer', minimum: 5000, maximum: 1800000 },
+    budget: {
+      type: 'object',
+      additionalProperties: false,
+      minProperties: 1,
+      properties: {
+        maxTotalTokens: { type: 'integer', minimum: 1 },
+        maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
+        mode: { type: 'string', enum: ['soft', 'hard'] },
+      },
+    },
+    requestedCapabilities: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: capabilities.length,
+      items: { type: 'string', enum: [...capabilities] },
+    },
+  },
+} as const;
+
+const executionProfileBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['profiles'],
+  properties: {
+    defaultProfileId: { type: 'string', minLength: 1, maxLength: 64 },
+    profiles: {
+      type: 'array',
+      maxItems: 8,
+      items: executionProfileSchema,
+    },
+  },
+} as const;
+
+const executionProfileConfigurationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'profiles', 'updatedAt'],
+  properties: {
+    projectId: { type: 'string' },
+    defaultProfileId: { type: 'string' },
+    profiles: { type: 'array', maxItems: 8, items: executionProfileSchema },
     updatedAt: { type: 'string' },
   },
 } as const;
@@ -652,6 +736,7 @@ const executeBodySchema = {
   additionalProperties: false,
   properties: {
     providerId: { type: 'string', enum: [...providerIds] },
+    profileId: { type: 'string', minLength: 1, maxLength: 64 },
     attachmentIds: {
       type: 'array',
       uniqueItems: true,
@@ -669,6 +754,7 @@ const conversationTurnBodySchema = {
     id: { type: 'string', minLength: 1, maxLength: 256 },
     content: { type: 'string', minLength: 1, maxLength: 16000 },
     providerId: { type: 'string', enum: [...providerIds] },
+    profileId: { type: 'string', minLength: 1, maxLength: 64 },
     attachmentIds: {
       type: 'array',
       uniqueItems: true,
@@ -1416,6 +1502,46 @@ const executionSchema = {
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
     failure: failureSchema,
+    configuration: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['providerId', 'requestedCapabilities', 'model', 'effort'],
+      properties: {
+        profileId: { type: 'string' },
+        profileLabel: { type: 'string' },
+        providerId: { type: 'string', enum: [...providerIds] },
+        fallbackOrder: {
+          type: 'array',
+          items: { type: 'string', enum: ['codex', 'claude-code'] },
+        },
+        timeoutMs: { type: 'integer', minimum: 5000 },
+        budget: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            maxTotalTokens: { type: 'integer', minimum: 1 },
+            maxEstimatedCostUsd: { type: 'number', exclusiveMinimum: 0 },
+            mode: { type: 'string', enum: ['soft', 'hard'] },
+          },
+        },
+        requestedCapabilities: {
+          type: 'array',
+          items: { type: 'string', enum: [...capabilities] },
+        },
+        model: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['status'],
+          properties: { status: { type: 'string', enum: ['unavailable'] } },
+        },
+        effort: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['status'],
+          properties: { status: { type: 'string', enum: ['unavailable'] } },
+        },
+      },
+    },
   },
 } as const;
 
@@ -1653,6 +1779,64 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       );
       return reply.code(204).send();
     },
+  );
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/agent/execution-profiles',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['configuration'],
+            properties: {
+              configuration: {
+                anyOf: [executionProfileConfigurationSchema, { type: 'null' }],
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        configuration:
+          await options.agentRuntimeApiService.getExecutionProfiles(
+            request.params.projectId,
+          ),
+      })),
+  );
+
+  app.put<{ Params: ProjectParams; Body: ExecutionProfileBody }>(
+    '/projects/:projectId/agent/execution-profiles',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: executionProfileBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['configuration'],
+            properties: {
+              configuration: executionProfileConfigurationSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        configuration:
+          await options.agentRuntimeApiService.setExecutionProfiles(
+            request.params.projectId,
+            request.body,
+          ),
+      })),
   );
 
   app.get(
@@ -2182,29 +2366,40 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(() =>
-        request.body.attachmentIds?.length
-          ? options.agentRuntimeApiService.execute(
-              request.params.projectId,
-              request.params.taskId,
-              request.body.providerId,
-              {
-                id: request.body.id,
-                content: request.body.content,
-                attachmentIds: request.body.attachmentIds,
-              },
-              request.body.attachmentIds,
-            )
-          : options.agentRuntimeApiService.execute(
-              request.params.projectId,
-              request.params.taskId,
-              request.body.providerId,
-              {
-                id: request.body.id,
-                content: request.body.content,
-              },
-            ),
-      ),
+      withAgentErrors(() => {
+        const userTurn = {
+          id: request.body.id,
+          content: request.body.content,
+          ...(request.body.attachmentIds?.length
+            ? { attachmentIds: request.body.attachmentIds }
+            : {}),
+        };
+        if (request.body.profileId) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            userTurn,
+            request.body.attachmentIds,
+            request.body.profileId,
+          );
+        }
+        if (request.body.attachmentIds?.length) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            userTurn,
+            request.body.attachmentIds,
+          );
+        }
+        return options.agentRuntimeApiService.execute(
+          request.params.projectId,
+          request.params.taskId,
+          request.body.providerId,
+          userTurn,
+        );
+      }),
   );
 
   app.post<{ Params: TaskParams; Body: ExecuteBody }>(
@@ -2230,15 +2425,32 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(() =>
-        options.agentRuntimeApiService.execute(
+      withAgentErrors(() => {
+        if (request.body?.profileId) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            undefined,
+            request.body.attachmentIds,
+            request.body.profileId,
+          );
+        }
+        if (request.body?.attachmentIds?.length) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            undefined,
+            request.body.attachmentIds,
+          );
+        }
+        return options.agentRuntimeApiService.execute(
           request.params.projectId,
           request.params.taskId,
           request.body?.providerId,
-          undefined,
-          request.body?.attachmentIds,
-        ),
-      ),
+        );
+      }),
   );
 
   app.get<{ Params: ProjectParams; Querystring: UsageQuery }>(

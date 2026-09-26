@@ -82,6 +82,22 @@ export interface AgentUsage {
   durationMs?: number;
 }
 
+export interface AgentEffectiveExecutionConfiguration {
+  profileId?: string;
+  profileLabel?: string;
+  providerId: AgentProviderId;
+  fallbackOrder?: Array<'codex' | 'claude-code'>;
+  timeoutMs?: number;
+  budget?: {
+    maxTotalTokens?: number;
+    maxEstimatedCostUsd?: number;
+    mode?: 'soft' | 'hard';
+  };
+  requestedCapabilities: AgentCapability[];
+  model: { status: 'unavailable' };
+  effort: { status: 'unavailable' };
+}
+
 export interface AgentExecution {
   id: string;
   taskId: string;
@@ -94,6 +110,7 @@ export interface AgentExecution {
   finishedAt?: string;
   failure?: AgentExecutionFailure;
   usage?: AgentUsage;
+  configuration?: AgentEffectiveExecutionConfiguration;
 }
 
 export type AgentProviderAvailability =

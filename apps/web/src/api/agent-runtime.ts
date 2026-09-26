@@ -342,6 +342,43 @@ export interface AgentBudgetOverview {
   blocking: boolean;
 }
 
+export interface AgentExecutionProfile {
+  id: string;
+  label: string;
+  providerId: AgentProviderId;
+  fallbackOrder?: Array<'codex' | 'claude-code'>;
+  timeoutMs?: number;
+  budget?: {
+    maxTotalTokens?: number;
+    maxEstimatedCostUsd?: number;
+    mode?: 'soft' | 'hard';
+  };
+  requestedCapabilities: AgentCapability[];
+}
+
+export interface AgentExecutionProfileConfiguration {
+  projectId: string;
+  defaultProfileId?: string;
+  profiles: AgentExecutionProfile[];
+  updatedAt: string;
+}
+
+export interface AgentEffectiveExecutionConfiguration {
+  profileId?: string;
+  profileLabel?: string;
+  providerId: AgentProviderId;
+  fallbackOrder?: Array<'codex' | 'claude-code'>;
+  timeoutMs?: number;
+  budget?: {
+    maxTotalTokens?: number;
+    maxEstimatedCostUsd?: number;
+    mode?: 'soft' | 'hard';
+  };
+  requestedCapabilities: AgentCapability[];
+  model: { status: 'unavailable' };
+  effort: { status: 'unavailable' };
+}
+
 export interface AgentExecution {
   id: string;
   taskId: string;
@@ -364,6 +401,7 @@ export interface AgentExecution {
     code: string;
     message: string;
   };
+  configuration?: AgentEffectiveExecutionConfiguration;
 }
 
 export interface AgentProviderResult {
@@ -446,6 +484,41 @@ function taskPath(projectId: string, taskId?: string): string {
 export async function fetchAgentProviders(): Promise<AgentProviderStatus[]> {
   return (await requestJson<ProvidersResponse>('/api/agent/providers'))
     .providers;
+}
+
+export async function fetchAgentExecutionProfiles(
+  projectId: string,
+): Promise<AgentExecutionProfileConfiguration | null> {
+  return (
+    await requestJson<{
+      configuration: AgentExecutionProfileConfiguration | null;
+    }>(
+      '/api/projects/' +
+        encodeURIComponent(projectId) +
+        '/agent/execution-profiles',
+    )
+  ).configuration;
+}
+
+export async function setAgentExecutionProfiles(
+  projectId: string,
+  input: {
+    defaultProfileId?: string;
+    profiles: AgentExecutionProfile[];
+  },
+): Promise<AgentExecutionProfileConfiguration> {
+  return (
+    await requestJson<{ configuration: AgentExecutionProfileConfiguration }>(
+      '/api/projects/' +
+        encodeURIComponent(projectId) +
+        '/agent/execution-profiles',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    )
+  ).configuration;
 }
 
 export async function fetchAgentIntegrationCapabilities(): Promise<
@@ -698,6 +771,7 @@ export async function executeAgentConversationTurn(
     content: string;
     providerId?: AgentProviderId;
     attachmentIds?: string[];
+    profileId?: string;
   },
 ): Promise<AgentConversationExecutionResult> {
   return requestJson<AgentConversationExecutionResult>(
@@ -770,6 +844,7 @@ export async function executeAgentTask(
   taskId: string,
   providerId: AgentProviderId,
   attachmentIds: string[] = [],
+  profileId?: string,
 ): Promise<AgentExecutionResult> {
   return requestJson<AgentExecutionResult>(
     taskPath(projectId, taskId) + '/executions',
@@ -779,6 +854,7 @@ export async function executeAgentTask(
       body: JSON.stringify({
         providerId,
         ...(attachmentIds.length ? { attachmentIds } : {}),
+        ...(profileId ? { profileId } : {}),
       }),
     },
   );

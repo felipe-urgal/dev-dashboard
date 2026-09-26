@@ -11,6 +11,7 @@ export type {
   AgentConcreteProviderId,
   AgentEvent,
   AgentEventType,
+  AgentEffectiveExecutionConfiguration,
   AgentEvidence,
   AgentEvidenceKind,
   AgentExecution,
@@ -313,3 +314,13 @@ export type {
   AgentAttachmentStoreErrorCode,
   AgentAttachmentStoreOptions,
 } from './attachment-store.js';
+
+export {
+  AgentExecutionProfileStore,
+  AgentExecutionProfileStoreError,
+} from './execution-profile-store.js';
+export type {
+  AgentExecutionProfile,
+  AgentExecutionProfileConfiguration,
+  AgentExecutionProfileStoreOptions,
+} from './execution-profile-store.js';

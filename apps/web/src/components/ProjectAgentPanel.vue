@@ -37,6 +37,7 @@ import {
   fetchAgentAttachments,
   fetchAgentBudget,
   fetchAgentConversation,
+  fetchAgentExecutionProfiles,
   fetchAgentProviders,
   fetchAgentTasks,
   fetchAgentTaskStatus,
@@ -46,6 +47,7 @@ import {
   retryAgentTask,
   setAgentBudget,
   setAgentAuthorization,
+  setAgentExecutionProfiles,
   type AgentActivity,
   type AgentAttachment,
   type AgentAuthorization,
@@ -54,6 +56,8 @@ import {
   type AgentBudgetOverview,
   type AgentCapability,
   type AgentConversationTurn,
+  type AgentExecutionProfile,
+  type AgentExecutionProfileConfiguration,
   type AgentExecutionResult,
   type AgentProviderDiagnosticCode,
   type AgentProviderId,
@@ -131,6 +135,14 @@ const selectedTaskContextId = ref('');
 const selectedTaskId = ref('');
 const selectedProviderId = ref<AgentProviderId>('automatic');
 const requestedCapabilities = ref<AgentCapability[]>(['workspace:write']);
+const executionProfiles = ref<AgentExecutionProfileConfiguration | null>(null);
+const selectedProfileId = ref('');
+const profileIdDraft = ref('');
+const profileLabelDraft = ref('');
+const profileTimeoutSeconds = ref('');
+const profileMaxTokens = ref('');
+const profileMaxCost = ref('');
+const profileBudgetMode = ref<'soft' | 'hard'>('soft');
 const instruction = ref('');
 const conversationInstruction = ref('');
 const conversationTurns = ref<AgentConversationTurn[]>([]);
@@ -222,6 +234,25 @@ const currentProvider = computed(
       (provider) => provider.providerId === selectedProviderId.value,
     ) ?? null,
 );
+
+const selectedExecutionProfile = computed(() =>
+  executionProfiles.value?.profiles.find(
+    (profile) => profile.id === selectedProfileId.value,
+  ),
+);
+
+const effectiveProfileSummary = computed(() => {
+  const profile = selectedExecutionProfile.value;
+  if (!profile) return 'Sem perfil · configuração manual';
+  return [
+    profile.label,
+    providerLabel(profile.providerId),
+    profile.timeoutMs
+      ? Math.round(profile.timeoutMs / 1000) + 's'
+      : 'sem timeout',
+    profile.budget?.mode ? 'budget ' + profile.budget.mode : 'sem budget',
+  ].join(' · ');
+});
 
 const pendingCheckpoint = computed(() => {
   const values = activity.value?.checkpoints ?? [];
@@ -758,15 +789,22 @@ async function load(): Promise<void> {
   closeSocket();
 
   try {
-    const [nextProviders, nextTasks, nextTaskContexts] = await Promise.all([
-      fetchAgentProviders(),
-      fetchAgentTasks(props.project.id),
-      fetchTaskContexts(props.project.id),
-    ]);
+    const [nextProviders, nextTasks, nextTaskContexts, nextExecutionProfiles] =
+      await Promise.all([
+        fetchAgentProviders(),
+        fetchAgentTasks(props.project.id),
+        fetchTaskContexts(props.project.id),
+        fetchAgentExecutionProfiles(props.project.id),
+      ]);
     if (requestGeneration !== generation) return;
     providers.value = nextProviders;
     tasks.value = nextTasks;
     taskContexts.value = nextTaskContexts;
+    executionProfiles.value = nextExecutionProfiles;
+    if (!selectedProfileId.value) {
+      selectedProfileId.value = nextExecutionProfiles?.defaultProfileId ?? '';
+    }
+    applySelectedProfile();
 
     const matchingContext =
       nextTaskContexts.find(
@@ -869,6 +907,83 @@ function chooseBacklogIssue(issue: AgentBacklogIssue): void {
   instruction.value = 'pegue a #' + issue.number;
 }
 
+function applySelectedProfile(): void {
+  const profile = executionProfiles.value?.profiles.find(
+    (candidate) => candidate.id === selectedProfileId.value,
+  );
+  if (!profile) return;
+  selectedProviderId.value = profile.providerId;
+  requestedCapabilities.value = [...profile.requestedCapabilities];
+}
+
+async function saveCurrentExecutionProfile(): Promise<void> {
+  const id = profileIdDraft.value.trim().toLowerCase();
+  const label = profileLabelDraft.value.trim();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || !label) {
+    errorMessage.value = 'Informe id simples e nome do perfil.';
+    return;
+  }
+  const timeoutSeconds = profileTimeoutSeconds.value.trim()
+    ? Number(profileTimeoutSeconds.value)
+    : undefined;
+  const maxTotalTokens = profileMaxTokens.value.trim()
+    ? Number(profileMaxTokens.value)
+    : undefined;
+  const maxEstimatedCostUsd = profileMaxCost.value.trim()
+    ? Number(profileMaxCost.value)
+    : undefined;
+  const profile: AgentExecutionProfile = {
+    id,
+    label,
+    providerId: selectedProviderId.value,
+    ...(selectedProviderId.value === 'automatic'
+      ? { fallbackOrder: ['codex', 'claude-code'] }
+      : {}),
+    ...(timeoutSeconds !== undefined
+      ? { timeoutMs: Math.round(timeoutSeconds * 1000) }
+      : {}),
+    ...(maxTotalTokens !== undefined || maxEstimatedCostUsd !== undefined
+      ? {
+          budget: {
+            ...(maxTotalTokens !== undefined ? { maxTotalTokens } : {}),
+            ...(maxEstimatedCostUsd !== undefined
+              ? { maxEstimatedCostUsd }
+              : {}),
+            mode: profileBudgetMode.value,
+          },
+        }
+      : {}),
+    requestedCapabilities: [...requestedCapabilities.value],
+  };
+  const current = executionProfiles.value?.profiles ?? [];
+  const profiles = [
+    ...current.filter((candidate) => candidate.id !== id),
+    profile,
+  ];
+  executionProfiles.value = await setAgentExecutionProfiles(props.project.id, {
+    defaultProfileId: executionProfiles.value?.defaultProfileId ?? id,
+    profiles,
+  });
+  selectedProfileId.value = id;
+}
+
+async function removeSelectedExecutionProfile(): Promise<void> {
+  if (!selectedProfileId.value || !executionProfiles.value) return;
+  const profiles = executionProfiles.value.profiles.filter(
+    (profile) => profile.id !== selectedProfileId.value,
+  );
+  const defaultProfileId =
+    executionProfiles.value.defaultProfileId === selectedProfileId.value
+      ? profiles[0]?.id
+      : executionProfiles.value.defaultProfileId;
+  executionProfiles.value = await setAgentExecutionProfiles(props.project.id, {
+    ...(defaultProfileId ? { defaultProfileId } : {}),
+    profiles,
+  });
+  selectedProfileId.value = defaultProfileId ?? '';
+  applySelectedProfile();
+}
+
 async function createTask(): Promise<void> {
   if (!canCreate.value) return;
   mutating.value = true;
@@ -950,6 +1065,7 @@ async function executeCurrent(): Promise<void> {
       record.task.id,
       selectedProviderId.value,
       [...selectedAttachmentIds.value],
+      selectedProfileId.value || undefined,
     );
     latestExecution.value = result;
     replaceTask(result.task);
@@ -983,6 +1099,9 @@ async function continueCurrentConversation(): Promise<void> {
         providerId: selectedProviderId.value,
         ...(selectedAttachmentIds.value.length
           ? { attachmentIds: [...selectedAttachmentIds.value] }
+          : {}),
+        ...(selectedProfileId.value
+          ? { profileId: selectedProfileId.value }
           : {}),
       },
     );
@@ -1332,6 +1451,102 @@ onBeforeUnmount(() => {
         <section class="agent-section">
           <div class="agent-section-heading">
             <div>
+              <span>Perfil</span>
+              <strong>Execução reutilizável</strong>
+            </div>
+          </div>
+          <label class="agent-field">
+            <span>Perfil da próxima execução</span>
+            <select
+              v-model="selectedProfileId"
+              :disabled="executing"
+              @change="applySelectedProfile"
+            >
+              <option value="">Manual</option>
+              <option
+                v-for="profile in executionProfiles?.profiles ?? []"
+                :key="profile.id"
+                :value="profile.id"
+              >
+                {{ profile.label }}
+              </option>
+            </select>
+          </label>
+          <p class="agent-hint">{{ effectiveProfileSummary }}</p>
+          <div class="agent-budget-fields">
+            <label>
+              <span>ID</span>
+              <input v-model="profileIdDraft" placeholder="normal" />
+            </label>
+            <label>
+              <span>Nome</span>
+              <input v-model="profileLabelDraft" placeholder="Normal" />
+            </label>
+            <label>
+              <span>Timeout (s)</span>
+              <input
+                v-model="profileTimeoutSeconds"
+                type="number"
+                min="5"
+                max="1800"
+                placeholder="Sem limite"
+              />
+            </label>
+            <label>
+              <span>Tokens</span>
+              <input
+                v-model="profileMaxTokens"
+                type="number"
+                min="1"
+                placeholder="Sem limite"
+              />
+            </label>
+            <label>
+              <span>Custo US$</span>
+              <input
+                v-model="profileMaxCost"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Sem limite"
+              />
+            </label>
+            <label>
+              <span>Budget</span>
+              <select v-model="profileBudgetMode">
+                <option value="soft">Soft</option>
+                <option value="hard">Hard</option>
+              </select>
+            </label>
+          </div>
+          <div class="agent-budget-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="mutating"
+              @click="saveCurrentExecutionProfile"
+            >
+              Salvar perfil atual
+            </button>
+            <button
+              v-if="selectedProfileId"
+              class="secondary-button"
+              type="button"
+              :disabled="mutating"
+              @click="removeSelectedExecutionProfile"
+            >
+              Remover
+            </button>
+          </div>
+          <p class="agent-hint">
+            Modelo e esforço aparecem como indisponíveis até existir contrato
+            estável do provider. Perfil nunca concede autorização.
+          </p>
+        </section>
+
+        <section class="agent-section">
+          <div class="agent-section-heading">
+            <div>
               <span>Provider</span>
               <strong>Execução</strong>
             </div>
@@ -1354,7 +1569,10 @@ onBeforeUnmount(() => {
 
           <label class="agent-field">
             <span>Provider da próxima execução</span>
-            <select v-model="selectedProviderId" :disabled="executing">
+            <select
+              v-model="selectedProviderId"
+              :disabled="executing || !!selectedProfileId"
+            >
               <option
                 v-for="provider in providerOptions"
                 :key="provider.providerId"
@@ -1585,6 +1803,23 @@ onBeforeUnmount(() => {
                 <strong>{{ currentTask.task.summary }}</strong>
               </div>
               <StatusBadge :tone="taskTone">{{ taskStateLabel }}</StatusBadge>
+            </div>
+
+            <div
+              v-if="latestExecution?.execution.configuration"
+              class="agent-hint"
+            >
+              Configuração efetiva:
+              {{
+                latestExecution.execution.configuration.profileLabel ?? 'manual'
+              }}
+              ·
+              {{
+                providerLabel(
+                  latestExecution.execution.configuration.providerId,
+                )
+              }}
+              · modelo indisponível · esforço indisponível
             </div>
 
             <div class="agent-runtime-strip">
