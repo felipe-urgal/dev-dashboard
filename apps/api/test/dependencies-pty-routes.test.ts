@@ -34,6 +34,15 @@ test('rotas de execução destacável de dependências/build', async (context) =
     );
     await writeFile(path.join(target, 'package-lock.json'), '{}');
   }
+  await writeFile(
+    path.join(worktreePath, 'package.json'),
+    JSON.stringify({
+      scripts: {
+        build: 'echo build',
+        'worktree-only': 'echo worktree',
+      },
+    }),
+  );
 
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
   const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
@@ -103,6 +112,34 @@ test('rotas de execução destacável de dependências/build', async (context) =
       });
       assert.equal(response.statusCode, 200);
       assert.deepEqual(response.json<StatusResponse>(), { snapshot: null });
+    },
+  );
+
+  await context.test(
+    'catálogo de scripts usa o worktree da Environment Instance selecionada',
+    async () => {
+      const primaryResponse = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/scripts?page=1&pageSize=100&search=worktree-only',
+        headers,
+      });
+      assert.equal(primaryResponse.statusCode, 200);
+      assert.equal(
+        (primaryResponse.json() as { catalog: { total: number } }).catalog.total,
+        0,
+      );
+
+      const worktreeResponse = await app.inject({
+        method: 'GET',
+        url: `/api/projects/p1/scripts?page=1&pageSize=100&search=worktree-only&environmentInstanceId=${encodeURIComponent(WORKTREE_ENVIRONMENT_ID)}`,
+        headers,
+      });
+      assert.equal(worktreeResponse.statusCode, 200);
+      assert.equal(
+        (worktreeResponse.json() as { catalog: { total: number } }).catalog
+          .total,
+        1,
+      );
     },
   );
 
