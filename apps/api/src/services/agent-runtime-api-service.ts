@@ -9,7 +9,10 @@ import type {
   AppendActivityEventInput,
 } from '@dev-dashboard/core';
 
-import { AgentIntegrationDiscoveryError } from '@dev-dashboard/agent-runtime';
+import {
+  AgentIntegrationDiscoveryError,
+  sameAgentAuthorizationScope,
+} from '@dev-dashboard/agent-runtime';
 import type {
   AgentAuditSnapshot,
   AgentAuthorization,
@@ -1258,6 +1261,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
     const authorizations =
       await this.options.auditStore.listAuthorizations(taskId);
+    this.validateAuthorizationScopes(taskRecord.task, authorizations);
     const pullRequestFeedback = await this.pullRequestFeedback(taskRecord.task);
     if (pullRequestFeedback.evidence.length > 0) {
       await this.options.auditStore.appendEvidence(
@@ -1948,6 +1952,28 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       jobId: taskId,
     });
     return authorization;
+  }
+
+  private validateAuthorizationScopes(
+    task: AgentTask,
+    authorizations: readonly AgentAuthorization[],
+  ): void {
+    for (const authorization of authorizations) {
+      if (!authorization.granted) continue;
+      const expected = this.authorizationScopeFor(
+        task,
+        authorization.capability,
+      );
+      if (
+        !authorization.scope ||
+        !sameAgentAuthorizationScope(authorization.scope, expected)
+      ) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_INVALID_REQUEST',
+          `Agent capability ${authorization.capability} has a missing or stale resource scope. Reauthorize it for the current task context.`,
+        );
+      }
+    }
   }
 
   private authorizationScopeFor(
