@@ -71,14 +71,14 @@ describe('ProjectDevContainerPanel', () => {
       'environment:primary:project-devcontainer',
     );
     expect(wrapper.text()).toContain('Revisão necessária');
-    expect(wrapper.text()).toContain('Runtime atual');
+    expect(wrapper.text()).toContain('Runtime');
     expect(wrapper.text()).toContain('Host');
     expect(wrapper.text()).toContain('Imagem');
     expect(wrapper.text()).toContain('0.80.1');
     expect(wrapper.text()).toContain('Workspace');
     expect(wrapper.text()).toContain('postCreateCommand · postStartCommand');
     expect(wrapper.text()).toContain('Preflight somente leitura');
-    expect(wrapper.text()).toContain('Criar Dev Container');
+    expect(wrapper.text()).toContain('Criar');
     expect(wrapper.text()).not.toContain('Rebuild');
     expect(wrapper.text()).not.toContain('Stop');
     expect(wrapper.text()).not.toContain('Terminal');
@@ -114,7 +114,7 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('initializeCommand');
     expect(wrapper.text()).toContain('Preflight somente leitura');
-    expect(wrapper.text()).not.toContain('Criar Dev Container');
+    expect(wrapper.text()).not.toContain('Criar');
     expect(wrapper.findAll('button')).toHaveLength(1);
     expect(wrapper.get('button').text()).toContain('Atualizar');
     wrapper.unmount();
@@ -183,7 +183,7 @@ describe('ProjectDevContainerPanel', () => {
 
     const createButton = wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Criar Dev Container'));
+      .find((button) => button.text().includes('Criar'));
     expect(createButton).toBeDefined();
     await createButton!.trigger('click');
 
@@ -211,13 +211,13 @@ describe('ProjectDevContainerPanel', () => {
       environmentInstanceId,
     );
     expect(fetchDevContainerLifecyclePreflight).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).toContain('Runtime atual');
+    expect(wrapper.text()).toContain('Runtime');
     expect(wrapper.text()).toContain('Dev Container');
     expect(wrapper.text()).toContain('Revisão necessária');
     expect(wrapper.text()).toContain(
       'O rebuild exige confirmação explícita e nova revalidação no backend.',
     );
-    expect(wrapper.text()).not.toContain('Criar Dev Container');
+    expect(wrapper.text()).not.toContain('Criar');
     expect(wrapper.text()).not.toContain('Confirmar criação');
     wrapper.unmount();
   });
@@ -300,7 +300,7 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain('Dev Container');
     expect(wrapper.text()).toContain('Revisão necessária');
     expect(wrapper.text()).toContain('rebuild exige confirmação explícita');
-    expect(wrapper.text()).not.toContain('Criar Dev Container');
+    expect(wrapper.text()).not.toContain('Criar');
 
     const rebuildButton = wrapper
       .findAll('button')
@@ -383,6 +383,8 @@ describe('ProjectDevContainerPanel', () => {
     });
     await flushPromises();
     expect(wrapper.text()).toContain('Não configurado');
+    expect(wrapper.find('.dd-card').exists()).toBe(false);
+    expect(wrapper.find('.devcontainer-toolbar').exists()).toBe(true);
 
     await wrapper.setProps({
       environmentInstanceId:
