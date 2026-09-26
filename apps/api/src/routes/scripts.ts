@@ -20,7 +20,9 @@ import {
   ScriptExecutionError,
   type ScriptExecutionService,
 } from '../services/script-execution-service.js';
-import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
+import type {
+  DevelopmentEnvironmentInstanceStore,
+} from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Params {
