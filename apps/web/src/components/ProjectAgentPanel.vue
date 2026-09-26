@@ -1018,7 +1018,9 @@ async function addAttachments(event: Event): Promise<void> {
     }
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : 'Não foi possível anexar o arquivo.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível anexar o arquivo.';
   } finally {
     uploadingAttachment.value = false;
   }
@@ -1914,8 +1916,8 @@ onBeforeUnmount(() => {
               />
             </label>
             <p class="agent-hint">
-              Até 8 arquivos, 1 MB cada. Texto, Markdown, JSON, PNG, JPEG e WebP.
-              O conteúdo é tratado como dado não confiável.
+              Até 8 arquivos, 1 MB cada. Texto, Markdown, JSON, PNG, JPEG e
+              WebP. O conteúdo é tratado como dado não confiável.
             </p>
             <p v-if="!attachments.length" class="agent-hint">
               Nenhum anexo nesta task.

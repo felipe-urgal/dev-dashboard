@@ -198,9 +198,12 @@ export class AgentAttachmentStore {
 
   async list(taskId: string): Promise<AgentAttachment[]> {
     assertIdentity(taskId, 'Agent task id');
-    const release = await this.lockManager.acquire('attachments-' + key(taskId), {
-      wait: true,
-    });
+    const release = await this.lockManager.acquire(
+      'attachments-' + key(taskId),
+      {
+        wait: true,
+      },
+    );
     try {
       return (await this.read(taskId)).attachments.map(clone);
     } finally {
@@ -208,7 +211,10 @@ export class AgentAttachmentStore {
     }
   }
 
-  async get(taskId: string, attachmentId: string): Promise<AgentAttachment | null> {
+  async get(
+    taskId: string,
+    attachmentId: string,
+  ): Promise<AgentAttachment | null> {
     const attachments = await this.list(taskId);
     return attachments.find((item) => item.id === attachmentId) ?? null;
   }
@@ -234,9 +240,12 @@ export class AgentAttachmentStore {
       );
     }
 
-    const release = await this.lockManager.acquire('attachments-' + key(taskId), {
-      wait: true,
-    });
+    const release = await this.lockManager.acquire(
+      'attachments-' + key(taskId),
+      {
+        wait: true,
+      },
+    );
     try {
       const state = await this.read(taskId);
       if (state.attachments.length >= this.maxAttachments) {
@@ -302,7 +311,11 @@ export class AgentAttachmentStore {
     try {
       const target = this.pathFor(taskId);
       const stat = await fs.lstat(target);
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 6 * 1024 * 1024) {
+      if (
+        !stat.isFile() ||
+        stat.isSymbolicLink() ||
+        stat.size > 6 * 1024 * 1024
+      ) {
         throw new AgentAttachmentStoreError(
           'AGENT_ATTACHMENT_CORRUPT',
           'Agent attachment state file is invalid.',

@@ -30,7 +30,10 @@ test('AgentAttachmentStore persiste metadata e redige preview textual', async (c
   assert.equal(created.id, 'attachment-1');
   assert.equal(created.filename, 'ci.log');
   assert.match(created.textPreview ?? '', /\[REDACTED\]/);
-  assert.doesNotMatch(created.textPreview ?? '', /sk-abcdefghijklmnopqrstuvwxyz/);
+  assert.doesNotMatch(
+    created.textPreview ?? '',
+    /sk-abcdefghijklmnopqrstuvwxyz/,
+  );
 
   const restarted = new AgentAttachmentStore({ stateDirectory: root });
   assert.deepEqual(await restarted.list('task-1'), [created]);

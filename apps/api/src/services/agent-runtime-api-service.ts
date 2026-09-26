@@ -277,7 +277,10 @@ export interface AgentRuntimeApiServicePort {
     projectId: string,
     taskId: string,
   ): Promise<AgentConversationTurn[]>;
-  listAttachments(projectId: string, taskId: string): Promise<AgentAttachment[]>;
+  listAttachments(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentAttachment[]>;
   createAttachment(
     projectId: string,
     taskId: string,
@@ -1281,9 +1284,14 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   private async attachmentEvidence(
     taskId: string,
     attachmentIds: readonly string[],
-  ): Promise<Pick<AgentEvidence, 'kind' | 'summary' | 'reference' | 'observedAt'>[]> {
+  ): Promise<
+    Pick<AgentEvidence, 'kind' | 'summary' | 'reference' | 'observedAt'>[]
+  > {
     if (attachmentIds.length === 0) return [];
-    if (attachmentIds.length > 8 || new Set(attachmentIds).size !== attachmentIds.length) {
+    if (
+      attachmentIds.length > 8 ||
+      new Set(attachmentIds).size !== attachmentIds.length
+    ) {
       throw new AgentRuntimeApiServiceError(
         'AGENT_API_INVALID_REQUEST',
         'Agent attachment selection is invalid.',
@@ -1301,7 +1309,10 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       'kind' | 'summary' | 'reference' | 'observedAt'
     >[] = [];
     for (const attachmentId of attachmentIds) {
-      const attachment = await this.options.attachmentStore.get(taskId, attachmentId);
+      const attachment = await this.options.attachmentStore.get(
+        taskId,
+        attachmentId,
+      );
       if (!attachment) {
         throw new AgentRuntimeApiServiceError(
           'AGENT_API_INVALID_REQUEST',
@@ -1385,24 +1396,22 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
                 },
               }
             : {}),
-          ...(
-            pullRequestFeedback.evidence.length > 0 ||
-            attachmentEvidence.length > 0
-              ? {
-                  contextEvidence: [
-                    ...pullRequestFeedback.evidence.map(
-                      ({ kind, summary, reference, observedAt }) => ({
-                        kind,
-                        summary,
-                        ...(reference ? { reference } : {}),
-                        observedAt,
-                      }),
-                    ),
-                    ...attachmentEvidence,
-                  ],
-                }
-              : {}
-          ),
+          ...(pullRequestFeedback.evidence.length > 0 ||
+          attachmentEvidence.length > 0
+            ? {
+                contextEvidence: [
+                  ...pullRequestFeedback.evidence.map(
+                    ({ kind, summary, reference, observedAt }) => ({
+                      kind,
+                      summary,
+                      ...(reference ? { reference } : {}),
+                      observedAt,
+                    }),
+                  ),
+                  ...attachmentEvidence,
+                ],
+              }
+            : {}),
         }),
       );
     } catch (error) {

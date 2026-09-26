@@ -2013,7 +2013,6 @@ test('Agent Runtime HTTP expõe ambiguidade do backlog sem escolher silenciosame
   );
 });
 
-
 test('Agent Runtime HTTP anexa por conteúdo bounded sem aceitar path do browser', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
