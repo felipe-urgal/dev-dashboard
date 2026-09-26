@@ -40,12 +40,26 @@ interface CreateTaskBody {
 
 interface ExecuteBody {
   providerId?: AgentProviderId;
+  attachmentIds?: string[];
 }
 
 interface ConversationTurnBody {
   id: string;
   content: string;
   providerId?: AgentProviderId;
+  attachmentIds?: string[];
+}
+
+interface AttachmentBody {
+  filename: string;
+  mediaType:
+    | 'text/plain'
+    | 'text/markdown'
+    | 'application/json'
+    | 'image/png'
+    | 'image/jpeg'
+    | 'image/webp';
+  contentBase64: string;
 }
 
 interface AdoptBacklogBody {
@@ -638,6 +652,12 @@ const executeBodySchema = {
   additionalProperties: false,
   properties: {
     providerId: { type: 'string', enum: [...providerIds] },
+    attachmentIds: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: 8,
+      items: { type: 'string', minLength: 1, maxLength: 256 },
+    },
   },
 } as const;
 
@@ -649,6 +669,59 @@ const conversationTurnBodySchema = {
     id: { type: 'string', minLength: 1, maxLength: 256 },
     content: { type: 'string', minLength: 1, maxLength: 16000 },
     providerId: { type: 'string', enum: [...providerIds] },
+    attachmentIds: {
+      type: 'array',
+      uniqueItems: true,
+      maxItems: 8,
+      items: { type: 'string', minLength: 1, maxLength: 256 },
+    },
+  },
+} as const;
+
+const attachmentBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['filename', 'mediaType', 'contentBase64'],
+  properties: {
+    filename: { type: 'string', minLength: 1, maxLength: 180 },
+    mediaType: {
+      type: 'string',
+      enum: [
+        'text/plain',
+        'text/markdown',
+        'application/json',
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+      ],
+    },
+    contentBase64: { type: 'string', minLength: 1, maxLength: 1400000 },
+  },
+} as const;
+
+const attachmentSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'taskId',
+    'filename',
+    'mediaType',
+    'byteSize',
+    'sha256',
+    'source',
+    'createdAt',
+  ],
+  properties: {
+    id: { type: 'string' },
+    taskId: { type: 'string' },
+    filename: { type: 'string' },
+    mediaType: { type: 'string' },
+    byteSize: { type: 'integer', minimum: 1 },
+    sha256: { type: 'string' },
+    source: { type: 'string', enum: ['user-upload'] },
+    createdAt: { type: 'string' },
+    textPreview: { type: 'string' },
   },
 } as const;
 
@@ -666,6 +739,11 @@ const conversationTurnSchema = {
     providerId: {
       type: 'string',
       enum: ['codex', 'claude-code', 'chatgpt-browser'],
+    },
+    attachmentIds: {
+      type: 'array',
+      maxItems: 8,
+      items: { type: 'string' },
     },
   },
 } as const;
@@ -2018,6 +2096,61 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       })),
   );
 
+  app.get<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/attachments',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['attachments'],
+            properties: {
+              attachments: {
+                type: 'array',
+                maxItems: 8,
+                items: attachmentSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(async () => ({
+        attachments: await options.agentRuntimeApiService.listAttachments(
+          request.params.projectId,
+          request.params.taskId,
+        ),
+      })),
+  );
+
+  app.post<{ Params: TaskParams; Body: AttachmentBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/attachments',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: attachmentBodySchema,
+        response: {
+          201: attachmentSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const attachment = await withAgentErrors(() =>
+        options.agentRuntimeApiService.createAttachment(
+          request.params.projectId,
+          request.params.taskId,
+          request.body,
+        ),
+      );
+      return reply.code(201).send(attachment);
+    },
+  );
+
   app.post<{ Params: TaskParams; Body: ConversationTurnBody }>(
     '/projects/:projectId/agent/tasks/:taskId/turns',
     {
@@ -2057,7 +2190,11 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           {
             id: request.body.id,
             content: request.body.content,
+            ...(request.body.attachmentIds?.length
+              ? { attachmentIds: request.body.attachmentIds }
+              : {}),
           },
+          request.body.attachmentIds,
         ),
       ),
   );
@@ -2090,6 +2227,8 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
           request.params.projectId,
           request.params.taskId,
           request.body?.providerId,
+          undefined,
+          request.body?.attachmentIds,
         ),
       ),
   );
