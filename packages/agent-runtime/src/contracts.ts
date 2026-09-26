@@ -229,6 +229,10 @@ export interface AgentProviderExecutionRequest {
   allowedCapabilities: readonly AgentCapability[];
   continuationInstruction?: string;
   conversationContext?: AgentProviderConversationContext;
+  contextEvidence?: readonly Pick<
+    AgentEvidence,
+    'kind' | 'summary' | 'reference' | 'observedAt'
+  >[];
   signal?: AbortSignal;
 }
 
