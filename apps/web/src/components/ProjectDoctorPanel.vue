@@ -247,7 +247,10 @@ watch(
           title="Atualizar diagnóstico"
           @click="load(true)"
         >
-          <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
         </button>
       </header>
 

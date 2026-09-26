@@ -543,10 +543,18 @@ watch(
   line-height: 1;
 }
 
-.security-center-severity--critical strong { color: var(--danger-text); }
-.security-center-severity--high strong { color: #ff6a3d; }
-.security-center-severity--medium strong { color: var(--warning-text); }
-.security-center-severity--low strong { color: var(--success-text); }
+.security-center-severity--critical strong {
+  color: var(--danger-text);
+}
+.security-center-severity--high strong {
+  color: #ff6a3d;
+}
+.security-center-severity--medium strong {
+  color: var(--warning-text);
+}
+.security-center-severity--low strong {
+  color: var(--success-text);
+}
 
 .security-center-findings {
   display: flex;
