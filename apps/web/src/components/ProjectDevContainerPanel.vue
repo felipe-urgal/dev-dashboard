@@ -297,7 +297,11 @@ watch(
       <span>{{ errorMessage }}</span>
     </div>
 
-    <div v-if="loading && !preflight" class="devcontainer-loading" role="status">
+    <div
+      v-if="loading && !preflight"
+      class="devcontainer-loading"
+      role="status"
+    >
       <ArrowPathIcon class="is-spinning" aria-hidden="true" />
       <span>Validando configuração, ambiente e lifecycle…</span>
     </div>
