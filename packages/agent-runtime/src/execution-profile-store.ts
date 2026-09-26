@@ -1,10 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type {
-  AgentCapability,
-  AgentProviderId,
-} from './contracts.js';
+import type { AgentCapability, AgentProviderId } from './contracts.js';
 import { AgentTaskLockManager } from './task-lock.js';
 
 const STORE_VERSION = 1;
@@ -58,8 +55,7 @@ export interface AgentExecutionProfileStoreOptions {
 export class AgentExecutionProfileStoreError extends Error {
   constructor(
     readonly code:
-      | 'AGENT_EXECUTION_PROFILE_INVALID'
-      | 'AGENT_EXECUTION_PROFILE_CORRUPT',
+      'AGENT_EXECUTION_PROFILE_INVALID' | 'AGENT_EXECUTION_PROFILE_CORRUPT',
     message: string,
   ) {
     super(message);
@@ -188,7 +184,10 @@ export class AgentExecutionProfileStore {
         'Agent execution profile state directory is required.',
       );
     }
-    this.filePath = path.join(options.stateDirectory, 'execution-profiles.json');
+    this.filePath = path.join(
+      options.stateDirectory,
+      'execution-profiles.json',
+    );
     this.lockManager =
       options.lockManager ??
       new AgentTaskLockManager({ stateDirectory: options.stateDirectory });
@@ -241,7 +240,9 @@ export class AgentExecutionProfileStore {
 
   private async read(): Promise<PersistedState> {
     try {
-      const parsed: unknown = JSON.parse(await fs.readFile(this.filePath, 'utf8'));
+      const parsed: unknown = JSON.parse(
+        await fs.readFile(this.filePath, 'utf8'),
+      );
       if (
         !parsed ||
         typeof parsed !== 'object' ||
@@ -254,7 +255,8 @@ export class AgentExecutionProfileStore {
       }
       return parsed as PersistedState;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return emptyState();
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+        return emptyState();
       throw new AgentExecutionProfileStoreError(
         'AGENT_EXECUTION_PROFILE_CORRUPT',
         'Agent execution profile state is corrupt.',
