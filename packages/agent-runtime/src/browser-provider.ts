@@ -595,7 +595,7 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       };
     }
 
-    if (health.sessionState === 'unavailable') {
+    if (health.sessionState !== 'available') {
       return {
         providerId: this.id,
         availability: 'degraded',
