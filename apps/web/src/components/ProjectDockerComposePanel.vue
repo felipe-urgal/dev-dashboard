@@ -959,7 +959,8 @@ watch(
   flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.38fr);
   overflow: hidden;
-  border-bottom: 1px solid color-mix(in srgb, var(--danger-text) 48%, var(--border));
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--danger-text) 48%, var(--border));
   background: var(--danger-surface);
 }
 
@@ -1156,12 +1157,24 @@ watch(
   vertical-align: middle;
 }
 
-.compose-service-table th:nth-child(1) { width: 12%; }
-.compose-service-table th:nth-child(2) { width: 17%; }
-.compose-service-table th:nth-child(3) { width: 22%; }
-.compose-service-table th:nth-child(4) { width: 20%; }
-.compose-service-table th:nth-child(5) { width: 25%; }
-.compose-service-table th:nth-child(6) { width: 44px; }
+.compose-service-table th:nth-child(1) {
+  width: 12%;
+}
+.compose-service-table th:nth-child(2) {
+  width: 17%;
+}
+.compose-service-table th:nth-child(3) {
+  width: 22%;
+}
+.compose-service-table th:nth-child(4) {
+  width: 20%;
+}
+.compose-service-table th:nth-child(5) {
+  width: 25%;
+}
+.compose-service-table th:nth-child(6) {
+  width: 44px;
+}
 
 .compose-service-table code,
 .compose-cell-wrap {
@@ -1361,11 +1374,15 @@ watch(
 }
 
 @keyframes compose-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .is-spinning { animation: none; }
+  .is-spinning {
+    animation: none;
+  }
 }
 
 @media (max-width: 1100px) {
