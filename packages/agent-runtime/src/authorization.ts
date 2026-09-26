@@ -13,7 +13,9 @@ export class AgentAuthorizationError extends Error {
 
 export class AgentAuthorizationScopeError extends Error {
   constructor(readonly capability: AgentCapability) {
-    super(`Agent capability scope does not match requested resource: ${capability}`);
+    super(
+      `Agent capability scope does not match requested resource: ${capability}`,
+    );
     this.name = 'AgentAuthorizationScopeError';
   }
 }
@@ -63,7 +65,10 @@ export function assertAgentAuthorizationScope(
   if (!authorization.granted) {
     throw new AgentAuthorizationError(authorization.capability);
   }
-  if (!authorization.scope || !sameAgentAuthorizationScope(authorization.scope, requiredScope)) {
+  if (
+    !authorization.scope ||
+    !sameAgentAuthorizationScope(authorization.scope, requiredScope)
+  ) {
     throw new AgentAuthorizationScopeError(authorization.capability);
   }
 }

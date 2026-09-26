@@ -102,7 +102,6 @@ function assertSummary(value: string): void {
   }
 }
 
-
 function isBoundedScopeText(value: unknown): value is string {
   return (
     typeof value === 'string' &&
@@ -114,9 +113,12 @@ function isBoundedScopeText(value: unknown): value is string {
   );
 }
 
-function isAuthorizationScope(value: unknown): value is AgentAuthorizationScope {
+function isAuthorizationScope(
+  value: unknown,
+): value is AgentAuthorizationScope {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const candidate = value as Partial<AgentAuthorizationScope> & Record<string, unknown>;
+  const candidate = value as Partial<AgentAuthorizationScope> &
+    Record<string, unknown>;
   switch (candidate.kind) {
     case 'environment':
       return (

@@ -325,7 +325,6 @@ test('AgentAuditStore persiste evidence bounded com ownership da execução', as
   );
 });
 
-
 test('AgentAuditStore persiste scope estruturado e mantém grant legado compatível', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-scoped-auth-'));
   context.after(() => rm(root, { recursive: true, force: true }));

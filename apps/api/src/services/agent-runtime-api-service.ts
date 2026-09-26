@@ -1959,8 +1959,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       : undefined;
     const environmentInstanceId =
       task.environmentInstanceId ?? context?.environmentInstanceId;
-    const branch =
-      context?.branch ?? task.adoptedGitRef?.branch;
+    const branch = context?.branch ?? task.adoptedGitRef?.branch;
     const repository =
       context?.pullRequest?.repository ?? context?.issue?.repository;
 

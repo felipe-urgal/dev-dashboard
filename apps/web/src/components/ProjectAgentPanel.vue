@@ -1843,9 +1843,7 @@ onBeforeUnmount(() => {
                   "
                 >
                   {{
-                    authorizationGranted(capability)
-                      ? 'Revogar'
-                      : 'Autorizar'
+                    authorizationGranted(capability) ? 'Revogar' : 'Autorizar'
                   }}
                 </button>
               </div>
