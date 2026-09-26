@@ -434,7 +434,7 @@ function statusIcon(tone: string) {
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
   flex-direction: column;
   background: var(--surface-1);
 }
