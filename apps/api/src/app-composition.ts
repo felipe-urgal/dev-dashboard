@@ -31,6 +31,7 @@ import {
   type AgentRuntimeApiServicePort,
 } from './services/agent-runtime-api-service.js';
 import { AgentRuntimeRealtimeService } from './services/agent-runtime-realtime-service.js';
+import { AgentTaskWorkspaceProvisioningService } from './services/agent-task-workspace-provisioning-service.js';
 import { DevContainerCleanupService } from './services/dev-container-cleanup-service.js';
 import { DevContainerConfigSnapshotService } from './services/dev-container-config-snapshot-service.js';
 import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
@@ -576,6 +577,11 @@ function createAgentRuntimeApiService(
     taskContextCreator: taskContextService,
     taskContextSnapshotReader: taskContextService,
     backlogReader: new GithubIssueBacklogService(),
+    workspaceProvisioner: new AgentTaskWorkspaceProvisioningService(
+      context.gitWorktreeLifecycleService,
+      context.gitWorktreeObserver,
+      context.developmentEnvironmentInstanceStore,
+    ),
     activityEventStore: context.activityEventRepository,
     usageStore,
     budgetStore,
