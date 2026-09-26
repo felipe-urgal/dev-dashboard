@@ -45,6 +45,15 @@ function service(
         version: '1.0.0',
       },
     ],
+    getExecutionProfiles: async () => null,
+    setExecutionProfiles: async (projectId, input) => ({
+      projectId,
+      ...(input.defaultProfileId
+        ? { defaultProfileId: input.defaultProfileId }
+        : {}),
+      profiles: input.profiles,
+      updatedAt: '2026-09-23T10:00:00.000Z',
+    }),
     getProviderPreference: async () => null,
     setProviderPreference: async (projectId, input) => ({
       projectId,
