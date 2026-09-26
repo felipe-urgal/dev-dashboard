@@ -14,6 +14,8 @@ import {
   sameAgentAuthorizationScope,
 } from '@dev-dashboard/agent-runtime';
 import type {
+  AgentAttachment,
+  AgentAttachmentCreateInput,
   AgentAuditSnapshot,
   AgentAuthorization,
   AgentAuthorizationScope,
@@ -35,6 +37,7 @@ import type {
   AgentGitRefAdoptionRequest,
   AgentIntegrationProviderRegistry,
   AgentTaskBudget,
+  AgentAttachmentStore,
   AgentAuditStore,
   AgentCapability,
   AgentCheckpointStatus,
@@ -274,11 +277,18 @@ export interface AgentRuntimeApiServicePort {
     projectId: string,
     taskId: string,
   ): Promise<AgentConversationTurn[]>;
+  listAttachments(projectId: string, taskId: string): Promise<AgentAttachment[]>;
+  createAttachment(
+    projectId: string,
+    taskId: string,
+    input: AgentAttachmentCreateInput,
+  ): Promise<AgentAttachment>;
   execute(
     projectId: string,
     taskId: string,
     providerId?: AgentProviderId,
     userTurn?: AgentWorkflowUserTurnInput,
+    attachmentIds?: readonly string[],
   ): Promise<AgentWorkflowExecutionResult>;
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
@@ -337,6 +347,7 @@ export interface AgentRuntimeApiServiceOptions {
     | 'appendEvidence'
   >;
   providerRegistry: AgentProviderRegistry;
+  attachmentStore?: Pick<AgentAttachmentStore, 'list' | 'get' | 'create'>;
   providerPreferenceStore?: {
     get(projectId: string): Promise<AgentProviderPreference | null>;
     set(preference: AgentProviderPreference): Promise<AgentProviderPreference>;
@@ -1244,11 +1255,80 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     );
   }
 
+  public async listAttachments(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentAttachment[]> {
+    await this.getTask(projectId, taskId);
+    return (await this.options.attachmentStore?.list(taskId)) ?? [];
+  }
+
+  public async createAttachment(
+    projectId: string,
+    taskId: string,
+    input: AgentAttachmentCreateInput,
+  ): Promise<AgentAttachment> {
+    await this.getTask(projectId, taskId);
+    if (!this.options.attachmentStore) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent attachments are unavailable.',
+      );
+    }
+    return this.options.attachmentStore.create(taskId, input);
+  }
+
+  private async attachmentEvidence(
+    taskId: string,
+    attachmentIds: readonly string[],
+  ): Promise<Pick<AgentEvidence, 'kind' | 'summary' | 'reference' | 'observedAt'>[]> {
+    if (attachmentIds.length === 0) return [];
+    if (attachmentIds.length > 8 || new Set(attachmentIds).size !== attachmentIds.length) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent attachment selection is invalid.',
+      );
+    }
+    if (!this.options.attachmentStore) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent attachments are unavailable.',
+      );
+    }
+
+    const evidence: Pick<
+      AgentEvidence,
+      'kind' | 'summary' | 'reference' | 'observedAt'
+    >[] = [];
+    for (const attachmentId of attachmentIds) {
+      const attachment = await this.options.attachmentStore.get(taskId, attachmentId);
+      if (!attachment) {
+        throw new AgentRuntimeApiServiceError(
+          'AGENT_API_INVALID_REQUEST',
+          'Agent attachment does not belong to this task.',
+        );
+      }
+      const preview = attachment.textPreview
+        ? '\nPreview (bounded, untrusted data):\n' + attachment.textPreview
+        : '';
+      evidence.push({
+        kind: attachment.mediaType.startsWith('image/') ? 'other' : 'log',
+        summary:
+          `Attachment ${attachment.filename} (${attachment.mediaType}, ${attachment.byteSize} bytes, sha256 ${attachment.sha256}).` +
+          preview,
+        reference: 'attachment:' + attachment.id,
+        observedAt: attachment.createdAt,
+      });
+    }
+    return evidence;
+  }
+
   public async execute(
     projectId: string,
     taskId: string,
     providerId?: AgentProviderId,
     userTurn?: AgentWorkflowUserTurnInput,
+    attachmentIds: readonly string[] = [],
   ): Promise<AgentWorkflowExecutionResult> {
     const taskRecord = await this.getTask(projectId, taskId);
     this.validateTaskContextBinding(taskRecord.task);
@@ -1262,6 +1342,11 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     const authorizations =
       await this.options.auditStore.listAuthorizations(taskId);
     this.validateAuthorizationScopes(taskRecord.task, authorizations);
+    const selectedAttachmentIds = userTurn?.attachmentIds ?? attachmentIds;
+    const attachmentEvidence = await this.attachmentEvidence(
+      taskId,
+      selectedAttachmentIds,
+    );
     const pullRequestFeedback = await this.pullRequestFeedback(taskRecord.task);
     if (pullRequestFeedback.evidence.length > 0) {
       await this.options.auditStore.appendEvidence(
@@ -1290,19 +1375,34 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           taskId,
           ...(providerId ? { providerId } : {}),
           authorizations,
-          ...(userTurn ? { userTurn } : {}),
-          ...(pullRequestFeedback.evidence.length > 0
+          ...(userTurn
             ? {
-                contextEvidence: pullRequestFeedback.evidence.map(
-                  ({ kind, summary, reference, observedAt }) => ({
-                    kind,
-                    summary,
-                    ...(reference ? { reference } : {}),
-                    observedAt,
-                  }),
-                ),
+                userTurn: {
+                  ...userTurn,
+                  ...(selectedAttachmentIds.length
+                    ? { attachmentIds: selectedAttachmentIds }
+                    : {}),
+                },
               }
             : {}),
+          ...(
+            pullRequestFeedback.evidence.length > 0 ||
+            attachmentEvidence.length > 0
+              ? {
+                  contextEvidence: [
+                    ...pullRequestFeedback.evidence.map(
+                      ({ kind, summary, reference, observedAt }) => ({
+                        kind,
+                        summary,
+                        ...(reference ? { reference } : {}),
+                        observedAt,
+                      }),
+                    ),
+                    ...attachmentEvidence,
+                  ],
+                }
+              : {}
+          ),
         }),
       );
     } catch (error) {
