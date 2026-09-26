@@ -278,6 +278,38 @@ test('forwards bounded normalized context evidence without changing grants', asy
   ]);
 });
 
+test('complete é explícito, idempotente e somente permitido em review sem checkpoint pendente', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'done',
+  }));
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
+
+  const completed = await fixtureResult.runtime.complete(
+    'project-1',
+    'task-1',
+  );
+  assert.equal(completed.task.state, 'completed');
+
+  const repeated = await fixtureResult.runtime.complete(
+    'project-1',
+    'task-1',
+  );
+  assert.equal(repeated.task.state, 'completed');
+  assert.equal(repeated.version, completed.version);
+
+  const blockedFixture = await fixture(
+    t,
+    provider,
+    task({ id: 'task-blocked', state: 'failed' }),
+  );
+  await assert.rejects(
+    blockedFixture.runtime.complete('project-1', 'task-blocked'),
+    /Only an agent task in review can be completed explicitly/,
+  );
+});
+
 test('conversation turn is persisted before provider execution and response is linked', async (t) => {
   const conversation = {
     store: undefined as Pick<AgentConversationStore, 'list'> | undefined,
