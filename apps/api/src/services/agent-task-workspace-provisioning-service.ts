@@ -10,6 +10,7 @@ import type { GitWorktreeLifecycleService } from './git-worktree-lifecycle-servi
 import type { GitWorktreeObserver } from './git-worktree-observer.js';
 
 const MAX_SLUG_LENGTH = 72;
+const MAX_PROJECT_SEGMENT_LENGTH = 96;
 const SAFE_SEGMENT = /[^a-z0-9]+/gu;
 
 export interface AgentTaskWorkspaceProvisioningInput {
@@ -49,7 +50,10 @@ function slugify(value: string): string {
 }
 
 function projectDirectorySegment(project: Project): string {
-  const segment = slugify(path.basename(path.resolve(project.path)));
+  const segment = slugify(path.basename(path.resolve(project.path))).slice(
+    0,
+    MAX_PROJECT_SEGMENT_LENGTH,
+  );
   return segment || 'project';
 }
 
