@@ -139,3 +139,33 @@ No estado atual:
 - ChatGPT Browser: o bridge não expõe quota da assinatura; marcado como `unavailable`.
 
 O contrato permite futura quota `available` com label, usado, restante e resetAt, mantendo provenance explícita.
+
+
+## Doctor dos providers
+
+`AgentProviderStatus` é também o contrato de diagnóstico do provider. O runtime
+não devolve stdout/stderr bruto nem credenciais; ele normaliza o resultado em
+`availability`, `reason` compatível com o contrato anterior e um
+`diagnostic.code` estruturado com evidência bounded.
+
+Para providers CLI:
+
+- comando ausente → `command-unavailable`;
+- versão abaixo do piso suportado → `version-unsupported`;
+- autenticação não confirmada → `authentication-required`;
+- timeout do preflight → `preflight-timeout`;
+- demais falhas de preflight → `runtime-failed`;
+- preflight concluído → `ready`.
+
+O piso do Codex é `0.156.1`, versão já qualificada no gate real da #777. O
+Claude Code preserva o piso `2.1.259`.
+
+Para ChatGPT Browser, o diagnóstico mantém as camadas separadas: credencial do
+Bridge, disponibilidade/health/pausa do Bridge, heartbeat da extensão e sessão
+ChatGPT. Assim uma extensão desconectada não é apresentada como falha genérica
+do provider.
+
+A aba Agente traduz o código estruturado em causa e próxima ação, mantém
+providers indisponíveis selecionáveis para inspeção e permite revalidar somente
+`GET /api/agent/providers`. A revalidação é read-only: instalação,
+autenticação e alterações de configuração continuam fora da autoridade da UI.

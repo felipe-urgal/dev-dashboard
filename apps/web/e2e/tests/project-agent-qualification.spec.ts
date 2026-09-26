@@ -553,19 +553,37 @@ test.describe('Qualificação da aba Agente', () => {
     const observedAt = '2026-09-23T14:00:00.000Z';
     let projectId = '';
     let task: TaskRecord | null = null;
+    let providerChecks = 0;
 
-    await page.route('**/api/agent/providers', (route) =>
-      json(route, {
+    await page.route('**/api/agent/providers', (route) => {
+      providerChecks += 1;
+      return json(route, {
         providers: [
-          {
-            providerId: 'automatic',
-            availability: 'unavailable',
-            observedAt,
-            reason: 'Nenhum provider saudável disponível.',
-          },
+          providerChecks === 1
+            ? {
+                providerId: 'automatic',
+                availability: 'unavailable',
+                observedAt,
+                reason: 'Nenhum provider saudável disponível.',
+                diagnostic: {
+                  code: 'automatic-unavailable',
+                  evidence:
+                    'No configured Codex or Claude Code provider passed preflight.',
+                },
+              }
+            : {
+                providerId: 'automatic',
+                availability: 'available',
+                observedAt,
+                selectedProviderId: 'codex',
+                diagnostic: {
+                  code: 'ready',
+                  evidence: 'Automatic selected codex.',
+                },
+              },
         ],
-      }),
-    );
+      });
+    });
 
     await page.route('**/api/projects/*/task-contexts', (route) =>
       json(route, { contexts: [] }),
@@ -646,7 +664,25 @@ test.describe('Qualificação da aba Agente', () => {
     await expect(
       page.getByText('Indisponível', { exact: true }).first(),
     ).toBeVisible();
+    await expect(
+      page.getByText('Automatic não encontrou Codex ou Claude Code pronto.'),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Configure Codex ou Claude Code e revalide.', {
+        exact: false,
+      }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Executar' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Revalidar providers' }).click();
+
+    await expect(
+      page.getByText('Disponível', { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Provider pronto para execução.'),
+    ).toBeVisible();
+    expect(providerChecks).toBe(2);
     await expect(page.getByRole('link', { name: 'Ver testes' })).toBeVisible();
   });
 

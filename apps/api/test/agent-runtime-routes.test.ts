@@ -1151,6 +1151,11 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
             observedAt: '2026-09-23T10:00:00.000Z',
             selectedProviderId: 'codex',
             reason: 'selected codex',
+            diagnostic: {
+              code: 'ready',
+              evidence: 'Automatic selected codex.',
+              secret: 'hidden-diagnostic',
+            },
             internalSecret: 'hidden',
           },
         ] as never,
@@ -1170,10 +1175,21 @@ test('Agent Runtime HTTP expõe providers e lifecycle com respostas sanitizadas 
   const providerStatus = providers.json<{
     providers: Array<{
       selectedProviderId?: string;
+      diagnostic?: {
+        code?: string;
+        evidence?: string;
+        secret?: string;
+      };
       internalSecret?: string;
     }>;
   }>().providers[0];
   assert.equal(providerStatus?.selectedProviderId, 'codex');
+  assert.equal(providerStatus?.diagnostic?.code, 'ready');
+  assert.equal(
+    providerStatus?.diagnostic?.evidence,
+    'Automatic selected codex.',
+  );
+  assert.equal(providerStatus?.diagnostic?.secret, undefined);
   assert.equal(providerStatus?.internalSecret, undefined);
 
   const list = await app.inject({

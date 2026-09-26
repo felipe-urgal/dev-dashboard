@@ -636,3 +636,73 @@ test('Factory registers Automatic, Codex and Claude without shell authority', ()
     ['automatic', 'codex', 'claude-code'],
   );
 });
+
+test('provider doctor classifica ausência, versão, auth e falha de runtime sem vazar saída bruta', async () => {
+  const missing = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: async () => {
+      throw new AgentCliProcessError('spawn-failed', 'SECRET_COMMAND_FAILURE');
+    },
+    now: () => observedAt,
+  });
+  const missingStatus = await missing.status();
+  assert.equal(missingStatus.availability, 'unavailable');
+  assert.equal(missingStatus.diagnostic?.code, 'command-unavailable');
+  assert.equal(
+    JSON.stringify(missingStatus).includes('SECRET_COMMAND_FAILURE'),
+    false,
+  );
+
+  const unsupported = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: async () => result({ stdout: 'codex-cli 0.155.0\n' }),
+    now: () => observedAt,
+  });
+  const unsupportedStatus = await unsupported.status();
+  assert.equal(unsupportedStatus.availability, 'degraded');
+  assert.equal(unsupportedStatus.diagnostic?.code, 'version-unsupported');
+  assert.match(unsupportedStatus.diagnostic?.evidence ?? '', /0\.155\.0/);
+  assert.match(unsupportedStatus.diagnostic?.evidence ?? '', /0\.156\.1/);
+
+  const authRequired = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: async (input) =>
+      input.args[0] === '--version'
+        ? result({ stdout: 'codex-cli 0.156.1\n' })
+        : result({ exitCode: 1, stderr: 'SECRET_AUTH_FAILURE' }),
+    now: () => observedAt,
+  });
+  const authStatus = await authRequired.status();
+  assert.equal(authStatus.availability, 'degraded');
+  assert.equal(authStatus.diagnostic?.code, 'authentication-required');
+  assert.equal(
+    JSON.stringify(authStatus).includes('SECRET_AUTH_FAILURE'),
+    false,
+  );
+
+  const runtimeFailed = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: async () =>
+      result({ exitCode: 2, stderr: 'SECRET_RUNTIME_FAILURE' }),
+    now: () => observedAt,
+  });
+  const runtimeStatus = await runtimeFailed.status();
+  assert.equal(runtimeStatus.availability, 'degraded');
+  assert.equal(runtimeStatus.diagnostic?.code, 'runtime-failed');
+  assert.equal(
+    JSON.stringify(runtimeStatus).includes('SECRET_RUNTIME_FAILURE'),
+    false,
+  );
+
+  const timedOut = new ClaudeCodeAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: async () => {
+      throw new AgentCliProcessError('timeout', 'SECRET_TIMEOUT');
+    },
+    now: () => observedAt,
+  });
+  const timeoutStatus = await timedOut.status();
+  assert.equal(timeoutStatus.availability, 'degraded');
+  assert.equal(timeoutStatus.diagnostic?.code, 'preflight-timeout');
+  assert.equal(JSON.stringify(timeoutStatus).includes('SECRET_TIMEOUT'), false);
+});

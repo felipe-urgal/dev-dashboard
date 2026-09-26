@@ -109,6 +109,27 @@ export interface AgentProviderQuota {
   reason?: string;
 }
 
+export type AgentProviderDiagnosticCode =
+  | 'ready'
+  | 'command-unavailable'
+  | 'version-unsupported'
+  | 'authentication-required'
+  | 'preflight-timeout'
+  | 'runtime-failed'
+  | 'bridge-token-missing'
+  | 'bridge-unavailable'
+  | 'bridge-unhealthy'
+  | 'bridge-paused'
+  | 'browser-extension-unavailable'
+  | 'browser-extension-stale'
+  | 'browser-session-unavailable'
+  | 'automatic-unavailable';
+
+export interface AgentProviderDiagnostic {
+  code: AgentProviderDiagnosticCode;
+  evidence?: string;
+}
+
 export interface AgentProviderStatus {
   providerId: AgentProviderId;
   availability: AgentProviderAvailability;
@@ -116,6 +137,7 @@ export interface AgentProviderStatus {
   version?: string;
   selectedProviderId?: AgentConcreteProviderId;
   reason?: string;
+  diagnostic?: AgentProviderDiagnostic;
   quota?: AgentProviderQuota;
 }
 

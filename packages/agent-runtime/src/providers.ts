@@ -10,6 +10,7 @@ import type {
   AgentConcreteProviderId,
   AgentProvider,
   AgentProviderAvailability,
+  AgentProviderDiagnosticCode,
   AgentProviderExecutionRequest,
   AgentProviderId,
   AgentProviderRegistry,
@@ -29,6 +30,7 @@ const DEFAULT_EXECUTION_TIMEOUT_MS = 45 * 60 * 1000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 const MAX_PROVIDER_SUMMARY_CHARS = 32_000;
 const MAX_PROVIDER_RESPONSE_CHARS = 16_000;
+const CODEX_CLI_MIN_VERSION = [0, 156, 1] as const;
 const CLAUDE_CODE_MIN_VERSION = [2, 1, 259] as const;
 const LOCAL_PROVIDER_IDS = ['codex', 'claude-code'] as const;
 const ALL_PROVIDER_IDS = [
@@ -106,7 +108,9 @@ export interface LocalAgentProviderRegistryOptions extends Omit<
 class ProviderProbeError extends Error {
   constructor(
     readonly availability: AgentProviderAvailability,
+    readonly diagnosticCode: AgentProviderDiagnosticCode,
     message: string,
+    readonly evidence?: string,
   ) {
     super(message);
     this.name = 'ProviderProbeError';
@@ -154,14 +158,45 @@ function providerVersion(result: AgentCliProcessResult): string {
     .slice(0, 120);
 }
 
-function probeReason(error: unknown): {
+function semanticVersion(value: string): [number, number, number] | null {
+  const match = value.match(/(\d+)\.(\d+)\.(\d+)/);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+function versionIsBelow(
+  value: readonly number[],
+  minimum: readonly number[],
+): boolean {
+  for (let index = 0; index < 3; index += 1) {
+    const difference = (value[index] ?? 0) - (minimum[index] ?? 0);
+    if (difference !== 0) return difference < 0;
+  }
+  return false;
+}
+
+function minimumVersionLabel(value: readonly number[]): string {
+  return value.join('.');
+}
+
+function probeReason(
+  error: unknown,
+  label: string,
+): {
   availability: AgentProviderAvailability;
   reason: string;
+  diagnostic: {
+    code: AgentProviderDiagnosticCode;
+    evidence?: string;
+  };
 } {
   if (error instanceof ProviderProbeError) {
     return {
       availability: error.availability,
       reason: error.message,
+      diagnostic: {
+        code: error.diagnosticCode,
+        ...(error.evidence ? { evidence: error.evidence } : {}),
+      },
     };
   }
 
@@ -169,6 +204,10 @@ function probeReason(error: unknown): {
     return {
       availability: 'unavailable',
       reason: 'provider command unavailable',
+      diagnostic: {
+        code: 'command-unavailable',
+        evidence: label + ' command could not be started.',
+      },
     };
   }
 
@@ -176,12 +215,20 @@ function probeReason(error: unknown): {
     return {
       availability: 'degraded',
       reason: 'provider preflight timed out',
+      diagnostic: {
+        code: 'preflight-timeout',
+        evidence: label + ' preflight exceeded the configured timeout.',
+      },
     };
   }
 
   return {
     availability: 'degraded',
     reason: 'provider preflight failed',
+    diagnostic: {
+      code: 'runtime-failed',
+      evidence: label + ' preflight failed without a supported diagnosis.',
+    },
   };
 }
 
@@ -189,6 +236,11 @@ async function runProbe(
   options: ProviderRuntimeOptions,
   label: string,
   args: readonly string[],
+  failure?: {
+    code: AgentProviderDiagnosticCode;
+    reason: string;
+    evidence: string;
+  },
 ): Promise<AgentCliProcessResult> {
   const result = await options.runProcess({
     command: options.command,
@@ -201,7 +253,10 @@ async function runProbe(
   if (result.signal !== null || result.exitCode !== 0) {
     throw new ProviderProbeError(
       'degraded',
-      label + ' preflight returned a non-zero result',
+      failure?.code ?? 'runtime-failed',
+      failure?.reason ?? label + ' preflight returned a non-zero result',
+      failure?.evidence ??
+        label + ' command started but preflight did not complete successfully.',
     );
   }
 
@@ -660,6 +715,12 @@ abstract class LocalCliAgentProvider implements AgentProvider {
         availability: 'available',
         observedAt: this.runtime.now(),
         ...(version ? { version } : {}),
+        diagnostic: {
+          code: 'ready',
+          ...(version
+            ? { evidence: this.label + ' ' + version + ' passed preflight.' }
+            : {}),
+        },
         quota: {
           status: 'unavailable',
           source: 'unavailable',
@@ -670,12 +731,13 @@ abstract class LocalCliAgentProvider implements AgentProvider {
         },
       };
     } catch (error) {
-      const failure = probeReason(error);
+      const failure = probeReason(error, this.label);
       return {
         providerId: this.id,
         availability: failure.availability,
         observedAt: this.runtime.now(),
         reason: failure.reason,
+        diagnostic: failure.diagnostic,
       };
     }
   }
@@ -732,18 +794,45 @@ export class CodexAgentProvider extends LocalCliAgentProvider {
   }
 
   protected async probe(): Promise<string> {
-    const versionResult = await runProbe(this.runtime, this.label, [
-      '--version',
-    ]);
+    const versionResult = await runProbe(
+      this.runtime,
+      this.label,
+      ['--version'],
+      {
+        code: 'runtime-failed',
+        reason: 'Codex version check failed',
+        evidence: 'Codex command started but --version did not succeed.',
+      },
+    );
     const version = providerVersion(versionResult);
-    if (!version) {
+    const parsedVersion = semanticVersion(version);
+    if (!parsedVersion) {
       throw new ProviderProbeError(
         'degraded',
+        'runtime-failed',
         'Codex version could not be determined',
+        'Codex --version returned no supported semantic version.',
+      );
+    }
+    if (versionIsBelow(parsedVersion, CODEX_CLI_MIN_VERSION)) {
+      throw new ProviderProbeError(
+        'degraded',
+        'version-unsupported',
+        'Codex version is below the supported minimum',
+        'Detected ' +
+          version +
+          '; minimum ' +
+          minimumVersionLabel(CODEX_CLI_MIN_VERSION) +
+          '.',
       );
     }
 
-    await runProbe(this.runtime, this.label, ['login', 'status']);
+    await runProbe(this.runtime, this.label, ['login', 'status'], {
+      code: 'authentication-required',
+      reason: 'Codex authentication was not confirmed',
+      evidence:
+        'Codex CLI is installed and compatible, but login status did not succeed.',
+    });
     return version;
   }
 
@@ -785,33 +874,47 @@ export class ClaudeCodeAgentProvider extends LocalCliAgentProvider {
   }
 
   protected async probe(): Promise<string> {
-    const versionResult = await runProbe(this.runtime, this.label, [
-      '--version',
-    ]);
+    const versionResult = await runProbe(
+      this.runtime,
+      this.label,
+      ['--version'],
+      {
+        code: 'runtime-failed',
+        reason: 'Claude Code version check failed',
+        evidence: 'Claude Code command started but --version did not succeed.',
+      },
+    );
     const versionText = providerVersion(versionResult);
-    const match = versionText.match(/(\d+)\.(\d+)\.(\d+)/);
+    const version = semanticVersion(versionText);
 
-    if (!match) {
+    if (!version) {
       throw new ProviderProbeError(
         'degraded',
+        'runtime-failed',
         'Claude Code version could not be determined',
+        'Claude Code --version returned no supported semantic version.',
       );
     }
 
-    const version = match.slice(1).map(Number);
-    const comparison =
-      (version[0] ?? 0) - CLAUDE_CODE_MIN_VERSION[0] ||
-      (version[1] ?? 0) - CLAUDE_CODE_MIN_VERSION[1] ||
-      (version[2] ?? 0) - CLAUDE_CODE_MIN_VERSION[2];
-
-    if (comparison < 0) {
+    if (versionIsBelow(version, CLAUDE_CODE_MIN_VERSION)) {
       throw new ProviderProbeError(
         'degraded',
+        'version-unsupported',
         'Claude Code version is below the supported minimum',
+        'Detected ' +
+          versionText +
+          '; minimum ' +
+          minimumVersionLabel(CLAUDE_CODE_MIN_VERSION) +
+          '.',
       );
     }
 
-    await runProbe(this.runtime, this.label, ['auth', 'status']);
+    await runProbe(this.runtime, this.label, ['auth', 'status'], {
+      code: 'authentication-required',
+      reason: 'Claude Code authentication was not confirmed',
+      evidence:
+        'Claude Code CLI is installed and compatible, but auth status did not succeed.',
+    });
     return versionText;
   }
 
@@ -924,6 +1027,10 @@ export class AutomaticAgentProvider implements AgentProvider {
           observedAt: this.now(),
           selectedProviderId: providerId,
           reason: 'selected ' + providerId,
+          diagnostic: {
+            code: 'ready',
+            evidence: 'Automatic selected ' + providerId + '.',
+          },
         };
       }
     }
@@ -933,6 +1040,11 @@ export class AutomaticAgentProvider implements AgentProvider {
       availability: 'unavailable',
       observedAt: this.now(),
       reason: 'no healthy compatible provider is available',
+      diagnostic: {
+        code: 'automatic-unavailable',
+        evidence:
+          'No configured Codex or Claude Code provider passed preflight.',
+      },
     };
   }
 

@@ -41,6 +41,7 @@ import {
   type AgentCapability,
   type AgentConversationTurn,
   type AgentExecutionResult,
+  type AgentProviderDiagnosticCode,
   type AgentProviderId,
   type AgentProviderStatus,
   type AgentRealtimeSnapshot,
@@ -138,6 +139,7 @@ const budgetTokens = ref('');
 const budgetCost = ref('');
 const budgetMode = ref<'soft' | 'hard'>('soft');
 const loading = ref(false);
+const providerRefreshing = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
@@ -285,13 +287,87 @@ const providerAvailabilityLabel = (provider: AgentProviderStatus): string => {
   return 'Indisponível';
 };
 
+const providerDiagnosticSummary = (
+  code: AgentProviderDiagnosticCode | undefined,
+): string => {
+  switch (code) {
+    case 'ready':
+      return 'Provider pronto para execução.';
+    case 'command-unavailable':
+      return 'CLI ou componente local não foi encontrado.';
+    case 'version-unsupported':
+      return 'Versão instalada não é suportada.';
+    case 'authentication-required':
+      return 'Autenticação não foi confirmada.';
+    case 'preflight-timeout':
+      return 'Validação do provider excedeu o tempo limite.';
+    case 'runtime-failed':
+      return 'O provider respondeu, mas o preflight falhou.';
+    case 'bridge-token-missing':
+      return 'Credencial local do Browser Bridge não está disponível.';
+    case 'bridge-unavailable':
+      return 'Browser Bridge não está acessível.';
+    case 'bridge-unhealthy':
+      return 'Browser Bridge respondeu com estado não saudável.';
+    case 'bridge-paused':
+      return 'Browser Bridge está pausado.';
+    case 'browser-extension-unavailable':
+      return 'Extensão ChatGPT Browser não está conectada.';
+    case 'browser-extension-stale':
+      return 'Heartbeat da extensão ChatGPT Browser está desatualizado.';
+    case 'browser-session-unavailable':
+      return 'Sessão do ChatGPT não está disponível na extensão.';
+    case 'automatic-unavailable':
+      return 'Automatic não encontrou Codex ou Claude Code pronto.';
+    default:
+      return 'Diagnóstico do provider indisponível.';
+  }
+};
+
+const providerDiagnosticAction = (
+  code: AgentProviderDiagnosticCode | undefined,
+): string => {
+  switch (code) {
+    case 'ready':
+      return 'Nenhuma ação necessária.';
+    case 'command-unavailable':
+      return 'Instale o CLI/componente oficial e revalide.';
+    case 'version-unsupported':
+      return 'Atualize o provider para uma versão suportada e revalide.';
+    case 'authentication-required':
+      return 'Autentique o provider pelo fluxo oficial local e revalide.';
+    case 'preflight-timeout':
+      return 'Verifique se o provider responde localmente e revalide.';
+    case 'runtime-failed':
+      return 'Execute o diagnóstico oficial do provider localmente e revalide.';
+    case 'bridge-token-missing':
+      return 'Reconfigure o setup local do Browser Bridge e revalide.';
+    case 'bridge-unavailable':
+      return 'Inicie o Browser Bridge local e revalide.';
+    case 'bridge-unhealthy':
+      return 'Corrija o estado do Browser Bridge e revalide.';
+    case 'bridge-paused':
+      return 'Retome o Browser Bridge e revalide.';
+    case 'browser-extension-unavailable':
+      return 'Ative/conecte a extensão ChatGPT Browser e revalide.';
+    case 'browser-extension-stale':
+      return 'Reconecte ou recarregue a extensão e revalide.';
+    case 'browser-session-unavailable':
+      return 'Abra uma sessão autenticada do ChatGPT e revalide.';
+    case 'automatic-unavailable':
+      return 'Configure Codex ou Claude Code e revalide.';
+    default:
+      return 'Revalide o provider após corrigir a configuração local.';
+  }
+};
+
 const canExecute = computed(
   () =>
     currentTask.value?.task.state === 'queued' &&
     !executing.value &&
     !mutating.value &&
     currentProvider.value !== null &&
-    currentProvider.value.availability !== 'unavailable' &&
+    currentProvider.value.availability === 'available' &&
     !budget.value?.blocking,
 );
 
@@ -307,7 +383,7 @@ const canContinue = computed(
     !mutating.value &&
     !status.value?.activeExecution &&
     currentProvider.value !== null &&
-    currentProvider.value.availability !== 'unavailable' &&
+    currentProvider.value.availability === 'available' &&
     !budget.value?.blocking,
 );
 
@@ -555,6 +631,23 @@ async function loadTask(
       error instanceof Error
         ? error.message
         : 'Não foi possível carregar a task do Agente.';
+  }
+}
+
+async function refreshProviders(): Promise<void> {
+  if (providerRefreshing.value) return;
+  providerRefreshing.value = true;
+  errorMessage.value = '';
+
+  try {
+    providers.value = await fetchAgentProviders();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível revalidar os providers.';
+  } finally {
+    providerRefreshing.value = false;
   }
 }
 
@@ -1062,6 +1155,15 @@ onBeforeUnmount(() => {
             >
               {{ providerAvailabilityLabel(currentProvider) }}
             </StatusBadge>
+            <button
+              class="agent-icon-button"
+              type="button"
+              aria-label="Revalidar providers"
+              :disabled="providerRefreshing || executing"
+              @click="refreshProviders"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+            </button>
           </div>
 
           <label class="agent-field">
@@ -1071,14 +1173,32 @@ onBeforeUnmount(() => {
                 v-for="provider in providerOptions"
                 :key="provider.providerId"
                 :value="provider.providerId"
-                :disabled="provider.availability === 'unavailable'"
               >
                 {{ providerLabel(provider.providerId) }}
                 · {{ providerAvailabilityLabel(provider) }}
               </option>
             </select>
           </label>
-          <p v-if="currentProvider?.reason" class="agent-hint">
+          <div
+            v-if="currentProvider?.diagnostic"
+            class="agent-hint"
+            data-testid="provider-diagnostic"
+          >
+            <strong>
+              {{ providerDiagnosticSummary(currentProvider.diagnostic.code) }}
+            </strong>
+            <br />
+            Evidência:
+            {{
+              currentProvider.diagnostic.evidence ??
+              currentProvider.reason ??
+              'Sem evidência adicional.'
+            }}
+            <br />
+            Próxima ação:
+            {{ providerDiagnosticAction(currentProvider.diagnostic.code) }}
+          </div>
+          <p v-else-if="currentProvider?.reason" class="agent-hint">
             {{ currentProvider.reason }}
           </p>
           <p
