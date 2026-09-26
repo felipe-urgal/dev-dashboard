@@ -337,7 +337,12 @@ const executionProfileSchema = {
   additionalProperties: false,
   required: ['id', 'label', 'providerId', 'requestedCapabilities'],
   properties: {
-    id: { type: 'string', minLength: 1, maxLength: 64, pattern: '^[a-z0-9][a-z0-9-]*$' },
+    id: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 64,
+      pattern: '^[a-z0-9][a-z0-9-]*$',
+    },
     label: { type: 'string', minLength: 1, maxLength: 80 },
     providerId: { type: 'string', enum: [...providerIds] },
     fallbackOrder: {
