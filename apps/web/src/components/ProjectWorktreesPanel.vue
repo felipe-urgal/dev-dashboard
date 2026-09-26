@@ -245,7 +245,10 @@ watch(
           title="Atualizar worktrees"
           @click="load"
         >
-          <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
         </button>
         <button
           class="worktrees-primary-button"
@@ -723,7 +726,8 @@ watch(
   justify-content: space-between;
   gap: 18px;
   padding: 10px 14px;
-  border-top: 1px solid color-mix(in srgb, var(--danger-text) 30%, var(--border));
+  border-top: 1px solid
+    color-mix(in srgb, var(--danger-text) 30%, var(--border));
   color: var(--danger-text);
   background: var(--danger-surface);
 }
