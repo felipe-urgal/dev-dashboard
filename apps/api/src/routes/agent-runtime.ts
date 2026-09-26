@@ -2366,32 +2366,40 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(() =>
-        request.body.attachmentIds?.length
-          ? options.agentRuntimeApiService.execute(
-              request.params.projectId,
-              request.params.taskId,
-              request.body.providerId,
-              {
-                id: request.body.id,
-                content: request.body.content,
-                attachmentIds: request.body.attachmentIds,
-              },
-              request.body.attachmentIds,
-              request.body.profileId,
-            )
-          : options.agentRuntimeApiService.execute(
-              request.params.projectId,
-              request.params.taskId,
-              request.body.providerId,
-              {
-                id: request.body.id,
-                content: request.body.content,
-              },
-              undefined,
-              request.body.profileId,
-            ),
-      ),
+      withAgentErrors(() => {
+        const userTurn = {
+          id: request.body.id,
+          content: request.body.content,
+          ...(request.body.attachmentIds?.length
+            ? { attachmentIds: request.body.attachmentIds }
+            : {}),
+        };
+        if (request.body.profileId) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            userTurn,
+            request.body.attachmentIds,
+            request.body.profileId,
+          );
+        }
+        if (request.body.attachmentIds?.length) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            userTurn,
+            request.body.attachmentIds,
+          );
+        }
+        return options.agentRuntimeApiService.execute(
+          request.params.projectId,
+          request.params.taskId,
+          request.body.providerId,
+          userTurn,
+        );
+      }),
   );
 
   app.post<{ Params: TaskParams; Body: ExecuteBody }>(
@@ -2417,16 +2425,32 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) =>
-      withAgentErrors(() =>
-        options.agentRuntimeApiService.execute(
+      withAgentErrors(() => {
+        if (request.body?.profileId) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            undefined,
+            request.body.attachmentIds,
+            request.body.profileId,
+          );
+        }
+        if (request.body?.attachmentIds?.length) {
+          return options.agentRuntimeApiService.execute(
+            request.params.projectId,
+            request.params.taskId,
+            request.body.providerId,
+            undefined,
+            request.body.attachmentIds,
+          );
+        }
+        return options.agentRuntimeApiService.execute(
           request.params.projectId,
           request.params.taskId,
           request.body?.providerId,
-          undefined,
-          request.body?.attachmentIds,
-          request.body?.profileId,
-        ),
-      ),
+        );
+      }),
   );
 
   app.get<{ Params: ProjectParams; Querystring: UsageQuery }>(
