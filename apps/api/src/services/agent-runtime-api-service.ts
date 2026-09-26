@@ -1493,7 +1493,9 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
 
     const before = await this.getTask(projectId, taskId);
-    this.validateTaskContextBinding(before.task);
+    if (before.task.state !== 'completed') {
+      this.validateTaskContextBinding(before.task);
+    }
     const complete = this.options.workflowRuntime.complete;
     if (!complete) {
       throw new AgentRuntimeApiServiceError(
@@ -1516,7 +1518,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
     let cleanup: AgentTaskCleanupResult = { status: 'not-applicable' };
     if (completed.task.taskContextId) {
-      const context = this.requireTaskContext(
+      const context = this.findTaskContext(
         projectId,
         completed.task.taskContextId,
       );
@@ -1574,7 +1576,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       return { status: 'not-applicable' };
     }
 
-    const context = this.requireTaskContext(
+    const context = this.findTaskContext(
       projectId,
       record.task.taskContextId,
     );
@@ -1947,7 +1949,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
   }
 
-  private requireTaskContext(
+  private findTaskContext(
     projectId: string,
     taskContextId: string,
   ): TaskContext {
@@ -1958,6 +1960,14 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         'Task Context was not found for this project.',
       );
     }
+    return context;
+  }
+
+  private requireTaskContext(
+    projectId: string,
+    taskContextId: string,
+  ): TaskContext {
+    const context = this.findTaskContext(projectId, taskContextId);
     if (!context.environmentInstanceId) {
       throw new AgentRuntimeApiServiceError(
         'AGENT_API_INVALID_REQUEST',
