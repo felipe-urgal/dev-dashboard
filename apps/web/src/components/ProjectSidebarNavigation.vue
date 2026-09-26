@@ -474,7 +474,7 @@ watch(
   padding: 0 10px;
   border-radius: 7px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--font-weight-strong);
   line-height: 1.2;
   text-decoration: none;
@@ -506,7 +506,7 @@ watch(
   .project-details-submenu-item {
     min-height: 26px;
     padding-inline: 8px;
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 
