@@ -603,6 +603,18 @@ function toggleAgentNotificationPreference(
   writeAgentNotificationPreferences(agentNotificationPreferences.value);
 }
 
+function toggleAgentNotificationGroup(
+  kinds: AgentNotificationKind[],
+  event: Event,
+): void {
+  const checked = (event.target as HTMLInputElement).checked;
+  agentNotificationPreferences.value = {
+    ...agentNotificationPreferences.value,
+    ...Object.fromEntries(kinds.map((kind) => [kind, checked])),
+  };
+  writeAgentNotificationPreferences(agentNotificationPreferences.value);
+}
+
 function parseSocketMessage(
   data: unknown,
 ):
@@ -2026,11 +2038,10 @@ onBeforeUnmount(() => {
                     agentNotificationPreferences.authorization
                   "
                   @change="
-                    (event) => {
-                      const checked = (event.target as HTMLInputElement).checked;
-                      toggleAgentNotificationPreference('checkpoint', checked);
-                      toggleAgentNotificationPreference('authorization', checked);
-                    }
+                    toggleAgentNotificationGroup(
+                      ['checkpoint', 'authorization'],
+                      $event,
+                    )
                   "
                 />
               </label>
@@ -2046,11 +2057,7 @@ onBeforeUnmount(() => {
                     agentNotificationPreferences.recovery
                   "
                   @change="
-                    (event) => {
-                      const checked = (event.target as HTMLInputElement).checked;
-                      toggleAgentNotificationPreference('failed', checked);
-                      toggleAgentNotificationPreference('recovery', checked);
-                    }
+                    toggleAgentNotificationGroup(['failed', 'recovery'], $event)
                   "
                 />
               </label>
@@ -2063,11 +2070,7 @@ onBeforeUnmount(() => {
                   type="checkbox"
                   :checked="agentNotificationPreferences.completed"
                   @change="
-                    (event) =>
-                      toggleAgentNotificationPreference(
-                        'completed',
-                        (event.target as HTMLInputElement).checked,
-                      )
+                    toggleAgentNotificationGroup(['completed'], $event)
                   "
                 />
               </label>
