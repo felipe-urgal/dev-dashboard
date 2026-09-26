@@ -17,7 +17,10 @@ import { fetchProjectScripts } from '../api';
 import { useProjectDependenciesPty } from '../composables/useProjectDependenciesPty';
 import { projectScriptDestination } from '../utils/project-script-visibility';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string | undefined;
+}>();
 
 const catalog = ref<ProjectScriptCatalog | null>(null);
 const loading = ref(false);
@@ -37,7 +40,11 @@ const {
   run,
   cancel,
   clear,
-} = useProjectDependenciesPty(() => props.project, isSupportedProject);
+} = useProjectDependenciesPty(
+  () => props.project,
+  isSupportedProject,
+  () => props.environmentInstanceId,
+);
 
 const actions = computed(() =>
   (catalog.value?.items ?? []).filter(
@@ -94,6 +101,9 @@ async function load(): Promise<void> {
   errorMessage.value = '';
   try {
     const query = new URLSearchParams({ page: '1', pageSize: '100' });
+    if (props.environmentInstanceId) {
+      query.set('environmentInstanceId', props.environmentInstanceId);
+    }
     const result = await fetchProjectScripts(props.project.id, query);
     if (current !== generation) return;
     catalog.value = result;
@@ -110,7 +120,7 @@ async function load(): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  () => `${props.project.id}:${props.environmentInstanceId ?? 'primary'}`,
   () => {
     catalog.value = null;
     void load();
