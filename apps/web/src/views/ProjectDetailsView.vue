@@ -9,16 +9,7 @@ import {
   type Component,
 } from 'vue';
 
-import {
-  ArrowLeftIcon,
-  BeakerIcon,
-  CodeBracketIcon,
-  CommandLineIcon,
-  CpuChipIcon,
-  RocketLaunchIcon,
-  ServerStackIcon,
-  ShareIcon,
-} from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ShareIcon } from '@heroicons/vue/24/outline';
 
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 
@@ -26,7 +17,7 @@ import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import EmptyState from '../components/EmptyState.vue';
-import ProjectDetailsMoreTools from '../components/ProjectDetailsMoreTools.vue';
+import ProjectSidebarNavigation from '../components/ProjectSidebarNavigation.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectToolError from '../components/ProjectToolError.vue';
 import ProjectToolLoading from '../components/ProjectToolLoading.vue';
@@ -149,22 +140,6 @@ const isServerRoute = computed(
 );
 const isGitRoute = computed(() => route.name === 'project-git');
 
-const gitSidebarTabs = [
-  { id: 'sync', label: 'Sincronização' },
-  { id: 'branches', label: 'Branches' },
-  { id: 'diff', label: 'Diff' },
-  { id: 'commit', label: 'Commit' },
-  { id: 'undo', label: 'Desfazer' },
-  { id: 'pull-request', label: 'Pull Request' },
-  { id: 'history', label: 'Histórico' },
-] as const;
-
-const activeGitSidebarTab = computed(() => {
-  const value = Array.isArray(route.query.tab)
-    ? route.query.tab[0]
-    : route.query.tab;
-  return gitSidebarTabs.some((tab) => tab.id === value) ? value : 'sync';
-});
 const isWorktreesRoute = computed(() => route.name === 'project-worktrees');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isAgentRoute = computed(() => route.name === 'project-agent');
@@ -407,145 +382,14 @@ onBeforeUnmount(stopGitOverviewRefresh);
         </header>
 
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
-          <div class="project-details-primary-tabs">
-            <RouterLink
-              v-if="project.capabilities.includes('server')"
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isServerRoute }"
-              :aria-current="isServerRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-server',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? {
-                      query: { environmentInstanceId },
-                    }
-                  : {}),
-              }"
-              aria-label="Servidor"
-              :title="projectSidebarCollapsed ? 'Servidor' : undefined"
-            >
-              <ServerStackIcon aria-hidden="true" />
-              <span>Servidor</span>
-            </RouterLink>
-
-            <div class="project-details-git-group">
-              <RouterLink
-                class="project-details-tab"
-                :class="{ 'project-details-tab-active': isGitRoute }"
-                :aria-current="isGitRoute ? 'page' : undefined"
-                :to="{ name: 'project-git', params: { projectId: project.id } }"
-                aria-label="Git"
-                :title="projectSidebarCollapsed ? 'Git' : undefined"
-              >
-                <CodeBracketIcon aria-hidden="true" />
-                <span>Git</span>
-              </RouterLink>
-
-              <nav
-                v-if="isGitRoute && !projectSidebarCollapsed"
-                class="project-details-git-submenu"
-                aria-label="Áreas do Git"
-              >
-                <RouterLink
-                  v-for="tab in gitSidebarTabs"
-                  :key="tab.id"
-                  class="project-details-git-submenu-item"
-                  :class="{
-                    'project-details-git-submenu-item-active':
-                      activeGitSidebarTab === tab.id,
-                  }"
-                  :aria-current="
-                    activeGitSidebarTab === tab.id ? 'page' : undefined
-                  "
-                  :to="{
-                    name: 'project-git',
-                    params: { projectId: project.id },
-                    query: { tab: tab.id },
-                  }"
-                >
-                  <span>{{ tab.label }}</span>
-                </RouterLink>
-              </nav>
-            </div>
-
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isTestsRoute }"
-              :aria-current="isTestsRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-tests',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? { query: { environmentInstanceId } }
-                  : {}),
-              }"
-              aria-label="Testes"
-              :title="projectSidebarCollapsed ? 'Testes' : undefined"
-            >
-              <BeakerIcon aria-hidden="true" />
-              <span>Testes</span>
-            </RouterLink>
-
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isAgentRoute }"
-              :aria-current="isAgentRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-agent',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? { query: { environmentInstanceId } }
-                  : {}),
-              }"
-              aria-label="Agente"
-              :title="projectSidebarCollapsed ? 'Agente' : undefined"
-            >
-              <CpuChipIcon aria-hidden="true" />
-              <span>Agente</span>
-            </RouterLink>
-
-            <RouterLink
-              v-if="project.capabilities.includes('production')"
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isProductionRoute }"
-              :aria-current="isProductionRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-production',
-                params: { projectId: project.id },
-              }"
-              aria-label="Produção"
-              :title="projectSidebarCollapsed ? 'Produção' : undefined"
-            >
-              <RocketLaunchIcon aria-hidden="true" />
-              <span>Produção</span>
-            </RouterLink>
-
-            <RouterLink
-              class="project-details-tab"
-              :class="{ 'project-details-tab-active': isTerminalRoute }"
-              :aria-current="isTerminalRoute ? 'page' : undefined"
-              :to="{
-                name: 'project-terminal',
-                params: { projectId: project.id },
-                ...(environmentInstanceId
-                  ? { query: { environmentInstanceId } }
-                  : {}),
-              }"
-              aria-label="Terminal"
-              :title="projectSidebarCollapsed ? 'Terminal' : undefined"
-            >
-              <CommandLineIcon aria-hidden="true" />
-              <span>Terminal</span>
-            </RouterLink>
-            <ProjectDetailsMoreTools
-              :project="project"
-              :sidebar-collapsed="projectSidebarCollapsed"
-              :sidekiq-detected="sidekiqDetected"
-              :webpack-detected="webpackDetected"
-              :environment-instance-id="environmentInstanceId"
-            />
-          </div>
+          <ProjectSidebarNavigation
+            :project="project"
+            :sidebar-collapsed="projectSidebarCollapsed"
+            :sidekiq-detected="sidekiqDetected"
+            :webpack-detected="webpackDetected"
+            :environment-instance-id="environmentInstanceId"
+            @expand-sidebar="projectSidebarCollapsed = false"
+          />
         </nav>
       </div>
 
