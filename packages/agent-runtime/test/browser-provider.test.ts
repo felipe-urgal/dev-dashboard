@@ -127,9 +127,11 @@ test('browser doctor differentiates bridge, extension and session failures', asy
   });
 
   bridge.healthValue = { ok: true };
+  const extensionUnavailable = await provider.status();
+  assert.equal(extensionUnavailable.reason, 'browser extension unavailable');
   assert.equal(
-    (await provider.status()).reason,
-    'browser extension unavailable',
+    extensionUnavailable.diagnostic?.code,
+    'browser-extension-unavailable',
   );
 
   bridge.healthValue = {
@@ -137,7 +139,12 @@ test('browser doctor differentiates bridge, extension and session failures', asy
     heartbeatAt: observedAt,
     sessionState: 'unavailable',
   };
-  assert.equal((await provider.status()).reason, 'ChatGPT session unavailable');
+  const sessionUnavailable = await provider.status();
+  assert.equal(sessionUnavailable.reason, 'ChatGPT session unavailable');
+  assert.equal(
+    sessionUnavailable.diagnostic?.code,
+    'browser-session-unavailable',
+  );
 
   bridge.healthValue = {
     ok: true,
@@ -164,6 +171,7 @@ test('browser doctor differentiates bridge, extension and session failures', asy
   const status = await unavailable.status();
   assert.equal(status.availability, 'unavailable');
   assert.equal(status.reason, 'browser bridge unavailable');
+  assert.equal(status.diagnostic?.code, 'bridge-unavailable');
 });
 
 test('browser provider executes one bounded structured job', async () => {
@@ -321,5 +329,52 @@ test('registry can include ChatGPT Browser without changing the default fallback
   assert.deepEqual(
     registry.list().map((provider) => provider.id),
     ['automatic', 'codex', 'claude-code', 'chatgpt-browser'],
+  );
+});
+
+
+test('browser doctor distingue bridge pausado, heartbeat stale e token ausente', async () => {
+  const bridge = new StubBridge();
+  const provider = new ChatGptBrowserAgentProvider({
+    bridge,
+    resolveCwd: () => '/workspace/project',
+    now: () => observedAt,
+    heartbeatMaxAgeMs: 1_000,
+  });
+
+  bridge.healthValue = {
+    ok: true,
+    paused: true,
+    heartbeatAt: observedAt,
+  };
+  assert.equal((await provider.status()).diagnostic?.code, 'bridge-paused');
+
+  bridge.healthValue = {
+    ok: true,
+    heartbeatAt: '2026-09-22T10:59:00.000Z',
+    sessionState: 'available',
+  };
+  assert.equal(
+    (await provider.status()).diagnostic?.code,
+    'browser-extension-stale',
+  );
+
+  const tokenBridge = new StubBridge();
+  tokenBridge.health = async () => {
+    throw new BrowserProviderError(
+      'bridge-token-missing',
+      'SECRET_BRIDGE_TOKEN_ERROR',
+    );
+  };
+  const tokenProvider = new ChatGptBrowserAgentProvider({
+    bridge: tokenBridge,
+    resolveCwd: () => '/workspace/project',
+    now: () => observedAt,
+  });
+  const tokenStatus = await tokenProvider.status();
+  assert.equal(tokenStatus.diagnostic?.code, 'bridge-token-missing');
+  assert.equal(
+    JSON.stringify(tokenStatus).includes('SECRET_BRIDGE_TOKEN_ERROR'),
+    false,
   );
 });
