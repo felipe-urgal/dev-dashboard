@@ -347,7 +347,6 @@ test('inspect usa somente label de ownership conhecida e funciona com instance d
   });
 });
 
-
 test('cleanup confirmado falha antes da mutation quando ownership mudou', async () => {
   const stores = fakeStores();
   const calls: Array<{ args: readonly string[] }> = [];

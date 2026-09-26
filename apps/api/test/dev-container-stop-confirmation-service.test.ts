@@ -33,7 +33,9 @@ const ownership = {
 };
 
 function inspection(
-  overrides: Partial<Extract<DevContainerCleanupInspection, { state: 'present' }>> = {},
+  overrides: Partial<
+    Extract<DevContainerCleanupInspection, { state: 'present' }>
+  > = {},
 ): Extract<DevContainerCleanupInspection, { state: 'present' }> {
   return {
     state: 'present',
@@ -52,7 +54,10 @@ test('stop confirmation é single-use e devolve ownership confirmado', () => {
   });
 
   const confirmation = service.prepare(project, inspection());
-  assert.equal(confirmation.environmentInstanceId, ownership.environmentInstanceId);
+  assert.equal(
+    confirmation.environmentInstanceId,
+    ownership.environmentInstanceId,
+  );
   assert.equal(
     service.consume(project, inspection(), confirmation.token),
     ownership.ownershipToken,

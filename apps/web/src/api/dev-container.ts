@@ -205,7 +205,6 @@ export async function rebuildDevContainer(
   return response.result;
 }
 
-
 export async function prepareDevContainerStopConfirmation(
   projectId: string,
   environmentInstanceId?: string,
