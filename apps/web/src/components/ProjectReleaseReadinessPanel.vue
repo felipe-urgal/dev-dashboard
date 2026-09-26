@@ -172,7 +172,7 @@ watch(
 </script>
 
 <template>
-  <section class="readiness-panel" aria-labelledby="readiness-title">
+  <section class="readiness-panel" aria-label="Release Readiness">
     <EmptyState
       v-if="loading"
       icon="•••"
@@ -195,20 +195,17 @@ watch(
 
     <div v-else-if="snapshot" class="readiness-card">
       <header class="readiness-header">
-        <div class="readiness-heading">
-          <RocketLaunchIcon class="readiness-title-icon" aria-hidden="true" />
+        <div class="readiness-summary">
+          <RocketLaunchIcon aria-hidden="true" />
           <div>
-            <h3 id="readiness-title">Release Readiness</h3>
-            <p>{{ blockerSummary }}</p>
+            <strong>{{ blockerSummary }}</strong>
+            <span>Atualizado em {{ formatDate(snapshot.generatedAt) }}</span>
           </div>
         </div>
 
-        <div class="readiness-overview">
-          <StatusBadge :tone="stateTone[snapshot.state]" size="md">
-            {{ stateLabel[snapshot.state] }}
-          </StatusBadge>
-          <span>Atualizado em {{ formatDate(snapshot.generatedAt) }}</span>
-        </div>
+        <StatusBadge :tone="stateTone[snapshot.state]" size="md">
+          {{ stateLabel[snapshot.state] }}
+        </StatusBadge>
       </header>
 
       <ol class="readiness-checklist" aria-label="Checks de Release Readiness">
@@ -252,228 +249,181 @@ watch(
 
 <style scoped>
 .readiness-panel {
-  padding: var(--space-5);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+.readiness-panel > :deep(.empty-state) {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-1);
 }
 
 .readiness-card {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
 .readiness-header,
-.readiness-heading,
-.readiness-overview,
+.readiness-summary,
 .readiness-check-action {
   display: flex;
+  align-items: center;
 }
 
 .readiness-header {
-  align-items: center;
+  min-height: 54px;
+  flex: 0 0 auto;
   justify-content: space-between;
-  gap: var(--space-5);
-  padding: var(--space-5);
+  gap: 12px;
+  padding: 8px 12px 8px 14px;
   border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
-.readiness-heading {
-  align-items: flex-start;
-  gap: var(--space-3);
+.readiness-summary {
   min-width: 0;
+  gap: 8px;
 }
 
-.readiness-title-icon {
-  width: 28px;
-  height: 28px;
-  margin-top: 2px;
+.readiness-summary > svg {
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.readiness-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.readiness-summary strong {
+  overflow: hidden;
   color: var(--text);
-}
-
-.readiness-header h3,
-.readiness-header p,
-.readiness-check-summary {
-  margin: 0;
-}
-
-.readiness-header h3 {
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.readiness-header p,
-.readiness-overview span,
-.readiness-check-summary {
-  color: var(--text-muted);
-}
-
-.readiness-header p {
-  margin-top: var(--space-2);
-}
-
-.readiness-overview {
-  align-items: flex-end;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 0 0 auto;
-}
-
-.readiness-overview span {
-  font-size: var(--font-xs);
+  font-size: 10px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.readiness-summary span {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
 .readiness-checklist {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
   margin: 0;
-  padding: 0 var(--space-5);
+  overflow-y: auto;
+  padding: 0;
   list-style: none;
 }
 
 .readiness-check {
   display: grid;
-  grid-template-columns: 28px 140px 140px minmax(0, 1fr) auto;
+  min-height: 62px;
+  grid-template-columns: 24px 110px 110px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-4);
-  min-height: 78px;
-  padding: var(--space-3) 0;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
-.readiness-check + .readiness-check {
-  border-top: 1px solid var(--border);
+.readiness-check:hover {
+  background: var(--surface-2);
 }
 
 .readiness-check-icon {
-  width: 24px;
-  height: 24px;
-  color: var(--text);
+  width: 17px;
+  height: 17px;
+  color: var(--text-muted);
 }
 
 .readiness-check-domain {
-  font-weight: var(--font-weight-strong);
   color: var(--text);
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
 }
 
 .readiness-check-summary {
   min-width: 0;
-  line-height: 1.45;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .readiness-check-action {
-  align-items: center;
-  gap: var(--space-3);
+  gap: 5px;
   color: var(--text-muted);
   text-decoration: none;
 }
 
 .readiness-check-action > svg {
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
 }
 
 .readiness-open-button {
   display: inline-flex;
+  min-height: 30px;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 0 var(--space-4);
+  padding: 0 9px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
   color: var(--text);
+  background: transparent;
+  font-size: 9px;
   font-weight: var(--font-weight-strong);
 }
 
 .readiness-check-action:hover .readiness-open-button {
   border-color: var(--border-strong);
-  background: var(--surface-3);
+  background: var(--surface-2);
 }
 
-.readiness-check-action:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
-  outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
-}
-
-@media (max-width: 980px) {
+@media (max-width: 860px) {
   .readiness-check {
-    grid-template-columns: 28px 120px 130px minmax(0, 1fr) auto;
-    gap: var(--space-3);
+    grid-template-columns: 24px 96px 100px minmax(0, 1fr) auto;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 680px) {
   .readiness-header {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .readiness-overview {
-    align-items: flex-start;
-  }
-
-  .readiness-overview span {
-    white-space: normal;
-  }
-
   .readiness-check {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
     grid-template-areas:
       'icon domain action'
       'icon status action'
       'icon summary summary';
     align-items: start;
-    row-gap: var(--space-2);
-    min-height: 0;
-    padding: var(--space-4) 0;
   }
 
-  .readiness-check-icon {
-    grid-area: icon;
-  }
-
-  .readiness-check-domain {
-    grid-area: domain;
-  }
-
-  .readiness-check-status {
-    grid-area: status;
-    justify-self: start;
-  }
-
-  .readiness-check-summary {
-    grid-area: summary;
-  }
-
-  .readiness-check-action {
-    grid-area: action;
-  }
-}
-
-@media (max-width: 520px) {
-  .readiness-panel {
-    padding: var(--space-3);
-  }
-
-  .readiness-header,
-  .readiness-checklist {
-    padding-left: var(--space-4);
-    padding-right: var(--space-4);
-  }
-
-  .readiness-check {
-    grid-template-columns: 28px minmax(0, 1fr);
-    grid-template-areas:
-      'icon domain'
-      'icon status'
-      'icon summary'
-      '. action';
-  }
-
-  .readiness-check-action {
-    justify-content: space-between;
-    margin-top: var(--space-1);
-  }
+  .readiness-check-icon { grid-area: icon; }
+  .readiness-check-domain { grid-area: domain; }
+  .readiness-check-status { grid-area: status; justify-self: start; }
+  .readiness-check-summary { grid-area: summary; }
+  .readiness-check-action { grid-area: action; }
 }
 </style>
