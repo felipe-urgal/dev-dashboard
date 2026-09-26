@@ -342,7 +342,6 @@ watch(
 
 <template>
   <section class="migrations-panel" aria-label="Migrations">
-
     <EmptyState
       v-if="loading"
       icon="•••"
