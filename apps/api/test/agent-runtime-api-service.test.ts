@@ -200,6 +200,250 @@ test('AgentRuntimeApiService valida preferência de provider por projeto', async
   assert.equal(writes.length, 2);
 });
 
+test('AgentRuntimeApiService conclui task e prepara cleanup pelo worktree owned do Task Context', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
+      taskContextId: 'context-1',
+      state: 'review',
+      summary: 'Concluir atividade',
+      requestedCapabilities: [],
+      createdAt: '2026-09-26T18:15:00.000Z',
+      updatedAt: '2026-09-26T18:15:00.000Z',
+    },
+    null,
+  );
+
+  const context: TaskContext = {
+    id: 'context-1',
+    projectId: 'project-1',
+    branch: 'feature/899-agent-completion-cleanup',
+    environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
+    worktreeId: 'worktree-owned',
+    issue: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 899,
+    },
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 987,
+    },
+    createdAt: '2026-09-26T18:15:00.000Z',
+    updatedAt: '2026-09-26T18:15:00.000Z',
+  };
+  const evidenceWrites: unknown[] = [];
+  const prepareCalls: unknown[] = [];
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: {
+      ...auditStore(),
+      appendEvidence: async (...args) => {
+        evidenceWrites.push(args);
+      },
+    },
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      complete: async () => {
+        const current = (await taskStore.get('task-1'))!;
+        return taskStore.save(
+          {
+            ...current.task,
+            state: 'completed',
+            updatedAt: '2026-09-26T18:20:00.000Z',
+          },
+          current.version,
+        );
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: (projectId) =>
+        projectId === 'project-1'
+          ? ({
+              id: projectId,
+              path: '/workspace/project-1',
+            } as never)
+          : null,
+    },
+    worktreeLifecycle: {
+      prepareRemoval: async (...args) => {
+        prepareCalls.push(args);
+        return {
+          state: 'ready',
+          worktreeId: 'worktree-owned',
+          environmentInstanceId:
+            'environment:worktree:project-1:worktree-owned',
+          path: '/workspace/project-1-agent-899',
+          branch: 'feature/899-agent-completion-cleanup',
+          confirmationToken: 'cleanup-token',
+          expiresAt: '2026-09-26T18:21:00.000Z',
+        };
+      },
+      remove: async () => {
+        throw new Error('unused');
+      },
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'project-1',
+        environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
+        cwd: '/workspace/project-1-agent-899',
+        runtime: 'host',
+      }),
+    },
+    taskContextRepository: {
+      find: (id) => (id === context.id ? context : null),
+      list: () => [context],
+    },
+    now: () => '2026-09-26T18:20:00.000Z',
+  });
+
+  const result = await service.completeTask('project-1', 'task-1', true);
+
+  assert.equal(result.task.task.state, 'completed');
+  assert.equal(result.cleanup.status, 'eligible');
+  assert.equal(result.cleanup.confirmationToken, 'cleanup-token');
+  assert.equal(prepareCalls.length, 1);
+  assert.equal((prepareCalls[0] as unknown[])[1], 'worktree-owned');
+  assert.equal(evidenceWrites.length, 1);
+  assert.equal(result.handoffEvidence.executionId, undefined);
+});
+
+test('AgentRuntimeApiService preserva contexto quando cleanup bloqueia e reconcilia após remoção', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
+      taskContextId: 'context-1',
+      state: 'completed',
+      summary: 'Atividade concluída',
+      requestedCapabilities: [],
+      createdAt: '2026-09-26T18:15:00.000Z',
+      updatedAt: '2026-09-26T18:20:00.000Z',
+    },
+    null,
+  );
+
+  let context: TaskContext = {
+    id: 'context-1',
+    projectId: 'project-1',
+    branch: 'feature/899-agent-completion-cleanup',
+    environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
+    worktreeId: 'worktree-owned',
+    createdAt: '2026-09-26T18:15:00.000Z',
+    updatedAt: '2026-09-26T18:15:00.000Z',
+  };
+  let removalState: 'blocked' | 'removed' = 'blocked';
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () =>
+        ({ id: 'project-1', path: '/workspace/project-1' }) as never,
+    },
+    worktreeLifecycle: {
+      prepareRemoval: async () => {
+        throw new Error('unused');
+      },
+      remove: async () =>
+        removalState === 'blocked'
+          ? {
+              state: 'blocked',
+              worktreeId: 'worktree-owned',
+              environmentInstanceId:
+                'environment:worktree:project-1:worktree-owned',
+              diagnostic: 'Active terminal still owns the environment.',
+            }
+          : {
+              state: 'removed',
+              worktreeId: 'worktree-owned',
+              environmentInstanceId:
+                'environment:worktree:project-1:worktree-owned',
+            },
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    taskContextRepository: {
+      find: () => context,
+      list: () => [context],
+      update: async (_id, input) => {
+        context = {
+          ...context,
+          ...(input.environmentInstanceId === null
+            ? { environmentInstanceId: undefined }
+            : {}),
+          ...(input.worktreeId === null ? { worktreeId: undefined } : {}),
+          updatedAt: '2026-09-26T18:22:00.000Z',
+        };
+        return context;
+      },
+    },
+    now: () => '2026-09-26T18:22:00.000Z',
+  });
+
+  const blocked = await service.cleanupCompletedTask(
+    'project-1',
+    'task-1',
+    'token-1',
+  );
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(context.worktreeId, 'worktree-owned');
+
+  removalState = 'removed';
+  const removed = await service.cleanupCompletedTask(
+    'project-1',
+    'task-1',
+    'token-2',
+  );
+  assert.equal(removed.status, 'removed');
+  assert.equal(context.worktreeId, undefined);
+  assert.equal(context.environmentInstanceId, undefined);
+});
+
 test('AgentRuntimeApiService adota ref via runtime sem ampliar capabilities', async () => {
   const taskStore = new MemoryTaskStore();
   await taskStore.save(

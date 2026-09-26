@@ -61,6 +61,11 @@ import type {
 } from './github-issue-backlog-service.js';
 import { GithubIssueBacklogError } from './github-issue-backlog-service.js';
 import type { AgentTaskWorkspaceProvisioningService } from './agent-task-workspace-provisioning-service.js';
+import type {
+  GitWorktreeLifecycleService,
+  PrepareGitWorktreeRemovalResult,
+  RemoveGitWorktreeResult,
+} from './git-worktree-lifecycle-service.js';
 
 export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_PROJECT_NOT_FOUND'
@@ -174,6 +179,31 @@ export interface AgentPullRequestFeedback {
   };
 }
 
+export type AgentTaskCleanupStatus =
+  | 'not-applicable'
+  | 'eligible'
+  | 'blocked'
+  | 'already-cleaned'
+  | 'removed'
+  | 'cleanup-required'
+  | 'failed'
+  | 'unverified';
+
+export interface AgentTaskCleanupResult {
+  status: AgentTaskCleanupStatus;
+  worktreeId?: string;
+  environmentInstanceId?: string;
+  confirmationToken?: string;
+  expiresAt?: string;
+  diagnostic?: string;
+}
+
+export interface AgentTaskCompletionResult {
+  task: AgentTaskRecord;
+  handoffEvidence: AgentEvidence;
+  cleanup: AgentTaskCleanupResult;
+}
+
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
   getProviderPreference(
@@ -249,6 +279,16 @@ export interface AgentRuntimeApiServicePort {
   cancel(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
   retry(projectId: string, taskId: string): Promise<AgentTaskRecord>;
   recover(projectId: string, taskId: string): Promise<AgentWorkflowTaskStatus>;
+  completeTask(
+    projectId: string,
+    taskId: string,
+    confirmed: boolean,
+  ): Promise<AgentTaskCompletionResult>;
+  cleanupCompletedTask(
+    projectId: string,
+    taskId: string,
+    confirmationToken: string,
+  ): Promise<AgentTaskCleanupResult>;
   resolveCheckpoint(
     projectId: string,
     taskId: string,
@@ -310,8 +350,14 @@ export interface AgentRuntimeApiServiceOptions {
     | 'resolveCheckpoint'
     | 'shutdown'
   > &
-    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef' | 'conversation'>>;
+    Partial<
+      Pick<AgentWorkflowRuntime, 'adoptGitRef' | 'conversation' | 'complete'>
+    >;
   projectStore: Pick<ProjectStore, 'findProject'>;
+  worktreeLifecycle?: Pick<
+    GitWorktreeLifecycleService,
+    'prepareRemoval' | 'remove'
+  >;
   developmentEnvironmentInstanceStore: Pick<
     DevelopmentEnvironmentInstanceStore,
     'resolveForProject'
@@ -319,6 +365,13 @@ export interface AgentRuntimeApiServiceOptions {
   taskContextRepository?: {
     find(taskContextId: string): TaskContext | null;
     list?(projectId: string): readonly TaskContext[];
+    update?(
+      taskContextId: string,
+      input: {
+        environmentInstanceId?: string | null;
+        worktreeId?: string | null;
+      },
+    ): Promise<TaskContext>;
   };
   taskContextCreator?: {
     create(
@@ -381,6 +434,65 @@ function deterministicEvidenceId(
       .update(parts.map((part) => String(part ?? '')).join('\0'))
       .digest('hex')
   );
+}
+
+function completionEvidenceId(taskId: string, completedAt: string): string {
+  return (
+    'completion-' +
+    createHash('sha256')
+      .update(taskId)
+      .update('\0')
+      .update(completedAt)
+      .digest('hex')
+  );
+}
+
+function cleanupFromPreparation(
+  prepared: PrepareGitWorktreeRemovalResult,
+): AgentTaskCleanupResult {
+  if (prepared.state === 'ready') {
+    return {
+      status: 'eligible',
+      worktreeId: prepared.worktreeId,
+      ...(prepared.environmentInstanceId
+        ? { environmentInstanceId: prepared.environmentInstanceId }
+        : {}),
+      ...(prepared.confirmationToken
+        ? { confirmationToken: prepared.confirmationToken }
+        : {}),
+      ...(prepared.expiresAt ? { expiresAt: prepared.expiresAt } : {}),
+    };
+  }
+  if (prepared.state === 'not-found') {
+    return { status: 'already-cleaned', worktreeId: prepared.worktreeId };
+  }
+  return {
+    status: 'blocked',
+    worktreeId: prepared.worktreeId,
+    ...(prepared.environmentInstanceId
+      ? { environmentInstanceId: prepared.environmentInstanceId }
+      : {}),
+    ...(prepared.diagnostic ? { diagnostic: prepared.diagnostic } : {}),
+  };
+}
+
+function cleanupFromRemoval(
+  removed: RemoveGitWorktreeResult,
+): AgentTaskCleanupResult {
+  const status: AgentTaskCleanupStatus =
+    removed.state === 'removed' || removed.state === 'already-absent'
+      ? 'removed'
+      : removed.state === 'cleanup-required'
+        ? 'cleanup-required'
+        : removed.state;
+  return {
+    status,
+    worktreeId: removed.worktreeId,
+    ...(removed.environmentInstanceId
+      ? { environmentInstanceId: removed.environmentInstanceId }
+      : {}),
+    ...(removed.diagnostic ? { diagnostic: removed.diagnostic } : {}),
+  };
 }
 
 function uniqueCapabilities(
@@ -1365,6 +1477,165 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     return nextStatus;
   }
 
+  public async completeTask(
+    projectId: string,
+    taskId: string,
+    confirmed: boolean,
+  ): Promise<AgentTaskCompletionResult> {
+    if (!confirmed) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task completion requires explicit confirmation.',
+      );
+    }
+
+    const before = await this.getTask(projectId, taskId);
+    if (before.task.state !== 'completed') {
+      this.validateTaskContextBinding(before.task);
+    }
+    const complete = this.options.workflowRuntime.complete;
+    if (!complete) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task completion is unavailable.',
+      );
+    }
+    const completed = await this.withRuntimeErrors(() =>
+      complete.call(this.options.workflowRuntime, projectId, taskId),
+    );
+    const completedAt = completed.task.updatedAt;
+    const handoffEvidence: AgentEvidence = {
+      id: completionEvidenceId(taskId, completedAt),
+      taskId,
+      kind: 'other',
+      summary: 'Agent task completed with explicit operator confirmation.',
+      observedAt: completedAt,
+    };
+    await this.options.auditStore.appendEvidence(taskId, [handoffEvidence]);
+
+    let cleanup: AgentTaskCleanupResult = { status: 'not-applicable' };
+    if (completed.task.taskContextId) {
+      const context = this.findTaskContext(
+        projectId,
+        completed.task.taskContextId,
+      );
+      if (context.worktreeId && this.options.worktreeLifecycle) {
+        const project = this.options.projectStore.findProject(projectId);
+        if (!project) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_PROJECT_NOT_FOUND',
+            'Project was not found.',
+          );
+        }
+        cleanup = cleanupFromPreparation(
+          await this.options.worktreeLifecycle.prepareRemoval(
+            project,
+            context.worktreeId,
+          ),
+        );
+      }
+    }
+
+    await this.recordActivity({
+      projectId,
+      ...(completed.task.environmentInstanceId
+        ? { environmentInstanceId: completed.task.environmentInstanceId }
+        : {}),
+      type: 'agent.completed',
+      status: 'succeeded',
+      summary:
+        cleanup.status === 'eligible'
+          ? 'Agent task completed; owned worktree is eligible for confirmed cleanup.'
+          : cleanup.status === 'blocked'
+            ? 'Agent task completed; cleanup is currently blocked.'
+            : 'Agent task completed.',
+      occurredAt: completedAt,
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+
+    return { task: completed, handoffEvidence, cleanup };
+  }
+
+  public async cleanupCompletedTask(
+    projectId: string,
+    taskId: string,
+    confirmationToken: string,
+  ): Promise<AgentTaskCleanupResult> {
+    const record = await this.getTask(projectId, taskId);
+    if (record.task.state !== 'completed') {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Only a completed Agent Task can clean up its owned workspace.',
+      );
+    }
+    if (!record.task.taskContextId || !this.options.worktreeLifecycle) {
+      return { status: 'not-applicable' };
+    }
+
+    const context = this.findTaskContext(projectId, record.task.taskContextId);
+    if (!context.worktreeId) return { status: 'already-cleaned' };
+
+    const project = this.options.projectStore.findProject(projectId);
+    if (!project) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_PROJECT_NOT_FOUND',
+        'Project was not found.',
+      );
+    }
+
+    const removed = cleanupFromRemoval(
+      await this.options.worktreeLifecycle.remove(project, {
+        worktreeId: context.worktreeId,
+        confirmationToken,
+      }),
+    );
+
+    if (
+      removed.status === 'removed' &&
+      this.options.taskContextRepository?.update
+    ) {
+      await this.options.taskContextRepository.update(context.id, {
+        environmentInstanceId: null,
+        worktreeId: null,
+      });
+    }
+
+    const observedAt = this.now();
+    await this.options.auditStore.appendEvidence(taskId, [
+      {
+        id: this.createEvidenceId(),
+        taskId,
+        kind: 'other',
+        summary:
+          removed.status === 'removed'
+            ? 'Owned Agent Task worktree cleanup completed.'
+            : `Agent Task worktree cleanup result: ${removed.status}.`,
+        observedAt,
+      },
+    ]);
+    await this.recordActivity({
+      projectId,
+      type: 'agent.cleanup.' + removed.status,
+      status:
+        removed.status === 'removed' || removed.status === 'already-cleaned'
+          ? 'succeeded'
+          : removed.status === 'blocked' ||
+              removed.status === 'cleanup-required' ||
+              removed.status === 'unverified'
+            ? 'warning'
+            : 'failed',
+      summary:
+        removed.status === 'removed'
+          ? 'Agent task owned workspace cleanup completed.'
+          : `Agent task workspace cleanup: ${removed.status}.`,
+      occurredAt: observedAt,
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+    return removed;
+  }
+
   public async resolveCheckpoint(
     projectId: string,
     taskId: string,
@@ -1672,7 +1943,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
   }
 
-  private requireTaskContext(
+  private findTaskContext(
     projectId: string,
     taskContextId: string,
   ): TaskContext {
@@ -1683,6 +1954,14 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         'Task Context was not found for this project.',
       );
     }
+    return context;
+  }
+
+  private requireTaskContext(
+    projectId: string,
+    taskContextId: string,
+  ): TaskContext {
+    const context = this.findTaskContext(projectId, taskContextId);
     if (!context.environmentInstanceId) {
       throw new AgentRuntimeApiServiceError(
         'AGENT_API_INVALID_REQUEST',
