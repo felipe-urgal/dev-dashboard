@@ -10,7 +10,7 @@ import type {
   AgentConcreteProviderId,
   AgentProvider,
   AgentProviderAvailability,
-  type AgentProviderDiagnosticCode,
+  AgentProviderDiagnosticCode,
   AgentProviderExecutionRequest,
   AgentProviderId,
   AgentProviderRegistry,
