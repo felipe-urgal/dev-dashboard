@@ -567,11 +567,7 @@ test('recovery após restart não duplica turno persistido nem redispara provide
       summary: 'Done',
     };
   });
-  const fixtureResult = await fixture(
-    t,
-    provider,
-    task({ state: 'review' }),
-  );
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
 
   await fixtureResult.conversationStore.append({
     id: 'turn-recovery',
@@ -591,10 +587,9 @@ test('recovery após restart não duplica turno persistido nem redispara provide
     now: () => new Date('2026-09-22T15:00:20.000Z'),
   });
   await crashedStateStore.markRunning(current, 'execution-before-restart');
-  assert.deepEqual(
-    await crashedStateStore.recoverInterrupted([current]),
-    ['task-1'],
-  );
+  assert.deepEqual(await crashedStateStore.recoverInterrupted([current]), [
+    'task-1',
+  ]);
   assert.equal((await crashedStateStore.read(current)).state, 'interrupted');
 
   const restartedRuntime = new AgentWorkflowRuntime({
