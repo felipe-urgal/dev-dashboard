@@ -513,16 +513,27 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
     try {
       health = await this.options.bridge.health();
     } catch (error) {
-      const reason =
+      const tokenMissing =
         error instanceof BrowserProviderError &&
-        error.code === 'bridge-token-missing'
-          ? 'browser bridge token unavailable'
-          : 'browser bridge unavailable';
+        error.code === 'bridge-token-missing';
       return {
         providerId: this.id,
         availability: 'unavailable',
         observedAt: this.now(),
-        reason,
+        reason: tokenMissing
+          ? 'browser bridge token unavailable'
+          : 'browser bridge unavailable',
+        diagnostic: tokenMissing
+          ? {
+              code: 'bridge-token-missing',
+              evidence:
+                'Browser Bridge credentials are not available to the local runtime.',
+            }
+          : {
+              code: 'bridge-unavailable',
+              evidence:
+                'The local runtime could not reach Browser Bridge on loopback.',
+            },
       };
     }
 
@@ -532,6 +543,10 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
         availability: 'degraded',
         observedAt: this.now(),
         reason: 'browser bridge unhealthy',
+        diagnostic: {
+          code: 'bridge-unhealthy',
+          evidence: 'Browser Bridge responded but did not report healthy.',
+        },
       };
     }
     if (health.paused) {
@@ -540,6 +555,10 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
         availability: 'degraded',
         observedAt: this.now(),
         reason: 'browser bridge paused',
+        diagnostic: {
+          code: 'bridge-paused',
+          evidence: 'Browser Bridge is healthy but currently paused.',
+        },
       };
     }
     if (!health.heartbeatAt) {
@@ -548,6 +567,11 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
         availability: 'degraded',
         observedAt: this.now(),
         reason: 'browser extension unavailable',
+        diagnostic: {
+          code: 'browser-extension-unavailable',
+          evidence:
+            'Browser Bridge is healthy, but no extension heartbeat was observed.',
+        },
       };
     }
 
@@ -563,6 +587,10 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
         availability: 'degraded',
         observedAt: this.now(),
         reason: 'browser extension heartbeat stale',
+        diagnostic: {
+          code: 'browser-extension-stale',
+          evidence: 'The last extension heartbeat is older than the allowed age.',
+        },
       };
     }
 
@@ -572,6 +600,11 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
         availability: 'degraded',
         observedAt: this.now(),
         reason: 'ChatGPT session unavailable',
+        diagnostic: {
+          code: 'browser-session-unavailable',
+          evidence:
+            'Browser Bridge and extension are connected, but no usable ChatGPT session was confirmed.',
+        },
       };
     }
 
@@ -580,6 +613,20 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       availability: 'available',
       observedAt: this.now(),
       ...(health.heartbeatVersion ? { version: health.heartbeatVersion } : {}),
+      diagnostic: {
+        code: 'ready',
+        ...(health.heartbeatVersion
+          ? {
+              evidence:
+                'Browser Bridge, extension ' +
+                health.heartbeatVersion +
+                ' and ChatGPT session passed preflight.',
+            }
+          : {
+              evidence:
+                'Browser Bridge, extension heartbeat and ChatGPT session passed preflight.',
+            }),
+      },
       quota: {
         status: 'unavailable',
         source: 'unavailable',
