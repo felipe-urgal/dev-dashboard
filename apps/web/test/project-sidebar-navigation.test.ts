@@ -68,9 +68,9 @@ describe('ProjectSidebarNavigation', () => {
     expect(gitTrigger).toBeDefined();
     expect(gitTrigger?.element.tagName).toBe('BUTTON');
     expect(gitTrigger?.attributes('aria-expanded')).toBe('false');
-    expect(wrapper.find('#project-sidebar-git-menu').attributes('style')).toContain(
-      'display: none',
-    );
+    expect(
+      wrapper.find('#project-sidebar-git-menu').attributes('style'),
+    ).toContain('display: none');
 
     await gitTrigger?.trigger('click');
 
