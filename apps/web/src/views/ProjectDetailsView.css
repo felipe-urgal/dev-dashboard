@@ -789,6 +789,14 @@
 }
 
 
+.project-details-git-group {
+  display: contents;
+}
+
+.project-details-git-submenu {
+  display: none;
+}
+
 /* Desktop: as áreas do projeto deixam de disputar espaço horizontal e viram
    uma rail lateral. Em telas menores, o tabbar horizontal existente é
    preservado para não sacrificar a área útil da ferramenta. */
@@ -900,6 +908,46 @@
     padding: 0;
   }
 
+  .project-details-page-ready .project-details-git-group {
+    display: grid;
+    gap: 2px;
+  }
+
+  .project-details-page-ready .project-details-git-submenu {
+    display: grid;
+    gap: 2px;
+    margin: 2px 0 5px 22px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item {
+    display: flex;
+    min-height: 30px;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 7px;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: var(--font-weight-strong);
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .project-details-page-ready :deep(.git-navigation-bar) {
+    display: none;
+  }
+
   .project-details-page-ready :deep(.project-details-tab) {
     width: 100%;
     min-height: 40px;
@@ -982,6 +1030,18 @@
     width: 15px;
     height: 15px;
     flex-basis: 15px;
+  }
+
+  .project-details-page-ready .project-details-git-submenu {
+    gap: 1px;
+    margin-left: 20px;
+    padding-left: 8px;
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item {
+    min-height: 26px;
+    padding-inline: 8px;
+    font-size: 9px;
   }
 }
 
