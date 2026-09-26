@@ -377,40 +377,19 @@ watch(
 <template>
   <section class="compose-panel" aria-labelledby="compose-title">
     <header class="compose-header">
-      <div class="compose-title">
-        <svg class="compose-docker-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <path
-            d="M3 15.5h25c-.7 6.6-4.8 10.5-11.4 10.5h-6C6 26 3 22.8 3 18.5v-3Z"
-          />
-          <path d="M27 13.5c1.9 0 3.1-1 4-2.8.2 2.7-.9 4.7-3.5 5.4" />
-          <rect x="6" y="10" width="4" height="4" rx=".7" />
-          <rect x="11" y="10" width="4" height="4" rx=".7" />
-          <rect x="16" y="10" width="4" height="4" rx=".7" />
-          <rect x="11" y="5" width="4" height="4" rx=".7" />
-          <rect x="16" y="5" width="4" height="4" rx=".7" />
-          <rect x="21" y="10" width="4" height="4" rx=".7" />
-        </svg>
-        <div>
-          <h3 id="compose-title">Docker Compose</h3>
-          <p>
-            Serviços, health, portas e lifecycle controlado do Compose associado
-            a este projeto.
-          </p>
-        </div>
-      </div>
-
       <div class="compose-header-actions">
         <button
-          class="compose-button"
+          class="compose-button compose-refresh-button"
           type="button"
           :disabled="loading || Boolean(action)"
+          aria-label="Atualizar Docker Compose"
+          title="Atualizar Docker Compose"
           @click="load"
         >
           <ArrowPathIcon
             :class="{ 'is-spinning': loading }"
             aria-hidden="true"
           />
-          Atualizar
         </button>
         <button
           class="compose-button compose-button--primary"
@@ -777,14 +756,17 @@ watch(
 
 <style scoped>
 .compose-panel {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-1);
 }
 
 .compose-header,
 .compose-header-actions,
-.compose-title,
 .compose-services-heading,
 .compose-services-title,
 .compose-badges,
@@ -794,81 +776,41 @@ watch(
 }
 
 .compose-header {
-  justify-content: space-between;
-  gap: var(--space-5);
-}
-
-.compose-title {
-  min-width: 0;
-  gap: var(--space-3);
-}
-
-.compose-title > div {
-  min-width: 0;
-}
-
-.compose-title h3,
-.compose-title p,
-.compose-services-title h4,
-.compose-problem-panel h4,
-.compose-problem-diagnostic,
-.compose-logs-heading h4,
-.compose-logs-heading p,
-.compose-error {
-  margin: 0;
-}
-
-.compose-title h3 {
-  color: var(--text);
-  font-size: var(--font-xl);
-}
-
-.compose-title p {
-  margin-top: var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--font-control);
-}
-
-.compose-docker-mark {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  fill: var(--accent);
-  stroke: var(--accent);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.2;
+  min-height: 54px;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .compose-header-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: 7px;
 }
 
 .compose-button {
   display: inline-flex;
-  min-height: var(--control-height-lg);
+  min-height: 34px;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
+  gap: 6px;
+  padding: 0 11px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--text);
-  background: var(--surface-1);
+  background: transparent;
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-control);
+  font-size: 10px;
   font-weight: var(--font-weight-strong);
-  transition:
-    border-color var(--motion-duration-fast) var(--motion-easing-standard),
-    background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .compose-button svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 
 .compose-button:hover:not(:disabled),
@@ -882,37 +824,60 @@ watch(
   opacity: var(--disabled-opacity);
 }
 
+.compose-refresh-button {
+  width: 34px;
+  padding: 0;
+}
+
 .compose-button--primary {
-  border-color: var(--accent-strong);
+  border-color: var(--accent);
   color: #fff;
-  background: var(--accent-strong);
+  background: var(--accent);
 }
 
 .compose-button--primary:hover:not(:disabled),
 .compose-button--primary:focus-visible {
-  border-color: var(--accent);
-  background: var(--accent);
+  background: var(--accent-strong);
 }
 
 .compose-button--danger {
   color: var(--danger-text);
 }
 
+.compose-panel > :deep(.empty-state) {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-1);
+}
+
+.compose-error {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--danger-text);
+  background: var(--danger-surface);
+  font-size: 10px;
+}
+
 .compose-status-strip {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-bottom: 1px solid var(--border);
   background: var(--surface-1);
 }
 
 .compose-status-item {
   display: flex;
   min-width: 0;
+  min-height: 62px;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: 9px;
+  padding: 10px 12px;
 }
 
 .compose-status-item + .compose-status-item {
@@ -921,17 +886,17 @@ watch(
 
 .compose-status-icon {
   display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface-2);
 }
 
 .compose-status-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .compose-status-item > div {
@@ -949,12 +914,12 @@ watch(
 
 .compose-status-item strong {
   color: var(--text);
-  font-size: var(--font-control);
+  font-size: 10px;
 }
 
 .compose-status-item > div > span {
   color: var(--text-muted);
-  font-size: var(--font-label);
+  font-size: 9px;
 }
 
 .compose-status-item--success .compose-status-icon,
@@ -991,49 +956,50 @@ watch(
 
 .compose-problem-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.38fr);
   overflow: hidden;
-  border: 1px solid var(--danger-text);
-  border-radius: var(--radius-lg);
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--danger-surface) 44%, transparent),
-      transparent 65%
-    ),
-    var(--surface-1);
+  border-bottom: 1px solid color-mix(in srgb, var(--danger-text) 48%, var(--border));
+  background: var(--danger-surface);
 }
 
 .compose-problem-main {
   display: flex;
   min-width: 0;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: 9px;
+  padding: 10px 12px;
 }
 
 .compose-problem-icon {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
   color: var(--danger-text);
 }
 
+.compose-problem-panel h4,
+.compose-problem-diagnostic,
+.compose-logs-heading h4,
+.compose-logs-heading p {
+  margin: 0;
+}
+
 .compose-problem-panel h4 {
-  margin-bottom: var(--space-2);
+  margin-bottom: 4px;
   color: var(--danger-text);
-  font-size: var(--font-lg);
+  font-size: 11px;
 }
 
 .compose-problem-diagnostic {
   color: var(--text);
-  font-size: var(--font-control);
-  line-height: 1.6;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .compose-conflicts {
   display: grid;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
+  gap: 5px;
+  margin: 7px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1042,94 +1008,96 @@ watch(
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   color: var(--text);
-  font-size: var(--font-control);
+  font-size: 10px;
 }
 
 .compose-conflicts li > span:first-child {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
   border-radius: 999px;
   background: var(--danger-text);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger-text) 10%, transparent);
 }
 
 .compose-readonly-message {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-4) 0;
-  padding: 0 var(--space-5);
+  gap: 9px;
+  padding: 10px 12px;
   border-left: 1px solid var(--border);
 }
 
 .compose-readonly-message > svg {
-  width: 21px;
-  height: 21px;
-  flex: 0 0 21px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
   color: var(--info-text);
 }
 
 .compose-readonly-message > div {
   display: grid;
-  gap: var(--space-1);
+  gap: 3px;
 }
 
 .compose-readonly-message strong {
   color: var(--text);
-  font-size: var(--font-control);
+  font-size: 10px;
 }
 
 .compose-readonly-message span {
   color: var(--text-muted);
-  font-size: var(--font-label);
-  line-height: 1.5;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .compose-services-heading {
+  min-height: 52px;
+  flex: 0 0 auto;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding-top: var(--space-1);
+  gap: 12px;
+  padding: 8px 12px 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .compose-services-title {
-  gap: var(--space-2);
+  gap: 7px;
 }
 
 .compose-services-title svg {
-  width: 22px;
-  height: 22px;
-  color: var(--info-text);
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
 }
 
 .compose-services-title h4 {
+  margin: 0;
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: 11px;
 }
 
 .compose-search {
   display: flex;
-  width: min(280px, 100%);
-  min-height: var(--control-height-lg);
+  width: min(240px, 100%);
+  min-height: 34px;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
+  gap: 7px;
+  padding: 0 9px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
 .compose-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .compose-search svg {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
   color: var(--text-muted);
 }
 
@@ -1142,7 +1110,7 @@ watch(
   color: var(--text);
   background: transparent;
   font: inherit;
-  font-size: var(--font-control);
+  font-size: 10px;
 }
 
 .compose-search input::placeholder {
@@ -1151,8 +1119,10 @@ watch(
 
 .compose-table-shell {
   position: relative;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
   background: var(--surface-1);
 }
 
@@ -1162,11 +1132,16 @@ watch(
   table-layout: fixed;
 }
 
-.compose-service-table th {
-  padding: 10px var(--space-3);
+.compose-service-table thead th {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
+  background: var(--surface-2);
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
   letter-spacing: 0.04em;
   text-align: left;
   text-transform: uppercase;
@@ -1174,36 +1149,19 @@ watch(
 
 .compose-service-table td {
   min-width: 0;
-  padding: 10px var(--space-3);
-  border-top: 1px solid var(--border);
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
   color: var(--text);
-  font-size: var(--font-control);
+  font-size: 10px;
   vertical-align: middle;
 }
 
-.compose-service-table th:nth-child(1) {
-  width: 12%;
-}
-
-.compose-service-table th:nth-child(2) {
-  width: 17%;
-}
-
-.compose-service-table th:nth-child(3) {
-  width: 22%;
-}
-
-.compose-service-table th:nth-child(4) {
-  width: 20%;
-}
-
-.compose-service-table th:nth-child(5) {
-  width: 25%;
-}
-
-.compose-service-table th:nth-child(6) {
-  width: 44px;
-}
+.compose-service-table th:nth-child(1) { width: 12%; }
+.compose-service-table th:nth-child(2) { width: 17%; }
+.compose-service-table th:nth-child(3) { width: 22%; }
+.compose-service-table th:nth-child(4) { width: 20%; }
+.compose-service-table th:nth-child(5) { width: 25%; }
+.compose-service-table th:nth-child(6) { width: 44px; }
 
 .compose-service-table code,
 .compose-cell-wrap {
@@ -1216,25 +1174,26 @@ watch(
 .compose-service-table code {
   color: var(--text-muted);
   font-family: var(--font-family-mono);
-  font-size: var(--font-label);
+  font-size: 9px;
 }
 
 .compose-service-name {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--space-2);
+  gap: 7px;
 }
 
 .compose-service-name svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  color: var(--info-text);
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: var(--accent);
 }
 
 .compose-service-name strong {
   overflow: hidden;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1242,7 +1201,7 @@ watch(
 .compose-badges {
   min-width: 0;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
 .compose-actions-cell {
@@ -1258,8 +1217,8 @@ watch(
 .compose-row-menu summary,
 .compose-row-menu-disabled {
   display: inline-grid;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   margin: 0;
   padding: 0;
@@ -1285,8 +1244,8 @@ watch(
 
 .compose-row-menu summary svg,
 .compose-row-menu-disabled svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .compose-row-menu-disabled {
@@ -1303,19 +1262,19 @@ watch(
   width: 140px;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   box-shadow: var(--shadow-1);
 }
 
 .compose-row-menu-popover button {
-  padding: 9px var(--space-3);
+  padding: 8px 10px;
   border: 0;
   color: var(--text);
   background: transparent;
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-control);
+  font-size: 10px;
   text-align: left;
 }
 
@@ -1334,55 +1293,54 @@ watch(
 }
 
 .compose-no-results {
-  padding: var(--space-5);
-  border-top: 1px solid var(--border);
+  padding: 20px;
   color: var(--text-muted);
-  font-size: var(--font-control);
+  font-size: 10px;
   text-align: center;
 }
 
-.compose-error {
-  padding: var(--space-3);
-  border: 1px solid var(--danger-text);
-  border-radius: var(--radius-md);
-  color: var(--danger-text);
-  background: var(--danger-surface);
-}
-
 .compose-logs {
+  display: flex;
+  min-height: 180px;
+  max-height: 42vh;
+  flex: 0 0 auto;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 
 .compose-logs-heading {
+  min-height: 44px;
+  flex: 0 0 auto;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
 
 .compose-logs-heading h4 {
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: 10px;
 }
 
 .compose-logs-heading p,
 .compose-logs-heading > span {
   color: var(--text-muted);
-  font-size: var(--font-label);
+  font-size: 9px;
 }
 
 .compose-logs pre {
-  max-height: 420px;
+  min-height: 0;
+  flex: 1 1 auto;
   margin: 0;
   overflow: auto;
-  border-top: 1px solid var(--border);
-  padding: var(--space-4);
+  padding: 12px 14px 16px;
   color: var(--text);
   background: var(--surface-0);
   font-family: var(--font-family-mono);
-  font-size: var(--font-label);
+  font-size: 10px;
   white-space: pre-wrap;
 }
 
@@ -1403,9 +1361,11 @@ watch(
 }
 
 @keyframes compose-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning { animation: none; }
 }
 
 @media (max-width: 1100px) {
@@ -1414,26 +1374,16 @@ watch(
   }
 
   .compose-readonly-message {
-    margin: 0 var(--space-4) var(--space-4);
-    padding: var(--space-4) 0 0;
     border-top: 1px solid var(--border);
     border-left: 0;
   }
 
-  .compose-table-shell {
-    overflow-x: auto;
-  }
-
   .compose-service-table {
-    min-width: 940px;
+    min-width: 860px;
   }
 }
 
 @media (max-width: 760px) {
-  .compose-panel {
-    padding: var(--space-4);
-  }
-
   .compose-header,
   .compose-services-heading {
     align-items: stretch;
