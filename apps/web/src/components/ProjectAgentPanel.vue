@@ -247,7 +247,9 @@ const effectiveProfileSummary = computed(() => {
   return [
     profile.label,
     providerLabel(profile.providerId),
-    profile.timeoutMs ? Math.round(profile.timeoutMs / 1000) + 's' : 'sem timeout',
+    profile.timeoutMs
+      ? Math.round(profile.timeoutMs / 1000) + 's'
+      : 'sem timeout',
     profile.budget?.mode ? 'budget ' + profile.budget.mode : 'sem budget',
   ].join(' · ');
 });
@@ -787,17 +789,13 @@ async function load(): Promise<void> {
   closeSocket();
 
   try {
-    const [
-      nextProviders,
-      nextTasks,
-      nextTaskContexts,
-      nextExecutionProfiles,
-    ] = await Promise.all([
-      fetchAgentProviders(),
-      fetchAgentTasks(props.project.id),
-      fetchTaskContexts(props.project.id),
-      fetchAgentExecutionProfiles(props.project.id),
-    ]);
+    const [nextProviders, nextTasks, nextTaskContexts, nextExecutionProfiles] =
+      await Promise.all([
+        fetchAgentProviders(),
+        fetchAgentTasks(props.project.id),
+        fetchTaskContexts(props.project.id),
+        fetchAgentExecutionProfiles(props.project.id),
+      ]);
     if (requestGeneration !== generation) return;
     providers.value = nextProviders;
     tasks.value = nextTasks;
@@ -963,8 +961,7 @@ async function saveCurrentExecutionProfile(): Promise<void> {
     profile,
   ];
   executionProfiles.value = await setAgentExecutionProfiles(props.project.id, {
-    defaultProfileId:
-      executionProfiles.value?.defaultProfileId ?? id,
+    defaultProfileId: executionProfiles.value?.defaultProfileId ?? id,
     profiles,
   });
   selectedProfileId.value = id;
@@ -1811,8 +1808,7 @@ onBeforeUnmount(() => {
             >
               Configuração efetiva:
               {{
-                latestExecution.execution.configuration.profileLabel ??
-                'manual'
+                latestExecution.execution.configuration.profileLabel ?? 'manual'
               }}
               ·
               {{
