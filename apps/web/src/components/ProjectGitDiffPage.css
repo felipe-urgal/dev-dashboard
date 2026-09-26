@@ -2,10 +2,11 @@
   --git-diff-toolbar-height: 52px;
 
   display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
   flex-direction: column;
-  height: auto;
-  min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   color: var(--text);
   font-family: var(--font-family);
 }
@@ -74,14 +75,14 @@
 
 .git-diff-toolbar {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--git-diff-toolbar-height);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  border-left: 0;
+  padding: 8px 12px 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .git-diff-context {
@@ -221,11 +222,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: 0;
-  flex: none;
+  flex: 1 1 auto;
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: auto;
+  padding: var(--space-3);
 }
 
 .git-diff-file-card {
@@ -631,6 +633,9 @@
 }
 
 .git-diff-empty {
+  min-height: 0;
+  flex: 1 1 auto;
+  place-content: center;
   background: var(--surface-1);
 }
 

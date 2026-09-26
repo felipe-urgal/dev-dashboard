@@ -1,9 +1,5 @@
 <script setup lang="ts">
 defineProps<{
-  projectName: string;
-  title: string;
-  statusLabel: string;
-  connecting: boolean;
   maximized: boolean;
   fontSize: number;
 }>();
@@ -19,14 +15,7 @@ const emit = defineEmits<{
     <div class="terminal-window-dots" aria-hidden="true">
       <span></span><span></span><span></span>
     </div>
-    <div class="terminal-window-title">
-      <span
-        class="terminal-status-dot"
-        :class="{ 'terminal-status-dot-connecting': connecting }"
-      ></span>
-      <strong>{{ projectName }}</strong>
-      <span>— {{ title }} · {{ statusLabel }}</span>
-    </div>
+    <div class="terminal-window-spacer" aria-hidden="true"></div>
     <div class="terminal-window-actions">
       <button
         type="button"
@@ -96,32 +85,9 @@ const emit = defineEmits<{
   border-radius: 50%;
   background: #262c40;
 }
-.terminal-window-title {
+.terminal-window-spacer {
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  color: #7d84a3;
-  font-size: var(--font-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.terminal-window-title strong {
-  color: #dbe0f2;
-  font-weight: 600;
-}
-.terminal-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--success-text);
-  flex-shrink: 0;
-}
-.terminal-status-dot-connecting {
-  background: var(--warning-text);
 }
 .terminal-window-actions {
   display: flex;

@@ -87,6 +87,10 @@ describe('ProjectSidebarNavigation', () => {
     expect(wrapper.find('#project-sidebar-git-menu').text()).toContain(
       'Worktrees',
     );
+
+    const gitItems = wrapper.find('#project-sidebar-git-menu').findAll('a');
+    expect(gitItems).toHaveLength(8);
+    expect(gitItems.every((item) => item.find('svg').exists())).toBe(true);
   });
 
   it('mantém aberto o grupo correspondente à rota ativa', () => {

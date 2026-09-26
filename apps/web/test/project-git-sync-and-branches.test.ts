@@ -169,6 +169,9 @@ test('branches page toolbar displays refresh button in header', async () => {
     },
   });
 
+  assert.equal(wrapper.find('.branch-toolbar-title').exists(), false);
+  assert.match(wrapper.find('.branch-toolbar-summary').text(), /2\s*branches/);
+
   const refresh = wrapper.find('button[aria-label="Atualizar remotas"]');
   assert.ok(refresh.exists());
   assert.equal(refresh.text().trim(), '');

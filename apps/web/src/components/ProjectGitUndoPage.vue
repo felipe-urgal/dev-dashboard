@@ -300,56 +300,82 @@ async function undoFile(filePath: string): Promise<void> {
 
 <style scoped>
 .git-undo-page {
-  display: grid;
+  display: flex;
+  width: 100%;
   min-width: 0;
-  gap: 14px;
-  padding: var(--space-5);
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  background: var(--surface-1);
+}
+
+.git-undo-page > .project-error,
+.git-undo-success {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.git-undo-success {
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .git-undo-mode {
   display: flex;
-  width: max-content;
-  max-width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
+  width: 100%;
+  min-height: 50px;
+  flex: 0 0 auto;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .git-undo-mode button {
+  position: relative;
   display: inline-flex;
-  min-height: 46px;
+  min-height: 50px;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  padding: 0 16px;
   border: 0;
-  border-right: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
   color: var(--text-muted);
-  padding: 0 18px;
+  background: transparent;
+  cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: var(--font-weight-strong);
 }
 
-.git-undo-mode button:last-child {
-  border-right: 0;
+.git-undo-mode button::after {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  content: '';
 }
 
 .git-undo-mode button:hover {
-  background: var(--surface-2);
   color: var(--text);
+  background: var(--surface-2);
 }
 
 .git-undo-mode button.active {
-  box-shadow: inset 0 -2px 0 var(--accent);
-  background: var(--accent-soft);
   color: var(--accent);
+}
+
+.git-undo-mode button.active::after {
+  background: var(--accent);
 }
 
 .git-undo-mode button > svg,
 .git-undo-danger > svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .git-undo-mode-count {
@@ -357,45 +383,54 @@ async function undoFile(filePath: string): Promise<void> {
   min-width: 20px;
   min-height: 20px;
   place-items: center;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-muted);
   padding: 0 6px;
-  font-size: var(--font-xs);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 9px;
 }
 
 .git-undo-card {
-  display: grid;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   background: var(--surface-1);
 }
 
 .git-undo-panel {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  overflow-y: auto;
 }
 
 .git-undo-heading {
   display: flex;
   min-width: 0;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: 12px;
 }
 
 .git-undo-heading > div {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 2px;
 }
 
 .git-undo-heading h2 {
   margin: 0;
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .git-undo-heading p,
@@ -403,24 +438,28 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-guidance {
   margin: 0;
   color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .git-undo-commits,
 .git-undo-files {
   display: grid;
+  flex: 0 0 auto;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--surface-1);
 }
 
 .git-undo-commit-row {
   display: grid;
-  grid-template-columns: 96px minmax(220px, 1fr) auto auto;
   min-width: 0;
+  min-height: 62px;
+  grid-template-columns: 88px minmax(220px, 1fr) auto auto;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
-  padding: 11px 14px;
 }
 
 .git-undo-commit-row:first-child,
@@ -429,15 +468,16 @@ async function undoFile(filePath: string): Promise<void> {
 }
 
 .git-undo-commit-row.is-latest {
-  background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 34%, transparent);
 }
 
 .git-undo-commit-row > code {
   width: max-content;
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-  color: var(--accent);
   padding: 3px 6px;
+  border-radius: 7px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 10px;
 }
 
 .git-undo-commit-main {
@@ -455,69 +495,78 @@ async function undoFile(filePath: string): Promise<void> {
 
 .git-undo-commit-main strong {
   color: var(--text);
+  font-size: 11px;
 }
 
 .git-undo-commit-main small {
   color: var(--text-muted);
+  font-size: 9px;
 }
 
 .git-undo-publication {
   display: inline-flex;
   width: max-content;
   align-items: center;
-  border-radius: 999px;
   padding: 4px 8px;
-  font-size: var(--font-xs);
-  font-weight: 700;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
   white-space: nowrap;
 }
 
 .git-undo-publication.is-published {
-  background: var(--success-surface);
   color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .git-undo-publication.is-local {
-  background: var(--accent-soft);
   color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .git-undo-danger,
 .git-undo-file-button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 32px;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid var(--danger-border, var(--border));
-  background: var(--surface-1);
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--danger-text) 48%, var(--border));
+  border-radius: var(--radius-sm);
   color: var(--danger-text, var(--text));
-  padding: 8px 12px;
+  background: transparent;
+  cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
   white-space: nowrap;
 }
 
 .git-undo-danger:hover:not(:disabled),
 .git-undo-file-button:hover:not(:disabled) {
+  border-color: var(--danger-text);
   background: var(--danger-surface, var(--surface-2));
 }
 
 .git-undo-danger:disabled,
 .git-undo-file-button:disabled {
+  cursor: not-allowed;
   opacity: 0.5;
 }
 
 .git-undo-note {
+  flex: 0 0 auto;
+  padding: 8px 10px;
   border-left: 3px solid var(--warning-text);
+  color: var(--warning-text);
   background: var(--warning-surface);
-  padding: 9px 11px;
 }
 
 .git-undo-guidance {
+  flex: 0 0 auto;
+  padding: 10px 0 0;
   border-top: 1px solid var(--border);
-  padding-top: 14px;
-  font-size: var(--font-sm);
 }
 
 .git-undo-guidance.is-danger {
@@ -527,16 +576,17 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-files article {
   display: flex;
   min-width: 0;
+  min-height: 54px;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: 12px;
+  padding: 9px 12px;
   border-top: 1px solid var(--border);
-  padding: 11px 14px;
 }
 
 .git-undo-files article > svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: none;
   color: var(--text-dim);
 }
@@ -545,34 +595,30 @@ async function undoFile(filePath: string): Promise<void> {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
   margin-right: auto;
 }
 
 .git-undo-files code {
   overflow: hidden;
   color: var(--text);
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .git-undo-empty {
-  margin: 0;
-  background: var(--surface-2);
+  display: grid;
+  min-height: 180px;
+  place-items: center;
   color: var(--text-muted);
-  padding: var(--space-3);
-}
-
-.git-undo-success {
-  margin: 0;
-  background: var(--success-surface);
-  color: var(--success-text);
-  padding: var(--space-3);
+  background: var(--surface-1);
+  font-size: 10px;
 }
 
 @media (max-width: 900px) {
   .git-undo-commit-row {
-    grid-template-columns: 88px minmax(180px, 1fr) auto;
+    grid-template-columns: 82px minmax(180px, 1fr) auto;
   }
 
   .git-undo-danger {
@@ -582,27 +628,18 @@ async function undoFile(filePath: string): Promise<void> {
 }
 
 @media (max-width: 720px) {
-  .git-undo-page {
-    padding: var(--space-3);
-  }
-
   .git-undo-mode {
     display: grid;
-    width: 100%;
     grid-template-columns: 1fr 1fr;
   }
 
   .git-undo-mode button {
     justify-content: center;
-    border-right: 0;
-  }
-
-  .git-undo-mode button:first-child {
-    border-right: 1px solid var(--border);
+    padding-inline: 10px;
   }
 
   .git-undo-panel {
-    padding: 16px;
+    padding: 10px;
   }
 
   .git-undo-commit-row {

@@ -263,6 +263,9 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(wrapper.find('.rails-worker-identity').text()).toContain('Webpack');
+    expect(wrapper.find('.dd-card').exists()).toBe(false);
+    expect(wrapper.find('.rails-worker-toolbar').exists()).toBe(true);
+    expect(wrapper.find('.rails-log-panel-body').exists()).toBe(true);
     expect(
       wrapper.find('.rails-worker-details').attributes('open'),
     ).toBeUndefined();

@@ -99,6 +99,8 @@ describe('ProjectWorktreesPanel', () => {
     expect(wrapper.text()).toContain('feature/login');
     expect(wrapper.text()).toContain('feature-login');
     expect(wrapper.text()).toContain('1 vinculado');
+    expect(wrapper.find('h1, h2').exists()).toBe(false);
+    expect(wrapper.find('.worktrees-toolbar').exists()).toBe(true);
     expect(wrapper.findAll('.worktrees-danger-button')).toHaveLength(1);
   });
 

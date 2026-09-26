@@ -3,7 +3,7 @@ import '@xterm/xterm/css/xterm.css';
 
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import type { Project, ProjectTerminalKind } from '@dev-dashboard/contracts';
 
@@ -52,10 +52,6 @@ let terminal: Terminal | undefined;
 let fitAddon: FitAddon | undefined;
 let socket: WebSocket | undefined;
 let resizeObserver: ResizeObserver | undefined;
-
-const windowStatusLabel = computed(() =>
-  sessionState.value === 'connecting' ? 'Conectando…' : 'Sessão ativa',
-);
 
 async function loadStatus(): Promise<void> {
   loadingStatus.value = true;
@@ -367,10 +363,6 @@ onBeforeUnmount(() => {
         :aria-label="title"
       >
         <ProjectTerminalWindowBar
-          :project-name="project.name"
-          :title="title"
-          :status-label="windowStatusLabel"
-          :connecting="sessionState === 'connecting'"
           :maximized="maximized"
           :font-size="terminalFontSize"
           @toggle-maximized="toggleMaximized"

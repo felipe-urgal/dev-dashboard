@@ -73,6 +73,7 @@ test('renderiza tela de commit minimalista sem resumo, abas ou histórico', asyn
   assert.ok(wrapper.find('.git-commit-card').exists());
   assert.equal(wrapper.findAll('.git-commit-summary-card').length, 0);
   assert.equal(wrapper.findAll('.git-commit-history-row').length, 0);
+  assert.equal(wrapper.find('.git-commit-tracked input').exists(), false);
   assert.equal(wrapper.find('.git-commit-mode').exists(), false);
   assert.equal(wrapper.text().includes('Criar novo commit'), false);
   assert.equal(wrapper.text().includes('Últimos commits'), false);
@@ -84,7 +85,10 @@ test('renderiza tela de commit minimalista sem resumo, abas ou histórico', asyn
   assert.equal(textarea.attributes('aria-label'), 'Mensagem do commit');
   assert.equal(textarea.attributes('placeholder'), 'Descreva as alterações');
   assert.match(wrapper.text(), /0\/500/);
-  assert.match(wrapper.text(), /Incluir todas as alterações rastreadas/);
+  assert.match(
+    wrapper.text(),
+    /2 alterações rastreadas incluídas automaticamente/,
+  );
   assert.match(wrapper.text(), /Amend último commit/);
   assert.match(wrapper.text(), /Criar commit/);
 

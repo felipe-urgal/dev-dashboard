@@ -2,15 +2,21 @@
 import { computed, ref, watch, type Component } from 'vue';
 import {
   AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
+  ArrowUpTrayIcon,
+  ArrowUturnLeftIcon,
   BeakerIcon,
   CheckBadgeIcon,
+  CheckCircleIcon,
   ChevronDownIcon,
+  ClockIcon,
   CircleStackIcon,
   CodeBracketIcon,
   CommandLineIcon,
   CpuChipIcon,
   CubeIcon,
   CubeTransparentIcon,
+  DocumentDuplicateIcon,
   DocumentTextIcon,
   FolderIcon,
   LockClosedIcon,
@@ -18,6 +24,7 @@ import {
   QueueListIcon,
   RocketLaunchIcon,
   ServerStackIcon,
+  ShareIcon,
   ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
 import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router';
@@ -57,13 +64,13 @@ type SidebarGroup = {
 };
 
 const gitTabs = [
-  ['sync', 'Sincronização'],
-  ['branches', 'Branches'],
-  ['diff', 'Diff'],
-  ['commit', 'Commit'],
-  ['undo', 'Desfazer'],
-  ['pull-request', 'Pull Request'],
-  ['history', 'Histórico'],
+  { id: 'sync', label: 'Sincronização', icon: ArrowPathIcon },
+  { id: 'branches', label: 'Branches', icon: ShareIcon },
+  { id: 'diff', label: 'Diff', icon: DocumentDuplicateIcon },
+  { id: 'commit', label: 'Commit', icon: CheckCircleIcon },
+  { id: 'undo', label: 'Desfazer', icon: ArrowUturnLeftIcon },
+  { id: 'pull-request', label: 'Pull Request', icon: ArrowUpTrayIcon },
+  { id: 'history', label: 'Histórico', icon: ClockIcon },
 ] as const;
 
 const expandedGroups = ref<Record<SidebarGroupId, boolean>>({
@@ -160,12 +167,13 @@ const groups = computed<SidebarGroup[]>(() => [
     label: 'Git',
     icon: CodeBracketIcon,
     items: [
-      ...gitTabs.map(([id, label]) => ({
-        id: `git-${id}`,
-        label,
+      ...gitTabs.map((tab) => ({
+        id: `git-${tab.id}`,
+        label: tab.label,
+        icon: tab.icon,
         routeNames: ['project-git'],
-        gitTab: id,
-        to: projectRoute('project-git', { query: { tab: id } }),
+        gitTab: tab.id,
+        to: projectRoute('project-git', { query: { tab: tab.id } }),
       })),
       ...(props.project.capabilities.includes('git')
         ? [
@@ -307,7 +315,7 @@ function currentGitTab(): string {
   const value = Array.isArray(route.query.tab)
     ? route.query.tab[0]
     : route.query.tab;
-  return typeof value === 'string' && gitTabs.some(([id]) => id === value)
+  return typeof value === 'string' && gitTabs.some((tab) => tab.id === value)
     ? value
     : 'sync';
 }
@@ -466,7 +474,7 @@ watch(
   padding: 0 10px;
   border-radius: 7px;
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: var(--font-weight-strong);
   line-height: 1.2;
   text-decoration: none;
@@ -498,7 +506,7 @@ watch(
   .project-details-submenu-item {
     min-height: 26px;
     padding-inline: 8px;
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 

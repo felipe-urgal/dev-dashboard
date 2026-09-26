@@ -16,7 +16,6 @@ import {
   type PrepareProjectGitWorktreeRemovalResult,
   type ProjectGitWorktree,
 } from '../api/git-worktrees';
-import ProjectToolHeader from './ProjectToolHeader.vue';
 
 const props = defineProps<{ project: Project }>();
 
@@ -230,25 +229,26 @@ watch(
 </script>
 
 <template>
-  <section class="worktrees-tool" aria-labelledby="worktrees-title">
-    <ProjectToolHeader title="Worktrees">
-      <template #meta>
-        <span class="worktrees-count">
-          {{ linkedWorktreeCount }} vinculado{{
-            linkedWorktreeCount === 1 ? '' : 's'
-          }}
-        </span>
-      </template>
-      <template #actions>
+  <section class="worktrees-tool">
+    <header class="worktrees-toolbar">
+      <span class="worktrees-count">
+        <strong>{{ linkedWorktreeCount }}</strong>
+        vinculado{{ linkedWorktreeCount === 1 ? '' : 's' }}
+      </span>
+
+      <div class="worktrees-toolbar-actions">
         <button
-          class="worktrees-secondary-button"
+          class="worktrees-secondary-button worktrees-refresh-button"
           type="button"
           :disabled="loading || mutationRunning"
           aria-label="Atualizar worktrees"
+          title="Atualizar worktrees"
           @click="load"
         >
-          <ArrowPathIcon aria-hidden="true" />
-          Atualizar
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
         </button>
         <button
           class="worktrees-primary-button"
@@ -259,8 +259,8 @@ watch(
           <FolderPlusIcon aria-hidden="true" />
           {{ showCreateForm ? 'Fechar' : 'Novo worktree' }}
         </button>
-      </template>
-    </ProjectToolHeader>
+      </div>
+    </header>
 
     <div class="worktrees-content">
       <form
@@ -411,51 +411,101 @@ watch(
 
 <style scoped>
 .worktrees-tool {
+  display: flex;
+  width: 100%;
   min-width: 0;
-  border: 1px solid var(--border);
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  overflow: hidden;
   background: var(--surface-1);
 }
 
-.worktrees-content {
-  display: grid;
-  gap: 14px;
-  padding: 18px 22px 22px;
+.worktrees-toolbar {
+  display: flex;
+  min-height: 54px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
+}
+
+.worktrees-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .worktrees-count {
-  color: var(--text-dim);
-  font-size: var(--font-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.worktrees-count strong {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: 10px;
 }
 
 .worktrees-primary-button,
 .worktrees-secondary-button,
 .worktrees-danger-button {
   display: inline-flex;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 36px;
+  padding: 0 11px;
   border: 1px solid var(--border);
-  padding: 7px 11px;
-  background: var(--surface-1);
+  border-radius: var(--radius-sm);
   color: var(--text);
-  font: inherit;
-  font-size: var(--font-sm);
-  font-weight: 650;
+  background: transparent;
   cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
 }
 
 .worktrees-primary-button {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--surface-1);
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+}
+
+.worktrees-primary-button:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.worktrees-secondary-button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
 }
 
 .worktrees-primary-button svg,
 .worktrees-secondary-button svg,
 .worktrees-danger-button svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
+}
+
+.worktrees-refresh-button {
+  width: 34px;
+  padding: 0;
+}
+
+.worktrees-refresh-button .is-spinning {
+  animation: worktrees-spin 0.8s linear infinite;
 }
 
 .worktrees-primary-button:disabled,
@@ -465,11 +515,21 @@ watch(
   opacity: 0.5;
 }
 
+.worktrees-content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
 .worktrees-create-card {
   display: grid;
-  gap: 16px;
-  border: 1px solid var(--border);
-  padding: 16px;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
   background: var(--surface-2);
 }
 
@@ -479,27 +539,28 @@ watch(
 }
 
 .worktrees-create-heading h3 {
-  font-size: var(--font-md);
+  color: var(--text);
+  font-size: 12px;
 }
 
 .worktrees-create-heading p {
   margin-top: 3px;
   color: var(--text-dim);
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
 .worktrees-create-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .worktrees-field {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   color: var(--text-muted);
-  font-size: var(--font-sm);
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
 }
 
 .worktrees-field small {
@@ -510,12 +571,20 @@ watch(
 .worktrees-field input {
   width: 100%;
   min-width: 0;
-  min-height: 40px;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 7px 9px;
   border: 1px solid var(--border);
-  padding: 8px 10px;
-  background: var(--surface-1);
+  border-radius: var(--radius-sm);
   color: var(--text);
+  background: var(--surface-1);
   font: inherit;
+  font-size: 10px;
+}
+
+.worktrees-field input:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
 }
 
 .worktrees-create-footer,
@@ -523,7 +592,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .worktrees-checkbox {
@@ -531,125 +600,154 @@ watch(
   align-items: center;
   gap: 8px;
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
 .worktrees-success,
 .worktrees-error {
+  flex: 0 0 auto;
   margin: 0;
-  border: 1px solid var(--border);
-  padding: 10px 12px;
-  font-size: var(--font-sm);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
 }
 
 .worktrees-success {
-  background: color-mix(in srgb, #16a34a 8%, var(--surface-1));
-  color: #166534;
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .worktrees-error {
-  background: color-mix(in srgb, #dc2626 7%, var(--surface-1));
-  color: #b91c1c;
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .worktrees-empty {
-  border: 1px dashed var(--border);
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-content: center;
   padding: 28px 18px;
   color: var(--text-dim);
   text-align: center;
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
 .worktrees-list {
   display: grid;
-  border: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 .worktree-row {
   display: flex;
+  min-width: 0;
+  min-height: 68px;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  min-width: 0;
-  padding: 13px 14px;
+  gap: 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 120ms ease;
 }
 
-.worktree-row + .worktree-row {
-  border-top: 1px solid var(--border);
+.worktree-row:hover {
+  background: var(--surface-2);
 }
 
 .worktree-main {
   display: grid;
   min-width: 0;
-  gap: 5px;
+  gap: 4px;
 }
 
 .worktree-title-row,
 .worktree-meta {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
-  min-width: 0;
 }
 
 .worktree-title-row strong {
   overflow: hidden;
   color: var(--text);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .worktree-badge {
   flex: none;
-  border: 1px solid var(--border);
   padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 8px;
+  font-weight: var(--font-weight-strong);
   text-transform: uppercase;
 }
 
 .worktree-meta {
   color: var(--text-dim);
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
 .worktree-meta code {
   color: var(--text-muted);
-  font-size: var(--font-xs);
+  font-size: 9px;
 }
 
 .worktree-note {
   margin: 0;
   color: var(--text-dim);
-  font-size: var(--font-xs);
+  font-size: 9px;
 }
 
 .worktrees-danger-button {
   flex: none;
-  border-color: color-mix(in srgb, #dc2626 28%, var(--border));
-  color: #b91c1c;
+  border-color: color-mix(in srgb, var(--danger-text) 42%, var(--border));
+  color: var(--danger-text);
+}
+
+.worktrees-danger-button:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .worktrees-danger-button-solid {
-  background: #b91c1c;
-  color: white;
+  color: #fff;
+  background: var(--danger-text);
 }
 
 .worktrees-confirmation {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  border: 1px solid color-mix(in srgb, #dc2626 30%, var(--border));
-  padding: 14px;
-  background: color-mix(in srgb, #dc2626 6%, var(--surface-1));
+  padding: 10px 14px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--danger-text) 30%, var(--border));
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .worktrees-confirmation p {
-  margin: 4px 0 0;
-  color: var(--text-dim);
-  font-size: var(--font-sm);
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+@keyframes worktrees-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .worktrees-refresh-button .is-spinning {
+    animation: none;
+  }
 }
 
 @media (max-width: 720px) {

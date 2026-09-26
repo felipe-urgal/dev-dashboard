@@ -278,3 +278,34 @@ test('não deixa um overview atrasado de um projeto anterior sobrescrever o mais
     'a resposta atrasada de projeto-b não deveria sobrescrever projeto-c',
   );
 });
+
+test('estado vazio ocupa o workspace e esconde controles sem utilidade', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git/diff')) {
+      return jsonResponse({ diff: { ...snapshot, files: [] } });
+    }
+    if (url.pathname.endsWith('/git')) {
+      return jsonResponse({ git: { ...overview, clean: true } });
+    }
+    return jsonResponse({}, 404);
+  }) as typeof globalThis.fetch;
+
+  const wrapper = mount(ProjectGitDiffPage, {
+    props: { projectId: 'projeto-vazio' },
+    attachTo: document.body,
+  });
+
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+
+  await settle(wrapper);
+
+  assert.ok(wrapper.find('.git-diff-empty').exists());
+  assert.equal(wrapper.find('.git-diff-view-switch').exists(), false);
+  assert.equal(wrapper.find('.git-diff-status-filter').exists(), false);
+});
