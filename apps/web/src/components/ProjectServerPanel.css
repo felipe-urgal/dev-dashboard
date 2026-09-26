@@ -1,45 +1,42 @@
 .server-dashboard {
   display: flex;
+  width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
   flex-direction: column;
-  gap: 12px;
-  box-sizing: border-box;
-  padding: 16px 18px 24px;
-  overflow: auto;
+  overflow: hidden;
+  background: var(--surface-1);
 }
 
 .server-toolbar {
   display: grid;
   grid-template-columns:
-    minmax(150px, 0.85fr)
-    minmax(130px, 0.7fr)
-    minmax(180px, 1fr)
-    minmax(180px, 1fr)
+    minmax(140px, 0.8fr)
+    minmax(110px, 0.6fr)
+    minmax(170px, 1fr)
+    minmax(160px, 0.9fr)
     auto;
   min-width: 0;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 2%) inset;
-  overflow: hidden;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .server-summary-item {
   display: flex;
   min-width: 0;
-  min-height: 74px;
+  min-height: 64px;
   align-items: center;
-  gap: 11px;
-  padding: 13px 16px;
+  gap: 10px;
+  padding: 10px 14px;
   border-right: 1px solid var(--border);
 }
 
 .server-summary-item > div {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 3px;
 }
 
 .server-summary-item > div > span {
@@ -47,12 +44,14 @@
   font-size: 9px;
   font-weight: var(--font-weight-strong);
   line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .server-summary-item strong {
   overflow: hidden;
   color: var(--text);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -64,19 +63,19 @@
 
 .server-summary-icon {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 999px;
+  border-radius: 8px;
   color: var(--accent);
   background: var(--accent-soft);
 }
 
 .server-summary-icon svg,
 .server-summary-glyph {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 
 .server-summary-glyph {
@@ -108,8 +107,8 @@
 }
 
 .server-status-label i {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   flex: 0 0 auto;
   border-radius: 999px;
   background: var(--text-dim);
@@ -118,12 +117,10 @@
 .server-status-label i.is-stopped,
 .server-status-label i.is-failed {
   background: var(--danger-text);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger-text) 14%, transparent);
 }
 
 .server-status-label i.is-running {
   background: var(--success-text);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-text) 14%, transparent);
 }
 
 .server-status-label i.is-starting,
@@ -133,11 +130,11 @@
 
 .server-toolbar-actions {
   display: flex;
-  min-height: 74px;
+  min-height: 64px;
   align-items: center;
   justify-content: flex-end;
-  gap: 7px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 10px 12px;
 }
 
 .server-primary-button,
@@ -145,36 +142,35 @@
 .server-danger-button,
 .server-icon-button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   gap: 7px;
   box-sizing: border-box;
   border-radius: var(--radius-sm);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: var(--font-weight-strong);
   text-decoration: none;
   cursor: pointer;
   transition:
     border-color var(--motion-duration-fast) var(--motion-easing-standard),
     background var(--motion-duration-fast) var(--motion-easing-standard),
-    color var(--motion-duration-fast) var(--motion-easing-standard),
-    transform var(--motion-duration-fast) var(--motion-easing-standard);
+    color var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .server-primary-button,
 .server-secondary-button,
 .server-danger-button {
-  padding: 0 13px;
+  padding: 0 12px;
 }
 
 .server-primary-button svg,
 .server-secondary-button svg,
 .server-danger-button svg,
 .server-icon-button svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 
 .server-primary-button {
@@ -185,25 +181,24 @@
 
 .server-primary-button:hover:not(:disabled) {
   background: var(--accent-strong);
-  transform: translateY(-1px);
 }
 
 .server-secondary-button,
 .server-icon-button {
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   color: var(--text-muted);
   background: var(--surface-1);
 }
 
 .server-secondary-button:hover:not(:disabled),
 .server-icon-button:hover:not(:disabled) {
-  border-color: var(--text-dim);
+  border-color: var(--border-strong);
   color: var(--text);
   background: var(--surface-2);
 }
 
 .server-danger-button {
-  border: 1px solid color-mix(in srgb, var(--danger-text) 65%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--danger-text) 52%, var(--border));
   color: var(--danger-text);
   background: var(--danger-surface);
 }
@@ -213,7 +208,7 @@
 }
 
 .server-icon-button {
-  width: 36px;
+  width: 34px;
   padding: 0;
 }
 
@@ -226,34 +221,33 @@
 }
 
 .server-feedback {
-  padding: 9px 11px;
+  flex: 0 0 auto;
+  margin: 10px 14px 0;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   font-size: 10px;
   line-height: 1.4;
 }
 
 .server-feedback-success {
-  border: 1px solid color-mix(in srgb, var(--success-text) 45%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--success-text) 40%, var(--border));
   color: var(--success-text);
   background: var(--success-surface);
 }
 
 .server-feedback-error,
 .server-modal-error {
-  border: 1px solid color-mix(in srgb, var(--danger-text) 58%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--danger-text) 52%, var(--border));
   color: var(--danger-text);
   background: var(--danger-surface);
 }
 
 .server-console-card {
   min-width: 0;
-  min-height: 300px;
-  height: 42vh;
-  max-height: 420px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-0);
+  min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
+  background: var(--surface-0);
 }
 
 .server-console-card :deep(.project-log-terminal),
@@ -262,16 +256,20 @@
 }
 
 .server-console-card :deep(.project-log-viewer) {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   border: 0;
   border-radius: 0;
   background: var(--surface-0);
 }
 
 .server-console-card :deep(.project-log-viewer-header) {
-  min-height: 50px;
-  padding: 9px 12px;
-  border-bottom-color: var(--border);
-  background: var(--surface-1);
+  min-height: 44px;
+  padding: 8px 12px;
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .server-console-card :deep(.project-log-viewer-heading) {
@@ -285,16 +283,17 @@
 
 .server-console-card :deep(.project-log-viewer-button),
 .server-console-card :deep(.project-log-terminal-clear) {
-  min-height: 30px;
-  border-color: var(--border-strong);
+  min-height: 28px;
+  border-color: var(--border);
   color: var(--text-muted);
-  background: var(--surface-2);
+  background: transparent;
 }
 
 .server-console-card :deep(.project-log-viewer-button:hover:not(:disabled)),
 .server-console-card :deep(.project-log-terminal-clear:hover:not(:disabled)) {
-  border-color: var(--text-dim);
+  border-color: var(--border-strong);
   color: var(--text);
+  background: var(--surface-2);
 }
 
 .server-console-card :deep(.project-log-viewer-meta) {
@@ -305,17 +304,18 @@
 .server-console-card :deep(.project-log-viewer-output) {
   min-height: 0;
   max-height: none;
+  flex: 1 1 0;
   background: var(--surface-0);
 }
 
 .server-console-card :deep(.project-log-viewer-output pre) {
   min-height: 100%;
   box-sizing: border-box;
-  padding: 16px 18px 24px;
+  padding: 14px 16px 20px;
   color: var(--text);
   background: var(--surface-0);
   font-size: 11px;
-  line-height: 1.65;
+  line-height: 1.6;
 }
 
 .server-settings-backdrop {
@@ -332,11 +332,11 @@
 .server-settings-modal {
   width: min(460px, 100%);
   max-height: min(720px, calc(100vh - 48px));
+  overflow: auto;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--surface-1);
   box-shadow: 0 20px 60px rgb(0 0 0 / 38%);
-  overflow: auto;
 }
 
 .server-settings-header {
@@ -460,20 +460,18 @@
 
 .server-empty-state {
   display: flex;
-  min-height: 220px;
+  min-height: 100%;
   align-items: center;
   justify-content: center;
   gap: 14px;
   padding: 28px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
   color: var(--text-muted);
   background: var(--surface-1);
 }
 
 .server-empty-state > svg {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   color: var(--text-dim);
 }
 
@@ -488,7 +486,7 @@
 
 @media (max-width: 1240px) {
   .server-toolbar {
-    grid-template-columns: repeat(4, minmax(130px, 1fr));
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
   }
 
   .server-summary-item:nth-child(4) {
@@ -498,26 +496,18 @@
   .server-toolbar-actions {
     grid-column: 1 / -1;
     min-height: auto;
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-top: 1px solid var(--border);
-  }
-
-  .server-console-card {
-    height: 38vh;
   }
 }
 
 @media (max-width: 820px) {
-  .server-dashboard {
-    padding: 12px;
-  }
-
   .server-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .server-summary-item {
-    min-height: 66px;
+    min-height: 58px;
   }
 
   .server-summary-item:nth-child(2) {
@@ -532,11 +522,6 @@
   .server-toolbar-actions {
     flex-wrap: wrap;
   }
-
-  .server-console-card {
-    height: 320px;
-    min-height: 280px;
-  }
 }
 
 @media (max-width: 560px) {
@@ -545,7 +530,7 @@
   }
 
   .server-summary-item {
-    min-height: 58px;
+    min-height: 54px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
@@ -560,7 +545,7 @@
   }
 
   .server-toolbar-actions .server-icon-button {
-    flex: 0 0 36px;
+    flex: 0 0 34px;
   }
 
   .server-settings-backdrop {
