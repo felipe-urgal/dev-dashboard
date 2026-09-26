@@ -286,16 +286,10 @@ test('complete é explícito, idempotente e somente permitido em review sem chec
   }));
   const fixtureResult = await fixture(t, provider, task({ state: 'review' }));
 
-  const completed = await fixtureResult.runtime.complete(
-    'project-1',
-    'task-1',
-  );
+  const completed = await fixtureResult.runtime.complete('project-1', 'task-1');
   assert.equal(completed.task.state, 'completed');
 
-  const repeated = await fixtureResult.runtime.complete(
-    'project-1',
-    'task-1',
-  );
+  const repeated = await fixtureResult.runtime.complete('project-1', 'task-1');
   assert.equal(repeated.task.state, 'completed');
   assert.equal(repeated.version, completed.version);
 

@@ -701,7 +701,6 @@ const checkpointResolutionBodySchema = {
   },
 } as const;
 
-
 const completeTaskBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -939,7 +938,6 @@ const taskRecordSchema = {
     version: { type: 'integer', minimum: 1 },
   },
 } as const;
-
 
 const agentTaskCompletionSchema = {
   type: 'object',

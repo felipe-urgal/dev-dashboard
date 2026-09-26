@@ -206,8 +206,7 @@ test('AgentRuntimeApiService conclui task e prepara cleanup pelo worktree owned 
     {
       id: 'task-1',
       projectId: 'project-1',
-      environmentInstanceId:
-        'environment:worktree:project-1:worktree-owned',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
       taskContextId: 'context-1',
       state: 'review',
       summary: 'Concluir atividade',
@@ -222,8 +221,7 @@ test('AgentRuntimeApiService conclui task e prepara cleanup pelo worktree owned 
     id: 'context-1',
     projectId: 'project-1',
     branch: 'feature/899-agent-completion-cleanup',
-    environmentInstanceId:
-      'environment:worktree:project-1:worktree-owned',
+    environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
     worktreeId: 'worktree-owned',
     issue: {
       repository: 'felipe-urgal/dev-dashboard',
@@ -308,8 +306,7 @@ test('AgentRuntimeApiService conclui task e prepara cleanup pelo worktree owned 
     developmentEnvironmentInstanceStore: {
       resolveForProject: () => ({
         projectId: 'project-1',
-        environmentInstanceId:
-          'environment:worktree:project-1:worktree-owned',
+        environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
         cwd: '/workspace/project-1-agent-899',
         runtime: 'host',
       }),
@@ -338,8 +335,7 @@ test('AgentRuntimeApiService preserva contexto quando cleanup bloqueia e reconci
     {
       id: 'task-1',
       projectId: 'project-1',
-      environmentInstanceId:
-        'environment:worktree:project-1:worktree-owned',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
       taskContextId: 'context-1',
       state: 'completed',
       summary: 'Atividade concluída',
@@ -354,8 +350,7 @@ test('AgentRuntimeApiService preserva contexto quando cleanup bloqueia e reconci
     id: 'context-1',
     projectId: 'project-1',
     branch: 'feature/899-agent-completion-cleanup',
-    environmentInstanceId:
-      'environment:worktree:project-1:worktree-owned',
+    environmentInstanceId: 'environment:worktree:project-1:worktree-owned',
     worktreeId: 'worktree-owned',
     createdAt: '2026-09-26T18:15:00.000Z',
     updatedAt: '2026-09-26T18:15:00.000Z',

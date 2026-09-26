@@ -190,8 +190,7 @@ function service(
       cleanup: {
         status: 'eligible',
         worktreeId: 'worktree-123',
-        environmentInstanceId:
-          'environment:worktree:project-1:worktree-123',
+        environmentInstanceId: 'environment:worktree:project-1:worktree-123',
         confirmationToken: 'cleanup-token',
         expiresAt: '2026-09-23T10:04:30.000Z',
       },
@@ -199,8 +198,7 @@ function service(
     cleanupCompletedTask: async () => ({
       status: 'removed',
       worktreeId: 'worktree-123',
-      environmentInstanceId:
-        'environment:worktree:project-1:worktree-123',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-123',
     }),
     recover: async () => ({
       task,

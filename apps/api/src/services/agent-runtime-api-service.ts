@@ -436,10 +436,7 @@ function deterministicEvidenceId(
   );
 }
 
-function completionEvidenceId(
-  taskId: string,
-  completedAt: string,
-): string {
+function completionEvidenceId(taskId: string, completedAt: string): string {
   return (
     'completion-' +
     createHash('sha256')
@@ -1576,10 +1573,7 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       return { status: 'not-applicable' };
     }
 
-    const context = this.findTaskContext(
-      projectId,
-      record.task.taskContextId,
-    );
+    const context = this.findTaskContext(projectId, record.task.taskContextId);
     if (!context.worktreeId) return { status: 'already-cleaned' };
 
     const project = this.options.projectStore.findProject(projectId);
