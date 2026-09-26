@@ -498,8 +498,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectDependenciesPanel
         v-else-if="isDependenciesRoute"
-        :key="`dependencies-${project.id}`"
+        :key="`dependencies-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectTerminalPanel
