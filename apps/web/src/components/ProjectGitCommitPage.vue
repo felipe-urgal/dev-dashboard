@@ -102,10 +102,18 @@ function submitAmend(): void {
       </label>
 
       <div class="git-commit-footer">
-        <label class="git-commit-tracked">
-          <input type="checkbox" checked disabled />
-          <span>Incluir todas as alterações rastreadas</span>
-        </label>
+        <div class="git-commit-tracked" aria-label="Alterações incluídas no commit">
+          <CheckCircleIcon aria-hidden="true" />
+          <span>
+            <strong>{{ trackedChanges.length }}</strong>
+            {{
+              trackedChanges.length === 1
+                ? 'alteração rastreada'
+                : 'alterações rastreadas'
+            }}
+            incluídas automaticamente
+          </span>
+        </div>
 
         <div class="git-commit-actions">
           <button
@@ -134,161 +142,197 @@ function submitAmend(): void {
 
 <style scoped>
 .git-commit-page {
-  display: grid;
+  display: flex;
+  width: 100%;
   min-width: 0;
-  padding: var(--space-5);
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  background: var(--surface-1);
 }
 
 .git-commit-card {
-  display: grid;
-  overflow: hidden;
+  display: flex;
   width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   margin: 0;
-  border: 1px solid var(--border);
+  overflow: hidden;
   background: var(--surface-1);
 }
 
 .git-push-notice {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-3);
-  margin: 18px 18px 0;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: var(--accent-soft);
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 66%, var(--surface-1));
 }
 
 .git-push-notice > svg {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   color: var(--accent);
 }
 
 .git-push-notice p {
-  margin: 3px 0 0;
+  margin: 2px 0 0;
   color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.git-push-notice strong {
+  color: var(--text);
+  font-size: 11px;
 }
 
 .git-push-notice button {
-  min-height: 38px;
-  border-color: var(--accent);
-  background: var(--surface-1);
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
   color: var(--accent);
-  padding: 0 14px;
-  font-weight: 700;
+  background: var(--surface-1);
+  font: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
   white-space: nowrap;
 }
 
 .git-commit-message {
   position: relative;
-  display: grid;
-  padding: 24px;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 16px;
 }
 
 .git-commit-message textarea {
-  min-height: 140px;
-  resize: vertical;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
+  width: 100%;
+  min-height: 220px;
+  flex: 1 1 auto;
+  resize: none;
+  box-sizing: border-box;
+  padding: 16px 18px 32px;
+  border: 0;
+  outline: 0;
   color: var(--text);
-  padding: 14px 16px 28px;
+  background: var(--surface-0);
   font: inherit;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.git-commit-message textarea::placeholder {
+  color: var(--text-dim);
 }
 
 .git-commit-message textarea:focus {
-  outline: 2px solid var(--accent-soft);
-  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .git-commit-message-count {
   position: absolute;
-  right: 36px;
-  bottom: 32px;
+  right: 30px;
+  bottom: 26px;
   color: var(--text-dim);
-  font-size: var(--font-xs);
+  font-size: 9px;
 }
 
 .git-commit-footer {
   display: flex;
+  min-height: 58px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: 16px;
+  padding: 9px 12px 9px 14px;
   border-top: 1px solid var(--border);
-  padding: 14px 24px;
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .git-commit-tracked {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
-.git-commit-tracked input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-  opacity: 1;
+.git-commit-tracked svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--success-text);
+}
+
+.git-commit-tracked strong {
+  color: var(--text);
+  font-weight: var(--font-weight-strong);
 }
 
 .git-commit-actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: var(--space-3);
+  gap: 8px;
 }
 
 .git-commit-actions button {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 16px;
-  font-weight: 700;
+  gap: 7px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
 }
 
 .git-commit-actions svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
 }
 
 .git-commit-amend {
-  border-color: var(--border);
-  background: var(--surface-1);
+  border: 1px solid var(--border);
   color: var(--text-muted);
+  background: transparent;
 }
 
 .git-commit-amend:hover:not(:disabled) {
-  border-color: var(--text-muted);
+  border-color: var(--border-strong);
   color: var(--text);
+  background: var(--surface-2);
 }
 
 .git-commit-submit {
-  min-width: 142px;
-  border-color: var(--accent);
-  background: var(--accent);
+  min-width: 126px;
+  border: 1px solid var(--accent);
   color: #fff;
+  background: var(--accent);
 }
 
 .git-commit-submit:hover:not(:disabled) {
-  filter: brightness(0.96);
+  background: var(--accent-strong);
 }
 
 .git-commit-actions button:disabled {
   border-color: var(--border);
-  background: var(--surface-2);
   color: var(--text-dim);
+  background: var(--surface-2);
+  cursor: not-allowed;
 }
 
 @media (max-width: 720px) {
-  .git-commit-page {
-    padding: 16px;
-  }
-
   .git-push-notice {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -299,18 +343,18 @@ function submitAmend(): void {
   }
 
   .git-commit-message {
-    padding: 16px;
+    padding: 10px;
   }
 
   .git-commit-message-count {
-    right: 28px;
-    bottom: 24px;
+    right: 22px;
+    bottom: 20px;
   }
 
   .git-commit-footer {
     align-items: stretch;
     flex-direction: column;
-    padding: 14px 16px 16px;
+    padding: 10px;
   }
 
   .git-commit-actions {
