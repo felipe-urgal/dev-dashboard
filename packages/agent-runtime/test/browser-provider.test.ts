@@ -149,6 +149,16 @@ test('browser doctor differentiates bridge, extension and session failures', asy
   bridge.healthValue = {
     ok: true,
     heartbeatAt: observedAt,
+    sessionState: 'unknown',
+  };
+  assert.equal(
+    (await provider.status()).diagnostic?.code,
+    'browser-session-unavailable',
+  );
+
+  bridge.healthValue = {
+    ok: true,
+    heartbeatAt: observedAt,
     sessionState: 'available',
   };
   const available = await provider.status();
