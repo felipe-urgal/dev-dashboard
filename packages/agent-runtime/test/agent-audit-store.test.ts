@@ -324,3 +324,43 @@ test('AgentAuditStore persiste evidence bounded com ownership da execução', as
     /ownership is invalid/,
   );
 });
+
+
+test('AgentAuditStore persiste scope estruturado e mantém grant legado compatível', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-scoped-auth-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const store = new AgentAuditStore({ stateDirectory: root });
+  await store.setAuthorization(
+    'task-1',
+    'git:push',
+    true,
+    '2026-09-26T18:30:00.000Z',
+    {
+      kind: 'branch',
+      projectId: 'project-1',
+      branch: 'feature/900-agent-resource-scoped-authorizations',
+    },
+  );
+  await store.setAuthorization(
+    'task-1',
+    'workspace:write',
+    true,
+    '2026-09-26T18:31:00.000Z',
+  );
+
+  const snapshot = await store.snapshot('task-1');
+  const push = snapshot.authorizations.find(
+    (authorization) => authorization.capability === 'git:push',
+  );
+  const legacy = snapshot.authorizations.find(
+    (authorization) => authorization.capability === 'workspace:write',
+  );
+
+  assert.deepEqual(push?.scope, {
+    kind: 'branch',
+    projectId: 'project-1',
+    branch: 'feature/900-agent-resource-scoped-authorizations',
+  });
+  assert.equal(legacy?.scope, undefined);
+});
