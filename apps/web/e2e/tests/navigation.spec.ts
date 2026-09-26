@@ -99,6 +99,20 @@ test.describe('navegação principal', () => {
     await expect(
       page.getByRole('link', { name: 'Git', exact: true }),
     ).toHaveAttribute('aria-current', 'page');
+
+    const gitAreas = page.getByRole('navigation', { name: 'Áreas do Git' });
+    await expect(gitAreas).toBeVisible();
+    await expect(
+      gitAreas.getByRole('link', { name: 'Sincronização', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('.git-navigation-bar')).not.toBeVisible();
+
+    await gitAreas.getByRole('link', { name: 'Branches', exact: true }).click();
+    await expect(page).toHaveURL(/\/git\?tab=branches$/);
+    await expect(
+      gitAreas.getByRole('link', { name: 'Branches', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('.branch-create-button')).toBeVisible();
   });
 
   test('abre a aba Agente pelo detalhe do projeto', async ({ page }) => {
