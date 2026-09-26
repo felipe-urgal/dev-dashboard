@@ -1585,6 +1585,126 @@ test('AgentRuntimeApiService adota issue em Task Context e reutiliza vínculo pe
   assert.equal(contextCreations, 1);
 });
 
+test('AgentRuntimeApiService provisiona workspace isolado antes de criar Task Context da issue', async () => {
+  const taskStore = new MemoryTaskStore();
+  const contexts: TaskContext[] = [];
+  const provisionCalls: unknown[] = [];
+  const isolatedEnvironmentId =
+    'environment:worktree:project-1:worktree-0123456789abcdefabcd';
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: (projectId) =>
+        projectId === 'project-1'
+          ? ({ id: projectId, path: '/workspace/project-1' } as never)
+          : null,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: (projectId, environmentInstanceId) =>
+        projectId === 'project-1' &&
+        environmentInstanceId === isolatedEnvironmentId
+          ? {
+              projectId,
+              environmentInstanceId: isolatedEnvironmentId,
+              cwd: '/workspace/project-1-agent-897',
+              runtime: 'host',
+            }
+          : null,
+    },
+    taskContextRepository: {
+      find: (taskContextId) =>
+        contexts.find((context) => context.id === taskContextId) ?? null,
+      list: () => contexts,
+    },
+    taskContextCreator: {
+      create: async (projectId, input) => {
+        assert.equal(input.environmentInstanceId, isolatedEnvironmentId);
+        const context: TaskContext = {
+          id: 'context-897',
+          projectId,
+          branch: 'feature/897-workspace',
+          environmentInstanceId: isolatedEnvironmentId,
+          worktreeId: 'worktree-0123456789abcdefabcd',
+          ...(input.issue ? { issue: input.issue } : {}),
+          createdAt: '2026-09-26T15:00:00.000Z',
+          updatedAt: '2026-09-26T15:00:00.000Z',
+        };
+        contexts.push(context);
+        return context;
+      },
+    },
+    backlogReader: {
+      select: async () => ({
+        status: 'selected',
+        source: 'specific-issue',
+        issue: {
+          repository: 'felipe-urgal/dev-dashboard',
+          number: 897,
+          title: 'Workspace isolado',
+          labels: [],
+        },
+        candidates: [],
+      }),
+    },
+    workspaceProvisioner: {
+      provision: async (...args) => {
+        provisionCalls.push(args);
+        return {
+          state: 'ready',
+          branch: 'feature/897-workspace',
+          directoryName: 'project-1-agent-897',
+          environmentInstanceId: isolatedEnvironmentId,
+          worktreeId: 'worktree-0123456789abcdefabcd',
+          path: '/workspace/project-1-agent-897',
+          reused: false,
+        };
+      },
+    },
+    now: () => '2026-09-26T15:00:00.000Z',
+    createTaskId: () => 'task-897',
+  });
+
+  const first = await service.adoptBacklog('project-1', {
+    issueNumber: 897,
+    requestedCapabilities: ['workspace:write'],
+  });
+  assert.equal(first.status, 'adopted');
+  if (first.status !== 'adopted') return;
+  assert.equal(first.task.task.environmentInstanceId, isolatedEnvironmentId);
+  assert.equal(first.task.task.taskContextId, 'context-897');
+  assert.equal(provisionCalls.length, 1);
+
+  const second = await service.adoptBacklog('project-1', {
+    issueNumber: 897,
+  });
+  assert.equal(second.status, 'adopted');
+  if (second.status !== 'adopted') return;
+  assert.equal(second.reused, true);
+  assert.equal(provisionCalls.length, 1);
+});
+
 test('AgentRuntimeApiService não cria contexto quando o backlog é ambíguo', async () => {
   let contextCreations = 0;
   const service = new AgentRuntimeApiService({
