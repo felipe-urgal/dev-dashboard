@@ -8,11 +8,21 @@ const redesignCss = readFileSync(
   resolve(webRoot, 'src/styles/features/project-details-redesign.css'),
   'utf8',
 );
+const topNavigationCss = readFileSync(
+  resolve(webRoot, 'src/styles/features/top-navigation.css'),
+  'utf8',
+);
 
 describe('project sidebar desktop layout', () => {
   it('mantém a navegação ancorada no topo quando submenus expandem', () => {
     expect(redesignCss).toMatch(
       /@media \(min-width: 901px\)[\s\S]*?\.project-details-page-ready \.project-details-tabs[\s\S]*?display: block !important;[\s\S]*?align-items: stretch !important;[\s\S]*?padding: 20px 12px 12px !important;/,
+    );
+  });
+
+  it('compacta também a navbar quando a sidebar do projeto é recolhida', () => {
+    expect(topNavigationCss).toMatch(
+      /\.app-shell\.app-shell-topnav\.app-shell-project-sidebar-collapsed\s*\{[\s\S]*?--project-sidebar-width:\s*64px;[\s\S]*?--app-topbar-height:\s*52px;/,
     );
   });
 });
