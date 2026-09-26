@@ -58,7 +58,12 @@ function fakeApi({
     const parsed = new URL(url);
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body) : null;
-    calls.push({ pathname: parsed.pathname, method, body, headers: init.headers });
+    calls.push({
+      pathname: parsed.pathname,
+      method,
+      body,
+      headers: init.headers,
+    });
 
     if (parsed.pathname === '/api/agent/providers' && method === 'GET') {
       return response({
@@ -119,7 +124,9 @@ function fakeApi({
       method === 'POST'
     ) {
       const providerId = switched ? secondConcrete : firstConcrete;
-      return response(executionResult('bootstrap', providerId, body.providerId));
+      return response(
+        executionResult('bootstrap', providerId, body.providerId),
+      );
     }
 
     if (
@@ -127,9 +134,11 @@ function fakeApi({
         '/api/projects/project-1/agent/tasks/task-qualification/turns' &&
       method === 'POST'
     ) {
-      const turnNumber = turns.filter((turn) => turn.role === 'user').length + 1;
+      const turnNumber =
+        turns.filter((turn) => turn.role === 'user').length + 1;
       if (turnNumber === 1) {
-        marker = String(body.content).match(/dd-multiturn-[a-z0-9]+/)?.[0] ?? '';
+        marker =
+          String(body.content).match(/dd-multiturn-[a-z0-9]+/)?.[0] ?? '';
       }
 
       const providerId = switched ? secondConcrete : firstConcrete;
@@ -159,11 +168,8 @@ function fakeApi({
       return response({
         ...executionResult('turn-' + turnNumber, providerId, body.providerId),
         execution: {
-          ...executionResult(
-            'turn-' + turnNumber,
-            providerId,
-            body.providerId,
-          ).execution,
+          ...executionResult('turn-' + turnNumber, providerId, body.providerId)
+            .execution,
           id: executionId,
         },
         userTurn,
@@ -261,10 +267,15 @@ test('gate multi-turn real usa task read-only e comprova recuperação do contex
   );
   assert.deepEqual(createCall?.body?.requestedCapabilities, []);
 
-  const turnCalls = api.calls.filter((call) => call.pathname.endsWith('/turns'));
+  const turnCalls = api.calls.filter((call) =>
+    call.pathname.endsWith('/turns'),
+  );
   assert.equal(turnCalls.length, 2);
   assert.match(turnCalls[0]?.body?.content ?? '', /dd-multiturn-fixed123/);
-  assert.doesNotMatch(turnCalls[1]?.body?.content ?? '', /dd-multiturn-fixed123/);
+  assert.doesNotMatch(
+    turnCalls[1]?.body?.content ?? '',
+    /dd-multiturn-fixed123/,
+  );
   assert.ok(
     api.calls.every(
       (call) =>
