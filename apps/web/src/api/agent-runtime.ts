@@ -158,12 +158,32 @@ export type AgentBacklogAdoptionResult =
       reused: false;
     };
 
+export type AgentProviderDiagnosticCode =
+  | 'ready'
+  | 'command-unavailable'
+  | 'version-unsupported'
+  | 'authentication-required'
+  | 'preflight-timeout'
+  | 'runtime-failed'
+  | 'bridge-token-missing'
+  | 'bridge-unavailable'
+  | 'bridge-unhealthy'
+  | 'bridge-paused'
+  | 'browser-extension-unavailable'
+  | 'browser-extension-stale'
+  | 'browser-session-unavailable'
+  | 'automatic-unavailable';
+
 export interface AgentProviderStatus {
   providerId: AgentProviderId;
   availability: 'available' | 'degraded' | 'unavailable';
   observedAt: string;
   version?: string;
   reason?: string;
+  diagnostic?: {
+    code: AgentProviderDiagnosticCode;
+    evidence?: string;
+  };
   quota?: {
     status: 'available' | 'unavailable';
     label?: string;
