@@ -300,3 +300,17 @@ export type {
   AgentConversationTurn,
   AgentConversationTurnRole,
 } from './conversation-store.js';
+
+
+export {
+  AGENT_ATTACHMENT_MEDIA_TYPES,
+  AgentAttachmentStore,
+  AgentAttachmentStoreError,
+} from './attachment-store.js';
+export type {
+  AgentAttachment,
+  AgentAttachmentCreateInput,
+  AgentAttachmentMediaType,
+  AgentAttachmentStoreErrorCode,
+  AgentAttachmentStoreOptions,
+} from './attachment-store.js';
