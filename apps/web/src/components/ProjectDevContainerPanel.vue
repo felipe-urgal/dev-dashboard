@@ -19,7 +19,6 @@ import {
   type DevContainerLifecycleLimitation,
   type DevContainerLifecyclePreflight,
 } from '../api/dev-container';
-import Card from './Card.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
 
@@ -292,23 +291,40 @@ watch(
 </script>
 
 <template>
-  <section class="devcontainer-panel" aria-labelledby="devcontainer-title">
-    <Card>
-      <template #header>
-        <div class="devcontainer-heading">
-          <span class="devcontainer-icon">
-            <CubeTransparentIcon aria-hidden="true" />
-          </span>
+  <section class="devcontainer-panel" aria-label="Dev Container">
+    <div v-if="errorMessage" class="devcontainer-message is-error" role="alert">
+      <ExclamationTriangleIcon aria-hidden="true" />
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <div v-if="loading && !preflight" class="devcontainer-loading" role="status">
+      <ArrowPathIcon class="is-spinning" aria-hidden="true" />
+      <span>Validando configuração, ambiente e lifecycle…</span>
+    </div>
+
+    <template v-else-if="preflight && stateCopy">
+      <header class="devcontainer-toolbar">
+        <div class="devcontainer-summary">
           <div>
-            <h3 id="devcontainer-title">Dev Container</h3>
-            <p>
-              Revise o preflight e altere o runtime somente por ação explícita.
-              Criação e rebuild continuam protegidos pelos blockers atuais.
-            </p>
+            <span>Estado</span>
+            <StatusBadge :tone="stateCopy.tone">
+              {{ stateCopy.label }}
+            </StatusBadge>
+          </div>
+          <div>
+            <span>Runtime</span>
+            <strong>{{ runtimeLabel }}</strong>
+          </div>
+          <div>
+            <span>Tipo</span>
+            <strong>{{ kindLabel }}</strong>
+          </div>
+          <div>
+            <span>CLI</span>
+            <strong>{{ preflight.cliVersion ?? '—' }}</strong>
           </div>
         </div>
-      </template>
-      <template #actions>
+
         <div class="devcontainer-actions">
           <button
             v-if="
@@ -316,21 +332,22 @@ watch(
               !createConfirmationVisible &&
               !rebuildConfirmationVisible
             "
-            class="secondary-button devcontainer-create"
+            class="primary-button devcontainer-create"
             type="button"
             :disabled="busy"
             @click="openCreateConfirmation"
           >
             <PlayIcon aria-hidden="true" />
-            Criar Dev Container
+            Criar
           </button>
+
           <button
             v-if="
               canRebuild &&
               !rebuildConfirmationVisible &&
               !createConfirmationVisible
             "
-            class="secondary-button devcontainer-rebuild"
+            class="primary-button devcontainer-rebuild"
             type="button"
             :disabled="busy"
             @click="openRebuildConfirmation"
@@ -338,68 +355,44 @@ watch(
             <ArrowPathIcon aria-hidden="true" />
             Rebuild
           </button>
+
           <button
             class="secondary-button devcontainer-refresh"
             type="button"
             :disabled="busy"
+            aria-label="Atualizar preflight"
+            title="Atualizar preflight"
             @click="load"
           >
             <ArrowPathIcon
               aria-hidden="true"
               :class="{ 'is-spinning': loading }"
             />
-            Atualizar
           </button>
         </div>
-      </template>
-
-      <div v-if="loading && !preflight" class="devcontainer-message">
-        <ArrowPathIcon class="is-spinning" aria-hidden="true" />
-        <span>Validando configuração, ambiente e lifecycle…</span>
-      </div>
+      </header>
 
       <div
-        v-else-if="errorMessage"
-        class="devcontainer-message is-error"
-        role="alert"
+        class="devcontainer-content"
+        :class="{
+          'is-empty':
+            preflight.discoveryState === 'not-configured' &&
+            !preflight.configSource &&
+            !preflight.configuration,
+        }"
       >
-        <ExclamationTriangleIcon aria-hidden="true" />
-        <span>{{ errorMessage }}</span>
-      </div>
-
-      <template v-else-if="preflight && stateCopy">
-        <div class="devcontainer-summary">
-          <div>
-            <span class="devcontainer-label">Estado</span>
-            <div class="devcontainer-value">
-              <StatusBadge :tone="stateCopy.tone">
-                {{ stateCopy.label }}
-              </StatusBadge>
-            </div>
-          </div>
-          <div>
-            <span class="devcontainer-label">Runtime atual</span>
-            <strong>{{ runtimeLabel }}</strong>
-          </div>
-          <div>
-            <span class="devcontainer-label">Tipo</span>
-            <strong>{{ kindLabel }}</strong>
-          </div>
-          <div>
-            <span class="devcontainer-label">CLI</span>
-            <strong>{{ preflight.cliVersion ?? '—' }}</strong>
-          </div>
-        </div>
-
-        <div
-          class="devcontainer-note"
+        <section
+          class="devcontainer-diagnostic"
           :class="{ 'is-blocked': preflight.state === 'blocked' }"
         >
-          <ExclamationTriangleIcon
-            v-if="preflight.state === 'blocked'"
-            aria-hidden="true"
-          />
-          <InformationCircleIcon v-else aria-hidden="true" />
+          <span class="devcontainer-diagnostic-icon" aria-hidden="true">
+            <ExclamationTriangleIcon v-if="preflight.state === 'blocked'" />
+            <CubeTransparentIcon
+              v-else-if="preflight.discoveryState === 'not-configured'"
+            />
+            <InformationCircleIcon v-else />
+          </span>
+
           <div>
             <strong>{{ preflight.diagnostic }}</strong>
             <span>
@@ -414,7 +407,7 @@ watch(
               }}
             </span>
           </div>
-        </div>
+        </section>
 
         <div
           v-if="createConfirmationVisible && canCreate"
@@ -452,7 +445,7 @@ watch(
                 Cancelar
               </button>
               <button
-                class="secondary-button devcontainer-confirm-action"
+                class="primary-button devcontainer-confirm-action"
                 type="button"
                 :disabled="creating"
                 @click="createDevContainer"
@@ -502,7 +495,7 @@ watch(
                 Cancelar
               </button>
               <button
-                class="secondary-button devcontainer-confirm-action"
+                class="primary-button devcontainer-confirm-action"
                 type="button"
                 :disabled="rebuilding"
                 @click="rebuildCurrentDevContainer"
@@ -539,9 +532,9 @@ watch(
           </div>
         </dl>
 
-        <div
+        <section
           v-if="preflight.limitations.length > 0"
-          class="devcontainer-limitations"
+          class="devcontainer-secondary-note"
         >
           <InformationCircleIcon aria-hidden="true" />
           <div>
@@ -550,184 +543,316 @@ watch(
               {{ limitationLabels[limitation] }}
             </span>
           </div>
-        </div>
+        </section>
 
-        <div v-if="hooks.length > 0" class="devcontainer-hooks">
+        <section v-if="hooks.length > 0" class="devcontainer-secondary-note">
           <ExclamationTriangleIcon aria-hidden="true" />
           <div>
             <strong>Hooks declarados · {{ hooks.length }}</strong>
-            <p>
-              {{ hooks.join(' · ') }}
-            </p>
+            <p>{{ hooks.join(' · ') }}</p>
             <span>
               Apenas os nomes são exibidos; os comandos não são retornados nem
               executados pelo preflight.
             </span>
           </div>
-        </div>
-      </template>
-    </Card>
+        </section>
+      </div>
+    </template>
   </section>
 </template>
 
 <style scoped>
 .devcontainer-panel {
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.devcontainer-heading {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-1);
 }
 
-.devcontainer-heading h3,
-.devcontainer-heading p,
-.devcontainer-hooks p {
-  margin: 0;
-}
-
-.devcontainer-heading p,
-.devcontainer-note span,
-.devcontainer-confirmation span,
-.devcontainer-limitations span,
-.devcontainer-hooks span {
-  color: var(--text-muted);
-}
-
-.devcontainer-icon {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-}
-
-.devcontainer-icon svg,
-.devcontainer-refresh svg,
-.devcontainer-create svg,
-.devcontainer-rebuild svg,
-.devcontainer-message svg,
-.devcontainer-note svg,
-.devcontainer-confirmation svg,
-.devcontainer-limitations svg,
-.devcontainer-hooks svg {
-  width: 18px;
-  height: 18px;
+.devcontainer-toolbar {
+  display: flex;
+  min-height: 62px;
   flex: 0 0 auto;
-}
-
-.devcontainer-actions,
-.devcontainer-refresh,
-.devcontainer-create,
-.devcontainer-rebuild,
-.devcontainer-confirmation-actions,
-.devcontainer-confirm-action {
-  display: flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-.devcontainer-actions {
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.devcontainer-refresh,
-.devcontainer-create,
-.devcontainer-rebuild,
-.devcontainer-confirm-action {
-  display: inline-flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 12px 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .devcontainer-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-5);
-}
-
-.devcontainer-summary > div,
-.devcontainer-details > div {
   min-width: 0;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 1px;
 }
 
-.devcontainer-label,
-.devcontainer-details dt {
-  display: block;
-  margin-bottom: var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
+.devcontainer-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 0 12px;
+  border-left: 1px solid var(--border);
 }
 
-.devcontainer-value {
-  min-height: 24px;
+.devcontainer-summary > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.devcontainer-summary span {
+  color: var(--text-dim);
+  font-size: 8px;
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.devcontainer-summary strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devcontainer-actions,
+.devcontainer-confirmation-actions {
   display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.devcontainer-actions button,
+.devcontainer-confirmation-actions button {
+  min-height: 34px;
+  gap: 7px;
+  padding-inline: 11px;
+  font-size: 10px;
+}
+
+.devcontainer-refresh {
+  width: 34px;
+  padding: 0 !important;
+}
+
+.devcontainer-actions svg,
+.devcontainer-confirmation-actions svg,
+.devcontainer-message svg,
+.devcontainer-loading svg,
+.devcontainer-diagnostic svg,
+.devcontainer-secondary-note svg,
+.devcontainer-confirmation > svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.devcontainer-content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.devcontainer-content.is-empty {
+  justify-content: center;
   align-items: center;
 }
 
-.devcontainer-message,
-.devcontainer-note,
-.devcontainer-confirmation,
-.devcontainer-limitations,
-.devcontainer-hooks {
+.devcontainer-content.is-empty .devcontainer-diagnostic {
+  width: min(620px, 100%);
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.devcontainer-content.is-empty .devcontainer-diagnostic-icon {
+  margin: 0 auto 6px;
+}
+
+.devcontainer-diagnostic,
+.devcontainer-secondary-note,
+.devcontainer-confirmation {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  margin-top: var(--space-5);
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
-.devcontainer-message.is-error,
-.devcontainer-note.is-blocked,
-.devcontainer-confirmation-error {
-  color: var(--danger-text);
+.devcontainer-diagnostic.is-blocked {
+  border-color: color-mix(in srgb, var(--danger-text) 38%, var(--border));
+  background: var(--danger-surface);
 }
 
-.devcontainer-note div,
-.devcontainer-confirmation > div,
-.devcontainer-limitations div,
-.devcontainer-hooks div {
+.devcontainer-diagnostic-icon {
   display: grid;
-  gap: var(--space-1);
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface-3);
+}
+
+.devcontainer-diagnostic > div,
+.devcontainer-secondary-note > div,
+.devcontainer-confirmation > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.devcontainer-diagnostic strong,
+.devcontainer-secondary-note strong,
+.devcontainer-confirmation strong {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.devcontainer-diagnostic span,
+.devcontainer-secondary-note span,
+.devcontainer-secondary-note p,
+.devcontainer-confirmation span {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .devcontainer-confirmation {
-  padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-color: color-mix(in srgb, var(--warning-text) 42%, var(--border));
+  background: var(--warning-surface);
 }
 
 .devcontainer-confirmation-actions {
-  margin-top: var(--space-2);
+  margin-top: 6px;
 }
 
 .devcontainer-confirmation-error {
-  margin-top: var(--space-1);
+  margin-top: 4px;
+  color: var(--danger-text);
+  font-size: 10px;
 }
 
 .devcontainer-details {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: var(--space-5) 0 0;
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--border);
+  background: var(--border);
+}
+
+.devcontainer-details > div {
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+
+.devcontainer-details dt {
+  margin-bottom: 4px;
+  color: var(--text-dim);
+  font-size: 8px;
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .devcontainer-details dd {
   margin: 0;
   overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 10px;
 }
 
-.devcontainer-limitations,
-.devcontainer-hooks {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+.devcontainer-message,
+.devcontainer-loading {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
-@media (max-width: 760px) {
+.devcontainer-message.is-error {
+  color: var(--danger-text);
+}
+
+.is-spinning {
+  animation: devcontainer-spin 0.8s linear infinite;
+}
+
+@keyframes devcontainer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .devcontainer-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .devcontainer-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 10px;
+  }
+
+  .devcontainer-summary > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .devcontainer-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
   .devcontainer-summary,
   .devcontainer-details {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .devcontainer-summary > div {
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .devcontainer-summary > div:first-child {
+    border-top: 0;
+  }
+
+  .devcontainer-details {
+    gap: 0;
   }
 }
 </style>
