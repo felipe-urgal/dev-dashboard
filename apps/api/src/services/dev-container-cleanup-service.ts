@@ -179,6 +179,7 @@ export class DevContainerCleanupService {
   public async cleanup(
     project: Project,
     environmentInstanceId?: string,
+    expectedOwnershipToken?: string,
   ): Promise<DevContainerCleanupResult> {
     const instance = this.requireEnvironment(project, environmentInstanceId);
     const initial = await this.inspect(project, instance.id);
@@ -186,6 +187,16 @@ export class DevContainerCleanupService {
       throw new DevContainerCleanupError(
         'DEV_CONTAINER_CLEANUP_OWNERSHIP_REQUIRED',
         'Cleanup exige ownership comprovado do Dev Container.',
+      );
+    }
+
+    if (
+      expectedOwnershipToken &&
+      initial.ownership.ownershipToken !== expectedOwnershipToken
+    ) {
+      throw new DevContainerCleanupError(
+        'DEV_CONTAINER_CLEANUP_OWNERSHIP_MISMATCH',
+        'O ownership mudou depois da confirmação do cleanup.',
       );
     }
 
