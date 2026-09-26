@@ -178,12 +178,50 @@ test('resume compose e lifecycle sem transportar env, commands ou secrets', asyn
     name: 'API',
     service: 'api',
     lifecycleHooks: ['initializeCommand', 'postCreateCommand'],
+    composeUsesDefaultConfiguration: true,
   });
   assert.equal(serialized.includes('super-secret'), false);
   assert.equal(serialized.includes('private-secret'), false);
   assert.equal(serialized.includes('initialize-secret'), false);
   assert.equal(serialized.includes('post-create-secret'), false);
   assert.equal(serialized.includes('/private/path'), false);
+});
+
+test('não marca Compose alternativo como compatível com o provider padrão', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-devcontainer-'),
+  );
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, '.devcontainer'));
+  await writeFile(
+    path.join(root, '.devcontainer', 'devcontainer.json'),
+    '{}\n',
+  );
+
+  const runner: DevContainerCommandRunner = async (command) => {
+    if (command.args[0] === '--version') {
+      return '0.80.1\n';
+    }
+
+    return JSON.stringify({
+      configuration: {
+        dockerComposeFile: ['docker-compose.dev.yml'],
+        service: 'api',
+      },
+    });
+  };
+
+  const result = await new DevContainerDiscoveryService(
+    runner,
+    () => NOW,
+  ).inspect(project(root));
+
+  assert.equal(result.state, 'available');
+  assert.equal(result.configuration?.kind, 'compose');
+  assert.equal(
+    result.configuration?.composeUsesDefaultConfiguration,
+    false,
+  );
 });
 
 test('CLI ausente vira estado suportado sem vazar erro bruto', async (context) => {
