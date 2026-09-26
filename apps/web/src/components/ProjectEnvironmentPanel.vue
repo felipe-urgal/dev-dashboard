@@ -244,39 +244,6 @@ const selectedFileIssues = computed(() => {
     />
 
     <template v-else-if="environment.overview.value">
-      <section
-        class="project-environment-summary"
-        aria-label="Resumo do ambiente"
-      >
-        <article>
-          <span>Estado</span>
-          <strong :class="`is-${stateSummary.tone}`">
-            {{ stateSummary.label }}
-          </strong>
-          <small>{{ stateSummary.detail }}</small>
-        </article>
-
-        <article>
-          <span>Arquivo atual</span>
-          <strong class="is-accent project-environment-current-file">
-            {{ selectedFile?.file ?? '—' }}
-          </strong>
-          <small v-if="selectedFile">
-            {{
-              countLabel(selectedFile.variables.length, 'variável', 'variáveis')
-            }}
-            · {{ countLabel(secretCount(selectedFile), 'segredo', 'segredos') }}
-          </small>
-          <small v-else>Nenhum arquivo reconhecido</small>
-        </article>
-
-        <article>
-          <span>Modo</span>
-          <strong>Somente leitura</strong>
-          <small>nenhuma edição nesta tela</small>
-        </article>
-      </section>
-
       <p
         v-if="environment.overview.value.files.length === 0"
         class="project-environment-empty"
@@ -291,8 +258,11 @@ const selectedFileIssues = computed(() => {
           aria-label="Arquivos de ambiente"
         >
           <header>
-            <strong>Arquivos</strong>
-            <small>Selecione o contexto para inspecionar.</small>
+            <div>
+              <strong>Arquivos</strong>
+              <span>{{ files.length }}</span>
+            </div>
+            <small>Selecione o arquivo para inspecionar.</small>
           </header>
 
           <nav>
@@ -341,6 +311,7 @@ const selectedFileIssues = computed(() => {
               >
                 {{ selectedFileKind }}
               </span>
+              <span class="project-environment-readonly">Somente leitura</span>
             </div>
             <small>
               {{
