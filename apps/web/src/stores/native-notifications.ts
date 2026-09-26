@@ -71,6 +71,12 @@ const titles = {
     cancelled: 'Build cancelado',
     stopped: 'Build interrompido',
   },
+  agent: {
+    succeeded: 'Agent Task concluída',
+    failed: 'Agent Task requer atenção',
+    cancelled: 'Agent Task cancelada',
+    stopped: 'Agent Task aguarda ação',
+  },
 } as const satisfies Record<NativeNoticeOrigin, Record<NoticeOutcome, string>>;
 
 const nativeOrigins: ReadonlySet<NoticeOrigin> = new Set(
@@ -157,8 +163,9 @@ export function createNativeNotificationStore() {
   function publish(notice: Notice, durationMs?: number): void {
     if (!enabled.value || !isNativeNoticeOrigin(notice.origin)) return;
     if (
-      durationMs === undefined ||
-      durationMs < NATIVE_NOTIFICATION_MINIMUM_DURATION_MS
+      notice.origin !== 'agent' &&
+      (durationMs === undefined ||
+        durationMs < NATIVE_NOTIFICATION_MINIMUM_DURATION_MS)
     )
       return;
     if (
