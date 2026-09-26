@@ -68,6 +68,7 @@ function linkedWorktreeId(worktreePath: string): string {
 
 function createRunner(options: {
   existing?: LinkedState[];
+  existingBranches?: string[];
   failAdd?: boolean;
   failRemove?: boolean;
   dirtyPaths?: string[];
@@ -75,12 +76,20 @@ function createRunner(options: {
   const calls: Array<{ cwd: string; args: string[] }> = [];
   const linked = [...(options.existing ?? [])];
   const dirtyPaths = new Set(options.dirtyPaths ?? []);
+  const existingBranches = new Set(options.existingBranches ?? []);
 
   const runner: GitWorktreeCommandRunner = async (projectPath, args) => {
     calls.push({ cwd: projectPath, args: [...args] });
 
     if (args[0] === 'rev-parse') return `${COMMON_DIR}\n`;
     if (args[0] === 'check-ref-format') return `${args[2]}\n`;
+    if (args[0] === 'show-ref') {
+      const ref = String(args.at(-1));
+      const prefix = 'refs/heads/';
+      const branch = ref.startsWith(prefix) ? ref.slice(prefix.length) : ref;
+      if (existingBranches.has(branch)) return '';
+      throw new Error('not found');
+    }
     if (args[0] === 'status') {
       return dirtyPaths.has(projectPath) ? ' M arquivo.ts\0' : '';
     }
@@ -186,6 +195,34 @@ test('cria branch e worktree no mesmo comando sem aceitar opções livres', asyn
         args.join(' ') ===
         'worktree add -b feature/nova -- /workspace/projeto-nova',
     ),
+  );
+});
+
+test('recovery reutiliza branch já criada sem tentar recriá-la', async () => {
+  const { result, calls } = await createWith(
+    {
+      branch: 'feature/recovery',
+      directoryName: 'projeto-recovery',
+      createBranch: true,
+      reuseBranch: true,
+    },
+    { existingBranches: ['feature/recovery'] },
+  );
+
+  assert.equal(result.state, 'created');
+  assert.ok(
+    calls.some(
+      ({ args }) =>
+        args.join(' ') ===
+        'worktree add -- /workspace/projeto-recovery feature/recovery',
+    ),
+  );
+  assert.equal(
+    calls.some(
+      ({ args }) =>
+        args[0] === 'worktree' && args[1] === 'add' && args.includes('-b'),
+    ),
+    false,
   );
 });
 

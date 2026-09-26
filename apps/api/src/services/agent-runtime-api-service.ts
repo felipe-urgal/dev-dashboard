@@ -59,6 +59,7 @@ import type {
   AgentBacklogSelection,
 } from './github-issue-backlog-service.js';
 import { GithubIssueBacklogError } from './github-issue-backlog-service.js';
+import type { AgentTaskWorkspaceProvisioningService } from './agent-task-workspace-provisioning-service.js';
 
 export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_PROJECT_NOT_FOUND'
@@ -72,6 +73,7 @@ export type AgentRuntimeApiServiceErrorCode =
   | 'AGENT_API_INTEGRATION_DISCOVERY_FAILED'
   | 'AGENT_API_BACKLOG_UNAVAILABLE'
   | 'AGENT_API_BACKLOG_ISSUE_NOT_FOUND'
+  | 'AGENT_API_WORKSPACE_PROVISIONING_FAILED'
   | AgentWorkflowRuntimeErrorCode;
 
 export class AgentRuntimeApiServiceError extends Error {
@@ -305,6 +307,10 @@ export interface AgentRuntimeApiServiceOptions {
       issueNumber?: number,
     ): Promise<AgentBacklogSelection>;
   };
+  workspaceProvisioner?: Pick<
+    AgentTaskWorkspaceProvisioningService,
+    'provision'
+  >;
   taskContextSnapshotReader?: {
     snapshot(
       projectId: string,
@@ -821,10 +827,36 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           'Task Context creation is unavailable for backlog adoption.',
         );
       }
+
+      let environmentInstanceId = input.environmentInstanceId;
+      if (!environmentInstanceId && this.options.workspaceProvisioner) {
+        const project = this.options.projectStore.findProject(projectId);
+        if (!project) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_PROJECT_NOT_FOUND',
+            'Project was not found.',
+          );
+        }
+
+        const workspace = await this.options.workspaceProvisioner.provision(
+          project,
+          {
+            issueNumber: issue.number,
+            issueTitle: issue.title,
+          },
+        );
+        if (workspace.state !== 'ready' || !workspace.environmentInstanceId) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_WORKSPACE_PROVISIONING_FAILED',
+            workspace.diagnostic ??
+              'Agent task workspace could not be provisioned safely.',
+          );
+        }
+        environmentInstanceId = workspace.environmentInstanceId;
+      }
+
       taskContext = await this.options.taskContextCreator.create(projectId, {
-        ...(input.environmentInstanceId
-          ? { environmentInstanceId: input.environmentInstanceId }
-          : {}),
+        ...(environmentInstanceId ? { environmentInstanceId } : {}),
         issue: {
           repository: issue.repository,
           number: issue.number,
