@@ -15,6 +15,7 @@ import type {
   AgentCheckpointStatus,
   AgentExecution,
   AgentExecutionOwnership,
+  AgentEvidence,
   AgentProvider,
   AgentProviderConversationContext,
   AgentProviderId,
@@ -113,6 +114,10 @@ export interface AgentWorkflowExecuteRequest {
   providerId?: AgentProviderId;
   authorizations?: readonly AgentAuthorization[];
   userTurn?: AgentWorkflowUserTurnInput;
+  contextEvidence?: readonly Pick<
+    AgentEvidence,
+    'kind' | 'summary' | 'reference' | 'observedAt'
+  >[];
 }
 
 export interface AgentWorkflowExecutionResult {
@@ -510,6 +515,9 @@ export class AgentWorkflowRuntime {
           allowedCapabilities,
           ...(continuationInstruction ? { continuationInstruction } : {}),
           ...(conversationContext ? { conversationContext } : {}),
+          ...(request.contextEvidence?.length
+            ? { contextEvidence: request.contextEvidence.slice(0, 12) }
+            : {}),
           signal: controller.signal,
         });
       } catch {

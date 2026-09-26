@@ -209,6 +209,42 @@ test('AgentAuditStore reaplica resultado de execução de forma idempotente e pe
   );
 });
 
+test('AgentAuditStore persiste evidence externa de forma idempotente sem execution ownership', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-external-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  let nextId = 0;
+  const store = new AgentAuditStore({
+    stateDirectory: root,
+    createEventId: () => `event-${++nextId}`,
+  });
+  const evidence = {
+    id: 'pr-feedback-1',
+    taskId: 'task-1',
+    kind: 'pull-request' as const,
+    summary: 'PR #12; CI failure.',
+    reference: 'https://github.com/example/repo/pull/12',
+    observedAt: '2026-09-26T15:00:00.000Z',
+  };
+
+  await store.appendEvidence('task-1', [evidence]);
+  await store.appendEvidence('task-1', [evidence]);
+
+  const snapshot = await store.snapshot('task-1');
+  assert.deepEqual(snapshot.evidence, [evidence]);
+  assert.equal(
+    snapshot.events.filter((event) => event.type === 'evidence').length,
+    1,
+  );
+
+  await assert.rejects(
+    store.appendEvidence('task-1', [
+      { ...evidence, executionId: 'execution-1' },
+    ]),
+    /External agent evidence ownership is invalid/,
+  );
+});
+
 test('AgentAuditStore persiste evidence bounded com ownership da execução', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-audit-evidence-'));
   context.after(() => rm(root, { recursive: true, force: true }));

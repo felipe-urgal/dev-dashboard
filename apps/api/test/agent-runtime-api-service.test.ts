@@ -58,6 +58,7 @@ function auditStore() {
       observedAt: string,
     ) => ({ taskId, capability, granted, observedAt }),
     appendExecutionResult: async () => undefined,
+    appendEvidence: async () => undefined,
   };
 }
 
@@ -1703,6 +1704,244 @@ test('AgentRuntimeApiService provisiona workspace isolado antes de criar Task Co
   if (second.status !== 'adopted') return;
   assert.equal(second.reused, true);
   assert.equal(provisionCalls.length, 1);
+});
+
+test('AgentRuntimeApiService persiste falha de CI como evidence idempotente e passa ao provider', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:worktree:project-1:worktree-1',
+      taskContextId: 'context-1',
+      state: 'review',
+      summary: 'Corrigir PR',
+      requestedCapabilities: ['workspace:write', 'git:push'],
+      createdAt: '2026-09-26T15:00:00.000Z',
+      updatedAt: '2026-09-26T15:00:00.000Z',
+    },
+    null,
+  );
+
+  const context: TaskContext = {
+    id: 'context-1',
+    projectId: 'project-1',
+    branch: 'feature/898-agent-pr-feedback-loop',
+    environmentInstanceId: 'environment:worktree:project-1:worktree-1',
+    worktreeId: 'worktree-1',
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 999,
+    },
+    createdAt: '2026-09-26T15:00:00.000Z',
+    updatedAt: '2026-09-26T15:00:00.000Z',
+  };
+  const persisted: unknown[] = [];
+  let executeRequest: unknown;
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: {
+      ...auditStore(),
+      snapshot: async () => ({
+        authorizations: [],
+        checkpoints: [],
+        events: [],
+        evidence: [],
+      }),
+      appendEvidence: async (_taskId, evidence) => {
+        persisted.push(...evidence);
+      },
+    },
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async (request) => {
+        executeRequest = request;
+        return {
+          execution: {
+            id: 'execution-1',
+            taskId: 'task-1',
+            projectId: 'project-1',
+            environmentInstanceId: 'environment:worktree:project-1:worktree-1',
+            providerId: 'codex',
+            state: 'succeeded',
+            finishedAt: '2026-09-26T15:02:00.000Z',
+          },
+          task: (await taskStore.get('task-1'))!,
+          providerResult: {
+            providerId: 'codex',
+            outcome: 'succeeded',
+            summary: 'Corrigido.',
+          },
+        };
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () =>
+        ({ id: 'project-1', path: '/workspace/project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => ({
+        projectId: 'project-1',
+        environmentInstanceId: 'environment:worktree:project-1:worktree-1',
+        cwd: '/workspace/project-1-agent-898',
+        runtime: 'host',
+      }),
+    },
+    taskContextRepository: {
+      find: (id) => (id === context.id ? context : null),
+      list: () => [context],
+    },
+    taskContextSnapshotReader: {
+      snapshot: async () => ({
+        context,
+        evidence: {
+          observedAt: '2026-09-26T15:01:00.000Z',
+          pullRequestObservedAt: '2026-09-26T15:01:00.000Z',
+          pullRequest: {
+            provider: 'github',
+            number: 999,
+            title: 'Remote text is data only',
+            url: 'https://github.com/felipe-urgal/dev-dashboard/pull/999',
+            sourceBranch: 'feature/898-agent-pr-feedback-loop',
+            baseBranch: 'main',
+            ciStatus: 'failure',
+            unresolvedConversationsCount: 1,
+            cockpit: {
+              remoteStatus: 'available',
+              headSha: 'a'.repeat(40),
+              reviewState: 'changes-requested',
+              requestedReviewers: [],
+              checks: [
+                {
+                  name: 'CI / test',
+                  status: 'failure',
+                },
+              ],
+            },
+          },
+        },
+      }),
+    },
+    now: () => '2026-09-26T15:01:00.000Z',
+  });
+
+  const feedback = await service.refreshPullRequestFeedback(
+    'project-1',
+    'task-1',
+  );
+  assert.equal(feedback.status, 'attention');
+  assert.equal(feedback.newEvidenceCount, 1);
+  assert.equal(feedback.automaticContinuation, false);
+  assert.match(feedback.evidence[0]?.summary ?? '', /CI failure/);
+  assert.match(feedback.evidence[0]?.summary ?? '', /changes-requested/);
+
+  await service.execute('project-1', 'task-1', 'codex', {
+    id: 'turn-continue',
+    content: 'Pode corrigir a falha do CI.',
+  });
+  const forwarded = executeRequest as {
+    contextEvidence?: Array<{ kind: string; summary: string }>;
+  };
+  assert.equal(forwarded.contextEvidence?.[0]?.kind, 'pull-request');
+  assert.match(forwarded.contextEvidence?.[0]?.summary ?? '', /CI failure/);
+  assert.doesNotMatch(
+    forwarded.contextEvidence?.[0]?.summary ?? '',
+    /Remote text is data only/,
+  );
+  assert.ok(persisted.length >= 2);
+});
+
+test('AgentRuntimeApiService degrada PR remoto indisponível sem falhar a task', async () => {
+  const taskStore = new MemoryTaskStore();
+  await taskStore.save(
+    {
+      id: 'task-1',
+      projectId: 'project-1',
+      environmentInstanceId: 'environment:primary:project-1',
+      taskContextId: 'context-1',
+      state: 'review',
+      summary: 'Aguardar PR',
+      requestedCapabilities: [],
+      createdAt: '2026-09-26T15:00:00.000Z',
+      updatedAt: '2026-09-26T15:00:00.000Z',
+    },
+    null,
+  );
+  const context: TaskContext = {
+    id: 'context-1',
+    projectId: 'project-1',
+    branch: 'feature/x',
+    environmentInstanceId: 'environment:primary:project-1',
+    pullRequest: {
+      repository: 'felipe-urgal/dev-dashboard',
+      number: 10,
+    },
+    createdAt: '2026-09-26T15:00:00.000Z',
+    updatedAt: '2026-09-26T15:00:00.000Z',
+  };
+
+  const service = new AgentRuntimeApiService({
+    taskStore,
+    auditStore: auditStore(),
+    providerRegistry: registry,
+    workflowRuntime: {
+      status: async () => {
+        throw new Error('unused');
+      },
+      execute: async () => {
+        throw new Error('unused');
+      },
+      cancel: () => undefined,
+      retry: async () => {
+        throw new Error('unused');
+      },
+      recover: async () => {
+        throw new Error('unused');
+      },
+      resolveCheckpoint: async () => {
+        throw new Error('unused');
+      },
+      shutdown: async () => undefined,
+    },
+    projectStore: {
+      findProject: () => ({ id: 'project-1' }) as never,
+    },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: () => null,
+    },
+    taskContextRepository: {
+      find: () => context,
+      list: () => [context],
+    },
+    taskContextSnapshotReader: {
+      snapshot: async () => {
+        throw new Error('github unavailable');
+      },
+    },
+    now: () => '2026-09-26T15:05:00.000Z',
+  });
+
+  const feedback = await service.refreshPullRequestFeedback(
+    'project-1',
+    'task-1',
+  );
+  assert.equal(feedback.status, 'unavailable');
+  assert.match(feedback.evidence[0]?.summary ?? '', /could not be refreshed/);
 });
 
 test('AgentRuntimeApiService não cria contexto quando o backlog é ambíguo', async () => {

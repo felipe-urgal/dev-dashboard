@@ -242,6 +242,42 @@ test('executes one queued task and only forwards explicitly requested grants', a
   assert.equal((await runtimeStateStore.read(persisted!)).state, 'idle');
 });
 
+test('forwards bounded normalized context evidence without changing grants', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'PR feedback handled',
+  }));
+  const { runtime } = await fixture(t, provider);
+
+  await runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+    authorizations: authorizations(),
+    contextEvidence: [
+      {
+        kind: 'pull-request',
+        summary: 'PR #12; CI failure; review changes-requested.',
+        reference: 'https://github.com/example/repo/pull/12',
+        observedAt: '2026-09-26T15:00:00.000Z',
+      },
+    ],
+  });
+
+  assert.deepEqual(provider.lastRequest?.contextEvidence, [
+    {
+      kind: 'pull-request',
+      summary: 'PR #12; CI failure; review changes-requested.',
+      reference: 'https://github.com/example/repo/pull/12',
+      observedAt: '2026-09-26T15:00:00.000Z',
+    },
+  ]);
+  assert.deepEqual(provider.lastRequest?.allowedCapabilities, [
+    'workspace:write',
+  ]);
+});
+
 test('conversation turn is persisted before provider execution and response is linked', async (t) => {
   const conversation = {
     store: undefined as Pick<AgentConversationStore, 'list'> | undefined,

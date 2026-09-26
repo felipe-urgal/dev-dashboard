@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type {
   TaskContext,
@@ -15,6 +15,7 @@ import type {
   AgentAuthorization,
   AgentConcreteProviderId,
   AgentConversationTurn,
+  AgentEvidence,
   AgentIntegration,
   AgentIntegrationAuthenticationHandoff,
   AgentIntegrationAuthenticationRequest,
@@ -151,6 +152,28 @@ export interface AgentBudgetOverview {
   blocking: boolean;
 }
 
+export type AgentPullRequestFeedbackStatus =
+  'no-pull-request' | 'ready' | 'attention' | 'unavailable';
+
+export interface AgentPullRequestFeedback {
+  status: AgentPullRequestFeedbackStatus;
+  observedAt: string;
+  evidence: AgentEvidence[];
+  newEvidenceCount: number;
+  automaticContinuation: false;
+  pullRequest?: {
+    number: number;
+    url: string;
+    headSha?: string;
+    ciStatus?: 'success' | 'pending' | 'failure' | 'unknown';
+    reviewState?:
+      'approved' | 'changes-requested' | 'review-required' | 'unknown';
+    unresolvedConversationsCount?: number;
+    remoteStatus?:
+      'available' | 'unauthenticated' | 'rate-limited' | 'unavailable';
+  };
+}
+
 export interface AgentRuntimeApiServicePort {
   listProviders(): Promise<AgentProviderStatus[]>;
   getProviderPreference(
@@ -234,6 +257,10 @@ export interface AgentRuntimeApiServicePort {
     continuationInstruction?: string,
   ): Promise<AgentWorkflowCheckpointResolution>;
   activity(projectId: string, taskId: string): Promise<AgentAuditSnapshot>;
+  refreshPullRequestFeedback(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentPullRequestFeedback>;
   usage(
     projectId: string,
     taskId?: string,
@@ -263,6 +290,7 @@ export interface AgentRuntimeApiServiceOptions {
     | 'listAuthorizations'
     | 'setAuthorization'
     | 'appendExecutionResult'
+    | 'appendEvidence'
   >;
   providerRegistry: AgentProviderRegistry;
   providerPreferenceStore?: {
@@ -339,6 +367,21 @@ export interface AgentRuntimeApiServiceOptions {
 }
 
 const MAX_SUMMARY_CHARS = 4_000;
+const MAX_PR_CHECK_NAMES = 6;
+
+function deterministicEvidenceId(
+  taskId: string,
+  parts: readonly (string | number | undefined)[],
+): string {
+  return (
+    'pr-feedback-' +
+    createHash('sha256')
+      .update(taskId)
+      .update('\0')
+      .update(parts.map((part) => String(part ?? '')).join('\0'))
+      .digest('hex')
+  );
+}
 
 function uniqueCapabilities(
   capabilities: readonly AgentCapability[],
@@ -1084,6 +1127,13 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
     }
     const authorizations =
       await this.options.auditStore.listAuthorizations(taskId);
+    const pullRequestFeedback = await this.pullRequestFeedback(taskRecord.task);
+    if (pullRequestFeedback.evidence.length > 0) {
+      await this.options.auditStore.appendEvidence(
+        taskId,
+        pullRequestFeedback.evidence,
+      );
+    }
     await this.recordActivity({
       projectId,
       ...(taskRecord.task.environmentInstanceId
@@ -1106,6 +1156,18 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
           ...(providerId ? { providerId } : {}),
           authorizations,
           ...(userTurn ? { userTurn } : {}),
+          ...(pullRequestFeedback.evidence.length > 0
+            ? {
+                contextEvidence: pullRequestFeedback.evidence.map(
+                  ({ kind, summary, reference, observedAt }) => ({
+                    kind,
+                    summary,
+                    ...(reference ? { reference } : {}),
+                    observedAt,
+                  }),
+                ),
+              }
+            : {}),
         }),
       );
     } catch (error) {
@@ -1344,6 +1406,54 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
   ): Promise<AgentAuditSnapshot> {
     await this.getTask(projectId, taskId);
     return this.options.auditStore.snapshot(taskId);
+  }
+
+  public async refreshPullRequestFeedback(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentPullRequestFeedback> {
+    const record = await this.getTask(projectId, taskId);
+    this.validateTaskContextBinding(record.task);
+    const before = await this.options.auditStore.snapshot(taskId);
+    const feedback = await this.pullRequestFeedback(record.task);
+    if (feedback.evidence.length > 0) {
+      await this.options.auditStore.appendEvidence(taskId, feedback.evidence);
+    }
+    const knownIds = new Set(before.evidence.map((item) => item.id));
+    const newEvidenceCount = feedback.evidence.filter(
+      (item) => !knownIds.has(item.id),
+    ).length;
+
+    await this.recordActivity({
+      projectId,
+      ...(record.task.environmentInstanceId
+        ? { environmentInstanceId: record.task.environmentInstanceId }
+        : {}),
+      type: 'agent.pull-request.feedback',
+      status:
+        feedback.status === 'attention'
+          ? 'warning'
+          : feedback.status === 'unavailable'
+            ? 'warning'
+            : 'succeeded',
+      summary:
+        feedback.status === 'attention'
+          ? 'Pull request feedback requires attention.'
+          : feedback.status === 'unavailable'
+            ? 'Pull request feedback is unavailable.'
+            : feedback.status === 'no-pull-request'
+              ? 'Agent task has no associated pull request.'
+              : 'Pull request feedback is current.',
+      occurredAt: feedback.observedAt,
+      resourceRef: { kind: 'agent-task', id: taskId },
+      jobId: taskId,
+    });
+
+    return {
+      ...feedback,
+      newEvidenceCount,
+      automaticContinuation: false,
+    };
   }
 
   public async usage(
@@ -1591,6 +1701,152 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         'Agent task no longer matches its Task Context environment.',
       );
     }
+  }
+
+  private async pullRequestFeedback(
+    task: AgentTask,
+  ): Promise<
+    Omit<AgentPullRequestFeedback, 'newEvidenceCount' | 'automaticContinuation'>
+  > {
+    const observedAt = this.now();
+    if (!task.taskContextId) {
+      return { status: 'no-pull-request', observedAt, evidence: [] };
+    }
+
+    const context = this.requireTaskContext(task.projectId, task.taskContextId);
+    if (!context.pullRequest) {
+      return { status: 'no-pull-request', observedAt, evidence: [] };
+    }
+
+    if (!this.options.taskContextSnapshotReader) {
+      const evidence: AgentEvidence[] = [
+        {
+          id: deterministicEvidenceId(task.id, [
+            context.pullRequest.repository,
+            context.pullRequest.number,
+            'snapshot-unavailable',
+          ]),
+          taskId: task.id,
+          kind: 'pull-request',
+          summary: `PR #${context.pullRequest.number} remote feedback is unavailable.`,
+          observedAt,
+        },
+      ];
+      return { status: 'unavailable', observedAt, evidence };
+    }
+
+    let snapshot: TaskContextSnapshot;
+    try {
+      snapshot = await this.options.taskContextSnapshotReader.snapshot(
+        task.projectId,
+        task.taskContextId,
+      );
+    } catch {
+      const evidence: AgentEvidence[] = [
+        {
+          id: deterministicEvidenceId(task.id, [
+            context.pullRequest.repository,
+            context.pullRequest.number,
+            'snapshot-failed',
+          ]),
+          taskId: task.id,
+          kind: 'pull-request',
+          summary: `PR #${context.pullRequest.number} remote feedback could not be refreshed.`,
+          observedAt,
+        },
+      ];
+      return { status: 'unavailable', observedAt, evidence };
+    }
+
+    const pullRequest = snapshot.evidence?.pullRequest;
+    const pullRequestObservedAt =
+      snapshot.evidence?.pullRequestObservedAt ??
+      snapshot.evidence?.observedAt ??
+      observedAt;
+    if (!pullRequest) {
+      const evidence: AgentEvidence[] = [
+        {
+          id: deterministicEvidenceId(task.id, [
+            context.pullRequest.repository,
+            context.pullRequest.number,
+            'remote-missing',
+          ]),
+          taskId: task.id,
+          kind: 'pull-request',
+          summary: `PR #${context.pullRequest.number} remote feedback is unavailable or stale.`,
+          observedAt: pullRequestObservedAt,
+        },
+      ];
+      return {
+        status: 'unavailable',
+        observedAt: pullRequestObservedAt,
+        evidence,
+      };
+    }
+
+    const remoteStatus = pullRequest.cockpit?.remoteStatus;
+    const ciStatus = pullRequest.ciStatus ?? 'unknown';
+    const reviewState = pullRequest.cockpit?.reviewState ?? 'unknown';
+    const unresolvedConversationsCount =
+      pullRequest.unresolvedConversationsCount ?? 0;
+    const headSha = pullRequest.cockpit?.headSha;
+    const failedChecks = (pullRequest.cockpit?.checks ?? [])
+      .filter((check) => check.status === 'failure')
+      .map((check) => check.name.slice(0, 120))
+      .slice(0, MAX_PR_CHECK_NAMES);
+
+    const summaryParts = [
+      `PR #${pullRequest.number}`,
+      `CI ${ciStatus}`,
+      `review ${reviewState}`,
+      `${unresolvedConversationsCount} unresolved conversation(s)`,
+      ...(failedChecks.length > 0
+        ? [`failing checks: ${failedChecks.join(', ')}`]
+        : []),
+      ...(remoteStatus && remoteStatus !== 'available'
+        ? [`remote ${remoteStatus}`]
+        : []),
+    ];
+    const evidence: AgentEvidence[] = [
+      {
+        id: deterministicEvidenceId(task.id, [
+          pullRequest.url,
+          headSha,
+          ciStatus,
+          reviewState,
+          unresolvedConversationsCount,
+          remoteStatus,
+          failedChecks.join('|'),
+        ]),
+        taskId: task.id,
+        kind: 'pull-request',
+        summary: summaryParts.join('; ') + '.',
+        reference: pullRequest.url,
+        observedAt: pullRequestObservedAt,
+      },
+    ];
+
+    const unavailable =
+      remoteStatus !== undefined && remoteStatus !== 'available';
+    const attention =
+      ciStatus === 'failure' ||
+      reviewState === 'changes-requested' ||
+      unresolvedConversationsCount > 0;
+
+    return {
+      status: unavailable ? 'unavailable' : attention ? 'attention' : 'ready',
+      observedAt: pullRequestObservedAt,
+      evidence,
+      pullRequest: {
+        number: pullRequest.number,
+        url: pullRequest.url,
+        ...(headSha ? { headSha } : {}),
+        ciStatus,
+        reviewState,
+        unresolvedConversationsCount,
+        ...(remoteStatus ? { remoteStatus } : {}),
+      },
+    };
   }
 
   private async taskContextEvidence(
