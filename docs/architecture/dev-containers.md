@@ -83,7 +83,7 @@ O preflight usa três estados:
 Regras fail-closed do primeiro corte:
 
 - `initializeCommand` bloqueia o lifecycle, pois é um hook executado no host durante inicialização;
-- configurações baseadas em Compose continuam sem mutation Dev Container, mas o preflight consulta o mesmo provider, Port Registry/preflight e ownership do domínio Docker Compose antes de permanecer bloqueado;
+- configurações baseadas em Compose continuam sem mutation Dev Container; quando `dockerComposeFile` resolve exatamente para um único arquivo Compose padrão na raiz da Environment Instance, o preflight consulta o mesmo provider, Port Registry/preflight e ownership do domínio Docker Compose antes de permanecer bloqueado; configurações Compose alternativas/múltiplas não são cruzadas com o provider padrão;
 - configuração de tipo `unknown` não recebe lifecycle;
 - hooks pós-criação ficam apenas sinalizados como diferidos para futura execução controlada;
 - todo plano em `review` exige confirmação futura;
