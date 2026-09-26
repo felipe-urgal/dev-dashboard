@@ -60,7 +60,8 @@ describe('ProjectSecurityCenterPanel', () => {
     const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Segurança');
+    expect(wrapper.find('.security-center-panel').exists()).toBe(true);
+    expect(wrapper.find('#security-center-title').exists()).toBe(false);
     expect(wrapper.text()).toContain('Trivy');
     expect(wrapper.text()).toContain('Não instalado');
     expect(wrapper.text()).toContain('Último scan: Nunca executado');
