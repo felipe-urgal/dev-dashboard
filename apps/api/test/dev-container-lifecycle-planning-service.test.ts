@@ -154,6 +154,51 @@ test('preflight bloqueia Compose até existir ownership compartilhado', async ()
   assert.match(plan.diagnostic, /stacks duplicadas/);
 });
 
+test('preflight Compose não cruza provider quando o arquivo Compose não é o mesmo', async () => {
+  let composeInspections = 0;
+  const { service } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-09-24T22:02:05.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
+      configuration: {
+        kind: 'compose',
+        service: 'api',
+        lifecycleHooks: [],
+        composeUsesDefaultConfiguration: false,
+      },
+    },
+    hostContext,
+    undefined,
+    {
+      provider: {
+        inspect: async () => {
+          composeInspections += 1;
+          throw new Error('não deve inspecionar');
+        },
+      },
+      preflight: {
+        inspect: async () => {
+          throw new Error('não deve executar');
+        },
+      },
+      ownershipStore: {
+        get: async () => {
+          throw new Error('não deve ler');
+        },
+      },
+    },
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'blocked');
+  assert.equal(composeInspections, 0);
+  assert.match(plan.diagnostic, /não correspondem com segurança/);
+});
+
 test('preflight Compose usa o preflight de portas compartilhado e bloqueia conflito', async () => {
   const composeProjects: Project[] = [];
   const { service } = planner(
