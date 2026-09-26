@@ -139,6 +139,19 @@
   gap: 10px;
 }
 
+.project-details-breadcrumb {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.project-details-breadcrumb-separator {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .project-details-back {
   display: inline-flex;
   min-height: 34px;
@@ -789,6 +802,14 @@
 }
 
 
+.project-details-git-group {
+  display: contents;
+}
+
+.project-details-git-submenu {
+  display: none;
+}
+
 /* Desktop: as áreas do projeto deixam de disputar espaço horizontal e viram
    uma rail lateral. Em telas menores, o tabbar horizontal existente é
    preservado para não sacrificar a área útil da ferramenta. */
@@ -830,22 +851,22 @@
   }
 
   .project-details-page-ready .project-details-main {
-    position: relative;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 12px;
   }
 
+  .project-details-page-ready .project-details-breadcrumb {
+    flex: 1 1 auto;
+  }
+
   .project-details-page-ready .project-details-back {
-    position: absolute;
-    left: 0;
-    border-right: 1px solid var(--border);
     border-radius: 0;
-    padding-right: 14px;
+    padding-right: 0;
     padding-left: 0;
   }
 
   .project-details-page-ready .project-title-row {
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .project-details-page-ready .project-details-actions {
@@ -898,6 +919,46 @@
     gap: 4px;
     overflow: visible;
     padding: 0;
+  }
+
+  .project-details-page-ready .project-details-git-group {
+    display: grid;
+    gap: 2px;
+  }
+
+  .project-details-page-ready .project-details-git-submenu {
+    display: grid;
+    gap: 2px;
+    margin: 2px 0 5px 22px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item {
+    display: flex;
+    min-height: 30px;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 7px;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: var(--font-weight-strong);
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .project-details-page-ready :deep(.git-navigation-bar) {
+    display: none;
   }
 
   .project-details-page-ready :deep(.project-details-tab) {
@@ -982,6 +1043,18 @@
     width: 15px;
     height: 15px;
     flex-basis: 15px;
+  }
+
+  .project-details-page-ready .project-details-git-submenu {
+    gap: 1px;
+    margin-left: 20px;
+    padding-left: 8px;
+  }
+
+  .project-details-page-ready .project-details-git-submenu-item {
+    min-height: 26px;
+    padding-inline: 8px;
+    font-size: 9px;
   }
 }
 

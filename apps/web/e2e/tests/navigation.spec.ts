@@ -87,9 +87,28 @@ test.describe('navegação principal', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
 
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'sample-node-app' }),
-    ).toBeVisible();
+    const projectHeading = page.getByRole('heading', {
+      level: 2,
+      name: 'sample-node-app',
+    });
+    const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+    const projectsLink = breadcrumb.getByRole('link', {
+      name: 'Voltar para a listagem de projetos',
+    });
+
+    await expect(projectHeading).toBeVisible();
+    await expect(breadcrumb).toBeVisible();
+    await expect(projectsLink).toBeVisible();
+    await expect(breadcrumb).toContainText('Projetos / sample-node-app');
+
+    const breadcrumbPositions = await Promise.all([
+      projectsLink.boundingBox(),
+      projectHeading.boundingBox(),
+    ]);
+    expect(breadcrumbPositions[0]?.x).toBeLessThan(
+      breadcrumbPositions[1]?.x ?? 0,
+    );
+
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
     await expect(
       page.getByRole('link', { name: 'Servidor', exact: true }),
@@ -99,6 +118,20 @@ test.describe('navegação principal', () => {
     await expect(
       page.getByRole('link', { name: 'Git', exact: true }),
     ).toHaveAttribute('aria-current', 'page');
+
+    const gitAreas = page.getByRole('navigation', { name: 'Áreas do Git' });
+    await expect(gitAreas).toBeVisible();
+    await expect(
+      gitAreas.getByRole('link', { name: 'Sincronização', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('.git-navigation-bar')).not.toBeVisible();
+
+    await gitAreas.getByRole('link', { name: 'Branches', exact: true }).click();
+    await expect(page).toHaveURL(/\/git\?tab=branches$/);
+    await expect(
+      gitAreas.getByRole('link', { name: 'Branches', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('.branch-create-button')).toBeVisible();
   });
 
   test('abre a aba Agente pelo detalhe do projeto', async ({ page }) => {
