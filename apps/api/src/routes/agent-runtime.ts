@@ -2183,19 +2183,27 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) =>
       withAgentErrors(() =>
-        options.agentRuntimeApiService.execute(
-          request.params.projectId,
-          request.params.taskId,
-          request.body.providerId,
-          {
-            id: request.body.id,
-            content: request.body.content,
-            ...(request.body.attachmentIds?.length
-              ? { attachmentIds: request.body.attachmentIds }
-              : {}),
-          },
-          request.body.attachmentIds,
-        ),
+        request.body.attachmentIds?.length
+          ? options.agentRuntimeApiService.execute(
+              request.params.projectId,
+              request.params.taskId,
+              request.body.providerId,
+              {
+                id: request.body.id,
+                content: request.body.content,
+                attachmentIds: request.body.attachmentIds,
+              },
+              request.body.attachmentIds,
+            )
+          : options.agentRuntimeApiService.execute(
+              request.params.projectId,
+              request.params.taskId,
+              request.body.providerId,
+              {
+                id: request.body.id,
+                content: request.body.content,
+              },
+            ),
       ),
   );
 
