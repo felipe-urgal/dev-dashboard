@@ -85,7 +85,6 @@ const issueLabel = computed(() => {
           <dd>{{ section.count }}</dd>
         </div>
       </dl>
-
     </template>
   </section>
 </template>
