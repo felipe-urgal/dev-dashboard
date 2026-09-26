@@ -1,14 +1,14 @@
 <section class="git-branches-page">
   <div class="branch-table-card">
     <header class="branch-table-toolbar">
-      <div class="branch-toolbar-title">
-        <strong>Branches</strong>
+      <div class="branch-toolbar-summary">
         <span
           class="branch-count-badge"
           :aria-label="`${rows.length} ${rows.length === 1 ? 'branch' : 'branches'}`"
         >
           {{ rows.length }}
         </span>
+        <span>{{ rows.length === 1 ? 'branch' : 'branches' }}</span>
       </div>
 
       <div class="branch-toolbar-actions">
