@@ -2071,3 +2071,87 @@ test('Agent Runtime HTTP anexa por conteúdo bounded sem aceitar path do browser
     ],
   ]);
 });
+
+
+test('Agent Runtime HTTP persiste perfis e encaminha somente profileId na execução', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      setExecutionProfiles: async (projectId, input) => {
+        calls.push(['profiles', projectId, input]);
+        return {
+          projectId,
+          ...input,
+          updatedAt: '2026-09-26T20:00:00.000Z',
+        };
+      },
+      execute: async (...args) => {
+        calls.push(['execute', ...args]);
+        return service().execute('project-1', 'task-1');
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const saved = await app.inject({
+    method: 'PUT',
+    url: '/api/projects/project-1/agent/execution-profiles',
+    payload: {
+      defaultProfileId: 'normal',
+      profiles: [
+        {
+          id: 'normal',
+          label: 'Normal',
+          providerId: 'automatic',
+          fallbackOrder: ['codex', 'claude-code'],
+          timeoutMs: 120000,
+          requestedCapabilities: ['workspace:write'],
+        },
+      ],
+    },
+  });
+  assert.equal(saved.statusCode, 200);
+
+  const executed = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/executions',
+    payload: {
+      providerId: 'automatic',
+      profileId: 'normal',
+      timeoutMs: 1,
+      model: 'caller-controlled',
+    },
+  });
+  assert.equal(executed.statusCode, 200);
+
+  assert.deepEqual(calls[0], [
+    'profiles',
+    'project-1',
+    {
+      defaultProfileId: 'normal',
+      profiles: [
+        {
+          id: 'normal',
+          label: 'Normal',
+          providerId: 'automatic',
+          fallbackOrder: ['codex', 'claude-code'],
+          timeoutMs: 120000,
+          requestedCapabilities: ['workspace:write'],
+        },
+      ],
+    },
+  ]);
+  assert.deepEqual(calls[1], [
+    'execute',
+    'project-1',
+    'task-1',
+    'automatic',
+    undefined,
+    undefined,
+    'normal',
+  ]);
+});
