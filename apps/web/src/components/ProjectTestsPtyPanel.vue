@@ -12,7 +12,6 @@ import {
   type ProjectTestPtyStatusSnapshot,
 } from '../api';
 import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
-import Card from './Card.vue';
 
 const props = defineProps<{
   project: Project;
@@ -224,7 +223,7 @@ watch(
 </script>
 
 <template>
-  <Card padded class="project-detail-card tests-pty-panel">
+  <section class="tests-pty-panel">
     <section class="tests-execution-pane">
       <div class="tests-execution-controls">
         <label class="tests-control-field">
@@ -330,152 +329,171 @@ watch(
         </div>
       </section>
     </section>
-  </Card>
+  </section>
 </template>
 
 <style scoped>
-:global(.dd-card.project-detail-card.tests-pty-panel) {
-  display: flex;
-  flex-direction: column;
-  align-content: normal;
-  grid-template-rows: none;
-  min-height: 0;
-}
-
 .tests-pty-panel {
   display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
   overflow: hidden;
+  background: var(--surface-1);
 }
 
 .tests-execution-pane {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .tests-execution-controls {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(180px, 0.35fr) auto;
+  min-height: 64px;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, 0.32fr) auto;
   align-items: end;
-  gap: var(--space-4);
-  padding: 16px;
+  gap: 10px;
+  padding: 9px 12px 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .tests-control-field {
   display: grid;
   min-width: 0;
-  gap: 6px;
+  gap: 4px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
 }
 
 .tests-control-field select,
 .tests-local-environment {
   box-sizing: border-box;
   width: 100%;
-  min-height: 38px;
+  min-height: 34px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.tests-control-field select {
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .tests-local-environment {
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 9px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
   color: var(--text);
+  background: var(--surface-2);
 }
 
 .tests-execution-actions {
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
+  gap: 7px;
 }
 
 .tests-execution-actions button,
 .tests-output-heading button {
-  min-height: 38px;
+  min-height: 34px;
+  padding-inline: 11px;
   white-space: nowrap;
+  font-size: 10px;
 }
 
 .tests-pty-status,
 .tests-pty-error {
-  margin: 0 16px var(--space-3);
-  font-size: var(--font-sm);
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
 }
 
 .tests-pty-status {
   color: var(--text-muted);
+  background: var(--surface-2);
 }
 
 .tests-pty-error {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--danger-surface);
   color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .tests-output {
   display: flex;
-  min-height: 280px;
-  flex: 1 1 340px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  margin-top: 0;
-  border-top: 1px solid var(--border);
+  overflow: hidden;
+  background: #10131c;
 }
 
 .tests-output-heading {
   display: flex;
+  min-height: 46px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: 10px 16px;
-  background: var(--surface-2);
+  gap: 12px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .tests-output-heading > div {
-  display: grid;
+  display: flex;
   min-width: 0;
-  gap: 3px;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .tests-output-heading span {
   color: var(--text);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
 }
 
 .tests-output-heading small {
+  overflow: hidden;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tests-pty-terminal {
-  flex: 1 1 260px;
-  min-height: 260px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
   box-sizing: border-box;
   width: 100%;
-  background: #10131c;
-  padding: 16px 18px 20px;
   overflow: hidden;
+  padding: 14px 18px 18px;
+  background: #10131c;
 }
 
 .tests-pty-terminal :global(.xterm) {
   width: 100%;
   height: 100%;
-  padding-inline: 10px;
 }
 
 .tests-pty-terminal :global(.xterm-viewport) {
-  background-color: #10131c !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
+  background-color: #10131c !important;
   scrollbar-width: none;
 }
 
@@ -504,12 +522,12 @@ watch(
   padding: 0 9px;
   border: 0;
   border-radius: 6px;
-  background: transparent;
   color: #dbe0f2;
+  background: transparent;
+  cursor: pointer;
   font: inherit;
   font-size: var(--font-xs);
   text-align: left;
-  cursor: pointer;
 }
 
 .tests-terminal-context-menu-button:hover,
@@ -526,11 +544,12 @@ watch(
 
 @media (max-width: 980px) {
   .tests-execution-controls {
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.55fr);
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.55fr);
   }
 
   .tests-execution-actions {
     grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 }
 
@@ -542,6 +561,22 @@ watch(
   .tests-execution-actions {
     grid-column: auto;
     flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .tests-execution-actions button {
+    flex: 1 1 auto;
+  }
+
+  .tests-output-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tests-output-heading > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
   }
 }
 </style>

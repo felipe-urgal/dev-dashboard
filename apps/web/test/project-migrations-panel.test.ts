@@ -220,6 +220,7 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain(
       'Nenhum Migration Provider compatível foi encontrado para este projeto.',
     );
+    expect(wrapper.find('.migrations-header').exists()).toBe(false);
     expect(wrapper.find('.migrations-meta').exists()).toBe(true);
     expect(wrapper.find('.migrations-counts').exists()).toBe(true);
     expect(wrapper.find('.migrations-empty').exists()).toBe(true);

@@ -58,7 +58,7 @@ describe('Dev Container no shell do projeto', () => {
       ':environment-instance-id="environmentInstanceId"',
     );
     expect(panelSource).toContain('Preflight somente leitura');
-    expect(panelSource).toContain('Criar Dev Container');
+    expect(panelSource).toContain('openCreateConfirmation');
     expect(panelSource).toContain('Confirmar criação');
     expect(panelSource).toContain('Rebuild');
     expect(panelSource).toContain('Confirmar rebuild');

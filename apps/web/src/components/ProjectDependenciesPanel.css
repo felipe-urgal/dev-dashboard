@@ -1,23 +1,37 @@
 .dependencies-panel {
   display: flex;
-  min-height: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
   flex-direction: column;
-  padding: 16px 24px 24px;
+  overflow: hidden;
   color: var(--text);
+  background: var(--surface-1);
+}
+
+.dependencies-alert,
+.dependencies-status {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
 }
 
 .dependencies-alert {
-  margin: 0 0 var(--space-3);
-  padding: 10px 12px;
-  border: 0;
-  border-left: 3px solid var(--danger-text);
   color: var(--danger-text);
   background: var(--danger-surface);
 }
 
+.dependencies-status {
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
 .dependencies-loading {
   display: grid;
-  min-height: 160px;
+  min-height: 0;
+  flex: 1 1 auto;
   place-items: center;
   color: var(--text-muted);
   text-align: center;
@@ -25,121 +39,77 @@
 
 .dependencies-workspace {
   display: grid;
-  min-height: 560px;
-  grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
-  align-items: stretch;
-  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
+  overflow: hidden;
+  border-top: 1px solid var(--border);
 }
 
 .dependencies-actions-panel,
 .dependencies-console {
+  display: flex;
   min-width: 0;
+  min-height: 0;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
 .dependencies-actions-panel {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-}
-
-.dependencies-panel-header {
-  display: flex;
-  min-height: 76px;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2));
-}
-
-.dependencies-panel-icon {
-  display: inline-flex;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
-  border-radius: var(--radius-md);
-  color: var(--info-text);
-  background: color-mix(in srgb, var(--accent-soft) 68%, transparent);
-}
-
-.dependencies-panel-icon svg {
-  width: 21px;
-  height: 21px;
-}
-
-.dependencies-panel-title {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.dependencies-panel-title strong {
-  color: var(--text);
-  font-size: var(--font-lg);
-  font-weight: var(--font-weight-strong);
-  line-height: 1.25;
-}
-
-.dependencies-panel-title small {
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  line-height: 1.35;
+  border-right: 1px solid var(--border);
 }
 
 .dependencies-groups {
   display: grid;
   min-height: 0;
+  align-content: start;
   gap: 2px;
-  padding: 0 14px 14px;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
 }
 
 .dependencies-group + .dependencies-group {
   margin-top: 2px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
 .dependencies-group-header {
   display: flex;
-  min-height: 52px;
+  min-height: 38px;
   align-items: center;
-  gap: 8px;
-  padding: 10px 4px 8px;
+  gap: 7px;
+  padding: 4px 2px 6px;
 }
 
 .dependencies-group-header > svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
   color: var(--text-muted);
 }
 
 .dependencies-group-header strong {
   color: var(--text);
-  font-size: 15px;
+  font-size: 12px;
   font-weight: var(--font-weight-strong);
 }
 
 .dependencies-action-list {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .dependencies-action-row {
   display: grid;
   min-width: 0;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-2) 72%, var(--surface-1));
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
   transition:
     border-color var(--motion-duration-fast) var(--motion-easing-standard),
     background var(--motion-duration-fast) var(--motion-easing-standard);
@@ -147,13 +117,11 @@
 
 .dependencies-action-row:hover {
   border-color: var(--border-strong);
-  background: var(--surface-2);
 }
 
 .dependencies-action-row.is-active {
-  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface-2));
 }
 
 .dependencies-action-heading {
@@ -161,76 +129,72 @@
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .dependencies-action-heading > strong {
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: var(--font-md);
+  font-size: 11px;
   font-weight: var(--font-weight-strong);
-  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .dependencies-warning {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 24px;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
-  padding: 0 9px;
-  border-radius: var(--radius-sm);
+  gap: 5px;
+  padding: 0 7px;
+  border-radius: 999px;
   color: var(--warning-text);
   background: var(--warning-surface);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: var(--font-weight-strong);
-  line-height: 1;
   white-space: nowrap;
 }
 
 .dependencies-warning svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .dependencies-action-command {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: stretch;
-  gap: var(--space-2);
+  gap: 7px;
 }
 
 .dependencies-command-field {
   display: flex;
   min-width: 0;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-3) 44%, var(--surface-2));
+  background: var(--surface-3);
 }
 
 .dependencies-command-field code {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
-  padding: 0 10px;
+  padding: 0 9px;
   color: var(--text);
   font-family: var(--font-family-mono);
-  font-size: var(--font-sm);
-  line-height: 1.4;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .dependencies-copy-command {
   display: inline-flex;
-  width: 38px;
+  width: 34px;
   height: 100%;
   flex: 0 0 auto;
   align-items: center;
@@ -244,33 +208,30 @@
 
 .dependencies-copy-command:hover {
   color: var(--text);
-  background: var(--surface-3);
+  background: var(--surface-2);
 }
 
 .dependencies-copy-command svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 
 .dependencies-run-command,
 .dependencies-console-actions button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 14px;
+  gap: 6px;
+  padding: 0 11px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text);
   background: transparent;
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-sm);
+  font-size: 10px;
   font-weight: var(--font-weight-strong);
-  transition:
-    border-color var(--motion-duration-fast) var(--motion-easing-standard),
-    background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .dependencies-run-command:hover:not(:disabled),
@@ -282,11 +243,6 @@
 .dependencies-run-command.is-primary {
   border-color: var(--accent);
   color: #fff;
-  background: var(--accent-strong);
-}
-
-.dependencies-run-command.is-primary:hover:not(:disabled) {
-  border-color: var(--accent);
   background: var(--accent);
 }
 
@@ -298,18 +254,20 @@
 
 .dependencies-run-command svg,
 .dependencies-console-actions button svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 
 .dependencies-empty {
   display: grid;
-  min-height: 260px;
+  min-height: 0;
+  flex: 1 1 auto;
   place-content: center;
-  gap: var(--space-2);
-  padding: var(--space-6);
+  gap: 6px;
+  padding: 24px;
   color: var(--text-muted);
   text-align: center;
+  font-size: 10px;
 }
 
 .dependencies-empty strong {
@@ -317,15 +275,19 @@
 }
 
 .dependencies-console {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
   background: var(--code-surface);
 }
 
 .dependencies-console-header {
+  display: flex;
+  min-height: 46px;
+  flex: 0 0 auto;
+  align-items: center;
   justify-content: space-between;
-  background: var(--surface-1);
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .dependencies-console-heading,
@@ -333,13 +295,18 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--space-3);
+  gap: 8px;
 }
 
-.dependencies-console-icon {
-  border-color: var(--border);
-  color: var(--text-muted);
-  background: var(--surface-2);
+.dependencies-console-heading > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+}
+
+.dependencies-console-heading > strong {
+  color: var(--text);
+  font-size: 10px;
 }
 
 .dependencies-console-actions {
@@ -349,19 +316,18 @@
 .dependencies-execution-state {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  font-size: 9px;
   font-weight: var(--font-weight-strong);
   white-space: nowrap;
 }
 
 .dependencies-status-dot {
-  width: 9px;
-  height: 9px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: currentcolor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 13%, transparent);
 }
 
 .dependencies-execution-state.is-running {
@@ -380,68 +346,55 @@
   color: var(--danger-text);
 }
 
-.dependencies-status {
-  margin: 0;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  background: var(--surface-1);
-  font-size: var(--font-sm);
-}
-
 .dependencies-console-alert {
-  margin: 0;
   border-left: 0;
-  border-bottom: 1px solid var(--border);
 }
 
 .dependencies-console-empty {
   display: grid;
-  min-height: clamp(420px, 58vh, 640px);
+  min-height: 0;
   flex: 1 1 auto;
   place-content: center;
   justify-items: center;
-  gap: var(--space-2);
-  padding: var(--space-6);
+  gap: 6px;
+  padding: 24px;
   color: var(--text-muted);
   text-align: center;
 }
 
 .dependencies-console-empty svg {
-  width: 30px;
-  height: 30px;
-  margin-bottom: 2px;
+  width: 24px;
+  height: 24px;
 }
 
 .dependencies-console-empty strong {
   color: var(--text);
-  font-weight: var(--font-weight-strong);
+  font-size: 11px;
 }
 
 .dependencies-console-empty span {
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
 .dependencies-terminal {
   width: 100%;
-  height: clamp(420px, 58vh, 640px);
-  min-height: 420px;
-  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
-  padding: 18px 20px 22px;
+  padding: 14px 18px 18px;
   background: var(--code-surface);
 }
 
 .dependencies-terminal :global(.xterm) {
   width: 100%;
   height: 100%;
-  padding-inline: 6px;
 }
 
 .dependencies-terminal :global(.xterm-viewport) {
-  background-color: var(--code-surface) !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
+  background-color: var(--code-surface) !important;
   scrollbar-width: none;
 }
 
@@ -449,51 +402,27 @@
   display: none;
 }
 
-@media (max-width: 1120px) {
-  .dependencies-workspace {
-    grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
-  }
-}
-
 @media (max-width: 960px) {
   .dependencies-workspace {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
-  .dependencies-console-empty,
-  .dependencies-terminal {
-    height: 400px;
-    min-height: 400px;
+  .dependencies-actions-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dependencies-groups {
+    overflow: visible;
+  }
+
+  .dependencies-console {
+    min-height: 420px;
   }
 }
 
 @media (max-width: 640px) {
-  .dependencies-panel {
-    padding: 12px;
-  }
-
-  .dependencies-panel-header {
-    min-height: 68px;
-    padding: 12px;
-  }
-
-  .dependencies-panel-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .dependencies-panel-title strong {
-    font-size: 15px;
-  }
-
-  .dependencies-groups {
-    padding: 0 10px 10px;
-  }
-
-  .dependencies-action-row {
-    padding: 10px;
-  }
-
   .dependencies-action-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -519,11 +448,5 @@
 
   .dependencies-console-actions button {
     margin-left: auto;
-  }
-
-  .dependencies-console-empty,
-  .dependencies-terminal {
-    height: 340px;
-    min-height: 340px;
   }
 }

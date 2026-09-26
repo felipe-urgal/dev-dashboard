@@ -68,12 +68,13 @@ describe('Docker Compose no shell do projeto', () => {
     expect(apiSource).not.toContain('executable');
     expect(apiSource).not.toContain('argv');
     expect(panelSource).toContain('Ações de serviço não estão disponíveis');
-    expect(panelSource).toContain('Docker Compose');
+    expect(panelSource).toContain('compose-header-actions');
     expect(panelSource).toContain('Ver logs');
   });
 
   it('segue o protótipo compacto com status, problemas e tabela de serviços', () => {
     expect(panelSource).toContain('compose-status-strip');
+    expect(panelSource).not.toContain('class="compose-title"');
     expect(panelSource).toContain('Problemas detectados');
     expect(panelSource).toContain('Serviços · {{ config.services.length }}');
     expect(panelSource).toContain('placeholder="Buscar serviço..."');

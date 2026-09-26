@@ -136,12 +136,10 @@ describe('ProjectEnvironmentPanel', () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Estado');
-    expect(wrapper.text()).toContain('Atenção');
-    expect(wrapper.text()).toContain('3 pendências encontradas');
-    expect(wrapper.text()).toContain('Arquivo atual');
-    expect(wrapper.text()).toContain('Somente leitura');
     expect(wrapper.find('.project-environment-workspace').exists()).toBe(true);
+    expect(wrapper.find('.project-environment-summary').exists()).toBe(false);
+    expect(wrapper.text()).toContain('3 pendências');
+    expect(wrapper.text()).toContain('Somente leitura');
 
     const fileButtons = wrapper.findAll('.project-environment-file-button');
     expect(fileButtons).toHaveLength(3);
@@ -161,9 +159,9 @@ describe('ProjectEnvironmentPanel', () => {
 
     await fileButtons[1]!.trigger('click');
 
-    expect(wrapper.get('.project-environment-current-file').text()).toBe(
-      '.env.test',
-    );
+    expect(
+      wrapper.get('.project-environment-inspector-header code').text(),
+    ).toBe('.env.test');
     expect(wrapper.get('.project-environment-inspector').text()).toContain(
       'TEST_DATABASE_URL',
     );

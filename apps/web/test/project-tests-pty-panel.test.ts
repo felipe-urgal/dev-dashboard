@@ -158,6 +158,8 @@ test('carrega os comandos com a interface mínima de execução', async () => {
   assert.equal(button.attributes('disabled'), undefined);
 
   assert.equal(wrapper.find('.tests-pty-heading').exists(), false);
+  assert.equal(wrapper.find('.dd-card').exists(), false);
+  assert.equal(wrapper.find('.tests-execution-controls').exists(), true);
   assert.equal(wrapper.find('.tests-overview').exists(), false);
   assert.equal(wrapper.find('.tests-tabs').exists(), false);
   assert.equal(wrapper.find('.test-intelligence').exists(), false);
