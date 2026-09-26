@@ -788,6 +788,56 @@ const evidenceSchema = {
   },
 } as const;
 
+
+const pullRequestFeedbackSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'observedAt',
+    'evidence',
+    'newEvidenceCount',
+    'automaticContinuation',
+  ],
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['no-pull-request', 'ready', 'attention', 'unavailable'],
+    },
+    observedAt: { type: 'string' },
+    evidence: {
+      type: 'array',
+      maxItems: 12,
+      items: evidenceSchema,
+    },
+    newEvidenceCount: { type: 'integer', minimum: 0 },
+    automaticContinuation: { type: 'boolean', enum: [false] },
+    pullRequest: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['number', 'url'],
+      properties: {
+        number: { type: 'integer', minimum: 1 },
+        url: { type: 'string' },
+        headSha: { type: 'string' },
+        ciStatus: {
+          type: 'string',
+          enum: ['success', 'pending', 'failure', 'unknown'],
+        },
+        reviewState: {
+          type: 'string',
+          enum: ['approved', 'changes-requested', 'review-required', 'unknown'],
+        },
+        unresolvedConversationsCount: { type: 'integer', minimum: 0 },
+        remoteStatus: {
+          type: 'string',
+          enum: ['available', 'unauthenticated', 'rate-limited', 'unavailable'],
+        },
+      },
+    },
+  },
+} as const;
+
 const taskSchema = {
   type: 'object',
   additionalProperties: false,
@@ -2046,6 +2096,26 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
     async (request) =>
       withAgentErrors(() =>
         options.agentRuntimeApiService.cancel(
+          request.params.projectId,
+          request.params.taskId,
+        ),
+      ),
+  );
+
+  app.post<{ Params: TaskParams }>(
+    '/projects/:projectId/agent/tasks/:taskId/pull-request-feedback/refresh',
+    {
+      schema: {
+        params: taskParamsSchema,
+        response: {
+          200: pullRequestFeedbackSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.refreshPullRequestFeedback(
           request.params.projectId,
           request.params.taskId,
         ),
