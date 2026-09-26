@@ -91,51 +91,6 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-const issueCount = computed(() =>
-  (contract.contract.value?.sections ?? []).reduce(
-    (total, section) =>
-      total +
-      section.variables.filter((variable) =>
-        actionableStatuses.has(variable.status),
-      ).length +
-      Number(section.baselineStatus !== 'resolved'),
-    0,
-  ),
-);
-
-const stateSummary = computed(() => {
-  if (contract.loading.value && !contract.contract.value) {
-    return {
-      label: 'Verificando',
-      detail: 'comparando ambientes',
-      tone: 'loading',
-    };
-  }
-  if (contract.errorMessage.value && !contract.contract.value) {
-    return {
-      label: 'Parcial',
-      detail: 'contrato indisponível',
-      tone: 'partial',
-    };
-  }
-  if (issueCount.value > 0) {
-    return {
-      label: 'Atenção',
-      detail: countLabel(
-        issueCount.value,
-        'pendência encontrada',
-        'pendências encontradas',
-      ),
-      tone: 'warning',
-    };
-  }
-  return {
-    label: 'Consistente',
-    detail: 'sem pendências estruturais',
-    tone: 'success',
-  };
-});
-
 const selectedFileKind = computed(() => {
   const file = selectedFile.value?.file;
   if (!file) return '';
