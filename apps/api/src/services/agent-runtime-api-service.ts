@@ -307,7 +307,10 @@ export interface AgentRuntimeApiServiceOptions {
       issueNumber?: number,
     ): Promise<AgentBacklogSelection>;
   };
-  workspaceProvisioner?: Pick<AgentTaskWorkspaceProvisioningService, 'provision'>;
+  workspaceProvisioner?: Pick<
+    AgentTaskWorkspaceProvisioningService,
+    'provision'
+  >;
   taskContextSnapshotReader?: {
     snapshot(
       projectId: string,

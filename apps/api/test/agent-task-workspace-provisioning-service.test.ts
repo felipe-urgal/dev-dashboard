@@ -205,5 +205,8 @@ test('AgentTaskWorkspaceProvisioningService preserva colisão detectada pelo lif
   });
 
   assert.equal(result.state, 'blocked');
-  assert.equal(result.diagnostic, 'A branch já está vinculada a outro worktree.');
+  assert.equal(
+    result.diagnostic,
+    'A branch já está vinculada a outro worktree.',
+  );
 });

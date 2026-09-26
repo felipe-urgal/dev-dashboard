@@ -18,10 +18,7 @@ export interface AgentTaskWorkspaceProvisioningInput {
 }
 
 export type AgentTaskWorkspaceProvisioningState =
-  | 'ready'
-  | 'blocked'
-  | 'failed'
-  | 'unverified';
+  'ready' | 'blocked' | 'failed' | 'unverified';
 
 export interface AgentTaskWorkspaceProvisioningResult {
   state: AgentTaskWorkspaceProvisioningState;
@@ -90,7 +87,8 @@ export class AgentTaskWorkspaceProvisioningService {
         state: 'blocked',
         branch: '',
         directoryName: '',
-        diagnostic: 'A issue não possui identidade válida para provisionar o workspace.',
+        diagnostic:
+          'A issue não possui identidade válida para provisionar o workspace.',
       };
     }
 
