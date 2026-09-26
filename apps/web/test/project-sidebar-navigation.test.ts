@@ -56,12 +56,7 @@ describe('ProjectSidebarNavigation', () => {
       .findAll('.project-details-menu-trigger')
       .map((button) => button.text());
 
-    expect(labels).toEqual([
-      'Servidor',
-      'Git',
-      'Desenvolvimento',
-      'Qualidade',
-    ]);
+    expect(labels).toEqual(['Servidor', 'Git', 'Desenvolvimento', 'Qualidade']);
   });
 
   it('abre Git sem navegar e só então exibe as opções do grupo', async () => {

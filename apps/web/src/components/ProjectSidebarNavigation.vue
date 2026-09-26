@@ -134,11 +134,9 @@ function ensureActiveGroupOpen(): void {
   }
 }
 
-watch(
-  () => [route.name, route.query.tab] as const,
-  ensureActiveGroupOpen,
-  { immediate: true },
-);
+watch(() => [route.name, route.query.tab] as const, ensureActiveGroupOpen, {
+  immediate: true,
+});
 
 function environmentQuery() {
   return props.environmentInstanceId
@@ -162,7 +160,10 @@ function environmentQuery() {
         >
           <ServerStackIcon aria-hidden="true" />
           <span>Servidor</span>
-          <ChevronDownIcon class="project-details-menu-chevron" aria-hidden="true" />
+          <ChevronDownIcon
+            class="project-details-menu-chevron"
+            aria-hidden="true"
+          />
         </button>
 
         <nav
@@ -174,7 +175,11 @@ function environmentQuery() {
           <RouterLink
             v-if="project.capabilities.includes('server')"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-server' || route.name === 'project-details' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-server' ||
+                route.name === 'project-details',
+            }"
             :to="{
               name: 'project-server',
               params: { projectId: project.id },
@@ -187,7 +192,10 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-terminal' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-terminal',
+            }"
             :to="{
               name: 'project-terminal',
               params: { projectId: project.id },
@@ -201,7 +209,10 @@ function environmentQuery() {
           <RouterLink
             v-if="project.type === 'rails'"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-console' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-console',
+            }"
             :to="{
               name: 'project-console',
               params: { projectId: project.id },
@@ -215,7 +226,10 @@ function environmentQuery() {
           <RouterLink
             v-if="project.type === 'rails' && sidekiqDetected"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-rails-sidekiq' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-rails-sidekiq',
+            }"
             :to="{
               name: 'project-rails-sidekiq',
               params: { projectId: project.id },
@@ -229,7 +243,10 @@ function environmentQuery() {
           <RouterLink
             v-if="project.type === 'rails' && webpackDetected"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-rails-webpack' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-rails-webpack',
+            }"
             :to="{
               name: 'project-rails-webpack',
               params: { projectId: project.id },
@@ -254,7 +271,10 @@ function environmentQuery() {
         >
           <CodeBracketIcon aria-hidden="true" />
           <span>Git</span>
-          <ChevronDownIcon class="project-details-menu-chevron" aria-hidden="true" />
+          <ChevronDownIcon
+            class="project-details-menu-chevron"
+            aria-hidden="true"
+          />
         </button>
 
         <nav
@@ -283,8 +303,14 @@ function environmentQuery() {
           <RouterLink
             v-if="project.capabilities.includes('git')"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-worktrees' }"
-            :to="{ name: 'project-worktrees', params: { projectId: project.id } }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-worktrees',
+            }"
+            :to="{
+              name: 'project-worktrees',
+              params: { projectId: project.id },
+            }"
           >
             <FolderIcon aria-hidden="true" />
             <span>Worktrees</span>
@@ -295,7 +321,9 @@ function environmentQuery() {
       <section class="project-details-menu-group">
         <button
           class="project-details-tab project-details-menu-trigger"
-          :class="{ 'project-details-tab-active': isGroupActive('development') }"
+          :class="{
+            'project-details-tab-active': isGroupActive('development'),
+          }"
           type="button"
           :aria-expanded="expandedGroups.development"
           aria-controls="project-sidebar-development-menu"
@@ -304,7 +332,10 @@ function environmentQuery() {
         >
           <BeakerIcon aria-hidden="true" />
           <span>Desenvolvimento</span>
-          <ChevronDownIcon class="project-details-menu-chevron" aria-hidden="true" />
+          <ChevronDownIcon
+            class="project-details-menu-chevron"
+            aria-hidden="true"
+          />
         </button>
 
         <nav
@@ -315,7 +346,10 @@ function environmentQuery() {
         >
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-tests' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-tests',
+            }"
             :to="{
               name: 'project-tests',
               params: { projectId: project.id },
@@ -329,8 +363,14 @@ function environmentQuery() {
           <RouterLink
             v-if="project.type === 'rails' || project.type === 'node'"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-dependencies' }"
-            :to="{ name: 'project-dependencies', params: { projectId: project.id } }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-dependencies',
+            }"
+            :to="{
+              name: 'project-dependencies',
+              params: { projectId: project.id },
+            }"
           >
             <CubeIcon aria-hidden="true" />
             <span>Dependências</span>
@@ -338,7 +378,10 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-dev-container' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-dev-container',
+            }"
             :to="{
               name: 'project-dev-container',
               params: { projectId: project.id },
@@ -351,7 +394,10 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-compose' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-compose',
+            }"
             :to="{
               name: 'project-compose',
               params: { projectId: project.id },
@@ -364,8 +410,14 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-environment' }"
-            :to="{ name: 'project-environment', params: { projectId: project.id } }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-environment',
+            }"
+            :to="{
+              name: 'project-environment',
+              params: { projectId: project.id },
+            }"
           >
             <AdjustmentsHorizontalIcon aria-hidden="true" />
             <span>Variáveis de ambiente</span>
@@ -373,7 +425,10 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-migrations' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-migrations',
+            }"
             :to="{
               name: 'project-migrations',
               params: { projectId: project.id },
@@ -398,7 +453,10 @@ function environmentQuery() {
         >
           <CheckBadgeIcon aria-hidden="true" />
           <span>Qualidade</span>
-          <ChevronDownIcon class="project-details-menu-chevron" aria-hidden="true" />
+          <ChevronDownIcon
+            class="project-details-menu-chevron"
+            aria-hidden="true"
+          />
         </button>
 
         <nav
@@ -409,8 +467,14 @@ function environmentQuery() {
         >
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-local-ci' }"
-            :to="{ name: 'project-local-ci', params: { projectId: project.id } }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-local-ci',
+            }"
+            :to="{
+              name: 'project-local-ci',
+              params: { projectId: project.id },
+            }"
           >
             <PlayCircleIcon aria-hidden="true" />
             <span>Local CI</span>
@@ -418,8 +482,14 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-readiness' }"
-            :to="{ name: 'project-readiness', params: { projectId: project.id } }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-readiness',
+            }"
+            :to="{
+              name: 'project-readiness',
+              params: { projectId: project.id },
+            }"
           >
             <CheckBadgeIcon aria-hidden="true" />
             <span>Readiness</span>
@@ -427,8 +497,14 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-security-center' }"
-            :to="{ name: 'project-security-center', params: { projectId: project.id } }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-security-center',
+            }"
+            :to="{
+              name: 'project-security-center',
+              params: { projectId: project.id },
+            }"
           >
             <LockClosedIcon aria-hidden="true" />
             <span>Segurança</span>
@@ -436,7 +512,10 @@ function environmentQuery() {
 
           <RouterLink
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': route.name === 'project-doctor' }"
+            :class="{
+              'project-details-submenu-item-active':
+                route.name === 'project-doctor',
+            }"
             :to="{ name: 'project-doctor', params: { projectId: project.id } }"
           >
             <ShieldCheckIcon aria-hidden="true" />
@@ -447,7 +526,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-agent' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-agent',
+        }"
         :to="{
           name: 'project-agent',
           params: { projectId: project.id },
@@ -462,7 +543,9 @@ function environmentQuery() {
       <RouterLink
         v-if="project.capabilities.includes('production')"
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-production' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-production',
+        }"
         :to="{ name: 'project-production', params: { projectId: project.id } }"
         :title="sidebarCollapsed ? 'Produção' : undefined"
       >
@@ -472,7 +555,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-readme' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-readme',
+        }"
         :to="{ name: 'project-readme', params: { projectId: project.id } }"
         :title="sidebarCollapsed ? 'README' : undefined"
       >
@@ -485,7 +570,10 @@ function environmentQuery() {
       <RouterLink
         v-if="project.capabilities.includes('server')"
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-server' || route.name === 'project-details' }"
+        :class="{
+          'project-details-tab-active':
+            route.name === 'project-server' || route.name === 'project-details',
+        }"
         :to="{
           name: 'project-server',
           params: { projectId: project.id },
@@ -507,7 +595,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-tests' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-tests',
+        }"
         :to="{
           name: 'project-tests',
           params: { projectId: project.id },
@@ -520,7 +610,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-agent' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-agent',
+        }"
         :to="{
           name: 'project-agent',
           params: { projectId: project.id },
@@ -534,7 +626,9 @@ function environmentQuery() {
       <RouterLink
         v-if="project.capabilities.includes('production')"
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-production' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-production',
+        }"
         :to="{ name: 'project-production', params: { projectId: project.id } }"
       >
         <RocketLaunchIcon aria-hidden="true" />
@@ -543,7 +637,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-terminal' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-terminal',
+        }"
         :to="{
           name: 'project-terminal',
           params: { projectId: project.id },
@@ -557,7 +653,9 @@ function environmentQuery() {
       <RouterLink
         v-if="project.capabilities.includes('git')"
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-worktrees' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-worktrees',
+        }"
         :to="{ name: 'project-worktrees', params: { projectId: project.id } }"
       >
         <FolderIcon aria-hidden="true" />
@@ -567,8 +665,13 @@ function environmentQuery() {
       <RouterLink
         v-if="project.type === 'rails' || project.type === 'node'"
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-dependencies' }"
-        :to="{ name: 'project-dependencies', params: { projectId: project.id } }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-dependencies',
+        }"
+        :to="{
+          name: 'project-dependencies',
+          params: { projectId: project.id },
+        }"
       >
         <CubeIcon aria-hidden="true" />
         <span>Dependências</span>
@@ -576,7 +679,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-dev-container' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-dev-container',
+        }"
         :to="{
           name: 'project-dev-container',
           params: { projectId: project.id },
@@ -589,7 +694,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-compose' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-compose',
+        }"
         :to="{
           name: 'project-compose',
           params: { projectId: project.id },
@@ -602,7 +709,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-environment' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-environment',
+        }"
         :to="{ name: 'project-environment', params: { projectId: project.id } }"
       >
         <AdjustmentsHorizontalIcon aria-hidden="true" />
@@ -611,7 +720,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-migrations' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-migrations',
+        }"
         :to="{
           name: 'project-migrations',
           params: { projectId: project.id },
@@ -624,7 +735,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-local-ci' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-local-ci',
+        }"
         :to="{ name: 'project-local-ci', params: { projectId: project.id } }"
       >
         <PlayCircleIcon aria-hidden="true" />
@@ -633,7 +746,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-readiness' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-readiness',
+        }"
         :to="{ name: 'project-readiness', params: { projectId: project.id } }"
       >
         <CheckBadgeIcon aria-hidden="true" />
@@ -642,8 +757,14 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-security-center' }"
-        :to="{ name: 'project-security-center', params: { projectId: project.id } }"
+        :class="{
+          'project-details-tab-active':
+            route.name === 'project-security-center',
+        }"
+        :to="{
+          name: 'project-security-center',
+          params: { projectId: project.id },
+        }"
       >
         <LockClosedIcon aria-hidden="true" />
         <span>Segurança</span>
@@ -651,7 +772,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-doctor' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-doctor',
+        }"
         :to="{ name: 'project-doctor', params: { projectId: project.id } }"
       >
         <ShieldCheckIcon aria-hidden="true" />
@@ -660,7 +783,9 @@ function environmentQuery() {
 
       <RouterLink
         class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-readme' }"
+        :class="{
+          'project-details-tab-active': route.name === 'project-readme',
+        }"
         :to="{ name: 'project-readme', params: { projectId: project.id } }"
       >
         <DocumentTextIcon aria-hidden="true" />
@@ -695,7 +820,8 @@ function environmentQuery() {
   transition: transform 150ms ease;
 }
 
-.project-details-menu-trigger[aria-expanded='true'] .project-details-menu-chevron {
+.project-details-menu-trigger[aria-expanded='true']
+  .project-details-menu-chevron {
   transform: rotate(180deg);
 }
 
