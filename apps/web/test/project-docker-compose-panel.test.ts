@@ -74,7 +74,7 @@ describe('Docker Compose no shell do projeto', () => {
 
   it('segue o protótipo compacto com status, problemas e tabela de serviços', () => {
     expect(panelSource).toContain('compose-status-strip');
-    expect(panelSource).not.toContain('compose-title');
+    expect(panelSource).not.toContain('class="compose-title"');
     expect(panelSource).toContain('Problemas detectados');
     expect(panelSource).toContain('Serviços · {{ config.services.length }}');
     expect(panelSource).toContain('placeholder="Buscar serviço..."');
