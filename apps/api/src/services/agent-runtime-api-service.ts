@@ -347,11 +347,12 @@ export interface AgentRuntimeApiServiceOptions {
     | 'cancel'
     | 'retry'
     | 'recover'
-    | 'complete'
     | 'resolveCheckpoint'
     | 'shutdown'
   > &
-    Partial<Pick<AgentWorkflowRuntime, 'adoptGitRef' | 'conversation'>>;
+    Partial<
+      Pick<AgentWorkflowRuntime, 'adoptGitRef' | 'conversation' | 'complete'>
+    >;
   projectStore: Pick<ProjectStore, 'findProject'>;
   worktreeLifecycle?: Pick<
     GitWorktreeLifecycleService,
@@ -1493,8 +1494,15 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
     const before = await this.getTask(projectId, taskId);
     this.validateTaskContextBinding(before.task);
+    const complete = this.options.workflowRuntime.complete;
+    if (!complete) {
+      throw new AgentRuntimeApiServiceError(
+        'AGENT_API_INVALID_REQUEST',
+        'Agent task completion is unavailable.',
+      );
+    }
     const completed = await this.withRuntimeErrors(() =>
-      this.options.workflowRuntime.complete(projectId, taskId),
+      complete.call(this.options.workflowRuntime, projectId, taskId),
     );
     const completedAt = completed.task.updatedAt;
     const handoffEvidence: AgentEvidence = {
