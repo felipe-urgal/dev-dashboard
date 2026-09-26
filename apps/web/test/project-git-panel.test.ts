@@ -700,7 +700,7 @@ test('renderiza somente as duas operações de commit', async () => {
   assert.match(mounted.wrapper.text(), /Amend último commit/);
   assert.match(
     mounted.wrapper.text(),
-    /Incluir todas as alterações rastreadas/,
+    /4 alterações rastreadas incluídas automaticamente/,
   );
   assert.ok(mounted.wrapper.find('.git-commit-card').exists());
   assert.ok(mounted.wrapper.find('.git-commit-message textarea').exists());
