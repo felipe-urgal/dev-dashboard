@@ -7,6 +7,7 @@ import {
   AgentAuditStore,
   AgentBudgetStore,
   AgentConversationStore,
+  AgentExecutionProfileStore,
   AgentProviderPreferenceStore,
   AgentRuntimeStateStore,
   AgentTaskLockManager,
@@ -473,6 +474,9 @@ function createAgentRuntimeApiService(
   const providerPreferenceStore = new AgentProviderPreferenceStore({
     stateDirectory,
   });
+  const executionProfileStore = new AgentExecutionProfileStore({
+    stateDirectory,
+  });
   const lockManager = new AgentTaskLockManager({
     stateDirectory,
     ...(options.now ? { now: options.now } : {}),
@@ -573,6 +577,7 @@ function createAgentRuntimeApiService(
     auditStore,
     providerRegistry,
     attachmentStore,
+    executionProfileStore,
     providerPreferenceStore,
     integrationCapabilityRegistry:
       createDefaultAgentIntegrationCapabilityRegistry(),
