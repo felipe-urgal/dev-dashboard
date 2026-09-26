@@ -174,12 +174,12 @@ export class ProjectDependenciesPtyService {
       );
     }
 
+    const command = commandForExecution(executionContext, resolved);
     try {
       const key = executionKey(
         project.id,
         executionContext.environmentInstanceId,
       );
-      const command = commandForExecution(executionContext, resolved);
       const snapshot = this.detachable.start(key, {
         file: command.file,
         args: command.args,
