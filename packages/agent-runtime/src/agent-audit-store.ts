@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import type {
   AgentAuthorization,
+  AgentAuthorizationScope,
   AgentCapability,
   AgentCheckpoint,
   AgentCheckpointStatus,
@@ -101,6 +102,53 @@ function assertSummary(value: string): void {
   }
 }
 
+
+function isBoundedScopeText(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    !value.includes('\0') &&
+    !value.includes('\n') &&
+    !value.includes('\r')
+  );
+}
+
+function isAuthorizationScope(value: unknown): value is AgentAuthorizationScope {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as Partial<AgentAuthorizationScope> & Record<string, unknown>;
+  switch (candidate.kind) {
+    case 'environment':
+      return (
+        isBoundedScopeText(candidate.projectId) &&
+        isBoundedScopeText(candidate.environmentInstanceId)
+      );
+    case 'branch':
+      return (
+        isBoundedScopeText(candidate.projectId) &&
+        isBoundedScopeText(candidate.branch)
+      );
+    case 'repository-branch':
+      return (
+        isBoundedScopeText(candidate.repository) &&
+        isBoundedScopeText(candidate.branch)
+      );
+    case 'pull-request':
+      return (
+        isBoundedScopeText(candidate.repository) &&
+        Number.isSafeInteger(candidate.number) &&
+        (candidate.number as number) > 0
+      );
+    case 'release-target':
+      return (
+        isBoundedScopeText(candidate.projectId) &&
+        isBoundedScopeText(candidate.target)
+      );
+    default:
+      return false;
+  }
+}
+
 function isAuthorization(
   value: unknown,
   taskId: string,
@@ -112,6 +160,7 @@ function isAuthorization(
     typeof candidate.capability === 'string' &&
     capabilities.has(candidate.capability as AgentCapability) &&
     typeof candidate.granted === 'boolean' &&
+    (candidate.scope === undefined || isAuthorizationScope(candidate.scope)) &&
     typeof candidate.observedAt === 'string' &&
     Number.isFinite(Date.parse(candidate.observedAt))
   );
@@ -277,6 +326,7 @@ export class AgentAuditStore {
     capability: AgentCapability,
     granted: boolean,
     observedAt: string,
+    scope?: AgentAuthorizationScope,
   ): Promise<AgentAuthorization> {
     assertIdentity(taskId, 'Agent task id');
     assertTimestamp(observedAt, 'Agent authorization timestamp');
@@ -286,6 +336,12 @@ export class AgentAuditStore {
         'Agent capability is invalid.',
       );
     }
+    if (scope !== undefined && !isAuthorizationScope(scope)) {
+      throw new AgentAuditStoreError(
+        'AGENT_AUDIT_INVALID',
+        'Agent authorization scope is invalid.',
+      );
+    }
 
     return this.mutate(taskId, async (state) => {
       const authorization: AgentAuthorization = {
@@ -293,6 +349,7 @@ export class AgentAuditStore {
         capability,
         granted,
         observedAt,
+        ...(scope ? { scope } : {}),
       };
       state.authorizations = [
         ...state.authorizations.filter(
@@ -305,7 +362,7 @@ export class AgentAuditStore {
         id: this.requireEventId(),
         taskId,
         type: 'authorization',
-        summary: `Capability ${capability} ${granted ? 'granted' : 'revoked'}.`,
+        summary: `Capability ${capability} ${granted ? 'granted' : 'revoked'}${scope ? ' for scoped resource' : ''}.`,
         occurredAt: observedAt,
       });
       state.events = state.events.slice(-this.maxEvents);
