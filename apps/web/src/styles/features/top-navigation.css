@@ -354,3 +354,80 @@
     display: none;
   }
 }
+
+
+/* Alternância global entre a UI Web e a TUI histórica (dev-tools). */
+.app-shell-topnav .interface-mode-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-0);
+}
+
+.app-shell-topnav .interface-mode-toggle button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.app-shell-topnav .interface-mode-toggle button:hover,
+.app-shell-topnav .interface-mode-toggle button:focus-visible {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.app-shell-topnav .interface-mode-toggle button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.app-shell-topnav .interface-mode-toggle button.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.app-shell-topnav .interface-mode-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.app-shell-terminal-mode .topbar-workspace,
+.app-shell-terminal-mode .topbar-navigation {
+  display: none;
+}
+
+.app-shell-terminal-mode .interface-mode-toggle {
+  margin-left: auto;
+}
+
+@media (min-width: 901px) {
+  .app-shell-project-sidebar .topbar .interface-mode-toggle {
+    margin-right: 14px;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .app-shell-topnav .interface-mode-toggle button {
+    padding-inline: 8px;
+  }
+
+  .app-shell-topnav .interface-mode-toggle span {
+    display: none;
+  }
+}

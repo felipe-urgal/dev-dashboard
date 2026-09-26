@@ -2,11 +2,20 @@
 import {
   CodeBracketIcon,
   CircleStackIcon,
+  CommandLineIcon,
+  ComputerDesktopIcon,
   HomeIcon,
   PlusIcon,
   QueueListIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onMounted, provide, ref, watch } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  onMounted,
+  provide,
+  ref,
+  watch,
+} from 'vue';
 import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
@@ -35,7 +44,15 @@ const naiveThemeOverrides = computed(() =>
 
 loadVisualPreferences();
 
+type InterfaceMode = 'web' | 'terminal';
+
+const DashboardTerminalMode = defineAsyncComponent(
+  () => import('./components/DashboardTerminalMode.vue'),
+);
+
 const workspaceManagerOpen = ref(false);
+const interfaceMode = ref<InterfaceMode>('web');
+const terminalMounted = ref(false);
 const projectSidebarCollapsed = ref(readSidebarCollapsed());
 provide('projectSidebarCollapsed', projectSidebarCollapsed);
 
@@ -46,6 +63,9 @@ const isProjectRoute = computed(
   () =>
     typeof route.name === 'string' &&
     (route.name === 'project-details' || route.name.startsWith('project-')),
+);
+const showProjectChrome = computed(
+  () => isProjectRoute.value && interfaceMode.value === 'web',
 );
 
 nativeNotificationStore.setNavigator((target) => {
@@ -64,8 +84,13 @@ function handleWorkspaceSwitch(event: Event): void {
   void switchWorkspace(target.value);
 }
 
+function setInterfaceMode(mode: InterfaceMode): void {
+  if (mode === 'terminal') terminalMounted.value = true;
+  interfaceMode.value = mode;
+}
+
 function toggleProjectSidebar(): void {
-  if (!isProjectRoute.value) return;
+  if (!showProjectChrome.value) return;
   projectSidebarCollapsed.value = !projectSidebarCollapsed.value;
 }
 
@@ -83,13 +108,14 @@ onMounted(() => {
     <div
       class="app-shell app-shell-topnav"
       :class="{
-        'app-shell-project-sidebar': isProjectRoute,
+        'app-shell-project-sidebar': showProjectChrome,
         'app-shell-project-sidebar-collapsed':
-          isProjectRoute && projectSidebarCollapsed,
+          showProjectChrome && projectSidebarCollapsed,
+        'app-shell-terminal-mode': interfaceMode === 'terminal',
       }"
     >
       <button
-        v-if="isProjectRoute"
+        v-if="showProjectChrome"
         class="brand project-sidebar-brand"
         type="button"
         :aria-label="
@@ -183,13 +209,46 @@ onMounted(() => {
           </RouterLink>
         </nav>
 
+        <div
+          class="interface-mode-toggle"
+          role="group"
+          aria-label="Modo de interface"
+        >
+          <button
+            type="button"
+            :class="{ 'is-active': interfaceMode === 'web' }"
+            :aria-pressed="interfaceMode === 'web'"
+            @click="setInterfaceMode('web')"
+          >
+            <ComputerDesktopIcon aria-hidden="true" />
+            <span>Web</span>
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': interfaceMode === 'terminal' }"
+            :aria-pressed="interfaceMode === 'terminal'"
+            @click="setInterfaceMode('terminal')"
+          >
+            <CommandLineIcon aria-hidden="true" />
+            <span>Terminal</span>
+          </button>
+        </div>
+
         <div class="sidebar-tools topbar-tools">
           <VisualPreferences />
         </div>
       </header>
 
       <main class="main-content">
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <component :is="Component" v-show="interfaceMode === 'web'" />
+        </RouterView>
+
+        <DashboardTerminalMode
+          v-if="terminalMounted"
+          v-show="interfaceMode === 'terminal'"
+          :active="interfaceMode === 'terminal'"
+        />
       </main>
 
       <CommandPalette :projects="knownProjects" :workspaces="workspaces" />
