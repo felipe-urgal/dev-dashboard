@@ -16,11 +16,7 @@ const PROVIDERS = new Set([
   'chatgpt-browser',
   'automatic',
 ]);
-const CONCRETE_PROVIDERS = new Set([
-  'codex',
-  'claude-code',
-  'chatgpt-browser',
-]);
+const CONCRETE_PROVIDERS = new Set(['codex', 'claude-code', 'chatgpt-browser']);
 const AUTOMATIC_PROVIDERS = new Set(['codex', 'claude-code']);
 
 function capture() {
@@ -118,7 +114,9 @@ async function requestJson(fetchImpl, apiUrl, token, pathname, init = {}) {
   }
 
   if (response.status === 401) {
-    throw new Error('A autenticação da API local falhou durante a qualificação.');
+    throw new Error(
+      'A autenticação da API local falhou durante a qualificação.',
+    );
   }
   if (!response.ok) {
     throw new Error(
@@ -158,7 +156,9 @@ function requireSuccessfulExecution(result, requestedProvider, phase) {
     execution.providerId !== requestedProvider
   ) {
     throw new Error(
-      'A etapa ' + phase + ' executou provider concreto diferente do solicitado.',
+      'A etapa ' +
+        phase +
+        ' executou provider concreto diferente do solicitado.',
     );
   }
   return execution;
@@ -208,12 +208,7 @@ export async function runAgentMultiTurnQualification(
   const preflightStdout = capture();
   const preflightStderr = capture();
   const preflightCode = await runPreflight(
-    [
-      '--provider',
-      options.provider,
-      '--api',
-      options.apiUrl,
-    ],
+    ['--provider', options.provider, '--api', options.apiUrl],
     {
       stdout: preflightStdout.stream,
       stderr: preflightStderr.stream,
