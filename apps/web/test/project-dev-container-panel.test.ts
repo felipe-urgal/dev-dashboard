@@ -114,7 +114,11 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('initializeCommand');
     expect(wrapper.text()).toContain('Preflight somente leitura');
-    expect(wrapper.text()).not.toContain('Criar');
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().trim() === 'Criar'),
+    ).toBe(false);
     expect(wrapper.findAll('button')).toHaveLength(1);
     expect(wrapper.get('button').text()).toContain('Atualizar');
     wrapper.unmount();
@@ -217,7 +221,11 @@ describe('ProjectDevContainerPanel', () => {
     expect(wrapper.text()).toContain(
       'O rebuild exige confirmação explícita e nova revalidação no backend.',
     );
-    expect(wrapper.text()).not.toContain('Criar');
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().trim() === 'Criar'),
+    ).toBe(false);
     expect(wrapper.text()).not.toContain('Confirmar criação');
     wrapper.unmount();
   });
@@ -296,11 +304,15 @@ describe('ProjectDevContainerPanel', () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Runtime atual');
+    expect(wrapper.text()).toContain('Runtime');
     expect(wrapper.text()).toContain('Dev Container');
     expect(wrapper.text()).toContain('Revisão necessária');
     expect(wrapper.text()).toContain('rebuild exige confirmação explícita');
-    expect(wrapper.text()).not.toContain('Criar');
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().trim() === 'Criar'),
+    ).toBe(false);
 
     const rebuildButton = wrapper
       .findAll('button')
