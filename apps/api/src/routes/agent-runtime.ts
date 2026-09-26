@@ -140,6 +140,14 @@ interface CheckpointResolutionBody {
   instruction?: string;
 }
 
+interface CompleteTaskBody {
+  confirmed: boolean;
+}
+
+interface CleanupTaskBody {
+  confirmationToken: string;
+}
+
 const providerIds = [
   'automatic',
   'codex',
@@ -693,6 +701,25 @@ const checkpointResolutionBodySchema = {
   },
 } as const;
 
+
+const completeTaskBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmed'],
+  properties: {
+    confirmed: { type: 'boolean', enum: [true] },
+  },
+} as const;
+
+const cleanupTaskBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmationToken'],
+  properties: {
+    confirmationToken: { type: 'string', minLength: 1, maxLength: 256 },
+  },
+} as const;
+
 const checkpointSchema = {
   type: 'object',
   additionalProperties: false,
@@ -785,6 +812,32 @@ const evidenceSchema = {
     summary: { type: 'string' },
     reference: { type: 'string' },
     observedAt: { type: 'string' },
+  },
+} as const;
+
+const agentTaskCleanupSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status'],
+  properties: {
+    status: {
+      type: 'string',
+      enum: [
+        'not-applicable',
+        'eligible',
+        'blocked',
+        'already-cleaned',
+        'removed',
+        'cleanup-required',
+        'failed',
+        'unverified',
+      ],
+    },
+    worktreeId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    confirmationToken: { type: 'string' },
+    expiresAt: { type: 'string' },
+    diagnostic: { type: 'string' },
   },
 } as const;
 
@@ -884,6 +937,18 @@ const taskRecordSchema = {
   properties: {
     task: taskSchema,
     version: { type: 'integer', minimum: 1 },
+  },
+} as const;
+
+
+const agentTaskCompletionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['task', 'handoffEvidence', 'cleanup'],
+  properties: {
+    task: taskRecordSchema,
+    handoffEvidence: evidenceSchema,
+    cleanup: agentTaskCleanupSchema,
   },
 } as const;
 
@@ -2097,6 +2162,50 @@ export const agentRuntimeRoutes: FastifyPluginAsync<Options> = async (
         options.agentRuntimeApiService.cancel(
           request.params.projectId,
           request.params.taskId,
+        ),
+      ),
+  );
+
+  app.post<{ Params: TaskParams; Body: CompleteTaskBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/complete',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: completeTaskBodySchema,
+        response: {
+          200: agentTaskCompletionSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.completeTask(
+          request.params.projectId,
+          request.params.taskId,
+          request.body.confirmed,
+        ),
+      ),
+  );
+
+  app.post<{ Params: TaskParams; Body: CleanupTaskBody }>(
+    '/projects/:projectId/agent/tasks/:taskId/cleanup',
+    {
+      schema: {
+        params: taskParamsSchema,
+        body: cleanupTaskBodySchema,
+        response: {
+          200: agentTaskCleanupSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) =>
+      withAgentErrors(() =>
+        options.agentRuntimeApiService.cleanupCompletedTask(
+          request.params.projectId,
+          request.params.taskId,
+          request.body.confirmationToken,
         ),
       ),
   );
