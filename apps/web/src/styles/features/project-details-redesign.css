@@ -119,3 +119,19 @@
     gap: 0 !important;
   }
 }
+
+
+/* No desktop, as abas viram a sidebar fixa do projeto. O alinhamento central
+   do tabbar horizontal fazia a árvore inteira ficar centralizada verticalmente;
+   ao expandir um submenu, o bloco crescia para cima e para baixo. Mantemos a
+   navegação ancorada no topo e deixamos somente a área rolável crescer. */
+@media (min-width: 901px) {
+  .project-details-page-ready .project-details-tabs {
+    display: block !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    overflow-x: hidden;
+    padding: 20px 12px 12px !important;
+    scroll-snap-type: none;
+  }
+}
