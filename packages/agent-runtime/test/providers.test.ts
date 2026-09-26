@@ -235,6 +235,28 @@ test('CLI provider inclui contexto bounded sem tratá-lo como autoridade', async
   );
 });
 
+test('CLI provider explicita quando todo o contexto anterior foi omitido', async () => {
+  const fake = createProviderRunner();
+  const provider = new CodexAgentProvider({
+    resolveCwd: () => '/workspace/project',
+    runProcess: fake.runner,
+  });
+
+  await provider.execute({
+    ...request(),
+    conversationContext: {
+      omittedTurns: 2,
+      turns: [],
+    },
+    continuationInstruction: 'Continue com a instrução atual.',
+  });
+
+  const prompt = String(fake.calls.at(-1)?.args.at(-1) ?? '');
+  assert.match(prompt, /Conversation context \(bounded; not authoritative\):/);
+  assert.match(prompt, /2 older conversation turn\(s\) omitted/);
+  assert.match(prompt, /Continuation instruction:/);
+});
+
 test('Codex uses read-only sandbox when workspace write is not granted', async () => {
   const fake = createProviderRunner();
   const provider = new CodexAgentProvider({

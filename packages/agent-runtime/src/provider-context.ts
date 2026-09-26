@@ -3,7 +3,9 @@ import type { AgentProviderConversationContext } from './contracts.js';
 export function formatAgentProviderConversationContext(
   context: AgentProviderConversationContext | undefined,
 ): string[] {
-  if (!context || context.turns.length === 0) return [];
+  if (!context || (context.turns.length === 0 && context.omittedTurns === 0)) {
+    return [];
+  }
 
   return [
     '',

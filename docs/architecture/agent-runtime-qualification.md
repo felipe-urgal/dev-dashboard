@@ -26,6 +26,10 @@ Este documento separa **provas automatizadas do control plane** de **qualificaç
 | E2E real Claude Code | provider real | bloqueado externo | CLI presente, mas autenticação/entitlement indisponível; evidência na #777 |
 | E2E real ChatGPT Browser | provider real | concluído | execução real em 2026-09-24 e hardening do #925; evidência na #777 |
 | Automatic com providers reais | provider real | próximo gate | confirmar seleção determinística entre os providers locais reais por preflight e execução |
+| Multi-turn real Codex | provider real | gate executável | `agent:qualification:multiturn`; exige recuperação de marcador entre execuções reais |
+| Multi-turn real Claude Code | provider real | bloqueado externo | mesmo gate, mas preflight continua bloqueado por autenticação/entitlement local |
+| Multi-turn real ChatGPT Browser | provider real | gate executável | mesmo gate contra Browser Bridge/extensão reais |
+| Multi-turn real Automatic | provider real | gate executável | registra provider concreto por turno; opção de troca Codex↔Claude quando ambos estiverem disponíveis |
 | Restart do Dashboard durante execução real | sistema real | pendente | matar/reiniciar processo e registrar recovery |
 | Duas tasks em repositórios diferentes | sistema real | pendente | duas execuções reais simultâneas |
 | Mesmo target com exclusão | sistema real | pendente | comprovar lock/serialização no target real |
@@ -60,8 +64,7 @@ turno persistido antes de uma falha de início não ganha retry implícito.
 
 A cobertura comprova ausência de duplicação nesses pontos de falha, não
 recuperação automática de qualquer execução interrompida. Qualificação
-multi-turn com providers reais, interrupção real do processo e observabilidade
-de compactação continuam como gates separados da #895/#777.
+multi-turn com providers reais e interrupção real do processo continuam como gates separados da #895/#777. A observabilidade da redução bounded do contexto é persistida como evidence quando turnos são omitidos; isso registra contagens/limites, não o conteúdo da conversa.
 
 Em 2026-09-23, a epic #768 e o roadmap #596 foram sincronizados com o estado real: #773–#776 estão concluídas e #777 permanece aberta para os gates reais de paridade. As issues #599/#600 foram reconciliadas como concluídas e #589 continua parcial apenas na convergência da execução mutável.
 
@@ -101,6 +104,35 @@ Opcionalmente, quando a API usa outra porta local:
 ```bash
 npm run agent:qualification:preflight -- --provider codex --api http://127.0.0.1:4444
 ```
+
+## Gate real de conversa multi-turn
+
+Depois que o preflight do provider estiver verde, o gate multi-turn pode ser executado contra a mesma API local:
+
+```bash
+npm run agent:qualification:multiturn -- --provider codex --project <projectId>
+npm run agent:qualification:multiturn -- --provider claude-code --project <projectId>
+npm run agent:qualification:multiturn -- --provider chatgpt-browser --project <projectId>
+npm run agent:qualification:multiturn -- --provider automatic --project <projectId>
+```
+
+O gate cria uma Agent Task **sem capabilities**, portanto Codex/Claude operam em modo read-only e o Browser não recebe ferramentas mutáveis. O fluxo é deliberadamente pequeno:
+
+1. executa a task inicial até `review`;
+2. envia um primeiro turno com um marcador aleatório;
+3. envia um segundo turno que **não contém o marcador** e exige que o provider o recupere apenas do contexto persistido;
+4. valida os dois pares user/agent reconstruídos por `GET /conversation`;
+5. registra somente IDs, provider concreto por execução, quantidade de turnos e o booleano `markerRecovered`; resposta textual bruta não entra no relatório.
+
+Para provar mudança de provider concreto no modo Automatic quando Codex e Claude estiverem ambos disponíveis:
+
+```bash
+npm run agent:qualification:multiturn -- --provider automatic --project <projectId> --automatic-switch-to claude-code
+```
+
+Nesse modo o gate lê a preferência atual do projeto, executa o primeiro turno, altera temporariamente a preferência para o provider alvo, exige que o segundo turno rode nesse provider e recupere o marcador, e restaura a preferência anterior **antes** de declarar sucesso. Se o provider alvo não estiver realmente disponível ou a restauração falhar, o gate falha fechado. A seleção Automatic continua limitada a Codex/Claude pelo contrato atual; ChatGPT Browser é qualificado diretamente.
+
+O comando não transforma teste simulado em evidência real. Um resultado só conta como gate de provider real quando executado contra a instalação local, com preflight real verde e os IDs de execução registrados. No ambiente já documentado da #777, Claude continua bloqueado externamente; portanto esse gate pode ser implementado e testado no CI, mas a evidência real de Claude só existe depois que a autenticação/entitlement estiver disponível.
 
 O comando registra somente:
 

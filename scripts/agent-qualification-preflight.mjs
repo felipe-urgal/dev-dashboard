@@ -23,7 +23,7 @@ function lastNonEmptyLine(value) {
     .at(-1);
 }
 
-function isLoopbackUrl(value) {
+export function isLoopbackUrl(value) {
   let url;
   try {
     url = new URL(value);
@@ -82,7 +82,7 @@ function resolveConfigDirectory(environment = process.env, home = homedir()) {
   return path.join(home, '.config', 'dev-dashboard');
 }
 
-async function readLocalApiToken({
+export async function readLocalApiToken({
   readFileImpl = readFile,
   environment = process.env,
   home = homedir(),

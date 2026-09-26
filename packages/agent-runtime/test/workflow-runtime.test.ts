@@ -374,6 +374,65 @@ test('conversation context é bounded, preserva provider anterior e redige secre
     false,
   );
   assert.equal(persisted.at(-2)?.content.includes('[REDACTED]'), true);
+
+  const audit = await fixtureResult.auditStore.snapshot('task-1');
+  const contextEvidence = audit.evidence.find((item) =>
+    item.summary.startsWith('Conversation context bounded:'),
+  );
+  assert.equal(contextEvidence?.executionId, 'execution-1');
+  assert.match(
+    contextEvidence?.summary ?? '',
+    /omitted 1 older turn\(s\); sent 2 turn\(s\)/,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(contextEvidence),
+    /Primeira instrução antiga|Resposta anterior via Claude|Segunda instrução/,
+  );
+});
+
+test('conversation context registra redução quando nenhum turno anterior cabe no limite', async (t) => {
+  const provider = new StubProvider(async () => ({
+    providerId: 'codex',
+    outcome: 'succeeded',
+    summary: 'Context applied',
+  }));
+  const fixtureResult = await fixture(t, provider, task({ state: 'review' }), {
+    providerConversationMaxTurns: 3,
+    providerConversationMaxChars: 5,
+  });
+
+  await fixtureResult.conversationStore.append({
+    id: 'turn-too-large',
+    taskId: 'task-1',
+    role: 'user',
+    content: 'Este turno não cabe no limite.',
+    createdAt: '2026-09-22T14:50:00.000Z',
+  });
+
+  await fixtureResult.runtime.execute({
+    projectId: 'project-1',
+    taskId: 'task-1',
+    providerId: 'codex',
+    userTurn: {
+      id: 'turn-current',
+      content: 'Continue.',
+    },
+  });
+
+  assert.deepEqual(provider.lastRequest?.conversationContext, {
+    turns: [],
+    omittedTurns: 1,
+  });
+
+  const audit = await fixtureResult.auditStore.snapshot('task-1');
+  const contextEvidence = audit.evidence.find((item) =>
+    item.summary.startsWith('Conversation context bounded:'),
+  );
+  assert.equal(contextEvidence?.executionId, 'execution-1');
+  assert.match(
+    contextEvidence?.summary ?? '',
+    /omitted 1 older turn\(s\); sent 0 turn\(s\)/,
+  );
 });
 
 test('duplicate conversation turn id is rejected without another provider execution', async (t) => {
