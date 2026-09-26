@@ -151,7 +151,7 @@ test('preflight bloqueia Compose até existir ownership compartilhado', async ()
   assert.equal(plan.state, 'blocked');
   assert.equal(plan.reason, 'compose-ownership-required');
   assert.equal(plan.executionEnabled, false);
-  assert.match(plan.diagnostic, /stacks duplicadas/);
+  assert.match(plan.diagnostic, /não correspondem com segurança/);
 });
 
 test('preflight Compose não cruza provider quando o arquivo Compose não é o mesmo', async () => {
