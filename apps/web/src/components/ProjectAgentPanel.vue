@@ -1569,7 +1569,10 @@ onBeforeUnmount(() => {
 
           <label class="agent-field">
             <span>Provider da próxima execução</span>
-            <select v-model="selectedProviderId" :disabled="executing">
+            <select
+              v-model="selectedProviderId"
+              :disabled="executing || !!selectedProfileId"
+            >
               <option
                 v-for="provider in providerOptions"
                 :key="provider.providerId"
