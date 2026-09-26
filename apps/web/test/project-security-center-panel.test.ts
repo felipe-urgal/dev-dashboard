@@ -114,7 +114,7 @@ describe('ProjectSecurityCenterPanel', () => {
     const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Resultados');
+    expect(wrapper.find('.security-center-results').exists()).toBe(true);
     expect(wrapper.text()).toContain('1 resultado');
     expect(wrapper.text()).toContain('Configuração antiga');
     expect(wrapper.text()).toContain('Misconfiguration · CFG-1');
