@@ -1,10 +1,16 @@
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 
-import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
+import {
+  primaryEnvironmentInstanceId,
+  type DevelopmentEnvironmentInstanceStore,
+} from '../store/development-environment-instance-store.js';
 import type {
   DevContainerOwnershipRecord,
   DevContainerOwnershipStore,
 } from './dev-container-ownership-store.js';
+import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
+import type { DockerComposePreflightService } from './docker-compose-preflight-service.js';
+import type { DockerComposeProvider } from './docker-compose-provider.js';
 import type {
   DevContainerConfigurationKind,
   DevContainerConfigurationSource,
@@ -86,6 +92,11 @@ type EnvironmentResolver = Pick<
   'resolveForProject'
 >;
 type OwnershipReader = Pick<DevContainerOwnershipStore, 'get'>;
+export interface DevContainerComposeIntegrationReaders {
+  provider: Pick<DockerComposeProvider, 'inspect'>;
+  preflight: Pick<DockerComposePreflightService, 'inspect'>;
+  ownershipStore: Pick<DockerComposeOwnershipStore, 'get'>;
+}
 
 function scopedProject(project: Project, cwd: string): Project {
   return { ...project, path: cwd };
@@ -97,12 +108,95 @@ function hasPostCreateHooks(
   return hooks.some((hook) => POST_CREATE_HOOKS.has(hook));
 }
 
+function composeProjectForExecution(
+  project: Project,
+  executionContext: ExecutionContext,
+): Project {
+  if (
+    executionContext.environmentInstanceId ===
+    primaryEnvironmentInstanceId(project.id)
+  ) {
+    return { ...project, path: executionContext.cwd };
+  }
+
+  return {
+    ...project,
+    id: executionContext.environmentInstanceId,
+    path: executionContext.cwd,
+  };
+}
+
+async function composeBlockDiagnostic(
+  project: Project,
+  executionContext: ExecutionContext,
+  integration: DevContainerComposeIntegrationReaders | undefined,
+): Promise<string> {
+  if (!integration) {
+    return 'Dev Containers baseados em Compose permanecem bloqueados até compartilhar ownership com o domínio Docker Compose e evitar stacks duplicadas.';
+  }
+
+  const composeProject = composeProjectForExecution(project, executionContext);
+  let inspection;
+  try {
+    inspection = await integration.provider.inspect(composeProject);
+  } catch {
+    return 'O estado compartilhado do Docker Compose não pôde ser inspecionado; o lifecycle Dev Container permanece bloqueado.';
+  }
+
+  if (inspection.state !== 'available' || !inspection.config) {
+    return 'O Docker Compose não produziu uma configuração comprovada para esta Environment Instance; o lifecycle Dev Container permanece bloqueado.';
+  }
+
+  let preflight;
+  try {
+    preflight = await integration.preflight.inspect(
+      composeProject,
+      inspection.config,
+      inspection.runtime,
+    );
+  } catch {
+    return 'O preflight compartilhado de portas do Docker Compose falhou; o lifecycle Dev Container permanece bloqueado.';
+  }
+
+  if (preflight.state === 'blocked') {
+    return 'O preflight compartilhado do Docker Compose detectou conflito de portas; o Dev Container não criará uma stack paralela.';
+  }
+  if (preflight.state !== 'ready') {
+    return 'O preflight compartilhado de portas do Docker Compose está indisponível; o lifecycle Dev Container permanece bloqueado.';
+  }
+
+  let ownership;
+  try {
+    ownership = await integration.ownershipStore.get(composeProject);
+  } catch {
+    return 'O ownership compartilhado do Docker Compose não pôde ser comprovado; o lifecycle Dev Container permanece bloqueado.';
+  }
+
+  if (ownership) {
+    if (
+      inspection.config.projectName &&
+      ownership.composeProjectName === inspection.config.projectName
+    ) {
+      return 'Esta Environment Instance já possui uma stack Docker Compose owned pelo Dashboard. O lifecycle Dev Container não a recriará; attach compartilhado permanece bloqueado até existir adaptação segura da spec.';
+    }
+
+    return 'Existe ownership Docker Compose divergente para esta Environment Instance; o lifecycle Dev Container permanece bloqueado sem assumir ou recriar recursos.';
+  }
+
+  if ((inspection.runtime?.services.length ?? 0) > 0) {
+    return 'Existe uma stack Docker Compose ativa sem ownership comprovado do Dashboard; o Dev Container não assumirá nem duplicará esses recursos.';
+  }
+
+  return 'Docker Compose e Port Registry estão reconciliados, mas a criação Dev Container baseada em Compose permanece bloqueada até existir lifecycle compartilhado que preserve a mesma stack.';
+}
+
 export class DevContainerLifecyclePlanningService {
   public constructor(
     private readonly discovery: DiscoveryReader,
     private readonly environmentInstanceStore: EnvironmentResolver,
     private readonly now: () => Date = () => new Date(),
     private readonly ownershipStore?: OwnershipReader,
+    private readonly composeIntegration?: DevContainerComposeIntegrationReaders,
   ) {}
 
   public async plan(
@@ -262,8 +356,11 @@ export class DevContainerLifecyclePlanningService {
         reason: 'compose-ownership-required',
         requiresConfirmation: false,
         limitations: [],
-        diagnostic:
-          'Dev Containers baseados em Compose permanecem bloqueados até compartilhar ownership com o domínio Docker Compose e evitar stacks duplicadas.',
+        diagnostic: await composeBlockDiagnostic(
+          project,
+          executionContext,
+          this.composeIntegration,
+        ),
       };
     }
 
