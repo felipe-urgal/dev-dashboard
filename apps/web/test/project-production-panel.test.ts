@@ -258,6 +258,10 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Produção não configurada');
+    expect(wrapper.get('.production-panel').attributes('aria-label')).toBe(
+      'Produção',
+    );
+    expect(wrapper.find('.production-eyebrow').exists()).toBe(false);
     expect(wrapper.find('button').exists()).toBe(false);
     expect(api.fetchDeploymentHistory).not.toHaveBeenCalled();
     wrapper.unmount();

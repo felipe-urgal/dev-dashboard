@@ -922,7 +922,7 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="production-panel"
-    aria-labelledby="production-title"
+    aria-label="Produção"
     :aria-busy="initialLoading || Boolean(operation)"
   >
     <article class="production-card production-overview">
@@ -931,7 +931,6 @@ onBeforeUnmount(() => {
           <component :is="statusView.icon" aria-hidden="true" />
         </div>
         <div class="production-state-copy">
-          <span class="production-eyebrow">Produção</span>
           <h3 id="production-title">{{ statusView.title }}</h3>
           <p>{{ statusView.description }}</p>
         </div>
@@ -1079,9 +1078,7 @@ onBeforeUnmount(() => {
       >
         <header>
           <div>
-            <span class="production-eyebrow">Histórico</span>
             <h4>Últimos deployments</h4>
-            <p>Execuções recentes registradas em produção.</p>
           </div>
         </header>
         <div

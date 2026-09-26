@@ -97,6 +97,12 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
 
   assert.equal(wrapper.find('.readme-workspace').exists(), true);
   assert.equal(wrapper.find('.readme-file-list').exists(), false);
+  assert.equal(wrapper.find('.readme-file-browser-footer').exists(), false);
+  assert.equal(
+    wrapper.get('.readme-file-browser-header strong').text(),
+    'Arquivos',
+  );
+  assert.equal(wrapper.get('.readme-file-browser-header span').text(), '3');
   assert.equal(
     wrapper.get('.readme-project-files').findAll('.readme-file-item').length,
     2,

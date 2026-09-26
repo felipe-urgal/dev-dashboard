@@ -321,6 +321,9 @@
   }
 
   .app-shell-project-sidebar-collapsed .project-sidebar-brand {
+    height: var(--app-topbar-height);
+    min-height: var(--app-topbar-height);
+    max-height: var(--app-topbar-height);
     justify-content: center;
     gap: 0;
     padding-inline: 8px;
