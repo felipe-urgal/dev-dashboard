@@ -259,7 +259,7 @@ watch(
 
 <template>
   <section class="security-center-panel" aria-label="Segurança">
-    <header class="security-center-header">
+    <header v-if="availability" class="security-center-header">
       <div v-if="availability" class="security-center-scanner-summary">
         <strong>{{ providerLabel }}</strong>
         <span v-if="versionLabel" class="security-center-version">
