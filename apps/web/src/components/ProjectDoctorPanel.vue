@@ -221,21 +221,12 @@ watch(
 <template>
   <section
     class="project-doctor-panel"
-    aria-labelledby="project-doctor-title"
+    aria-label="Diagnóstico"
     :aria-busy="loading"
   >
     <article class="project-doctor-card">
-      <header class="project-doctor-intro">
-        <div class="project-doctor-intro-copy">
-          <span class="project-doctor-eyebrow">Saúde do projeto</span>
-          <h3 id="project-doctor-title">Diagnóstico</h3>
-          <p>
-            Verificações somente leitura de projeto, runtimes, dependências e
-            configuração.
-          </p>
-        </div>
-
-        <div v-if="report && overallCopy" class="project-doctor-state">
+      <header v-if="report && overallCopy" class="project-doctor-intro">
+        <div class="project-doctor-state">
           <span
             class="project-doctor-overall-status"
             :class="`is-${report.overallStatus}`"
@@ -247,6 +238,20 @@ watch(
             Atualizado em {{ formatGeneratedAt(report.generatedAt) }}
           </span>
         </div>
+
+        <button
+          type="button"
+          class="secondary-button project-doctor-refresh"
+          :disabled="loading"
+          aria-label="Atualizar diagnóstico"
+          title="Atualizar diagnóstico"
+          @click="load(true)"
+        >
+          <ArrowPathIcon
+            :class="{ 'is-spinning': loading }"
+            aria-hidden="true"
+          />
+        </button>
       </header>
 
       <div v-if="errorMessage" class="project-doctor-alert" role="alert">

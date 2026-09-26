@@ -111,7 +111,8 @@ describe('ProjectReleaseReadinessPanel', () => {
     await flushPromises();
 
     expect(fetchReleaseReadiness).toHaveBeenCalledWith(project.id);
-    expect(wrapper.text()).toContain('Release Readiness');
+    expect(wrapper.find('.readiness-panel').exists()).toBe(true);
+    expect(wrapper.find('#readiness-title').exists()).toBe(false);
     expect(wrapper.text()).toContain('2 bloqueios impedem a entrega.');
     expect(wrapper.text()).toContain('Bloqueado');
     expect(wrapper.text()).toContain('Inconclusivo');

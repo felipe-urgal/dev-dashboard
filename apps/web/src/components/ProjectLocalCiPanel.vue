@@ -388,7 +388,7 @@ onBeforeUnmount(closeSocket);
 </script>
 
 <template>
-  <section class="local-ci-panel" aria-labelledby="local-ci-title">
+  <section class="local-ci-panel" aria-label="Local CI">
     <EmptyState
       v-if="loadingCatalog"
       icon="•••"
@@ -413,11 +413,6 @@ onBeforeUnmount(closeSocket);
 
     <template v-else>
       <header class="local-ci-header">
-        <div class="local-ci-heading">
-          <h3 id="local-ci-title">Local CI</h3>
-          <p>Execute workflows do GitHub Actions localmente.</p>
-        </div>
-
         <div class="local-ci-environment" aria-label="Ambiente Local CI">
           <span class="local-ci-environment-item">
             <CommandLineIcon aria-hidden="true" />
@@ -446,10 +441,14 @@ onBeforeUnmount(closeSocket);
           <button
             class="secondary-button local-ci-refresh"
             type="button"
+            aria-label="Atualizar Local CI"
+            title="Atualizar Local CI"
             @click="loadCatalog()"
           >
-            <ArrowPathIcon aria-hidden="true" />
-            Atualizar
+            <ArrowPathIcon
+              :class="{ 'is-spinning': loadingCatalog }"
+              aria-hidden="true"
+            />
           </button>
         </div>
       </header>
@@ -595,49 +594,40 @@ onBeforeUnmount(closeSocket);
 
 <style scoped>
 .local-ci-panel {
-  display: grid;
+  display: flex;
   width: 100%;
   min-width: 0;
-  box-sizing: border-box;
-  padding: var(--space-5);
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+.local-ci-panel > :deep(.empty-state) {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-1);
 }
 
 .local-ci-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-6);
-  padding-bottom: var(--space-5);
-}
-
-.local-ci-heading {
-  min-width: 0;
-}
-
-.local-ci-heading h3,
-.local-ci-heading p,
-.local-ci-section-heading h4,
-.local-ci-section-heading p,
-.local-ci-result {
-  margin: 0;
-}
-
-.local-ci-heading h3 {
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.local-ci-heading p {
-  margin-top: var(--space-2);
-  color: var(--text-muted);
+  min-height: 54px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .local-ci-environment {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-4);
-  min-height: 40px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -650,15 +640,17 @@ onBeforeUnmount(closeSocket);
 }
 
 .local-ci-environment-item {
-  gap: var(--space-2);
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
   white-space: nowrap;
 }
 
 .local-ci-environment-item > svg,
 .local-ci-refresh > svg,
 .local-ci-start > svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
 }
 
@@ -666,42 +658,56 @@ onBeforeUnmount(closeSocket);
   color: var(--text-muted);
 }
 
+.local-ci-environment-item strong {
+  color: var(--text);
+  font-size: 10px;
+}
+
 .local-ci-environment-divider {
   width: 1px;
-  height: 28px;
+  height: 20px;
   background: var(--border);
 }
 
 .local-ci-availability {
-  gap: var(--space-2);
-  white-space: nowrap;
+  gap: 6px;
   color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .local-ci-availability[data-state='available'] {
   color: var(--success-text);
 }
 
-.local-ci-availability[data-state='docker-unavailable'] {
+.local-ci-availability[data-state='docker-unavailable'],
+.local-ci-availability[data-state='act-missing'] {
   color: var(--warning-text);
 }
 
 .local-ci-availability-dot {
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   flex: 0 0 auto;
   border-radius: 999px;
   background: currentColor;
 }
 
 .local-ci-refresh {
-  gap: var(--space-2);
-  white-space: nowrap;
+  width: 34px;
+  min-height: 34px;
+  justify-content: center;
+  padding: 0;
 }
 
 .local-ci-error {
-  margin: 0 0 var(--space-4);
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
   color: var(--danger-text);
+  background: var(--danger-surface);
+  font-size: 10px;
 }
 
 .local-ci-empty {
@@ -710,234 +716,290 @@ onBeforeUnmount(closeSocket);
 
 .local-ci-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.7fr) auto;
+  min-height: 70px;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1.7fr) minmax(160px, 0.55fr) auto;
   align-items: end;
-  gap: var(--space-3);
+  gap: 10px;
+  padding: 9px 12px 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
 }
 
 .local-ci-controls label {
   display: grid;
-  gap: var(--space-2);
   min-width: 0;
+  gap: 4px;
 }
 
 .local-ci-controls label > span {
-  color: var(--text);
-  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-size: 9px;
   font-weight: var(--font-weight-strong);
 }
 
 .local-ci-controls select {
   width: 100%;
-  min-height: 44px;
-  padding: 0 var(--space-3);
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 9px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface-1);
   color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 10px;
 }
 
 .local-ci-controls small {
-  min-height: 1em;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  min-height: 12px;
+  color: var(--text-dim);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .local-ci-start {
+  min-height: 34px;
   justify-content: center;
-  gap: var(--space-2);
-  min-height: 44px;
+  gap: 6px;
+  padding-inline: 12px;
   white-space: nowrap;
+  font-size: 10px;
 }
 
 .local-ci-boundary {
   display: flex;
+  min-height: 36px;
+  flex: 0 0 auto;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: var(--font-sm);
+  gap: 7px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
+  font-size: 9px;
 }
 
 .local-ci-boundary > svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
 }
 
 .local-ci-run {
-  display: grid;
-  gap: var(--space-4);
-  margin-top: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border);
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-0);
 }
 
 .local-ci-section-heading {
   display: flex;
-  align-items: flex-start;
+  min-height: 48px;
+  flex: 0 0 auto;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: 12px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
 
 .local-ci-section-heading > div:first-child {
   display: grid;
-  gap: var(--space-1);
   min-width: 0;
+  gap: 2px;
 }
 
-.local-ci-section-heading p,
-.local-ci-result {
-  color: var(--text-muted);
-}
-
-.local-ci-heading-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
+.local-ci-heading-row,
 .local-ci-run-actions {
   display: flex;
-  gap: var(--space-2);
-  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 
-.local-ci-cancel {
-  border-color: color-mix(in srgb, var(--danger-text) 45%, var(--border));
-  color: var(--danger-text);
+.local-ci-section-heading h4,
+.local-ci-section-heading p,
+.local-ci-result {
+  margin: 0;
+}
+
+.local-ci-section-heading h4 {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.local-ci-section-heading p {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.local-ci-run-actions button {
+  min-height: 30px;
+  font-size: 9px;
 }
 
 .local-ci-run-meta {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-5);
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
-  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
 }
 
-.local-ci-run-meta div {
-  display: flex;
-  gap: var(--space-2);
+.local-ci-run-meta > div {
+  display: grid;
   min-width: 0;
+  gap: 2px;
+  padding: 8px 10px;
 }
 
-.local-ci-run-meta div + div {
-  padding-left: var(--space-5);
+.local-ci-run-meta > div + div {
   border-left: 1px solid var(--border);
 }
 
 .local-ci-run-meta dt {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
+  color: var(--text-dim);
+  font-size: 8px;
   font-weight: var(--font-weight-strong);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .local-ci-run-meta dd {
+  overflow: hidden;
   margin: 0;
-  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .local-ci-console {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-0);
+  background: #10131c;
 }
 
 .local-ci-console-bar {
   display: flex;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  gap: 8px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: var(--font-xs);
+  background: var(--surface-2);
+  font-size: 9px;
 }
 
 .local-ci-console pre {
-  min-height: 220px;
-  max-height: 520px;
+  min-height: 0;
+  flex: 1 1 auto;
   margin: 0;
-  padding: var(--space-4);
   overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  padding: 14px 16px 18px;
   color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
+  background: #10131c;
+  font-family: var(--font-family-code);
+  font-size: 10px;
   line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 .local-ci-result {
-  font-size: var(--font-sm);
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 9px;
 }
 
-@media (max-width: 1080px) {
+.is-spinning {
+  animation: local-ci-spin 0.8s linear infinite;
+}
+
+@keyframes local-ci-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .local-ci-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 0.6fr);
+  }
+
+  .local-ci-start {
+    grid-column: 1 / -1;
+  }
+
+  .local-ci-run-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .local-ci-run-meta > div:nth-child(3) {
+    border-left: 0;
+  }
+
+  .local-ci-run-meta > div:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 620px) {
   .local-ci-header {
-    flex-direction: column;
-    gap: var(--space-4);
+    justify-content: flex-start;
   }
 
   .local-ci-environment {
     justify-content: flex-start;
-  }
-}
-
-@media (max-width: 760px) {
-  .local-ci-controls {
-    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.7fr);
-  }
-
-  .local-ci-start {
-    width: max-content;
-  }
-
-  .local-ci-run-meta div + div {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-@media (max-width: 560px) {
-  .local-ci-panel {
-    padding: var(--space-3);
-  }
-
-  .local-ci-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .local-ci-start,
-  .local-ci-run-actions,
-  .local-ci-run-actions button {
-    width: 100%;
-  }
-
-  .local-ci-environment {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: var(--space-3);
   }
 
   .local-ci-environment-divider {
     display: none;
   }
 
-  .local-ci-run-actions,
+  .local-ci-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .local-ci-start {
+    grid-column: auto;
+  }
+
   .local-ci-section-heading {
+    align-items: stretch;
     flex-direction: column;
   }
 
   .local-ci-run-meta {
-    display: grid;
     grid-template-columns: 1fr;
-    gap: var(--space-2);
+  }
+
+  .local-ci-run-meta > div + div {
+    border-top: 1px solid var(--border);
+    border-left: 0;
   }
 }
 </style>
