@@ -147,6 +147,5 @@ watch(
         </div>
       </details>
     </div>
-
   </aside>
 </template>

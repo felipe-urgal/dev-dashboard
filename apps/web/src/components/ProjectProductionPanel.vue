@@ -931,7 +931,7 @@ onBeforeUnmount(() => {
           <component :is="statusView.icon" aria-hidden="true" />
         </div>
         <div class="production-state-copy">
-                    <h3 id="production-title">{{ statusView.title }}</h3>
+          <h3 id="production-title">{{ statusView.title }}</h3>
           <p>{{ statusView.description }}</p>
         </div>
       </div>
@@ -1078,8 +1078,8 @@ onBeforeUnmount(() => {
       >
         <header>
           <div>
-                        <h4>Últimos deployments</h4>
-                      </div>
+            <h4>Últimos deployments</h4>
+          </div>
         </header>
         <div
           class="production-history-table"
