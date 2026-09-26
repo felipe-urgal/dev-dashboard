@@ -23,6 +23,12 @@ export interface CreateGitWorktreeInput {
   branch: string;
   directoryName: string;
   createBranch?: boolean;
+  /**
+   * Uso interno para lifecycles idempotentes: quando a branch já existe mas
+   * ainda não possui worktree, reutiliza a referência confirmada em vez de
+   * criar outra branch. A rota pública não expõe esta opção.
+   */
+  reuseBranch?: boolean;
 }
 
 export type CreateGitWorktreeState =
@@ -289,9 +295,25 @@ export class GitWorktreeLifecycleService {
       );
     }
 
-    const args = input.createBranch
-      ? ['worktree', 'add', '-b', branch, '--', targetPath]
-      : ['worktree', 'add', '--', targetPath, branch];
+    let branchExists = false;
+    if (input.createBranch && input.reuseBranch) {
+      try {
+        await this.runCommand(project.path, [
+          'show-ref',
+          '--verify',
+          '--quiet',
+          `refs/heads/${branch}`,
+        ]);
+        branchExists = true;
+      } catch {
+        // show-ref falha quando a branch ainda não existe.
+      }
+    }
+
+    const args =
+      input.createBranch && !branchExists
+        ? ['worktree', 'add', '-b', branch, '--', targetPath]
+        : ['worktree', 'add', '--', targetPath, branch];
 
     try {
       await this.runCommand(project.path, args);
