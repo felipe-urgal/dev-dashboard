@@ -12,8 +12,8 @@ const projectDetailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
 );
-const moreToolsSource = readFileSync(
-  resolve(webRoot, 'src/components/ProjectDetailsMoreTools.vue'),
+const sidebarNavigationSource = readFileSync(
+  resolve(webRoot, 'src/components/ProjectSidebarNavigation.vue'),
   'utf8',
 );
 const panelSource = readFileSync(
@@ -49,10 +49,10 @@ describe('Dev Container no shell do projeto', () => {
   });
 
   it('expõe criação e rebuild confirmados sem autoridade de execução arbitrária', () => {
-    expect(moreToolsSource).toContain("route.name === 'project-dev-container'");
-    expect(moreToolsSource).toContain('<span>Dev Container</span>');
-    expect(moreToolsSource).toContain(
-      'environmentInstanceId ? { query: { environmentInstanceId } } : {}',
+    expect(sidebarNavigationSource).toContain("'project-dev-container'");
+    expect(sidebarNavigationSource).toContain("label: 'Dev Container'");
+    expect(sidebarNavigationSource).toContain(
+      "projectRoute('project-dev-container', { environment: true })",
     );
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',
@@ -64,7 +64,7 @@ describe('Dev Container no shell do projeto', () => {
     expect(panelSource).toContain('Confirmar rebuild');
     expect(panelSource).not.toContain('devcontainer up');
     expect(panelSource).not.toContain('run-user-commands');
-    expect(moreToolsSource).toContain('environmentInstanceId');
+    expect(sidebarNavigationSource).toContain('environmentInstanceId');
     expect(apiSource).toContain('/dev-container/lifecycle-confirmation');
     expect(apiSource).toContain('/dev-container/start');
     expect(apiSource).toContain('/dev-container/rebuild');
@@ -75,7 +75,9 @@ describe('Dev Container no shell do projeto', () => {
   });
 
   it('leva a Environment Instance até o Terminal sem expor containerId no browser', () => {
-    expect(projectDetailsSource).toContain("name: 'project-terminal'");
+    expect(sidebarNavigationSource).toContain(
+      "projectRoute('project-terminal', { environment: true })",
+    );
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',
     );
