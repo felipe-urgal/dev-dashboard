@@ -5,6 +5,7 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   PlayIcon,
+  StopIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
@@ -13,8 +14,10 @@ import type { Project } from '@dev-dashboard/contracts';
 import {
   fetchDevContainerLifecyclePreflight,
   prepareDevContainerLifecycleConfirmation,
+  prepareDevContainerStopConfirmation,
   rebuildDevContainer,
   startDevContainer,
+  stopDevContainer,
   type DevContainerConfigurationKind,
   type DevContainerLifecycleLimitation,
   type DevContainerLifecyclePreflight,
@@ -31,8 +34,10 @@ const preflight = ref<DevContainerLifecyclePreflight | null>(null);
 const loading = ref(false);
 const creating = ref(false);
 const rebuilding = ref(false);
+const stopping = ref(false);
 const createConfirmationVisible = ref(false);
 const rebuildConfirmationVisible = ref(false);
+const stopConfirmationVisible = ref(false);
 const errorMessage = ref('');
 const mutationErrorMessage = ref('');
 let generation = 0;
@@ -124,8 +129,10 @@ const canRebuild = computed(() => {
   );
 });
 
+const canStop = computed(() => preflight.value?.runtime === 'devcontainer');
+
 const busy = computed(
-  () => loading.value || creating.value || rebuilding.value,
+  () => loading.value || creating.value || rebuilding.value || stopping.value,
 );
 
 const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
@@ -253,6 +260,60 @@ async function rebuildCurrentDevContainer(): Promise<void> {
   }
 }
 
+function openStopConfirmation(): void {
+  if (!canStop.value || busy.value) return;
+  mutationErrorMessage.value = '';
+  stopConfirmationVisible.value = true;
+}
+
+function cancelStopConfirmation(): void {
+  if (stopping.value) return;
+  mutationErrorMessage.value = '';
+  stopConfirmationVisible.value = false;
+}
+
+async function stopCurrentDevContainer(): Promise<void> {
+  const currentPreflight = preflight.value;
+  if (!currentPreflight || !canStop.value || stopping.value) return;
+
+  const currentGeneration = generation;
+  const environmentInstanceId = currentPreflight.environmentInstanceId;
+  stopping.value = true;
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareDevContainerStopConfirmation(
+      props.project.id,
+      environmentInstanceId,
+    );
+    if (confirmation.environmentInstanceId !== environmentInstanceId) {
+      throw new Error(
+        'A confirmação retornada não corresponde ao ambiente selecionado.',
+      );
+    }
+
+    await stopDevContainer(
+      props.project.id,
+      confirmation.token,
+      environmentInstanceId,
+    );
+
+    if (currentGeneration === generation) {
+      stopConfirmationVisible.value = false;
+      await load();
+    }
+  } catch (error) {
+    if (currentGeneration === generation) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível parar o Dev Container.';
+    }
+  } finally {
+    stopping.value = false;
+  }
+}
+
 async function load(): Promise<void> {
   const current = ++generation;
   loading.value = true;
@@ -283,6 +344,7 @@ watch(
     preflight.value = null;
     createConfirmationVisible.value = false;
     rebuildConfirmationVisible.value = false;
+    stopConfirmationVisible.value = false;
     mutationErrorMessage.value = '';
     void load();
   },
@@ -334,7 +396,8 @@ watch(
             v-if="
               canCreate &&
               !createConfirmationVisible &&
-              !rebuildConfirmationVisible
+              !rebuildConfirmationVisible &&
+              !stopConfirmationVisible
             "
             class="primary-button devcontainer-create"
             type="button"
@@ -349,7 +412,8 @@ watch(
             v-if="
               canRebuild &&
               !rebuildConfirmationVisible &&
-              !createConfirmationVisible
+              !createConfirmationVisible &&
+              !stopConfirmationVisible
             "
             class="primary-button devcontainer-rebuild"
             type="button"
@@ -358,6 +422,22 @@ watch(
           >
             <ArrowPathIcon aria-hidden="true" />
             Rebuild
+          </button>
+
+          <button
+            v-if="
+              canStop &&
+              !stopConfirmationVisible &&
+              !createConfirmationVisible &&
+              !rebuildConfirmationVisible
+            "
+            class="secondary-button devcontainer-stop"
+            type="button"
+            :disabled="busy"
+            @click="openStopConfirmation"
+          >
+            <StopIcon aria-hidden="true" />
+            Parar
           </button>
 
           <button
@@ -509,6 +589,55 @@ watch(
                   aria-hidden="true"
                 />
                 {{ rebuilding ? 'Reconstruindo…' : 'Confirmar rebuild' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="stopConfirmationVisible && canStop"
+          class="devcontainer-confirmation"
+        >
+          <ExclamationTriangleIcon aria-hidden="true" />
+          <div>
+            <strong>Parar este Dev Container?</strong>
+            <span>
+              O Dashboard revalidará o ownership atual antes do stop e removerá
+              somente o container owned desta Environment Instance.
+            </span>
+            <span>
+              Volumes não são removidos. Se o ownership mudar após esta
+              confirmação, a operação falha fechado.
+            </span>
+            <div
+              v-if="mutationErrorMessage"
+              class="devcontainer-confirmation-error"
+              role="alert"
+            >
+              {{ mutationErrorMessage }}
+            </div>
+            <div class="devcontainer-confirmation-actions">
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="stopping"
+                @click="cancelStopConfirmation"
+              >
+                Cancelar
+              </button>
+              <button
+                class="primary-button devcontainer-confirm-action"
+                type="button"
+                :disabled="stopping"
+                @click="stopCurrentDevContainer"
+              >
+                <ArrowPathIcon
+                  v-if="stopping"
+                  class="is-spinning"
+                  aria-hidden="true"
+                />
+                <StopIcon v-else aria-hidden="true" />
+                {{ stopping ? 'Parando…' : 'Confirmar parada' }}
               </button>
             </div>
           </div>
