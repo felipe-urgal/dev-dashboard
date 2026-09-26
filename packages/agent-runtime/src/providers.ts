@@ -160,9 +160,7 @@ function providerVersion(result: AgentCliProcessResult): string {
 
 function semanticVersion(value: string): [number, number, number] | null {
   const match = value.match(/(\d+)\.(\d+)\.(\d+)/);
-  return match
-    ? [Number(match[1]), Number(match[2]), Number(match[3])]
-    : null;
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
 }
 
 function versionIsBelow(
@@ -1044,7 +1042,8 @@ export class AutomaticAgentProvider implements AgentProvider {
       reason: 'no healthy compatible provider is available',
       diagnostic: {
         code: 'automatic-unavailable',
-        evidence: 'No configured Codex or Claude Code provider passed preflight.',
+        evidence:
+          'No configured Codex or Claude Code provider passed preflight.',
       },
     };
   }

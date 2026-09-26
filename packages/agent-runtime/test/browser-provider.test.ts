@@ -332,7 +332,6 @@ test('registry can include ChatGPT Browser without changing the default fallback
   );
 });
 
-
 test('browser doctor distingue bridge pausado, heartbeat stale e token ausente', async () => {
   const bridge = new StubBridge();
   const provider = new ChatGptBrowserAgentProvider({

@@ -637,15 +637,11 @@ test('Factory registers Automatic, Codex and Claude without shell authority', ()
   );
 });
 
-
 test('provider doctor classifica ausência, versão, auth e falha de runtime sem vazar saída bruta', async () => {
   const missing = new CodexAgentProvider({
     resolveCwd: () => '/workspace/project',
     runProcess: async () => {
-      throw new AgentCliProcessError(
-        'spawn-failed',
-        'SECRET_COMMAND_FAILURE',
-      );
+      throw new AgentCliProcessError('spawn-failed', 'SECRET_COMMAND_FAILURE');
     },
     now: () => observedAt,
   });

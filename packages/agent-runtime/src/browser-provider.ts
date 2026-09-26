@@ -589,7 +589,8 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
         reason: 'browser extension heartbeat stale',
         diagnostic: {
           code: 'browser-extension-stale',
-          evidence: 'The last extension heartbeat is older than the allowed age.',
+          evidence:
+            'The last extension heartbeat is older than the allowed age.',
         },
       };
     }
