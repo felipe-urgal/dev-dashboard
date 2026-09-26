@@ -275,6 +275,7 @@ export class AgentAttachmentStore {
         );
       }
 
+      const preview = textPreview(input.mediaType, buffer);
       const attachment: PersistedAgentAttachment = {
         id,
         taskId,
@@ -284,9 +285,7 @@ export class AgentAttachmentStore {
         sha256: createHash('sha256').update(buffer).digest('hex'),
         source: 'user-upload',
         createdAt,
-        ...(textPreview(input.mediaType, buffer)
-          ? { textPreview: textPreview(input.mediaType, buffer) }
-          : {}),
+        ...(preview !== undefined ? { textPreview: preview } : {}),
         contentBase64: buffer.toString('base64'),
       };
       await this.write({
