@@ -18,6 +18,7 @@ import type {
   AgentCheckpointStatus,
   AgentExecution,
   AgentExecutionOwnership,
+  AgentEffectiveExecutionConfiguration,
   AgentEvidence,
   AgentProvider,
   AgentProviderConversationContext,
@@ -123,6 +124,7 @@ export interface AgentWorkflowExecuteRequest {
     AgentEvidence,
     'kind' | 'summary' | 'reference' | 'observedAt'
   >[];
+  effectiveConfiguration?: AgentEffectiveExecutionConfiguration;
 }
 
 export interface AgentWorkflowExecutionResult {
@@ -493,6 +495,14 @@ export class AgentWorkflowRuntime {
       await this.runtimeStateStore.recordAttempt(runningRecord);
 
       const controller = new AbortController();
+      let timedOut = false;
+      const timeout =
+        request.effectiveConfiguration?.timeoutMs !== undefined
+          ? setTimeout(() => {
+              timedOut = true;
+              controller.abort();
+            }, request.effectiveConfiguration.timeoutMs)
+          : undefined;
       let resolveDone = (): void => undefined;
       const done = new Promise<void>((resolve) => {
         resolveDone = resolve;
@@ -534,7 +544,8 @@ export class AgentWorkflowRuntime {
           signal: controller.signal,
         });
       } catch {
-        const target = controller.signal.aborted ? 'cancelled' : 'blocked';
+        if (timeout !== undefined) clearTimeout(timeout);
+        const target = timedOut ? 'failed' : controller.signal.aborted ? 'cancelled' : 'blocked';
         const failedTask = transitionAgentTask(
           runningRecord.task,
           target,
@@ -547,12 +558,15 @@ export class AgentWorkflowRuntime {
 
         throw new AgentWorkflowRuntimeError(
           'AGENT_WORKFLOW_PROVIDER_FAILED',
-          controller.signal.aborted
-            ? 'Agent provider execution was cancelled.'
-            : 'Agent provider ended without a normalized result.',
+          timedOut
+            ? 'Agent provider execution exceeded the configured timeout.'
+            : controller.signal.aborted
+              ? 'Agent provider execution was cancelled.'
+              : 'Agent provider ended without a normalized result.',
         );
       }
 
+      if (timeout !== undefined) clearTimeout(timeout);
       const finishedAt = this.now();
       let checkpoint: AgentCheckpoint | undefined;
       let checkpointToPersist: AgentCheckpoint | undefined;
@@ -717,6 +731,9 @@ export class AgentWorkflowRuntime {
         finishedAt,
         ...(providerResult.failure ? { failure: providerResult.failure } : {}),
         ...(providerResult.usage ? { usage: providerResult.usage } : {}),
+        ...(request.effectiveConfiguration
+          ? { configuration: structuredClone(request.effectiveConfiguration) }
+          : {}),
       };
 
       return {
