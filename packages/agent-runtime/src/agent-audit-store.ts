@@ -433,6 +433,49 @@ export class AgentAuditStore {
     return null;
   }
 
+  public async appendEvidence(
+    taskId: string,
+    evidence: readonly AgentEvidence[],
+  ): Promise<void> {
+    assertIdentity(taskId, 'Agent task id');
+
+    await this.mutate(taskId, async (state) => {
+      for (const item of evidence) {
+        if (!isEvidence(item, taskId) || item.executionId !== undefined) {
+          throw new AgentAuditStoreError(
+            'AGENT_AUDIT_INVALID',
+            'External agent evidence ownership is invalid.',
+          );
+        }
+
+        const existing = state.evidence.find(
+          (candidate) => candidate.id === item.id,
+        );
+        if (existing) {
+          if (JSON.stringify(existing) !== JSON.stringify(item)) {
+            throw new AgentAuditStoreError(
+              'AGENT_AUDIT_INVALID',
+              'Agent evidence identity already exists with different data.',
+            );
+          }
+          continue;
+        }
+
+        state.evidence.push(item);
+        state.events.push({
+          id: this.requireEventId(),
+          taskId,
+          type: 'evidence',
+          summary: item.summary,
+          occurredAt: item.observedAt,
+        });
+      }
+
+      state.events = state.events.slice(-this.maxEvents);
+      state.evidence = state.evidence.slice(-this.maxEvidence);
+    });
+  }
+
   public async appendExecutionResult(
     taskId: string,
     executionId: string,
