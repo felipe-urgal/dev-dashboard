@@ -218,10 +218,7 @@ test('não marca Compose alternativo como compatível com o provider padrão', a
 
   assert.equal(result.state, 'available');
   assert.equal(result.configuration?.kind, 'compose');
-  assert.equal(
-    result.configuration?.composeUsesDefaultConfiguration,
-    false,
-  );
+  assert.equal(result.configuration?.composeUsesDefaultConfiguration, false);
 });
 
 test('CLI ausente vira estado suportado sem vazar erro bruto', async (context) => {
