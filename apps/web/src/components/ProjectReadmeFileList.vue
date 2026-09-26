@@ -58,8 +58,8 @@ watch(
   <aside class="readme-file-browser" aria-label="Arquivos Markdown do projeto">
     <header class="readme-file-browser-header">
       <div>
-        <span>Documentação</span>
         <strong>Arquivos</strong>
+        <span>{{ props.files.length }}</span>
       </div>
 
       <button
@@ -148,9 +148,5 @@ watch(
       </details>
     </div>
 
-    <footer class="readme-file-browser-footer">
-      {{ props.files.length }} arquivo{{ props.files.length === 1 ? '' : 's' }}
-      Markdown
-    </footer>
   </aside>
 </template>
