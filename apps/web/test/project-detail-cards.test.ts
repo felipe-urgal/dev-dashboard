@@ -212,15 +212,16 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('renderiza o painel de testes dentro de Card', async () => {
+  it('renderiza o painel de testes como workspace contínuo', async () => {
     const wrapper = mount(ProjectTestsPanel, {
       props: { project },
       global: { plugins: [createTestRouter()] },
     });
     await flushPromises();
 
-    expect(wrapper.get('.dd-card').classes()).toContain('project-detail-card');
-    expect(wrapper.find('.dd-card-header').exists()).toBe(false);
+    expect(wrapper.find('.tests-pty-panel').exists()).toBe(true);
+    expect(wrapper.find('.tests-execution-controls').exists()).toBe(true);
+    expect(wrapper.find('.dd-card').exists()).toBe(false);
 
     wrapper.unmount();
   });
