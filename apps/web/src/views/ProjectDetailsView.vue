@@ -358,27 +358,36 @@ onBeforeUnmount(stopGitOverviewRefresh);
       <div class="project-details-sticky-header">
         <header class="project-details-hero">
           <div class="project-details-main">
-            <RouterLink
-              class="project-details-back"
-              :to="{ name: 'dashboard' }"
-              aria-label="Voltar para a listagem de projetos"
-              title="Voltar para projetos"
-            >
-              <ArrowLeftIcon aria-hidden="true" />
-              <span>Projetos</span>
-            </RouterLink>
-
-            <div class="project-title-row">
-              <h2>{{ project.name }}</h2>
-              <div
-                v-if="gitBranch"
-                class="project-details-branch"
-                aria-label="Branch atual"
+            <nav class="project-details-breadcrumb" aria-label="Breadcrumb">
+              <RouterLink
+                class="project-details-back"
+                :to="{ name: 'dashboard' }"
+                aria-label="Voltar para a listagem de projetos"
+                title="Voltar para projetos"
               >
-                <ShareIcon aria-hidden="true" />
-                <span>{{ gitBranch }}</span>
+                <ArrowLeftIcon aria-hidden="true" />
+                <span>Projetos</span>
+              </RouterLink>
+
+              <span
+                class="project-details-breadcrumb-separator"
+                aria-hidden="true"
+              >
+                /
+              </span>
+
+              <div class="project-title-row" aria-current="page">
+                <h2>{{ project.name }}</h2>
+                <div
+                  v-if="gitBranch"
+                  class="project-details-branch"
+                  aria-label="Branch atual"
+                >
+                  <ShareIcon aria-hidden="true" />
+                  <span>{{ gitBranch }}</span>
+                </div>
               </div>
-            </div>
+            </nav>
           </div>
 
           <div class="project-details-actions">
