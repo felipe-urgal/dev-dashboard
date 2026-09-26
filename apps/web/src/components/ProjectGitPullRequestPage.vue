@@ -491,11 +491,6 @@ async function mergePullRequest(): Promise<void> {
         class="git-pr-overview"
       >
         <header class="git-pr-overview-heading">
-          <div>
-            <h2>Pull Request</h2>
-            <p>Compare a branch atual com a branch base selecionada.</p>
-          </div>
-
           <div class="git-pr-overview-meta">
             <div class="git-pr-current-branch">
               <ShareIcon aria-hidden="true" />
@@ -657,65 +652,57 @@ async function mergePullRequest(): Promise<void> {
 
 <style scoped>
 .git-pr-page {
-  gap: var(--space-4);
-  background: transparent;
-  padding: var(--space-5);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-topbar-height, 72px));
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  background: var(--surface-1);
+}
+
+.git-pr-page > .project-error {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
 }
 
 .git-pr-workspace {
-  display: grid;
+  display: flex;
   width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   margin: 0;
-  border: 1px solid var(--border);
   background: var(--surface-1);
 }
 
 .git-pr-overview,
 .git-pr-create-view {
-  display: grid;
-  gap: var(--space-4);
-  padding: 22px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .git-pr-overview {
-  min-height: 470px;
-  grid-template-rows: auto auto 1fr;
+  display: flex;
+  flex-direction: column;
 }
 
 .git-pr-overview-heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
+  min-height: 52px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 8px 12px 8px 14px;
   border-bottom: 1px solid var(--border);
-}
-
-.git-pr-overview-heading > div:first-child,
-.git-pr-create-heading {
-  display: grid;
-  gap: 5px;
-}
-
-.git-pr-overview-heading h2,
-.git-pr-overview-heading p,
-.git-pr-create-heading h2,
-.git-pr-create-heading p,
-.git-pr-empty p {
-  margin: 0;
-}
-
-.git-pr-overview-heading h2,
-.git-pr-create-heading h2 {
-  color: var(--text);
-  font-size: var(--font-xl);
-}
-
-.git-pr-overview-heading p,
-.git-pr-create-heading p,
-.git-pr-empty p,
-.git-pr-empty-hint {
-  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .git-pr-overview-meta,
@@ -725,26 +712,30 @@ async function mergePullRequest(): Promise<void> {
 }
 
 .git-pr-overview-meta {
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .git-pr-current-branch {
   min-width: 0;
   gap: 8px;
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  font-size: 10px;
 }
 
 .git-pr-current-branch > svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: none;
   color: var(--accent);
 }
 
 .git-pr-current-branch strong {
+  max-width: min(32vw, 340px);
+  overflow: hidden;
   color: var(--text);
-  font-size: var(--font-md);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .git-pr-current-branch > span {
@@ -754,107 +745,128 @@ async function mergePullRequest(): Promise<void> {
 .git-pr-state {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
   padding: 3px 7px;
-  font-size: var(--font-xs);
-  font-weight: 700;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
   white-space: nowrap;
 }
 
 .git-pr-state.is-success {
-  background: var(--success-surface);
   color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .git-pr-state.is-warning {
-  background: var(--warning-surface);
   color: var(--warning-text);
+  background: var(--warning-surface);
 }
 
 .git-pr-state.is-accent {
-  background: var(--accent-soft);
   color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .git-pr-state.is-neutral {
-  background: var(--surface-2);
   color: var(--text-muted);
+  background: var(--surface-2);
 }
 
 .git-pr-refresh {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
   padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
 }
 
 .git-pr-refresh svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .git-pr-refresh:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .git-pr-refresh:disabled {
   color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.git-pr-overview > :deep(.git-pr-warning),
+.git-pr-overview > :deep(.git-pr-checking),
+.git-pr-overview > :deep(.git-pr-lookup-note),
+.git-pr-overview > :deep(.git-pr-existing) {
+  flex: 0 0 auto;
+  margin: 12px 14px 0;
 }
 
 .git-pr-empty {
   display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-content: center;
   justify-items: center;
-  align-content: center;
-  gap: 8px;
-  min-height: 330px;
+  gap: 7px;
+  padding: 28px 18px;
   text-align: center;
 }
 
 .git-pr-empty-icon {
   display: grid;
-  width: 54px;
-  height: 54px;
-  margin-bottom: var(--space-2);
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--surface-2);
   color: var(--text-muted);
+  background: var(--surface-2);
 }
 
 .git-pr-empty-icon svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .git-pr-empty > strong {
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: 13px;
+}
+
+.git-pr-empty p,
+.git-pr-empty-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
 .git-pr-route {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   width: min(100%, 620px);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-4) 0 var(--space-2);
+  gap: 12px;
+  margin: 14px 0 6px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   background: var(--surface-2);
-  padding: 12px 14px;
   text-align: left;
 }
 
 .git-pr-route > div {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 2px;
 }
 
 .git-pr-route > div:last-child {
@@ -870,54 +882,83 @@ async function mergePullRequest(): Promise<void> {
 
 .git-pr-route strong {
   color: var(--text);
+  font-size: 10px;
 }
 
 .git-pr-route small {
   color: var(--text-muted);
+  font-size: 9px;
 }
 
 .git-pr-route > span {
   color: var(--accent);
-  font-size: var(--font-lg);
+  font-size: 14px;
 }
 
 .git-pr-primary-action,
 .git-pr-continue-action {
-  min-height: 42px;
+  min-height: 34px;
+  padding: 0 13px;
   border: 1px solid var(--accent);
-  background: var(--accent);
+  border-radius: var(--radius-sm);
   color: #fff;
-  padding: 0 16px;
+  background: var(--accent);
+  cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
+}
+
+.git-pr-primary-action:hover,
+.git-pr-continue-action:hover {
+  background: var(--accent-strong);
 }
 
 .git-pr-empty-hint {
   max-width: 460px;
-  margin-top: var(--space-2);
-  font-size: var(--font-sm);
+  margin-top: 6px;
   line-height: 1.5;
 }
 
 .git-pr-continue-action {
-  align-self: end;
-  justify-self: end;
+  align-self: flex-end;
+  margin: auto 14px 14px;
+}
+
+.git-pr-create-view {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 14px;
 }
 
 .git-pr-create-heading {
-  padding-bottom: var(--space-3);
+  display: grid;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 0 0 12px;
+}
+
+.git-pr-create-heading h2,
+.git-pr-create-heading p {
+  margin: 0;
+}
+
+.git-pr-create-heading h2 {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.git-pr-create-heading p {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.git-pr-create-view :deep(.git-pr-form) {
+  min-width: 0;
 }
 
 @media (max-width: 720px) {
-  .git-pr-page {
-    padding: var(--space-4);
-  }
-
-  .git-pr-overview,
-  .git-pr-create-view {
-    padding: var(--space-4);
-  }
-
   .git-pr-overview-heading {
     align-items: stretch;
     flex-direction: column;
@@ -931,6 +972,10 @@ async function mergePullRequest(): Promise<void> {
     flex-wrap: wrap;
   }
 
+  .git-pr-current-branch strong {
+    max-width: 44vw;
+  }
+
   .git-pr-route {
     grid-template-columns: 1fr;
     text-align: center;
@@ -942,6 +987,10 @@ async function mergePullRequest(): Promise<void> {
 
   .git-pr-route > span {
     transform: rotate(90deg);
+  }
+
+  .git-pr-create-view {
+    padding: 10px;
   }
 }
 </style>
