@@ -208,9 +208,10 @@ test('preflight Compose usa o preflight de portas compartilhado e bloqueia confl
   assert.equal(plan.reason, 'compose-ownership-required');
   assert.equal(plan.requiresConfirmation, false);
   assert.match(plan.diagnostic, /conflito de portas/);
-  assert.deepEqual(composeProjects.map((item) => [item.id, item.path]), [
-    [project.id, project.path],
-  ]);
+  assert.deepEqual(
+    composeProjects.map((item) => [item.id, item.path]),
+    [[project.id, project.path]],
+  );
 });
 
 test('preflight Compose reconhece stack owned sem tentar recriá-la', async () => {
@@ -345,9 +346,10 @@ test('preflight Compose não assume stack ativa sem ownership', async () => {
   assert.equal(plan.state, 'blocked');
   assert.match(plan.diagnostic, /sem ownership comprovado/);
   assert.match(plan.diagnostic, /não assumirá nem duplicará/);
-  assert.deepEqual(composeProjects.map((item) => [item.id, item.path]), [
-    [worktreeContext.environmentInstanceId, worktreeContext.cwd],
-  ]);
+  assert.deepEqual(
+    composeProjects.map((item) => [item.id, item.path]),
+    [[worktreeContext.environmentInstanceId, worktreeContext.cwd]],
+  );
 });
 
 test('preflight não promove configuração available sem fingerprint', async () => {
