@@ -68,7 +68,7 @@ export function buildDevContainerWorkspaceCommand(
     throw new Error('Workspace do Dev Container precisa ser absoluto.');
   }
   if (!options.command) {
-    throw new Error('Comando de teste do Dev Container ausente.');
+    throw new Error('Comando do Dev Container ausente.');
   }
 
   const remoteEnvironment = Object.entries(options.remoteEnvironment ?? {});
