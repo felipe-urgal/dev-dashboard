@@ -1431,29 +1431,29 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       effectiveProviderId = selected;
     }
 
-    const effectiveConfiguration: AgentEffectiveExecutionConfiguration | undefined =
-      profile
-        ? {
-            profileId: profile.id,
-            profileLabel: profile.label,
-            providerId: effectiveProviderId ?? profile.providerId,
-            ...(profile.fallbackOrder?.length
-              ? { fallbackOrder: [...profile.fallbackOrder] }
-              : {}),
-            ...(profile.timeoutMs !== undefined
-              ? { timeoutMs: profile.timeoutMs }
-              : {}),
-            ...(profile.budget
-              ? { budget: structuredClone(profile.budget) }
-              : {}),
-            requestedCapabilities: profile.requestedCapabilities.filter(
-              (capability) =>
-                taskRecord.task.requestedCapabilities.includes(capability),
-            ),
-            model: { status: 'unavailable' },
-            effort: { status: 'unavailable' },
-          }
-        : undefined;
+    const effectiveConfiguration:
+      AgentEffectiveExecutionConfiguration | undefined = profile
+      ? {
+          profileId: profile.id,
+          profileLabel: profile.label,
+          providerId: effectiveProviderId ?? profile.providerId,
+          ...(profile.fallbackOrder?.length
+            ? { fallbackOrder: [...profile.fallbackOrder] }
+            : {}),
+          ...(profile.timeoutMs !== undefined
+            ? { timeoutMs: profile.timeoutMs }
+            : {}),
+          ...(profile.budget
+            ? { budget: structuredClone(profile.budget) }
+            : {}),
+          requestedCapabilities: profile.requestedCapabilities.filter(
+            (capability) =>
+              taskRecord.task.requestedCapabilities.includes(capability),
+          ),
+          model: { status: 'unavailable' },
+          effort: { status: 'unavailable' },
+        }
+      : undefined;
 
     if (profile?.budget?.mode === 'hard') {
       const observed = (await this.usage(projectId, taskId)).total;
