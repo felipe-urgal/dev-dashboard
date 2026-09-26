@@ -76,7 +76,7 @@ export class DevContainerStopConfirmationService {
       environmentInstanceId: inspection.environmentInstanceId,
       ownershipToken: ownership.ownershipToken,
       containerId:
-        ownership.phase === 'owned' ? (ownership.containerId ?? null) : null,
+        ownership.phase === 'owned' ? ownership.containerId ?? null : null,
       expiresAt,
     });
 
@@ -96,7 +96,7 @@ export class DevContainerStopConfirmationService {
     const ownership = this.requireOwnership(inspection);
     const confirmation = token ? this.confirmations.get(token) : undefined;
     const containerId =
-      ownership.phase === 'owned' ? (ownership.containerId ?? null) : null;
+      ownership.phase === 'owned' ? ownership.containerId ?? null : null;
 
     if (
       !confirmation ||
