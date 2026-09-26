@@ -123,6 +123,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     devContainerLifecyclePlanningService,
     devContainerLifecycleConfirmationService,
     devContainerStartService,
+    devContainerCleanupService,
     devContainerStopConfirmationService,
     portInspectorService,
     projectFileMutationService,
