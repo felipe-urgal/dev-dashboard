@@ -11,11 +11,18 @@ import {
   DetachableExecutionService,
   type DetachableExecutionSnapshot,
 } from './detachable-execution-service.js';
+import {
+  buildDevContainerWorkspaceCommand,
+  isValidDevContainerRuntimeId,
+} from './dev-container-exec-adapter.js';
 import type { ScriptDetectionService } from './script-detection-service.js';
 import { resolveCommand } from './script-execution/command-resolution.js';
 
 export type ProjectDependenciesPtyErrorCode =
-  'ACTION_NOT_FOUND' | 'ALREADY_RUNNING' | 'START_FAILED';
+  | 'ACTION_NOT_FOUND'
+  | 'ALREADY_RUNNING'
+  | 'RUNTIME_UNSUPPORTED'
+  | 'START_FAILED';
 
 export class ProjectDependenciesPtyError extends Error {
   public constructor(
@@ -54,6 +61,35 @@ function projectForExecution(
   executionContext: ExecutionContext,
 ): Project {
   return { ...project, path: executionContext.cwd };
+}
+
+function commandForExecution(
+  executionContext: ExecutionContext,
+  resolved: { command: string; args: readonly string[] },
+): { file: string; args: readonly string[] } {
+  if (executionContext.runtime === 'host') {
+    return { file: resolved.command, args: resolved.args };
+  }
+  if (!isValidDevContainerRuntimeId(executionContext.runtimeId)) {
+    throw new ProjectDependenciesPtyError(
+      'RUNTIME_UNSUPPORTED',
+      'O runtime Dev Container selecionado não possui uma identidade executável válida.',
+    );
+  }
+
+  try {
+    return buildDevContainerWorkspaceCommand({
+      runtimeId: executionContext.runtimeId,
+      workspaceFolder: executionContext.cwd,
+      command: resolved.command,
+      args: resolved.args,
+    });
+  } catch {
+    throw new ProjectDependenciesPtyError(
+      'RUNTIME_UNSUPPORTED',
+      'O comando de dependências/build não pode ser executado com segurança neste Dev Container.',
+    );
+  }
 }
 
 /**
@@ -143,11 +179,15 @@ export class ProjectDependenciesPtyService {
         project.id,
         executionContext.environmentInstanceId,
       );
+      const command = commandForExecution(executionContext, resolved);
       const snapshot = this.detachable.start(key, {
-        file: resolved.command,
-        args: resolved.args,
+        file: command.file,
+        args: command.args,
         cwd: executionContext.cwd,
-        env: isolateProjectExecutionEnvironment(scopedProject, resolved.env),
+        env:
+          executionContext.runtime === 'host'
+            ? isolateProjectExecutionEnvironment(scopedProject, resolved.env)
+            : {},
       });
       this.runningAction.set(key, {
         id: action.id,
