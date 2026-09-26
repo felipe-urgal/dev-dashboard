@@ -1,6 +1,7 @@
 export type {
   AgentAdoptedGitRef,
   AgentAuthorization,
+  AgentAuthorizationScope,
   AgentCancellationRequest,
   AgentCapability,
   AgentCheckpoint,
@@ -43,8 +44,12 @@ export {
 
 export {
   AgentAuthorizationError,
+  AgentAuthorizationScopeError,
+  assertAgentAuthorizationScope,
   assertAgentCapabilitiesAuthorized,
+  grantedAgentAuthorizations,
   grantedAgentCapabilities,
+  sameAgentAuthorizationScope,
 } from './authorization.js';
 
 export {
