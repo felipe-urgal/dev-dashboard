@@ -130,7 +130,12 @@ async function composeBlockDiagnostic(
   project: Project,
   executionContext: ExecutionContext,
   integration: DevContainerComposeIntegrationReaders | undefined,
+  composeUsesDefaultConfiguration: boolean | undefined,
 ): Promise<string> {
+  if (composeUsesDefaultConfiguration !== true) {
+    return 'A configuração Dev Container usa arquivos Compose que não correspondem com segurança ao projeto Compose padrão desta Environment Instance; o lifecycle permanece bloqueado sem inspecionar ou assumir outra stack.';
+  }
+
   if (!integration) {
     return 'Dev Containers baseados em Compose permanecem bloqueados até compartilhar ownership com o domínio Docker Compose e evitar stacks duplicadas.';
   }
@@ -360,6 +365,7 @@ export class DevContainerLifecyclePlanningService {
           project,
           executionContext,
           this.composeIntegration,
+          inspection.configuration.composeUsesDefaultConfiguration,
         ),
       };
     }
