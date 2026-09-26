@@ -4,7 +4,7 @@ import type { ComputedRef, Ref } from 'vue';
 
 import { nativeNotificationStore } from './native-notifications';
 
-export type NoticeOrigin = 'test' | 'script' | 'server' | 'build';
+export type NoticeOrigin = 'test' | 'script' | 'server' | 'build' | 'agent';
 export type NoticeOutcome = 'succeeded' | 'failed' | 'cancelled' | 'stopped';
 
 export interface Notice {

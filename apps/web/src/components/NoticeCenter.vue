@@ -38,6 +38,7 @@ const originLabels: Record<NoticeOrigin, string> = {
   script: 'Script',
   server: 'Servidor',
   build: 'Build',
+  agent: 'Agente',
 };
 
 const noticeTitles: Record<NoticeOrigin, Record<NoticeOutcome, string>> = {
@@ -64,6 +65,12 @@ const noticeTitles: Record<NoticeOrigin, Record<NoticeOutcome, string>> = {
     failed: 'Build terminou com falha',
     cancelled: 'Build cancelado',
     stopped: 'Build interrompido',
+  },
+  agent: {
+    succeeded: 'Agent Task concluída',
+    failed: 'Agent Task requer atenção',
+    cancelled: 'Agent Task cancelada',
+    stopped: 'Agent Task aguarda ação',
   },
 };
 
@@ -205,8 +212,8 @@ onBeforeUnmount(() => {
           <BellIcon aria-hidden="true" />
           <p>Nenhuma notificação no momento.</p>
           <span
-            >Conclusões de testes, scripts, builds e servidores aparecerão
-            aqui.</span
+            >Conclusões de testes, scripts, builds, servidores e Agent Tasks
+            aparecerão aqui.</span
           >
         </div>
 

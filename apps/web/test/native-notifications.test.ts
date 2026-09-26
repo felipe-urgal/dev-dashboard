@@ -194,3 +194,34 @@ test('calcula duração com fim explícito e rejeita datas inválidas', () => {
     undefined,
   );
 });
+
+test('Agent Task notifica imediatamente quando a aba está oculta', () => {
+  FakeNotification.permission = 'granted';
+  window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'hidden',
+  });
+  const store = createNativeNotificationStore();
+  const notice: Notice = {
+    ...makeNotice(),
+    dedupeKey: 'agent:task-1:completed:2026-09-26T19:00:00.000Z',
+    origin: 'agent',
+    outcome: 'succeeded',
+    label: 'Task concluída',
+    routeTo: {
+      name: 'project-agent',
+      params: { projectId: 'project-1' },
+      query: { taskId: 'task-1' },
+    },
+  };
+
+  store.publish(notice);
+
+  assert.equal(FakeNotification.instances.length, 1);
+  assert.equal(FakeNotification.instances[0]!.title, 'Agent Task concluída');
+  assert.equal(
+    FakeNotification.instances[0]!.options?.body,
+    'Projeto seguro · Task concluída',
+  );
+});
