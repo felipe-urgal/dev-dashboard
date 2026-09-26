@@ -15,6 +15,13 @@ const CONFIG_CANDIDATES = [
   '.devcontainer.json',
 ] as const;
 
+const DEFAULT_COMPOSE_FILES = [
+  'compose.yaml',
+  'compose.yml',
+  'docker-compose.yaml',
+  'docker-compose.yml',
+] as const;
+
 const LIFECYCLE_HOOKS = [
   'initializeCommand',
   'onCreateCommand',
@@ -44,6 +51,12 @@ export interface DevContainerConfigurationSummary {
   name?: string;
   service?: string;
   lifecycleHooks: DevContainerLifecycleHook[];
+  /**
+   * Evidência interna. Só é true quando dockerComposeFile resolve para um
+   * único arquivo default na raiz do workspace, o mesmo domínio inspecionado
+   * pelo DockerComposeProvider. O schema HTTP não expõe este campo.
+   */
+  composeUsesDefaultConfiguration?: boolean;
 }
 
 export interface DevContainerInspection {
@@ -147,8 +160,32 @@ function configurationRecord(value: unknown): Record<string, unknown> {
   return value;
 }
 
+function composeUsesDefaultConfiguration(
+  configuration: Record<string, unknown>,
+  projectPath: string,
+  configSource: DevContainerConfigurationSource,
+): boolean {
+  const raw = configuration.dockerComposeFile;
+  const files =
+    typeof raw === 'string'
+      ? [raw]
+      : Array.isArray(raw) && raw.every((item) => typeof item === 'string')
+        ? raw
+        : [];
+
+  if (files.length !== 1) return false;
+
+  const configDirectory = path.dirname(path.join(projectPath, configSource));
+  const candidate = path.resolve(configDirectory, files[0]!);
+  return DEFAULT_COMPOSE_FILES.some(
+    (file) => path.resolve(projectPath, file) === candidate,
+  );
+}
+
 function summarizeConfiguration(
   value: unknown,
+  projectPath: string,
+  configSource: DevContainerConfigurationSource,
 ): DevContainerConfigurationSummary {
   const configuration = configurationRecord(value);
 
@@ -175,6 +212,15 @@ function summarizeConfiguration(
     ...(name ? { name } : {}),
     ...(service ? { service } : {}),
     lifecycleHooks,
+    ...(kind === 'compose'
+      ? {
+          composeUsesDefaultConfiguration: composeUsesDefaultConfiguration(
+            configuration,
+            projectPath,
+            configSource,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -405,6 +451,8 @@ export class DevContainerDiscoveryService {
     try {
       const configuration = summarizeConfiguration(
         parseStructuredOutput(configurationOutput),
+        project.path,
+        configSource,
       );
 
       return {

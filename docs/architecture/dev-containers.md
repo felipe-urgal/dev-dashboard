@@ -83,7 +83,7 @@ O preflight usa três estados:
 Regras fail-closed do primeiro corte:
 
 - `initializeCommand` bloqueia o lifecycle, pois é um hook executado no host durante inicialização;
-- configurações baseadas em Compose ficam bloqueadas até compartilhar ownership com o domínio Docker Compose;
+- configurações baseadas em Compose continuam sem mutation Dev Container; quando `dockerComposeFile` resolve exatamente para um único arquivo Compose padrão na raiz da Environment Instance, o preflight consulta o mesmo provider, Port Registry/preflight e ownership do domínio Docker Compose antes de permanecer bloqueado; configurações Compose alternativas/múltiplas não são cruzadas com o provider padrão;
 - configuração de tipo `unknown` não recebe lifecycle;
 - hooks pós-criação ficam apenas sinalizados como diferidos para futura execução controlada;
 - todo plano em `review` exige confirmação futura;
@@ -161,7 +161,7 @@ O adapter é puro e ainda não executa comandos. Ele prepara:
 
 O inspect deliberadamente não retorna o objeto Docker completo, evitando transportar labels, mounts, env ou metadata que não participam da prova de ownership. A remoção não solicita exclusão de volumes.
 
-Configurações Dev Container baseadas em Compose continuam fora deste adapter e permanecem bloqueadas até compartilhar ownership com o domínio Docker Compose existente.
+Configurações Dev Container baseadas em Compose continuam fora deste adapter. O preflight já compartilha a leitura de configuração/runtime, o preflight de portas e o ownership do domínio Docker Compose para reconhecer conflitos, stack owned e stack externa sem criar ou assumir recursos.
 
 ## Confirmação de lifecycle preparada
 
@@ -293,7 +293,7 @@ Os cortes entregues até aqui não:
 - expõem rebuild/stop/cleanup como mutation pública;
 - migram Scripts ou testes targeted por arquivo/caso/nome ao runtime `devcontainer`;
 - injetam `.env.check.local` no runtime Dev Container;
-- integram Dev Container Compose ao ownership do domínio Docker Compose;
+- executam lifecycle Dev Container sobre Compose; a integração atual é deliberadamente read-only/fail-closed e reutiliza provider, Port Registry/preflight e ownership do domínio Compose para impedir stacks paralelas;
 - concedem qualquer autoridade mutável ao browser.
 
 Lifecycle entra em recortes posteriores, com ownership comprovado, confirmação explícita e reuso dos domínios existentes.

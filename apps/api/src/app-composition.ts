@@ -172,6 +172,23 @@ export function createAppComposition(
       ),
       options.now ? { now: () => new Date(options.now!()) } : {},
     );
+  const portInspectorService =
+    options.portInspectorService ?? new PortInspectorService();
+  const dockerComposeProvider =
+    options.dockerComposeProvider ?? new DockerComposeProvider();
+  const dockerComposePreflightService =
+    options.dockerComposePreflightService ??
+    new DockerComposePreflightService(portInspectorService);
+  const dockerComposePortLeaseRegistry = new PortAllocationLeaseRegistry();
+  const dockerComposeOwnershipStore =
+    options.dockerComposeOwnershipStore ??
+    new DockerComposeOwnershipStore(
+      path.join(
+        context.processManager.stateDirectory,
+        'docker-compose-ownership.json',
+      ),
+      options.now ? { now: () => new Date(options.now!()) } : {},
+    );
   const devContainerLifecyclePlanningService =
     options.devContainerLifecyclePlanningService ??
     new DevContainerLifecyclePlanningService(
@@ -179,6 +196,11 @@ export function createAppComposition(
       context.developmentEnvironmentInstanceStore,
       options.now ? () => new Date(options.now!()) : undefined,
       devContainerOwnershipStore,
+      {
+        provider: dockerComposeProvider,
+        preflight: dockerComposePreflightService,
+        ownershipStore: dockerComposeOwnershipStore,
+      },
     );
   const devContainerLifecycleConfirmationService =
     options.devContainerLifecycleConfirmationService ??
@@ -212,23 +234,6 @@ export function createAppComposition(
       devContainerOwnershipStore,
       devContainerCleanupService,
       context.developmentEnvironmentInstanceStore,
-    );
-  const portInspectorService =
-    options.portInspectorService ?? new PortInspectorService();
-  const dockerComposeProvider =
-    options.dockerComposeProvider ?? new DockerComposeProvider();
-  const dockerComposePreflightService =
-    options.dockerComposePreflightService ??
-    new DockerComposePreflightService(portInspectorService);
-  const dockerComposePortLeaseRegistry = new PortAllocationLeaseRegistry();
-  const dockerComposeOwnershipStore =
-    options.dockerComposeOwnershipStore ??
-    new DockerComposeOwnershipStore(
-      path.join(
-        context.processManager.stateDirectory,
-        'docker-compose-ownership.json',
-      ),
-      options.now ? { now: () => new Date(options.now!()) } : {},
     );
   const dockerComposeLifecycleService =
     options.dockerComposeLifecycleService ??

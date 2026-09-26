@@ -7,6 +7,7 @@ import type { DevContainerInspection } from '../src/services/dev-container-disco
 import {
   DevContainerLifecyclePlanningError,
   DevContainerLifecyclePlanningService,
+  type DevContainerComposeIntegrationReaders,
 } from '../src/services/dev-container-lifecycle-planning-service.js';
 
 const project: Project = {
@@ -41,6 +42,7 @@ function planner(
         ownershipToken: string;
       }
     | undefined = undefined,
+  composeIntegration?: DevContainerComposeIntegrationReaders,
 ) {
   const inspectedPaths: string[] = [];
   const service = new DevContainerLifecyclePlanningService(
@@ -72,6 +74,7 @@ function planner(
             }
           : undefined,
     },
+    composeIntegration,
   );
   return { service, inspectedPaths };
 }
@@ -148,7 +151,253 @@ test('preflight bloqueia Compose até existir ownership compartilhado', async ()
   assert.equal(plan.state, 'blocked');
   assert.equal(plan.reason, 'compose-ownership-required');
   assert.equal(plan.executionEnabled, false);
-  assert.match(plan.diagnostic, /stacks duplicadas/);
+  assert.match(plan.diagnostic, /não correspondem com segurança/);
+});
+
+test('preflight Compose não cruza provider quando o arquivo Compose não é o mesmo', async () => {
+  let composeInspections = 0;
+  const { service } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-09-24T22:02:05.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
+      configuration: {
+        kind: 'compose',
+        service: 'api',
+        lifecycleHooks: [],
+        composeUsesDefaultConfiguration: false,
+      },
+    },
+    hostContext,
+    undefined,
+    {
+      provider: {
+        inspect: async () => {
+          composeInspections += 1;
+          throw new Error('não deve inspecionar');
+        },
+      },
+      preflight: {
+        inspect: async () => {
+          throw new Error('não deve executar');
+        },
+      },
+      ownershipStore: {
+        get: async () => {
+          throw new Error('não deve ler');
+        },
+      },
+    },
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'blocked');
+  assert.equal(composeInspections, 0);
+  assert.match(plan.diagnostic, /não correspondem com segurança/);
+});
+
+test('preflight Compose usa o preflight de portas compartilhado e bloqueia conflito', async () => {
+  const composeProjects: Project[] = [];
+  const { service } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-09-24T22:02:10.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
+      configuration: {
+        kind: 'compose',
+        service: 'api',
+        lifecycleHooks: [],
+        composeUsesDefaultConfiguration: true,
+      },
+    },
+    hostContext,
+    undefined,
+    {
+      provider: {
+        inspect: async (selectedProject) => {
+          composeProjects.push(selectedProject);
+          return {
+            state: 'available',
+            observedAt: '2026-09-24T22:02:11.000Z',
+            config: {
+              projectName: 'project-1',
+              observedAt: '2026-09-24T22:02:11.000Z',
+              services: [],
+              declaredPorts: [],
+            },
+            runtime: {
+              observedAt: '2026-09-24T22:02:11.000Z',
+              services: [],
+            },
+          };
+        },
+      },
+      preflight: {
+        inspect: async () => ({
+          state: 'blocked',
+          inspectedAt: '2026-09-24T22:02:12.000Z',
+          conflicts: [{ port: 3000, services: ['api'], reason: 'occupied' }],
+        }),
+      },
+      ownershipStore: { get: async () => undefined },
+    },
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'blocked');
+  assert.equal(plan.reason, 'compose-ownership-required');
+  assert.equal(plan.requiresConfirmation, false);
+  assert.match(plan.diagnostic, /conflito de portas/);
+  assert.deepEqual(
+    composeProjects.map((item) => [item.id, item.path]),
+    [[project.id, project.path]],
+  );
+});
+
+test('preflight Compose reconhece stack owned sem tentar recriá-la', async () => {
+  const { service } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-09-24T22:02:20.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
+      configuration: {
+        kind: 'compose',
+        service: 'api',
+        lifecycleHooks: [],
+        composeUsesDefaultConfiguration: true,
+      },
+    },
+    hostContext,
+    undefined,
+    {
+      provider: {
+        inspect: async () => ({
+          state: 'available',
+          observedAt: '2026-09-24T22:02:21.000Z',
+          config: {
+            projectName: 'shared-stack',
+            observedAt: '2026-09-24T22:02:21.000Z',
+            services: [],
+            declaredPorts: [],
+          },
+          runtime: {
+            observedAt: '2026-09-24T22:02:21.000Z',
+            services: [
+              {
+                service: 'api',
+                state: 'running',
+                health: 'healthy',
+                ports: [],
+              },
+            ],
+          },
+        }),
+      },
+      preflight: {
+        inspect: async () => ({
+          state: 'ready',
+          inspectedAt: '2026-09-24T22:02:22.000Z',
+          conflicts: [],
+        }),
+      },
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'shared-stack',
+          startedAt: '2026-09-24T21:00:00.000Z',
+        }),
+      },
+    },
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'blocked');
+  assert.match(plan.diagnostic, /já possui uma stack Docker Compose owned/);
+  assert.match(plan.diagnostic, /não a recriará/);
+});
+
+test('preflight Compose não assume stack ativa sem ownership', async () => {
+  const worktreeContext: ExecutionContext = {
+    ...hostContext,
+    environmentInstanceId: 'environment:worktree:project-1:feature',
+    cwd: '/workspace/project-feature',
+  };
+  const composeProjects: Project[] = [];
+  const { service } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-09-24T22:02:25.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      cliVersion: '0.80.1',
+      configurationHash: CONFIG_HASH,
+      configuration: {
+        kind: 'compose',
+        service: 'api',
+        lifecycleHooks: [],
+        composeUsesDefaultConfiguration: true,
+      },
+    },
+    worktreeContext,
+    undefined,
+    {
+      provider: {
+        inspect: async (selectedProject) => {
+          composeProjects.push(selectedProject);
+          return {
+            state: 'available',
+            observedAt: '2026-09-24T22:02:26.000Z',
+            config: {
+              projectName: 'external-stack',
+              observedAt: '2026-09-24T22:02:26.000Z',
+              services: [],
+              declaredPorts: [],
+            },
+            runtime: {
+              observedAt: '2026-09-24T22:02:26.000Z',
+              services: [
+                {
+                  service: 'api',
+                  state: 'running',
+                  health: 'none',
+                  ports: [],
+                },
+              ],
+            },
+          };
+        },
+      },
+      preflight: {
+        inspect: async () => ({
+          state: 'ready',
+          inspectedAt: '2026-09-24T22:02:27.000Z',
+          conflicts: [],
+        }),
+      },
+      ownershipStore: { get: async () => undefined },
+    },
+  );
+
+  const plan = await service.plan(project, {
+    environmentInstanceId: worktreeContext.environmentInstanceId,
+  });
+
+  assert.equal(plan.state, 'blocked');
+  assert.match(plan.diagnostic, /sem ownership comprovado/);
+  assert.match(plan.diagnostic, /não assumirá nem duplicará/);
+  assert.deepEqual(
+    composeProjects.map((item) => [item.id, item.path]),
+    [[worktreeContext.environmentInstanceId, worktreeContext.cwd]],
+  );
 });
 
 test('preflight não promove configuração available sem fingerprint', async () => {
