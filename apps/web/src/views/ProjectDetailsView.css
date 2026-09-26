@@ -975,7 +975,7 @@
     border-radius: 8px;
     color: var(--text-muted);
     background: transparent;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.2;
     text-align: left;
   }
@@ -1038,7 +1038,7 @@
     min-height: 32px !important;
     gap: 8px;
     padding-inline: 10px !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
   }
 
   .project-details-page-ready :deep(.project-details-tab svg) {
