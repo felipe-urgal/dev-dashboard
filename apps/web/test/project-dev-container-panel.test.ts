@@ -120,9 +120,9 @@ describe('ProjectDevContainerPanel', () => {
         .some((button) => button.text().trim() === 'Criar'),
     ).toBe(false);
     expect(wrapper.findAll('button')).toHaveLength(1);
-    expect(
-      wrapper.get('button').attributes('aria-label'),
-    ).toBe('Atualizar preflight');
+    expect(wrapper.get('button').attributes('aria-label')).toBe(
+      'Atualizar preflight',
+    );
     wrapper.unmount();
   });
 
