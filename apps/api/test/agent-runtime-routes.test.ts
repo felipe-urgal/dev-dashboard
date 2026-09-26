@@ -2072,7 +2072,6 @@ test('Agent Runtime HTTP anexa por conteúdo bounded sem aceitar path do browser
   ]);
 });
 
-
 test('Agent Runtime HTTP persiste perfis e encaminha somente profileId na execução', async (context) => {
   const calls: unknown[] = [];
   const app = Fastify();
