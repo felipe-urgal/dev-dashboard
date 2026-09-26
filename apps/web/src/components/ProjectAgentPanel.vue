@@ -367,7 +367,7 @@ const canExecute = computed(
     !executing.value &&
     !mutating.value &&
     currentProvider.value !== null &&
-    currentProvider.value.availability !== 'unavailable' &&
+    currentProvider.value.availability === 'available' &&
     !budget.value?.blocking,
 );
 
@@ -383,7 +383,7 @@ const canContinue = computed(
     !mutating.value &&
     !status.value?.activeExecution &&
     currentProvider.value !== null &&
-    currentProvider.value.availability !== 'unavailable' &&
+    currentProvider.value.availability === 'available' &&
     !budget.value?.blocking,
 );
 
