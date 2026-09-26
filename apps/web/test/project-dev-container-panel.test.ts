@@ -515,5 +515,4 @@ describe('ProjectDevContainerPanel', () => {
     ).toBe(false);
     wrapper.unmount();
   });
-
 });
