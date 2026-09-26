@@ -445,7 +445,10 @@ onBeforeUnmount(closeSocket);
             title="Atualizar Local CI"
             @click="loadCatalog()"
           >
-            <ArrowPathIcon :class="{ 'is-spinning': loadingCatalog }" aria-hidden="true" />
+            <ArrowPathIcon
+              :class="{ 'is-spinning': loadingCatalog }"
+              aria-hidden="true"
+            />
           </button>
         </div>
       </header>
@@ -931,11 +934,15 @@ onBeforeUnmount(closeSocket);
 }
 
 @keyframes local-ci-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .is-spinning { animation: none; }
+  .is-spinning {
+    animation: none;
+  }
 }
 
 @media (max-width: 860px) {

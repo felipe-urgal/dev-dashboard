@@ -420,10 +420,21 @@ watch(
     align-items: start;
   }
 
-  .readiness-check-icon { grid-area: icon; }
-  .readiness-check-domain { grid-area: domain; }
-  .readiness-check-status { grid-area: status; justify-self: start; }
-  .readiness-check-summary { grid-area: summary; }
-  .readiness-check-action { grid-area: action; }
+  .readiness-check-icon {
+    grid-area: icon;
+  }
+  .readiness-check-domain {
+    grid-area: domain;
+  }
+  .readiness-check-status {
+    grid-area: status;
+    justify-self: start;
+  }
+  .readiness-check-summary {
+    grid-area: summary;
+  }
+  .readiness-check-action {
+    grid-area: action;
+  }
 }
 </style>
