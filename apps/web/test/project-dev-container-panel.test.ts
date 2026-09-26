@@ -422,99 +422,99 @@ describe('ProjectDevContainerPanel', () => {
   it(
     'confirma e para somente o runtime devcontainer owned selecionado',
     async () => {
-    const environmentInstanceId =
-      'environment:worktree:project-devcontainer:stop-runtime';
-    fetchDevContainerLifecyclePreflight
-      .mockResolvedValueOnce({
-        projectId: project.id,
-        operation: 'rebuild',
-        state: 'review',
-        reason: 'review-required',
-        observedAt: '2026-09-26T15:20:00.000Z',
+      const environmentInstanceId =
+        'environment:worktree:project-devcontainer:stop-runtime';
+      fetchDevContainerLifecyclePreflight
+        .mockResolvedValueOnce({
+          projectId: project.id,
+          operation: 'rebuild',
+          state: 'review',
+          reason: 'review-required',
+          observedAt: '2026-09-26T15:20:00.000Z',
+          environmentInstanceId,
+          runtime: 'devcontainer',
+          executionEnabled: false,
+          requiresConfirmation: true,
+          discoveryState: 'available',
+          configSource: '.devcontainer/devcontainer.json',
+          cliVersion: '0.80.1',
+          configuration: {
+            kind: 'image',
+            lifecycleHooks: [],
+          },
+          limitations: [],
+          diagnostic: 'Runtime owned ativo.',
+        })
+        .mockResolvedValueOnce({
+          projectId: project.id,
+          operation: 'create',
+          state: 'review',
+          reason: 'review-required',
+          observedAt: '2026-09-26T15:21:00.000Z',
+          environmentInstanceId,
+          runtime: 'host',
+          executionEnabled: false,
+          requiresConfirmation: true,
+          discoveryState: 'available',
+          configSource: '.devcontainer/devcontainer.json',
+          cliVersion: '0.80.1',
+          configuration: {
+            kind: 'image',
+            lifecycleHooks: [],
+          },
+          limitations: [],
+          diagnostic: 'Runtime host após parada.',
+        });
+      prepareDevContainerStopConfirmation.mockResolvedValueOnce({
+        token: 'e'.repeat(64),
         environmentInstanceId,
-        runtime: 'devcontainer',
-        executionEnabled: false,
-        requiresConfirmation: true,
-        discoveryState: 'available',
-        configSource: '.devcontainer/devcontainer.json',
-        cliVersion: '0.80.1',
-        configuration: {
-          kind: 'image',
-          lifecycleHooks: [],
-        },
-        limitations: [],
-        diagnostic: 'Runtime owned ativo.',
-      })
-      .mockResolvedValueOnce({
-        projectId: project.id,
-        operation: 'create',
-        state: 'review',
-        reason: 'review-required',
-        observedAt: '2026-09-26T15:21:00.000Z',
-        environmentInstanceId,
-        runtime: 'host',
-        executionEnabled: false,
-        requiresConfirmation: true,
-        discoveryState: 'available',
-        configSource: '.devcontainer/devcontainer.json',
-        cliVersion: '0.80.1',
-        configuration: {
-          kind: 'image',
-          lifecycleHooks: [],
-        },
-        limitations: [],
-        diagnostic: 'Runtime host após parada.',
+        expiresAt: '2026-09-26T15:21:00.000Z',
       });
-    prepareDevContainerStopConfirmation.mockResolvedValueOnce({
-      token: 'e'.repeat(64),
-      environmentInstanceId,
-      expiresAt: '2026-09-26T15:21:00.000Z',
-    });
-    stopDevContainer.mockResolvedValueOnce({
-      state: 'cleaned',
-      environmentInstanceId,
-      containerId: 'f'.repeat(64),
-    });
+      stopDevContainer.mockResolvedValueOnce({
+        state: 'cleaned',
+        environmentInstanceId,
+        containerId: 'f'.repeat(64),
+      });
 
-    const wrapper = mount(ProjectDevContainerPanel, {
-      props: { project, environmentInstanceId },
-    });
-    await flushPromises();
+      const wrapper = mount(ProjectDevContainerPanel, {
+        props: { project, environmentInstanceId },
+      });
+      await flushPromises();
 
-    const stopButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Parar');
-    expect(stopButton).toBeDefined();
-    await stopButton!.trigger('click');
-
-    expect(prepareDevContainerStopConfirmation).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Parar este Dev Container?');
-    expect(wrapper.text()).toContain('Volumes não são removidos');
-
-    const confirmButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Confirmar parada'));
-    expect(confirmButton).toBeDefined();
-    await confirmButton!.trigger('click');
-    await flushPromises();
-
-    expect(prepareDevContainerStopConfirmation).toHaveBeenCalledWith(
-      project.id,
-      environmentInstanceId,
-    );
-    expect(stopDevContainer).toHaveBeenCalledWith(
-      project.id,
-      'e'.repeat(64),
-      environmentInstanceId,
-    );
-    expect(fetchDevContainerLifecyclePreflight).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).toContain('Host');
-    expect(wrapper.text()).not.toContain('Confirmar parada');
-    expect(
-      wrapper
+      const stopButton = wrapper
         .findAll('button')
-        .some((button) => button.text().trim() === 'Parar'),
-    ).toBe(false);
+        .find((button) => button.text().trim() === 'Parar');
+      expect(stopButton).toBeDefined();
+      await stopButton!.trigger('click');
+
+      expect(prepareDevContainerStopConfirmation).not.toHaveBeenCalled();
+      expect(wrapper.text()).toContain('Parar este Dev Container?');
+      expect(wrapper.text()).toContain('Volumes não são removidos');
+
+      const confirmButton = wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Confirmar parada'));
+      expect(confirmButton).toBeDefined();
+      await confirmButton!.trigger('click');
+      await flushPromises();
+
+      expect(prepareDevContainerStopConfirmation).toHaveBeenCalledWith(
+        project.id,
+        environmentInstanceId,
+      );
+      expect(stopDevContainer).toHaveBeenCalledWith(
+        project.id,
+        'e'.repeat(64),
+        environmentInstanceId,
+      );
+      expect(fetchDevContainerLifecyclePreflight).toHaveBeenCalledTimes(2);
+      expect(wrapper.text()).toContain('Host');
+      expect(wrapper.text()).not.toContain('Confirmar parada');
+      expect(
+        wrapper
+          .findAll('button')
+          .some((button) => button.text().trim() === 'Parar'),
+      ).toBe(false);
       wrapper.unmount();
     },
   );
