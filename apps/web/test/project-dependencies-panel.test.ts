@@ -138,17 +138,13 @@ test('mostra runner compacto sem resumo redundante para o gerenciador Node detec
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Dependências/);
-  assert.match(
-    wrapper.text(),
-    /Comandos para gerenciar dependências do projeto/,
-  );
+  assert.equal(wrapper.find('.dependencies-panel-title').exists(), false);
+  assert.equal(wrapper.find('.dependencies-actions-panel').exists(), true);
   assert.match(wrapper.text(), /Node \/ Yarn/);
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
-  assert.match(wrapper.text(), /Console de execução/);
-  assert.match(wrapper.text(), /Saída dos comandos executados no projeto/);
+  assert.match(wrapper.text(), /Console/);
   assert.match(wrapper.text(), /Pronto para executar/);
   assert.doesNotMatch(wrapper.text(), /Gerenciadores/);
   assert.doesNotMatch(wrapper.text(), /Ações disponíveis/);
