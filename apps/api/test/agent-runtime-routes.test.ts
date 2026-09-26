@@ -201,6 +201,29 @@ function service(
         ...(continuationInstruction ? { continuationInstruction } : {}),
       },
     }),
+    refreshPullRequestFeedback: async () => ({
+      status: 'attention',
+      observedAt: '2026-09-23T10:04:30.000Z',
+      evidence: [
+        {
+          id: 'pr-feedback-1',
+          taskId: 'task-1',
+          kind: 'pull-request',
+          summary: 'PR #12; CI failure; review changes-requested.',
+          reference: 'https://github.com/felipe-urgal/dev-dashboard/pull/12',
+          observedAt: '2026-09-23T10:04:30.000Z',
+        },
+      ],
+      newEvidenceCount: 1,
+      automaticContinuation: false,
+      pullRequest: {
+        number: 12,
+        url: 'https://github.com/felipe-urgal/dev-dashboard/pull/12',
+        ciStatus: 'failure',
+        reviewState: 'changes-requested',
+        remoteStatus: 'available',
+      },
+    }),
     activity: async () => ({
       authorizations: [
         {
@@ -318,6 +341,56 @@ test('Agent Runtime HTTP sanitiza autoridade de processo/path antes do service',
     payload: { providerId: 'codex', cwd: '/tmp/escape' },
   });
   assert.equal(executeAbuse.statusCode, 200);
+});
+
+test('Agent Runtime HTTP expõe refresh explícito de feedback do PR', async (context) => {
+  const calls: unknown[] = [];
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(agentRuntimeRoutes, {
+    prefix: '/api',
+    agentRuntimeRealtimeService: realtimeService(),
+    agentRuntimeApiService: service({
+      refreshPullRequestFeedback: async (...args) => {
+        calls.push(args);
+        return {
+          status: 'attention',
+          observedAt: '2026-09-26T15:00:00.000Z',
+          evidence: [
+            {
+              id: 'pr-feedback-1',
+              taskId: 'task-1',
+              kind: 'pull-request',
+              summary: 'PR #12; CI failure.',
+              reference:
+                'https://github.com/felipe-urgal/dev-dashboard/pull/12',
+              observedAt: '2026-09-26T15:00:00.000Z',
+            },
+          ],
+          newEvidenceCount: 1,
+          automaticContinuation: false,
+          pullRequest: {
+            number: 12,
+            url: 'https://github.com/felipe-urgal/dev-dashboard/pull/12',
+            ciStatus: 'failure',
+            reviewState: 'unknown',
+            remoteStatus: 'available',
+          },
+        };
+      },
+    }),
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/agent/tasks/task-1/pull-request-feedback/refresh',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().status, 'attention');
+  assert.equal(response.json().automaticContinuation, false);
+  assert.deepEqual(calls, [['project-1', 'task-1']]);
 });
 
 test('Agent Runtime HTTP expõe conversa e submete turno sem autoridade extra', async (context) => {
