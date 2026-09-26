@@ -509,6 +509,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(scriptRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     scriptDetectionService: context.scriptDetectionService,
     scriptExecutionService: context.scriptExecutionService,
   });
