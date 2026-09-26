@@ -71,6 +71,7 @@
   overflow: hidden;
 }
 
+.project-details-page-pty :deep(.server-dashboard),
 .project-details-page-pty :deep(.terminal-panel),
 .project-details-page-pty :deep(.tests-pty-panel),
 .project-details-page-pty :deep(.rails-runtime-panel),
