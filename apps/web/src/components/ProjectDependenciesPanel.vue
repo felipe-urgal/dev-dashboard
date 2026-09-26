@@ -139,16 +139,6 @@ watch(
           class="dependencies-actions-panel"
           aria-label="Comandos disponíveis"
         >
-          <header class="dependencies-panel-header">
-            <span class="dependencies-panel-icon" aria-hidden="true">
-              <CubeIcon />
-            </span>
-            <div class="dependencies-panel-title">
-              <strong>Dependências</strong>
-              <small>Comandos para gerenciar dependências do projeto.</small>
-            </div>
-          </header>
-
           <div v-if="actions.length" class="dependencies-groups">
             <section v-if="nodeActions.length" class="dependencies-group">
               <header class="dependencies-group-header">
@@ -272,16 +262,8 @@ watch(
         <section class="dependencies-console" aria-label="Console de execução">
           <header class="dependencies-panel-header dependencies-console-header">
             <div class="dependencies-console-heading">
-              <span
-                class="dependencies-panel-icon dependencies-console-icon"
-                aria-hidden="true"
-              >
-                <CommandLineIcon />
-              </span>
-              <div class="dependencies-panel-title">
-                <strong>Console de execução</strong>
-                <small>Saída dos comandos executados no projeto.</small>
-              </div>
+              <CommandLineIcon aria-hidden="true" />
+              <strong>Console</strong>
             </div>
 
             <div class="dependencies-console-actions">
