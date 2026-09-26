@@ -692,6 +692,11 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
           capability: 'workspace:write' as const,
           granted: true,
           observedAt: '2026-09-23T11:01:00.000Z',
+          scope: {
+            kind: 'environment' as const,
+            projectId: 'project-1',
+            environmentInstanceId: 'environment:primary:project-1',
+          },
         },
       ],
       appendExecutionResult: async (...args) => {
@@ -799,6 +804,11 @@ test('AgentRuntimeApiService executa somente capabilities autorizadas e persiste
         capability: 'workspace:write',
         granted: true,
         observedAt: '2026-09-23T11:01:00.000Z',
+        scope: {
+          kind: 'environment',
+          projectId: 'project-1',
+          environmentInstanceId: 'environment:primary:project-1',
+        },
       },
     ],
     userTurn: {
