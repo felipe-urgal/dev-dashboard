@@ -38,8 +38,11 @@ interface Options extends FastifyPluginOptions {
     'prepare'
   >;
   devContainerStartService: Pick<DevContainerStartService, 'start' | 'rebuild'>;
-  devContainerCleanupService: Pick<DevContainerCleanupService, 'inspect' | 'cleanup'>;
-  devContainerStopConfirmationService: Pick<
+  devContainerCleanupService?: Pick<
+    DevContainerCleanupService,
+    'inspect' | 'cleanup'
+  >;
+  devContainerStopConfirmationService?: Pick<
     DevContainerStopConfirmationService,
     'prepare' | 'consume'
   >;
@@ -289,6 +292,19 @@ async function planLifecycle(
     }
     throw error;
   }
+}
+
+function requireStopServices(options: Options) {
+  if (
+    !options.devContainerCleanupService ||
+    !options.devContainerStopConfirmationService
+  ) {
+    throw new Error('Dev Container stop services are not configured.');
+  }
+  return {
+    cleanupService: options.devContainerCleanupService,
+    confirmationService: options.devContainerStopConfirmationService,
+  };
 }
 
 function confirmationApiError(
@@ -544,15 +560,14 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       try {
-        const inspection = await options.devContainerCleanupService.inspect(
+        const { cleanupService, confirmationService } =
+          requireStopServices(options);
+        const inspection = await cleanupService.inspect(
           project,
           request.body.environmentInstanceId,
         );
         const confirmation =
-          options.devContainerStopConfirmationService.prepare(
-            project,
-            inspection,
-          );
+          confirmationService.prepare(project, inspection);
         return reply.code(201).send({ confirmation });
       } catch (error) {
         if (error instanceof DevContainerCleanupError) {
@@ -591,17 +606,19 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       try {
-        const inspection = await options.devContainerCleanupService.inspect(
+        const { cleanupService, confirmationService } =
+          requireStopServices(options);
+        const inspection = await cleanupService.inspect(
           project,
           request.body.environmentInstanceId,
         );
         const ownershipToken =
-          options.devContainerStopConfirmationService.consume(
+          confirmationService.consume(
             project,
             inspection,
             request.body.confirmationToken,
           );
-        const result = await options.devContainerCleanupService.cleanup(
+        const result = await cleanupService.cleanup(
           project,
           inspection.environmentInstanceId,
           ownershipToken,
