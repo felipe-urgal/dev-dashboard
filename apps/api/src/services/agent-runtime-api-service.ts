@@ -13,6 +13,7 @@ import { AgentIntegrationDiscoveryError } from '@dev-dashboard/agent-runtime';
 import type {
   AgentAuditSnapshot,
   AgentAuthorization,
+  AgentAuthorizationScope,
   AgentConcreteProviderId,
   AgentConversationTurn,
   AgentEvidence,
@@ -493,6 +494,24 @@ function cleanupFromRemoval(
       : {}),
     ...(removed.diagnostic ? { diagnostic: removed.diagnostic } : {}),
   };
+}
+
+function authorizationScopeLabel(
+  scope: AgentAuthorizationScope | undefined,
+): string {
+  if (!scope) return 'legacy unscoped resource';
+  switch (scope.kind) {
+    case 'environment':
+      return `environment ${scope.environmentInstanceId}`;
+    case 'branch':
+      return `branch ${scope.branch}`;
+    case 'repository-branch':
+      return `${scope.repository} @ ${scope.branch}`;
+    case 'pull-request':
+      return `${scope.repository} PR #${scope.number}`;
+    case 'release-target':
+      return `release target ${scope.target}`;
+  }
 }
 
 function uniqueCapabilities(
@@ -1901,12 +1920,16 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
       );
     }
 
+    const scope = granted
+      ? this.authorizationScopeFor(record.task, capability)
+      : undefined;
     const observedAt = this.now();
     const authorization = await this.options.auditStore.setAuthorization(
       taskId,
       capability,
       granted,
       observedAt,
+      scope,
     );
     await this.recordActivity({
       projectId,
@@ -1917,12 +1940,86 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
         ? 'agent.authorization.granted'
         : 'agent.authorization.revoked',
       status: granted ? 'succeeded' : 'warning',
-      summary: `Agent capability ${capability} ${granted ? 'granted' : 'revoked'}.`,
+      summary: granted
+        ? `Agent capability ${capability} granted for ${authorizationScopeLabel(scope)}.`
+        : `Agent capability ${capability} revoked.`,
       occurredAt: observedAt,
       resourceRef: { kind: 'agent-task', id: taskId },
       jobId: taskId,
     });
     return authorization;
+  }
+
+  private authorizationScopeFor(
+    task: AgentTask,
+    capability: AgentCapability,
+  ): AgentAuthorizationScope {
+    const context = task.taskContextId
+      ? this.findTaskContext(task.projectId, task.taskContextId)
+      : undefined;
+    const environmentInstanceId =
+      task.environmentInstanceId ?? context?.environmentInstanceId;
+    const branch =
+      context?.branch ?? task.adoptedGitRef?.branch;
+    const repository =
+      context?.pullRequest?.repository ?? context?.issue?.repository;
+
+    switch (capability) {
+      case 'workspace:write':
+      case 'deployment:run':
+        if (!environmentInstanceId) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'This capability requires a backend-owned environment scope.',
+          );
+        }
+        return {
+          kind: 'environment',
+          projectId: task.projectId,
+          environmentInstanceId,
+        };
+      case 'git:commit':
+      case 'git:push':
+        if (!branch) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'This capability requires a backend-owned branch scope.',
+          );
+        }
+        return { kind: 'branch', projectId: task.projectId, branch };
+      case 'github:pull-request':
+        if (!repository || !branch) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'Pull request capability requires repository and branch from Task Context.',
+          );
+        }
+        return { kind: 'repository-branch', repository, branch };
+      case 'github:merge':
+        if (!context?.pullRequest) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'Merge capability requires a pull request bound to Task Context.',
+          );
+        }
+        return {
+          kind: 'pull-request',
+          repository: context.pullRequest.repository,
+          number: context.pullRequest.number,
+        };
+      case 'release:run':
+        if (!environmentInstanceId) {
+          throw new AgentRuntimeApiServiceError(
+            'AGENT_API_INVALID_REQUEST',
+            'Release capability requires a backend-owned target.',
+          );
+        }
+        return {
+          kind: 'release-target',
+          projectId: task.projectId,
+          target: environmentInstanceId,
+        };
+    }
   }
 
   public async shutdown(): Promise<void> {
