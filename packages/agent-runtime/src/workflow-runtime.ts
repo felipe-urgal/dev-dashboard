@@ -54,7 +54,8 @@ export type AgentWorkflowRuntimeErrorCode =
   | 'AGENT_WORKFLOW_ADOPTION_NOT_ALLOWED'
   | 'AGENT_WORKFLOW_ADOPTED_REF_MISMATCH'
   | 'AGENT_WORKFLOW_CHECKPOINT_INVALID'
-  | 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING';
+  | 'AGENT_WORKFLOW_CHECKPOINT_NOT_PENDING'
+  | 'AGENT_WORKFLOW_COMPLETION_NOT_ALLOWED';
 
 export class AgentWorkflowRuntimeError extends Error {
   public constructor(
@@ -862,6 +863,51 @@ export class AgentWorkflowRuntime {
           requestedCapabilities,
           updatedAt: verifiedAt,
         },
+        current.version,
+      );
+    } finally {
+      await release();
+    }
+  }
+
+  public async complete(
+    projectId: string,
+    taskId: string,
+  ): Promise<AgentTaskRecord> {
+    const release = await this.lockManager.acquire(
+      executionLockKey(projectId, taskId),
+    );
+
+    try {
+      const current = await this.requireOwnedTask(projectId, taskId);
+      if (current.task.state === 'completed') return current;
+      if (current.task.state !== 'review') {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_COMPLETION_NOT_ALLOWED',
+          'Only an agent task in review can be completed explicitly.',
+        );
+      }
+
+      const active = this.active.get(taskId);
+      if (active) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_COMPLETION_NOT_ALLOWED',
+          'Agent task still has an active execution.',
+        );
+      }
+
+      const pendingCheckpoints = (
+        await this.checkpointStore.listCheckpoints(taskId)
+      ).filter((checkpoint) => checkpoint.status === 'pending');
+      if (pendingCheckpoints.length > 0) {
+        throw new AgentWorkflowRuntimeError(
+          'AGENT_WORKFLOW_COMPLETION_NOT_ALLOWED',
+          'Agent task still has a pending checkpoint.',
+        );
+      }
+
+      return this.taskStore.save(
+        transitionAgentTask(current.task, 'completed', this.now()),
         current.version,
       );
     } finally {
