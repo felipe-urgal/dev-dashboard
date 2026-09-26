@@ -2,11 +2,7 @@ import type { AgentRealtimeSnapshot } from '../api/agent-runtime';
 import type { NoticeOutcome } from './notice-center';
 
 export type AgentNotificationKind =
-  | 'checkpoint'
-  | 'authorization'
-  | 'failed'
-  | 'completed'
-  | 'recovery';
+  'checkpoint' | 'authorization' | 'failed' | 'completed' | 'recovery';
 
 export interface AgentNotificationCandidate {
   key: string;
@@ -29,13 +25,14 @@ export const AGENT_NOTIFICATION_SEEN_KEY =
   'dev-dashboard:agent-notification-seen';
 const MAX_SEEN_KEYS = 200;
 
-export const DEFAULT_AGENT_NOTIFICATION_PREFERENCES: AgentNotificationPreferences = {
-  checkpoint: true,
-  authorization: true,
-  failed: true,
-  completed: true,
-  recovery: true,
-};
+export const DEFAULT_AGENT_NOTIFICATION_PREFERENCES: AgentNotificationPreferences =
+  {
+    checkpoint: true,
+    authorization: true,
+    failed: true,
+    completed: true,
+    recovery: true,
+  };
 
 function safeLocalStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -95,7 +92,10 @@ export function markAgentNotificationSeen(key: string): void {
     -MAX_SEEN_KEYS,
   );
   try {
-    safeLocalStorage()?.setItem(AGENT_NOTIFICATION_SEEN_KEY, JSON.stringify(next));
+    safeLocalStorage()?.setItem(
+      AGENT_NOTIFICATION_SEEN_KEY,
+      JSON.stringify(next),
+    );
   } catch {
     // Dedupe local degradado não altera a task.
   }

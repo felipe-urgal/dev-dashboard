@@ -557,9 +557,7 @@ function replaceTask(record: AgentTaskRecord): void {
   }
 }
 
-function publishAgentNotifications(
-  snapshot: AgentRealtimeSnapshot,
-): void {
+function publishAgentNotifications(snapshot: AgentRealtimeSnapshot): void {
   for (const candidate of agentNotificationCandidates(snapshot)) {
     if (
       !agentNotificationPreferences.value[candidate.kind] ||
@@ -2048,7 +2046,10 @@ onBeforeUnmount(() => {
               <label class="agent-authorization">
                 <div>
                   <strong>Falha e recovery</strong>
-                  <small>Avisa quando a task bloqueia, falha ou precisa recuperar.</small>
+                  <small
+                    >Avisa quando a task bloqueia, falha ou precisa
+                    recuperar.</small
+                  >
                 </div>
                 <input
                   type="checkbox"
@@ -2069,9 +2070,7 @@ onBeforeUnmount(() => {
                 <input
                   type="checkbox"
                   :checked="agentNotificationPreferences.completed"
-                  @change="
-                    toggleAgentNotificationGroup(['completed'], $event)
-                  "
+                  @change="toggleAgentNotificationGroup(['completed'], $event)"
                 />
               </label>
             </div>

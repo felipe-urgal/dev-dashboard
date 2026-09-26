@@ -195,7 +195,6 @@ test('calcula duração com fim explícito e rejeita datas inválidas', () => {
   );
 });
 
-
 test('Agent Task notifica imediatamente quando a aba está oculta', () => {
   FakeNotification.permission = 'granted';
   window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
