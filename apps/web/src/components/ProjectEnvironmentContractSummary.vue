@@ -60,8 +60,6 @@ const issueLabel = computed(() => {
     class="environment-contract"
     aria-label="Consistência entre ambientes"
   >
-    <h3>Consistência</h3>
-
     <p v-if="loading && !contract" class="environment-contract-note">
       Comparando ambientes…
     </p>
@@ -88,13 +86,6 @@ const issueLabel = computed(() => {
         </div>
       </dl>
 
-      <p class="environment-contract-note">
-        {{
-          issueCount === 0
-            ? 'Nenhuma diferença estrutural acionável.'
-            : 'Foco no arquivo e nas diferenças relevantes para ele.'
-        }}
-      </p>
     </template>
   </section>
 </template>
@@ -102,27 +93,19 @@ const issueLabel = computed(() => {
 <style scoped>
 .environment-contract {
   display: grid;
-  gap: 12px;
-  padding: 18px 16px 0;
+  gap: 8px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
-}
-
-.environment-contract h3 {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
 .environment-contract-count {
   justify-self: start;
-  padding: 5px 10px;
+  padding: 3px 7px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--warning-text) 18%, transparent);
   color: var(--warning-text);
-  font-size: var(--font-xs);
+  font-size: 9px;
   font-weight: 800;
 }
 
@@ -133,20 +116,20 @@ const issueLabel = computed(() => {
 
 .environment-contract-scopes {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   margin: 0;
 }
 
 .environment-contract-scopes > div {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 10px;
   margin: 0;
-  font-size: var(--font-xs);
+  font-size: 9px;
 }
 
 .environment-contract-scopes dt {
-  color: var(--text);
+  color: var(--text-muted);
   font-weight: 700;
 }
 
@@ -160,8 +143,8 @@ const issueLabel = computed(() => {
 .environment-contract-error {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--font-xs);
-  line-height: 1.5;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .environment-contract-error {
