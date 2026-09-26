@@ -17,7 +17,6 @@ import {
   isTerminalCopyShortcut,
 } from '../utils/terminal-clipboard';
 import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
-import Card from './Card.vue';
 import ProjectTerminalWindowBar from './ProjectTerminalWindowBar.vue';
 
 const props = withDefaults(
@@ -320,58 +319,39 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="terminal-panel">
-    <Card v-if="loadingStatus || !supported" class="terminal-card">
-      <template #header>
-        <div class="terminal-card-header">
-          <div>
-            <span class="terminal-card-kicker">Projeto / Sessão</span>
-            <h3>{{ title }}</h3>
-            <p>{{ description }}</p>
-          </div>
-          <span class="terminal-card-status">
-            {{ loadingStatus ? 'Verificando' : 'Indisponível' }}
-          </span>
-        </div>
-      </template>
-      <p v-if="loadingStatus" class="terminal-empty">
-        Verificando disponibilidade…
-      </p>
-      <div v-else class="terminal-empty-state">
-        <strong>Indisponível para este projeto.</strong>
-        <p>{{ statusMessage }}</p>
-      </div>
-    </Card>
-
-    <Card
-      v-else-if="sessionState === 'idle' || sessionState === 'closed'"
-      class="terminal-card"
+    <div
+      v-if="loadingStatus"
+      class="terminal-state"
+      role="status"
+      aria-live="polite"
     >
-      <template #header>
-        <div class="terminal-card-header">
-          <div>
-            <span class="terminal-card-kicker">Projeto / Sessão</span>
-            <h3>{{ title }}</h3>
-            <p>{{ description }}</p>
-          </div>
-          <span class="terminal-card-status is-ready">Pronto</span>
-        </div>
-      </template>
-      <div class="terminal-start">
+      <span class="terminal-state-dot" aria-hidden="true"></span>
+      <p>Verificando disponibilidade da sessão…</p>
+    </div>
+
+    <div v-else-if="!supported" class="terminal-state terminal-state-error">
+      <strong>Terminal indisponível para este projeto.</strong>
+      <p>{{ statusMessage }}</p>
+    </div>
+
+    <div
+      v-else-if="sessionState === 'idle' || sessionState === 'closed'"
+      class="terminal-state terminal-state-ready"
+    >
+      <div class="terminal-state-copy">
+        <strong>{{ description }}</strong>
         <p class="terminal-warning">
-          Esta sessão permite comandos interativos sem restrição de catálogo no
-          ambiente selecionado. Use apenas em projetos e comandos em que você
-          confia.
-        </p>
-        <button type="button" class="primary-button" @click="startSession">
-          {{
-            sessionState === 'closed' ? 'Abrir nova sessão' : 'Iniciar sessão'
-          }}
-        </button>
-        <p v-if="errorMessage" class="terminal-error" role="alert">
-          {{ errorMessage }}
+          Esta sessão permite comandos interativos no ambiente selecionado.
+          Execute apenas comandos em que você confia.
         </p>
       </div>
-    </Card>
+      <button type="button" class="primary-button" @click="startSession">
+        {{ sessionState === 'closed' ? 'Abrir nova sessão' : 'Iniciar sessão' }}
+      </button>
+      <p v-if="errorMessage" class="terminal-error" role="alert">
+        {{ errorMessage }}
+      </p>
+    </div>
 
     <template v-else>
       <div
@@ -437,187 +417,110 @@ onBeforeUnmount(() => {
 <style scoped>
 .terminal-panel {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
   width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  max-height: 100%;
+  flex-direction: column;
   overflow: hidden;
+  background: #10131c;
 }
 
-.terminal-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.terminal-card-header > div {
+.terminal-state {
   display: grid;
-  gap: 4px;
-  min-width: 0;
+  min-height: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  text-align: center;
 }
 
-.terminal-card-kicker {
-  color: var(--text-dim);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.terminal-card-header h3,
-.terminal-card-header p {
+.terminal-state p,
+.terminal-state strong {
   margin: 0;
 }
 
-.terminal-card-header h3 {
-  font-size: var(--font-lg);
-  line-height: 1.25;
-}
-
-.terminal-card-header p {
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  line-height: 1.5;
-}
-
-.terminal-card-status {
-  flex: 0 0 auto;
-  border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
-  color: var(--warning-text);
-  font-size: var(--font-xs);
-  padding: 4px 8px;
-  white-space: nowrap;
-}
-
-.terminal-card-status.is-ready {
-  border-color: color-mix(in srgb, var(--success-text) 45%, var(--border));
-  color: var(--success-text);
-}
-
-.terminal-empty,
-.terminal-empty-state {
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-}
-
-.terminal-empty-state {
-  border: 1px dashed var(--border);
-  padding: var(--space-5);
-}
-
-.terminal-empty-state strong {
+.terminal-state strong {
   color: var(--text);
+  font-size: 13px;
 }
 
-.terminal-empty-state p {
-  margin: var(--space-2) 0 0;
+.terminal-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--warning-text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-text) 12%, transparent);
 }
 
-.terminal-start {
+.terminal-state-error {
+  color: var(--danger-text);
+}
+
+.terminal-state-ready {
+  align-content: center;
+}
+
+.terminal-state-copy {
   display: grid;
-  gap: var(--space-3);
-  align-items: start;
-}
-
-.terminal-description {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
+  max-width: 620px;
+  gap: 8px;
 }
 
 .terminal-warning {
   margin: 0;
   color: var(--warning-text);
-  background: var(--warning-surface, transparent);
   font-size: var(--font-xs);
+  line-height: 1.5;
 }
 
 .terminal-error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   color: var(--danger-text);
   background: var(--danger-surface);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
-  margin: 0;
   font-size: var(--font-sm);
 }
 
-/* Janela flutuante: sem card nem fundo ao redor, redimensionável pelo mouse
-   (arrastando o canto inferior direito) e com um botão para expandir em
-   tela cheia — ver tasks/118-project-terminal-console.md para o histórico
-   dos protótipos avaliados. */
-
 .terminal-backdrop {
   position: fixed;
+  z-index: 40;
   inset: 0;
   background: rgba(10, 12, 20, 0.55);
   backdrop-filter: blur(2px);
-  z-index: 40;
 }
 
 .terminal-window {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
   width: 100%;
-  height: auto;
-  flex: 1 1 auto;
+  height: 100%;
   min-width: 0;
   min-height: 0;
-  max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
-  max-height: 100%;
-  max-height: none;
-  background: #10131c;
-
+  flex: 1 1 auto;
+  flex-direction: column;
   overflow: hidden;
-  resize: both;
-  position: relative;
-}
-
-.terminal-window::after {
-  content: '';
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 10px;
-  height: 10px;
-  pointer-events: none;
-  background-image: radial-gradient(circle, #7d84a3 1px, transparent 1.2px);
-  background-size: 3.5px 3.5px;
-  background-position: bottom right;
-  background-repeat: repeat;
-  opacity: 0.7;
+  background: #10131c;
 }
 
 .terminal-window-maximized {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  z-index: 50;
+  inset: 0;
   width: auto;
   height: auto;
-  max-width: none;
-  max-height: none;
-  border-radius: 0;
-  resize: none;
-  z-index: 50;
-}
-
-.terminal-window-maximized::after {
-  display: none;
 }
 
 .terminal-window-body {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-3) var(--space-4);
   overflow: hidden;
+  padding: 14px 18px 18px;
 }
 
 .terminal-window-body :deep(.xterm) {
@@ -637,28 +540,28 @@ onBeforeUnmount(() => {
   z-index: 70;
   min-width: 156px;
   padding: 4px;
-  background: #171b28;
   border: 1px solid #30374d;
   border-radius: 8px;
+  background: #171b28;
   box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
 }
 
 .terminal-context-menu-button {
+  display: flex;
   width: 100%;
   min-height: 32px;
-  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  padding: 0 9px;
   border: 0;
   border-radius: 6px;
-  padding: 0 9px;
-  background: transparent;
   color: #dbe0f2;
+  background: transparent;
+  cursor: pointer;
   font: inherit;
   font-size: var(--font-xs);
   text-align: left;
-  cursor: pointer;
 }
 
 .terminal-context-menu-button:hover,
@@ -675,5 +578,15 @@ onBeforeUnmount(() => {
 
 .terminal-window-error {
   margin: 0 var(--space-3) var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .terminal-window-body {
+    padding: 10px 12px 14px;
+  }
+
+  .terminal-state {
+    padding: 24px 18px;
+  }
 }
 </style>
