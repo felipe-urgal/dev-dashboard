@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, type Component } from 'vue';
 import {
   AdjustmentsHorizontalIcon,
   BeakerIcon,
@@ -20,7 +20,7 @@ import {
   ServerStackIcon,
   ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -38,17 +38,33 @@ const emit = defineEmits<{
 
 const route = useRoute();
 
-const gitSidebarTabs = [
-  { id: 'sync', label: 'Sincronização' },
-  { id: 'branches', label: 'Branches' },
-  { id: 'diff', label: 'Diff' },
-  { id: 'commit', label: 'Commit' },
-  { id: 'undo', label: 'Desfazer' },
-  { id: 'pull-request', label: 'Pull Request' },
-  { id: 'history', label: 'Histórico' },
-] as const;
-
 type SidebarGroupId = 'server' | 'git' | 'development' | 'quality';
+
+type SidebarItem = {
+  id: string;
+  label: string;
+  icon?: Component;
+  routeNames: string[];
+  to: RouteLocationRaw;
+  gitTab?: string;
+};
+
+type SidebarGroup = {
+  id: SidebarGroupId;
+  label: string;
+  icon: Component;
+  items: SidebarItem[];
+};
+
+const gitTabs = [
+  ['sync', 'Sincronização'],
+  ['branches', 'Branches'],
+  ['diff', 'Diff'],
+  ['commit', 'Commit'],
+  ['undo', 'Desfazer'],
+  ['pull-request', 'Pull Request'],
+  ['history', 'Histórico'],
+] as const;
 
 const expandedGroups = ref<Record<SidebarGroupId, boolean>>({
   server: false,
@@ -57,739 +73,340 @@ const expandedGroups = ref<Record<SidebarGroupId, boolean>>({
   quality: false,
 });
 
-const activeGitSidebarTab = computed(() => {
-  const value = Array.isArray(route.query.tab)
-    ? route.query.tab[0]
-    : route.query.tab;
-  return gitSidebarTabs.some((tab) => tab.id === value) ? value : 'sync';
-});
+const environmentQuery = computed(() =>
+  props.environmentInstanceId
+    ? { environmentInstanceId: props.environmentInstanceId }
+    : undefined,
+);
 
-function routeName(): string {
-  return typeof route.name === 'string' ? route.name : '';
+function projectRoute(
+  name: string,
+  options: {
+    environment?: boolean;
+    query?: Record<string, string>;
+  } = {},
+): RouteLocationRaw {
+  const query = options.query ?? (options.environment ? environmentQuery.value : undefined);
+
+  return {
+    name,
+    params: { projectId: props.project.id },
+    ...(query ? { query } : {}),
+  };
 }
 
-function groupForRoute(): SidebarGroupId | undefined {
-  const name = routeName();
+const groups = computed<SidebarGroup[]>(() => [
+  {
+    id: 'server',
+    label: 'Servidor',
+    icon: ServerStackIcon,
+    items: [
+      ...(props.project.capabilities.includes('server')
+        ? [
+            {
+              id: 'server',
+              label: 'Servidor',
+              icon: ServerStackIcon,
+              routeNames: ['project-server', 'project-details'],
+              to: projectRoute('project-server', { environment: true }),
+            },
+          ]
+        : []),
+      {
+        id: 'terminal',
+        label: 'Terminal',
+        icon: CommandLineIcon,
+        routeNames: ['project-terminal'],
+        to: projectRoute('project-terminal', { environment: true }),
+      },
+      ...(props.project.type === 'rails'
+        ? [
+            {
+              id: 'console',
+              label: 'Console Rails',
+              icon: CommandLineIcon,
+              routeNames: ['project-console'],
+              to: projectRoute('project-console', { environment: true }),
+            },
+          ]
+        : []),
+      ...(props.project.type === 'rails' && props.sidekiqDetected
+        ? [
+            {
+              id: 'sidekiq',
+              label: 'Sidekiq',
+              icon: QueueListIcon,
+              routeNames: ['project-rails-sidekiq'],
+              to: projectRoute('project-rails-sidekiq', { environment: true }),
+            },
+          ]
+        : []),
+      ...(props.project.type === 'rails' && props.webpackDetected
+        ? [
+            {
+              id: 'webpack',
+              label: 'Webpack',
+              icon: CodeBracketIcon,
+              routeNames: ['project-rails-webpack'],
+              to: projectRoute('project-rails-webpack', { environment: true }),
+            },
+          ]
+        : []),
+    ],
+  },
+  {
+    id: 'git',
+    label: 'Git',
+    icon: CodeBracketIcon,
+    items: [
+      ...gitTabs.map(([id, label]) => ({
+        id: `git-${id}`,
+        label,
+        routeNames: ['project-git'],
+        gitTab: id,
+        to: projectRoute('project-git', { query: { tab: id } }),
+      })),
+      ...(props.project.capabilities.includes('git')
+        ? [
+            {
+              id: 'worktrees',
+              label: 'Worktrees',
+              icon: FolderIcon,
+              routeNames: ['project-worktrees'],
+              to: projectRoute('project-worktrees'),
+            },
+          ]
+        : []),
+    ],
+  },
+  {
+    id: 'development',
+    label: 'Desenvolvimento',
+    icon: BeakerIcon,
+    items: [
+      {
+        id: 'tests',
+        label: 'Testes',
+        icon: BeakerIcon,
+        routeNames: ['project-tests'],
+        to: projectRoute('project-tests', { environment: true }),
+      },
+      ...(props.project.type === 'rails' || props.project.type === 'node'
+        ? [
+            {
+              id: 'dependencies',
+              label: 'Dependências',
+              icon: CubeIcon,
+              routeNames: ['project-dependencies'],
+              to: projectRoute('project-dependencies'),
+            },
+          ]
+        : []),
+      {
+        id: 'dev-container',
+        label: 'Dev Container',
+        icon: CubeTransparentIcon,
+        routeNames: ['project-dev-container'],
+        to: projectRoute('project-dev-container', { environment: true }),
+      },
+      {
+        id: 'compose',
+        label: 'Compose',
+        icon: ServerStackIcon,
+        routeNames: ['project-compose'],
+        to: projectRoute('project-compose', { environment: true }),
+      },
+      {
+        id: 'environment',
+        label: 'Variáveis de ambiente',
+        icon: AdjustmentsHorizontalIcon,
+        routeNames: ['project-environment'],
+        to: projectRoute('project-environment'),
+      },
+      {
+        id: 'migrations',
+        label: 'Migrations',
+        icon: CircleStackIcon,
+        routeNames: ['project-migrations'],
+        to: projectRoute('project-migrations', { environment: true }),
+      },
+    ],
+  },
+  {
+    id: 'quality',
+    label: 'Qualidade',
+    icon: CheckBadgeIcon,
+    items: [
+      {
+        id: 'local-ci',
+        label: 'Local CI',
+        icon: PlayCircleIcon,
+        routeNames: ['project-local-ci'],
+        to: projectRoute('project-local-ci'),
+      },
+      {
+        id: 'readiness',
+        label: 'Readiness',
+        icon: CheckBadgeIcon,
+        routeNames: ['project-readiness'],
+        to: projectRoute('project-readiness'),
+      },
+      {
+        id: 'security',
+        label: 'Segurança',
+        icon: LockClosedIcon,
+        routeNames: ['project-security-center'],
+        to: projectRoute('project-security-center'),
+      },
+      {
+        id: 'doctor',
+        label: 'Diagnóstico',
+        icon: ShieldCheckIcon,
+        routeNames: ['project-doctor'],
+        to: projectRoute('project-doctor'),
+      },
+    ],
+  },
+]);
 
-  if (
-    [
-      'project-details',
-      'project-server',
-      'project-terminal',
-      'project-console',
-      'project-rails-sidekiq',
-      'project-rails-webpack',
-    ].includes(name)
-  ) {
-    return 'server';
-  }
+const directItems = computed<SidebarItem[]>(() => [
+  {
+    id: 'agent',
+    label: 'Agente',
+    icon: CpuChipIcon,
+    routeNames: ['project-agent'],
+    to: projectRoute('project-agent', { environment: true }),
+  },
+  ...(props.project.capabilities.includes('production')
+    ? [
+        {
+          id: 'production',
+          label: 'Produção',
+          icon: RocketLaunchIcon,
+          routeNames: ['project-production'],
+          to: projectRoute('project-production'),
+        },
+      ]
+    : []),
+  {
+    id: 'readme',
+    label: 'README',
+    icon: DocumentTextIcon,
+    routeNames: ['project-readme'],
+    to: projectRoute('project-readme'),
+  },
+]);
 
-  if (['project-git', 'project-worktrees'].includes(name)) {
-    return 'git';
-  }
+const mobileItems = computed(() => [
+  ...groups.value.flatMap((group) => group.items),
+  ...directItems.value,
+]);
 
-  if (
-    [
-      'project-tests',
-      'project-dependencies',
-      'project-dev-container',
-      'project-compose',
-      'project-environment',
-      'project-migrations',
-    ].includes(name)
-  ) {
-    return 'development';
-  }
-
-  if (
-    [
-      'project-local-ci',
-      'project-readiness',
-      'project-security-center',
-      'project-doctor',
-    ].includes(name)
-  ) {
-    return 'quality';
-  }
-
-  return undefined;
+function currentGitTab(): string {
+  const value = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
+  return typeof value === 'string' && gitTabs.some(([id]) => id === value)
+    ? value
+    : 'sync';
 }
 
-function isGroupActive(group: SidebarGroupId): boolean {
-  return groupForRoute() === group;
+function isItemActive(item: SidebarItem): boolean {
+  const name = typeof route.name === 'string' ? route.name : '';
+  if (!item.routeNames.includes(name)) return false;
+  return !item.gitTab || item.gitTab === currentGitTab();
+}
+
+function isGroupActive(group: SidebarGroup): boolean {
+  return group.items.some(isItemActive);
+}
+
+function activeGroupId(): SidebarGroupId | undefined {
+  return groups.value.find(isGroupActive)?.id;
 }
 
 function toggleGroup(group: SidebarGroupId): void {
-  if (props.sidebarCollapsed) {
-    emit('expand-sidebar');
-  }
-
+  if (props.sidebarCollapsed) emit('expand-sidebar');
   expandedGroups.value[group] = !expandedGroups.value[group];
 }
 
 function ensureActiveGroupOpen(): void {
-  const activeGroup = groupForRoute();
-  if (activeGroup) {
-    expandedGroups.value[activeGroup] = true;
-  }
+  const group = activeGroupId();
+  if (group) expandedGroups.value[group] = true;
 }
 
-watch(() => [route.name, route.query.tab] as const, ensureActiveGroupOpen, {
-  immediate: true,
-});
-
-function environmentQuery() {
-  return props.environmentInstanceId
-    ? { environmentInstanceId: props.environmentInstanceId }
-    : undefined;
-}
+watch(
+  () => [route.name, route.query.tab, groups.value] as const,
+  ensureActiveGroupOpen,
+  { immediate: true },
+);
 </script>
 
 <template>
   <div class="project-details-primary-tabs">
     <div class="project-sidebar-desktop-groups">
-      <section class="project-details-menu-group">
+      <section
+        v-for="group in groups"
+        :key="group.id"
+        class="project-details-menu-group"
+      >
         <button
           class="project-details-tab project-details-menu-trigger"
-          :class="{ 'project-details-tab-active': isGroupActive('server') }"
+          :class="{ 'project-details-tab-active': isGroupActive(group) }"
           type="button"
-          :aria-expanded="expandedGroups.server"
-          aria-controls="project-sidebar-server-menu"
-          :title="sidebarCollapsed ? 'Servidor' : undefined"
-          @click="toggleGroup('server')"
+          :aria-expanded="expandedGroups[group.id]"
+          :aria-controls="`project-sidebar-${group.id}-menu`"
+          :title="sidebarCollapsed ? group.label : undefined"
+          @click="toggleGroup(group.id)"
         >
-          <ServerStackIcon aria-hidden="true" />
-          <span>Servidor</span>
-          <ChevronDownIcon
-            class="project-details-menu-chevron"
-            aria-hidden="true"
-          />
+          <component :is="group.icon" aria-hidden="true" />
+          <span>{{ group.label }}</span>
+          <ChevronDownIcon class="project-details-menu-chevron" aria-hidden="true" />
         </button>
 
         <nav
-          v-show="expandedGroups.server && !sidebarCollapsed"
-          id="project-sidebar-server-menu"
+          v-show="expandedGroups[group.id] && !sidebarCollapsed"
+          :id="`project-sidebar-${group.id}-menu`"
           class="project-details-submenu"
-          aria-label="Ferramentas do servidor"
+          :aria-label="`Ferramentas de ${group.label}`"
         >
           <RouterLink
-            v-if="project.capabilities.includes('server')"
+            v-for="item in group.items"
+            :key="item.id"
             class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-server' ||
-                route.name === 'project-details',
-            }"
-            :to="{
-              name: 'project-server',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
+            :class="{ 'project-details-submenu-item-active': isItemActive(item) }"
+            :aria-current="isItemActive(item) ? 'page' : undefined"
+            :to="item.to"
           >
-            <ServerStackIcon aria-hidden="true" />
-            <span>Servidor</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-terminal',
-            }"
-            :to="{
-              name: 'project-terminal',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <CommandLineIcon aria-hidden="true" />
-            <span>Terminal</span>
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.type === 'rails'"
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-console',
-            }"
-            :to="{
-              name: 'project-console',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <CommandLineIcon aria-hidden="true" />
-            <span>Console Rails</span>
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.type === 'rails' && sidekiqDetected"
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-rails-sidekiq',
-            }"
-            :to="{
-              name: 'project-rails-sidekiq',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <QueueListIcon aria-hidden="true" />
-            <span>Sidekiq</span>
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.type === 'rails' && webpackDetected"
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-rails-webpack',
-            }"
-            :to="{
-              name: 'project-rails-webpack',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <CodeBracketIcon aria-hidden="true" />
-            <span>Webpack</span>
-          </RouterLink>
-        </nav>
-      </section>
-
-      <section class="project-details-menu-group">
-        <button
-          class="project-details-tab project-details-menu-trigger"
-          :class="{ 'project-details-tab-active': isGroupActive('git') }"
-          type="button"
-          :aria-expanded="expandedGroups.git"
-          aria-controls="project-sidebar-git-menu"
-          :title="sidebarCollapsed ? 'Git' : undefined"
-          @click="toggleGroup('git')"
-        >
-          <CodeBracketIcon aria-hidden="true" />
-          <span>Git</span>
-          <ChevronDownIcon
-            class="project-details-menu-chevron"
-            aria-hidden="true"
-          />
-        </button>
-
-        <nav
-          v-show="expandedGroups.git && !sidebarCollapsed"
-          id="project-sidebar-git-menu"
-          class="project-details-submenu"
-          aria-label="Ferramentas do Git"
-        >
-          <RouterLink
-            v-for="tab in gitSidebarTabs"
-            :key="tab.id"
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-git' && activeGitSidebarTab === tab.id,
-            }"
-            :to="{
-              name: 'project-git',
-              params: { projectId: project.id },
-              query: { tab: tab.id },
-            }"
-          >
-            <span>{{ tab.label }}</span>
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.capabilities.includes('git')"
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-worktrees',
-            }"
-            :to="{
-              name: 'project-worktrees',
-              params: { projectId: project.id },
-            }"
-          >
-            <FolderIcon aria-hidden="true" />
-            <span>Worktrees</span>
-          </RouterLink>
-        </nav>
-      </section>
-
-      <section class="project-details-menu-group">
-        <button
-          class="project-details-tab project-details-menu-trigger"
-          :class="{
-            'project-details-tab-active': isGroupActive('development'),
-          }"
-          type="button"
-          :aria-expanded="expandedGroups.development"
-          aria-controls="project-sidebar-development-menu"
-          :title="sidebarCollapsed ? 'Desenvolvimento' : undefined"
-          @click="toggleGroup('development')"
-        >
-          <BeakerIcon aria-hidden="true" />
-          <span>Desenvolvimento</span>
-          <ChevronDownIcon
-            class="project-details-menu-chevron"
-            aria-hidden="true"
-          />
-        </button>
-
-        <nav
-          v-show="expandedGroups.development && !sidebarCollapsed"
-          id="project-sidebar-development-menu"
-          class="project-details-submenu"
-          aria-label="Ferramentas de desenvolvimento"
-        >
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-tests',
-            }"
-            :to="{
-              name: 'project-tests',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <BeakerIcon aria-hidden="true" />
-            <span>Testes</span>
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.type === 'rails' || project.type === 'node'"
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-dependencies',
-            }"
-            :to="{
-              name: 'project-dependencies',
-              params: { projectId: project.id },
-            }"
-          >
-            <CubeIcon aria-hidden="true" />
-            <span>Dependências</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-dev-container',
-            }"
-            :to="{
-              name: 'project-dev-container',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <CubeTransparentIcon aria-hidden="true" />
-            <span>Dev Container</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-compose',
-            }"
-            :to="{
-              name: 'project-compose',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <ServerStackIcon aria-hidden="true" />
-            <span>Compose</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-environment',
-            }"
-            :to="{
-              name: 'project-environment',
-              params: { projectId: project.id },
-            }"
-          >
-            <AdjustmentsHorizontalIcon aria-hidden="true" />
-            <span>Variáveis de ambiente</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-migrations',
-            }"
-            :to="{
-              name: 'project-migrations',
-              params: { projectId: project.id },
-              ...(environmentQuery() ? { query: environmentQuery() } : {}),
-            }"
-          >
-            <CircleStackIcon aria-hidden="true" />
-            <span>Migrations</span>
-          </RouterLink>
-        </nav>
-      </section>
-
-      <section class="project-details-menu-group">
-        <button
-          class="project-details-tab project-details-menu-trigger"
-          :class="{ 'project-details-tab-active': isGroupActive('quality') }"
-          type="button"
-          :aria-expanded="expandedGroups.quality"
-          aria-controls="project-sidebar-quality-menu"
-          :title="sidebarCollapsed ? 'Qualidade' : undefined"
-          @click="toggleGroup('quality')"
-        >
-          <CheckBadgeIcon aria-hidden="true" />
-          <span>Qualidade</span>
-          <ChevronDownIcon
-            class="project-details-menu-chevron"
-            aria-hidden="true"
-          />
-        </button>
-
-        <nav
-          v-show="expandedGroups.quality && !sidebarCollapsed"
-          id="project-sidebar-quality-menu"
-          class="project-details-submenu"
-          aria-label="Ferramentas de qualidade"
-        >
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-local-ci',
-            }"
-            :to="{
-              name: 'project-local-ci',
-              params: { projectId: project.id },
-            }"
-          >
-            <PlayCircleIcon aria-hidden="true" />
-            <span>Local CI</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-readiness',
-            }"
-            :to="{
-              name: 'project-readiness',
-              params: { projectId: project.id },
-            }"
-          >
-            <CheckBadgeIcon aria-hidden="true" />
-            <span>Readiness</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-security-center',
-            }"
-            :to="{
-              name: 'project-security-center',
-              params: { projectId: project.id },
-            }"
-          >
-            <LockClosedIcon aria-hidden="true" />
-            <span>Segurança</span>
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-submenu-item"
-            :class="{
-              'project-details-submenu-item-active':
-                route.name === 'project-doctor',
-            }"
-            :to="{ name: 'project-doctor', params: { projectId: project.id } }"
-          >
-            <ShieldCheckIcon aria-hidden="true" />
-            <span>Diagnóstico</span>
+            <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
+            <span>{{ item.label }}</span>
           </RouterLink>
         </nav>
       </section>
 
       <RouterLink
+        v-for="item in directItems"
+        :key="item.id"
         class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-agent',
-        }"
-        :to="{
-          name: 'project-agent',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-        :title="sidebarCollapsed ? 'Agente' : undefined"
+        :class="{ 'project-details-tab-active': isItemActive(item) }"
+        :aria-current="isItemActive(item) ? 'page' : undefined"
+        :to="item.to"
+        :title="sidebarCollapsed ? item.label : undefined"
       >
-        <CpuChipIcon aria-hidden="true" />
-        <span>Agente</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="project.capabilities.includes('production')"
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-production',
-        }"
-        :to="{ name: 'project-production', params: { projectId: project.id } }"
-        :title="sidebarCollapsed ? 'Produção' : undefined"
-      >
-        <RocketLaunchIcon aria-hidden="true" />
-        <span>Produção</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-readme',
-        }"
-        :to="{ name: 'project-readme', params: { projectId: project.id } }"
-        :title="sidebarCollapsed ? 'README' : undefined"
-      >
-        <DocumentTextIcon aria-hidden="true" />
-        <span>README</span>
+        <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
+        <span>{{ item.label }}</span>
       </RouterLink>
     </div>
 
     <div class="project-sidebar-mobile-links">
       <RouterLink
-        v-if="project.capabilities.includes('server')"
+        v-for="item in mobileItems"
+        :key="item.id"
         class="project-details-tab"
-        :class="{
-          'project-details-tab-active':
-            route.name === 'project-server' || route.name === 'project-details',
-        }"
-        :to="{
-          name: 'project-server',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
+        :class="{ 'project-details-tab-active': isItemActive(item) }"
+        :aria-current="isItemActive(item) ? 'page' : undefined"
+        :to="item.to"
       >
-        <ServerStackIcon aria-hidden="true" />
-        <span>Servidor</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{ 'project-details-tab-active': route.name === 'project-git' }"
-        :to="{ name: 'project-git', params: { projectId: project.id } }"
-      >
-        <CodeBracketIcon aria-hidden="true" />
-        <span>Git</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-tests',
-        }"
-        :to="{
-          name: 'project-tests',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-      >
-        <BeakerIcon aria-hidden="true" />
-        <span>Testes</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-agent',
-        }"
-        :to="{
-          name: 'project-agent',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-      >
-        <CpuChipIcon aria-hidden="true" />
-        <span>Agente</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="project.capabilities.includes('production')"
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-production',
-        }"
-        :to="{ name: 'project-production', params: { projectId: project.id } }"
-      >
-        <RocketLaunchIcon aria-hidden="true" />
-        <span>Produção</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-terminal',
-        }"
-        :to="{
-          name: 'project-terminal',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-      >
-        <CommandLineIcon aria-hidden="true" />
-        <span>Terminal</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="project.capabilities.includes('git')"
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-worktrees',
-        }"
-        :to="{ name: 'project-worktrees', params: { projectId: project.id } }"
-      >
-        <FolderIcon aria-hidden="true" />
-        <span>Worktrees</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="project.type === 'rails' || project.type === 'node'"
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-dependencies',
-        }"
-        :to="{
-          name: 'project-dependencies',
-          params: { projectId: project.id },
-        }"
-      >
-        <CubeIcon aria-hidden="true" />
-        <span>Dependências</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-dev-container',
-        }"
-        :to="{
-          name: 'project-dev-container',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-      >
-        <CubeTransparentIcon aria-hidden="true" />
-        <span>Dev Container</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-compose',
-        }"
-        :to="{
-          name: 'project-compose',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-      >
-        <ServerStackIcon aria-hidden="true" />
-        <span>Compose</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-environment',
-        }"
-        :to="{ name: 'project-environment', params: { projectId: project.id } }"
-      >
-        <AdjustmentsHorizontalIcon aria-hidden="true" />
-        <span>Variáveis de ambiente</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-migrations',
-        }"
-        :to="{
-          name: 'project-migrations',
-          params: { projectId: project.id },
-          ...(environmentQuery() ? { query: environmentQuery() } : {}),
-        }"
-      >
-        <CircleStackIcon aria-hidden="true" />
-        <span>Migrations</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-local-ci',
-        }"
-        :to="{ name: 'project-local-ci', params: { projectId: project.id } }"
-      >
-        <PlayCircleIcon aria-hidden="true" />
-        <span>Local CI</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-readiness',
-        }"
-        :to="{ name: 'project-readiness', params: { projectId: project.id } }"
-      >
-        <CheckBadgeIcon aria-hidden="true" />
-        <span>Readiness</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active':
-            route.name === 'project-security-center',
-        }"
-        :to="{
-          name: 'project-security-center',
-          params: { projectId: project.id },
-        }"
-      >
-        <LockClosedIcon aria-hidden="true" />
-        <span>Segurança</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-doctor',
-        }"
-        :to="{ name: 'project-doctor', params: { projectId: project.id } }"
-      >
-        <ShieldCheckIcon aria-hidden="true" />
-        <span>Diagnóstico</span>
-      </RouterLink>
-
-      <RouterLink
-        class="project-details-tab"
-        :class="{
-          'project-details-tab-active': route.name === 'project-readme',
-        }"
-        :to="{ name: 'project-readme', params: { projectId: project.id } }"
-      >
-        <DocumentTextIcon aria-hidden="true" />
-        <span>README</span>
+        <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
+        <span>{{ item.label }}</span>
       </RouterLink>
     </div>
   </div>
@@ -820,8 +437,7 @@ function environmentQuery() {
   transition: transform 150ms ease;
 }
 
-.project-details-menu-trigger[aria-expanded='true']
-  .project-details-menu-chevron {
+.project-details-menu-trigger[aria-expanded='true'] .project-details-menu-chevron {
   transform: rotate(180deg);
 }
 
