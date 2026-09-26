@@ -86,7 +86,8 @@ function projectRoute(
     query?: Record<string, string>;
   } = {},
 ): RouteLocationRaw {
-  const query = options.query ?? (options.environment ? environmentQuery.value : undefined);
+  const query =
+    options.query ?? (options.environment ? environmentQuery.value : undefined);
 
   return {
     name,
@@ -303,7 +304,9 @@ const mobileItems = computed(() => [
 ]);
 
 function currentGitTab(): string {
-  const value = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
+  const value = Array.isArray(route.query.tab)
+    ? route.query.tab[0]
+    : route.query.tab;
   return typeof value === 'string' && gitTabs.some(([id]) => id === value)
     ? value
     : 'sync';
@@ -359,7 +362,10 @@ watch(
         >
           <component :is="group.icon" aria-hidden="true" />
           <span>{{ group.label }}</span>
-          <ChevronDownIcon class="project-details-menu-chevron" aria-hidden="true" />
+          <ChevronDownIcon
+            class="project-details-menu-chevron"
+            aria-hidden="true"
+          />
         </button>
 
         <nav
@@ -372,7 +378,9 @@ watch(
             v-for="item in group.items"
             :key="item.id"
             class="project-details-submenu-item"
-            :class="{ 'project-details-submenu-item-active': isItemActive(item) }"
+            :class="{
+              'project-details-submenu-item-active': isItemActive(item),
+            }"
             :aria-current="isItemActive(item) ? 'page' : undefined"
             :to="item.to"
           >
@@ -437,7 +445,8 @@ watch(
   transition: transform 150ms ease;
 }
 
-.project-details-menu-trigger[aria-expanded='true'] .project-details-menu-chevron {
+.project-details-menu-trigger[aria-expanded='true']
+  .project-details-menu-chevron {
   transform: rotate(180deg);
 }
 
