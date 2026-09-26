@@ -419,7 +419,9 @@ describe('ProjectDevContainerPanel', () => {
     wrapper.unmount();
   });
 
-  it('confirma e para somente o runtime devcontainer owned selecionado', async () => {
+  it(
+    'confirma e para somente o runtime devcontainer owned selecionado',
+    async () => {
     const environmentInstanceId =
       'environment:worktree:project-devcontainer:stop-runtime';
     fetchDevContainerLifecyclePreflight
@@ -513,6 +515,7 @@ describe('ProjectDevContainerPanel', () => {
         .findAll('button')
         .some((button) => button.text().trim() === 'Parar'),
     ).toBe(false);
-    wrapper.unmount();
-  });
+      wrapper.unmount();
+    },
+  );
 });
