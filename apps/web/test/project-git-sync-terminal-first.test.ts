@@ -91,15 +91,15 @@ test('renderiza a sincronização minimalista sem expor o remote principal', asy
     },
   });
 
-  assert.ok(wrapper.find('.git-sync-heading').exists());
+  assert.equal(wrapper.find('.git-sync-heading').exists(), false);
   assert.ok(wrapper.find('.git-sync-main-card').exists());
   assert.ok(wrapper.find('.git-sync-console-card').exists());
   assert.equal(wrapper.findAll('.git-sync-summary-card').length, 0);
-  assert.match(wrapper.text(), /Sincronização/);
+  assert.doesNotMatch(wrapper.text(), /^Sincronização$/m);
   assert.match(wrapper.text(), /Última sincronização/);
   assert.match(wrapper.text(), /main\s*→\s*origin\/main/);
   assert.match(wrapper.text(), /Tudo sincronizado/);
-  assert.match(wrapper.text(), /Console de sincronização/);
+  assert.match(wrapper.text(), /Console/);
   assert.match(
     wrapper.find('.git-sync-console-output').text(),
     /sincronizadas/,
