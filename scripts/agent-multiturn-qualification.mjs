@@ -426,6 +426,42 @@ export async function runAgentMultiTurnQualification(
       );
     }
 
+    if (preferenceChanged) {
+      const pathname =
+        '/api/projects/' +
+        encodeURIComponent(options.projectId) +
+        '/agent/provider-preference';
+      if (previousPreference) {
+        await requestJson(fetchImpl, options.apiUrl, token, pathname, {
+          method: 'PUT',
+          body: JSON.stringify({
+            preferredProviderId: previousPreference.preferredProviderId,
+            fallbackOrder: previousPreference.fallbackOrder,
+          }),
+        });
+      } else {
+        let response;
+        try {
+          response = await fetchImpl(options.apiUrl + pathname, {
+            method: 'DELETE',
+            headers: {
+              accept: 'application/json',
+              'x-dev-dashboard-token': token,
+            },
+          });
+        } catch {
+          response = null;
+        }
+        if (!response?.ok) {
+          throw new Error(
+            'Não foi possível restaurar a preferência de provider após a qualificação.',
+          );
+        }
+      }
+      preferenceChanged = false;
+      preferenceRestored = true;
+    }
+
     stdout.write(
       JSON.stringify(
         {
@@ -492,23 +528,14 @@ export async function runAgentMultiTurnQualification(
             }),
           });
         } else {
-          let response;
-          try {
-            response = await fetchImpl(options.apiUrl + pathname, {
-              method: 'DELETE',
-              headers: {
-                accept: 'application/json',
-                'x-dev-dashboard-token': token,
-              },
-            });
-          } catch {
-            response = null;
-          }
-          if (!response?.ok) {
-            throw new Error(
-              'Não foi possível restaurar a preferência de provider após a qualificação.',
-            );
-          }
+          const response = await fetchImpl(options.apiUrl + pathname, {
+            method: 'DELETE',
+            headers: {
+              accept: 'application/json',
+              'x-dev-dashboard-token': token,
+            },
+          });
+          if (!response.ok) throw new Error('restore failed');
         }
         preferenceRestored = true;
       } catch {
