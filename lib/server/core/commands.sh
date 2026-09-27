@@ -122,6 +122,18 @@ dev-restart() {
   local project="$1"
   [ -z "$project" ] && { _dev_err "Informe o projeto: dev-restart <projeto>"; return 1; }
 
+  if _dev_dashboard_api_available; then
+    _dev_ok "Reiniciando $project pelo Process Manager..."
+    dev-stop "$project" || return 1
+    sleep 1
+    _dev_dashboard_start "$project" >/dev/null || {
+      _dev_err "Não foi possível reiniciar '$project' pelo Process Manager."
+      return 1
+    }
+    _dev_ok "Servidor $project reiniciado."
+    return 0
+  fi
+
   local type
   type=$(project-type "$project") || {
     _dev_err "Projeto '$project' não encontrado."
