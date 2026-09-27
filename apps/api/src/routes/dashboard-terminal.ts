@@ -64,11 +64,16 @@ export const dashboardTerminalRoutes: FastifyPluginAsync<
     },
     (socket, request) => {
       const limitedSocket = withWebSocketMessageRateLimit(socket);
+      const reconnect = {
+        ...(request.query.sessionId
+          ? { sessionId: request.query.sessionId }
+          : {}),
+        ...(request.query.reconnectToken
+          ? { reconnectToken: request.query.reconnectToken }
+          : {}),
+      };
       void options.dashboardTerminalService
-        .attach(request.query.confirmationToken, limitedSocket, {
-          sessionId: request.query.sessionId,
-          reconnectToken: request.query.reconnectToken,
-        })
+        .attach(request.query.confirmationToken, limitedSocket, reconnect)
         .catch((error: unknown) => {
           request.log.error(
             { err: error },
