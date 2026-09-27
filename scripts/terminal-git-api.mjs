@@ -32,7 +32,9 @@ async function request(pathname, options = {}) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || `HTTP ${response.status}`);
+    throw new Error(
+      payload?.message || payload?.error || `HTTP ${response.status}`,
+    );
   }
   return payload;
 }
@@ -51,10 +53,13 @@ function endpoint(projectId, suffix) {
 }
 
 async function confirmation(projectId, operation, target) {
-  const payload = await request(endpoint(projectId, '/mutations/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify({ operation, target }),
-  });
+  const payload = await request(
+    endpoint(projectId, '/mutations/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ operation, target }),
+    },
+  );
   return payload.confirmation.token;
 }
 
@@ -64,15 +69,17 @@ async function workspace(projectId) {
 
 function printWorkspace(value) {
   for (const branch of value.branches ?? []) {
-    process.stdout.write([
-      branch.kind,
-      branch.current ? '*' : ' ',
-      branch.shortName,
-      branch.remote ?? '',
-      branch.upstream ?? '',
-      branch.ahead ?? 0,
-      branch.behind ?? 0,
-    ].join('\t') + '\n');
+    process.stdout.write(
+      [
+        branch.kind,
+        branch.current ? '*' : ' ',
+        branch.shortName,
+        branch.remote ?? '',
+        branch.upstream ?? '',
+        branch.ahead ?? 0,
+        branch.behind ?? 0,
+      ].join('\t') + '\n',
+    );
   }
 }
 
@@ -95,10 +102,13 @@ async function switchBranch(project, name) {
 }
 
 async function deleteBranch(project, name) {
-  const prepared = await request(endpoint(project.id, '/branches/delete/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify({ branch: name }),
-  });
+  const prepared = await request(
+    endpoint(project.id, '/branches/delete/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ branch: name }),
+    },
+  );
   const payload = await request(endpoint(project.id, '/branches/delete'), {
     method: 'POST',
     body: JSON.stringify({
@@ -110,10 +120,13 @@ async function deleteBranch(project, name) {
 }
 
 async function publishBranch(project, name) {
-  const prepared = await request(endpoint(project.id, '/branches/publish/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify({ branch: name }),
-  });
+  const prepared = await request(
+    endpoint(project.id, '/branches/publish/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ branch: name }),
+    },
+  );
   const payload = await request(endpoint(project.id, '/branches/publish'), {
     method: 'POST',
     body: JSON.stringify({
@@ -125,10 +138,13 @@ async function publishBranch(project, name) {
 }
 
 async function trackBranch(project, remoteBranch) {
-  const prepared = await request(endpoint(project.id, '/branches/track/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify({ remoteBranch }),
-  });
+  const prepared = await request(
+    endpoint(project.id, '/branches/track/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ remoteBranch }),
+    },
+  );
   const payload = await request(endpoint(project.id, '/branches/track'), {
     method: 'POST',
     body: JSON.stringify({
@@ -140,17 +156,23 @@ async function trackBranch(project, remoteBranch) {
 }
 
 async function deleteRemoteBranch(project, remoteBranch) {
-  const prepared = await request(endpoint(project.id, '/branches/remote/delete/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify({ remoteBranch }),
-  });
-  const payload = await request(endpoint(project.id, '/branches/remote/delete'), {
-    method: 'POST',
-    body: JSON.stringify({
-      remoteBranch,
-      confirmationToken: prepared.confirmation.token,
-    }),
-  });
+  const prepared = await request(
+    endpoint(project.id, '/branches/remote/delete/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ remoteBranch }),
+    },
+  );
+  const payload = await request(
+    endpoint(project.id, '/branches/remote/delete'),
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        remoteBranch,
+        confirmationToken: prepared.confirmation.token,
+      }),
+    },
+  );
   process.stdout.write(`Branch remota removida: ${payload.branch.branch}\n`);
 }
 
@@ -166,7 +188,9 @@ async function commit(project, message, amend) {
       confirmationToken: token,
     }),
   });
-  process.stdout.write(`${payload.commit.shortHash} ${payload.commit.subject}\n`);
+  process.stdout.write(
+    `${payload.commit.shortHash} ${payload.commit.subject}\n`,
+  );
 }
 
 async function sync(project, reference, strategy) {
@@ -190,12 +214,17 @@ async function sync(project, reference, strategy) {
 
 async function publishCurrent(project) {
   const ws = await workspace(project.id);
-  const current = (ws.branches ?? []).find((item) => item.kind === 'local' && item.current);
+  const current = (ws.branches ?? []).find(
+    (item) => item.kind === 'local' && item.current,
+  );
   if (!current) throw new Error('Branch atual não encontrada.');
-  const prepared = await request(endpoint(project.id, '/branches/publish/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify({ branch: current.shortName }),
-  });
+  const prepared = await request(
+    endpoint(project.id, '/branches/publish/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ branch: current.shortName }),
+    },
+  );
   await request(endpoint(project.id, '/branches/publish'), {
     method: 'POST',
     body: JSON.stringify({
@@ -216,10 +245,13 @@ async function createPr(project, title, baseBranch) {
     description: '',
     draft: false,
   };
-  const prepared = await request(endpoint(project.id, '/pull-request/confirmations'), {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  const prepared = await request(
+    endpoint(project.id, '/pull-request/confirmations'),
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
   const payload = await request(endpoint(project.id, '/pull-request/actions'), {
     method: 'POST',
     body: JSON.stringify({
@@ -265,9 +297,13 @@ async function diff(project) {
 }
 
 async function history(project) {
-  const payload = await request(endpoint(project.id, '/exclusive-branch-commits?page=1&pageSize=10'));
+  const payload = await request(
+    endpoint(project.id, '/exclusive-branch-commits?page=1&pageSize=10'),
+  );
   const history = payload.history;
-  process.stdout.write(`Branch: ${history.branch} | ${history.total} commit(s) exclusivo(s)\n`);
+  process.stdout.write(
+    `Branch: ${history.branch} | ${history.total} commit(s) exclusivo(s)\n`,
+  );
   for (const item of history.commits ?? []) {
     process.stdout.write(
       `${item.shortHash}\t${item.authoredAt}\t${item.authorName}\t${item.subject}\n`,
@@ -277,7 +313,8 @@ async function history(project) {
 
 async function main() {
   const [command, projectValue, ...args] = process.argv.slice(2);
-  if (!command || !projectValue) throw new Error('Uso: terminal-git-api <comando> <projeto> [...]');
+  if (!command || !projectValue)
+    throw new Error('Uso: terminal-git-api <comando> <projeto> [...]');
   const project = await projectFor(projectValue);
 
   switch (command) {
@@ -342,6 +379,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.message : String(error)}\n`,
+  );
   process.exit(1);
 });
