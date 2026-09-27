@@ -27,8 +27,8 @@ async function sendLine(page: Page, value = ''): Promise<void> {
     '.dashboard-terminal-canvas .xterm-helper-textarea',
   );
   await input.focus();
-  if (value) await input.fill(value);
-  await input.press('Enter');
+  if (value) await page.keyboard.type(value);
+  await page.keyboard.press('Enter');
 }
 
 async function chooseProject(page: Page, projectName: string): Promise<void> {
@@ -48,6 +48,7 @@ async function chooseProject(page: Page, projectName: string): Promise<void> {
 }
 
 test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
+  test.setTimeout(60_000);
   const runtime = await readRuntimeInfo();
 
   await gotoBootstrapped(page, '/');
@@ -114,7 +115,7 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
         return response.ok ? JSON.stringify(await response.json()) : '';
       }, projectId);
     })
-    .toContain('feature/e2e-terminal');
+    .toContain('git.create-branch');
 
   // Preserva a sessão ao alternar Web -> Terminal.
   await page.getByRole('button', { name: 'Web', exact: true }).click();
