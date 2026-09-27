@@ -33,7 +33,9 @@ async function request(pathname, options = {}) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || `HTTP ${response.status}`);
+    throw new Error(
+      payload?.message || payload?.error || `HTTP ${response.status}`,
+    );
   }
   return payload;
 }
@@ -209,7 +211,8 @@ async function main() {
     case 'resolve': {
       if (!args[0]) throw new Error('Uso: resolve <project>');
       const project = await resolveProject(args[0]);
-      if (!project) throw new Error(`Projeto não encontrado na API: ${args[0]}`);
+      if (!project)
+        throw new Error(`Projeto não encontrado na API: ${args[0]}`);
       printProject(project, undefined);
       return;
     }
