@@ -347,3 +347,55 @@ test('resize é limitado e saída pendente é bounded durante desconexão', asyn
     await rm(root, { recursive: true, force: true });
   }
 });
+
+
+test('limite de sessões retorna feedback e libera vaga após fechamento explícito', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
+  );
+  await writeFile(path.join(root, 'init.sh'), '# test\n');
+
+  try {
+    const service = new DashboardTerminalService({
+      dashboardRoot: root,
+      spawnPty: () => new FakePty() as never,
+    });
+    const sockets: FakeSocket[] = [];
+
+    for (let index = 0; index < 4; index += 1) {
+      const socket = new FakeSocket();
+      sockets.push(socket);
+      const confirmation = service.prepareConfirmation();
+      await service.attach(confirmation.token, socket as never);
+      assert.equal(
+        (socket.sent[0] as { type: string }).type,
+        'ready',
+      );
+    }
+
+    const rejected = new FakeSocket();
+    await service.attach(
+      service.prepareConfirmation().token,
+      rejected as never,
+    );
+    assert.equal(rejected.closeCode, 1013);
+    assert.match(
+      (rejected.sent[0] as { message: string }).message,
+      /Limite de sessões/,
+    );
+
+    sockets[0]?.close(1000, 'Sessão encerrada pelo usuário');
+
+    const replacement = new FakeSocket();
+    await service.attach(
+      service.prepareConfirmation().token,
+      replacement as never,
+    );
+    assert.equal(
+      (replacement.sent[0] as { type: string }).type,
+      'ready',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
