@@ -233,6 +233,7 @@ async function startSession(preferReconnect = true): Promise<void> {
 
   try {
     const reconnect = preferReconnect ? readReconnectCredentials() : null;
+    let connectionReady = false;
     const url = reconnect
       ? dashboardTerminalWebSocketUrl(reconnect)
       : dashboardTerminalWebSocketUrl({
@@ -276,6 +277,7 @@ async function startSession(preferReconnect = true): Promise<void> {
           sessionId: message.sessionId,
           reconnectToken: message.reconnectToken,
         });
+        connectionReady = true;
         sessionState.value = 'connected';
         errorMessage.value = '';
         requestAnimationFrame(() => {
@@ -317,12 +319,21 @@ async function startSession(preferReconnect = true): Promise<void> {
         return;
       }
 
-      if (event.code === 1008) {
+      if (event.code === 1008 || event.code === 1013) {
         clearReconnectCredentials();
         sessionState.value = 'closed';
         errorMessage.value =
           errorMessage.value ||
-          'A sessão anterior não está mais disponível. Abra uma nova sessão.';
+          (event.code === 1013
+            ? 'O limite de sessões do Terminal foi atingido. Feche outra sessão e tente novamente.'
+            : 'A sessão anterior não está mais disponível. Abra uma nova sessão.');
+        return;
+      }
+
+      if (!connectionReady && !reconnect) {
+        sessionState.value = 'closed';
+        errorMessage.value =
+          errorMessage.value || 'Não foi possível abrir a sessão do Terminal.';
         return;
       }
 
