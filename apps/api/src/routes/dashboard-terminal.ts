@@ -9,6 +9,8 @@ interface DashboardTerminalRouteOptions {
 
 interface ConnectQuery {
   confirmationToken?: string;
+  sessionId?: string;
+  reconnectToken?: string;
 }
 
 const connectQuerySchema = {
@@ -16,6 +18,8 @@ const connectQuerySchema = {
   additionalProperties: false,
   properties: {
     confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+    sessionId: { type: 'string', minLength: 32, maxLength: 32 },
+    reconnectToken: { type: 'string', minLength: 64, maxLength: 64 },
   },
 } as const;
 
@@ -61,7 +65,10 @@ export const dashboardTerminalRoutes: FastifyPluginAsync<
     (socket, request) => {
       const limitedSocket = withWebSocketMessageRateLimit(socket);
       void options.dashboardTerminalService
-        .attach(request.query.confirmationToken, limitedSocket)
+        .attach(request.query.confirmationToken, limitedSocket, {
+          sessionId: request.query.sessionId,
+          reconnectToken: request.query.reconnectToken,
+        })
         .catch((error: unknown) => {
           request.log.error(
             { err: error },
