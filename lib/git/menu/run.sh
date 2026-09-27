@@ -1,62 +1,53 @@
 #!/usr/bin/env bash
 # ============================================================
-# git-menu-select — Menu principal do Git Helper
+# git-menu-select — Menu Git alinhado aos contratos atuais
 # ============================================================
 git-menu-select() {
   local -a actions=(
-    "Nova branch"
-    "Switch branch"
+    "Branches"
     "Commit"
-    "Publicar"
-    "Criar PR"
-    "Sincronizar branch"
-    "Atualizar main"
-    "Stash"
-    "Excluir branch"
-    "Desfazer alterações"
+    "Sincronizar"
+    "Pull Request"
+    "Desfazer último commit"
     "Ver alterações"
-    "Ver commits"
+    "Histórico"
     "Sair"
   )
 
   _dev_clear
   _dev_breadcrumb "Git"
   echo >&2
-  _dev_step "Selecione uma ação do Git Helper."
+  _dev_step "Selecione uma ação Git."
   echo >&2
 
+  local selected=""
   if _dev_has gum; then
     local rows="Ação;Descrição\n"
-    local IFS=';'
-    local -a descs=($(_menu_descriptions))
-    local i=0
-    for action in "${actions[@]}"; do
-      rows+="${action};${descs[$i]}\n"
-      ((i++))
-    done
-    local selected
+    rows+="Branches;Criar, trocar, publicar, rastrear ou excluir branches\n"
+    rows+="Commit;Criar commit ou amend com confirmação do domínio\n"
+    rows+="Sincronizar;Sincronizar branch atual com uma referência remota\n"
+    rows+="Pull Request;Publicar branch e criar PR pelo contrato atual\n"
+    rows+="Desfazer último commit;Executar undo fail-closed do último commit\n"
+    rows+="Ver alterações;Consultar overview e diff combinados\n"
+    rows+="Histórico;Consultar commits exclusivos da branch atual\n"
+    rows+="Sair;Voltar ao menu do projeto\n"
     selected=$(printf "%b" "$rows" | gum table \
-      --separator=";" \
-      --border="rounded" \
-      --border.foreground="#7C3AED" \
+      --separator=";" --border="rounded" --border.foreground="#7C3AED" \
       --header.foreground="#7C3AED")
-    [ -z "$selected" ] && return 1
-    local action
-    action=$(echo "$selected" | cut -d';' -f1 | xargs)
-    echo "$action"
+    [ -n "$selected" ] && selected=$(echo "$selected" | cut -d';' -f1 | xargs)
   else
-    echo "Git Helper" >&2
-    echo "==========" >&2
-    local i=1
+    echo "Git" >&2
+    local i=1 action
     for action in "${actions[@]}"; do
       echo "  $i) $action" >&2
       ((i++))
     done
-    echo >&2
-    read -r -p "Escolha uma opção: " choice
-    if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#actions[@]} ]; then
-      return 1
+    read -r -p "Escolha: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#actions[@]} )); then
+      selected="${actions[$((choice-1))]}"
     fi
-    echo "${actions[$((choice-1))]}"
   fi
+
+  [ -z "$selected" ] && return 1
+  printf '%s\n' "$selected"
 }
