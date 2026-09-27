@@ -36,8 +36,8 @@ async function sendLine(page: Page, value = ''): Promise<void> {
     '.dashboard-terminal-canvas .xterm-helper-textarea',
   );
   await input.focus();
-  if (value) await page.keyboard.type(value);
-  await page.keyboard.press('Enter');
+  if (value) await input.pressSequentially(value);
+  await input.press('Enter');
 }
 
 async function chooseProject(page: Page, projectName: string): Promise<void> {
