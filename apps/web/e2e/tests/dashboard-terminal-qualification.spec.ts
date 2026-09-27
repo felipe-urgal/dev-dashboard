@@ -15,12 +15,17 @@ async function terminalText(page: Page): Promise<string> {
     .then((value) => value ?? '');
 }
 
-async function waitForTerminalText(page: Page, expected: string): Promise<void> {
+async function waitForTerminalText(
+  page: Page,
+  expected: string,
+): Promise<void> {
   await expect.poll(() => terminalText(page)).toContain(expected);
 }
 
 async function sendLine(page: Page, value = ''): Promise<void> {
-  const input = page.locator('.dashboard-terminal-canvas .xterm-helper-textarea');
+  const input = page.locator(
+    '.dashboard-terminal-canvas .xterm-helper-textarea',
+  );
   await input.focus();
   if (value) await input.fill(value);
   await input.press('Enter');
@@ -30,14 +35,14 @@ async function chooseProject(page: Page, projectName: string): Promise<void> {
   await expect
     .poll(async () => {
       const text = await terminalText(page);
-      return text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1] ?? '';
+      return (
+        text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1] ?? ''
+      );
     })
     .not.toBe('');
 
   const text = await terminalText(page);
-  const choice = text.match(
-    new RegExp(`(\\d+)\\) [^\\n]*${projectName}`),
-  )?.[1];
+  const choice = text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1];
   if (!choice) throw new Error(`Projeto ${projectName} não apareceu no TUI.`);
   await sendLine(page, choice);
 }
@@ -140,7 +145,8 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   // Escolhe Sair no menu principal e confirma; o frontend expõe estado exited.
   const current = await terminalText(page);
   const exitChoice = current.match(/(\d+)\) Sair/)?.[1];
-  if (!exitChoice) throw new Error('Opção Sair não encontrada no menu principal.');
+  if (!exitChoice)
+    throw new Error('Opção Sair não encontrada no menu principal.');
   await sendLine(page, exitChoice);
   await waitForTerminalText(page, 'Deseja sair?');
   await sendLine(page, 's');
