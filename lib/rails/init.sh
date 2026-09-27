@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
-# RAILS — Carregador dos submódulos Rails
-# ============================================================
-# Carrega de forma segura os submódulos do Rails.
-# Se algum arquivo estiver ausente, apenas exibe um aviso,
-# mas não impede o funcionamento do restante do dashboard.
+# RAILS — Cliente Terminal dos contratos atuais
 # ============================================================
 
-# ------------------------------------------------------------
-# Função auxiliar local (evita dependência de core.sh)
-# ------------------------------------------------------------
 _rails_source() {
   local file="$1"
   if [[ -f "$file" ]]; then
@@ -20,28 +13,9 @@ _rails_source() {
   fi
 }
 
-# ------------------------------------------------------------
-# Carregamento dos submódulos
-# ------------------------------------------------------------
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/database/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/assets/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/console/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/generators/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/menu/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/server/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/sidekiq/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/webpack/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/tests/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/rake/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/bundler/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/routes/init.sh"
-_rails_source "$DEV_DASHBOARD_DIR/lib/rails/credentials/init.sh"
+declare -f _runtime_api >/dev/null 2>&1 || _rails_source "$DEV_DASHBOARD_DIR/lib/runtime/api.sh"
+_rails_source "$DEV_DASHBOARD_DIR/lib/rails/menu/run.sh"
 
-# ------------------------------------------------------------
-# Exportação das funções principais (apenas no Bash)
-# ------------------------------------------------------------
 if [[ -n "$BASH_VERSION" ]]; then
-  # Exporta apenas o ponto de entrada do menu Rails
-  # As demais funções (_dev_run_*) já são exportadas pelo init.sh principal
   export -f dev-rails-menu 2>/dev/null || true
 fi
