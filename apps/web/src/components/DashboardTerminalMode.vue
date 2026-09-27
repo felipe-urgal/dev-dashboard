@@ -20,7 +20,12 @@ import { currentTheme } from '../utils/visual-preferences';
 const props = defineProps<{ active: boolean }>();
 
 type SessionState =
-  'idle' | 'connecting' | 'connected' | 'disconnected' | 'exited' | 'closed';
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'exited'
+  | 'closed';
 
 const SESSION_STORAGE_KEY = 'dev-dashboard-terminal-session';
 const MAX_PENDING_OUTPUT_BYTES = 262_144;
@@ -62,8 +67,7 @@ function terminalTheme(): ITheme {
 
 function boundedPendingOutput(value: string): string {
   const encoder = new TextEncoder();
-  if (encoder.encode(value).byteLength <= MAX_PENDING_OUTPUT_BYTES)
-    return value;
+  if (encoder.encode(value).byteLength <= MAX_PENDING_OUTPUT_BYTES) return value;
 
   const codePoints = Array.from(value);
   let bytes = 0;
@@ -424,7 +428,11 @@ onBeforeUnmount(() => {
         Executa a interface <code>dev-tools</code> usando uma sessão isolada do
         Dev Dashboard.
       </p>
-      <button type="button" class="primary-button" @click="startSession(false)">
+      <button
+        type="button"
+        class="primary-button"
+        @click="startSession(false)"
+      >
         {{ sessionState === 'closed' ? 'Abrir nova sessão' : 'Abrir terminal' }}
       </button>
       <p
