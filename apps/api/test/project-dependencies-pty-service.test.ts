@@ -383,7 +383,6 @@ test('cancel() delega para DetachableExecutionService.cancel()', async () => {
   assert.deepEqual(fakePty.kills, ['SIGTERM']);
 });
 
-
 test('Activity/Jobs de dependências registra lifecycle sem persistir comando ou output', async () => {
   const fakePty = new FakePty();
   const events: Array<Record<string, unknown>> = [];

@@ -312,7 +312,6 @@ test('segunda mutation concorrente no mesmo ambiente falha com código comum', a
   );
 });
 
-
 test('Activity/Jobs de migration registra sucesso e contexto sem comando bruto', async () => {
   const fakePty = new FakePty();
   const events: Array<Record<string, unknown>> = [];

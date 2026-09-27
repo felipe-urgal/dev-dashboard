@@ -122,7 +122,9 @@ function createService(
       'listTasks' | 'status' | 'activity'
     >;
     activityJobReaders?: Array<{
-      activityJobs(projectId: string): import('@dev-dashboard/contracts').ActivityJob[];
+      activityJobs(
+        projectId: string,
+      ): import('@dev-dashboard/contracts').ActivityJob[];
     }>;
   } = {},
 ) {
@@ -375,7 +377,6 @@ test('falha do Agent degrada somente o domínio agent sem derrubar outros jobs',
     true,
   );
 });
-
 
 test('agrega jobs destacáveis e deduplica por identidade canônica', async () => {
   const duplicateJob = {
