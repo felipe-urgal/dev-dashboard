@@ -11,6 +11,7 @@ _actions_source() {
     return 1
   fi
 }
+_actions_source "$DEV_DASHBOARD_DIR/lib/runtime/api.sh"
 _actions_source "$DEV_DASHBOARD_DIR/lib/actions/terminal.sh"
 _actions_source "$DEV_DASHBOARD_DIR/lib/actions/browser.sh"
 _actions_source "$DEV_DASHBOARD_DIR/lib/actions/editor.sh"
