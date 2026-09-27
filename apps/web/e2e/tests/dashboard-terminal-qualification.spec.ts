@@ -32,57 +32,14 @@ async function waitForTerminalPrompt(
 }
 
 async function sendLine(page: Page, value = ''): Promise<void> {
-  const input = page.locator(
-    '.dashboard-terminal-canvas .xterm-helper-textarea',
-  );
-  await input.focus();
-
-  await input.evaluate((element, text) => {
-    const target = element as HTMLTextAreaElement;
-
-    const dispatchKey = (
-      type: 'keydown' | 'keyup',
-      key: string,
-      code: string,
-      keyCode: number,
-    ) => {
-      target.dispatchEvent(
-        new KeyboardEvent(type, {
-          key,
-          code,
-          keyCode,
-          which: keyCode,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    };
-
-    for (const character of text) {
-      const upper = character.toUpperCase();
-      const isDigit = /^[0-9]$/.test(character);
-      const isLetter = /^[A-Za-z]$/.test(character);
-      const keyCode = isDigit
-        ? character.charCodeAt(0)
-        : isLetter
-          ? upper.charCodeAt(0)
-          : character === '-'
-            ? 189
-            : 0;
-      const code = isDigit
-        ? `Digit${character}`
-        : isLetter
-          ? `Key${upper}`
-          : character === '-'
-            ? 'Minus'
-            : '';
-
-      dispatchKey('keydown', character, code, keyCode);
-      dispatchKey('keyup', character, code, keyCode);
+  await page.evaluate((line) => {
+    const socket = (
+      window as Window & { __dashboardTerminalSocket?: WebSocket }
+    ).__dashboardTerminalSocket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket do Terminal não está aberto.');
     }
-
-    dispatchKey('keydown', 'Enter', 'Enter', 13);
-    dispatchKey('keyup', 'Enter', 'Enter', 13);
+    socket.send(JSON.stringify({ type: 'input', data: `${line}\r` }));
   }, value);
 }
 
@@ -106,6 +63,21 @@ async function chooseProject(page: Page, projectName: string): Promise<void> {
 test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   test.setTimeout(60_000);
   const runtime = await readRuntimeInfo();
+
+  await page.addInitScript(() => {
+    const NativeWebSocket = window.WebSocket;
+    class DashboardE2EWebSocket extends NativeWebSocket {
+      public constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        if (String(url).includes('/api/dashboard/terminal/connect')) {
+          (
+            window as Window & { __dashboardTerminalSocket?: WebSocket }
+          ).__dashboardTerminalSocket = this;
+        }
+      }
+    }
+    window.WebSocket = DashboardE2EWebSocket;
+  });
 
   await gotoBootstrapped(page, '/');
   const projectLink = page.getByRole('link', {
