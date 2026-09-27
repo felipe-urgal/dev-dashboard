@@ -26,7 +26,6 @@ describe('modo Web / Terminal do Dev Dashboard', () => {
   });
 });
 
-
 describe('hardening da sessão terminal', () => {
   it('persiste credenciais efêmeras para recuperar a sessão após reload', () => {
     expect(terminalSource).toContain('SESSION_STORAGE_KEY');
@@ -39,7 +38,9 @@ describe('hardening da sessão terminal', () => {
     expect(terminalSource).toContain('MAX_PENDING_OUTPUT_BYTES = 262_144');
     expect(terminalSource).toContain('boundedPendingOutput');
     expect(terminalSource).toContain("sessionState.value = 'disconnected'");
-    expect(terminalSource).not.toContain("sessionState.value = 'closed';\n      disposeTerminal();");
+    expect(terminalSource).not.toContain(
+      "sessionState.value = 'closed';\n      disposeTerminal();",
+    );
   });
 
   it('debounça resize e restaura foco ao voltar para o modo Terminal', () => {
@@ -57,11 +58,15 @@ describe('hardening da sessão terminal', () => {
   it('acompanha dark/light theme sem recriar a sessão', () => {
     expect(terminalSource).toContain('watch(currentTheme');
     expect(terminalSource).toContain("currentTheme.value === 'light'");
-    expect(terminalSource).toContain('terminal.options.theme = terminalTheme()');
+    expect(terminalSource).toContain(
+      'terminal.options.theme = terminalTheme()',
+    );
   });
 
   it('fechamento explícito limpa credenciais e encerra a sessão', () => {
     expect(terminalSource).toContain('clearReconnectCredentials()');
-    expect(terminalSource).toContain("close(1000, 'Sessão encerrada pelo usuário')");
+    expect(terminalSource).toContain(
+      "close(1000, 'Sessão encerrada pelo usuário')",
+    );
   });
 });

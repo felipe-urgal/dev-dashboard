@@ -172,7 +172,6 @@ test('fechamento explícito do navegador encerra o PTY imediatamente', async () 
   }
 });
 
-
 test('desconexão transitória preserva PTY e permite reconexão na mesma sessão', async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
