@@ -25,6 +25,7 @@ _git_source() {
 # Helpers compartilhados (devem carregar antes dos submódulos)
 # ------------------------------------------------------------
 _git_source "$DEV_DASHBOARD_DIR/lib/git/helpers.sh"
+_git_source "$DEV_DASHBOARD_DIR/lib/git/api.sh"
 
 # ------------------------------------------------------------
 # Carregamento dos submódulos (ordem não é crítica)
