@@ -26,6 +26,12 @@ export function dashboardTerminalWebSocketUrl(
     { confirmationToken: string } | DashboardTerminalReconnectCredentials,
 ): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const query = new URLSearchParams(credentials).toString();
-  return `${protocol}//${window.location.host}/api/dashboard/terminal/connect?${query}`;
+  const query = new URLSearchParams();
+  if ('confirmationToken' in credentials) {
+    query.set('confirmationToken', credentials.confirmationToken);
+  } else {
+    query.set('sessionId', credentials.sessionId);
+    query.set('reconnectToken', credentials.reconnectToken);
+  }
+  return `${protocol}//${window.location.host}/api/dashboard/terminal/connect?${query.toString()}`;
 }
