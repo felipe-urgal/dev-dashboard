@@ -38,6 +38,14 @@ Comandos úteis:
     npm run local:uninstall
 
 `local:uninstall` remove apenas os artefatos gerenciados da instalação e preserva configuração, estado e checkout.
+## Terminal `dev-tools`
+
+O modo Terminal mantém apenas ações suportadas pelo Dashboard atual. No menu de projeto ficam Git, navegador, editor, terminal, status de servidores e os submenus Rails/Node enquanto eles são migrados para os contratos modernos.
+
+Abertura de editor usa `DEV_EDITOR` quando configurado e, como fallback local, tenta `subl`, `code` e `gedit`. O comando histórico `dev-sublime` permanece apenas como alias de compatibilidade para `dev-editor`.
+
+Integrações diretas antigas com Claude Code/ações de IA foram removidas do `dev-tools`; automação assistida pertence ao Agent Runtime do Dashboard.
+
 ## Segurança
 
 A API local é a fronteira de segurança. Ações estruturadas não devem aceitar shell arbitrário vindo do navegador. Operações Git, banco e produção devem manter validação e confirmação adequadas ao risco. A remoção de Worktrees também respeita ownership por Environment Instance: processos, terminais e Docker Compose owned bloqueiam a remoção até que o recurso seja encerrado explicitamente; desaparecimentos externos ficam como `cleanup-required` quando o Compose ainda não pode ser reconciliado com segurança.

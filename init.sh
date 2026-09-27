@@ -132,7 +132,7 @@ fi
 # 9. Exportação de funções principais (apenas no Bash)
 # -------------------------------------------------------------------
 if [[ -n "$BASH_VERSION" ]]; then
-    export -f dev-tools dev-doctor dev-help dev-open dev-sublime dev-terminal \
+    export -f dev-tools dev-doctor dev-help dev-open dev-editor dev-sublime dev-terminal \
            dev-status dev-status-all dev-stop dev-stop-all dev-kill-port \
            dev-servers dev-logs dev-clean dev-rails-menu dev-node-menu project-databases \
            dev-dashboard

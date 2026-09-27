@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
-# dev-sublime — Abre o projeto em um editor de código
+# dev-editor — Abre o projeto em um editor de código
 # ============================================================
-dev-sublime() {
+dev-editor() {
   local project="$1"
   local path
   path=$(project-path "$project") || path=""
@@ -50,4 +50,9 @@ dev-sublime() {
 
   _dev_ok "Editor aberto para '$project'."
   sleep 3
+}
+
+# Compatibilidade com scripts/configurações antigas. O menu usa dev-editor.
+dev-sublime() {
+  dev-editor "$@"
 }
