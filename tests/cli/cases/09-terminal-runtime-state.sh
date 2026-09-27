@@ -29,7 +29,7 @@ assert_eq "⚪" "$(_dev_runtime_status_symbol stopped)" "stopped é representado
 assert_eq "❔" "$(_dev_runtime_status_symbol unknown)" "unknown é representado"
 
 if grep -q "/api/projects" "$node_bridge" &&
-   grep -q "/api/processes?kind=server" "$node_bridge" &&
+   grep -q "/process\\`" "$node_bridge" &&
    grep -q "/process/start" "$node_bridge" &&
    grep -q "/process/stop" "$node_bridge"; then
   assert_success 0 "bridge reutiliza projetos e lifecycle canônicos"
