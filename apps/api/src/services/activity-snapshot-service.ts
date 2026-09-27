@@ -40,6 +40,9 @@ type TestHistoryReader = Pick<TestExecutionHistoryService, 'history'>;
 type ScriptHistoryReader = Pick<ScriptExecutionService, 'history'>;
 type ProcessReader = Pick<ProcessManager, 'listProcesses'>;
 type ProjectStoreView = Pick<ProjectStore, 'findProject' | 'listProjects'>;
+type ActivityJobReader = {
+  activityJobs(projectId: string): ActivityJob[];
+};
 type AgentRuntimeReader = Pick<
   AgentRuntimeApiServicePort,
   'listTasks' | 'status' | 'activity'
@@ -53,6 +56,7 @@ export interface ActivitySnapshotServiceDependencies {
   processReader: ProcessReader;
   projectStore: ProjectStoreView;
   agentRuntime?: AgentRuntimeReader;
+  activityJobReaders?: readonly ActivityJobReader[];
   now?: () => Date;
 }
 
@@ -389,11 +393,19 @@ export class ActivitySnapshotService {
       (execution) => execution.status === 'running',
     );
 
-    const jobs = [
+    const serviceJobs = (this.dependencies.activityJobReaders ?? []).flatMap(
+      (reader) => reader.activityJobs(projectId),
+    );
+    const jobsById = new Map<string, ActivityJob>();
+    for (const job of [
       ...activeProcesses.map(processJob),
       ...activeScripts.map(scriptJob),
       ...(agentJobs.value ?? []),
-    ].sort((left, right) =>
+      ...serviceJobs,
+    ]) {
+      if (!jobsById.has(job.id)) jobsById.set(job.id, job);
+    }
+    const jobs = [...jobsById.values()].sort((left, right) =>
       (right.startedAt ?? '').localeCompare(left.startedAt ?? ''),
     );
 
