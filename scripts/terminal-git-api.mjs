@@ -178,7 +178,12 @@ async function deleteRemoteBranch(project, remoteBranch) {
 
 async function commit(project, message, amend) {
   const operation = amend ? 'amend' : 'commit';
-  const token = await confirmation(project.id, operation, message);
+  const ws = await workspace(project.id);
+  const current = (ws.branches ?? []).find(
+    (item) => item.kind === 'local' && item.current,
+  );
+  const target = current?.shortName ?? 'HEAD';
+  const token = await confirmation(project.id, operation, target);
   const suffix = amend ? '/commit/amend' : '/commit';
   const payload = await request(endpoint(project.id, suffix), {
     method: 'POST',
