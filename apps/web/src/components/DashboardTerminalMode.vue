@@ -62,7 +62,8 @@ function terminalTheme(): ITheme {
 
 function boundedPendingOutput(value: string): string {
   const encoder = new TextEncoder();
-  if (encoder.encode(value).byteLength <= MAX_PENDING_OUTPUT_BYTES) return value;
+  if (encoder.encode(value).byteLength <= MAX_PENDING_OUTPUT_BYTES)
+    return value;
 
   const codePoints = Array.from(value);
   let bytes = 0;

@@ -348,7 +348,6 @@ test('resize é limitado e saída pendente é bounded durante desconexão', asyn
   }
 });
 
-
 test('limite de sessões retorna feedback e libera vaga após fechamento explícito', async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
@@ -367,10 +366,7 @@ test('limite de sessões retorna feedback e libera vaga após fechamento explíc
       sockets.push(socket);
       const confirmation = service.prepareConfirmation();
       await service.attach(confirmation.token, socket as never);
-      assert.equal(
-        (socket.sent[0] as { type: string }).type,
-        'ready',
-      );
+      assert.equal((socket.sent[0] as { type: string }).type, 'ready');
     }
 
     const rejected = new FakeSocket();
@@ -391,10 +387,7 @@ test('limite de sessões retorna feedback e libera vaga após fechamento explíc
       service.prepareConfirmation().token,
       replacement as never,
     );
-    assert.equal(
-      (replacement.sent[0] as { type: string }).type,
-      'ready',
-    );
+    assert.equal((replacement.sent[0] as { type: string }).type, 'ready');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
