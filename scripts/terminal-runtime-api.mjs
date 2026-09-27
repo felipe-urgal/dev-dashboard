@@ -74,9 +74,10 @@ async function openTerminal(project, kind) {
   );
   url.searchParams.set('confirmationToken', confirmationToken);
 
-  await new Promise(async (resolve, reject) => {
+  const localToken = await token();
+  await new Promise((resolve, reject) => {
     const socket = new WebSocket(url, {
-      headers: { 'x-dev-dashboard-token': await token() },
+      headers: { 'x-dev-dashboard-token': localToken },
     });
     let ready = false;
     const stdin = process.stdin;
@@ -288,6 +289,7 @@ async function migrationsApply(project) {
       method: 'POST',
       body: JSON.stringify({
         operation: 'apply',
+        database: plan.database,
         planHash: plan.planHash,
         environmentInstanceId: plan.environmentInstanceId,
       }),
@@ -300,6 +302,7 @@ async function migrationsApply(project) {
       method: 'POST',
       body: JSON.stringify({
         operation: 'apply',
+        database: plan.database,
         environmentInstanceId: plan.environmentInstanceId,
         confirmationToken: confirmationPayload.confirmation.token,
       }),
