@@ -124,8 +124,10 @@ export class MigrationMutationExecutionService {
     }
 
     this.confirmations.consume(plan, confirmationToken);
+    const metadata = metadataFromPlan(plan);
     const command = plan.command;
     if (!command) {
+      await this.recordActivity(metadata, 'failed');
       throw new MigrationMutationExecutionError(
         'MIGRATION_MUTATION_START_FAILED',
         'O plano confirmado não possui comando estruturado para execução.',
@@ -133,7 +135,6 @@ export class MigrationMutationExecutionService {
     }
 
     const key = executionKey(project.id, plan.environmentInstanceId);
-    const metadata = metadataFromPlan(plan);
     let snapshot: DetachableExecutionSnapshot;
     try {
       snapshot = this.detachable.start(key, {
