@@ -164,9 +164,7 @@ test('modo terminal inicia dev-tools com comando fixo na raiz do dashboard', asy
 });
 
 test('transporte real WebSocket -> node-pty -> Bash envia input e recebe output', async () => {
-  const root = await mkdtemp(
-    path.join(os.tmpdir(), 'dev-dashboard-real-pty-'),
-  );
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-real-pty-'));
   await writeFile(
     path.join(root, 'init.sh'),
     [

@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
 
-async function terminalText(page: import('@playwright/test').Page): Promise<string> {
+async function terminalText(
+  page: import('@playwright/test').Page,
+): Promise<string> {
   return page
     .locator('.dashboard-terminal-canvas .xterm-rows')
     .textContent()
