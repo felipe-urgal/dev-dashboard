@@ -6,6 +6,16 @@ _dev_start_server() {
   dev-clean --quiet
 
   local project="$1"
+
+  if _dev_dashboard_api_available; then
+    if _dev_dashboard_start "$project" >/dev/null; then
+      _dev_ok "Servidor $project iniciado pelo Process Manager."
+      return 0
+    fi
+    _dev_err "Não foi possível iniciar $project pelo Process Manager."
+    return 1
+  fi
+
   local cmd_base="$2"
   local pre_hook_func="$3"
   local type="$4"
