@@ -109,6 +109,51 @@ async function deleteBranch(project, name) {
   process.stdout.write(`Branch removida: ${payload.branch.branch}\n`);
 }
 
+async function publishBranch(project, name) {
+  const prepared = await request(endpoint(project.id, '/branches/publish/confirmations'), {
+    method: 'POST',
+    body: JSON.stringify({ branch: name }),
+  });
+  const payload = await request(endpoint(project.id, '/branches/publish'), {
+    method: 'POST',
+    body: JSON.stringify({
+      branch: name,
+      confirmationToken: prepared.confirmation.token,
+    }),
+  });
+  process.stdout.write(`Branch publicada: ${payload.branch.branch}\n`);
+}
+
+async function trackBranch(project, remoteBranch) {
+  const prepared = await request(endpoint(project.id, '/branches/track/confirmations'), {
+    method: 'POST',
+    body: JSON.stringify({ remoteBranch }),
+  });
+  const payload = await request(endpoint(project.id, '/branches/track'), {
+    method: 'POST',
+    body: JSON.stringify({
+      remoteBranch,
+      confirmationToken: prepared.confirmation.token,
+    }),
+  });
+  process.stdout.write(`Branch local: ${payload.branch.branch}\n`);
+}
+
+async function deleteRemoteBranch(project, remoteBranch) {
+  const prepared = await request(endpoint(project.id, '/branches/remote/delete/confirmations'), {
+    method: 'POST',
+    body: JSON.stringify({ remoteBranch }),
+  });
+  const payload = await request(endpoint(project.id, '/branches/remote/delete'), {
+    method: 'POST',
+    body: JSON.stringify({
+      remoteBranch,
+      confirmationToken: prepared.confirmation.token,
+    }),
+  });
+  process.stdout.write(`Branch remota removida: ${payload.branch.branch}\n`);
+}
+
 async function commit(project, message, amend) {
   const operation = amend ? 'amend' : 'commit';
   const token = await confirmation(project.id, operation, message);
@@ -250,6 +295,18 @@ async function main() {
     case 'delete-branch':
       if (!args[0]) throw new Error('Informe a branch.');
       await deleteBranch(project, args[0]);
+      return;
+    case 'publish-branch':
+      if (!args[0]) throw new Error('Informe a branch.');
+      await publishBranch(project, args[0]);
+      return;
+    case 'track-branch':
+      if (!args[0]) throw new Error('Informe origin/<branch>.');
+      await trackBranch(project, args[0]);
+      return;
+    case 'delete-remote-branch':
+      if (!args[0]) throw new Error('Informe origin/<branch>.');
+      await deleteRemoteBranch(project, args[0]);
       return;
     case 'commit':
       if (!args[0]) throw new Error('Informe a mensagem.');
