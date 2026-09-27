@@ -32,3 +32,15 @@ test('confirmação do modo terminal exige autenticação e retorna token', asyn
   assert.equal(body.confirmation.token.length, 64);
   assert.ok(body.confirmation.expiresAt);
 });
+
+
+test('rota websocket declara credenciais de reconexão bounded', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(new URL('../src/routes/dashboard-terminal.ts', import.meta.url), 'utf8'),
+  );
+
+  assert.match(source, /sessionId/);
+  assert.match(source, /reconnectToken/);
+  assert.match(source, /minLength: 32, maxLength: 32/);
+  assert.match(source, /minLength: 64, maxLength: 64/);
+});
