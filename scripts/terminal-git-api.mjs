@@ -268,9 +268,16 @@ async function createPr(project, title, baseBranch) {
 }
 
 async function undoCommit(project) {
+  const ws = await workspace(project.id);
+  const current = (ws.branches ?? []).find(
+    (item) => item.kind === 'local' && item.current,
+  );
+  const target = current?.shortName;
+  if (!target) throw new Error('Branch atual não encontrada.');
+
   const prepared = await request(endpoint(project.id, '/undo/confirmations'), {
     method: 'POST',
-    body: JSON.stringify({ operation: 'commit', target: 'HEAD' }),
+    body: JSON.stringify({ operation: 'commit', target }),
   });
   const payload = await request(endpoint(project.id, '/undo/commit'), {
     method: 'POST',
