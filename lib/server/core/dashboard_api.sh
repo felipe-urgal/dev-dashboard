@@ -15,6 +15,10 @@ _dev_dashboard_snapshot() {
   _dev_dashboard_api snapshot
 }
 
+_dev_dashboard_project_record() {
+  _dev_dashboard_api resolve "$1"
+}
+
 _dev_dashboard_start() {
   _dev_dashboard_api start "$1"
 }
