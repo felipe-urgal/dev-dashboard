@@ -26,13 +26,25 @@ _kill_port() {
 }
 
 _dev_has_any_server() {
-  local -a projects
-  readarray -t projects < <(project-list)
-  local project
-  for project in "${projects[@]}"; do
-    local port
-    port=$(project-port "$project") || continue
-    if [ -n "$port" ] && _is_port_in_use "$port"; then
+  if _dev_dashboard_api_available; then
+    local snapshot
+    snapshot=$(_dev_dashboard_snapshot 2>/dev/null) || return 1
+    local project_id project_name project_path project_type enabled port runtime_status environment_instance_id pid
+    while IFS=$'\t' read -r project_id project_name project_path project_type enabled port runtime_status environment_instance_id pid; do
+      case "$runtime_status" in
+        running|starting|stopping) return 0 ;;
+      esac
+    done <<< "$snapshot"
+    return 1
+  fi
+
+  # Fallback standalone: somente PID files criados pelo próprio dev-tools.
+  local pid_file
+  for pid_file in "$DEV_RUN_DIR"/*.pid; do
+    [ -f "$pid_file" ] || continue
+    local pid
+    pid=$(cat "$pid_file")
+    if kill -0 "$pid" 2>/dev/null; then
       return 0
     fi
   done
