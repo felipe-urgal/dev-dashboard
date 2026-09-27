@@ -4,82 +4,82 @@
 # ============================================================
 
 project-menu() {
-  local -a projects
-  local project
-  if [ ${#PROJECT_META[@]} -gt 0 ]; then
-    readarray -t projects < <(project-list)
+  local rows="Projeto;Status;Porta;Branch\n"
+  local has_running_server=false
+  local api_snapshot=""
+
+  if _dev_dashboard_api_available; then
+    api_snapshot=$(_dev_dashboard_snapshot 2>/dev/null) || api_snapshot=""
   fi
 
-  if [ ${#projects[@]} -eq 0 ]; then
+  if [ -n "$api_snapshot" ]; then
+    while IFS=$'\t' read -r project_id project_name project_path project_type enabled port runtime_status environment_instance_id pid; do
+      [ -z "$project_name" ] && continue
+
+      local branch_info
+      branch_info=$(_dev_get_branch_info "$project_path")
+
+      local symbol
+      symbol=$(_dev_runtime_status_symbol "$runtime_status")
+      rows+="$project_name;$symbol $runtime_status;${port:-};$branch_info\n"
+
+      case "$runtime_status" in
+        running|starting|stopping) has_running_server=true ;;
+      esac
+    done <<< "$api_snapshot"
+  else
+    local -a projects=()
+    local project
+
+    if [ ${#PROJECT_META[@]} -gt 0 ]; then
+      readarray -t projects < <(project-list)
+    fi
+
+    for project in "${projects[@]}"; do
+      local port path branch_info
+      port=$(project-port "$project") || port=""
+      path=$(project-path "$project") || path=""
+      branch_info=$(_dev_get_branch_info "$path")
+
+      # Sem API não existe evidência de ownership do Process Manager.
+      rows+="$project;❔ unknown;$port;$branch_info\n"
+    done
+  fi
+
+  if [ "$rows" = "Projeto;Status;Porta;Branch\n" ]; then
     if _dev_has gum; then
       printf "Ação;Descrição\nSair;Sair do dashboard\n" | gum table \
         --separator=";" --border="rounded" --border.foreground="#7C3AED" --header.foreground="#7C3AED"
     else
       echo "Nenhum projeto encontrado." >&2
-      echo "1) Sair" >&2
-      read -r -p "Escolha: " choice
       echo "Sair"
     fi
     return
   fi
 
-  local has_running_server=false
-  local rows="Projeto;Status;Porta;Branch\n"
-  for project in "${projects[@]}"; do
-    local port
-    port=$(project-port "$project") || port=""
-    local status="🔴"
-    if [ -n "$port" ] && _is_port_in_use "$port"; then
-      status="🟢"
-      has_running_server=true
-    fi
-    local path
-    path=$(project-path "$project") || path=""
-    local branch_info
-    branch_info=$(_dev_get_branch_info "$path")
-    rows+="$project;$status;$port;$branch_info\n"
-  done
-
-  if [ "$has_running_server" = true ]; then
-    rows+="Parar todos servidores;;;\n"
-  fi
+  [ "$has_running_server" = true ] && rows+="Parar todos servidores;;;\n"
   rows+="Iniciar todos servidores;;;\n"
   rows+="Sair;;;\n"
 
-  local selected
+  local selected=""
   if _dev_has gum; then
     selected=$(printf "%b" "$rows" | gum table \
       --separator=";" --border="rounded" --border.foreground="#7C3AED" \
       --header.foreground="#7C3AED" --height 15)
   else
-    echo "Projetos disponíveis:" >&2
     local -a options=()
+    local line label
     local i=1
-    for project in "${projects[@]}"; do
-      local port
-      port=$(project-port "$project") || port="?"
-      local path
-      path=$(project-path "$project") || path=""
-      local branch_info
-      branch_info=$(_dev_get_branch_info "$path")
-      local status_text="🔴"
-      if [ -n "$port" ] && _is_port_in_use "$port"; then
-        status_text="🟢"
-      fi
-      echo "  $i) $status_text $project (porta $port) $branch_info" >&2
-      options+=("$project")
+
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      [ "$line" = "Projeto;Status;Porta;Branch" ] && continue
+
+      label=$(printf "%s" "$line" | cut -d';' -f1)
+      echo "  $i) $line" >&2
+      options+=("$label")
       ((i++))
-    done
-    if [ "$has_running_server" = true ]; then
-      echo "  $i) Parar todos servidores" >&2
-      options+=("Parar todos servidores")
-      ((i++))
-    fi
-    echo "  $i) Iniciar todos servidores" >&2
-    options+=("Iniciar todos servidores")
-    ((i++))
-    echo "  $i) Sair" >&2
-    options+=("Sair")
+    done < <(printf "%b" "$rows")
 
     read -r -p "Escolha o número: " choice
     if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
@@ -90,38 +90,42 @@ project-menu() {
   fi
 
   [ -z "$selected" ] && { echo "Sair"; return; }
-
-  local action
-  action=$(echo "$selected" | cut -d';' -f1 | xargs)
-  echo "$action"
+  echo "$selected" | cut -d';' -f1 | xargs
 }
 
 dev-project-actions() {
   local project="$1"
-  local type
-  type=$(project-type "$project") || type=""
-  local rows="Ação;Descrição\n"
+  local type=""
 
+  if _dev_dashboard_api_available; then
+    local project_record=""
+    project_record=$(_dev_dashboard_project_record "$project" 2>/dev/null) || project_record=""
+    if [ -n "$project_record" ]; then
+      IFS=$'\t' read -r _project_id _project_name _project_path type _enabled _port _status _environment_instance_id _pid <<< "$project_record"
+    fi
+  fi
+
+  [ -n "$type" ] || type=$(project-type "$project") || type=""
+
+  local rows="Ação;Descrição\n"
   rows+="Git;Abrir menu Git\n"
   rows+="Abrir no navegador;Abrir http://localhost:porta\n"
   rows+="Abrir no editor;Abrir projeto no editor configurado\n"
   rows+="Terminal;Abrir terminal no diretório do projeto\n"
 
-  if declare -f _dev_has_any_server &>/dev/null; then
-    if _dev_has_any_server; then
-      rows+="Status dos servidores;Ver servidores em execução\n"
-    fi
+  if declare -f _dev_has_any_server &>/dev/null && _dev_has_any_server; then
+    rows+="Status dos servidores;Ver servidores em execução\n"
   fi
 
   if [ "$type" = "rails" ]; then
     rows+="Comandos Rails;Submenu de comandos Rails\n"
-  else
+  elif [ "$type" = "node" ]; then
     rows+="Comandos Node;Submenu de comandos Node\n"
   fi
 
   rows+="Voltar;Voltar ao menu de projetos\n"
 
-  local selected
+  local selected=""
   if _dev_has gum; then
     selected=$(printf "%b" "$rows" | gum table \
       --separator=";" --border="rounded" --border.foreground="#7C3AED" \
@@ -133,18 +137,16 @@ dev-project-actions() {
     if declare -f _dev_has_any_server &>/dev/null && _dev_has_any_server; then
       options+=("Status dos servidores")
     fi
-    if [ "$type" = "rails" ]; then
-      options+=("Comandos Rails")
-    else
-      options+=("Comandos Node")
-    fi
+    [ "$type" = "rails" ] && options+=("Comandos Rails")
+    [ "$type" = "node" ] && options+=("Comandos Node")
     options+=("Voltar")
 
-    local i=1
+    local i=1 opt
     for opt in "${options[@]}"; do
       echo "  $i) $opt" >&2
       ((i++))
     done
+
     read -r -p "Escolha: " choice
     if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
       selected="${options[$((choice-1))]}"
@@ -154,8 +156,5 @@ dev-project-actions() {
   fi
 
   [ -z "$selected" ] && { echo "Voltar"; return; }
-
-  local action
-  action=$(echo "$selected" | cut -d';' -f1 | xargs)
-  echo "$action"
+  echo "$selected" | cut -d';' -f1 | xargs
 }

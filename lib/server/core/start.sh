@@ -6,6 +6,16 @@ _dev_start_server() {
   dev-clean --quiet
 
   local project="$1"
+
+  if _dev_dashboard_api_available; then
+    if _dev_dashboard_start "$project" >/dev/null; then
+      _dev_ok "Servidor $project iniciado pelo Process Manager."
+      return 0
+    fi
+    _dev_err "Não foi possível iniciar $project pelo Process Manager."
+    return 1
+  fi
+
   local cmd_base="$2"
   local pre_hook_func="$3"
   local type="$4"
@@ -29,20 +39,9 @@ _dev_start_server() {
   _dev_ok "Porta configurada para $project: $port"
 
   if _is_port_in_use "$port"; then
-    _dev_warn "Porta $port está ocupada."
-    local kill_confirm
-    if _dev_has gum; then
-      gum confirm "" --default=false --affirmative="Sim" --negative="Não" && kill_confirm="yes"
-    else
-      read -r -p "Matar processo na porta $port? (s/N) " answer
-      [[ "$answer" =~ ^[Ss] ]] && kill_confirm="yes"
-    fi
-    if [[ "$kill_confirm" == "yes" ]]; then
-      _kill_port "$port"
-    else
-      _dev_warn "Inicialização cancelada."
-      return 1
-    fi
+    _dev_warn "Porta $port está ocupada. Sem API, a TUI não assume ownership desse processo."
+    _dev_warn "Inicialização cancelada para evitar encerrar processo externo."
+    return 1
   fi
 
   if [[ -n "$pre_hook_func" ]] && declare -f "$pre_hook_func" &>/dev/null; then

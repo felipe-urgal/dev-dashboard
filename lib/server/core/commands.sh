@@ -45,11 +45,21 @@ dev-clean() {
 
 dev-stop() {
   local project="$1"
+
+  if _dev_dashboard_api_available; then
+    if _dev_dashboard_stop "$project" >/dev/null; then
+      _dev_ok "Servidor $project encerrado pelo Process Manager."
+      return 0
+    fi
+    _dev_err "Não foi possível encerrar $project pelo Process Manager."
+    return 1
+  fi
+
+  # Fallback standalone: encerra apenas processos que o dev-tools registrou.
+  # Porta ocupada sem PID owned nunca é tratada como autoridade para kill.
   local id
   id=$(_dev_project_id "$project")
   local pid_file="$DEV_RUN_DIR/${id}.pid"
-  local port
-  port=$(project-port "$project") || port=""
 
   if [ -f "$pid_file" ]; then
     local pid
@@ -59,33 +69,14 @@ dev-stop() {
       kill -TERM "$pid" 2>/dev/null
       sleep 1
       if kill -0 "$pid" 2>/dev/null; then
-        _dev_warn "Forçando kill -9..."
+        _dev_warn "Processo owned não encerrou; enviando SIGKILL."
         kill -KILL "$pid" 2>/dev/null
       fi
-      pkill -P "$pid" 2>/dev/null
-      rm -f "$pid_file"
-      _dev_ok "Servidor encerrado."
-    else
-      _dev_warn "Processo $pid já não existe. Removendo registro."
-      rm -f "$pid_file"
+      pkill -P "$pid" 2>/dev/null || true
     fi
+    rm -f "$pid_file"
   else
-    _dev_warn "Não há registro de PID para '$project'."
-  fi
-
-  if [ -n "$port" ] && _is_port_in_use "$port"; then
-    _dev_warn "Porta $port ainda ocupada. Forçando liberação..."
-    local pids
-    pids=$(lsof -t -i :"$port" 2>/dev/null)
-    if [ -n "$pids" ]; then
-      for pid in $pids; do
-        kill -9 "$pid" 2>/dev/null
-      done
-    fi
-    command -v fuser >/dev/null && fuser -k "$port"/tcp 2>/dev/null
-    _dev_ok "Porta $port liberada."
-  elif [ -n "$port" ]; then
-    _dev_ok "Porta $port já livre."
+    _dev_warn "API indisponível e nenhum processo owned registrado para '$project'."
   fi
 
   local webpack_pid_file="$DEV_RUN_DIR/webpack-$(_dev_project_id "$project").pid"
@@ -93,24 +84,28 @@ dev-stop() {
     local wp_pid
     wp_pid=$(cat "$webpack_pid_file")
     if kill -0 "$wp_pid" 2>/dev/null; then
-      kill -TERM "$wp_pid" 2>/dev/null || kill -KILL "$wp_pid" 2>/dev/null
-      rm -f "$webpack_pid_file"
-      _dev_ok "Webpack encerrado."
-    else
-      rm -f "$webpack_pid_file"
+      kill -TERM "$wp_pid" 2>/dev/null || true
     fi
+    rm -f "$webpack_pid_file"
   fi
 }
-
 dev-stop-all() {
+  if _dev_dashboard_api_available; then
+    if _dev_dashboard_stop_all >/dev/null; then
+      _dev_ok "Todos os servidores owned foram parados pelo Process Manager."
+      return 0
+    fi
+    _dev_err "Uma ou mais paradas falharam no Process Manager."
+    return 1
+  fi
+
   local -a projects
   readarray -t projects < <(project-list)
   for p in "${projects[@]}"; do
-    _dev_ok "Parando $p..."
     dev-stop "$p"
   done
   dev-clean
-  _dev_ok "Todos os servidores foram parados."
+  _dev_ok "Fallback standalone concluído apenas para processos registrados pelo dev-tools."
 }
 
 dev-kill-port() {
@@ -126,6 +121,18 @@ dev-kill-port() {
 dev-restart() {
   local project="$1"
   [ -z "$project" ] && { _dev_err "Informe o projeto: dev-restart <projeto>"; return 1; }
+
+  if _dev_dashboard_api_available; then
+    _dev_ok "Reiniciando $project pelo Process Manager..."
+    dev-stop "$project" || return 1
+    sleep 1
+    _dev_dashboard_start "$project" >/dev/null || {
+      _dev_err "Não foi possível reiniciar '$project' pelo Process Manager."
+      return 1
+    }
+    _dev_ok "Servidor $project reiniciado."
+    return 0
+  fi
 
   local type
   type=$(project-type "$project") || {
@@ -168,6 +175,15 @@ dev-restart() {
 # Inicia todos os servidores que estão parados (Rails e Node)
 # ------------------------------------------------------------
 dev-start-all() {
+  if _dev_dashboard_api_available; then
+    if _dev_dashboard_start_all >/dev/null; then
+      _dev_ok "Servidores iniciados pelo Process Manager."
+      return 0
+    fi
+    _dev_err "Uma ou mais inicializações falharam no Process Manager."
+    return 1
+  fi
+
   local -a projects
   readarray -t projects < <(project-list)
 
