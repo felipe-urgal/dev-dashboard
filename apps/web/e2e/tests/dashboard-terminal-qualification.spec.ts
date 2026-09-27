@@ -44,6 +44,7 @@ async function chooseProject(page: Page, projectName: string): Promise<void> {
   const text = await terminalText(page);
   const choice = text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1];
   if (!choice) throw new Error(`Projeto ${projectName} não apareceu no TUI.`);
+  await waitForTerminalText(page, 'Escolha o número:');
   await sendLine(page, choice);
 }
 
@@ -68,10 +69,12 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
 
   await chooseProject(page, 'sample-node-app');
   await waitForTerminalText(page, 'Ações para sample-node-app');
+  await waitForTerminalText(page, 'Escolha:');
 
   // Read-only real: Git -> Histórico.
   await sendLine(page, '1');
   await waitForTerminalText(page, 'Selecione uma ação Git.');
+  await waitForTerminalText(page, 'Escolha:');
   await sendLine(page, '7');
   await waitForTerminalText(page, 'Branch: main');
   await waitForTerminalText(page, 'Pressione Enter para continuar');
@@ -79,10 +82,13 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
 
   // Mutation real com confirmação: Git -> Branches -> Criar branch local.
   await waitForTerminalText(page, 'Selecione uma ação Git.');
+  await waitForTerminalText(page, 'Escolha:');
   await sendLine(page, '1');
   await waitForTerminalText(page, 'Branches');
+  await waitForTerminalText(page, 'Escolha:');
   await sendLine(page, '2');
   await waitForTerminalText(page, 'Prefixo');
+  await waitForTerminalText(page, 'Escolha:');
   await sendLine(page, '1');
   await waitForTerminalText(page, 'Nome da branch');
   await sendLine(page, 'e2e-terminal');
@@ -96,6 +102,7 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
   await sendLine(page);
   await waitForTerminalText(page, 'Branches');
+  await waitForTerminalText(page, 'Escolha:');
 
   const projectDirectory = `${runtime.workspaceDirectory}/sample-node-app`;
   const { stdout } = await execFileAsync('git', [
@@ -131,8 +138,10 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   // Sai dos submenus e encerra/reabre o dev-tools no mesmo modo Terminal.
   await sendLine(page, '8');
   await waitForTerminalText(page, 'Selecione uma ação Git.');
+  await waitForTerminalText(page, 'Escolha:');
   await sendLine(page, '8');
   await waitForTerminalText(page, 'Ações para sample-node-app');
+  await waitForTerminalText(page, 'Escolha:');
   await sendLine(page, '6');
   await waitForTerminalText(page, 'sample-node-app');
 
