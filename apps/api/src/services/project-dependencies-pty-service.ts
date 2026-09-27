@@ -354,7 +354,7 @@ export class ProjectDependenciesPtyService {
         projectId: action.projectId,
         environmentInstanceId: action.environmentInstanceId,
         domain: 'script',
-        type: `dependencies.${action.id}`,
+        type: 'dependencies.execute',
         status,
         summary: `Dependências/Build: ${action.name}`,
         resourceRef: {
