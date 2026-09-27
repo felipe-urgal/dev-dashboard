@@ -58,15 +58,19 @@ class FakeSocket extends EventEmitter {
     this.sent.push(JSON.parse(value));
   }
 
-  public close(code?: number): void {
+  public close(code?: number, reason?: string): void {
     if (this.readyState === 3) return;
     this.closeCode = code;
     this.readyState = 3;
-    this.emit('close');
+    this.emit('close', code ?? 1000, Buffer.from(reason ?? ''));
   }
 
   public clientMessage(message: unknown): void {
     this.emit('message', Buffer.from(JSON.stringify(message)), false);
+  }
+
+  public clientRaw(value: string, isBinary = false): void {
+    this.emit('message', Buffer.from(value), isBinary);
   }
 }
 
@@ -144,7 +148,7 @@ test('confirmação é obrigatória, de uso único e expira', async () => {
   assert.equal(expiredSocket.closeCode, 1008);
 });
 
-test('desconectar o navegador encerra o PTY', async () => {
+test('fechamento explícito do navegador encerra o PTY imediatamente', async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
   );
@@ -160,9 +164,175 @@ test('desconectar o navegador encerra o PTY', async () => {
     const socket = new FakeSocket();
 
     await service.attach(confirmation.token, socket as never);
-    socket.close();
+    socket.close(1000, 'Sessão encerrada pelo usuário');
 
     assert.equal(fakePty.killed, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test('desconexão transitória preserva PTY e permite reconexão na mesma sessão', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
+  );
+  await writeFile(path.join(root, 'init.sh'), '# test\n');
+
+  try {
+    const fakePty = new FakePty();
+    const service = new DashboardTerminalService({
+      dashboardRoot: root,
+      reconnectGraceMs: 100,
+      spawnPty: () => fakePty as never,
+    });
+    const confirmation = service.prepareConfirmation();
+    const firstSocket = new FakeSocket();
+
+    await service.attach(confirmation.token, firstSocket as never);
+    const ready = firstSocket.sent[0] as {
+      sessionId: string;
+      reconnectToken: string;
+    };
+
+    firstSocket.close(1006, 'network lost');
+    assert.equal(fakePty.killed, false);
+
+    fakePty.emitData('durante a queda');
+    const secondSocket = new FakeSocket();
+    await service.attach(undefined, secondSocket as never, {
+      sessionId: ready.sessionId,
+      reconnectToken: ready.reconnectToken,
+    });
+
+    assert.equal(fakePty.killed, false);
+    assert.equal(
+      (secondSocket.sent[0] as { type: string; reconnected: boolean }).type,
+      'ready',
+    );
+    assert.equal(
+      (secondSocket.sent[0] as { reconnected: boolean }).reconnected,
+      true,
+    );
+    assert.deepEqual(secondSocket.sent[1], {
+      type: 'output',
+      data: 'durante a queda',
+    });
+
+    secondSocket.clientMessage({ type: 'input', data: 'x' });
+    assert.deepEqual(fakePty.writes, ['x']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('PTY desconectado é encerrado após a janela de reconexão', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
+  );
+  await writeFile(path.join(root, 'init.sh'), '# test\n');
+
+  try {
+    const fakePty = new FakePty();
+    const service = new DashboardTerminalService({
+      dashboardRoot: root,
+      reconnectGraceMs: 5,
+      spawnPty: () => fakePty as never,
+    });
+    const confirmation = service.prepareConfirmation();
+    const socket = new FakeSocket();
+
+    await service.attach(confirmation.token, socket as never);
+    socket.close(1006, 'network lost');
+    assert.equal(fakePty.killed, false);
+
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    assert.equal(fakePty.killed, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('reconexão inválida falha fechado sem criar novo PTY', async () => {
+  const service = new DashboardTerminalService({
+    dashboardRoot: '/tmp/does-not-matter',
+  });
+  const socket = new FakeSocket();
+
+  await service.attach(undefined, socket as never, {
+    sessionId: 'a'.repeat(32),
+    reconnectToken: 'b'.repeat(64),
+  });
+
+  assert.equal(socket.closeCode, 1008);
+  assert.equal((socket.sent[0] as { type: string }).type, 'error');
+});
+
+test('mensagem binária, JSON inválido e tipo desconhecido são rejeitados', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
+  );
+  await writeFile(path.join(root, 'init.sh'), '# test\n');
+
+  try {
+    for (const sendInvalid of [
+      (socket: FakeSocket) => socket.clientRaw('{}', true),
+      (socket: FakeSocket) => socket.clientRaw('{'),
+      (socket: FakeSocket) => socket.clientMessage({ type: 'unknown' }),
+    ]) {
+      const fakePty = new FakePty();
+      const service = new DashboardTerminalService({
+        dashboardRoot: root,
+        reconnectGraceMs: 0,
+        spawnPty: () => fakePty as never,
+      });
+      const confirmation = service.prepareConfirmation();
+      const socket = new FakeSocket();
+      await service.attach(confirmation.token, socket as never);
+
+      sendInvalid(socket);
+      assert.ok([1003, 1007].includes(socket.closeCode ?? 0));
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('resize é limitado e saída pendente é bounded durante desconexão', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
+  );
+  await writeFile(path.join(root, 'init.sh'), '# test\n');
+
+  try {
+    const fakePty = new FakePty();
+    const service = new DashboardTerminalService({
+      dashboardRoot: root,
+      reconnectGraceMs: 100,
+      spawnPty: () => fakePty as never,
+    });
+    const confirmation = service.prepareConfirmation();
+    const firstSocket = new FakeSocket();
+    await service.attach(confirmation.token, firstSocket as never);
+    const ready = firstSocket.sent[0] as {
+      sessionId: string;
+      reconnectToken: string;
+    };
+
+    firstSocket.clientMessage({ type: 'resize', cols: 9999, rows: -5 });
+    assert.deepEqual(fakePty.resizes, [{ cols: 500, rows: 1 }]);
+
+    firstSocket.close(1006, 'network lost');
+    fakePty.emitData('x'.repeat(300_000));
+
+    const secondSocket = new FakeSocket();
+    await service.attach(undefined, secondSocket as never, {
+      sessionId: ready.sessionId,
+      reconnectToken: ready.reconnectToken,
+    });
+    const output = secondSocket.sent[1] as { type: string; data: string };
+    assert.equal(output.type, 'output');
+    assert.ok(Buffer.byteLength(output.data, 'utf8') <= 262_144);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
