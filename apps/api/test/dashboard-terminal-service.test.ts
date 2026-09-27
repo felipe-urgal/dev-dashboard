@@ -167,13 +167,9 @@ test('transporte real WebSocket -> node-pty -> Bash recebe output', async () => 
   const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-real-pty-'));
   await writeFile(
     path.join(root, 'init.sh'),
-    [
-      'dev-tools() {',
-      '  printf "PTY_READY\\n"',
-      '  sleep 5',
-      '}',
-      '',
-    ].join('\\n'),
+    ['dev-tools() {', '  printf "PTY_READY\\n"', '  sleep 5', '}', ''].join(
+      '\\n',
+    ),
   );
 
   const service = new DashboardTerminalService({
