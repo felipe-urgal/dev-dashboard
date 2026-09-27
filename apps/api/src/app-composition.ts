@@ -304,6 +304,7 @@ export function createAppComposition(
         migrationMutationPlanningService,
         migrationMutationConfirmationService,
         context.detachableExecutionService,
+        context.activityEventRepository,
       )
     : undefined;
   const securityScanSnapshotStore =
@@ -388,6 +389,12 @@ export function createAppComposition(
     processReader: context.processManager,
     projectStore: context.projectStore,
     agentRuntime: agentRuntimeApiService,
+    activityJobReaders: [
+      context.projectDependenciesPtyService,
+      ...(migrationMutationExecutionService
+        ? [migrationMutationExecutionService]
+        : []),
+    ],
     ...(options.now ? { now: () => new Date(options.now!()) } : {}),
   });
 
