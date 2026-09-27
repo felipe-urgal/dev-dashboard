@@ -45,7 +45,7 @@ dev-dashboard() {
       [ -z "$action" ] || [ "$action" = "Voltar" ] && break
       dev-run-command "$project" "$action"
       case "$action" in
-        "Terminal"|"Git"|"Assistente IA"|"Code Review (IA)"|"QA (IA)"|"Segurança (IA)"|"Simplificar (IA)"|"Comandos Rails"|"Comandos Node")
+        "Terminal"|"Git"|"Comandos Rails"|"Comandos Node")
           ;;
         *)
           _dev_pause
