@@ -267,6 +267,7 @@ export async function startFixtureServer(): Promise<RunningServer> {
         DEV_DASHBOARD_WEB_DIST: webDist,
         DEV_DASHBOARD_BROWSER_BOOTSTRAP: bootstrapToken,
         DEV_DASHBOARD_API_PORT: String(API_PORT),
+        DEV_DASHBOARD_DISABLE_GUM: '1',
         LOG_LEVEL: 'silent',
       },
       stdio: 'inherit',

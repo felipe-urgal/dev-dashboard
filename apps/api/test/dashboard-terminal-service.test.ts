@@ -74,6 +74,28 @@ class FakeSocket extends EventEmitter {
   }
 }
 
+async function waitForOutput(
+  socket: FakeSocket,
+  expected: string,
+): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const output = socket.sent
+      .filter(
+        (message): message is { type: string; data: string } =>
+          typeof message === 'object' &&
+          message !== null &&
+          (message as { type?: unknown }).type === 'output' &&
+          typeof (message as { data?: unknown }).data === 'string',
+      )
+      .map((message) => message.data)
+      .join('');
+    if (output.includes(expected)) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(`output esperado não recebido: ${expected}`);
+}
+
 test('modo terminal inicia dev-tools com comando fixo na raiz do dashboard', async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
@@ -137,6 +159,31 @@ test('modo terminal inicia dev-tools com comando fixo na raiz do dashboard', asy
     fakePty.emitExit(0);
     assert.deepEqual(socket.sent.at(-1), { type: 'exit', code: 0 });
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('transporte real WebSocket -> node-pty -> Bash recebe output', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-real-pty-'));
+  await writeFile(
+    path.join(root, 'init.sh'),
+    ['dev-tools() {', '  printf "PTY_READY\\n"', '  sleep 5', '}', ''].join(
+      '\\n',
+    ),
+  );
+
+  const service = new DashboardTerminalService({
+    dashboardRoot: root,
+    reconnectGraceMs: 0,
+  });
+  const socket = new FakeSocket();
+
+  try {
+    await service.attach(service.prepareConfirmation().token, socket as never);
+    await waitForOutput(socket, 'PTY_READY');
+  } finally {
+    socket.close(1000, 'Sessão encerrada pelo usuário');
+    service.close();
     await rm(root, { recursive: true, force: true });
   }
 });
