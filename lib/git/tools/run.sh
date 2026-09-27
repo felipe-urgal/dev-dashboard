@@ -119,6 +119,14 @@ _git_sync_menu() {
   current=$(_git_current_branch "$project")
   [ -z "$current" ] && { _dev_err "Branch atual não encontrada."; _dev_pause; return 1; }
 
+  if [ "$current" = "main" ]; then
+    if _git_api_confirm "Sincronizar a main pelo fluxo canônico do Dashboard?"; then
+      _git_api sync-main "$project"
+      _dev_pause
+    fi
+    return 0
+  fi
+
   local reference="origin/$current"
   local strategy
   strategy=$(_git_api_choose "Estratégia" "ff-only" "rebase" "merge") || return 0
