@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { WebSocket } from 'ws';
 
 const apiPort = process.env.DEV_DASHBOARD_API_PORT?.trim() || '4343';
 const httpOrigin =
@@ -70,13 +71,9 @@ async function openTerminal(project, kind) {
   );
   url.searchParams.set('confirmationToken', confirmationToken);
 
-  if (typeof WebSocket !== 'function') {
-    throw new Error('Este Node.js não oferece cliente WebSocket nativo.');
-  }
-
-  await new Promise((resolve, reject) => {
+  await new Promise(async (resolve, reject) => {
     const socket = new WebSocket(url, {
-      headers: { 'x-dev-dashboard-token': process.env.DEV_DASHBOARD_API_TOKEN ?? '' },
+      headers: { 'x-dev-dashboard-token': await token() },
     });
     let ready = false;
     const stdin = process.stdin;
@@ -315,10 +312,14 @@ async function worker(project, workerId, action) {
   const payload = await request(projectEndpoint(project.id, suffix), {
     ...(action ? { method: 'POST', body: '{}' } : {}),
   });
-  const item = payload.worker ?? payload.process;
-  process.stdout.write(
-    `${item?.status ?? 'unknown'}${item?.supported !== undefined ? `\tsupported=${item.supported}` : ''}\n`,
-  );
+  if (payload.worker) {
+    const managed = payload.worker.process;
+    process.stdout.write(
+      `${managed?.status ?? 'stopped'}\tdetected=${payload.worker.detected}\n`,
+    );
+    return;
+  }
+  process.stdout.write(`${payload.process?.status ?? 'unknown'}\n`);
 }
 
 async function main() {
