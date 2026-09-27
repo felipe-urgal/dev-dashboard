@@ -1,4 +1,5 @@
-import type { Project } from '@dev-dashboard/contracts';
+import type { ActivityJob, Project } from '@dev-dashboard/contracts';
+import type { AppendActivityEventInput } from '@dev-dashboard/core';
 
 import {
   DetachableExecutionError,
@@ -45,12 +46,18 @@ export interface MigrationMutationAttachHandle {
 }
 
 interface ExecutionMetadata {
+  projectId: string;
   provider: string;
   operation: MigrationMutationOperation;
   database: string;
   environmentInstanceId: string;
   planHash: string;
+  cancelled: boolean;
 }
+
+type ActivityEventWriter = {
+  append(input: AppendActivityEventInput): Promise<unknown>;
+};
 
 type Planner = Pick<
   MigrationMutationPlanningService,
@@ -68,11 +75,13 @@ function executionKey(
 
 function metadataFromPlan(plan: MigrationMutationPlan): ExecutionMetadata {
   return {
+    projectId: plan.projectId,
     provider: plan.provider,
     operation: plan.operation,
     database: plan.database,
     environmentInstanceId: plan.environmentInstanceId,
     planHash: plan.planHash,
+    cancelled: false,
   };
 }
 
@@ -93,6 +102,7 @@ export class MigrationMutationExecutionService {
     private readonly planner: Planner,
     private readonly confirmations: Confirmations,
     private readonly detachable: DetachableExecutionService,
+    private readonly activityEvents?: ActivityEventWriter,
   ) {}
 
   public async start(
@@ -144,6 +154,8 @@ export class MigrationMutationExecutionService {
 
     const metadata = metadataFromPlan(plan);
     this.metadata.set(key, metadata);
+    await this.recordActivity(metadata, 'started');
+    this.observeCompletion(key, metadata);
     return withMetadata(snapshot, metadata);
   }
 
@@ -202,6 +214,72 @@ export class MigrationMutationExecutionService {
   }
 
   public cancel(projectId: string, environmentInstanceId: string): void {
-    this.detachable.cancel(executionKey(projectId, environmentInstanceId));
+    const key = executionKey(projectId, environmentInstanceId);
+    const metadata = this.metadata.get(key);
+    if (metadata && !metadata.cancelled) {
+      metadata.cancelled = true;
+      void this.recordActivity(metadata, 'cancelled');
+    }
+    this.detachable.cancel(key);
+  }
+
+  public activityJobs(projectId: string): ActivityJob[] {
+    const jobs: ActivityJob[] = [];
+    for (const [key, metadata] of this.metadata) {
+      if (metadata.projectId !== projectId) continue;
+      const snapshot = this.detachable.snapshotOf(key);
+      if (!snapshot || snapshot.status !== 'running') continue;
+      jobs.push({
+        id: `migration:${key}`,
+        projectId,
+        environmentInstanceId: metadata.environmentInstanceId,
+        domain: 'database',
+        action: `Migration ${metadata.operation}`,
+        status: 'running',
+        startedAt: snapshot.startedAt,
+        resourceRef: { kind: 'migration-mutation', id: key },
+        cancelSupported: true,
+      });
+    }
+    return jobs;
+  }
+
+  private observeCompletion(key: string, metadata: ExecutionMetadata): void {
+    this.detachable.attach(
+      key,
+      () => undefined,
+      (snapshot) => {
+        if (!metadata.cancelled) {
+          void this.recordActivity(
+            metadata,
+            snapshot.exitCode === 0 ? 'succeeded' : 'failed',
+          );
+        }
+      },
+    );
+  }
+
+  private async recordActivity(
+    metadata: ExecutionMetadata,
+    status: 'started' | 'succeeded' | 'failed' | 'cancelled',
+  ): Promise<void> {
+    if (!this.activityEvents) return;
+    try {
+      await this.activityEvents.append({
+        projectId: metadata.projectId,
+        environmentInstanceId: metadata.environmentInstanceId,
+        domain: 'database',
+        type: `migration.${metadata.operation}`,
+        status,
+        summary: `Migration: ${metadata.operation} (${metadata.database})`,
+        resourceRef: {
+          kind: 'migration-mutation',
+          id: `${metadata.projectId}:${metadata.environmentInstanceId}:migration-mutation`,
+        },
+        jobId: `migration:${metadata.projectId}:${metadata.environmentInstanceId}`,
+      });
+    } catch {
+      // Observabilidade não pode falhar a mutation confirmada.
+    }
   }
 }
