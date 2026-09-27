@@ -23,8 +23,7 @@ export function prepareDashboardTerminalConfirmation(): Promise<DashboardTermina
 
 export function dashboardTerminalWebSocketUrl(
   credentials:
-    | { confirmationToken: string }
-    | DashboardTerminalReconnectCredentials,
+    { confirmationToken: string } | DashboardTerminalReconnectCredentials,
 ): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const query = new URLSearchParams(credentials).toString();

@@ -118,7 +118,11 @@ export class DashboardTerminalService {
     reconnect?: { sessionId?: string; reconnectToken?: string },
   ): Promise<void> {
     if (reconnect?.sessionId || reconnect?.reconnectToken) {
-      this.attachExisting(socket, reconnect.sessionId, reconnect.reconnectToken);
+      this.attachExisting(
+        socket,
+        reconnect.sessionId,
+        reconnect.reconnectToken,
+      );
       return;
     }
 
@@ -296,7 +300,10 @@ export class DashboardTerminalService {
     });
   }
 
-  private bindSocket(session: DashboardTerminalSession, socket: WebSocket): void {
+  private bindSocket(
+    session: DashboardTerminalSession,
+    socket: WebSocket,
+  ): void {
     socket.on('message', (data: RawData, isBinary: boolean) =>
       this.handleClientMessage(session, socket, data, isBinary),
     );
