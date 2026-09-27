@@ -218,10 +218,7 @@ export class DashboardTerminalService {
 
     child.onData((data) => {
       const currentSocket = session.socket;
-      if (
-        currentSocket &&
-        currentSocket.readyState === currentSocket.OPEN
-      ) {
+      if (currentSocket && currentSocket.readyState === currentSocket.OPEN) {
         sendJson(currentSocket, { type: 'output', data });
         return;
       }
@@ -237,10 +234,7 @@ export class DashboardTerminalService {
         sendJson(currentSocket, { type: 'exit', code: exitCode ?? null });
       }
       this.sessions.delete(id);
-      if (
-        currentSocket &&
-        currentSocket.readyState === currentSocket.OPEN
-      ) {
+      if (currentSocket && currentSocket.readyState === currentSocket.OPEN) {
         currentSocket.close(1000, 'Modo terminal encerrado');
       }
     });
