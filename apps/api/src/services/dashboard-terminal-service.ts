@@ -28,8 +28,8 @@ interface DashboardTerminalSession {
   id: string;
   reconnectToken: string;
   proc: IPty;
-  socket?: WebSocket;
-  reconnectTimer?: ReturnType<typeof setTimeout>;
+  socket: WebSocket | undefined;
+  reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   pendingOutput: string;
 }
 
@@ -212,6 +212,7 @@ export class DashboardTerminalService {
       reconnectToken: randomBytes(32).toString('hex'),
       proc: child,
       socket,
+      reconnectTimer: undefined,
       pendingOutput: '',
     };
     this.sessions.set(id, session);
