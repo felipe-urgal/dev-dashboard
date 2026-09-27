@@ -53,8 +53,24 @@ project-menu() {
   if _dev_has gum; then
     selected=$(printf "%b" "$rows" | gum table --separator=";" --border="rounded" --border.foreground="#7C3AED" --header.foreground="#7C3AED" --height 15)
   else
-    printf "%b" "$rows" >&2
-    read -r -p "Projeto ou ação: " selected
+    local -a options=()
+    local line
+    local i=1
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      [ "$line" = "Projeto;Status;Porta;Branch" ] && continue
+      local label
+      label=$(printf "%s" "$line" | cut -d';' -f1)
+      echo "  $i) $line" >&2
+      options+=("$label")
+      ((i++))
+    done < <(printf "%b" "$rows")
+    read -r -p "Escolha o número: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
+      selected="${options[$((choice-1))]}"
+    else
+      selected="Sair"
+    fi
   fi
 
   [ -z "$selected" ] && { echo "Sair"; return; }
@@ -62,8 +78,73 @@ project-menu() {
 }
 dev-project-actions() {
   local project="$1"
-  local type
-  type=$(project-type "$project") || type=""
+  local type=""
+  if _dev_dashboard_api_available; then
+    local project_record
+    project_record=$(_dev_dashboard_project_record "$project" 2>/dev/null) || project_record=""
+    if [ -n "$project_record" ]; then
+      IFS=  local rows="Ação;Descrição\n"
+
+  rows+="Git;Abrir menu Git\n"
+  rows+="Abrir no navegador;Abrir http://localhost:porta\n"
+  rows+="Abrir no editor;Abrir projeto no editor configurado\n"
+  rows+="Terminal;Abrir terminal no diretório do projeto\n"
+
+  if declare -f _dev_has_any_server &>/dev/null; then
+    if _dev_has_any_server; then
+      rows+="Status dos servidores;Ver servidores em execução\n"
+    fi
+  fi
+
+  if [ "$type" = "rails" ]; then
+    rows+="Comandos Rails;Submenu de comandos Rails\n"
+  else
+    rows+="Comandos Node;Submenu de comandos Node\n"
+  fi
+
+  rows+="Voltar;Voltar ao menu de projetos\n"
+
+  local selected
+  if _dev_has gum; then
+    selected=$(printf "%b" "$rows" | gum table \
+      --separator=";" --border="rounded" --border.foreground="#7C3AED" \
+      --header.foreground="#7C3AED" --height 15)
+  else
+    echo "Ações para $project:" >&2
+    local -a options=("Git" "Abrir no navegador" "Abrir no editor" "Terminal")
+
+    if declare -f _dev_has_any_server &>/dev/null && _dev_has_any_server; then
+      options+=("Status dos servidores")
+    fi
+    if [ "$type" = "rails" ]; then
+      options+=("Comandos Rails")
+    else
+      options+=("Comandos Node")
+    fi
+    options+=("Voltar")
+
+    local i=1
+    for opt in "${options[@]}"; do
+      echo "  $i) $opt" >&2
+      ((i++))
+    done
+    read -r -p "Escolha: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
+      selected="${options[$((choice-1))]}"
+    else
+      selected="Voltar"
+    fi
+  fi
+
+  [ -z "$selected" ] && { echo "Voltar"; return; }
+
+  local action
+  action=$(echo "$selected" | cut -d';' -f1 | xargs)
+  echo "$action"
+}\t' read -r _project_id _project_name _project_path type _enabled _port _status _environment_instance_id _pid <<< "$project_record"
+    fi
+  fi
+  [ -n "$type" ] || type=$(project-type "$project") || type=""
   local rows="Ação;Descrição\n"
 
   rows+="Git;Abrir menu Git\n"
