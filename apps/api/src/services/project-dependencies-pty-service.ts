@@ -1,8 +1,10 @@
 import type {
+  ActivityJob,
   ExecutionContext,
   Project,
   ProjectScript,
 } from '@dev-dashboard/contracts';
+import type { AppendActivityEventInput } from '@dev-dashboard/core';
 import type { WebSocket } from 'ws';
 
 import { isolateProjectExecutionEnvironment } from '../security/project-execution-environment.js';
@@ -117,15 +119,25 @@ function isDependenciesAction(action: ProjectScript): boolean {
  * confirmação por token e histórico persistido) — mesma decisão tomada para
  * Migration: sem preservar o código antigo como referência.
  */
+type ActivityEventWriter = {
+  append(input: AppendActivityEventInput): Promise<unknown>;
+};
+
+interface RunningDependencyAction {
+  id: string;
+  name: string;
+  projectId: string;
+  environmentInstanceId: string;
+  cancelled: boolean;
+}
+
 export class ProjectDependenciesPtyService {
-  private readonly runningAction = new Map<
-    string,
-    { id: string; name: string }
-  >();
+  private readonly runningAction = new Map<string, RunningDependencyAction>();
 
   public constructor(
     private readonly detachable: DetachableExecutionService,
     private readonly scriptDetectionService: ScriptDetectionService,
+    private readonly activityEvents?: ActivityEventWriter,
   ) {}
 
   public snapshot(
@@ -191,10 +203,16 @@ export class ProjectDependenciesPtyService {
             ? isolateProjectExecutionEnvironment(scopedProject, resolved.env)
             : {},
       });
-      this.runningAction.set(key, {
+      const running: RunningDependencyAction = {
         id: action.id,
         name: action.name,
-      });
+        projectId: project.id,
+        environmentInstanceId: executionContext.environmentInstanceId,
+        cancelled: false,
+      };
+      this.runningAction.set(key, running);
+      await this.recordActivity(running, 'started');
+      this.observeCompletion(key, running);
       return { ...snapshot, actionId: action.id, actionName: action.name };
     } catch (error) {
       if (
@@ -260,8 +278,75 @@ export class ProjectDependenciesPtyService {
   }
 
   public cancel(project: Project, executionContext: ExecutionContext): void {
-    this.detachable.cancel(
-      executionKey(project.id, executionContext.environmentInstanceId),
+    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const action = this.runningAction.get(key);
+    if (action && !action.cancelled) {
+      action.cancelled = true;
+      void this.recordActivity(action, 'cancelled');
+    }
+    this.detachable.cancel(key);
+  }
+
+  public activityJobs(projectId: string): ActivityJob[] {
+    const jobs: ActivityJob[] = [];
+    for (const [key, action] of this.runningAction) {
+      if (action.projectId !== projectId) continue;
+      const snapshot = this.detachable.snapshotOf(key);
+      if (!snapshot || snapshot.status !== 'running') continue;
+      jobs.push({
+        id: `dependencies:${key}`,
+        projectId,
+        environmentInstanceId: action.environmentInstanceId,
+        domain: 'script',
+        action: action.name,
+        status: 'running',
+        startedAt: snapshot.startedAt,
+        resourceRef: { kind: 'dependencies-execution', id: key },
+        cancelSupported: true,
+      });
+    }
+    return jobs;
+  }
+
+  private observeCompletion(
+    key: string,
+    action: RunningDependencyAction,
+  ): void {
+    this.detachable.attach(
+      key,
+      () => undefined,
+      (snapshot) => {
+        if (!action.cancelled) {
+          void this.recordActivity(
+            action,
+            snapshot.exitCode === 0 ? 'succeeded' : 'failed',
+          );
+        }
+      },
     );
+  }
+
+  private async recordActivity(
+    action: RunningDependencyAction,
+    status: 'started' | 'succeeded' | 'failed' | 'cancelled',
+  ): Promise<void> {
+    if (!this.activityEvents) return;
+    try {
+      await this.activityEvents.append({
+        projectId: action.projectId,
+        environmentInstanceId: action.environmentInstanceId,
+        domain: 'script',
+        type: `dependencies.${action.id}`,
+        status,
+        summary: `Dependências/Build: ${action.name}`,
+        resourceRef: {
+          kind: 'dependencies-execution',
+          id: `${action.projectId}:${action.environmentInstanceId}:dependencies-pty`,
+        },
+        jobId: `dependencies:${action.projectId}:${action.environmentInstanceId}`,
+      });
+    } catch {
+      // Observabilidade nunca deve alterar o resultado da operação principal.
+    }
   }
 }
