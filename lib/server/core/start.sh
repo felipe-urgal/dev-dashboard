@@ -39,20 +39,9 @@ _dev_start_server() {
   _dev_ok "Porta configurada para $project: $port"
 
   if _is_port_in_use "$port"; then
-    _dev_warn "Porta $port está ocupada."
-    local kill_confirm
-    if _dev_has gum; then
-      gum confirm "" --default=false --affirmative="Sim" --negative="Não" && kill_confirm="yes"
-    else
-      read -r -p "Matar processo na porta $port? (s/N) " answer
-      [[ "$answer" =~ ^[Ss] ]] && kill_confirm="yes"
-    fi
-    if [[ "$kill_confirm" == "yes" ]]; then
-      _kill_port "$port"
-    else
-      _dev_warn "Inicialização cancelada."
-      return 1
-    fi
+    _dev_warn "Porta $port está ocupada. Sem API, a TUI não assume ownership desse processo."
+    _dev_warn "Inicialização cancelada para evitar encerrar processo externo."
+    return 1
   fi
 
   if [[ -n "$pre_hook_func" ]] && declare -f "$pre_hook_func" &>/dev/null; then
