@@ -121,6 +121,11 @@ function createService(
       AgentRuntimeApiServicePort,
       'listTasks' | 'status' | 'activity'
     >;
+    activityJobReaders?: Array<{
+      activityJobs(
+        projectId: string,
+      ): import('@dev-dashboard/contracts').ActivityJob[];
+    }>;
   } = {},
 ) {
   return new ActivitySnapshotService({
@@ -144,6 +149,9 @@ function createService(
       listProjects: () => [project],
     },
     ...(overrides.agentRuntime ? { agentRuntime: overrides.agentRuntime } : {}),
+    ...(overrides.activityJobReaders
+      ? { activityJobReaders: overrides.activityJobReaders }
+      : {}),
     now: () => new Date('2026-09-19T10:06:00.000Z'),
   });
 }
@@ -368,4 +376,49 @@ test('falha do Agent degrada somente o domínio agent sem derrubar outros jobs',
     snapshot.jobs.some((job) => job.id === 'script:script-1'),
     true,
   );
+});
+
+test('agrega jobs destacáveis e deduplica por identidade canônica', async () => {
+  const duplicateJob = {
+    id: 'dependencies:abc',
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:project-a',
+    domain: 'script' as const,
+    action: 'Install dependencies',
+    status: 'running' as const,
+    startedAt: '2026-09-19T10:05:30.000Z',
+    resourceRef: { kind: 'dependencies-execution', id: 'dependencies:abc' },
+    cancelSupported: true,
+  };
+  const migrationJob = {
+    id: 'migration:def',
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:project-a',
+    domain: 'database' as const,
+    action: 'Migration apply',
+    status: 'running' as const,
+    startedAt: '2026-09-19T10:05:40.000Z',
+    resourceRef: { kind: 'migration-mutation', id: 'def' },
+    cancelSupported: true,
+  };
+
+  const snapshot = await createService({
+    activityJobReaders: [
+      { activityJobs: () => [duplicateJob, migrationJob] },
+      { activityJobs: () => [duplicateJob] },
+    ],
+  }).readProject(project.id);
+
+  assert.equal(
+    snapshot.jobs.filter((job) => job.id === duplicateJob.id).length,
+    1,
+  );
+  assert.equal(
+    snapshot.jobs.some((job) => job.id === migrationJob.id),
+    true,
+  );
+
+  const serialized = JSON.stringify(snapshot.jobs);
+  assert.equal(serialized.includes('buffer'), false);
+  assert.equal(serialized.includes('command'), false);
 });

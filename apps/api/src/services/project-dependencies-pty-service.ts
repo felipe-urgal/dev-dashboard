@@ -1,8 +1,12 @@
+import { createHash } from 'node:crypto';
+
 import type {
+  ActivityJob,
   ExecutionContext,
   Project,
   ProjectScript,
 } from '@dev-dashboard/contracts';
+import type { AppendActivityEventInput } from '@dev-dashboard/core';
 import type { WebSocket } from 'ws';
 
 import { isolateProjectExecutionEnvironment } from '../security/project-execution-environment.js';
@@ -117,15 +121,34 @@ function isDependenciesAction(action: ProjectScript): boolean {
  * confirmação por token e histórico persistido) — mesma decisão tomada para
  * Migration: sem preservar o código antigo como referência.
  */
+type ActivityEventWriter = {
+  append(input: AppendActivityEventInput): Promise<unknown>;
+};
+
+interface RunningDependencyAction {
+  id: string;
+  name: string;
+  projectId: string;
+  environmentInstanceId: string;
+  cancelled: boolean;
+}
+
+function dependencyExecutionId(action: RunningDependencyAction): string {
+  const digest = createHash('sha256')
+    .update(
+      `${action.projectId}\u0000${action.environmentInstanceId}\u0000${action.id}`,
+    )
+    .digest('hex');
+  return `dependencies:${digest}`;
+}
+
 export class ProjectDependenciesPtyService {
-  private readonly runningAction = new Map<
-    string,
-    { id: string; name: string }
-  >();
+  private readonly runningAction = new Map<string, RunningDependencyAction>();
 
   public constructor(
     private readonly detachable: DetachableExecutionService,
     private readonly scriptDetectionService: ScriptDetectionService,
+    private readonly activityEvents?: ActivityEventWriter,
   ) {}
 
   public snapshot(
@@ -177,6 +200,13 @@ export class ProjectDependenciesPtyService {
     }
 
     const command = commandForExecution(executionContext, resolved);
+    const running: RunningDependencyAction = {
+      id: action.id,
+      name: action.name,
+      projectId: project.id,
+      environmentInstanceId: executionContext.environmentInstanceId,
+      cancelled: false,
+    };
     try {
       const key = executionKey(
         project.id,
@@ -191,10 +221,9 @@ export class ProjectDependenciesPtyService {
             ? isolateProjectExecutionEnvironment(scopedProject, resolved.env)
             : {},
       });
-      this.runningAction.set(key, {
-        id: action.id,
-        name: action.name,
-      });
+      this.runningAction.set(key, running);
+      await this.recordActivity(running, 'started');
+      this.observeCompletion(key, running);
       return { ...snapshot, actionId: action.id, actionName: action.name };
     } catch (error) {
       if (
@@ -203,9 +232,10 @@ export class ProjectDependenciesPtyService {
       ) {
         throw new ProjectDependenciesPtyError('ALREADY_RUNNING', error.message);
       }
+      await this.recordActivity(running, 'failed');
       throw new ProjectDependenciesPtyError(
         'START_FAILED',
-        `Não foi possível iniciar "${resolved.command} ${resolved.args.join(' ')}": ${errorMessage(error)}`,
+        `Não foi possível iniciar a ação de dependências/build: ${errorMessage(error)}`,
       );
     }
   }
@@ -260,8 +290,81 @@ export class ProjectDependenciesPtyService {
   }
 
   public cancel(project: Project, executionContext: ExecutionContext): void {
-    this.detachable.cancel(
-      executionKey(project.id, executionContext.environmentInstanceId),
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
     );
+    const action = this.runningAction.get(key);
+    if (action && !action.cancelled) {
+      action.cancelled = true;
+      void this.recordActivity(action, 'cancelled');
+    }
+    this.detachable.cancel(key);
+  }
+
+  public activityJobs(projectId: string): ActivityJob[] {
+    const jobs: ActivityJob[] = [];
+    for (const [key, action] of this.runningAction) {
+      if (action.projectId !== projectId) continue;
+      const snapshot = this.detachable.snapshotOf(key);
+      if (!snapshot || snapshot.status !== 'running') continue;
+      jobs.push({
+        id: dependencyExecutionId(action),
+        projectId,
+        environmentInstanceId: action.environmentInstanceId,
+        domain: 'script',
+        action: action.name,
+        status: 'running',
+        startedAt: snapshot.startedAt,
+        resourceRef: {
+          kind: 'dependencies-execution',
+          id: dependencyExecutionId(action),
+        },
+        cancelSupported: true,
+      });
+    }
+    return jobs;
+  }
+
+  private observeCompletion(
+    key: string,
+    action: RunningDependencyAction,
+  ): void {
+    this.detachable.attach(
+      key,
+      () => undefined,
+      (snapshot) => {
+        if (!action.cancelled) {
+          void this.recordActivity(
+            action,
+            snapshot.exitCode === 0 ? 'succeeded' : 'failed',
+          );
+        }
+      },
+    );
+  }
+
+  private async recordActivity(
+    action: RunningDependencyAction,
+    status: 'started' | 'succeeded' | 'failed' | 'cancelled',
+  ): Promise<void> {
+    if (!this.activityEvents) return;
+    try {
+      await this.activityEvents.append({
+        projectId: action.projectId,
+        environmentInstanceId: action.environmentInstanceId,
+        domain: 'script',
+        type: 'dependencies.execute',
+        status,
+        summary: `Dependências/Build: ${action.name}`,
+        resourceRef: {
+          kind: 'dependencies-execution',
+          id: dependencyExecutionId(action),
+        },
+        jobId: dependencyExecutionId(action),
+      });
+    } catch {
+      // Observabilidade nunca deve alterar o resultado da operação principal.
+    }
   }
 }

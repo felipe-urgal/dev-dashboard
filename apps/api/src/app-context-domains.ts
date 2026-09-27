@@ -129,7 +129,10 @@ export function createProjectContextDomain(
   };
 }
 
-export function createExecutionContextDomain(processManager: ProcessManager) {
+export function createExecutionContextDomain(
+  processManager: ProcessManager,
+  activityEventRepository?: Pick<ActivityEventRepository, 'append'>,
+) {
   const scriptDetectionService = new ScriptDetectionService();
   const testDetectionService = new TestDetectionService();
   const detachableExecutionService = new DetachableExecutionService();
@@ -155,6 +158,7 @@ export function createExecutionContextDomain(processManager: ProcessManager) {
     projectDependenciesPtyService: new ProjectDependenciesPtyService(
       detachableExecutionService,
       scriptDetectionService,
+      activityEventRepository,
     ),
   };
 }

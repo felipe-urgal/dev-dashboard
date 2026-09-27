@@ -311,3 +311,113 @@ test('segunda mutation concorrente no mesmo ambiente falha com código comum', a
       error.code === 'MIGRATION_MUTATION_ALREADY_RUNNING',
   );
 });
+
+test('Activity/Jobs de migration registra sucesso e contexto sem comando bruto', async () => {
+  const fakePty = new FakePty();
+  const events: Array<Record<string, unknown>> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => fakePty as never,
+  });
+  const confirmations = new MigrationMutationConfirmationService();
+  const plan = readyPlan();
+  const service = new MigrationMutationExecutionService(
+    {
+      plan: async () => plan,
+      resolveExecutionContext: () => executionContext,
+    },
+    confirmations,
+    detachable,
+    {
+      append: async (event) => {
+        events.push(event as unknown as Record<string, unknown>);
+        return event;
+      },
+    },
+  );
+
+  const confirmation = confirmations.prepare(plan);
+  await service.start(project, { operation: 'apply' }, confirmation.token);
+
+  assert.equal(events[0]?.status, 'started');
+  assert.equal(events[0]?.environmentInstanceId, plan.environmentInstanceId);
+  assert.equal(service.activityJobs(project.id).length, 1);
+
+  fakePty.emitData('DATABASE_PASSWORD=secret\n');
+  fakePty.emitExit(0);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(events.at(-1)?.status, 'succeeded');
+  assert.equal(service.activityJobs(project.id).length, 0);
+
+  const serialized = JSON.stringify(events);
+  assert.equal(serialized.includes('DATABASE_PASSWORD'), false);
+  assert.equal(serialized.includes('db:migrate'), false);
+});
+
+test('Activity de migration distingue cancelamento de falha', async () => {
+  const fakePty = new FakePty();
+  const events: Array<Record<string, unknown>> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => fakePty as never,
+  });
+  const confirmations = new MigrationMutationConfirmationService();
+  const plan = readyPlan();
+  const service = new MigrationMutationExecutionService(
+    {
+      plan: async () => plan,
+      resolveExecutionContext: () => executionContext,
+    },
+    confirmations,
+    detachable,
+    {
+      append: async (event) => {
+        events.push(event as unknown as Record<string, unknown>);
+        return event;
+      },
+    },
+  );
+  const confirmation = confirmations.prepare(plan);
+
+  await service.start(project, { operation: 'apply' }, confirmation.token);
+  service.cancel(project.id, executionContext.environmentInstanceId);
+  fakePty.emitExit(143, 15);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(
+    events.map((event) => event.status),
+    ['started', 'cancelled'],
+  );
+});
+
+test('Activity de migration registra falha de start sem vazar erro bruto', async () => {
+  const events: Array<Record<string, unknown>> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => {
+      throw new Error('SECRET migration command failed');
+    },
+  });
+  const confirmations = new MigrationMutationConfirmationService();
+  const plan = readyPlan();
+  const service = new MigrationMutationExecutionService(
+    {
+      plan: async () => plan,
+      resolveExecutionContext: () => executionContext,
+    },
+    confirmations,
+    detachable,
+    {
+      append: async (event) => {
+        events.push(event as unknown as Record<string, unknown>);
+        return event;
+      },
+    },
+  );
+  const confirmation = confirmations.prepare(plan);
+
+  await assert.rejects(() =>
+    service.start(project, { operation: 'apply' }, confirmation.token),
+  );
+
+  assert.equal(events.at(-1)?.status, 'failed');
+  assert.equal(JSON.stringify(events).includes('SECRET'), false);
+});

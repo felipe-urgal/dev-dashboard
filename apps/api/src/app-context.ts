@@ -107,7 +107,10 @@ export function createAppContext(
       developmentEnvironmentInstanceStore:
         foundation.developmentEnvironmentInstanceStore,
     }),
-    ...createExecutionContextDomain(foundation.processManager),
+    ...createExecutionContextDomain(
+      foundation.processManager,
+      foundation.activityEventRepository,
+    ),
     ...createDatabaseContextDomain(foundation.processManager),
     ...createSelfUpdateContextDomain(options),
   };

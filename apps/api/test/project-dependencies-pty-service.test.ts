@@ -382,3 +382,105 @@ test('cancel() delega para DetachableExecutionService.cancel()', async () => {
 
   assert.deepEqual(fakePty.kills, ['SIGTERM']);
 });
+
+test('Activity/Jobs de dependências registra lifecycle sem persistir comando ou output', async () => {
+  const fakePty = new FakePty();
+  const events: Array<Record<string, unknown>> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => fakePty as never,
+  });
+  const service = new ProjectDependenciesPtyService(
+    detachable,
+    new ScriptDetectionService(),
+    {
+      append: async (event) => {
+        events.push(event as unknown as Record<string, unknown>);
+        return event;
+      },
+    },
+  );
+  const project = await nodeFixture();
+  const context = executionContext(project);
+
+  await service.start(project, 'package-manager:install', context);
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.status, 'started');
+  assert.equal(events[0]?.environmentInstanceId, context.environmentInstanceId);
+  assert.equal(service.activityJobs(project.id).length, 1);
+
+  fakePty.emitData('TOKEN=super-secret\n');
+  fakePty.emitExit(0);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(events.length, 2);
+  assert.equal(events[1]?.status, 'succeeded');
+  assert.equal(service.activityJobs(project.id).length, 0);
+
+  const serialized = JSON.stringify(events);
+  assert.equal(serialized.includes('super-secret'), false);
+  assert.equal(serialized.includes('npm install'), false);
+});
+
+test('Activity de dependências registra cancelamento uma única vez', async () => {
+  const fakePty = new FakePty();
+  const events: Array<Record<string, unknown>> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => fakePty as never,
+  });
+  const service = new ProjectDependenciesPtyService(
+    detachable,
+    new ScriptDetectionService(),
+    {
+      append: async (event) => {
+        events.push(event as unknown as Record<string, unknown>);
+        return event;
+      },
+    },
+  );
+  const project = await nodeFixture();
+  const context = executionContext(project);
+
+  await service.start(project, 'package-manager:install', context);
+  service.cancel(project, context);
+  fakePty.emitExit(143, 15);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(
+    events.map((event) => event.status),
+    ['started', 'cancelled'],
+  );
+});
+
+test('Activity de dependências registra START_FAILED sem expor argv', async () => {
+  const events: Array<Record<string, unknown>> = [];
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => {
+      throw new Error('spawn failed with SECRET=abc');
+    },
+  });
+  const service = new ProjectDependenciesPtyService(
+    detachable,
+    new ScriptDetectionService(),
+    {
+      append: async (event) => {
+        events.push(event as unknown as Record<string, unknown>);
+        return event;
+      },
+    },
+  );
+  const project = await nodeFixture();
+
+  await assert.rejects(() =>
+    service.start(
+      project,
+      'package-manager:install',
+      executionContext(project),
+    ),
+  );
+
+  assert.equal(events.at(-1)?.status, 'failed');
+  const serialized = JSON.stringify(events);
+  assert.equal(serialized.includes('SECRET=abc'), false);
+  assert.equal(serialized.includes('npm'), false);
+});
