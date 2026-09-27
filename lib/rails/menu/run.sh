@@ -1,40 +1,49 @@
 #!/usr/bin/env bash
 # ============================================================
-# dev-rails-menu — Menu principal de comandos Rails
+# dev-rails-menu — Runtime Rails alinhado à API/Web
 # ============================================================
 dev-rails-menu() {
   local project="$1"
-  local path
-  path=$(project-path "$project") || {
-    _dev_err "Projeto '$project' não encontrado."
-    sleep 3
+
+  if ! _dev_dashboard_api_available; then
+    _dev_err "A API local do Dev Dashboard é necessária para as ações Rails."
+    _dev_pause
     return 1
-  }
-  _dev_cd "$path" || return 1
-  local has_webpack
-  has_webpack=$(project-has-webpack "$project")
+  fi
+
   while true; do
-    _dev_clear
-    _dev_breadcrumb "Comandos Rails"
-    echo >&2
-    _dev_step "Selecione uma área para gerenciar o projeto Rails."
-    echo >&2
+    local -a options=("Servidor")
+
+    if _runtime_terminal_supported "$project" "rails-console"; then
+      options+=("Console Rails")
+    fi
+
+    options+=("Testes" "Dependências / Build" "Migrations")
+
+    if _runtime_worker_detected "$project" "sidekiq"; then
+      options+=("Sidekiq")
+    fi
+    if _runtime_worker_detected "$project" "webpack"; then
+      options+=("Webpack")
+    fi
+
+    options+=("Voltar")
+
     local action
-    action=$(_rails_menu_show "$project" "$has_webpack")
-    [ -z "$action" ] || [ "$action" = "Voltar" ] && return 0
+    action=$(_runtime_choose "Rails" "${options[@]}") || return 0
+
     case "$action" in
-      "Servidor")    dev-rails-menu-servidor "$project" ;;
-      "Webpack")     dev-rails-menu-webpack "$project" ;;
-      "Console")     dev-rails-menu-console "$project" ;;
-      "Testes")      dev-rails-menu-testes "$project" ;;
-      "Banco")       dev-rails-menu-banco "$project" ;;
-      "Bundler")     dev-rails-menu-bundler "$project" ;;
-      "Rotas")       dev-rails-menu-routes "$project" ;;
-      "Generators")  dev-rails-menu-generators "$project" ;;
-      "Sidekiq")     dev-rails-menu-sidekiq "$project" ;;
-      "Assets")      dev-rails-menu-assets "$project" ;;
-      "Rake Tasks")  dev-rails-menu-rake "$project" ;;
-      "Credenciais") dev-rails-menu-credentials "$project" ;;
+      "Servidor") _runtime_server_menu "$project" ;;
+      "Console Rails")
+        _runtime_api terminal-open "$project" "rails-console"
+        _dev_pause
+        ;;
+      "Testes") _runtime_tests_menu "$project" ;;
+      "Dependências / Build") _runtime_dependencies_menu "$project" ;;
+      "Migrations") _runtime_migrations_menu "$project" ;;
+      "Sidekiq") _runtime_worker_menu "$project" "sidekiq" "Sidekiq" ;;
+      "Webpack") _runtime_worker_menu "$project" "webpack" "Webpack" ;;
+      "Voltar") return 0 ;;
     esac
   done
 }
