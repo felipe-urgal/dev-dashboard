@@ -74,9 +74,20 @@ function sendJson(socket: WebSocket, message: unknown): void {
 }
 
 function boundedTail(value: string, maximumBytes: number): string {
+  if (maximumBytes <= 0) return '';
   if (Buffer.byteLength(value, 'utf8') <= maximumBytes) return value;
-  const buffer = Buffer.from(value, 'utf8');
-  return buffer.subarray(buffer.length - maximumBytes).toString('utf8');
+
+  const codePoints = Array.from(value);
+  let bytes = 0;
+  let start = codePoints.length;
+  for (let index = codePoints.length - 1; index >= 0; index -= 1) {
+    const current = codePoints[index]!;
+    const currentBytes = Buffer.byteLength(current, 'utf8');
+    if (bytes + currentBytes > maximumBytes) break;
+    bytes += currentBytes;
+    start = index;
+  }
+  return codePoints.slice(start).join('');
 }
 
 function closeReason(reason: Buffer | string | undefined): string {
@@ -385,10 +396,15 @@ export class DashboardTerminalService {
     code: number,
     reason: string,
   ): void {
-    if (session.socket !== socket) return;
+    if (session.socket !== socket || !this.sessions.has(session.id)) return;
     session.socket = undefined;
 
-    if (code === 1000 && reason === USER_CLOSE_REASON) {
+    if (
+      (code === 1000 && reason === USER_CLOSE_REASON) ||
+      code === 1003 ||
+      code === 1007 ||
+      code === 1009
+    ) {
       this.teardown(session.id);
       return;
     }
