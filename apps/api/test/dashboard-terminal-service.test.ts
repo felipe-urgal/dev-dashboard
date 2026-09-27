@@ -109,7 +109,18 @@ test('modo terminal inicia dev-tools com comando fixo na raiz do dashboard', asy
       'dev-dashboard',
       root,
     ]);
-    assert.deepEqual(socket.sent[0], { type: 'ready' });
+    const ready = socket.sent[0] as {
+      type: string;
+      sessionId: string;
+      reconnectToken: string;
+      reconnected: boolean;
+      reconnectGraceMs: number;
+    };
+    assert.equal(ready.type, 'ready');
+    assert.equal(ready.sessionId.length, 32);
+    assert.equal(ready.reconnectToken.length, 64);
+    assert.equal(ready.reconnected, false);
+    assert.equal(ready.reconnectGraceMs, 8_000);
 
     fakePty.emitData('Dev Dashboard');
     assert.deepEqual(socket.sent.at(-1), {
