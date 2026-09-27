@@ -202,7 +202,8 @@ async function main() {
     case 'resolve': {
       if (!args[0]) throw new Error('Uso: resolve <project>');
       const project = await resolveProject(args[0]);
-      if (!project) throw new Error(`Projeto não encontrado na API: ${args[0]}`);
+      if (!project)
+        throw new Error(`Projeto não encontrado na API: ${args[0]}`);
       printProject(project, undefined);
       return;
     }
