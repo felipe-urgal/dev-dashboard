@@ -77,23 +77,28 @@ async function resolveProject(value) {
   );
 }
 
+async function primaryProcess(projectId) {
+  const payload = await request(
+    `/api/projects/${encodeURIComponent(projectId)}/process`,
+  );
+  return payload.process ?? null;
+}
+
 async function snapshot() {
-  const [projects, processesPayload] = await Promise.all([
-    listProjects(),
-    request('/api/processes?kind=server'),
-  ]);
-  const byProject = new Map();
-  const rank = { running: 5, starting: 4, stopping: 3, failed: 2, stopped: 1 };
+  const projects = await listProjects();
 
-  for (const managed of processesPayload.processes ?? []) {
-    const current = byProject.get(managed.projectId);
-    if (!current || (rank[managed.status] ?? 0) > (rank[current.status] ?? 0)) {
-      byProject.set(managed.projectId, managed);
-    }
-  }
+  const rows = await Promise.all(
+    projects.map(async (project) => {
+      try {
+        return { project, managedProcess: await primaryProcess(project.id) };
+      } catch {
+        return { project, managedProcess: { status: 'unknown' } };
+      }
+    }),
+  );
 
-  for (const project of projects) {
-    printProject(project, byProject.get(project.id));
+  for (const row of rows) {
+    printProject(row.project, row.managedProcess);
   }
 }
 
@@ -133,42 +138,26 @@ async function stopByProject(value) {
   const project = await resolveProject(value);
   if (!project) throw new Error(`Projeto não encontrado na API: ${value}`);
 
-  const payload = await request(
-    `/api/processes?kind=server&projectId=${encodeURIComponent(project.id)}`,
-  );
-  const active = (payload.processes ?? []).filter((managed) =>
-    ['running', 'starting', 'stopping'].includes(managed.status),
-  );
-
-  if (active.length === 0) {
+  const managed = await primaryProcess(project.id);
+  if (!managed || managed.status === 'stopped') {
     globalThis.process.stdout.write(`${safeField(project.id)}\tstopped\t\n`);
     return;
   }
 
-  for (const managed of active) {
-    await stopProcess(project.id, managed.environmentInstanceId);
-  }
+  await stopProcess(project.id, managed.environmentInstanceId);
 }
 
 async function startAll() {
   const projects = await listProjects();
-  const current = await request('/api/processes?kind=server');
-  const activeProjectIds = new Set(
-    (current.processes ?? [])
-      .filter((managed) => ['running', 'starting'].includes(managed.status))
-      .map((managed) => managed.projectId),
-  );
 
   for (const project of projects) {
-    if (
-      !project.enabled ||
-      !(project.capabilities ?? []).includes('server') ||
-      activeProjectIds.has(project.id)
-    ) {
+    if (!project.enabled || !(project.capabilities ?? []).includes('server')) {
       continue;
     }
 
     try {
+      const managed = await primaryProcess(project.id);
+      if (managed && ['running', 'starting'].includes(managed.status)) continue;
       await startProject(project.id);
     } catch (error) {
       globalThis.process.stderr.write(
@@ -180,17 +169,18 @@ async function startAll() {
 }
 
 async function stopAll() {
-  const payload = await request('/api/processes?kind=server');
-  const active = (payload.processes ?? []).filter((managed) =>
-    ['running', 'starting', 'stopping'].includes(managed.status),
-  );
+  const projects = await listProjects();
 
-  for (const managed of active) {
+  for (const project of projects) {
     try {
-      await stopProcess(managed.projectId, managed.environmentInstanceId);
+      const managed = await primaryProcess(project.id);
+      if (!managed || !['running', 'starting', 'stopping'].includes(managed.status)) {
+        continue;
+      }
+      await stopProcess(project.id, managed.environmentInstanceId);
     } catch (error) {
       globalThis.process.stderr.write(
-        `${managed.projectId}: ${error instanceof Error ? error.message : String(error)}\n`,
+        `${project.name}: ${error instanceof Error ? error.message : String(error)}\n`,
       );
       globalThis.process.exitCode = 2;
     }
