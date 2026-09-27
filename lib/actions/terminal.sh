@@ -1,38 +1,36 @@
 #!/usr/bin/env bash
 # ============================================================
-# dev-terminal — Abre um shell interativo no diretório do projeto
+# dev-terminal — Shell no Execution Context canônico do projeto
 # ============================================================
 dev-terminal() {
   local project="$1"
-  local path
-  path=$(project-path "$project") || path=""
-  if [ -z "$path" ] || [ ! -d "$path" ]; then
-    _dev_err "Caminho do projeto '$project' não encontrado."
-    sleep 3
+
+  if ! _dev_dashboard_api_available; then
+    _dev_err "A API local do Dev Dashboard é necessária para abrir o Terminal."
+    _dev_pause
+    return 1
+  fi
+
+  if ! _runtime_terminal_supported "$project" "shell"; then
+    _dev_err "O Terminal não está disponível no ambiente atual do projeto."
+    _dev_pause
     return 1
   fi
 
   _dev_clear
-  _dev_breadcrumb "$path" "$project" "Terminal"
+  _dev_breadcrumb "" "$project" "Terminal"
   echo >&2
-  _dev_step "Usando shell: ${SHELL:-bash}"
+  _dev_step "Abrindo shell no Execution Context atual."
   _dev_step "Digite 'exit' ou pressione Ctrl+D para voltar ao dashboard."
   echo >&2
 
-  local old_dir
-  old_dir=$(pwd)
-  cd "$path" || { _dev_err "Não foi possível acessar $path"; sleep 3; return 1; }
-
-  "$SHELL"
+  _runtime_api terminal-open "$project" "shell"
   local shell_exit=$?
 
-  cd "$old_dir" >/dev/null 2>&1
   echo >&2
-
-  if [ $shell_exit -eq 0 ]; then
+  if [ "$shell_exit" -eq 0 ]; then
     _dev_ok "Voltando ao dashboard..."
   else
-    _dev_warn "Shell encerrado com código $shell_exit. De volta ao dashboard."
+    _dev_warn "Terminal encerrado com código $shell_exit."
   fi
-  sleep 2
 }

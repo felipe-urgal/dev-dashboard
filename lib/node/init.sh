@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# NODE — Carregador dos submódulos Node
+# NODE — Cliente Terminal dos contratos atuais
 # ============================================================
 
 _node_source() {
@@ -13,12 +13,8 @@ _node_source() {
   fi
 }
 
-_node_source "$DEV_DASHBOARD_DIR/lib/node/menu/init.sh"
-_node_source "$DEV_DASHBOARD_DIR/lib/node/server/init.sh"
-_node_source "$DEV_DASHBOARD_DIR/lib/node/tests/init.sh"
-_node_source "$DEV_DASHBOARD_DIR/lib/node/deps/init.sh"
-_node_source "$DEV_DASHBOARD_DIR/lib/node/scripts/init.sh"
-_node_source "$DEV_DASHBOARD_DIR/lib/node/tools/init.sh"
+declare -f _runtime_api >/dev/null 2>&1 || _node_source "$DEV_DASHBOARD_DIR/lib/runtime/api.sh"
+_node_source "$DEV_DASHBOARD_DIR/lib/node/menu/run.sh"
 
 if [[ -n "$BASH_VERSION" ]]; then
   export -f dev-node-menu 2>/dev/null || true
