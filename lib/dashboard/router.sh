@@ -23,26 +23,11 @@ dev-run-command() {
     "Abrir no navegador")
       dev-open "$project"
       ;;
-    "Abrir no Sublime")
-      dev-sublime "$project"
+    "Abrir no editor")
+      dev-editor "$project"
       ;;
     "Terminal")
       dev-terminal "$project"
-      ;;
-    "Assistente IA")
-      dev-ai-menu "$project"
-      ;;
-    "Code Review (IA)")
-      dev-ai-review "$project"
-      ;;
-    "QA (IA)")
-      dev-ai-qa "$project"
-      ;;
-    "Segurança (IA)")
-      dev-ai-security "$project"
-      ;;
-    "Simplificar (IA)")
-      dev-ai-simplify "$project"
       ;;
     "Status dos servidores")
       dev-servers
