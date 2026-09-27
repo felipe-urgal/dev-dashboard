@@ -174,7 +174,10 @@ async function stopAll() {
   for (const project of projects) {
     try {
       const managed = await primaryProcess(project.id);
-      if (!managed || !['running', 'starting', 'stopping'].includes(managed.status)) {
+      if (
+        !managed ||
+        !['running', 'starting', 'stopping'].includes(managed.status)
+      ) {
         continue;
       }
       await stopProcess(project.id, managed.environmentInstanceId);
