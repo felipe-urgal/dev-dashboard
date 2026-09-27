@@ -84,6 +84,13 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   await sendLine(page, 's');
   await waitForTerminalText(page, 'Branch criada: feature/e2e-terminal');
 
+  // Reload real: o browser perde o WebSocket, mas o PTY fica recuperável.
+  await page.reload();
+  await page.getByRole('button', { name: 'Terminal', exact: true }).click();
+  await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
+  await sendLine(page);
+  await waitForTerminalText(page, 'Branches');
+
   const projectDirectory = `${runtime.workspaceDirectory}/sample-node-app`;
   const { stdout } = await execFileAsync('git', [
     '-C',
@@ -109,13 +116,11 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   await expect(projectLink).toBeVisible();
   await page.getByRole('button', { name: 'Terminal', exact: true }).click();
   await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-  await waitForTerminalText(page, 'Branch criada: feature/e2e-terminal');
+  await waitForTerminalText(page, 'Branches');
 
   // Resize da viewport mantém a TUI utilizável.
   await page.setViewportSize({ width: 900, height: 650 });
   await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-  await sendLine(page);
-  await waitForTerminalText(page, 'Branches');
 
   // Sai dos submenus e encerra/reabre o dev-tools no mesmo modo Terminal.
   await sendLine(page, '8');
