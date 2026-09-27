@@ -104,13 +104,8 @@ dev-project-actions() {
 
   rows+="Git;Abrir menu Git\n"
   rows+="Abrir no navegador;Abrir http://localhost:porta\n"
-  rows+="Abrir no Sublime;Abrir projeto no Sublime Text\n"
+  rows+="Abrir no editor;Abrir projeto no editor configurado\n"
   rows+="Terminal;Abrir terminal no diretório do projeto\n"
-  rows+="Assistente IA;Abrir Claude Code (nova sessão, continuar ou retomar)\n"
-  rows+="Code Review (IA);Pedir ao Claude Code um review do diff atual\n"
-  rows+="QA (IA);Pedir ao Claude Code para testar as mudanças atuais\n"
-  rows+="Segurança (IA);Pedir ao Claude Code uma revisão de segurança das mudanças\n"
-  rows+="Simplificar (IA);Pedir ao Claude Code uma limpeza de reuso/simplificação\n"
 
   if declare -f _dev_has_any_server &>/dev/null; then
     if _dev_has_any_server; then
@@ -133,7 +128,7 @@ dev-project-actions() {
       --header.foreground="#7C3AED" --height 15)
   else
     echo "Ações para $project:" >&2
-    local -a options=("Git" "Abrir no navegador" "Abrir no Sublime" "Terminal" "Assistente IA" "Code Review (IA)" "QA (IA)" "Segurança (IA)" "Simplificar (IA)")
+    local -a options=("Git" "Abrir no navegador" "Abrir no editor" "Terminal")
 
     if declare -f _dev_has_any_server &>/dev/null && _dev_has_any_server; then
       options+=("Status dos servidores")
