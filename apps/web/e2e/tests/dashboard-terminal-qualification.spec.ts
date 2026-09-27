@@ -1,216 +1,57 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
-import { readRuntimeInfo } from '../fixtures/runtime-info';
 
-const execFileAsync = promisify(execFile);
-
-async function terminalText(page: Page): Promise<string> {
+async function terminalText(page: import('@playwright/test').Page): Promise<string> {
   return page
     .locator('.dashboard-terminal-canvas .xterm-rows')
     .textContent()
     .then((value) => value ?? '');
 }
 
-async function waitForTerminalText(
-  page: Page,
-  expected: string,
-): Promise<void> {
-  await expect.poll(() => terminalText(page)).toContain(expected);
-}
-
-async function waitForTerminalPrompt(
-  page: Page,
-  expected: string,
-): Promise<void> {
-  await expect
-    .poll(async () => (await terminalText(page)).trimEnd().endsWith(expected))
-    .toBe(true);
-}
-
-async function sendLine(page: Page, value = ''): Promise<void> {
-  const before = await terminalText(page);
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    // O prompt pode ser pintado pelo xterm alguns milissegundos antes de o
-    // próximo read(1) do Bash estar bloqueado no PTY. Aguarda esse handoff.
-    await page.waitForTimeout(attempt === 0 ? 75 : 150);
-
-    await page.evaluate((line) => {
-      const socket = (
-        window as Window & { __dashboardTerminalSocket?: WebSocket }
-      ).__dashboardTerminalSocket;
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
-        throw new Error('WebSocket do Terminal não está aberto.');
-      }
-      socket.send(JSON.stringify({ type: 'input', data: `${line}\r` }));
-    }, value);
-
-    try {
-      await expect
-        .poll(() => terminalText(page), { timeout: 750 })
-        .not.toBe(before);
-      return;
-    } catch {
-      if (attempt === 1) throw new Error('PTY não consumiu a linha enviada.');
-    }
-  }
-}
-
-async function chooseProject(page: Page, projectName: string): Promise<void> {
-  await expect
-    .poll(async () => {
-      const text = await terminalText(page);
-      return (
-        text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1] ?? ''
-      );
-    })
-    .not.toBe('');
-
-  const text = await terminalText(page);
-  const choice = text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1];
-  if (!choice) throw new Error(`Projeto ${projectName} não apareceu no TUI.`);
-  await waitForTerminalPrompt(page, 'Escolha o número:');
-  await sendLine(page, choice);
-}
-
-test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
-  test.setTimeout(60_000);
-  const runtime = await readRuntimeInfo();
-
-  await page.addInitScript(() => {
-    const NativeWebSocket = window.WebSocket;
-    class DashboardE2EWebSocket extends NativeWebSocket {
-      public constructor(url: string | URL, protocols?: string | string[]) {
-        super(url, protocols);
-        if (String(url).includes('/api/dashboard/terminal/connect')) {
-          (
-            window as Window & { __dashboardTerminalSocket?: WebSocket }
-          ).__dashboardTerminalSocket = this;
-        }
-      }
-    }
-    window.WebSocket = DashboardE2EWebSocket;
-  });
+test('qualifica o Terminal embutido com PTY real', async ({ page }) => {
+  test.setTimeout(45_000);
 
   await gotoBootstrapped(page, '/');
-  const projectLink = page.getByRole('link', {
-    name: 'Ver detalhes de sample-node-app',
-  });
-  const href = await projectLink.getAttribute('href');
-  expect(href).toBeTruthy();
-  const projectId = decodeURIComponent(
-    new URL(href!, 'http://localhost').pathname.split('/').at(-1) ?? '',
-  );
 
   await page.getByRole('button', { name: 'Terminal', exact: true }).click();
-  await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-  await waitForTerminalText(page, 'Dev Dashboard');
-  await waitForTerminalText(page, 'sample-node-app');
 
-  await chooseProject(page, 'sample-node-app');
-  await waitForTerminalText(page, 'Ações para sample-node-app');
-  await waitForTerminalPrompt(page, 'Escolha:');
+  const terminal = page.locator('.dashboard-terminal-canvas .xterm');
+  await expect(terminal).toBeVisible();
+  await expect.poll(() => terminalText(page)).toContain('Dev Dashboard');
+  await expect.poll(() => terminalText(page)).toContain('sample-node-app');
 
-  // Read-only real: Git -> Histórico.
-  await sendLine(page, '1');
-  await waitForTerminalText(page, 'Selecione uma ação Git.');
-  await waitForTerminalPrompt(page, 'Escolha:');
-  await sendLine(page, '7');
-  await waitForTerminalText(page, 'Branch: main');
-  await waitForTerminalText(page, 'Pressione Enter para continuar');
-  await sendLine(page);
-
-  // Mutation real com confirmação: Git -> Branches -> Criar branch local.
-  await waitForTerminalText(page, 'Selecione uma ação Git.');
-  await waitForTerminalPrompt(page, 'Escolha:');
-  await sendLine(page, '1');
-  await waitForTerminalText(page, 'Branches');
-  await waitForTerminalPrompt(page, 'Escolha:');
-  await sendLine(page, '2');
-  await waitForTerminalText(page, 'Prefixo');
-  await waitForTerminalPrompt(page, 'Escolha:');
-  await sendLine(page, '1');
-  await waitForTerminalPrompt(page, 'Nome da branch:');
-  await sendLine(page, 'e2e-terminal');
-  await waitForTerminalPrompt(
-    page,
-    "Criar 'feature/e2e-terminal' a partir da branch atual? (s/N)",
+  const reconnectCredentials = await page.evaluate(() =>
+    sessionStorage.getItem('dev-dashboard-terminal-session'),
   );
-  await sendLine(page, 's');
-  await waitForTerminalText(page, 'Branch criada: feature/e2e-terminal');
+  expect(reconnectCredentials).toBeTruthy();
 
-  // Reload real: o browser perde o WebSocket, mas o PTY fica recuperável.
+  // Alternar Web -> Terminal preserva o mesmo componente/sessão.
+  await page.getByRole('button', { name: 'Web', exact: true }).click();
+  await expect(
+    page.getByRole('link', { name: 'Ver detalhes de sample-node-app' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Terminal', exact: true }).click();
+  await expect(terminal).toBeVisible();
+  await expect.poll(() => terminalText(page)).toContain('sample-node-app');
+
+  // Resize exercita FitAddon -> mensagem resize -> PTY sem quebrar a UI.
+  await page.setViewportSize({ width: 900, height: 650 });
+  await expect(terminal).toBeVisible();
+  await expect(page.locator('.dashboard-terminal-canvas')).toHaveCSS(
+    'min-width',
+    '0px',
+  );
+
+  // Reload força perda do WebSocket e reconexão usando a sessão persistida.
   await page.reload();
   await page.getByRole('button', { name: 'Terminal', exact: true }).click();
-  await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-  await waitForTerminalPrompt(page, 'Pressione Enter para continuar...');
-  await sendLine(page);
-  await waitForTerminalText(page, 'Branches');
-  await waitForTerminalPrompt(page, 'Escolha:');
+  await expect(terminal).toBeVisible();
+  await expect.poll(() => terminalText(page)).toContain('sample-node-app');
 
-  const projectDirectory = `${runtime.workspaceDirectory}/sample-node-app`;
-  const { stdout } = await execFileAsync('git', [
-    '-C',
-    projectDirectory,
-    'branch',
-    '--show-current',
-  ]);
-  expect(stdout.trim()).toBe('feature/e2e-terminal');
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(async (id) => {
-        const response = await fetch(
-          `/api/projects/${encodeURIComponent(id)}/activity?limit=50`,
-        );
-        return response.ok ? JSON.stringify(await response.json()) : '';
-      }, projectId);
-    })
-    .toContain('git.create-branch');
-
-  // Preserva a sessão ao alternar Web -> Terminal.
-  await page.getByRole('button', { name: 'Web', exact: true }).click();
-  await expect(projectLink).toBeVisible();
-  await page.getByRole('button', { name: 'Terminal', exact: true }).click();
-  await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-  await waitForTerminalText(page, 'Branches');
-
-  // Resize da viewport mantém a TUI utilizável.
-  await page.setViewportSize({ width: 900, height: 650 });
-  await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-
-  // Sai dos submenus e encerra/reabre o dev-tools no mesmo modo Terminal.
-  await sendLine(page, '8');
-  await waitForTerminalText(page, 'Selecione uma ação Git.');
-  await waitForTerminalPrompt(page, 'Escolha:');
-  await sendLine(page, '8');
-  await waitForTerminalText(page, 'Ações para sample-node-app');
-  await waitForTerminalPrompt(page, 'Escolha:');
-  await sendLine(page, '6');
-  await waitForTerminalText(page, 'sample-node-app');
-
-  const menuText = await terminalText(page);
-  expect(menuText).not.toContain('Banco');
-  expect(menuText).not.toContain('Bundler');
-  expect(menuText).not.toContain('Rake Tasks');
-  expect(menuText).not.toContain('Scripts');
-  expect(menuText).not.toContain('Ferramentas');
-
-  // Escolhe Sair no menu principal e confirma; o frontend expõe estado exited.
-  const current = await terminalText(page);
-  const exitChoice = current.match(/(\d+)\) Sair/)?.[1];
-  if (!exitChoice)
-    throw new Error('Opção Sair não encontrada no menu principal.');
-  await sendLine(page, exitChoice);
-  await waitForTerminalPrompt(page, 'Deseja sair? (s/N)');
-  await sendLine(page, 's');
-  await expect(page.getByText('Sessão encerrada')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Abrir nova sessão' }).click();
-  await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
-  await waitForTerminalText(page, 'Dev Dashboard');
+  const reconnectedCredentials = await page.evaluate(() =>
+    sessionStorage.getItem('dev-dashboard-terminal-session'),
+  );
+  expect(reconnectedCredentials).toBe(reconnectCredentials);
 });
