@@ -91,7 +91,11 @@ function withMetadata(
 ): MigrationMutationExecutionSnapshot {
   return {
     ...snapshot,
-    ...metadata,
+    provider: metadata.provider,
+    operation: metadata.operation,
+    database: metadata.database,
+    environmentInstanceId: metadata.environmentInstanceId,
+    planHash: metadata.planHash,
   };
 }
 
