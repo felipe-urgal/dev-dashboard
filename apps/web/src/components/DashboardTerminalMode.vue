@@ -20,12 +20,7 @@ import { currentTheme } from '../utils/visual-preferences';
 const props = defineProps<{ active: boolean }>();
 
 type SessionState =
-  | 'idle'
-  | 'connecting'
-  | 'connected'
-  | 'disconnected'
-  | 'exited'
-  | 'closed';
+  'idle' | 'connecting' | 'connected' | 'disconnected' | 'exited' | 'closed';
 
 const SESSION_STORAGE_KEY = 'dev-dashboard-terminal-session';
 const MAX_PENDING_OUTPUT_BYTES = 262_144;
@@ -77,7 +72,9 @@ function readReconnectCredentials(): DashboardTerminalReconnectCredentials | nul
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<DashboardTerminalReconnectCredentials>;
+    const parsed = JSON.parse(
+      raw,
+    ) as Partial<DashboardTerminalReconnectCredentials>;
     if (
       typeof parsed.sessionId !== 'string' ||
       typeof parsed.reconnectToken !== 'string'
@@ -239,9 +236,8 @@ async function startSession(preferReconnect = true): Promise<void> {
     const url = reconnect
       ? dashboardTerminalWebSocketUrl(reconnect)
       : dashboardTerminalWebSocketUrl({
-          confirmationToken: (
-            await prepareDashboardTerminalConfirmation()
-          ).token,
+          confirmationToken: (await prepareDashboardTerminalConfirmation())
+            .token,
         });
 
     const newSocket = new WebSocket(url);
@@ -287,7 +283,10 @@ async function startSession(preferReconnect = true): Promise<void> {
           queueResize();
           if (props.active) terminal?.focus();
         });
-      } else if (message.type === 'output' && typeof message.data === 'string') {
+      } else if (
+        message.type === 'output' &&
+        typeof message.data === 'string'
+      ) {
         appendOutput(message.data);
       } else if (message.type === 'exit') {
         appendOutput(
@@ -390,7 +389,9 @@ onBeforeUnmount(() => {
     >
       <span class="dashboard-terminal-state-dot" aria-hidden="true"></span>
       <strong>Conectando ao terminal…</strong>
-      <p>Uma sessão anterior será recuperada quando ainda estiver disponível.</p>
+      <p>
+        Uma sessão anterior será recuperada quando ainda estiver disponível.
+      </p>
     </div>
 
     <div
@@ -402,14 +403,14 @@ onBeforeUnmount(() => {
         Executa a interface <code>dev-tools</code> usando uma sessão isolada do
         Dev Dashboard.
       </p>
-      <button
-        type="button"
-        class="primary-button"
-        @click="startSession(false)"
-      >
+      <button type="button" class="primary-button" @click="startSession(false)">
         {{ sessionState === 'closed' ? 'Abrir nova sessão' : 'Abrir terminal' }}
       </button>
-      <p v-if="errorMessage" class="dashboard-terminal-inline-error" role="alert">
+      <p
+        v-if="errorMessage"
+        class="dashboard-terminal-inline-error"
+        role="alert"
+      >
         {{ errorMessage }}
       </p>
     </div>
@@ -425,7 +426,11 @@ onBeforeUnmount(() => {
       >
         <strong>Terminal desconectado</strong>
         <span>Tentando reconectar sem encerrar o processo…</span>
-        <button type="button" class="primary-button" @click="startSession(true)">
+        <button
+          type="button"
+          class="primary-button"
+          @click="startSession(true)"
+        >
           Reconectar agora
         </button>
       </div>
@@ -436,7 +441,11 @@ onBeforeUnmount(() => {
         role="status"
       >
         <strong>Sessão encerrada</strong>
-        <button type="button" class="primary-button" @click="startSession(false)">
+        <button
+          type="button"
+          class="primary-button"
+          @click="startSession(false)"
+        >
           Abrir nova sessão
         </button>
       </div>
