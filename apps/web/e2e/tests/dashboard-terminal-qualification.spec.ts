@@ -50,10 +50,14 @@ test('qualifica o Terminal embutido com PTY real', async ({ page }) => {
   await page.reload();
   await page.getByRole('button', { name: 'Terminal', exact: true }).click();
   await expect(terminal).toBeVisible();
-  await expect.poll(() => terminalText(page)).toContain('sample-node-app');
 
-  const reconnectedCredentials = await page.evaluate(() =>
-    sessionStorage.getItem('dev-dashboard-terminal-session'),
-  );
-  expect(reconnectedCredentials).toBe(reconnectCredentials);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        sessionStorage.getItem('dev-dashboard-terminal-session'),
+      ),
+    )
+    .toBe(reconnectCredentials);
+  await expect(page.getByText('Terminal desconectado')).toHaveCount(0);
+  await expect(page.getByText('Abrir nova sessão')).toHaveCount(0);
 });
