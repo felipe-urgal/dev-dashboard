@@ -217,6 +217,23 @@ async function sync(project, reference, strategy) {
   );
 }
 
+async function syncMain(project) {
+  const prepared = await request(
+    endpoint(project.id, '/sync/main/confirmations'),
+    { method: 'POST' },
+  );
+  const payload = await request(endpoint(project.id, '/sync/main'), {
+    method: 'POST',
+    body: JSON.stringify({
+      confirmationToken: prepared.confirmation.token,
+    }),
+  });
+  const result = payload.result;
+  process.stdout.write(
+    `${result.branch}: ${result.changed ? 'atualizada' : 'sem alterações'} via ${result.reference} (${result.strategy})\n`,
+  );
+}
+
 async function publishCurrent(project) {
   const ws = await workspace(project.id);
   const current = (ws.branches ?? []).find(
@@ -368,6 +385,9 @@ async function main() {
     case 'sync':
       if (!args[0]) throw new Error('Informe a referência.');
       await sync(project, args[0], args[1] || 'ff-only');
+      return;
+    case 'sync-main':
+      await syncMain(project);
       return;
     case 'create-pr':
       if (!args[0]) throw new Error('Informe o título.');
