@@ -159,7 +159,9 @@ test('confirmação é obrigatória, de uso único e expira', async () => {
   assert.equal(expiredSocket.closeCode, 1008);
 });
 
-test('fechamento explícito do navegador encerra o PTY imediatamente', async () => {
+test(
+  'fechamento explícito do navegador encerra o PTY imediatamente',
+  async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
   );
@@ -181,9 +183,12 @@ test('fechamento explícito do navegador encerra o PTY imediatamente', async () 
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+  },
+);
 
-test('desconexão transitória preserva PTY e permite reconexão na mesma sessão', async () => {
+test(
+  'desconexão transitória preserva PTY e permite reconexão na mesma sessão',
+  async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
   );
@@ -234,7 +239,8 @@ test('desconexão transitória preserva PTY e permite reconexão na mesma sessã
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+  },
+);
 
 test('PTY desconectado é encerrado após a janela de reconexão', async () => {
   const root = await mkdtemp(
@@ -278,7 +284,9 @@ test('reconexão inválida falha fechado sem criar novo PTY', async () => {
   assert.equal((socket.sent[0] as { type: string }).type, 'error');
 });
 
-test('mensagem binária, JSON inválido e tipo desconhecido são rejeitados', async () => {
+test(
+  'mensagem binária, JSON inválido e tipo desconhecido são rejeitados',
+  async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
   );
@@ -306,9 +314,12 @@ test('mensagem binária, JSON inválido e tipo desconhecido são rejeitados', as
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+  },
+);
 
-test('resize é limitado e saída pendente é bounded durante desconexão', async () => {
+test(
+  'resize é limitado e saída pendente é bounded durante desconexão',
+  async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
   );
@@ -346,9 +357,12 @@ test('resize é limitado e saída pendente é bounded durante desconexão', asyn
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+  },
+);
 
-test('limite de sessões retorna feedback e libera vaga após fechamento explícito', async () => {
+test(
+  'limite de sessões retorna feedback e libera vaga após fechamento explícito',
+  async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-global-terminal-'),
   );
@@ -391,4 +405,5 @@ test('limite de sessões retorna feedback e libera vaga após fechamento explíc
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+  },
+);
