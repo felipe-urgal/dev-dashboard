@@ -32,15 +32,32 @@ async function waitForTerminalPrompt(
 }
 
 async function sendLine(page: Page, value = ''): Promise<void> {
-  await page.evaluate((line) => {
-    const socket = (
-      window as Window & { __dashboardTerminalSocket?: WebSocket }
-    ).__dashboardTerminalSocket;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      throw new Error('WebSocket do Terminal não está aberto.');
+  const before = await terminalText(page);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    // O prompt pode ser pintado pelo xterm alguns milissegundos antes de o
+    // próximo read(1) do Bash estar bloqueado no PTY. Aguarda esse handoff.
+    await page.waitForTimeout(attempt === 0 ? 75 : 150);
+
+    await page.evaluate((line) => {
+      const socket = (
+        window as Window & { __dashboardTerminalSocket?: WebSocket }
+      ).__dashboardTerminalSocket;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket do Terminal não está aberto.');
+      }
+      socket.send(JSON.stringify({ type: 'input', data: `${line}\r` }));
+    }, value);
+
+    try {
+      await expect
+        .poll(() => terminalText(page), { timeout: 750 })
+        .not.toBe(before);
+      return;
+    } catch {
+      if (attempt === 1) throw new Error('PTY não consumiu a linha enviada.');
     }
-    socket.send(JSON.stringify({ type: 'input', data: `${line}\r` }));
-  }, value);
+  }
 }
 
 async function chooseProject(page: Page, projectName: string): Promise<void> {
