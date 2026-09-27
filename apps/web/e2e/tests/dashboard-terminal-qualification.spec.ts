@@ -22,6 +22,15 @@ async function waitForTerminalText(
   await expect.poll(() => terminalText(page)).toContain(expected);
 }
 
+async function waitForTerminalPrompt(
+  page: Page,
+  expected: string,
+): Promise<void> {
+  await expect
+    .poll(async () => (await terminalText(page)).trimEnd().endsWith(expected))
+    .toBe(true);
+}
+
 async function sendLine(page: Page, value = ''): Promise<void> {
   const input = page.locator(
     '.dashboard-terminal-canvas .xterm-helper-textarea',
@@ -44,7 +53,7 @@ async function chooseProject(page: Page, projectName: string): Promise<void> {
   const text = await terminalText(page);
   const choice = text.match(new RegExp(`(\\d+)\\) [^\\n]*${projectName}`))?.[1];
   if (!choice) throw new Error(`Projeto ${projectName} não apareceu no TUI.`);
-  await waitForTerminalText(page, 'Escolha o número:');
+  await waitForTerminalPrompt(page, 'Escolha o número:');
   await sendLine(page, choice);
 }
 
@@ -69,12 +78,12 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
 
   await chooseProject(page, 'sample-node-app');
   await waitForTerminalText(page, 'Ações para sample-node-app');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
 
   // Read-only real: Git -> Histórico.
   await sendLine(page, '1');
   await waitForTerminalText(page, 'Selecione uma ação Git.');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
   await sendLine(page, '7');
   await waitForTerminalText(page, 'Branch: main');
   await waitForTerminalText(page, 'Pressione Enter para continuar');
@@ -82,17 +91,20 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
 
   // Mutation real com confirmação: Git -> Branches -> Criar branch local.
   await waitForTerminalText(page, 'Selecione uma ação Git.');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
   await sendLine(page, '1');
   await waitForTerminalText(page, 'Branches');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
   await sendLine(page, '2');
   await waitForTerminalText(page, 'Prefixo');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
   await sendLine(page, '1');
-  await waitForTerminalText(page, 'Nome da branch');
+  await waitForTerminalPrompt(page, 'Nome da branch:');
   await sendLine(page, 'e2e-terminal');
-  await waitForTerminalText(page, "Criar 'feature/e2e-terminal'");
+  await waitForTerminalPrompt(
+    page,
+    "Criar 'feature/e2e-terminal' a partir da branch atual? (s/N)",
+  );
   await sendLine(page, 's');
   await waitForTerminalText(page, 'Branch criada: feature/e2e-terminal');
 
@@ -100,9 +112,10 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   await page.reload();
   await page.getByRole('button', { name: 'Terminal', exact: true }).click();
   await expect(page.locator('.dashboard-terminal-canvas .xterm')).toBeVisible();
+  await waitForTerminalPrompt(page, 'Pressione Enter para continuar...');
   await sendLine(page);
   await waitForTerminalText(page, 'Branches');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
 
   const projectDirectory = `${runtime.workspaceDirectory}/sample-node-app`;
   const { stdout } = await execFileAsync('git', [
@@ -138,10 +151,10 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   // Sai dos submenus e encerra/reabre o dev-tools no mesmo modo Terminal.
   await sendLine(page, '8');
   await waitForTerminalText(page, 'Selecione uma ação Git.');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
   await sendLine(page, '8');
   await waitForTerminalText(page, 'Ações para sample-node-app');
-  await waitForTerminalText(page, 'Escolha:');
+  await waitForTerminalPrompt(page, 'Escolha:');
   await sendLine(page, '6');
   await waitForTerminalText(page, 'sample-node-app');
 
@@ -158,7 +171,7 @@ test('qualifica dev-tools real dentro da interface Web', async ({ page }) => {
   if (!exitChoice)
     throw new Error('Opção Sair não encontrada no menu principal.');
   await sendLine(page, exitChoice);
-  await waitForTerminalText(page, 'Deseja sair?');
+  await waitForTerminalPrompt(page, 'Deseja sair? (s/N)');
   await sendLine(page, 's');
   await expect(page.getByText('Sessão encerrada')).toBeVisible();
 
