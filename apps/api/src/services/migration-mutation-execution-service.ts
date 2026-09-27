@@ -133,6 +133,7 @@ export class MigrationMutationExecutionService {
     }
 
     const key = executionKey(project.id, plan.environmentInstanceId);
+    const metadata = metadataFromPlan(plan);
     let snapshot: DetachableExecutionSnapshot;
     try {
       snapshot = this.detachable.start(key, {
@@ -150,13 +151,13 @@ export class MigrationMutationExecutionService {
           'Já existe uma migration mutation em andamento neste ambiente.',
         );
       }
+      await this.recordActivity(metadata, 'failed');
       throw new MigrationMutationExecutionError(
         'MIGRATION_MUTATION_START_FAILED',
         'Não foi possível iniciar a migration mutation.',
       );
     }
 
-    const metadata = metadataFromPlan(plan);
     this.metadata.set(key, metadata);
     await this.recordActivity(metadata, 'started');
     this.observeCompletion(key, metadata);
@@ -234,14 +235,17 @@ export class MigrationMutationExecutionService {
       const snapshot = this.detachable.snapshotOf(key);
       if (!snapshot || snapshot.status !== 'running') continue;
       jobs.push({
-        id: `migration:${key}`,
+        id: `migration:${metadata.planHash}`,
         projectId,
         environmentInstanceId: metadata.environmentInstanceId,
         domain: 'database',
         action: `Migration ${metadata.operation}`,
         status: 'running',
         startedAt: snapshot.startedAt,
-        resourceRef: { kind: 'migration-mutation', id: key },
+        resourceRef: {
+          kind: 'migration-mutation',
+          id: metadata.planHash,
+        },
         cancelSupported: true,
       });
     }
@@ -278,9 +282,9 @@ export class MigrationMutationExecutionService {
         summary: `Migration: ${metadata.operation} (${metadata.database})`,
         resourceRef: {
           kind: 'migration-mutation',
-          id: `${metadata.projectId}:${metadata.environmentInstanceId}:migration-mutation`,
+          id: metadata.planHash,
         },
-        jobId: `migration:${metadata.projectId}:${metadata.environmentInstanceId}`,
+        jobId: `migration:${metadata.planHash}`,
       });
     } catch {
       // Observabilidade não pode falhar a mutation confirmada.
