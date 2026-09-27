@@ -187,7 +187,7 @@ test('transporte real WebSocket -> node-pty -> Bash envia input e recebe output'
     await service.attach(service.prepareConfirmation().token, socket as never);
     await waitForOutput(socket, 'PTY_READY');
 
-    socket.clientMessage({ type: 'input', data: 'hello-real-pty\\r' });
+    socket.clientMessage({ type: 'input', data: 'hello-real-pty\\n' });
     await waitForOutput(socket, 'ECHO:hello-real-pty');
   } finally {
     socket.close(1000, 'Sessão encerrada pelo usuário');
