@@ -34,7 +34,9 @@ async function request(pathname, options = {}) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || `HTTP ${response.status}`);
+    throw new Error(
+      payload?.message || payload?.error || `HTTP ${response.status}`,
+    );
   }
   return payload;
 }
@@ -58,7 +60,8 @@ async function terminalStatus(project, kind) {
 
 async function openTerminal(project, kind) {
   const status = await terminalStatus(project, kind);
-  if (!status.supported) throw new Error(status.message || 'Terminal indisponível.');
+  if (!status.supported)
+    throw new Error(status.message || 'Terminal indisponível.');
 
   const prepared = await request(
     projectEndpoint(project.id, `/terminal/${kind}/confirmations`),
@@ -87,7 +90,9 @@ async function openTerminal(project, kind) {
 
     const onInput = (chunk) => {
       if (socket.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify({ type: 'input', data: chunk.toString('utf8') }));
+      socket.send(
+        JSON.stringify({ type: 'input', data: chunk.toString('utf8') }),
+      );
     };
 
     socket.addEventListener('open', () => {
@@ -132,7 +137,11 @@ async function openTerminal(project, kind) {
     socket.addEventListener('close', (event) => {
       cleanup();
       if (!ready && event.code !== 1000) {
-        reject(new Error(event.reason || 'Sessão de terminal encerrada antes de iniciar.'));
+        reject(
+          new Error(
+            event.reason || 'Sessão de terminal encerrada antes de iniciar.',
+          ),
+        );
         return;
       }
       resolve();
@@ -146,7 +155,9 @@ async function openTerminal(project, kind) {
 }
 
 async function testsList(project) {
-  const payload = await request(projectEndpoint(project.id, '/tests?refresh=true'));
+  const payload = await request(
+    projectEndpoint(project.id, '/tests?refresh=true'),
+  );
   for (const item of payload.tests?.commands ?? []) {
     process.stdout.write(`${item.id}\t${item.label}\t${item.runner}\n`);
   }
@@ -154,7 +165,10 @@ async function testsList(project) {
 
 async function testsStart(project, commandId) {
   const payload = await request(
-    projectEndpoint(project.id, `/tests/${encodeURIComponent(commandId)}/start`),
+    projectEndpoint(
+      project.id,
+      `/tests/${encodeURIComponent(commandId)}/start`,
+    ),
     { method: 'POST', body: '{}' },
   );
   process.stdout.write(`${payload.process.status}\t${payload.process.id}\n`);
@@ -173,20 +187,27 @@ async function testsStatus(project) {
 }
 
 async function testsLog(project) {
-  const payload = await request(projectEndpoint(project.id, '/tests/process/logs?maxBytes=65536'));
+  const payload = await request(
+    projectEndpoint(project.id, '/tests/process/logs?maxBytes=65536'),
+  );
   process.stdout.write(payload.log?.content ?? '');
 }
 
 async function testsStop(project) {
-  const payload = await request(projectEndpoint(project.id, '/tests/process/stop'), {
-    method: 'POST',
-    body: '{}',
-  });
+  const payload = await request(
+    projectEndpoint(project.id, '/tests/process/stop'),
+    {
+      method: 'POST',
+      body: '{}',
+    },
+  );
   process.stdout.write(`${payload.process.status}\n`);
 }
 
 async function dependenciesList(project) {
-  const payload = await request(projectEndpoint(project.id, '/scripts?page=1&pageSize=100'));
+  const payload = await request(
+    projectEndpoint(project.id, '/scripts?page=1&pageSize=100'),
+  );
   for (const item of payload.catalog?.items ?? []) {
     const supported =
       item.origin === 'bundler' ||
@@ -200,17 +221,22 @@ async function dependenciesList(project) {
 }
 
 async function dependenciesStart(project, actionId) {
-  const payload = await request(projectEndpoint(project.id, '/dependencies/pty/start'), {
-    method: 'POST',
-    body: JSON.stringify({ actionId }),
-  });
+  const payload = await request(
+    projectEndpoint(project.id, '/dependencies/pty/start'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ actionId }),
+    },
+  );
   process.stdout.write(
     `${payload.snapshot.status}\t${payload.snapshot.actionName}\n`,
   );
 }
 
 async function dependenciesStatus(project) {
-  const payload = await request(projectEndpoint(project.id, '/dependencies/pty/status'));
+  const payload = await request(
+    projectEndpoint(project.id, '/dependencies/pty/status'),
+  );
   const snapshot = payload.snapshot;
   if (!snapshot) {
     process.stdout.write('stopped\n');
@@ -333,7 +359,8 @@ async function main() {
     case 'terminal-supported': {
       const status = await terminalStatus(project, args[0] || 'shell');
       process.stdout.write(status.supported ? 'yes\n' : 'no\n');
-      if (!status.supported && status.message) process.stderr.write(`${status.message}\n`);
+      if (!status.supported && status.message)
+        process.stderr.write(`${status.message}\n`);
       return;
     }
     case 'terminal-open':
@@ -396,6 +423,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.message : String(error)}\n`,
+  );
   process.exit(1);
 });
