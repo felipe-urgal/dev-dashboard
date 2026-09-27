@@ -278,7 +278,10 @@ export class ProjectDependenciesPtyService {
   }
 
   public cancel(project: Project, executionContext: ExecutionContext): void {
-    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     const action = this.runningAction.get(key);
     if (action && !action.cancelled) {
       action.cancelled = true;
