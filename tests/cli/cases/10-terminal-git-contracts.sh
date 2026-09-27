@@ -20,18 +20,35 @@ else
 fi
 
 for legacy in "Publicar" "Atualizar main" "Stash"; do
-  if grep -q ""$legacy"" "$menu_file"; then
+  if grep -q "\"$legacy\"" "$menu_file"; then
     assert_failure 0 "ação obsoleta '$legacy' não deve existir no menu principal"
   else
     assert_success 0 "ação obsoleta '$legacy' removida do menu principal"
   fi
 done
 
-for contract in   "/git/workspace"   "/git/mutations/confirmations"   "/git/branches"   "/git/switch"   "/git/commit"   "/git/sync/confirmations"   "/git/pull-request/confirmations"   "/git/undo/confirmations"   "/git/diff?scope=combined"   "/git/exclusive-branch-commits"; do
+if grep -Fq '/git${suffix}' "$node_bridge"; then
+  assert_success 0 "bridge centraliza endpoints no domínio Git"
+else
+  assert_failure 0 "bridge deve centralizar endpoints no domínio Git"
+fi
+
+for contract in \
+  "/workspace" \
+  "/mutations/confirmations" \
+  "/branches" \
+  "/switch" \
+  "/commit" \
+  "/sync/confirmations" \
+  "/sync/main/confirmations" \
+  "/pull-request/confirmations" \
+  "/undo/confirmations" \
+  "/diff?scope=combined" \
+  "/exclusive-branch-commits"; do
   if grep -Fq "$contract" "$node_bridge"; then
-    assert_success 0 "bridge usa contrato $contract"
+    assert_success 0 "bridge usa contrato Git $contract"
   else
-    assert_failure 0 "bridge deve usar contrato $contract"
+    assert_failure 0 "bridge deve usar contrato Git $contract"
   fi
 done
 
@@ -52,3 +69,11 @@ if grep -Eq 'git (checkout|switch|commit|push|pull|reset|revert|branch -[dD])' "
 else
   assert_success 0 "Git TUI não executa mutações Git diretamente"
 fi
+
+for legacy_loader in commit delete log new publish pr save stash status switch sync undo update; do
+  if grep -q "lib/git/$legacy_loader/init.sh" "$git_init"; then
+    assert_failure 0 "loader legado $legacy_loader não deve ser carregado"
+  else
+    assert_success 0 "loader legado $legacy_loader não é carregado"
+  fi
+done
