@@ -183,7 +183,22 @@ export class AgentTaskLockManager {
 
       let current: PersistedTaskLock;
       try {
-        const parsed: unknown = JSON.parse(await fs.readFile(lockPath, 'utf8'));
+        let raw = await fs.readFile(lockPath, 'utf8');
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (error) {
+          if (!(error instanceof SyntaxError)) throw error;
+
+          // `writeFile(..., { flag: 'wx' })` cria a entrada antes de terminar
+          // de gravar o payload. Um concorrente pode observar esse intervalo
+          // mínimo e ler JSON vazio/parcial. Releia uma vez antes de tratar o
+          // lock como corrompido.
+          await this.sleep(Math.min(Math.max(pollMs, 1), 10));
+          raw = await fs.readFile(lockPath, 'utf8');
+          parsed = JSON.parse(raw);
+        }
+
         if (!isPersistedTaskLock(parsed)) {
           throw new AgentTaskLockError(
             'AGENT_TASK_LOCK_INVALID',
