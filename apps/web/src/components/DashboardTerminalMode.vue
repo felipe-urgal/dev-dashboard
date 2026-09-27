@@ -62,10 +62,19 @@ function terminalTheme(): ITheme {
 
 function boundedPendingOutput(value: string): string {
   const encoder = new TextEncoder();
-  const bytes = encoder.encode(value);
-  if (bytes.byteLength <= MAX_PENDING_OUTPUT_BYTES) return value;
-  const tail = bytes.slice(bytes.byteLength - MAX_PENDING_OUTPUT_BYTES);
-  return new TextDecoder().decode(tail);
+  if (encoder.encode(value).byteLength <= MAX_PENDING_OUTPUT_BYTES) return value;
+
+  const codePoints = Array.from(value);
+  let bytes = 0;
+  let start = codePoints.length;
+  for (let index = codePoints.length - 1; index >= 0; index -= 1) {
+    const current = codePoints[index]!;
+    const currentBytes = encoder.encode(current).byteLength;
+    if (bytes + currentBytes > MAX_PENDING_OUTPUT_BYTES) break;
+    bytes += currentBytes;
+    start = index;
+  }
+  return codePoints.slice(start).join('');
 }
 
 function readReconnectCredentials(): DashboardTerminalReconnectCredentials | null {
