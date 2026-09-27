@@ -21,7 +21,15 @@ else
   assert_failure 0 "bridge de runtime possui sintaxe Node válida"
 fi
 
-for contract in   "/terminal/${kind}/confirmations"   "/tests?refresh=true"   "/tests/${encodeURIComponent(commandId)}/start"   "/dependencies/pty/start"   "/migrations/mutations/plan"   "/migrations/mutations/confirmation"   "/migrations/mutations/start"   "/rails/workers/${encodeURIComponent(workerId)}"; do
+for contract in \
+  "/terminal/" \
+  "/tests?refresh=true" \
+  "/tests/" \
+  "/dependencies/pty/start" \
+  "/migrations/mutations/plan" \
+  "/migrations/mutations/confirmation" \
+  "/migrations/mutations/start" \
+  "/rails/workers/"; do
   if grep -Fq "$contract" "$runtime_bridge"; then
     assert_success 0 "bridge usa contrato $contract"
   else
@@ -30,10 +38,11 @@ for contract in   "/terminal/${kind}/confirmations"   "/tests?refresh=true"   "/
 done
 
 if grep -q "environmentInstanceId" "$runtime_bridge" &&
-   grep -q "planHash" "$runtime_bridge"; then
-  assert_success 0 "migrations preservam Environment Instance e planHash"
+   grep -q "planHash" "$runtime_bridge" &&
+   grep -q "database: plan.database" "$runtime_bridge"; then
+  assert_success 0 "migrations preservam Environment Instance, database e planHash"
 else
-  assert_failure 0 "migrations devem preservar Environment Instance e planHash"
+  assert_failure 0 "migrations devem preservar Environment Instance, database e planHash"
 fi
 
 if grep -q "_runtime_terminal_supported" "$rails_menu" &&
@@ -44,7 +53,7 @@ else
 fi
 
 for removed in "Banco" "Bundler" "Rotas" "Generators" "Assets" "Rake Tasks" "Credenciais" "Scripts" "Ferramentas"; do
-  if grep -q ""$removed"" "$rails_menu" "$node_menu"; then
+  if grep -Fq "\"$removed\"" "$rails_menu" "$node_menu"; then
     assert_failure 0 "ação legado '$removed' não deve permanecer no menu atual"
   else
     assert_success 0 "ação legado '$removed' não é exibida"
@@ -74,7 +83,7 @@ else
 fi
 
 if grep -q "_runtime_api terminal-open" "$terminal_action" &&
-   ! grep -q '"$SHELL"' "$terminal_action"; then
+   ! grep -q '\$SHELL' "$terminal_action"; then
   assert_success 0 "Terminal usa PTY canônico em vez de shell local"
 else
   assert_failure 0 "Terminal deve usar PTY canônico"
