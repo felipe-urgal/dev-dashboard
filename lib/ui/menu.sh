@@ -1,101 +1,65 @@
-#!/usr/bin/env bash
-# ============================================================
-# UI MENUS — Menus de projetos e ações
-# ============================================================
-
 project-menu() {
-  local -a projects
-  local project
-  if [ ${#PROJECT_META[@]} -gt 0 ]; then
-    readarray -t projects < <(project-list)
+  local rows="Projeto;Status;Porta;Branch\n"
+  local has_running_server=false
+  local api_snapshot=""
+
+  if _dev_dashboard_api_available; then
+    api_snapshot=$(_dev_dashboard_snapshot 2>/dev/null) || api_snapshot=""
   fi
 
-  if [ ${#projects[@]} -eq 0 ]; then
+  if [ -n "$api_snapshot" ]; then
+    while IFS=$'\t' read -r project_id project_name project_path project_type enabled port runtime_status environment_instance_id pid; do
+      [ -z "$project_name" ] && continue
+      local branch_info
+      branch_info=$(_dev_get_branch_info "$project_path")
+      local symbol
+      symbol=$(_dev_runtime_status_symbol "$runtime_status")
+      rows+="$project_name;$symbol $runtime_status;${port:-};$branch_info\n"
+      [ "$runtime_status" = "running" ] || [ "$runtime_status" = "starting" ] && has_running_server=true
+    done <<< "$api_snapshot"
+  else
+    local -a projects
+    local project
+    if [ ${#PROJECT_META[@]} -gt 0 ]; then
+      readarray -t projects < <(project-list)
+    fi
+    for project in "${projects[@]}"; do
+      local port
+      port=$(project-port "$project") || port=""
+      local path
+      path=$(project-path "$project") || path=""
+      local branch_info
+      branch_info=$(_dev_get_branch_info "$path")
+      # API indisponível: porta não prova ownership; estado fica unknown.
+      rows+="$project;❔ unknown;$port;$branch_info\n"
+    done
+  fi
+
+  if [ "$rows" = "Projeto;Status;Porta;Branch\n" ]; then
     if _dev_has gum; then
-      printf "Ação;Descrição\nSair;Sair do dashboard\n" | gum table \
-        --separator=";" --border="rounded" --border.foreground="#7C3AED" --header.foreground="#7C3AED"
+      printf "Ação;Descrição\nSair;Sair do dashboard\n" | gum table --separator=";" --border="rounded" --border.foreground="#7C3AED" --header.foreground="#7C3AED"
     else
       echo "Nenhum projeto encontrado." >&2
-      echo "1) Sair" >&2
-      read -r -p "Escolha: " choice
       echo "Sair"
     fi
     return
   fi
 
-  local has_running_server=false
-  local rows="Projeto;Status;Porta;Branch\n"
-  for project in "${projects[@]}"; do
-    local port
-    port=$(project-port "$project") || port=""
-    local status="🔴"
-    if [ -n "$port" ] && _is_port_in_use "$port"; then
-      status="🟢"
-      has_running_server=true
-    fi
-    local path
-    path=$(project-path "$project") || path=""
-    local branch_info
-    branch_info=$(_dev_get_branch_info "$path")
-    rows+="$project;$status;$port;$branch_info\n"
-  done
-
-  if [ "$has_running_server" = true ]; then
-    rows+="Parar todos servidores;;;\n"
-  fi
+  [ "$has_running_server" = true ] && rows+="Parar todos servidores;;;\n"
   rows+="Iniciar todos servidores;;;\n"
   rows+="Sair;;;\n"
 
   local selected
   if _dev_has gum; then
-    selected=$(printf "%b" "$rows" | gum table \
-      --separator=";" --border="rounded" --border.foreground="#7C3AED" \
-      --header.foreground="#7C3AED" --height 15)
+    selected=$(printf "%b" "$rows" | gum table --separator=";" --border="rounded" --border.foreground="#7C3AED" --header.foreground="#7C3AED" --height 15)
   else
-    echo "Projetos disponíveis:" >&2
-    local -a options=()
-    local i=1
-    for project in "${projects[@]}"; do
-      local port
-      port=$(project-port "$project") || port="?"
-      local path
-      path=$(project-path "$project") || path=""
-      local branch_info
-      branch_info=$(_dev_get_branch_info "$path")
-      local status_text="🔴"
-      if [ -n "$port" ] && _is_port_in_use "$port"; then
-        status_text="🟢"
-      fi
-      echo "  $i) $status_text $project (porta $port) $branch_info" >&2
-      options+=("$project")
-      ((i++))
-    done
-    if [ "$has_running_server" = true ]; then
-      echo "  $i) Parar todos servidores" >&2
-      options+=("Parar todos servidores")
-      ((i++))
-    fi
-    echo "  $i) Iniciar todos servidores" >&2
-    options+=("Iniciar todos servidores")
-    ((i++))
-    echo "  $i) Sair" >&2
-    options+=("Sair")
-
-    read -r -p "Escolha o número: " choice
-    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
-      selected="${options[$((choice-1))]}"
-    else
-      selected="Sair"
-    fi
+    printf "%b" "$rows" >&2
+    read -r -p "Projeto ou ação: " selected
   fi
 
   [ -z "$selected" ] && { echo "Sair"; return; }
-
-  local action
-  action=$(echo "$selected" | cut -d';' -f1 | xargs)
-  echo "$action"
+  echo "$selected" | cut -d';' -f1 | xargs
 }
-
 dev-project-actions() {
   local project="$1"
   local type
