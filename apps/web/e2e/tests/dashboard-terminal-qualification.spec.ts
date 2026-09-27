@@ -36,8 +36,54 @@ async function sendLine(page: Page, value = ''): Promise<void> {
     '.dashboard-terminal-canvas .xterm-helper-textarea',
   );
   await input.focus();
-  if (value) await page.keyboard.insertText(value);
-  await page.keyboard.press('Enter');
+
+  await input.evaluate((element, text) => {
+    const target = element as HTMLTextAreaElement;
+
+    const dispatchKey = (
+      type: 'keydown' | 'keyup',
+      key: string,
+      code: string,
+      keyCode: number,
+    ) => {
+      target.dispatchEvent(
+        new KeyboardEvent(type, {
+          key,
+          code,
+          keyCode,
+          which: keyCode,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    };
+
+    for (const character of text) {
+      const upper = character.toUpperCase();
+      const isDigit = /^[0-9]$/.test(character);
+      const isLetter = /^[A-Za-z]$/.test(character);
+      const keyCode = isDigit
+        ? character.charCodeAt(0)
+        : isLetter
+          ? upper.charCodeAt(0)
+          : character === '-'
+            ? 189
+            : 0;
+      const code = isDigit
+        ? `Digit${character}`
+        : isLetter
+          ? `Key${upper}`
+          : character === '-'
+            ? 'Minus'
+            : '';
+
+      dispatchKey('keydown', character, code, keyCode);
+      dispatchKey('keyup', character, code, keyCode);
+    }
+
+    dispatchKey('keydown', 'Enter', 'Enter', 13);
+    dispatchKey('keyup', 'Enter', 'Enter', 13);
+  }, value);
 }
 
 async function chooseProject(page: Page, projectName: string): Promise<void> {
