@@ -9,6 +9,7 @@ import type { IPty } from 'node-pty';
 import type { RawData, WebSocket } from 'ws';
 
 const MAX_MESSAGE_BYTES = 65_536;
+const MAX_PENDING_OUTPUT_BYTES = 262_144;
 const MAX_SESSIONS = 4;
 const MIN_DIMENSION = 1;
 const MAX_COLS = 500;
@@ -16,15 +17,20 @@ const MAX_ROWS = 200;
 const DEFAULT_COLS = 100;
 const DEFAULT_ROWS = 30;
 const CONFIRMATION_TTL_MS = 60_000;
+const DEFAULT_RECONNECT_GRACE_MS = 8_000;
+const USER_CLOSE_REASON = 'Sessão encerrada pelo usuário';
 
 interface ConfirmationRecord {
   expiresAt: number;
 }
 
 interface DashboardTerminalSession {
-  id: number;
+  id: string;
+  reconnectToken: string;
   proc: IPty;
-  socket: WebSocket;
+  socket: WebSocket | undefined;
+  reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  pendingOutput: string;
 }
 
 export interface DashboardTerminalConfirmation {
@@ -35,6 +41,7 @@ export interface DashboardTerminalConfirmation {
 export interface DashboardTerminalServiceOptions {
   now?: () => number;
   dashboardRoot?: string;
+  reconnectGraceMs?: number;
   spawnPty?: (
     file: string,
     args: readonly string[],
@@ -66,18 +73,43 @@ function sendJson(socket: WebSocket, message: unknown): void {
   }
 }
 
+function boundedTail(value: string, maximumBytes: number): string {
+  if (maximumBytes <= 0) return '';
+  if (Buffer.byteLength(value, 'utf8') <= maximumBytes) return value;
+
+  const codePoints = Array.from(value);
+  let bytes = 0;
+  let start = codePoints.length;
+  for (let index = codePoints.length - 1; index >= 0; index -= 1) {
+    const current = codePoints[index]!;
+    const currentBytes = Buffer.byteLength(current, 'utf8');
+    if (bytes + currentBytes > maximumBytes) break;
+    bytes += currentBytes;
+    start = index;
+  }
+  return codePoints.slice(start).join('');
+}
+
+function closeReason(reason: Buffer | string | undefined): string {
+  return Buffer.isBuffer(reason) ? reason.toString('utf8') : (reason ?? '');
+}
+
 export class DashboardTerminalService {
   private readonly confirmations = new Map<string, ConfirmationRecord>();
-  private readonly sessions = new Map<number, DashboardTerminalSession>();
+  private readonly sessions = new Map<string, DashboardTerminalSession>();
   private readonly now: () => number;
   private readonly dashboardRoot: string;
   private readonly spawnPty: DashboardTerminalServiceOptions['spawnPty'];
-  private nextSessionId = 1;
+  private readonly reconnectGraceMs: number;
 
   public constructor(options: DashboardTerminalServiceOptions = {}) {
     this.now = options.now ?? Date.now;
     this.dashboardRoot = options.dashboardRoot ?? defaultDashboardRoot();
     this.spawnPty = options.spawnPty ?? defaultSpawnPty;
+    this.reconnectGraceMs = Math.max(
+      0,
+      options.reconnectGraceMs ?? DEFAULT_RECONNECT_GRACE_MS,
+    );
   }
 
   public prepareConfirmation(): DashboardTerminalConfirmation {
@@ -94,7 +126,17 @@ export class DashboardTerminalService {
   public async attach(
     confirmationToken: string | undefined,
     socket: WebSocket,
+    reconnect?: { sessionId?: string; reconnectToken?: string },
   ): Promise<void> {
+    if (reconnect?.sessionId || reconnect?.reconnectToken) {
+      this.attachExisting(
+        socket,
+        reconnect.sessionId,
+        reconnect.reconnectToken,
+      );
+      return;
+    }
+
     this.sweepConfirmations();
     const record = confirmationToken
       ? this.confirmations.get(confirmationToken)
@@ -164,46 +206,144 @@ export class DashboardTerminalService {
       return;
     }
 
-    const id = this.nextSessionId++;
-    const session: DashboardTerminalSession = { id, proc: child, socket };
+    const id = randomBytes(16).toString('hex');
+    const session: DashboardTerminalSession = {
+      id,
+      reconnectToken: randomBytes(32).toString('hex'),
+      proc: child,
+      socket,
+      reconnectTimer: undefined,
+      pendingOutput: '',
+    };
     this.sessions.set(id, session);
 
-    child.onData((data) => sendJson(socket, { type: 'output', data }));
+    child.onData((data) => {
+      const currentSocket = session.socket;
+      if (currentSocket && currentSocket.readyState === currentSocket.OPEN) {
+        sendJson(currentSocket, { type: 'output', data });
+        return;
+      }
+      session.pendingOutput = boundedTail(
+        session.pendingOutput + data,
+        MAX_PENDING_OUTPUT_BYTES,
+      );
+    });
     child.onExit(({ exitCode }) => {
-      sendJson(socket, { type: 'exit', code: exitCode ?? null });
+      this.clearReconnectTimer(session);
+      const currentSocket = session.socket;
+      if (currentSocket) {
+        sendJson(currentSocket, { type: 'exit', code: exitCode ?? null });
+      }
       this.sessions.delete(id);
-      if (socket.readyState === socket.OPEN) {
-        socket.close(1000, 'Modo terminal encerrado');
+      if (currentSocket && currentSocket.readyState === currentSocket.OPEN) {
+        currentSocket.close(1000, 'Modo terminal encerrado');
       }
     });
 
-    sendJson(socket, { type: 'ready' });
-
-    socket.on('message', (data: RawData) =>
-      this.handleClientMessage(session, data),
-    );
-    socket.once('close', () => this.teardown(id));
-    socket.once('error', () => this.teardown(id));
+    this.bindSocket(session, socket);
+    this.sendReady(session, socket, false);
   }
 
   public close(): void {
     for (const session of this.sessions.values()) {
-      session.socket.close(1001, 'API encerrando');
+      this.clearReconnectTimer(session);
+      session.socket?.close(1001, 'API encerrando');
       session.proc.kill();
     }
     this.sessions.clear();
     this.confirmations.clear();
   }
 
+  private attachExisting(
+    socket: WebSocket,
+    sessionId: string | undefined,
+    reconnectToken: string | undefined,
+  ): void {
+    const session = sessionId ? this.sessions.get(sessionId) : undefined;
+    if (
+      !session ||
+      !reconnectToken ||
+      reconnectToken !== session.reconnectToken
+    ) {
+      sendJson(socket, {
+        type: 'error',
+        message:
+          'A sessão anterior não está mais disponível. Abra uma nova sessão.',
+      });
+      socket.close(1008, 'Reconexão inválida');
+      return;
+    }
+
+    if (
+      session.socket &&
+      session.socket.readyState === session.socket.OPEN &&
+      session.socket !== socket
+    ) {
+      sendJson(socket, {
+        type: 'error',
+        message: 'A sessão já está conectada em outro cliente.',
+      });
+      socket.close(1008, 'Sessão já conectada');
+      return;
+    }
+
+    this.clearReconnectTimer(session);
+    session.socket = socket;
+    this.bindSocket(session, socket);
+    this.sendReady(session, socket, true);
+
+    if (session.pendingOutput) {
+      sendJson(socket, { type: 'output', data: session.pendingOutput });
+      session.pendingOutput = '';
+    }
+  }
+
+  private sendReady(
+    session: DashboardTerminalSession,
+    socket: WebSocket,
+    reconnected: boolean,
+  ): void {
+    sendJson(socket, {
+      type: 'ready',
+      sessionId: session.id,
+      reconnectToken: session.reconnectToken,
+      reconnected,
+      reconnectGraceMs: this.reconnectGraceMs,
+    });
+  }
+
+  private bindSocket(
+    session: DashboardTerminalSession,
+    socket: WebSocket,
+  ): void {
+    socket.on('message', (data: RawData, isBinary: boolean) =>
+      this.handleClientMessage(session, socket, data, isBinary),
+    );
+    socket.once('close', (code: number, reason: Buffer) =>
+      this.handleSocketGone(session, socket, code, closeReason(reason)),
+    );
+    socket.once('error', () =>
+      this.handleSocketGone(session, socket, 1006, 'Erro de conexão'),
+    );
+  }
+
   private handleClientMessage(
     session: DashboardTerminalSession,
+    socket: WebSocket,
     data: RawData,
+    isBinary: boolean,
   ): void {
+    if (session.socket !== socket) return;
+    if (isBinary) {
+      socket.close(1003, 'Mensagens binárias não são suportadas');
+      return;
+    }
+
     const buffer = Buffer.isBuffer(data)
       ? data
       : Buffer.from(data as ArrayBuffer);
     if (buffer.length > MAX_MESSAGE_BYTES) {
-      session.socket.close(1009, 'Mensagem muito grande');
+      socket.close(1009, 'Mensagem muito grande');
       return;
     }
 
@@ -211,9 +351,13 @@ export class DashboardTerminalService {
     try {
       message = JSON.parse(buffer.toString('utf8')) as unknown;
     } catch {
+      socket.close(1007, 'Mensagem JSON inválida');
       return;
     }
-    if (!message || typeof message !== 'object') return;
+    if (!message || typeof message !== 'object') {
+      socket.close(1007, 'Mensagem inválida');
+      return;
+    }
 
     const record = message as Record<string, unknown>;
     if (record.type === 'input' && typeof record.data === 'string') {
@@ -224,7 +368,9 @@ export class DashboardTerminalService {
     if (
       record.type === 'resize' &&
       typeof record.cols === 'number' &&
-      typeof record.rows === 'number'
+      Number.isFinite(record.cols) &&
+      typeof record.rows === 'number' &&
+      Number.isFinite(record.rows)
     ) {
       const cols = Math.min(
         MAX_COLS,
@@ -239,14 +385,52 @@ export class DashboardTerminalService {
       } catch {
         // O processo pode ter encerrado entre a mensagem e o resize.
       }
+      return;
     }
+
+    socket.close(1007, 'Mensagem não suportada');
   }
 
-  private teardown(id: number): void {
+  private handleSocketGone(
+    session: DashboardTerminalSession,
+    socket: WebSocket,
+    code: number,
+    reason: string,
+  ): void {
+    if (session.socket !== socket || !this.sessions.has(session.id)) return;
+    session.socket = undefined;
+
+    if (
+      (code === 1000 && reason === USER_CLOSE_REASON) ||
+      code === 1003 ||
+      code === 1007 ||
+      code === 1009
+    ) {
+      this.teardown(session.id);
+      return;
+    }
+
+    this.clearReconnectTimer(session);
+    session.reconnectTimer = setTimeout(
+      () => this.teardown(session.id),
+      this.reconnectGraceMs,
+    );
+    session.reconnectTimer.unref?.();
+  }
+
+  private teardown(id: string): void {
     const session = this.sessions.get(id);
     if (!session) return;
+    this.clearReconnectTimer(session);
     this.sessions.delete(id);
+    session.socket = undefined;
     session.proc.kill();
+  }
+
+  private clearReconnectTimer(session: DashboardTerminalSession): void {
+    if (!session.reconnectTimer) return;
+    clearTimeout(session.reconnectTimer);
+    session.reconnectTimer = undefined;
   }
 
   private sweepConfirmations(): void {

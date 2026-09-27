@@ -25,3 +25,48 @@ describe('modo Web / Terminal do Dev Dashboard', () => {
     expect(terminalSource).toContain('onBeforeUnmount(() =>');
   });
 });
+
+describe('hardening da sessão terminal', () => {
+  it('persiste credenciais efêmeras para recuperar a sessão após reload', () => {
+    expect(terminalSource).toContain('SESSION_STORAGE_KEY');
+    expect(terminalSource).toContain('sessionStorage.setItem');
+    expect(terminalSource).toContain('readReconnectCredentials');
+    expect(terminalSource).toContain('reconnectToken');
+  });
+
+  it('mantém output pendente bounded e não descarta o xterm numa queda transitória', () => {
+    expect(terminalSource).toContain('MAX_PENDING_OUTPUT_BYTES = 262_144');
+    expect(terminalSource).toContain('boundedPendingOutput');
+    expect(terminalSource).toContain("sessionState.value = 'disconnected'");
+    expect(terminalSource).not.toContain(
+      "sessionState.value = 'closed';\n      disposeTerminal();",
+    );
+  });
+
+  it('debounça resize e restaura foco ao voltar para o modo Terminal', () => {
+    expect(terminalSource).toContain('requestAnimationFrame');
+    expect(terminalSource).toContain('queueResize');
+    expect(terminalSource).toContain('terminal?.focus()');
+  });
+
+  it('expõe estados explícitos de desconexão e encerramento', () => {
+    expect(terminalSource).toContain('Terminal desconectado');
+    expect(terminalSource).toContain('Sessão encerrada');
+    expect(terminalSource).toContain('Reconectar agora');
+  });
+
+  it('acompanha dark/light theme sem recriar a sessão', () => {
+    expect(terminalSource).toContain('watch(currentTheme');
+    expect(terminalSource).toContain("currentTheme.value === 'light'");
+    expect(terminalSource).toContain(
+      'terminal.options.theme = terminalTheme()',
+    );
+  });
+
+  it('fechamento explícito limpa credenciais e encerra a sessão', () => {
+    expect(terminalSource).toContain('clearReconnectCredentials()');
+    expect(terminalSource).toContain(
+      "close(1000, 'Sessão encerrada pelo usuário')",
+    );
+  });
+});
