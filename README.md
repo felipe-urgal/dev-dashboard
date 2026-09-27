@@ -40,11 +40,11 @@ Comandos úteis:
 `local:uninstall` remove apenas os artefatos gerenciados da instalação e preserva configuração, estado e checkout.
 ## Terminal `dev-tools`
 
-O modo Terminal mantém apenas ações suportadas pelo Dashboard atual. No menu de projeto ficam Git, navegador, editor, terminal, status de servidores e os submenus Rails/Node enquanto eles são migrados para os contratos modernos.
+O modo Terminal mantém apenas ações suportadas pelo Dashboard atual. No menu de projeto ficam Git, navegador, editor, terminal, status de servidores e os submenus Rails/Node, todos alinhados aos contratos atuais de runtime, ownership e observabilidade do backend.
 
 Abertura de editor usa `DEV_EDITOR` quando configurado e, como fallback local, tenta `subl`, `code` e `gedit`. O comando histórico `dev-sublime` permanece apenas como alias de compatibilidade para `dev-editor`.
 
-Integrações diretas antigas com Claude Code/ações de IA foram removidas do `dev-tools`; automação assistida pertence ao Agent Runtime do Dashboard.
+Integrações diretas antigas com Claude Code/ações de IA foram removidas do `dev-tools`; automação assistida pertence ao Agent Runtime do Dashboard. A sessão embutida usa WebSocket + `node-pty`, preserva reconexão/resize e possui gate E2E dedicado para o lifecycle Web ↔ Terminal, complementado por testes determinísticos de protocolo e PTY real.
 
 ## Segurança
 
