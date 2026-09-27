@@ -12,6 +12,7 @@ _server_core_source() {
   fi
 }
 _server_core_source "$DEV_DASHBOARD_DIR/lib/server/core/helpers.sh"
+_server_core_source "$DEV_DASHBOARD_DIR/lib/server/core/dashboard_api.sh"
 _server_core_source "$DEV_DASHBOARD_DIR/lib/server/core/start.sh"
 _server_core_source "$DEV_DASHBOARD_DIR/lib/server/core/wait_port.sh"
 _server_core_source "$DEV_DASHBOARD_DIR/lib/server/core/commands.sh"
@@ -19,5 +20,8 @@ if [[ -n "$BASH_VERSION" ]]; then
   export -f dev-start-all _dev_start_server _wait_for_port \
          dev-clean dev-stop dev-stop-all dev-kill-port dev-restart \
          _dev_project_id _is_port_in_use _kill_port \
+         _dev_dashboard_api _dev_dashboard_api_available _dev_dashboard_snapshot \
+         _dev_dashboard_start _dev_dashboard_stop _dev_dashboard_start_all _dev_dashboard_stop_all \
+         _dev_runtime_status_symbol _dev_runtime_status_label \
          _dev_has_any_server _dev_is_webpack_running 2>/dev/null || true
 fi
