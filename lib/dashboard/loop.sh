@@ -25,8 +25,43 @@ dev-dashboard() {
     fi
 
     local project="$chosen"
-    local path
-    path=$(project-path "$project") || path=""
+    local path=""
+    if _dev_dashboard_api_available; then
+      local project_record
+      project_record=$(_dev_dashboard_project_record "$project" 2>/dev/null) || project_record=""
+      if [ -n "$project_record" ]; then
+        IFS=
+    local original_dir="$PWD"
+    if [ -n "$path" ] && [ -d "$path" ]; then
+      cd "$path" || { _dev_err "Não foi possível acessar $path"; _dev_pause; continue; }
+    else
+      _dev_warn "Caminho do projeto '$project' não encontrado."
+      _dev_pause
+      continue
+    fi
+
+    while true; do
+      _dev_clear
+      _dev_breadcrumb
+      local action
+      action=$(dev-project-actions "$project")
+      [ -z "$action" ] || [ "$action" = "Voltar" ] && break
+      dev-run-command "$project" "$action"
+      case "$action" in
+        "Terminal"|"Git"|"Comandos Rails"|"Comandos Node")
+          ;;
+        *)
+          _dev_pause
+          ;;
+      esac
+    done
+
+    cd "$original_dir" >/dev/null 2>&1
+  done
+}\t' read -r _project_id _project_name path _project_type _enabled _port _status _environment_instance_id _pid <<< "$project_record"
+      fi
+    fi
+    [ -n "$path" ] || path=$(project-path "$project") || path=""
 
     local original_dir="$PWD"
     if [ -n "$path" ] && [ -d "$path" ]; then
