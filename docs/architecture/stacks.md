@@ -48,7 +48,7 @@ contra o estado local conhecido. Todo node precisa apontar para um Project
 existente. Quando o target carrega `environmentInstanceId`, a Environment
 Instance precisa existir e pertencer ao mesmo Project declarado pelo node.
 
-Essa validação não tenta inferir serviço Compose, processo ou health check por
+Essa validação é estritamente referencial e não tenta inferir serviço Compose, processo ou health check por
 heurística. O objetivo deste slice é impedir referências órfãs ou cruzadas entre
 projetos antes que lifecycle futuro ganhe autoridade sobre esses recursos.
 
