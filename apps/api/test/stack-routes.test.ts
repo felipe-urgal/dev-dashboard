@@ -97,7 +97,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     payload: stack(),
   });
   assert.equal(mismatch.statusCode, 400);
-  assert.equal(mismatch.json<{ error: string }>().error, 'STACK_ID_MISMATCH');
+  assert.equal(mismatch.json<{ error: string }>().error, 'BAD_REQUEST');
 
   const cyclic = stack();
   cyclic.dependencies.push({
@@ -113,7 +113,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   assert.equal(rejected.statusCode, 409);
   assert.equal(
     rejected.json<{ error: string }>().error,
-    'STACK_DEPENDENCY_CYCLE',
+    'CONFLICT',
   );
 
   const removed = await app.inject({
@@ -129,7 +129,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     headers,
   });
   assert.equal(missing.statusCode, 404);
-  assert.equal(missing.json<{ error: string }>().error, 'STACK_NOT_FOUND');
+  assert.equal(missing.json<{ error: string }>().error, 'NOT_FOUND');
 });
 
 test('Stack HTTP rejeita payloads com propriedades extras e nodes vazios', async (context) => {
