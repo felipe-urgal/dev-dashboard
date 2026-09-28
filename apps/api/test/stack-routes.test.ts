@@ -116,7 +116,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   const removed = await app.inject({
     method: 'DELETE',
     url: '/api/stacks/local-stack',
-    headers,
+    headers: { 'x-dev-dashboard-token': TOKEN },
   });
   assert.equal(removed.statusCode, 204);
 
@@ -129,7 +129,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   assert.equal(missing.json<{ error: string }>().error, 'NOT_FOUND');
 });
 
-test('Stack HTTP rejeita payloads com propriedades extras e nodes vazios', async (context) => {
+test('Stack HTTP sanitiza propriedades extras e rejeita nodes vazios', async (context) => {
   const app = await buildApp({ localToken: TOKEN });
   context.after(async () => app.close());
 
@@ -144,7 +144,11 @@ test('Stack HTTP rejeita payloads com propriedades extras e nodes vazios', async
     headers,
     payload: { ...stack(), unexpected: true },
   });
-  assert.equal(extraProperty.statusCode, 400);
+  assert.equal(extraProperty.statusCode, 200);
+  assert.equal(
+    Object.hasOwn(extraProperty.json<{ stack: Stack }>().stack, 'unexpected'),
+    false,
+  );
 
   const empty = stack();
   empty.nodes = [];
