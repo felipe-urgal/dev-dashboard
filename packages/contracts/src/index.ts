@@ -22,6 +22,7 @@ export type {
 
 export type {
   Stack,
+  StackCheck,
   StackComposeServiceTarget,
   StackDependency,
   StackEnvironmentTarget,

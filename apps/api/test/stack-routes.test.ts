@@ -112,6 +112,32 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   assert.equal(fetched.statusCode, 200);
   assert.equal(fetched.json<{ stack: Stack }>().stack.name, 'Local stack');
 
+  const checked = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/local-stack/check',
+    headers,
+  });
+  assert.equal(checked.statusCode, 200);
+  const check = checked.json<{
+    check: {
+      topology: { startOrder: string[]; stopOrder: string[] };
+      health: {
+        state: string;
+        nodes: Array<{ nodeId: string; state: string }>;
+      };
+    };
+  }>().check;
+  assert.deepEqual(check.topology.startOrder, ['postgres', 'api']);
+  assert.deepEqual(check.topology.stopOrder, ['api', 'postgres']);
+  assert.equal(check.health.state, 'unknown');
+  assert.deepEqual(
+    check.health.nodes.map((node) => [node.nodeId, node.state]),
+    [
+      ['postgres', 'unknown'],
+      ['api', 'ready'],
+    ],
+  );
+
   const mismatch = await app.inject({
     method: 'PUT',
     url: '/api/stacks/other-stack',

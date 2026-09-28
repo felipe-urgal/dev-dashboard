@@ -501,7 +501,21 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-terminal-canvas {
+  box-sizing: border-box;
+  overflow: hidden;
   padding: 12px 14px;
+}
+
+.dashboard-terminal-canvas :deep(.xterm) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.dashboard-terminal-canvas :deep(.xterm-viewport) {
+  max-width: 100%;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .dashboard-terminal-state {

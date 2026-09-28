@@ -508,6 +508,7 @@ onBeforeUnmount(() => {
 }
 
 .terminal-window-body {
+  box-sizing: border-box;
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;

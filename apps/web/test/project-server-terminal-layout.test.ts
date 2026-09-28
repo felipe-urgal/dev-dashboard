@@ -37,5 +37,8 @@ describe('redesign de Servidor e Terminal', () => {
       /\.terminal-window[\s\S]*?width: 100%;[\s\S]*?height: 100%;/,
     );
     expect(terminalSource).toContain('class="terminal-state"');
+    expect(terminalSource).toMatch(
+      /\.terminal-window-body[\s\S]*?box-sizing: border-box;/,
+    );
   });
 });
