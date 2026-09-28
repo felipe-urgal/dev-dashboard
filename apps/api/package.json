@@ -24,7 +24,7 @@
     "mysql2": "^3.24.4",
     "node-pty": "^1.1.0",
     "pg": "^8.23.0",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
