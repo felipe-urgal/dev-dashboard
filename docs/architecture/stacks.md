@@ -70,7 +70,7 @@ determinístico de start/stop e a saúde agregada observada naquele instante.
 Nesta etapa, nodes de Environment Instance e processos gerenciados possuem evidência direta:
 `ready`, `starting`, `stopped` e `failed` são derivados do lifecycle
 backend-owned. `degraded` vira `unknown`, porque readiness não pode ser
-comprovada. Nodes de processo usam o estado reconciliado do Process Manager e só são associados por `processId`, `projectId` e `environmentInstanceId` explícitos. Compose e health check continuam `unknown` até que seus adapters read-only sejam conectados.
+comprovada. Nodes de processo usam o estado reconciliado do Process Manager e só são associados por `processId`, `projectId` e `environmentInstanceId` explícitos. Nodes de serviço Compose exigem ownership persistido compatível e inspeção estruturada do runtime; somente `running` com health `healthy` vira `ready`. Health check continua `unknown` até que seu adapter read-only seja conectado.
 
 Ausência de adapter, desaparecimento da Environment Instance ou drift de
 ownership nunca vira `ready`; o Check sempre falha fechado para `unknown`.
