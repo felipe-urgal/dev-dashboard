@@ -41,6 +41,16 @@ A persistência não descobre dependências, não associa recursos ambiguamente 
 executa lifecycle. Ela apenas fornece uma fonte durável para a composição que o
 usuário confirmou explicitamente.
 
+## API
+
+O backend expõe CRUD autenticado para definições explícitas de Stack em
+`/api/stacks`. A validação de schema bloqueia propriedades extras e limites
+fora do contrato; a validação de topologia continua sendo a autoridade para
+referências, duplicidades e ciclos antes da persistência.
+
+A API não aceita path, comando ou instrução de lifecycle. Ela apenas administra
+a composição declarada que será consumida por adapters futuros.
+
 ## Deferred lifecycle
 
 This slice does not execute Start/Stop/Restart. A later adapter layer must delegate each operation back to the resource-owning domain and preserve its confirmation, ownership and revalidation rules.
