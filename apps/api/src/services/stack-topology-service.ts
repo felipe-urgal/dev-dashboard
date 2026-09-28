@@ -34,6 +34,71 @@ function isBoundedText(value: string, maximumLength: number): boolean {
   );
 }
 
+function hasOnlyKeys(
+  value: object,
+  allowedKeys: readonly string[],
+): boolean {
+  return Object.keys(value).every((key) => allowedKeys.includes(key));
+}
+
+function isValidTarget(target: Stack['nodes'][number]['target']): boolean {
+  if (
+    !isBoundedText(target.projectId, MAX_IDENTIFIER_LENGTH) ||
+    !hasOnlyKeys(target, [
+      'kind',
+      'projectId',
+      'environmentInstanceId',
+      'processId',
+      'service',
+      'checkId',
+    ])
+  ) {
+    return false;
+  }
+
+  switch (target.kind) {
+    case 'environment':
+      return (
+        isBoundedText(target.environmentInstanceId, 256) &&
+        hasOnlyKeys(target, ['kind', 'projectId', 'environmentInstanceId'])
+      );
+    case 'process':
+      return (
+        isBoundedText(target.environmentInstanceId, 256) &&
+        isBoundedText(target.processId, MAX_IDENTIFIER_LENGTH) &&
+        hasOnlyKeys(target, [
+          'kind',
+          'projectId',
+          'environmentInstanceId',
+          'processId',
+        ])
+      );
+    case 'compose-service':
+      return (
+        isBoundedText(target.environmentInstanceId, 256) &&
+        isBoundedText(target.service, MAX_IDENTIFIER_LENGTH) &&
+        hasOnlyKeys(target, [
+          'kind',
+          'projectId',
+          'environmentInstanceId',
+          'service',
+        ])
+      );
+    case 'health-check':
+      return (
+        (target.environmentInstanceId === undefined ||
+          isBoundedText(target.environmentInstanceId, 256)) &&
+        isBoundedText(target.checkId, MAX_IDENTIFIER_LENGTH) &&
+        hasOnlyKeys(target, [
+          'kind',
+          'projectId',
+          'environmentInstanceId',
+          'checkId',
+        ])
+      );
+  }
+}
+
 function validateStack(stack: Stack): void {
   if (
     !isBoundedText(stack.id, MAX_IDENTIFIER_LENGTH) ||
@@ -53,6 +118,7 @@ function validateStack(stack: Stack): void {
     if (
       !isBoundedText(node.id, MAX_IDENTIFIER_LENGTH) ||
       !isBoundedText(node.name, MAX_NAME_LENGTH) ||
+      !isValidTarget(node.target) ||
       nodeIds.has(node.id)
     ) {
       throw new StackTopologyServiceError(
