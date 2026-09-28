@@ -38,6 +38,7 @@ import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-
 import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
 import { StackDefinitionService } from './services/stack-definition-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
+import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -128,15 +129,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
   });
-  const stackCheckService = new StackCheckService(
-    {
-      stackStore: context.stackStore,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      processManager: context.processManager,
-    },
-    options.now ? { now: () => new Date(options.now!()) } : {},
-  );
   app.addHook('onClose', () => {
     dashboardTerminalService.close();
   });
@@ -178,6 +170,22 @@ export async function buildApp(options: BuildAppOptions = {}) {
     agentRuntimeRealtimeService,
   } = composition;
   registerAppLifecycle(app, context, composition);
+  const stackComposeHealthAdapter = new StackComposeHealthAdapter({
+    projectStore: context.projectStore,
+    ownershipStore: dockerComposeOwnershipStore,
+    provider: dockerComposeProvider,
+  });
+  const stackCheckService = new StackCheckService(
+    {
+      stackStore: context.stackStore,
+      developmentEnvironmentInstanceStore:
+        context.developmentEnvironmentInstanceStore,
+      processManager: context.processManager,
+      composeHealthAdapter: stackComposeHealthAdapter,
+    },
+    options.now ? { now: () => new Date(options.now!()) } : {},
+  );
+
 
   const gitWorktreeRemovalResourceGuard =
     new GitWorktreeRemovalResourceGuardService({
