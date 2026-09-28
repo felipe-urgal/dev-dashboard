@@ -62,10 +62,7 @@ export class StackCheckService {
   public check(stackId: string): StackCheck {
     const stack = this.dependencies.stackStore.findById(stackId);
     if (!stack) {
-      throw new StackCheckServiceError(
-        'STACK_NOT_FOUND',
-        'Stack not found.',
-      );
+      throw new StackCheckServiceError('STACK_NOT_FOUND', 'Stack not found.');
     }
 
     const observedAt = this.now().toISOString();
@@ -115,7 +112,8 @@ export class StackCheckService {
         nodeId,
         state: 'unknown',
         observedAt,
-        diagnostic: 'Environment Instance ownership no longer matches the Stack definition.',
+        diagnostic:
+          'Environment Instance ownership no longer matches the Stack definition.',
       };
     }
 
