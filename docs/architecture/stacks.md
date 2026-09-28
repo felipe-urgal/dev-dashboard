@@ -44,7 +44,7 @@ usuário confirmou explicitamente.
 ## API
 
 O backend expõe CRUD autenticado para definições explícitas de Stack em
-`/api/stacks`. A validação de schema bloqueia propriedades extras e limites
+`/api/stacks`. A validação de schema descarta propriedades extras e bloqueia limites
 fora do contrato; a validação de topologia continua sendo a autoridade para
 referências, duplicidades e ciclos antes da persistência.
 
