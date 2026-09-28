@@ -186,7 +186,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     options.now ? { now: () => new Date(options.now!()) } : {},
   );
 
-
   const gitWorktreeRemovalResourceGuard =
     new GitWorktreeRemovalResourceGuardService({
       processManager: context.processManager,

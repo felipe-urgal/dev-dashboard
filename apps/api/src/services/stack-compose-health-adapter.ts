@@ -13,9 +13,7 @@ import type {
   ComposeServiceState,
 } from './docker-compose-model.js';
 
-function composeRuntimeState(
-  service: ComposeServiceRuntime,
-): {
+function composeRuntimeState(service: ComposeServiceRuntime): {
   state: StackNodeState;
   diagnostic?: string;
 } {
@@ -86,7 +84,9 @@ export class StackComposeHealthAdapter {
     target: StackComposeServiceTarget,
     observedAt: string,
   ): Promise<StackNodeHealth> {
-    const project = this.dependencies.projectStore.findProject(target.projectId);
+    const project = this.dependencies.projectStore.findProject(
+      target.projectId,
+    );
     if (!project) {
       return {
         nodeId,
@@ -155,7 +155,9 @@ export class StackComposeHealthAdapter {
     }
 
     if (
-      !inspection.config.services.some((service) => service.name === target.service)
+      !inspection.config.services.some(
+        (service) => service.name === target.service,
+      )
     ) {
       return {
         nodeId,
