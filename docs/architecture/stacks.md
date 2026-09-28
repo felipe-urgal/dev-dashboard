@@ -67,11 +67,10 @@ a composição declarada que será consumida por adapters futuros.
 `GET /api/stacks/:stackId/check` retorna a definição da Stack, o plano
 determinístico de start/stop e a saúde agregada observada naquele instante.
 
-Nesta etapa, somente nodes de Environment Instance possuem evidência direta:
+Nesta etapa, nodes de Environment Instance e processos gerenciados possuem evidência direta:
 `ready`, `starting`, `stopped` e `failed` são derivados do lifecycle
 backend-owned. `degraded` vira `unknown`, porque readiness não pode ser
-comprovada. Nodes de processo, Compose e health check continuam `unknown`
-até que seus adapters read-only sejam conectados.
+comprovada. Nodes de processo usam o estado reconciliado do Process Manager e só são associados por `processId`, `projectId` e `environmentInstanceId` explícitos. Compose e health check continuam `unknown` até que seus adapters read-only sejam conectados.
 
 Ausência de adapter, desaparecimento da Environment Instance ou drift de
 ownership nunca vira `ready`; o Check sempre falha fechado para `unknown`.
