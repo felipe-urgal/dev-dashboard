@@ -84,7 +84,10 @@ function createService(
         findById: (id) => (id === value.id ? value : null),
       },
       developmentEnvironmentInstanceStore: {
-        findById: () => options.environment ?? environment('ready'),
+        findById: () =>
+          options.environment === undefined
+            ? environment('ready')
+            : options.environment,
       },
       processManager: {
         listProcesses: async () => options.processes ?? [],
