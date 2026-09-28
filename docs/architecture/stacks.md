@@ -48,7 +48,7 @@ O backend expõe CRUD autenticado para definições explícitas de Stack em
 fora do contrato; a validação de topologia continua sendo a autoridade para
 referências, duplicidades e ciclos antes da persistência.
 
-A superfície é deliberadamente CRUD. A API não aceita path, comando ou instrução de lifecycle. Ela apenas administra
+A superfície é deliberadamente CRUD e autenticada. A API não aceita path, comando ou instrução de lifecycle. Ela apenas administra
 a composição declarada que será consumida por adapters futuros.
 
 ## Deferred lifecycle
