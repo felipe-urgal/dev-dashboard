@@ -8,6 +8,10 @@ import {
   StackDefinitionServiceError,
   type StackDefinitionService,
 } from '../services/stack-definition-service.js';
+import {
+  StackCheckServiceError,
+  type StackCheckService,
+} from '../services/stack-check-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
 
 interface Options extends FastifyPluginOptions {
@@ -15,6 +19,7 @@ interface Options extends FastifyPluginOptions {
     StackDefinitionService,
     'list' | 'findById' | 'save' | 'delete'
   >;
+  stackCheckService: Pick<StackCheckService, 'check'>;
 }
 
 interface StackParams {
@@ -89,7 +94,67 @@ const stackSchema = {
   },
 } as const;
 
+const stackTopologyPlanSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'startOrder', 'stopOrder'],
+  properties: {
+    stackId: { type: 'string' },
+    startOrder: { type: 'array', items: { type: 'string' } },
+    stopOrder: { type: 'array', items: { type: 'string' } },
+  },
+} as const;
+
+const stackNodeHealthSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['nodeId', 'state', 'observedAt'],
+  properties: {
+    nodeId: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['ready', 'starting', 'stopped', 'failed', 'blocked', 'unknown'],
+    },
+    observedAt: { type: 'string' },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
+const stackHealthSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'state', 'observedAt', 'nodes'],
+  properties: {
+    stackId: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['ready', 'starting', 'stopped', 'failed', 'blocked', 'unknown'],
+    },
+    observedAt: { type: 'string' },
+    nodes: { type: 'array', items: stackNodeHealthSchema },
+  },
+} as const;
+
+const stackCheckSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stack', 'topology', 'health'],
+  properties: {
+    stack: stackSchema,
+    topology: stackTopologyPlanSchema,
+    health: stackHealthSchema,
+  },
+} as const;
+
 function mapStackError(error: unknown): unknown {
+  if (error instanceof StackCheckServiceError) {
+    return new ApiError({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+      message: error.message,
+    });
+  }
+
   if (error instanceof StackDefinitionServiceError) {
     return new ApiError({
       statusCode:
@@ -163,6 +228,31 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
         });
       }
       return { stack };
+    },
+  );
+
+  app.get<{ Params: StackParams }>(
+    '/stacks/:stackId/check',
+    {
+      schema: {
+        params: stackParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['check'],
+            properties: { check: stackCheckSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return { check: options.stackCheckService.check(request.params.stackId) };
+      } catch (error) {
+        throw mapStackError(error);
+      }
     },
   );
 
