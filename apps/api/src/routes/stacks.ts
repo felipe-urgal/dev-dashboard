@@ -250,7 +250,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     async (request) => {
       try {
         return {
-          check: options.stackCheckService.check(request.params.stackId),
+          check: await options.stackCheckService.check(request.params.stackId),
         };
       } catch (error) {
         throw mapStackError(error);
