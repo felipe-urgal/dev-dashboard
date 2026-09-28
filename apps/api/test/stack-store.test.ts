@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -154,6 +154,7 @@ test('writes versioned state with restrictive file permissions', () => {
 
     assert.equal(persisted.version, 1);
     assert.deepEqual(persisted.stacks, [stack()]);
+    assert.equal(statSync(stateFile).mode & 0o777, 0o600);
   } finally {
     rmSync(stateDirectory, { recursive: true, force: true });
   }
