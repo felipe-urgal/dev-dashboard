@@ -4,11 +4,17 @@ import type { Stack } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
+import {
+  StackDefinitionServiceError,
+  type StackDefinitionService,
+} from '../services/stack-definition-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
-import type { StackStore } from '../store/stack-store.js';
 
 interface Options extends FastifyPluginOptions {
-  stackStore: Pick<StackStore, 'list' | 'findById' | 'save' | 'delete'>;
+  stackDefinitionService: Pick<
+    StackDefinitionService,
+    'list' | 'findById' | 'save' | 'delete'
+  >;
 }
 
 interface StackParams {
@@ -84,6 +90,18 @@ const stackSchema = {
 } as const;
 
 function mapStackError(error: unknown): unknown {
+  if (error instanceof StackDefinitionServiceError) {
+    return new ApiError({
+      statusCode:
+        error.code === 'STACK_ENVIRONMENT_PROJECT_MISMATCH' ? 409 : 404,
+      code:
+        error.code === 'STACK_ENVIRONMENT_PROJECT_MISMATCH'
+          ? 'CONFLICT'
+          : 'NOT_FOUND',
+      message: error.message,
+    });
+  }
+
   if (!(error instanceof StackTopologyServiceError)) return error;
 
   return new ApiError({
@@ -114,7 +132,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async () => ({ stacks: options.stackStore.list() }),
+    async () => ({ stacks: options.stackDefinitionService.list() }),
   );
 
   app.get<{ Params: StackParams }>(
@@ -134,7 +152,9 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const stack = options.stackStore.findById(request.params.stackId);
+      const stack = options.stackDefinitionService.findById(
+        request.params.stackId,
+      );
       if (!stack) {
         throw new ApiError({
           statusCode: 404,
@@ -173,7 +193,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       }
 
       try {
-        return { stack: options.stackStore.save(request.body) };
+        return { stack: options.stackDefinitionService.save(request.body) };
       } catch (error) {
         throw mapStackError(error);
       }
@@ -192,7 +212,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request, reply) => {
-      if (!options.stackStore.delete(request.params.stackId)) {
+      if (!options.stackDefinitionService.delete(request.params.stackId)) {
         throw new ApiError({
           statusCode: 404,
           code: 'NOT_FOUND',

@@ -36,6 +36,7 @@ import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
 import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
+import { StackDefinitionService } from './services/stack-definition-service.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -120,6 +121,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     });
   const composition = createAppComposition(context, options);
   const dashboardTerminalService = new DashboardTerminalService();
+  const stackDefinitionService = new StackDefinitionService({
+    stackStore: context.stackStore,
+    projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
+  });
   app.addHook('onClose', () => {
     dashboardTerminalService.close();
   });
@@ -241,7 +248,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(stackRoutes, {
     prefix: '/api',
-    stackStore: context.stackStore,
+    stackDefinitionService,
   });
 
   app.register(projectRoutes, {

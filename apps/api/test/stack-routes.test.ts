@@ -4,13 +4,34 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Stack } from '@dev-dashboard/contracts';
+import type { Project, Stack } from '@dev-dashboard/contracts';
 
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
 import { StackStore } from '../src/store/stack-store.js';
 
 const TOKEN = 's'.repeat(64);
+
+function registerApiProject(
+  appContext: ReturnType<typeof createAppContext>,
+): void {
+  const project: Project = {
+    id: 'api',
+    workspaceId: 'workspace-a',
+    name: 'API',
+    path: '/tmp/api',
+    type: 'node',
+    source: 'workspace',
+    enabled: true,
+    capabilities: ['server'],
+  };
+  appContext.projectStore.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp',
+    projects: [project],
+    warnings: [],
+  });
+}
 
 function stack(): Stack {
   return {
@@ -46,6 +67,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     path.join(os.tmpdir(), 'dev-dashboard-stack-routes-'),
   );
   const appContext = createAppContext();
+  registerApiProject(appContext);
   appContext.stackStore = new StackStore({ stateDirectory });
   const app = await buildApp({ localToken: TOKEN, context: appContext });
 
@@ -130,7 +152,9 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
 });
 
 test('Stack HTTP sanitiza propriedades extras e rejeita nodes vazios', async (context) => {
-  const app = await buildApp({ localToken: TOKEN });
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => app.close());
 
   const headers = {
@@ -159,4 +183,27 @@ test('Stack HTTP sanitiza propriedades extras e rejeita nodes vazios', async (co
     payload: empty,
   });
   assert.equal(emptyNodes.statusCode, 400);
+});
+
+test('Stack HTTP recusa referências de projeto que o backend não conhece', async (context) => {
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => app.close());
+
+  const invalid = stack();
+  invalid.nodes[0]!.target.projectId = 'missing-project';
+
+  const response = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/local-stack',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: invalid,
+  });
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.json<{ error: string }>().error, 'NOT_FOUND');
 });
