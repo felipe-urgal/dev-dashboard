@@ -111,10 +111,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     payload: cyclic,
   });
   assert.equal(rejected.statusCode, 409);
-  assert.equal(
-    rejected.json<{ error: string }>().error,
-    'CONFLICT',
-  );
+  assert.equal(rejected.json<{ error: string }>().error, 'CONFLICT');
 
   const removed = await app.inject({
     method: 'DELETE',
