@@ -115,34 +115,102 @@ test('dependency cycle is rejected instead of producing a partial order', () => 
 test('health aggregation never promotes mixed or unknown evidence to ready', () => {
   const service = new StackTopologyService();
   const observedAt = '2026-09-21T22:30:00.000Z';
+  const input = stack();
 
   const healthy = service.health(
-    'local-stack',
-    [
-      { nodeId: 'api', state: 'ready', observedAt },
-      { nodeId: 'web', state: 'ready', observedAt },
-    ],
+    input,
+    input.nodes.map((node) => ({
+      nodeId: node.id,
+      state: 'ready' as const,
+      observedAt,
+    })),
     observedAt,
   );
   assert.equal(healthy.state, 'ready');
 
   const mixed = service.health(
-    'local-stack',
-    [
-      { nodeId: 'api', state: 'ready', observedAt },
-      { nodeId: 'web', state: 'stopped', observedAt },
-    ],
+    input,
+    input.nodes.map((node) => ({
+      nodeId: node.id,
+      state: node.id === 'web' ? ('stopped' as const) : ('ready' as const),
+      observedAt,
+    })),
     observedAt,
   );
   assert.equal(mixed.state, 'unknown');
 
   const failed = service.health(
-    'local-stack',
-    [
-      { nodeId: 'api', state: 'ready', observedAt },
-      { nodeId: 'web', state: 'failed', observedAt },
-    ],
+    input,
+    input.nodes.map((node) => ({
+      nodeId: node.id,
+      state: node.id === 'web' ? ('failed' as const) : ('ready' as const),
+      observedAt,
+    })),
     observedAt,
   );
   assert.equal(failed.state, 'failed');
+});
+
+test('missing health evidence is normalized to unknown instead of false ready', () => {
+  const observedAt = '2026-09-21T22:30:00.000Z';
+  const health = new StackTopologyService().health(
+    stack(),
+    [
+      { nodeId: 'postgres', state: 'ready', observedAt },
+      { nodeId: 'api', state: 'ready', observedAt },
+    ],
+    observedAt,
+  );
+
+  assert.equal(health.state, 'unknown');
+  assert.deepEqual(
+    health.nodes.filter((node) => node.state === 'unknown'),
+    [
+      {
+        nodeId: 'web',
+        state: 'unknown',
+        observedAt,
+        diagnostic: 'No health evidence is available for this stack node.',
+      },
+      {
+        nodeId: 'worker',
+        state: 'unknown',
+        observedAt,
+        diagnostic: 'No health evidence is available for this stack node.',
+      },
+    ],
+  );
+});
+
+test('health evidence rejects unknown and duplicate node ids', () => {
+  const service = new StackTopologyService();
+  const observedAt = '2026-09-21T22:30:00.000Z';
+  const input = stack();
+
+  assert.throws(
+    () =>
+      service.health(
+        input,
+        [{ nodeId: 'missing', state: 'ready', observedAt }],
+        observedAt,
+      ),
+    (error: unknown) =>
+      error instanceof StackTopologyServiceError &&
+      error.code === 'STACK_INVALID',
+  );
+
+  assert.throws(
+    () =>
+      service.health(
+        input,
+        [
+          { nodeId: 'api', state: 'ready', observedAt },
+          { nodeId: 'api', state: 'ready', observedAt },
+        ],
+        observedAt,
+      ),
+    (error: unknown) =>
+      error instanceof StackTopologyServiceError &&
+      error.code === 'STACK_INVALID',
+  );
 });
