@@ -62,6 +62,20 @@ referências, duplicidades e ciclos antes da persistência.
 A superfície é deliberadamente CRUD e autenticada. A API não aceita path, comando ou instrução de lifecycle. Ela apenas administra
 a composição declarada que será consumida por adapters futuros.
 
+## Check somente leitura
+
+`GET /api/stacks/:stackId/check` retorna a definição da Stack, o plano
+determinístico de start/stop e a saúde agregada observada naquele instante.
+
+Nesta etapa, somente nodes de Environment Instance possuem evidência direta:
+`ready`, `starting`, `stopped` e `failed` são derivados do lifecycle
+backend-owned. `degraded` vira `unknown`, porque readiness não pode ser
+comprovada. Nodes de processo, Compose e health check continuam `unknown`
+até que seus adapters read-only sejam conectados.
+
+Ausência de adapter, desaparecimento da Environment Instance ou drift de
+ownership nunca vira `ready`.
+
 ## Deferred lifecycle
 
 This slice does not execute Start/Stop/Restart. A later adapter layer must delegate each operation back to the resource-owning domain and preserve its confirmation, ownership and revalidation rules.
