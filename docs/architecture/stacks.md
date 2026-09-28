@@ -30,6 +30,17 @@ Node state uses:
 
 Aggregate health is conservative. Any failure wins, then blocked, then starting. The Stack is `ready` only when every observed node is ready, and `stopped` only when every node is stopped. Mixed or incomplete evidence becomes `unknown`.
 
+## Persistência da definição
+
+As definições explícitas de Stack são persistidas pelo backend em estado versionado.
+A gravação valida a topologia antes de persistir, usa substituição atômica do arquivo
+e mantém permissões restritivas. Entradas persistidas inválidas são ignoradas na
+recarga em vez de contaminarem o conjunto válido.
+
+A persistência não descobre dependências, não associa recursos ambiguamente e não
+executa lifecycle. Ela apenas fornece uma fonte durável para a composição que o
+usuário confirmou explicitamente.
+
 ## Deferred lifecycle
 
 This slice does not execute Start/Stop/Restart. A later adapter layer must delegate each operation back to the resource-owning domain and preserve its confirmation, ownership and revalidation rules.
