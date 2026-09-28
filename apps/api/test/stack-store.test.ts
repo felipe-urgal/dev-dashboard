@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -103,7 +109,10 @@ test('delete persists removal and reports whether the stack existed', () => {
 
     assert.equal(store.delete('local-stack'), true);
     assert.equal(store.delete('local-stack'), false);
-    assert.equal(new StackStore({ stateDirectory }).findById('local-stack'), null);
+    assert.equal(
+      new StackStore({ stateDirectory }).findById('local-stack'),
+      null,
+    );
   } finally {
     rmSync(stateDirectory, { recursive: true, force: true });
   }

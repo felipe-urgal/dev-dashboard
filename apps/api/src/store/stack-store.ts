@@ -31,7 +31,11 @@ export class StackStore {
   public list(): Stack[] {
     return [...this.stacks.values()]
       .map((stack) => structuredClone(stack))
-      .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
+      .sort(
+        (left, right) =>
+          left.name.localeCompare(right.name) ||
+          left.id.localeCompare(right.id),
+      );
   }
 
   public findById(stackId: string): Stack | null {
