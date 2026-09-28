@@ -92,6 +92,14 @@ function createService(
       processManager: {
         listProcesses: async () => options.processes ?? [],
       },
+      composeHealthAdapter: {
+        observe: async (nodeId, _target, observedAt) => ({
+          nodeId,
+          state: 'unknown',
+          observedAt,
+          diagnostic: 'Compose adapter stub.',
+        }),
+      },
     },
     { now: () => new Date('2026-09-28T17:30:00.000Z') },
   );
@@ -205,6 +213,13 @@ test('fails with explicit not found when Stack does not exist', async () => {
     stackStore: { findById: () => null },
     developmentEnvironmentInstanceStore: { findById: () => null },
     processManager: { listProcesses: async () => [] },
+    composeHealthAdapter: {
+      observe: async (nodeId, _target, observedAt) => ({
+        nodeId,
+        state: 'unknown',
+        observedAt,
+      }),
+    },
   });
 
   await assert.rejects(
