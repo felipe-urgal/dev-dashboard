@@ -127,6 +127,7 @@ export class DashboardTerminalService {
     confirmationToken: string | undefined,
     socket: WebSocket,
     reconnect?: { sessionId?: string; reconnectToken?: string },
+    workspaceId?: string,
   ): Promise<void> {
     if (reconnect?.sessionId || reconnect?.reconnectToken) {
       this.attachExisting(
@@ -194,6 +195,9 @@ export class DashboardTerminalService {
             ...process.env,
             DEV_SILENT: '1',
             TERM: 'xterm-256color',
+            ...(workspaceId
+              ? { DEV_DASHBOARD_WORKSPACE_ID: workspaceId }
+              : {}),
           },
         },
       );
