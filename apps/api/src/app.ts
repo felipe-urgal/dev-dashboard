@@ -8,6 +8,7 @@ import { attentionRoutes } from './routes/attention.js';
 import { taskContextRoutes } from './routes/task-contexts.js';
 import { activityRoutes } from './routes/activity.js';
 import { agentRuntimeRoutes } from './routes/agent-runtime.js';
+import { stackRoutes } from './routes/stacks.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
@@ -236,6 +237,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     agentRuntimeApiService,
     agentRuntimeRealtimeService,
+  });
+
+  app.register(stackRoutes, {
+    prefix: '/api',
+    stackStore: context.stackStore,
   });
 
   app.register(projectRoutes, {

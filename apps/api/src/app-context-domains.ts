@@ -13,6 +13,7 @@ import {
 
 import { DevelopmentEnvironmentInstanceStore } from './store/development-environment-instance-store.js';
 import { ProjectStore } from './store/project-store.js';
+import { StackStore } from './store/stack-store.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
 import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
 import { GitWorktreeLifecycleService } from './services/git-worktree-lifecycle-service.js';
@@ -75,6 +76,9 @@ export function createFoundationContextDomain() {
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
+    stackStore: new StackStore({
+      stateDirectory: processManager.stateDirectory,
+    }),
     developmentEnvironmentInstanceStore:
       new DevelopmentEnvironmentInstanceStore(projectStore, {
         stateDirectory: processManager.stateDirectory,

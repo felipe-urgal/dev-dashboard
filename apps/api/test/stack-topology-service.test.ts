@@ -214,3 +214,43 @@ test('health evidence rejects unknown and duplicate node ids', () => {
       error.code === 'STACK_INVALID',
   );
 });
+
+test('node target validation rejects missing required fields and cross-kind fields', () => {
+  const service = new StackTopologyService();
+
+  const missingEnvironment = stack();
+  missingEnvironment.nodes[1] = {
+    id: 'api',
+    name: 'API',
+    target: {
+      kind: 'environment',
+      projectId: 'api',
+      environmentInstanceId: '',
+    },
+  };
+  assert.throws(
+    () => service.plan(missingEnvironment),
+    (error: unknown) =>
+      error instanceof StackTopologyServiceError &&
+      error.code === 'STACK_INVALID',
+  );
+
+  const crossKind = stack();
+  crossKind.nodes[0] = {
+    id: 'postgres',
+    name: 'Postgres',
+    target: {
+      kind: 'compose-service',
+      projectId: 'api',
+      environmentInstanceId: 'environment:primary:api',
+      service: 'postgres',
+      processId: 'not-allowed',
+    } as Stack['nodes'][number]['target'],
+  };
+  assert.throws(
+    () => service.plan(crossKind),
+    (error: unknown) =>
+      error instanceof StackTopologyServiceError &&
+      error.code === 'STACK_INVALID',
+  );
+});
