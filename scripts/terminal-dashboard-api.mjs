@@ -7,6 +7,7 @@ const apiPort = process.env.DEV_DASHBOARD_API_PORT?.trim() || '4343';
 const origin =
   process.env.DEV_DASHBOARD_LOCAL_ORIGIN?.trim() ||
   `http://127.0.0.1:${apiPort}`;
+const workspaceId = process.env.DEV_DASHBOARD_WORKSPACE_ID?.trim() || '';
 
 function configDir() {
   const explicit = process.env.DEV_DASHBOARD_CONFIG_DIR?.trim();
@@ -66,7 +67,10 @@ function printProject(project, managedProcess) {
 
 async function listProjects() {
   const payload = await request('/api/projects');
-  return payload.projects ?? [];
+  const projects = payload.projects ?? [];
+  return workspaceId
+    ? projects.filter((project) => project.workspaceId === workspaceId)
+    : projects;
 }
 
 async function resolveProject(value) {

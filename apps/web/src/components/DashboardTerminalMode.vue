@@ -17,12 +17,12 @@ import {
 import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
 import { currentTheme } from '../utils/visual-preferences';
 
-const props = defineProps<{ active: boolean }>();
+const props = defineProps<{ active: boolean; workspaceId: string }>();
 
 type SessionState =
   'idle' | 'connecting' | 'connected' | 'disconnected' | 'exited' | 'closed';
 
-const SESSION_STORAGE_KEY = 'dev-dashboard-terminal-session';
+const SESSION_STORAGE_KEY_PREFIX = 'dev-dashboard-terminal-session';
 const MAX_PENDING_OUTPUT_BYTES = 262_144;
 const RECONNECT_DELAY_MS = 500;
 
@@ -78,9 +78,13 @@ function boundedPendingOutput(value: string): string {
   return codePoints.slice(start).join('');
 }
 
+function sessionStorageKey(): string {
+  return `${SESSION_STORAGE_KEY_PREFIX}:${props.workspaceId || 'all'}`;
+}
+
 function readReconnectCredentials(): DashboardTerminalReconnectCredentials | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = sessionStorage.getItem(sessionStorageKey());
     if (!raw) return null;
     const parsed = JSON.parse(
       raw,
@@ -89,7 +93,7 @@ function readReconnectCredentials(): DashboardTerminalReconnectCredentials | nul
       typeof parsed.sessionId !== 'string' ||
       typeof parsed.reconnectToken !== 'string'
     ) {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(sessionStorageKey());
       return null;
     }
     return {
@@ -97,7 +101,7 @@ function readReconnectCredentials(): DashboardTerminalReconnectCredentials | nul
       reconnectToken: parsed.reconnectToken,
     };
   } catch {
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(sessionStorageKey());
     return null;
   }
 }
@@ -105,11 +109,11 @@ function readReconnectCredentials(): DashboardTerminalReconnectCredentials | nul
 function storeReconnectCredentials(
   credentials: DashboardTerminalReconnectCredentials,
 ): void {
-  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(credentials));
+  sessionStorage.setItem(sessionStorageKey(), JSON.stringify(credentials));
 }
 
 function clearReconnectCredentials(): void {
-  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  sessionStorage.removeItem(sessionStorageKey());
 }
 
 function queueResize(): void {
@@ -249,6 +253,7 @@ async function startSession(preferReconnect = true): Promise<void> {
       : dashboardTerminalWebSocketUrl({
           confirmationToken: (await prepareDashboardTerminalConfirmation())
             .token,
+          workspaceId: props.workspaceId,
         });
 
     const newSocket = new WebSocket(url);

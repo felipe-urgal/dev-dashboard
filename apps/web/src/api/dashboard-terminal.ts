@@ -23,12 +23,16 @@ export function prepareDashboardTerminalConfirmation(): Promise<DashboardTermina
 
 export function dashboardTerminalWebSocketUrl(
   credentials:
-    { confirmationToken: string } | DashboardTerminalReconnectCredentials,
+    | { confirmationToken: string; workspaceId?: string }
+    | DashboardTerminalReconnectCredentials,
 ): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const query = new URLSearchParams();
   if ('confirmationToken' in credentials) {
     query.set('confirmationToken', credentials.confirmationToken);
+    if (credentials.workspaceId) {
+      query.set('workspaceId', credentials.workspaceId);
+    }
   } else {
     query.set('sessionId', credentials.sessionId);
     query.set('reconnectToken', credentials.reconnectToken);

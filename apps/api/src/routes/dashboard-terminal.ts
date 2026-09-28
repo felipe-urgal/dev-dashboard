@@ -11,6 +11,7 @@ interface ConnectQuery {
   confirmationToken?: string;
   sessionId?: string;
   reconnectToken?: string;
+  workspaceId?: string;
 }
 
 const connectQuerySchema = {
@@ -20,6 +21,7 @@ const connectQuerySchema = {
     confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
     sessionId: { type: 'string', minLength: 32, maxLength: 32 },
     reconnectToken: { type: 'string', minLength: 64, maxLength: 64 },
+    workspaceId: { type: 'string', minLength: 1, maxLength: 256 },
   },
 } as const;
 
@@ -73,7 +75,12 @@ export const dashboardTerminalRoutes: FastifyPluginAsync<
           : {}),
       };
       void options.dashboardTerminalService
-        .attach(request.query.confirmationToken, limitedSocket, reconnect)
+        .attach(
+          request.query.confirmationToken,
+          limitedSocket,
+          reconnect,
+          request.query.workspaceId,
+        )
         .catch((error: unknown) => {
           request.log.error(
             { err: error },

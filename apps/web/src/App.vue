@@ -246,8 +246,10 @@ onMounted(() => {
 
         <DashboardTerminalMode
           v-if="terminalMounted"
+          :key="selectedWorkspaceId || 'no-workspace'"
           v-show="interfaceMode === 'terminal'"
           :active="interfaceMode === 'terminal'"
+          :workspace-id="selectedWorkspaceId"
         />
       </main>
 

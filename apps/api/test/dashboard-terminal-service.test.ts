@@ -106,6 +106,7 @@ test('modo terminal inicia dev-tools com comando fixo na raiz do dashboard', asy
     let spawnedFile = '';
     let spawnedArgs: readonly string[] = [];
     let spawnedCwd = '';
+    let spawnedWorkspaceId = '';
     const fakePty = new FakePty();
     const service = new DashboardTerminalService({
       dashboardRoot: root,
@@ -113,16 +114,23 @@ test('modo terminal inicia dev-tools com comando fixo na raiz do dashboard', asy
         spawnedFile = file;
         spawnedArgs = args;
         spawnedCwd = options.cwd ?? '';
+        spawnedWorkspaceId = options.env?.DEV_DASHBOARD_WORKSPACE_ID ?? '';
         return fakePty as never;
       },
     });
     const confirmation = service.prepareConfirmation();
     const socket = new FakeSocket();
 
-    await service.attach(confirmation.token, socket as never);
+    await service.attach(
+      confirmation.token,
+      socket as never,
+      undefined,
+      'workspace-a',
+    );
 
     assert.equal(spawnedFile, '/bin/bash');
     assert.equal(spawnedCwd, root);
+    assert.equal(spawnedWorkspaceId, 'workspace-a');
     assert.deepEqual(spawnedArgs, [
       '--noprofile',
       '--norc',

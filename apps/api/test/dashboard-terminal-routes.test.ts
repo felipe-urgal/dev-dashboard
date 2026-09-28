@@ -43,6 +43,7 @@ test('rota websocket declara credenciais de reconexão bounded', async () => {
 
   assert.match(source, /sessionId/);
   assert.match(source, /reconnectToken/);
+  assert.match(source, /workspaceId/);
   assert.match(source, /minLength: 32, maxLength: 32/);
   assert.match(source, /minLength: 64, maxLength: 64/);
 });
