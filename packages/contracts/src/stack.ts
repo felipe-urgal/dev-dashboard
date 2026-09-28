@@ -74,3 +74,9 @@ export interface StackHealth {
   observedAt: string;
   nodes: StackNodeHealth[];
 }
+
+export interface StackCheck {
+  stack: Stack;
+  topology: StackTopologyPlan;
+  health: StackHealth;
+}
