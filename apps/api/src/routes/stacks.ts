@@ -24,60 +24,21 @@ const stackParamsSchema = {
   },
 } as const;
 
-const environmentTargetSchema = {
+const stackTargetSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['kind', 'projectId', 'environmentInstanceId'],
+  required: ['kind', 'projectId'],
   properties: {
-    kind: { const: 'environment' },
-    projectId: { type: 'string', minLength: 1, maxLength: 160 },
-    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 256 },
-  },
-} as const;
-
-const processTargetSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['kind', 'projectId', 'environmentInstanceId', 'processId'],
-  properties: {
-    kind: { const: 'process' },
+    kind: {
+      type: 'string',
+      enum: ['environment', 'process', 'compose-service', 'health-check'],
+    },
     projectId: { type: 'string', minLength: 1, maxLength: 160 },
     environmentInstanceId: { type: 'string', minLength: 1, maxLength: 256 },
     processId: { type: 'string', minLength: 1, maxLength: 160 },
-  },
-} as const;
-
-const composeServiceTargetSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['kind', 'projectId', 'environmentInstanceId', 'service'],
-  properties: {
-    kind: { const: 'compose-service' },
-    projectId: { type: 'string', minLength: 1, maxLength: 160 },
-    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 256 },
     service: { type: 'string', minLength: 1, maxLength: 160 },
-  },
-} as const;
-
-const healthCheckTargetSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['kind', 'projectId', 'checkId'],
-  properties: {
-    kind: { const: 'health-check' },
-    projectId: { type: 'string', minLength: 1, maxLength: 160 },
-    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 256 },
     checkId: { type: 'string', minLength: 1, maxLength: 160 },
   },
-} as const;
-
-const stackTargetSchema = {
-  anyOf: [
-    environmentTargetSchema,
-    processTargetSchema,
-    composeServiceTargetSchema,
-    healthCheckTargetSchema,
-  ],
 } as const;
 
 const stackNodeSchema = {
