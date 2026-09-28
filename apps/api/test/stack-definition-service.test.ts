@@ -12,7 +12,10 @@ import {
   StackDefinitionServiceError,
 } from '../src/services/stack-definition-service.js';
 
-function stack(projectId = 'api', environmentInstanceId = 'environment:primary:api'): Stack {
+function stack(
+  projectId = 'api',
+  environmentInstanceId = 'environment:primary:api',
+): Stack {
   return {
     id: 'local-stack',
     name: 'Local stack',
@@ -77,9 +80,7 @@ test('persists only when project and environment ownership are proven', () => {
     },
     developmentEnvironmentInstanceStore: {
       findById: (id) =>
-        id === 'environment:primary:api'
-          ? environment(id, 'api')
-          : null,
+        id === 'environment:primary:api' ? environment(id, 'api') : null,
     },
   });
 

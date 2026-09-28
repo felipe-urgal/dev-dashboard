@@ -152,7 +152,9 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const stack = options.stackDefinitionService.findById(request.params.stackId);
+      const stack = options.stackDefinitionService.findById(
+        request.params.stackId,
+      );
       if (!stack) {
         throw new ApiError({
           statusCode: 404,

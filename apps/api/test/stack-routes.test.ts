@@ -12,7 +12,9 @@ import { StackStore } from '../src/store/stack-store.js';
 
 const TOKEN = 's'.repeat(64);
 
-function registerApiProject(appContext: ReturnType<typeof createAppContext>): void {
+function registerApiProject(
+  appContext: ReturnType<typeof createAppContext>,
+): void {
   const project: Project = {
     id: 'api',
     workspaceId: 'workspace-a',
