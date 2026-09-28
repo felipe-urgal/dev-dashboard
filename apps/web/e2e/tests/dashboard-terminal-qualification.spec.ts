@@ -70,7 +70,10 @@ test('qualifica o Terminal embutido com PTY real', async ({ page }) => {
 
   await expect
     .poll(() =>
-      page.evaluate((storageKey) => sessionStorage.getItem(storageKey), reconnectStorageKey!),
+      page.evaluate(
+        (storageKey) => sessionStorage.getItem(storageKey),
+        reconnectStorageKey!,
+      ),
     )
     .toBe(reconnectCredentials);
   await expect(page.getByText('Terminal desconectado')).toHaveCount(0);
