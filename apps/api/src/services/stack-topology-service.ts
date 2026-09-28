@@ -149,15 +149,42 @@ export class StackTopologyService {
   }
 
   public health(
-    stackId: string,
+    stack: Stack,
     nodes: readonly StackNodeHealth[],
     observedAt: string,
   ): StackHealth {
+    validateStack(stack);
+
+    const stackNodeIds = new Set(stack.nodes.map((node) => node.id));
+    const healthByNodeId = new Map<string, StackNodeHealth>();
+
+    for (const node of nodes) {
+      if (!stackNodeIds.has(node.nodeId) || healthByNodeId.has(node.nodeId)) {
+        throw new StackTopologyServiceError(
+          'STACK_INVALID',
+          'Stack health evidence references an unknown or duplicate node.',
+        );
+      }
+      healthByNodeId.set(node.nodeId, node);
+    }
+
+    const normalizedNodes = stack.nodes.map<StackNodeHealth>((node) => {
+      const health = healthByNodeId.get(node.id);
+      if (health) return { ...health };
+
+      return {
+        nodeId: node.id,
+        state: 'unknown',
+        observedAt,
+        diagnostic: 'No health evidence is available for this stack node.',
+      };
+    });
+
     return {
-      stackId,
-      state: this.aggregateHealth(nodes.map((node) => node.state)),
+      stackId: stack.id,
+      state: this.aggregateHealth(normalizedNodes.map((node) => node.state)),
       observedAt,
-      nodes: nodes.map((node) => ({ ...node })),
+      nodes: normalizedNodes,
     };
   }
 
