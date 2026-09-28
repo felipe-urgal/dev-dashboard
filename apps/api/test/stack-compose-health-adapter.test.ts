@@ -71,7 +71,7 @@ function inspection(
 
 function adapter(
   options: {
-    ownership?: { composeProjectName: string } | undefined;
+    ownership?: { composeProjectName: string } | null;
     inspection?: DockerComposeInspection;
   } = {},
 ): StackComposeHealthAdapter {
@@ -154,7 +154,7 @@ test('maps explicit Compose runtime terminal states conservatively', async () =>
 });
 
 test('fails closed when Compose ownership or runtime identity cannot be proven', async () => {
-  const missingOwnership = await adapter({ ownership: null as never }).observe(
+  const missingOwnership = await adapter({ ownership: null }).observe(
     'postgres',
     target(),
     observedAt,
