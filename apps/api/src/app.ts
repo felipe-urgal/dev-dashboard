@@ -133,6 +133,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       stackStore: context.stackStore,
       developmentEnvironmentInstanceStore:
         context.developmentEnvironmentInstanceStore,
+      processManager: context.processManager,
     },
     options.now ? { now: () => new Date(options.now!()) } : {},
   );
