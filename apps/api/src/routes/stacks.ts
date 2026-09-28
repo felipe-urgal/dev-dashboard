@@ -127,7 +127,7 @@ function mapStackError(error: unknown): unknown {
 
   return new ApiError({
     statusCode: error.code === 'STACK_DEPENDENCY_CYCLE' ? 409 : 400,
-    code: error.code,
+    code: error.code === 'STACK_DEPENDENCY_CYCLE' ? 'CONFLICT' : 'BAD_REQUEST',
     message: error.message,
   });
 }
@@ -177,7 +177,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       if (!stack) {
         throw new ApiError({
           statusCode: 404,
-          code: 'STACK_NOT_FOUND',
+          code: 'NOT_FOUND',
           message: 'Stack not found.',
         });
       }
@@ -206,7 +206,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       if (request.params.stackId !== request.body.id) {
         throw new ApiError({
           statusCode: 400,
-          code: 'STACK_ID_MISMATCH',
+          code: 'BAD_REQUEST',
           message: 'Stack id must match the route parameter.',
         });
       }
@@ -234,7 +234,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       if (!options.stackStore.delete(request.params.stackId)) {
         throw new ApiError({
           statusCode: 404,
-          code: 'STACK_NOT_FOUND',
+          code: 'NOT_FOUND',
           message: 'Stack not found.',
         });
       }
