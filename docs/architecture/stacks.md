@@ -41,6 +41,17 @@ A persistência não descobre dependências, não associa recursos ambiguamente 
 executa lifecycle. Ela apenas fornece uma fonte durável para a composição que o
 usuário confirmou explicitamente.
 
+## Validação de recursos
+
+Antes de persistir uma definição, o backend comprova as referências básicas
+contra o estado local conhecido. Todo node precisa apontar para um Project
+existente. Quando o target carrega `environmentInstanceId`, a Environment
+Instance precisa existir e pertencer ao mesmo Project declarado pelo node.
+
+Essa validação não tenta inferir serviço Compose, processo ou health check por
+heurística. O objetivo deste slice é impedir referências órfãs ou cruzadas entre
+projetos antes que lifecycle futuro ganhe autoridade sobre esses recursos.
+
 ## API
 
 O backend expõe CRUD autenticado para definições explícitas de Stack em
