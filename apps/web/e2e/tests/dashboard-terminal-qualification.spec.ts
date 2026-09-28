@@ -41,9 +41,18 @@ test('qualifica o Terminal embutido com PTY real', async ({ page }) => {
   // Resize exercita FitAddon -> mensagem resize -> PTY sem quebrar a UI.
   await page.setViewportSize({ width: 900, height: 650 });
   await expect(terminal).toBeVisible();
-  await expect(page.locator('.dashboard-terminal-canvas')).toHaveCSS(
-    'min-width',
-    '0px',
+  const terminalCanvas = page.locator('.dashboard-terminal-canvas');
+  await expect(terminalCanvas).toHaveCSS('min-width', '0px');
+  await expect(terminalCanvas).toHaveCSS('box-sizing', 'border-box');
+
+  const [canvasBox, terminalBox] = await Promise.all([
+    terminalCanvas.boundingBox(),
+    terminal.boundingBox(),
+  ]);
+  expect(canvasBox).not.toBeNull();
+  expect(terminalBox).not.toBeNull();
+  expect(terminalBox!.y + terminalBox!.height).toBeLessThanOrEqual(
+    canvasBox!.y + canvasBox!.height + 1,
   );
 
   // Reload força perda do WebSocket e reconexão usando a sessão persistida.
