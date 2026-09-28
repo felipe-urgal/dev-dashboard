@@ -195,9 +195,7 @@ export class DashboardTerminalService {
             ...process.env,
             DEV_SILENT: '1',
             TERM: 'xterm-256color',
-            ...(workspaceId
-              ? { DEV_DASHBOARD_WORKSPACE_ID: workspaceId }
-              : {}),
+            ...(workspaceId ? { DEV_DASHBOARD_WORKSPACE_ID: workspaceId } : {}),
           },
         },
       );
