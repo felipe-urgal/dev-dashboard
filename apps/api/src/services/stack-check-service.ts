@@ -11,6 +11,7 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { StackStore } from '../store/stack-store.js';
+import type { StackComposeHealthAdapter } from './stack-compose-health-adapter.js';
 import { StackTopologyService } from './stack-topology-service.js';
 
 export class StackCheckServiceError extends Error {
@@ -71,6 +72,7 @@ export class StackCheckService {
         'findById'
       >;
       processManager: Pick<ProcessManager, 'listProcesses'>;
+      composeHealthAdapter: Pick<StackComposeHealthAdapter, 'observe'>;
     },
     options: StackCheckServiceOptions = {},
   ) {
@@ -88,8 +90,10 @@ export class StackCheckService {
     const processesById = new Map(
       processes.map((process) => [process.id, process]),
     );
-    const nodes = stack.nodes.map((node) =>
-      this.observeNode(stack, node.id, observedAt, processesById),
+    const nodes = await Promise.all(
+      stack.nodes.map((node) =>
+        this.observeNode(stack, node.id, observedAt, processesById),
+      ),
     );
 
     return {
@@ -99,13 +103,21 @@ export class StackCheckService {
     };
   }
 
-  private observeNode(
+  private async observeNode(
     stack: Stack,
     nodeId: string,
     observedAt: string,
     processesById: ReadonlyMap<string, ManagedProcess>,
-  ): StackNodeHealth {
+  ): Promise<StackNodeHealth> {
     const node = stack.nodes.find((candidate) => candidate.id === nodeId)!;
+
+    if (node.target.kind === 'compose-service') {
+      return this.dependencies.composeHealthAdapter.observe(
+        nodeId,
+        node.target,
+        observedAt,
+      );
+    }
 
     if (node.target.kind === 'process') {
       const process = processesById.get(node.target.processId);
