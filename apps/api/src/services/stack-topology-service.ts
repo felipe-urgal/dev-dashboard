@@ -34,10 +34,7 @@ function isBoundedText(value: string, maximumLength: number): boolean {
   );
 }
 
-function hasOnlyKeys(
-  value: object,
-  allowedKeys: readonly string[],
-): boolean {
+function hasOnlyKeys(value: object, allowedKeys: readonly string[]): boolean {
   return Object.keys(value).every((key) => allowedKeys.includes(key));
 }
 
