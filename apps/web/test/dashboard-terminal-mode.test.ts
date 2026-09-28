@@ -15,12 +15,16 @@ describe('modo Web / Terminal do Dev Dashboard', () => {
     expect(appSource).toContain("type InterfaceMode = 'web' | 'terminal'");
     expect(appSource).toContain('v-show="interfaceMode === \'web\'"');
     expect(appSource).toContain(':active="interfaceMode === \'terminal\'"');
+    expect(appSource).toContain(':workspace-id="selectedWorkspaceId"');
+    expect(appSource).toContain(':key="selectedWorkspaceId || \'no-workspace\'"');
     expect(appSource).toContain('terminalMounted');
   });
 
   it('usa a sessão global do dev-tools e preserva a conexão quando fica inativa', () => {
     expect(terminalSource).toContain('prepareDashboardTerminalConfirmation');
     expect(terminalSource).toContain('dashboardTerminalWebSocketUrl');
+    expect(terminalSource).toContain('workspaceId: props.workspaceId');
+    expect(terminalSource).toContain('sessionStorageKey()');
     expect(terminalSource).toContain('if (!active) return;');
     expect(terminalSource).toContain('onBeforeUnmount(() =>');
   });
