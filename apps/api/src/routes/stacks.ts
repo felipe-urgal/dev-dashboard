@@ -4,9 +4,7 @@ import type { Stack } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
-import {
-  StackTopologyServiceError,
-} from '../services/stack-topology-service.js';
+import { StackTopologyServiceError } from '../services/stack-topology-service.js';
 import type { StackStore } from '../store/stack-store.js';
 
 interface Options extends FastifyPluginOptions {
@@ -134,7 +132,10 @@ function mapStackError(error: unknown): unknown {
   });
 }
 
-export const stackRoutes: FastifyPluginAsync<Options> = async (app, options) => {
+export const stackRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
   app.get(
     '/stacks',
     {

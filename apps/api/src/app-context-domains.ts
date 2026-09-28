@@ -76,7 +76,9 @@ export function createFoundationContextDomain() {
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
-    stackStore: new StackStore({ stateDirectory: processManager.stateDirectory }),
+    stackStore: new StackStore({
+      stateDirectory: processManager.stateDirectory,
+    }),
     developmentEnvironmentInstanceStore:
       new DevelopmentEnvironmentInstanceStore(projectStore, {
         stateDirectory: processManager.stateDirectory,
