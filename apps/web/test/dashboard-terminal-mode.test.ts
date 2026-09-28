@@ -16,9 +16,7 @@ describe('modo Web / Terminal do Dev Dashboard', () => {
     expect(appSource).toContain('v-show="interfaceMode === \'web\'"');
     expect(appSource).toContain(':active="interfaceMode === \'terminal\'"');
     expect(appSource).toContain(':workspace-id="selectedWorkspaceId"');
-    expect(appSource).toContain(
-      ':key="selectedWorkspaceId || \'no-workspace\'"',
-    );
+    expect(appSource).toContain(':key="selectedWorkspaceId || \'no-workspace\'"');
     expect(appSource).toContain('terminalMounted');
   });
 
