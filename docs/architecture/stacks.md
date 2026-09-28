@@ -74,7 +74,7 @@ comprovada. Nodes de processo, Compose e health check continuam `unknown`
 até que seus adapters read-only sejam conectados.
 
 Ausência de adapter, desaparecimento da Environment Instance ou drift de
-ownership nunca vira `ready`.
+ownership nunca vira `ready`; o Check sempre falha fechado para `unknown`.
 
 ## Deferred lifecycle
 
