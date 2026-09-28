@@ -23,8 +23,16 @@ test('qualifica o Terminal embutido com PTY real', async ({ page }) => {
   await expect.poll(() => terminalText(page)).toContain('Dev Dashboard');
   await expect.poll(() => terminalText(page)).toContain('sample-node-app');
 
-  const reconnectCredentials = await page.evaluate(() =>
-    sessionStorage.getItem('dev-dashboard-terminal-session'),
+  const reconnectStorageKey = await page.evaluate(() =>
+    Object.keys(sessionStorage).find((key) =>
+      key.startsWith('dev-dashboard-terminal-session:'),
+    ),
+  );
+  expect(reconnectStorageKey).toBeTruthy();
+
+  const reconnectCredentials = await page.evaluate(
+    (storageKey) => sessionStorage.getItem(storageKey),
+    reconnectStorageKey!,
   );
   expect(reconnectCredentials).toBeTruthy();
 
@@ -62,9 +70,7 @@ test('qualifica o Terminal embutido com PTY real', async ({ page }) => {
 
   await expect
     .poll(() =>
-      page.evaluate(() =>
-        sessionStorage.getItem('dev-dashboard-terminal-session'),
-      ),
+      page.evaluate((storageKey) => sessionStorage.getItem(storageKey), reconnectStorageKey!),
     )
     .toBe(reconnectCredentials);
   await expect(page.getByText('Terminal desconectado')).toHaveCount(0);
