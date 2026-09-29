@@ -94,7 +94,11 @@ function adapter(
     serverSettingsRepository: {
       find: async () => ({
         projectId: value.id,
-        port: 4343,
+        ...(options.settingsPort === undefined
+          ? { port: 4343 }
+          : options.settingsPort === null
+            ? {}
+            : { port: options.settingsPort }),
         ...(options.healthCheckPath === undefined
           ? { healthCheckPath: '/health' }
           : options.healthCheckPath
@@ -139,9 +143,11 @@ test('fails closed for unknown check id or missing explicit ownership', async ()
   );
   assert.equal(unknownCheck.state, 'unknown');
 
+  const targetWithoutEnvironment = target();
+  delete targetWithoutEnvironment.environmentInstanceId;
   const missingEnvironment = await adapter().observe(
     'api-health',
-    target({ environmentInstanceId: undefined }),
+    targetWithoutEnvironment,
     observedAt,
   );
   assert.equal(missingEnvironment.state, 'unknown');
@@ -162,10 +168,13 @@ test('requires configured health path and a known port', async () => {
   );
   assert.equal(noPath.state, 'unknown');
 
+  const processWithoutPort = process();
+  delete processWithoutPort.port;
   const noPort = await adapter({
-    process: process({ port: undefined }),
+    process: processWithoutPort,
+    settingsPort: null,
     healthCheckPath: '/health',
   }).observe('api-health', target(), observedAt);
 
-  assert.equal(noPort.state, 'ready');
+  assert.equal(noPort.state, 'unknown');
 });
