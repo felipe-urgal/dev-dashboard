@@ -177,6 +177,8 @@ const providerRefreshing = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const providerConfig = ref<HTMLDetailsElement | null>(null);
+const integrationsSummary = ref<HTMLDetailsElement | null>(null);
 const agentNotificationPreferences = ref(readAgentNotificationPreferences());
 const socketState = ref<'idle' | 'connecting' | 'connected' | 'disconnected'>(
   'idle',
@@ -286,6 +288,19 @@ const taskStateSummary = (state: string): string => {
     default:
       return state;
   }
+};
+
+const openProviderDiagnostics = (): void => {
+  if (providerConfig.value) providerConfig.value.open = true;
+};
+
+const openIntegrations = (): void => {
+  if (!integrationsSummary.value) return;
+  integrationsSummary.value.open = true;
+  integrationsSummary.value.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
 };
 
 const selectedExecutionProfile = computed(() =>
@@ -1666,7 +1681,7 @@ onBeforeUnmount(() => {
           </span>
         </div>
 
-        <details class="agent-provider-config">
+        <details ref="providerConfig" class="agent-provider-config">
           <summary>⚙ Configurar provider</summary>
           <div class="agent-provider-config-body">
             <div class="agent-budget-fields">
@@ -1757,11 +1772,7 @@ onBeforeUnmount(() => {
         <button
           class="agent-provider-action"
           type="button"
-          @click="
-            (
-              document.querySelector('.agent-integrations-summary') as HTMLElement
-            )?.scrollIntoView({ behavior: 'smooth' })
-          "
+          @click="openIntegrations"
         >
           <span aria-hidden="true">♧</span>
           Ver integrações (MCP)
@@ -1770,11 +1781,7 @@ onBeforeUnmount(() => {
         <button
           class="agent-provider-action"
           type="button"
-          @click="
-            (
-              document.querySelector('.agent-provider-config') as HTMLDetailsElement
-            ).open = true
-          "
+          @click="openProviderDiagnostics"
         >
           <span aria-hidden="true">▣</span>
           Diagnóstico do ambiente
@@ -1896,7 +1903,10 @@ onBeforeUnmount(() => {
         </button>
       </section>
 
-      <details class="agent-integrations-summary agent-card">
+      <details
+        ref="integrationsSummary"
+        class="agent-integrations-summary agent-card"
+      >
         <summary>
           <div class="agent-integrations-copy">
             <span class="agent-integrations-icon" aria-hidden="true">♧</span>
