@@ -85,6 +85,16 @@ Nodes `environment`, `process` e `health-check` funcionam como gates de readines
 
 Falha parcial é retornada explicitamente como `completed`, `blocked` ou `failed`, acompanhada dos steps processados e de um novo `StackCheck`.
 
+## Stop coordenado
+
+`POST /api/stacks/:stackId/stop` percorre `stopOrder`, que é a ordem reversa da topologia.
+
+Nodes `compose-service` delegam ao `DockerComposeLifecycleService.stop(project, service)`, preservando ownership persistido e limitando a mutação ao serviço explicitamente associado. Nodes `process` só são parados quando `processId`, `projectId` e `environmentInstanceId` ainda correspondem ao processo reconciliado pelo Process Manager. Server, worker, webpack e test usam os métodos de stop do próprio domínio; tipos sem adapter seguro ficam `blocked`.
+
+Nodes `environment` e `health-check` são `retained`: Environment Instance é contexto operacional, não um processo genérico, e health check é somente leitura. O Stop não tenta encerrar checkout, worktree, container ou serviço externo por heurística.
+
+Resultado parcial continua explícito como `completed`, `blocked` ou `failed`, com steps por node e um `StackCheck` final.
+
 ## Lifecycle restante
 
-Stop coordenado, restart de node, timeline e adapters mutáveis adicionais permanecem pendentes. Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
+Restart de node, timeline e adapters mutáveis adicionais permanecem pendentes. Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
