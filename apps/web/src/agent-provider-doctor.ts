@@ -3,9 +3,7 @@ import type {
   AgentProviderId,
 } from './api/agent-runtime';
 
-export function providerFallbackDiagnostic(
-  providerId: AgentProviderId,
-): {
+export function providerFallbackDiagnostic(providerId: AgentProviderId): {
   code: AgentProviderDiagnosticCode;
   evidence: string;
 } {

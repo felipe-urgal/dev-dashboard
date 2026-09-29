@@ -108,11 +108,11 @@ describe('Agent provider doctor', () => {
     expect(panel).not.toMatch(
       /exec\\s*\\(|spawn\\s*\\(|child_process|shell\\s*:/,
     );
-    expect(
-      providerDiagnosticAction('authentication-required'),
-    ).toBe('Autentique o provider pelo fluxo oficial local e revalide.');
-    expect(
-      providerDiagnosticAction('browser-extension-unavailable'),
-    ).toBe('Ative/conecte a extensão ChatGPT Browser e revalide.');
+    expect(providerDiagnosticAction('authentication-required')).toBe(
+      'Autentique o provider pelo fluxo oficial local e revalide.',
+    );
+    expect(providerDiagnosticAction('browser-extension-unavailable')).toBe(
+      'Ative/conecte a extensão ChatGPT Browser e revalide.',
+    );
   });
 });
