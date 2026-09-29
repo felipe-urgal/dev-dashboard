@@ -114,10 +114,13 @@ function createService(
 
 test('starts Compose nodes in topology order and rechecks readiness before dependents', async () => {
   const starts: unknown[][] = [];
-  const service = createService([check('stopped'), check('ready')], async (...args) => {
-    starts.push(args);
-    return { state: 'started' };
-  });
+  const service = createService(
+    [check('stopped'), check('ready')],
+    async (...args) => {
+      starts.push(args);
+      return { state: 'started' };
+    },
+  );
 
   const result = await service.start('local-stack');
 
@@ -149,7 +152,10 @@ test('blocks at a non-mutable readiness gate without touching later nodes', asyn
   const result = await service.start('local-stack');
 
   assert.equal(result.state, 'blocked');
-  assert.deepEqual(result.steps.map((step) => step.nodeId), ['api']);
+  assert.deepEqual(
+    result.steps.map((step) => step.nodeId),
+    ['api'],
+  );
   assert.equal(result.steps[0]?.state, 'blocked');
   assert.equal(starts, 0);
 });
@@ -163,7 +169,10 @@ test('does not advance when Compose start finishes without proven readiness', as
   const result = await service.start('local-stack');
 
   assert.equal(result.state, 'blocked');
-  assert.deepEqual(result.steps.map((step) => step.nodeId), ['postgres']);
+  assert.deepEqual(
+    result.steps.map((step) => step.nodeId),
+    ['postgres'],
+  );
   assert.equal(result.steps[0]?.state, 'blocked');
 });
 
@@ -178,6 +187,9 @@ test('records Compose mutation failure on the owning node', async () => {
   const result = await service.start('local-stack');
 
   assert.equal(result.state, 'failed');
-  assert.deepEqual(result.steps.map((step) => step.nodeId), ['postgres']);
+  assert.deepEqual(
+    result.steps.map((step) => step.nodeId),
+    ['postgres'],
+  );
   assert.equal(result.steps[0]?.state, 'failed');
 });

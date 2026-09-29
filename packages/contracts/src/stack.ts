@@ -82,10 +82,7 @@ export interface StackCheck {
 }
 
 export type StackStartStepState =
-  | 'already-ready'
-  | 'started'
-  | 'blocked'
-  | 'failed';
+  'already-ready' | 'started' | 'blocked' | 'failed';
 
 export interface StackStartStep {
   nodeId: string;

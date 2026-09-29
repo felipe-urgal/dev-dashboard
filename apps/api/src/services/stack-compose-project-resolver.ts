@@ -1,4 +1,7 @@
-import type { Project, StackComposeServiceTarget } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  StackComposeServiceTarget,
+} from '@dev-dashboard/contracts';
 
 import { primaryEnvironmentInstanceId } from '../store/development-environment-instance-store.js';
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';

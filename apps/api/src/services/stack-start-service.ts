@@ -31,7 +31,9 @@ export class StackStartService {
     const steps: StackStartStep[] = [];
 
     for (const nodeId of check.topology.startOrder) {
-      const node = check.stack.nodes.find((candidate) => candidate.id === nodeId)!;
+      const node = check.stack.nodes.find(
+        (candidate) => candidate.id === nodeId,
+      )!;
       const health = this.nodeHealth(check, nodeId);
 
       if (health.state === 'ready') {
@@ -84,7 +86,8 @@ export class StackStartService {
         steps.push({
           nodeId,
           state: 'failed',
-          diagnostic: 'Compose lifecycle failed while starting this Stack node.',
+          diagnostic:
+            'Compose lifecycle failed while starting this Stack node.',
         });
         return {
           stackId,

@@ -755,7 +755,6 @@ test('runtime vazio não vira stop verificado', async () => {
   assert.equal(commands.length, 1);
 });
 
-
 test('start direcionado muta somente o serviço Compose solicitado', async () => {
   const { service, commands } = createHarness({});
 
