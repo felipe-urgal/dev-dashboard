@@ -173,6 +173,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerAppLifecycle(app, context, composition);
   const stackComposeHealthAdapter = new StackComposeHealthAdapter({
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     ownershipStore: dockerComposeOwnershipStore,
     provider: dockerComposeProvider,
   });
