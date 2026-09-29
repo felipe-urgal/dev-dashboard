@@ -3,12 +3,22 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
+  AtSymbolIcon,
   BoltIcon,
   CheckCircleIcon,
-  CpuChipIcon,
+  ClockIcon,
+  ComputerDesktopIcon,
+  CubeIcon,
+  DocumentIcon,
+  LinkIcon,
   NoSymbolIcon,
+  PaperClipIcon,
   PauseCircleIcon,
+  PencilSquareIcon,
   PlayIcon,
+  PowerIcon,
+  PuzzlePieceIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -177,6 +187,7 @@ const providerRefreshing = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const showAllHistory = ref(false);
 const providerConfig = ref<HTMLDetailsElement | null>(null);
 const integrationsSummary = ref<HTMLDetailsElement | null>(null);
 const agentNotificationPreferences = ref(readAgentNotificationPreferences());
@@ -1415,7 +1426,16 @@ onBeforeUnmount(() => {
     <header class="agent-cockpit-header">
       <div class="agent-identity">
         <span class="agent-identity-icon" aria-hidden="true">
-          <CpuChipIcon />
+          <svg viewBox="0 0 64 64" role="img">
+            <path
+              d="M32 12v-5m0 0h1m-1 0h-1M18 24h28a8 8 0 0 1 8 8v12a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V32a8 8 0 0 1 8-8Zm-8 9H6m48 0h4M22 36h.01M42 36h.01M24 44c4 3 12 3 16 0"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="4"
+            />
+          </svg>
         </span>
         <div>
           <h2>Agente</h2>
@@ -1437,7 +1457,7 @@ onBeforeUnmount(() => {
           />
           <div>
             <small>Provider</small>
-            <strong>{{ providerLabel(selectedProviderId) }}</strong>
+            <strong>Execução</strong>
             <span>{{
               currentProvider
                 ? providerAvailabilityLabel(currentProvider)
@@ -1494,7 +1514,9 @@ onBeforeUnmount(() => {
 
       <section class="agent-card agent-composer agent-create-card">
         <div class="agent-create-heading">
-          <span class="agent-create-icon" aria-hidden="true">✎</span>
+          <span class="agent-create-icon" aria-hidden="true">
+            <PencilSquareIcon />
+          </span>
           <div>
             <h3>Nova task</h3>
             <p>
@@ -1514,7 +1536,11 @@ onBeforeUnmount(() => {
             @keydown="handleComposerKeydown"
           />
           <div class="agent-prompt-footer">
-            <span class="agent-prompt-tools" aria-hidden="true">＠　⌕　▱</span>
+            <span class="agent-prompt-tools" aria-hidden="true">
+              <AtSymbolIcon />
+              <PaperClipIcon />
+              <DocumentIcon />
+            </span>
             <span>{{ instruction.length }}/4000</span>
             <kbd>Ctrl + Enter</kbd>
           </div>
@@ -1603,7 +1629,7 @@ onBeforeUnmount(() => {
           >
             <BoltIcon aria-hidden="true" />
             Criar task
-            <span aria-hidden="true">→</span>
+            <ArrowRightIcon aria-hidden="true" />
           </button>
         </div>
 
@@ -1618,7 +1644,7 @@ onBeforeUnmount(() => {
       <aside class="agent-provider-panel agent-card">
         <div class="agent-provider-panel-heading">
           <div>
-            <span class="agent-provider-power" aria-hidden="true">◉</span>
+            <PowerIcon class="agent-provider-power" aria-hidden="true" />
             <strong>Status do provider</strong>
           </div>
           <StatusBadge
@@ -1686,7 +1712,10 @@ onBeforeUnmount(() => {
         </div>
 
         <details ref="providerConfig" class="agent-provider-config">
-          <summary>⚙ Configurar provider</summary>
+          <summary>
+            <span class="agent-provider-summary-icon" aria-hidden="true">⚙</span>
+            Configurar provider
+          </summary>
           <div class="agent-provider-config-body">
             <div class="agent-budget-fields">
               <label>
@@ -1780,7 +1809,7 @@ onBeforeUnmount(() => {
           type="button"
           @click="openIntegrations"
         >
-          <span aria-hidden="true">♧</span>
+          <PuzzlePieceIcon aria-hidden="true" />
           Ver integrações (MCP)
           <span aria-hidden="true">›</span>
         </button>
@@ -1789,23 +1818,26 @@ onBeforeUnmount(() => {
           type="button"
           @click="openProviderDiagnostics"
         >
-          <span aria-hidden="true">▣</span>
+          <ComputerDesktopIcon aria-hidden="true" />
           Diagnóstico do ambiente
           <span aria-hidden="true">›</span>
         </button>
       </aside>
 
       <section class="agent-card agent-task-overview">
-        <div class="agent-section-heading">
+        <div class="agent-section-heading agent-task-heading">
           <div>
-            <span>Task atual</span>
-            <strong>
-              {{
-                currentTask
-                  ? currentTask.task.summary
-                  : 'Nenhuma task em execução no momento.'
-              }}
-            </strong>
+            <span class="agent-section-icon" aria-hidden="true">⌁</span>
+            <div>
+              <strong>Task atual</strong>
+              <small>
+                {{
+                  currentTask
+                    ? currentTask.task.summary
+                    : 'Nenhuma task em execução no momento.'
+                }}
+              </small>
+            </div>
           </div>
           <StatusBadge v-if="currentTask" :tone="taskTone">
             {{ taskStateLabel }}
@@ -1851,7 +1883,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="!currentTask" class="agent-task-empty">
-          <span aria-hidden="true">◇</span>
+          <span aria-hidden="true"><CubeIcon /></span>
           <div>
             <strong>Nenhuma task em execução</strong>
             <small
@@ -1884,19 +1916,17 @@ onBeforeUnmount(() => {
       </section>
 
       <section class="agent-card agent-recent-history">
-        <div class="agent-section-heading">
+        <div class="agent-section-heading agent-history-heading">
           <div>
-            <span>Histórico recente</span>
-            <strong>Tasks do projeto</strong>
+            <ClockIcon class="agent-section-icon" aria-hidden="true" />
+            <strong>Histórico recente</strong>
           </div>
           <button
-            class="agent-history-refresh"
+            class="agent-history-show-all"
             type="button"
-            aria-label="Atualizar tasks"
-            :disabled="loading"
-            @click="load"
+            @click="showAllHistory = !showAllHistory"
           >
-            <ArrowPathIcon aria-hidden="true" />
+            {{ showAllHistory ? 'Ver menos' : 'Ver todos' }}
           </button>
         </div>
 
@@ -1905,7 +1935,7 @@ onBeforeUnmount(() => {
         </p>
         <template v-else>
           <button
-            v-for="record in sortedTasks.slice(0, 5)"
+            v-for="record in showAllHistory ? sortedTasks : sortedTasks.slice(0, 5)"
             :key="record.task.id"
             class="agent-history-item"
             :class="{ 'is-selected': record.task.id === selectedTaskId }"
@@ -1934,7 +1964,7 @@ onBeforeUnmount(() => {
       >
         <summary>
           <div class="agent-integrations-copy">
-            <span class="agent-integrations-icon" aria-hidden="true">♧</span>
+            <PuzzlePieceIcon class="agent-integrations-icon" aria-hidden="true" />
             <div>
               <strong>Integrações e MCP</strong>
               <small>
@@ -1945,18 +1975,30 @@ onBeforeUnmount(() => {
           </div>
           <div class="agent-integration-stats">
             <span>
-              <strong>{{ availableProviderCount }}</strong>
-              <small>providers prontos</small>
+              <LinkIcon aria-hidden="true" />
+              <span>
+                <strong>Integrações</strong>
+                <small>conectadas</small>
+              </span>
             </span>
             <span>
-              <strong>MCP</strong>
-              <small>gerenciar</small>
+              <PuzzlePieceIcon aria-hidden="true" />
+              <span>
+                <strong>Plugins</strong>
+                <small>disponíveis</small>
+              </span>
             </span>
             <span>
-              <strong>Skills</strong>
-              <small>e plugins</small>
+              <CubeIcon aria-hidden="true" />
+              <span>
+                <strong>MCP</strong>
+                <small>{{ availableProviderCount }} provider(s)</small>
+              </span>
             </span>
-            <b>Gerenciar integrações →</b>
+            <b>
+              Gerenciar integrações
+              <ArrowRightIcon aria-hidden="true" />
+            </b>
           </div>
         </summary>
         <ProjectAgentIntegrationsCard
