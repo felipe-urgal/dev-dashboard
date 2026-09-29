@@ -80,6 +80,18 @@ function adapter(
     projectStore: {
       findProject: (id) => (id === value.id ? value : null),
     },
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: (projectId, environmentInstanceId) =>
+        projectId === value.id &&
+        environmentInstanceId === 'environment:primary:api'
+          ? {
+              projectId: value.id,
+              environmentInstanceId: 'environment:primary:api',
+              cwd: value.path,
+              runtime: 'host',
+            }
+          : null,
+    },
     ownershipStore: {
       get: async () =>
         options.ownership === undefined
