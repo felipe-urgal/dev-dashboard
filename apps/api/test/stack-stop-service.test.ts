@@ -52,10 +52,7 @@ function stack(): Stack {
   };
 }
 
-function check(
-  postgres: StackNodeState,
-  api: StackNodeState,
-): StackCheck {
+function check(postgres: StackNodeState, api: StackNodeState): StackCheck {
   const value = stack();
   return {
     stack: value,

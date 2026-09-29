@@ -234,7 +234,6 @@ test('Stack HTTP recusa referências de projeto que o backend não conhece', asy
   assert.equal(response.json<{ error: string }>().error, 'NOT_FOUND');
 });
 
-
 test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (context) => {
   const appContext = createAppContext();
   registerApiProject(appContext);
