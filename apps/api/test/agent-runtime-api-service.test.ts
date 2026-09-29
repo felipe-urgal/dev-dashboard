@@ -125,7 +125,10 @@ test('AgentRuntimeApiService isola falha inesperada de um provider no doctor', a
       },
     },
   ]);
-  assert.equal(JSON.stringify(providers).includes('sensitive provider failure'), false);
+  assert.equal(
+    JSON.stringify(providers).includes('sensitive provider failure'),
+    false,
+  );
 });
 
 test('AgentRuntimeApiService deriva Environment Instance no backend ao criar task', async () => {
