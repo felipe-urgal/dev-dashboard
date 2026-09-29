@@ -116,3 +116,13 @@ export interface StackStopResult {
   steps: StackStopStep[];
   check: StackCheck;
 }
+
+export type StackRestartState = 'restarted' | 'blocked' | 'failed';
+
+export interface StackRestartResult {
+  stackId: string;
+  nodeId: string;
+  state: StackRestartState;
+  diagnostic?: string;
+  check: StackCheck;
+}
