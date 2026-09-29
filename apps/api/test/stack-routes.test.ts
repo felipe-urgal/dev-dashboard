@@ -233,3 +233,58 @@ test('Stack HTTP recusa referências de projeto que o backend não conhece', asy
   assert.equal(response.statusCode, 404);
   assert.equal(response.json<{ error: string }>().error, 'NOT_FOUND');
 });
+
+
+test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (context) => {
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => app.close());
+
+  const environmentOnly: Stack = {
+    id: 'environment-stack',
+    name: 'Environment stack',
+    nodes: [
+      {
+        id: 'api-environment',
+        name: 'API environment',
+        target: {
+          kind: 'environment',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+        },
+      },
+    ],
+    dependencies: [],
+  };
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/environment-stack',
+    headers,
+    payload: environmentOnly,
+  });
+  assert.equal(created.statusCode, 200);
+
+  const stopped = await app.inject({
+    method: 'POST',
+    url: '/api/stacks/environment-stack/stop',
+    headers,
+    payload: {},
+  });
+  assert.equal(stopped.statusCode, 200);
+  const result = stopped.json<{
+    result: {
+      state: string;
+      steps: Array<{ nodeId: string; state: string }>;
+    };
+  }>().result;
+  assert.equal(result.state, 'completed');
+  assert.deepEqual(result.steps, [
+    { nodeId: 'api-environment', state: 'retained' },
+  ]);
+});
