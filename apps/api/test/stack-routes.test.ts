@@ -284,7 +284,8 @@ test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (
     };
   }>().result;
   assert.equal(result.state, 'completed');
-  assert.deepEqual(result.steps, [
-    { nodeId: 'api-environment', state: 'retained' },
-  ]);
+  assert.deepEqual(
+    result.steps.map((step) => [step.nodeId, step.state]),
+    [['api-environment', 'retained']],
+  );
 });
