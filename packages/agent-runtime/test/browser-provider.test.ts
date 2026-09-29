@@ -174,6 +174,20 @@ test('browser doctor differentiates bridge, extension and session failures', asy
 
   bridge.healthValue = {
     ok: true,
+    heartbeatAt: 'not-a-date',
+    heartbeatVersion: '0.1.0',
+    sessionState: 'available',
+  };
+  const invalidHeartbeat = await provider.status();
+  assert.equal(invalidHeartbeat.availability, 'degraded');
+  assert.equal(invalidHeartbeat.diagnostic?.code, 'browser-extension-stale');
+  assert.equal(
+    invalidHeartbeat.reason,
+    'browser extension heartbeat is invalid',
+  );
+
+  bridge.healthValue = {
+    ok: true,
     heartbeatAt: observedAt,
     heartbeatVersion: '0.0.9',
     sessionState: 'available',
