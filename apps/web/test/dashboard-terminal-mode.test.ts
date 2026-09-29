@@ -9,6 +9,10 @@ const terminalSource = readFileSync(
   resolve(webRoot, 'src/components/DashboardTerminalMode.vue'),
   'utf8',
 );
+const topNavigationSource = readFileSync(
+  resolve(webRoot, 'src/styles/features/top-navigation.css'),
+  'utf8',
+);
 
 describe('modo Web / Terminal do Dev Dashboard', () => {
   it('mantém a interface web montada ao alternar para o terminal', () => {
@@ -20,6 +24,20 @@ describe('modo Web / Terminal do Dev Dashboard', () => {
       ':key="selectedWorkspaceId || \'no-workspace\'"',
     );
     expect(appSource).toContain('terminalMounted');
+  });
+
+  it('mantém o seletor de workspace visível no Terminal e recria a sessão ao trocar', () => {
+    expect(appSource).toContain('class="sidebar-section topbar-workspace"');
+    expect(appSource).toContain(':workspace-id="selectedWorkspaceId"');
+    expect(appSource).toContain(
+      ':key="selectedWorkspaceId || \'no-workspace\'"',
+    );
+    expect(topNavigationSource).not.toContain(
+      '.app-shell-terminal-mode .topbar-workspace',
+    );
+    expect(topNavigationSource).toContain(
+      '.app-shell-terminal-mode .topbar-navigation',
+    );
   });
 
   it('usa a sessão global do dev-tools e preserva a conexão quando fica inativa', () => {
