@@ -64,7 +64,6 @@ import {
   type AgentExecutionProfile,
   type AgentExecutionProfileConfiguration,
   type AgentExecutionResult,
-  type AgentProviderDiagnosticCode,
   type AgentProviderId,
   type AgentProviderStatus,
   type AgentRealtimeSnapshot,
