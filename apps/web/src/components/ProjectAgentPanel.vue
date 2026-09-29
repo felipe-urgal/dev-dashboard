@@ -1612,7 +1612,9 @@ onBeforeUnmount(() => {
                   {{ providerAvailabilityLabel(provider) }}
                 </StatusBadge>
               </div>
-              <small v-if="provider.version">Versão {{ provider.version }}</small>
+              <small v-if="provider.version"
+                >Versão {{ provider.version }}</small
+              >
               <small
                 v-if="
                   provider.providerId === 'automatic' &&
@@ -1623,9 +1625,7 @@ onBeforeUnmount(() => {
               </small>
               <p data-testid="provider-diagnostic">
                 <strong>
-                  {{
-                    providerDiagnosticSummary(provider.diagnostic?.code)
-                  }}
+                  {{ providerDiagnosticSummary(provider.diagnostic?.code) }}
                 </strong>
                 <span>
                   Evidência:
