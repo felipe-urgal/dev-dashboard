@@ -1717,7 +1717,9 @@ onBeforeUnmount(() => {
 
         <details ref="providerConfig" class="agent-provider-config">
           <summary>
-            <span class="agent-provider-summary-icon" aria-hidden="true">⚙</span>
+            <span class="agent-provider-summary-icon" aria-hidden="true"
+              >⚙</span
+            >
             Configurar provider
           </summary>
           <div class="agent-provider-config-body">
@@ -1939,7 +1941,9 @@ onBeforeUnmount(() => {
         </p>
         <template v-else>
           <button
-            v-for="record in showAllHistory ? sortedTasks : sortedTasks.slice(0, 5)"
+            v-for="record in showAllHistory
+              ? sortedTasks
+              : sortedTasks.slice(0, 5)"
             :key="record.task.id"
             class="agent-history-item"
             :class="{ 'is-selected': record.task.id === selectedTaskId }"
@@ -1968,7 +1972,10 @@ onBeforeUnmount(() => {
       >
         <summary>
           <div class="agent-integrations-copy">
-            <PuzzlePieceIcon class="agent-integrations-icon" aria-hidden="true" />
+            <PuzzlePieceIcon
+              class="agent-integrations-icon"
+              aria-hidden="true"
+            />
             <div>
               <strong>Integrações e MCP</strong>
               <small>
