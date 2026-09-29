@@ -13,6 +13,7 @@ import {
   type StackCheckService,
 } from '../services/stack-check-service.js';
 import type { StackStartService } from '../services/stack-start-service.js';
+import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
 
 interface Options extends FastifyPluginOptions {
@@ -22,6 +23,7 @@ interface Options extends FastifyPluginOptions {
   >;
   stackCheckService: Pick<StackCheckService, 'check'>;
   stackStartService: Pick<StackStartService, 'start'>;
+  stackStopService: Pick<StackStopService, 'stop'>;
 }
 
 interface StackParams {
@@ -177,6 +179,35 @@ const stackStartResultSchema = {
   },
 } as const;
 
+const stackStopStepSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['nodeId', 'state'],
+  properties: {
+    nodeId: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['already-stopped', 'stopped', 'retained', 'blocked', 'failed'],
+    },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
+const stackStopResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'state', 'steps', 'check'],
+  properties: {
+    stackId: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['completed', 'blocked', 'failed'],
+    },
+    steps: { type: 'array', items: stackStopStepSchema },
+    check: stackCheckSchema,
+  },
+} as const;
+
 function mapStackError(error: unknown): unknown {
   if (error instanceof StackCheckServiceError) {
     return new ApiError({
@@ -314,6 +345,38 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       try {
         return {
           result: await options.stackStartService.start(request.params.stackId),
+        };
+      } catch (error) {
+        throw mapStackError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: StackParams; Body: Record<string, never> }>(
+    '/stacks/:stackId/stop',
+    {
+      schema: {
+        params: stackParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          maxProperties: 0,
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: stackStopResultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          result: await options.stackStopService.stop(request.params.stackId),
         };
       } catch (error) {
         throw mapStackError(error);
