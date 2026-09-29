@@ -75,6 +75,16 @@ comprovada. Nodes de processo usam o estado reconciliado do Process Manager e s�
 Ausência de adapter, desaparecimento da Environment Instance ou drift de
 ownership nunca vira `ready`; o Check sempre falha fechado para `unknown`.
 
-## Deferred lifecycle
+## Start coordenado
 
-This slice does not execute Start/Stop/Restart. A later adapter layer must delegate each operation back to the resource-owning domain and preserve its confirmation, ownership and revalidation rules.
+`POST /api/stacks/:stackId/start` percorre a ordem topológica e revalida o estado após cada mutação. O fluxo só avança para dependentes quando o node anterior está comprovadamente `ready`.
+
+Neste primeiro slice mutável, somente nodes `compose-service` podem ser iniciados pela Stack. A mutação é delegada ao `DockerComposeLifecycleService` e é direcionada ao serviço explicitamente associado, evitando iniciar serviços Compose fora da definição da Stack. A resolução respeita a `Environment Instance`, inclusive worktrees host.
+
+Nodes `environment`, `process` e `health-check` funcionam como gates de readiness: se já estiverem `ready`, o fluxo continua; caso contrário, o Start retorna `blocked` no node correto. O contrato atual de processo não contém comando suficiente para recriar com segurança um processo parado, portanto a Stack não inventa essa mutação.
+
+Falha parcial é retornada explicitamente como `completed`, `blocked` ou `failed`, acompanhada dos steps processados e de um novo `StackCheck`.
+
+## Lifecycle restante
+
+Stop coordenado, restart de node, timeline e adapters mutáveis adicionais permanecem pendentes. Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
