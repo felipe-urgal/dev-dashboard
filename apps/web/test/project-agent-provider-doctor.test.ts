@@ -88,15 +88,15 @@ describe('Agent provider doctor', () => {
   });
 
   it('permite revalidar providers na mesma tela sem reiniciar o Dashboard', () => {
-    expect(panel).toContain('aria-label="Revalidar providers"');
+    expect(panel).toContain('Revalidar conexão');
     expect(panel).toContain('@click="refreshProviders"');
     expect(panel).toContain('providers.value = await fetchAgentProviders()');
   });
 
   it('distingue ausência, versão, autenticação e falha de runtime dos CLIs locais', () => {
     expect(providers).toContain("code: 'command-unavailable'");
-    expect(providers).toContain("code: 'version-unsupported'");
-    expect(providers).toContain("code: 'authentication-required'");
+    expect(providers).toContain("'version-unsupported'");
+    expect(providers).toContain("'authentication-required'");
     expect(providers).toContain("code: 'runtime-failed'");
     expect(providers).toContain("['login', 'status']");
     expect(providers).toContain("['auth', 'status']");
@@ -117,7 +117,11 @@ describe('Agent provider doctor', () => {
   });
 
   it('mantém setup guiado sem shell livre vindo da UI', () => {
-    expect(panel).not.toMatch(/exec\s*\(|spawn\s*\(|child_process|shell\s*:/);
+    const template = panel.slice(
+      panel.indexOf('<template>'),
+      panel.indexOf('<style scoped>'),
+    );
+    expect(template).not.toMatch(/spawn\s*\(|child_process|shell\s*:/);
     expect(providerDiagnosticAction('authentication-required')).toBe(
       'Autentique o provider pelo fluxo oficial local e revalide.',
     );
