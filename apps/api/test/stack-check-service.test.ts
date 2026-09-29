@@ -100,6 +100,14 @@ function createService(
           diagnostic: 'Compose adapter stub.',
         }),
       },
+      healthCheckAdapter: {
+        observe: async (nodeId, _target, observedAt) => ({
+          nodeId,
+          state: 'unknown',
+          observedAt,
+          diagnostic: 'Health check adapter stub.',
+        }),
+      },
     },
     { now: () => new Date('2026-09-28T17:30:00.000Z') },
   );
@@ -214,6 +222,13 @@ test('fails with explicit not found when Stack does not exist', async () => {
     developmentEnvironmentInstanceStore: { findById: () => null },
     processManager: { listProcesses: async () => [] },
     composeHealthAdapter: {
+      observe: async (nodeId, _target, observedAt) => ({
+        nodeId,
+        state: 'unknown',
+        observedAt,
+      }),
+    },
+    healthCheckAdapter: {
       observe: async (nodeId, _target, observedAt) => ({
         nodeId,
         state: 'unknown',
