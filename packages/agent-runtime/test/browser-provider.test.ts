@@ -137,6 +137,7 @@ test('browser doctor differentiates bridge, extension and session failures', asy
   bridge.healthValue = {
     ok: true,
     heartbeatAt: observedAt,
+    heartbeatVersion: '0.1.0',
     sessionState: 'unavailable',
   };
   const sessionUnavailable = await provider.status();
@@ -149,6 +150,7 @@ test('browser doctor differentiates bridge, extension and session failures', asy
   bridge.healthValue = {
     ok: true,
     heartbeatAt: observedAt,
+    heartbeatVersion: '0.1.0',
     sessionState: 'unknown',
   };
   assert.equal(
@@ -159,6 +161,7 @@ test('browser doctor differentiates bridge, extension and session failures', asy
   bridge.healthValue = {
     ok: true,
     heartbeatAt: observedAt,
+    heartbeatVersion: '0.1.0',
     sessionState: 'available',
   };
   const available = await provider.status();
@@ -168,6 +171,29 @@ test('browser doctor differentiates bridge, extension and session failures', asy
     source: 'unavailable',
     reason: 'ChatGPT plan quota is not exposed by the Browser bridge.',
   });
+
+  bridge.healthValue = {
+    ok: true,
+    heartbeatAt: observedAt,
+    heartbeatVersion: '0.0.9',
+    sessionState: 'available',
+  };
+  const unsupportedVersion = await provider.status();
+  assert.equal(unsupportedVersion.availability, 'degraded');
+  assert.equal(unsupportedVersion.diagnostic?.code, 'version-unsupported');
+  assert.match(
+    unsupportedVersion.diagnostic?.evidence ?? '',
+    /minimum 0\.1\.0/,
+  );
+
+  bridge.healthValue = {
+    ok: true,
+    heartbeatAt: observedAt,
+    sessionState: 'available',
+  };
+  const missingVersion = await provider.status();
+  assert.equal(missingVersion.availability, 'degraded');
+  assert.equal(missingVersion.diagnostic?.code, 'version-unsupported');
 
   const offlineBridge = new StubBridge();
   offlineBridge.health = async () => {
