@@ -609,17 +609,27 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       };
     }
 
+    const observedAtValue = this.now();
     const heartbeatAt = Date.parse(health.heartbeatAt);
-    const observedAt = Date.parse(this.now());
-    if (
-      Number.isFinite(heartbeatAt) &&
-      Number.isFinite(observedAt) &&
-      observedAt - heartbeatAt > this.heartbeatMaxAgeMs
-    ) {
+    const observedAt = Date.parse(observedAtValue);
+    if (!Number.isFinite(heartbeatAt) || !Number.isFinite(observedAt)) {
       return {
         providerId: this.id,
         availability: 'degraded',
-        observedAt: this.now(),
+        observedAt: observedAtValue,
+        reason: 'browser extension heartbeat is invalid',
+        diagnostic: {
+          code: 'browser-extension-stale',
+          evidence:
+            'Browser extension heartbeat timestamp could not be validated.',
+        },
+      };
+    }
+    if (observedAt - heartbeatAt > this.heartbeatMaxAgeMs) {
+      return {
+        providerId: this.id,
+        availability: 'degraded',
+        observedAt: observedAtValue,
         reason: 'browser extension heartbeat stale',
         diagnostic: {
           code: 'browser-extension-stale',
@@ -629,7 +639,10 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       };
     }
 
-    const extensionVersion = health.heartbeatVersion?.trim() ?? '';
+    const extensionVersion =
+      typeof health.heartbeatVersion === 'string'
+        ? health.heartbeatVersion.trim().slice(0, 120)
+        : '';
     const parsedExtensionVersion = semanticVersion(extensionVersion);
     if (
       !parsedExtensionVersion ||
