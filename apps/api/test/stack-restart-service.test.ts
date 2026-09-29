@@ -51,10 +51,7 @@ function stack(): Stack {
   };
 }
 
-function check(
-  postgres: StackNodeState,
-  api: StackNodeState,
-): StackCheck {
+function check(postgres: StackNodeState, api: StackNodeState): StackCheck {
   const value = stack();
   return {
     stack: value,
@@ -167,9 +164,12 @@ test('blocks node kinds without a safe restart adapter', async () => {
 });
 
 test('reports failed when Compose lifecycle throws', async () => {
-  const service = createService([check('ready', 'ready'), check('failed', 'ready')], async () => {
-    throw new Error('compose failed');
-  });
+  const service = createService(
+    [check('ready', 'ready'), check('failed', 'ready')],
+    async () => {
+      throw new Error('compose failed');
+    },
+  );
 
   const result = await service.restart('local-stack', 'postgres');
 

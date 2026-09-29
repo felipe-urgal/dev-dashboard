@@ -782,7 +782,6 @@ test('start direcionado rejeita serviço fora do catálogo antes de mutar', asyn
   assert.equal(commands.length, 0);
 });
 
-
 test('restart direcionado reserva portas somente do serviço alvo', async () => {
   const registry = new PortAllocationLeaseRegistry();
   registry.reserveBatch({}, [

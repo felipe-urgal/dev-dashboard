@@ -289,7 +289,6 @@ test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (
   );
 });
 
-
 test('Stack HTTP bloqueia restart de node sem adapter mutável seguro', async (context) => {
   const appContext = createAppContext();
   registerApiProject(appContext);

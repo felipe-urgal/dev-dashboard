@@ -1,7 +1,4 @@
-import type {
-  StackCheck,
-  StackRestartResult,
-} from '@dev-dashboard/contracts';
+import type { StackCheck, StackRestartResult } from '@dev-dashboard/contracts';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
@@ -85,10 +82,11 @@ export class StackRestartService {
     }
 
     try {
-      const result = await this.dependencies.dockerComposeLifecycleService.restart(
-        resolution.project,
-        node.target.service,
-      );
+      const result =
+        await this.dependencies.dockerComposeLifecycleService.restart(
+          resolution.project,
+          node.target.service,
+        );
       check = await this.dependencies.stackCheckService.check(stackId);
 
       if (result.state !== 'restarted') {
