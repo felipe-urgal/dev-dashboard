@@ -98,3 +98,25 @@ export interface StackStartResult {
   steps: StackStartStep[];
   check: StackCheck;
 }
+
+export type StackStopStepState =
+  | 'already-stopped'
+  | 'stopped'
+  | 'retained'
+  | 'blocked'
+  | 'failed';
+
+export interface StackStopStep {
+  nodeId: string;
+  state: StackStopStepState;
+  diagnostic?: string;
+}
+
+export type StackStopState = 'completed' | 'blocked' | 'failed';
+
+export interface StackStopResult {
+  stackId: string;
+  state: StackStopState;
+  steps: StackStopStep[];
+  check: StackCheck;
+}
