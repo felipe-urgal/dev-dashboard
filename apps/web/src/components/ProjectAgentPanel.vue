@@ -1613,6 +1613,14 @@ onBeforeUnmount(() => {
                 </StatusBadge>
               </div>
               <small v-if="provider.version">Versão {{ provider.version }}</small>
+              <small
+                v-if="
+                  provider.providerId === 'automatic' &&
+                  provider.selectedProviderId
+                "
+              >
+                Selecionado: {{ providerLabel(provider.selectedProviderId) }}
+              </small>
               <p data-testid="provider-diagnostic">
                 <strong>
                   {{
