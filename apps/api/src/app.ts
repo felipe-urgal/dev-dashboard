@@ -39,6 +39,7 @@ import { DashboardTerminalService } from './services/dashboard-terminal-service.
 import { StackDefinitionService } from './services/stack-definition-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
+import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -175,6 +176,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
     ownershipStore: dockerComposeOwnershipStore,
     provider: dockerComposeProvider,
   });
+  const stackHealthCheckAdapter = new StackHealthCheckAdapter({
+    projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
+    processManager: context.processManager,
+    serverSettingsRepository: context.serverSettingsRepository,
+    serverHealthCheckService: context.serverHealthCheckService,
+  });
   const stackCheckService = new StackCheckService(
     {
       stackStore: context.stackStore,
@@ -182,6 +191,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         context.developmentEnvironmentInstanceStore,
       processManager: context.processManager,
       composeHealthAdapter: stackComposeHealthAdapter,
+      healthCheckAdapter: stackHealthCheckAdapter,
     },
     options.now ? { now: () => new Date(options.now!()) } : {},
   );
