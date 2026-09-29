@@ -26,9 +26,10 @@ O provider Browser diferencia explicitamente:
 - bridge pausado;
 - extensão sem heartbeat;
 - heartbeat stale;
+- versão da extensão ausente/inválida ou abaixo de `0.1.0`;
 - sessão do ChatGPT indisponível.
 
-Bridge, extensão e sessão são estados distintos para evitar instruções
+Bridge, extensão, compatibilidade de versão e sessão são estados distintos para evitar instruções
 genéricas que não resolvem a causa real.
 
 ## Revalidação
