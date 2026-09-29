@@ -79,7 +79,9 @@ describe('Agent provider doctor', () => {
   });
 
   it('mantém setup guiado sem shell livre vindo da UI', () => {
-    expect(panel).not.toMatch(/exec\\s*\\(|spawn\\s*\\(|child_process|shell\\s*:/);
+    expect(panel).not.toMatch(
+      /exec\\s*\\(|spawn\\s*\\(|child_process|shell\\s*:/,
+    );
     expect(panel).toContain(
       'Autentique o provider pelo fluxo oficial local e revalide.',
     );
