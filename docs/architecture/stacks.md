@@ -49,8 +49,8 @@ existente. Quando o target carrega `environmentInstanceId`, a Environment
 Instance precisa existir e pertencer ao mesmo Project declarado pelo node.
 
 Essa validação é estritamente referencial e não tenta inferir serviço Compose, processo ou health check por
-heurística. O objetivo deste slice é impedir referências órfãs ou cruzadas entre
-projetos antes que lifecycle futuro ganhe autoridade sobre esses recursos.
+heurística. O objetivo é impedir referências órfãs ou cruzadas entre projetos antes
+que qualquer lifecycle da Stack ganhe autoridade sobre esses recursos.
 
 ## API
 
@@ -59,8 +59,9 @@ O backend expõe CRUD autenticado para definições explícitas de Stack em
 fora do contrato; a validação de topologia continua sendo a autoridade para
 referências, duplicidades e ciclos antes da persistência.
 
-A superfície é deliberadamente CRUD e autenticada. A API não aceita path, comando ou instrução de lifecycle. Ela apenas administra
-a composição declarada que será consumida por adapters futuros.
+A superfície de definição permanece autenticada e não aceita path ou comando arbitrário.
+Lifecycle é exposto separadamente por endpoints explícitos de `Check`, `Start`,
+`Stop` e `Restart`, sempre delegando a mutação ao domínio proprietário do recurso.
 
 ## Check somente leitura
 
@@ -79,7 +80,7 @@ ownership nunca vira `ready`; o Check sempre falha fechado para `unknown`.
 
 `POST /api/stacks/:stackId/start` percorre a ordem topológica e revalida o estado após cada mutação. O fluxo só avança para dependentes quando o node anterior está comprovadamente `ready`.
 
-Neste primeiro slice mutável, somente nodes `compose-service` podem ser iniciados pela Stack. A mutação é delegada ao `DockerComposeLifecycleService` e é direcionada ao serviço explicitamente associado, evitando iniciar serviços Compose fora da definição da Stack. A resolução respeita a `Environment Instance`, inclusive worktrees host.
+No contrato mutável atual, somente nodes `compose-service` podem ser iniciados pela Stack. A mutação é delegada ao `DockerComposeLifecycleService` e é direcionada ao serviço explicitamente associado, evitando iniciar serviços Compose fora da definição da Stack. A resolução respeita a `Environment Instance`, inclusive worktrees host.
 
 Nodes `environment`, `process` e `health-check` funcionam como gates de readiness: se já estiverem `ready`, o fluxo continua; caso contrário, o Start retorna `blocked` no node correto. O contrato atual de processo não contém comando suficiente para recriar com segurança um processo parado, portanto a Stack não inventa essa mutação.
 
@@ -105,6 +106,10 @@ Nodes `process`, `environment` e `health-check` retornam `blocked` porque hoje n
 
 O resultado informa `restarted`, `blocked` ou `failed` e inclui um novo `StackCheck`. O check pode mostrar `starting` logo após o restart; isso não é promovido artificialmente para `ready`.
 
-## Lifecycle restante
+## Estado do MVP backend
 
-Timeline, navegação para logs/detalhes e adapters mutáveis adicionais permanecem pendentes. Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
+O backend já cobre definição persistida, topologia, Check, Start, Stop e Restart seguro
+nos domínios suportados. Permanecem pendentes timeline operacional, navegação para
+logs/detalhes, discovery confirmado de relações e a superfície de UI de Stacks.
+
+Adapters mutáveis adicionais também permanecem pendentes Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
