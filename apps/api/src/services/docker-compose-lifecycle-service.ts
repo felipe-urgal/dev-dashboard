@@ -122,11 +122,13 @@ function composeCommand(
 function startCommand(
   composeProjectName: string | undefined,
   wait: boolean,
+  service?: string,
 ): ComposeStructuredCommand {
   return composeCommand(composeProjectName, [
     'up',
     '--detach',
     ...(wait ? ['--wait'] : []),
+    ...(service ? [service] : []),
   ]);
 }
 
@@ -223,6 +225,7 @@ export class DockerComposeLifecycleService {
   public async start(
     project: Project,
     preflightInput: DockerComposePortPreflightInput = {},
+    service?: string,
   ): Promise<DockerComposeStartResult> {
     const before = await this.provider.inspect(project);
     if (before.state !== 'available' || !before.config) {
@@ -230,6 +233,16 @@ export class DockerComposeLifecycleService {
         'COMPOSE_UNAVAILABLE',
         before.diagnostic ??
           'Docker Compose não está disponível para iniciar este projeto.',
+      );
+    }
+
+    if (
+      service &&
+      !before.config.services.some((item) => item.name === service)
+    ) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_SERVICE_INVALID',
+        'O serviço solicitado não pertence ao catálogo Compose resolvido.',
       );
     }
 
@@ -293,7 +306,11 @@ export class DockerComposeLifecycleService {
 
     let portLeases: PortAllocationLeaseBatchResult | undefined;
     try {
-      portLeases = this.reservePublishedPortLeases(project, before.config);
+      portLeases = this.reservePublishedPortLeases(
+        project,
+        before.config,
+        service,
+      );
     } catch (error) {
       if (claimedOwnership) {
         await this.ownershipStore?.release(project).catch(() => false);
@@ -306,6 +323,7 @@ export class DockerComposeLifecycleService {
         startCommand(
           this.ownershipStore ? composeProjectName : undefined,
           wait,
+          service,
         ),
         {
           cwd: project.path,
@@ -325,11 +343,12 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
+    const observedServices = after ? this.targetServices(after, service) : [];
     if (
       !after ||
       after.state !== 'available' ||
       !after.runtime ||
-      after.runtime.services.length === 0
+      observedServices.length === 0
     ) {
       return {
         state: 'started-unverified',
@@ -576,20 +595,22 @@ export class DockerComposeLifecycleService {
   private reservePublishedPortLeases(
     project: Project,
     config: NonNullable<DockerComposeInspection['config']>,
+    service?: string,
   ): PortAllocationLeaseBatchResult | undefined {
     if (!this.portLeaseRegistry) return undefined;
 
     const requests: PortAllocationLeaseRequest[] = [];
     const seenPorts = new Set<number>();
-    for (const service of config.services) {
-      for (const binding of service.ports) {
+    for (const composeService of config.services) {
+      if (service && composeService.name !== service) continue;
+      for (const binding of composeService.ports) {
         const port = binding.publishedPort;
         if (port === undefined || seenPorts.has(port)) continue;
         seenPorts.add(port);
         requests.push({
-          leaseId: `compose:${project.id}:${service.name}:${port}`,
+          leaseId: `compose:${project.id}:${composeService.name}:${port}`,
           projectId: project.id,
-          role: service.name,
+          role: composeService.name,
           preferredPort: port,
           maxPort: port,
           ...(project.id.startsWith('environment:')
