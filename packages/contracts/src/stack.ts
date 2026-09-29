@@ -100,11 +100,7 @@ export interface StackStartResult {
 }
 
 export type StackStopStepState =
-  | 'already-stopped'
-  | 'stopped'
-  | 'retained'
-  | 'blocked'
-  | 'failed';
+  'already-stopped' | 'stopped' | 'retained' | 'blocked' | 'failed';
 
 export interface StackStopStep {
   nodeId: string;

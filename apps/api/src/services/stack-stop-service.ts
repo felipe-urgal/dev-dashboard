@@ -87,10 +87,11 @@ export class StackStopService {
         }
 
         try {
-          const result = await this.dependencies.dockerComposeLifecycleService.stop(
-            resolution.project,
-            node.target.service,
-          );
+          const result =
+            await this.dependencies.dockerComposeLifecycleService.stop(
+              resolution.project,
+              node.target.service,
+            );
           check = await this.dependencies.stackCheckService.check(stackId);
 
           if (result.state !== 'stopped') {
@@ -185,7 +186,10 @@ export class StackStopService {
         }
 
         check = await this.dependencies.stackCheckService.check(stackId);
-        if (stopped.id !== node.target.processId || stopped.status !== 'stopped') {
+        if (
+          stopped.id !== node.target.processId ||
+          stopped.status !== 'stopped'
+        ) {
           steps.push({
             nodeId,
             state: 'blocked',
@@ -206,8 +210,7 @@ export class StackStopService {
         steps.push({
           nodeId,
           state: 'failed',
-          diagnostic:
-            'Process Manager failed while stopping this Stack node.',
+          diagnostic: 'Process Manager failed while stopping this Stack node.',
         });
         return {
           stackId,
@@ -227,7 +230,9 @@ export class StackStopService {
     };
   }
 
-  private async findOwnedProcess(processId: string): Promise<ManagedProcess | null> {
+  private async findOwnedProcess(
+    processId: string,
+  ): Promise<ManagedProcess | null> {
     const processes = await this.dependencies.processManager.listProcesses();
     return processes.find((process) => process.id === processId) ?? null;
   }
