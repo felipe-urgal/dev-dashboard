@@ -2,6 +2,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import {
+  providerDiagnosticAction,
+  providerDiagnosticSummary,
+  providerFallbackDiagnostic,
+} from '../src/agent-provider-doctor';
+
 const repoRoot = resolve(import.meta.dirname, '../../..');
 const panel = readFileSync(
   resolve(repoRoot, 'apps/web/src/components/ProjectAgentPanel.vue'),
@@ -41,8 +47,26 @@ describe('Agent provider doctor', () => {
   it('mantém todos os diagnósticos do contrato com resumo e próxima ação na UI', () => {
     for (const code of diagnosticCodes) {
       expect(contracts).toContain("'" + code + "'");
-      expect(panel).toContain("case '" + code + "':");
+      expect(providerDiagnosticSummary(code)).not.toBe(
+        'Diagnóstico do provider indisponível.',
+      );
+      expect(providerDiagnosticAction(code)).not.toBe(
+        'Revalide o provider após corrigir a configuração local.',
+      );
     }
+
+    expect(providerFallbackDiagnostic('codex').code).toBe(
+      'command-unavailable',
+    );
+    expect(providerFallbackDiagnostic('claude-code').code).toBe(
+      'command-unavailable',
+    );
+    expect(providerFallbackDiagnostic('chatgpt-browser').code).toBe(
+      'bridge-unavailable',
+    );
+    expect(providerFallbackDiagnostic('automatic').code).toBe(
+      'automatic-unavailable',
+    );
 
     expect(panel).toContain('data-testid="provider-doctor"');
     expect(panel).toContain('data-testid="provider-diagnostic"');
@@ -84,11 +108,11 @@ describe('Agent provider doctor', () => {
     expect(panel).not.toMatch(
       /exec\\s*\\(|spawn\\s*\\(|child_process|shell\\s*:/,
     );
-    expect(panel).toContain(
-      'Autentique o provider pelo fluxo oficial local e revalide.',
-    );
-    expect(panel).toContain(
-      'Ative/conecte a extensão ChatGPT Browser e revalide.',
-    );
+    expect(
+      providerDiagnosticAction('authentication-required'),
+    ).toBe('Autentique o provider pelo fluxo oficial local e revalide.');
+    expect(
+      providerDiagnosticAction('browser-extension-unavailable'),
+    ).toBe('Ative/conecte a extensão ChatGPT Browser e revalide.');
   });
 });
