@@ -19,6 +19,7 @@ import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
   providerFallbackDiagnostic,
+  providerObservedAtLabel,
 } from '../agent-provider-doctor';
 import {
   agentNotificationCandidates,
@@ -1537,6 +1538,7 @@ onBeforeUnmount(() => {
               <small v-if="provider.version"
                 >Versão {{ provider.version }}</small
               >
+              <small>{{ providerObservedAtLabel(provider.observedAt) }}</small>
               <small
                 v-if="
                   provider.providerId === 'automatic' &&
