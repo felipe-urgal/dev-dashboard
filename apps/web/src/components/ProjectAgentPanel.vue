@@ -1903,28 +1903,29 @@ onBeforeUnmount(() => {
         <p v-if="!sortedTasks.length" class="agent-hint">
           Nenhuma task criada neste projeto.
         </p>
-        <button
-          v-for="record in sortedTasks.slice(0, 5)"
-          v-else
-          :key="record.task.id"
-          class="agent-history-item"
-          :class="{ 'is-selected': record.task.id === selectedTaskId }"
-          type="button"
-          @click="selectTask(record.task.id)"
-        >
-          <span
-            class="agent-history-state"
-            :class="'state-' + record.task.state"
-            aria-hidden="true"
-          />
-          <div>
-            <strong>{{ record.task.summary }}</strong>
-            <small>
-              {{ taskStateSummary(record.task.state) }} ·
-              {{ new Date(record.task.updatedAt).toLocaleString() }}
-            </small>
-          </div>
-        </button>
+        <template v-else>
+          <button
+            v-for="record in sortedTasks.slice(0, 5)"
+            :key="record.task.id"
+            class="agent-history-item"
+            :class="{ 'is-selected': record.task.id === selectedTaskId }"
+            type="button"
+            @click="selectTask(record.task.id)"
+          >
+            <span
+              class="agent-history-state"
+              :class="'state-' + record.task.state"
+              aria-hidden="true"
+            />
+            <div>
+              <strong>{{ record.task.summary }}</strong>
+              <small>
+                {{ taskStateSummary(record.task.state) }} ·
+                {{ new Date(record.task.updatedAt).toLocaleString() }}
+              </small>
+            </div>
+          </button>
+        </template>
       </section>
 
       <details
