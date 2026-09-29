@@ -217,6 +217,15 @@ const providerOptions = computed<AgentProviderStatus[]>(() =>
         availability: 'unavailable',
         observedAt: '',
         reason: 'Provider não configurado neste runtime.',
+        diagnostic: {
+          code:
+            providerId === 'automatic'
+              ? 'automatic-unavailable'
+              : providerId === 'chatgpt-browser'
+                ? 'bridge-unavailable'
+                : 'command-unavailable',
+          evidence: 'Provider não configurado neste runtime.',
+        },
       },
   ),
 );
@@ -1584,27 +1593,47 @@ onBeforeUnmount(() => {
             </select>
           </label>
           <div
-            v-if="currentProvider?.diagnostic"
-            class="agent-hint"
-            data-testid="provider-diagnostic"
+            class="agent-provider-doctor"
+            data-testid="provider-doctor"
+            aria-live="polite"
           >
-            <strong>
-              {{ providerDiagnosticSummary(currentProvider.diagnostic.code) }}
-            </strong>
-            <br />
-            Evidência:
-            {{
-              currentProvider.diagnostic.evidence ??
-              currentProvider.reason ??
-              'Sem evidência adicional.'
-            }}
-            <br />
-            Próxima ação:
-            {{ providerDiagnosticAction(currentProvider.diagnostic.code) }}
+            <article
+              v-for="provider in providerOptions"
+              :key="'doctor-' + provider.providerId"
+              class="agent-provider-doctor-item"
+              :class="{
+                'agent-provider-doctor-item-active':
+                  provider.providerId === selectedProviderId,
+              }"
+            >
+              <div class="agent-provider-doctor-heading">
+                <strong>{{ providerLabel(provider.providerId) }}</strong>
+                <StatusBadge :tone="providerTone(provider)">
+                  {{ providerAvailabilityLabel(provider) }}
+                </StatusBadge>
+              </div>
+              <small v-if="provider.version">Versão {{ provider.version }}</small>
+              <p data-testid="provider-diagnostic">
+                <strong>
+                  {{
+                    providerDiagnosticSummary(provider.diagnostic?.code)
+                  }}
+                </strong>
+                <span>
+                  Evidência:
+                  {{
+                    provider.diagnostic?.evidence ??
+                    provider.reason ??
+                    'Sem evidência adicional.'
+                  }}
+                </span>
+                <span>
+                  Próxima ação:
+                  {{ providerDiagnosticAction(provider.diagnostic?.code) }}
+                </span>
+              </p>
+            </article>
           </div>
-          <p v-else-if="currentProvider?.reason" class="agent-hint">
-            {{ currentProvider.reason }}
-          </p>
           <p
             v-if="
               currentProvider?.providerId !== 'automatic' &&
@@ -2574,6 +2603,54 @@ onBeforeUnmount(() => {
   color: var(--text-dim);
   font-size: var(--font-xs);
   line-height: 1.45;
+}
+
+.agent-provider-doctor {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-provider-doctor-item {
+  display: grid;
+  gap: 5px;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-provider-doctor-item-active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.agent-provider-doctor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-provider-doctor-heading > strong {
+  font-size: var(--font-xs);
+}
+
+.agent-provider-doctor-item > small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-provider-doctor-item > p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.agent-provider-doctor-item > p > strong {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
 }
 
 .agent-history {
