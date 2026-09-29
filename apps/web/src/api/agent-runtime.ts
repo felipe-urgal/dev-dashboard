@@ -179,6 +179,7 @@ export interface AgentProviderStatus {
   availability: 'available' | 'degraded' | 'unavailable';
   observedAt: string;
   version?: string;
+  selectedProviderId?: AgentConcreteProviderId;
   reason?: string;
   diagnostic?: {
     code: AgentProviderDiagnosticCode;
