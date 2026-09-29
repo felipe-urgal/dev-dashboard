@@ -91,3 +91,10 @@ export function providerDiagnosticAction(
       return 'Revalide o provider após corrigir a configuração local.';
   }
 }
+
+export function providerObservedAtLabel(observedAt: string): string {
+  if (!observedAt) return 'Ainda não validado';
+  const value = new Date(observedAt);
+  if (Number.isNaN(value.getTime())) return 'Horário de validação indisponível';
+  return 'Validado em ' + value.toLocaleString();
+}
