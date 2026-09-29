@@ -44,7 +44,9 @@ describe('Agent provider doctor', () => {
       expect(panel).toContain("case '" + code + "':");
     }
 
+    expect(panel).toContain('data-testid="provider-doctor"');
     expect(panel).toContain('data-testid="provider-diagnostic"');
+    expect(panel).toContain('v-for="provider in providerOptions"');
     expect(panel).toContain('Evidência:');
     expect(panel).toContain('Próxima ação:');
   });
