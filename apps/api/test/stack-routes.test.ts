@@ -288,3 +288,59 @@ test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (
     [['api-environment', 'retained']],
   );
 });
+
+
+test('Stack HTTP bloqueia restart de node sem adapter mutável seguro', async (context) => {
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => app.close());
+
+  const processStack: Stack = {
+    id: 'process-stack',
+    name: 'Process stack',
+    nodes: [
+      {
+        id: 'api-process',
+        name: 'API process',
+        target: {
+          kind: 'process',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+          processId: 'server:api',
+        },
+      },
+    ],
+    dependencies: [],
+  };
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/process-stack',
+    headers,
+    payload: processStack,
+  });
+  assert.equal(created.statusCode, 200);
+
+  const restarted = await app.inject({
+    method: 'POST',
+    url: '/api/stacks/process-stack/nodes/api-process/restart',
+    headers,
+    payload: {},
+  });
+  assert.equal(restarted.statusCode, 200);
+  const result = restarted.json<{
+    result: {
+      nodeId: string;
+      state: string;
+      diagnostic?: string;
+    };
+  }>().result;
+  assert.equal(result.nodeId, 'api-process');
+  assert.equal(result.state, 'blocked');
+  assert.match(result.diagnostic ?? '', /process/);
+});
