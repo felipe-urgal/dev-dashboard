@@ -70,6 +70,67 @@ function auditStore() {
   };
 }
 
+test('AgentRuntimeApiService isola falha inesperada de um provider no doctor', async () => {
+  const service = new AgentRuntimeApiService({
+    providerRegistry: {
+      get: () => null,
+      list: () =>
+        [
+          {
+            id: 'codex',
+            status: async () => {
+              throw new Error('sensitive provider failure');
+            },
+          },
+          {
+            id: 'claude-code',
+            status: async () => ({
+              providerId: 'claude-code',
+              availability: 'available',
+              observedAt: '2026-09-29T19:30:00.000Z',
+              version: '2.1.281',
+              diagnostic: {
+                code: 'ready',
+                evidence: 'Claude Code passed preflight.',
+              },
+            }),
+          },
+        ] as never,
+    },
+    now: () => '2026-09-29T19:30:00.000Z',
+  } as never);
+
+  const providers = await service.listProviders();
+
+  assert.deepEqual(providers, [
+    {
+      providerId: 'codex',
+      availability: 'unavailable',
+      observedAt: '2026-09-29T19:30:00.000Z',
+      reason: 'provider status check failed',
+      diagnostic: {
+        code: 'runtime-failed',
+        evidence:
+          'Provider status failed unexpectedly; other providers remain available for diagnosis.',
+      },
+    },
+    {
+      providerId: 'claude-code',
+      availability: 'available',
+      observedAt: '2026-09-29T19:30:00.000Z',
+      version: '2.1.281',
+      diagnostic: {
+        code: 'ready',
+        evidence: 'Claude Code passed preflight.',
+      },
+    },
+  ]);
+  assert.equal(
+    JSON.stringify(providers).includes('sensitive provider failure'),
+    false,
+  );
+});
+
 test('AgentRuntimeApiService deriva Environment Instance no backend ao criar task', async () => {
   const taskStore = new MemoryTaskStore();
   const service = new AgentRuntimeApiService({

@@ -3,18 +3,34 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
+  AtSymbolIcon,
   BoltIcon,
   CheckCircleIcon,
-  CpuChipIcon,
+  ClockIcon,
+  ComputerDesktopIcon,
+  CubeIcon,
+  DocumentIcon,
+  LinkIcon,
   NoSymbolIcon,
+  PaperClipIcon,
   PauseCircleIcon,
+  PencilSquareIcon,
   PlayIcon,
+  PowerIcon,
+  PuzzlePieceIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
 
 import type { Project, TaskContext } from '@dev-dashboard/contracts';
 
 import { fetchTaskContexts } from '../api/task-contexts';
+import {
+  providerDiagnosticAction,
+  providerDiagnosticSummary,
+  providerFallbackDiagnostic,
+  providerObservedAtLabel,
+} from '../agent-provider-doctor';
 import {
   agentNotificationCandidates,
   hasSeenAgentNotification,
@@ -59,7 +75,6 @@ import {
   type AgentExecutionProfile,
   type AgentExecutionProfileConfiguration,
   type AgentExecutionResult,
-  type AgentProviderDiagnosticCode,
   type AgentProviderId,
   type AgentProviderStatus,
   type AgentRealtimeSnapshot,
@@ -172,6 +187,9 @@ const providerRefreshing = ref(false);
 const mutating = ref(false);
 const executing = ref(false);
 const errorMessage = ref('');
+const showAllHistory = ref(false);
+const providerConfig = ref<HTMLDetailsElement | null>(null);
+const integrationsSummary = ref<HTMLDetailsElement | null>(null);
 const agentNotificationPreferences = ref(readAgentNotificationPreferences());
 const socketState = ref<'idle' | 'connecting' | 'connected' | 'disconnected'>(
   'idle',
@@ -217,6 +235,7 @@ const providerOptions = computed<AgentProviderStatus[]>(() =>
         availability: 'unavailable',
         observedAt: '',
         reason: 'Provider não configurado neste runtime.',
+        diagnostic: providerFallbackDiagnostic(providerId),
       },
   ),
 );
@@ -234,6 +253,66 @@ const currentProvider = computed(
       (provider) => provider.providerId === selectedProviderId.value,
     ) ?? null,
 );
+
+const availableProviderCount = computed(
+  () =>
+    providerOptions.value.filter(
+      (provider) => provider.availability === 'available',
+    ).length,
+);
+
+const currentTaskStage = computed(() => {
+  switch (currentTask.value?.task.state) {
+    case 'queued':
+      return 1;
+    case 'running':
+      return 2;
+    case 'checkpoint':
+    case 'blocked':
+      return 3;
+    case 'review':
+    case 'completed':
+      return 4;
+    default:
+      return 0;
+  }
+});
+
+const taskStateSummary = (state: string): string => {
+  switch (state) {
+    case 'queued':
+      return 'Criada';
+    case 'running':
+      return 'Executando';
+    case 'checkpoint':
+      return 'Checkpoint';
+    case 'review':
+      return 'Em review';
+    case 'blocked':
+      return 'Bloqueada';
+    case 'failed':
+      return 'Falhou';
+    case 'completed':
+      return 'Concluída';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return state;
+  }
+};
+
+const openProviderDiagnostics = (): void => {
+  if (providerConfig.value) providerConfig.value.open = true;
+};
+
+const openIntegrations = (): void => {
+  if (!integrationsSummary.value) return;
+  integrationsSummary.value.open = true;
+  integrationsSummary.value.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
+};
 
 const selectedExecutionProfile = computed(() =>
   executionProfiles.value?.profiles.find(
@@ -355,80 +434,6 @@ const providerAvailabilityLabel = (provider: AgentProviderStatus): string => {
   if (provider.availability === 'available') return 'Disponível';
   if (provider.availability === 'degraded') return 'Limitado';
   return 'Indisponível';
-};
-
-const providerDiagnosticSummary = (
-  code: AgentProviderDiagnosticCode | undefined,
-): string => {
-  switch (code) {
-    case 'ready':
-      return 'Provider pronto para execução.';
-    case 'command-unavailable':
-      return 'CLI ou componente local não foi encontrado.';
-    case 'version-unsupported':
-      return 'Versão instalada não é suportada.';
-    case 'authentication-required':
-      return 'Autenticação não foi confirmada.';
-    case 'preflight-timeout':
-      return 'Validação do provider excedeu o tempo limite.';
-    case 'runtime-failed':
-      return 'O provider respondeu, mas o preflight falhou.';
-    case 'bridge-token-missing':
-      return 'Credencial local do Browser Bridge não está disponível.';
-    case 'bridge-unavailable':
-      return 'Browser Bridge não está acessível.';
-    case 'bridge-unhealthy':
-      return 'Browser Bridge respondeu com estado não saudável.';
-    case 'bridge-paused':
-      return 'Browser Bridge está pausado.';
-    case 'browser-extension-unavailable':
-      return 'Extensão ChatGPT Browser não está conectada.';
-    case 'browser-extension-stale':
-      return 'Heartbeat da extensão ChatGPT Browser está desatualizado.';
-    case 'browser-session-unavailable':
-      return 'Sessão do ChatGPT não está disponível na extensão.';
-    case 'automatic-unavailable':
-      return 'Automatic não encontrou Codex ou Claude Code pronto.';
-    default:
-      return 'Diagnóstico do provider indisponível.';
-  }
-};
-
-const providerDiagnosticAction = (
-  code: AgentProviderDiagnosticCode | undefined,
-): string => {
-  switch (code) {
-    case 'ready':
-      return 'Nenhuma ação necessária.';
-    case 'command-unavailable':
-      return 'Instale o CLI/componente oficial e revalide.';
-    case 'version-unsupported':
-      return 'Atualize o provider para uma versão suportada e revalide.';
-    case 'authentication-required':
-      return 'Autentique o provider pelo fluxo oficial local e revalide.';
-    case 'preflight-timeout':
-      return 'Verifique se o provider responde localmente e revalide.';
-    case 'runtime-failed':
-      return 'Execute o diagnóstico oficial do provider localmente e revalide.';
-    case 'bridge-token-missing':
-      return 'Reconfigure o setup local do Browser Bridge e revalide.';
-    case 'bridge-unavailable':
-      return 'Inicie o Browser Bridge local e revalide.';
-    case 'bridge-unhealthy':
-      return 'Corrija o estado do Browser Bridge e revalide.';
-    case 'bridge-paused':
-      return 'Retome o Browser Bridge e revalide.';
-    case 'browser-extension-unavailable':
-      return 'Ative/conecte a extensão ChatGPT Browser e revalide.';
-    case 'browser-extension-stale':
-      return 'Reconecte ou recarregue a extensão e revalide.';
-    case 'browser-session-unavailable':
-      return 'Abra uma sessão autenticada do ChatGPT e revalide.';
-    case 'automatic-unavailable':
-      return 'Configure Codex ou Claude Code e revalide.';
-    default:
-      return 'Revalide o provider após corrigir a configuração local.';
-  }
 };
 
 const canExecute = computed(
@@ -1418,23 +1423,74 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="agent-panel" aria-label="Agente do projeto">
-    <header class="agent-panel-header">
-      <div>
-        <p class="agent-kicker">Agent Runtime</p>
-        <h2>Agente</h2>
-        <p>
-          Solicite trabalho, autorize capacidades e acompanhe o estado sem
-          depender de stdout bruto.
-        </p>
-      </div>
-      <div class="agent-header-status">
-        <StatusBadge :tone="taskTone">{{ taskStateLabel }}</StatusBadge>
-        <span
-          class="agent-socket-indicator"
-          :class="{ 'agent-socket-connected': socketState === 'connected' }"
-        >
-          {{ socketState === 'connected' ? 'Tempo real' : 'Snapshot' }}
+    <header class="agent-cockpit-header">
+      <div class="agent-identity">
+        <span class="agent-identity-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <path
+              d="M32 12v-5m0 0h1m-1 0h-1M18 24h28a8 8 0 0 1 8 8v12a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V32a8 8 0 0 1 8-8Zm-8 9H6m48 0h4M22 36h.01M42 36h.01M24 44c4 3 12 3 16 0"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="4"
+            />
+          </svg>
         </span>
+        <div>
+          <h2>Agente</h2>
+          <p>
+            Transforme ideias em código. O agente executa tarefas no seu projeto
+            com segurança, usando seus providers, skills e integrações.
+          </p>
+        </div>
+      </div>
+
+      <div class="agent-overview-status">
+        <article>
+          <span
+            class="agent-health-dot"
+            :class="{
+              'agent-health-dot-ready':
+                currentProvider?.availability === 'available',
+            }"
+          />
+          <div>
+            <small>Provider</small>
+            <strong>Execução</strong>
+            <span>{{
+              currentProvider
+                ? providerAvailabilityLabel(currentProvider)
+                : 'Indisponível'
+            }}</span>
+          </div>
+        </article>
+        <article>
+          <span
+            class="agent-health-dot"
+            :class="{ 'agent-health-dot-ready': socketState === 'connected' }"
+          />
+          <div>
+            <small>Runtime</small>
+            <strong>{{
+              socketState === 'connected' ? 'Operacional' : 'Snapshot'
+            }}</strong>
+            <span>{{
+              socketState === 'connected' ? 'Pronto para uso' : 'Sem tempo real'
+            }}</span>
+          </div>
+        </article>
+        <article>
+          <span
+            class="agent-health-dot"
+            :class="{ 'agent-health-dot-ready': !!currentTask }"
+          />
+          <div>
+            <small>Snapshot</small>
+            <strong>{{ currentTask ? taskStateLabel : 'Sem task' }}</strong>
+            <span>{{ currentTask ? 'Task ativa' : 'Nenhum ativo' }}</span>
+          </div>
+        </article>
       </div>
     </header>
 
@@ -1446,293 +1502,85 @@ onBeforeUnmount(() => {
       description="Recuperando providers, tasks e estado atual."
     />
 
-    <div v-else class="agent-layout">
-      <aside class="agent-sidebar">
-        <section class="agent-section">
-          <div class="agent-section-heading">
-            <div>
-              <span>Perfil</span>
-              <strong>Execução reutilizável</strong>
-            </div>
-          </div>
-          <label class="agent-field">
-            <span>Perfil da próxima execução</span>
-            <select
-              v-model="selectedProfileId"
-              :disabled="executing"
-              @change="applySelectedProfile"
-            >
-              <option value="">Manual</option>
-              <option
-                v-for="profile in executionProfiles?.profiles ?? []"
-                :key="profile.id"
-                :value="profile.id"
-              >
-                {{ profile.label }}
-              </option>
-            </select>
-          </label>
-          <p class="agent-hint">{{ effectiveProfileSummary }}</p>
-          <div class="agent-budget-fields">
-            <label>
-              <span>ID</span>
-              <input v-model="profileIdDraft" placeholder="normal" />
-            </label>
-            <label>
-              <span>Nome</span>
-              <input v-model="profileLabelDraft" placeholder="Normal" />
-            </label>
-            <label>
-              <span>Timeout (s)</span>
-              <input
-                v-model="profileTimeoutSeconds"
-                type="number"
-                min="5"
-                max="1800"
-                placeholder="Sem limite"
-              />
-            </label>
-            <label>
-              <span>Tokens</span>
-              <input
-                v-model="profileMaxTokens"
-                type="number"
-                min="1"
-                placeholder="Sem limite"
-              />
-            </label>
-            <label>
-              <span>Custo US$</span>
-              <input
-                v-model="profileMaxCost"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Sem limite"
-              />
-            </label>
-            <label>
-              <span>Budget</span>
-              <select v-model="profileBudgetMode">
-                <option value="soft">Soft</option>
-                <option value="hard">Hard</option>
-              </select>
-            </label>
-          </div>
-          <div class="agent-budget-actions">
-            <button
-              class="secondary-button"
-              type="button"
-              :disabled="mutating"
-              @click="saveCurrentExecutionProfile"
-            >
-              Salvar perfil atual
-            </button>
-            <button
-              v-if="selectedProfileId"
-              class="secondary-button"
-              type="button"
-              :disabled="mutating"
-              @click="removeSelectedExecutionProfile"
-            >
-              Remover
-            </button>
-          </div>
-          <p class="agent-hint">
-            Modelo e esforço aparecem como indisponíveis até existir contrato
-            estável do provider. Perfil nunca concede autorização.
-          </p>
-        </section>
+    <div v-else class="agent-cockpit">
+      <div
+        v-if="errorMessage"
+        class="agent-error agent-cockpit-error"
+        role="alert"
+      >
+        <span>{{ errorMessage }}</span>
+        <button type="button" @click="errorMessage = ''">Fechar</button>
+      </div>
 
-        <section class="agent-section">
-          <div class="agent-section-heading">
-            <div>
-              <span>Provider</span>
-              <strong>Execução</strong>
-            </div>
-            <StatusBadge
-              v-if="currentProvider"
-              :tone="providerTone(currentProvider)"
-            >
-              {{ providerAvailabilityLabel(currentProvider) }}
-            </StatusBadge>
-            <button
-              class="agent-icon-button"
-              type="button"
-              aria-label="Revalidar providers"
-              :disabled="providerRefreshing || executing"
-              @click="refreshProviders"
-            >
-              <ArrowPathIcon aria-hidden="true" />
-            </button>
+      <section class="agent-card agent-composer agent-create-card">
+        <div class="agent-create-heading">
+          <span class="agent-create-icon" aria-hidden="true">
+            <PencilSquareIcon />
+          </span>
+          <div>
+            <h3>Nova task</h3>
+            <p>
+              Descreva o que você quer que o agente faça. Quanto mais contexto,
+              melhor o resultado.
+            </p>
           </div>
-
-          <label class="agent-field">
-            <span>Provider da próxima execução</span>
-            <select
-              v-model="selectedProviderId"
-              :disabled="executing || !!selectedProfileId"
-            >
-              <option
-                v-for="provider in providerOptions"
-                :key="provider.providerId"
-                :value="provider.providerId"
-              >
-                {{ providerLabel(provider.providerId) }}
-                · {{ providerAvailabilityLabel(provider) }}
-              </option>
-            </select>
-          </label>
-          <div
-            v-if="currentProvider?.diagnostic"
-            class="agent-hint"
-            data-testid="provider-diagnostic"
-          >
-            <strong>
-              {{ providerDiagnosticSummary(currentProvider.diagnostic.code) }}
-            </strong>
-            <br />
-            Evidência:
-            {{
-              currentProvider.diagnostic.evidence ??
-              currentProvider.reason ??
-              'Sem evidência adicional.'
-            }}
-            <br />
-            Próxima ação:
-            {{ providerDiagnosticAction(currentProvider.diagnostic.code) }}
-          </div>
-          <p v-else-if="currentProvider?.reason" class="agent-hint">
-            {{ currentProvider.reason }}
-          </p>
-          <p
-            v-if="
-              currentProvider?.providerId !== 'automatic' &&
-              currentProvider?.quota
-            "
-            class="agent-hint"
-          >
-            Uso do plano:
-            {{
-              currentProvider.quota.status === 'available'
-                ? (currentProvider.quota.label ?? 'Disponível')
-                : 'Indisponível'
-            }}
-            <template v-if="currentProvider.quota.reason">
-              · {{ currentProvider.quota.reason }}
-            </template>
-          </p>
-        </section>
-
-        <section class="agent-section agent-history">
-          <div class="agent-section-heading">
-            <div>
-              <span>Histórico</span>
-              <strong>Tasks do projeto</strong>
-            </div>
-            <button
-              class="agent-icon-button"
-              type="button"
-              aria-label="Atualizar tasks"
-              :disabled="loading"
-              @click="load"
-            >
-              <ArrowPathIcon aria-hidden="true" />
-            </button>
-          </div>
-
-          <p v-if="!sortedTasks.length" class="agent-hint">
-            Nenhuma task criada neste projeto.
-          </p>
-          <button
-            v-for="record in sortedTasks"
-            :key="record.task.id"
-            class="agent-task-item"
-            :class="{
-              'agent-task-item-active': record.task.id === selectedTaskId,
-            }"
-            type="button"
-            @click="selectTask(record.task.id)"
-          >
-            <span>{{ record.task.summary }}</span>
-            <small>{{ record.task.state }}</small>
-          </button>
-        </section>
-      </aside>
-
-      <main class="agent-main">
-        <div v-if="errorMessage" class="agent-error" role="alert">
-          <span>{{ errorMessage }}</span>
-          <button type="button" @click="errorMessage = ''">Fechar</button>
         </div>
 
-        <ProjectAgentIntegrationsCard
-          :project="project"
-          v-bind="environmentInstanceId ? { environmentInstanceId } : {}"
-        />
-
-        <section class="agent-composer agent-card">
-          <div class="agent-section-heading">
-            <div>
-              <span>Nova task</span>
-              <strong>O que deve ser feito?</strong>
-            </div>
-            <span class="agent-shortcut">Ctrl/⌘ + Enter</span>
-          </div>
-
+        <div class="agent-prompt">
           <textarea
             v-model="instruction"
             rows="4"
             maxlength="4000"
-            placeholder="Descreva a alteração, investigação ou revisão..."
+            placeholder="Ex.: Adicionar um player de música com controle de volume e playlists..."
             aria-label="Instrução para nova task do Agente"
             @keydown="handleComposerKeydown"
           />
-
-          <p class="agent-hint">
-            Para adotar o backlog real: “pegue a próxima atividade” ou “pegue a
-            #123”.
-          </p>
-
-          <div
-            v-if="backlogSelectionSource"
-            class="agent-backlog-candidates"
-            role="status"
-          >
-            <strong>{{ backlogSelectionMessage }}</strong>
-            <button
-              v-for="candidate in backlogCandidates"
-              :key="candidate.repository + '#' + candidate.number"
-              type="button"
-              @click="chooseBacklogIssue(candidate)"
-            >
-              <span>#{{ candidate.number }}</span>
-              {{ candidate.title }}
-            </button>
-          </div>
-
-          <div
-            v-if="backlogAdoptionNotice"
-            class="agent-backlog-adopted"
-            role="status"
-          >
-            <strong>
-              #{{ backlogAdoptionNotice.issue.number }} ·
-              {{ backlogAdoptionNotice.issue.title }}
-            </strong>
-            <span>
-              Seleção: {{ backlogAdoptionSourceLabel }} · Task Context:
-              {{ backlogAdoptionNotice.taskContextId ?? 'indisponível' }} ·
-              {{
-                backlogAdoptionNotice.reused
-                  ? 'vínculo existente reutilizado'
-                  : 'novo vínculo criado'
-              }}
+          <div class="agent-prompt-footer">
+            <span class="agent-prompt-tools" aria-hidden="true">
+              <AtSymbolIcon />
+              <PaperClipIcon />
+              <DocumentIcon />
             </span>
+            <span>{{ instruction.length }}/4000</span>
+            <kbd>Ctrl + Enter</kbd>
           </div>
+        </div>
 
-          <label class="agent-field">
-            <span>Task Context</span>
+        <div
+          v-if="backlogSelectionSource"
+          class="agent-backlog-candidates"
+          role="status"
+        >
+          <strong>{{ backlogSelectionMessage }}</strong>
+          <button
+            v-for="candidate in backlogCandidates"
+            :key="candidate.repository + '#' + candidate.number"
+            type="button"
+            @click="chooseBacklogIssue(candidate)"
+          >
+            <span>#{{ candidate.number }}</span>
+            {{ candidate.title }}
+          </button>
+        </div>
+
+        <div
+          v-if="backlogAdoptionNotice"
+          class="agent-backlog-adopted"
+          role="status"
+        >
+          <strong>
+            #{{ backlogAdoptionNotice.issue.number }} ·
+            {{ backlogAdoptionNotice.issue.title }}
+          </strong>
+          <span>
+            Seleção: {{ backlogAdoptionSourceLabel }} · Task Context:
+            {{ backlogAdoptionNotice.taskContextId ?? 'indisponível' }}
+          </span>
+        </div>
+
+        <div class="agent-create-options">
+          <label class="agent-field agent-context-field">
+            <span>Task Context ⓘ</span>
             <select
               v-model="selectedTaskContextId"
               aria-label="Task Context da nova task"
@@ -1750,51 +1598,427 @@ onBeforeUnmount(() => {
                 </template>
               </option>
             </select>
+            <small>
+              Vincule a task a um arquivo, pasta ou issue (opcional).
+            </small>
           </label>
-          <p v-if="selectedCreateTaskContext" class="agent-hint">
-            A Environment Instance será derivada deste contexto:
-            {{
-              selectedCreateTaskContext.environmentInstanceId ??
-              'não informada'
-            }}.
-          </p>
 
-          <div class="agent-capability-picker">
-            <span>Capabilities solicitadas</span>
-            <label
-              v-for="capability in capabilities"
-              :key="capability.id"
-              class="agent-capability-option"
-            >
-              <input
-                v-model="requestedCapabilities"
-                type="checkbox"
-                :value="capability.id"
-              />
-              <span>
-                <strong>{{ capability.label }}</strong>
-                <small>{{ capability.id }}</small>
-              </span>
-            </label>
+          <div class="agent-capability-picker agent-create-capabilities">
+            <span>Capacidades do agente ⓘ</span>
+            <div class="agent-capability-chips">
+              <label
+                v-for="capability in capabilities"
+                :key="capability.id"
+                class="agent-capability-option"
+              >
+                <input
+                  v-model="requestedCapabilities"
+                  type="checkbox"
+                  :value="capability.id"
+                />
+                <span>{{ capability.label }}</span>
+              </label>
+            </div>
           </div>
 
-          <div class="agent-composer-actions">
-            <p>
-              Criar a task não concede capabilities. Autorizações são feitas
-              separadamente abaixo.
-            </p>
+          <button
+            class="primary-button agent-create-button"
+            type="button"
+            :disabled="!canCreate"
+            @click="createTask"
+          >
+            <BoltIcon aria-hidden="true" />
+            Criar task
+            <ArrowRightIcon aria-hidden="true" />
+          </button>
+        </div>
+
+        <p v-if="selectedCreateTaskContext" class="agent-hint">
+          Environment Instance:
+          {{
+            selectedCreateTaskContext.environmentInstanceId ?? 'não informada'
+          }}
+        </p>
+      </section>
+
+      <aside class="agent-provider-panel agent-card">
+        <div class="agent-provider-panel-heading">
+          <div>
+            <PowerIcon class="agent-provider-power" aria-hidden="true" />
+            <strong>Status do provider</strong>
+          </div>
+          <StatusBadge
+            v-if="currentProvider"
+            :tone="providerTone(currentProvider)"
+          >
+            {{ providerAvailabilityLabel(currentProvider) }}
+          </StatusBadge>
+        </div>
+
+        <label class="agent-field">
+          <span>Provider atual</span>
+          <select
+            v-model="selectedProviderId"
+            :disabled="executing || !!selectedProfileId"
+          >
+            <option
+              v-for="provider in providerOptions"
+              :key="provider.providerId"
+              :value="provider.providerId"
+            >
+              {{
+                provider.providerId === 'automatic'
+                  ? 'Execução'
+                  : providerLabel(provider.providerId)
+              }}
+              · {{ providerAvailabilityLabel(provider) }}
+            </option>
+          </select>
+        </label>
+
+        <label class="agent-field">
+          <span>Perfil de execução</span>
+          <select
+            v-model="selectedProfileId"
+            :disabled="executing"
+            @change="applySelectedProfile"
+          >
+            <option value="">Manual</option>
+            <option
+              v-for="profile in executionProfiles?.profiles ?? []"
+              :key="profile.id"
+              :value="profile.id"
+            >
+              {{ profile.label }}
+            </option>
+          </select>
+        </label>
+
+        <div class="agent-provider-metrics">
+          <span>
+            <small>Tokens</small>
+            <strong>{{
+              profileMaxTokens ? profileMaxTokens : 'Sem limite'
+            }}</strong>
+          </span>
+          <span>
+            <small>Custo (US$)</small>
+            <strong>{{
+              profileMaxCost ? profileMaxCost : 'Sem limite'
+            }}</strong>
+          </span>
+          <span>
+            <small>Budget</small>
+            <strong>{{
+              profileBudgetMode === 'hard' ? 'Hard' : 'Soft'
+            }}</strong>
+          </span>
+        </div>
+
+        <details ref="providerConfig" class="agent-provider-config">
+          <summary>
+            <span class="agent-provider-summary-icon" aria-hidden="true"
+              >⚙</span
+            >
+            Configurar provider
+          </summary>
+          <div class="agent-provider-config-body">
+            <div class="agent-budget-fields">
+              <label>
+                <span>ID</span>
+                <input v-model="profileIdDraft" placeholder="normal" />
+              </label>
+              <label>
+                <span>Nome</span>
+                <input v-model="profileLabelDraft" placeholder="Normal" />
+              </label>
+              <label>
+                <span>Timeout (s)</span>
+                <input
+                  v-model="profileTimeoutSeconds"
+                  type="number"
+                  min="5"
+                  max="1800"
+                  placeholder="Sem limite"
+                />
+              </label>
+            </div>
             <button
-              class="primary-button"
+              class="secondary-button"
               type="button"
-              :disabled="!canCreate"
-              @click="createTask"
+              :disabled="mutating"
+              @click="saveCurrentExecutionProfile"
             >
-              <BoltIcon aria-hidden="true" />
-              Criar task
+              Salvar perfil atual
             </button>
-          </div>
-        </section>
 
+            <div
+              class="agent-provider-doctor"
+              data-testid="provider-doctor"
+              aria-live="polite"
+            >
+              <article
+                v-for="provider in providerOptions"
+                :key="'doctor-' + provider.providerId"
+                class="agent-provider-doctor-item"
+                :class="{
+                  'agent-provider-doctor-item-active':
+                    provider.providerId === selectedProviderId,
+                }"
+              >
+                <div class="agent-provider-doctor-heading">
+                  <strong>{{ providerLabel(provider.providerId) }}</strong>
+                  <StatusBadge :tone="providerTone(provider)">
+                    {{ providerAvailabilityLabel(provider) }}
+                  </StatusBadge>
+                </div>
+                <small v-if="provider.version">
+                  Versão {{ provider.version }}
+                </small>
+                <small>{{
+                  providerObservedAtLabel(provider.observedAt)
+                }}</small>
+                <p data-testid="provider-diagnostic">
+                  <strong>
+                    {{ providerDiagnosticSummary(provider.diagnostic?.code) }}
+                  </strong>
+                  <span>
+                    Evidência:
+                    {{
+                      provider.diagnostic?.evidence ??
+                      provider.reason ??
+                      'Sem evidência adicional.'
+                    }}
+                  </span>
+                  <span>
+                    Próxima ação:
+                    {{ providerDiagnosticAction(provider.diagnostic?.code) }}
+                  </span>
+                </p>
+              </article>
+            </div>
+          </div>
+        </details>
+
+        <button
+          class="agent-provider-action"
+          type="button"
+          :disabled="providerRefreshing || executing"
+          @click="refreshProviders"
+        >
+          <ArrowPathIcon aria-hidden="true" />
+          Revalidar conexão
+          <span aria-hidden="true">›</span>
+        </button>
+        <button
+          class="agent-provider-action"
+          type="button"
+          @click="openIntegrations"
+        >
+          <PuzzlePieceIcon aria-hidden="true" />
+          Ver integrações (MCP)
+          <span aria-hidden="true">›</span>
+        </button>
+        <button
+          class="agent-provider-action"
+          type="button"
+          @click="openProviderDiagnostics"
+        >
+          <ComputerDesktopIcon aria-hidden="true" />
+          Diagnóstico do ambiente
+          <span aria-hidden="true">›</span>
+        </button>
+      </aside>
+
+      <section class="agent-card agent-task-overview">
+        <div class="agent-section-heading agent-task-heading">
+          <div>
+            <span class="agent-section-icon" aria-hidden="true">⌁</span>
+            <div>
+              <strong>Task atual</strong>
+              <small>
+                {{
+                  currentTask
+                    ? currentTask.task.summary
+                    : 'Nenhuma task em execução no momento.'
+                }}
+              </small>
+            </div>
+          </div>
+          <StatusBadge v-if="currentTask" :tone="taskTone">
+            {{ taskStateLabel }}
+          </StatusBadge>
+        </div>
+
+        <div class="agent-task-steps">
+          <article
+            :class="{
+              'is-active': currentTaskStage === 1,
+              'is-done': currentTaskStage > 1,
+            }"
+          >
+            <span>1</span>
+            <strong>Criada</strong>
+            <small>Task enviada para o agente.</small>
+          </article>
+          <article
+            :class="{
+              'is-active': currentTaskStage === 2,
+              'is-done': currentTaskStage > 2,
+            }"
+          >
+            <span>2</span>
+            <strong>Executando</strong>
+            <small>Agente trabalhando no projeto.</small>
+          </article>
+          <article
+            :class="{
+              'is-active': currentTaskStage === 3,
+              'is-done': currentTaskStage > 3,
+            }"
+          >
+            <span>3</span>
+            <strong>Checkpoint</strong>
+            <small>Ponto de verificação e revisão.</small>
+          </article>
+          <article :class="{ 'is-active': currentTaskStage === 4 }">
+            <span>4</span>
+            <strong>Review</strong>
+            <small>Aguardando sua validação.</small>
+          </article>
+        </div>
+
+        <div v-if="!currentTask" class="agent-task-empty">
+          <span aria-hidden="true"><CubeIcon /></span>
+          <div>
+            <strong>Nenhuma task em execução</strong>
+            <small
+              >Crie uma nova task acima para iniciar a execução com o
+              agente.</small
+            >
+          </div>
+        </div>
+        <div v-else class="agent-task-overview-actions">
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="!canExecute"
+            @click="executeCurrent"
+          >
+            <PlayIcon aria-hidden="true" />
+            {{ executing ? 'Executando…' : 'Executar' }}
+          </button>
+          <button
+            v-if="status?.activeExecution"
+            class="secondary-button"
+            type="button"
+            :disabled="mutating"
+            @click="cancelCurrent"
+          >
+            <StopIcon aria-hidden="true" />
+            Parar
+          </button>
+        </div>
+      </section>
+
+      <section class="agent-card agent-recent-history">
+        <div class="agent-section-heading agent-history-heading">
+          <div>
+            <ClockIcon class="agent-section-icon" aria-hidden="true" />
+            <strong>Histórico recente</strong>
+          </div>
+          <button
+            class="agent-history-show-all"
+            type="button"
+            @click="showAllHistory = !showAllHistory"
+          >
+            {{ showAllHistory ? 'Ver menos' : 'Ver todos' }}
+          </button>
+        </div>
+
+        <p v-if="!sortedTasks.length" class="agent-hint">
+          Nenhuma task criada neste projeto.
+        </p>
+        <template v-else>
+          <button
+            v-for="record in showAllHistory
+              ? sortedTasks
+              : sortedTasks.slice(0, 5)"
+            :key="record.task.id"
+            class="agent-history-item"
+            :class="{ 'is-selected': record.task.id === selectedTaskId }"
+            type="button"
+            @click="selectTask(record.task.id)"
+          >
+            <span
+              class="agent-history-state"
+              :class="'state-' + record.task.state"
+              aria-hidden="true"
+            />
+            <div>
+              <strong>{{ record.task.summary }}</strong>
+              <small>
+                {{ taskStateSummary(record.task.state) }} ·
+                {{ new Date(record.task.updatedAt).toLocaleString() }}
+              </small>
+            </div>
+          </button>
+        </template>
+      </section>
+
+      <details
+        ref="integrationsSummary"
+        class="agent-integrations-summary agent-card"
+      >
+        <summary>
+          <div class="agent-integrations-copy">
+            <PuzzlePieceIcon
+              class="agent-integrations-icon"
+              aria-hidden="true"
+            />
+            <div>
+              <strong>Integrações e MCP</strong>
+              <small>
+                Conecte ferramentas, plugins e skills para expandir as
+                capacidades do agente.
+              </small>
+            </div>
+          </div>
+          <div class="agent-integration-stats">
+            <span>
+              <LinkIcon aria-hidden="true" />
+              <span>
+                <strong>Integrações</strong>
+                <small>conectadas</small>
+              </span>
+            </span>
+            <span>
+              <PuzzlePieceIcon aria-hidden="true" />
+              <span>
+                <strong>Plugins</strong>
+                <small>disponíveis</small>
+              </span>
+            </span>
+            <span>
+              <CubeIcon aria-hidden="true" />
+              <span>
+                <strong>MCP</strong>
+                <small>{{ availableProviderCount }} provider(s)</small>
+              </span>
+            </span>
+            <b>
+              Gerenciar integrações
+              <ArrowRightIcon aria-hidden="true" />
+            </b>
+          </div>
+        </summary>
+        <ProjectAgentIntegrationsCard
+          :project="project"
+          v-bind="environmentInstanceId ? { environmentInstanceId } : {}"
+        />
+      </details>
+
+      <div class="agent-detail-area">
         <template v-if="currentTask">
           <section class="agent-current agent-card">
             <div class="agent-section-heading">
@@ -2412,15 +2636,7 @@ onBeforeUnmount(() => {
             </section>
           </div>
         </template>
-
-        <EmptyState
-          v-else
-          class="agent-empty agent-card"
-          icon="◇"
-          title="Nenhuma task selecionada"
-          description="Crie uma task para iniciar um workflow com o Agent Runtime."
-        />
-      </main>
+      </div>
     </div>
   </section>
 </template>
@@ -2574,6 +2790,54 @@ onBeforeUnmount(() => {
   color: var(--text-dim);
   font-size: var(--font-xs);
   line-height: 1.45;
+}
+
+.agent-provider-doctor {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-provider-doctor-item {
+  display: grid;
+  gap: 5px;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-provider-doctor-item-active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.agent-provider-doctor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-provider-doctor-heading > strong {
+  font-size: var(--font-xs);
+}
+
+.agent-provider-doctor-item > small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-provider-doctor-item > p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.agent-provider-doctor-item > p > strong {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
 }
 
 .agent-history {
@@ -3218,6 +3482,917 @@ onBeforeUnmount(() => {
   .agent-authorization {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+.agent-cockpit-header {
+  display: flex;
+  min-height: 132px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 22px 26px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(
+      circle at 12% 40%,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 28%
+    ),
+    var(--surface-1);
+}
+
+.agent-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 18px;
+}
+
+.agent-identity-icon {
+  display: inline-flex;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 18px;
+  color: var(--accent);
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      color-mix(in srgb, var(--accent) 32%, transparent),
+      transparent 66%
+    ),
+    color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+}
+
+.agent-identity-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.agent-identity h2,
+.agent-identity p {
+  margin: 0;
+}
+
+.agent-identity h2 {
+  color: var(--text);
+  font-size: 30px;
+  letter-spacing: -0.035em;
+}
+
+.agent-identity p {
+  max-width: 620px;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.agent-overview-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.agent-overview-status article {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 84%, transparent);
+}
+
+.agent-overview-status article > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.agent-overview-status small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
+}
+
+.agent-overview-status strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-overview-status article span:not(.agent-health-dot) {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-health-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-dim) 10%, transparent);
+}
+
+.agent-health-dot-ready {
+  background: var(--success-text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success-text) 12%, transparent);
+}
+
+.agent-cockpit {
+  display: grid;
+  grid-template-columns: minmax(0, 1.72fr) minmax(250px, 0.64fr) minmax(
+      300px,
+      0.72fr
+    );
+  grid-template-areas:
+    'error error error'
+    'create create provider'
+    'task history provider'
+    'integrations integrations integrations'
+    'details details details';
+  align-items: start;
+  gap: 14px;
+  padding: 18px;
+}
+
+.agent-cockpit-error {
+  grid-area: error;
+}
+
+.agent-create-card {
+  grid-area: create;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 8%, var(--surface-1)),
+    var(--surface-1) 48%
+  );
+}
+
+.agent-create-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.agent-create-heading h3,
+.agent-create-heading p {
+  margin: 0;
+}
+
+.agent-create-heading h3 {
+  color: var(--text);
+  font-size: 19px;
+}
+
+.agent-create-heading p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.agent-create-icon {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.agent-create-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.agent-prompt {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+}
+
+.agent-prompt textarea {
+  width: 100%;
+  min-height: 118px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 15px 16px 8px;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  line-height: 1.55;
+}
+
+.agent-prompt-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 11px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.agent-prompt-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  margin-right: auto;
+  color: var(--text-muted);
+}
+
+.agent-prompt-tools svg {
+  width: 18px;
+  height: 18px;
+}
+
+.agent-prompt-footer kbd {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font: inherit;
+}
+
+.agent-create-options {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.2fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.agent-context-field small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-create-capabilities {
+  align-self: stretch;
+}
+
+.agent-capability-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.agent-create-capabilities .agent-capability-option {
+  display: inline-flex;
+  min-width: auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  background: var(--surface-0);
+}
+
+.agent-create-capabilities .agent-capability-option input {
+  margin: 0;
+}
+
+.agent-create-capabilities .agent-capability-option span {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.agent-create-button {
+  min-width: 150px;
+  min-height: 56px;
+  justify-content: center;
+  padding-inline: 20px;
+  font-weight: var(--font-weight-strong);
+}
+
+.agent-create-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.agent-create-button svg:last-child {
+  margin-left: 4px;
+}
+
+.agent-provider-panel {
+  grid-area: provider;
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 14px;
+  padding: 18px;
+}
+
+.agent-provider-panel-heading,
+.agent-provider-panel-heading > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.agent-provider-panel-heading > div {
+  justify-content: flex-start;
+}
+
+.agent-provider-panel-heading strong {
+  font-size: var(--font-sm);
+}
+
+.agent-provider-power {
+  width: 21px;
+  height: 21px;
+  color: var(--success-text);
+}
+
+.agent-provider-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.agent-provider-metrics span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border-right: 1px solid var(--border);
+}
+
+.agent-provider-metrics span:last-child {
+  border-right: 0;
+}
+
+.agent-provider-metrics small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-provider-metrics strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-provider-config {
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-0));
+}
+
+.agent-provider-config > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+  list-style: none;
+}
+
+.agent-provider-summary-icon {
+  font-size: 17px;
+}
+
+.agent-provider-config > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-provider-config-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 10px 10px;
+}
+
+.agent-provider-config-body .agent-budget-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.agent-provider-action {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 2px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-provider-action:hover {
+  color: var(--text);
+}
+
+.agent-provider-action svg {
+  width: 17px;
+  height: 17px;
+}
+
+.agent-task-overview {
+  grid-area: task;
+  display: grid;
+  gap: 12px;
+  min-height: 238px;
+  padding: 16px;
+}
+
+.agent-task-heading > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.agent-task-heading > div > div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-task-heading strong {
+  font-size: var(--font-sm);
+}
+
+.agent-task-heading small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.agent-section-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.agent-task-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-task-steps article {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 2px 8px;
+  position: relative;
+  min-width: 0;
+}
+
+.agent-task-steps article:not(:last-child)::after {
+  position: absolute;
+  top: 13px;
+  left: 30px;
+  right: 4px;
+  height: 1px;
+  background: var(--border);
+  content: '';
+}
+
+.agent-task-steps article > span {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  z-index: 1;
+  grid-row: 1 / 3;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
+}
+
+.agent-task-steps article.is-active > span,
+.agent-task-steps article.is-done > span {
+  border-color: var(--accent);
+  color: white;
+  background: var(--accent);
+}
+
+.agent-task-steps article > strong {
+  align-self: end;
+  font-size: 10px;
+}
+
+.agent-task-steps article > small {
+  max-width: 110px;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.agent-task-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  text-align: left;
+}
+
+.agent-task-empty > span {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+.agent-task-empty > span svg {
+  width: 18px;
+  height: 18px;
+}
+
+.agent-task-empty > div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-task-empty strong {
+  font-size: var(--font-xs);
+}
+
+.agent-task-empty small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-task-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-recent-history {
+  grid-area: history;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: 238px;
+}
+
+.agent-history-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-history-heading strong {
+  font-size: var(--font-sm);
+}
+
+.agent-history-show-all {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.agent-history-show-all:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.agent-history-item {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-history-item:first-of-type {
+  border-top: 0;
+}
+
+.agent-history-item > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.agent-history-item strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-item small {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-item.is-selected {
+  color: var(--accent);
+}
+
+.agent-history-state {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: var(--text-dim);
+}
+
+.agent-history-state.state-completed {
+  background: var(--success-text);
+}
+
+.agent-history-state.state-failed,
+.agent-history-state.state-cancelled {
+  background: var(--danger-text);
+}
+
+.agent-history-state.state-review,
+.agent-history-state.state-checkpoint,
+.agent-history-state.state-blocked {
+  background: var(--warning-text);
+}
+
+.agent-history-state.state-running {
+  background: var(--accent);
+}
+
+.agent-integrations-summary {
+  grid-area: integrations;
+  padding: 0;
+  overflow: hidden;
+}
+
+.agent-integrations-summary > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.agent-integrations-summary > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-integrations-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-integrations-copy > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.agent-integrations-copy strong {
+  font-size: var(--font-sm);
+}
+
+.agent-integrations-copy small {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-integrations-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+
+.agent-integration-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-integration-stats > span {
+  display: flex;
+  min-width: 118px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.agent-integration-stats > span > svg {
+  width: 17px;
+  height: 17px;
+  color: var(--text-muted);
+}
+
+.agent-integration-stats > span > span {
+  display: grid;
+  gap: 1px;
+}
+
+.agent-integration-stats strong {
+  font-size: 10px;
+}
+
+.agent-integration-stats small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.agent-integration-stats b {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.agent-integration-stats b svg {
+  width: 15px;
+  height: 15px;
+}
+
+.agent-integrations-summary[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-detail-area {
+  display: grid;
+  grid-area: details;
+  gap: 12px;
+}
+
+.agent-detail-area > .agent-current {
+  display: none;
+}
+
+@media (max-width: 1220px) {
+  .agent-cockpit {
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.85fr);
+    grid-template-areas:
+      'error error'
+      'create provider'
+      'task provider'
+      'history provider'
+      'integrations integrations'
+      'details details';
+  }
+
+  .agent-overview-status {
+    grid-template-columns: 1fr;
+    min-width: 190px;
+  }
+
+  .agent-create-options {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-create-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .agent-cockpit-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .agent-overview-status {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .agent-cockpit {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'error'
+      'create'
+      'provider'
+      'task'
+      'history'
+      'integrations'
+      'details';
+  }
+
+  .agent-provider-panel {
+    position: static;
+  }
+
+  .agent-integrations-summary > summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agent-integration-stats {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .agent-cockpit-header {
+    padding: 16px;
+  }
+
+  .agent-identity-icon {
+    width: 56px;
+    height: 56px;
+    flex-basis: 56px;
+  }
+
+  .agent-identity h2 {
+    font-size: 24px;
+  }
+
+  .agent-overview-status {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-cockpit {
+    padding: 10px;
+  }
+
+  .agent-task-steps {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .agent-task-steps article:not(:last-child)::after {
+    display: none;
+  }
+
+  .agent-provider-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-provider-metrics span {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .agent-provider-metrics span:last-child {
+    border-bottom: 0;
+  }
+
+  .agent-integration-stats {
+    display: grid;
+    width: 100%;
+  }
+
+  .agent-integration-stats > span {
+    min-width: 0;
   }
 }
 </style>

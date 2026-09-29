@@ -15,6 +15,7 @@ const DEFAULT_BROWSER_PORT = 43_821;
 const DEFAULT_EXECUTION_TIMEOUT_MS = 45 * 60 * 1000;
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_HEARTBEAT_MAX_AGE_MS = 30_000;
+const BROWSER_EXTENSION_MIN_VERSION = [0, 1, 0] as const;
 const MAX_PROVIDER_SUMMARY_CHARS = 32_000;
 const MAX_PROVIDER_RESPONSE_CHARS = 16_000;
 
@@ -118,6 +119,22 @@ interface BridgeErrorPayload {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function semanticVersion(value: string): [number, number, number] | null {
+  const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+function versionIsBelow(
+  value: readonly number[],
+  minimum: readonly number[],
+): boolean {
+  for (let index = 0; index < 3; index += 1) {
+    const difference = (value[index] ?? 0) - (minimum[index] ?? 0);
+    if (difference !== 0) return difference < 0;
+  }
+  return false;
 }
 
 function assertBridgeJob(value: unknown): BrowserBridgeJob {
@@ -592,22 +609,60 @@ export class ChatGptBrowserAgentProvider implements AgentProvider {
       };
     }
 
+    const observedAtValue = this.now();
     const heartbeatAt = Date.parse(health.heartbeatAt);
-    const observedAt = Date.parse(this.now());
-    if (
-      Number.isFinite(heartbeatAt) &&
-      Number.isFinite(observedAt) &&
-      observedAt - heartbeatAt > this.heartbeatMaxAgeMs
-    ) {
+    const observedAt = Date.parse(observedAtValue);
+    if (!Number.isFinite(heartbeatAt) || !Number.isFinite(observedAt)) {
       return {
         providerId: this.id,
         availability: 'degraded',
-        observedAt: this.now(),
+        observedAt: observedAtValue,
+        reason: 'browser extension heartbeat is invalid',
+        diagnostic: {
+          code: 'browser-extension-stale',
+          evidence:
+            'Browser extension heartbeat timestamp could not be validated.',
+        },
+      };
+    }
+    if (observedAt - heartbeatAt > this.heartbeatMaxAgeMs) {
+      return {
+        providerId: this.id,
+        availability: 'degraded',
+        observedAt: observedAtValue,
         reason: 'browser extension heartbeat stale',
         diagnostic: {
           code: 'browser-extension-stale',
           evidence:
             'The last extension heartbeat is older than the allowed age.',
+        },
+      };
+    }
+
+    const extensionVersion =
+      typeof health.heartbeatVersion === 'string'
+        ? health.heartbeatVersion.trim().slice(0, 120)
+        : '';
+    const parsedExtensionVersion = semanticVersion(extensionVersion);
+    if (
+      !parsedExtensionVersion ||
+      versionIsBelow(parsedExtensionVersion, BROWSER_EXTENSION_MIN_VERSION)
+    ) {
+      return {
+        providerId: this.id,
+        availability: 'degraded',
+        observedAt: this.now(),
+        ...(extensionVersion ? { version: extensionVersion } : {}),
+        reason: 'browser extension version is unsupported',
+        diagnostic: {
+          code: 'version-unsupported',
+          evidence: extensionVersion
+            ? 'Detected Browser extension ' +
+              extensionVersion +
+              '; minimum ' +
+              BROWSER_EXTENSION_MIN_VERSION.join('.') +
+              '.'
+            : 'Browser extension heartbeat did not report a supported semantic version.',
         },
       };
     }
