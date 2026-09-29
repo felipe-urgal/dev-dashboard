@@ -40,6 +40,7 @@ import { StackDefinitionService } from './services/stack-definition-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
 import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
+import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
 import { StackStopService } from './services/stack-stop-service.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
@@ -199,6 +200,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     },
     options.now ? { now: () => new Date(options.now!()) } : {},
   );
+  const stackRestartService = new StackRestartService({
+    stackCheckService,
+    projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
+    dockerComposeLifecycleService,
+  });
   const stackStartService = new StackStartService({
     stackCheckService,
     projectStore: context.projectStore,
@@ -296,6 +304,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     stackDefinitionService,
     stackCheckService,
+    stackRestartService,
     stackStartService,
     stackStopService,
   });
