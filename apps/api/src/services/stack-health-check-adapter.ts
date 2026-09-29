@@ -63,7 +63,9 @@ export class StackHealthCheckAdapter {
       };
     }
 
-    const project = this.dependencies.projectStore.findProject(target.projectId);
+    const project = this.dependencies.projectStore.findProject(
+      target.projectId,
+    );
     if (!project) {
       return {
         nodeId,

@@ -36,7 +36,9 @@ function environment(): DevelopmentEnvironmentInstance {
   };
 }
 
-function target(overrides: Partial<StackHealthCheckTarget> = {}): StackHealthCheckTarget {
+function target(
+  overrides: Partial<StackHealthCheckTarget> = {},
+): StackHealthCheckTarget {
   return {
     kind: 'health-check',
     projectId: 'api',
@@ -68,12 +70,14 @@ function health(status: ProjectServerHealth['status']): ProjectServerHealth {
   };
 }
 
-function adapter(options: {
-  environment?: DevelopmentEnvironmentInstance | null;
-  process?: ManagedProcess | null;
-  health?: ProjectServerHealth;
-  healthCheckPath?: string;
-} = {}): StackHealthCheckAdapter {
+function adapter(
+  options: {
+    environment?: DevelopmentEnvironmentInstance | null;
+    process?: ManagedProcess | null;
+    health?: ProjectServerHealth;
+    healthCheckPath?: string;
+  } = {},
+): StackHealthCheckAdapter {
   const value = project();
   return new StackHealthCheckAdapter({
     projectStore: {
