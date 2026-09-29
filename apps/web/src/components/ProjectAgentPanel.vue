@@ -1468,9 +1468,7 @@ onBeforeUnmount(() => {
           <div>
             <small>Snapshot</small>
             <strong>{{ currentTask ? taskStateLabel : 'Sem task' }}</strong>
-            <span>{{
-              currentTask ? 'Task ativa' : 'Nenhum ativo'
-            }}</span>
+            <span>{{ currentTask ? 'Task ativa' : 'Nenhum ativo' }}</span>
           </div>
         </article>
       </div>
@@ -1485,7 +1483,11 @@ onBeforeUnmount(() => {
     />
 
     <div v-else class="agent-cockpit">
-      <div v-if="errorMessage" class="agent-error agent-cockpit-error" role="alert">
+      <div
+        v-if="errorMessage"
+        class="agent-error agent-cockpit-error"
+        role="alert"
+      >
         <span>{{ errorMessage }}</span>
         <button type="button" @click="errorMessage = ''">Fechar</button>
       </div>
@@ -1677,7 +1679,9 @@ onBeforeUnmount(() => {
           </span>
           <span>
             <small>Budget</small>
-            <strong>{{ profileBudgetMode === 'hard' ? 'Hard' : 'Soft' }}</strong>
+            <strong>{{
+              profileBudgetMode === 'hard' ? 'Hard' : 'Soft'
+            }}</strong>
           </span>
         </div>
 
@@ -1736,7 +1740,9 @@ onBeforeUnmount(() => {
                 <small v-if="provider.version">
                   Versão {{ provider.version }}
                 </small>
-                <small>{{ providerObservedAtLabel(provider.observedAt) }}</small>
+                <small>{{
+                  providerObservedAtLabel(provider.observedAt)
+                }}</small>
                 <p data-testid="provider-diagnostic">
                   <strong>
                     {{ providerDiagnosticSummary(provider.diagnostic?.code) }}
@@ -1807,17 +1813,32 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="agent-task-steps">
-          <article :class="{ 'is-active': currentTaskStage === 1, 'is-done': currentTaskStage > 1 }">
+          <article
+            :class="{
+              'is-active': currentTaskStage === 1,
+              'is-done': currentTaskStage > 1,
+            }"
+          >
             <span>1</span>
             <strong>Criada</strong>
             <small>Task enviada para o agente.</small>
           </article>
-          <article :class="{ 'is-active': currentTaskStage === 2, 'is-done': currentTaskStage > 2 }">
+          <article
+            :class="{
+              'is-active': currentTaskStage === 2,
+              'is-done': currentTaskStage > 2,
+            }"
+          >
             <span>2</span>
             <strong>Executando</strong>
             <small>Agente trabalhando no projeto.</small>
           </article>
-          <article :class="{ 'is-active': currentTaskStage === 3, 'is-done': currentTaskStage > 3 }">
+          <article
+            :class="{
+              'is-active': currentTaskStage === 3,
+              'is-done': currentTaskStage > 3,
+            }"
+          >
             <span>3</span>
             <strong>Checkpoint</strong>
             <small>Ponto de verificação e revisão.</small>
@@ -1833,7 +1854,10 @@ onBeforeUnmount(() => {
           <span aria-hidden="true">◇</span>
           <div>
             <strong>Nenhuma task em execução</strong>
-            <small>Crie uma nova task acima para iniciar a execução com o agente.</small>
+            <small
+              >Crie uma nova task acima para iniciar a execução com o
+              agente.</small
+            >
           </div>
         </div>
         <div v-else class="agent-task-overview-actions">
@@ -2558,8 +2582,6 @@ onBeforeUnmount(() => {
             </section>
           </div>
         </template>
-
-        
       </div>
     </div>
   </section>
