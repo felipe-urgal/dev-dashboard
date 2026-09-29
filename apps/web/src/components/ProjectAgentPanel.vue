@@ -3602,9 +3602,9 @@ onBeforeUnmount(() => {
 
 .agent-cockpit {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.95fr) minmax(
-      286px,
-      0.78fr
+  grid-template-columns: minmax(0, 1.72fr) minmax(250px, 0.64fr) minmax(
+      300px,
+      0.72fr
     );
   grid-template-areas:
     'error error error'
@@ -3657,9 +3657,13 @@ onBeforeUnmount(() => {
 }
 
 .agent-create-icon {
+  display: inline-flex;
   color: var(--accent);
-  font-size: 26px;
-  line-height: 1;
+}
+
+.agent-create-icon svg {
+  width: 28px;
+  height: 28px;
 }
 
 .agent-prompt {
@@ -3693,10 +3697,16 @@ onBeforeUnmount(() => {
 }
 
 .agent-prompt-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
   margin-right: auto;
   color: var(--text-muted);
-  font-size: 18px;
-  letter-spacing: 0.02em;
+}
+
+.agent-prompt-tools svg {
+  width: 18px;
+  height: 18px;
 }
 
 .agent-prompt-footer kbd {
@@ -3761,6 +3771,10 @@ onBeforeUnmount(() => {
   height: 18px;
 }
 
+.agent-create-button svg:last-child {
+  margin-left: 4px;
+}
+
 .agent-provider-panel {
   grid-area: provider;
   display: grid;
@@ -3787,8 +3801,9 @@ onBeforeUnmount(() => {
 }
 
 .agent-provider-power {
+  width: 21px;
+  height: 21px;
   color: var(--success-text);
-  font-size: 20px;
 }
 
 .agent-provider-metrics {
@@ -3831,12 +3846,19 @@ onBeforeUnmount(() => {
 }
 
 .agent-provider-config > summary {
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
   color: var(--accent);
   font-size: var(--font-xs);
   font-weight: var(--font-weight-strong);
   cursor: pointer;
   list-style: none;
+}
+
+.agent-provider-summary-icon {
+  font-size: 17px;
 }
 
 .agent-provider-config > summary::-webkit-details-marker {
@@ -3880,8 +3902,36 @@ onBeforeUnmount(() => {
 .agent-task-overview {
   grid-area: task;
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-height: 238px;
+  padding: 16px;
+}
+
+.agent-task-heading > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.agent-task-heading > div > div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-task-heading strong {
+  font-size: var(--font-sm);
+}
+
+.agent-task-heading small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.agent-section-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  font-size: 18px;
 }
 
 .agent-task-steps {
@@ -3970,6 +4020,11 @@ onBeforeUnmount(() => {
   background: var(--surface-2);
 }
 
+.agent-task-empty > span svg {
+  width: 18px;
+  height: 18px;
+}
+
 .agent-task-empty > div {
   display: grid;
   gap: 2px;
@@ -3998,23 +4053,29 @@ onBeforeUnmount(() => {
   min-height: 238px;
 }
 
-.agent-history-refresh {
-  display: inline-flex;
-  width: 30px;
-  height: 30px;
+.agent-history-heading > div {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
+  gap: 8px;
+}
+
+.agent-history-heading strong {
+  font-size: var(--font-sm);
+}
+
+.agent-history-show-all {
+  padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   color: var(--text-muted);
   background: transparent;
+  font-size: 9px;
   cursor: pointer;
 }
 
-.agent-history-refresh svg {
-  width: 15px;
-  height: 15px;
+.agent-history-show-all:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .agent-history-item {
@@ -4134,8 +4195,9 @@ onBeforeUnmount(() => {
 }
 
 .agent-integrations-icon {
+  width: 24px;
+  height: 24px;
   color: var(--accent);
-  font-size: 24px;
 }
 
 .agent-integration-stats {
@@ -4145,13 +4207,25 @@ onBeforeUnmount(() => {
 }
 
 .agent-integration-stats > span {
-  display: grid;
-  min-width: 92px;
-  gap: 1px;
-  padding: 7px 10px;
+  display: flex;
+  min-width: 118px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-0);
+}
+
+.agent-integration-stats > span > svg {
+  width: 17px;
+  height: 17px;
+  color: var(--text-muted);
+}
+
+.agent-integration-stats > span > span {
+  display: grid;
+  gap: 1px;
 }
 
 .agent-integration-stats strong {
@@ -4164,11 +4238,19 @@ onBeforeUnmount(() => {
 }
 
 .agent-integration-stats b {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 9px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
   border-radius: var(--radius-sm);
   color: var(--accent);
   font-size: 10px;
+}
+
+.agent-integration-stats b svg {
+  width: 15px;
+  height: 15px;
 }
 
 .agent-integrations-summary[open] > summary {
