@@ -781,3 +781,72 @@ test('start direcionado rejeita serviço fora do catálogo antes de mutar', asyn
 
   assert.equal(commands.length, 0);
 });
+
+test('restart direcionado reserva portas somente do serviço alvo', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:other:worker:4000',
+      projectId: 'other',
+      role: 'worker',
+      preferredPort: 4000,
+      maxPort: 4000,
+    },
+  ]);
+
+  const multiServiceBefore: DockerComposeInspection = {
+    ...before,
+    config: {
+      ...before.config!,
+      services: [
+        ...before.config!.services,
+        {
+          name: 'worker',
+          profiles: [],
+          dependsOn: [],
+          ports: [{ targetPort: 4000, publishedPort: 4000, protocol: 'tcp' }],
+        },
+      ],
+    },
+  };
+  const multiServiceAfter: DockerComposeInspection = {
+    ...multiServiceBefore,
+    runtime: after.runtime,
+  };
+  const inspections = [multiServiceBefore, multiServiceAfter];
+  const commands: Array<{ program: 'docker'; args: string[] }> = [];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? multiServiceAfter },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+      portLeaseRegistry: registry,
+    },
+  );
+
+  const result = await service.restart(project, 'web');
+
+  assert.equal(result.state, 'restarted');
+  assert.deepEqual(commands[0]?.args, [
+    'compose',
+    '--project-name',
+    'project',
+    'restart',
+    'web',
+  ]);
+});

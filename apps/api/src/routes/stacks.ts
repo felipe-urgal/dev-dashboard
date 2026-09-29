@@ -12,6 +12,7 @@ import {
   StackCheckServiceError,
   type StackCheckService,
 } from '../services/stack-check-service.js';
+import type { StackRestartService } from '../services/stack-restart-service.js';
 import type { StackStartService } from '../services/stack-start-service.js';
 import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
@@ -22,6 +23,7 @@ interface Options extends FastifyPluginOptions {
     'list' | 'findById' | 'save' | 'delete'
   >;
   stackCheckService: Pick<StackCheckService, 'check'>;
+  stackRestartService: Pick<StackRestartService, 'restart'>;
   stackStartService: Pick<StackStartService, 'start'>;
   stackStopService: Pick<StackStopService, 'stop'>;
 }
@@ -30,12 +32,26 @@ interface StackParams {
   stackId: string;
 }
 
+interface StackNodeParams extends StackParams {
+  nodeId: string;
+}
+
 const stackParamsSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['stackId'],
   properties: {
     stackId: { type: 'string', minLength: 1, maxLength: 160 },
+  },
+} as const;
+
+const stackNodeParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'nodeId'],
+  properties: {
+    stackId: { type: 'string', minLength: 1, maxLength: 160 },
+    nodeId: { type: 'string', minLength: 1, maxLength: 160 },
   },
 } as const;
 
@@ -204,6 +220,22 @@ const stackStopResultSchema = {
       enum: ['completed', 'blocked', 'failed'],
     },
     steps: { type: 'array', items: stackStopStepSchema },
+    check: stackCheckSchema,
+  },
+} as const;
+
+const stackRestartResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'nodeId', 'state', 'check'],
+  properties: {
+    stackId: { type: 'string' },
+    nodeId: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['restarted', 'blocked', 'failed'],
+    },
+    diagnostic: { type: 'string' },
     check: stackCheckSchema,
   },
 } as const;
@@ -377,6 +409,44 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       try {
         return {
           result: await options.stackStopService.stop(request.params.stackId),
+        };
+      } catch (error) {
+        throw mapStackError(error);
+      }
+    },
+  );
+
+  app.post<{
+    Params: StackNodeParams;
+    Body: Record<string, never>;
+  }>(
+    '/stacks/:stackId/nodes/:nodeId/restart',
+    {
+      schema: {
+        params: stackNodeParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          maxProperties: 0,
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: stackRestartResultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          result: await options.stackRestartService.restart(
+            request.params.stackId,
+            request.params.nodeId,
+          ),
         };
       } catch (error) {
         throw mapStackError(error);

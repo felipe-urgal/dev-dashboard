@@ -438,6 +438,7 @@ export class DockerComposeLifecycleService {
     const portLeases = this.reservePublishedPortLeases(
       project,
       target.inspection.config!,
+      service,
     );
 
     try {
