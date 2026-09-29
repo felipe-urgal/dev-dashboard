@@ -12,6 +12,7 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { StackStore } from '../store/stack-store.js';
 import type { StackComposeHealthAdapter } from './stack-compose-health-adapter.js';
+import type { StackHealthCheckAdapter } from './stack-health-check-adapter.js';
 import { StackTopologyService } from './stack-topology-service.js';
 
 export class StackCheckServiceError extends Error {
@@ -73,6 +74,7 @@ export class StackCheckService {
       >;
       processManager: Pick<ProcessManager, 'listProcesses'>;
       composeHealthAdapter: Pick<StackComposeHealthAdapter, 'observe'>;
+      healthCheckAdapter: Pick<StackHealthCheckAdapter, 'observe'>;
     },
     options: StackCheckServiceOptions = {},
   ) {
@@ -119,6 +121,14 @@ export class StackCheckService {
       );
     }
 
+    if (node.target.kind === 'health-check') {
+      return this.dependencies.healthCheckAdapter.observe(
+        nodeId,
+        node.target,
+        observedAt,
+      );
+    }
+
     if (node.target.kind === 'process') {
       const process = processesById.get(node.target.processId);
       if (!process) {
@@ -147,15 +157,6 @@ export class StackCheckService {
         nodeId,
         state: processState(process.status),
         observedAt,
-      };
-    }
-
-    if (node.target.kind !== 'environment') {
-      return {
-        nodeId,
-        state: 'unknown',
-        observedAt,
-        diagnostic: `No read-only health adapter is available for ${node.target.kind} nodes yet.`,
       };
     }
 
