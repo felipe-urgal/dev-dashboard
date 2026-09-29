@@ -80,3 +80,24 @@ export interface StackCheck {
   topology: StackTopologyPlan;
   health: StackHealth;
 }
+
+export type StackStartStepState =
+  | 'already-ready'
+  | 'started'
+  | 'blocked'
+  | 'failed';
+
+export interface StackStartStep {
+  nodeId: string;
+  state: StackStartStepState;
+  diagnostic?: string;
+}
+
+export type StackStartState = 'completed' | 'blocked' | 'failed';
+
+export interface StackStartResult {
+  stackId: string;
+  state: StackStartState;
+  steps: StackStartStep[];
+  check: StackCheck;
+}
