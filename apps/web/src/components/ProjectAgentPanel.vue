@@ -241,6 +241,53 @@ const currentProvider = computed(
     ) ?? null,
 );
 
+const availableProviderCount = computed(
+  () =>
+    providerOptions.value.filter(
+      (provider) => provider.availability === 'available',
+    ).length,
+);
+
+const currentTaskStage = computed(() => {
+  switch (currentTask.value?.task.state) {
+    case 'queued':
+      return 1;
+    case 'running':
+      return 2;
+    case 'checkpoint':
+    case 'blocked':
+      return 3;
+    case 'review':
+    case 'completed':
+      return 4;
+    default:
+      return 0;
+  }
+});
+
+const taskStateSummary = (state: string): string => {
+  switch (state) {
+    case 'queued':
+      return 'Criada';
+    case 'running':
+      return 'Executando';
+    case 'checkpoint':
+      return 'Checkpoint';
+    case 'review':
+      return 'Em review';
+    case 'blocked':
+      return 'Bloqueada';
+    case 'failed':
+      return 'Falhou';
+    case 'completed':
+      return 'Concluída';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return state;
+  }
+};
+
 const selectedExecutionProfile = computed(() =>
   executionProfiles.value?.profiles.find(
     (profile) => profile.id === selectedProfileId.value,
@@ -1350,23 +1397,67 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="agent-panel" aria-label="Agente do projeto">
-    <header class="agent-panel-header">
-      <div>
-        <p class="agent-kicker">Agent Runtime</p>
-        <h2>Agente</h2>
-        <p>
-          Solicite trabalho, autorize capacidades e acompanhe o estado sem
-          depender de stdout bruto.
-        </p>
-      </div>
-      <div class="agent-header-status">
-        <StatusBadge :tone="taskTone">{{ taskStateLabel }}</StatusBadge>
-        <span
-          class="agent-socket-indicator"
-          :class="{ 'agent-socket-connected': socketState === 'connected' }"
-        >
-          {{ socketState === 'connected' ? 'Tempo real' : 'Snapshot' }}
+    <header class="agent-cockpit-header">
+      <div class="agent-identity">
+        <span class="agent-identity-icon" aria-hidden="true">
+          <CpuChipIcon />
         </span>
+        <div>
+          <h2>Agente</h2>
+          <p>
+            Transforme ideias em código. O agente executa tarefas no seu projeto
+            com segurança, usando seus providers, skills e integrações.
+          </p>
+        </div>
+      </div>
+
+      <div class="agent-overview-status">
+        <article>
+          <span
+            class="agent-health-dot"
+            :class="{
+              'agent-health-dot-ready':
+                currentProvider?.availability === 'available',
+            }"
+          />
+          <div>
+            <small>Provider</small>
+            <strong>{{ providerLabel(selectedProviderId) }}</strong>
+            <span>{{
+              currentProvider
+                ? providerAvailabilityLabel(currentProvider)
+                : 'Indisponível'
+            }}</span>
+          </div>
+        </article>
+        <article>
+          <span
+            class="agent-health-dot"
+            :class="{ 'agent-health-dot-ready': socketState === 'connected' }"
+          />
+          <div>
+            <small>Runtime</small>
+            <strong>{{
+              socketState === 'connected' ? 'Operacional' : 'Snapshot'
+            }}</strong>
+            <span>{{
+              socketState === 'connected' ? 'Pronto para uso' : 'Sem tempo real'
+            }}</span>
+          </div>
+        </article>
+        <article>
+          <span
+            class="agent-health-dot"
+            :class="{ 'agent-health-dot-ready': !!currentTask }"
+          />
+          <div>
+            <small>Snapshot</small>
+            <strong>{{ currentTask ? taskStateLabel : 'Sem task' }}</strong>
+            <span>{{
+              currentTask ? 'Task ativa' : 'Nenhum ativo'
+            }}</span>
+          </div>
+        </article>
       </div>
     </header>
 
@@ -1378,322 +1469,75 @@ onBeforeUnmount(() => {
       description="Recuperando providers, tasks e estado atual."
     />
 
-    <div v-else class="agent-layout">
-      <aside class="agent-sidebar">
-        <section class="agent-section">
-          <div class="agent-section-heading">
-            <div>
-              <span>Perfil</span>
-              <strong>Execução reutilizável</strong>
-            </div>
-          </div>
-          <label class="agent-field">
-            <span>Perfil da próxima execução</span>
-            <select
-              v-model="selectedProfileId"
-              :disabled="executing"
-              @change="applySelectedProfile"
-            >
-              <option value="">Manual</option>
-              <option
-                v-for="profile in executionProfiles?.profiles ?? []"
-                :key="profile.id"
-                :value="profile.id"
-              >
-                {{ profile.label }}
-              </option>
-            </select>
-          </label>
-          <p class="agent-hint">{{ effectiveProfileSummary }}</p>
-          <div class="agent-budget-fields">
-            <label>
-              <span>ID</span>
-              <input v-model="profileIdDraft" placeholder="normal" />
-            </label>
-            <label>
-              <span>Nome</span>
-              <input v-model="profileLabelDraft" placeholder="Normal" />
-            </label>
-            <label>
-              <span>Timeout (s)</span>
-              <input
-                v-model="profileTimeoutSeconds"
-                type="number"
-                min="5"
-                max="1800"
-                placeholder="Sem limite"
-              />
-            </label>
-            <label>
-              <span>Tokens</span>
-              <input
-                v-model="profileMaxTokens"
-                type="number"
-                min="1"
-                placeholder="Sem limite"
-              />
-            </label>
-            <label>
-              <span>Custo US$</span>
-              <input
-                v-model="profileMaxCost"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Sem limite"
-              />
-            </label>
-            <label>
-              <span>Budget</span>
-              <select v-model="profileBudgetMode">
-                <option value="soft">Soft</option>
-                <option value="hard">Hard</option>
-              </select>
-            </label>
-          </div>
-          <div class="agent-budget-actions">
-            <button
-              class="secondary-button"
-              type="button"
-              :disabled="mutating"
-              @click="saveCurrentExecutionProfile"
-            >
-              Salvar perfil atual
-            </button>
-            <button
-              v-if="selectedProfileId"
-              class="secondary-button"
-              type="button"
-              :disabled="mutating"
-              @click="removeSelectedExecutionProfile"
-            >
-              Remover
-            </button>
-          </div>
-          <p class="agent-hint">
-            Modelo e esforço aparecem como indisponíveis até existir contrato
-            estável do provider. Perfil nunca concede autorização.
-          </p>
-        </section>
+    <div v-else class="agent-cockpit">
+      <div v-if="errorMessage" class="agent-error agent-cockpit-error" role="alert">
+        <span>{{ errorMessage }}</span>
+        <button type="button" @click="errorMessage = ''">Fechar</button>
+      </div>
 
-        <section class="agent-section">
-          <div class="agent-section-heading">
-            <div>
-              <span>Provider</span>
-              <strong>Execução</strong>
-            </div>
-            <StatusBadge
-              v-if="currentProvider"
-              :tone="providerTone(currentProvider)"
-            >
-              {{ providerAvailabilityLabel(currentProvider) }}
-            </StatusBadge>
-            <button
-              class="agent-icon-button"
-              type="button"
-              aria-label="Revalidar providers"
-              :disabled="providerRefreshing || executing"
-              @click="refreshProviders"
-            >
-              <ArrowPathIcon aria-hidden="true" />
-            </button>
+      <section class="agent-card agent-composer agent-create-card">
+        <div class="agent-create-heading">
+          <span class="agent-create-icon" aria-hidden="true">✎</span>
+          <div>
+            <h3>Nova task</h3>
+            <p>
+              Descreva o que você quer que o agente faça. Quanto mais contexto,
+              melhor o resultado.
+            </p>
           </div>
-
-          <label class="agent-field">
-            <span>Provider da próxima execução</span>
-            <select
-              v-model="selectedProviderId"
-              :disabled="executing || !!selectedProfileId"
-            >
-              <option
-                v-for="provider in providerOptions"
-                :key="provider.providerId"
-                :value="provider.providerId"
-              >
-                {{ providerLabel(provider.providerId) }}
-                · {{ providerAvailabilityLabel(provider) }}
-              </option>
-            </select>
-          </label>
-          <div
-            class="agent-provider-doctor"
-            data-testid="provider-doctor"
-            aria-live="polite"
-          >
-            <article
-              v-for="provider in providerOptions"
-              :key="'doctor-' + provider.providerId"
-              class="agent-provider-doctor-item"
-              :class="{
-                'agent-provider-doctor-item-active':
-                  provider.providerId === selectedProviderId,
-              }"
-            >
-              <div class="agent-provider-doctor-heading">
-                <strong>{{ providerLabel(provider.providerId) }}</strong>
-                <StatusBadge :tone="providerTone(provider)">
-                  {{ providerAvailabilityLabel(provider) }}
-                </StatusBadge>
-              </div>
-              <small v-if="provider.version"
-                >Versão {{ provider.version }}</small
-              >
-              <small>{{ providerObservedAtLabel(provider.observedAt) }}</small>
-              <small
-                v-if="
-                  provider.providerId === 'automatic' &&
-                  provider.selectedProviderId
-                "
-              >
-                Selecionado: {{ providerLabel(provider.selectedProviderId) }}
-              </small>
-              <p data-testid="provider-diagnostic">
-                <strong>
-                  {{ providerDiagnosticSummary(provider.diagnostic?.code) }}
-                </strong>
-                <span>
-                  Evidência:
-                  {{
-                    provider.diagnostic?.evidence ??
-                    provider.reason ??
-                    'Sem evidência adicional.'
-                  }}
-                </span>
-                <span>
-                  Próxima ação:
-                  {{ providerDiagnosticAction(provider.diagnostic?.code) }}
-                </span>
-              </p>
-            </article>
-          </div>
-          <p
-            v-if="
-              currentProvider?.providerId !== 'automatic' &&
-              currentProvider?.quota
-            "
-            class="agent-hint"
-          >
-            Uso do plano:
-            {{
-              currentProvider.quota.status === 'available'
-                ? (currentProvider.quota.label ?? 'Disponível')
-                : 'Indisponível'
-            }}
-            <template v-if="currentProvider.quota.reason">
-              · {{ currentProvider.quota.reason }}
-            </template>
-          </p>
-        </section>
-
-        <section class="agent-section agent-history">
-          <div class="agent-section-heading">
-            <div>
-              <span>Histórico</span>
-              <strong>Tasks do projeto</strong>
-            </div>
-            <button
-              class="agent-icon-button"
-              type="button"
-              aria-label="Atualizar tasks"
-              :disabled="loading"
-              @click="load"
-            >
-              <ArrowPathIcon aria-hidden="true" />
-            </button>
-          </div>
-
-          <p v-if="!sortedTasks.length" class="agent-hint">
-            Nenhuma task criada neste projeto.
-          </p>
-          <button
-            v-for="record in sortedTasks"
-            :key="record.task.id"
-            class="agent-task-item"
-            :class="{
-              'agent-task-item-active': record.task.id === selectedTaskId,
-            }"
-            type="button"
-            @click="selectTask(record.task.id)"
-          >
-            <span>{{ record.task.summary }}</span>
-            <small>{{ record.task.state }}</small>
-          </button>
-        </section>
-      </aside>
-
-      <main class="agent-main">
-        <div v-if="errorMessage" class="agent-error" role="alert">
-          <span>{{ errorMessage }}</span>
-          <button type="button" @click="errorMessage = ''">Fechar</button>
         </div>
 
-        <ProjectAgentIntegrationsCard
-          :project="project"
-          v-bind="environmentInstanceId ? { environmentInstanceId } : {}"
-        />
-
-        <section class="agent-composer agent-card">
-          <div class="agent-section-heading">
-            <div>
-              <span>Nova task</span>
-              <strong>O que deve ser feito?</strong>
-            </div>
-            <span class="agent-shortcut">Ctrl/⌘ + Enter</span>
-          </div>
-
+        <div class="agent-prompt">
           <textarea
             v-model="instruction"
             rows="4"
             maxlength="4000"
-            placeholder="Descreva a alteração, investigação ou revisão..."
+            placeholder="Ex.: Adicionar um player de música com controle de volume e playlists..."
             aria-label="Instrução para nova task do Agente"
             @keydown="handleComposerKeydown"
           />
-
-          <p class="agent-hint">
-            Para adotar o backlog real: “pegue a próxima atividade” ou “pegue a
-            #123”.
-          </p>
-
-          <div
-            v-if="backlogSelectionSource"
-            class="agent-backlog-candidates"
-            role="status"
-          >
-            <strong>{{ backlogSelectionMessage }}</strong>
-            <button
-              v-for="candidate in backlogCandidates"
-              :key="candidate.repository + '#' + candidate.number"
-              type="button"
-              @click="chooseBacklogIssue(candidate)"
-            >
-              <span>#{{ candidate.number }}</span>
-              {{ candidate.title }}
-            </button>
+          <div class="agent-prompt-footer">
+            <span class="agent-prompt-tools" aria-hidden="true">＠　⌕　▱</span>
+            <span>{{ instruction.length }}/4000</span>
+            <kbd>Ctrl + Enter</kbd>
           </div>
+        </div>
 
-          <div
-            v-if="backlogAdoptionNotice"
-            class="agent-backlog-adopted"
-            role="status"
+        <div
+          v-if="backlogSelectionSource"
+          class="agent-backlog-candidates"
+          role="status"
+        >
+          <strong>{{ backlogSelectionMessage }}</strong>
+          <button
+            v-for="candidate in backlogCandidates"
+            :key="candidate.repository + '#' + candidate.number"
+            type="button"
+            @click="chooseBacklogIssue(candidate)"
           >
-            <strong>
-              #{{ backlogAdoptionNotice.issue.number }} ·
-              {{ backlogAdoptionNotice.issue.title }}
-            </strong>
-            <span>
-              Seleção: {{ backlogAdoptionSourceLabel }} · Task Context:
-              {{ backlogAdoptionNotice.taskContextId ?? 'indisponível' }} ·
-              {{
-                backlogAdoptionNotice.reused
-                  ? 'vínculo existente reutilizado'
-                  : 'novo vínculo criado'
-              }}
-            </span>
-          </div>
+            <span>#{{ candidate.number }}</span>
+            {{ candidate.title }}
+          </button>
+        </div>
 
-          <label class="agent-field">
-            <span>Task Context</span>
+        <div
+          v-if="backlogAdoptionNotice"
+          class="agent-backlog-adopted"
+          role="status"
+        >
+          <strong>
+            #{{ backlogAdoptionNotice.issue.number }} ·
+            {{ backlogAdoptionNotice.issue.title }}
+          </strong>
+          <span>
+            Seleção: {{ backlogAdoptionSourceLabel }} · Task Context:
+            {{ backlogAdoptionNotice.taskContextId ?? 'indisponível' }}
+          </span>
+        </div>
+
+        <div class="agent-create-options">
+          <label class="agent-field agent-context-field">
+            <span>Task Context ⓘ</span>
             <select
               v-model="selectedTaskContextId"
               aria-label="Task Context da nova task"
@@ -1711,51 +1555,382 @@ onBeforeUnmount(() => {
                 </template>
               </option>
             </select>
+            <small>
+              Vincule a task a um arquivo, pasta ou issue (opcional).
+            </small>
           </label>
-          <p v-if="selectedCreateTaskContext" class="agent-hint">
-            A Environment Instance será derivada deste contexto:
-            {{
-              selectedCreateTaskContext.environmentInstanceId ??
-              'não informada'
-            }}.
-          </p>
 
-          <div class="agent-capability-picker">
-            <span>Capabilities solicitadas</span>
-            <label
-              v-for="capability in capabilities"
-              :key="capability.id"
-              class="agent-capability-option"
-            >
-              <input
-                v-model="requestedCapabilities"
-                type="checkbox"
-                :value="capability.id"
-              />
-              <span>
-                <strong>{{ capability.label }}</strong>
-                <small>{{ capability.id }}</small>
-              </span>
-            </label>
+          <div class="agent-capability-picker agent-create-capabilities">
+            <span>Capacidades do agente ⓘ</span>
+            <div class="agent-capability-chips">
+              <label
+                v-for="capability in capabilities"
+                :key="capability.id"
+                class="agent-capability-option"
+              >
+                <input
+                  v-model="requestedCapabilities"
+                  type="checkbox"
+                  :value="capability.id"
+                />
+                <span>{{ capability.label }}</span>
+              </label>
+            </div>
           </div>
 
-          <div class="agent-composer-actions">
-            <p>
-              Criar a task não concede capabilities. Autorizações são feitas
-              separadamente abaixo.
-            </p>
+          <button
+            class="primary-button agent-create-button"
+            type="button"
+            :disabled="!canCreate"
+            @click="createTask"
+          >
+            <BoltIcon aria-hidden="true" />
+            Criar task
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <p v-if="selectedCreateTaskContext" class="agent-hint">
+          Environment Instance:
+          {{
+            selectedCreateTaskContext.environmentInstanceId ?? 'não informada'
+          }}
+        </p>
+      </section>
+
+      <aside class="agent-provider-panel agent-card">
+        <div class="agent-provider-panel-heading">
+          <div>
+            <span class="agent-provider-power" aria-hidden="true">◉</span>
+            <strong>Status do provider</strong>
+          </div>
+          <StatusBadge
+            v-if="currentProvider"
+            :tone="providerTone(currentProvider)"
+          >
+            {{ providerAvailabilityLabel(currentProvider) }}
+          </StatusBadge>
+        </div>
+
+        <label class="agent-field">
+          <span>Provider atual</span>
+          <select
+            v-model="selectedProviderId"
+            :disabled="executing || !!selectedProfileId"
+          >
+            <option
+              v-for="provider in providerOptions"
+              :key="provider.providerId"
+              :value="provider.providerId"
+            >
+              {{ providerLabel(provider.providerId) }}
+              · {{ providerAvailabilityLabel(provider) }}
+            </option>
+          </select>
+        </label>
+
+        <label class="agent-field">
+          <span>Perfil de execução</span>
+          <select
+            v-model="selectedProfileId"
+            :disabled="executing"
+            @change="applySelectedProfile"
+          >
+            <option value="">Manual</option>
+            <option
+              v-for="profile in executionProfiles?.profiles ?? []"
+              :key="profile.id"
+              :value="profile.id"
+            >
+              {{ profile.label }}
+            </option>
+          </select>
+        </label>
+
+        <div class="agent-provider-metrics">
+          <span>
+            <small>Tokens</small>
+            <strong>{{
+              profileMaxTokens ? profileMaxTokens : 'Sem limite'
+            }}</strong>
+          </span>
+          <span>
+            <small>Custo (US$)</small>
+            <strong>{{
+              profileMaxCost ? profileMaxCost : 'Sem limite'
+            }}</strong>
+          </span>
+          <span>
+            <small>Budget</small>
+            <strong>{{ profileBudgetMode === 'hard' ? 'Hard' : 'Soft' }}</strong>
+          </span>
+        </div>
+
+        <details class="agent-provider-config">
+          <summary>⚙ Configurar provider</summary>
+          <div class="agent-provider-config-body">
+            <div class="agent-budget-fields">
+              <label>
+                <span>ID</span>
+                <input v-model="profileIdDraft" placeholder="normal" />
+              </label>
+              <label>
+                <span>Nome</span>
+                <input v-model="profileLabelDraft" placeholder="Normal" />
+              </label>
+              <label>
+                <span>Timeout (s)</span>
+                <input
+                  v-model="profileTimeoutSeconds"
+                  type="number"
+                  min="5"
+                  max="1800"
+                  placeholder="Sem limite"
+                />
+              </label>
+            </div>
             <button
-              class="primary-button"
+              class="secondary-button"
               type="button"
-              :disabled="!canCreate"
-              @click="createTask"
+              :disabled="mutating"
+              @click="saveCurrentExecutionProfile"
             >
-              <BoltIcon aria-hidden="true" />
-              Criar task
+              Salvar perfil atual
             </button>
-          </div>
-        </section>
 
+            <div
+              class="agent-provider-doctor"
+              data-testid="provider-doctor"
+              aria-live="polite"
+            >
+              <article
+                v-for="provider in providerOptions"
+                :key="'doctor-' + provider.providerId"
+                class="agent-provider-doctor-item"
+                :class="{
+                  'agent-provider-doctor-item-active':
+                    provider.providerId === selectedProviderId,
+                }"
+              >
+                <div class="agent-provider-doctor-heading">
+                  <strong>{{ providerLabel(provider.providerId) }}</strong>
+                  <StatusBadge :tone="providerTone(provider)">
+                    {{ providerAvailabilityLabel(provider) }}
+                  </StatusBadge>
+                </div>
+                <small v-if="provider.version">
+                  Versão {{ provider.version }}
+                </small>
+                <small>{{ providerObservedAtLabel(provider.observedAt) }}</small>
+                <p data-testid="provider-diagnostic">
+                  <strong>
+                    {{ providerDiagnosticSummary(provider.diagnostic?.code) }}
+                  </strong>
+                  <span>
+                    Evidência:
+                    {{
+                      provider.diagnostic?.evidence ??
+                      provider.reason ??
+                      'Sem evidência adicional.'
+                    }}
+                  </span>
+                  <span>
+                    Próxima ação:
+                    {{ providerDiagnosticAction(provider.diagnostic?.code) }}
+                  </span>
+                </p>
+              </article>
+            </div>
+          </div>
+        </details>
+
+        <button
+          class="agent-provider-action"
+          type="button"
+          :disabled="providerRefreshing || executing"
+          @click="refreshProviders"
+        >
+          <ArrowPathIcon aria-hidden="true" />
+          Revalidar conexão
+          <span aria-hidden="true">›</span>
+        </button>
+        <button
+          class="agent-provider-action"
+          type="button"
+          @click="
+            (
+              document.querySelector('.agent-integrations-summary') as HTMLElement
+            )?.scrollIntoView({ behavior: 'smooth' })
+          "
+        >
+          <span aria-hidden="true">♧</span>
+          Ver integrações (MCP)
+          <span aria-hidden="true">›</span>
+        </button>
+        <button
+          class="agent-provider-action"
+          type="button"
+          @click="
+            (
+              document.querySelector('.agent-provider-config') as HTMLDetailsElement
+            ).open = true
+          "
+        >
+          <span aria-hidden="true">▣</span>
+          Diagnóstico do ambiente
+          <span aria-hidden="true">›</span>
+        </button>
+      </aside>
+
+      <section class="agent-card agent-task-overview">
+        <div class="agent-section-heading">
+          <div>
+            <span>Task atual</span>
+            <strong>
+              {{
+                currentTask
+                  ? currentTask.task.summary
+                  : 'Nenhuma task em execução no momento.'
+              }}
+            </strong>
+          </div>
+          <StatusBadge v-if="currentTask" :tone="taskTone">
+            {{ taskStateLabel }}
+          </StatusBadge>
+        </div>
+
+        <div class="agent-task-steps">
+          <article :class="{ 'is-active': currentTaskStage === 1, 'is-done': currentTaskStage > 1 }">
+            <span>1</span>
+            <strong>Criada</strong>
+            <small>Task enviada para o agente.</small>
+          </article>
+          <article :class="{ 'is-active': currentTaskStage === 2, 'is-done': currentTaskStage > 2 }">
+            <span>2</span>
+            <strong>Executando</strong>
+            <small>Agente trabalhando no projeto.</small>
+          </article>
+          <article :class="{ 'is-active': currentTaskStage === 3, 'is-done': currentTaskStage > 3 }">
+            <span>3</span>
+            <strong>Checkpoint</strong>
+            <small>Ponto de verificação e revisão.</small>
+          </article>
+          <article :class="{ 'is-active': currentTaskStage === 4 }">
+            <span>4</span>
+            <strong>Review</strong>
+            <small>Aguardando sua validação.</small>
+          </article>
+        </div>
+
+        <div v-if="!currentTask" class="agent-task-empty">
+          <span aria-hidden="true">◇</span>
+          <div>
+            <strong>Nenhuma task em execução</strong>
+            <small>Crie uma nova task acima para iniciar a execução com o agente.</small>
+          </div>
+        </div>
+        <div v-else class="agent-task-overview-actions">
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="!canExecute"
+            @click="executeCurrent"
+          >
+            <PlayIcon aria-hidden="true" />
+            {{ executing ? 'Executando…' : 'Executar' }}
+          </button>
+          <button
+            v-if="status?.activeExecution"
+            class="secondary-button"
+            type="button"
+            :disabled="mutating"
+            @click="cancelCurrent"
+          >
+            <StopIcon aria-hidden="true" />
+            Parar
+          </button>
+        </div>
+      </section>
+
+      <section class="agent-card agent-recent-history">
+        <div class="agent-section-heading">
+          <div>
+            <span>Histórico recente</span>
+            <strong>Tasks do projeto</strong>
+          </div>
+          <button
+            class="agent-history-refresh"
+            type="button"
+            aria-label="Atualizar tasks"
+            :disabled="loading"
+            @click="load"
+          >
+            <ArrowPathIcon aria-hidden="true" />
+          </button>
+        </div>
+
+        <p v-if="!sortedTasks.length" class="agent-hint">
+          Nenhuma task criada neste projeto.
+        </p>
+        <button
+          v-for="record in sortedTasks.slice(0, 5)"
+          v-else
+          :key="record.task.id"
+          class="agent-history-item"
+          :class="{ 'is-selected': record.task.id === selectedTaskId }"
+          type="button"
+          @click="selectTask(record.task.id)"
+        >
+          <span
+            class="agent-history-state"
+            :class="'state-' + record.task.state"
+            aria-hidden="true"
+          />
+          <div>
+            <strong>{{ record.task.summary }}</strong>
+            <small>
+              {{ taskStateSummary(record.task.state) }} ·
+              {{ new Date(record.task.updatedAt).toLocaleString() }}
+            </small>
+          </div>
+        </button>
+      </section>
+
+      <details class="agent-integrations-summary agent-card">
+        <summary>
+          <div class="agent-integrations-copy">
+            <span class="agent-integrations-icon" aria-hidden="true">♧</span>
+            <div>
+              <strong>Integrações e MCP</strong>
+              <small>
+                Conecte ferramentas, plugins e skills para expandir as
+                capacidades do agente.
+              </small>
+            </div>
+          </div>
+          <div class="agent-integration-stats">
+            <span>
+              <strong>{{ availableProviderCount }}</strong>
+              <small>providers prontos</small>
+            </span>
+            <span>
+              <strong>MCP</strong>
+              <small>gerenciar</small>
+            </span>
+            <span>
+              <strong>Skills</strong>
+              <small>e plugins</small>
+            </span>
+            <b>Gerenciar integrações →</b>
+          </div>
+        </summary>
+        <ProjectAgentIntegrationsCard
+          :project="project"
+          v-bind="environmentInstanceId ? { environmentInstanceId } : {}"
+        />
+      </details>
+
+      <div class="agent-detail-area">
         <template v-if="currentTask">
           <section class="agent-current agent-card">
             <div class="agent-section-heading">
@@ -2374,14 +2549,8 @@ onBeforeUnmount(() => {
           </div>
         </template>
 
-        <EmptyState
-          v-else
-          class="agent-empty agent-card"
-          icon="◇"
-          title="Nenhuma task selecionada"
-          description="Crie uma task para iniciar um workflow com o Agent Runtime."
-        />
-      </main>
+        
+      </div>
     </div>
   </section>
 </template>
