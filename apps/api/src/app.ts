@@ -40,6 +40,7 @@ import { StackDefinitionService } from './services/stack-definition-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
 import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
+import { StackStartService } from './services/stack-start-service.js';
 import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -173,6 +174,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerAppLifecycle(app, context, composition);
   const stackComposeHealthAdapter = new StackComposeHealthAdapter({
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     ownershipStore: dockerComposeOwnershipStore,
     provider: dockerComposeProvider,
   });
@@ -195,6 +198,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     },
     options.now ? { now: () => new Date(options.now!()) } : {},
   );
+  const stackStartService = new StackStartService({
+    stackCheckService,
+    projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
+    dockerComposeLifecycleService,
+  });
 
   const gitWorktreeRemovalResourceGuard =
     new GitWorktreeRemovalResourceGuardService({
@@ -277,6 +287,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     stackDefinitionService,
     stackCheckService,
+    stackStartService,
   });
 
   app.register(projectRoutes, {

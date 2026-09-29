@@ -754,3 +754,30 @@ test('runtime vazio não vira stop verificado', async () => {
   assert.equal(result.state, 'stopped-unverified');
   assert.equal(commands.length, 1);
 });
+
+test('start direcionado muta somente o serviço Compose solicitado', async () => {
+  const { service, commands } = createHarness({});
+
+  const result = await service.start(project, {}, 'web');
+
+  assert.equal(result.state, 'started');
+  assert.deepEqual(commands[0]?.command.args, [
+    'compose',
+    'up',
+    '--detach',
+    'web',
+  ]);
+});
+
+test('start direcionado rejeita serviço fora do catálogo antes de mutar', async () => {
+  const { service, commands } = createHarness({});
+
+  await assert.rejects(
+    service.start(project, {}, 'missing'),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_SERVICE_INVALID',
+  );
+
+  assert.equal(commands.length, 0);
+});

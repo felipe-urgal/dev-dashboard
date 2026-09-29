@@ -4,6 +4,7 @@ import type {
   StackNodeState,
 } from '@dev-dashboard/contracts';
 
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type { DockerComposeProvider } from './docker-compose-provider.js';
@@ -12,6 +13,7 @@ import type {
   ComposeServiceRuntime,
   ComposeServiceState,
 } from './docker-compose-model.js';
+import { resolveStackComposeProject } from './stack-compose-project-resolver.js';
 
 function composeRuntimeState(service: ComposeServiceRuntime): {
   state: StackNodeState;
@@ -74,6 +76,10 @@ export class StackComposeHealthAdapter {
   public constructor(
     private readonly dependencies: {
       projectStore: Pick<ProjectStore, 'findProject'>;
+      developmentEnvironmentInstanceStore: Pick<
+        DevelopmentEnvironmentInstanceStore,
+        'resolveForProject'
+      >;
       ownershipStore: Pick<DockerComposeOwnershipStore, 'get'>;
       provider: Pick<DockerComposeProvider, 'inspect'>;
     },
@@ -84,17 +90,16 @@ export class StackComposeHealthAdapter {
     target: StackComposeServiceTarget,
     observedAt: string,
   ): Promise<StackNodeHealth> {
-    const project = this.dependencies.projectStore.findProject(
-      target.projectId,
-    );
-    if (!project) {
+    const resolution = resolveStackComposeProject(this.dependencies, target);
+    if (resolution.state !== 'resolved') {
       return {
         nodeId,
         state: 'unknown',
         observedAt,
-        diagnostic: 'Compose project is no longer available.',
+        diagnostic: resolution.diagnostic,
       };
     }
+    const project = resolution.project;
 
     let ownership;
     try {

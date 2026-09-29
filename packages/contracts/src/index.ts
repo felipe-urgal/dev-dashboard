@@ -34,6 +34,10 @@ export type {
   StackNodeState,
   StackNodeTarget,
   StackProcessTarget,
+  StackStartResult,
+  StackStartState,
+  StackStartStep,
+  StackStartStepState,
   StackTopologyPlan,
 } from './stack.js';
 
