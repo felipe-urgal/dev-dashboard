@@ -6,6 +6,7 @@ import {
   providerDiagnosticAction,
   providerDiagnosticSummary,
   providerFallbackDiagnostic,
+  providerObservedAtLabel,
 } from '../src/agent-provider-doctor';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
@@ -73,6 +74,17 @@ describe('Agent provider doctor', () => {
     expect(panel).toContain('v-for="provider in providerOptions"');
     expect(panel).toContain('Evidência:');
     expect(panel).toContain('Próxima ação:');
+  });
+
+  it('expõe freshness da última validação do provider', () => {
+    expect(providerObservedAtLabel('')).toBe('Ainda não validado');
+    expect(providerObservedAtLabel('valor-inválido')).toBe(
+      'Horário de validação indisponível',
+    );
+    expect(providerObservedAtLabel('2026-09-29T19:30:00.000Z')).toContain(
+      'Validado em',
+    );
+    expect(panel).toContain('providerObservedAtLabel(provider.observedAt)');
   });
 
   it('permite revalidar providers na mesma tela sem reiniciar o Dashboard', () => {
