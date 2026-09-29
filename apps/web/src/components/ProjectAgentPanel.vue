@@ -1666,7 +1666,11 @@ onBeforeUnmount(() => {
               :key="provider.providerId"
               :value="provider.providerId"
             >
-              {{ providerLabel(provider.providerId) }}
+              {{
+                provider.providerId === 'automatic'
+                  ? 'Execução'
+                  : providerLabel(provider.providerId)
+              }}
               · {{ providerAvailabilityLabel(provider) }}
             </option>
           </select>
