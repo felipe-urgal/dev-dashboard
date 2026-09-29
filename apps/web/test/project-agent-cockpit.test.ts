@@ -33,7 +33,8 @@ describe('Project Agent cockpit', () => {
     expect(panel).toContain('class="primary-button agent-create-button"');
     expect(panel).toContain('Criar task');
     expect(panel).toContain('<details');
-    expect(panel).toContain('Gerenciar integrações →');
+    expect(panel).toContain('Gerenciar integrações');
+    expect(panel).toContain('<ArrowRightIcon aria-hidden="true" />');
   });
 
   it('mantém doctor e revalidação no painel operacional lateral', () => {
