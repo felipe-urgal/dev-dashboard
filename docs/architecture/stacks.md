@@ -95,6 +95,16 @@ Nodes `environment` e `health-check` são `retained`: Environment Instance é co
 
 Resultado parcial continua explícito como `completed`, `blocked` ou `failed`, com steps por node e um `StackCheck` final.
 
+## Restart direcionado
+
+`POST /api/stacks/:stackId/nodes/:nodeId/restart` reinicia um node específico quando o domínio subjacente já possui uma operação segura.
+
+Neste slice, somente `compose-service` é mutável. Antes do restart, as dependências explícitas do node precisam estar comprovadamente `ready`. A Stack resolve a Environment Instance, exige runtime host e delega ao `DockerComposeLifecycleService.restart(project, service)`, preservando ownership persistido, preflight e Port Registry. As reservas de porta são limitadas ao serviço alvo.
+
+Nodes `process`, `environment` e `health-check` retornam `blocked` porque hoje não existe contrato suficiente para um restart genérico seguro. A Stack não transforma stop+start em restart de processo sem conhecer novamente o comando e os parâmetros originais.
+
+O resultado informa `restarted`, `blocked` ou `failed` e inclui um novo `StackCheck`. O check pode mostrar `starting` logo após o restart; isso não é promovido artificialmente para `ready`.
+
 ## Lifecycle restante
 
-Restart de node, timeline e adapters mutáveis adicionais permanecem pendentes. Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
+Timeline, navegação para logs/detalhes e adapters mutáveis adicionais permanecem pendentes. Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
