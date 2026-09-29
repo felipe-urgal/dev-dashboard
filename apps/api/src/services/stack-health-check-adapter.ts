@@ -126,6 +126,19 @@ export class StackHealthCheckAdapter {
       };
     }
 
+    if (
+      process.projectId !== target.projectId ||
+      process.environmentInstanceId !== target.environmentInstanceId
+    ) {
+      return {
+        nodeId,
+        state: 'unknown',
+        observedAt,
+        diagnostic:
+          'Server process ownership no longer matches the Stack definition.',
+      };
+    }
+
     const port = process.port ?? settings.port;
     if (port === undefined) {
       return {
