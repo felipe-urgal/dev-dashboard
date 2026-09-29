@@ -578,7 +578,23 @@ export class AgentRuntimeApiService implements AgentRuntimeApiServicePort {
 
   public async listProviders(): Promise<AgentProviderStatus[]> {
     return Promise.all(
-      this.options.providerRegistry.list().map((provider) => provider.status()),
+      this.options.providerRegistry.list().map(async (provider) => {
+        try {
+          return await provider.status();
+        } catch {
+          return {
+            providerId: provider.id,
+            availability: 'unavailable',
+            observedAt: this.now(),
+            reason: 'provider status check failed',
+            diagnostic: {
+              code: 'runtime-failed',
+              evidence:
+                'Provider status failed unexpectedly; other providers remain available for diagnosis.',
+            },
+          } satisfies AgentProviderStatus;
+        }
+      }),
     );
   }
 
