@@ -3555,8 +3555,7 @@ onBeforeUnmount(() => {
 
 .agent-health-dot-ready {
   background: var(--success-text);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--success-text) 12%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success-text) 12%, transparent);
 }
 
 .agent-cockpit {
@@ -3566,11 +3565,11 @@ onBeforeUnmount(() => {
       0.78fr
     );
   grid-template-areas:
-    "error error error"
-    "create create provider"
-    "task history provider"
-    "integrations integrations integrations"
-    "details details details";
+    'error error error'
+    'create create provider'
+    'task history provider'
+    'integrations integrations integrations'
+    'details details details';
   align-items: start;
   gap: 14px;
   padding: 18px;
@@ -3586,12 +3585,11 @@ onBeforeUnmount(() => {
   gap: 16px;
   padding: 20px;
   border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--accent) 8%, var(--surface-1)),
-      var(--surface-1) 48%
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 8%, var(--surface-1)),
+    var(--surface-1) 48%
+  );
 }
 
 .agent-create-heading {
@@ -3868,7 +3866,7 @@ onBeforeUnmount(() => {
   right: 4px;
   height: 1px;
   background: var(--border);
-  content: "";
+  content: '';
 }
 
 .agent-task-steps article > span {
@@ -4149,12 +4147,12 @@ onBeforeUnmount(() => {
   .agent-cockpit {
     grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.85fr);
     grid-template-areas:
-      "error error"
-      "create provider"
-      "task provider"
-      "history provider"
-      "integrations integrations"
-      "details details";
+      'error error'
+      'create provider'
+      'task provider'
+      'history provider'
+      'integrations integrations'
+      'details details';
   }
 
   .agent-overview-status {
@@ -4185,13 +4183,13 @@ onBeforeUnmount(() => {
   .agent-cockpit {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "error"
-      "create"
-      "provider"
-      "task"
-      "history"
-      "integrations"
-      "details";
+      'error'
+      'create'
+      'provider'
+      'task'
+      'history'
+      'integrations'
+      'details';
   }
 
   .agent-provider-panel {
