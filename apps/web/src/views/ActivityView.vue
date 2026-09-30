@@ -294,6 +294,15 @@ onMounted(() => {
             >
               Abrir task
             </RouterLink>
+            <RouterLink
+              v-if="
+                event.domain === 'stack' &&
+                event.resourceRef?.kind === 'stack-node'
+              "
+              :to="{ name: 'stacks' }"
+            >
+              Abrir Stacks
+            </RouterLink>
           </li>
         </ol>
       </section>
