@@ -4,7 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project, Stack } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  Stack,
+  StackDependencyDiscovery,
+} from '@dev-dashboard/contracts';
 
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
@@ -342,4 +346,240 @@ test('Stack HTTP bloqueia restart de node sem adapter mutável seguro', async (c
   assert.equal(result.nodeId, 'api-process');
   assert.equal(result.state, 'blocked');
   assert.match(result.diagnostic ?? '', /process/);
+});
+
+
+test('Stack HTTP sugere depends_on Compose sem persistir antes da confirmação explícita', async (context) => {
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+
+  const composeStack: Stack = {
+    id: 'compose-stack',
+    name: 'Compose stack',
+    nodes: [
+      {
+        id: 'postgres',
+        name: 'Postgres',
+        target: {
+          kind: 'compose-service',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+          service: 'postgres',
+        },
+      },
+      {
+        id: 'api-service',
+        name: 'API',
+        target: {
+          kind: 'compose-service',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+          service: 'api',
+        },
+      },
+    ],
+    dependencies: [],
+  };
+
+  const app = await buildApp({
+    localToken: TOKEN,
+    context: appContext,
+    dockerComposeProvider: {
+      inspect: async () => ({
+        state: 'runtime-unavailable',
+        observedAt: '2026-09-30T12:00:00.000Z',
+        config: {
+          observedAt: '2026-09-30T12:00:00.000Z',
+          services: [
+            {
+              name: 'api',
+              profiles: [],
+              dependsOn: ['postgres'],
+              ports: [],
+            },
+            {
+              name: 'postgres',
+              profiles: [],
+              dependsOn: [],
+              ports: [],
+            },
+          ],
+          declaredPorts: [],
+        },
+        diagnostic: 'Runtime is intentionally unavailable in this test.',
+      }),
+    },
+  });
+  context.after(async () => app.close());
+
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/compose-stack',
+    headers,
+    payload: composeStack,
+  });
+  assert.equal(created.statusCode, 200);
+
+  const discovered = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/compose-stack/dependency-suggestions',
+    headers,
+  });
+  assert.equal(discovered.statusCode, 200);
+  const discovery =
+    discovered.json<{ discovery: StackDependencyDiscovery }>().discovery;
+  assert.deepEqual(discovery.suggestions, [
+    {
+      dependency: {
+        nodeId: 'api-service',
+        dependsOnNodeId: 'postgres',
+      },
+      evidence: {
+        source: 'compose',
+        projectId: 'api',
+        environmentInstanceId: 'environment:primary:api',
+        service: 'api',
+        dependsOnService: 'postgres',
+        observedAt: '2026-09-30T12:00:00.000Z',
+      },
+    },
+  ]);
+
+  const unchanged = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/compose-stack',
+    headers,
+  });
+  assert.deepEqual(
+    unchanged.json<{ stack: Stack }>().stack.dependencies,
+    [],
+  );
+
+  const confirmedStack: Stack = {
+    ...composeStack,
+    dependencies: [discovery.suggestions[0]!.dependency],
+  };
+  const confirmed = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/compose-stack',
+    headers,
+    payload: confirmedStack,
+  });
+  assert.equal(confirmed.statusCode, 200);
+  assert.deepEqual(
+    confirmed.json<{ stack: Stack }>().stack.dependencies,
+    confirmedStack.dependencies,
+  );
+
+  const rediscovered = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/compose-stack/dependency-suggestions',
+    headers,
+  });
+  assert.deepEqual(
+    rediscovered.json<{ discovery: StackDependencyDiscovery }>().discovery
+      .suggestions,
+    [],
+  );
+});
+
+test('Stack discovery não sugere relação Compose que criaria ciclo', async (context) => {
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+
+  const cyclicCandidate: Stack = {
+    id: 'cycle-stack',
+    name: 'Cycle stack',
+    nodes: [
+      {
+        id: 'postgres',
+        name: 'Postgres',
+        target: {
+          kind: 'compose-service',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+          service: 'postgres',
+        },
+      },
+      {
+        id: 'api-service',
+        name: 'API',
+        target: {
+          kind: 'compose-service',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+          service: 'api',
+        },
+      },
+    ],
+    dependencies: [
+      {
+        nodeId: 'postgres',
+        dependsOnNodeId: 'api-service',
+      },
+    ],
+  };
+
+  const app = await buildApp({
+    localToken: TOKEN,
+    context: appContext,
+    dockerComposeProvider: {
+      inspect: async () => ({
+        state: 'runtime-unavailable',
+        observedAt: '2026-09-30T12:00:00.000Z',
+        config: {
+          observedAt: '2026-09-30T12:00:00.000Z',
+          services: [
+            {
+              name: 'api',
+              profiles: [],
+              dependsOn: ['postgres'],
+              ports: [],
+            },
+            {
+              name: 'postgres',
+              profiles: [],
+              dependsOn: [],
+              ports: [],
+            },
+          ],
+          declaredPorts: [],
+        },
+      }),
+    },
+  });
+  context.after(async () => app.close());
+
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/cycle-stack',
+    headers,
+    payload: cyclicCandidate,
+  });
+  assert.equal(created.statusCode, 200);
+
+  const discovered = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/cycle-stack/dependency-suggestions',
+    headers,
+  });
+  assert.equal(discovered.statusCode, 200);
+  const discovery =
+    discovered.json<{ discovery: StackDependencyDiscovery }>().discovery;
+  assert.deepEqual(discovery.suggestions, []);
+  assert.equal(
+    discovery.diagnostics.some((item) =>
+      item.message.includes('topology invalid'),
+    ),
+    true,
+  );
 });
