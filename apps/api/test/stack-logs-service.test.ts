@@ -55,7 +55,9 @@ function processLog(content: string): ProcessLogSnapshot {
   };
 }
 
-test('Stack logs agrega Process Manager e Compose sem criar novo owner', async () => {
+test(
+  'Stack logs agrega Process Manager e Compose sem criar novo owner',
+  async () => {
   const service = new StackLogsService(
     {
       stackDefinitionService: { findById: () => stack },
@@ -73,14 +75,10 @@ test('Stack logs agrega Process Manager e Compose sem criar novo owner', async (
       },
       developmentEnvironmentInstanceStore: {
         resolveForProject: () => ({
-          environmentInstanceId: 'environment:primary:api',
           projectId: 'api',
-          runtime: 'host',
+          environmentInstanceId: 'environment:primary:api',
           cwd: '/tmp/api',
-          lifecycle: 'ready',
-          source: { kind: 'primary' },
-          createdAt: '2026-09-30T16:00:00.000Z',
-          updatedAt: '2026-09-30T16:00:00.000Z',
+          runtime: 'host',
         }),
       },
       dockerComposeLifecycleService: {
@@ -127,10 +125,13 @@ test('Stack logs agrega Process Manager e Compose sem criar novo owner', async (
   );
   assert.equal(result.nodes[0]?.masked, true);
   assert.equal(result.nodes[0]?.redactionCount, 1);
-  assert.equal(result.nodes[1]?.content, 'postgres ready');
-});
+    assert.equal(result.nodes[1]?.content, 'postgres ready');
+  },
+);
 
-test('Stack logs isola falhas por node e recusa ownership divergente', async () => {
+test(
+  'Stack logs isola falhas por node e recusa ownership divergente',
+  async () => {
   const service = new StackLogsService({
     stackDefinitionService: { findById: () => stack },
     projectStore: { findProject: () => undefined },
@@ -169,5 +170,6 @@ test('Stack logs isola falhas por node e recusa ownership divergente', async () 
   assert.equal(result.nodes[0]?.state, 'unavailable');
   assert.match(result.nodes[0]?.diagnostic ?? '', /ownership/);
   assert.equal(result.nodes[1]?.state, 'unavailable');
-  assert.equal(result.nodes[2]?.state, 'unsupported');
-});
+    assert.equal(result.nodes[2]?.state, 'unsupported');
+  },
+);
