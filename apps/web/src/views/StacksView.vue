@@ -2,6 +2,8 @@
 import type {
   Stack,
   StackCheck,
+  StackDependencyDiscovery,
+  StackDependencySuggestion,
   StackNode,
   StackNodeHealth,
   StackNodeState,
@@ -19,8 +21,10 @@ import { RouterLink } from 'vue-router';
 
 import {
   fetchStackCheck,
+  fetchStackDependencySuggestions,
   fetchStacks,
   restartStackNode,
+  saveStack,
   startStack,
   stopStack,
 } from '../api/stacks';
@@ -31,6 +35,7 @@ import { dashboardStore } from '../stores/dashboard';
 
 const stacks = ref<Stack[]>([]);
 const checks = ref(new Map<string, StackCheck>());
+const discoveries = ref(new Map<string, StackDependencyDiscovery>());
 const loading = ref(false);
 const refreshingStackId = ref('');
 const action = ref('');
@@ -52,6 +57,16 @@ function projectName(projectId: string): string {
 
 function checkFor(stackId: string): StackCheck | undefined {
   return checks.value.get(stackId);
+}
+
+function discoveryFor(
+  stackId: string,
+): StackDependencyDiscovery | undefined {
+  return discoveries.value.get(stackId);
+}
+
+function nodeName(stack: Stack, nodeId: string): string {
+  return stack.nodes.find((node) => node.id === nodeId)?.name ?? nodeId;
 }
 
 function healthFor(
@@ -134,6 +149,19 @@ function setCheck(check: StackCheck): void {
   checks.value = new Map(checks.value).set(check.stack.id, check);
 }
 
+function setDiscovery(discovery: StackDependencyDiscovery): void {
+  discoveries.value = new Map(discoveries.value).set(
+    discovery.stackId,
+    discovery,
+  );
+}
+
+function replaceStack(stack: Stack): void {
+  stacks.value = stacks.value.map((current) =>
+    current.id === stack.id ? stack : current,
+  );
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
@@ -141,17 +169,34 @@ async function load(): Promise<void> {
     const definitions = await fetchStacks();
     stacks.value = definitions;
 
-    const results = await Promise.allSettled(
-      definitions.map((stack) => fetchStackCheck(stack.id)),
-    );
-    const next = new Map<string, StackCheck>();
+    const [checkResults, discoveryResults] = await Promise.all([
+      Promise.allSettled(
+        definitions.map((stack) => fetchStackCheck(stack.id)),
+      ),
+      Promise.allSettled(
+        definitions.map((stack) =>
+          fetchStackDependencySuggestions(stack.id),
+        ),
+      ),
+    ]);
+    const nextChecks = new Map<string, StackCheck>();
+    const nextDiscoveries = new Map<string, StackDependencyDiscovery>();
     for (let index = 0; index < definitions.length; index += 1) {
-      const result = results[index];
-      if (result?.status === 'fulfilled') {
-        next.set(definitions[index]!.id, result.value);
+      const checkResult = checkResults[index];
+      if (checkResult?.status === 'fulfilled') {
+        nextChecks.set(definitions[index]!.id, checkResult.value);
+      }
+
+      const discoveryResult = discoveryResults[index];
+      if (discoveryResult?.status === 'fulfilled') {
+        nextDiscoveries.set(
+          definitions[index]!.id,
+          discoveryResult.value,
+        );
       }
     }
-    checks.value = next;
+    checks.value = nextChecks;
+    discoveries.value = nextDiscoveries;
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -168,7 +213,12 @@ async function refreshStack(stackId: string): Promise<void> {
   refreshingStackId.value = stackId;
   errorMessage.value = '';
   try {
-    setCheck(await fetchStackCheck(stackId));
+    const [check, discovery] = await Promise.all([
+      fetchStackCheck(stackId),
+      fetchStackDependencySuggestions(stackId),
+    ]);
+    setCheck(check);
+    setDiscovery(discovery);
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -176,6 +226,37 @@ async function refreshStack(stackId: string): Promise<void> {
         : 'Não foi possível atualizar a Stack.';
   } finally {
     refreshingStackId.value = '';
+  }
+}
+
+async function acceptSuggestion(
+  stack: Stack,
+  suggestion: StackDependencySuggestion,
+): Promise<void> {
+  if (action.value) return;
+
+  action.value = `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}`;
+  errorMessage.value = '';
+  try {
+    const saved = await saveStack({
+      ...stack,
+      dependencies: [...stack.dependencies, suggestion.dependency],
+    });
+    replaceStack(saved);
+
+    const [check, discovery] = await Promise.all([
+      fetchStackCheck(saved.id),
+      fetchStackDependencySuggestions(saved.id),
+    ]);
+    setCheck(check);
+    setDiscovery(discovery);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'A dependência sugerida não pôde ser adicionada.';
+  } finally {
+    action.value = '';
   }
 }
 
@@ -320,6 +401,53 @@ onMounted(() => {
         <div v-else class="stack-check-unavailable" role="status">
           Estado atual indisponível. Atualize esta Stack para tentar novamente.
         </div>
+
+        <section
+          v-if="discoveryFor(stack.id)?.suggestions.length"
+          class="stack-suggestions"
+          aria-label="Sugestões de dependência"
+        >
+          <div class="stack-suggestions-header">
+            <div>
+              <strong>Sugestões de dependência</strong>
+              <small>
+                Detectadas por evidência explícita. Nada é salvo automaticamente.
+              </small>
+            </div>
+            <span>{{ discoveryFor(stack.id)?.suggestions.length }}</span>
+          </div>
+
+          <article
+            v-for="suggestion in discoveryFor(stack.id)?.suggestions ?? []"
+            :key="`${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}`"
+            class="stack-suggestion"
+          >
+            <div>
+              <strong>
+                {{ nodeName(stack, suggestion.dependency.nodeId) }}
+                depende de
+                {{ nodeName(stack, suggestion.dependency.dependsOnNodeId) }}
+              </strong>
+              <small>
+                Docker Compose · {{ suggestion.evidence.service }} depends_on
+                {{ suggestion.evidence.dependsOnService }}
+              </small>
+            </div>
+            <button
+              class="stack-node-action"
+              type="button"
+              :disabled="Boolean(action)"
+              @click="acceptSuggestion(stack, suggestion)"
+            >
+              {{
+                action ===
+                `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}`
+                  ? 'Adicionando…'
+                  : 'Adicionar'
+              }}
+            </button>
+          </article>
+        </section>
 
         <div class="stack-node-list">
           <article
@@ -587,6 +715,46 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.stack-suggestions {
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.stack-suggestions-header,
+.stack-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stack-suggestions-header > div,
+.stack-suggestion > div {
+  display: grid;
+  gap: 3px;
+}
+
+.stack-suggestions-header small,
+.stack-suggestion small {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.stack-suggestions-header > span {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .stack-node-list {
   display: grid;
   gap: 7px;
@@ -657,6 +825,11 @@ onMounted(() => {
 
   .stack-node {
     grid-template-columns: 1fr;
+  }
+
+  .stack-suggestion {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .stack-node-actions {
