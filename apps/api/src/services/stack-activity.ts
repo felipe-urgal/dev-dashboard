@@ -50,12 +50,11 @@ export async function recordStackActivity(
   if (!writer) return;
 
   const diagnostic = input.diagnostic ? ` · ${input.diagnostic}` : '';
+  const instanceId = environmentInstanceId(input.node);
   try {
     await writer.append({
       projectId: input.node.target.projectId,
-      ...(environmentInstanceId(input.node)
-        ? { environmentInstanceId: environmentInstanceId(input.node) }
-        : {}),
+      ...(instanceId ? { environmentInstanceId: instanceId } : {}),
       domain: 'stack',
       type: `stack.${input.action}`,
       status: input.status,
