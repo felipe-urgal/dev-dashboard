@@ -42,7 +42,10 @@ export class StackLogsService {
       >;
       processManager: Pick<
         ProcessManager,
-        'listProcesses' | 'readServerLog' | 'readWorkerLog' | 'readTestLog'
+        | 'listProcesses'
+        | 'readServerLog'
+        | 'readWorkerLog'
+        | 'readTestLog'
       >;
     },
     options: { now?: () => Date } = {},
