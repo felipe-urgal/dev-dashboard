@@ -102,6 +102,7 @@ function createService(options: {
     diagnostic?: string;
   }>;
   stopServer?: () => Promise<ManagedProcess>;
+  activityEvents?: { append(input: unknown): Promise<unknown> };
 }): StackStopService {
   const queue = [...options.checks];
   return new StackStopService({
@@ -141,6 +142,9 @@ function createService(options: {
         throw new Error('unexpected test stop');
       },
     },
+    ...(options.activityEvents
+      ? { activityEvents: options.activityEvents as never }
+      : {}),
   });
 }
 
@@ -273,6 +277,49 @@ test('retains environment and health-check nodes as explicit no-op', async () =>
     [
       ['health', 'retained'],
       ['environment', 'retained'],
+    ],
+  );
+});
+
+test('records stop activity for each mutable Stack node', async () => {
+  const events: unknown[] = [];
+  const service = createService({
+    checks: [
+      check('ready', 'ready'),
+      check('ready', 'stopped'),
+      check('stopped', 'stopped'),
+      check('stopped', 'stopped'),
+    ],
+    activityEvents: {
+      append: async (input) => {
+        events.push(input);
+        return input;
+      },
+    },
+  });
+
+  await service.stop('local-stack');
+
+  assert.deepEqual(
+    events.map((event) => {
+      const value = event as {
+        type: string;
+        status: string;
+        projectId: string;
+        resourceRef: { kind: string };
+      };
+      return [
+        value.type,
+        value.status,
+        value.projectId,
+        value.resourceRef.kind,
+      ];
+    }),
+    [
+      ['stack.stop', 'started', 'api', 'stack-node'],
+      ['stack.stop', 'succeeded', 'api', 'stack-node'],
+      ['stack.stop', 'started', 'api', 'stack-node'],
+      ['stack.stop', 'succeeded', 'api', 'stack-node'],
     ],
   );
 });
