@@ -41,6 +41,7 @@ import { StackDependencyDiscoveryService } from './services/stack-dependency-dis
 import { StackCheckService } from './services/stack-check-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
 import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
+import { StackLogsService } from './services/stack-logs-service.js';
 import { StackRestartService } from './services/stack-restart-service.js';
 import { StackStartService } from './services/stack-start-service.js';
 import { StackStopService } from './services/stack-stop-service.js';
@@ -208,6 +209,17 @@ export async function buildApp(options: BuildAppOptions = {}) {
     },
     options.now ? { now: () => new Date(options.now!()) } : {},
   );
+  const stackLogsService = new StackLogsService(
+    {
+      stackDefinitionService,
+      projectStore: context.projectStore,
+      developmentEnvironmentInstanceStore:
+        context.developmentEnvironmentInstanceStore,
+      dockerComposeLifecycleService,
+      processManager: context.processManager,
+    },
+    options.now ? { now: () => new Date(options.now!()) } : {},
+  );
   const stackRestartService = new StackRestartService({
     stackCheckService,
     projectStore: context.projectStore,
@@ -316,6 +328,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     stackDefinitionService,
     stackDependencyDiscoveryService,
     stackCheckService,
+    stackLogsService,
     stackRestartService,
     stackStartService,
     stackStopService,
