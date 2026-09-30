@@ -48,8 +48,8 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Abrir Compose');
     expect(viewSource).toContain('Abrir servidor');
     expect(viewSource).toContain('Abrir projeto');
-    expect(viewSource).not.toContain("processId.includes");
-    expect(viewSource).not.toContain("processId.startsWith");
+    expect(viewSource).not.toContain('processId.includes');
+    expect(viewSource).not.toContain('processId.startsWith');
   });
 
   it('mostra topologia, estado e lifecycle suportado sem inventar mutações', () => {

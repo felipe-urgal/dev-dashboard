@@ -111,9 +111,7 @@ function nodeDestination(node: StackNode) {
     'environmentInstanceId' in node.target
       ? node.target.environmentInstanceId
       : undefined;
-  const query = environmentInstanceId
-    ? { environmentInstanceId }
-    : undefined;
+  const query = environmentInstanceId ? { environmentInstanceId } : undefined;
 
   if (node.target.kind === 'compose-service') {
     return { name: 'project-compose', params, ...(query ? { query } : {}) };
@@ -352,10 +350,7 @@ onMounted(() => {
             </div>
 
             <div class="stack-node-actions">
-              <RouterLink
-                class="stack-node-action"
-                :to="nodeDestination(node)"
-              >
+              <RouterLink class="stack-node-action" :to="nodeDestination(node)">
                 <ArrowTopRightOnSquareIcon aria-hidden="true" />
                 {{ nodeDestinationLabel(node) }}
               </RouterLink>
