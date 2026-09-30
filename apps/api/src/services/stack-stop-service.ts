@@ -11,6 +11,10 @@ import type { ProjectStore } from '../store/project-store.js';
 import type { StackCheckService } from './stack-check-service.js';
 import type { DockerComposeLifecycleService } from './docker-compose-lifecycle-service.js';
 import { resolveStackComposeProject } from './stack-compose-project-resolver.js';
+import {
+  recordStackActivity,
+  type StackActivityWriter,
+} from './stack-activity.js';
 
 export class StackStopService {
   public constructor(
@@ -29,6 +33,7 @@ export class StackStopService {
         ProcessManager,
         'listProcesses' | 'stopServer' | 'stopWorker' | 'stopTest'
       >;
+      activityEvents?: StackActivityWriter;
     },
   ) {}
 
@@ -78,6 +83,13 @@ export class StackStopService {
             state: 'blocked',
             diagnostic: resolution.diagnostic,
           });
+          await recordStackActivity(this.dependencies.activityEvents, {
+            stack: check.stack,
+            node,
+            action: 'stop',
+            status: 'warning',
+            diagnostic: resolution.diagnostic,
+          });
           return {
             stackId,
             state: 'blocked',
@@ -85,6 +97,13 @@ export class StackStopService {
             check,
           };
         }
+
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'stop',
+          status: 'started',
+        });
 
         try {
           const result =
@@ -95,12 +114,20 @@ export class StackStopService {
           check = await this.dependencies.stackCheckService.check(stackId);
 
           if (result.state !== 'stopped') {
+            const diagnostic =
+              result.diagnostic ??
+              'Compose stop completed without proving the service is stopped.';
             steps.push({
               nodeId,
               state: 'blocked',
-              diagnostic:
-                result.diagnostic ??
-                'Compose stop completed without proving the service is stopped.',
+              diagnostic,
+            });
+            await recordStackActivity(this.dependencies.activityEvents, {
+              stack: check.stack,
+              node,
+              action: 'stop',
+              status: 'warning',
+              diagnostic,
             });
             return {
               stackId,
@@ -111,14 +138,28 @@ export class StackStopService {
           }
 
           steps.push({ nodeId, state: 'stopped' });
+          await recordStackActivity(this.dependencies.activityEvents, {
+            stack: check.stack,
+            node,
+            action: 'stop',
+            status: 'succeeded',
+          });
           continue;
         } catch {
           check = await this.dependencies.stackCheckService.check(stackId);
+          const diagnostic =
+            'Compose lifecycle failed while stopping this Stack node.';
           steps.push({
             nodeId,
             state: 'failed',
-            diagnostic:
-              'Compose lifecycle failed while stopping this Stack node.',
+            diagnostic,
+          });
+          await recordStackActivity(this.dependencies.activityEvents, {
+            stack: check.stack,
+            node,
+            action: 'stop',
+            status: 'failed',
+            diagnostic,
           });
           return {
             stackId,
@@ -131,11 +172,19 @@ export class StackStopService {
 
       const process = await this.findOwnedProcess(node.target.processId);
       if (!process) {
+        const diagnostic =
+          'Managed process ownership could not be proven for this Stack node.';
         steps.push({
           nodeId,
           state: 'blocked',
-          diagnostic:
-            'Managed process ownership could not be proven for this Stack node.',
+          diagnostic,
+        });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'stop',
+          status: 'warning',
+          diagnostic,
         });
         return {
           stackId,
@@ -149,11 +198,19 @@ export class StackStopService {
         process.projectId !== node.target.projectId ||
         process.environmentInstanceId !== node.target.environmentInstanceId
       ) {
+        const diagnostic =
+          'Managed process ownership no longer matches the Stack definition.';
         steps.push({
           nodeId,
           state: 'blocked',
-          diagnostic:
-            'Managed process ownership no longer matches the Stack definition.',
+          diagnostic,
+        });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'stop',
+          status: 'warning',
+          diagnostic,
         });
         return {
           stackId,
@@ -168,14 +225,29 @@ export class StackStopService {
         continue;
       }
 
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'stop',
+        status: 'started',
+      });
+
       try {
         const stopped = await this.stopManagedProcess(process);
         if (!stopped) {
+          const diagnostic =
+            'This managed process kind has no safe Stack stop adapter.';
           steps.push({
             nodeId,
             state: 'blocked',
-            diagnostic:
-              'This managed process kind has no safe Stack stop adapter.',
+            diagnostic,
+          });
+          await recordStackActivity(this.dependencies.activityEvents, {
+            stack: check.stack,
+            node,
+            action: 'stop',
+            status: 'warning',
+            diagnostic,
           });
           return {
             stackId,
@@ -190,11 +262,19 @@ export class StackStopService {
           stopped.id !== node.target.processId ||
           stopped.status !== 'stopped'
         ) {
+          const diagnostic =
+            'Process Manager did not prove the explicit Stack process stopped.';
           steps.push({
             nodeId,
             state: 'blocked',
-            diagnostic:
-              'Process Manager did not prove the explicit Stack process stopped.',
+            diagnostic,
+          });
+          await recordStackActivity(this.dependencies.activityEvents, {
+            stack: check.stack,
+            node,
+            action: 'stop',
+            status: 'warning',
+            diagnostic,
           });
           return {
             stackId,
@@ -205,12 +285,27 @@ export class StackStopService {
         }
 
         steps.push({ nodeId, state: 'stopped' });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'stop',
+          status: 'succeeded',
+        });
       } catch {
         check = await this.dependencies.stackCheckService.check(stackId);
+        const diagnostic =
+          'Process Manager failed while stopping this Stack node.';
         steps.push({
           nodeId,
           state: 'failed',
-          diagnostic: 'Process Manager failed while stopping this Stack node.',
+          diagnostic,
+        });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'stop',
+          status: 'failed',
+          diagnostic,
         });
         return {
           stackId,
