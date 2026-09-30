@@ -83,6 +83,7 @@ function check(postgres: StackNodeState, api: StackNodeState): StackCheck {
 function createService(
   checks: StackCheck[],
   restart: (...args: unknown[]) => Promise<unknown>,
+  activityEvents?: { append(input: unknown): Promise<unknown> },
 ): StackRestartService {
   const queue = [...checks];
   return new StackRestartService({
@@ -107,6 +108,7 @@ function createService(
     dockerComposeLifecycleService: {
       restart: restart as never,
     },
+    ...(activityEvents ? { activityEvents: activityEvents as never } : {}),
   });
 }
 
@@ -176,4 +178,33 @@ test('reports failed when Compose lifecycle throws', async () => {
   assert.equal(result.state, 'failed');
   assert.equal(result.nodeId, 'postgres');
   assert.equal(result.check.health.nodes[0]?.state, 'failed');
+});
+
+test('records failed restart in Stack activity timeline', async () => {
+  const events: unknown[] = [];
+  const service = createService(
+    [check('ready', 'ready'), check('failed', 'ready')],
+    async () => {
+      throw new Error('compose failed');
+    },
+    {
+      append: async (input) => {
+        events.push(input);
+        return input;
+      },
+    },
+  );
+
+  await service.restart('local-stack', 'postgres');
+
+  assert.deepEqual(
+    events.map((event) => {
+      const value = event as { type: string; status: string };
+      return [value.type, value.status];
+    }),
+    [
+      ['stack.restart', 'started'],
+      ['stack.restart', 'failed'],
+    ],
+  );
 });
