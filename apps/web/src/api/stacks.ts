@@ -1,6 +1,7 @@
 import type {
   Stack,
   StackCheck,
+  StackDependencyDiscovery,
   StackRestartResult,
   StackStartResult,
   StackStopResult,
@@ -14,6 +15,14 @@ interface StackListResponse {
 
 interface StackCheckResponse {
   check: StackCheck;
+}
+
+interface StackDependencyDiscoveryResponse {
+  discovery: StackDependencyDiscovery;
+}
+
+interface StackResponse {
+  stack: Stack;
 }
 
 interface StackStartResponse {
@@ -38,6 +47,26 @@ export async function fetchStacks(signal?: AbortSignal): Promise<Stack[]> {
     signal ? { signal } : {},
   );
   return response.stacks;
+}
+
+export async function saveStack(stack: Stack): Promise<Stack> {
+  const response = await requestJson<StackResponse>(stackUrl(stack.id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(stack),
+  });
+  return response.stack;
+}
+
+export async function fetchStackDependencySuggestions(
+  stackId: string,
+  signal?: AbortSignal,
+): Promise<StackDependencyDiscovery> {
+  const response = await requestJson<StackDependencyDiscoveryResponse>(
+    stackUrl(stackId, '/dependency-suggestions'),
+    signal ? { signal } : {},
+  );
+  return response.discovery;
 }
 
 export async function fetchStackCheck(
