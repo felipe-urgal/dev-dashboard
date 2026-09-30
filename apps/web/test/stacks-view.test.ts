@@ -37,6 +37,7 @@ describe('Stacks multi-projeto', () => {
     expect(apiSource).toContain("'/api/stacks'");
     expect(apiSource).toContain("'/check'");
     expect(apiSource).toContain("'/dependency-suggestions'");
+    expect(apiSource).toContain("'/logs'");
     expect(apiSource).toContain("method: 'PUT'");
     expect(apiSource).toContain("'/start'");
     expect(apiSource).toContain("'/stop'");
@@ -75,6 +76,12 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Reiniciar');
     expect(viewSource).toContain('canRestart(node)');
     expect(viewSource).toContain('Sugestões de dependência');
+    expect(viewSource).toContain('Logs agregados da Stack');
+    expect(viewSource).toContain('Ver logs');
+    expect(viewSource).toContain('fetchStackLogs');
+    expect(viewSource).toContain('logSourceLabel(nodeLog.source)');
+    expect(viewSource).toContain("source === 'compose'");
+    expect(viewSource).toContain("source === 'process'");
     expect(viewSource).toMatch(/Nada é salvo\s+automaticamente\./);
     expect(viewSource).toContain('suggestion.evidence.service');
     expect(viewSource).toContain(

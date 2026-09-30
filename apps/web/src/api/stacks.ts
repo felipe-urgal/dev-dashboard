@@ -2,6 +2,7 @@ import type {
   Stack,
   StackCheck,
   StackDependencyDiscovery,
+  StackLogsSnapshot,
   StackRestartResult,
   StackStartResult,
   StackStopResult,
@@ -35,6 +36,10 @@ interface StackStopResponse {
 
 interface StackRestartResponse {
   result: StackRestartResult;
+}
+
+interface StackLogsResponse {
+  logs: StackLogsSnapshot;
 }
 
 function stackUrl(stackId: string, suffix = ''): string {
@@ -117,4 +122,15 @@ export async function restartStackNode(
     },
   );
   return response.result;
+}
+
+export async function fetchStackLogs(
+  stackId: string,
+  signal?: AbortSignal,
+): Promise<StackLogsSnapshot> {
+  const response = await requestJson<StackLogsResponse>(
+    stackUrl(stackId, '/logs'),
+    signal ? { signal } : {},
+  );
+  return response.logs;
 }

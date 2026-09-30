@@ -579,3 +579,64 @@ test('Stack discovery não sugere relação Compose que criaria ciclo', async (c
     true,
   );
 });
+
+test('Stack HTTP expõe snapshot parcial de logs sem inventar stream para Environment', async (context) => {
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => app.close());
+
+  const environmentOnly: Stack = {
+    id: 'logs-stack',
+    name: 'Logs stack',
+    nodes: [
+      {
+        id: 'api-environment',
+        name: 'API environment',
+        target: {
+          kind: 'environment',
+          projectId: 'api',
+          environmentInstanceId: 'environment:primary:api',
+        },
+      },
+    ],
+    dependencies: [],
+  };
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/logs-stack',
+    headers,
+    payload: environmentOnly,
+  });
+  assert.equal(created.statusCode, 200);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/logs-stack/logs',
+    headers,
+  });
+  assert.equal(response.statusCode, 200);
+  const logs = response.json<{
+    logs: {
+      stackId: string;
+      nodes: Array<{
+        nodeId: string;
+        state: string;
+        source: string;
+        diagnostic?: string;
+      }>;
+    };
+  }>().logs;
+
+  assert.equal(logs.stackId, 'logs-stack');
+  assert.deepEqual(
+    logs.nodes.map((node) => [node.nodeId, node.state, node.source]),
+    [['api-environment', 'unsupported', 'none']],
+  );
+  assert.match(logs.nodes[0]?.diagnostic ?? '', /Environment/);
+});
