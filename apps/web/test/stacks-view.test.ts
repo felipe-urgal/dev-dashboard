@@ -79,8 +79,9 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Logs agregados da Stack');
     expect(viewSource).toContain('Ver logs');
     expect(viewSource).toContain('fetchStackLogs');
-    expect(viewSource).toContain("nodeLog.source === 'compose'");
-    expect(viewSource).toContain("nodeLog.source === 'process'");
+    expect(viewSource).toContain('logSourceLabel(nodeLog.source)');
+    expect(viewSource).toContain("source === 'compose'");
+    expect(viewSource).toContain("source === 'process'");
     expect(viewSource).toMatch(/Nada é salvo\s+automaticamente\./);
     expect(viewSource).toContain('suggestion.evidence.service');
     expect(viewSource).toContain(
