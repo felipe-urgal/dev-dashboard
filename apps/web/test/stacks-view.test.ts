@@ -40,6 +40,18 @@ describe('Stacks multi-projeto', () => {
     expect(apiSource).not.toContain('command');
   });
 
+  it('navega para o domínio responsável sem inferir process kind', () => {
+    expect(viewSource).toContain("name: 'project-compose'");
+    expect(viewSource).toContain("name: 'project-server'");
+    expect(viewSource).toContain("name: 'project-details'");
+    expect(viewSource).toContain('environmentInstanceId');
+    expect(viewSource).toContain('Abrir Compose');
+    expect(viewSource).toContain('Abrir servidor');
+    expect(viewSource).toContain('Abrir projeto');
+    expect(viewSource).not.toContain("processId.includes");
+    expect(viewSource).not.toContain("processId.startsWith");
+  });
+
   it('mostra topologia, estado e lifecycle suportado sem inventar mutações', () => {
     expect(viewSource).toContain('Ordem topológica');
     expect(viewSource).toContain("target.kind === 'compose-service'");
