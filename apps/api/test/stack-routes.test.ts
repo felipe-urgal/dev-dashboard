@@ -580,9 +580,7 @@ test('Stack discovery não sugere relação Compose que criaria ciclo', async (c
   );
 });
 
-test(
-  'Stack HTTP expõe snapshot parcial de logs sem inventar stream para Environment',
-  async (context) => {
+test('Stack HTTP expõe snapshot parcial de logs sem inventar stream para Environment', async (context) => {
   const appContext = createAppContext();
   registerApiProject(appContext);
   const app = await buildApp({ localToken: TOKEN, context: appContext });
@@ -640,6 +638,5 @@ test(
     logs.nodes.map((node) => [node.nodeId, node.state, node.source]),
     [['api-environment', 'unsupported', 'none']],
   );
-    assert.match(logs.nodes[0]?.diagnostic ?? '', /Environment/);
-  },
-);
+  assert.match(logs.nodes[0]?.diagnostic ?? '', /Environment/);
+});
