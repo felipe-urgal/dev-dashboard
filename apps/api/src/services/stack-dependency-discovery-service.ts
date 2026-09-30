@@ -55,18 +55,22 @@ function composeContexts(stack: Stack): ComposeContext[] {
   for (const node of stack.nodes) {
     if (node.target.kind !== 'compose-service') continue;
 
-    const key = `${node.target.projectId}\0${node.target.environmentInstanceId}`;
+    const composeNode: ComposeStackNode = {
+      ...node,
+      target: node.target,
+    };
+    const key = `${composeNode.target.projectId}\0${composeNode.target.environmentInstanceId}`;
     const existing = contexts.get(key);
     if (existing) {
-      existing.nodes.push(node);
+      existing.nodes.push(composeNode);
       continue;
     }
 
     contexts.set(key, {
       key,
-      projectId: node.target.projectId,
-      environmentInstanceId: node.target.environmentInstanceId,
-      nodes: [node],
+      projectId: composeNode.target.projectId,
+      environmentInstanceId: composeNode.target.environmentInstanceId,
+      nodes: [composeNode],
     });
   }
 
