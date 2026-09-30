@@ -9,6 +9,10 @@ import {
   type StackDefinitionService,
 } from '../services/stack-definition-service.js';
 import {
+  StackDependencyDiscoveryServiceError,
+  type StackDependencyDiscoveryService,
+} from '../services/stack-dependency-discovery-service.js';
+import {
   StackCheckServiceError,
   type StackCheckService,
 } from '../services/stack-check-service.js';
@@ -21,6 +25,10 @@ interface Options extends FastifyPluginOptions {
   stackDefinitionService: Pick<
     StackDefinitionService,
     'list' | 'findById' | 'save' | 'delete'
+  >;
+  stackDependencyDiscoveryService: Pick<
+    StackDependencyDiscoveryService,
+    'discover'
   >;
   stackCheckService: Pick<StackCheckService, 'check'>;
   stackRestartService: Pick<StackRestartService, 'restart'>;
@@ -110,6 +118,66 @@ const stackSchema = {
       type: 'array',
       maxItems: 1000,
       items: stackDependencySchema,
+    },
+  },
+} as const;
+
+const stackDependencySuggestionEvidenceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'source',
+    'projectId',
+    'environmentInstanceId',
+    'service',
+    'dependsOnService',
+    'observedAt',
+  ],
+  properties: {
+    source: { type: 'string', enum: ['compose'] },
+    projectId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    service: { type: 'string' },
+    dependsOnService: { type: 'string' },
+    observedAt: { type: 'string' },
+  },
+} as const;
+
+const stackDependencySuggestionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['dependency', 'evidence'],
+  properties: {
+    dependency: stackDependencySchema,
+    evidence: stackDependencySuggestionEvidenceSchema,
+  },
+} as const;
+
+const stackDependencyDiscoveryDiagnosticSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['source', 'projectId', 'environmentInstanceId', 'message'],
+  properties: {
+    source: { type: 'string', enum: ['compose'] },
+    projectId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    message: { type: 'string' },
+  },
+} as const;
+
+const stackDependencyDiscoverySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'suggestions', 'diagnostics'],
+  properties: {
+    stackId: { type: 'string' },
+    suggestions: {
+      type: 'array',
+      items: stackDependencySuggestionSchema,
+    },
+    diagnostics: {
+      type: 'array',
+      items: stackDependencyDiscoveryDiagnosticSchema,
     },
   },
 } as const;
@@ -241,6 +309,14 @@ const stackRestartResultSchema = {
 } as const;
 
 function mapStackError(error: unknown): unknown {
+  if (error instanceof StackDependencyDiscoveryServiceError) {
+    return new ApiError({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+      message: error.message,
+    });
+  }
+
   if (error instanceof StackCheckServiceError) {
     return new ApiError({
       statusCode: 404,
@@ -322,6 +398,36 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
         });
       }
       return { stack };
+    },
+  );
+
+  app.get<{ Params: StackParams }>(
+    '/stacks/:stackId/dependency-suggestions',
+    {
+      schema: {
+        params: stackParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['discovery'],
+            properties: { discovery: stackDependencyDiscoverySchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          discovery:
+            await options.stackDependencyDiscoveryService.discover(
+              request.params.stackId,
+            ),
+        };
+      } catch (error) {
+        throw mapStackError(error);
+      }
     },
   );
 
