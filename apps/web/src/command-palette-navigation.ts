@@ -13,6 +13,7 @@ export type CommandPaletteNavigationGroup =
 export type CommandPaletteNavigationIcon =
   | 'home'
   | 'activity'
+  | 'stacks'
   | 'production'
   | 'database'
   | 'workspace'
@@ -202,6 +203,16 @@ export function buildCommandPaletteNavigationItems(
       mode: 'page',
       to: { name: 'activity' },
       aliases: 'activity timeline jobs execuções agente',
+    }),
+    item({
+      id: 'page-stacks',
+      group: 'Páginas',
+      label: 'Stacks',
+      description: 'Topologia e lifecycle multi-projeto',
+      icon: 'stacks',
+      mode: 'page',
+      to: { name: 'stacks' },
+      aliases: 'stack stacks topologia lifecycle compose serviços',
     }),
     item({
       id: 'page-database',
