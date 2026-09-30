@@ -80,10 +80,7 @@ export async function restartStackNode(
   nodeId: string,
 ): Promise<StackRestartResult> {
   const response = await requestJson<StackRestartResponse>(
-    stackUrl(
-      stackId,
-      `/nodes/${encodeURIComponent(nodeId)}/restart`,
-    ),
+    stackUrl(stackId, `/nodes/${encodeURIComponent(nodeId)}/restart`),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
