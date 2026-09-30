@@ -6,6 +6,7 @@ import type {
   StackDependencySuggestion,
   StackLogsSnapshot,
   StackNode,
+  StackNodeLog,
   StackNodeHealth,
   StackNodeState,
 } from '@dev-dashboard/contracts';
@@ -102,6 +103,29 @@ function stateLabel(state?: StackNodeState): string {
   if (state === 'blocked') return 'Bloqueado';
   if (state === 'failed') return 'Falhou';
   return 'Desconhecido';
+}
+
+function logSourceLabel(source: StackNodeLog['source']): string {
+  if (source === 'compose') return 'Docker Compose';
+  if (source === 'process') return 'Process Manager';
+  return 'Sem stream de log';
+}
+
+function logStateTone(state: StackNodeLog['state']): StatusBadgeTone {
+  if (state === 'available') return 'success';
+  if (state === 'unavailable') return 'warning';
+  return 'neutral';
+}
+
+function logStateLabel(state: StackNodeLog['state']): string {
+  if (state === 'available') return 'Disponível';
+  if (state === 'empty') return 'Vazio';
+  if (state === 'unsupported') return 'Não aplicável';
+  return 'Indisponível';
+}
+
+function redactionLabel(redactionCount?: number): string {
+  return redactionCount ? ` (${redactionCount} ocorrência(s))` : '';
 }
 
 function targetLabel(node: StackNode): string {
@@ -462,34 +486,10 @@ onMounted(() => {
             <div class="stack-log-node-header">
               <div>
                 <strong>{{ nodeName(stack, nodeLog.nodeId) }}</strong>
-                <small>
-                  {{
-                    nodeLog.source === 'compose'
-                      ? 'Docker Compose'
-                      : nodeLog.source === 'process'
-                        ? 'Process Manager'
-                        : 'Sem stream de log'
-                  }}
-                </small>
+                <small>{{ logSourceLabel(nodeLog.source) }}</small>
               </div>
-              <StatusBadge
-                :tone="
-                  nodeLog.state === 'available'
-                    ? 'success'
-                    : nodeLog.state === 'unavailable'
-                      ? 'warning'
-                      : 'neutral'
-                "
-              >
-                {{
-                  nodeLog.state === 'available'
-                    ? 'Disponível'
-                    : nodeLog.state === 'empty'
-                      ? 'Vazio'
-                      : nodeLog.state === 'unsupported'
-                        ? 'Não aplicável'
-                        : 'Indisponível'
-                }}
+              <StatusBadge :tone="logStateTone(nodeLog.state)">
+                {{ logStateLabel(nodeLog.state) }}
               </StatusBadge>
             </div>
 
@@ -510,9 +510,7 @@ onMounted(() => {
               <template v-if="nodeLog.truncated">Saída limitada.</template>
               <template v-if="nodeLog.masked">
                 Conteúdo sensível mascarado{{
-                  nodeLog.redactionCount
-                    ? ` (${nodeLog.redactionCount} ocorrência(s))`
-                    : ''
+                  redactionLabel(nodeLog.redactionCount)
                 }}.
               </template>
             </small>
