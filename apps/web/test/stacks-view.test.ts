@@ -58,7 +58,9 @@ describe('Stacks multi-projeto', () => {
 
   it('integra eventos de Stack à Timeline global', () => {
     expect(activityViewSource).toContain("event.domain === 'stack'");
-    expect(activityViewSource).toContain("event.resourceRef?.kind === 'stack-node'");
+    expect(activityViewSource).toContain(
+      "event.resourceRef?.kind === 'stack-node'",
+    );
     expect(activityViewSource).toContain("name: 'stacks'");
     expect(activityViewSource).toContain('Abrir Stacks');
   });
