@@ -95,8 +95,7 @@ function dependenciesFor(stack: Stack, nodeId: string): string[] {
     .filter((dependency) => dependency.nodeId === nodeId)
     .map(
       (dependency) =>
-        nameById.get(dependency.dependsOnNodeId) ??
-        dependency.dependsOnNodeId,
+        nameById.get(dependency.dependsOnNodeId) ?? dependency.dependsOnNodeId,
     );
 }
 
@@ -195,10 +194,7 @@ onMounted(() => {
         :disabled="loading || Boolean(action)"
         @click="load"
       >
-        <ArrowPathIcon
-          :class="{ 'is-spinning': loading }"
-          aria-hidden="true"
-        />
+        <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
         Atualizar
       </button>
     </header>
@@ -267,14 +263,10 @@ onMounted(() => {
               class="stack-button stack-button-primary"
               type="button"
               :disabled="Boolean(action)"
-              @click="
-                mutate(`start-${stack.id}`, () => startStack(stack.id))
-              "
+              @click="mutate(`start-${stack.id}`, () => startStack(stack.id))"
             >
               <PlayIcon aria-hidden="true" />
-              {{
-                action === `start-${stack.id}` ? 'Iniciando…' : 'Iniciar'
-              }}
+              {{ action === `start-${stack.id}` ? 'Iniciando…' : 'Iniciar' }}
             </button>
             <button
               class="stack-button stack-button-danger"
