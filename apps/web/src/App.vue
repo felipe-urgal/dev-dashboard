@@ -7,6 +7,7 @@ import {
   HomeIcon,
   PlusIcon,
   QueueListIcon,
+  RectangleGroupIcon,
 } from '@heroicons/vue/24/outline';
 import {
   computed,
@@ -197,6 +198,15 @@ onMounted(() => {
           >
             <QueueListIcon class="navigation-icon" aria-hidden="true" />
             <span class="navigation-text">Atividade</span>
+          </RouterLink>
+
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'stacks' }"
+            :to="{ name: 'stacks' }"
+          >
+            <RectangleGroupIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Stacks</span>
           </RouterLink>
 
           <RouterLink
