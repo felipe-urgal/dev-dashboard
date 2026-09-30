@@ -37,6 +37,7 @@ import { EnvironmentInstanceCleanupService } from './services/environment-instan
 import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
 import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
 import { StackDefinitionService } from './services/stack-definition-service.js';
+import { StackDependencyDiscoveryService } from './services/stack-dependency-discovery-service.js';
 import { StackCheckService } from './services/stack-check-service.js';
 import { StackComposeHealthAdapter } from './services/stack-compose-health-adapter.js';
 import { StackHealthCheckAdapter } from './services/stack-health-check-adapter.js';
@@ -174,6 +175,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
     agentRuntimeRealtimeService,
   } = composition;
   registerAppLifecycle(app, context, composition);
+  const stackDependencyDiscoveryService =
+    new StackDependencyDiscoveryService({
+      stackDefinitionService,
+      projectStore: context.projectStore,
+      developmentEnvironmentInstanceStore:
+        context.developmentEnvironmentInstanceStore,
+      dockerComposeProvider,
+    });
   const stackComposeHealthAdapter = new StackComposeHealthAdapter({
     projectStore: context.projectStore,
     developmentEnvironmentInstanceStore:
@@ -306,6 +315,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(stackRoutes, {
     prefix: '/api',
     stackDefinitionService,
+    stackDependencyDiscoveryService,
     stackCheckService,
     stackRestartService,
     stackStartService,
