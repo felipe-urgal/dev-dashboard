@@ -75,7 +75,7 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Reiniciar');
     expect(viewSource).toContain('canRestart(node)');
     expect(viewSource).toContain('Sugestões de dependência');
-    expect(viewSource).toContain('Nada é salvo automaticamente');
+    expect(viewSource).toMatch(/Nada é salvo\s+automaticamente\./);
     expect(viewSource).toContain('suggestion.evidence.service');
     expect(viewSource).toContain(
       '@click="acceptSuggestion(stack, suggestion)"',
