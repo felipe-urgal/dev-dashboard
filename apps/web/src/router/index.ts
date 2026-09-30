@@ -14,6 +14,11 @@ export const router = createRouter({
       component: () => import('../views/ActivityView.vue'),
     },
     {
+      path: '/stacks',
+      name: 'stacks',
+      component: () => import('../views/StacksView.vue'),
+    },
+    {
       path: '/processes',
       name: 'processes',
       redirect: { name: 'dashboard' },
