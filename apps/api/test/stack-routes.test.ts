@@ -580,7 +580,6 @@ test('Stack discovery não sugere relação Compose que criaria ciclo', async (c
   );
 });
 
-
 test('Stack HTTP expõe snapshot parcial de logs sem inventar stream para Environment', async (context) => {
   const appContext = createAppContext();
   registerApiProject(appContext);

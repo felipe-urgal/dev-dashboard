@@ -239,7 +239,6 @@ const stackCheckSchema = {
   },
 } as const;
 
-
 const stackNodeLogSchema = {
   type: 'object',
   additionalProperties: false,
@@ -504,7 +503,6 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       }
     },
   );
-
 
   app.get<{ Params: StackParams }>(
     '/stacks/:stackId/logs',

@@ -233,7 +233,6 @@ async function refreshStack(stackId: string): Promise<void> {
   }
 }
 
-
 async function loadStackLogs(stackId: string): Promise<void> {
   if (loadingLogsStackId.value) return;
 
@@ -438,7 +437,6 @@ onMounted(() => {
         <div v-else class="stack-check-unavailable" role="status">
           Estado atual indisponível. Atualize esta Stack para tentar novamente.
         </div>
-
 
         <section
           v-if="logsFor(stack.id)"
@@ -834,7 +832,6 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 
 .stack-logs {
   display: grid;

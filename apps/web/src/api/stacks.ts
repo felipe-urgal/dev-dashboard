@@ -124,7 +124,6 @@ export async function restartStackNode(
   return response.result;
 }
 
-
 export async function fetchStackLogs(
   stackId: string,
   signal?: AbortSignal,

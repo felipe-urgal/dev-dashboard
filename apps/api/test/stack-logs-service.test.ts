@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type {
-  ProcessLogSnapshot,
-  Stack,
-} from '@dev-dashboard/contracts';
+import type { ProcessLogSnapshot, Stack } from '@dev-dashboard/contracts';
 
 import { StackLogsService } from '../src/services/stack-logs-service.js';
 

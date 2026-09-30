@@ -156,12 +156,8 @@ export interface StackRestartResult {
   check: StackCheck;
 }
 
-
 export type StackNodeLogState =
-  | 'available'
-  | 'empty'
-  | 'unsupported'
-  | 'unavailable';
+  'available' | 'empty' | 'unsupported' | 'unavailable';
 
 export type StackNodeLogSource = 'compose' | 'process' | 'none';
 
