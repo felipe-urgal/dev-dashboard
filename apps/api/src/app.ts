@@ -206,6 +206,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     dockerComposeLifecycleService,
+    activityEvents: context.activityEventRepository,
   });
   const stackStartService = new StackStartService({
     stackCheckService,
@@ -213,6 +214,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     dockerComposeLifecycleService,
+    activityEvents: context.activityEventRepository,
   });
   const stackStopService = new StackStopService({
     stackCheckService,
@@ -221,6 +223,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       context.developmentEnvironmentInstanceStore,
     dockerComposeLifecycleService,
     processManager: context.processManager,
+    activityEvents: context.activityEventRepository,
   });
 
   const gitWorktreeRemovalResourceGuard =
