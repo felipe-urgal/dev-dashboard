@@ -48,6 +48,35 @@ export interface StackDependency {
   dependsOnNodeId: string;
 }
 
+export type StackDependencySuggestionSource = 'compose';
+
+export interface StackDependencySuggestionEvidence {
+  source: StackDependencySuggestionSource;
+  projectId: string;
+  environmentInstanceId: string;
+  service: string;
+  dependsOnService: string;
+  observedAt: string;
+}
+
+export interface StackDependencySuggestion {
+  dependency: StackDependency;
+  evidence: StackDependencySuggestionEvidence;
+}
+
+export interface StackDependencyDiscoveryDiagnostic {
+  source: StackDependencySuggestionSource;
+  projectId: string;
+  environmentInstanceId: string;
+  message: string;
+}
+
+export interface StackDependencyDiscovery {
+  stackId: string;
+  suggestions: StackDependencySuggestion[];
+  diagnostics: StackDependencyDiscoveryDiagnostic[];
+}
+
 export interface Stack {
   id: string;
   name: string;
