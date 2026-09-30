@@ -78,6 +78,28 @@ test('filtra por projeto, ambiente e domínio sem criar nova engine de jobs', as
   );
 });
 
+test('aceita domínio stack preservando referência ao node', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'activity-stack-'));
+  const repository = new ActivityEventRepository(directory);
+
+  const event = await repository.append({
+    projectId: 'project-a',
+    environmentInstanceId: 'environment-a',
+    domain: 'stack',
+    type: 'stack.start',
+    status: 'succeeded',
+    summary: 'Stack Local: iniciar API',
+    resourceRef: { kind: 'stack-node', id: 'local-stack:api' },
+  });
+
+  assert.equal(event.domain, 'stack');
+  assert.deepEqual(event.resourceRef, {
+    kind: 'stack-node',
+    id: 'local-stack:api',
+  });
+  assert.equal(repository.list({ domain: 'stack' })[0]?.id, event.id);
+});
+
 test('aceita domínio agent com resumo bounded sem prompt bruto', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'activity-agent-'));
   const repository = new ActivityEventRepository(directory);
