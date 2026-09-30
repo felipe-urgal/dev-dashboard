@@ -155,3 +155,30 @@ export interface StackRestartResult {
   diagnostic?: string;
   check: StackCheck;
 }
+
+
+export type StackNodeLogState =
+  | 'available'
+  | 'empty'
+  | 'unsupported'
+  | 'unavailable';
+
+export type StackNodeLogSource = 'compose' | 'process' | 'none';
+
+export interface StackNodeLog {
+  nodeId: string;
+  state: StackNodeLogState;
+  source: StackNodeLogSource;
+  content?: string;
+  truncated?: boolean;
+  masked?: boolean;
+  redactionCount?: number;
+  readAt: string;
+  diagnostic?: string;
+}
+
+export interface StackLogsSnapshot {
+  stackId: string;
+  readAt: string;
+  nodes: StackNodeLog[];
+}
