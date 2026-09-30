@@ -4,6 +4,7 @@ import type {
   StackCheck,
   StackDependencyDiscovery,
   StackDependencySuggestion,
+  StackLogsSnapshot,
   StackNode,
   StackNodeHealth,
   StackNodeState,
@@ -13,6 +14,7 @@ import {
   ArrowTopRightOnSquareIcon,
   ArrowUturnRightIcon,
   CircleStackIcon,
+  DocumentTextIcon,
   PauseIcon,
   PlayIcon,
 } from '@heroicons/vue/24/outline';
@@ -22,6 +24,7 @@ import { RouterLink } from 'vue-router';
 import {
   fetchStackCheck,
   fetchStackDependencySuggestions,
+  fetchStackLogs,
   fetchStacks,
   restartStackNode,
   saveStack,
@@ -36,7 +39,9 @@ import { dashboardStore } from '../stores/dashboard';
 const stacks = ref<Stack[]>([]);
 const checks = ref(new Map<string, StackCheck>());
 const discoveries = ref(new Map<string, StackDependencyDiscovery>());
+const logs = ref(new Map<string, StackLogsSnapshot>());
 const loading = ref(false);
+const loadingLogsStackId = ref('');
 const refreshingStackId = ref('');
 const action = ref('');
 const errorMessage = ref('');
@@ -61,6 +66,14 @@ function checkFor(stackId: string): StackCheck | undefined {
 
 function discoveryFor(stackId: string): StackDependencyDiscovery | undefined {
   return discoveries.value.get(stackId);
+}
+
+function logsFor(stackId: string): StackLogsSnapshot | undefined {
+  return logs.value.get(stackId);
+}
+
+function setLogs(snapshot: StackLogsSnapshot): void {
+  logs.value = new Map(logs.value).set(snapshot.stackId, snapshot);
 }
 
 function nodeName(stack: Stack, nodeId: string): string {
@@ -220,6 +233,24 @@ async function refreshStack(stackId: string): Promise<void> {
   }
 }
 
+
+async function loadStackLogs(stackId: string): Promise<void> {
+  if (loadingLogsStackId.value) return;
+
+  loadingLogsStackId.value = stackId;
+  errorMessage.value = '';
+  try {
+    setLogs(await fetchStackLogs(stackId));
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar os logs da Stack.';
+  } finally {
+    loadingLogsStackId.value = '';
+  }
+}
+
 async function acceptSuggestion(
   stack: Stack,
   suggestion: StackDependencySuggestion,
@@ -359,6 +390,21 @@ onMounted(() => {
               />
             </button>
             <button
+              class="stack-button"
+              type="button"
+              :disabled="Boolean(action) || Boolean(loadingLogsStackId)"
+              @click="loadStackLogs(stack.id)"
+            >
+              <DocumentTextIcon aria-hidden="true" />
+              {{
+                loadingLogsStackId === stack.id
+                  ? 'Carregando logs…'
+                  : logsFor(stack.id)
+                    ? 'Atualizar logs'
+                    : 'Ver logs'
+              }}
+            </button>
+            <button
               class="stack-button stack-button-primary"
               type="button"
               :disabled="Boolean(action)"
@@ -392,6 +438,88 @@ onMounted(() => {
         <div v-else class="stack-check-unavailable" role="status">
           Estado atual indisponível. Atualize esta Stack para tentar novamente.
         </div>
+
+
+        <section
+          v-if="logsFor(stack.id)"
+          class="stack-logs"
+          aria-label="Logs agregados da Stack"
+        >
+          <div class="stack-logs-header">
+            <div>
+              <strong>Logs</strong>
+              <small>
+                Leitura consolidada dos domínios proprietários. Sem novo
+                streaming ou persistência.
+              </small>
+            </div>
+            <span>{{ logsFor(stack.id)?.nodes.length }} node(s)</span>
+          </div>
+
+          <article
+            v-for="nodeLog in logsFor(stack.id)?.nodes ?? []"
+            :key="`${stack.id}-log-${nodeLog.nodeId}`"
+            class="stack-log-node"
+          >
+            <div class="stack-log-node-header">
+              <div>
+                <strong>{{ nodeName(stack, nodeLog.nodeId) }}</strong>
+                <small>
+                  {{
+                    nodeLog.source === 'compose'
+                      ? 'Docker Compose'
+                      : nodeLog.source === 'process'
+                        ? 'Process Manager'
+                        : 'Sem stream de log'
+                  }}
+                </small>
+              </div>
+              <StatusBadge
+                :tone="
+                  nodeLog.state === 'available'
+                    ? 'success'
+                    : nodeLog.state === 'unavailable'
+                      ? 'warning'
+                      : 'neutral'
+                "
+              >
+                {{
+                  nodeLog.state === 'available'
+                    ? 'Disponível'
+                    : nodeLog.state === 'empty'
+                      ? 'Vazio'
+                      : nodeLog.state === 'unsupported'
+                        ? 'Não aplicável'
+                        : 'Indisponível'
+                }}
+              </StatusBadge>
+            </div>
+
+            <pre v-if="nodeLog.content" class="stack-log-content">{{
+              nodeLog.content
+            }}</pre>
+            <p v-else-if="nodeLog.diagnostic" class="stack-log-diagnostic">
+              {{ nodeLog.diagnostic }}
+            </p>
+
+            <small
+              v-if="
+                nodeLog.state === 'available' &&
+                (nodeLog.truncated || nodeLog.masked)
+              "
+              class="stack-log-meta"
+            >
+              <template v-if="nodeLog.truncated">Saída limitada.</template>
+              <template v-if="nodeLog.masked">
+                Conteúdo sensível mascarado{{
+                  nodeLog.redactionCount
+                    ? ` (${nodeLog.redactionCount} ocorrência(s))`
+                    : ''
+                }}.
+              </template>
+            </small>
+          </article>
+        </section>
 
         <section
           v-if="discoveryFor(stack.id)?.suggestions.length"
@@ -705,6 +833,78 @@ onMounted(() => {
   font-size: var(--font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+
+.stack-logs {
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.stack-logs-header,
+.stack-log-node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stack-logs-header > div,
+.stack-log-node-header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.stack-logs-header small,
+.stack-log-node-header small,
+.stack-log-meta {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.stack-logs-header > span {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.stack-log-node {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.stack-log-content {
+  max-height: 240px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.stack-log-diagnostic {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.stack-log-meta {
+  display: flex;
+  gap: 6px;
 }
 
 .stack-suggestions {
