@@ -118,6 +118,25 @@ Instance e processo usam o detalhe neutro do projeto: a definição da Stack nã
 o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
 infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
 
+## Logs agregados
+
+`GET /api/stacks/:stackId/logs` oferece uma leitura bounded dos logs dos nodes sem
+transferir ownership para o domínio Stack.
+
+Nodes `compose-service` reutilizam `DockerComposeLifecycleService.logs` para o
+serviço explicitamente associado, preservando ownership, masking e truncation do
+domínio Compose. Nodes `process` revalidam `processId + projectId +
+environmentInstanceId` contra o Process Manager e usam o reader correspondente ao
+tipo reconciliado do processo. Logs de `script` continuam pertencendo a Script
+Execution e não são agregados por Stacks.
+
+Environment Instance e health check não possuem stream próprio e aparecem como
+`unsupported`. Falha de leitura ou drift de ownership afeta somente o node
+correspondente como `unavailable`; o snapshot dos demais nodes continua útil.
+
+A UI carrega esse snapshot sob demanda e permite atualização manual. Não existe novo
+streaming, persistência duplicada ou executor de comandos nesse fluxo.
+
 ## Discovery confirmado de dependências
 
 `GET /api/stacks/:stackId/dependency-suggestions` é somente leitura. O primeiro
