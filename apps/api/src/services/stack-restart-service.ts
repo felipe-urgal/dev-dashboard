@@ -5,6 +5,10 @@ import type { ProjectStore } from '../store/project-store.js';
 import type { StackCheckService } from './stack-check-service.js';
 import type { DockerComposeLifecycleService } from './docker-compose-lifecycle-service.js';
 import { resolveStackComposeProject } from './stack-compose-project-resolver.js';
+import {
+  recordStackActivity,
+  type StackActivityWriter,
+} from './stack-activity.js';
 
 export class StackRestartService {
   public constructor(
@@ -19,6 +23,7 @@ export class StackRestartService {
         DockerComposeLifecycleService,
         'restart'
       >;
+      activityEvents?: StackActivityWriter;
     },
   ) {}
 
@@ -48,21 +53,37 @@ export class StackRestartService {
       );
 
     if (blockedDependency) {
+      const diagnostic = `Dependency ${blockedDependency} is not ready.`;
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'restart',
+        status: 'warning',
+        diagnostic,
+      });
       return {
         stackId,
         nodeId,
         state: 'blocked',
-        diagnostic: `Dependency ${blockedDependency} is not ready.`,
+        diagnostic,
         check,
       };
     }
 
     if (node.target.kind !== 'compose-service') {
+      const diagnostic = `Stack restart has no safe adapter for ${node.target.kind} nodes.`;
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'restart',
+        status: 'warning',
+        diagnostic,
+      });
       return {
         stackId,
         nodeId,
         state: 'blocked',
-        diagnostic: `Stack restart has no safe adapter for ${node.target.kind} nodes.`,
+        diagnostic,
         check,
       };
     }
@@ -72,6 +93,13 @@ export class StackRestartService {
       node.target,
     );
     if (resolution.state !== 'resolved') {
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'restart',
+        status: 'warning',
+        diagnostic: resolution.diagnostic,
+      });
       return {
         stackId,
         nodeId,
@@ -80,6 +108,13 @@ export class StackRestartService {
         check,
       };
     }
+
+    await recordStackActivity(this.dependencies.activityEvents, {
+      stack: check.stack,
+      node,
+      action: 'restart',
+      status: 'started',
+    });
 
     try {
       const result =
@@ -90,17 +125,31 @@ export class StackRestartService {
       check = await this.dependencies.stackCheckService.check(stackId);
 
       if (result.state !== 'restarted') {
+        const diagnostic =
+          result.diagnostic ??
+          'Compose restart completed without proving the target is active.';
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'restart',
+          status: 'warning',
+          diagnostic,
+        });
         return {
           stackId,
           nodeId,
           state: 'blocked',
-          diagnostic:
-            result.diagnostic ??
-            'Compose restart completed without proving the target is active.',
+          diagnostic,
           check,
         };
       }
 
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'restart',
+        status: 'succeeded',
+      });
       return {
         stackId,
         nodeId,
@@ -109,12 +158,20 @@ export class StackRestartService {
       };
     } catch {
       check = await this.dependencies.stackCheckService.check(stackId);
+      const diagnostic =
+        'Compose lifecycle failed while restarting this Stack node.';
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'restart',
+        status: 'failed',
+        diagnostic,
+      });
       return {
         stackId,
         nodeId,
         state: 'failed',
-        diagnostic:
-          'Compose lifecycle failed while restarting this Stack node.',
+        diagnostic,
         check,
       };
     }
