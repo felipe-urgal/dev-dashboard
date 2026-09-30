@@ -59,9 +59,7 @@ function checkFor(stackId: string): StackCheck | undefined {
   return checks.value.get(stackId);
 }
 
-function discoveryFor(
-  stackId: string,
-): StackDependencyDiscovery | undefined {
+function discoveryFor(stackId: string): StackDependencyDiscovery | undefined {
   return discoveries.value.get(stackId);
 }
 
@@ -170,13 +168,9 @@ async function load(): Promise<void> {
     stacks.value = definitions;
 
     const [checkResults, discoveryResults] = await Promise.all([
+      Promise.allSettled(definitions.map((stack) => fetchStackCheck(stack.id))),
       Promise.allSettled(
-        definitions.map((stack) => fetchStackCheck(stack.id)),
-      ),
-      Promise.allSettled(
-        definitions.map((stack) =>
-          fetchStackDependencySuggestions(stack.id),
-        ),
+        definitions.map((stack) => fetchStackDependencySuggestions(stack.id)),
       ),
     ]);
     const nextChecks = new Map<string, StackCheck>();
@@ -189,10 +183,7 @@ async function load(): Promise<void> {
 
       const discoveryResult = discoveryResults[index];
       if (discoveryResult?.status === 'fulfilled') {
-        nextDiscoveries.set(
-          definitions[index]!.id,
-          discoveryResult.value,
-        );
+        nextDiscoveries.set(definitions[index]!.id, discoveryResult.value);
       }
     }
     checks.value = nextChecks;
@@ -411,7 +402,8 @@ onMounted(() => {
             <div>
               <strong>Sugestões de dependência</strong>
               <small>
-                Detectadas por evidência explícita. Nada é salvo automaticamente.
+                Detectadas por evidência explícita. Nada é salvo
+                automaticamente.
               </small>
             </div>
             <span>{{ discoveryFor(stack.id)?.suggestions.length }}</span>
