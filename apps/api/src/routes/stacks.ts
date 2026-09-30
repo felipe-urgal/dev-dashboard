@@ -17,6 +17,10 @@ import {
   type StackCheckService,
 } from '../services/stack-check-service.js';
 import type { StackRestartService } from '../services/stack-restart-service.js';
+import {
+  StackLogsServiceError,
+  type StackLogsService,
+} from '../services/stack-logs-service.js';
 import type { StackStartService } from '../services/stack-start-service.js';
 import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
@@ -31,6 +35,7 @@ interface Options extends FastifyPluginOptions {
     'discover'
   >;
   stackCheckService: Pick<StackCheckService, 'check'>;
+  stackLogsService: Pick<StackLogsService, 'read'>;
   stackRestartService: Pick<StackRestartService, 'restart'>;
   stackStartService: Pick<StackStartService, 'start'>;
   stackStopService: Pick<StackStopService, 'stop'>;
@@ -234,6 +239,41 @@ const stackCheckSchema = {
   },
 } as const;
 
+
+const stackNodeLogSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['nodeId', 'state', 'source', 'readAt'],
+  properties: {
+    nodeId: { type: 'string' },
+    state: {
+      type: 'string',
+      enum: ['available', 'empty', 'unsupported', 'unavailable'],
+    },
+    source: {
+      type: 'string',
+      enum: ['compose', 'process', 'none'],
+    },
+    content: { type: 'string' },
+    truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
+    readAt: { type: 'string' },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
+const stackLogsSnapshotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['stackId', 'readAt', 'nodes'],
+  properties: {
+    stackId: { type: 'string' },
+    readAt: { type: 'string' },
+    nodes: { type: 'array', items: stackNodeLogSchema },
+  },
+} as const;
+
 const stackStartStepSchema = {
   type: 'object',
   additionalProperties: false,
@@ -309,6 +349,14 @@ const stackRestartResultSchema = {
 } as const;
 
 function mapStackError(error: unknown): unknown {
+  if (error instanceof StackLogsServiceError) {
+    return new ApiError({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+      message: error.message,
+    });
+  }
+
   if (error instanceof StackDependencyDiscoveryServiceError) {
     return new ApiError({
       statusCode: 404,
@@ -450,6 +498,34 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       try {
         return {
           check: await options.stackCheckService.check(request.params.stackId),
+        };
+      } catch (error) {
+        throw mapStackError(error);
+      }
+    },
+  );
+
+
+  app.get<{ Params: StackParams }>(
+    '/stacks/:stackId/logs',
+    {
+      schema: {
+        params: stackParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['logs'],
+            properties: { logs: stackLogsSnapshotSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          logs: await options.stackLogsService.read(request.params.stackId),
         };
       } catch (error) {
         throw mapStackError(error);
