@@ -348,7 +348,6 @@ test('Stack HTTP bloqueia restart de node sem adapter mutável seguro', async (c
   assert.match(result.diagnostic ?? '', /process/);
 });
 
-
 test('Stack HTTP sugere depends_on Compose sem persistir antes da confirmação explícita', async (context) => {
   const appContext = createAppContext();
   registerApiProject(appContext);
@@ -431,8 +430,8 @@ test('Stack HTTP sugere depends_on Compose sem persistir antes da confirmação 
     headers,
   });
   assert.equal(discovered.statusCode, 200);
-  const discovery =
-    discovered.json<{ discovery: StackDependencyDiscovery }>().discovery;
+  const discovery = discovered.json<{ discovery: StackDependencyDiscovery }>()
+    .discovery;
   assert.deepEqual(discovery.suggestions, [
     {
       dependency: {
@@ -455,10 +454,7 @@ test('Stack HTTP sugere depends_on Compose sem persistir antes da confirmação 
     url: '/api/stacks/compose-stack',
     headers,
   });
-  assert.deepEqual(
-    unchanged.json<{ stack: Stack }>().stack.dependencies,
-    [],
-  );
+  assert.deepEqual(unchanged.json<{ stack: Stack }>().stack.dependencies, []);
 
   const confirmedStack: Stack = {
     ...composeStack,
@@ -573,8 +569,8 @@ test('Stack discovery não sugere relação Compose que criaria ciclo', async (c
     headers,
   });
   assert.equal(discovered.statusCode, 200);
-  const discovery =
-    discovered.json<{ discovery: StackDependencyDiscovery }>().discovery;
+  const discovery = discovered.json<{ discovery: StackDependencyDiscovery }>()
+    .discovery;
   assert.deepEqual(discovery.suggestions, []);
   assert.equal(
     discovery.diagnostics.some((item) =>

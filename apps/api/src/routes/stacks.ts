@@ -420,10 +420,9 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     async (request) => {
       try {
         return {
-          discovery:
-            await options.stackDependencyDiscoveryService.discover(
-              request.params.stackId,
-            ),
+          discovery: await options.stackDependencyDiscoveryService.discover(
+            request.params.stackId,
+          ),
         };
       } catch (error) {
         throw mapStackError(error);

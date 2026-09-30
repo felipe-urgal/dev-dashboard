@@ -175,14 +175,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     agentRuntimeRealtimeService,
   } = composition;
   registerAppLifecycle(app, context, composition);
-  const stackDependencyDiscoveryService =
-    new StackDependencyDiscoveryService({
-      stackDefinitionService,
-      projectStore: context.projectStore,
-      developmentEnvironmentInstanceStore:
-        context.developmentEnvironmentInstanceStore,
-      dockerComposeProvider,
-    });
+  const stackDependencyDiscoveryService = new StackDependencyDiscoveryService({
+    stackDefinitionService,
+    projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
+    dockerComposeProvider,
+  });
   const stackComposeHealthAdapter = new StackComposeHealthAdapter({
     projectStore: context.projectStore,
     developmentEnvironmentInstanceStore:

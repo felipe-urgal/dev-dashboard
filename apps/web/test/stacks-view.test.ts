@@ -77,7 +77,9 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Sugestões de dependência');
     expect(viewSource).toContain('Nada é salvo automaticamente');
     expect(viewSource).toContain('suggestion.evidence.service');
-    expect(viewSource).toContain('@click="acceptSuggestion(stack, suggestion)"');
+    expect(viewSource).toContain(
+      '@click="acceptSuggestion(stack, suggestion)"',
+    );
     expect(viewSource).not.toContain('Criar Stack');
     expect(viewSource).not.toContain('Editar Stack');
     expect(viewSource).not.toContain('Excluir Stack');
