@@ -15,7 +15,7 @@ Dependencies are directional: `nodeId` depends on `dependsOnNodeId`.
 
 The topology service validates the definition and creates a deterministic start order. Stop order is the exact reverse. Unknown nodes, self-dependencies, duplicate edges and cycles fail closed.
 
-This first slice does not infer dependencies from Compose/Profile evidence and does not persist suggestions automatically.
+Dependency discovery is separate from topology persistence. It can surface explicit relations from existing domain evidence, but it never persists a relation automatically.
 
 ## Health
 
@@ -118,6 +118,32 @@ Instance e processo usam o detalhe neutro do projeto: a definição da Stack nã
 o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
 infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
 
+## Discovery confirmado de dependências
+
+`GET /api/stacks/:stackId/dependency-suggestions` é somente leitura. O primeiro
+provider reutiliza a configuração estruturada já resolvida pelo Docker Compose e
+transforma apenas relações explícitas de `depends_on` em sugestões.
+
+Uma sugestão só é emitida quando o serviço origem e o serviço dependência
+correspondem inequivocamente a nodes `compose-service` da mesma combinação de
+Project + Environment Instance. Relações já persistidas são omitidas. Relações
+ambíguas, serviços ausentes e sugestões que tornariam a topologia inválida/cíclica
+são descartadas e permanecem como diagnóstico, nunca como autoridade.
+
+A evidência da sugestão preserva fonte `compose`, Project, Environment Instance,
+serviços envolvidos e `observedAt`. Configuração Compose continua útil para
+discovery mesmo quando o runtime dos containers está indisponível, porque
+`depends_on` pertence à configuração declarada.
+
+O Project Profile atual descreve capacidades, não relações entre recursos. Por isso
+ele não é usado para inventar dependências. Novas fontes só devem entrar quando
+expuserem uma relação estruturada equivalente.
+
+Na UI, a sugestão é apresentada com sua evidência e a ação explícita **Adicionar**.
+Somente essa ação envia a definição atualizada ao CRUD existente de Stacks. O
+`StackDefinitionService` e o `StackTopologyService` continuam revalidando a
+definição antes da persistência; consultar discovery nunca altera a Stack.
+
 ## Timeline operacional
 
 Start, Stop e Restart registram eventos no domínio `stack` da infraestrutura de
@@ -131,9 +157,10 @@ Atividade expõe esses eventos e oferece navegação de volta para Stacks.
 
 ## Estado do MVP backend
 
-O backend já cobre definição persistida, topologia, Check, Start, Stop e Restart seguro
-nos domínios suportados. A UI básica, a navegação segura para detalhes e a timeline
-operacional via Activity já estão disponíveis. Permanece pendente o discovery
-confirmado de relações.
+O MVP de Stacks cobre definição persistida, topologia, Check, Start, Stop e Restart
+seguro nos domínios suportados, UI básica, navegação para domínios responsáveis,
+timeline operacional e discovery confirmado de relações Compose.
 
-Adapters mutáveis adicionais também permanecem pendentes Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.
+Adapters mutáveis adicionais são extensões futuras, não requisito para o fechamento
+do MVP. Cada operação futura deve continuar delegando ao domínio proprietário e
+preservar ownership, revalidação e limites de segurança.
