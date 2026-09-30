@@ -49,6 +49,7 @@ const domainValues = [
   'deployment',
   'ci',
   'security',
+  'stack',
   'agent',
 ] as const;
 

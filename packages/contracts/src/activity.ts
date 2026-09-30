@@ -8,6 +8,7 @@ export type ActivityDomain =
   | 'deployment'
   | 'ci'
   | 'security'
+  | 'stack'
   | 'agent';
 
 export type ActivityEventStatus =

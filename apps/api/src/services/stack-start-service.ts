@@ -9,6 +9,10 @@ import type { ProjectStore } from '../store/project-store.js';
 import type { StackCheckService } from './stack-check-service.js';
 import type { DockerComposeLifecycleService } from './docker-compose-lifecycle-service.js';
 import { resolveStackComposeProject } from './stack-compose-project-resolver.js';
+import {
+  recordStackActivity,
+  type StackActivityWriter,
+} from './stack-activity.js';
 
 export class StackStartService {
   public constructor(
@@ -23,6 +27,7 @@ export class StackStartService {
         DockerComposeLifecycleService,
         'start'
       >;
+      activityEvents?: StackActivityWriter;
     },
   ) {}
 
@@ -42,12 +47,20 @@ export class StackStartService {
       }
 
       if (node.target.kind !== 'compose-service') {
+        const diagnostic =
+          health.diagnostic ??
+          `Stack start cannot safely mutate ${node.target.kind} nodes; the owning domain must make this node ready first.`;
         steps.push({
           nodeId,
           state: 'blocked',
-          diagnostic:
-            health.diagnostic ??
-            `Stack start cannot safely mutate ${node.target.kind} nodes; the owning domain must make this node ready first.`,
+          diagnostic,
+        });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'start',
+          status: 'warning',
+          diagnostic,
         });
         return {
           stackId,
@@ -67,6 +80,13 @@ export class StackStartService {
           state: 'blocked',
           diagnostic: resolution.diagnostic,
         });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'start',
+          status: 'warning',
+          diagnostic: resolution.diagnostic,
+        });
         return {
           stackId,
           state: 'blocked',
@@ -74,6 +94,13 @@ export class StackStartService {
           check,
         };
       }
+
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'start',
+        status: 'started',
+      });
 
       try {
         await this.dependencies.dockerComposeLifecycleService.start(
@@ -83,11 +110,19 @@ export class StackStartService {
         );
       } catch {
         check = await this.dependencies.stackCheckService.check(stackId);
+        const diagnostic =
+          'Compose lifecycle failed while starting this Stack node.';
         steps.push({
           nodeId,
           state: 'failed',
-          diagnostic:
-            'Compose lifecycle failed while starting this Stack node.',
+          diagnostic,
+        });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'start',
+          status: 'failed',
+          diagnostic,
         });
         return {
           stackId,
@@ -100,12 +135,20 @@ export class StackStartService {
       check = await this.dependencies.stackCheckService.check(stackId);
       const after = this.nodeHealth(check, nodeId);
       if (after.state !== 'ready') {
+        const diagnostic =
+          after.diagnostic ??
+          `Stack node is ${after.state}; readiness was not proven after start.`;
         steps.push({
           nodeId,
           state: 'blocked',
-          diagnostic:
-            after.diagnostic ??
-            `Stack node is ${after.state}; readiness was not proven after start.`,
+          diagnostic,
+        });
+        await recordStackActivity(this.dependencies.activityEvents, {
+          stack: check.stack,
+          node,
+          action: 'start',
+          status: 'warning',
+          diagnostic,
         });
         return {
           stackId,
@@ -116,6 +159,12 @@ export class StackStartService {
       }
 
       steps.push({ nodeId, state: 'started' });
+      await recordStackActivity(this.dependencies.activityEvents, {
+        stack: check.stack,
+        node,
+        action: 'start',
+        status: 'succeeded',
+      });
     }
 
     return {

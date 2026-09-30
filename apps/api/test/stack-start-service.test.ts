@@ -85,6 +85,7 @@ function check(
 function createService(
   checks: StackCheck[],
   start: (...args: unknown[]) => Promise<unknown>,
+  activityEvents?: { append(input: unknown): Promise<unknown> },
 ): StackStartService {
   const queue = [...checks];
   return new StackStartService({
@@ -109,6 +110,7 @@ function createService(
     dockerComposeLifecycleService: {
       start: start as never,
     },
+    ...(activityEvents ? { activityEvents: activityEvents as never } : {}),
   });
 }
 
@@ -192,4 +194,31 @@ test('records Compose mutation failure on the owning node', async () => {
     ['postgres'],
   );
   assert.equal(result.steps[0]?.state, 'failed');
+});
+
+test('records Stack start activity without coupling lifecycle to observability', async () => {
+  const events: unknown[] = [];
+  const service = createService(
+    [check('stopped'), check('ready')],
+    async () => ({ state: 'started' }),
+    {
+      append: async (input) => {
+        events.push(input);
+        return input;
+      },
+    },
+  );
+
+  await service.start('local-stack');
+
+  assert.deepEqual(
+    events.map((event) => {
+      const value = event as { domain: string; type: string; status: string };
+      return [value.domain, value.type, value.status];
+    }),
+    [
+      ['stack', 'stack.start', 'started'],
+      ['stack', 'stack.start', 'succeeded'],
+    ],
+  );
 });

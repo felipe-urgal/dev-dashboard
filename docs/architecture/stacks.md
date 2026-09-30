@@ -118,11 +118,22 @@ Instance e processo usam o detalhe neutro do projeto: a definição da Stack nã
 o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
 infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
 
+## Timeline operacional
+
+Start, Stop e Restart registram eventos no domínio `stack` da infraestrutura de
+Activity existente. O registro é por node, usando o `projectId` real do recurso,
+`environmentInstanceId` quando disponível e `resourceRef.kind=stack-node`.
+
+A timeline registra início, sucesso, falha e bloqueio como
+`started | succeeded | failed | warning`. Falha ao persistir observabilidade é
+best-effort e nunca altera o resultado do lifecycle principal. A página global de
+Atividade expõe esses eventos e oferece navegação de volta para Stacks.
+
 ## Estado do MVP backend
 
 O backend já cobre definição persistida, topologia, Check, Start, Stop e Restart seguro
-nos domínios suportados. A UI básica de Stacks e a navegação segura para detalhes já
-estão disponíveis. Permanecem pendentes timeline operacional e discovery confirmado
-de relações.
+nos domínios suportados. A UI básica, a navegação segura para detalhes e a timeline
+operacional via Activity já estão disponíveis. Permanece pendente o discovery
+confirmado de relações.
 
 Adapters mutáveis adicionais também permanecem pendentes Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.

@@ -74,6 +74,7 @@ const ACTIVITY_DOMAINS = new Set<ActivityDomain>([
   'deployment',
   'ci',
   'security',
+  'stack',
   'agent',
 ]);
 
