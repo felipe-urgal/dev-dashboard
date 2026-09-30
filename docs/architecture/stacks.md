@@ -106,10 +106,23 @@ Nodes `process`, `environment` e `health-check` retornam `blocked` porque hoje n
 
 O resultado informa `restarted`, `blocked` ou `failed` e inclui um novo `StackCheck`. O check pode mostrar `starting` logo após o restart; isso não é promovido artificialmente para `ready`.
 
+## Superfície Web
+
+A página global de Stacks reutiliza os contratos de Check/Start/Stop/Restart existentes
+para mostrar topologia, estado e lifecycle sem criar executor paralelo.
+
+Cada node oferece navegação para o domínio proprietário quando o contrato permite um
+destino inequívoco. Serviços Compose abrem Compose e health checks conhecidos abrem
+Servidor, preservando `environmentInstanceId` quando disponível. Nodes de Environment
+Instance e processo usam o detalhe neutro do projeto: a definição da Stack não carrega
+o runtime da Environment Instance nem o `ManagedProcess.kind`, portanto a UI não
+infere Sidekiq/Webpack/Testes/Servidor a partir de ids ou nomes.
+
 ## Estado do MVP backend
 
 O backend já cobre definição persistida, topologia, Check, Start, Stop e Restart seguro
-nos domínios suportados. Permanecem pendentes timeline operacional, navegação para
-logs/detalhes, discovery confirmado de relações e a superfície de UI de Stacks.
+nos domínios suportados. A UI básica de Stacks e a navegação segura para detalhes já
+estão disponíveis. Permanecem pendentes timeline operacional e discovery confirmado
+de relações.
 
 Adapters mutáveis adicionais também permanecem pendentes Cada operação futura deve continuar delegando ao domínio proprietário e preservar ownership, revalidação e limites de segurança.

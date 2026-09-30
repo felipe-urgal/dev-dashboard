@@ -8,12 +8,14 @@ import type {
 } from '@dev-dashboard/contracts';
 import {
   ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
   ArrowUturnRightIcon,
   CircleStackIcon,
   PauseIcon,
   PlayIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 
 import {
   fetchStackCheck,
@@ -101,6 +103,31 @@ function dependenciesFor(stack: Stack, nodeId: string): string[] {
 
 function canRestart(node: StackNode): boolean {
   return node.target.kind === 'compose-service';
+}
+
+function nodeDestination(node: StackNode) {
+  const params = { projectId: node.target.projectId };
+  const environmentInstanceId =
+    'environmentInstanceId' in node.target
+      ? node.target.environmentInstanceId
+      : undefined;
+  const query = environmentInstanceId ? { environmentInstanceId } : undefined;
+
+  if (node.target.kind === 'compose-service') {
+    return { name: 'project-compose', params, ...(query ? { query } : {}) };
+  }
+
+  if (node.target.kind === 'health-check') {
+    return { name: 'project-server', params, ...(query ? { query } : {}) };
+  }
+
+  return { name: 'project-details', params, ...(query ? { query } : {}) };
+}
+
+function nodeDestinationLabel(node: StackNode): string {
+  if (node.target.kind === 'compose-service') return 'Abrir Compose';
+  if (node.target.kind === 'health-check') return 'Abrir servidor';
+  return 'Abrir projeto';
 }
 
 function setCheck(check: StackCheck): void {
@@ -322,24 +349,31 @@ onMounted(() => {
               </small>
             </div>
 
-            <button
-              v-if="canRestart(node)"
-              class="stack-node-action"
-              type="button"
-              :disabled="Boolean(action)"
-              @click="
-                mutate(`restart-${stack.id}-${node.id}`, () =>
-                  restartStackNode(stack.id, node.id),
-                )
-              "
-            >
-              <ArrowUturnRightIcon aria-hidden="true" />
-              {{
-                action === `restart-${stack.id}-${node.id}`
-                  ? 'Reiniciando…'
-                  : 'Reiniciar'
-              }}
-            </button>
+            <div class="stack-node-actions">
+              <RouterLink class="stack-node-action" :to="nodeDestination(node)">
+                <ArrowTopRightOnSquareIcon aria-hidden="true" />
+                {{ nodeDestinationLabel(node) }}
+              </RouterLink>
+
+              <button
+                v-if="canRestart(node)"
+                class="stack-node-action"
+                type="button"
+                :disabled="Boolean(action)"
+                @click="
+                  mutate(`restart-${stack.id}-${node.id}`, () =>
+                    restartStackNode(stack.id, node.id),
+                  )
+                "
+              >
+                <ArrowUturnRightIcon aria-hidden="true" />
+                {{
+                  action === `restart-${stack.id}-${node.id}`
+                    ? 'Reiniciando…'
+                    : 'Reiniciar'
+                }}
+              </button>
+            </div>
           </article>
         </div>
       </article>
@@ -583,8 +617,16 @@ onMounted(() => {
   color: var(--warning-text) !important;
 }
 
+.stack-node-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
 .stack-node-action {
   min-width: 92px;
+  text-decoration: none;
 }
 
 .is-spinning {
@@ -615,6 +657,11 @@ onMounted(() => {
 
   .stack-node {
     grid-template-columns: 1fr;
+  }
+
+  .stack-node-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .stack-node-action {
