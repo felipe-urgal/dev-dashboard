@@ -4,9 +4,15 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const webRoot = process.cwd();
-const routerSource = readFileSync(resolve(webRoot, 'src/router/index.ts'), 'utf8');
+const routerSource = readFileSync(
+  resolve(webRoot, 'src/router/index.ts'),
+  'utf8',
+);
 const appSource = readFileSync(resolve(webRoot, 'src/App.vue'), 'utf8');
-const viewSource = readFileSync(resolve(webRoot, 'src/views/StacksView.vue'), 'utf8');
+const viewSource = readFileSync(
+  resolve(webRoot, 'src/views/StacksView.vue'),
+  'utf8',
+);
 const apiSource = readFileSync(resolve(webRoot, 'src/api/stacks.ts'), 'utf8');
 const paletteSource = readFileSync(
   resolve(webRoot, 'src/command-palette-navigation.ts'),
