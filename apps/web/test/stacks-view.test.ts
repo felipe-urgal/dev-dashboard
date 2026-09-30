@@ -36,6 +36,8 @@ describe('Stacks multi-projeto', () => {
   it('usa somente a API estruturada de Stacks', () => {
     expect(apiSource).toContain("'/api/stacks'");
     expect(apiSource).toContain("'/check'");
+    expect(apiSource).toContain("'/dependency-suggestions'");
+    expect(apiSource).toContain("method: 'PUT'");
     expect(apiSource).toContain("'/start'");
     expect(apiSource).toContain("'/stop'");
     expect(apiSource).toContain('/restart');
@@ -72,6 +74,10 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Parar');
     expect(viewSource).toContain('Reiniciar');
     expect(viewSource).toContain('canRestart(node)');
+    expect(viewSource).toContain('Sugestões de dependência');
+    expect(viewSource).toContain('Nada é salvo automaticamente');
+    expect(viewSource).toContain('suggestion.evidence.service');
+    expect(viewSource).toContain('@click="acceptSuggestion(stack, suggestion)"');
     expect(viewSource).not.toContain('Criar Stack');
     expect(viewSource).not.toContain('Editar Stack');
     expect(viewSource).not.toContain('Excluir Stack');
