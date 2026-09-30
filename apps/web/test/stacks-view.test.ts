@@ -18,6 +18,10 @@ const paletteSource = readFileSync(
   resolve(webRoot, 'src/command-palette-navigation.ts'),
   'utf8',
 );
+const activityViewSource = readFileSync(
+  resolve(webRoot, 'src/views/ActivityView.vue'),
+  'utf8',
+);
 
 describe('Stacks multi-projeto', () => {
   it('expõe Stacks como página global', () => {
@@ -50,6 +54,13 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain('Abrir projeto');
     expect(viewSource).not.toContain('processId.includes');
     expect(viewSource).not.toContain('processId.startsWith');
+  });
+
+  it('integra eventos de Stack à Timeline global', () => {
+    expect(activityViewSource).toContain("event.domain === 'stack'");
+    expect(activityViewSource).toContain("event.resourceRef?.kind === 'stack-node'");
+    expect(activityViewSource).toContain("name: 'stacks'");
+    expect(activityViewSource).toContain('Abrir Stacks');
   });
 
   it('mostra topologia, estado e lifecycle suportado sem inventar mutações', () => {
