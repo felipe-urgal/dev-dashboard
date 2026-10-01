@@ -266,8 +266,7 @@ test('abre o commit em modal com os arquivos alterados', async () => {
 
   const detailRequest = requests.find(
     (request) =>
-      request.path.includes('/git/commits/') &&
-      !request.path.endsWith('/file'),
+      request.path.includes('/git/commits/') && !request.path.endsWith('/file'),
   );
   assert.equal(detailRequest?.query.get('includePatch'), 'false');
 });

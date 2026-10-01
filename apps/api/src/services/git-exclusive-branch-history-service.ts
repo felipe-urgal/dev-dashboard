@@ -167,7 +167,9 @@ function requiresInMemoryFiltering(
   return Boolean(options.search?.trim() || options.author?.trim());
 }
 
-function historyKindArgs(kind: ExclusiveBranchHistoryOptions['kind']): string[] {
+function historyKindArgs(
+  kind: ExclusiveBranchHistoryOptions['kind'],
+): string[] {
   if (kind === 'merge') return ['--merges'];
   if (kind === 'regular') return ['--no-merges'];
   return [];
