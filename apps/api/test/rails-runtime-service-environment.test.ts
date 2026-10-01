@@ -302,7 +302,16 @@ test('webpack respeita package manager declarado e lockfiles conhecidos', async 
   );
   context.after(() => rm(root, { recursive: true, force: true }));
 
-  const cases = [
+  const cases: Array<{
+    name: string;
+    packageManager?: string;
+    lockfile?: string;
+    expected: {
+      id: string;
+      command: string;
+      args: string[];
+    };
+  }> = [
     {
       name: 'packageManager declarado tem precedência',
       packageManager: 'yarn@4.6.0',
@@ -357,7 +366,7 @@ test('webpack respeita package manager declarado e lockfiles conhecidos', async 
         args: ['webpack-dev-server'],
       },
     },
-  ] as const;
+  ];
 
   for (const [index, fixture] of cases.entries()) {
     await context.test(fixture.name, async () => {
