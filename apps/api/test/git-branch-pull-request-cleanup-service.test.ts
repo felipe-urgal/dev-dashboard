@@ -36,7 +36,7 @@ test('fecha PRs abertos no origin e no upstream para a branch removida', async (
     'git@github.com:main-owner/repo.git',
   );
 
-  const calls: readonly string[][] = [];
+  const calls: Array<readonly string[]> = [];
   const service = new GitBranchPullRequestCleanupService(async (_cwd, args) => {
     calls.push(args);
     if (args[1] === 'list' && args.includes('fork-owner/repo')) {
