@@ -67,9 +67,13 @@ test.describe('Pull Request do projeto', () => {
       await execFileAsync('git', ['branch', '-D', 'feature/pr-e2e'], {
         cwd: repository,
       });
-      await execFileAsync('git', ['push', '-q', 'origin', '--delete', 'feature/pr-e2e'], {
-        cwd: repository,
-      });
+      await execFileAsync(
+        'git',
+        ['push', '-q', 'origin', '--delete', 'feature/pr-e2e'],
+        {
+          cwd: repository,
+        },
+      );
     }
   });
 });
