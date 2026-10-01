@@ -26,6 +26,7 @@ export function githubLookupFromPayload(
   const number = item?.number;
   const title = item?.title;
   const htmlUrl = item?.html_url;
+  const description = item?.body;
   if (
     typeof number !== 'number' ||
     typeof title !== 'string' ||
@@ -39,6 +40,7 @@ export function githubLookupFromPayload(
       provider: 'github',
       number,
       title,
+      ...(typeof description === 'string' ? { description } : {}),
       url: htmlUrl,
       sourceBranch: context.sourceBranch,
       baseBranch: context.baseBranch,

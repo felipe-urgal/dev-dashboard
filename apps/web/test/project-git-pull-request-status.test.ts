@@ -12,15 +12,18 @@ function pullRequest(
   return {
     provider: 'github',
     number: 604,
-    title: 'feat: adiciona diagnóstico do cockpit GitHub',
+    title: 'feat: cockpit GitHub',
     url: 'https://github.com/felipe-urgal/dev-dashboard/pull/604',
-    sourceBranch: 'feature/569-github-cockpit',
+    sourceBranch: 'feature/cockpit',
     baseBranch: 'main',
+    ciStatus: 'success',
+    commentsCount: 4,
+    unresolvedConversationsCount: 0,
     ...overrides,
   };
 }
 
-test('mostra estado remoto, review, mergeability e checks do cockpit existente', () => {
+test('mostra CI, review, mergeabilidade, conversas e checks', () => {
   const wrapper = mount(ProjectGitPullRequestStatus, {
     props: {
       branchPublished: true,
@@ -28,14 +31,16 @@ test('mostra estado remoto, review, mergeability e checks do cockpit existente',
       lookupUnavailable: false,
       targetRemote: 'origin',
       mutationBusy: false,
+      mergeBlockers: [],
       existingPullRequest: pullRequest({
         cockpit: {
           remoteStatus: 'available',
           headSha: '0e5a7151234567890abcdef',
           draft: false,
           mergeable: true,
-          reviewState: 'review-required',
-          requestedReviewers: ['reviewer-a'],
+          mergeableState: 'clean',
+          reviewState: 'approved',
+          requestedReviewers: [],
           checks: [
             {
               name: 'Validate',
@@ -43,7 +48,6 @@ test('mostra estado remoto, review, mergeability e checks do cockpit existente',
               detailsUrl:
                 'https://github.com/felipe-urgal/dev-dashboard/actions/runs/1',
             },
-            { name: 'Security', status: 'pending' },
           ],
         },
       }),
@@ -52,21 +56,14 @@ test('mostra estado remoto, review, mergeability e checks do cockpit existente',
 
   assert.match(wrapper.text(), /0e5a7151/);
   assert.match(wrapper.text(), /Pronta para review/);
-  assert.match(wrapper.text(), /Review pendente/);
+  assert.match(wrapper.text(), /Aprovada/);
+  assert.match(wrapper.text(), /CI\s*Passou/);
+  assert.match(wrapper.text(), /Comentários\s*4/);
+  assert.match(wrapper.text(), /Conversas pendentes\s*0/);
   assert.match(wrapper.text(), /Mergeável/);
-  assert.match(wrapper.text(), /reviewer-a/);
-
-  const checks = wrapper.findAll('.git-pr-cockpit-checks li');
-  assert.equal(checks.length, 2);
-  assert.match(checks[0]!.text(), /PassouValidate/);
-  assert.match(checks[1]!.text(), /PendenteSecurity/);
-
-  const checkLink = checks[0]!.find('a');
-  assert.equal(checkLink.attributes('target'), '_blank');
-  assert.equal(checkLink.attributes('rel'), 'noopener noreferrer');
 });
 
-test('degrada somente os detalhes remotos quando GitHub está indisponível', () => {
+test('mostra bloqueadores e desabilita merge', () => {
   const wrapper = mount(ProjectGitPullRequestStatus, {
     props: {
       branchPublished: true,
@@ -74,19 +71,44 @@ test('degrada somente os detalhes remotos quando GitHub está indisponível', ()
       lookupUnavailable: false,
       targetRemote: 'origin',
       mutationBusy: false,
+      mergeBlockers: ['Existem checks pendentes.'],
       existingPullRequest: pullRequest({
+        ciStatus: 'pending',
         cockpit: {
-          remoteStatus: 'rate-limited',
-          reviewState: 'unknown',
-          requestedReviewers: [],
-          checks: [],
+          remoteStatus: 'available',
+          draft: false,
+          mergeable: true,
+          reviewState: 'review-required',
+          requestedReviewers: ['reviewer-a'],
+          checks: [{ name: 'Validate', status: 'pending' }],
         },
       }),
     },
   });
 
-  assert.match(wrapper.text(), /limite de consultas/);
-  assert.match(wrapper.text(), /Git local continua disponível/);
-  assert.match(wrapper.text(), /Mesclar com gh/);
-  assert.match(wrapper.text(), /Fechar com gh/);
+  assert.match(wrapper.text(), /Existem checks pendentes/);
+  const merge = wrapper
+    .findAll('.git-pr-gh-actions button')
+    .find((button) => button.text().includes('Mesclar com gh'))!;
+  assert.equal((merge.element as HTMLButtonElement).disabled, true);
+});
+
+test('GitLab exibe apenas ação externa', () => {
+  const wrapper = mount(ProjectGitPullRequestStatus, {
+    props: {
+      branchPublished: true,
+      checkingExisting: false,
+      lookupUnavailable: false,
+      targetRemote: 'origin',
+      mutationBusy: false,
+      mergeBlockers: [],
+      existingPullRequest: pullRequest({
+        provider: 'gitlab',
+        url: 'https://gitlab.com/empresa/projeto/-/merge_requests/604',
+      }),
+    },
+  });
+
+  assert.match(wrapper.text(), /Abrir no GitLab/);
+  assert.equal(wrapper.findAll('.git-pr-gh-actions button').length, 0);
 });

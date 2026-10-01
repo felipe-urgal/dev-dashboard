@@ -273,6 +273,7 @@ export interface GitOpenPullRequest {
   provider: GitPullRequestProvider;
   number: number;
   title: string;
+  description?: string;
   url: string;
   sourceBranch: string;
   baseBranch: string;

@@ -138,10 +138,12 @@ function parseView(output: string): GhPullRequestView {
 function targetSignature(
   actionId: GitPullRequestMutationActionId,
   input: GitPullRequestMutationInput,
+  repository: string,
 ): string {
   switch (actionId) {
     case 'pull-request-create':
       return JSON.stringify({
+        repository,
         targetRemote: input.targetRemote ?? 'origin',
         baseBranch: input.baseBranch ?? null,
         title: input.title ?? null,
@@ -150,14 +152,22 @@ function targetSignature(
       });
     case 'pull-request-edit':
       return JSON.stringify({
+        repository,
+        targetRemote: input.targetRemote ?? 'origin',
         number: input.number ?? null,
         title: input.title ?? null,
         description: input.description ?? null,
       });
     case 'pull-request-close':
-      return JSON.stringify({ number: input.number ?? null });
+      return JSON.stringify({
+        repository,
+        targetRemote: input.targetRemote ?? 'origin',
+        number: input.number ?? null,
+      });
     case 'pull-request-merge':
       return JSON.stringify({
+        repository,
+        targetRemote: input.targetRemote ?? 'origin',
         number: input.number ?? null,
         mergeMethod: input.mergeMethod ?? null,
       });
@@ -215,17 +225,22 @@ export class GitPullRequestMutationService {
     }
   }
 
-  public prepareConfirmation(
+  public async prepareConfirmation(
+    projectPath: string,
     projectId: string,
     actionId: GitPullRequestMutationActionId,
     input: GitPullRequestMutationInput,
-  ): GitPullRequestMutationConfirmation {
+  ): Promise<GitPullRequestMutationConfirmation> {
     requireCatalogEntry(actionId);
     this.validateInput(actionId, input);
+    const repository = await this.requireGithubRepository(
+      projectPath,
+      input.targetRemote,
+    );
     const { token, expiresAt } = this.confirmations.prepare(
       projectId,
       actionId,
-      targetSignature(actionId, input),
+      targetSignature(actionId, input, repository),
     );
     return { token, actionId, expiresAt };
   }
@@ -239,18 +254,27 @@ export class GitPullRequestMutationService {
   ): Promise<GitPullRequestMutationResult> {
     requireCatalogEntry(actionId);
     this.validateInput(actionId, input);
-    this.consumeConfirmation(projectId, actionId, input, confirmationToken);
-    await this.requireGithubRemote(projectPath, input.targetRemote);
+    const repository = await this.requireGithubRepository(
+      projectPath,
+      input.targetRemote,
+    );
+    this.consumeConfirmation(
+      projectId,
+      actionId,
+      input,
+      repository,
+      confirmationToken,
+    );
 
     switch (actionId) {
       case 'pull-request-create':
-        return this.create(projectPath, input);
+        return this.create(projectPath, repository, input);
       case 'pull-request-edit':
-        return this.edit(projectPath, input);
+        return this.edit(projectPath, repository, input);
       case 'pull-request-close':
-        return this.close(projectPath, input);
+        return this.close(projectPath, repository, input);
       case 'pull-request-merge':
-        return this.merge(projectPath, input);
+        return this.merge(projectPath, repository, input);
       default:
         throw new GitPullRequestMutationError(
           'GIT_PULL_REQUEST_ACTION_NOT_FOUND',
@@ -310,13 +334,14 @@ export class GitPullRequestMutationService {
     projectId: string,
     actionId: GitPullRequestMutationActionId,
     input: GitPullRequestMutationInput,
+    repository: string,
     token: string | undefined,
   ): void {
     try {
       this.confirmations.consume(
         projectId,
         actionId,
-        targetSignature(actionId, input),
+        targetSignature(actionId, input, repository),
         token,
       );
     } catch (error) {
@@ -330,25 +355,27 @@ export class GitPullRequestMutationService {
     }
   }
 
-  private async requireGithubRemote(
+  private async requireGithubRepository(
     projectPath: string,
     targetRemote: GitPullRequestTargetRemote | undefined,
-  ): Promise<void> {
+  ): Promise<string> {
     await requireRepository(projectPath);
     const remote = targetRemote ?? 'origin';
     const url = await remoteUrl(projectPath, remote);
     const parsed = parseRemoteUrl(url);
     const provider = parsed ? detectProvider(parsed.host) : null;
-    if (provider !== 'github') {
+    if (provider !== 'github' || !parsed) {
       throw new GitPullRequestError(
         'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
         'Ações de Pull Request via `gh` só são suportadas para remotos do GitHub.',
       );
     }
+    return parsed.ownerRepo;
   }
 
   private async create(
     projectPath: string,
+    repository: string,
     input: GitPullRequestCreateInput,
   ): Promise<GitPullRequestMutationResult> {
     const targetRemote = input.targetRemote ?? 'origin';
@@ -370,6 +397,8 @@ export class GitPullRequestMutationService {
     const args = [
       'pr',
       'create',
+      '--repo',
+      repository,
       '--base',
       baseBranch,
       '--head',
@@ -392,7 +421,7 @@ export class GitPullRequestMutationService {
 
     const output = await this.runGh(projectPath, args);
     const number = this.parseCreatedNumber(output);
-    return this.view('pull-request-create', projectPath, number);
+    return this.view('pull-request-create', projectPath, repository, number);
   }
 
   private parseCreatedNumber(output: string): number {
@@ -410,27 +439,36 @@ export class GitPullRequestMutationService {
 
   private async edit(
     projectPath: string,
+    repository: string,
     input: GitPullRequestEditInput,
   ): Promise<GitPullRequestMutationResult> {
     const number = requirePositiveInteger(input.number, 'Número inválido.');
-    const args = ['pr', 'edit', String(number)];
+    const args = ['pr', 'edit', String(number), '--repo', repository];
     if (input.title !== undefined) args.push('--title', input.title);
     if (input.description !== undefined) args.push('--body', input.description);
     await this.runGh(projectPath, args);
-    return this.view('pull-request-edit', projectPath, number);
+    return this.view('pull-request-edit', projectPath, repository, number);
   }
 
   private async close(
     projectPath: string,
+    repository: string,
     input: GitPullRequestCloseInput,
   ): Promise<GitPullRequestMutationResult> {
     const number = requirePositiveInteger(input.number, 'Número inválido.');
-    await this.runGh(projectPath, ['pr', 'close', String(number)]);
-    return this.view('pull-request-close', projectPath, number);
+    await this.runGh(projectPath, [
+      'pr',
+      'close',
+      String(number),
+      '--repo',
+      repository,
+    ]);
+    return this.view('pull-request-close', projectPath, repository, number);
   }
 
   private async merge(
     projectPath: string,
+    repository: string,
     input: GitPullRequestMergeInput,
   ): Promise<GitPullRequestMutationResult> {
     const number = requirePositiveInteger(input.number, 'Número inválido.');
@@ -440,19 +478,29 @@ export class GitPullRequestMutationService {
         : input.mergeMethod === 'rebase'
           ? '--rebase'
           : '--merge';
-    await this.runGh(projectPath, ['pr', 'merge', String(number), methodFlag]);
-    return this.view('pull-request-merge', projectPath, number);
+    await this.runGh(projectPath, [
+      'pr',
+      'merge',
+      String(number),
+      '--repo',
+      repository,
+      methodFlag,
+    ]);
+    return this.view('pull-request-merge', projectPath, repository, number);
   }
 
   private async view(
     action: GitPullRequestMutationActionId,
     projectPath: string,
+    repository: string,
     number: number,
   ): Promise<GitPullRequestMutationResult> {
     const output = await this.runGh(projectPath, [
       'pr',
       'view',
       String(number),
+      '--repo',
+      repository,
       '--json',
       'number,url,title,state',
     ]);

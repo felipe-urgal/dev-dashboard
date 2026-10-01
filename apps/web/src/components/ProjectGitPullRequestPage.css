@@ -666,3 +666,23 @@
     width: 100%;
   }
 }
+
+.git-pr-draft {
+  display: inline-flex !important;
+  width: fit-content;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.git-pr-draft input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.git-pr-external-action {
+  border-color: var(--border) !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}

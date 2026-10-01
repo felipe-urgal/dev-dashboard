@@ -8,10 +8,12 @@ const props = defineProps<{
   showMerge: boolean;
   showClose: boolean;
   showCreate: boolean;
+  showEdit: boolean;
   existingPullRequest: GitOpenPullRequest | null;
   mergeCommandPreview: string;
   closeCommandPreview: string;
   createCommandPreview: string;
+  editCommandPreview: string;
   mergeMethod: GitPullRequestMergeMethod;
   mergeConfirmText: string;
   closeConfirmText: string;
@@ -19,6 +21,8 @@ const props = defineProps<{
   canConfirmMerge: boolean;
   canConfirmClose: boolean;
   canCreate: boolean;
+  canEdit: boolean;
+  mergeBlockers: readonly string[];
 }>();
 
 const emit = defineEmits<{
@@ -28,9 +32,11 @@ const emit = defineEmits<{
   'cancel-merge': [];
   'cancel-close': [];
   'cancel-create': [];
+  'cancel-edit': [];
   merge: [];
   close: [];
   create: [];
+  edit: [];
 }>();
 
 function onMergeMethodChange(event: Event) {
@@ -55,10 +61,14 @@ function onCloseTextInput(event: Event) {
     class="git-pr-confirm"
   >
     <p>
-      Isto executará <code>{{ props.mergeCommandPreview }}</code> — mescla a PR
-      #{{ props.existingPullRequest.number }} na branch base. Ação irreversível
-      pelo dashboard.
+      Isto executará <code>{{ props.mergeCommandPreview }}</code
+      >. O repositório alvo está fixado explicitamente no comando.
     </p>
+    <ul v-if="props.mergeBlockers.length > 0" class="git-pr-confirm-blockers">
+      <li v-for="blocker in props.mergeBlockers" :key="blocker">
+        {{ blocker }}
+      </li>
+    </ul>
     <label>
       <span>Estratégia de merge</span>
       <select
@@ -131,8 +141,8 @@ function onCloseTextInput(event: Event) {
 
   <div v-if="props.showCreate" class="git-pr-confirm">
     <p>
-      Isto executará <code>{{ props.createCommandPreview }}</code> — cria a Pull
-      Request diretamente no GitHub, sem abrir o navegador.
+      Isto executará <code>{{ props.createCommandPreview }}</code> e cria a Pull
+      Request diretamente no repositório GitHub selecionado.
     </p>
     <div class="git-pr-confirm-actions">
       <button type="button" @click="emit('cancel-create')">Cancelar</button>
@@ -145,4 +155,28 @@ function onCloseTextInput(event: Event) {
       </button>
     </div>
   </div>
+
+  <div
+    v-if="props.showEdit && props.existingPullRequest"
+    class="git-pr-confirm"
+  >
+    <p>
+      Isto executará <code>{{ props.editCommandPreview }}</code> para atualizar
+      o título e a descrição da PR #{{ props.existingPullRequest.number }}.
+    </p>
+    <div class="git-pr-confirm-actions">
+      <button type="button" @click="emit('cancel-edit')">Cancelar</button>
+      <button type="button" :disabled="!props.canEdit" @click="emit('edit')">
+        {{ props.mutationBusy ? 'Salvando…' : 'Confirmar edição' }}
+      </button>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.git-pr-confirm-blockers {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--warning-text);
+}
+</style>

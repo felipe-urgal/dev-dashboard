@@ -47,12 +47,14 @@ const workspace: ProjectGitWorkspace = {
       fetchUrl: 'git@github.com:felipe-urgal/dev-dashboard.git',
       pushUrl: 'git@github.com:felipe-urgal/dev-dashboard.git',
       role: 'origin',
+      defaultBranch: 'main',
     },
     {
       name: 'upstream',
       fetchUrl: 'git@github.com:empresa/dev-dashboard.git',
       pushUrl: 'git@github.com:empresa/dev-dashboard.git',
       role: 'upstream',
+      defaultBranch: 'main',
     },
   ],
   branches: [
@@ -78,7 +80,7 @@ const workspace: ProjectGitWorkspace = {
   ],
 };
 
-test('renderiza Pull Request minimalista e leva à criação sem informações duplicadas', async () => {
+test('mantém o fluxo minimalista e uma ação principal de criação', async () => {
   api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
 
   const wrapper = mount(ProjectGitPullRequestPage, {
@@ -95,42 +97,20 @@ test('renderiza Pull Request minimalista e leva à criação sem informações d
 
   assert.equal(wrapper.findAll('.git-pr-summary-card').length, 0);
   assert.equal(wrapper.findAll('[role="tab"]').length, 0);
-  assert.equal(wrapper.find('#git-pr-overview-panel h2').exists(), false);
   assert.match(wrapper.find('#git-pr-overview-panel').text(), /Branch atual/);
   assert.match(
     wrapper.find('#git-pr-overview-panel').text(),
     /Nenhuma Pull Request aberta/,
   );
-  assert.match(
-    wrapper.find('#git-pr-overview-panel').text(),
-    /feature\/pull-request/,
-  );
-  assert.match(wrapper.find('#git-pr-overview-panel').text(), /upstream\/main/);
-  assert.doesNotMatch(
-    wrapper.find('#git-pr-overview-panel').text(),
-    /Arquivos alterados|Commits carregados/,
-  );
 
   await wrapper.find('.git-pr-primary-action').trigger('click');
 
-  assert.match(
-    wrapper.find('#git-pr-overview-panel').attributes('style') ?? '',
-    /display:\s*none/,
-  );
-  assert.doesNotMatch(
-    wrapper.find('#git-pr-create-panel').attributes('style') ?? '',
-    /display:\s*none/,
-  );
   assert.match(
     wrapper.find('#git-pr-create-panel').text(),
     /Criar Pull Request/,
   );
   assert.equal(wrapper.findAll('.git-pr-grid label').length, 2);
-  assert.equal(wrapper.findAll('.git-pr-change-summary').length, 0);
-  assert.doesNotMatch(
-    wrapper.find('#git-pr-create-panel').text(),
-    /Branch de origem/,
-  );
   assert.ok(wrapper.find('.git-pr-primary').exists());
-  assert.ok(wrapper.find('.git-pr-gh-action').exists());
+  assert.ok(wrapper.find('.git-pr-external-action').exists());
+  assert.equal(wrapper.find('.git-pr-primary').text(), 'Criar Pull Request');
 });

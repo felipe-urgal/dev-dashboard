@@ -3,6 +3,7 @@ import { beforeEach, test, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 
 import type {
+  GitOpenPullRequest,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
@@ -47,12 +48,14 @@ const workspace: ProjectGitWorkspace = {
       fetchUrl: 'git@github.com:felipe-urgal/dev-dashboard.git',
       pushUrl: 'git@github.com:felipe-urgal/dev-dashboard.git',
       role: 'origin',
+      defaultBranch: 'main',
     },
     {
       name: 'upstream',
       fetchUrl: 'git@github.com:empresa/dev-dashboard.git',
       pushUrl: 'git@github.com:empresa/dev-dashboard.git',
       role: 'upstream',
+      defaultBranch: 'develop',
     },
   ],
   branches: [
@@ -76,17 +79,17 @@ const workspace: ProjectGitWorkspace = {
       behind: 0,
     },
     {
-      name: 'origin/develop',
-      shortName: 'develop',
+      name: 'upstream/main',
+      shortName: 'main',
       kind: 'remote',
       current: false,
-      remote: 'origin',
+      remote: 'upstream',
       ahead: 0,
       behind: 0,
     },
     {
-      name: 'upstream/main',
-      shortName: 'main',
+      name: 'upstream/develop',
+      shortName: 'develop',
       kind: 'remote',
       current: false,
       remote: 'upstream',
@@ -96,382 +99,280 @@ const workspace: ProjectGitWorkspace = {
   ],
 };
 
-let popup: {
-  opener: Window | null;
-  closed: boolean;
-  location: { href: string };
-  close: ReturnType<typeof vi.fn>;
-};
+function githubPullRequest(
+  overrides: Partial<GitOpenPullRequest> = {},
+): GitOpenPullRequest {
+  return {
+    provider: 'github',
+    number: 42,
+    title: 'feat: PR existente',
+    description: '## Resumo\n\nCorpo atual.',
+    url: 'https://github.com/empresa/dev-dashboard/pull/42',
+    sourceBranch: 'feature/pull-request',
+    baseBranch: 'develop',
+    ciStatus: 'success',
+    commentsCount: 3,
+    unresolvedConversationsCount: 0,
+    cockpit: {
+      remoteStatus: 'available',
+      draft: false,
+      mergeable: true,
+      mergeableState: 'clean',
+      reviewState: 'approved',
+      requestedReviewers: [],
+      checks: [{ name: 'Validate', status: 'success' }],
+    },
+    ...overrides,
+  };
+}
+
+async function mountPage(
+  lookup: { checked: boolean; existing?: GitOpenPullRequest } = {
+    checked: true,
+  },
+  customWorkspace: ProjectGitWorkspace = workspace,
+) {
+  api.getProjectGitPullRequestStatus.mockResolvedValue(lookup);
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace: customWorkspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+  return wrapper;
+}
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  api.composeProjectGitPullRequest.mockReset();
-  api.getProjectGitPullRequestStatus.mockReset();
-  api.prepareProjectGitPullRequestAction.mockReset();
-  api.runProjectGitPullRequestAction.mockReset();
-  sessionStorage.clear();
+  for (const mock of Object.values(api)) mock.mockReset();
   api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
   api.composeProjectGitPullRequest.mockResolvedValue({
     provider: 'github',
-    url: 'https://github.com/empresa/dev-dashboard/compare/main...felipe-urgal:feature/pull-request?expand=1',
+    url: 'https://github.com/empresa/dev-dashboard/compare/develop...felipe-urgal:feature/pull-request?expand=1',
     branch: 'feature/pull-request',
-    defaultBranch: 'main',
+    defaultBranch: 'develop',
   });
-  popup = {
-    opener: window,
-    closed: false,
-    location: { href: 'about:blank' },
-    close: vi.fn(),
-  };
-  vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
-});
-
-test('prefere upstream e preenche título e descrição a partir do commit', async () => {
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  const selects = wrapper.findAll('select');
-  assert.equal((selects[0]!.element as HTMLSelectElement).value, 'upstream');
-  assert.equal((selects[1]!.element as HTMLSelectElement).value, 'main');
-  assert.equal(
-    (wrapper.find('input:not([readonly])').element as HTMLInputElement).value,
-    latestCommit.subject,
-  );
-  assert.match(
-    (wrapper.find('textarea').element as HTMLTextAreaElement).value,
-    /## Resumo/,
-  );
-  assert.deepEqual(api.getProjectGitPullRequestStatus.mock.calls.at(-1), [
-    'p1',
-    { targetRemote: 'upstream', baseBranch: 'main' },
-  ]);
-});
-
-test('mantém o force push no origin, separado do destino da Pull Request', async () => {
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: 'feature/pull-request',
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
-  assert.match(wrapper.text(), /Destino da Pull Request/);
-  assert.match(wrapper.text(), /Push forçado detectado/);
-  assert.match(
-    wrapper.text(),
-    /origin\/feature\/pull-request.*será reescrito/s,
-  );
-
-  const targetSelect = wrapper.findAll('select')[0]!;
-  await targetSelect.setValue('upstream');
-  await flushPromises();
-
-  const forcePushButton = wrapper
-    .findAll('.git-pr-force-push button')
-    .find((button) => button.text().includes('Forçar atualização no origin'))!;
-  assert.equal((forcePushButton.element as HTMLButtonElement).disabled, true);
-
-  await wrapper.find('.git-pr-force-push-confirm input').setValue(true);
-  await forcePushButton.trigger('click');
-
-  assert.deepEqual(wrapper.emitted('force-push'), [[]]);
-});
-
-test('reserva a aba no clique e navega sem falso erro nem botão duplicado', async () => {
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  const selects = wrapper.findAll('select');
-  await selects[0]!.setValue('origin');
-  await flushPromises();
-  await selects[1]!.setValue('develop');
-  await flushPromises();
-  await wrapper
-    .find('input:not([readonly])')
-    .setValue('fix: título customizado');
-  await wrapper
-    .find('textarea')
-    .setValue('## Mudanças\n\nDescrição customizada.');
-  await wrapper.find('form').trigger('submit');
-  await flushPromises();
-
-  assert.deepEqual(api.composeProjectGitPullRequest.mock.calls[0], [
-    'p1',
-    {
-      targetRemote: 'origin',
-      baseBranch: 'develop',
-      title: 'fix: título customizado',
-      description: '## Mudanças\n\nDescrição customizada.',
-    },
-  ]);
-  assert.deepEqual((window.open as ReturnType<typeof vi.fn>).mock.calls[0], [
-    '',
-    '_blank',
-  ]);
-  assert.equal(popup.opener, null);
-  assert.equal(
-    popup.location.href,
-    'https://github.com/empresa/dev-dashboard/compare/main...felipe-urgal:feature/pull-request?expand=1',
-  );
-  assert.ok(!wrapper.find('.git-pr-fallback-link').exists());
-  assert.doesNotMatch(wrapper.text(), /navegador bloqueou/i);
-});
-
-test('troca a ação principal pelo link de continuação quando o popup é bloqueado', async () => {
-  (window.open as ReturnType<typeof vi.fn>).mockReturnValueOnce(null);
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  await wrapper.find('form').trigger('submit');
-  await flushPromises();
-
-  assert.match(wrapper.text(), /navegador bloqueou a nova aba/i);
-  assert.ok(wrapper.find('.git-pr-fallback-link').exists());
-  assert.ok(wrapper.find('.git-pr-cancel').exists());
-  assert.ok(!wrapper.find('.git-pr-primary').exists());
-});
-
-test('detecta PR aberta e substitui a criação por acesso ao PR existente', async () => {
-  api.getProjectGitPullRequestStatus.mockResolvedValue({
-    checked: true,
-    existing: {
-      provider: 'github',
-      number: 42,
-      title: 'feat: PR já existente',
-      url: 'https://github.com/empresa/dev-dashboard/pull/42',
-      sourceBranch: 'feature/pull-request',
-      baseBranch: 'main',
-    },
-  });
-
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /PR #42 já está aberta/);
-  assert.match(wrapper.text(), /feat: PR já existente/);
-  assert.match(wrapper.text(), /feature\/pull-request → upstream\/main/);
-  const existingLink = wrapper.find('.git-pr-existing-action');
-  assert.ok(existingLink.exists());
-  assert.equal(
-    existingLink.attributes('href'),
-    'https://github.com/empresa/dev-dashboard/pull/42',
-  );
-  assert.equal(wrapper.findAll('.git-pr-existing-action').length, 1);
-
-  await wrapper.find('form').trigger('submit');
-  await flushPromises();
-  assert.equal(api.composeProjectGitPullRequest.mock.calls.length, 0);
-});
-
-test('refaz a verificação ao trocar o destino e libera criação quando não há PR', async () => {
-  api.getProjectGitPullRequestStatus.mockImplementation(
-    async (
-      _projectId: string,
-      input: { targetRemote: string; baseBranch: string },
-    ) => {
-      if (input.targetRemote === 'upstream') {
-        return {
-          checked: true,
-          existing: {
-            provider: 'github',
-            number: 42,
-            title: 'feat: PR já existente',
-            url: 'https://github.com/empresa/dev-dashboard/pull/42',
-            sourceBranch: 'feature/pull-request',
-            baseBranch: 'main',
-          },
-        };
-      }
-      return { checked: true };
-    },
-  );
-
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-  assert.ok(wrapper.find('.git-pr-existing-action').exists());
-
-  const targetSelect = wrapper.findAll('select')[0]!;
-  await targetSelect.setValue('origin');
-  await flushPromises();
-  await flushPromises();
-
-  assert.ok(!wrapper.find('.git-pr-existing-action').exists());
-  assert.deepEqual(api.getProjectGitPullRequestStatus.mock.calls.at(-1), [
-    'p1',
-    { targetRemote: 'origin', baseBranch: 'main' },
-  ]);
-  assert.equal(
-    (wrapper.find('.git-pr-primary').element as HTMLButtonElement).disabled,
-    false,
-  );
-});
-
-test('cria a Pull Request via gh após confirmar o comando exibido', async () => {
   api.prepareProjectGitPullRequestAction.mockResolvedValue({
     token: 't'.repeat(64),
     actionId: 'pull-request-create',
-    expiresAt: '2026-08-06T00:01:00.000Z',
+    expiresAt: '2026-10-01T18:00:00.000Z',
   });
   api.runProjectGitPullRequestAction.mockResolvedValue({
     action: 'pull-request-create',
-    number: 7,
-    url: 'https://github.com/empresa/dev-dashboard/pull/7',
+    number: 42,
+    url: 'https://github.com/empresa/dev-dashboard/pull/42',
     title: latestCommit.subject,
     state: 'open',
   });
+  vi.spyOn(window, 'open').mockReturnValue({
+    opener: null,
+    closed: false,
+    location: { href: 'about:blank' },
+    close: vi.fn(),
+  } as unknown as Window);
+});
 
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
-  });
-  await flushPromises();
-  await flushPromises();
+test('prefere a default branch real do remote selecionado', async () => {
+  const wrapper = await mountPage();
+  const selects = wrapper.findAll('select');
 
-  const createButton = wrapper
-    .findAll('button')
-    .find((button) => button.text() === 'Criar direto com gh')!;
-  await createButton.trigger('click');
-  await flushPromises();
+  assert.equal((selects[0]!.element as HTMLSelectElement).value, 'upstream');
+  assert.equal((selects[1]!.element as HTMLSelectElement).value, 'develop');
+  assert.deepEqual(api.getProjectGitPullRequestStatus.mock.calls.at(-1), [
+    'p1',
+    { targetRemote: 'upstream', baseBranch: 'develop' },
+  ]);
+});
 
-  assert.match(wrapper.text(), /gh pr create/);
-  const confirmButton = wrapper
-    .findAll('.git-pr-confirm button')
-    .find((button) => button.text() === 'Confirmar criação')!;
-  await confirmButton.trigger('click');
-  await flushPromises();
+test('criação mostra origem real, draft e usa gh como ação principal no GitHub', async () => {
+  const wrapper = await mountPage();
+  await wrapper.get('.git-pr-primary-action').trigger('click');
 
-  assert.equal(
-    api.prepareProjectGitPullRequestAction.mock.calls[0]?.[1],
-    'pull-request-create',
-  );
-  assert.equal(
-    api.runProjectGitPullRequestAction.mock.calls[0]?.[3],
-    't'.repeat(64),
+  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
+  assert.ok(wrapper.find('.git-pr-draft input').exists());
+  assert.equal(wrapper.find('.git-pr-primary').text(), 'Criar Pull Request');
+  assert.match(
+    wrapper.find('.git-pr-external-action').text(),
+    /Abrir comparação/,
   );
 });
 
-test('fecha uma PR existente somente após digitar o número correto', async () => {
-  api.getProjectGitPullRequestStatus.mockResolvedValue({
-    checked: true,
-    existing: {
-      provider: 'github',
-      number: 42,
-      title: 'feat: PR já existente',
-      url: 'https://github.com/empresa/dev-dashboard/pull/42',
-      sourceBranch: 'feature/pull-request',
-      baseBranch: 'main',
+test('cria draft via gh com repositório upstream explícito', async () => {
+  const wrapper = await mountPage();
+  await wrapper.get('.git-pr-primary-action').trigger('click');
+  await wrapper.get('.git-pr-draft input').setValue(true);
+  await wrapper.get('.git-pr-primary').trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /gh pr create/);
+  assert.match(wrapper.text(), /--repo empresa\/dev-dashboard/);
+  assert.match(wrapper.text(), /--draft/);
+
+  const confirm = wrapper
+    .findAll('.git-pr-confirm button')
+    .find((button) => button.text() === 'Confirmar criação')!;
+  await confirm.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0], [
+    'p1',
+    'pull-request-create',
+    {
+      targetRemote: 'upstream',
+      baseBranch: 'develop',
+      title: latestCommit.subject,
+      description: `## Resumo\n\n${latestCommit.subject}`,
+      draft: true,
     },
+  ]);
+});
+
+test('bloqueia merge quando existem requisitos conhecidos pendentes', async () => {
+  const wrapper = await mountPage({
+    checked: true,
+    existing: githubPullRequest({
+      ciStatus: 'pending',
+      unresolvedConversationsCount: 2,
+      cockpit: {
+        remoteStatus: 'available',
+        draft: false,
+        mergeable: true,
+        mergeableState: 'clean',
+        reviewState: 'changes-requested',
+        requestedReviewers: [],
+        checks: [{ name: 'Validate', status: 'pending' }],
+      },
+    }),
   });
+
+  assert.match(wrapper.text(), /CI\s*Pendente/);
+  assert.match(wrapper.text(), /Conversas pendentes\s*2/);
+  assert.match(wrapper.text(), /alterações solicitadas/i);
+  const merge = wrapper
+    .findAll('.git-pr-gh-actions button')
+    .find((button) => button.text().includes('Mesclar com gh'))!;
+  assert.equal((merge.element as HTMLButtonElement).disabled, true);
+});
+
+test('permite editar PR existente e envia targetRemote junto da mutação', async () => {
+  api.prepareProjectGitPullRequestAction.mockResolvedValue({
+    token: 'e'.repeat(64),
+    actionId: 'pull-request-edit',
+    expiresAt: '2026-10-01T18:00:00.000Z',
+  });
+  api.runProjectGitPullRequestAction.mockResolvedValue({
+    action: 'pull-request-edit',
+    number: 42,
+    url: 'https://github.com/empresa/dev-dashboard/pull/42',
+    title: 'feat: título editado',
+    state: 'open',
+  });
+  const wrapper = await mountPage({
+    checked: true,
+    existing: githubPullRequest(),
+  });
+
+  const edit = wrapper
+    .findAll('.git-pr-gh-actions button')
+    .find((button) => button.text() === 'Editar')!;
+  await edit.trigger('click');
+  await wrapper.get('.git-pr-edit-form input').setValue('feat: título editado');
+  await wrapper
+    .get('.git-pr-edit-form textarea')
+    .setValue('## Resumo\n\nNovo corpo.');
+  await wrapper.get('.git-pr-edit-form').trigger('submit');
+  await flushPromises();
+
+  const confirm = wrapper
+    .findAll('.git-pr-confirm button')
+    .find((button) => button.text() === 'Confirmar edição')!;
+  await confirm.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0], [
+    'p1',
+    'pull-request-edit',
+    {
+      targetRemote: 'upstream',
+      number: 42,
+      title: 'feat: título editado',
+      description: '## Resumo\n\nNovo corpo.',
+    },
+  ]);
+});
+
+test('close e merge carregam o remote alvo na confirmação', async () => {
   api.prepareProjectGitPullRequestAction.mockResolvedValue({
     token: 'c'.repeat(64),
     actionId: 'pull-request-close',
-    expiresAt: '2026-08-06T00:01:00.000Z',
+    expiresAt: '2026-10-01T18:00:00.000Z',
   });
   api.runProjectGitPullRequestAction.mockResolvedValue({
     action: 'pull-request-close',
     number: 42,
     url: 'https://github.com/empresa/dev-dashboard/pull/42',
-    title: 'feat: PR já existente',
+    title: 'feat: PR existente',
     state: 'closed',
   });
-
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      forcePushBranch: null,
-    },
+  const wrapper = await mountPage({
+    checked: true,
+    existing: githubPullRequest(),
   });
-  await flushPromises();
-  await flushPromises();
 
-  await wrapper.find('.git-pr-gh-actions .danger-button').trigger('click');
-  await flushPromises();
-
-  const confirmCloseButton = () =>
-    wrapper
-      .findAll('.git-pr-confirm button')
-      .find((button) => button.text().includes('Confirmar fechamento'))!;
-
-  assert.equal(
-    (confirmCloseButton().element as HTMLButtonElement).disabled,
-    true,
-  );
-
-  const input = wrapper.find('.git-pr-confirm input');
-  await input.setValue('42');
+  const close = wrapper
+    .findAll('.git-pr-gh-actions button')
+    .find((button) => button.text().includes('Fechar com gh'))!;
+  await close.trigger('click');
+  await wrapper.get('.git-pr-confirm input').setValue('42');
+  const confirm = wrapper
+    .findAll('.git-pr-confirm button')
+    .find((button) => button.text().includes('Confirmar fechamento'))!;
+  await confirm.trigger('click');
   await flushPromises();
 
-  assert.equal(
-    (confirmCloseButton().element as HTMLButtonElement).disabled,
-    false,
-  );
-  await confirmCloseButton().trigger('click');
-  await flushPromises();
-
-  assert.equal(
-    api.prepareProjectGitPullRequestAction.mock.calls[0]?.[1],
-    'pull-request-close',
-  );
   assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0]?.[2], {
+    targetRemote: 'upstream',
     number: 42,
   });
+});
+
+test('GitLab não mostra ações gh e mantém acesso externo ao MR', async () => {
+  const gitlabWorkspace: ProjectGitWorkspace = {
+    ...workspace,
+    remotes: [
+      {
+        name: 'origin',
+        fetchUrl: 'git@gitlab.com:empresa/projeto.git',
+        pushUrl: 'git@gitlab.com:empresa/projeto.git',
+        role: 'origin',
+        defaultBranch: 'main',
+      },
+    ],
+    branches: workspace.branches.filter(
+      (branch) => branch.remote !== 'upstream',
+    ),
+  };
+  const wrapper = await mountPage(
+    {
+      checked: true,
+      existing: {
+        provider: 'gitlab',
+        number: 9,
+        title: 'feat: MR',
+        url: 'https://gitlab.com/empresa/projeto/-/merge_requests/9',
+        sourceBranch: 'feature/pull-request',
+        baseBranch: 'main',
+      },
+    },
+    gitlabWorkspace,
+  );
+
+  assert.match(wrapper.text(), /MR #9 aberta/);
+  assert.match(wrapper.text(), /Abrir no GitLab/);
+  assert.doesNotMatch(wrapper.text(), /Mesclar com gh|Fechar com gh|Editar/);
 });

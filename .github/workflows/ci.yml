@@ -68,5 +68,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Qualify embedded terminal
-        run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts
+      - name: Qualify terminal and Pull Request
+        run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts project-git-pull-request.spec.ts
