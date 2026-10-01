@@ -112,9 +112,7 @@ const available = computed(
   () => Boolean(localMain.value) && hasOriginRemote.value,
 );
 
-const mainBusy = computed(
-  () => props.busy && props.operation === 'main',
-);
+const mainBusy = computed(() => props.busy && props.operation === 'main');
 
 const currentBranchBusy = computed(
   () => props.busy && props.operation === 'current-branch',

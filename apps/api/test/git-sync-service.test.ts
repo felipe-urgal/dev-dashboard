@@ -106,7 +106,11 @@ test('compara e integra uma referência remota com fast-forward', async () => {
     assert.equal(result.impact.previousSha, result.previousHead);
     assert.equal(result.impact.currentSha, result.currentHead);
     assert.deepEqual(
-      [...new Set(progress.flatMap((event) => (event.command ? [event.command] : [])))],
+      [
+        ...new Set(
+          progress.flatMap((event) => (event.command ? [event.command] : [])),
+        ),
+      ],
       [
         'git fetch --prune upstream',
         'git checkout main',

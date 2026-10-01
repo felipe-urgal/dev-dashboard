@@ -324,9 +324,7 @@ test('separa loading da main e da branch atual', () => {
   });
 
   const mainButton = wrapper.find('.git-sync-main-card .git-sync-button');
-  const currentButton = wrapper.find(
-    '.git-sync-current-card .git-sync-button',
-  );
+  const currentButton = wrapper.find('.git-sync-current-card .git-sync-button');
 
   assert.equal(mainButton.classes('is-busy'), false);
   assert.doesNotMatch(mainButton.text(), /Sincronizando/);
