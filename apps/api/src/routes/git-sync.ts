@@ -204,11 +204,9 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       });
 
       let unsubscribe = (): void => undefined;
-      // eslint-disable-next-line prefer-const -- close/write podem rodar antes da atribuição do timer.
-      let heartbeat: NodeJS.Timeout | undefined;
 
       const close = (): void => {
-        if (heartbeat) clearInterval(heartbeat);
+        clearInterval(heartbeat);
         unsubscribe();
         if (!reply.raw.writableEnded) reply.raw.end();
       };
@@ -220,12 +218,12 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
         project.id,
         (event) => write(`data: ${JSON.stringify(event)}\n\n`),
       );
-      write(': conectado\n\n');
-      heartbeat = setInterval(
+      const heartbeat = setInterval(
         () => write(': acompanhamento ativo\n\n'),
         15_000,
       );
       heartbeat.unref();
+      write(': conectado\n\n');
 
       reply.raw.once('close', close);
     },
