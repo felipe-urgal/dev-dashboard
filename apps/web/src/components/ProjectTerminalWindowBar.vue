@@ -1,10 +1,13 @@
 <script setup lang="ts">
 defineProps<{
+  title: string;
+  state: 'connecting' | 'connected';
   maximized: boolean;
   fontSize: number;
 }>();
 
 const emit = defineEmits<{
+  'close-session': [];
   'toggle-maximized': [];
   'set-font-size': [size: number];
 }>();
@@ -12,10 +15,18 @@ const emit = defineEmits<{
 
 <template>
   <div class="terminal-window-bar">
-    <div class="terminal-window-dots" aria-hidden="true">
-      <span></span><span></span><span></span>
+    <div class="terminal-window-identity">
+      <span
+        class="terminal-window-status-dot"
+        :class="`is-${state}`"
+        aria-hidden="true"
+      ></span>
+      <strong>{{ title }}</strong>
+      <span>{{ state === 'connecting' ? 'Conectando' : 'Conectado' }}</span>
     </div>
+
     <div class="terminal-window-spacer" aria-hidden="true"></div>
+
     <div class="terminal-window-actions">
       <button
         type="button"
@@ -61,6 +72,22 @@ const emit = defineEmits<{
           />
         </svg>
       </button>
+      <button
+        type="button"
+        class="terminal-icon-button terminal-close-button"
+        title="Encerrar sessão"
+        aria-label="Encerrar sessão"
+        @click="emit('close-session')"
+      >
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path
+            d="M5 5l10 10M15 5L5 15"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
     </div>
   </div>
 </template>
@@ -75,24 +102,49 @@ const emit = defineEmits<{
   border-bottom: 1px solid #262c40;
   flex-shrink: 0;
 }
-.terminal-window-dots {
+
+.terminal-window-identity {
   display: flex;
-  gap: 6px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
 }
-.terminal-window-dots span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #262c40;
+
+.terminal-window-identity strong {
+  overflow: hidden;
+  color: #dbe0f2;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.terminal-window-identity > span:last-child {
+  color: #7d84a3;
+  font-size: 10px;
+}
+
+.terminal-window-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--warning-text);
+}
+
+.terminal-window-status-dot.is-connected {
+  background: var(--success-text);
+}
+
 .terminal-window-spacer {
   flex: 1;
   min-width: 0;
 }
+
 .terminal-window-actions {
   display: flex;
   gap: var(--space-1);
 }
+
 .terminal-icon-button {
   appearance: none;
   border: 1px solid transparent;
@@ -106,10 +158,12 @@ const emit = defineEmits<{
   justify-content: center;
   cursor: pointer;
 }
+
 .terminal-icon-button svg {
   width: 15px;
   height: 15px;
 }
+
 .terminal-font-size-button {
   width: auto;
   min-width: 28px;
@@ -117,6 +171,7 @@ const emit = defineEmits<{
   font-size: 11px;
   font-weight: 700;
 }
+
 .terminal-font-size-value {
   width: auto;
   min-width: 42px;
@@ -124,10 +179,26 @@ const emit = defineEmits<{
   color: #dbe0f2;
   font-size: 10px;
 }
+
+.terminal-close-button {
+  margin-left: var(--space-1);
+}
+
+.terminal-close-button:hover {
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
 .terminal-icon-button:hover {
   color: #fff;
   background: rgb(124 139 255 / 22%);
 }
+
+.terminal-close-button:hover {
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
 .terminal-icon-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
