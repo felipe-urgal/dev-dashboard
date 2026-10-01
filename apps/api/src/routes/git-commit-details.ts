@@ -23,6 +23,10 @@ interface CommitParams extends ProjectParams {
   commitHash: string;
 }
 
+interface CommitDetailQuery {
+  includePatch?: boolean;
+}
+
 const HISTORY_PAGE_SIZE_LIMIT = 50;
 
 interface HistoryQuery {
@@ -53,6 +57,14 @@ const paramsSchema = {
       maxLength: 40,
       pattern: '^[0-9a-fA-F]+$',
     },
+  },
+} as const;
+
+const commitDetailQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    includePatch: { type: 'boolean', default: true },
   },
 } as const;
 
@@ -294,11 +306,12 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
     },
   );
 
-  app.get<{ Params: CommitParams }>(
+  app.get<{ Params: CommitParams; Querystring: CommitDetailQuery }>(
     '/projects/:projectId/git/commits/:commitHash',
     {
       schema: {
         params: paramsSchema,
+        querystring: commitDetailQuerySchema,
         response: {
           200: responseSchema,
           ...commonErrorResponseSchemas,
@@ -312,6 +325,9 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
           detail: await inspectGitCommit(
             project.path,
             request.params.commitHash,
+            {
+              includePatch: request.query.includePatch ?? true,
+            },
           ),
         };
       } catch (error) {
