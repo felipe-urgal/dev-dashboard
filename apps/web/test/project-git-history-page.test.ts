@@ -374,7 +374,7 @@ test('mostra a faixa e a paginação do total de commits', async () => {
     wrapper
       .find('.git-history-pagination')
       .text()
-      .includes('Mostrando 1 a 2 de 32 commits'),
+      .includes('Mostrando 1 a 2 de 32 commits exclusivos'),
   );
 
   const next = wrapper
