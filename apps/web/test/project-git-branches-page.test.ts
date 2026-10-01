@@ -51,7 +51,7 @@ function mountBranches(
   return wrapper;
 }
 
-function rowByName(wrapper: VueWrapper, name: string): VueWrapper {
+function rowByName(wrapper: VueWrapper, name: string) {
   const row = wrapper
     .findAll('.branch-table-row')
     .find((candidate) => candidate.text().includes(name));
