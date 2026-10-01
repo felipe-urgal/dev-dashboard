@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 
 import { GitBranchPublishService } from '../services/git-branch-publish-service.js';
+import { GitBranchPullRequestCleanupService } from '../services/git-branch-pull-request-cleanup-service.js';
 import { GitBranchService } from '../services/git-branch-service.js';
 import { GitBranchSquashService } from '../services/git-branch-squash-service.js';
 import { GitWorkspaceService } from '../services/git-workspace-service.js';
@@ -14,7 +15,11 @@ export const gitWorkspaceRoutes: FastifyPluginAsync<
   GitWorkspaceRouteOptions
 > = async (app, options) => {
   const workspaceService = new GitWorkspaceService();
-  const branchService = new GitBranchService();
+  const pullRequestCleanupService = new GitBranchPullRequestCleanupService();
+  const branchService = new GitBranchService({
+    closeOpenPullRequests: (projectPath, branch) =>
+      pullRequestCleanupService.closeOpenForBranch(projectPath, branch),
+  });
   const branchPublishService = new GitBranchPublishService();
   const branchSquashService = new GitBranchSquashService();
 
