@@ -180,7 +180,8 @@ export const gitPullRequestMutationRoutes: FastifyPluginAsync<
       const { actionId, ...input } = request.body;
       try {
         return reply.code(201).send({
-          confirmation: service.prepareConfirmation(
+          confirmation: await service.prepareConfirmation(
+            project.path,
             project.id,
             actionId,
             input,
