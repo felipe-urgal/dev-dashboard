@@ -270,11 +270,23 @@ export class GitWorktreeObserver {
       .sort((left, right) => left.path.localeCompare(right.path));
 
     const dirtyByWorktreeId = new Map<string, boolean>();
+    const projectPath = path.resolve(project.path);
+    const projectParentPath = path.dirname(projectPath);
     const dirtyCandidates = worktrees
-      .filter(
-        (worktree) =>
-          worktree.kind === 'linked' && !worktree.bare && !worktree.prunable,
-      )
+      .filter((worktree) => {
+        if (
+          worktree.kind !== 'linked' ||
+          worktree.bare ||
+          worktree.prunable
+        ) {
+          return false;
+        }
+        const worktreePath = path.resolve(worktree.path);
+        return (
+          worktreePath !== projectPath &&
+          path.dirname(worktreePath) === projectParentPath
+        );
+      })
       .slice(0, MAX_DIRTY_STATUS_WORKTREES);
 
     await Promise.all(
