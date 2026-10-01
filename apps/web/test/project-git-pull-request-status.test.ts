@@ -105,7 +105,6 @@ test('GitLab exibe apenas ação externa', () => {
       existingPullRequest: pullRequest({
         provider: 'gitlab',
         url: 'https://gitlab.com/empresa/projeto/-/merge_requests/604',
-        cockpit: undefined,
       }),
     },
   });
