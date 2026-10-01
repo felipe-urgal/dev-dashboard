@@ -42,23 +42,22 @@ async function remoteUrl(
 }
 
 function parsePullRequestNumbers(output: string): number[] {
-  try {
-    const payload = JSON.parse(output) as unknown;
-    if (!Array.isArray(payload)) return [];
-    return payload.flatMap((item) => {
-      if (
-        item &&
-        typeof item === 'object' &&
-        'number' in item &&
-        typeof (item as { number?: unknown }).number === 'number'
-      ) {
-        return [(item as { number: number }).number];
-      }
-      return [];
-    });
-  } catch {
-    return [];
+  const payload = JSON.parse(output) as unknown;
+  if (!Array.isArray(payload)) {
+    throw new Error('Resposta inválida ao consultar Pull Requests.');
   }
+
+  return payload.map((item) => {
+    if (
+      !item ||
+      typeof item !== 'object' ||
+      !('number' in item) ||
+      typeof (item as { number?: unknown }).number !== 'number'
+    ) {
+      throw new Error('Resposta inválida ao consultar Pull Requests.');
+    }
+    return (item as { number: number }).number;
+  });
 }
 
 export class GitBranchPullRequestCleanupService {
