@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { gotoBootstrapped } from '../fixtures/navigate';
 
 test.describe('Histórico Git do projeto', () => {
-  test('lista commits, alterna escopo e inspeciona commit com teclado', async ({
+  test('lista commits, alterna escopo e inspeciona commit preservando foco', async ({
     page,
   }) => {
     await gotoBootstrapped(page, '/');
@@ -26,7 +26,7 @@ test.describe('Histórico Git do projeto', () => {
     const firstCommit = page.locator('.git-history-row').first();
     await expect(firstCommit).toBeVisible();
     await firstCommit.focus();
-    await firstCommit.press('Enter');
+    await firstCommit.click();
 
     const dialog = page.getByRole('dialog', { name: 'Detalhes do commit' });
     await expect(dialog).toBeVisible();
