@@ -33,12 +33,17 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
       sidekiqPanel.getByRole('button', { name: 'Parar' }),
     ).toBeVisible();
 
-    // A tela global de processos lista apenas servidor e testes; o worker
-    // Rails é acompanhado no próprio painel do projeto.
-    await sidekiqPanel.getByRole('button', { name: 'Ver log' }).click();
     await expect(
-      sidekiqPanel.getByRole('heading', { name: 'Log do Sidekiq' }),
+      sidekiqPanel.getByText('Ao vivo', { exact: true }),
     ).toBeVisible();
+    await expect(
+      sidekiqPanel.getByRole('button', { name: 'Reiniciar' }),
+    ).toBeVisible();
+
+    await sidekiqPanel.getByRole('button', { name: 'Reiniciar' }).click();
+    await expect(
+      sidekiqPanel.getByText('Executando', { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
 
     await sidekiqPanel.getByRole('button', { name: 'Parar' }).click();
     await expect(

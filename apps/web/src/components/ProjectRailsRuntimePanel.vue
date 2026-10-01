@@ -110,11 +110,22 @@ function formatDate(value?: string): string {
         </div>
 
         <template v-else>
+          <p
+            v-if="
+              worker.status.value === 'failed' && !worker.errorMessage.value
+            "
+            class="rails-worker-error"
+            role="alert"
+          >
+            {{ workerLabels[workerId] }} encerrou com falha. Consulte o log e
+            tente iniciar novamente.
+          </p>
+
           <header class="rails-worker-toolbar">
             <div class="rails-worker-identity">
               <span
                 class="rails-worker-status-dot"
-                :class="{ 'is-running': worker.canStop.value }"
+                :class="{ 'is-running': worker.status.value === 'running' }"
                 aria-hidden="true"
               />
               <strong>{{ workerLabels[workerId] }}</strong>
@@ -160,47 +171,88 @@ function formatDate(value?: string): string {
               </details>
 
               <button
-                v-if="!worker.canStop.value"
+                v-if="worker.currentAction.value === 'start'"
                 type="button"
                 class="primary-button"
-                :disabled="worker.currentAction.value !== null"
-                @click="worker.start()"
+                disabled
               >
                 <PlayIcon aria-hidden="true" />
-                {{
-                  worker.currentAction.value === 'start'
-                    ? 'Iniciando…'
-                    : 'Iniciar'
-                }}
+                Iniciando…
               </button>
 
-              <template v-else>
+              <button
+                v-else-if="worker.currentAction.value === 'restart'"
+                type="button"
+                class="secondary-button"
+                disabled
+              >
+                <ArrowPathIcon aria-hidden="true" />
+                Reiniciando…
+              </button>
+
+              <button
+                v-else-if="worker.currentAction.value === 'stop'"
+                type="button"
+                class="rails-worker-stop-button"
+                disabled
+              >
+                <StopIcon aria-hidden="true" />
+                Parando…
+              </button>
+
+              <button
+                v-else-if="worker.status.value === 'starting'"
+                type="button"
+                class="primary-button"
+                disabled
+              >
+                <PlayIcon aria-hidden="true" />
+                Iniciando…
+              </button>
+
+              <template v-else-if="worker.status.value === 'running'">
                 <button
                   v-if="supportsRestart"
                   type="button"
                   class="secondary-button"
-                  :disabled="worker.currentAction.value !== null"
                   @click="worker.restart()"
                 >
                   <ArrowPathIcon aria-hidden="true" />
-                  {{
-                    worker.currentAction.value === 'restart'
-                      ? 'Reiniciando…'
-                      : 'Reiniciar'
-                  }}
+                  Reiniciar
                 </button>
                 <button
                   type="button"
                   class="rails-worker-stop-button"
-                  :disabled="worker.currentAction.value !== null"
                   @click="worker.stop()"
                 >
                   <StopIcon aria-hidden="true" />
-                  {{
-                    worker.currentAction.value === 'stop' ? 'Parando…' : 'Parar'
-                  }}
+                  Parar
                 </button>
               </template>
+
+              <button
+                v-else-if="worker.status.value === 'stopping'"
+                type="button"
+                class="rails-worker-stop-button"
+                disabled
+              >
+                <StopIcon aria-hidden="true" />
+                Parando…
+              </button>
+
+              <button
+                v-else
+                type="button"
+                class="primary-button"
+                @click="worker.start()"
+              >
+                <PlayIcon aria-hidden="true" />
+                {{
+                  worker.status.value === 'failed'
+                    ? 'Iniciar novamente'
+                    : 'Iniciar'
+                }}
+              </button>
             </div>
           </header>
 
@@ -212,11 +264,11 @@ function formatDate(value?: string): string {
             <div class="rails-log-panel-body">
               <ProjectLogTerminal
                 :content="worker.log.value?.content ?? ''"
-                :running="worker.canStop.value"
+                :running="worker.status.value === 'running'"
                 :masked-count="worker.log.value?.redactionCount ?? 0"
                 :clearable="worker.detected.value"
                 :clearing="worker.clearingLog.value"
-                :title="worker.canStop.value ? 'Ao vivo' : 'Log'"
+                :title="worker.status.value === 'running' ? 'Ao vivo' : 'Log'"
                 copy-label="Copiar"
                 :show-status-label="false"
                 :show-follow-status="false"
