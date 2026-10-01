@@ -117,3 +117,44 @@ test('stages, unstages, discards and removes files safely', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('cria branch preservando alterações locais não commitadas', async () => {
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-create-dirty-'),
+  );
+  const service = new GitService();
+
+  try {
+    await git(directory, 'init', '-b', 'main');
+    await git(directory, 'config', 'user.name', 'Dashboard Test');
+    await git(directory, 'config', 'user.email', 'dashboard@example.test');
+    await writeFile(path.join(directory, 'tracked.txt'), 'first\n');
+    await git(directory, 'add', 'tracked.txt');
+    await git(directory, 'commit', '-m', 'initial commit');
+    await writeFile(path.join(directory, 'tracked.txt'), 'changed\n');
+
+    const confirmation = service.prepareMutationConfirmation(
+      'project-dirty',
+      'create-branch',
+      'feature/preserve-dirty',
+    );
+    await service.createBranch(
+      directory,
+      'project-dirty',
+      'feature/preserve-dirty',
+      confirmation.token,
+    );
+
+    const overview = await service.getOverview(directory);
+    assert.equal(overview.branch, 'feature/preserve-dirty');
+    assert.equal(overview.clean, false);
+    assert.ok(
+      overview.files.some(
+        (file) =>
+          file.path === 'tracked.txt' && file.status === 'modified',
+      ),
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
