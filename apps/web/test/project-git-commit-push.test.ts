@@ -37,7 +37,7 @@ test('oferece push normal quando um novo commit aguarda envio', async () => {
     },
   });
 
-  assert.match(wrapper.text(), /Novo commit pronto para enviar/);
+  assert.match(wrapper.text(), /Commits locais aguardando envio/);
   assert.match(wrapper.text(), /origin\/feature\/minha-branch/);
   assert.equal(wrapper.text().includes('Reenviar com lease'), false);
 

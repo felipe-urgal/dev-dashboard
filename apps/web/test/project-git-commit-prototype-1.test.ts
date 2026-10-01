@@ -73,7 +73,7 @@ test('renderiza tela de commit minimalista sem resumo, abas ou histórico', asyn
   assert.ok(wrapper.find('.git-commit-card').exists());
   assert.equal(wrapper.findAll('.git-commit-summary-card').length, 0);
   assert.equal(wrapper.findAll('.git-commit-history-row').length, 0);
-  assert.equal(wrapper.find('.git-commit-tracked input').exists(), false);
+  assert.equal(wrapper.find('.git-commit-scope input').exists(), false);
   assert.equal(wrapper.find('.git-commit-mode').exists(), false);
   assert.equal(wrapper.text().includes('Criar novo commit'), false);
   assert.equal(wrapper.text().includes('Últimos commits'), false);
@@ -85,10 +85,9 @@ test('renderiza tela de commit minimalista sem resumo, abas ou histórico', asyn
   assert.equal(textarea.attributes('aria-label'), 'Mensagem do commit');
   assert.equal(textarea.attributes('placeholder'), 'Descreva as alterações');
   assert.match(wrapper.text(), /0\/500/);
-  assert.match(
-    wrapper.text(),
-    /2 alterações rastreadas incluídas automaticamente/,
-  );
+  assert.match(wrapper.text(), /2 alterações entram no commit normal/);
+  assert.match(wrapper.text(), /1 arquivo não rastreado fica de fora/);
+  assert.match(wrapper.text(), /1 alteração staged disponível para amend/);
   assert.match(wrapper.text(), /Amend último commit/);
   assert.match(wrapper.text(), /Criar commit/);
 
@@ -135,7 +134,41 @@ test('mantém commit normal desabilitado quando só há arquivo não rastreado',
   );
 });
 
-test('amend usa a mensagem atual ou reaproveita a do último commit', async () => {
+test('amend exige staged ou mudança real na mensagem', async () => {
+  const noStage: ProjectGitOverview = {
+    ...overview,
+    files: overview.files.map((file) => ({
+      ...file,
+      indexStatus: file.status === 'untracked' ? '?' : '.',
+    })),
+  };
+
+  const wrapper = mount(ProjectGitCommitPage, {
+    props: {
+      overview: noStage,
+      busy: false,
+      message: '',
+      mode: 'create',
+      pushBranch: null,
+    },
+  });
+
+  const amend = wrapper.find('.git-commit-amend');
+  assert.equal((amend.element as HTMLButtonElement).disabled, true);
+
+  await wrapper.setProps({ message: latestCommit.subject });
+  assert.equal((amend.element as HTMLButtonElement).disabled, true);
+
+  await wrapper.setProps({ message: 'feat: nova mensagem' });
+  assert.equal((amend.element as HTMLButtonElement).disabled, false);
+  await amend.trigger('click');
+
+  assert.deepEqual(wrapper.emitted('update:mode'), [['amend']]);
+  assert.deepEqual(wrapper.emitted('submit'), [[]]);
+  assert.equal(wrapper.emitted('update:message'), undefined);
+});
+
+test('amend com alteração staged pode preservar a mensagem atual', async () => {
   const wrapper = mount(ProjectGitCommitPage, {
     props: {
       overview,
@@ -148,10 +181,8 @@ test('amend usa a mensagem atual ou reaproveita a do último commit', async () =
 
   const amend = wrapper.find('.git-commit-amend');
   assert.equal((amend.element as HTMLButtonElement).disabled, false);
-
   await amend.trigger('click');
 
   assert.deepEqual(wrapper.emitted('update:mode'), [['amend']]);
-  assert.deepEqual(wrapper.emitted('update:message'), [[latestCommit.subject]]);
   assert.deepEqual(wrapper.emitted('submit'), [[]]);
 });

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { test } from 'node:test';
 
-import { GitService } from '../src/services/git-service.js';
+import { GitMutationError, GitService } from '../src/services/git-service.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -18,7 +18,7 @@ async function git(cwd: string, args: readonly string[]): Promise<string> {
   return result.stdout;
 }
 
-test('arquivos novos dentro de pasta aparecem no diff e entram no commit', async (context) => {
+test('arquivos novos aparecem no diff e exigem stage explícito para entrar no commit', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-untracked-'));
   context.after(async () => {
     await rm(root, { recursive: true, force: true });
@@ -67,7 +67,31 @@ test('arquivos novos dentro de pasta aparecem no diff e entram no commit', async
   assert.match(fileDiff.content, /new file mode/);
   assert.match(fileDiff.content, /\+<svg>facebook<\/svg>/);
 
-  const confirmation = service.prepareMutationConfirmation(
+  const firstConfirmation = service.prepareMutationConfirmation(
+    'p1',
+    'commit',
+    'main',
+  );
+  await assert.rejects(
+    () =>
+      service.commit(
+        root,
+        'p1',
+        'não inclui novos arquivos',
+        true,
+        firstConfirmation.token,
+      ),
+    (error: unknown) =>
+      error instanceof GitMutationError &&
+      error.code === 'GIT_NOTHING_TO_COMMIT',
+  );
+
+  let tree = await git(root, ['ls-tree', '-r', '--name-only', 'HEAD']);
+  assert.doesNotMatch(tree, /social-medias-share\/icons\/facebook\.svg/);
+  assert.match(await git(root, ['status', '--porcelain']), /\?\?/);
+
+  await git(root, ['add', 'social-medias-share/icons']);
+  const secondConfirmation = service.prepareMutationConfirmation(
     'p1',
     'commit',
     'main',
@@ -75,12 +99,12 @@ test('arquivos novos dentro de pasta aparecem no diff e entram no commit', async
   await service.commit(
     root,
     'p1',
-    'inclui novos arquivos',
+    'inclui arquivos staged',
     true,
-    confirmation.token,
+    secondConfirmation.token,
   );
 
-  const tree = await git(root, ['ls-tree', '-r', '--name-only', 'HEAD']);
+  tree = await git(root, ['ls-tree', '-r', '--name-only', 'HEAD']);
   assert.match(tree, /^social-medias-share\/icons\/facebook\.svg$/m);
   assert.match(tree, /^social-medias-share\/icons\/whatsapp\.svg$/m);
   assert.equal((await git(root, ['status', '--porcelain'])).trim(), '');

@@ -26,20 +26,52 @@ const emit = defineEmits<{
   'open-history': [];
 }>();
 
-const trackedChanges = computed(() =>
+const commitChanges = computed(() =>
   props.overview.files.filter((file) => file.status !== 'untracked'),
 );
+
+const untrackedChanges = computed(() =>
+  props.overview.files.filter((file) => file.status === 'untracked'),
+);
+
+const stagedChanges = computed(() =>
+  props.overview.files.filter(
+    (file) => file.indexStatus !== '.' && file.indexStatus !== '?',
+  ),
+);
+
+const hasConflicts = computed(() =>
+  props.overview.files.some((file) => file.status === 'conflicted'),
+);
+
+const messageChanged = computed(() => {
+  const latest = props.overview.latestCommit?.subject;
+  const message = props.message.trim();
+  return Boolean(latest && message && message !== latest);
+});
 
 const canCreate = computed(
   () =>
     props.message.trim().length > 0 &&
     !props.busy &&
-    trackedChanges.value.length > 0,
+    !hasConflicts.value &&
+    commitChanges.value.length > 0,
 );
 
 const canAmend = computed(
-  () => !props.busy && Boolean(props.overview.latestCommit),
+  () =>
+    !props.busy &&
+    !hasConflicts.value &&
+    Boolean(props.overview.latestCommit) &&
+    (stagedChanges.value.length > 0 || messageChanged.value),
 );
+
+const amendTitle = computed(() => {
+  if (hasConflicts.value) return 'Resolva os conflitos antes de usar amend.';
+  if (!props.overview.latestCommit) return 'Não existe commit anterior.';
+  if (canAmend.value) return 'Alterar o último commit.';
+  return 'Faça stage de alterações ou mude a mensagem para habilitar o amend.';
+});
 
 function updateMessage(event: Event): void {
   emit('update:message', (event.target as HTMLTextAreaElement).value);
@@ -53,11 +85,7 @@ function submitCreate(): void {
 
 function submitAmend(): void {
   if (!canAmend.value) return;
-
   emit('update:mode', 'amend');
-  if (!props.message.trim()) {
-    emit('update:message', props.overview.latestCommit?.subject ?? '');
-  }
   emit('submit');
 }
 </script>
@@ -72,9 +100,9 @@ function submitAmend(): void {
       >
         <ArrowUpTrayIcon aria-hidden="true" />
         <div>
-          <strong>Novo commit pronto para enviar</strong>
+          <strong>Commits locais aguardando envio</strong>
           <p>
-            Envie os commits novos de <code>{{ pushBranch }}</code> para
+            Envie os commits de <code>{{ pushBranch }}</code> para
             <code>origin/{{ pushBranch }}</code
             >. Se já existir uma Pull Request, ela será atualizada
             automaticamente pelo GitHub.
@@ -101,28 +129,70 @@ function submitAmend(): void {
         <small class="git-commit-message-count">{{ message.length }}/500</small>
       </label>
 
-      <div class="git-commit-footer">
+      <div class="git-commit-scope" aria-label="Escopo das operações de commit">
         <div
-          class="git-commit-tracked"
-          aria-label="Alterações incluídas no commit"
+          v-if="hasConflicts"
+          class="git-commit-scope-item is-conflict"
+          role="alert"
         >
+          <span class="git-commit-scope-dot" aria-hidden="true">!</span>
+          <span>Resolva os conflitos antes de criar ou alterar commits</span>
+        </div>
+        <div class="git-commit-scope-item">
           <CheckCircleIcon aria-hidden="true" />
           <span>
-            <strong>{{ trackedChanges.length }}</strong>
+            <strong>{{ commitChanges.length }}</strong>
             {{
-              trackedChanges.length === 1
-                ? 'alteração rastreada'
-                : 'alterações rastreadas'
+              commitChanges.length === 1
+                ? 'alteração entra'
+                : 'alterações entram'
             }}
-            incluídas automaticamente
+            no commit normal
           </span>
         </div>
+
+        <div
+          v-if="untrackedChanges.length > 0"
+          class="git-commit-scope-item is-excluded"
+        >
+          <span class="git-commit-scope-dot" aria-hidden="true">•</span>
+          <span>
+            <strong>{{ untrackedChanges.length }}</strong>
+            {{
+              untrackedChanges.length === 1
+                ? 'arquivo não rastreado fica'
+                : 'arquivos não rastreados ficam'
+            }}
+            de fora
+          </span>
+        </div>
+
+        <div class="git-commit-scope-item is-amend">
+          <ArrowPathRoundedSquareIcon aria-hidden="true" />
+          <span>
+            <strong>{{ stagedChanges.length }}</strong>
+            {{
+              stagedChanges.length === 1
+                ? 'alteração staged disponível'
+                : 'alterações staged disponíveis'
+            }}
+            para amend
+          </span>
+        </div>
+      </div>
+
+      <div class="git-commit-footer">
+        <p class="git-commit-amend-hint">
+          Amend inclui somente o que já está staged. Alterações não staged e
+          arquivos não rastreados permanecem fora.
+        </p>
 
         <div class="git-commit-actions">
           <button
             type="button"
             class="git-commit-amend"
             :disabled="!canAmend"
+            :title="amendTitle"
             @click="submitAmend"
           >
             <ArrowPathRoundedSquareIcon aria-hidden="true" />
@@ -212,7 +282,7 @@ function submitAmend(): void {
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
-  padding: 16px;
+  padding: 16px 16px 10px;
 }
 
 .git-commit-message textarea {
@@ -242,9 +312,60 @@ function submitAmend(): void {
 .git-commit-message-count {
   position: absolute;
   right: 30px;
-  bottom: 26px;
+  bottom: 20px;
   color: var(--text-dim);
   font-size: 9px;
+}
+
+.git-commit-scope {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 16px 12px;
+}
+
+.git-commit-scope-item {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 10px;
+}
+
+.git-commit-scope-item svg {
+  width: 14px;
+  height: 14px;
+  color: var(--success-text);
+}
+
+.git-commit-scope-item.is-amend svg {
+  color: var(--accent);
+}
+
+.git-commit-scope-item.is-excluded {
+  color: var(--text-dim);
+}
+
+.git-commit-scope-item.is-conflict {
+  border-color: color-mix(in srgb, var(--warning-text) 35%, var(--border));
+  color: var(--warning-text);
+}
+
+.git-commit-scope-dot {
+  color: var(--warning-text);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.git-commit-scope-item strong {
+  color: var(--text);
+  font-weight: var(--font-weight-strong);
 }
 
 .git-commit-footer {
@@ -259,25 +380,12 @@ function submitAmend(): void {
   background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%);
 }
 
-.git-commit-tracked {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.git-commit-tracked svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-  color: var(--success-text);
-}
-
-.git-commit-tracked strong {
-  color: var(--text);
-  font-weight: var(--font-weight-strong);
+.git-commit-amend-hint {
+  max-width: 520px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .git-commit-actions {
@@ -346,12 +454,20 @@ function submitAmend(): void {
   }
 
   .git-commit-message {
-    padding: 10px;
+    padding: 10px 10px 8px;
   }
 
   .git-commit-message-count {
     right: 22px;
-    bottom: 20px;
+    bottom: 18px;
+  }
+
+  .git-commit-scope {
+    padding: 0 10px 10px;
+  }
+
+  .git-commit-scope-item {
+    width: 100%;
   }
 
   .git-commit-footer {

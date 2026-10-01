@@ -1,10 +1,14 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import { expect, test } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
 import { readRuntimeInfo } from '../fixtures/runtime-info';
+
+const execFileAsync = promisify(execFile);
 
 test.describe('Commit do projeto', () => {
   test('vazio sem alterações, cria commit com sucesso e reseta ao trocar de projeto', async ({
@@ -37,6 +41,12 @@ test.describe('Commit do projeto', () => {
     >;
     lockfile.description = 'alteração do e2e de commit';
     await writeFile(lockfilePath, JSON.stringify(lockfile, null, 2));
+    const untrackedPath = path.join(
+      info.workspaceDirectory,
+      'sample-node-app',
+      'untracked-commit-e2e.txt',
+    );
+    await writeFile(untrackedPath, 'não deve entrar automaticamente\n');
     await page.reload();
     await page.getByRole('button', { name: 'Commit', exact: true }).click();
 
@@ -55,6 +65,60 @@ test.describe('Commit do projeto', () => {
       page.getByText(/^Commit ".+" criado: chore: ajusta lockfile via e2e$/),
     ).toBeVisible();
     await expect(submitButton).toBeDisabled();
+    await expect(
+      page.getByText('1 arquivo não rastreado fica de fora'),
+    ).toBeVisible();
+
+    const { stdout: untrackedStatus } = await execFileAsync(
+      'git',
+      ['status', '--porcelain', '--', 'untracked-commit-e2e.txt'],
+      {
+        cwd: path.join(info.workspaceDirectory, 'sample-node-app'),
+        encoding: 'utf8',
+      },
+    );
+    expect(untrackedStatus).toContain('?? untracked-commit-e2e.txt');
+
+    // Amend: apenas o arquivo staged é incorporado; o untracked continua fora.
+    const packagePath = path.join(
+      info.workspaceDirectory,
+      'sample-node-app',
+      'package.json',
+    );
+    const packageJson = JSON.parse(
+      await readFile(packagePath, 'utf8'),
+    ) as Record<string, unknown>;
+    packageJson.description = 'staged para amend';
+    await writeFile(packagePath, JSON.stringify(packageJson, null, 2));
+    await execFileAsync('git', ['add', 'package.json'], {
+      cwd: path.join(info.workspaceDirectory, 'sample-node-app'),
+    });
+
+    await page.reload();
+    await page.getByRole('button', { name: 'Commit', exact: true }).click();
+    const amendButton = page.locator('.git-commit-amend');
+    await expect(amendButton).toBeEnabled();
+    await amendButton.click();
+    await expect(
+      page.getByRole('dialog').getByRole('button', { name: 'Alterar commit' }),
+    ).toBeVisible();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Alterar commit' })
+      .click();
+    await expect(page.getByText(/^Commit ".+" alterado:/)).toBeVisible();
+
+    const { stdout: statusAfterAmend } = await execFileAsync(
+      'git',
+      ['status', '--porcelain'],
+      {
+        cwd: path.join(info.workspaceDirectory, 'sample-node-app'),
+        encoding: 'utf8',
+      },
+    );
+    expect(statusAfterAmend).toContain('?? untracked-commit-e2e.txt');
+    expect(statusAfterAmend).not.toContain('package.json');
+    await rm(untrackedPath, { force: true });
 
     // Troca de projeto: sample-rails-app continua sem Git.
     await gotoBootstrapped(page, '/');
