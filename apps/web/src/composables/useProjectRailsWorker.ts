@@ -282,7 +282,14 @@ export function useProjectRailsWorker(
   }
 
   async function start(): Promise<void> {
-    if (!supportsWorker.value) return;
+    if (
+      !supportsWorker.value ||
+      !detected.value ||
+      currentAction.value !== null ||
+      !['stopped', 'failed'].includes(status.value)
+    ) {
+      return;
+    }
 
     const projectId = getProject().id;
     const environmentInstanceId = getEnvironmentInstanceId();
@@ -316,7 +323,13 @@ export function useProjectRailsWorker(
   }
 
   async function stop(): Promise<void> {
-    if (!supportsWorker.value) return;
+    if (
+      !supportsWorker.value ||
+      currentAction.value !== null ||
+      status.value !== 'running'
+    ) {
+      return;
+    }
 
     const projectId = getProject().id;
     const environmentInstanceId = getEnvironmentInstanceId();
@@ -350,7 +363,14 @@ export function useProjectRailsWorker(
   }
 
   async function restart(): Promise<void> {
-    if (!supportsRestart || !supportsWorker.value) return;
+    if (
+      !supportsRestart ||
+      !supportsWorker.value ||
+      currentAction.value !== null ||
+      status.value !== 'running'
+    ) {
+      return;
+    }
 
     const projectId = getProject().id;
     const environmentInstanceId = getEnvironmentInstanceId();
