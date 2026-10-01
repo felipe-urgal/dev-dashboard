@@ -53,6 +53,9 @@ test('normaliza main, linked, detached, locked e prunable sem depender de campo 
   const runner: GitWorktreeCommandRunner = async (projectPath, args) => {
     calls.push({ projectPath, args: [...args] });
     if (args[0] === 'rev-parse') return '/workspace/projeto/.git\n';
+    if (args[0] === 'status') {
+      return projectPath === '/workspace/projeto-wt' ? ' M arquivo.ts\0' : '';
+    }
     return porcelain(records);
   };
 
@@ -77,6 +80,7 @@ test('normaliza main, linked, detached, locked e prunable sem depender de campo 
   assert.equal(linked?.branch, 'feature/demo');
   assert.equal(linked?.locked, true);
   assert.equal(linked?.lockReason, 'em uso pelo editor');
+  assert.equal(linked?.dirty, true);
 
   const detached = result.worktrees.find(
     (item) => item.path === '/workspace/projeto-old',
@@ -84,8 +88,10 @@ test('normaliza main, linked, detached, locked e prunable sem depender de campo 
   assert.equal(detached?.detached, true);
   assert.equal(detached?.branch, undefined);
   assert.equal(detached?.prunable, true);
+  assert.equal(detached?.dirty, undefined);
+  assert.equal(main?.dirty, false);
 
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   assert.ok(
     calls.some(
       (call) =>
@@ -100,6 +106,22 @@ test('normaliza main, linked, detached, locked e prunable sem depender de campo 
         call.projectPath === project.path &&
         call.args.join(' ') === 'worktree list --porcelain -z',
     ),
+  );
+  assert.ok(
+    calls.some(
+      (call) =>
+        call.projectPath === '/workspace/projeto-wt' &&
+        call.args.join(' ') ===
+          'status --porcelain=v1 -z --untracked-files=all',
+    ),
+  );
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.projectPath === '/workspace/projeto-old' &&
+        call.args[0] === 'status',
+    ),
+    false,
   );
 });
 
