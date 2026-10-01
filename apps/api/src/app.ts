@@ -35,6 +35,7 @@ import { dashboardTerminalRoutes } from './routes/dashboard-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { EnvironmentInstanceCleanupService } from './services/environment-instance-cleanup-service.js';
 import { GitWorktreeRemovalResourceGuardService } from './services/git-worktree-removal-resource-guard.js';
+import { GitSyncProgressService } from './services/git-sync-progress-service.js';
 import { DashboardTerminalService } from './services/dashboard-terminal-service.js';
 import { StackDefinitionService } from './services/stack-definition-service.js';
 import { StackDependencyDiscoveryService } from './services/stack-dependency-discovery-service.js';
@@ -244,6 +245,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     activityEvents: context.activityEventRepository,
   });
 
+  const gitSyncProgressService = new GitSyncProgressService();
+
   const gitWorktreeRemovalResourceGuard =
     new GitWorktreeRemovalResourceGuardService({
       processManager: context.processManager,
@@ -433,6 +436,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     gitService: context.gitService,
     gitMutationHistoryService: context.gitMutationHistoryService,
+    gitSyncProgressService,
   });
   app.register(gitMutationHistoryRoutes, {
     prefix: '/api',
@@ -458,6 +462,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitMutationHistoryService: context.gitMutationHistoryService,
+    gitSyncProgressService,
   });
   app.register(gitPullRequestRoutes, {
     prefix: '/api',
