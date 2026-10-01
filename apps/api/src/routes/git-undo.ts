@@ -101,6 +101,36 @@ const confirmationResponseSchema = {
   },
 } as const;
 
+const commitStatusResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status'],
+  properties: {
+    status: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['available'],
+      properties: {
+        available: { type: 'boolean' },
+        branch: { type: 'string' },
+        strategy: { type: 'string', enum: ['reset', 'revert'] },
+        reason: {
+          type: 'string',
+          enum: [
+            'no-commit',
+            'first-commit',
+            'detached',
+            'dirty',
+            'behind',
+            'diverged',
+          ],
+        },
+        reference: { type: 'string' },
+      },
+    },
+  },
+} as const;
+
 const commitResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -139,6 +169,8 @@ function translateUndoError(error: unknown): never {
       GIT_NOT_REPOSITORY: 400,
       GIT_DETACHED_HEAD: 400,
       GIT_WORKING_TREE_DIRTY: 409,
+      GIT_BRANCH_BEHIND: 409,
+      GIT_BRANCH_DIVERGED: 409,
       GIT_MUTATION_CONFIRMATION_REQUIRED: 409,
       GIT_FILE_PATH_INVALID: 400,
       GIT_FILE_NOT_FOUND: 404,
@@ -181,6 +213,24 @@ export const gitUndoRoutes: FastifyPluginAsync<GitUndoRouteOptions> = async (
     }
     return project;
   }
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/git/undo/status',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: { 200: commitStatusResponseSchema },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return { status: await service.getCommitStatus(project.path) };
+      } catch (error) {
+        translateUndoError(error);
+      }
+    },
+  );
 
   app.post<{ Params: ProjectParams; Body: ConfirmationBody }>(
     '/projects/:projectId/git/undo/confirmations',

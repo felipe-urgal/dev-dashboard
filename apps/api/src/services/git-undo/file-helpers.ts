@@ -48,19 +48,26 @@ export async function renameInfo(
   const output = await optionalGit(projectPath, [
     'diff',
     '--name-status',
+    '-z',
     '-M',
     '-C',
     'HEAD',
-    '--',
-    safePath,
   ]);
-  if (!output?.trim()) return null;
+  if (!output) return null;
 
-  for (const line of output.trim().split('\n')) {
-    const [status = '', previousPath = '', currentPath = ''] = line.split('\t');
-    if (currentPath !== safePath || !previousPath) continue;
-    if (status.startsWith('R')) return { kind: 'rename', previousPath };
-    if (status.startsWith('C')) return { kind: 'copy', previousPath };
+  const tokens = output.split('\0').filter(Boolean);
+  for (let index = 0; index < tokens.length; ) {
+    const status = tokens[index++] ?? '';
+    if (status.startsWith('R') || status.startsWith('C')) {
+      const previousPath = tokens[index++] ?? '';
+      const currentPath = tokens[index++] ?? '';
+      if (currentPath !== safePath || !previousPath) continue;
+      return {
+        kind: status.startsWith('R') ? 'rename' : 'copy',
+        previousPath,
+      };
+    }
+    index += 1;
   }
   return null;
 }

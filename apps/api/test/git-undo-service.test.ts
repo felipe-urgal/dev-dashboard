@@ -166,3 +166,120 @@ test('confirmação inválida não altera o repositório', async (context) => {
     'alterado\n',
   );
 });
+
+test('bloqueia desfazer commit quando a branch está atrás do remoto', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'commit local']);
+  const remoteHead = (await git(root, ['rev-parse', 'HEAD'])).trim();
+
+  await git(root, ['update-ref', 'refs/remotes/origin/main', remoteHead]);
+  await git(root, ['branch', '--set-upstream-to=origin/main', 'main']);
+  await writeFile(path.join(root, 'remote.txt'), 'remoto\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'simula remoto à frente']);
+  const aheadCommit = (await git(root, ['rev-parse', 'HEAD'])).trim();
+  await git(root, ['update-ref', 'refs/remotes/origin/main', aheadCommit]);
+  await git(root, ['reset', '--hard', remoteHead]);
+
+  const service = new GitUndoService();
+  const status = await service.getCommitStatus(root);
+  assert.equal(status.available, false);
+  assert.equal(status.reason, 'behind');
+
+  const confirmation = await service.prepareConfirmation(
+    root,
+    'p1',
+    'commit',
+    'main',
+  );
+  await assert.rejects(
+    () => service.undoLastCommit(root, 'p1', confirmation.token),
+    (error: unknown) =>
+      error instanceof GitUndoError && error.code === 'GIT_BRANCH_BEHIND',
+  );
+});
+
+test('sem upstream reconhece origin da mesma branch como commit publicado', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await writeFile(path.join(root, 'README.md'), 'publicado\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'commit publicado']);
+  await git(root, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+
+  const service = new GitUndoService();
+  const status = await service.getCommitStatus(root);
+  assert.equal(status.available, true);
+  assert.equal(status.strategy, 'revert');
+  assert.equal(status.reference, 'origin/main');
+});
+
+test('preflight bloqueia o primeiro commit antes da confirmação destrutiva', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const status = await new GitUndoService().getCommitStatus(root);
+  assert.equal(status.available, false);
+  assert.equal(status.reason, 'first-commit');
+});
+
+test('restaura rename staged sem deixar deleção órfã no index', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await git(root, ['mv', 'README.md', 'README-renamed.md']);
+
+  const service = new GitUndoService();
+  const confirmation = await service.prepareConfirmation(
+    root,
+    'p1',
+    'file',
+    'README-renamed.md',
+  );
+  await service.undoFile(
+    root,
+    'p1',
+    'README-renamed.md',
+    confirmation.token,
+  );
+
+  assert.equal(await readFile(path.join(root, 'README.md'), 'utf8'), 'v1\n');
+  await assert.rejects(access(path.join(root, 'README-renamed.md')));
+  assert.equal((await git(root, ['status', '--porcelain'])).trim(), '');
+});
+
+test('restaurar conflito usa a versão do HEAD e limpa o estado conflitante', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await writeFile(path.join(root, 'README.md'), 'ours\n');
+  await git(root, ['add', 'README.md']);
+  await git(root, ['commit', '-q', '-m', 'ours']);
+  const ours = (await git(root, ['rev-parse', 'HEAD'])).trim();
+
+  await git(root, ['checkout', '-q', '-b', 'other', 'HEAD^']);
+  await writeFile(path.join(root, 'README.md'), 'theirs\n');
+  await git(root, ['add', 'README.md']);
+  await git(root, ['commit', '-q', '-m', 'theirs']);
+  await git(root, ['checkout', '-q', 'main']);
+  await assert.rejects(() => git(root, ['merge', 'other']));
+
+  const service = new GitUndoService();
+  const confirmation = await service.prepareConfirmation(
+    root,
+    'p1',
+    'file',
+    'README.md',
+  );
+  await service.undoFile(root, 'p1', 'README.md', confirmation.token);
+
+  assert.equal((await git(root, ['rev-parse', 'HEAD'])).trim(), ours);
+  assert.equal(await readFile(path.join(root, 'README.md'), 'utf8'), 'ours\n');
+  assert.equal((await git(root, ['status', '--porcelain'])).trim(), '');
+});
+

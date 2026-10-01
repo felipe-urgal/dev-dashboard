@@ -19,6 +19,22 @@ export interface GitUndoConfirmation {
   expiresAt: string;
 }
 
+export type GitUndoCommitBlockedReason =
+  | 'no-commit'
+  | 'first-commit'
+  | 'detached'
+  | 'dirty'
+  | 'behind'
+  | 'diverged';
+
+export interface GitUndoCommitStatus {
+  available: boolean;
+  branch?: string;
+  strategy?: 'reset' | 'revert';
+  reason?: GitUndoCommitBlockedReason;
+  reference?: string;
+}
+
 export interface GitUndoCommitResult {
   strategy: 'reset' | 'revert';
   undone: {
@@ -35,6 +51,10 @@ export interface GitUndoCommitResult {
 
 interface UndoConfirmationResponse {
   confirmation: GitUndoConfirmation;
+}
+
+interface UndoCommitStatusResponse {
+  status: GitUndoCommitStatus;
 }
 
 interface UndoCommitResponse {
@@ -79,6 +99,15 @@ function pullRequestLookupQuery(input: {
     `targetRemote=${encodeURIComponent(input.targetRemote)}`,
     `baseBranch=${encodeURIComponent(input.baseBranch)}`,
   ].join('&');
+}
+
+export async function getProjectGitUndoStatus(
+  projectId: string,
+): Promise<GitUndoCommitStatus> {
+  const response = await requestJson<UndoCommitStatusResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/undo/status`,
+  );
+  return response.status;
 }
 
 export async function prepareProjectGitUndo(
