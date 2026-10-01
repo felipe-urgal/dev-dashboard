@@ -262,7 +262,8 @@ export function useProjectGitHistoryPage(
       total,
       first + (history.value?.commits.length ?? 0) - 1,
     );
-    const label = scope.value === 'exclusive' ? 'commits exclusivos' : 'commits';
+    const label =
+      scope.value === 'exclusive' ? 'commits exclusivos' : 'commits';
     return `Mostrando ${first} a ${last} de ${total} ${label}`;
   });
 
