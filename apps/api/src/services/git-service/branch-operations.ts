@@ -49,7 +49,6 @@ export function createBranchOperations(
       if (error instanceof GitMutationError) throw error;
       // show-ref falha quando o branch não existe — é o caminho esperado
     }
-    await assertWorkingTreeClean(projectPath);
     try {
       await runGit(projectPath, ['switch', '--create', name]);
     } catch (error) {
