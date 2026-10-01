@@ -271,3 +271,62 @@ it('continua criando branch pelo modal com prefixo', async () => {
 
   expect(wrapper.emitted('create')).toEqual([['feature/novo-login']]);
 });
+
+it('confirma pelo nome remoto real depois de renomear a branch local', async () => {
+  const workspace: ProjectGitWorkspace = {
+    branches: [
+      {
+        kind: 'local',
+        name: 'feature/new-name',
+        shortName: 'feature/new-name',
+        current: false,
+        upstream: 'origin/feature/old-name',
+        ahead: 0,
+        behind: 0,
+        latestCommit,
+      },
+      {
+        kind: 'remote',
+        name: 'origin/feature/old-name',
+        shortName: 'feature/old-name',
+        current: false,
+        remote: 'origin',
+        ahead: 0,
+        behind: 0,
+        latestCommit,
+      },
+    ],
+    remotes: [],
+  };
+
+  const wrapper = mountBranches(workspace);
+  const row = rowByName(wrapper, 'feature/new-name');
+
+  await row.find('.branch-menu-trigger').trigger('click');
+  const removeRemote = row
+    .findAll('button')
+    .find((button) => button.text().includes('Remover do origin'));
+  expect(removeRemote).toBeDefined();
+  await removeRemote!.trigger('click');
+  await flushPromises();
+
+  expect(document.body.textContent).toContain('feature/old-name');
+
+  const input = document.querySelector<HTMLInputElement>(
+    'input[aria-label="Nome da branch"]',
+  );
+  expect(input).not.toBeNull();
+
+  input!.value = 'feature/new-name';
+  input!.dispatchEvent(new Event('input', { bubbles: true }));
+  await flushPromises();
+  const submit = [
+    ...document.querySelectorAll<HTMLButtonElement>('button'),
+  ].find((button) => button.textContent?.trim() === 'Remover do origin');
+  expect(submit?.disabled).toBe(true);
+
+  input!.value = 'feature/old-name';
+  input!.dispatchEvent(new Event('input', { bubbles: true }));
+  await flushPromises();
+  expect(submit?.disabled).toBe(false);
+});
