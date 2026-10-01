@@ -105,20 +105,6 @@ test('compara e integra uma referência remota com fast-forward', async () => {
     );
     assert.equal(result.impact.previousSha, result.previousHead);
     assert.equal(result.impact.currentSha, result.currentHead);
-    assert.deepEqual(
-      [
-        ...new Set(
-          progress.flatMap((event) => (event.command ? [event.command] : [])),
-        ),
-      ],
-      [
-        'git fetch --prune upstream',
-        'git checkout main',
-        'git merge --no-edit upstream/main',
-        'git push origin main:main',
-        'git checkout feature/sync',
-      ],
-    );
   } finally {
     await fixture.cleanup();
   }
@@ -184,6 +170,20 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
     );
     assert.equal(result.impact.previousSha, result.previousHead);
     assert.equal(result.impact.currentSha, result.currentHead);
+    assert.deepEqual(
+      [
+        ...new Set(
+          progress.flatMap((event) => (event.command ? [event.command] : [])),
+        ),
+      ],
+      [
+        'git fetch --prune upstream',
+        'git checkout main',
+        'git merge --no-edit upstream/main',
+        'git push origin main:main',
+        'git checkout feature/sync',
+      ],
+    );
   } finally {
     await fixture.cleanup();
   }
