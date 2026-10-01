@@ -295,3 +295,124 @@ test('webpack recebe variáveis de package manager resolvidas no cwd da Environm
     ],
   });
 });
+
+test('webpack respeita package manager declarado e lockfiles conhecidos', async (context) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-rails-webpack-package-manager-'),
+  );
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  const cases = [
+    {
+      name: 'packageManager declarado tem precedência',
+      packageManager: 'yarn@4.6.0',
+      lockfile: 'package-lock.json',
+      expected: {
+        id: 'webpack',
+        command: 'yarn',
+        args: ['webpack-dev-server'],
+      },
+    },
+    {
+      name: 'pnpm-lock.yaml',
+      lockfile: 'pnpm-lock.yaml',
+      expected: {
+        id: 'webpack',
+        command: 'pnpm',
+        args: ['exec', 'webpack-dev-server'],
+      },
+    },
+    {
+      name: 'bun.lockb',
+      lockfile: 'bun.lockb',
+      expected: {
+        id: 'webpack',
+        command: 'bun',
+        args: ['x', 'webpack-dev-server'],
+      },
+    },
+    {
+      name: 'yarn.lock',
+      lockfile: 'yarn.lock',
+      expected: {
+        id: 'webpack',
+        command: 'yarn',
+        args: ['webpack-dev-server'],
+      },
+    },
+    {
+      name: 'package-lock.json',
+      lockfile: 'package-lock.json',
+      expected: {
+        id: 'webpack',
+        command: 'npm',
+        args: ['exec', '--', 'webpack-dev-server'],
+      },
+    },
+    {
+      name: 'sem declaração ou lockfile mantém fallback legado',
+      expected: {
+        id: 'webpack',
+        command: 'npx',
+        args: ['webpack-dev-server'],
+      },
+    },
+  ] as const;
+
+  for (const [index, fixture] of cases.entries()) {
+    await context.test(fixture.name, async () => {
+      const projectPath = path.join(root, `case-${index}`);
+      await mkdir(projectPath, { recursive: true });
+      await writeFile(path.join(projectPath, 'Gemfile'), 'gem "rails"\n');
+      await writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify(
+          {
+            name: `webpack-case-${index}`,
+            ...(fixture.packageManager
+              ? { packageManager: fixture.packageManager }
+              : {}),
+            devDependencies: {
+              'webpack-dev-server': '^5.0.0',
+            },
+          },
+          null,
+          2,
+        ),
+      );
+
+      if (fixture.lockfile) {
+        await writeFile(path.join(projectPath, fixture.lockfile), '');
+      }
+
+      const calls: unknown[][] = [];
+      const project: Project = {
+        id: `webpack-${index}`,
+        name: `webpack-${index}`,
+        path: projectPath,
+        type: 'rails',
+        source: 'standalone',
+        enabled: true,
+        capabilities: [],
+      };
+      const processManager = {
+        startWorker: async (...args: unknown[]) => {
+          calls.push(args);
+          return {
+            id: `webpack-process-${index}`,
+            projectId: project.id,
+            kind: 'webpack',
+            status: 'running',
+          };
+        },
+      };
+      const service = new RailsRuntimeService(processManager as never, {
+        resolvePackageManagerEnvironment: async () => ({}),
+      });
+
+      await service.startWorker(project, 'webpack');
+
+      assert.deepEqual(calls[0]?.[2], fixture.expected);
+    });
+  }
+});
