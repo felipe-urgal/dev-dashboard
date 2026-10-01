@@ -173,8 +173,7 @@ export interface GitBranchServiceOptions {
 export class GitBranchService {
   private readonly confirmations = new Map<string, StoredConfirmation>();
   private readonly closeOpenPullRequests:
-    | ((projectPath: string, branch: string) => Promise<void>)
-    | undefined;
+    ((projectPath: string, branch: string) => Promise<void>) | undefined;
 
   public constructor(options: GitBranchServiceOptions = {}) {
     this.closeOpenPullRequests = options.closeOpenPullRequests;
