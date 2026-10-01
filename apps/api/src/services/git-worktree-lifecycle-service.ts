@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { lstat } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -186,6 +187,18 @@ function normalizeWorktreeId(value: string): string | undefined {
 
 function targetPathFor(project: Project, directoryName: string): string {
   return path.join(path.dirname(path.resolve(project.path)), directoryName);
+}
+
+async function pathAbsence(
+  targetPath: string,
+): Promise<'absent' | 'present' | 'unknown'> {
+  try {
+    await lstat(targetPath);
+    return 'present';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'absent';
+    return 'unknown';
+  }
 }
 
 function isManagedLinkedWorktree(
@@ -549,6 +562,18 @@ export class GitWorktreeLifecycleService {
       };
     }
 
+    const initialPathAbsence = await pathAbsence(worktree.path);
+    if (initialPathAbsence !== 'absent') {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          initialPathAbsence === 'present'
+            ? 'A pasta do worktree existe no filesystem. O registro órfão não será limpo com force.'
+            : 'A ausência da pasta do worktree não pôde ser confirmada com segurança.',
+      };
+    }
+
     const ownership = await this.inspectRemovalOwnership(
       environmentInstanceId,
       removalResourceGuard,
@@ -612,6 +637,18 @@ export class GitWorktreeLifecycleService {
         diagnostic: current.locked
           ? 'O worktree foi bloqueado no Git durante a limpeza.'
           : 'A pasta do worktree voltou a existir. Use a remoção normal se ainda quiser removê-lo.',
+      };
+    }
+
+    const revalidatedPathAbsence = await pathAbsence(current.path);
+    if (revalidatedPathAbsence !== 'absent') {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          revalidatedPathAbsence === 'present'
+            ? 'A pasta do worktree reapareceu durante a limpeza. Nenhum diretório foi removido.'
+            : 'A ausência da pasta do worktree não pôde ser revalidada com segurança.',
       };
     }
 
