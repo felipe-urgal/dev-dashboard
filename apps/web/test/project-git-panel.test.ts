@@ -706,10 +706,16 @@ test('renderiza somente as duas operações de commit', async () => {
 
   assert.match(mounted.wrapper.text(), /Criar commit/);
   assert.match(mounted.wrapper.text(), /Amend último commit/);
-  assert.match(mounted.wrapper.text(), /4 alterações entram no commit normal/);
+  assert.match(
+    mounted.wrapper.text(),
+    /4 alterações entram no commit normal/,
+  );
   assert.ok(mounted.wrapper.find('.git-commit-card').exists());
   assert.ok(mounted.wrapper.find('.git-commit-message textarea').exists());
-  assert.match(mounted.wrapper.text(), /1 arquivo não rastreado fica de fora/);
+  assert.match(
+    mounted.wrapper.text(),
+    /1 arquivo não rastreado fica de fora/,
+  );
   assert.match(
     mounted.wrapper.text(),
     /2 alterações staged disponíveis para amend/,
