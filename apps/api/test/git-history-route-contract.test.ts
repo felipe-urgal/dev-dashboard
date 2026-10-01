@@ -75,7 +75,6 @@ test('mantém query e resposta do histórico exclusivo com o mesmo limite', asyn
   );
 });
 
-
 test('mantém query e resposta do histórico completo com o mesmo limite', async (context) => {
   const app = Fastify();
   context.after(async () => app.close());

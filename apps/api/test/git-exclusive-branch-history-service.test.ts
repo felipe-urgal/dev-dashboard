@@ -84,7 +84,6 @@ test('lista somente commits exclusivos da referência selecionada', async () => 
   }
 });
 
-
 test('não confunde feature/main com a branch principal', async () => {
   const directory = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-exclusive-history-suffix-'),
