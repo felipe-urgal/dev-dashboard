@@ -322,6 +322,12 @@ async function confirmRemoval(): Promise<void> {
   }
 }
 
+watch(branchMode, (mode) => {
+  branch.value = '';
+  directoryName.value = '';
+  if (mode === 'existing') syncExistingBranchSelection();
+});
+
 watch(
   () => props.project.id,
   () => {
@@ -359,7 +365,7 @@ watch(
           class="worktrees-primary-button"
           type="button"
           :disabled="mutationRunning"
-          @click="showCreateForm = !showCreateForm"
+          @click="toggleCreateForm"
         >
           <FolderPlusIcon aria-hidden="true" />
           {{ showCreateForm ? 'Fechar' : 'Novo worktree' }}
@@ -377,24 +383,85 @@ watch(
           <div>
             <h3>Novo worktree</h3>
             <p>
-              Use uma branch existente ou marque a opção para criar uma nova.
+              Escolha uma branch local livre ou crie uma nova a partir do checkout principal.
             </p>
           </div>
         </div>
 
         <div class="worktrees-create-grid">
-          <label class="worktrees-field">
-            <span>Branch</span>
-            <input
-              v-model="branch"
-              name="branch"
-              type="text"
-              autocomplete="off"
-              placeholder="feature/minha-tarefa"
-              :disabled="mutationRunning"
-              required
-            />
-          </label>
+          <div class="worktrees-branch-picker">
+            <div
+              class="worktrees-branch-mode"
+              role="radiogroup"
+              aria-label="Origem da branch"
+            >
+              <label :class="{ 'is-active': branchMode === 'existing' }">
+                <input
+                  v-model="branchMode"
+                  type="radio"
+                  value="existing"
+                  :disabled="mutationRunning"
+                />
+                <span>Branch existente</span>
+              </label>
+              <label :class="{ 'is-active': branchMode === 'new' }">
+                <input
+                  v-model="branchMode"
+                  type="radio"
+                  value="new"
+                  :disabled="mutationRunning"
+                />
+                <span>Nova branch</span>
+              </label>
+            </div>
+
+            <label v-if="branchMode === 'existing'" class="worktrees-field">
+              <span>Branch local</span>
+              <select
+                v-model="branch"
+                name="branch"
+                :disabled="mutationRunning || availableLocalBranches.length === 0"
+                required
+              >
+                <option
+                  v-if="availableLocalBranches.length === 0"
+                  value=""
+                  disabled
+                >
+                  Nenhuma branch local livre
+                </option>
+                <option
+                  v-for="candidate in availableLocalBranches"
+                  :key="candidate.name"
+                  :value="candidate.name"
+                >
+                  {{ candidate.name }}
+                </option>
+              </select>
+              <small
+                v-if="branchListError"
+                class="worktrees-field-help is-error"
+              >
+                {{ branchListError }}
+              </small>
+            </label>
+
+            <label v-else class="worktrees-field">
+              <span>Nome da nova branch</span>
+              <input
+                v-model="branch"
+                name="branch"
+                type="text"
+                autocomplete="off"
+                placeholder="feature/minha-tarefa"
+                :disabled="mutationRunning"
+                required
+              />
+              <small class="worktrees-field-help">
+                Será criada a partir de <code>{{ baseBranch }}</code>.
+              </small>
+            </label>
+          </div>
 
           <label class="worktrees-field">
             <span>Diretório <small>opcional</small></span>
@@ -410,18 +477,20 @@ watch(
         </div>
 
         <div class="worktrees-create-footer">
-          <label class="worktrees-checkbox">
-            <input
-              v-model="createBranch"
-              type="checkbox"
-              :disabled="mutationRunning"
-            />
-            <span>Criar nova branch</span>
-          </label>
+          <span class="worktrees-create-summary">
+            {{
+              branchMode === 'existing'
+                ? 'Usará uma branch local já existente.'
+                : 'A branch será criada junto com o worktree.'
+            }}
+          </span>
           <button
             class="worktrees-primary-button"
             type="submit"
-            :disabled="mutationRunning"
+            :disabled="
+              mutationRunning ||
+              (branchMode === 'existing' && availableLocalBranches.length === 0)
+            "
           >
             {{ mutationRunning ? 'Criando…' : 'Criar worktree' }}
           </button>
@@ -455,25 +524,67 @@ watch(
               <span v-if="worktree.kind === 'main'" class="worktree-badge">
                 principal
               </span>
+              <span
+                v-else-if="worktree.prunable"
+                class="worktree-badge worktree-badge-warning"
+              >
+                órfão
+              </span>
               <span v-else-if="worktree.locked" class="worktree-badge">
                 bloqueado
+              </span>
+              <span
+                v-if="worktree.dirty"
+                class="worktree-badge worktree-badge-warning"
+              >
+                alterações
               </span>
             </div>
             <div class="worktree-meta">
               <span>{{ displayDirectory(worktree.path) }}</span>
               <code>{{ shortHead(worktree.head) }}</code>
             </div>
+            <p
+              v-if="worktree.prunable"
+              class="worktree-note worktree-note-warning"
+            >
+              {{
+                worktree.pruneReason ||
+                'A pasta do worktree não existe mais.'
+              }}
+            </p>
             <p v-if="worktree.lockReason" class="worktree-note">
               {{ worktree.lockReason }}
+            </p>
+            <p v-if="worktree.dirty" class="worktree-note">
+              Possui alterações locais; resolva antes de remover.
             </p>
           </div>
 
           <button
-            v-if="worktree.kind === 'linked'"
-            class="worktrees-danger-button"
+            v-if="worktree.kind === 'linked' && worktree.prunable"
+            class="worktrees-secondary-button"
             type="button"
             :disabled="mutationRunning || worktree.locked"
-            :title="worktree.lockReason || 'Remover worktree'"
+            :title="
+              worktree.lockReason ||
+              'Limpar somente o registro órfão deste worktree'
+            "
+            @click="cleanupPrunable(worktree)"
+          >
+            <TrashIcon aria-hidden="true" />
+            Limpar registro
+          </button>
+          <button
+            v-else-if="worktree.kind === 'linked'"
+            class="worktrees-danger-button"
+            type="button"
+            :disabled="mutationRunning || worktree.locked || worktree.dirty"
+            :title="
+              worktree.dirty
+                ? 'Resolva as alterações locais antes de remover'
+                : worktree.lockReason || 'Remover worktree'
+            "
             @click="prepareRemoval(worktree)"
           >
             <TrashIcon aria-hidden="true" />
@@ -673,7 +784,8 @@ watch(
   font-weight: 500;
 }
 
-.worktrees-field input {
+.worktrees-field input,
+.worktrees-field select {
   width: 100%;
   min-width: 0;
   min-height: 34px;
@@ -687,9 +799,69 @@ watch(
   font-size: 10px;
 }
 
-.worktrees-field input:focus {
+.worktrees-field input:focus,
+.worktrees-field select:focus {
   border-color: var(--accent);
   outline: 2px solid var(--accent-soft);
+}
+
+.worktrees-branch-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.worktrees-branch-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.worktrees-branch-mode label {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: var(--font-weight-strong);
+}
+
+.worktrees-branch-mode label.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.worktrees-branch-mode input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.worktrees-field-help {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.worktrees-field-help.is-error {
+  color: var(--danger-text);
+}
+
+.worktrees-field-help code {
+  color: var(--text-muted);
+  font-size: inherit;
+}
+
+.worktrees-create-summary {
+  color: var(--text-dim);
+  font-size: 9px;
 }
 
 .worktrees-create-footer,
@@ -802,10 +974,20 @@ watch(
   font-size: 9px;
 }
 
+.worktree-badge-warning {
+  border-color: color-mix(in srgb, var(--danger-text) 32%, var(--border));
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
 .worktree-note {
   margin: 0;
   color: var(--text-dim);
   font-size: 9px;
+}
+
+.worktree-note-warning {
+  color: var(--danger-text);
 }
 
 .worktrees-danger-button {
@@ -856,7 +1038,8 @@ watch(
 }
 
 @media (max-width: 720px) {
-  .worktrees-create-grid {
+  .worktrees-create-grid,
+  .worktrees-branch-mode {
     grid-template-columns: 1fr;
   }
 
