@@ -335,7 +335,7 @@ test('rejeita diretório com traversal antes de qualquer mutação', async () =>
 test('falha do Git retorna diagnóstico sanitizado sem stderr/path bruto', async () => {
   const { result } = await createWith(
     { branch: 'feature/demo', directoryName: 'projeto-demo' },
-    { failAdd: true },
+    { failAdd: true, existingBranches: ['feature/demo'] },
   );
 
   assert.equal(result.state, 'failed');
@@ -389,15 +389,21 @@ test('não limpa registro que deixou de ser prunable durante a revalidação', a
       prunable: true,
     },
   ];
-  const { calls } = createRunner({ existing: linked });
+  const calls: Array<{ cwd: string; args: string[] }> = [];
   let inspections = 0;
   const runner: GitWorktreeCommandRunner = async (cwd, args) => {
+    calls.push({ cwd, args: [...args] });
+    if (args[0] === 'rev-parse') return `${COMMON_DIR}\n`;
+    if (args[0] === 'status') return '';
     if (args[0] === 'worktree' && args[1] === 'list') {
       inspections += 1;
       if (inspections >= 2) linked[0]!.prunable = false;
+      return porcelain([mainRecord(), ...linked.map(linkedRecord)]);
     }
-    const delegated = createRunner({ existing: linked }).runner;
-    return delegated(cwd, args);
+    if (args[0] === 'worktree' && args[1] === 'remove') {
+      throw new Error('não deveria remover');
+    }
+    throw new Error(`unexpected command: ${args.join(' ')}`);
   };
   const { guard } = createSafeRemovalGuard();
   const service = new GitWorktreeLifecycleService(runner, undefined, {
