@@ -43,8 +43,8 @@ test.describe('Pull Request do projeto', () => {
       await page
         .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
         .click();
-      await page.getByRole('link', { name: 'Git' }).click();
-      await page.getByRole('button', { name: 'Pull Request' }).click();
+      await page.getByRole('button', { name: 'Git' }).click();
+      await page.getByRole('link', { name: 'Pull Request' }).click();
 
       await expect(
         page.getByText('Não foi possível verificar automaticamente'),
