@@ -253,7 +253,7 @@ test('mantém HEAD destacado selecionável mesmo com branches conhecidas', async
 });
 
 test('abre o commit em modal com os arquivos alterados', async () => {
-  const { wrapper } = await mountPage();
+  const { wrapper, requests } = await mountPage();
 
   await wrapper.findAll('.git-history-row')[0]!.trigger('click');
   await settle('Carregando detalhes');
@@ -263,6 +263,13 @@ test('abre o commit em modal com os arquivos alterados', async () => {
   assert.ok(modal!.textContent?.includes('Arquivos alterados (1)'));
   assert.ok(modal!.textContent?.includes('app/ui/pages/auth/signup/index.tsx'));
   assert.ok(modal!.textContent?.includes('+24'));
+
+  const detailRequest = requests.find(
+    (request) =>
+      request.path.includes('/git/commits/') &&
+      !request.path.endsWith('/file'),
+  );
+  assert.equal(detailRequest?.query.get('includePatch'), 'false');
 });
 
 test('mantém a descrição do commit fechada e permite exibi-la', async () => {
