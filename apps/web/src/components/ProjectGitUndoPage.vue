@@ -1,19 +1,28 @@
 <script setup lang="ts">
 import {
+  ArrowDownTrayIcon,
   ArrowPathRoundedSquareIcon,
   DocumentTextIcon,
+  TrashIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import type {
+  GitFileChange,
   GitFileStatus,
   ProjectGitOverview,
 } from '@dev-dashboard/contracts';
 
 import {
+  discardProjectGitFile,
+  getProjectGitUndoStatus,
+  prepareProjectGitMutation,
   prepareProjectGitUndo,
+  removeProjectGitUntrackedFile,
   undoProjectGitCommit,
   undoProjectGitFile,
+  unstageProjectGitFile,
+  type GitUndoCommitStatus,
 } from '../api';
 import { confirmDialog } from '../stores/app-dialog';
 import { gitFileToneFor } from '../utils/status-tones';
@@ -29,10 +38,17 @@ const emit = defineEmits<{
   changed: [];
 }>();
 
-const running = ref(false);
+type UndoOperationKind =
+  'commit' | 'unstage' | 'discard' | 'remove' | 'restore';
+
+const activeView = ref<'commit' | 'files'>('commit');
+const activeOperation = ref<{ kind: UndoOperationKind; path?: string } | null>(
+  null,
+);
+const commitStatus = ref<GitUndoCommitStatus | null>(null);
+const loadingCommitStatus = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
-const activeView = ref<'commit' | 'files'>('commit');
 
 const statusLabels: Record<GitFileStatus, string> = {
   added: 'Adicionado',
@@ -46,28 +62,70 @@ const statusLabels: Record<GitFileStatus, string> = {
 };
 
 const recentCommits = computed(() => props.overview.recentCommits.slice(0, 5));
-const publishedLatestCommit = computed(
-  () => Boolean(props.overview.upstream) && props.overview.ahead === 0,
+const running = computed(() => activeOperation.value !== null);
+
+const commitActionLabel = computed(() =>
+  commitStatus.value?.strategy === 'revert'
+    ? 'Reverter commit'
+    : 'Desfazer commit',
 );
 
 const canUndoCommit = computed(
   () =>
-    Boolean(props.overview.latestCommit) &&
-    !props.overview.detached &&
-    props.overview.clean &&
+    Boolean(commitStatus.value?.available) &&
     !props.busy &&
-    !running.value,
+    !running.value &&
+    !loadingCommitStatus.value,
 );
 
-const commitActionLabel = computed(() =>
-  publishedLatestCommit.value ? 'Reverter commit' : 'Desfazer commit',
-);
+const commitStateLabel = computed(() => {
+  const status = commitStatus.value;
+  if (!status)
+    return loadingCommitStatus.value ? 'Verificando…' : 'Indisponível';
+  if (status.available && status.strategy === 'revert')
+    return 'Publicado no remoto';
+  if (status.available && status.strategy === 'reset') return 'Commit local';
+  switch (status.reason) {
+    case 'behind':
+      return 'Sincronização necessária';
+    case 'diverged':
+      return 'Branch divergente';
+    case 'dirty':
+      return 'Alterações locais pendentes';
+    case 'first-commit':
+      return 'Primeiro commit';
+    case 'detached':
+      return 'HEAD destacado';
+    case 'no-commit':
+      return 'Sem commit';
+    default:
+      return 'Indisponível';
+  }
+});
 
 const undoExplanation = computed(() => {
-  if (publishedLatestCommit.value) {
-    return 'Um novo commit inverso será criado sem reescrever o histórico.';
+  const status = commitStatus.value;
+  if (!status) return 'Verificando se o último commit pode ser desfeito.';
+  if (status.available && status.strategy === 'revert') {
+    return 'O commit já está no remoto. Um novo commit inverso será criado localmente e ficará aguardando Push.';
   }
-  return 'O commit sai da branch e as alterações continuam disponíveis para edição.';
+  if (status.available && status.strategy === 'reset') {
+    return 'O commit será removido da branch com reset soft e suas alterações ficarão staged para edição ou novo commit.';
+  }
+  switch (status.reason) {
+    case 'behind':
+      return `A branch está atrás de ${status.reference ?? 'seu remoto'}. Sincronize antes de desfazer o commit.`;
+    case 'diverged':
+      return `A branch divergiu de ${status.reference ?? 'seu remoto'}. Resolva a divergência antes de desfazer o commit.`;
+    case 'dirty':
+      return 'Registre ou desfaça as alterações locais atuais antes de desfazer o commit.';
+    case 'first-commit':
+      return 'O primeiro commit do repositório não pode ser desfeito por esta ação.';
+    case 'detached':
+      return 'Selecione uma branch antes de desfazer commits.';
+    default:
+      return 'Nenhum commit está disponível para desfazer.';
+  }
 });
 
 function clearFeedback(): void {
@@ -89,23 +147,77 @@ function isLatestCommit(hash: string): boolean {
   return props.overview.latestCommit?.hash === hash;
 }
 
+function hasStaged(file: GitFileChange): boolean {
+  return file.indexStatus !== '.' && file.indexStatus !== '?';
+}
+
+function hasWorktreeChange(file: GitFileChange): boolean {
+  return file.worktreeStatus !== '.' && file.worktreeStatus !== '?';
+}
+
+function isSpecialRestore(file: GitFileChange): boolean {
+  return ['renamed', 'copied', 'conflicted'].includes(file.status);
+}
+
+function operationFor(kind: UndoOperationKind, file?: GitFileChange): boolean {
+  return (
+    activeOperation.value?.kind === kind &&
+    (!file || activeOperation.value.path === file.path)
+  );
+}
+
+async function loadCommitStatus(): Promise<void> {
+  const projectId = props.projectId;
+  loadingCommitStatus.value = true;
+  try {
+    const status = await getProjectGitUndoStatus(projectId);
+    if (projectId === props.projectId) commitStatus.value = status;
+  } catch (error) {
+    if (projectId === props.projectId) {
+      commitStatus.value = null;
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível verificar o último commit.';
+    }
+  } finally {
+    if (projectId === props.projectId) loadingCommitStatus.value = false;
+  }
+}
+
+async function finishMutation(
+  operation: { kind: UndoOperationKind; path?: string },
+  action: () => Promise<void>,
+): Promise<void> {
+  if (props.busy || running.value) return;
+  activeOperation.value = operation;
+  clearFeedback();
+  try {
+    await action();
+    emit('changed');
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : 'Não foi possível desfazer.';
+  } finally {
+    activeOperation.value = null;
+    await loadCommitStatus();
+  }
+}
+
 async function undoCommit(): Promise<void> {
   if (!canUndoCommit.value || !props.overview.latestCommit) return;
-
-  const explanation = publishedLatestCommit.value
-    ? 'O commit já foi publicado. O painel criará um novo commit de reversão sem reescrever o histórico.'
-    : 'O commit será removido da branch e as alterações continuarão disponíveis para editar e commitar novamente.';
+  const revert = commitStatus.value?.strategy === 'revert';
   const confirmed = await confirmDialog({
     title: `${commitActionLabel.value}?`,
-    message: explanation,
+    message: revert
+      ? 'Será criado um novo commit que inverte o último commit. O histórico não será reescrito e a reversão ficará aguardando Push.'
+      : 'O último commit será removido com reset soft. Todos os arquivos desse commit continuarão staged.',
     confirmLabel: commitActionLabel.value,
     tone: 'warning',
   });
   if (!confirmed) return;
 
-  running.value = true;
-  clearFeedback();
-  try {
+  await finishMutation({ kind: 'commit' }, async () => {
     const confirmation = await prepareProjectGitUndo(
       props.projectId,
       'commit',
@@ -117,55 +229,115 @@ async function undoCommit(): Promise<void> {
     );
     successMessage.value =
       result.strategy === 'revert'
-        ? `Commit ${result.undone.shortHash} revertido com um novo commit${result.result ? ` (${result.result.shortHash})` : ''}.`
-        : `Commit ${result.undone.shortHash} desfeito. As alterações foram mantidas para edição.`;
-    emit('changed');
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível desfazer o último commit.';
-  } finally {
-    running.value = false;
-  }
+        ? `Reversão de ${result.undone.shortHash} criada${result.result ? ` como ${result.result.shortHash}` : ''}. Faça Push para publicar.`
+        : `Commit ${result.undone.shortHash} desfeito. As alterações ficaram staged.`;
+  });
 }
 
-async function undoFile(filePath: string): Promise<void> {
-  if (props.busy || running.value) return;
+async function unstageFile(file: GitFileChange): Promise<void> {
+  await finishMutation({ kind: 'unstage', path: file.path }, async () => {
+    await unstageProjectGitFile(props.projectId, file.path);
+    successMessage.value =
+      file.status === 'renamed'
+        ? `Rename "${file.previousPath ?? ''} → ${file.path}" removido do staged sem apagar os arquivos.`
+        : `"${file.path}" removido do staged sem perder conteúdo.`;
+  });
+}
+
+async function discardFile(file: GitFileChange): Promise<void> {
   const confirmed = await confirmDialog({
-    title: 'Desfazer alterações do arquivo?',
-    message:
-      `O arquivo "${filePath}" será restaurado para o estado do último commit. ` +
-      'Arquivos novos serão removidos.',
-    confirmLabel: 'Desfazer arquivo',
+    title: 'Descartar alterações locais?',
+    message: `As alterações não staged de "${file.path}" serão descartadas. Alterações já staged serão preservadas.`,
+    confirmLabel: 'Descartar alterações',
     tone: 'danger',
   });
   if (!confirmed) return;
 
-  running.value = true;
-  clearFeedback();
-  try {
+  await finishMutation({ kind: 'discard', path: file.path }, async () => {
+    const confirmation = await prepareProjectGitMutation(
+      props.projectId,
+      'discard-file',
+      file.path,
+    );
+    await discardProjectGitFile(props.projectId, file.path, confirmation.token);
+    successMessage.value = `Alterações não staged de "${file.path}" descartadas.`;
+  });
+}
+
+async function removeUntracked(file: GitFileChange): Promise<void> {
+  const confirmed = await confirmDialog({
+    title: 'Excluir arquivo não rastreado?',
+    message: `O arquivo "${file.path}" será excluído permanentemente. O Git não possui uma versão anterior para restaurar.`,
+    confirmLabel: 'Excluir arquivo',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+
+  await finishMutation({ kind: 'remove', path: file.path }, async () => {
+    const confirmation = await prepareProjectGitMutation(
+      props.projectId,
+      'remove-untracked-file',
+      file.path,
+    );
+    await removeProjectGitUntrackedFile(
+      props.projectId,
+      file.path,
+      confirmation.token,
+    );
+    successMessage.value = `Arquivo "${file.path}" excluído.`;
+  });
+}
+
+async function restoreFile(file: GitFileChange): Promise<void> {
+  const action =
+    file.status === 'renamed'
+      ? 'Restaurar rename'
+      : file.status === 'copied'
+        ? 'Descartar cópia'
+        : 'Restaurar HEAD';
+  const detail =
+    file.status === 'renamed'
+      ? `O rename "${file.previousPath ?? ''} → ${file.path}" será totalmente desfeito.`
+      : file.status === 'copied'
+        ? `A cópia "${file.path}" será removida e o estado do HEAD será preservado.`
+        : `O conflito em "${file.path}" será substituído pela versão do HEAD.`;
+  const confirmed = await confirmDialog({
+    title: `${action}?`,
+    message: `${detail} Alterações locais dessa operação serão perdidas.`,
+    confirmLabel: action,
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+
+  await finishMutation({ kind: 'restore', path: file.path }, async () => {
     const confirmation = await prepareProjectGitUndo(
       props.projectId,
       'file',
-      filePath,
+      file.path,
     );
-    const restored = await undoProjectGitFile(
-      props.projectId,
-      filePath,
-      confirmation.token,
-    );
-    successMessage.value = `Alterações de "${restored}" desfeitas.`;
-    emit('changed');
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível desfazer as alterações do arquivo.';
-  } finally {
-    running.value = false;
-  }
+    await undoProjectGitFile(props.projectId, file.path, confirmation.token);
+    successMessage.value = `"${file.path}" restaurado para o estado do HEAD.`;
+  });
 }
+
+watch(
+  () => [
+    props.projectId,
+    props.overview.branch,
+    props.overview.latestCommit?.hash,
+    props.overview.clean,
+    props.overview.ahead,
+    props.overview.behind,
+    props.overview.upstream,
+  ],
+  () => {
+    void loadCommitStatus();
+  },
+);
+
+onMounted(() => {
+  void loadCommitStatus();
+});
 </script>
 
 <template>
@@ -196,7 +368,7 @@ async function undoFile(filePath: string): Promise<void> {
         @click="activeView = 'files'"
       >
         <DocumentTextIcon aria-hidden="true" />
-        Reverter arquivo
+        Alterações locais
         <span v-if="overview.files.length" class="git-undo-mode-count">
           {{ overview.files.length }}
         </span>
@@ -230,11 +402,13 @@ async function undoFile(filePath: string): Promise<void> {
             <span
               v-if="isLatestCommit(commit.hash)"
               class="git-undo-publication"
-              :class="publishedLatestCommit ? 'is-published' : 'is-local'"
+              :class="{
+                'is-published': commitStatus?.strategy === 'revert',
+                'is-local': commitStatus?.strategy === 'reset',
+                'is-blocked': commitStatus && !commitStatus.available,
+              }"
             >
-              {{
-                publishedLatestCommit ? 'Publicado no origin' : 'Commit local'
-              }}
+              {{ commitStateLabel }}
             </span>
             <button
               v-if="isLatestCommit(commit.hash)"
@@ -244,54 +418,132 @@ async function undoFile(filePath: string): Promise<void> {
               @click="undoCommit"
             >
               <ArrowPathRoundedSquareIcon aria-hidden="true" />
-              {{ running ? 'Processando…' : commitActionLabel }}
+              {{
+                operationFor('commit')
+                  ? 'Processando…'
+                  : loadingCommitStatus
+                    ? 'Verificando…'
+                    : commitActionLabel
+              }}
             </button>
           </article>
         </div>
         <div v-else class="git-undo-empty">Nenhum commit disponível.</div>
 
-        <p
-          v-if="overview.latestCommit && !overview.clean"
-          class="git-undo-note"
-        >
-          Registre ou desfaça as alterações atuais antes de desfazer o commit.
+        <p v-if="commitStatus && !commitStatus.available" class="git-undo-note">
+          {{ undoExplanation }}
         </p>
-
-        <p class="git-undo-guidance">{{ undoExplanation }}</p>
+        <p v-else class="git-undo-guidance">{{ undoExplanation }}</p>
       </div>
 
       <div v-show="activeView === 'files'" class="git-undo-panel">
         <header class="git-undo-heading">
           <div>
             <h2>Alterações locais</h2>
-            <p>Restaure um arquivo para o estado do último commit.</p>
+            <p>Escolha entre tirar do staged ou descartar conteúdo.</p>
           </div>
         </header>
 
         <div v-if="overview.files.length" class="git-undo-files">
           <article v-for="file in overview.files" :key="file.path">
             <DocumentTextIcon aria-hidden="true" />
-            <div>
-              <code>{{ file.path }}</code>
-              <StatusBadge :tone="gitFileToneFor(file.status)">
-                {{ statusLabels[file.status] }}
-              </StatusBadge>
+            <div class="git-undo-file-main">
+              <code>
+                <template v-if="file.previousPath && file.status === 'renamed'">
+                  {{ file.previousPath }} → {{ file.path }}
+                </template>
+                <template v-else>{{ file.path }}</template>
+              </code>
+              <div class="git-undo-file-badges">
+                <StatusBadge :tone="gitFileToneFor(file.status)">
+                  {{ statusLabels[file.status] }}
+                </StatusBadge>
+                <span v-if="hasStaged(file)" class="git-undo-stage-badge">
+                  Staged
+                </span>
+                <span
+                  v-if="hasWorktreeChange(file)"
+                  class="git-undo-worktree-badge"
+                >
+                  Não staged
+                </span>
+              </div>
             </div>
-            <button
-              type="button"
-              class="git-undo-file-button"
-              :disabled="busy || running"
-              @click="undoFile(file.path)"
-            >
-              Reverter
-            </button>
+
+            <div class="git-undo-file-actions">
+              <button
+                v-if="hasStaged(file) && file.status !== 'conflicted'"
+                type="button"
+                class="git-undo-file-button"
+                :disabled="busy || running"
+                @click="unstageFile(file)"
+              >
+                <ArrowDownTrayIcon aria-hidden="true" />
+                {{
+                  operationFor('unstage', file)
+                    ? 'Removendo…'
+                    : 'Tirar do staged'
+                }}
+              </button>
+
+              <button
+                v-if="
+                  hasWorktreeChange(file) &&
+                  file.status !== 'untracked' &&
+                  !isSpecialRestore(file)
+                "
+                type="button"
+                class="git-undo-file-button is-danger"
+                :disabled="busy || running"
+                @click="discardFile(file)"
+              >
+                {{
+                  operationFor('discard', file)
+                    ? 'Descartando…'
+                    : 'Descartar alterações'
+                }}
+              </button>
+
+              <button
+                v-if="file.status === 'untracked'"
+                type="button"
+                class="git-undo-file-button is-danger"
+                :disabled="busy || running"
+                @click="removeUntracked(file)"
+              >
+                <TrashIcon aria-hidden="true" />
+                {{
+                  operationFor('remove', file)
+                    ? 'Excluindo…'
+                    : 'Excluir arquivo'
+                }}
+              </button>
+
+              <button
+                v-if="isSpecialRestore(file)"
+                type="button"
+                class="git-undo-file-button is-danger"
+                :disabled="busy || running"
+                @click="restoreFile(file)"
+              >
+                {{
+                  operationFor('restore', file)
+                    ? 'Restaurando…'
+                    : file.status === 'renamed'
+                      ? 'Restaurar rename'
+                      : file.status === 'copied'
+                        ? 'Descartar cópia'
+                        : 'Restaurar HEAD'
+                }}
+              </button>
+            </div>
           </article>
         </div>
         <div v-else class="git-undo-empty">Nenhuma alteração local.</div>
 
         <p v-if="overview.files.length" class="git-undo-guidance is-danger">
-          Reverter descarta as alterações locais do arquivo. Arquivos novos são
-          removidos após a confirmação.
+          Tirar do staged preserva conteúdo. Descartar, restaurar e excluir são
+          ações destrutivas e sempre pedem confirmação.
         </p>
       </div>
     </section>
@@ -373,7 +625,8 @@ async function undoFile(filePath: string): Promise<void> {
 }
 
 .git-undo-mode button > svg,
-.git-undo-danger > svg {
+.git-undo-danger > svg,
+.git-undo-file-button > svg {
   width: 16px;
   height: 16px;
 }
@@ -503,7 +756,9 @@ async function undoFile(filePath: string): Promise<void> {
   font-size: 9px;
 }
 
-.git-undo-publication {
+.git-undo-publication,
+.git-undo-stage-badge,
+.git-undo-worktree-badge {
   display: inline-flex;
   width: max-content;
   align-items: center;
@@ -519,9 +774,20 @@ async function undoFile(filePath: string): Promise<void> {
   background: var(--success-surface);
 }
 
-.git-undo-publication.is-local {
+.git-undo-publication.is-local,
+.git-undo-stage-badge {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.git-undo-publication.is-blocked {
+  color: var(--warning-text);
+  background: var(--warning-surface);
+}
+
+.git-undo-worktree-badge {
+  color: var(--text-muted);
+  background: var(--surface-2);
 }
 
 .git-undo-danger,
@@ -532,9 +798,9 @@ async function undoFile(filePath: string): Promise<void> {
   justify-content: center;
   gap: 7px;
   padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--danger-text) 48%, var(--border));
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--danger-text, var(--text));
+  color: var(--text-muted);
   background: transparent;
   cursor: pointer;
   font: inherit;
@@ -543,10 +809,22 @@ async function undoFile(filePath: string): Promise<void> {
   white-space: nowrap;
 }
 
+.git-undo-danger,
+.git-undo-file-button.is-danger {
+  border-color: color-mix(in srgb, var(--danger-text) 48%, var(--border));
+  color: var(--danger-text, var(--text));
+}
+
 .git-undo-danger:hover:not(:disabled),
-.git-undo-file-button:hover:not(:disabled) {
+.git-undo-file-button.is-danger:hover:not(:disabled) {
   border-color: var(--danger-text);
   background: var(--danger-surface, var(--surface-2));
+}
+
+.git-undo-file-button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .git-undo-danger:disabled,
@@ -576,9 +854,8 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-files article {
   display: flex;
   min-width: 0;
-  min-height: 54px;
+  min-height: 58px;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 9px 12px;
   border-top: 1px solid var(--border);
@@ -591,20 +868,32 @@ async function undoFile(filePath: string): Promise<void> {
   color: var(--text-dim);
 }
 
-.git-undo-files article > div {
-  display: flex;
+.git-undo-file-main {
+  display: grid;
   min-width: 0;
-  align-items: center;
-  gap: 8px;
-  margin-right: auto;
+  flex: 1 1 auto;
+  gap: 5px;
 }
 
-.git-undo-files code {
+.git-undo-file-main code {
   overflow: hidden;
   color: var(--text);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.git-undo-file-badges,
+.git-undo-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.git-undo-file-actions {
+  flex: none;
+  justify-content: flex-end;
 }
 
 .git-undo-empty {
@@ -624,6 +913,16 @@ async function undoFile(filePath: string): Promise<void> {
   .git-undo-danger {
     grid-column: 2 / -1;
     justify-self: end;
+  }
+
+  .git-undo-files article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .git-undo-file-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
@@ -653,14 +952,9 @@ async function undoFile(filePath: string): Promise<void> {
     justify-self: stretch;
   }
 
-  .git-undo-files article {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .git-undo-files article > div {
-    width: 100%;
-    margin-right: 0;
+  .git-undo-file-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .git-undo-file-button {

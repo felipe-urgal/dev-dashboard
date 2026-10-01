@@ -157,3 +157,40 @@ test('cria branch preservando alterações locais não commitadas', async () => 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('unstage de rename preserva os arquivos sem deixar deleção staged', async () => {
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-unstage-rename-'),
+  );
+  const service = new GitService();
+  try {
+    await git(directory, 'init', '-b', 'main');
+    await git(directory, 'config', 'user.name', 'Dashboard Test');
+    await git(directory, 'config', 'user.email', 'dashboard@example.test');
+    await writeFile(path.join(directory, 'old.txt'), 'conteúdo\n');
+    await git(directory, 'add', 'old.txt');
+    await git(directory, 'commit', '-m', 'arquivo original');
+    await git(directory, 'mv', 'old.txt', 'new.txt');
+
+    await service.unstageFile(directory, 'new.txt');
+
+    const { stdout: staged } = await exec(
+      'git',
+      ['diff', '--cached', '--name-status'],
+      { cwd: directory, encoding: 'utf8' },
+    );
+    assert.equal(staged.trim(), '');
+    const { stdout: status } = await exec('git', ['status', '--porcelain'], {
+      cwd: directory,
+      encoding: 'utf8',
+    });
+    assert.match(status, / D old\.txt/);
+    assert.match(status, /\?\? new\.txt/);
+    assert.equal(
+      await readFile(path.join(directory, 'new.txt'), 'utf8'),
+      'conteúdo\n',
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

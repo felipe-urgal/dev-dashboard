@@ -8,13 +8,14 @@ import {
   unlinkIfPresent,
 } from './git-undo/file-helpers.js';
 import {
-  assertWorkingTreeClean,
   currentBranch,
-  localAheadOfUpstream,
   requireRepository,
+  undoTrackingComparison,
+  workingTreeClean,
 } from './git-undo/repository-guards.js';
 import { optionalGit, runGit } from './git-undo/run.js';
 import type {
+  GitUndoCommitStatus,
   GitUndoConfirmation,
   GitUndoCommitResult,
   GitUndoOperation,
@@ -27,29 +28,83 @@ import {
 export { GitUndoError } from './git-undo/errors.js';
 export type { GitUndoErrorCode } from './git-undo/errors.js';
 export type {
+  GitUndoCommitBlockedReason,
   GitUndoCommitResult,
+  GitUndoCommitStatus,
   GitUndoConfirmation,
   GitUndoOperation,
   GitUndoStrategy,
 } from './git-undo/types.js';
 
-/**
- * `GitUndoOperation` ('commit'|'file') é o vocabulário deste serviço; o
- * catálogo (`git-mutation-catalog.ts`) usa `undo-commit`/`undo-file`.
- */
 function undoCatalogOperationId(operation: GitUndoOperation): string {
   return operation === 'commit' ? 'undo-commit' : 'undo-file';
 }
 
 export class GitUndoService {
-  /**
-   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
-   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
-   * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
-   */
   private readonly confirmations = new GitMutationConfirmationService(
     CONFIRMATION_TTL_MS,
   );
+
+  public async getCommitStatus(
+    projectPath: string,
+  ): Promise<GitUndoCommitStatus> {
+    await requireRepository(projectPath);
+
+    let branch: string;
+    try {
+      branch = await currentBranch(projectPath);
+    } catch (error) {
+      if (error instanceof GitUndoError && error.code === 'GIT_DETACHED_HEAD') {
+        return { available: false, reason: 'detached' };
+      }
+      throw error;
+    }
+
+    try {
+      await headCommit(projectPath);
+    } catch {
+      return { available: false, branch, reason: 'no-commit' };
+    }
+
+    const parent = await optionalGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      'HEAD^',
+    ]);
+    if (!parent?.trim()) {
+      return { available: false, branch, reason: 'first-commit' };
+    }
+
+    if (!(await workingTreeClean(projectPath))) {
+      return { available: false, branch, reason: 'dirty' };
+    }
+
+    const tracking = await undoTrackingComparison(projectPath, branch);
+    if (tracking?.behind) {
+      return {
+        available: false,
+        branch,
+        reason: tracking.ahead > 0 ? 'diverged' : 'behind',
+        reference: tracking.reference,
+      };
+    }
+
+    if (tracking && tracking.ahead === 0) {
+      return {
+        available: true,
+        branch,
+        strategy: 'revert',
+        reference: tracking.reference,
+      };
+    }
+
+    return {
+      available: true,
+      branch,
+      strategy: 'reset',
+      ...(tracking ? { reference: tracking.reference } : {}),
+    };
+  }
 
   public async prepareConfirmation(
     projectPath: string,
@@ -86,23 +141,45 @@ export class GitUndoService {
     await requireRepository(projectPath);
     const branch = await currentBranch(projectPath);
     this.consumeConfirmation(projectId, 'commit', branch, confirmationToken);
-    await assertWorkingTreeClean(projectPath);
 
-    const undone = await headCommit(projectPath);
-    const parent = await optionalGit(projectPath, [
-      'rev-parse',
-      '--verify',
-      'HEAD^',
-    ]);
-    if (!parent?.trim()) {
-      throw new GitUndoError(
-        'GIT_COMMIT_FAILED',
-        'O primeiro commit do repositório não pode ser desfeito por esta ação.',
-      );
+    const status = await this.getCommitStatus(projectPath);
+    if (!status.available || !status.strategy) {
+      switch (status.reason) {
+        case 'dirty':
+          throw new GitUndoError(
+            'GIT_WORKING_TREE_DIRTY',
+            'Registre ou desfaça as alterações atuais antes de desfazer um commit.',
+          );
+        case 'behind':
+          throw new GitUndoError(
+            'GIT_BRANCH_BEHIND',
+            'A branch está atrás do remoto. Sincronize antes de desfazer o commit.',
+          );
+        case 'diverged':
+          throw new GitUndoError(
+            'GIT_BRANCH_DIVERGED',
+            'A branch divergiu do remoto. Sincronize ou resolva a divergência antes de desfazer o commit.',
+          );
+        case 'detached':
+          throw new GitUndoError(
+            'GIT_DETACHED_HEAD',
+            'Não é possível desfazer um commit em HEAD destacado.',
+          );
+        case 'first-commit':
+          throw new GitUndoError(
+            'GIT_COMMIT_FAILED',
+            'O primeiro commit do repositório não pode ser desfeito por esta ação.',
+          );
+        default:
+          throw new GitUndoError(
+            'GIT_COMMIT_FAILED',
+            'O repositório ainda não possui commit para desfazer.',
+          );
+      }
     }
 
-    const ahead = await localAheadOfUpstream(projectPath);
-    if (ahead === 0) {
+    const undone = await headCommit(projectPath);
+    if (status.strategy === 'revert') {
       try {
         await runGit(projectPath, ['revert', '--no-edit', 'HEAD']);
       } catch (error) {

@@ -5,9 +5,14 @@ import { flushPromises, mount } from '@vue/test-utils';
 import type { ProjectGitOverview } from '@dev-dashboard/contracts';
 
 const api = vi.hoisted(() => ({
+  discardProjectGitFile: vi.fn(),
+  getProjectGitUndoStatus: vi.fn(),
+  prepareProjectGitMutation: vi.fn(),
   prepareProjectGitUndo: vi.fn(),
+  removeProjectGitUntrackedFile: vi.fn(),
   undoProjectGitCommit: vi.fn(),
   undoProjectGitFile: vi.fn(),
+  unstageProjectGitFile: vi.fn(),
 }));
 
 vi.mock('../src/api', () => api);
@@ -51,45 +56,68 @@ function overview(
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  api.prepareProjectGitUndo.mockReset();
-  api.undoProjectGitCommit.mockReset();
-  api.undoProjectGitFile.mockReset();
+  for (const mock of Object.values(api)) mock.mockReset();
+  api.getProjectGitUndoStatus.mockResolvedValue({
+    available: true,
+    branch: 'feature/git-undo',
+    strategy: 'reset',
+  });
   api.prepareProjectGitUndo.mockResolvedValue({
     token: 'u'.repeat(64),
     operation: 'commit',
     target: 'feature/git-undo',
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   });
+  api.prepareProjectGitMutation.mockResolvedValue({
+    token: 'm'.repeat(64),
+    operation: 'discard-file',
+    target: 'README.md',
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+  });
   vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
-test('renderiza desfazer minimalista sem resumo, busca ou tabela detalhada', () => {
-  const wrapper = mount(ProjectGitUndoPage, {
-    props: {
-      projectId: 'p1',
-      overview: overview({
-        upstream: 'origin/feature/git-undo',
-        ahead: 0,
-      }),
-      busy: false,
-    },
+test('usa o preflight real para distinguir commit local de publicado', async () => {
+  api.getProjectGitUndoStatus.mockResolvedValue({
+    available: true,
+    branch: 'feature/git-undo',
+    strategy: 'revert',
+    reference: 'origin/feature/git-undo',
   });
 
-  assert.equal(wrapper.find('.git-undo-summary').exists(), false);
-  assert.equal(wrapper.find('.git-undo-search').exists(), false);
-  assert.equal(wrapper.find('.git-undo-history-table').exists(), false);
-  assert.equal(wrapper.findAll('[role="tab"]').length, 2);
-  assert.match(wrapper.text(), /Desfazer commit/);
-  assert.match(wrapper.text(), /Reverter arquivo/);
-  assert.match(wrapper.text(), /Commits recentes/);
-  assert.match(wrapper.text(), /Somente o último commit pode ser desfeito/);
-  assert.equal(wrapper.findAll('.git-undo-commit-row').length, 2);
-  assert.equal(wrapper.findAll('.git-undo-danger').length, 1);
-  assert.match(wrapper.text(), /Publicado no origin/);
+  const wrapper = mount(ProjectGitUndoPage, {
+    props: { projectId: 'p1', overview: overview(), busy: false },
+  });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Publicado no remoto/);
   assert.match(wrapper.text(), /novo commit inverso/);
+  assert.match(wrapper.text(), /aguardando Push/);
+  assert.match(wrapper.find('.git-undo-danger').text(), /Reverter commit/);
 });
 
-test('desfaz commit local e informa que alterações foram mantidas', async () => {
+test('bloqueia undo quando a branch precisa sincronizar', async () => {
+  api.getProjectGitUndoStatus.mockResolvedValue({
+    available: false,
+    branch: 'feature/git-undo',
+    reason: 'behind',
+    reference: 'origin/feature/git-undo',
+  });
+
+  const wrapper = mount(ProjectGitUndoPage, {
+    props: { projectId: 'p1', overview: overview(), busy: false },
+  });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Sincronização necessária/);
+  assert.match(wrapper.text(), /Sincronize antes de desfazer/);
+  assert.equal(
+    (wrapper.find('.git-undo-danger').element as HTMLButtonElement).disabled,
+    true,
+  );
+});
+
+test('desfaz commit local e informa que alterações ficaram staged', async () => {
   api.undoProjectGitCommit.mockResolvedValue({
     strategy: 'reset',
     undone: {
@@ -100,15 +128,9 @@ test('desfaz commit local e informa que alterações foram mantidas', async () =
   });
 
   const wrapper = mount(ProjectGitUndoPage, {
-    props: {
-      projectId: 'p1',
-      overview: overview(),
-      busy: false,
-    },
+    props: { projectId: 'p1', overview: overview(), busy: false },
   });
-
-  assert.match(wrapper.text(), /Desfazer commit/);
-  assert.match(wrapper.text(), /Commit local/);
+  await flushPromises();
   await wrapper.find('.git-undo-danger').trigger('click');
   await flushPromises();
 
@@ -117,55 +139,14 @@ test('desfaz commit local e informa que alterações foram mantidas', async () =
     'commit',
     'feature/git-undo',
   ]);
-  assert.deepEqual(api.undoProjectGitCommit.mock.calls[0], [
-    'p1',
-    'u'.repeat(64),
-  ]);
-  assert.match(wrapper.text(), /As alterações foram mantidas para edição/);
+  assert.match(wrapper.text(), /alterações ficaram staged/);
   assert.equal(wrapper.emitted('changed')?.length, 1);
 });
 
-test('usa revert quando o último commit já está publicado', async () => {
-  api.undoProjectGitCommit.mockResolvedValue({
-    strategy: 'revert',
-    undone: {
-      hash: latestCommit.hash,
-      shortHash: latestCommit.shortHash,
-      subject: latestCommit.subject,
-    },
-    result: {
-      hash: 'b'.repeat(40),
-      shortHash: 'bbbbbbb',
-      subject: 'Revert "feat: alteração local"',
-    },
-  });
-
-  const wrapper = mount(ProjectGitUndoPage, {
-    props: {
-      projectId: 'p1',
-      overview: overview({
-        upstream: 'origin/feature/git-undo',
-        ahead: 0,
-      }),
-      busy: false,
-    },
-  });
-
-  assert.match(wrapper.text(), /Reverter commit/);
-  await wrapper.find('.git-undo-danger').trigger('click');
-  await flushPromises();
-
-  assert.match(wrapper.text(), /revertido com um novo commit/);
-});
-
-test('mantém restauração individual de arquivo na visão minimalista', async () => {
-  api.prepareProjectGitUndo.mockResolvedValue({
-    token: 'f'.repeat(64),
-    operation: 'file',
-    target: 'README.md',
-    expiresAt: new Date(Date.now() + 60_000).toISOString(),
-  });
-  api.undoProjectGitFile.mockResolvedValue('README.md');
+test('separa unstage, descarte e exclusão de arquivo não rastreado', async () => {
+  api.unstageProjectGitFile.mockResolvedValue('staged.txt');
+  api.discardProjectGitFile.mockResolvedValue('mixed.txt');
+  api.removeProjectGitUntrackedFile.mockResolvedValue('novo.txt');
 
   const wrapper = mount(ProjectGitUndoPage, {
     props: {
@@ -174,37 +155,104 @@ test('mantém restauração individual de arquivo na visão minimalista', async 
         clean: false,
         files: [
           {
-            path: 'README.md',
-            indexStatus: '.',
+            path: 'staged.txt',
+            indexStatus: 'M',
+            worktreeStatus: '.',
+            status: 'modified',
+          },
+          {
+            path: 'mixed.txt',
+            indexStatus: 'M',
             worktreeStatus: 'M',
             status: 'modified',
+          },
+          {
+            path: 'novo.txt',
+            indexStatus: '?',
+            worktreeStatus: '?',
+            status: 'untracked',
           },
         ],
       }),
       busy: false,
     },
   });
+  await flushPromises();
+  await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
 
-  const tabs = wrapper.findAll('[role="tab"]');
-  await tabs[1]?.trigger('click');
-  assert.match(wrapper.text(), /Alterações locais/);
-  assert.match(wrapper.text(), /README\.md/);
-  assert.match(wrapper.text(), /Modificado/);
-  assert.equal(wrapper.findAll('.git-undo-file-button').length, 1);
+  assert.match(wrapper.text(), /Tirar do staged/);
+  assert.match(wrapper.text(), /Descartar alterações/);
+  assert.match(wrapper.text(), /Excluir arquivo/);
 
-  await wrapper.find('.git-undo-file-button').trigger('click');
+  const stagedRow = wrapper
+    .findAll('.git-undo-files article')
+    .find((row) => row.text().includes('staged.txt'))!;
+  await stagedRow.get('button').trigger('click');
+  await flushPromises();
+  assert.deepEqual(api.unstageProjectGitFile.mock.calls[0], [
+    'p1',
+    'staged.txt',
+  ]);
+
+  const mixedRow = wrapper
+    .findAll('.git-undo-files article')
+    .find((row) => row.text().includes('mixed.txt'))!;
+  const discard = mixedRow
+    .findAll('button')
+    .find((button) => button.text().includes('Descartar alterações'))!;
+  await discard.trigger('click');
+  await flushPromises();
+  assert.equal(api.discardProjectGitFile.mock.calls.length, 1);
+
+  const untrackedRow = wrapper
+    .findAll('.git-undo-files article')
+    .find((row) => row.text().includes('novo.txt'))!;
+  await untrackedRow.get('button').trigger('click');
+  await flushPromises();
+  assert.equal(api.removeProjectGitUntrackedFile.mock.calls.length, 1);
+});
+
+test('rename mostra os dois paths e oferece restauração completa', async () => {
+  api.prepareProjectGitUndo.mockResolvedValue({
+    token: 'f'.repeat(64),
+    operation: 'file',
+    target: 'novo.ts',
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+  });
+  api.undoProjectGitFile.mockResolvedValue('novo.ts');
+
+  const wrapper = mount(ProjectGitUndoPage, {
+    props: {
+      projectId: 'p1',
+      overview: overview({
+        clean: false,
+        files: [
+          {
+            path: 'novo.ts',
+            previousPath: 'antigo.ts',
+            indexStatus: 'R',
+            worktreeStatus: '.',
+            status: 'renamed',
+          },
+        ],
+      }),
+      busy: false,
+    },
+  });
+  await flushPromises();
+  await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
+
+  assert.match(wrapper.text(), /antigo\.ts → novo\.ts/);
+  assert.match(wrapper.text(), /Tirar do staged/);
+  const restore = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('Restaurar rename'))!;
+  await restore.trigger('click');
   await flushPromises();
 
-  assert.deepEqual(api.prepareProjectGitUndo.mock.calls[0], [
-    'p1',
-    'file',
-    'README.md',
-  ]);
   assert.deepEqual(api.undoProjectGitFile.mock.calls[0], [
     'p1',
-    'README.md',
+    'novo.ts',
     'f'.repeat(64),
   ]);
-  assert.match(wrapper.text(), /Alterações de "README.md" desfeitas/);
-  assert.equal(wrapper.emitted('changed')?.length, 1);
 });

@@ -78,11 +78,20 @@ export function createFileOperations(
         'O arquivo não está staged.',
       );
     }
+    const affectedPaths =
+      file.status === 'renamed' && file.previousPath
+        ? [safePath, file.previousPath]
+        : [safePath];
     try {
-      await runGit(projectPath, ['restore', '--staged', '--', safePath]);
+      await runGit(projectPath, [
+        'restore',
+        '--staged',
+        '--',
+        ...affectedPaths,
+      ]);
     } catch {
       try {
-        await runGit(projectPath, ['reset', '--', safePath]);
+        await runGit(projectPath, ['reset', 'HEAD', '--', ...affectedPaths]);
       } catch (error) {
         throw new GitMutationError(
           'GIT_FILE_MUTATION_FAILED',
