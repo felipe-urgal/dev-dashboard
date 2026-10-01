@@ -37,6 +37,11 @@ jobs:
       - name: Prepare native dependencies
         run: npm rebuild esbuild node-pty
 
+      - name: Format probe
+        run: |
+          npx prettier --write apps/api/src/services/git-worktree-observer.ts
+          git diff -- apps/api/src/services/git-worktree-observer.ts
+
       - name: Quality gate
         run: npm run check
 
