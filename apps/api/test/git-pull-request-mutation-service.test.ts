@@ -203,12 +203,9 @@ test('rejeita ações em projetos com remoto fora do GitHub', async (context) =>
 
   await assert.rejects(
     () =>
-      service.prepareConfirmation(
-        root,
-        'project-1',
-        'pull-request-close',
-        { number: 42 },
-      ),
+      service.prepareConfirmation(root, 'project-1', 'pull-request-close', {
+        number: 42,
+      }),
     (error: unknown) => {
       assert.ok(error instanceof GitPullRequestError);
       assert.equal(error.code, 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED');
