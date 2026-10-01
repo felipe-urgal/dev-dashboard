@@ -28,6 +28,7 @@ export interface GitWorktreeSnapshot {
   lockReason?: string;
   prunable: boolean;
   pruneReason?: string;
+  dirty?: boolean;
 }
 
 export interface GitWorktreeInspection {
@@ -267,11 +268,31 @@ export class GitWorktreeObserver {
       }))
       .sort((left, right) => left.path.localeCompare(right.path));
 
+    const enrichedWorktrees = await Promise.all(
+      worktrees.map(async (worktree) => {
+        if (worktree.bare || worktree.prunable) return worktree;
+
+        try {
+          const status = await this.runCommand(worktree.path, [
+            'status',
+            '--porcelain=v1',
+            '-z',
+            '--untracked-files=all',
+          ]);
+          return { ...worktree, dirty: status.length > 0 };
+        } catch {
+          // A listagem continua útil mesmo se o status de um worktree
+          // individual não puder ser consultado.
+          return worktree;
+        }
+      }),
+    );
+
     return {
       state: 'ready',
       projectId: project.id,
       observedAt,
-      worktrees,
+      worktrees: enrichedWorktrees,
     };
   }
 }
