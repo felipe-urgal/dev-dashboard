@@ -17,7 +17,7 @@ export function createCommitOperations(
     projectPath: string,
     projectId: string,
     message: string,
-    includeAllChanges: boolean,
+    _includeAllChanges: boolean,
     confirmationToken?: string,
   ): Promise<GitCommitResult> {
     validateCommitMessage(message);
@@ -39,29 +39,26 @@ export function createCommitOperations(
       branch,
       confirmationToken,
     );
-    if (includeAllChanges) {
-      await runGit(projectPath, ['add', '--all']);
-    }
-    const staged = await runGit(projectPath, [
-      'diff',
-      '--cached',
-      '--name-only',
-      '-z',
-    ]);
-    if (!staged.trim()) {
+
+    const committable = status.files.filter(
+      (file) => file.status !== 'untracked',
+    );
+    if (committable.length === 0) {
       throw new GitMutationError(
         'GIT_NOTHING_TO_COMMIT',
-        'Não há alterações staged para commitar.',
+        'Não há alterações rastreadas para commitar. Arquivos não rastreados precisam ser adicionados explicitamente antes.',
       );
     }
+
     try {
-      await runGit(projectPath, ['commit', '-m', message]);
+      await runGit(projectPath, ['commit', '-a', '-m', message]);
     } catch (error) {
       throw new GitMutationError(
         'GIT_COMMIT_FAILED',
         error instanceof Error ? error.message : 'Falha ao commitar.',
       );
     }
+
     const log = await runGit(projectPath, [
       'log',
       '-1',
@@ -98,8 +95,33 @@ export function createCommitOperations(
       branch,
       confirmationToken,
     );
+
+    let currentSubject = '';
     try {
-      await runGit(projectPath, ['add', '.']);
+      currentSubject = (
+        await runGit(projectPath, ['log', '-1', '--format=%s'])
+      ).trim();
+    } catch {
+      throw new GitMutationError(
+        'GIT_NOTHING_TO_COMMIT',
+        'Não existe um commit anterior para alterar.',
+      );
+    }
+
+    const staged = await runGit(projectPath, [
+      'diff',
+      '--cached',
+      '--name-only',
+      '-z',
+    ]);
+    if (!staged.trim() && currentSubject === message.trim()) {
+      throw new GitMutationError(
+        'GIT_NOTHING_TO_COMMIT',
+        'Não há alterações staged nem mudança na mensagem do último commit.',
+      );
+    }
+
+    try {
       await runGit(projectPath, ['commit', '--amend', '-m', message]);
     } catch (error) {
       throw new GitMutationError(
@@ -109,6 +131,7 @@ export function createCommitOperations(
           : 'Falha ao alterar o último commit.',
       );
     }
+
     const log = await runGit(projectPath, [
       'log',
       '-1',

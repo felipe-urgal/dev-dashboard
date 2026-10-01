@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
@@ -23,8 +23,89 @@ export function useProjectGitPanelPolicy(
   emit: (event: 'git-updated', overview: ProjectGitOverview) => void,
 ) {
   const panel = useProjectGitPanel(props, route, emit);
-  const pendingPushBranch = ref<string | null>(null);
+  const pendingPushBranchHint = ref<string | null>(null);
   const squashCommitCount = ref(0);
+  const rewriteMarkerKey = computed(
+    () =>
+      `dev-dashboard-git-amend-rewrite:${encodeURIComponent(props.project.id)}`,
+  );
+
+  function isProtectedBranch(branch: string): boolean {
+    const originDefault = panel.workspace.value?.remotes.find(
+      (remote) => remote.name === 'origin',
+    )?.defaultBranch;
+    return (
+      branch === 'main' ||
+      branch === 'master' ||
+      Boolean(originDefault && branch === originDefault)
+    );
+  }
+
+  const pendingPushBranch = computed(() => {
+    const overview = panel.overview.value;
+    const branch = overview?.branch;
+    if (!branch || isProtectedBranch(branch)) return null;
+
+    if (
+      overview.upstream === `origin/${branch}` &&
+      overview.ahead > 0 &&
+      overview.behind === 0
+    ) {
+      return branch;
+    }
+
+    return pendingPushBranchHint.value === branch
+      ? pendingPushBranchHint.value
+      : null;
+  });
+
+  function persistRewriteMarker(branch: string, head: string): void {
+    try {
+      window.sessionStorage.setItem(
+        rewriteMarkerKey.value,
+        JSON.stringify({ branch, head }),
+      );
+    } catch {
+      // Estado auxiliar; o force-push continua protegido por confirmação e lease.
+    }
+  }
+
+  function clearRewriteMarker(): void {
+    try {
+      window.sessionStorage.removeItem(rewriteMarkerKey.value);
+    } catch {
+      // Estado auxiliar.
+    }
+  }
+
+  function restoreRewriteMarker(): void {
+    const overview = panel.overview.value;
+    if (!overview?.branch || !overview.latestCommit) return;
+
+    try {
+      const raw = window.sessionStorage.getItem(rewriteMarkerKey.value);
+      if (!raw) return;
+      const marker = JSON.parse(raw) as { branch?: unknown; head?: unknown };
+      const valid =
+        marker.branch === overview.branch &&
+        marker.head === overview.latestCommit.hash &&
+        overview.upstream === `origin/${overview.branch}` &&
+        overview.ahead > 0 &&
+        overview.behind > 0 &&
+        !isProtectedBranch(overview.branch);
+
+      if (valid) {
+        panel.amendedBranch.value = overview.branch;
+      } else {
+        clearRewriteMarker();
+        if (panel.amendedBranch.value === marker.branch) {
+          panel.amendedBranch.value = null;
+        }
+      }
+    } catch {
+      clearRewriteMarker();
+    }
+  }
   let squashStatusGeneration = 0;
 
   async function refreshSquashStatus(branch?: string): Promise<void> {
@@ -164,7 +245,7 @@ export function useProjectGitPanelPolicy(
         ? `Commits novos de "${publishedBranch}" enviados para origin/${publishedBranch}.`
         : `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
       if (pendingPushBranch.value === publishedBranch) {
-        pendingPushBranch.value = null;
+        pendingPushBranchHint.value = null;
       }
       await panel.reloadGitData();
     } catch (error) {
@@ -210,7 +291,7 @@ export function useProjectGitPanelPolicy(
         confirmation.token,
       );
       squashCommitCount.value = 1;
-      pendingPushBranch.value = null;
+      pendingPushBranchHint.value = null;
 
       if (alreadyPublished) {
         panel.amendedBranch.value = squashedBranch;
@@ -273,7 +354,8 @@ export function useProjectGitPanelPolicy(
       if (panel.amendedBranch.value === pushedBranch) {
         panel.amendedBranch.value = null;
       }
-      pendingPushBranch.value = null;
+      pendingPushBranchHint.value = null;
+      clearRewriteMarker();
       panel.mutationMessage.value = `Branch "${pushedBranch}" atualizada em origin/${pushedBranch} com lease.`;
       await panel.reloadGitData();
     } catch (error) {
@@ -293,26 +375,36 @@ export function useProjectGitPanelPolicy(
 
     await panel.runCommit();
 
-    if (
-      mode !== 'create' ||
-      !branch ||
-      branch === 'main' ||
-      branch === 'master'
-    ) {
+    if (!branch || isProtectedBranch(branch)) return;
+
+    const currentHash = panel.overview.value?.latestCommit?.hash;
+    if (!currentHash || currentHash === previousHash) return;
+
+    if (mode === 'create') {
+      pendingPushBranchHint.value = branch;
+      if (panel.amendedBranch.value === branch) {
+        persistRewriteMarker(branch, currentHash);
+      }
       return;
     }
 
-    const currentHash = panel.overview.value?.latestCommit?.hash;
-    if (currentHash && currentHash !== previousHash) {
-      pendingPushBranch.value = branch;
+    if (
+      mode === 'amend' &&
+      panel.amendedBranch.value === branch &&
+      panel.overview.value?.upstream === `origin/${branch}`
+    ) {
+      persistRewriteMarker(branch, currentHash);
     }
   }
 
   watch(
     () => [props.project.id, panel.overview.value?.branch] as const,
     ([, branch]) => {
-      if (pendingPushBranch.value && pendingPushBranch.value !== branch) {
-        pendingPushBranch.value = null;
+      if (
+        pendingPushBranchHint.value &&
+        pendingPushBranchHint.value !== branch
+      ) {
+        pendingPushBranchHint.value = null;
       }
     },
   );
@@ -327,6 +419,19 @@ export function useProjectGitPanelPolicy(
     ([, branch]) => {
       void refreshSquashStatus(branch);
     },
+  );
+
+  watch(
+    () =>
+      [
+        props.project.id,
+        panel.overview.value?.branch,
+        panel.overview.value?.latestCommit?.hash,
+        panel.overview.value?.ahead,
+        panel.overview.value?.behind,
+        panel.overview.value?.upstream,
+      ] as const,
+    () => restoreRewriteMarker(),
   );
 
   return {

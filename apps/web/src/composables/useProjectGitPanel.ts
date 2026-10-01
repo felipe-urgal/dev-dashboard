@@ -582,20 +582,43 @@ export function useProjectGitPanel(
 
   async function runCommit(): Promise<void> {
     if (mutationRunning.value) return;
-    const message = commitMessage.value.trim();
+
+    const amend = commitMode.value === 'amend';
+    const typedMessage = commitMessage.value.trim();
+    const message =
+      amend && !typedMessage
+        ? (overview.value?.latestCommit?.subject?.trim() ?? '')
+        : typedMessage;
+
     if (!message) {
       mutationErrorMessage.value = 'Informe uma mensagem de commit.';
       return;
     }
 
-    const amend = commitMode.value === 'amend';
+    const files = overview.value?.files ?? [];
+    const commitChanges = files.filter(
+      (file) => file.status !== 'untracked',
+    ).length;
+    const untrackedChanges = files.filter(
+      (file) => file.status === 'untracked',
+    ).length;
+    const stagedChanges = files.filter(
+      (file) => file.indexStatus !== '.' && file.indexStatus !== '?',
+    ).length;
+
     const branchBeforeCommit = overview.value?.branch;
     const upstreamBeforeCommit = overview.value?.upstream;
     const confirmed = await confirmDialog({
       title: amend ? 'Alterar último commit?' : 'Criar commit?',
       message: amend
-        ? `O último commit será alterado para "${message}" e incluirá as alterações atuais.`
-        : `O commit "${message}" incluirá todas as alterações rastreadas.`,
+        ? stagedChanges > 0
+          ? `O último commit será alterado para "${message}" e incluirá ${stagedChanges} alteração(ões) já staged. Alterações não staged e arquivos não rastreados ficam de fora.`
+          : `Apenas a mensagem do último commit será alterada para "${message}". Nenhum arquivo será adicionado ao amend.`
+        : `O commit "${message}" incluirá ${commitChanges} alteração(ões) rastreada(s).${
+            untrackedChanges > 0
+              ? ` ${untrackedChanges} arquivo(s) não rastreado(s) permanecerá(ão) de fora.`
+              : ''
+          }`,
       confirmLabel: amend ? 'Alterar commit' : 'Criar commit',
       tone: 'warning',
     });
@@ -616,7 +639,7 @@ export function useProjectGitPanel(
         : await commitProjectGit(
             props.project.id,
             message,
-            true,
+            false,
             confirmation.token,
           );
       mutationMessage.value = amend

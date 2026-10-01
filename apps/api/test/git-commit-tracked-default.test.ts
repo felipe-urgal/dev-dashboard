@@ -69,6 +69,7 @@ test('novo commit inclui alterações rastreadas mesmo com flag legada false', a
   });
 
   await writeFile(path.join(repoPath, 'README.md'), 'sem stage manual\n');
+  await writeFile(path.join(repoPath, 'novo.txt'), 'não rastreado\n');
 
   const headers = {
     'x-dev-dashboard-token': TOKEN,
@@ -104,4 +105,18 @@ test('novo commit inclui alterações rastreadas mesmo com flag legada false', a
     cwd: repoPath,
   });
   assert.equal(stdout, 'sem stage manual\n');
+
+  const { stdout: untrackedInHead } = await execFileAsync(
+    'git',
+    ['ls-tree', '--name-only', 'HEAD', '--', 'novo.txt'],
+    { cwd: repoPath },
+  );
+  assert.equal(untrackedInHead.trim(), '');
+
+  const { stdout: status } = await execFileAsync(
+    'git',
+    ['status', '--porcelain', '--', 'novo.txt'],
+    { cwd: repoPath },
+  );
+  assert.match(status, /^\?\? novo\.txt/m);
 });
