@@ -33,7 +33,9 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
       sidekiqPanel.getByRole('button', { name: 'Parar' }),
     ).toBeVisible();
 
-    await expect(sidekiqPanel.getByText('Ao vivo', { exact: true })).toBeVisible();
+    await expect(
+      sidekiqPanel.getByText('Ao vivo', { exact: true }),
+    ).toBeVisible();
     await expect(
       sidekiqPanel.getByRole('button', { name: 'Reiniciar' }),
     ).toBeVisible();

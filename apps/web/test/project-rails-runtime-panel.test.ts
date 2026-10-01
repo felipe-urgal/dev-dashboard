@@ -170,9 +170,7 @@ describe('ProjectRailsRuntimePanel', () => {
 
   it('propaga Environment Instance para status, start e stream do worker', async () => {
     const environmentInstanceId = 'environment:worktree:p1:wt-1';
-    fetchProjectRailsWorker.mockResolvedValueOnce(
-      overview('sidekiq', true),
-    );
+    fetchProjectRailsWorker.mockResolvedValueOnce(overview('sidekiq', true));
     startProjectRailsWorker.mockResolvedValueOnce({
       id: 'p1:worker:sidekiq',
       projectId: 'p1',

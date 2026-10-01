@@ -112,8 +112,7 @@ function formatDate(value?: string): string {
         <template v-else>
           <p
             v-if="
-              worker.status.value === 'failed' &&
-              !worker.errorMessage.value
+              worker.status.value === 'failed' && !worker.errorMessage.value
             "
             class="rails-worker-error"
             role="alert"
