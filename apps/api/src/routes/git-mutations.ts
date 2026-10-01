@@ -3,6 +3,7 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import type { ProjectStore } from '../store/project-store.js';
 import { GitMutationError, type GitService } from '../services/git-service.js';
 import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
+import type { GitSyncProgressService } from '../services/git-sync-progress-service.js';
 
 import { ApiError } from '../http/api-error.js';
 import { withGitMutationHistory } from './git-mutation-history-helpers.js';
@@ -34,12 +35,18 @@ interface GitMutationRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   gitService: GitService;
   gitMutationHistoryService: GitMutationHistoryService;
+  gitSyncProgressService: GitSyncProgressService;
 }
 
 export const gitMutationRoutes: FastifyPluginAsync<
   GitMutationRouteOptions
 > = async (app, options) => {
-  const { projectStore, gitService, gitMutationHistoryService } = options;
+  const {
+    projectStore,
+    gitService,
+    gitMutationHistoryService,
+    gitSyncProgressService,
+  } = options;
 
   const mutationConfirmationBodySchema = {
     type: 'object',
@@ -322,21 +329,42 @@ export const gitMutationRoutes: FastifyPluginAsync<
           code: 'PROJECT_NOT_FOUND',
           message: 'Projeto não encontrado.',
         });
+
+      const progress = gitSyncProgressService.createReporter(
+        project.id,
+        'current-branch',
+      );
+      progress.report({
+        stepId: 'operation',
+        status: 'running',
+        message: 'Atualização da branch atual iniciada.',
+      });
+
       try {
-        return {
-          branch: await withGitMutationHistory(
-            gitMutationHistoryService,
-            project,
-            'pull',
-            () =>
-              gitService.pull(
-                project.path,
-                project.id,
-                request.body.confirmationToken,
-              ),
-          ),
-        };
+        const branch = await withGitMutationHistory(
+          gitMutationHistoryService,
+          project,
+          'pull',
+          () =>
+            gitService.pull(
+              project.path,
+              project.id,
+              request.body.confirmationToken,
+              progress.report,
+            ),
+        );
+        progress.report({
+          stepId: 'operation',
+          status: 'success',
+          message: 'Branch atualizada com sucesso.',
+        });
+        return { branch };
       } catch (error) {
+        progress.report({
+          stepId: 'operation',
+          status: 'error',
+          message: 'A atualização da branch não foi concluída.',
+        });
         translateMutationError(error);
       }
     },
