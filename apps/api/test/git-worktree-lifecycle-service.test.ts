@@ -157,11 +157,14 @@ async function createWith(
   return { result, calls };
 }
 
-test('cria worktree para branch existente com argv fechado e confirma snapshot', async () => {
-  const { result, calls } = await createWith({
-    branch: 'feature/demo',
-    directoryName: 'projeto-demo',
-  });
+test('cria worktree para branch local existente com argv fechado e confirma snapshot', async () => {
+  const { result, calls } = await createWith(
+    {
+      branch: 'feature/demo',
+      directoryName: 'projeto-demo',
+    },
+    { existingBranches: ['feature/demo'] },
+  );
 
   assert.equal(result.state, 'created');
   assert.equal(result.path, '/workspace/projeto-demo');
@@ -177,6 +180,27 @@ test('cria worktree para branch existente com argv fechado e confirma snapshot',
   );
   assert.equal(
     calls.some(({ args }) => args.includes('--force')),
+    false,
+  );
+});
+
+test('bloqueia branch inexistente antes de mutar o filesystem', async () => {
+  const { result, calls } = await createWith({
+    branch: 'feature/inexistente',
+    directoryName: 'projeto-inexistente',
+  });
+
+  assert.equal(result.state, 'blocked');
+  assert.match(result.diagnostic ?? '', /branch local informada não existe/u);
+  assert.ok(
+    calls.some(
+      ({ args }) =>
+        args.join(' ') ===
+        'show-ref --verify --quiet refs/heads/feature/inexistente',
+    ),
+  );
+  assert.equal(
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'add'),
     false,
   );
 });
@@ -226,6 +250,24 @@ test('recovery reutiliza branch já criada sem tentar recriá-la', async () => {
   );
 });
 
+test('bloqueia nova branch quando uma branch local com o mesmo nome já existe', async () => {
+  const { result, calls } = await createWith(
+    {
+      branch: 'feature/existente',
+      directoryName: 'projeto-existente',
+      createBranch: true,
+    },
+    { existingBranches: ['feature/existente'] },
+  );
+
+  assert.equal(result.state, 'blocked');
+  assert.match(result.diagnostic ?? '', /Já existe uma branch local/u);
+  assert.equal(
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'add'),
+    false,
+  );
+});
+
 test('reexecução do mesmo alvo é idempotente e não executa mutação', async () => {
   const { result, calls } = await createWith(
     { branch: 'feature/demo', directoryName: 'projeto-demo' },
@@ -235,6 +277,29 @@ test('reexecução do mesmo alvo é idempotente e não executa mutação', async
   );
 
   assert.equal(result.state, 'already-present');
+  assert.equal(
+    calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'add'),
+    false,
+  );
+});
+
+test('registro prunable no mesmo path não vira already-present', async () => {
+  const { result, calls } = await createWith(
+    { branch: 'feature/demo', directoryName: 'projeto-demo' },
+    {
+      existing: [
+        {
+          path: '/workspace/projeto-demo',
+          branch: 'feature/demo',
+          prunable: true,
+        },
+      ],
+      existingBranches: ['feature/demo'],
+    },
+  );
+
+  assert.equal(result.state, 'blocked');
+  assert.match(result.diagnostic ?? '', /registro órfão/u);
   assert.equal(
     calls.some(({ args }) => args[0] === 'worktree' && args[1] === 'add'),
     false,
@@ -277,6 +342,76 @@ test('falha do Git retorna diagnóstico sanitizado sem stderr/path bruto', async
   const serialized = JSON.stringify(result);
   assert.equal(serialized.includes('/private/path'), false);
   assert.equal(serialized.includes('secret-token'), false);
+});
+
+test('limpa somente o registro prunable revalidado e preserva remoção normal sem force', async () => {
+  const target = '/workspace/projeto-old';
+  const worktreeId = linkedWorktreeId(target);
+  const expectedEnvironmentId = `environment:worktree:${project.id}:${worktreeId}`;
+  const { runner, calls } = createRunner({
+    existing: [
+      {
+        path: target,
+        branch: 'feature/old',
+        prunable: true,
+      },
+    ],
+    existingBranches: ['feature/old'],
+  });
+  const { guard, inspected, cleaned } = createSafeRemovalGuard();
+  const service = new GitWorktreeLifecycleService(runner, undefined, {
+    removalResourceGuard: guard,
+  });
+
+  const pruned = await service.prune(project, worktreeId);
+
+  assert.equal(pruned.state, 'pruned');
+  assert.equal(pruned.environmentInstanceId, expectedEnvironmentId);
+  assert.deepEqual(inspected, [expectedEnvironmentId]);
+  assert.deepEqual(cleaned, [expectedEnvironmentId]);
+  assert.ok(
+    calls.some(
+      ({ cwd, args }) =>
+        cwd === project.path &&
+        args.join(' ') ===
+          'worktree remove --force -- /workspace/projeto-old',
+    ),
+  );
+});
+
+test('não limpa registro que deixou de ser prunable durante a revalidação', async () => {
+  const target = '/workspace/projeto-old';
+  const worktreeId = linkedWorktreeId(target);
+  const linked: LinkedState[] = [
+    {
+      path: target,
+      branch: 'feature/old',
+      prunable: true,
+    },
+  ];
+  const { calls } = createRunner({ existing: linked });
+  let inspections = 0;
+  const runner: GitWorktreeCommandRunner = async (cwd, args) => {
+    if (args[0] === 'worktree' && args[1] === 'list') {
+      inspections += 1;
+      if (inspections >= 2) linked[0]!.prunable = false;
+    }
+    const delegated = createRunner({ existing: linked }).runner;
+    return delegated(cwd, args);
+  };
+  const { guard } = createSafeRemovalGuard();
+  const service = new GitWorktreeLifecycleService(runner, undefined, {
+    removalResourceGuard: guard,
+  });
+
+  const result = await service.prune(project, worktreeId);
+
+  assert.equal(result.state, 'blocked');
+  assert.match(result.diagnostic ?? '', /pasta do worktree voltou a existir/u);
+  assert.equal(
+    calls.some(({ args }) => args.includes('--force')),
+    false,
+  );
 });
 
 test('prepara e remove linked worktree limpo com confirmação e ownership exatas', async () => {
