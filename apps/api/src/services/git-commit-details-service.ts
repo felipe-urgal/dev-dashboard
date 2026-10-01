@@ -230,6 +230,7 @@ async function firstParentOfCommit(
 export async function inspectGitCommit(
   projectPath: string,
   commitHash: string,
+  options: { includePatch?: boolean } = {},
 ): Promise<GitCommitDetails> {
   if (!COMMIT_HASH_PATTERN.test(commitHash)) {
     throw new GitCommitDetailsError(
@@ -273,6 +274,7 @@ export async function inspectGitCommit(
   // primeiro parent. Isso torna a semântica determinística e evita o modo
   // combinado de merge do Git, que pode não produzir lista/patch utilizável.
   const firstParent = await firstParentOfCommit(projectPath, commitHash);
+  const includePatch = options.includePatch ?? true;
   const [nameStatus, numstat, rawPatch] = firstParent
     ? await Promise.all([
         runGit(projectPath, [
@@ -293,15 +295,17 @@ export async function inspectGitCommit(
           commitHash,
           '--',
         ]),
-        runGit(projectPath, [
-          'diff',
-          '--find-renames',
-          '--no-ext-diff',
-          '--unified=3',
-          firstParent,
-          commitHash,
-          '--',
-        ]),
+        includePatch
+          ? runGit(projectPath, [
+              'diff',
+              '--find-renames',
+              '--no-ext-diff',
+              '--unified=3',
+              firstParent,
+              commitHash,
+              '--',
+            ])
+          : Promise.resolve(''),
       ])
     : await Promise.all([
         runGit(projectPath, [
@@ -320,14 +324,16 @@ export async function inspectGitCommit(
           '--find-renames',
           commitHash,
         ]),
-        runGit(projectPath, [
-          'show',
-          '--format=',
-          '--find-renames',
-          '--no-ext-diff',
-          '--unified=3',
-          commitHash,
-        ]),
+        includePatch
+          ? runGit(projectPath, [
+              'show',
+              '--format=',
+              '--find-renames',
+              '--no-ext-diff',
+              '--unified=3',
+              commitHash,
+            ])
+          : Promise.resolve(''),
       ]);
 
   const statuses = parseNameStatus(nameStatus);
