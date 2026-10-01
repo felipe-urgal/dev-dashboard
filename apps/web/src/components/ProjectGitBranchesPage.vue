@@ -294,6 +294,19 @@ function handleModalKeydown(event: KeyboardEvent): void {
   }
 }
 
+function openCreateModal(): void {
+  selectedBranch.value = '';
+  branchPrefix.value = prefixes[0]!.value;
+  branchSuffix.value = '';
+  openModal('create');
+}
+
+function openRenameModal(row: BranchRow): void {
+  selectedBranch.value = row.name;
+  renamedBranch.value = row.name;
+  openModal('rename');
+}
+
 function openDeleteModal(row: BranchRow): void {
   selectedBranch.value = row.name;
   deleteConfirmation.value = '';
