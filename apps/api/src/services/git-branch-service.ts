@@ -132,8 +132,23 @@ async function assertRemote(
   }
 }
 
+export interface GitBranchServiceOptions {
+  closeOpenPullRequests?: (
+    projectPath: string,
+    branch: string,
+  ) => Promise<void>;
+}
+
 export class GitBranchService {
   private readonly confirmations = new Map<string, StoredConfirmation>();
+  private readonly closeOpenPullRequests?: (
+    projectPath: string,
+    branch: string,
+  ) => Promise<void>;
+
+  public constructor(options: GitBranchServiceOptions = {}) {
+    this.closeOpenPullRequests = options.closeOpenPullRequests;
+  }
 
   public prepareTrackingConfirmation(
     projectId: string,
@@ -239,6 +254,15 @@ export class GitBranchService {
 
     await assertRepository(projectPath);
     await assertRemote(projectPath, remote);
+
+    try {
+      await this.closeOpenPullRequests?.(projectPath, localBranch);
+    } catch {
+      throw new GitBranchServiceError(
+        'GIT_COMMAND_FAILED',
+        'Não foi possível fechar a Pull Request aberta desta branch. A branch remota foi mantida.',
+      );
+    }
 
     try {
       await runGit(projectPath, ['push', remote, '--delete', localBranch]);
