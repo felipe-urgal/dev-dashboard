@@ -276,9 +276,7 @@ test.describe('Worktrees como Environment Instances', () => {
       await expect(page.locator('.server-status-label')).toContainText(
         'Executando',
       );
-      await expect(
-        page.getByRole('button', { name: 'Parar' }),
-      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Parar' })).toBeVisible();
     } finally {
       await stopEnvironmentServer(
         page,
