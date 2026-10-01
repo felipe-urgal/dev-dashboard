@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { lstat } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -75,6 +76,23 @@ export interface RemoveGitWorktreeResult {
   diagnostic?: string;
 }
 
+export type PruneGitWorktreeState =
+  | 'pruned'
+  | 'already-absent'
+  | 'blocked'
+  | 'failed'
+  | 'unverified'
+  | 'cleanup-required';
+
+export interface PruneGitWorktreeResult {
+  state: PruneGitWorktreeState;
+  worktreeId: string;
+  environmentInstanceId?: string;
+  path?: string;
+  branch?: string;
+  diagnostic?: string;
+}
+
 export interface GitWorktreeRemovalResourceGuardResult {
   safe: boolean;
   diagnostic?: string;
@@ -92,10 +110,13 @@ export interface GitWorktreeRemovalResourceGuard {
   cleanupRemoved(environmentInstanceId: string): Promise<void>;
 }
 
+type WorktreePathAbsence = 'absent' | 'present' | 'unknown';
+
 export interface GitWorktreeLifecycleServiceOptions {
   removalResourceGuard?: GitWorktreeRemovalResourceGuard;
   now?: () => number;
   createConfirmationToken?: () => string;
+  inspectPathAbsence?: (targetPath: string) => Promise<WorktreePathAbsence>;
 }
 
 interface RemovalConfirmationRecord {
@@ -171,6 +192,18 @@ function targetPathFor(project: Project, directoryName: string): string {
   return path.join(path.dirname(path.resolve(project.path)), directoryName);
 }
 
+async function inspectPathAbsence(
+  targetPath: string,
+): Promise<WorktreePathAbsence> {
+  try {
+    await lstat(targetPath);
+    return 'present';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'absent';
+    return 'unknown';
+  }
+}
+
 function isManagedLinkedWorktree(
   project: Project,
   worktree: GitWorktreeSnapshot,
@@ -198,6 +231,9 @@ export class GitWorktreeLifecycleService {
   private readonly removalResourceGuard: GitWorktreeRemovalResourceGuard;
   private readonly now: () => number;
   private readonly createConfirmationToken: () => string;
+  private readonly inspectPathAbsence: (
+    targetPath: string,
+  ) => Promise<WorktreePathAbsence>;
   private readonly removalConfirmations = new Map<
     string,
     RemovalConfirmationRecord
@@ -215,6 +251,7 @@ export class GitWorktreeLifecycleService {
     this.createConfirmationToken =
       options.createConfirmationToken ??
       (() => randomBytes(32).toString('hex'));
+    this.inspectPathAbsence = options.inspectPathAbsence ?? inspectPathAbsence;
   }
 
   public async create(
@@ -255,6 +292,13 @@ export class GitWorktreeLifecycleService {
         path.normalize(worktree.path) === path.normalize(targetPath),
     );
     if (atTarget) {
+      if (atTarget.prunable) {
+        return blocked(
+          targetPath,
+          branch,
+          'Existe um registro órfão usando o diretório escolhido. Limpe o registro antes de recriar o worktree.',
+        );
+      }
       if (atTarget.branch === branch) {
         return {
           state: 'already-present',
@@ -277,7 +321,9 @@ export class GitWorktreeLifecycleService {
       return blocked(
         targetPath,
         branch,
-        'A branch já está vinculada a outro worktree.',
+        branchInUse.prunable
+          ? 'A branch ainda está vinculada a um registro órfão. Limpe o registro antes de reutilizá-la.'
+          : 'A branch já está vinculada a outro worktree.',
       );
     }
 
@@ -296,18 +342,32 @@ export class GitWorktreeLifecycleService {
     }
 
     let branchExists = false;
-    if (input.createBranch && input.reuseBranch) {
-      try {
-        await this.runCommand(project.path, [
-          'show-ref',
-          '--verify',
-          '--quiet',
-          `refs/heads/${branch}`,
-        ]);
-        branchExists = true;
-      } catch {
-        // show-ref falha quando a branch ainda não existe.
-      }
+    try {
+      await this.runCommand(project.path, [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${branch}`,
+      ]);
+      branchExists = true;
+    } catch {
+      // show-ref falha quando a branch local ainda não existe.
+    }
+
+    if (!input.createBranch && !branchExists) {
+      return blocked(
+        targetPath,
+        branch,
+        'A branch local informada não existe. Escolha uma branch local ou crie uma nova.',
+      );
+    }
+
+    if (input.createBranch && branchExists && !input.reuseBranch) {
+      return blocked(
+        targetPath,
+        branch,
+        'Já existe uma branch local com esse nome. Use a opção de branch existente.',
+      );
     }
 
     const args =
@@ -442,6 +502,204 @@ export class GitWorktreeLifecycleService {
       ...(worktree.branch ? { branch: worktree.branch } : {}),
       confirmationToken: token,
       expiresAt: new Date(expiresAt).toISOString(),
+    };
+  }
+
+  public async prune(
+    project: Project,
+    worktreeIdInput: string,
+    removalResourceGuard: GitWorktreeRemovalResourceGuard = this
+      .removalResourceGuard,
+  ): Promise<PruneGitWorktreeResult> {
+    const worktreeId = normalizeWorktreeId(worktreeIdInput);
+    if (!worktreeId) {
+      return {
+        state: 'blocked',
+        worktreeId: worktreeIdInput.trim(),
+        diagnostic: 'A identidade do worktree é inválida para limpeza.',
+      };
+    }
+
+    const inspected = await this.observer.inspect(project);
+    if (inspected.state !== 'ready') {
+      return {
+        state: 'blocked',
+        worktreeId,
+        diagnostic:
+          'O estado atual dos worktrees não pôde ser confirmado com segurança.',
+      };
+    }
+
+    const worktree = inspected.worktrees.find((item) => item.id === worktreeId);
+    if (!worktree) return { state: 'already-absent', worktreeId };
+
+    const environmentInstanceId = worktreeEnvironmentInstanceId(
+      project.id,
+      worktree.id,
+    );
+    const resultBase = {
+      worktreeId,
+      environmentInstanceId,
+      path: worktree.path,
+      ...(worktree.branch ? { branch: worktree.branch } : {}),
+    };
+
+    if (!isManagedLinkedWorktree(project, worktree)) {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          'Somente linked worktrees irmãos do checkout principal podem ter o registro limpo por este lifecycle.',
+      };
+    }
+    if (worktree.locked) {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          'O worktree está locked no Git e o registro não pode ser limpo por este fluxo.',
+      };
+    }
+    if (!worktree.prunable) {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          'O worktree não está órfão. Use a remoção normal enquanto a pasta ainda existe.',
+      };
+    }
+
+    const initialPathAbsence = await this.inspectPathAbsence(worktree.path);
+    if (initialPathAbsence !== 'absent') {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          initialPathAbsence === 'present'
+            ? 'A pasta do worktree existe no filesystem. O registro órfão não será limpo com force.'
+            : 'A ausência da pasta do worktree não pôde ser confirmada com segurança.',
+      };
+    }
+
+    const ownership = await this.inspectRemovalOwnership(
+      environmentInstanceId,
+      removalResourceGuard,
+    );
+    if (!ownership.safe) {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          ownership.diagnostic ??
+          'Existem recursos do ambiente que impedem a limpeza segura do registro.',
+      };
+    }
+
+    try {
+      await removalResourceGuard.cleanupRemoved(environmentInstanceId);
+    } catch {
+      return {
+        state: 'cleanup-required',
+        ...resultBase,
+        diagnostic:
+          'O worktree está órfão, mas o cleanup dos recursos pertencentes ao ambiente não pôde ser concluído.',
+      };
+    }
+
+    const revalidated = await this.observer.inspect(project);
+    if (revalidated.state !== 'ready') {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          'Os recursos do ambiente foram limpos, mas o registro órfão não pôde ser revalidado antes da limpeza.',
+      };
+    }
+
+    const current = revalidated.worktrees.find(
+      (item) => item.id === worktreeId,
+    );
+    if (!current) {
+      return {
+        state: 'already-absent',
+        ...resultBase,
+      };
+    }
+    if (
+      current.path !== worktree.path ||
+      current.head !== worktree.head ||
+      current.branch !== worktree.branch
+    ) {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          'O registro do worktree mudou durante a limpeza. Atualize a listagem antes de tentar novamente.',
+      };
+    }
+    if (current.locked || !current.prunable) {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic: current.locked
+          ? 'O worktree foi bloqueado no Git durante a limpeza.'
+          : 'A pasta do worktree voltou a existir. Use a remoção normal se ainda quiser removê-lo.',
+      };
+    }
+
+    const revalidatedPathAbsence = await this.inspectPathAbsence(current.path);
+    if (revalidatedPathAbsence !== 'absent') {
+      return {
+        state: 'blocked',
+        ...resultBase,
+        diagnostic:
+          revalidatedPathAbsence === 'present'
+            ? 'A pasta do worktree reapareceu durante a limpeza. Nenhum diretório foi removido.'
+            : 'A ausência da pasta do worktree não pôde ser revalidada com segurança.',
+      };
+    }
+
+    try {
+      // O force fica restrito ao recovery de uma pasta já ausente. Usar
+      // worktree remove aqui mantém a operação focada neste registro, ao
+      // contrário de git worktree prune, que pode limpar vários órfãos.
+      await this.runCommand(project.path, [
+        'worktree',
+        'remove',
+        '--force',
+        '--',
+        current.path,
+      ]);
+    } catch {
+      return {
+        state: 'failed',
+        ...resultBase,
+        diagnostic:
+          'Git não conseguiu limpar o registro órfão após a revalidação.',
+      };
+    }
+
+    const after = await this.observer.inspect(project);
+    if (after.state !== 'ready') {
+      return {
+        state: 'unverified',
+        ...resultBase,
+        diagnostic:
+          'O comando foi executado, mas a limpeza do registro órfão não pôde ser confirmada.',
+      };
+    }
+    if (after.worktrees.some((item) => item.id === worktreeId)) {
+      return {
+        state: 'unverified',
+        ...resultBase,
+        diagnostic:
+          'O Git respondeu ao comando, mas o registro órfão ainda aparece no snapshot confirmado.',
+      };
+    }
+
+    return {
+      state: 'pruned',
+      ...resultBase,
     };
   }
 
@@ -617,6 +875,10 @@ export class GitWorktreeLifecycleService {
     if (worktree.prunable) {
       return 'O worktree está prunable e precisa ser reconciliado antes da remoção estruturada.';
     }
+    if (worktree.dirty === true) {
+      return 'O worktree possui alterações locais. Faça commit, descarte ou mova as alterações antes de remover.';
+    }
+    if (worktree.dirty === false) return undefined;
 
     try {
       const status = await this.runCommand(worktree.path, [

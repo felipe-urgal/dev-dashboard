@@ -23,7 +23,7 @@ interface Options extends FastifyPluginOptions {
   gitWorktreeObserver: Pick<GitWorktreeObserver, 'inspect'>;
   gitWorktreeLifecycleService: Pick<
     GitWorktreeLifecycleService,
-    'create' | 'prepareRemoval' | 'remove'
+    'create' | 'prune' | 'prepareRemoval' | 'remove'
   >;
   removalResourceGuard?: GitWorktreeRemovalResourceGuard;
   developmentEnvironmentInstanceStore: Pick<
@@ -122,6 +122,7 @@ const worktreeSchema = {
     lockReason: { type: 'string' },
     prunable: { type: 'boolean' },
     pruneReason: { type: 'string' },
+    dirty: { type: 'boolean' },
     environmentInstanceId: { type: 'string' },
   },
 } as const;
@@ -154,6 +155,30 @@ const createResultSchema = {
     branch: { type: 'string' },
     worktree: worktreeSchema,
     environmentInstanceId: { type: 'string' },
+    diagnostic: { type: 'string' },
+  },
+} as const;
+
+const pruneResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['state', 'worktreeId'],
+  properties: {
+    state: {
+      type: 'string',
+      enum: [
+        'pruned',
+        'already-absent',
+        'blocked',
+        'failed',
+        'unverified',
+        'cleanup-required',
+      ],
+    },
+    worktreeId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    path: { type: 'string' },
+    branch: { type: 'string' },
     diagnostic: { type: 'string' },
   },
 } as const;
@@ -378,6 +403,48 @@ export const gitWorktreeRoutes: FastifyPluginAsync<Options> = async (
           ...(result.diagnostic ? { diagnostic: result.diagnostic } : {}),
         },
       };
+    },
+  );
+
+  app.post<{ Params: WorktreeParams }>(
+    '/projects/:projectId/worktrees/:worktreeId/prune',
+    {
+      schema: {
+        params: worktreeParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: pruneResultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const result = await options.gitWorktreeLifecycleService.prune(
+        project,
+        request.params.worktreeId,
+        options.removalResourceGuard,
+      );
+
+      if (
+        result.state === 'pruned' ||
+        result.state === 'already-absent' ||
+        result.state === 'cleanup-required'
+      ) {
+        const inspection = await options.gitWorktreeObserver.inspect(project);
+        if (inspection.state === 'ready') {
+          await reconcileWorktrees(project.id, inspection.worktrees);
+        }
+      }
+
+      return { result };
     },
   );
 

@@ -12,6 +12,7 @@ export interface ProjectGitWorktree {
   lockReason?: string;
   prunable: boolean;
   pruneReason?: string;
+  dirty?: boolean;
   environmentInstanceId?: string;
 }
 
@@ -34,6 +35,21 @@ export interface CreateProjectGitWorktreeResult {
   branch: string;
   worktree?: ProjectGitWorktree;
   environmentInstanceId?: string;
+  diagnostic?: string;
+}
+
+export interface PruneProjectGitWorktreeResult {
+  state:
+    | 'pruned'
+    | 'already-absent'
+    | 'blocked'
+    | 'failed'
+    | 'unverified'
+    | 'cleanup-required';
+  worktreeId: string;
+  environmentInstanceId?: string;
+  path?: string;
+  branch?: string;
   diagnostic?: string;
 }
 
@@ -83,6 +99,19 @@ export async function createProjectGitWorktree(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
+  return response.result;
+}
+
+export async function pruneProjectGitWorktree(
+  projectId: string,
+  worktreeId: string,
+): Promise<PruneProjectGitWorktreeResult> {
+  const response = await requestJson<{
+    result: PruneProjectGitWorktreeResult;
+  }>(
+    `/api/projects/${encodeURIComponent(projectId)}/worktrees/${encodeURIComponent(worktreeId)}/prune`,
+    { method: 'POST' },
+  );
   return response.result;
 }
 

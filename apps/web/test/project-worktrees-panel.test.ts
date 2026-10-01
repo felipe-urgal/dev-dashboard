@@ -4,21 +4,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '@dev-dashboard/contracts';
 
 const {
+  fetchProjectGitWorkspace,
   fetchProjectGitWorktrees,
   createProjectGitWorktree,
   prepareProjectGitWorktreeRemoval,
+  pruneProjectGitWorktree,
   removeProjectGitWorktree,
 } = vi.hoisted(() => ({
+  fetchProjectGitWorkspace: vi.fn(),
   fetchProjectGitWorktrees: vi.fn(),
   createProjectGitWorktree: vi.fn(),
   prepareProjectGitWorktreeRemoval: vi.fn(),
+  pruneProjectGitWorktree: vi.fn(),
   removeProjectGitWorktree: vi.fn(),
+}));
+
+vi.mock('../src/api/git-workspace', () => ({
+  fetchProjectGitWorkspace,
 }));
 
 vi.mock('../src/api/git-worktrees', () => ({
   fetchProjectGitWorktrees,
   createProjectGitWorktree,
   prepareProjectGitWorktreeRemoval,
+  pruneProjectGitWorktree,
   removeProjectGitWorktree,
 }));
 
@@ -64,9 +73,40 @@ const inspection = {
   ],
 };
 
+const workspace = {
+  branches: [
+    {
+      name: 'main',
+      shortName: 'main',
+      kind: 'local' as const,
+      current: true,
+      ahead: 0,
+      behind: 0,
+    },
+    {
+      name: 'feature/login',
+      shortName: 'feature/login',
+      kind: 'local' as const,
+      current: false,
+      ahead: 0,
+      behind: 0,
+    },
+    {
+      name: 'feature/dashboard',
+      shortName: 'feature/dashboard',
+      kind: 'local' as const,
+      current: false,
+      ahead: 0,
+      behind: 0,
+    },
+  ],
+  remotes: [],
+};
+
 describe('ProjectWorktreesPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchProjectGitWorkspace.mockResolvedValue(workspace);
     fetchProjectGitWorktrees.mockResolvedValue(inspection);
     createProjectGitWorktree.mockResolvedValue({
       state: 'created',
@@ -80,6 +120,12 @@ describe('ProjectWorktreesPanel', () => {
       branch: 'feature/login',
       confirmationToken: 'confirm-token',
       expiresAt: '2026-09-11T12:01:00.000Z',
+    });
+    pruneProjectGitWorktree.mockResolvedValue({
+      state: 'pruned',
+      worktreeId: 'worktree-33333333333333333333',
+      path: '/projetos/feature-old',
+      branch: 'feature/old',
     });
     removeProjectGitWorktree.mockResolvedValue({
       state: 'removed',
@@ -104,12 +150,17 @@ describe('ProjectWorktreesPanel', () => {
     expect(wrapper.findAll('.worktrees-danger-button')).toHaveLength(1);
   });
 
-  it('cria um worktree e deriva o diretório quando ele fica vazio', async () => {
+  it('cria worktree usando somente uma branch local livre e deriva o diretório', async () => {
     const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
     await flushPromises();
 
     await wrapper.get('.worktrees-primary-button').trigger('click');
-    await wrapper.get('input[name="branch"]').setValue('feature/dashboard');
+
+    const select = wrapper.get('select[name="branch"]');
+    expect(select.text()).toContain('feature/dashboard');
+    expect(select.text()).not.toContain('feature/login');
+    expect(select.text()).not.toContain('main');
+
     await wrapper.get('form').trigger('submit');
     await flushPromises();
 
@@ -120,6 +171,86 @@ describe('ProjectWorktreesPanel', () => {
     });
     expect(wrapper.text()).toContain('Worktree criado.');
     expect(fetchProjectGitWorktrees).toHaveBeenCalledTimes(2);
+  });
+
+  it('cria nova branch deixando explícita a origem no checkout atual', async () => {
+    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    await flushPromises();
+
+    await wrapper.get('.worktrees-primary-button').trigger('click');
+    const radios = wrapper.findAll('input[type="radio"]');
+    await radios[1]!.setValue(true);
+    await wrapper.get('input[name="branch"]').setValue('feature/nova');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(createProjectGitWorktree).toHaveBeenCalledWith('p1', {
+      branch: 'feature/nova',
+      directoryName: 'feature-nova',
+      createBranch: true,
+    });
+    expect(wrapper.text()).toContain('Worktree criado.');
+  });
+
+  it('mostra órfão e limpa o registro sem entrar no fluxo de remoção normal', async () => {
+    fetchProjectGitWorktrees.mockResolvedValue({
+      ...inspection,
+      worktrees: [
+        inspection.worktrees[0],
+        {
+          ...inspection.worktrees[1],
+          id: 'worktree-33333333333333333333',
+          path: '/projetos/feature-old',
+          branch: 'feature/old',
+          prunable: true,
+          pruneReason: 'gitdir aponta para pasta ausente',
+        },
+      ],
+    });
+
+    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('órfão');
+    expect(wrapper.text()).toContain('gitdir aponta para pasta ausente');
+    expect(wrapper.text()).toContain('Limpar registro');
+
+    const cleanupButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Limpar registro'));
+    expect(cleanupButton).toBeDefined();
+    await cleanupButton!.trigger('click');
+    await flushPromises();
+
+    expect(pruneProjectGitWorktree).toHaveBeenCalledWith(
+      'p1',
+      'worktree-33333333333333333333',
+    );
+    expect(prepareProjectGitWorktreeRemoval).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Registro órfão removido.');
+  });
+
+  it('avisa alterações locais antes de remover e mantém a ação desabilitada', async () => {
+    fetchProjectGitWorktrees.mockResolvedValue({
+      ...inspection,
+      worktrees: [
+        inspection.worktrees[0],
+        {
+          ...inspection.worktrees[1],
+          dirty: true,
+        },
+      ],
+    });
+
+    const wrapper = mount(ProjectWorktreesPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('alterações');
+    expect(wrapper.text()).toContain(
+      'Possui alterações locais; resolva antes de remover.',
+    );
+    const removeButton = wrapper.get('.worktrees-danger-button');
+    expect(removeButton.attributes('disabled')).toBeDefined();
   });
 
   it('só remove depois da confirmação retornada pelo backend', async () => {

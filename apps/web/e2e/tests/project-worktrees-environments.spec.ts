@@ -1,4 +1,4 @@
-import { rm } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
@@ -13,6 +13,7 @@ interface WorktreeSnapshot {
   branch?: string;
   kind: 'main' | 'linked' | 'unknown';
   prunable: boolean;
+  dirty?: boolean;
   environmentInstanceId?: string;
 }
 
@@ -44,9 +45,9 @@ async function createWorktree(
   directoryName: string,
 ): Promise<void> {
   await page.getByRole('button', { name: 'Novo worktree' }).click();
-  await page.getByLabel('Branch', { exact: true }).fill(branch);
+  await page.getByLabel('Nova branch', { exact: true }).check();
+  await page.getByLabel('Nome da nova branch').fill(branch);
   await page.getByLabel('Diretório', { exact: false }).fill(directoryName);
-  await page.getByLabel('Criar nova branch').check();
   await page.getByRole('button', { name: 'Criar worktree' }).click();
   await expect(page.getByText('Worktree criado.')).toBeVisible();
 }
@@ -98,8 +99,10 @@ async function startEnvironmentServer(
     page,
     `/projects/${encodeURIComponent(projectId)}/server?environmentInstanceId=${encodeURIComponent(environmentInstanceId)}`,
   );
-  await expect(page.getByText('Pronto para iniciar')).toBeVisible();
-  await page.getByRole('button', { name: 'Iniciar servidor' }).click();
+  const startButton = page.getByRole('button', { name: 'Iniciar servidor' });
+  await expect(startButton).toBeVisible();
+  await expect(startButton).toBeEnabled();
+  await startButton.click();
 
   await expect
     .poll(
@@ -113,10 +116,10 @@ async function startEnvironmentServer(
     )
     .toBe('running');
 
-  await expect(page.locator('.server-console-hero.is-running')).toBeVisible();
-  await expect(page.locator('.server-console-copy h3')).toHaveText(
-    'Servidor em execução',
+  await expect(page.locator('.server-status-label')).toContainText(
+    'Executando',
   );
+  await expect(page.getByRole('button', { name: 'Parar' })).toBeVisible();
 }
 
 async function stopEnvironmentServer(
@@ -145,9 +148,7 @@ async function stopEnvironmentServer(
 }
 
 test.describe('Worktrees como Environment Instances', () => {
-  test('cleanup após remoção externa encerra somente o ambiente removido', async ({
-    page,
-  }) => {
+  test('limpa worktree órfão sem afetar o outro ambiente', async ({ page }) => {
     const projectId = await projectIdFromDashboard(page);
     const branchA = 'feature/e2e-worktree-a';
     const branchB = 'feature/e2e-worktree-b';
@@ -159,7 +160,7 @@ test.describe('Worktrees como Environment Instances', () => {
       `/projects/${encodeURIComponent(projectId)}/worktrees`,
     );
     await expect(
-      page.getByRole('heading', { name: 'Worktrees' }),
+      page.getByRole('button', { name: 'Novo worktree' }),
     ).toBeVisible();
 
     await createWorktree(page, branchA, directoryA);
@@ -244,6 +245,21 @@ test.describe('Worktrees como Environment Instances', () => {
         })
         .toBe('stopped');
 
+      const orphanRow = page
+        .locator('.worktree-row')
+        .filter({ hasText: branchA });
+      await expect(orphanRow.getByText('órfão')).toBeVisible();
+      await orphanRow.getByRole('button', { name: 'Limpar registro' }).click();
+      await expect(page.getByText('Registro órfão removido.')).toBeVisible();
+      await expect
+        .poll(async () => {
+          const currentWorktrees = await fetchWorktrees(page, projectId);
+          return currentWorktrees.some(
+            (worktree) => worktree.branch === branchA,
+          );
+        })
+        .toBe(false);
+
       serverProcesses = await fetchServerProcesses(page, projectId);
       expect(
         serverProcesses.find(
@@ -256,12 +272,10 @@ test.describe('Worktrees como Environment Instances', () => {
         page,
         `/projects/${encodeURIComponent(projectId)}/server?environmentInstanceId=${encodeURIComponent(worktreeB.environmentInstanceId)}`,
       );
-      await expect(
-        page.locator('.server-console-hero.is-running'),
-      ).toBeVisible();
-      await expect(page.locator('.server-console-copy h3')).toHaveText(
-        'Servidor em execução',
+      await expect(page.locator('.server-status-label')).toContainText(
+        'Executando',
       );
+      await expect(page.getByRole('button', { name: 'Parar' })).toBeVisible();
     } finally {
       await stopEnvironmentServer(
         page,
@@ -293,6 +307,66 @@ test.describe('Worktrees como Environment Instances', () => {
           () => undefined,
         );
       }
+    }
+  });
+
+  test('bloqueia remoção quando o worktree possui alterações locais', async ({
+    page,
+  }) => {
+    const projectId = await projectIdFromDashboard(page);
+    const branch = 'feature/e2e-worktree-dirty';
+    const directory = 'sample-node-app-e2e-worktree-dirty';
+
+    await gotoBootstrapped(
+      page,
+      `/projects/${encodeURIComponent(projectId)}/worktrees`,
+    );
+    await createWorktree(page, branch, directory);
+
+    const worktrees = await fetchWorktrees(page, projectId);
+    const worktree = worktrees.find((candidate) => candidate.branch === branch);
+    if (!worktree) throw new Error('Worktree dirty da fixture não foi criado.');
+
+    const runtimeInfo = await readRuntimeInfo();
+    const projectPath = path.join(
+      runtimeInfo.workspaceDirectory,
+      'sample-node-app',
+    );
+
+    try {
+      await writeFile(
+        path.join(worktree.path, '.e2e-worktree-dirty'),
+        'alteração local\n',
+        'utf8',
+      );
+
+      await page.getByRole('button', { name: 'Atualizar worktrees' }).click();
+
+      const dirtyRow = page
+        .locator('.worktree-row')
+        .filter({ hasText: branch });
+      await expect(
+        dirtyRow.getByText('alterações', { exact: true }),
+      ).toBeVisible();
+      await expect(
+        dirtyRow.getByText(
+          'Possui alterações locais; resolva antes de remover.',
+        ),
+      ).toBeVisible();
+      await expect(
+        dirtyRow.getByRole('button', { name: 'Remover' }),
+      ).toBeDisabled();
+    } finally {
+      await runGit(worktree.path, ['clean', '-fd']).catch(() => undefined);
+      await runGit(projectPath, [
+        'worktree',
+        'remove',
+        '--',
+        worktree.path,
+      ]).catch(() => undefined);
+      await runGit(projectPath, ['branch', '-d', branch]).catch(
+        () => undefined,
+      );
     }
   });
 });
