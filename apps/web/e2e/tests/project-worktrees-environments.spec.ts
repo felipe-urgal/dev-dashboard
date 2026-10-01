@@ -13,6 +13,7 @@ interface WorktreeSnapshot {
   branch?: string;
   kind: 'main' | 'linked' | 'unknown';
   prunable: boolean;
+  dirty?: boolean;
   environmentInstanceId?: string;
 }
 
