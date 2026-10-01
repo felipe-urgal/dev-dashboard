@@ -149,9 +149,20 @@ async function loadLastMainSynchronization(): Promise<void> {
 }
 
 async function handleMainSynchronization(): Promise<void> {
+  const previousMessage = lastMainSynchronizationMessage.value;
+  const previousError = lastMainSynchronizationError.value;
+  const previousProgress = [...synchronizationProgress.value];
+  const previousRunId = activeSyncRunId;
+
   clearMainSynchronizationConsole();
   const outcome = await runMainSynchronization();
-  if (outcome === 'cancelled') return;
+  if (outcome === 'cancelled') {
+    lastMainSynchronizationMessage.value = previousMessage;
+    lastMainSynchronizationError.value = previousError;
+    synchronizationProgress.value = previousProgress;
+    activeSyncRunId = previousRunId;
+    return;
+  }
 
   lastMainSynchronizationMessage.value = mutationMessage.value;
   lastMainSynchronizationError.value = mutationErrorMessage.value;
@@ -161,9 +172,20 @@ async function handleMainSynchronization(): Promise<void> {
 }
 
 async function handleCurrentBranchUpdate(): Promise<void> {
+  const previousMessage = lastMainSynchronizationMessage.value;
+  const previousError = lastMainSynchronizationError.value;
+  const previousProgress = [...synchronizationProgress.value];
+  const previousRunId = activeSyncRunId;
+
   clearMainSynchronizationConsole();
   const outcome = await runUpdateCurrentBranch();
-  if (outcome === 'cancelled') return;
+  if (outcome === 'cancelled') {
+    lastMainSynchronizationMessage.value = previousMessage;
+    lastMainSynchronizationError.value = previousError;
+    synchronizationProgress.value = previousProgress;
+    activeSyncRunId = previousRunId;
+    return;
+  }
 
   lastMainSynchronizationMessage.value = mutationMessage.value;
   lastMainSynchronizationError.value = mutationErrorMessage.value;

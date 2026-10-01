@@ -42,3 +42,26 @@ test('publica progresso apenas para assinantes do projeto correto', () => {
   ]);
   assert.deepEqual(ignored, []);
 });
+
+test('falha de assinante não interrompe a publicação de progresso', () => {
+  const service = new GitSyncProgressService();
+  const received: string[] = [];
+
+  service.subscribe('project-a', () => {
+    throw new Error('cliente desconectado');
+  });
+  service.subscribe('project-a', (event) => {
+    received.push(event.stepId);
+  });
+
+  const progress = service.createReporter('project-a', 'main');
+  assert.doesNotThrow(() =>
+    progress.report({
+      stepId: 'merge-main',
+      status: 'running',
+      command: 'git merge --no-edit origin/main',
+      message: 'Integrando main.',
+    }),
+  );
+  assert.deepEqual(received, ['merge-main']);
+});

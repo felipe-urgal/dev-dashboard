@@ -345,4 +345,10 @@ test('não afirma sincronização completa quando a verificação remota falha',
 
   assert.match(wrapper.text(), /Verificação incompleta/);
   assert.doesNotMatch(wrapper.text(), /Tudo sincronizado/);
+  assert.equal(
+    wrapper
+      .find('.git-sync-main-card .git-sync-button')
+      .attributes('disabled'),
+    undefined,
+  );
 });

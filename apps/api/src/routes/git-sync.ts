@@ -219,6 +219,7 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
         project.id,
         (event) => write(`data: ${JSON.stringify(event)}\n\n`),
       );
+      write(': conectado\n\n');
       heartbeat = setInterval(
         () => write(': acompanhamento ativo\n\n'),
         15_000,

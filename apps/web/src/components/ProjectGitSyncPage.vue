@@ -133,16 +133,16 @@ const status = computed(() => {
       tone: 'warning',
     };
   }
-  if (props.verificationError) {
-    return {
-      label: 'Verificação incompleta',
-      tone: 'warning',
-    };
-  }
   if (mainBusy.value) {
     return {
       label: 'Sincronizando…',
       tone: 'loading',
+    };
+  }
+  if (props.verificationError) {
+    return {
+      label: 'Verificação incompleta',
+      tone: 'warning',
     };
   }
   if (synchronized.value) {
@@ -220,7 +220,7 @@ const buttonDisabled = computed(
   () =>
     props.busy ||
     props.checking ||
-    synchronized.value ||
+    (synchronized.value && !props.verificationError) ||
     !props.overview.clean ||
     !available.value,
 );
@@ -231,7 +231,7 @@ const currentBranchButtonDisabled = computed(
     props.checking ||
     !props.overview.clean ||
     !currentBranchRemote.value ||
-    currentBranchBehind.value <= 0,
+    (currentBranchBehind.value <= 0 && !props.verificationError),
 );
 
 const lastSynchronizationLabel = computed(() => {
@@ -241,8 +241,8 @@ const lastSynchronizationLabel = computed(() => {
   if (Number.isNaN(date.getTime())) return props.lastSynchronizationAt;
 
   return new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
+    dateStyle: 'short',
+    timeStyle: 'short',
   }).format(date);
 });
 
@@ -310,6 +310,7 @@ function progressIcon(status: GitSyncProgressStatus) {
   if (status === 'error' || status === 'warning') {
     return ExclamationTriangleIcon;
   }
+  if (status === 'info') return CommandLineIcon;
   return CheckCircleIcon;
 }
 
@@ -970,7 +971,8 @@ function statusIcon(tone: string) {
   .git-sync-button.is-busy svg,
   .git-sync-main-icon.is-loading svg,
   .git-sync-status.is-loading svg,
-  .git-sync-console-output > svg.is-spinning,
+  .git-sync-console-line > svg.is-spinning,
+  .git-sync-console-placeholder > svg.is-spinning,
   .git-sync-console-state.is-loading i {
     animation: none;
   }

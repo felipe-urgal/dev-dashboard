@@ -56,8 +56,17 @@ export class GitSyncProgressService {
   }
 
   private publish(projectId: string, event: GitSyncProgressEvent): void {
-    for (const listener of this.listeners.get(projectId) ?? []) {
-      listener(event);
+    const listeners = this.listeners.get(projectId);
+    if (!listeners) return;
+
+    for (const listener of [...listeners]) {
+      try {
+        listener(event);
+      } catch {
+        listeners.delete(listener);
+      }
     }
+
+    if (listeners.size === 0) this.listeners.delete(projectId);
   }
 }

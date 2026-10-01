@@ -331,6 +331,7 @@ export function useProjectGitPanel(
           fetchProjectGitRemote(props.project.id, remote),
         ),
       );
+      remoteRefreshErrorMessage.value = '';
       await reloadGitData();
     } catch (error) {
       mutationErrorMessage.value =
@@ -504,6 +505,7 @@ export function useProjectGitPanel(
       mutationMessage.value = result.changed
         ? 'Main atualizada e publicada em origin/main.'
         : 'Main e origin/main já estavam sincronizadas.';
+      remoteRefreshErrorMessage.value = '';
       applyChangeImpact(result.impact);
       await reloadGitData();
       return 'succeeded';

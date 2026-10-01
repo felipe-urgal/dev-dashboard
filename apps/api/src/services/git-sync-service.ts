@@ -426,39 +426,27 @@ export class GitSyncService {
         message: 'A integração da main falhou.',
       });
 
-      if (CONFLICT_PATTERN.test(details)) {
+      report(reporter, {
+        stepId: 'abort-merge',
+        status: 'running',
+        command: 'git merge --abort',
+        message: 'Restaurando a main após a falha do merge.',
+      });
+      try {
+        await runGit(projectPath, ['merge', '--abort']);
         report(reporter, {
           stepId: 'abort-merge',
-          status: 'running',
+          status: 'success',
           command: 'git merge --abort',
-          message: 'Abortando merge com conflito.',
+          message: 'Merge abortado; main restaurada.',
         });
-        try {
-          await runGit(projectPath, ['merge', '--abort']);
-          report(reporter, {
-            stepId: 'abort-merge',
-            status: 'success',
-            command: 'git merge --abort',
-            message: 'Merge abortado; main restaurada.',
-          });
-        } catch {
-          report(reporter, {
-            stepId: 'abort-merge',
-            status: 'warning',
-            command: 'git merge --abort',
-            message: 'O Git não confirmou o abort do merge.',
-          });
-        }
-
-        try {
-          await restoreBranch(projectPath, originalBranch, reporter);
-        } catch {
-          // Preserva o erro primário da integração.
-        }
-        throw new GitSyncError(
-          'GIT_SYNC_CONFLICT',
-          'A integração encontrou conflitos e foi abortada automaticamente. A main voltou ao estado anterior.',
-        );
+      } catch {
+        report(reporter, {
+          stepId: 'abort-merge',
+          status: 'warning',
+          command: 'git merge --abort',
+          message: 'Não havia um merge abortável ou o abort não foi confirmado.',
+        });
       }
 
       try {
@@ -466,6 +454,14 @@ export class GitSyncService {
       } catch {
         // Preserva o erro primário da integração.
       }
+
+      if (CONFLICT_PATTERN.test(details)) {
+        throw new GitSyncError(
+          'GIT_SYNC_CONFLICT',
+          'A integração encontrou conflitos e foi abortada automaticamente. A main voltou ao estado anterior.',
+        );
+      }
+
       throw new GitSyncError(
         'GIT_SYNC_FAILED',
         `Não foi possível integrar ${source.reference} na main.`,
