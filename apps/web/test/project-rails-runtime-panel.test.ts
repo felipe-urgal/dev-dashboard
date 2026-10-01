@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
+  ManagedProcessStatus,
   Project,
   RailsWorkerId,
   RailsWorkerOverview,
@@ -69,20 +70,21 @@ const project: Project = {
 function overview(
   workerId: RailsWorkerId,
   detected = workerId === 'sidekiq',
-  running = false,
+  status?: ManagedProcessStatus,
 ): RailsWorkerOverview {
   return {
     id: workerId,
     detected,
-    process: running
+    process: status
       ? {
           id: `p1:worker:${workerId}`,
           projectId: 'p1',
           kind: 'worker',
-          status: 'running',
+          status,
           pid: workerId === 'sidekiq' ? 4242 : 4343,
           command: `/projetos/api-rails/bin/${workerId}`,
           startedAt: '2026-08-05T12:00:00.000Z',
+          ...(status === 'failed' ? { exitCode: 1 } : {}),
         }
       : null,
   };
@@ -169,7 +171,7 @@ describe('ProjectRailsRuntimePanel', () => {
   it('propaga Environment Instance para status, start e stream do worker', async () => {
     const environmentInstanceId = 'environment:worktree:p1:wt-1';
     fetchProjectRailsWorker.mockResolvedValueOnce(
-      overview('sidekiq', true, false),
+      overview('sidekiq', true),
     );
     startProjectRailsWorker.mockResolvedValueOnce({
       id: 'p1:worker:sidekiq',
@@ -219,7 +221,7 @@ describe('ProjectRailsRuntimePanel', () => {
   it('mantém um painel de logs independente para cada processo', async () => {
     fetchProjectRailsWorker.mockImplementation(
       async (_projectId: string, workerId: RailsWorkerId) =>
-        overview(workerId, true, true),
+        overview(workerId, true, 'running'),
     );
 
     const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
@@ -252,9 +254,58 @@ describe('ProjectRailsRuntimePanel', () => {
     webpackWrapper.unmount();
   });
 
+  it('representa corretamente os estados transitórios e de falha', async () => {
+    fetchProjectRailsWorker.mockResolvedValueOnce(
+      overview('sidekiq', true, 'starting'),
+    );
+
+    const wrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'sidekiq' },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Iniciando');
+    expect(wrapper.find('.rails-worker-status-dot.is-running').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('button.primary-button').attributes('disabled')).toBe(
+      '',
+    );
+    expect(wrapper.text()).not.toContain('Ao vivo');
+
+    fetchProjectRailsWorker.mockResolvedValueOnce(
+      overview('sidekiq', true, 'stopping'),
+    );
+    await wrapper.vm.$forceUpdate();
+    wrapper.unmount();
+
+    const stoppingWrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project: { ...project, id: 'p2' }, workerId: 'sidekiq' },
+    });
+    await flushPromises();
+    expect(stoppingWrapper.text()).toContain('Parando…');
+    expect(
+      stoppingWrapper.find('.rails-worker-status-dot.is-running').exists(),
+    ).toBe(false);
+    stoppingWrapper.unmount();
+
+    fetchProjectRailsWorker.mockResolvedValueOnce(
+      overview('sidekiq', true, 'failed'),
+    );
+    const failedWrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project: { ...project, id: 'p3' }, workerId: 'sidekiq' },
+    });
+    await flushPromises();
+
+    expect(failedWrapper.text()).toContain('encerrou com falha');
+    expect(failedWrapper.text()).toContain('Iniciar novamente');
+    expect(failedWrapper.text()).not.toContain('Ao vivo');
+    failedWrapper.unmount();
+  });
+
   it('usa a visualização minimalista com detalhes recolhidos e log direto', async () => {
     fetchProjectRailsWorker.mockResolvedValueOnce(
-      overview('webpack', true, true),
+      overview('webpack', true, 'running'),
     );
 
     const wrapper = mount(ProjectRailsRuntimePanel, {
