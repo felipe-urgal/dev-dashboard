@@ -193,7 +193,7 @@
       aria-modal="true"
       aria-label="Detalhes do commit"
       data-git-action-feedback="off"
-      @click.self="closeCommit"
+      @click.self="closeCommit()"
       @keydown="handleModalKeydown"
     >
       <article
@@ -229,7 +229,7 @@
             class="git-history-close"
             aria-label="Fechar detalhes"
             data-history-modal-autofocus
-            @click="closeCommit"
+            @click="closeCommit()"
           >
             <XMarkIcon aria-hidden="true" />
           </button>
