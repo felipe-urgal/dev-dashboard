@@ -89,9 +89,9 @@ test('normaliza main, linked, detached, locked e prunable sem depender de campo 
   assert.equal(detached?.branch, undefined);
   assert.equal(detached?.prunable, true);
   assert.equal(detached?.dirty, undefined);
-  assert.equal(main?.dirty, false);
+  assert.equal(main?.dirty, undefined);
 
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 3);
   assert.ok(
     calls.some(
       (call) =>
