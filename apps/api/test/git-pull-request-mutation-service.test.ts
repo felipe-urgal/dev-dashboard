@@ -97,7 +97,8 @@ test('cria uma Pull Request após confirmação, montando os argumentos do gh', 
     },
   });
 
-  const confirmation = service.prepareConfirmation(
+  const confirmation = await service.prepareConfirmation(
+    root,
     'project-1',
     'pull-request-create',
     {
@@ -128,6 +129,8 @@ test('cria uma Pull Request após confirmação, montando os argumentos do gh', 
   assert.deepEqual(createCall!.args, [
     'pr',
     'create',
+    '--repo',
+    'felipe-urgal/dev-dashboard',
     '--base',
     'main',
     '--head',
@@ -172,11 +175,16 @@ test('rejeita confirmação de criação sem título', async () => {
     runGhImpl: async () => viewPayload(),
   });
 
-  assert.throws(
+  await assert.rejects(
     () =>
-      service.prepareConfirmation('project-1', 'pull-request-create', {
-        baseBranch: 'main',
-      }),
+      service.prepareConfirmation(
+        '/tmp/project',
+        'project-1',
+        'pull-request-create',
+        {
+          baseBranch: 'main',
+        },
+      ),
     (error: unknown) => {
       assert.ok(error instanceof GitPullRequestMutationError);
       assert.equal(error.code, 'GIT_PULL_REQUEST_ACTION_INVALID_INPUT');
@@ -193,20 +201,13 @@ test('rejeita ações em projetos com remoto fora do GitHub', async (context) =>
     runGhImpl: async () => viewPayload(),
   });
 
-  const confirmation = service.prepareConfirmation(
-    'project-1',
-    'pull-request-close',
-    { number: 42 },
-  );
-
   await assert.rejects(
     () =>
-      service.execute(
+      service.prepareConfirmation(
         root,
         'project-1',
         'pull-request-close',
         { number: 42 },
-        confirmation.token,
       ),
     (error: unknown) => {
       assert.ok(error instanceof GitPullRequestError);
@@ -229,7 +230,8 @@ test('fecha uma Pull Request existente', async (context) => {
     },
   });
 
-  const confirmation = service.prepareConfirmation(
+  const confirmation = await service.prepareConfirmation(
+    root,
     'project-1',
     'pull-request-close',
     { number: 42 },
@@ -243,7 +245,13 @@ test('fecha uma Pull Request existente', async (context) => {
   );
 
   assert.equal(result.state, 'closed');
-  assert.deepEqual(calls[0], ['pr', 'close', '42']);
+  assert.deepEqual(calls[0], [
+    'pr',
+    'close',
+    '42',
+    '--repo',
+    'felipe-urgal/dev-dashboard',
+  ]);
 });
 
 test('mescla uma Pull Request com a estratégia informada', async (context) => {
@@ -259,7 +267,8 @@ test('mescla uma Pull Request com a estratégia informada', async (context) => {
     },
   });
 
-  const confirmation = service.prepareConfirmation(
+  const confirmation = await service.prepareConfirmation(
+    root,
     'project-1',
     'pull-request-merge',
     { number: 42, mergeMethod: 'squash' },
@@ -273,7 +282,14 @@ test('mescla uma Pull Request com a estratégia informada', async (context) => {
   );
 
   assert.equal(result.state, 'merged');
-  assert.deepEqual(calls[0], ['pr', 'merge', '42', '--squash']);
+  assert.deepEqual(calls[0], [
+    'pr',
+    'merge',
+    '42',
+    '--repo',
+    'felipe-urgal/dev-dashboard',
+    '--squash',
+  ]);
 });
 
 test('rejeita merge sem estratégia informada', async () => {
@@ -281,11 +297,16 @@ test('rejeita merge sem estratégia informada', async () => {
     runGhImpl: async () => viewPayload(),
   });
 
-  assert.throws(
+  await assert.rejects(
     () =>
-      service.prepareConfirmation('project-1', 'pull-request-merge', {
-        number: 42,
-      }),
+      service.prepareConfirmation(
+        '/tmp/project',
+        'project-1',
+        'pull-request-merge',
+        {
+          number: 42,
+        },
+      ),
     (error: unknown) => {
       assert.ok(error instanceof GitPullRequestMutationError);
       assert.equal(error.code, 'GIT_PULL_REQUEST_ACTION_INVALID_INPUT');
@@ -304,7 +325,8 @@ test('não vaza stderr bruto do gh em falha de execução', async (context) => {
     },
   });
 
-  const confirmation = service.prepareConfirmation(
+  const confirmation = await service.prepareConfirmation(
+    root,
     'project-1',
     'pull-request-close',
     { number: 42 },
@@ -323,6 +345,177 @@ test('não vaza stderr bruto do gh em falha de execução', async (context) => {
       assert.ok(error instanceof GitPullRequestMutationError);
       assert.equal(error.code, 'GIT_PULL_REQUEST_MUTATION_FAILED');
       assert.ok(!error.message.includes('segredo'));
+      return true;
+    },
+  );
+});
+
+test('fixa o repositório upstream em create, edit, close, merge e view', async (context) => {
+  const root = await makeGithubFixture();
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  await git(root, [
+    'remote',
+    'add',
+    'upstream',
+    'git@github.com:empresa/dev-dashboard.git',
+  ]);
+  await git(root, [
+    'update-ref',
+    'refs/remotes/upstream/main',
+    'refs/remotes/origin/main',
+  ]);
+
+  const calls: Array<readonly string[]> = [];
+  const service = new GitPullRequestMutationService({
+    runGhImpl: async (_cwd, args) => {
+      calls.push(args);
+      if (args[1] === 'create') {
+        return 'https://github.com/empresa/dev-dashboard/pull/42';
+      }
+      if (args[1] === 'edit' || args[1] === 'close' || args[1] === 'merge')
+        return '';
+      return viewPayload({
+        url: 'https://github.com/empresa/dev-dashboard/pull/42',
+      });
+    },
+  });
+
+  const createInput = {
+    targetRemote: 'upstream' as const,
+    baseBranch: 'main',
+    title: 'feat: fork',
+    description: 'desc',
+    draft: true,
+  };
+  const createConfirmation = await service.prepareConfirmation(
+    root,
+    'project-1',
+    'pull-request-create',
+    createInput,
+  );
+  await service.execute(
+    root,
+    'project-1',
+    'pull-request-create',
+    createInput,
+    createConfirmation.token,
+  );
+
+  const editInput = {
+    targetRemote: 'upstream' as const,
+    number: 42,
+    title: 'feat: fork editado',
+    description: 'novo corpo',
+  };
+  const editConfirmation = await service.prepareConfirmation(
+    root,
+    'project-1',
+    'pull-request-edit',
+    editInput,
+  );
+  await service.execute(
+    root,
+    'project-1',
+    'pull-request-edit',
+    editInput,
+    editConfirmation.token,
+  );
+
+  const closeInput = { targetRemote: 'upstream' as const, number: 42 };
+  const closeConfirmation = await service.prepareConfirmation(
+    root,
+    'project-1',
+    'pull-request-close',
+    closeInput,
+  );
+  await service.execute(
+    root,
+    'project-1',
+    'pull-request-close',
+    closeInput,
+    closeConfirmation.token,
+  );
+
+  const mergeInput = {
+    targetRemote: 'upstream' as const,
+    number: 42,
+    mergeMethod: 'squash' as const,
+  };
+  const mergeConfirmation = await service.prepareConfirmation(
+    root,
+    'project-1',
+    'pull-request-merge',
+    mergeInput,
+  );
+  await service.execute(
+    root,
+    'project-1',
+    'pull-request-merge',
+    mergeInput,
+    mergeConfirmation.token,
+  );
+
+  const create = calls.find((args) => args[1] === 'create');
+  assert.ok(create);
+  assert.deepEqual(create!.slice(0, 8), [
+    'pr',
+    'create',
+    '--repo',
+    'empresa/dev-dashboard',
+    '--base',
+    'main',
+    '--head',
+    'felipe-urgal:feature/pull-request',
+  ]);
+  assert.ok(create!.includes('--draft'));
+
+  for (const action of ['edit', 'close', 'merge', 'view']) {
+    const actionCalls = calls.filter((args) => args[1] === action);
+    assert.ok(actionCalls.length > 0, `esperava gh pr ${action}`);
+    for (const args of actionCalls) {
+      const repoIndex = args.indexOf('--repo');
+      assert.equal(args[repoIndex + 1], 'empresa/dev-dashboard');
+    }
+  }
+});
+
+test('token de confirmação deixa de valer se o remote alvo mudar', async (context) => {
+  const root = await makeGithubFixture();
+  context.after(async () => rm(root, { recursive: true, force: true }));
+
+  const service = new GitPullRequestMutationService({
+    runGhImpl: async () => viewPayload(),
+  });
+  const input = { number: 42 };
+  const confirmation = await service.prepareConfirmation(
+    root,
+    'project-1',
+    'pull-request-close',
+    input,
+  );
+
+  await git(root, [
+    'remote',
+    'set-url',
+    'origin',
+    'git@github.com:outra-org/outro-repo.git',
+  ]);
+
+  await assert.rejects(
+    () =>
+      service.execute(
+        root,
+        'project-1',
+        'pull-request-close',
+        input,
+        confirmation.token,
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof GitPullRequestMutationError);
+      assert.equal(
+        error.code,
+        'GIT_PULL_REQUEST_MUTATION_CONFIRMATION_REQUIRED',
+      );
       return true;
     },
   );
