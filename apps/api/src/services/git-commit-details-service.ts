@@ -19,7 +19,6 @@ import {
 } from './git-commit-details/file-status-parsing.js';
 import {
   filterHistory,
-  hasHistoryFilters,
   parseHistory,
   resolveHistoryReference,
 } from './git-commit-details/history-parsing.js';
@@ -117,6 +116,12 @@ async function readCommitPdfPreview(
   };
 }
 
+function historyKindArgs(kind: GitCommitHistoryFilters['kind']): string[] {
+  if (kind === 'merge') return ['--merges'];
+  if (kind === 'regular') return ['--no-merges'];
+  return [];
+}
+
 export async function listBranchCommits(
   projectPath: string,
   requestedReference: string | undefined,
@@ -147,9 +152,15 @@ export async function listBranchCommits(
     };
   }
 
-  if (hasHistoryFilters(filters)) {
+  const kindArgs = historyKindArgs(filters.kind);
+  const requiresInMemoryFiltering = Boolean(
+    filters.search?.trim() || filters.author?.trim(),
+  );
+
+  if (requiresInMemoryFiltering) {
     const output = await runGit(projectPath, [
       'log',
+      ...kindArgs,
       HISTORY_FORMAT,
       reference.revision,
       '--',
@@ -172,7 +183,12 @@ export async function listBranchCommits(
   const total =
     Number.parseInt(
       (
-        await runGit(projectPath, ['rev-list', '--count', reference.revision])
+        await runGit(projectPath, [
+          'rev-list',
+          '--count',
+          ...kindArgs,
+          reference.revision,
+        ])
       ).trim(),
       10,
     ) || 0;
@@ -181,6 +197,7 @@ export async function listBranchCommits(
   const skip = (effectivePage - 1) * pageSize;
   const output = await runGit(projectPath, [
     'log',
+    ...kindArgs,
     `--skip=${skip}`,
     `-n${pageSize}`,
     HISTORY_FORMAT,
