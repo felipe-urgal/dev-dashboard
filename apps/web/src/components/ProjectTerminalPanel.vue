@@ -610,10 +610,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.terminal-window-body :deep(.xterm-screen) {
-  padding-bottom: 2px;
-}
-
 .terminal-window-body :deep(.xterm-viewport) {
   max-width: 100%;
   overflow-x: hidden !important;
