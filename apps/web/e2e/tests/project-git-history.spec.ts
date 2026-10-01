@@ -10,8 +10,10 @@ test.describe('Histórico Git do projeto', () => {
     await page
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
-    await page.getByRole('link', { name: 'Git' }).click();
-    await page.getByRole('button', { name: 'Histórico', exact: true }).click();
+    await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
+
+    const projectPath = new URL(page.url()).pathname;
+    await gotoBootstrapped(page, `${projectPath}/git?tab=history`);
 
     const scope = page.getByLabel('Escopo do histórico');
     const kind = page.getByLabel('Tipo de commit');
