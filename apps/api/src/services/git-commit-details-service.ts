@@ -211,6 +211,22 @@ export async function listCurrentBranchCommits(
   );
 }
 
+async function firstParentOfCommit(
+  projectPath: string,
+  commitHash: string,
+): Promise<string | undefined> {
+  try {
+    const parent = await runGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      `${commitHash}^1`,
+    ]);
+    return parent.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function inspectGitCommit(
   projectPath: string,
   commitHash: string,
@@ -253,32 +269,66 @@ export async function inspectGitCommit(
     ...bodyParts
   ] = metadata.split(FIELD_SEPARATOR);
 
-  const [nameStatus, numstat, rawPatch] = await Promise.all([
-    runGit(projectPath, [
-      'show',
-      '--format=',
-      '--name-status',
-      '-z',
-      '--find-renames',
-      commitHash,
-    ]),
-    runGit(projectPath, [
-      'show',
-      '--format=',
-      '--numstat',
-      '-z',
-      '--find-renames',
-      commitHash,
-    ]),
-    runGit(projectPath, [
-      'show',
-      '--format=',
-      '--find-renames',
-      '--no-ext-diff',
-      '--unified=3',
-      commitHash,
-    ]),
-  ]);
+  // Para commits com parent (inclusive merges), a leitura é sempre contra o
+  // primeiro parent. Isso torna a semântica determinística e evita o modo
+  // combinado de merge do Git, que pode não produzir lista/patch utilizável.
+  const firstParent = await firstParentOfCommit(projectPath, commitHash);
+  const [nameStatus, numstat, rawPatch] = firstParent
+    ? await Promise.all([
+        runGit(projectPath, [
+          'diff',
+          '--name-status',
+          '-z',
+          '--find-renames',
+          firstParent,
+          commitHash,
+          '--',
+        ]),
+        runGit(projectPath, [
+          'diff',
+          '--numstat',
+          '-z',
+          '--find-renames',
+          firstParent,
+          commitHash,
+          '--',
+        ]),
+        runGit(projectPath, [
+          'diff',
+          '--find-renames',
+          '--no-ext-diff',
+          '--unified=3',
+          firstParent,
+          commitHash,
+          '--',
+        ]),
+      ])
+    : await Promise.all([
+        runGit(projectPath, [
+          'show',
+          '--format=',
+          '--name-status',
+          '-z',
+          '--find-renames',
+          commitHash,
+        ]),
+        runGit(projectPath, [
+          'show',
+          '--format=',
+          '--numstat',
+          '-z',
+          '--find-renames',
+          commitHash,
+        ]),
+        runGit(projectPath, [
+          'show',
+          '--format=',
+          '--find-renames',
+          '--no-ext-diff',
+          '--unified=3',
+          commitHash,
+        ]),
+      ]);
 
   const statuses = parseNameStatus(nameStatus);
   const files = parseNumstat(numstat, statuses);
@@ -340,22 +390,46 @@ export async function inspectGitCommitFile(
     );
   }
 
-  const nameStatus = await runGit(projectPath, [
-    'show',
-    '--format=',
-    '--name-status',
-    '-z',
-    '--find-renames',
-    commitHash,
-  ]);
-  const numstat = await runGit(projectPath, [
-    'show',
-    '--format=',
-    '--numstat',
-    '-z',
-    '--find-renames',
-    commitHash,
-  ]);
+  const firstParent = await firstParentOfCommit(projectPath, commitHash);
+  const [nameStatus, numstat] = firstParent
+    ? await Promise.all([
+        runGit(projectPath, [
+          'diff',
+          '--name-status',
+          '-z',
+          '--find-renames',
+          firstParent,
+          commitHash,
+          '--',
+        ]),
+        runGit(projectPath, [
+          'diff',
+          '--numstat',
+          '-z',
+          '--find-renames',
+          firstParent,
+          commitHash,
+          '--',
+        ]),
+      ])
+    : await Promise.all([
+        runGit(projectPath, [
+          'show',
+          '--format=',
+          '--name-status',
+          '-z',
+          '--find-renames',
+          commitHash,
+        ]),
+        runGit(projectPath, [
+          'show',
+          '--format=',
+          '--numstat',
+          '-z',
+          '--find-renames',
+          commitHash,
+        ]),
+      ]);
   const entry = parseNumstat(numstat, parseNameStatus(nameStatus)).find(
     (file) => file.path === filePath,
   );
@@ -371,16 +445,27 @@ export async function inspectGitCommitFile(
   const pathArguments = entry.previousPath
     ? [entry.previousPath, entry.path]
     : [entry.path];
-  const raw = await runGit(projectPath, [
-    'show',
-    '--format=',
-    '--find-renames',
-    '--no-ext-diff',
-    '--unified=3',
-    commitHash,
-    '--',
-    ...pathArguments,
-  ]);
+  const raw = firstParent
+    ? await runGit(projectPath, [
+        'diff',
+        '--find-renames',
+        '--no-ext-diff',
+        '--unified=3',
+        firstParent,
+        commitHash,
+        '--',
+        ...pathArguments,
+      ])
+    : await runGit(projectPath, [
+        'show',
+        '--format=',
+        '--find-renames',
+        '--no-ext-diff',
+        '--unified=3',
+        commitHash,
+        '--',
+        ...pathArguments,
+      ]);
 
   const binary = entry.binary || /^Binary files /m.test(raw);
   const truncated = raw.length > FILE_PATCH_LIMIT;
