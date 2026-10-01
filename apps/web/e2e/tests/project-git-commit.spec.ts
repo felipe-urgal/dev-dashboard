@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -118,6 +118,7 @@ test.describe('Commit do projeto', () => {
     );
     expect(statusAfterAmend).toContain('?? untracked-commit-e2e.txt');
     expect(statusAfterAmend).not.toContain('package.json');
+    await rm(untrackedPath, { force: true });
 
     // Troca de projeto: sample-rails-app continua sem Git.
     await gotoBootstrapped(page, '/');
