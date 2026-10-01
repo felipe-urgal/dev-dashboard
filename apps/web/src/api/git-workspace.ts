@@ -1,14 +1,16 @@
 import type {
   GitMutationConfirmation,
+  GitMutationHistoryPage,
   GitPullRequestUrl,
   GitSyncConfirmation,
+  GitSyncProgressEvent,
   GitSyncResult,
   GitSyncStrategy,
   GitTrackingComparison,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
-import { requestJson as requestApiJson } from './core';
+import { followEventStream, requestJson as requestApiJson } from './core';
 
 interface GitWorkspaceResponse {
   workspace: ProjectGitWorkspace;
@@ -219,4 +221,29 @@ export async function synchronizeProjectGitMain(
     },
   );
   return response.result;
+}
+
+
+export async function fetchProjectGitMutationHistory(
+  projectId: string,
+  page = 1,
+  pageSize = 20,
+): Promise<GitMutationHistoryPage> {
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  return requestJson<GitMutationHistoryPage>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/mutation-history?${query.toString()}`,
+  );
+}
+
+export function followProjectGitSyncProgress(
+  projectId: string,
+  onEvent: (event: GitSyncProgressEvent) => void,
+): { close: () => void; done: Promise<void> } {
+  return followEventStream<GitSyncProgressEvent>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/sync/events`,
+    onEvent,
+  );
 }
