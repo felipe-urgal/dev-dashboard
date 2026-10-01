@@ -51,6 +51,8 @@ describe('redesign de Servidor e Terminal', () => {
     expect(terminalSource).toContain('@close-session="closeSession"');
     expect(terminalSource).toContain('terminal.focus()');
     expect(terminalSource).toContain('Sessão encerrada');
+    expect(terminalSource).toContain('writeTerminalOutput');
+    expect(terminalSource).toContain('terminal?.scrollToBottom()');
     expect(terminalWindowBarSource).toContain('Encerrar sessão');
     expect(terminalWindowBarSource).toContain("state === 'connecting'");
   });
