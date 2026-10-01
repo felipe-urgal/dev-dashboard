@@ -105,7 +105,10 @@ test('mantém o fluxo minimalista e uma ação principal de criação', async ()
 
   await wrapper.find('.git-pr-primary-action').trigger('click');
 
-  assert.match(wrapper.find('#git-pr-create-panel').text(), /Criar Pull Request/);
+  assert.match(
+    wrapper.find('#git-pr-create-panel').text(),
+    /Criar Pull Request/,
+  );
   assert.equal(wrapper.findAll('.git-pr-grid label').length, 2);
   assert.ok(wrapper.find('.git-pr-primary').exists());
   assert.ok(wrapper.find('.git-pr-external-action').exists());

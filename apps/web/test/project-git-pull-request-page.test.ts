@@ -196,7 +196,10 @@ test('criação mostra origem real, draft e usa gh como ação principal no GitH
   assert.match(wrapper.text(), /origin\/feature\/pull-request/);
   assert.ok(wrapper.find('.git-pr-draft input').exists());
   assert.equal(wrapper.find('.git-pr-primary').text(), 'Criar Pull Request');
-  assert.match(wrapper.find('.git-pr-external-action').text(), /Abrir comparação/);
+  assert.match(
+    wrapper.find('.git-pr-external-action').text(),
+    /Abrir comparação/,
+  );
 });
 
 test('cria draft via gh com repositório upstream explícito', async () => {
