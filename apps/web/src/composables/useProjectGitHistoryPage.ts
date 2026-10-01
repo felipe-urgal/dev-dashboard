@@ -569,7 +569,7 @@ export function useProjectGitHistoryPage(
       ...dialog.querySelectorAll<HTMLElement>(
         'button:not([disabled]), input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
       ),
-    ].filter((element) => element.offsetParent !== null);
+    ];
     if (focusable.length === 0) return;
 
     const currentIndex = focusable.indexOf(
