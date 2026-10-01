@@ -42,7 +42,6 @@ export function useProjectGitHistoryPage(
   const workspace = ref<ProjectGitWorkspace | null>(null);
   const reference = ref('');
   const search = ref('');
-  const author = ref('');
   const kind = ref<GitCommitHistoryKind>('all');
   /** Como hoje, a tela abre nos commits que só existem nesta branch. */
   const scope = ref<ProjectGitHistoryScope>('exclusive');
@@ -198,15 +197,6 @@ export function useProjectGitHistoryPage(
     return branchGroups.value.some((group) =>
       group.items.some((branch) => branch.name === reference.value),
     );
-  });
-
-  const authorOptions = computed(() => {
-    const names = new Map<string, string>();
-    for (const commit of history.value?.commits ?? []) {
-      if (!names.has(commit.authorEmail))
-        names.set(commit.authorEmail, commit.authorName);
-    }
-    return [...names.entries()].map(([email, name]) => ({ email, name }));
   });
 
   /** `%B` traz a mensagem inteira; o assunto já aparece no título do modal. */
@@ -381,7 +371,6 @@ export function useProjectGitHistoryPage(
           page: targetPage,
           pageSize: PAGE_SIZE,
           ...(search.value.trim() ? { search: search.value.trim() } : {}),
-          ...(author.value ? { author: author.value } : {}),
           kind: kind.value,
         },
         controller.signal,
@@ -591,7 +580,6 @@ export function useProjectGitHistoryPage(
     () => {
       reference.value = '';
       search.value = '';
-      author.value = '';
       kind.value = 'all';
       scope.value = 'exclusive';
       page.value = 1;
@@ -621,7 +609,6 @@ export function useProjectGitHistoryPage(
     workspace,
     reference,
     search,
-    author,
     kind,
     scope,
     page,
@@ -655,7 +642,6 @@ export function useProjectGitHistoryPage(
     selectViewMode,
     branchGroups,
     referenceInWorkspace,
-    authorOptions,
     commitBody,
     totalPages,
     pageWindow,
