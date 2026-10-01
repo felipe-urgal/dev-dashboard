@@ -85,10 +85,9 @@ test.describe('Commit do projeto', () => {
       'sample-node-app',
       'package.json',
     );
-    const packageJson = JSON.parse(await readFile(packagePath, 'utf8')) as Record<
-      string,
-      unknown
-    >;
+    const packageJson = JSON.parse(
+      await readFile(packagePath, 'utf8'),
+    ) as Record<string, unknown>;
     packageJson.description = 'staged para amend';
     await writeFile(packagePath, JSON.stringify(packageJson, null, 2));
     await execFileAsync('git', ['add', 'package.json'], {

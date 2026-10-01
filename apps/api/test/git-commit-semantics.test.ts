@@ -6,10 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import {
-  GitMutationError,
-  GitService,
-} from '../src/services/git-service.js';
+import { GitMutationError, GitService } from '../src/services/git-service.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -61,10 +58,20 @@ test('commit -a inclui rastreados e staged, mas não adiciona untracked', async 
   assert.equal(await git(directory, 'show', 'HEAD:README.md'), 'modificado');
   assert.equal(await git(directory, 'show', 'HEAD:staged-new.txt'), 'staged');
   assert.equal(
-    await git(directory, 'ls-tree', '--name-only', 'HEAD', '--', 'untracked.txt'),
+    await git(
+      directory,
+      'ls-tree',
+      '--name-only',
+      'HEAD',
+      '--',
+      'untracked.txt',
+    ),
     '',
   );
-  assert.match(await git(directory, 'status', '--porcelain'), /\?\? untracked\.txt/);
+  assert.match(
+    await git(directory, 'status', '--porcelain'),
+    /\?\? untracked\.txt/,
+  );
 });
 
 test('amend inclui somente staged e preserva mudanças unstaged', async (context) => {
