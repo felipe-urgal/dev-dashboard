@@ -69,6 +69,7 @@ let cleanup: (() => void) | undefined;
 afterEach(() => {
   cleanup?.();
   cleanup = undefined;
+  window.sessionStorage.clear();
 });
 
 /**
@@ -108,7 +109,7 @@ async function mountPage(options: { lines?: string[] } = {}) {
       return jsonResponse({
         lines: {
           path: url.searchParams.get('path'),
-          scope: 'combined',
+          scope: url.searchParams.get('scope') ?? 'combined',
           start,
           end,
           totalLines: 120,
@@ -123,7 +124,7 @@ async function mountPage(options: { lines?: string[] } = {}) {
       return jsonResponse({
         file: {
           path: filePath,
-          scope: 'combined',
+          scope: url.searchParams.get('scope') ?? 'combined',
           status: 'modified',
           binary: false,
           content: patches[filePath] ?? '',
@@ -133,8 +134,12 @@ async function mountPage(options: { lines?: string[] } = {}) {
         },
       });
     }
-    if (url.pathname.endsWith('/git/diff'))
-      return jsonResponse({ diff: snapshot });
+    if (url.pathname.endsWith('/git/diff')) {
+      const requestedScope = url.searchParams.get('scope') ?? 'combined';
+      return jsonResponse({
+        diff: { ...snapshot, scope: requestedScope },
+      });
+    }
     if (url.pathname.endsWith('/git')) return jsonResponse({ git: overview });
     return jsonResponse({}, 404);
   }) as typeof globalThis.fetch;
@@ -308,4 +313,119 @@ test('estado vazio ocupa o workspace e esconde controles sem utilidade', async (
   assert.ok(wrapper.find('.git-diff-empty').exists());
   assert.equal(wrapper.find('.git-diff-view-switch').exists(), false);
   assert.equal(wrapper.find('.git-diff-status-filter').exists(), false);
+});
+
+test('alterna entre todas, staged e não staged usando o scope da API', async () => {
+  const { wrapper, requests } = await mountPage();
+
+  const scopeButtons = wrapper.findAll('.git-diff-scope-switch button');
+  assert.deepEqual(
+    scopeButtons.map((button) => button.text()),
+    ['Todas', 'Staged', 'Não staged'],
+  );
+
+  await scopeButtons[1]!.trigger('click');
+  await settle(wrapper);
+  await scopeButtons[2]!.trigger('click');
+  await settle(wrapper);
+
+  const scopes = requests
+    .filter((request) => request.path.endsWith('/git/diff'))
+    .map((request) => request.query.get('scope'));
+  assert.ok(scopes.includes('combined'));
+  assert.ok(scopes.includes('index'));
+  assert.ok(scopes.includes('worktree'));
+});
+
+test('atualiza o diff sem sair da página', async () => {
+  const { wrapper, requests } = await mountPage();
+  const before = requests.filter((request) =>
+    request.path.endsWith('/git/diff'),
+  ).length;
+
+  await wrapper.get('button[aria-label="Atualizar diff"]').trigger('click');
+  await settle(wrapper);
+
+  const after = requests.filter((request) =>
+    request.path.endsWith('/git/diff'),
+  ).length;
+  assert.equal(after, before + 1);
+});
+
+test('persiste arquivos revisados durante a sessão para o mesmo snapshot', async () => {
+  const { wrapper } = await mountPage();
+  const card = wrapper.findAll('.git-diff-file-card')[0]!;
+  await card.find('.git-diff-viewed input').setValue(true);
+
+  const stored = Object.keys(window.sessionStorage)
+    .filter((key) => key.startsWith('dev-dashboard-git-diff-reviewed:'))
+    .map((key) => window.sessionStorage.getItem(key) ?? '')
+    .join('\n');
+  assert.match(stored, /src\/signup\/index\.tsx/);
+});
+
+test('oferece retry quando um arquivo falha ao carregar', async () => {
+  const originalFetch = globalThis.fetch;
+  let fileAttempts = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git/diff/file')) {
+      fileAttempts += 1;
+      if (fileAttempts === 1) {
+        return jsonResponse(
+          { code: 'GIT_COMMAND_FAILED', message: 'falha simulada' },
+          500,
+        );
+      }
+      return jsonResponse({
+        file: {
+          path: url.searchParams.get('path'),
+          scope: 'combined',
+          status: 'modified',
+          binary: false,
+          content: patches['src/signup/index.tsx'],
+          truncated: false,
+          masked: false,
+          redactionCount: 0,
+        },
+      });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return jsonResponse({
+        diff: { ...snapshot, files: [snapshot.files[0]!] },
+      });
+    }
+    if (url.pathname.endsWith('/git')) return jsonResponse({ git: overview });
+    return jsonResponse({}, 404);
+  }) as typeof globalThis.fetch;
+
+  const wrapper = mount(ProjectGitDiffPage, {
+    props: { projectId: 'projeto-retry' },
+    attachTo: document.body,
+  });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+
+  await vi.waitFor(() => {
+    assert.ok(wrapper.find('.git-diff-retry-button').exists());
+  });
+
+  await wrapper.get('.git-diff-retry-button').trigger('click');
+  await settle(wrapper);
+
+  assert.equal(fileAttempts, 2);
+  assert.equal(wrapper.find('.git-diff-retry-button').exists(), false);
+});
+
+test('oferece filtros para copied e type-changed', async () => {
+  const { wrapper } = await mountPage();
+  const options = wrapper
+    .findAll('.git-diff-status-filter option')
+    .map((option) => option.attributes('value'));
+
+  assert.ok(options.includes('copied'));
+  assert.ok(options.includes('type-changed'));
 });
