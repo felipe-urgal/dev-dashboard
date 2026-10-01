@@ -374,8 +374,8 @@ test('oferece retry quando um arquivo falha ao carregar', async () => {
       fileAttempts += 1;
       if (fileAttempts === 1) {
         return jsonResponse(
-          { code: 'GIT_COMMAND_FAILED', message: 'falha simulada' },
-          500,
+          { code: 'GIT_DIFF_PATH_INVALID', message: 'falha simulada' },
+          400,
         );
       }
       return jsonResponse({
