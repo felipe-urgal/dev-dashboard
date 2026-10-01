@@ -12,6 +12,10 @@ const terminalSource = readFileSync(
   resolve(webRoot, 'src/components/ProjectTerminalPanel.vue'),
   'utf8',
 );
+const terminalWindowBarSource = readFileSync(
+  resolve(webRoot, 'src/components/ProjectTerminalWindowBar.vue'),
+  'utf8',
+);
 const detailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
@@ -40,5 +44,14 @@ describe('redesign de Servidor e Terminal', () => {
     expect(terminalSource).toMatch(
       /\.terminal-window-body[\s\S]*?box-sizing: border-box;/,
     );
+  });
+
+  it('expõe ciclo de vida e encerramento explícito da sessão', () => {
+    expect(terminalSource).toContain('class="terminal-connecting"');
+    expect(terminalSource).toContain('@close-session="closeSession"');
+    expect(terminalSource).toContain('terminal.focus()');
+    expect(terminalSource).toContain('Sessão encerrada');
+    expect(terminalWindowBarSource).toContain('Encerrar sessão');
+    expect(terminalWindowBarSource).toContain("state === 'connecting'");
   });
 });
