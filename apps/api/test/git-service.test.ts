@@ -150,8 +150,7 @@ test('cria branch preservando alterações locais não commitadas', async () => 
     assert.equal(overview.clean, false);
     assert.ok(
       overview.files.some(
-        (file) =>
-          file.path === 'tracked.txt' && file.status === 'modified',
+        (file) => file.path === 'tracked.txt' && file.status === 'modified',
       ),
     );
   } finally {
