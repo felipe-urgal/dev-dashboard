@@ -159,7 +159,7 @@ test.describe('Worktrees como Environment Instances', () => {
       `/projects/${encodeURIComponent(projectId)}/worktrees`,
     );
     await expect(
-      page.getByRole('heading', { name: 'Worktrees' }),
+      page.getByRole('button', { name: 'Novo worktree' }),
     ).toBeVisible();
 
     await createWorktree(page, branchA, directoryA);
@@ -346,7 +346,9 @@ test.describe('Worktrees como Environment Instances', () => {
       const dirtyRow = page
         .locator('.worktree-row')
         .filter({ hasText: branch });
-      await expect(dirtyRow.getByText('alterações')).toBeVisible();
+      await expect(
+        dirtyRow.getByText('alterações', { exact: true }),
+      ).toBeVisible();
       await expect(
         dirtyRow.getByText(
           'Possui alterações locais; resolva antes de remover.',
