@@ -320,9 +320,10 @@ it('confirma pelo nome remoto real depois de renomear a branch local', async () 
   input!.value = 'feature/new-name';
   input!.dispatchEvent(new Event('input', { bubbles: true }));
   await flushPromises();
-  const submit = [
-    ...document.querySelectorAll<HTMLButtonElement>('button'),
-  ].find((button) => button.textContent?.trim() === 'Remover do origin');
+  const submit = document.querySelector<HTMLButtonElement>(
+    '.branch-modal .danger-button',
+  );
+  expect(submit).not.toBeNull();
   expect(submit?.disabled).toBe(true);
 
   input!.value = 'feature/old-name';
