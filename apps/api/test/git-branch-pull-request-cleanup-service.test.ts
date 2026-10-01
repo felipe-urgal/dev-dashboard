@@ -15,11 +15,19 @@ async function git(cwd: string, ...args: string[]): Promise<void> {
 }
 
 test('fecha PRs abertos no origin e no upstream para a branch removida', async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-branch-pr-cleanup-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-branch-pr-cleanup-'),
+  );
   context.after(() => rm(root, { recursive: true, force: true }));
 
   await git(root, 'init', '-q', '-b', 'main');
-  await git(root, 'remote', 'add', 'origin', 'git@github.com:fork-owner/repo.git');
+  await git(
+    root,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:fork-owner/repo.git',
+  );
   await git(
     root,
     'remote',
@@ -29,18 +37,16 @@ test('fecha PRs abertos no origin e no upstream para a branch removida', async (
   );
 
   const calls: readonly string[][] = [];
-  const service = new GitBranchPullRequestCleanupService(
-    async (_cwd, args) => {
-      calls.push(args);
-      if (args[1] === 'list' && args.includes('fork-owner/repo')) {
-        return JSON.stringify([{ number: 10 }]);
-      }
-      if (args[1] === 'list' && args.includes('main-owner/repo')) {
-        return JSON.stringify([{ number: 20 }]);
-      }
-      return '';
-    },
-  );
+  const service = new GitBranchPullRequestCleanupService(async (_cwd, args) => {
+    calls.push(args);
+    if (args[1] === 'list' && args.includes('fork-owner/repo')) {
+      return JSON.stringify([{ number: 10 }]);
+    }
+    if (args[1] === 'list' && args.includes('main-owner/repo')) {
+      return JSON.stringify([{ number: 20 }]);
+    }
+    return '';
+  });
 
   await service.closeOpenForBranch(root, 'feature/remove-me');
 
@@ -79,7 +85,9 @@ test('fecha PRs abertos no origin e no upstream para a branch removida', async (
 });
 
 test('ignora remotos que não são GitHub', async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-branch-pr-cleanup-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-branch-pr-cleanup-'),
+  );
   context.after(() => rm(root, { recursive: true, force: true }));
 
   await git(root, 'init', '-q', '-b', 'main');
