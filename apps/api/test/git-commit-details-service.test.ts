@@ -394,7 +394,6 @@ test('inclui arquivos renomeados na lista de arquivos do commit', async () => {
   await rm(directory, { recursive: true, force: true });
 });
 
-
 test('compara merge commit contra o primeiro parent', async () => {
   const repository = await createRepository();
   try {
@@ -430,7 +429,10 @@ test('compara merge commit contra o primeiro parent', async () => {
     const changed = detail.files.find(
       (file) => file.path === 'merge-history.ts',
     );
-    assert.ok(changed, 'o merge deve expor arquivos alterados contra o primeiro parent');
+    assert.ok(
+      changed,
+      'o merge deve expor arquivos alterados contra o primeiro parent',
+    );
     assert.equal(changed!.status, 'added');
 
     const file = await inspectGitCommitFile(
