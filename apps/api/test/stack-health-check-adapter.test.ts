@@ -85,25 +85,19 @@ test('maps server process lifecycle without requiring an HTTP health endpoint', 
   const running = await adapter().observe('api-health', target(), observedAt);
   assert.equal(running.state, 'ready');
 
-  const starting = await adapter({ process: process({ status: 'starting' }) }).observe(
-    'api-health',
-    target(),
-    observedAt,
-  );
+  const starting = await adapter({
+    process: process({ status: 'starting' }),
+  }).observe('api-health', target(), observedAt);
   assert.equal(starting.state, 'starting');
 
-  const stopped = await adapter({ process: process({ status: 'stopped' }) }).observe(
-    'api-health',
-    target(),
-    observedAt,
-  );
+  const stopped = await adapter({
+    process: process({ status: 'stopped' }),
+  }).observe('api-health', target(), observedAt);
   assert.equal(stopped.state, 'stopped');
 
-  const failed = await adapter({ process: process({ status: 'failed' }) }).observe(
-    'api-health',
-    target(),
-    observedAt,
-  );
+  const failed = await adapter({
+    process: process({ status: 'failed' }),
+  }).observe('api-health', target(), observedAt);
   assert.equal(failed.state, 'failed');
   assert.match(failed.diagnostic ?? '', /failed/i);
 });
