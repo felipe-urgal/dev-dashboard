@@ -44,6 +44,20 @@ export interface GitTabOption {
   icon: string;
 }
 
+export type GitBranchOperationKind =
+  | 'create'
+  | 'switch'
+  | 'rename'
+  | 'delete'
+  | 'publish'
+  | 'track'
+  | 'delete-remote';
+
+export interface GitBranchOperation {
+  kind: GitBranchOperationKind;
+  branch: string;
+}
+
 export function useProjectGitPanel(
   props: Readonly<{ project: Project }>,
   route: { query: Record<string, unknown> } | undefined,
@@ -70,6 +84,7 @@ export function useProjectGitPanel(
   const errorMessage = ref('');
   const workspaceErrorMessage = ref('');
   const mutationRunning = ref(false);
+  const branchOperation = ref<GitBranchOperation | null>(null);
   const mutationMessage = ref('');
   const mutationErrorMessage = ref('');
   const createBranchName = ref('');
@@ -102,6 +117,8 @@ export function useProjectGitPanel(
     activeTab.value = tab;
     if (tab === 'sync') {
       void refreshRemotesSilently();
+    } else if (tab === 'branches') {
+      void refreshOriginSilently();
     }
   }
 
@@ -186,6 +203,24 @@ export function useProjectGitPanel(
     }
   }
 
+  async function refreshOriginSilently(): Promise<void> {
+    if (remoteRefreshRunning.value || mutationRunning.value) return;
+    const hasOrigin = (workspace.value?.remotes ?? []).some(
+      (remote) => remote.name === 'origin',
+    );
+    if (!hasOrigin) return;
+
+    remoteRefreshRunning.value = true;
+    try {
+      await fetchProjectGitRemote(props.project.id, 'origin');
+      await loadWorkspace();
+    } catch {
+      // A lista local continua utilizável; a próxima atualização tenta novamente.
+    } finally {
+      remoteRefreshRunning.value = false;
+    }
+  }
+
   async function reloadGitData(): Promise<void> {
     await loadGit();
     await Promise.all([loadWorkspace()]);
@@ -214,6 +249,10 @@ export function useProjectGitPanel(
     if (!confirmed) return;
 
     mutationRunning.value = true;
+    branchOperation.value = {
+      kind: creatingBranch ? 'create' : 'switch',
+      branch: trimmed,
+    };
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
     changeImpact.value = null;
@@ -248,6 +287,7 @@ export function useProjectGitPanel(
           ? error.message
           : 'Não foi possível concluir a operação.';
     } finally {
+      branchOperation.value = null;
       mutationRunning.value = false;
     }
   }
@@ -258,6 +298,7 @@ export function useProjectGitPanel(
   ): Promise<void> {
     if (mutationRunning.value) return;
     mutationRunning.value = true;
+    branchOperation.value = { kind: 'rename', branch: currentName };
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
 
@@ -281,6 +322,7 @@ export function useProjectGitPanel(
           ? error.message
           : 'Não foi possível renomear a branch.';
     } finally {
+      branchOperation.value = null;
       mutationRunning.value = false;
     }
   }
@@ -288,6 +330,7 @@ export function useProjectGitPanel(
   async function runDeleteBranch(branch: string): Promise<void> {
     if (mutationRunning.value) return;
     mutationRunning.value = true;
+    branchOperation.value = { kind: 'delete', branch };
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
 
@@ -309,6 +352,7 @@ export function useProjectGitPanel(
           ? error.message
           : 'Não foi possível remover a branch.';
     } finally {
+      branchOperation.value = null;
       mutationRunning.value = false;
     }
   }
@@ -356,6 +400,10 @@ export function useProjectGitPanel(
     if (!confirmed) return;
 
     mutationRunning.value = true;
+    branchOperation.value = {
+      kind: 'track',
+      branch: remoteBranch.replace(/^origin\//, ''),
+    };
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
 
@@ -377,6 +425,7 @@ export function useProjectGitPanel(
           ? error.message
           : 'Não foi possível trazer a branch remota para local.';
     } finally {
+      branchOperation.value = null;
       mutationRunning.value = false;
     }
   }
@@ -384,6 +433,10 @@ export function useProjectGitPanel(
   async function runDeleteRemoteBranch(remoteBranch: string): Promise<void> {
     if (mutationRunning.value || remoteRefreshRunning.value) return;
     mutationRunning.value = true;
+    branchOperation.value = {
+      kind: 'delete-remote',
+      branch: remoteBranch.replace(/^origin\//, ''),
+    };
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
 
@@ -405,6 +458,7 @@ export function useProjectGitPanel(
           ? error.message
           : 'Não foi possível remover a branch remota.';
     } finally {
+      branchOperation.value = null;
       mutationRunning.value = false;
     }
   }
@@ -628,6 +682,7 @@ export function useProjectGitPanel(
     errorMessage,
     workspaceErrorMessage,
     mutationRunning,
+    branchOperation,
     mutationMessage,
     mutationErrorMessage,
     createBranchName,
@@ -643,6 +698,7 @@ export function useProjectGitPanel(
     loadWorkspace,
     configuredRemoteNames,
     refreshRemotesSilently,
+    refreshOriginSilently,
     reloadGitData,
     runMutation,
     runRenameBranch,
