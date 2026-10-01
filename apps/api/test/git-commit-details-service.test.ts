@@ -73,6 +73,25 @@ test('retorna metadados, arquivos e patch de um commit', async () => {
   }
 });
 
+test('permite consultar detalhes sem montar o patch completo', async () => {
+  const repository = await createRepository();
+  try {
+    const detail = await inspectGitCommit(
+      repository.directory,
+      repository.hash,
+      { includePatch: false },
+    );
+
+    assert.equal(detail.files.length, 1);
+    assert.equal(detail.patch, '');
+    assert.equal(detail.truncated, false);
+    assert.equal(detail.masked, false);
+    assert.equal(detail.redactionCount, 0);
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
+});
+
 test('pagina dez commits e limita o histórico à branch atual', async () => {
   const repository = await createRepository();
   try {
