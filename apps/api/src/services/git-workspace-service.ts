@@ -318,12 +318,31 @@ export class GitWorkspaceService {
       };
     }
 
-    const [branches, remotes, branch, tracking] = await Promise.all([
+    const [branches, rawRemotes, branch, tracking] = await Promise.all([
       listBranches(projectPath),
       listRemotes(projectPath),
       currentBranch(projectPath),
       configuredUpstream(projectPath),
     ]);
+
+    const remotes = await Promise.all(
+      rawRemotes.map(async (remote) => {
+        const reference = await defaultRemoteBranch(
+          projectPath,
+          remote.name,
+          branches,
+        );
+        return reference
+          ? {
+              ...remote,
+              defaultBranch: reference.replace(
+                new RegExp(`^${remote.name}/`),
+                '',
+              ),
+            }
+          : remote;
+      }),
+    );
 
     const originReference = tracking?.startsWith('origin/')
       ? tracking
