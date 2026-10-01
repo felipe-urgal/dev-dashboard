@@ -161,12 +161,16 @@ function filterHistory(
   });
 }
 
-function hasFilters(options: ExclusiveBranchHistoryOptions): boolean {
-  return Boolean(
-    options.search?.trim() ||
-    options.author?.trim() ||
-    (options.kind && options.kind !== 'all'),
-  );
+function requiresInMemoryFiltering(
+  options: ExclusiveBranchHistoryOptions,
+): boolean {
+  return Boolean(options.search?.trim() || options.author?.trim());
+}
+
+function historyKindArgs(kind: ExclusiveBranchHistoryOptions['kind']): string[] {
+  if (kind === 'merge') return ['--merges'];
+  if (kind === 'regular') return ['--no-merges'];
+  return [];
 }
 
 function localBranchNameFromDefaultCandidate(reference: string): string {
@@ -302,9 +306,11 @@ export async function listExclusiveBranchCommits(
   }
 
   const revision = await resolveExclusiveRevision(projectPath, reference);
-  if (hasFilters(options)) {
+  const kindArgs = historyKindArgs(options.kind);
+  if (requiresInMemoryFiltering(options)) {
     const output = await runGit(projectPath, [
       'log',
+      ...kindArgs,
       HISTORY_FORMAT,
       revision,
       '--',
@@ -326,7 +332,14 @@ export async function listExclusiveBranchCommits(
 
   const total =
     Number.parseInt(
-      (await runGit(projectPath, ['rev-list', '--count', revision])).trim(),
+      (
+        await runGit(projectPath, [
+          'rev-list',
+          '--count',
+          ...kindArgs,
+          revision,
+        ])
+      ).trim(),
       10,
     ) || 0;
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
@@ -334,6 +347,7 @@ export async function listExclusiveBranchCommits(
   const skip = (effectivePage - 1) * pageSize;
   const output = await runGit(projectPath, [
     'log',
+    ...kindArgs,
     `--skip=${skip}`,
     `-n${pageSize}`,
     HISTORY_FORMAT,
