@@ -242,13 +242,7 @@ test('protege a default branch customizada do origin contra remoção', async ()
     );
 
     assert.ok(
-      await git(
-        origin,
-        'show-ref',
-        '--verify',
-        '--hash',
-        'refs/heads/develop',
-      ),
+      await git(origin, 'show-ref', '--verify', '--hash', 'refs/heads/develop'),
     );
   } finally {
     await rm(root, { recursive: true, force: true });
