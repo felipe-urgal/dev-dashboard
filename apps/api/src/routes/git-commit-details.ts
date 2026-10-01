@@ -23,6 +23,8 @@ interface CommitParams extends ProjectParams {
   commitHash: string;
 }
 
+const HISTORY_PAGE_SIZE_LIMIT = 50;
+
 interface HistoryQuery {
   ref?: string;
   page?: number;
@@ -65,7 +67,12 @@ const historyQuerySchema = {
       pattern: '^(?!-)[^\\u0000-\\u001F\\u007F]+$',
     },
     page: { type: 'integer', minimum: 1, default: 1 },
-    pageSize: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
+    pageSize: {
+      type: 'integer',
+      minimum: 1,
+      maximum: HISTORY_PAGE_SIZE_LIMIT,
+      default: 10,
+    },
     search: { type: 'string', maxLength: 200 },
     author: { type: 'string', maxLength: 320 },
     kind: { type: 'string', enum: ['all', 'regular', 'merge'], default: 'all' },
@@ -102,7 +109,11 @@ const historySchema = {
   properties: {
     branch: { type: 'string' },
     page: { type: 'integer', minimum: 1 },
-    pageSize: { type: 'integer', minimum: 1, maximum: 10 },
+    pageSize: {
+      type: 'integer',
+      minimum: 1,
+      maximum: HISTORY_PAGE_SIZE_LIMIT,
+    },
     total: { type: 'integer', minimum: 0 },
     totalPages: { type: 'integer', minimum: 0 },
     commits: { type: 'array', items: commitSummarySchema },
