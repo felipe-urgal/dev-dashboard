@@ -180,11 +180,10 @@ test('unstage de rename preserva os arquivos sem deixar deleção staged', async
       { cwd: directory, encoding: 'utf8' },
     );
     assert.equal(staged.trim(), '');
-    const { stdout: status } = await exec(
-      'git',
-      ['status', '--porcelain'],
-      { cwd: directory, encoding: 'utf8' },
-    );
+    const { stdout: status } = await exec('git', ['status', '--porcelain'], {
+      cwd: directory,
+      encoding: 'utf8',
+    });
     assert.match(status, / D old\.txt/);
     assert.match(status, /\?\? new\.txt/);
     assert.equal(
