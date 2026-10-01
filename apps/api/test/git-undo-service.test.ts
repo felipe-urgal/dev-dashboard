@@ -145,6 +145,27 @@ test('desfazer arquivo não rastreado remove o arquivo', async (context) => {
   assert.equal(await git(root, ['status', '--porcelain']), '');
 });
 
+test('descarta cópia staged sem alterar o arquivo de origem', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await writeFile(path.join(root, 'README-copy.md'), 'v1\n');
+  await git(root, ['add', 'README-copy.md']);
+
+  const service = new GitUndoService();
+  const confirmation = await service.prepareConfirmation(
+    root,
+    'p1',
+    'file',
+    'README-copy.md',
+  );
+  await service.undoFile(root, 'p1', 'README-copy.md', confirmation.token);
+
+  assert.equal(await readFile(path.join(root, 'README.md'), 'utf8'), 'v1\n');
+  await assert.rejects(access(path.join(root, 'README-copy.md')));
+  assert.equal((await git(root, ['status', '--porcelain'])).trim(), '');
+});
+
 test('confirmação inválida não altera o repositório', async (context) => {
   const root = await makeRepo();
   context.after(async () => {
@@ -177,7 +198,6 @@ test('bloqueia desfazer commit quando a branch está atrás do remoto', async (c
   const remoteHead = (await git(root, ['rev-parse', 'HEAD'])).trim();
 
   await git(root, ['update-ref', 'refs/remotes/origin/main', remoteHead]);
-  await git(root, ['branch', '--set-upstream-to=origin/main', 'main']);
   await writeFile(path.join(root, 'remote.txt'), 'remoto\n');
   await git(root, ['add', '.']);
   await git(root, ['commit', '-q', '-m', 'simula remoto à frente']);
@@ -200,6 +220,41 @@ test('bloqueia desfazer commit quando a branch está atrás do remoto', async (c
     () => service.undoLastCommit(root, 'p1', confirmation.token),
     (error: unknown) =>
       error instanceof GitUndoError && error.code === 'GIT_BRANCH_BEHIND',
+  );
+});
+
+test('bloqueia desfazer commit quando a branch divergiu do remoto', async (context) => {
+  const root = await makeRepo();
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await writeFile(path.join(root, 'README.md'), 'local\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'commit local']);
+  const localHead = (await git(root, ['rev-parse', 'HEAD'])).trim();
+
+  await git(root, ['checkout', '-q', '-b', 'remote-simulado', 'HEAD^']);
+  await writeFile(path.join(root, 'remote.txt'), 'remoto\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'commit remoto']);
+  await git(root, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  await git(root, ['checkout', '-q', 'main']);
+  assert.equal((await git(root, ['rev-parse', 'HEAD'])).trim(), localHead);
+
+  const service = new GitUndoService();
+  const status = await service.getCommitStatus(root);
+  assert.equal(status.available, false);
+  assert.equal(status.reason, 'diverged');
+
+  const confirmation = await service.prepareConfirmation(
+    root,
+    'p1',
+    'commit',
+    'main',
+  );
+  await assert.rejects(
+    () => service.undoLastCommit(root, 'p1', confirmation.token),
+    (error: unknown) =>
+      error instanceof GitUndoError && error.code === 'GIT_BRANCH_DIVERGED',
   );
 });
 
