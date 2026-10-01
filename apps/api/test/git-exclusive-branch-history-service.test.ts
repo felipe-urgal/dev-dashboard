@@ -118,7 +118,6 @@ test('não confunde feature/main com a branch principal', async () => {
   }
 });
 
-
 test('respeita remote HEAD customizado ao calcular commits exclusivos', async () => {
   const directory = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-exclusive-history-default-'),
