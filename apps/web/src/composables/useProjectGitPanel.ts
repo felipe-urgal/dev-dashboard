@@ -645,11 +645,15 @@ export function useProjectGitPanel(
       mutationMessage.value = amend
         ? `Commit "${commit.shortHash}" alterado: ${commit.subject}`
         : `Commit "${commit.shortHash}" criado: ${commit.subject}`;
+      const originDefaultBranch = workspace.value?.remotes.find(
+        (remote) => remote.name === 'origin',
+      )?.defaultBranch;
       if (
         amend &&
         branchBeforeCommit &&
         branchBeforeCommit !== 'main' &&
         branchBeforeCommit !== 'master' &&
+        branchBeforeCommit !== originDefaultBranch &&
         upstreamBeforeCommit === `origin/${branchBeforeCommit}`
       ) {
         amendedBranch.value = branchBeforeCommit;
