@@ -248,7 +248,7 @@ test('mantém HEAD destacado selecionável mesmo com branches conhecidas', async
   const reference = wrapper.find(
     'select[aria-label="Referência do histórico"]',
   );
-  assert.equal(reference.element.value, 'HEAD destacado');
+  assert.equal((reference.element as HTMLSelectElement).value, 'HEAD destacado');
   assert.ok(reference.text().includes('HEAD destacado'));
 });
 
