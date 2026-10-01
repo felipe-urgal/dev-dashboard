@@ -8,6 +8,7 @@ import { runGit } from './shared/run-git.js';
 const COMMAND_TIMEOUT_MS = 5_000;
 const COMMAND_MAX_BUFFER_BYTES = 1024 * 1024;
 const MAX_WORKTREES = 256;
+const MAX_DIRTY_STATUS_WORKTREES = 32;
 const MAX_FIELD_LENGTH = 8 * 1024;
 const SAFE_HEAD = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 
@@ -268,10 +269,16 @@ export class GitWorktreeObserver {
       }))
       .sort((left, right) => left.path.localeCompare(right.path));
 
-    const enrichedWorktrees = await Promise.all(
-      worktrees.map(async (worktree) => {
-        if (worktree.bare || worktree.prunable) return worktree;
+    const dirtyByWorktreeId = new Map<string, boolean>();
+    const dirtyCandidates = worktrees
+      .filter(
+        (worktree) =>
+          worktree.kind === 'linked' && !worktree.bare && !worktree.prunable,
+      )
+      .slice(0, MAX_DIRTY_STATUS_WORKTREES);
 
+    await Promise.all(
+      dirtyCandidates.map(async (worktree) => {
         try {
           const status = await this.runCommand(worktree.path, [
             'status',
@@ -279,14 +286,18 @@ export class GitWorktreeObserver {
             '-z',
             '--untracked-files=all',
           ]);
-          return { ...worktree, dirty: status.length > 0 };
+          dirtyByWorktreeId.set(worktree.id, status.length > 0);
         } catch {
-          // A listagem continua útil mesmo se o status de um worktree
-          // individual não puder ser consultado.
-          return worktree;
+          // A listagem continua útil. O preflight destrutivo consulta o status
+          // novamente quando este estado antecipado não está disponível.
         }
       }),
     );
+
+    const enrichedWorktrees = worktrees.map((worktree) => {
+      const dirty = dirtyByWorktreeId.get(worktree.id);
+      return dirty === undefined ? worktree : { ...worktree, dirty };
+    });
 
     return {
       state: 'ready',
