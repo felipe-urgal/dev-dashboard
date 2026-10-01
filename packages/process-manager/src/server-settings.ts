@@ -19,7 +19,6 @@ interface ServerSettingsConfig {
 export type ProjectServerSettingsErrorCode =
   | 'INVALID_PROJECT_ID'
   | 'INVALID_SERVER_PORT'
-  | 'INVALID_HEALTH_CHECK_PATH'
   | 'INVALID_SERVER_ENVIRONMENT'
   | 'SERVER_ENVIRONMENT_REQUIRED'
   | 'SERVER_ENVIRONMENT_NOT_FOUND'
@@ -71,8 +70,6 @@ function parseServerSettings(value: unknown): ProjectServerSettings | null {
   if (
     typeof candidate.projectId !== 'string' ||
     (candidate.port !== undefined && typeof candidate.port !== 'number') ||
-    (candidate.healthCheckPath !== undefined &&
-      typeof candidate.healthCheckPath !== 'string') ||
     (candidate.environment !== undefined &&
       typeof candidate.environment !== 'string') ||
     (candidate.updatedAt !== undefined &&
@@ -81,20 +78,9 @@ function parseServerSettings(value: unknown): ProjectServerSettings | null {
     return null;
   }
 
-  // Arquivos criados pela implementação anterior podem
-  // conter `host`. Esse campo é ignorado durante a migração.
-  let healthCheckPath: string | undefined;
+  // Arquivos criados por implementações anteriores podem conter
+  // `host` ou `healthCheckPath`. Esses campos são ignorados na migração.
   let environment: string | undefined;
-
-  if (candidate.healthCheckPath !== undefined) {
-    try {
-      validateHealthCheckPath(candidate.healthCheckPath);
-      healthCheckPath = candidate.healthCheckPath;
-    } catch {
-      // Configuração local corrompida não pode ampliar o destino
-      // autorizado do health check.
-    }
-  }
 
   if (candidate.environment !== undefined) {
     try {
@@ -108,7 +94,6 @@ function parseServerSettings(value: unknown): ProjectServerSettings | null {
   return {
     projectId: candidate.projectId,
     ...(candidate.port !== undefined ? { port: candidate.port } : {}),
-    ...(healthCheckPath !== undefined ? { healthCheckPath } : {}),
     ...(environment !== undefined ? { environment } : {}),
     ...(candidate.updatedAt !== undefined
       ? { updatedAt: candidate.updatedAt }
@@ -152,28 +137,6 @@ export function validateServerPort(port: number | undefined): void {
     throw new ProjectServerSettingsError(
       'INVALID_SERVER_PORT',
       'A porta deve estar entre 1024 e 65535.',
-    );
-  }
-}
-
-export function validateHealthCheckPath(
-  healthCheckPath: string | undefined,
-): void {
-  if (healthCheckPath === undefined) {
-    return;
-  }
-
-  const segments = healthCheckPath.split('/').slice(1);
-  const validCharacters = /^\/(?:[A-Za-z0-9._~-]+\/?)*$/;
-
-  if (
-    healthCheckPath.length > 128 ||
-    !validCharacters.test(healthCheckPath) ||
-    segments.some((segment) => segment === '.' || segment === '..')
-  ) {
-    throw new ProjectServerSettingsError(
-      'INVALID_HEALTH_CHECK_PATH',
-      'O health check deve usar um caminho relativo válido, como /up ou /health.',
     );
   }
 }
@@ -234,15 +197,11 @@ export class ProjectServerSettingsRepository {
     }
 
     validateServerPort(input.port);
-    validateHealthCheckPath(input.healthCheckPath);
     validateServerEnvironment(input.environment);
 
     const settings: ProjectServerSettings = {
       projectId: normalizedProjectId,
       ...(input.port !== undefined ? { port: input.port } : {}),
-      ...(input.healthCheckPath !== undefined
-        ? { healthCheckPath: input.healthCheckPath }
-        : {}),
       ...(input.environment !== undefined
         ? { environment: input.environment }
         : {}),

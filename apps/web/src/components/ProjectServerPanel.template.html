@@ -34,10 +34,10 @@
       </div>
 
       <div class="server-summary-item">
-        <CommandLineIcon class="server-summary-glyph" aria-hidden="true" />
+        <ClockIcon class="server-summary-glyph" aria-hidden="true" />
         <div>
-          <span>Comando</span>
-          <strong class="server-summary-code">{{ commandLabel }}</strong>
+          <span>Uptime</span>
+          <strong>{{ uptimeLabel }}</strong>
         </div>
       </div>
 
@@ -82,36 +82,80 @@
           <ClipboardDocumentIcon aria-hidden="true" />
         </button>
 
-        <template v-if="canStop">
+        <button
+          v-if="currentAction === 'restart'"
+          type="button"
+          class="server-secondary-button"
+          disabled
+        >
+          <ArrowPathIcon aria-hidden="true" />
+          Reiniciando...
+        </button>
+        <button
+          v-else-if="currentAction === 'stop'"
+          type="button"
+          class="server-danger-button"
+          disabled
+        >
+          <StopIcon aria-hidden="true" />
+          Parando...
+        </button>
+        <button
+          v-else-if="currentAction === 'start'"
+          type="button"
+          class="server-primary-button"
+          disabled
+        >
+          <PlayIcon aria-hidden="true" />
+          Iniciando...
+        </button>
+
+        <template v-else-if="processStatus === 'running'">
           <button
             type="button"
             class="server-secondary-button"
-            :disabled="executingAction"
             @click="handleRestart"
           >
             <ArrowPathIcon aria-hidden="true" />
-            {{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
+            Reiniciar
           </button>
           <button
             type="button"
             class="server-danger-button"
-            :disabled="executingAction"
             @click="handleStop"
           >
             <StopIcon aria-hidden="true" />
-            {{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
+            Parar
           </button>
         </template>
 
         <button
+          v-else-if="processStatus === 'starting'"
+          type="button"
+          class="server-primary-button"
+          disabled
+        >
+          <PlayIcon aria-hidden="true" />
+          Iniciando...
+        </button>
+        <button
+          v-else-if="processStatus === 'stopping'"
+          type="button"
+          class="server-secondary-button"
+          disabled
+        >
+          <StopIcon aria-hidden="true" />
+          Parando...
+        </button>
+        <button
           v-else
           type="button"
           class="server-primary-button"
-          :disabled="executingAction || loadingSettings"
+          :disabled="loadingSettings"
           @click="handleStart"
         >
           <PlayIcon aria-hidden="true" />
-          {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar servidor' }}
+          {{ processStatus === 'failed' ? 'Iniciar novamente' : 'Iniciar servidor' }}
         </button>
       </div>
     </section>
@@ -129,6 +173,13 @@
       role="alert"
     >
       {{ errorMessage }}
+    </div>
+    <div
+      v-else-if="processStatus === 'failed' && !showSettings"
+      class="server-feedback server-feedback-error"
+      role="alert"
+    >
+      O servidor encerrou com falha. Consulte o console e tente iniciar novamente.
     </div>
 
     <section
@@ -162,7 +213,7 @@
         <header class="server-settings-header">
           <div>
             <h2 id="server-settings-title">Configurar servidor</h2>
-            <p>Porta, ambiente e comando de execução.</p>
+            <p>Porta, ambiente e comando detectado.</p>
           </div>
           <button
             type="button"

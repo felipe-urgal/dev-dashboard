@@ -236,9 +236,7 @@ export type {
 } from './port.js';
 
 export type {
-  ProjectServerHealth,
   ProjectServerSettings,
-  ServerHealthStatus,
   UpdateProjectServerSettingsInput,
 } from './server.js';
 

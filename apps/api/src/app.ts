@@ -195,8 +195,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,
     processManager: context.processManager,
-    serverSettingsRepository: context.serverSettingsRepository,
-    serverHealthCheckService: context.serverHealthCheckService,
   });
   const stackCheckService = new StackCheckService(
     {
@@ -551,7 +549,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     processManager: context.processManager,
     serverSettingsRepository: context.serverSettingsRepository,
-    serverHealthCheckService: context.serverHealthCheckService,
     projectStore: context.projectStore,
     developmentEnvironmentInstanceStore:
       context.developmentEnvironmentInstanceStore,

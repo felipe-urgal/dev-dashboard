@@ -7,16 +7,12 @@ import {
 
 import {
   commonErrorResponseSchemas,
-  projectServerHealthResponseSchema,
   projectServerSettingsResponseSchema,
 } from '../../http/response-schemas.js';
 import {
-  processEnvironmentQuerySchema,
   projectParamsSchema,
-  requireExecutionContext,
   requireProject,
   serverSettingsApiError,
-  type ProcessEnvironmentQuery,
   type ProcessRouteOptions,
   type ProjectParams,
   type SaveServerSettingsBody,
@@ -48,13 +44,7 @@ export function registerServerSettingsRoutes(
   app: FastifyInstance,
   options: ProcessRouteOptions,
 ): void {
-  const {
-    processManager,
-    serverHealthCheckService,
-    serverSettingsRepository,
-    projectStore,
-    developmentEnvironmentInstanceStore,
-  } = options;
+  const { serverSettingsRepository, projectStore } = options;
 
   async function environmentsForProject(
     project: ReturnType<typeof requireProject>,
@@ -115,18 +105,6 @@ export function registerServerSettingsRoutes(
                 },
               ],
             },
-            healthCheckPath: {
-              anyOf: [
-                {
-                  type: 'string',
-                  minLength: 1,
-                  maxLength: 128,
-                },
-                {
-                  type: 'null',
-                },
-              ],
-            },
             environment: {
               anyOf: [
                 {
@@ -178,13 +156,6 @@ export function registerServerSettingsRoutes(
             : request.body.port !== null
               ? { port: request.body.port }
               : {}),
-          ...(request.body.healthCheckPath === undefined
-            ? current.healthCheckPath
-              ? { healthCheckPath: current.healthCheckPath }
-              : {}
-            : request.body.healthCheckPath !== null
-              ? { healthCheckPath: request.body.healthCheckPath }
-              : {}),
           ...(request.body.environment === undefined
             ? current.environment
               ? { environment: current.environment }
@@ -202,84 +173,6 @@ export function registerServerSettingsRoutes(
 
         throw error;
       }
-    },
-  );
-
-  app.get<{
-    Params: ProjectParams;
-    Querystring: ProcessEnvironmentQuery;
-  }>(
-    '/projects/:projectId/server-health',
-    {
-      schema: {
-        params: projectParamsSchema,
-        querystring: processEnvironmentQuerySchema,
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['health'],
-            properties: {
-              health: projectServerHealthResponseSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = requireProject(projectStore, request.params.projectId);
-      const executionContext = requireExecutionContext(
-        developmentEnvironmentInstanceStore,
-        project.id,
-        request.query.environmentInstanceId,
-      );
-      const [process, settings] = await Promise.all([
-        processManager.getServerProcess(
-          project.id,
-          executionContext.environmentInstanceId,
-        ),
-        serverSettingsRepository.find(project.id),
-      ]);
-      const port = process?.port ?? settings.port;
-
-      if (process?.status !== 'running' || port === undefined) {
-        return {
-          health: {
-            projectId: project.id,
-            path: settings.healthCheckPath ?? '/',
-            pathSource: settings.healthCheckPath
-              ? ('configured' as const)
-              : ('detected' as const),
-            status: 'unavailable' as const,
-            checkedAt: new Date().toISOString(),
-            message:
-              'O servidor precisa estar em execução para verificar a saúde.',
-          },
-        };
-      }
-
-      if (!settings.healthCheckPath) {
-        return {
-          health: {
-            projectId: project.id,
-            path: '/',
-            pathSource: 'detected' as const,
-            status: 'unavailable' as const,
-            checkedAt: new Date().toISOString(),
-            message:
-              'Configure um caminho de health check para verificar a saúde do servidor.',
-          },
-        };
-      }
-
-      return {
-        health: await serverHealthCheckService.check({
-          projectId: project.id,
-          port,
-          healthCheckPath: settings.healthCheckPath,
-        }),
-      };
     },
   );
 }

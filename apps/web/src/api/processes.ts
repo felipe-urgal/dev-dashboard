@@ -2,7 +2,6 @@ import type {
   LocalPortInspection,
   ManagedProcess,
   ProcessLogSnapshot,
-  ProjectServerHealth,
   ProjectServerSettings,
 } from '@dev-dashboard/contracts';
 
@@ -25,10 +24,6 @@ function environmentQuery(environmentInstanceId?: string): string {
 export interface ProjectServerConfiguration {
   settings: ProjectServerSettings;
   environments: string[];
-}
-
-interface ServerHealthResponse {
-  health: ProjectServerHealth;
 }
 
 export async function fetchProjectProcess(
@@ -86,7 +81,6 @@ export async function saveProjectServerSettings(
   projectId: string,
   input: {
     port: number | null;
-    healthCheckPath: string | null;
     environment: string | null;
   },
 ): Promise<ProjectServerSettings> {
@@ -102,17 +96,6 @@ export async function saveProjectServerSettings(
   );
 
   return response.settings;
-}
-
-export async function fetchProjectServerHealth(
-  projectId: string,
-  environmentInstanceId?: string,
-): Promise<ProjectServerHealth> {
-  const response = await requestJson<ServerHealthResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/server-health${environmentQuery(environmentInstanceId)}`,
-  );
-
-  return response.health;
 }
 
 export async function stopProjectProcess(

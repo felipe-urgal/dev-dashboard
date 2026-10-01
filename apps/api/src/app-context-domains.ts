@@ -33,7 +33,6 @@ import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
-import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import {
   ProjectLanguageServerService,
@@ -126,7 +125,6 @@ export function createProjectContextDomain(
     projectEnvironmentService: new ProjectEnvironmentService(),
     projectBrowserService: new ProjectBrowserService(),
     projectFileService,
-    serverHealthCheckService: new ServerHealthCheckService(),
     projectWorkspaceEditService,
     projectLanguageServerService,
     projectTerminalService,

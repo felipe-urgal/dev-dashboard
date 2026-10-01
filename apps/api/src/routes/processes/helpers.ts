@@ -8,7 +8,6 @@ import type {
 import { ApiError } from '../../http/api-error.js';
 import type { DevelopmentEnvironmentInstanceStore } from '../../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../../store/project-store.js';
-import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';
 import type { PortInspectorService } from '../../services/port-inspector-service.js';
 
 export const processEnvelopeResponseSchema = (processSchema: object) => ({
@@ -23,7 +22,6 @@ export const processEnvelopeResponseSchema = (processSchema: object) => ({
 export interface ProcessRouteOptions {
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
-  serverHealthCheckService: ServerHealthCheckService;
   projectStore: ProjectStore;
   developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   portInspectorService?: PortInspectorService;
@@ -40,7 +38,6 @@ export interface StartProcessBody {
 
 export interface SaveServerSettingsBody {
   port?: number | null;
-  healthCheckPath?: string | null;
   environment?: string | null;
 }
 
