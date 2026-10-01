@@ -103,7 +103,9 @@ test.describe('Mutações de branch Git do projeto', () => {
     const remoteOnlyRow = page.locator('.branch-table-row', {
       has: page.getByText('feature/remota-e2e', { exact: true }),
     });
-    await remoteOnlyRow.getByRole('button', { name: 'Trazer para local' }).click();
+    await remoteOnlyRow
+      .getByRole('button', { name: 'Trazer para local' })
+      .click();
     await page.getByRole('button', { name: 'Criar e trocar' }).click();
     await expect(
       page.getByText(
@@ -122,7 +124,9 @@ test.describe('Mutações de branch Git do projeto', () => {
     await trackedRemoteRow
       .getByLabel('Mais ações para feature/remota-e2e')
       .click();
-    await trackedRemoteRow.getByRole('button', { name: 'Remover branch' }).click();
+    await trackedRemoteRow
+      .getByRole('button', { name: 'Remover branch' })
+      .click();
     await page.getByLabel('Nome da branch').fill('feature/remota-e2e');
     await page.getByRole('button', { name: 'Remover branch local' }).click();
     await expect(
