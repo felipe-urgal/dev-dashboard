@@ -83,3 +83,81 @@ test('lista somente commits exclusivos da referência selecionada', async () => 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('não confunde feature/main com a branch principal', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-exclusive-history-suffix-'),
+  );
+
+  try {
+    await git(directory, ['init', '-b', 'main']);
+    await git(directory, ['config', 'user.name', 'Dev Dashboard']);
+    await git(directory, ['config', 'user.email', 'dashboard@example.test']);
+
+    await commitFile(directory, 'base.txt', 'base\n', 'feat: cria base');
+    await git(directory, ['switch', '-c', 'feature/main']);
+    await commitFile(
+      directory,
+      'feature.txt',
+      'feature\n',
+      'feat: alteração exclusiva da feature',
+    );
+
+    const history = await listExclusiveBranchCommits(directory, {
+      reference: 'feature/main',
+    });
+
+    assert.equal(history.branch, 'feature/main');
+    assert.equal(history.total, 1);
+    assert.deepEqual(
+      history.commits.map((commit) => commit.subject),
+      ['feat: alteração exclusiva da feature'],
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('respeita remote HEAD customizado ao calcular commits exclusivos', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-exclusive-history-default-'),
+  );
+
+  try {
+    await git(directory, ['init', '-b', 'main']);
+    await git(directory, ['config', 'user.name', 'Dev Dashboard']);
+    await git(directory, ['config', 'user.email', 'dashboard@example.test']);
+
+    await commitFile(directory, 'base.txt', 'base\n', 'feat: cria base');
+    await git(directory, ['branch', 'release/stable']);
+    await git(directory, [
+      'update-ref',
+      'refs/remotes/origin/release/stable',
+      'refs/heads/release/stable',
+    ]);
+    await git(directory, [
+      'symbolic-ref',
+      'refs/remotes/origin/HEAD',
+      'refs/remotes/origin/release/stable',
+    ]);
+
+    await commitFile(
+      directory,
+      'main-only.txt',
+      'main\n',
+      'feat: alteração exclusiva da main local',
+    );
+
+    const history = await listExclusiveBranchCommits(directory, {
+      reference: 'main',
+    });
+
+    assert.equal(history.total, 1);
+    assert.deepEqual(
+      history.commits.map((commit) => commit.subject),
+      ['feat: alteração exclusiva da main local'],
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

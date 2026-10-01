@@ -73,6 +73,25 @@ test('retorna metadados, arquivos e patch de um commit', async () => {
   }
 });
 
+test('permite consultar detalhes sem montar o patch completo', async () => {
+  const repository = await createRepository();
+  try {
+    const detail = await inspectGitCommit(
+      repository.directory,
+      repository.hash,
+      { includePatch: false },
+    );
+
+    assert.equal(detail.files.length, 1);
+    assert.equal(detail.patch, '');
+    assert.equal(detail.truncated, false);
+    assert.equal(detail.masked, false);
+    assert.equal(detail.redactionCount, 0);
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
+});
+
 test('pagina dez commits e limita o histórico à branch atual', async () => {
   const repository = await createRepository();
   try {
@@ -392,4 +411,56 @@ test('inclui arquivos renomeados na lista de arquivos do commit', async () => {
   assert.equal(renamed!.previousPath, 'antigo.ts');
 
   await rm(directory, { recursive: true, force: true });
+});
+
+test('compara merge commit contra o primeiro parent', async () => {
+  const repository = await createRepository();
+  try {
+    const baseBranch = await run(repository.directory, [
+      'branch',
+      '--show-current',
+    ]);
+
+    await run(repository.directory, ['switch', '-c', 'feature/merge-history']);
+    await writeFile(
+      path.join(repository.directory, 'merge-history.ts'),
+      'export const historico = true;\n',
+      'utf8',
+    );
+    await run(repository.directory, ['add', 'merge-history.ts']);
+    await run(repository.directory, [
+      'commit',
+      '-m',
+      'feat: adiciona arquivo da feature',
+    ]);
+
+    await run(repository.directory, ['switch', baseBranch]);
+    await run(repository.directory, [
+      'merge',
+      '--no-ff',
+      'feature/merge-history',
+      '-m',
+      'merge: integra feature de histórico',
+    ]);
+    const mergeHash = await run(repository.directory, ['rev-parse', 'HEAD']);
+
+    const detail = await inspectGitCommit(repository.directory, mergeHash);
+    const changed = detail.files.find(
+      (file) => file.path === 'merge-history.ts',
+    );
+    assert.ok(
+      changed,
+      'o merge deve expor arquivos alterados contra o primeiro parent',
+    );
+    assert.equal(changed!.status, 'added');
+
+    const file = await inspectGitCommitFile(
+      repository.directory,
+      mergeHash,
+      'merge-history.ts',
+    );
+    assert.match(file.content, /\+export const historico = true;/);
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
 });

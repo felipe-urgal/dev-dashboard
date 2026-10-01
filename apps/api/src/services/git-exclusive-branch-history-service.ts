@@ -161,17 +161,43 @@ function filterHistory(
   });
 }
 
-function hasFilters(options: ExclusiveBranchHistoryOptions): boolean {
-  return Boolean(
-    options.search?.trim() ||
-    options.author?.trim() ||
-    (options.kind && options.kind !== 'all'),
-  );
+function requiresInMemoryFiltering(
+  options: ExclusiveBranchHistoryOptions,
+): boolean {
+  return Boolean(options.search?.trim() || options.author?.trim());
 }
 
-function branchNameFromReference(reference: string): string {
-  const parts = reference.split('/').filter(Boolean);
-  return parts.at(-1) ?? reference;
+function historyKindArgs(
+  kind: ExclusiveBranchHistoryOptions['kind'],
+): string[] {
+  if (kind === 'merge') return ['--merges'];
+  if (kind === 'regular') return ['--no-merges'];
+  return [];
+}
+
+function localBranchNameFromDefaultCandidate(reference: string): string {
+  if (reference.startsWith('origin/')) return reference.slice('origin/'.length);
+  if (reference.startsWith('upstream/')) {
+    return reference.slice('upstream/'.length);
+  }
+  return reference;
+}
+
+async function localBranchExists(
+  projectPath: string,
+  branch: string,
+): Promise<boolean> {
+  try {
+    await runGit(projectPath, [
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/heads/${branch}`,
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function resolveReference(
@@ -209,22 +235,37 @@ async function resolveExclusiveRevision(
     remoteDefaultReference(projectPath, 'upstream'),
     remoteDefaultReference(projectPath, 'origin'),
   ]);
-  const candidates = [
-    upstreamDefault,
-    originDefault,
+  const resolvedDefaultCandidates = [upstreamDefault, originDefault].filter(
+    (value): value is string => Boolean(value),
+  );
+  const fallbackCandidates = [
     'upstream/main',
     'origin/main',
     'main',
     'upstream/master',
     'origin/master',
     'master',
-  ].filter((value): value is string => Boolean(value));
-  const defaultBranchNames = new Set(candidates.map(branchNameFromReference));
-  defaultBranchNames.add('main');
-  defaultBranchNames.add('master');
+    'upstream/develop',
+    'origin/develop',
+    'develop',
+  ];
+  const candidates = [...resolvedDefaultCandidates, ...fallbackCandidates];
 
-  const selectedName = branchNameFromReference(reference.label);
-  if (defaultBranchNames.has(selectedName)) return reference.revision;
+  // Se o remoto declara sua default branch, ela é a fonte de verdade para
+  // decidir se a referência selecionada é a principal. Fallbacks só entram
+  // nessa classificação quando nenhum remote HEAD está disponível.
+  const defaultCandidates =
+    resolvedDefaultCandidates.length > 0
+      ? resolvedDefaultCandidates
+      : fallbackCandidates;
+  const defaultLocalBranchNames = new Set(
+    defaultCandidates.map(localBranchNameFromDefaultCandidate),
+  );
+  const selectedReferenceIsDefault =
+    defaultCandidates.includes(reference.revision) ||
+    ((await localBranchExists(projectPath, reference.label)) &&
+      defaultLocalBranchNames.has(reference.label));
+  if (selectedReferenceIsDefault) return reference.revision;
 
   const visited = new Set<string>();
   for (const candidate of candidates) {
@@ -276,9 +317,11 @@ export async function listExclusiveBranchCommits(
   }
 
   const revision = await resolveExclusiveRevision(projectPath, reference);
-  if (hasFilters(options)) {
+  const kindArgs = historyKindArgs(options.kind);
+  if (requiresInMemoryFiltering(options)) {
     const output = await runGit(projectPath, [
       'log',
+      ...kindArgs,
       HISTORY_FORMAT,
       revision,
       '--',
@@ -300,7 +343,14 @@ export async function listExclusiveBranchCommits(
 
   const total =
     Number.parseInt(
-      (await runGit(projectPath, ['rev-list', '--count', revision])).trim(),
+      (
+        await runGit(projectPath, [
+          'rev-list',
+          '--count',
+          ...kindArgs,
+          revision,
+        ])
+      ).trim(),
       10,
     ) || 0;
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
@@ -308,6 +358,7 @@ export async function listExclusiveBranchCommits(
   const skip = (effectivePage - 1) * pageSize;
   const output = await runGit(projectPath, [
     'log',
+    ...kindArgs,
     `--skip=${skip}`,
     `-n${pageSize}`,
     HISTORY_FORMAT,
