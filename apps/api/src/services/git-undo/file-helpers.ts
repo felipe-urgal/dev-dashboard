@@ -51,6 +51,7 @@ export async function renameInfo(
     '-z',
     '-M',
     '-C',
+    '--find-copies-harder',
     'HEAD',
   ]);
   if (!output) return null;
