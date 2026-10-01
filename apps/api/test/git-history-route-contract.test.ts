@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import Fastify, { type FastifySchema } from 'fastify';
 
 import { buildApp } from '../src/app.js';
+import { gitCommitDetailsRoutes } from '../src/routes/git-commit-details.js';
 import { gitExclusiveBranchHistoryRoutes } from '../src/routes/git-exclusive-branch-history.js';
 import type { ProjectStore } from '../src/store/project-store.js';
 
@@ -46,6 +47,50 @@ test('mantém query e resposta do histórico exclusivo com o mesmo limite', asyn
   });
 
   await app.register(gitExclusiveBranchHistoryRoutes, {
+    projectStore: {
+      findProject: () => undefined,
+    } as unknown as ProjectStore,
+  });
+  await app.ready();
+
+  assert.ok(routeSchema);
+
+  const querySchema = routeSchema.querystring as {
+    properties: { pageSize: { maximum: number } };
+  };
+  const responseSchema = routeSchema.response as {
+    200: {
+      properties: {
+        history: {
+          properties: { pageSize: { maximum: number } };
+        };
+      };
+    };
+  };
+
+  assert.equal(querySchema.properties.pageSize.maximum, 50);
+  assert.equal(
+    responseSchema[200].properties.history.properties.pageSize.maximum,
+    querySchema.properties.pageSize.maximum,
+  );
+});
+
+
+test('mantém query e resposta do histórico completo com o mesmo limite', async (context) => {
+  const app = Fastify();
+  context.after(async () => app.close());
+
+  let routeSchema: FastifySchema | undefined;
+  app.addHook('onRoute', (routeOptions) => {
+    if (
+      routeOptions.method === 'GET' &&
+      routeOptions.url === '/projects/:projectId/git/commits'
+    ) {
+      routeSchema = routeOptions.schema;
+    }
+  });
+
+  await app.register(gitCommitDetailsRoutes, {
     projectStore: {
       findProject: () => undefined,
     } as unknown as ProjectStore,
