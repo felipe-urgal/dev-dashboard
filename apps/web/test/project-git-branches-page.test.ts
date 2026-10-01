@@ -196,7 +196,7 @@ it('protege a default branch real do origin mesmo quando se chama develop', () =
   const wrapper = mountBranches(workspace);
   const row = rowByName(wrapper, 'develop');
 
-  expect(row.find('[aria-label="Branch protegida"]').exists()).toBe(true);
+  expect(row.find('.branch-protected-icon').exists()).toBe(true);
   expect(row.find('.branch-menu-trigger').exists()).toBe(false);
 });
 
