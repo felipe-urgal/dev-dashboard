@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline';
 
+import type { GitPullRequestProvider } from '@dev-dashboard/contracts';
+
 defineProps<{
+  provider: GitPullRequestProvider | null;
   existingNumber?: number | undefined;
   existingUrl?: string | undefined;
   generatedUrl?: string | undefined;
   checkingExisting: boolean;
   opening: boolean;
   canOpen: boolean;
+  canCreateViaGh: boolean;
   mutationBusy: boolean;
   existingPullRequest: boolean;
 }>();
 
 const emit = defineEmits<{
-  open: [];
+  'open-external': [];
   cancel: [];
   'toggle-create': [];
 }>();
@@ -50,17 +54,9 @@ const emit = defineEmits<{
     <template v-else>
       <button
         type="button"
-        class="git-pr-gh-action"
-        :disabled="!canOpen || mutationBusy"
-        @click="emit('toggle-create')"
-      >
-        Criar direto com gh
-      </button>
-      <button
-        type="button"
-        class="git-pr-primary"
-        :disabled="!canOpen"
-        @click="emit('open')"
+        class="git-pr-external-action"
+        :disabled="!canOpen || opening"
+        @click="emit('open-external')"
       >
         <ArrowTopRightOnSquareIcon aria-hidden="true" />
         {{
@@ -68,8 +64,19 @@ const emit = defineEmits<{
             ? 'Verificando PR…'
             : opening
               ? 'Preparando…'
-              : 'Criar Pull Request'
+              : provider === 'gitlab'
+                ? 'Abrir no GitLab'
+                : 'Abrir comparação'
         }}
+      </button>
+      <button
+        v-if="provider === 'github'"
+        type="button"
+        class="git-pr-primary"
+        :disabled="!canCreateViaGh || mutationBusy"
+        @click="emit('toggle-create')"
+      >
+        Criar Pull Request
       </button>
     </template>
   </div>
@@ -106,20 +113,16 @@ const emit = defineEmits<{
 .git-pr-primary,
 .git-pr-fallback-link,
 .git-pr-existing-action {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  color: #fff !important;
 }
 
 .git-pr-cancel {
   margin-right: auto;
 }
 
-.git-pr-gh-action {
-  border-color: transparent;
-}
-
-.git-pr-gh-action:hover:not(:disabled),
+.git-pr-external-action:hover:not(:disabled),
 .git-pr-cancel:hover:not(:disabled) {
   color: var(--text);
 }
