@@ -174,29 +174,17 @@ test('unstage de rename preserva os arquivos sem deixar deleção staged', async
 
     await service.unstageFile(directory, 'new.txt');
 
-    const staged = await new Promise<string>((resolve, reject) => {
-      exec(
-        'git',
-        ['diff', '--cached', '--name-status'],
-        { cwd: directory },
-        (error, stdout) => {
-          if (error) reject(error);
-          else resolve(String(stdout));
-        },
-      );
-    });
+    const { stdout: staged } = await exec(
+      'git',
+      ['diff', '--cached', '--name-status'],
+      { cwd: directory, encoding: 'utf8' },
+    );
     assert.equal(staged.trim(), '');
-    const status = await new Promise<string>((resolve, reject) => {
-      exec(
-        'git',
-        ['status', '--porcelain'],
-        { cwd: directory },
-        (error, stdout) => {
-          if (error) reject(error);
-          else resolve(String(stdout));
-        },
-      );
-    });
+    const { stdout: status } = await exec(
+      'git',
+      ['status', '--porcelain'],
+      { cwd: directory, encoding: 'utf8' },
+    );
     assert.match(status, / D old\.txt/);
     assert.match(status, /\?\? new\.txt/);
     assert.equal(
