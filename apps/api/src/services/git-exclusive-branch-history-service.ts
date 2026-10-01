@@ -235,9 +235,10 @@ async function resolveExclusiveRevision(
     remoteDefaultReference(projectPath, 'upstream'),
     remoteDefaultReference(projectPath, 'origin'),
   ]);
-  const candidates = [
-    upstreamDefault,
-    originDefault,
+  const resolvedDefaultCandidates = [upstreamDefault, originDefault].filter(
+    (value): value is string => Boolean(value),
+  );
+  const fallbackCandidates = [
     'upstream/main',
     'origin/main',
     'main',
@@ -247,13 +248,24 @@ async function resolveExclusiveRevision(
     'upstream/develop',
     'origin/develop',
     'develop',
-  ].filter((value): value is string => Boolean(value));
+  ];
+  const candidates = [
+    ...resolvedDefaultCandidates,
+    ...fallbackCandidates,
+  ];
 
+  // Se o remoto declara sua default branch, ela é a fonte de verdade para
+  // decidir se a referência selecionada é a principal. Fallbacks só entram
+  // nessa classificação quando nenhum remote HEAD está disponível.
+  const defaultCandidates =
+    resolvedDefaultCandidates.length > 0
+      ? resolvedDefaultCandidates
+      : fallbackCandidates;
   const defaultLocalBranchNames = new Set(
-    candidates.map(localBranchNameFromDefaultCandidate),
+    defaultCandidates.map(localBranchNameFromDefaultCandidate),
   );
   const selectedReferenceIsDefault =
-    candidates.includes(reference.revision) ||
+    defaultCandidates.includes(reference.revision) ||
     ((await localBranchExists(projectPath, reference.label)) &&
       defaultLocalBranchNames.has(reference.label));
   if (selectedReferenceIsDefault) return reference.revision;
