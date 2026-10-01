@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
 
+import type { GitPullRequestProvider } from '@dev-dashboard/contracts';
+
 import type { GitPullRequestTargetRemote as ApiGitPullRequestTargetRemote } from '../api';
 import ProjectGitPullRequestFooter from './ProjectGitPullRequestFooter.vue';
 
 const props = defineProps<{
   overviewBranch: string | null;
+  sourceReference: string;
   availableTargets: readonly ApiGitPullRequestTargetRemote[];
   baseBranches: readonly string[];
   targetRemote: ApiGitPullRequestTargetRemote;
   baseBranch: string;
   title: string;
   description: string;
+  draft: boolean;
+  provider: GitPullRequestProvider | null;
   opening: boolean;
   busy: boolean;
   forcePushBranch: string | null;
@@ -23,18 +28,19 @@ const props = defineProps<{
   generatedUrl: string;
   checkingExisting: boolean;
   canOpen: boolean;
+  canCreateViaGh: boolean;
   existingPullRequest: boolean;
 }>();
 
 const emit = defineEmits<{
-  submit: [];
   'update:target-remote': [value: ApiGitPullRequestTargetRemote];
   'update:base-branch': [value: string];
   'update:title': [value: string];
   'update:description': [value: string];
+  'update:draft': [value: boolean];
   'update:force-push-acknowledged': [value: boolean];
   'force-push': [];
-  open: [];
+  'open-external': [];
   cancel: [];
   'toggle-create': [];
 }>();
@@ -60,11 +66,11 @@ function onDescriptionInput(event: Event) {
 </script>
 
 <template>
-  <form class="git-pr-form" @submit.prevent="emit('submit')">
+  <form class="git-pr-form" @submit.prevent>
     <section class="git-pr-branch-summary" aria-label="Comparação das branches">
       <div class="git-pr-branch-card">
         <strong>{{ props.overviewBranch ?? 'HEAD' }}</strong>
-        <small>{{ `origin/${props.overviewBranch ?? 'HEAD'}` }}</small>
+        <small>{{ props.sourceReference }}</small>
       </div>
       <span class="git-pr-branch-arrow" aria-hidden="true">→</span>
       <div class="git-pr-branch-card">
@@ -78,7 +84,7 @@ function onDescriptionInput(event: Event) {
         <span>Destino</span>
         <select
           :value="props.targetRemote"
-          :disabled="props.opening || props.busy"
+          :disabled="props.opening || props.busy || props.mutationBusy"
           @change="onTargetRemoteChange"
         >
           <option
@@ -95,7 +101,7 @@ function onDescriptionInput(event: Event) {
         <span>Branch base</span>
         <select
           :value="props.baseBranch"
-          :disabled="props.opening || props.busy"
+          :disabled="props.opening || props.busy || props.mutationBusy"
           @change="onBaseBranchChange"
         >
           <option
@@ -105,8 +111,8 @@ function onDescriptionInput(event: Event) {
           >
             {{ branch }}
           </option>
-          <option v-if="props.baseBranches.length === 0" value="main">
-            main
+          <option v-if="props.baseBranches.length === 0" :value="props.baseBranch">
+            {{ props.baseBranch }}
           </option>
         </select>
       </label>
@@ -119,7 +125,7 @@ function onDescriptionInput(event: Event) {
         maxlength="256"
         type="text"
         placeholder="Título da Pull Request"
-        :disabled="props.opening || props.busy"
+        :disabled="props.opening || props.busy || props.mutationBusy"
         @input="onTitleInput"
       />
     </label>
@@ -130,9 +136,21 @@ function onDescriptionInput(event: Event) {
         :value="props.description"
         maxlength="20000"
         placeholder="Descreva o que muda nesta Pull Request"
-        :disabled="props.opening || props.busy"
+        :disabled="props.opening || props.busy || props.mutationBusy"
         @input="onDescriptionInput"
       />
+    </label>
+
+    <label v-if="props.provider === 'github'" class="git-pr-draft">
+      <input
+        :checked="props.draft"
+        type="checkbox"
+        :disabled="props.opening || props.busy || props.mutationBusy"
+        @change="
+          emit('update:draft', ($event.target as HTMLInputElement).checked)
+        "
+      />
+      <span>Criar como rascunho</span>
     </label>
 
     <section
@@ -172,15 +190,17 @@ function onDescriptionInput(event: Event) {
     </section>
 
     <ProjectGitPullRequestFooter
+      :provider="props.provider"
       :existing-number="props.existingNumber"
       :existing-url="props.existingUrl"
       :generated-url="props.generatedUrl"
       :checking-existing="props.checkingExisting"
       :opening="props.opening"
       :can-open="props.canOpen"
+      :can-create-via-gh="props.canCreateViaGh"
       :mutation-busy="props.mutationBusy"
       :existing-pull-request="props.existingPullRequest"
-      @open="emit('open')"
+      @open-external="emit('open-external')"
       @cancel="emit('cancel')"
       @toggle-create="emit('toggle-create')"
     />
