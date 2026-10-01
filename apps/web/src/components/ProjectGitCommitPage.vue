@@ -184,7 +184,7 @@ function submitAmend(): void {
       <div class="git-commit-footer">
         <p class="git-commit-amend-hint">
           Amend inclui somente o que já está staged. Alterações não staged e
-          arquivos novos permanecem fora.
+          arquivos não rastreados permanecem fora.
         </p>
 
         <div class="git-commit-actions">
