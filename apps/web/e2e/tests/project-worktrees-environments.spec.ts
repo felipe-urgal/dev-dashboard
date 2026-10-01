@@ -147,7 +147,7 @@ async function stopEnvironmentServer(
 }
 
 test.describe('Worktrees como Environment Instances', () => {
-  test('cleanup após remoção externa encerra somente o ambiente removido', async ({
+  test('limpa worktree órfão sem afetar o outro ambiente', async ({
     page,
   }) => {
     const projectId = await projectIdFromDashboard(page);
