@@ -241,7 +241,7 @@ export function useProjectGitPanel(
     const confirmed = await confirmDialog({
       title: creatingBranch ? 'Criar branch?' : 'Trocar de branch?',
       message: creatingBranch
-        ? `A branch "${trimmed}" será criada a partir do HEAD atual. A árvore de trabalho deve estar limpa.`
+        ? `A branch "${trimmed}" será criada a partir do HEAD atual. As alterações locais não commitadas serão mantidas na nova branch.`
         : `O projeto trocará para a branch "${trimmed}". A árvore de trabalho deve estar limpa.`,
       confirmLabel: creatingBranch ? 'Criar branch' : 'Trocar de branch',
       tone: 'warning',
@@ -657,9 +657,14 @@ export function useProjectGitPanel(
       changeImpact.value = null;
       remoteRefreshErrorMessage.value = '';
       syncOperation.value = null;
+      branchOperation.value = null;
       activeTab.value = tabFromQuery();
       await Promise.all([loadGit(), loadWorkspace()]);
-      void refreshRemotesSilently();
+      if (activeTab.value === 'branches') {
+        void refreshOriginSilently();
+      } else if (activeTab.value === 'sync') {
+        void refreshRemotesSilently();
+      }
     },
     { immediate: true },
   );
