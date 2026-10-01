@@ -14,23 +14,12 @@
       <div class="branch-toolbar-actions">
         <button
           type="button"
-          class="secondary-button branch-refresh-button"
-          :class="{ 'is-spinning': remoteRefreshing }"
-          :disabled="actionsBusy"
-          aria-label="Atualizar remotas"
-          title="Atualizar remotas"
-          @click="emit('refresh-remotes')"
-        >
-          <ArrowPathIcon aria-hidden="true" />
-        </button>
-        <button
-          type="button"
           class="primary-button branch-create-button"
           :disabled="actionsBusy"
           @click="openCreateModal"
         >
           <PlusIcon aria-hidden="true" />
-          Nova branch
+          {{ operation?.kind === 'create' ? 'Criando…' : 'Nova branch' }}
         </button>
       </div>
     </header>
@@ -72,6 +61,15 @@
             {{ stateLabel(row) }}
           </span>
           <small v-if="!row.local && row.origin">Somente leitura</small>
+          <small
+            v-else-if="
+              row.local?.upstream &&
+              row.origin &&
+              row.local.upstream !== `origin/${row.name}`
+            "
+          >
+            acompanha {{ row.local.upstream }}
+          </small>
         </div>
 
         <div class="branch-row-actions">
@@ -82,7 +80,7 @@
             :disabled="actionsBusy"
             @click="emit('switch', row.name)"
           >
-            Trocar
+            {{ operationFor(row, 'switch') ? 'Trocando…' : 'Trocar' }}
           </button>
           <button
             v-if="!row.local && row.origin"
@@ -91,7 +89,11 @@
             :disabled="actionsBusy"
             @click="emit('track', row.origin.name)"
           >
-            Trazer para local
+            {{
+              operationFor(row, 'track')
+                ? 'Trazendo…'
+                : 'Trazer para local'
+            }}
           </button>
 
           <details
@@ -109,13 +111,13 @@
             </summary>
             <div class="branch-action-menu">
               <button
-                v-if="row.local && (forcePushBranch === row.name || !row.origin || row.local.ahead > 0)"
+                v-if="row.local && !row.origin"
                 type="button"
                 class="branch-inline-action"
                 :disabled="actionsBusy"
-                @click="forcePushBranch === row.name ? emit('force-push', row.name) : emit('publish', row.name)"
+                @click="emit('publish', row.name)"
               >
-                {{ forcePushBranch === row.name ? 'Reenviar' : row.origin ? 'Enviar' : 'Publicar' }}
+                {{ operationFor(row, 'publish') ? 'Publicando…' : 'Publicar' }}
               </button>
               <button
                 v-if="row.local && !isProtected(row)"
@@ -125,17 +127,7 @@
                 @click="openRenameModal(row)"
               >
                 <PencilSquareIcon aria-hidden="true" />
-                Renomear
-              </button>
-              <button
-                v-if="row.local?.current && !isProtected(row) && squashCommitCount > 1"
-                type="button"
-                class="branch-inline-action"
-                :disabled="actionsBusy"
-                @click="openSquashModal(row)"
-              >
-                <ArrowsPointingInIcon aria-hidden="true" />
-                Squash
+                {{ operationFor(row, 'rename') ? 'Renomeando…' : 'Renomear' }}
               </button>
               <button
                 v-if="row.local && !row.local.current && !isProtected(row)"
@@ -145,7 +137,11 @@
                 @click="openDeleteModal(row)"
               >
                 <TrashIcon aria-hidden="true" />
-                Remover branch
+                {{
+                  operationFor(row, 'delete')
+                    ? 'Removendo…'
+                    : 'Remover branch'
+                }}
               </button>
               <button
                 v-if="row.origin && !isProtected(row)"
@@ -155,7 +151,11 @@
                 @click="openDeleteRemoteModal(row)"
               >
                 <TrashIcon aria-hidden="true" />
-                Remover do origin
+                {{
+                  operationFor(row, 'delete-remote')
+                    ? 'Removendo…'
+                    : 'Remover do origin'
+                }}
               </button>
             </div>
           </details>
@@ -195,11 +195,6 @@
           </p>
           <p v-else-if="modal === 'rename'">
             Altere apenas o nome da branch local.
-          </p>
-          <p v-else-if="modal === 'squash'">
-            Os <strong>{{ squashCommitCount }} commits exclusivos</strong> de
-            <strong>{{ selectedRow?.name }}</strong> serão condensados em um
-            único commit. O histórico local será reescrito.
           </p>
           <p v-else-if="modal === 'delete-remote'">
             A branch será removida de <strong>origin</strong>. A branch local,
@@ -322,54 +317,13 @@
       </form>
 
       <form
-        v-else-if="modal === 'squash'"
-        class="branch-modal-form"
-        @submit.prevent="submitSquash"
-      >
-        <label>
-          <span>Mensagem do commit final</span>
-          <input
-            :value="squashMessage"
-            type="text"
-            maxlength="500"
-            autocomplete="off"
-            aria-label="Mensagem do commit final"
-            data-branch-modal-autofocus
-            @input="updateSquashMessage"
-          />
-        </label>
-        <p v-if="selectedRow?.origin">
-          Como esta branch já foi publicada, o squash também reenviará a branch
-          para o origin com lease. O envio será recusado se o remoto tiver
-          mudado.
-        </p>
-        <footer>
-          <button
-            type="button"
-            class="secondary-button"
-            :disabled="busy"
-            @click="closeModal"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            class="danger-button branch-squash-submit"
-            :disabled="actionsBusy || !canSubmitSquash"
-          >
-            <span>{{ squashSubmitLabel }}</span>
-          </button>
-        </footer>
-      </form>
-
-      <form
         v-else
         class="branch-modal-form branch-delete-form"
         @submit.prevent="submitDelete"
       >
         <p>
           Esta ação não pode ser desfeita. Para confirmar, digite
-          <strong>{{ selectedRow?.name }}</strong>.
+          <strong>{{ deleteConfirmationTarget }}</strong>.
         </p>
         <label>
           <span>Nome da branch</span>

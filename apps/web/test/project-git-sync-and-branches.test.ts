@@ -116,8 +116,6 @@ test('remote-only branch can be tracked and removed from origin', async () => {
       loading: false,
       busy: false,
       remoteRefreshing: false,
-      squashCommitCount: 0,
-      forcePushBranch: null,
     },
     global: {
       stubs: {
@@ -156,7 +154,7 @@ test('remote-only branch can be tracked and removed from origin', async () => {
   ]);
 });
 
-test('branches page toolbar displays refresh button in header', async () => {
+test('branches page toolbar keeps only count and create action', async () => {
   const wrapper = mount(ProjectGitBranchesPage, {
     props: {
       overview,
@@ -164,21 +162,19 @@ test('branches page toolbar displays refresh button in header', async () => {
       loading: false,
       busy: false,
       remoteRefreshing: false,
-      squashCommitCount: 0,
-      forcePushBranch: null,
     },
   });
 
   assert.equal(wrapper.find('.branch-toolbar-title').exists(), false);
   assert.match(wrapper.find('.branch-toolbar-summary').text(), /2\s*branches/);
 
-  const refresh = wrapper.find('button[aria-label="Atualizar remotas"]');
-  assert.ok(refresh.exists());
-  assert.equal(refresh.text().trim(), '');
+  assert.equal(
+    wrapper.find('button[aria-label="Atualizar remotas"]').exists(),
+    false,
+  );
   assert.equal(wrapper.find('.branch-table-header').exists(), false);
   assert.equal(wrapper.find('.branch-type-badge').exists(), false);
-  await refresh.trigger('click');
-  assert.equal(wrapper.emitted('refresh-remotes')?.length, 1);
+  assert.match(wrapper.find('.branch-create-button').text(), /Nova branch/);
 });
 
 test('branch atual atrasada oferece atualização local por fast-forward', async () => {

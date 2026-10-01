@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import {
-  ArrowPathIcon,
-  ArrowsPointingInIcon,
   EllipsisHorizontalIcon,
   LockClosedIcon,
   PencilSquareIcon,
@@ -25,8 +23,17 @@ const props = defineProps<{
   loading: boolean;
   busy: boolean;
   remoteRefreshing: boolean;
-  squashCommitCount: number;
-  forcePushBranch: string | null;
+  operation?: {
+    kind:
+      | 'create'
+      | 'switch'
+      | 'rename'
+      | 'delete'
+      | 'publish'
+      | 'track'
+      | 'delete-remote';
+    branch: string;
+  } | null;
 }>();
 
 const emit = defineEmits<{
@@ -35,15 +42,11 @@ const emit = defineEmits<{
   rename: [currentName: string, nextName: string];
   delete: [name: string];
   publish: [name: string];
-  squash: [name: string, message: string];
-  'force-push': [name: string];
-  'refresh-remotes': [];
   track: [remoteBranch: string];
   'delete-remote': [remoteBranch: string];
 }>();
 
-type BranchModal =
-  'create' | 'rename' | 'squash' | 'delete' | 'delete-remote' | null;
+type BranchModal = 'create' | 'rename' | 'delete' | 'delete-remote' | null;
 type OpenBranchModal = Exclude<BranchModal, null>;
 
 interface BranchRow {
@@ -72,7 +75,6 @@ const selectedBranch = ref('');
 const branchPrefix = ref(prefixes[0]!.value);
 const branchSuffix = ref('');
 const renamedBranch = ref('');
-const squashMessage = ref('');
 const deleteConfirmation = ref('');
 let previousFocus: HTMLElement | null = null;
 
@@ -80,14 +82,31 @@ const actionsBusy = computed(() => props.busy || props.remoteRefreshing);
 
 const rows = computed<BranchRow[]>(() => {
   const byName = new Map<string, BranchRow>();
+  const originBranches = (props.workspace?.branches ?? []).filter(
+    (branch) => branch.kind === 'remote' && branch.remote === 'origin',
+  );
+  const claimedOriginBranches = new Set<string>();
 
-  for (const branch of props.workspace?.branches ?? []) {
-    if (branch.kind === 'remote' && branch.remote !== 'origin') continue;
-    const name = branch.kind === 'local' ? branch.name : branch.shortName;
-    const row = byName.get(name) ?? { name };
-    if (branch.kind === 'local') row.local = branch;
-    else row.origin = branch;
-    byName.set(name, row);
+  for (const local of (props.workspace?.branches ?? []).filter(
+    (branch) => branch.kind === 'local',
+  )) {
+    const row: BranchRow = { name: local.name, local };
+    const trackedOrigin = local.upstream?.startsWith('origin/')
+      ? originBranches.find((remote) => remote.name === local.upstream)
+      : originBranches.find((remote) => remote.shortName === local.name);
+    if (trackedOrigin) {
+      row.origin = trackedOrigin;
+      claimedOriginBranches.add(trackedOrigin.name);
+    }
+    byName.set(local.name, row);
+  }
+
+  for (const origin of originBranches) {
+    if (claimedOriginBranches.has(origin.name)) continue;
+    byName.set(origin.shortName, {
+      name: origin.shortName,
+      origin,
+    });
   }
 
   return [...byName.values()].sort((left, right) => {
@@ -121,17 +140,33 @@ const canSubmitRename = computed(() => {
   );
 });
 
-const canSubmitSquash = computed(() => {
-  const message = squashMessage.value.trim();
-  return Boolean(message) && message.length <= 500;
+const deleteConfirmationTarget = computed(() => {
+  if (modal.value === 'delete-remote') {
+    return selectedRow.value?.origin?.shortName ?? selectedBranch.value;
+  }
+  return selectedBranch.value;
 });
 
 const canSubmitDelete = computed(
-  () => deleteConfirmation.value === selectedBranch.value,
+  () => deleteConfirmation.value === deleteConfirmationTarget.value,
 );
 
 function isProtected(row: BranchRow): boolean {
-  return row.name === 'main' || row.name === 'master';
+  const originDefault = props.workspace?.remotes.find(
+    (remote) => remote.name === 'origin',
+  )?.defaultBranch;
+  return (
+    row.name === 'main' ||
+    row.name === 'master' ||
+    Boolean(originDefault && row.name === originDefault)
+  );
+}
+
+function operationFor(row: BranchRow, kind?: string): boolean {
+  return (
+    props.operation?.branch === row.name &&
+    (!kind || props.operation.kind === kind)
+  );
 }
 
 function commitLabel(count: number): string {
@@ -192,10 +227,7 @@ function formatCommitAge(authoredAt: string | undefined): string {
 
 function hasMenuActions(row: BranchRow): boolean {
   return Boolean(
-    (row.local &&
-      (props.forcePushBranch === row.name ||
-        !row.origin ||
-        row.local.ahead > 0)) ||
+    (row.local && !row.origin) ||
     (row.local && !isProtected(row)) ||
     (row.origin && !isProtected(row)),
   );
@@ -207,18 +239,12 @@ const deleteSubmitLabel = computed(() =>
     : 'Remover branch local',
 );
 
-const squashSubmitLabel = computed(() =>
-  selectedRow.value?.origin ? 'Fazer squash e reenviar' : 'Fazer squash',
-);
-
 const modalTitle = computed(() => {
   switch (modal.value) {
     case 'create':
       return 'Nova branch';
     case 'rename':
       return 'Renomear branch';
-    case 'squash':
-      return 'Squash de commits';
     case 'delete-remote':
       return 'Remover branch remota';
     default:
@@ -275,13 +301,6 @@ function handleModalKeydown(event: KeyboardEvent): void {
   }
 }
 
-function updateSquashMessage(event: Event): void {
-  const target = event.target;
-  if (target instanceof HTMLInputElement) {
-    squashMessage.value = target.value;
-  }
-}
-
 function openCreateModal(): void {
   selectedBranch.value = '';
   branchPrefix.value = prefixes[0]!.value;
@@ -293,12 +312,6 @@ function openRenameModal(row: BranchRow): void {
   selectedBranch.value = row.name;
   renamedBranch.value = row.name;
   openModal('rename');
-}
-
-function openSquashModal(row: BranchRow): void {
-  selectedBranch.value = row.name;
-  squashMessage.value = row.local?.latestCommit?.subject?.trim() || row.name;
-  openModal('squash');
 }
 
 function openDeleteModal(row: BranchRow): void {
@@ -327,12 +340,6 @@ function submitCreate(): void {
 function submitRename(): void {
   if (!canSubmitRename.value || actionsBusy.value) return;
   emit('rename', selectedBranch.value, renamedBranch.value.trim());
-  finishModal();
-}
-
-function submitSquash(): void {
-  if (!canSubmitSquash.value || actionsBusy.value) return;
-  emit('squash', selectedBranch.value, squashMessage.value.trim());
   finishModal();
 }
 

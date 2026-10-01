@@ -130,3 +130,47 @@ test('protege o nome principal como destino da renomeação', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('protege a default branch configurada mesmo quando não se chama main', async () => {
+  const { root, repository } = await createRepository();
+  const origin = path.join(root, 'origin.git');
+
+  try {
+    await git(root, 'init', '--bare', '--initial-branch=develop', origin);
+    await git(repository, 'branch', 'develop');
+    await git(repository, 'remote', 'add', 'origin', origin);
+    await git(repository, 'push', 'origin', 'develop');
+    await git(repository, 'fetch', 'origin');
+    await git(
+      repository,
+      'symbolic-ref',
+      'refs/remotes/origin/HEAD',
+      'refs/remotes/origin/develop',
+    );
+
+    const service = new GitBranchRenameService();
+    const confirmation = service.prepareConfirmation(
+      'project-1',
+      'develop',
+      'feature/develop-renamed',
+    );
+
+    await assert.rejects(
+      () =>
+        service.renameLocalBranch(
+          repository,
+          'project-1',
+          'develop',
+          'feature/develop-renamed',
+          confirmation.token,
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof GitBranchRenameError);
+        assert.equal(error.code, 'GIT_BRANCH_PROTECTED');
+        return true;
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

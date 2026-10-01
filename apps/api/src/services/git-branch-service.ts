@@ -132,8 +132,52 @@ async function assertRemote(
   }
 }
 
+async function assertRemoteBranchNotProtected(
+  projectPath: string,
+  remote: string,
+  branch: string,
+): Promise<void> {
+  if (branch === 'main' || branch === 'master') {
+    throw new GitBranchServiceError(
+      'GIT_BRANCH_INVALID',
+      `A branch protegida "${branch}" não pode ser removida do origin.`,
+    );
+  }
+
+  try {
+    const reference = await runGit(projectPath, [
+      'symbolic-ref',
+      '--quiet',
+      '--short',
+      `refs/remotes/${remote}/HEAD`,
+    ]);
+    if (reference === `${remote}/${branch}`) {
+      throw new GitBranchServiceError(
+        'GIT_BRANCH_INVALID',
+        `A branch protegida "${branch}" não pode ser removida do origin.`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof GitBranchServiceError) throw error;
+    // Remotos sem HEAD simbólico continuam protegendo main/master.
+  }
+}
+
+export interface GitBranchServiceOptions {
+  closeOpenPullRequests?: (
+    projectPath: string,
+    branch: string,
+  ) => Promise<void>;
+}
+
 export class GitBranchService {
   private readonly confirmations = new Map<string, StoredConfirmation>();
+  private readonly closeOpenPullRequests:
+    ((projectPath: string, branch: string) => Promise<void>) | undefined;
+
+  public constructor(options: GitBranchServiceOptions = {}) {
+    this.closeOpenPullRequests = options.closeOpenPullRequests;
+  }
 
   public prepareTrackingConfirmation(
     projectId: string,
@@ -239,6 +283,16 @@ export class GitBranchService {
 
     await assertRepository(projectPath);
     await assertRemote(projectPath, remote);
+    await assertRemoteBranchNotProtected(projectPath, remote, localBranch);
+
+    try {
+      await this.closeOpenPullRequests?.(projectPath, localBranch);
+    } catch {
+      throw new GitBranchServiceError(
+        'GIT_COMMAND_FAILED',
+        'Não foi possível fechar a Pull Request aberta desta branch. A branch remota foi mantida.',
+      );
+    }
 
     try {
       await runGit(projectPath, ['push', remote, '--delete', localBranch]);

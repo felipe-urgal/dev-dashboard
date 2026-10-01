@@ -109,6 +109,7 @@ export const projectGitWorkspaceSchema = {
           fetchUrl: { type: 'string' },
           pushUrl: { type: 'string' },
           role: { type: 'string', enum: ['origin', 'upstream', 'other'] },
+          defaultBranch: { type: 'string' },
         },
       },
     },

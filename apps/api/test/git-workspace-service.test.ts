@@ -57,6 +57,11 @@ test('lists local, origin and upstream branches with commit and tracking details
       'origin',
     );
     assert.equal(
+      workspace.remotes.find((remote) => remote.name === 'origin')
+        ?.defaultBranch,
+      'main',
+    );
+    assert.equal(
       workspace.remotes.find((remote) => remote.name === 'upstream')?.role,
       'upstream',
     );

@@ -67,6 +67,72 @@ test.describe('Mutações de branch Git do projeto', () => {
     await expect(page.getByText('Agora na branch "main".')).toBeVisible();
     await expect(mainRow.locator('.branch-current-badge')).toBeVisible();
 
+    // Publica a branch local e mantém o origin dentro do próprio fixture.
+    await newBranchRow.getByRole('button', { name: 'Trocar' }).click();
+    await page.getByRole('button', { name: 'Trocar de branch' }).click();
+    await expect(newBranchRow.locator('.branch-current-badge')).toBeVisible();
+
+    await newBranchRow.getByLabel('Mais ações para feature/e2e-branch').click();
+    await newBranchRow.getByRole('button', { name: 'Publicar' }).click();
+    await page.getByRole('button', { name: 'Publicar', exact: true }).click();
+    await expect(
+      page.getByText(
+        'Branch "feature/e2e-branch" publicada em origin/feature/e2e-branch.',
+      ),
+    ).toBeVisible();
+
+    // Renomear localmente preserva a associação com o origin antigo.
+    await newBranchRow.getByLabel('Mais ações para feature/e2e-branch').click();
+    await newBranchRow.getByRole('button', { name: 'Renomear' }).click();
+    await page.getByLabel('Novo nome').fill('feature/e2e-renamed');
+    await page.getByRole('button', { name: 'Salvar novo nome' }).click();
+    await expect(
+      page.getByText(
+        'Branch "feature/e2e-branch" renomeada para "feature/e2e-renamed".',
+      ),
+    ).toBeVisible();
+
+    const renamedRow = page.locator('.branch-table-row', {
+      has: page.getByText('feature/e2e-renamed', { exact: true }),
+    });
+    await expect(
+      renamedRow.getByText('acompanha origin/feature/e2e-branch'),
+    ).toBeVisible();
+
+    // Branch existente apenas no origin pode ser trazida para local.
+    const remoteOnlyRow = page.locator('.branch-table-row', {
+      has: page.getByText('feature/remota-e2e', { exact: true }),
+    });
+    await remoteOnlyRow
+      .getByRole('button', { name: 'Trazer para local' })
+      .click();
+    await page.getByRole('button', { name: 'Criar e trocar' }).click();
+    await expect(
+      page.getByText(
+        'Branch remota "origin/feature/remota-e2e" criada localmente como "feature/remota-e2e" e selecionada.',
+      ),
+    ).toBeVisible();
+
+    // A branch trazida pode ser removida localmente após voltar para main.
+    await mainRow.getByRole('button', { name: 'Trocar' }).click();
+    await page.getByRole('button', { name: 'Trocar de branch' }).click();
+    await expect(mainRow.locator('.branch-current-badge')).toBeVisible();
+
+    const trackedRemoteRow = page.locator('.branch-table-row', {
+      has: page.getByText('feature/remota-e2e', { exact: true }),
+    });
+    await trackedRemoteRow
+      .getByLabel('Mais ações para feature/remota-e2e')
+      .click();
+    await trackedRemoteRow
+      .getByRole('button', { name: 'Remover branch' })
+      .click();
+    await page.getByLabel('Nome da branch').fill('feature/remota-e2e');
+    await page.getByRole('button', { name: 'Remover branch local' }).click();
+    await expect(
+      page.getByText('Branch "feature/remota-e2e" removida.'),
+    ).toBeVisible();
+
     // Troca de projeto: sample-rails-app continua sem Git, sem resquício
     // de mensagens/branches do sample-node-app vistas acima.
     await gotoBootstrapped(page, '/');

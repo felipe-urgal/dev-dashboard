@@ -123,3 +123,128 @@ test('does not allow deleting branches from upstream', () => {
     },
   );
 });
+
+test('fecha Pull Requests abertas antes de remover a branch do origin', async () => {
+  const { root, local, origin } = await createRepository();
+  const cleanupCalls: Array<{ projectPath: string; branch: string }> = [];
+
+  try {
+    const service = new GitBranchService({
+      closeOpenPullRequests: async (projectPath, branch) => {
+        cleanupCalls.push({ projectPath, branch });
+      },
+    });
+    const confirmation = service.prepareRemoteDeleteConfirmation(
+      'project-1',
+      'origin/feature/remove-me',
+    );
+
+    await service.deleteRemoteBranch(
+      local,
+      'project-1',
+      'origin/feature/remove-me',
+      confirmation.token,
+    );
+
+    assert.deepEqual(cleanupCalls, [
+      { projectPath: local, branch: 'feature/remove-me' },
+    ]);
+    await assert.rejects(() =>
+      git(
+        origin,
+        'show-ref',
+        '--verify',
+        '--quiet',
+        'refs/heads/feature/remove-me',
+      ),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('mantém a branch remota quando o fechamento da Pull Request falha', async () => {
+  const { root, local, origin } = await createRepository();
+
+  try {
+    const service = new GitBranchService({
+      closeOpenPullRequests: async () => {
+        throw new Error('falha simulada');
+      },
+    });
+    const confirmation = service.prepareRemoteDeleteConfirmation(
+      'project-1',
+      'origin/feature/remove-me',
+    );
+
+    await assert.rejects(
+      () =>
+        service.deleteRemoteBranch(
+          local,
+          'project-1',
+          'origin/feature/remove-me',
+          confirmation.token,
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof GitBranchServiceError);
+        assert.equal(error.code, 'GIT_COMMAND_FAILED');
+        return true;
+      },
+    );
+
+    assert.ok(
+      await git(
+        origin,
+        'show-ref',
+        '--verify',
+        '--hash',
+        'refs/heads/feature/remove-me',
+      ),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('protege a default branch customizada do origin contra remoção', async () => {
+  const { root, local, origin } = await createRepository();
+
+  try {
+    await git(local, 'branch', 'develop', 'main');
+    await git(local, 'push', 'origin', 'develop');
+    await git(local, 'fetch', 'origin');
+    await git(
+      local,
+      'symbolic-ref',
+      'refs/remotes/origin/HEAD',
+      'refs/remotes/origin/develop',
+    );
+
+    const service = new GitBranchService();
+    const confirmation = service.prepareRemoteDeleteConfirmation(
+      'project-1',
+      'origin/develop',
+    );
+
+    await assert.rejects(
+      () =>
+        service.deleteRemoteBranch(
+          local,
+          'project-1',
+          'origin/develop',
+          confirmation.token,
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof GitBranchServiceError);
+        assert.equal(error.code, 'GIT_BRANCH_INVALID');
+        return true;
+      },
+    );
+
+    assert.ok(
+      await git(origin, 'show-ref', '--verify', '--hash', 'refs/heads/develop'),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

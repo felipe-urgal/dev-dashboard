@@ -69,7 +69,10 @@ async function initSampleGitRepository(
   ]);
 }
 
-async function writeSampleProject(workspaceDirectory: string): Promise<void> {
+async function writeSampleProject(
+  workspaceDirectory: string,
+  runtimeRoot: string,
+): Promise<void> {
   const projectDirectory = path.join(workspaceDirectory, 'sample-node-app');
   await mkdir(path.join(projectDirectory, '.dev-dashboard'), {
     recursive: true,
@@ -147,6 +150,42 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   );
   await writeFile(path.join(projectDirectory, '.gitignore'), '.env\n');
   await initSampleGitRepository(projectDirectory);
+
+  const remotesDirectory = path.join(runtimeRoot, 'git-remotes');
+  const originDirectory = path.join(remotesDirectory, 'sample-node-origin.git');
+  await mkdir(remotesDirectory, { recursive: true });
+  await runGit(remotesDirectory, [
+    'init',
+    '--bare',
+    '-q',
+    '-b',
+    'main',
+    originDirectory,
+  ]);
+  await runGit(projectDirectory, ['remote', 'add', 'origin', originDirectory]);
+  await runGit(projectDirectory, ['push', '-q', '-u', 'origin', 'main']);
+
+  await runGit(projectDirectory, ['switch', '-q', '-c', 'feature/remota-e2e']);
+  await writeFile(
+    path.join(projectDirectory, 'remote-only.txt'),
+    'branch remota para e2e\n',
+  );
+  await runGit(projectDirectory, ['add', 'remote-only.txt']);
+  await runGit(projectDirectory, [
+    'commit',
+    '-q',
+    '-m',
+    'test: branch remota e2e',
+  ]);
+  await runGit(projectDirectory, [
+    'push',
+    '-q',
+    '-u',
+    'origin',
+    'feature/remota-e2e',
+  ]);
+  await runGit(projectDirectory, ['switch', '-q', 'main']);
+  await runGit(projectDirectory, ['branch', '-D', 'feature/remota-e2e']);
 }
 
 // Gemfile com "sidekiq" e binstubs controláveis de Sidekiq/Webpack (dormem
@@ -259,7 +298,7 @@ export async function startFixtureServer(): Promise<RunningServer> {
   const workspaceDirectory = path.join(runtimeRoot, 'workspace');
 
   await mkdir(workspaceDirectory, { recursive: true });
-  await writeSampleProject(workspaceDirectory);
+  await writeSampleProject(workspaceDirectory, runtimeRoot);
   await writeSampleRailsProject(workspaceDirectory);
   await seedConfig(configDirectory, workspaceDirectory);
   const databaseBinDirectory = await writeFakeDatabaseBinaries(runtimeRoot);

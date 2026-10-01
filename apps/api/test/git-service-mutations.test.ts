@@ -136,7 +136,7 @@ test('createBranch em branch já existente falha com GIT_BRANCH_EXISTS', async (
   );
 });
 
-test('createBranch com arquivo não rastreado presente falha com GIT_WORKING_TREE_DIRTY', async (context) => {
+test('createBranch preserva arquivo não rastreado na nova branch', async (context) => {
   const root = await makeRepo();
   context.after(async () => {
     await rm(root, { recursive: true, force: true });
@@ -148,12 +148,20 @@ test('createBranch com arquivo não rastreado presente falha com GIT_WORKING_TRE
     'create-branch',
     'feature/w',
   );
-  await assert.rejects(
-    () => service.createBranch(root, 'p1', 'feature/w', confirmation.token),
-    (error: unknown) =>
-      error instanceof GitMutationError &&
-      error.code === 'GIT_WORKING_TREE_DIRTY',
+
+  const result = await service.createBranch(
+    root,
+    'p1',
+    'feature/w',
+    confirmation.token,
   );
+
+  assert.equal(result.branch, 'feature/w');
+  assert.equal(await currentBranch(root), 'feature/w');
+  const status = await execFileAsync('git', ['status', '--porcelain'], {
+    cwd: root,
+  });
+  assert.match(status.stdout, /\?\? novo\.txt/);
 });
 
 test('switchBranch em árvore suja falha com GIT_WORKING_TREE_DIRTY', async (context) => {

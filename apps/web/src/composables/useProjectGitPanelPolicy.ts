@@ -92,6 +92,7 @@ export function useProjectGitPanelPolicy(
     if (!confirmed) return;
 
     panel.mutationRunning.value = true;
+    panel.branchOperation.value = { kind: 'create', branch: trimmed };
     panel.mutationMessage.value = '';
     panel.mutationErrorMessage.value = '';
     panel.changeImpact.value = null;
@@ -116,6 +117,7 @@ export function useProjectGitPanelPolicy(
           ? error.message
           : 'Não foi possível concluir a operação.';
     } finally {
+      panel.branchOperation.value = null;
       panel.mutationRunning.value = false;
     }
   }
@@ -144,6 +146,7 @@ export function useProjectGitPanelPolicy(
     if (!confirmed) return;
 
     panel.mutationRunning.value = true;
+    panel.branchOperation.value = { kind: 'publish', branch: trimmed };
     panel.mutationMessage.value = '';
     panel.mutationErrorMessage.value = '';
 
@@ -170,6 +173,7 @@ export function useProjectGitPanelPolicy(
           ? error.message
           : 'Não foi possível enviar a branch para o origin.';
     } finally {
+      panel.branchOperation.value = null;
       panel.mutationRunning.value = false;
     }
   }

@@ -32,6 +32,7 @@ export interface GitRemote {
   fetchUrl: string;
   pushUrl: string;
   role: GitRemoteRole;
+  defaultBranch?: string;
 }
 
 export type GitBranchKind = 'local' | 'remote';

@@ -80,6 +80,27 @@ function assertNotProtected(name: string): void {
   }
 }
 
+async function protectedBranches(projectPath: string): Promise<Set<string>> {
+  const branches = new Set(['main', 'master']);
+  for (const remote of ['origin', 'upstream']) {
+    try {
+      const reference = await runGit(projectPath, [
+        'symbolic-ref',
+        '--quiet',
+        '--short',
+        `refs/remotes/${remote}/HEAD`,
+      ]);
+      const prefix = `${remote}/`;
+      if (reference.startsWith(prefix)) {
+        branches.add(reference.slice(prefix.length));
+      }
+    } catch {
+      // O remote pode não possuir HEAD simbólico configurado.
+    }
+  }
+  return branches;
+}
+
 export class GitBranchRenameService {
   /**
    * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
@@ -140,6 +161,14 @@ export class GitBranchRenameService {
       throw new GitBranchRenameError(
         'GIT_NOT_REPOSITORY',
         'O projeto não é um repositório Git.',
+      );
+    }
+
+    const protectedNames = await protectedBranches(projectPath);
+    if (protectedNames.has(current) || protectedNames.has(next)) {
+      throw new GitBranchRenameError(
+        'GIT_BRANCH_PROTECTED',
+        `A branch "${protectedNames.has(current) ? current : next}" é protegida e não pode ser renomeada pelo dashboard.`,
       );
     }
 
