@@ -115,10 +115,10 @@ async function startEnvironmentServer(
     )
     .toBe('running');
 
-  await expect(page.locator('.server-console-hero.is-running')).toBeVisible();
-  await expect(page.locator('.server-console-copy h3')).toHaveText(
-    'Servidor em execução',
+  await expect(page.locator('.server-status-label')).toContainText(
+    'Executando',
   );
+  await expect(page.getByRole('button', { name: 'Parar' })).toBeVisible();
 }
 
 async function stopEnvironmentServer(
@@ -273,12 +273,12 @@ test.describe('Worktrees como Environment Instances', () => {
         page,
         `/projects/${encodeURIComponent(projectId)}/server?environmentInstanceId=${encodeURIComponent(worktreeB.environmentInstanceId)}`,
       );
-      await expect(
-        page.locator('.server-console-hero.is-running'),
-      ).toBeVisible();
-      await expect(page.locator('.server-console-copy h3')).toHaveText(
-        'Servidor em execução',
+      await expect(page.locator('.server-status-label')).toContainText(
+        'Executando',
       );
+      await expect(
+        page.getByRole('button', { name: 'Parar' }),
+      ).toBeVisible();
     } finally {
       await stopEnvironmentServer(
         page,
