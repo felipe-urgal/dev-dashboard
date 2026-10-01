@@ -329,4 +329,10 @@ it('confirma pelo nome remoto real depois de renomear a branch local', async () 
   input!.dispatchEvent(new Event('input', { bubbles: true }));
   await flushPromises();
   expect(submit?.disabled).toBe(false);
+
+  submit!.click();
+  await flushPromises();
+  expect(wrapper.emitted('delete-remote')).toEqual([
+    ['origin/feature/old-name'],
+  ]);
 });
