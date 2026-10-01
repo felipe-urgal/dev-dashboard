@@ -140,8 +140,15 @@ const canSubmitRename = computed(() => {
   );
 });
 
+const deleteConfirmationTarget = computed(() => {
+  if (modal.value === 'delete-remote') {
+    return selectedRow.value?.origin?.shortName ?? selectedBranch.value;
+  }
+  return selectedBranch.value;
+});
+
 const canSubmitDelete = computed(
-  () => deleteConfirmation.value === selectedBranch.value,
+  () => deleteConfirmation.value === deleteConfirmationTarget.value,
 );
 
 function isProtected(row: BranchRow): boolean {
