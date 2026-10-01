@@ -223,7 +223,6 @@ export async function synchronizeProjectGitMain(
   return response.result;
 }
 
-
 export async function fetchProjectGitMutationHistory(
   projectId: string,
   page = 1,
