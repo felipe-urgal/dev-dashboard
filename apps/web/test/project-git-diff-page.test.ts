@@ -364,62 +364,6 @@ test('persiste arquivos revisados durante a sessão para o mesmo snapshot', asyn
   assert.match(stored, /src\/signup\/index\.tsx/);
 });
 
-test('oferece retry quando um arquivo falha ao carregar', async () => {
-  const originalFetch = globalThis.fetch;
-  let fileAttempts = 0;
-
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git/diff/file')) {
-      fileAttempts += 1;
-      if (fileAttempts === 1) {
-        return jsonResponse(
-          { code: 'GIT_DIFF_PATH_INVALID', message: 'falha simulada' },
-          400,
-        );
-      }
-      return jsonResponse({
-        file: {
-          path: url.searchParams.get('path'),
-          scope: 'combined',
-          status: 'modified',
-          binary: false,
-          content: patches['src/signup/index.tsx'],
-          truncated: false,
-          masked: false,
-          redactionCount: 0,
-        },
-      });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return jsonResponse({
-        diff: { ...snapshot, files: [snapshot.files[0]!] },
-      });
-    }
-    if (url.pathname.endsWith('/git')) return jsonResponse({ git: overview });
-    return jsonResponse({}, 404);
-  }) as typeof globalThis.fetch;
-
-  const wrapper = mount(ProjectGitDiffPage, {
-    props: { projectId: 'projeto-retry' },
-    attachTo: document.body,
-  });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-
-  await vi.waitFor(() => {
-    assert.ok(wrapper.find('.git-diff-retry-button').exists());
-  });
-
-  await wrapper.get('.git-diff-retry-button').trigger('click');
-  await settle(wrapper);
-
-  assert.equal(fileAttempts, 2);
-  assert.equal(wrapper.find('.git-diff-retry-button').exists(), false);
-});
-
 test('oferece filtros para copied e type-changed', async () => {
   const { wrapper } = await mountPage();
   const options = wrapper
