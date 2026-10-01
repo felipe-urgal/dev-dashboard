@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import type {
   GitCommitDetailFile,
@@ -54,6 +54,7 @@ export function useProjectGitHistoryPage(
   const detailLoading = ref(false);
   const detailError = ref('');
   const selectedHash = ref('');
+  const selectedCommit = ref<GitCommitHistoryEntry | null>(null);
   const fileStates = ref<FileState[]>([]);
   const selectedFilePath = ref('');
   const viewMode = ref<DiffViewMode>(readStoredViewMode());
@@ -61,7 +62,9 @@ export function useProjectGitHistoryPage(
   const listWidth = ref(readStoredListWidth());
   const resizingList = ref(false);
   const diffLayoutEl = ref<HTMLElement | null>(null);
+  const modalDialog = ref<HTMLElement | null>(null);
 
+  let previousFocus: HTMLElement | null = null;
   let historyController: AbortController | undefined;
   let detailController: AbortController | undefined;
   let fileDiffController: AbortController | undefined;
@@ -188,6 +191,13 @@ export function useProjectGitHistoryPage(
         ),
       },
     ].filter((group) => group.items.length > 0);
+  });
+
+  const referenceInWorkspace = computed(() => {
+    if (!reference.value) return true;
+    return branchGroups.value.some((group) =>
+      group.items.some((branch) => branch.name === reference.value),
+    );
   });
 
   const authorOptions = computed(() => {
@@ -396,12 +406,26 @@ export function useProjectGitHistoryPage(
     fileDiffController?.abort();
     const controller = new AbortController();
     detailController = controller;
+
+    if (!selectedHash.value && typeof document !== 'undefined') {
+      previousFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+    }
+
     selectedHash.value = commit.hash;
+    selectedCommit.value = commit;
     detail.value = null;
     fileStates.value = [];
     selectedFilePath.value = '';
     detailError.value = '';
     detailLoading.value = true;
+
+    await nextTick();
+    modalDialog.value
+      ?.querySelector<HTMLElement>('[data-history-modal-autofocus]')
+      ?.focus();
 
     try {
       const result = await fetchProjectGitCommitDetail(
@@ -434,14 +458,22 @@ export function useProjectGitHistoryPage(
     }
   }
 
-  function closeCommit(): void {
+  function closeCommit(restoreFocus = true): void {
     detailController?.abort();
     fileDiffController?.abort();
     selectedHash.value = '';
+    selectedCommit.value = null;
     detail.value = null;
     fileStates.value = [];
     selectedFilePath.value = '';
     detailError.value = '';
+
+    const focusTarget = restoreFocus ? previousFocus : null;
+    previousFocus = null;
+    if (!focusTarget) return;
+    void nextTick(() => {
+      if (focusTarget.isConnected) focusTarget.focus();
+    });
   }
 
   async function loadFileDiff(state: FileState): Promise<void> {
@@ -488,6 +520,18 @@ export function useProjectGitHistoryPage(
     if (state) void loadFileDiff(state);
   }
 
+  function retrySelectedFile(): void {
+    const state = selectedFile.value;
+    if (!state || state.loading) return;
+    state.error = '';
+    void loadFileDiff(state);
+  }
+
+  function retryCommitDetail(): void {
+    const commit = selectedCommit.value;
+    if (commit) void openCommit(commit);
+  }
+
   async function copyHash(hash: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(hash);
@@ -511,8 +555,33 @@ export function useProjectGitHistoryPage(
     void loadHistory(1);
   }
 
-  function handleKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && selectedHash.value) closeCommit();
+  function handleModalKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeCommit();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const dialog = modalDialog.value;
+    if (!dialog) return;
+    const focusable = [
+      ...dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((element) => element.offsetParent !== null);
+    if (focusable.length === 0) return;
+
+    const currentIndex = focusable.indexOf(
+      document.activeElement as HTMLElement,
+    );
+    if (event.shiftKey && currentIndex <= 0) {
+      event.preventDefault();
+      focusable.at(-1)?.focus();
+    } else if (!event.shiftKey && currentIndex === focusable.length - 1) {
+      event.preventDefault();
+      focusable[0]?.focus();
+    }
   }
 
   watch(
@@ -524,7 +593,7 @@ export function useProjectGitHistoryPage(
       kind.value = 'all';
       scope.value = 'exclusive';
       page.value = 1;
-      closeCommit();
+      closeCommit(false);
       void loadWorkspace();
       void loadHistory(1);
     },
@@ -560,6 +629,7 @@ export function useProjectGitHistoryPage(
     detailLoading,
     detailError,
     selectedHash,
+    selectedCommit,
     fileStates,
     selectedFilePath,
     viewMode,
@@ -567,6 +637,7 @@ export function useProjectGitHistoryPage(
     listWidth,
     resizingList,
     diffLayoutEl,
+    modalDialog,
     historyController,
     detailController,
     copyTimer,
@@ -581,6 +652,7 @@ export function useProjectGitHistoryPage(
     readStoredViewMode,
     selectViewMode,
     branchGroups,
+    referenceInWorkspace,
     authorOptions,
     commitBody,
     totalPages,
@@ -600,9 +672,11 @@ export function useProjectGitHistoryPage(
     loadFileDiff,
     selectedFile,
     selectFile,
+    retrySelectedFile,
+    retryCommitDetail,
     copyHash,
     goToPage,
     applyFilters,
-    handleKeydown,
+    handleModalKeydown,
   };
 }
