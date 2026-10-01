@@ -75,7 +75,9 @@ function isUnavailableError(error) {
     (error instanceof SelfUpdateAgentError &&
       error.code === 'AGENT_UNAVAILABLE') ||
     isErrnoCode(error, 'ENOENT') ||
-    isErrnoCode(error, 'ECONNREFUSED')
+    isErrnoCode(error, 'ECONNREFUSED') ||
+    isErrnoCode(error, 'ECONNRESET') ||
+    isErrnoCode(error, 'EPIPE')
   );
 }
 
