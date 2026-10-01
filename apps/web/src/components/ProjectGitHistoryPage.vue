@@ -63,6 +63,7 @@ const {
   listWidth,
   resizingList,
   diffLayoutEl,
+  modalDialog,
   historyController,
   detailController,
   copyTimer,
@@ -75,6 +76,7 @@ const {
   readStoredViewMode,
   selectViewMode,
   branchGroups,
+  referenceInWorkspace,
   commitBody,
   totalPages,
   pageWindow,
@@ -93,10 +95,12 @@ const {
   loadFileDiff,
   selectedFile,
   selectFile,
+  retrySelectedFile,
+  retryCommitDetail,
   copyHash,
   goToPage,
   applyFilters,
-  handleKeydown,
+  handleModalKeydown,
 } = useProjectGitHistoryPage(props);
 </script>
 
