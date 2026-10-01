@@ -108,6 +108,18 @@ function sendResize(): void {
   );
 }
 
+function writeTerminalOutput(data: string): void {
+  if (!terminal) return;
+
+  const shouldFollowOutput =
+    terminal.buffer.active.viewportY === terminal.buffer.active.baseY;
+  terminal.write(data, () => {
+    if (shouldFollowOutput) {
+      terminal?.scrollToBottom();
+    }
+  });
+}
+
 function mountTerminal(): void {
   if (!terminalContainer.value) return;
   terminal = new Terminal({
@@ -137,6 +149,7 @@ function mountTerminal(): void {
   });
 
   terminal.onData((data) => {
+    terminal?.scrollToBottom();
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'input', data }));
     }
@@ -262,7 +275,7 @@ async function startSession(): Promise<void> {
         return;
       }
       if (message.type === 'output' && typeof message.data === 'string') {
-        terminal?.write(message.data);
+        writeTerminalOutput(message.data);
       } else if (message.type === 'exit') {
         lastExitCode.value =
           typeof message.code === 'number' ? message.code : null;
@@ -595,6 +608,10 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+.terminal-window-body :deep(.xterm-screen) {
+  padding-bottom: 2px;
 }
 
 .terminal-window-body :deep(.xterm-viewport) {
