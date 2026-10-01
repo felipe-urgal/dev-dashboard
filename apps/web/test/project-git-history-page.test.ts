@@ -117,7 +117,7 @@ async function clickIn(selector: string, text?: string): Promise<void> {
   await flushPromises();
 }
 
-async function mountPage(options: { total?: number } = {}) {
+async function mountPage(options: { total?: number; branch?: string } = {}) {
   const originalFetch = globalThis.fetch;
   const requests: RequestRecord[] = [];
 
@@ -167,7 +167,7 @@ async function mountPage(options: { total?: number } = {}) {
       const total = options.total ?? commits.length;
       return jsonResponse({
         history: {
-          branch: 'fix/cadastro',
+          branch: options.branch ?? 'fix/cadastro',
           page: Number(url.searchParams.get('page') ?? '1'),
           pageSize: 20,
           total,
@@ -212,6 +212,44 @@ test('consulta os commits exclusivos da branch por padrão', async () => {
   );
   assert.ok(listed, 'esperava a consulta de commits exclusivos');
   assert.equal(listed!.query.get('pageSize'), '20');
+});
+
+test('expõe escopo e tipo de commit como filtros', async () => {
+  const { wrapper, requests } = await mountPage();
+
+  const scope = wrapper.find('select[aria-label="Escopo do histórico"]');
+  const kind = wrapper.find('select[aria-label="Tipo de commit"]');
+
+  assert.equal(scope.exists(), true);
+  assert.equal(kind.exists(), true);
+  assert.ok(wrapper.text().includes('commits exclusivos'));
+
+  await scope.setValue('all');
+  await flushPromises();
+
+  const completeHistory = requests
+    .filter((request) => request.path.endsWith('/git/commits'))
+    .at(-1);
+  assert.ok(completeHistory, 'esperava consulta do histórico completo');
+  assert.equal(completeHistory!.query.get('pageSize'), '20');
+
+  await kind.setValue('merge');
+  await flushPromises();
+
+  const mergeHistory = requests
+    .filter((request) => request.path.endsWith('/git/commits'))
+    .at(-1);
+  assert.equal(mergeHistory!.query.get('kind'), 'merge');
+});
+
+test('mantém HEAD destacado selecionável mesmo com branches conhecidas', async () => {
+  const { wrapper } = await mountPage({ branch: 'HEAD destacado' });
+
+  const reference = wrapper.find(
+    'select[aria-label="Referência do histórico"]',
+  );
+  assert.equal(reference.element.value, 'HEAD destacado');
+  assert.ok(reference.text().includes('HEAD destacado'));
 });
 
 test('abre o commit em modal com os arquivos alterados', async () => {
@@ -285,6 +323,29 @@ test('alterna entre unificado e lado a lado', async () => {
 
   assert.ok(document.querySelector('.git-diff-split'));
   assert.ok(document.querySelectorAll('.git-diff-side-cell').length > 0);
+});
+
+test('fecha o modal com Escape e restaura o foco', async () => {
+  const { wrapper } = await mountPage();
+
+  const row = wrapper.findAll('.git-history-row')[0]!;
+  (row.element as HTMLElement).focus();
+  await row.trigger('click');
+  await settle('Carregando detalhes');
+
+  const closeButton = document.querySelector<HTMLElement>('.git-history-close');
+  assert.equal(document.activeElement, closeButton);
+
+  const backdrop = document.querySelector<HTMLElement>(
+    '.git-history-modal-backdrop',
+  );
+  backdrop?.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+  );
+  await flushPromises();
+
+  assert.equal(modalElement(), null);
+  assert.equal(document.activeElement, row.element);
 });
 
 test('fecha o modal pelo botão de fechar', async () => {
