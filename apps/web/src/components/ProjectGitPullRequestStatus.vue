@@ -14,14 +14,17 @@ const props = defineProps<{
   lookupUnavailable: boolean;
   targetRemote: string;
   mutationBusy: boolean;
+  mergeBlockers: readonly string[];
 }>();
 
 const emit = defineEmits<{
+  edit: [];
   'toggle-merge': [];
   'toggle-close': [];
 }>();
 
 const cockpit = computed(() => props.existingPullRequest?.cockpit ?? null);
+const github = computed(() => props.existingPullRequest?.provider === 'github');
 
 const reviewLabels: Record<GitPullRequestReviewState, string> = {
   approved: 'Aprovada',
@@ -31,6 +34,13 @@ const reviewLabels: Record<GitPullRequestReviewState, string> = {
 };
 
 const checkLabels: Record<GitPullRequestCiStatus, string> = {
+  success: 'Passou',
+  pending: 'Pendente',
+  failure: 'Falhou',
+  unknown: 'Desconhecido',
+};
+
+const ciLabels: Record<GitPullRequestCiStatus, string> = {
   success: 'Passou',
   pending: 'Pendente',
   failure: 'Falhou',
@@ -70,7 +80,10 @@ function remoteStatusLabel(
   >
     <div class="git-pr-existing-content">
       <div class="git-pr-existing-summary">
-        <span>PR #{{ existingPullRequest.number }} já está aberta</span>
+        <span>
+          {{ existingPullRequest.provider === 'gitlab' ? 'MR' : 'PR' }}
+          #{{ existingPullRequest.number }} aberta
+        </span>
         <strong>{{ existingPullRequest.title }}</strong>
         <small>
           {{ existingPullRequest.sourceBranch }} → {{ targetRemote }}/{{
@@ -92,9 +105,7 @@ function remoteStatusLabel(
           <dl class="git-pr-cockpit-facts">
             <div v-if="cockpit.headSha">
               <dt>Head</dt>
-              <dd>
-                <code>{{ cockpit.headSha.slice(0, 8) }}</code>
-              </dd>
+              <dd><code>{{ cockpit.headSha.slice(0, 8) }}</code></dd>
             </div>
             <div>
               <dt>Estado</dt>
@@ -103,6 +114,10 @@ function remoteStatusLabel(
             <div>
               <dt>Review</dt>
               <dd>{{ reviewLabels[cockpit.reviewState] }}</dd>
+            </div>
+            <div v-if="existingPullRequest.ciStatus">
+              <dt>CI</dt>
+              <dd>{{ ciLabels[existingPullRequest.ciStatus] }}</dd>
             </div>
             <div v-if="cockpit.mergeable !== undefined">
               <dt>Merge</dt>
@@ -115,6 +130,18 @@ function remoteStatusLabel(
                       : 'Com bloqueio'
                 }}
               </dd>
+            </div>
+            <div v-if="existingPullRequest.commentsCount !== undefined">
+              <dt>Comentários</dt>
+              <dd>{{ existingPullRequest.commentsCount }}</dd>
+            </div>
+            <div
+              v-if="
+                existingPullRequest.unresolvedConversationsCount !== undefined
+              "
+            >
+              <dt>Conversas pendentes</dt>
+              <dd>{{ existingPullRequest.unresolvedConversationsCount }}</dd>
             </div>
           </dl>
 
@@ -149,24 +176,45 @@ function remoteStatusLabel(
           </ul>
         </template>
       </div>
+
+      <ul v-if="github && mergeBlockers.length > 0" class="git-pr-merge-blockers">
+        <li v-for="blocker in mergeBlockers" :key="blocker">{{ blocker }}</li>
+      </ul>
     </div>
 
     <div class="git-pr-gh-actions">
-      <button
-        type="button"
-        :disabled="mutationBusy"
-        @click="emit('toggle-merge')"
+      <a
+        :href="existingPullRequest.url"
+        target="_blank"
+        rel="noopener noreferrer"
       >
-        Mesclar com gh
-      </button>
-      <button
-        type="button"
-        class="danger-button"
-        :disabled="mutationBusy"
-        @click="emit('toggle-close')"
-      >
-        Fechar com gh
-      </button>
+        Abrir no {{ existingPullRequest.provider === 'gitlab' ? 'GitLab' : 'GitHub' }}
+      </a>
+      <template v-if="github">
+        <button
+          type="button"
+          :disabled="mutationBusy"
+          @click="emit('edit')"
+        >
+          Editar
+        </button>
+        <button
+          type="button"
+          :disabled="mutationBusy || mergeBlockers.length > 0"
+          :title="mergeBlockers[0] ?? 'Mesclar Pull Request'"
+          @click="emit('toggle-merge')"
+        >
+          Mesclar com gh
+        </button>
+        <button
+          type="button"
+          class="danger-button"
+          :disabled="mutationBusy"
+          @click="emit('toggle-close')"
+        >
+          Fechar com gh
+        </button>
+      </template>
     </div>
   </div>
 
@@ -272,7 +320,8 @@ function remoteStatusLabel(
   font-weight: 700;
 }
 
-.git-pr-cockpit-checks {
+.git-pr-cockpit-checks,
+.git-pr-merge-blockers {
   display: grid;
   gap: 5px;
   margin: 0;
@@ -291,6 +340,16 @@ function remoteStatusLabel(
 .git-pr-cockpit-checks a {
   color: var(--accent);
   overflow-wrap: anywhere;
+}
+
+.git-pr-merge-blockers {
+  margin-top: var(--space-2);
+  color: var(--warning-text);
+  font-size: var(--font-xs);
+}
+
+.git-pr-merge-blockers li::before {
+  content: '• ';
 }
 
 .git-pr-check-state {
@@ -315,17 +374,28 @@ function remoteStatusLabel(
 .git-pr-gh-actions {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   gap: var(--space-2);
 }
 
-.git-pr-gh-actions button {
+.git-pr-gh-actions button,
+.git-pr-gh-actions a {
+  display: inline-flex;
   min-height: 36px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   background: var(--surface-1);
   color: var(--text);
   padding: 6px 12px;
   font: inherit;
   font-weight: 600;
+  text-decoration: none;
+}
+
+.git-pr-gh-actions button:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
 }
 
 @media (max-width: 800px) {
@@ -335,7 +405,8 @@ function remoteStatusLabel(
   }
 
   .git-pr-gh-actions,
-  .git-pr-gh-actions button {
+  .git-pr-gh-actions button,
+  .git-pr-gh-actions a {
     width: 100%;
   }
 }
