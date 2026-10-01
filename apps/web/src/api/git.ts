@@ -116,8 +116,9 @@ export async function fetchProjectGitCommitDetail(
   signal?: AbortSignal,
 ): Promise<GitCommitDetails> {
   const init: RequestInit = signal ? { signal } : {};
+  const query = new URLSearchParams({ includePatch: 'false' });
   const response = await requestJson<ProjectGitCommitDetailResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/commits/${encodeURIComponent(commitHash)}`,
+    `/api/projects/${encodeURIComponent(projectId)}/git/commits/${encodeURIComponent(commitHash)}?${query}`,
     init,
   );
   return response.detail;
