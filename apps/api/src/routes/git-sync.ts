@@ -204,6 +204,7 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       });
 
       let unsubscribe = (): void => undefined;
+      // eslint-disable-next-line prefer-const -- close/write podem rodar antes da atribuição do timer.
       let heartbeat: NodeJS.Timeout | undefined;
 
       const close = (): void => {
