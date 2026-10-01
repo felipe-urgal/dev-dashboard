@@ -102,3 +102,26 @@ test('ignora remotos que não são GitHub', async (context) => {
   await service.closeOpenForBranch(root, 'feature/remove-me');
   assert.equal(called, false);
 });
+
+test('falha fechado quando a consulta de Pull Requests retorna payload inválido', async (context) => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-branch-pr-cleanup-'),
+  );
+  context.after(() => rm(root, { recursive: true, force: true }));
+
+  await git(root, 'init', '-q', '-b', 'main');
+  await git(
+    root,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:fork-owner/repo.git',
+  );
+
+  const service = new GitBranchPullRequestCleanupService(async () => '{}');
+
+  await assert.rejects(
+    () => service.closeOpenForBranch(root, 'feature/remove-me'),
+    /Não foi possível verificar ou fechar a Pull Request aberta/,
+  );
+});
