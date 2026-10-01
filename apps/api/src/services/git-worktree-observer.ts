@@ -274,7 +274,11 @@ export class GitWorktreeObserver {
     const projectParentPath = path.dirname(projectPath);
     const dirtyCandidates = worktrees
       .filter((worktree) => {
-        if (worktree.kind !== 'linked' || worktree.bare || worktree.prunable) {
+        if (
+          worktree.kind !== 'linked' ||
+          worktree.bare ||
+          worktree.prunable
+        ) {
           return false;
         }
         const worktreePath = path.resolve(worktree.path);
