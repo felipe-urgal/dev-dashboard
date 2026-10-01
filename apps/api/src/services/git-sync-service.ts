@@ -445,7 +445,8 @@ export class GitSyncService {
           stepId: 'abort-merge',
           status: 'warning',
           command: 'git merge --abort',
-          message: 'Não havia um merge abortável ou o abort não foi confirmado.',
+          message:
+            'Não havia um merge abortável ou o abort não foi confirmado.',
         });
       }
 
