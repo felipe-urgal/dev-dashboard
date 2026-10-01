@@ -30,10 +30,14 @@ export function useProjectGitPanelPolicy(
       `dev-dashboard-git-amend-rewrite:${encodeURIComponent(props.project.id)}`,
   );
 
+  const originDefaultBranch = computed(
+    () =>
+      panel.workspace.value?.remotes.find((remote) => remote.name === 'origin')
+        ?.defaultBranch,
+  );
+
   function isProtectedBranch(branch: string): boolean {
-    const originDefault = panel.workspace.value?.remotes.find(
-      (remote) => remote.name === 'origin',
-    )?.defaultBranch;
+    const originDefault = originDefaultBranch.value;
     return (
       branch === 'main' ||
       branch === 'master' ||
@@ -430,6 +434,7 @@ export function useProjectGitPanelPolicy(
         panel.overview.value?.ahead,
         panel.overview.value?.behind,
         panel.overview.value?.upstream,
+        originDefaultBranch.value,
       ] as const,
     () => restoreRewriteMarker(),
   );
