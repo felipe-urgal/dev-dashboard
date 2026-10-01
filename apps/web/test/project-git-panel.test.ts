@@ -708,10 +708,15 @@ test('renderiza somente as duas operações de commit', async () => {
   assert.match(mounted.wrapper.text(), /Amend último commit/);
   assert.match(
     mounted.wrapper.text(),
-    /4 alterações rastreadas incluídas automaticamente/,
+    /4 alterações entram no commit normal/,
   );
   assert.ok(mounted.wrapper.find('.git-commit-card').exists());
   assert.ok(mounted.wrapper.find('.git-commit-message textarea').exists());
+  assert.match(mounted.wrapper.text(), /1 arquivo não rastreado fica de fora/);
+  assert.match(
+    mounted.wrapper.text(),
+    /2 alterações staged disponíveis para amend/,
+  );
   assert.ok(!mounted.wrapper.find('.git-commit-summary').exists());
   assert.ok(!mounted.wrapper.find('.git-commit-mode').exists());
   assert.ok(!mounted.wrapper.find('.git-commit-history').exists());
@@ -720,7 +725,7 @@ test('renderiza somente as duas operações de commit', async () => {
   assert.ok(!mounted.wrapper.find('input[type="search"]').exists());
   assert.doesNotMatch(
     mounted.wrapper.text(),
-    /Novo commit|Alterar último commit|Branch main|Staged|Modificados|Novos/,
+    /Criar novo commit|Branch main|Modificados|Novos/,
   );
 });
 
@@ -785,7 +790,7 @@ test('cria commit incluindo automaticamente alterações rastreadas', async () =
   });
   assert.deepEqual(commit?.body, {
     message: 'simplifica commit',
-    includeAllChanges: true,
+    includeAllChanges: false,
     confirmationToken: 'c'.repeat(64),
   });
   assert.match(mounted.wrapper.text(), /Commit "1111111" criado/);
