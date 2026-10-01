@@ -31,7 +31,6 @@ import type { ScriptDetectionService } from './services/script-detection-service
 import type { ScriptExecutionService } from './services/script-execution-service.js';
 import type { ProjectBrowserService } from './services/project-browser-service.js';
 import type { ProjectFileService } from './services/project-file-service.js';
-import type { ServerHealthCheckService } from './services/server-health-check-service.js';
 import type { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import type { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import type { ProjectTerminalService } from './services/project-terminal-service.js';
@@ -85,7 +84,6 @@ export interface AppContext {
   projectDependenciesPtyService: ProjectDependenciesPtyService;
   projectBrowserService: ProjectBrowserService;
   projectFileService: ProjectFileService;
-  serverHealthCheckService: ServerHealthCheckService;
   projectWorkspaceEditService: ProjectWorkspaceEditService;
   projectLanguageServerService: ProjectLanguageServerService;
   projectTerminalService: ProjectTerminalService;

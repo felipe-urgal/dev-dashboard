@@ -5,7 +5,6 @@ import type {
   DevelopmentEnvironmentInstance,
   ManagedProcess,
   Project,
-  ProjectServerHealth,
   StackHealthCheckTarget,
 } from '@dev-dashboard/contracts';
 
@@ -60,22 +59,10 @@ function process(overrides: Partial<ManagedProcess> = {}): ManagedProcess {
   };
 }
 
-function health(status: ProjectServerHealth['status']): ProjectServerHealth {
-  return {
-    projectId: 'api',
-    path: '/health',
-    pathSource: 'configured',
-    status,
-    checkedAt: observedAt,
-  };
-}
-
 function adapter(
   options: {
     environment?: DevelopmentEnvironmentInstance | null;
     process?: ManagedProcess | null;
-    health?: ProjectServerHealth;
-    healthCheckPath?: string;
   } = {},
 ): StackHealthCheckAdapter {
   const value = project();
@@ -91,48 +78,28 @@ function adapter(
       getServerProcess: async () =>
         options.process === undefined ? process() : options.process,
     },
-    serverSettingsRepository: {
-      find: async () => ({
-        projectId: value.id,
-        ...(options.settingsPort === undefined
-          ? { port: 4343 }
-          : options.settingsPort === null
-            ? {}
-            : { port: options.settingsPort }),
-        ...(options.healthCheckPath === undefined
-          ? { healthCheckPath: '/health' }
-          : options.healthCheckPath
-            ? { healthCheckPath: options.healthCheckPath }
-            : {}),
-      }),
-    },
-    serverHealthCheckService: {
-      check: async () => options.health ?? health('healthy'),
-    },
   });
 }
 
-test('marks known server health check as ready only with healthy evidence', async () => {
-  const result = await adapter().observe('api-health', target(), observedAt);
+test('maps server process lifecycle without requiring an HTTP health endpoint', async () => {
+  const running = await adapter().observe('api-health', target(), observedAt);
+  assert.equal(running.state, 'ready');
 
-  assert.equal(result.state, 'ready');
-  assert.equal(result.diagnostic, undefined);
-});
+  const starting = await adapter({
+    process: process({ status: 'starting' }),
+  }).observe('api-health', target(), observedAt);
+  assert.equal(starting.state, 'starting');
 
-test('maps degraded and unavailable health conservatively', async () => {
-  const degraded = await adapter({ health: health('degraded') }).observe(
-    'api-health',
-    target(),
-    observedAt,
-  );
-  assert.equal(degraded.state, 'unknown');
+  const stopped = await adapter({
+    process: process({ status: 'stopped' }),
+  }).observe('api-health', target(), observedAt);
+  assert.equal(stopped.state, 'stopped');
 
-  const unavailable = await adapter({ health: health('unavailable') }).observe(
-    'api-health',
-    target(),
-    observedAt,
-  );
-  assert.equal(unavailable.state, 'failed');
+  const failed = await adapter({
+    process: process({ status: 'failed' }),
+  }).observe('api-health', target(), observedAt);
+  assert.equal(failed.state, 'failed');
+  assert.match(failed.diagnostic ?? '', /failed/i);
 });
 
 test('fails closed for unknown check id or missing explicit ownership', async () => {
@@ -160,21 +127,14 @@ test('fails closed for unknown check id or missing explicit ownership', async ()
   assert.equal(missingProcess.state, 'unknown');
 });
 
-test('requires configured health path and a known port', async () => {
-  const noPath = await adapter({ healthCheckPath: '' }).observe(
-    'api-health',
-    target(),
-    observedAt,
-  );
-  assert.equal(noPath.state, 'unknown');
-
-  const processWithoutPort = process();
-  delete processWithoutPort.port;
-  const noPort = await adapter({
-    process: processWithoutPort,
-    settingsPort: null,
-    healthCheckPath: '/health',
+test('rejects process ownership mismatches', async () => {
+  const wrongProject = await adapter({
+    process: process({ projectId: 'other-project' }),
   }).observe('api-health', target(), observedAt);
+  assert.equal(wrongProject.state, 'unknown');
 
-  assert.equal(noPort.state, 'unknown');
+  const wrongEnvironment = await adapter({
+    process: process({ environmentInstanceId: 'environment:other' }),
+  }).observe('api-health', target(), observedAt);
+  assert.equal(wrongEnvironment.state, 'unknown');
 });

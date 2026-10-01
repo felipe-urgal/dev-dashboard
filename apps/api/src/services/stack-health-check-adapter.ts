@@ -1,36 +1,32 @@
 import type {
+  ManagedProcessStatus,
   StackHealthCheckTarget,
   StackNodeHealth,
   StackNodeState,
 } from '@dev-dashboard/contracts';
-import type {
-  ProcessManager,
-  ProjectServerSettingsRepository,
-} from '@dev-dashboard/process-manager';
+import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
-import type { ServerHealthCheckService } from './server-health-check-service.js';
 
 const SERVER_HEALTH_CHECK_ID = 'server';
 
-function healthState(status: 'healthy' | 'degraded' | 'unavailable'): {
+function processState(status: ManagedProcessStatus): {
   state: StackNodeState;
   diagnostic?: string;
 } {
   switch (status) {
-    case 'healthy':
+    case 'running':
       return { state: 'ready' };
-    case 'degraded':
-      return {
-        state: 'unknown',
-        diagnostic:
-          'Server health check is degraded; readiness cannot be proven.',
-      };
-    case 'unavailable':
+    case 'starting':
+      return { state: 'starting' };
+    case 'stopping':
+    case 'stopped':
+      return { state: 'stopped' };
+    case 'failed':
       return {
         state: 'failed',
-        diagnostic: 'Server health check is unavailable.',
+        diagnostic: 'Server process failed.',
       };
   }
 }
@@ -44,8 +40,6 @@ export class StackHealthCheckAdapter {
         'findById'
       >;
       processManager: Pick<ProcessManager, 'getServerProcess'>;
-      serverSettingsRepository: Pick<ProjectServerSettingsRepository, 'find'>;
-      serverHealthCheckService: Pick<ServerHealthCheckService, 'check'>;
     },
   ) {}
 
@@ -108,21 +102,17 @@ export class StackHealthCheckAdapter {
       };
     }
 
-    const [process, settings] = await Promise.all([
-      this.dependencies.processManager.getServerProcess(
-        target.projectId,
-        target.environmentInstanceId,
-      ),
-      this.dependencies.serverSettingsRepository.find(target.projectId),
-    ]);
+    const process = await this.dependencies.processManager.getServerProcess(
+      target.projectId,
+      target.environmentInstanceId,
+    );
 
-    if (!process || process.status !== 'running') {
+    if (!process) {
       return {
         nodeId,
         state: 'unknown',
         observedAt,
-        diagnostic:
-          'Server health check requires an owned running server process.',
+        diagnostic: 'Server health check requires an owned server process.',
       };
     }
 
@@ -139,43 +129,13 @@ export class StackHealthCheckAdapter {
       };
     }
 
-    const port = process.port ?? settings.port;
-    if (port === undefined) {
-      return {
-        nodeId,
-        state: 'unknown',
-        observedAt,
-        diagnostic: 'Server health check has no known port.',
-      };
-    }
-
-    if (!settings.healthCheckPath) {
-      return {
-        nodeId,
-        state: 'unknown',
-        observedAt,
-        diagnostic: 'Server health check path is not configured.',
-      };
-    }
-
-    const health = await this.dependencies.serverHealthCheckService.check({
-      projectId: target.projectId,
-      port,
-      healthCheckPath: settings.healthCheckPath,
-    });
-    const mapped = healthState(health.status);
+    const mapped = processState(process.status);
 
     return {
       nodeId,
       state: mapped.state,
       observedAt,
-      ...(mapped.diagnostic
-        ? {
-            diagnostic: health.message
-              ? `${mapped.diagnostic} ${health.message}`
-              : mapped.diagnostic,
-          }
-        : {}),
+      ...(mapped.diagnostic ? { diagnostic: mapped.diagnostic } : {}),
     };
   }
 }

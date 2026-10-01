@@ -281,11 +281,6 @@ export function registerServerProcessRoutes(
         if (request.body.port !== undefined) {
           settings = await serverSettingsRepository.save(project.id, {
             ...(request.body.port !== null ? { port: request.body.port } : {}),
-            ...(settings.healthCheckPath
-              ? {
-                  healthCheckPath: settings.healthCheckPath,
-                }
-              : {}),
             ...(settings.environment
               ? { environment: settings.environment }
               : {}),

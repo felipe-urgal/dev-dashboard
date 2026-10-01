@@ -71,31 +71,8 @@ export const projectServerSettingsResponseSchema = {
   properties: {
     projectId: { type: 'string' },
     port: { type: 'integer' },
-    healthCheckPath: { type: 'string' },
     environment: { type: 'string', maxLength: 64 },
     updatedAt: { type: 'string' },
-  },
-} as const;
-
-export const projectServerHealthResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['projectId', 'path', 'pathSource', 'status', 'checkedAt'],
-  properties: {
-    projectId: { type: 'string' },
-    path: { type: 'string' },
-    pathSource: {
-      type: 'string',
-      enum: ['configured', 'detected'],
-    },
-    status: {
-      type: 'string',
-      enum: ['healthy', 'degraded', 'unavailable'],
-    },
-    httpStatus: { type: 'integer' },
-    latencyMs: { type: 'integer', minimum: 0 },
-    checkedAt: { type: 'string' },
-    message: { type: 'string' },
   },
 } as const;
 

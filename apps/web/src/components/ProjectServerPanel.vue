@@ -6,7 +6,7 @@ import {
   ArrowTopRightOnSquareIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
-  CommandLineIcon,
+  ClockIcon,
   GlobeAltIcon,
   PlayIcon,
   ServerStackIcon,
@@ -52,7 +52,7 @@ const {
   () => props.environmentInstanceId,
 );
 
-const { commandLabel } = useProjectServerMetrics(
+const { commandLabel, uptimeLabel } = useProjectServerMetrics(
   () => props.project,
   managedProcess,
   processStatus,
@@ -139,9 +139,10 @@ const processUrls = computed<string[]>(() => {
 const primaryProcessUrl = computed(() => processUrls.value[0] ?? '');
 
 const localAccessUrl = computed(() => {
+  if (processStatus.value !== 'running') return '';
   if (primaryProcessUrl.value) return primaryProcessUrl.value;
 
-  const configuredPort = selectedPort.value;
+  const configuredPort = managedProcess.value?.port ?? selectedPort.value;
   return configuredPort ? `http://localhost:${configuredPort}` : '';
 });
 
@@ -192,7 +193,6 @@ async function persistServerSettings(
   const port = parseServerPort(selectedPort.value);
   const settings = await saveProjectServerSettings(projectId, {
     port,
-    healthCheckPath: null,
     environment:
       props.project.type === 'node' && selectedEnvironment.value
         ? selectedEnvironment.value
@@ -255,6 +255,7 @@ async function startServer(
 }
 
 async function handleStart(): Promise<void> {
+  if (!['stopped', 'failed'].includes(processStatus.value)) return;
   if (!(await confirmEnvironmentReplacement('iniciar'))) return;
 
   const projectId = props.project.id;
@@ -280,6 +281,8 @@ async function handleStart(): Promise<void> {
 }
 
 async function handleStop(): Promise<void> {
+  if (processStatus.value !== 'running') return;
+
   const projectId = props.project.id;
   const generation = projectRequests.capture();
   currentAction.value = 'stop';
@@ -307,6 +310,7 @@ async function handleStop(): Promise<void> {
 }
 
 async function handleRestart(): Promise<void> {
+  if (processStatus.value !== 'running') return;
   if (!(await confirmEnvironmentReplacement('reiniciar'))) return;
 
   const projectId = props.project.id;
