@@ -117,6 +117,11 @@ test('Worktrees HTTP lista, cria, remove e reconcilia Environment Instances sem 
           worktree: linkedWorktree(),
         };
       },
+      prune: async (_project, worktreeId) => ({
+        state: 'blocked',
+        worktreeId,
+        diagnostic: 'fixture sem órfão',
+      }),
       prepareRemoval: async (_project, worktreeId, guard) => {
         prepareRemovalCalls.push(worktreeId);
         prepareGuards.push(guard);
@@ -329,6 +334,10 @@ test('Worktrees HTTP não reconcilia snapshot não confiável', async (context) 
         path: '/workspace',
         branch: 'feature/demo',
       }),
+      prune: async (_project, worktreeId) => ({
+        state: 'blocked',
+        worktreeId,
+      }),
       prepareRemoval: async (_project, worktreeId) => ({
         state: 'blocked',
         worktreeId,
@@ -365,3 +374,98 @@ test('Worktrees HTTP não reconcilia snapshot não confiável', async (context) 
   assert.equal(reconciled, false);
   assert.equal(cleanupCalled, false);
 });
+
+test('Worktrees HTTP encaminha limpeza de registro órfão e reconcilia após sucesso', async (context) => {
+  const projectStore = new ProjectStore();
+  projectStore.saveWorkspaceScan({
+    workspaceId: 'workspace-1',
+    workspacePath: '/workspace',
+    projects: [project()],
+    warnings: [],
+  });
+
+  const orphan: GitWorktreeSnapshot = {
+    ...linkedWorktree(),
+    id: 'worktree-orphan',
+    path: '/workspace/projeto-old',
+    branch: 'feature/old',
+    prunable: true,
+    pruneReason: 'gitdir file points to non-existent location',
+  };
+  const routeGuard = {
+    inspect: async () => ({ safe: true }),
+    cleanupRemoved: async () => undefined,
+  };
+  const pruneCalls: Array<{ worktreeId: string; guard: unknown }> = [];
+  const reconciliations: string[][] = [];
+  let pruned = false;
+
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(gitWorktreeRoutes, {
+    prefix: '/api',
+    projectStore,
+    gitWorktreeObserver: {
+      inspect: async () => ({
+        state: 'ready',
+        projectId: 'project-1',
+        observedAt: OBSERVED_AT,
+        worktrees: pruned ? [mainWorktree()] : [mainWorktree(), orphan],
+      }),
+    },
+    gitWorktreeLifecycleService: {
+      create: async () => ({
+        state: 'blocked',
+        path: '/workspace',
+        branch: 'feature/demo',
+      }),
+      prune: async (_project, worktreeId, guard) => {
+        pruneCalls.push({ worktreeId, guard });
+        pruned = true;
+        return {
+          state: 'pruned',
+          worktreeId,
+          environmentInstanceId:
+            'environment:worktree:project-1:worktree-orphan',
+          path: orphan.path,
+          branch: orphan.branch,
+        };
+      },
+      prepareRemoval: async (_project, worktreeId) => ({
+        state: 'blocked',
+        worktreeId,
+      }),
+      remove: async (_project, input) => ({
+        state: 'blocked',
+        worktreeId: input.worktreeId,
+      }),
+    },
+    removalResourceGuard: routeGuard,
+    developmentEnvironmentInstanceStore: {
+      reconcileWorktrees: (_projectId, worktrees) => {
+        reconciliations.push(worktrees.map((worktree) => worktree.id));
+        return [];
+      },
+    },
+    environmentInstanceCleanupService: {
+      cleanupMissingWorktree: async () => ({ state: 'cleaned' }),
+    },
+  });
+  context.after(() => app.close());
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/worktrees/worktree-orphan/prune',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(
+    response.json<{ result: { state: string } }>().result.state,
+    'pruned',
+  );
+  assert.deepEqual(pruneCalls, [
+    { worktreeId: 'worktree-orphan', guard: routeGuard },
+  ]);
+  assert.deepEqual(reconciliations, [['worktree-main']]);
+});
+
