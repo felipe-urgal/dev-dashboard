@@ -249,10 +249,7 @@ async function resolveExclusiveRevision(
     'origin/develop',
     'develop',
   ];
-  const candidates = [
-    ...resolvedDefaultCandidates,
-    ...fallbackCandidates,
-  ];
+  const candidates = [...resolvedDefaultCandidates, ...fallbackCandidates];
 
   // Se o remoto declara sua default branch, ela é a fonte de verdade para
   // decidir se a referência selecionada é a principal. Fallbacks só entram
