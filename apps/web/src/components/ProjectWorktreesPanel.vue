@@ -224,10 +224,7 @@ async function cleanupPrunable(worktree: ProjectGitWorktree): Promise<void> {
   mutationRunning.value = true;
 
   try {
-    const result = await pruneProjectGitWorktree(
-      props.project.id,
-      worktree.id,
-    );
+    const result = await pruneProjectGitWorktree(props.project.id, worktree.id);
 
     if (result.state === 'pruned' || result.state === 'already-absent') {
       await load();
