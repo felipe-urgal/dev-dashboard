@@ -389,6 +389,7 @@ export class GitPullRequestStatusService {
     const mergeable = detailsRecord.mergeable;
     const mergeableState = detailsRecord.mergeable_state;
     const draft = detailsRecord.draft;
+    const description = detailsRecord.body;
 
     const cockpit: GitPullRequestCockpit = {
       remoteStatus: 'available',
@@ -405,6 +406,7 @@ export class GitPullRequestStatusService {
 
     return {
       ...pullRequest,
+      ...(typeof description === 'string' ? { description } : {}),
       cockpit,
       ...(ciStatus !== 'unknown' ? { ciStatus } : {}),
       ...(commentsCount !== undefined ? { commentsCount } : {}),
@@ -432,8 +434,10 @@ export class GitPullRequestStatusService {
 
     const commentsCount = asNonNegativeInteger(record.user_notes_count);
     const ciStatus = gitlabPipelineStatus(record);
+    const description = record.description;
     return {
       ...pullRequest,
+      ...(typeof description === 'string' ? { description } : {}),
       ...(ciStatus !== 'unknown' ? { ciStatus } : {}),
       ...(commentsCount !== undefined ? { commentsCount } : {}),
     };
