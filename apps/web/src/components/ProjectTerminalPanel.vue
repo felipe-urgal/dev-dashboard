@@ -38,6 +38,8 @@ const supported = ref(false);
 const statusMessage = ref('');
 const sessionState = ref<SessionState>('idle');
 const errorMessage = ref('');
+const lastExitCode = ref<number | null | undefined>(undefined);
+const closedByUser = ref(false);
 const maximized = ref(false);
 const terminalFontSize = ref(13);
 const hasAutoStarted = ref(false);
@@ -52,28 +54,39 @@ let terminal: Terminal | undefined;
 let fitAddon: FitAddon | undefined;
 let socket: WebSocket | undefined;
 let resizeObserver: ResizeObserver | undefined;
+let sessionGeneration = 0;
+let statusGeneration = 0;
 
 async function loadStatus(): Promise<void> {
+  const generation = ++statusGeneration;
   loadingStatus.value = true;
+
   try {
     const status = await fetchProjectTerminalStatus(
       props.project.id,
       props.kind,
       props.environmentInstanceId,
     );
+    if (generation !== statusGeneration) return;
+
     supported.value = status.supported;
     statusMessage.value = status.message;
   } catch (error) {
+    if (generation !== statusGeneration) return;
+
     supported.value = false;
     statusMessage.value =
       error instanceof Error
         ? error.message
         : 'Não foi possível consultar a disponibilidade desta sessão.';
   } finally {
-    loadingStatus.value = false;
+    if (generation === statusGeneration) {
+      loadingStatus.value = false;
+    }
   }
 
   if (
+    generation === statusGeneration &&
     props.autoStart &&
     supported.value &&
     !hasAutoStarted.value &&
@@ -95,6 +108,18 @@ function sendResize(): void {
   );
 }
 
+function writeTerminalOutput(data: string): void {
+  if (!terminal) return;
+
+  const shouldFollowOutput =
+    terminal.buffer.active.viewportY === terminal.buffer.active.baseY;
+  terminal.write(data, () => {
+    if (shouldFollowOutput) {
+      terminal?.scrollToBottom();
+    }
+  });
+}
+
 function mountTerminal(): void {
   if (!terminalContainer.value) return;
   terminal = new Terminal({
@@ -108,6 +133,7 @@ function mountTerminal(): void {
   terminal.loadAddon(fitAddon);
   terminal.open(terminalContainer.value);
   fitAddon.fit();
+  terminal.focus();
 
   terminal.attachCustomKeyEventHandler((event) => {
     if (
@@ -123,6 +149,7 @@ function mountTerminal(): void {
   });
 
   terminal.onData((data) => {
+    terminal?.scrollToBottom();
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'input', data }));
     }
@@ -181,19 +208,41 @@ function disposeTerminal(): void {
 }
 
 function disconnect(): void {
+  sessionGeneration += 1;
   socket?.close(1000, 'Sessão encerrada pelo usuário');
   socket = undefined;
 }
 
+function closeSession(): void {
+  sessionGeneration += 1;
+  closedByUser.value = true;
+  lastExitCode.value = undefined;
+
+  const currentSocket = socket;
+  socket = undefined;
+  currentSocket?.close(1000, 'Sessão encerrada pelo usuário');
+
+  sessionState.value = 'closed';
+  maximized.value = false;
+  disposeTerminal();
+  void loadStatus();
+}
+
 async function startSession(): Promise<void> {
+  const generation = ++sessionGeneration;
   errorMessage.value = '';
+  lastExitCode.value = undefined;
+  closedByUser.value = false;
   sessionState.value = 'connecting';
+
   try {
     const confirmation = await prepareProjectTerminalConfirmation(
       props.project.id,
       props.kind,
       props.environmentInstanceId,
     );
+    if (generation !== sessionGeneration) return;
+
     const url = projectTerminalWebSocketUrl(
       props.project.id,
       props.kind,
@@ -226,11 +275,10 @@ async function startSession(): Promise<void> {
         return;
       }
       if (message.type === 'output' && typeof message.data === 'string') {
-        terminal?.write(message.data);
+        writeTerminalOutput(message.data);
       } else if (message.type === 'exit') {
-        terminal?.write(
-          `\r\n\x1b[90m[processo encerrado, código ${message.code ?? '—'}]\x1b[0m\r\n`,
-        );
+        lastExitCode.value =
+          typeof message.code === 'number' ? message.code : null;
       } else if (
         message.type === 'error' &&
         typeof message.message === 'string'
@@ -253,6 +301,8 @@ async function startSession(): Promise<void> {
       errorMessage.value = 'A conexão com a sessão de terminal falhou.';
     });
   } catch (error) {
+    if (generation !== sessionGeneration) return;
+
     sessionState.value = 'idle';
     errorMessage.value =
       error instanceof Error
@@ -294,6 +344,8 @@ watch(
     sessionState.value = 'idle';
     maximized.value = false;
     errorMessage.value = '';
+    lastExitCode.value = undefined;
+    closedByUser.value = false;
     hasAutoStarted.value = false;
     void loadStatus();
   },
@@ -306,6 +358,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  statusGeneration += 1;
   disconnect();
   disposeTerminal();
   window.removeEventListener('keydown', handleKeydown);
@@ -335,11 +388,23 @@ onBeforeUnmount(() => {
       class="terminal-state terminal-state-ready"
     >
       <div class="terminal-state-copy">
-        <strong>{{ description }}</strong>
-        <p class="terminal-warning">
-          Esta sessão permite comandos interativos no ambiente selecionado.
-          Execute apenas comandos em que você confia.
-        </p>
+        <template v-if="sessionState === 'closed'">
+          <strong>Sessão encerrada</strong>
+          <p>
+            <template v-if="closedByUser">Encerrada por você.</template>
+            <template v-else-if="lastExitCode !== undefined">
+              Processo finalizado com código {{ lastExitCode ?? '—' }}.
+            </template>
+            <template v-else>A conexão com o terminal foi encerrada.</template>
+          </p>
+        </template>
+        <template v-else>
+          <strong>{{ description }}</strong>
+          <p class="terminal-warning">
+            Esta sessão permite comandos interativos no ambiente selecionado.
+            Execute apenas comandos em que você confia.
+          </p>
+        </template>
       </div>
       <button type="button" class="primary-button" @click="startSession">
         {{ sessionState === 'closed' ? 'Abrir nova sessão' : 'Iniciar sessão' }}
@@ -363,12 +428,25 @@ onBeforeUnmount(() => {
         :aria-label="title"
       >
         <ProjectTerminalWindowBar
+          :title="title"
+          :state="sessionState"
           :maximized="maximized"
           :font-size="terminalFontSize"
+          @close-session="closeSession"
           @toggle-maximized="toggleMaximized"
           @set-font-size="setTerminalFontSize"
         />
         <div
+          v-if="sessionState === 'connecting'"
+          class="terminal-connecting"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="terminal-state-dot" aria-hidden="true"></span>
+          <span>Conectando ao ambiente…</span>
+        </div>
+        <div
+          v-else
           ref="terminalContainer"
           class="terminal-window-body"
           @contextmenu.capture="openTerminalContextMenu"
@@ -505,6 +583,16 @@ onBeforeUnmount(() => {
   inset: 0;
   width: auto;
   height: auto;
+}
+
+.terminal-connecting {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .terminal-window-body {
