@@ -209,7 +209,8 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   });
 
   const emptyMessage = computed(() => {
-    if (scope.value === 'index') return 'Não há alterações staged para revisar.';
+    if (scope.value === 'index')
+      return 'Não há alterações staged para revisar.';
     if (scope.value === 'worktree')
       return 'Não há alterações não staged para revisar.';
     return 'A árvore de trabalho está igual ao último commit.';

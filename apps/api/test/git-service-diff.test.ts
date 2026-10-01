@@ -331,15 +331,18 @@ test('separa alterações combined, staged e não staged por scope', async (cont
     service.getDiffSnapshot(root, 'worktree'),
   ]);
 
+  assert.deepEqual(combined.files.map((file) => file.path).sort(), [
+    'README.md',
+    'untracked.txt',
+  ]);
   assert.deepEqual(
-    combined.files.map((file) => file.path).sort(),
-    ['README.md', 'untracked.txt'],
+    index.files.map((file) => file.path),
+    ['README.md'],
   );
-  assert.deepEqual(index.files.map((file) => file.path), ['README.md']);
-  assert.deepEqual(
-    worktree.files.map((file) => file.path).sort(),
-    ['README.md', 'untracked.txt'],
-  );
+  assert.deepEqual(worktree.files.map((file) => file.path).sort(), [
+    'README.md',
+    'untracked.txt',
+  ]);
 
   const staged = await service.getFileDiff(root, 'README.md', 'index');
   const unstaged = await service.getFileDiff(root, 'README.md', 'worktree');
