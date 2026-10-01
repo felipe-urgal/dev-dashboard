@@ -147,9 +147,7 @@ async function stopEnvironmentServer(
 }
 
 test.describe('Worktrees como Environment Instances', () => {
-  test('limpa worktree órfão sem afetar o outro ambiente', async ({
-    page,
-  }) => {
+  test('limpa worktree órfão sem afetar o outro ambiente', async ({ page }) => {
     const projectId = await projectIdFromDashboard(page);
     const branchA = 'feature/e2e-worktree-a';
     const branchB = 'feature/e2e-worktree-b';
