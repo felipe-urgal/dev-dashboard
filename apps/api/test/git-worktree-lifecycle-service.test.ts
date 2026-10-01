@@ -361,6 +361,7 @@ test('limpa somente o registro prunable revalidado e preserva remoção normal s
   const { guard, inspected, cleaned } = createSafeRemovalGuard();
   const service = new GitWorktreeLifecycleService(runner, undefined, {
     removalResourceGuard: guard,
+    inspectPathAbsence: async () => 'absent',
   });
 
   const pruned = await service.prune(project, worktreeId);
@@ -407,12 +408,44 @@ test('não limpa registro que deixou de ser prunable durante a revalidação', a
   const { guard } = createSafeRemovalGuard();
   const service = new GitWorktreeLifecycleService(runner, undefined, {
     removalResourceGuard: guard,
+    inspectPathAbsence: async () => 'absent',
   });
 
   const result = await service.prune(project, worktreeId);
 
   assert.equal(result.state, 'blocked');
   assert.match(result.diagnostic ?? '', /pasta do worktree voltou a existir/u);
+  assert.equal(
+    calls.some(({ args }) => args.includes('--force')),
+    false,
+  );
+});
+
+test('não usa force se a pasta reaparecer entre as duas validações', async () => {
+  const target = '/workspace/projeto-old';
+  const worktreeId = linkedWorktreeId(target);
+  const { runner, calls } = createRunner({
+    existing: [
+      {
+        path: target,
+        branch: 'feature/old',
+        prunable: true,
+      },
+    ],
+  });
+  const { guard } = createSafeRemovalGuard();
+  const pathStates = ['absent', 'present'] as const;
+  let pathInspection = 0;
+  const service = new GitWorktreeLifecycleService(runner, undefined, {
+    removalResourceGuard: guard,
+    inspectPathAbsence: async () =>
+      pathStates[Math.min(pathInspection++, pathStates.length - 1)]!,
+  });
+
+  const result = await service.prune(project, worktreeId);
+
+  assert.equal(result.state, 'blocked');
+  assert.match(result.diagnostic ?? '', /pasta do worktree reapareceu/u);
   assert.equal(
     calls.some(({ args }) => args.includes('--force')),
     false,
