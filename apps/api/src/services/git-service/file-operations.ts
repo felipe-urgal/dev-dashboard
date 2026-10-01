@@ -83,7 +83,12 @@ export function createFileOperations(
         ? [safePath, file.previousPath]
         : [safePath];
     try {
-      await runGit(projectPath, ['restore', '--staged', '--', ...affectedPaths]);
+      await runGit(projectPath, [
+        'restore',
+        '--staged',
+        '--',
+        ...affectedPaths,
+      ]);
     } catch {
       try {
         await runGit(projectPath, ['reset', 'HEAD', '--', ...affectedPaths]);

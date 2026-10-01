@@ -25,17 +25,17 @@ test.describe('Desfazer do projeto', () => {
 
     const packagePath = path.join(repository, 'package.json');
     const lockfilePath = path.join(repository, 'package-lock.json');
-    const packageJson = JSON.parse(await readFile(packagePath, 'utf8')) as Record<
-      string,
-      unknown
-    >;
+    const packageJson = JSON.parse(
+      await readFile(packagePath, 'utf8'),
+    ) as Record<string, unknown>;
     packageJson.description = 'staged undo e2e';
     await writeFile(packagePath, JSON.stringify(packageJson, null, 2));
     await execFileAsync('git', ['add', 'package.json'], { cwd: repository });
 
-    const lockfile = JSON.parse(
-      await readFile(lockfilePath, 'utf8'),
-    ) as Record<string, unknown>;
+    const lockfile = JSON.parse(await readFile(lockfilePath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
     lockfile.description = 'unstaged undo e2e';
     await writeFile(lockfilePath, JSON.stringify(lockfile, null, 2));
     await writeFile(
@@ -73,7 +73,9 @@ test.describe('Desfazer do projeto', () => {
       .getByRole('button', { name: 'Descartar alterações' })
       .click();
     await expect(
-      page.getByText(/Alterações não staged de "package-lock.json" descartadas/),
+      page.getByText(
+        /Alterações não staged de "package-lock.json" descartadas/,
+      ),
     ).toBeVisible();
 
     const untrackedRow = page.locator('.git-undo-files article', {
@@ -91,11 +93,24 @@ test.describe('Desfazer do projeto', () => {
     await execFileAsync('git', ['reset', '--hard', 'origin/main'], {
       cwd: repository,
     });
-    await writeFile(lockfilePath, JSON.stringify({ ...lockfile, description: 'commit local para undo' }, null, 2));
-    await execFileAsync('git', ['add', 'package-lock.json'], { cwd: repository });
-    await execFileAsync('git', ['commit', '-q', '-m', 'test: commit local para undo'], {
+    await writeFile(
+      lockfilePath,
+      JSON.stringify(
+        { ...lockfile, description: 'commit local para undo' },
+        null,
+        2,
+      ),
+    );
+    await execFileAsync('git', ['add', 'package-lock.json'], {
       cwd: repository,
     });
+    await execFileAsync(
+      'git',
+      ['commit', '-q', '-m', 'test: commit local para undo'],
+      {
+        cwd: repository,
+      },
+    );
 
     await page.reload();
     await page.getByRole('button', { name: 'Desfazer' }).click();

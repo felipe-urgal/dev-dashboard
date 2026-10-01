@@ -20,12 +20,7 @@ export interface GitUndoConfirmation {
 }
 
 export type GitUndoCommitBlockedReason =
-  | 'no-commit'
-  | 'first-commit'
-  | 'detached'
-  | 'dirty'
-  | 'behind'
-  | 'diverged';
+  'no-commit' | 'first-commit' | 'detached' | 'dirty' | 'behind' | 'diverged';
 
 export interface GitUndoCommitStatus {
   available: boolean;

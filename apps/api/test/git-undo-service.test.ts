@@ -241,12 +241,7 @@ test('restaura rename staged sem deixar deleção órfã no index', async (conte
     'file',
     'README-renamed.md',
   );
-  await service.undoFile(
-    root,
-    'p1',
-    'README-renamed.md',
-    confirmation.token,
-  );
+  await service.undoFile(root, 'p1', 'README-renamed.md', confirmation.token);
 
   assert.equal(await readFile(path.join(root, 'README.md'), 'utf8'), 'v1\n');
   await assert.rejects(access(path.join(root, 'README-renamed.md')));
@@ -282,4 +277,3 @@ test('restaurar conflito usa a versão do HEAD e limpa o estado conflitante', as
   assert.equal(await readFile(path.join(root, 'README.md'), 'utf8'), 'ours\n');
   assert.equal((await git(root, ['status', '--porcelain'])).trim(), '');
 });
-

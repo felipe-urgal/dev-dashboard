@@ -39,11 +39,7 @@ const emit = defineEmits<{
 }>();
 
 type UndoOperationKind =
-  | 'commit'
-  | 'unstage'
-  | 'discard'
-  | 'remove'
-  | 'restore';
+  'commit' | 'unstage' | 'discard' | 'remove' | 'restore';
 
 const activeView = ref<'commit' | 'files'>('commit');
 const activeOperation = ref<{ kind: UndoOperationKind; path?: string } | null>(
@@ -84,7 +80,8 @@ const canUndoCommit = computed(
 
 const commitStateLabel = computed(() => {
   const status = commitStatus.value;
-  if (!status) return loadingCommitStatus.value ? 'Verificando…' : 'Indisponível';
+  if (!status)
+    return loadingCommitStatus.value ? 'Verificando…' : 'Indisponível';
   if (status.available && status.strategy === 'revert')
     return 'Publicado no remoto';
   if (status.available && status.strategy === 'reset') return 'Commit local';
@@ -262,11 +259,7 @@ async function discardFile(file: GitFileChange): Promise<void> {
       'discard-file',
       file.path,
     );
-    await discardProjectGitFile(
-      props.projectId,
-      file.path,
-      confirmation.token,
-    );
+    await discardProjectGitFile(props.projectId, file.path, confirmation.token);
     successMessage.value = `Alterações não staged de "${file.path}" descartadas.`;
   });
 }
@@ -322,11 +315,7 @@ async function restoreFile(file: GitFileChange): Promise<void> {
       'file',
       file.path,
     );
-    await undoProjectGitFile(
-      props.projectId,
-      file.path,
-      confirmation.token,
-    );
+    await undoProjectGitFile(props.projectId, file.path, confirmation.token);
     successMessage.value = `"${file.path}" restaurado para o estado do HEAD.`;
   });
 }
@@ -406,7 +395,8 @@ onMounted(() => {
             <div class="git-undo-commit-main">
               <strong>{{ commit.subject }}</strong>
               <small>
-                {{ commit.authorName }} · {{ formatCommitDate(commit.authoredAt) }}
+                {{ commit.authorName }} ·
+                {{ formatCommitDate(commit.authoredAt) }}
               </small>
             </div>
             <span
@@ -440,10 +430,7 @@ onMounted(() => {
         </div>
         <div v-else class="git-undo-empty">Nenhum commit disponível.</div>
 
-        <p
-          v-if="commitStatus && !commitStatus.available"
-          class="git-undo-note"
-        >
+        <p v-if="commitStatus && !commitStatus.available" class="git-undo-note">
           {{ undoExplanation }}
         </p>
         <p v-else class="git-undo-guidance">{{ undoExplanation }}</p>

@@ -189,7 +189,10 @@ test('separa unstage, descarte e exclusão de arquivo não rastreado', async () 
     .find((row) => row.text().includes('staged.txt'))!;
   await stagedRow.get('button').trigger('click');
   await flushPromises();
-  assert.deepEqual(api.unstageProjectGitFile.mock.calls[0], ['p1', 'staged.txt']);
+  assert.deepEqual(api.unstageProjectGitFile.mock.calls[0], [
+    'p1',
+    'staged.txt',
+  ]);
 
   const mixedRow = wrapper
     .findAll('.git-undo-files article')
