@@ -68,5 +68,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Qualify terminal, Pull Request and Worktrees
-        run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts project-git-pull-request.spec.ts project-worktrees-environments.spec.ts
+      - name: Qualify terminal and critical Git flows
+        run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts project-git-pull-request.spec.ts project-worktrees-environments.spec.ts project-git-history.spec.ts
