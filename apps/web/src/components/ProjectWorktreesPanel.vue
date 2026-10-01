@@ -6,12 +6,14 @@ import {
 } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { Project, ProjectGitWorkspace } from '@dev-dashboard/contracts';
 
+import { fetchProjectGitWorkspace } from '../api/git-workspace';
 import {
   createProjectGitWorktree,
   fetchProjectGitWorktrees,
   prepareProjectGitWorktreeRemoval,
+  pruneProjectGitWorktree,
   removeProjectGitWorktree,
   type PrepareProjectGitWorktreeRemovalResult,
   type ProjectGitWorktree,
@@ -23,16 +25,45 @@ const loading = ref(false);
 const mutationRunning = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
+const branchListError = ref('');
 const worktrees = ref<ProjectGitWorktree[]>([]);
+const workspace = ref<ProjectGitWorkspace | null>(null);
 const showCreateForm = ref(false);
+const branchMode = ref<'existing' | 'new'>('existing');
 const branch = ref('');
 const directoryName = ref('');
-const createBranch = ref(false);
 const pendingRemoval = ref<PrepareProjectGitWorktreeRemovalResult | null>(null);
 let generation = 0;
 
 const linkedWorktreeCount = computed(
   () => worktrees.value.filter((worktree) => worktree.kind === 'linked').length,
+);
+
+const usedBranches = computed(
+  () =>
+    new Set(
+      worktrees.value
+        .map((worktree) => worktree.branch)
+        .filter((branchName): branchName is string => Boolean(branchName)),
+    ),
+);
+
+const availableLocalBranches = computed(() =>
+  (workspace.value?.branches ?? [])
+    .filter(
+      (candidate) =>
+        candidate.kind === 'local' && !usedBranches.value.has(candidate.name),
+    )
+    .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR')),
+);
+
+const baseBranch = computed(
+  () =>
+    workspace.value?.branches.find(
+      (candidate) => candidate.kind === 'local' && candidate.current,
+    )?.name ??
+    worktrees.value.find((worktree) => worktree.kind === 'main')?.branch ??
+    'HEAD atual',
 );
 
 function directoryFromBranch(value: string): string {
@@ -62,11 +93,29 @@ function clearMessages(): void {
   successMessage.value = '';
 }
 
+function syncExistingBranchSelection(): void {
+  if (branchMode.value !== 'existing') return;
+  if (
+    branch.value &&
+    availableLocalBranches.value.some(
+      (candidate) => candidate.name === branch.value,
+    )
+  ) {
+    return;
+  }
+  branch.value = availableLocalBranches.value[0]?.name ?? '';
+}
+
 function resetCreateForm(): void {
+  branchMode.value = 'existing';
   branch.value = '';
   directoryName.value = '';
-  createBranch.value = false;
   showCreateForm.value = false;
+}
+
+function toggleCreateForm(): void {
+  showCreateForm.value = !showCreateForm.value;
+  if (showCreateForm.value) syncExistingBranchSelection();
 }
 
 async function load(): Promise<void> {
@@ -76,10 +125,28 @@ async function load(): Promise<void> {
   pendingRemoval.value = null;
 
   try {
-    const inspection = await fetchProjectGitWorktrees(props.project.id);
+    const [inspectionResult, workspaceResult] = await Promise.allSettled([
+      fetchProjectGitWorktrees(props.project.id),
+      fetchProjectGitWorkspace(props.project.id),
+    ]);
     if (requestGeneration !== generation) return;
 
+    if (inspectionResult.status === 'rejected') {
+      throw inspectionResult.reason;
+    }
+
+    const inspection = inspectionResult.value;
     worktrees.value = inspection.worktrees;
+    if (workspaceResult.status === 'fulfilled') {
+      workspace.value = workspaceResult.value;
+      branchListError.value = '';
+    } else {
+      workspace.value = null;
+      branchListError.value =
+        'As branches locais não puderam ser carregadas. Atualize antes de usar uma branch existente.';
+    }
+    syncExistingBranchSelection();
+
     if (inspection.state !== 'ready') {
       errorMessage.value =
         inspection.diagnostic ??
@@ -88,6 +155,8 @@ async function load(): Promise<void> {
   } catch (error) {
     if (requestGeneration !== generation) return;
     worktrees.value = [];
+    workspace.value = null;
+    branchListError.value = '';
     errorMessage.value =
       error instanceof Error
         ? error.message
@@ -119,7 +188,7 @@ async function submitCreate(): Promise<void> {
     const result = await createProjectGitWorktree(props.project.id, {
       branch: normalizedBranch,
       directoryName: normalizedDirectory,
-      createBranch: createBranch.value,
+      createBranch: branchMode.value === 'new',
     });
 
     if (result.state === 'created' || result.state === 'already-present') {
@@ -148,8 +217,47 @@ async function submitCreate(): Promise<void> {
   }
 }
 
+async function cleanupPrunable(worktree: ProjectGitWorktree): Promise<void> {
+  if (mutationRunning.value || !worktree.prunable) return;
+  clearMessages();
+  pendingRemoval.value = null;
+  mutationRunning.value = true;
+
+  try {
+    const result = await pruneProjectGitWorktree(
+      props.project.id,
+      worktree.id,
+    );
+
+    if (result.state === 'pruned' || result.state === 'already-absent') {
+      await load();
+      successMessage.value =
+        result.state === 'pruned'
+          ? 'Registro órfão removido.'
+          : 'O registro órfão já havia sido removido.';
+      return;
+    }
+
+    errorMessage.value =
+      result.diagnostic ?? 'Não foi possível limpar o registro órfão.';
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível limpar o registro órfão.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 async function prepareRemoval(worktree: ProjectGitWorktree): Promise<void> {
-  if (mutationRunning.value || worktree.kind !== 'linked') return;
+  if (
+    mutationRunning.value ||
+    worktree.kind !== 'linked' ||
+    worktree.prunable ||
+    worktree.dirty
+  )
+    return;
   clearMessages();
   pendingRemoval.value = null;
   mutationRunning.value = true;
