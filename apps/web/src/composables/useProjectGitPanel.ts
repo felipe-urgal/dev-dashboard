@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue';
 
 import type {
+  GitSyncOperation,
   Project,
   ProjectChangeImpact,
   ProjectGitOverview,
@@ -64,6 +65,8 @@ export function useProjectGitPanel(
   const loading = ref(false);
   const loadingWorkspace = ref(false);
   const remoteRefreshRunning = ref(false);
+  const remoteRefreshErrorMessage = ref('');
+  const syncOperation = ref<GitSyncOperation | null>(null);
   const errorMessage = ref('');
   const workspaceErrorMessage = ref('');
   const mutationRunning = ref(false);
@@ -158,9 +161,13 @@ export function useProjectGitPanel(
   async function refreshRemotesSilently(): Promise<void> {
     if (remoteRefreshRunning.value || mutationRunning.value) return;
     const remotes = configuredRemoteNames();
-    if (remotes.length === 0) return;
+    if (remotes.length === 0) {
+      remoteRefreshErrorMessage.value = '';
+      return;
+    }
 
     remoteRefreshRunning.value = true;
+    remoteRefreshErrorMessage.value = '';
     try {
       const results = await Promise.allSettled(
         remotes.map((remote) =>
@@ -169,6 +176,10 @@ export function useProjectGitPanel(
       );
       if (results.some((result) => result.status === 'fulfilled')) {
         await loadWorkspace();
+      }
+      if (results.some((result) => result.status === 'rejected')) {
+        remoteRefreshErrorMessage.value =
+          'Não foi possível verificar todas as referências remotas. O estado exibido pode estar desatualizado.';
       }
     } finally {
       remoteRefreshRunning.value = false;
@@ -397,24 +408,26 @@ export function useProjectGitPanel(
     }
   }
 
-  async function runUpdateCurrentBranch(): Promise<void> {
-    if (mutationRunning.value || remoteRefreshRunning.value) return;
+  async function runUpdateCurrentBranch(): Promise<
+    'cancelled' | 'succeeded' | 'failed'
+  > {
+    if (mutationRunning.value || remoteRefreshRunning.value) return 'cancelled';
 
     const branch = overview.value?.branch;
     const upstream = overview.value?.upstream;
     if (!branch || overview.value?.detached) {
       mutationErrorMessage.value =
         'Selecione uma branch local antes de atualizar.';
-      return;
+      return 'failed';
     }
     if (!upstream) {
       mutationErrorMessage.value = `A branch "${branch}" não possui upstream configurado.`;
-      return;
+      return 'failed';
     }
     if (!overview.value?.clean) {
       mutationErrorMessage.value =
         'Guarde ou confirme as alterações locais antes de atualizar a branch.';
-      return;
+      return 'failed';
     }
 
     const confirmed = await confirmDialog({
@@ -425,9 +438,10 @@ export function useProjectGitPanel(
       confirmLabel: 'Atualizar local',
       tone: 'warning',
     });
-    if (!confirmed) return;
+    if (!confirmed) return 'cancelled';
 
     mutationRunning.value = true;
+    syncOperation.value = 'current-branch';
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
     changeImpact.value = null;
@@ -445,29 +459,38 @@ export function useProjectGitPanel(
       mutationMessage.value = `Branch "${result.branch}" atualizada a partir de ${upstream}.`;
       applyChangeImpact(result.impact);
       await reloadGitData();
+      return 'succeeded';
     } catch (error) {
       mutationErrorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível atualizar a branch local.';
+      await reloadGitData();
+      return 'failed';
     } finally {
+      syncOperation.value = null;
       mutationRunning.value = false;
     }
   }
 
-  async function runMainSynchronization(): Promise<void> {
-    if (mutationRunning.value || remoteRefreshRunning.value) return;
+  async function runMainSynchronization(): Promise<
+    'cancelled' | 'succeeded' | 'failed'
+  > {
+    if (mutationRunning.value || remoteRefreshRunning.value) return 'cancelled';
+
     const confirmed = await confirmDialog({
       title: 'Sincronizar main?',
       message:
         'A main será atualizada a partir do repositório principal e ' +
-        'publicada em origin/main. A árvore de trabalho deve estar limpa.',
+        'publicada em origin/main. A árvore de trabalho deve estar limpa. ' +
+        'Ao final, o dashboard retorna para a branch que estava em uso.',
       confirmLabel: 'Sincronizar main',
       tone: 'warning',
     });
-    if (!confirmed) return;
+    if (!confirmed) return 'cancelled';
 
     mutationRunning.value = true;
+    syncOperation.value = 'main';
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
     changeImpact.value = null;
@@ -483,12 +506,16 @@ export function useProjectGitPanel(
         : 'Main e origin/main já estavam sincronizadas.';
       applyChangeImpact(result.impact);
       await reloadGitData();
+      return 'succeeded';
     } catch (error) {
       mutationErrorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível sincronizar a main.';
+      await reloadGitData();
+      return 'failed';
     } finally {
+      syncOperation.value = null;
       mutationRunning.value = false;
     }
   }
@@ -572,6 +599,8 @@ export function useProjectGitPanel(
       commitMode.value = 'create';
       amendedBranch.value = null;
       changeImpact.value = null;
+      remoteRefreshErrorMessage.value = '';
+      syncOperation.value = null;
       activeTab.value = tabFromQuery();
       await Promise.all([loadGit(), loadWorkspace()]);
       void refreshRemotesSilently();
@@ -592,6 +621,8 @@ export function useProjectGitPanel(
     loading,
     loadingWorkspace,
     remoteRefreshRunning,
+    remoteRefreshErrorMessage,
+    syncOperation,
     errorMessage,
     workspaceErrorMessage,
     mutationRunning,

@@ -203,24 +203,27 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
         'X-Accel-Buffering': 'no',
       });
 
+      let unsubscribe = (): void => undefined;
+      let heartbeat: NodeJS.Timeout | undefined;
+
+      const close = (): void => {
+        if (heartbeat) clearInterval(heartbeat);
+        unsubscribe();
+        if (!reply.raw.writableEnded) reply.raw.end();
+      };
       const write = (frame: string): void => {
         if (!reply.raw.write(frame)) close();
       };
-      const unsubscribe = options.gitSyncProgressService.subscribe(
+
+      unsubscribe = options.gitSyncProgressService.subscribe(
         project.id,
         (event) => write(`data: ${JSON.stringify(event)}\n\n`),
       );
-      const heartbeat = setInterval(
+      heartbeat = setInterval(
         () => write(': acompanhamento ativo\n\n'),
         15_000,
       );
       heartbeat.unref();
-
-      const close = (): void => {
-        clearInterval(heartbeat);
-        unsubscribe();
-        if (!reply.raw.writableEnded) reply.raw.end();
-      };
 
       reply.raw.once('close', close);
     },

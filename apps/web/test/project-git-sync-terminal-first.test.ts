@@ -164,3 +164,40 @@ test('mantém a mesma linguagem de UI quando existe apenas origin', () => {
   assert.match(wrapper.text(), /Tudo sincronizado/);
   assert.doesNotMatch(wrapper.text(), /upstream\//);
 });
+
+test('console mostra comandos reais recebidos pelo progresso da sincronização', () => {
+  const wrapper = mount(ProjectGitSyncPage, {
+    props: {
+      overview,
+      workspace,
+      busy: true,
+      checking: false,
+      operation: 'main',
+      progressEvents: [
+        {
+          runId: 'run-1',
+          operation: 'main',
+          stepId: 'fetch-upstream',
+          status: 'success',
+          command: 'git fetch --prune upstream',
+          message: 'Referências do repositório principal atualizadas.',
+          occurredAt: '2026-09-10T12:34:01.000Z',
+        },
+        {
+          runId: 'run-1',
+          operation: 'main',
+          stepId: 'merge-main',
+          status: 'running',
+          command: 'git merge --no-edit upstream/main',
+          message: 'Integrando a referência principal na main.',
+          occurredAt: '2026-09-10T12:34:02.000Z',
+        },
+      ],
+    },
+  });
+
+  const console = wrapper.find('.git-sync-console-output');
+  assert.match(console.text(), /git fetch --prune upstream/);
+  assert.match(console.text(), /git merge --no-edit upstream\/main/);
+  assert.match(wrapper.find('.git-sync-console-state').text(), /Executando/);
+});
