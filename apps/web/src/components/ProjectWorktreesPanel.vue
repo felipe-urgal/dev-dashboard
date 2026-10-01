@@ -383,7 +383,8 @@ watch(
           <div>
             <h3>Novo worktree</h3>
             <p>
-              Escolha uma branch local livre ou crie uma nova a partir do checkout principal.
+              Escolha uma branch local livre ou crie uma nova a partir do
+              checkout principal.
             </p>
           </div>
         </div>
@@ -420,7 +421,9 @@ watch(
               <select
                 v-model="branch"
                 name="branch"
-                :disabled="mutationRunning || availableLocalBranches.length === 0"
+                :disabled="
+                  mutationRunning || availableLocalBranches.length === 0
+                "
                 required
               >
                 <option
@@ -458,7 +461,8 @@ watch(
                 required
               />
               <small class="worktrees-field-help">
-                Será criada a partir de <code>{{ baseBranch }}</code>.
+                Será criada a partir de <code>{{ baseBranch }}</code
+                >.
               </small>
             </label>
           </div>
@@ -549,8 +553,7 @@ watch(
               class="worktree-note worktree-note-warning"
             >
               {{
-                worktree.pruneReason ||
-                'A pasta do worktree não existe mais.'
+                worktree.pruneReason || 'A pasta do worktree não existe mais.'
               }}
             </p>
             <p v-if="worktree.lockReason" class="worktree-note">

@@ -373,8 +373,7 @@ test('limpa somente o registro prunable revalidado e preserva remoção normal s
     calls.some(
       ({ cwd, args }) =>
         cwd === project.path &&
-        args.join(' ') ===
-          'worktree remove --force -- /workspace/projeto-old',
+        args.join(' ') === 'worktree remove --force -- /workspace/projeto-old',
     ),
   );
 });

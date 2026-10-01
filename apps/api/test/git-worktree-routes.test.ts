@@ -468,4 +468,3 @@ test('Worktrees HTTP encaminha limpeza de registro órfão e reconcilia após su
   ]);
   assert.deepEqual(reconciliations, [['worktree-main']]);
 });
-
