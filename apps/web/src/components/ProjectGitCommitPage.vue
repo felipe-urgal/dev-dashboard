@@ -40,6 +40,10 @@ const stagedChanges = computed(() =>
   ),
 );
 
+const hasConflicts = computed(() =>
+  props.overview.files.some((file) => file.status === 'conflicted'),
+);
+
 const messageChanged = computed(() => {
   const latest = props.overview.latestCommit?.subject;
   const message = props.message.trim();
@@ -50,17 +54,20 @@ const canCreate = computed(
   () =>
     props.message.trim().length > 0 &&
     !props.busy &&
+    !hasConflicts.value &&
     commitChanges.value.length > 0,
 );
 
 const canAmend = computed(
   () =>
     !props.busy &&
+    !hasConflicts.value &&
     Boolean(props.overview.latestCommit) &&
     (stagedChanges.value.length > 0 || messageChanged.value),
 );
 
 const amendTitle = computed(() => {
+  if (hasConflicts.value) return 'Resolva os conflitos antes de usar amend.';
   if (!props.overview.latestCommit) return 'Não existe commit anterior.';
   if (canAmend.value) return 'Alterar o último commit.';
   return 'Faça stage de alterações ou mude a mensagem para habilitar o amend.';
@@ -123,6 +130,14 @@ function submitAmend(): void {
       </label>
 
       <div class="git-commit-scope" aria-label="Escopo das operações de commit">
+        <div
+          v-if="hasConflicts"
+          class="git-commit-scope-item is-conflict"
+          role="alert"
+        >
+          <span class="git-commit-scope-dot" aria-hidden="true">!</span>
+          <span>Resolva os conflitos antes de criar ou alterar commits</span>
+        </div>
         <div class="git-commit-scope-item">
           <CheckCircleIcon aria-hidden="true" />
           <span>
@@ -335,6 +350,11 @@ function submitAmend(): void {
 
 .git-commit-scope-item.is-excluded {
   color: var(--text-dim);
+}
+
+.git-commit-scope-item.is-conflict {
+  border-color: color-mix(in srgb, var(--warning-text) 35%, var(--border));
+  color: var(--warning-text);
 }
 
 .git-commit-scope-dot {
