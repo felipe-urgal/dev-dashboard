@@ -17,8 +17,8 @@ test('a página Vue de branches usa os tokens dos temas claro e escuro', async (
   assert.match(css, /branch-delete-form[\s\S]*var\(--danger-surface\)/);
 });
 
-test('o modal de squash mantém foco e edição independentes do estado de Git', async () => {
-  const [panelTemplate, branchesComponent, branchesTemplate, branchesCss] =
+test('os modais de CRUD preservam foco e respeitam o estado de Git', async () => {
+  const [panelTemplate, branchesComponent, branchesTemplate] =
     await Promise.all([
       readFile(
         path.resolve(
@@ -41,47 +41,24 @@ test('o modal de squash mantém foco e edição independentes do estado de Git',
         ),
         'utf8',
       ),
-      readFile(
-        path.resolve(
-          process.cwd(),
-          'src/components/ProjectGitBranchesPage.css',
-        ),
-        'utf8',
-      ),
     ]);
 
   assert.match(panelTemplate, /:busy="mutationRunning"/);
   assert.match(panelTemplate, /:remote-refreshing="remoteRefreshRunning"/);
+  assert.match(panelTemplate, /:operation="branchOperation"/);
   assert.match(
     branchesComponent,
     /const actionsBusy = computed\(\(\) => props\.busy \|\| props\.remoteRefreshing\);/,
   );
-  assert.match(
-    branchesComponent,
-    /function updateSquashMessage\(event: Event\)/,
-  );
-  assert.match(branchesComponent, /Fazer squash e reenviar[\s\S]*Fazer squash/);
   assert.match(branchesTemplate, /:auto-focus="false"/);
   assert.match(branchesTemplate, /:trap-focus="false"/);
   assert.match(
     branchesTemplate,
-    /aria-label="Mensagem do commit final"[^>]*@input="updateSquashMessage"/,
-  );
-  assert.doesNotMatch(
-    branchesTemplate,
-    /aria-label="Mensagem do commit final"[^>]*:disabled=/,
+    /aria-label="Nome da branch"[\s\S]*data-branch-modal-autofocus/,
   );
   assert.match(
     branchesTemplate,
-    /class="danger-button branch-squash-submit"[^>]*:disabled="actionsBusy \|\| !canSubmitSquash"/,
+    /:disabled="actionsBusy \|\| !canSubmitDelete"/,
   );
-  assert.match(branchesTemplate, /\{\{ squashSubmitLabel \}\}/);
-  assert.match(
-    branchesTemplate,
-    /squash também reenviará a branch\s+para o origin com lease/,
-  );
-  assert.match(
-    branchesCss,
-    /branch-squash-submit[\s\S]*-webkit-text-fill-color:\s*#fff/,
-  );
+  assert.doesNotMatch(branchesTemplate, /Mensagem do commit final|Squash/);
 });
