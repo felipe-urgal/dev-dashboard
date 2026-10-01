@@ -79,7 +79,7 @@ function overview(
       ? {
           id: `p1:worker:${workerId}`,
           projectId: 'p1',
-          kind: 'worker',
+          kind: workerId === 'sidekiq' ? 'worker' : 'webpack',
           status,
           pid: workerId === 'sidekiq' ? 4242 : 4343,
           command: `/projetos/api-rails/bin/${workerId}`,
@@ -299,6 +299,41 @@ describe('ProjectRailsRuntimePanel', () => {
     expect(failedWrapper.text()).toContain('Iniciar novamente');
     expect(failedWrapper.text()).not.toContain('Ao vivo');
     failedWrapper.unmount();
+  });
+
+  it('permite recuperar o Webpack após falha sem oferecer restart', async () => {
+    fetchProjectRailsWorker.mockResolvedValueOnce(
+      overview('webpack', true, 'failed'),
+    );
+    startProjectRailsWorker.mockResolvedValueOnce({
+      id: 'p1:worker:webpack',
+      projectId: 'p1',
+      kind: 'webpack',
+      status: 'running',
+      pid: 4343,
+      command: '/projetos/api-rails/bin/webpack-dev-server',
+      startedAt: '2026-08-05T12:10:00.000Z',
+    });
+
+    const wrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'webpack' },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Webpack encerrou com falha');
+    expect(wrapper.text()).toContain('Iniciar novamente');
+    expect(
+      wrapper.findAll('button').some((button) => button.text() === 'Reiniciar'),
+    ).toBe(false);
+
+    await wrapper.find('button.primary-button').trigger('click');
+    await flushPromises();
+
+    expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'webpack');
+    expect(wrapper.text()).toContain('Executando');
+    expect(wrapper.text()).toContain('Ao vivo');
+
+    wrapper.unmount();
   });
 
   it('usa a visualização minimalista com detalhes recolhidos e log direto', async () => {

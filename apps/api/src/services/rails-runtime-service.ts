@@ -56,25 +56,71 @@ async function gemfileContains(
   }
 }
 
-async function packageJsonHasDependency(
+type JavaScriptPackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
+
+interface ProjectPackageJson {
+  dependencies?: Record<string, unknown>;
+  devDependencies?: Record<string, unknown>;
+  packageManager?: string;
+}
+
+async function readProjectPackageJson(
   projectPath: string,
-  name: string,
-): Promise<boolean> {
+): Promise<ProjectPackageJson | null> {
   try {
     const contents = await readFile(
       path.join(projectPath, 'package.json'),
       'utf8',
     );
-    const parsed = JSON.parse(contents) as {
-      dependencies?: Record<string, unknown>;
-      devDependencies?: Record<string, unknown>;
-    };
-    return Boolean(
-      parsed.dependencies?.[name] || parsed.devDependencies?.[name],
-    );
+    return JSON.parse(contents) as ProjectPackageJson;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function packageJsonHasDependency(
+  projectPath: string,
+  name: string,
+): Promise<boolean> {
+  const parsed = await readProjectPackageJson(projectPath);
+  return Boolean(
+    parsed?.dependencies?.[name] || parsed?.devDependencies?.[name],
+  );
+}
+
+function declaredPackageManager(
+  value: string | undefined,
+): JavaScriptPackageManager | null {
+  if (!value) return null;
+  const match = /^(npm|yarn|pnpm|bun)(?:@|$)/u.exec(value.trim());
+  return (match?.[1] as JavaScriptPackageManager | undefined) ?? null;
+}
+
+async function resolveJavaScriptPackageManager(
+  projectPath: string,
+): Promise<JavaScriptPackageManager | null> {
+  const packageJson = await readProjectPackageJson(projectPath);
+  const declared = declaredPackageManager(packageJson?.packageManager);
+  if (declared) return declared;
+
+  const lockfiles: ReadonlyArray<
+    readonly [filename: string, manager: JavaScriptPackageManager]
+  > = [
+    ['pnpm-lock.yaml', 'pnpm'],
+    ['bun.lock', 'bun'],
+    ['bun.lockb', 'bun'],
+    ['yarn.lock', 'yarn'],
+    ['package-lock.json', 'npm'],
+    ['npm-shrinkwrap.json', 'npm'],
+  ];
+
+  for (const [filename, manager] of lockfiles) {
+    if (await pathExists(path.join(projectPath, filename))) {
+      return manager;
+    }
+  }
+
+  return null;
 }
 
 async function detectSidekiq(project: Project): Promise<boolean> {
@@ -114,10 +160,31 @@ async function resolveWebpackCommand(
   if (await pathExists(binPath)) {
     return { id: 'webpack', command: binPath, args: [] };
   }
-  if (await pathExists(path.join(project.path, 'yarn.lock'))) {
-    return { id: 'webpack', command: 'yarn', args: ['webpack-dev-server'] };
+
+  switch (await resolveJavaScriptPackageManager(project.path)) {
+    case 'yarn':
+      return { id: 'webpack', command: 'yarn', args: ['webpack-dev-server'] };
+    case 'pnpm':
+      return {
+        id: 'webpack',
+        command: 'pnpm',
+        args: ['exec', 'webpack-dev-server'],
+      };
+    case 'bun':
+      return {
+        id: 'webpack',
+        command: 'bun',
+        args: ['x', 'webpack-dev-server'],
+      };
+    case 'npm':
+      return {
+        id: 'webpack',
+        command: 'npm',
+        args: ['exec', '--', 'webpack-dev-server'],
+      };
+    default:
+      return { id: 'webpack', command: 'npx', args: ['webpack-dev-server'] };
   }
-  return { id: 'webpack', command: 'npx', args: ['webpack-dev-server'] };
 }
 
 /**

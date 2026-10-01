@@ -149,9 +149,9 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   await initSampleGitRepository(projectDirectory);
 }
 
-// Gemfile com "sidekiq" e um bin/sidekiq controlável (dorme até ser encerrado
-// via TERM/KILL) para exercitar start/stop real do worker sem depender de
-// Ruby, Redis ou de um app Rails de verdade instalados no runner de CI.
+// Gemfile com "sidekiq" e binstubs controláveis de Sidekiq/Webpack (dormem
+// até serem encerrados via TERM/KILL) para exercitar start/stop real sem
+// depender de Ruby, Redis, Node packages ou de um app Rails de verdade no CI.
 // config/database.yml usa um adapter MySQL suportado por snapshot/restore
 // (ver writeFakeDatabaseBinaries) — nenhum servidor MySQL de verdade é
 // necessário, os binários mysqldump/mysql também são fakes controlados pelo
@@ -172,6 +172,18 @@ async function writeSampleRailsProject(
     '#!/usr/bin/env bash\ntrap "exit 0" TERM\nwhile true; do sleep 1; done\n',
   );
   await chmod(sidekiqScript, 0o755);
+
+  const webpackScript = path.join(
+    projectDirectory,
+    'bin',
+    'webpack-dev-server',
+  );
+  await writeFile(
+    webpackScript,
+    '#!/usr/bin/env bash\necho "webpack fixture ready"\ntrap "exit 0" TERM\nwhile true; do sleep 1; done\n',
+  );
+  await chmod(webpackScript, 0o755);
+
   await writeFile(
     path.join(projectDirectory, 'config', 'database.yml'),
     'development:\n  adapter: mysql2\n  host: 127.0.0.1\n  port: 3306\n  database: sample_rails_development\n  username: root\n  password: senha-de-teste\n',
