@@ -25,6 +25,7 @@ import {
   getOverview,
 } from './git-service/read-operations.js';
 import { GitMutationConfirmationService } from './git-mutation-confirmation-service.js';
+import type { GitSyncProgressReporter } from './git-sync-progress-service.js';
 
 export {
   GIT_DIFF_FILE_LIMIT,
@@ -133,11 +134,13 @@ export class GitService {
     projectPath: string,
     projectId: string,
     confirmationToken?: string,
+    reporter?: GitSyncProgressReporter,
   ): Promise<GitBranchMutationResult> {
     return this.branchOperations.pull(
       projectPath,
       projectId,
       confirmationToken,
+      reporter,
     );
   }
 
