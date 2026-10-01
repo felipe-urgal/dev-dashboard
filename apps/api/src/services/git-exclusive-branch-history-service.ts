@@ -169,9 +169,29 @@ function hasFilters(options: ExclusiveBranchHistoryOptions): boolean {
   );
 }
 
-function branchNameFromReference(reference: string): string {
-  const parts = reference.split('/').filter(Boolean);
-  return parts.at(-1) ?? reference;
+function localBranchNameFromDefaultCandidate(reference: string): string {
+  if (reference.startsWith('origin/')) return reference.slice('origin/'.length);
+  if (reference.startsWith('upstream/')) {
+    return reference.slice('upstream/'.length);
+  }
+  return reference;
+}
+
+async function localBranchExists(
+  projectPath: string,
+  branch: string,
+): Promise<boolean> {
+  try {
+    await runGit(projectPath, [
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/heads/${branch}`,
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function resolveReference(
@@ -218,13 +238,19 @@ async function resolveExclusiveRevision(
     'upstream/master',
     'origin/master',
     'master',
+    'upstream/develop',
+    'origin/develop',
+    'develop',
   ].filter((value): value is string => Boolean(value));
-  const defaultBranchNames = new Set(candidates.map(branchNameFromReference));
-  defaultBranchNames.add('main');
-  defaultBranchNames.add('master');
 
-  const selectedName = branchNameFromReference(reference.label);
-  if (defaultBranchNames.has(selectedName)) return reference.revision;
+  const defaultLocalBranchNames = new Set(
+    candidates.map(localBranchNameFromDefaultCandidate),
+  );
+  const selectedReferenceIsDefault =
+    candidates.includes(reference.revision) ||
+    ((await localBranchExists(projectPath, reference.label)) &&
+      defaultLocalBranchNames.has(reference.label));
+  if (selectedReferenceIsDefault) return reference.revision;
 
   const visited = new Set<string>();
   for (const candidate of candidates) {
