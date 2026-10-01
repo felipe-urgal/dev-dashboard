@@ -105,7 +105,9 @@ function remoteStatusLabel(
           <dl class="git-pr-cockpit-facts">
             <div v-if="cockpit.headSha">
               <dt>Head</dt>
-              <dd><code>{{ cockpit.headSha.slice(0, 8) }}</code></dd>
+              <dd>
+                <code>{{ cockpit.headSha.slice(0, 8) }}</code>
+              </dd>
             </div>
             <div>
               <dt>Estado</dt>
@@ -177,7 +179,10 @@ function remoteStatusLabel(
         </template>
       </div>
 
-      <ul v-if="github && mergeBlockers.length > 0" class="git-pr-merge-blockers">
+      <ul
+        v-if="github && mergeBlockers.length > 0"
+        class="git-pr-merge-blockers"
+      >
         <li v-for="blocker in mergeBlockers" :key="blocker">{{ blocker }}</li>
       </ul>
     </div>
@@ -188,14 +193,11 @@ function remoteStatusLabel(
         target="_blank"
         rel="noopener noreferrer"
       >
-        Abrir no {{ existingPullRequest.provider === 'gitlab' ? 'GitLab' : 'GitHub' }}
+        Abrir no
+        {{ existingPullRequest.provider === 'gitlab' ? 'GitLab' : 'GitHub' }}
       </a>
       <template v-if="github">
-        <button
-          type="button"
-          :disabled="mutationBusy"
-          @click="emit('edit')"
-        >
+        <button type="button" :disabled="mutationBusy" @click="emit('edit')">
           Editar
         </button>
         <button

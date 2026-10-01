@@ -148,10 +148,7 @@ const canPreparePullRequest = computed(
 
 const supportsGh = computed(() => targetProvider.value === 'github');
 const canCreateViaGh = computed(
-  () =>
-    canPreparePullRequest.value &&
-    supportsGh.value &&
-    !mutationBusy.value,
+  () => canPreparePullRequest.value && supportsGh.value && !mutationBusy.value,
 );
 
 const canForcePush = computed(
@@ -218,9 +215,7 @@ const mergeBlockers = computed(() => {
     cockpit.mergeableState === 'dirty' ||
     cockpit.mergeableState === 'behind'
   ) {
-    blockers.push(
-      `O estado de merge no GitHub é "${cockpit.mergeableState}".`,
-    );
+    blockers.push(`O estado de merge no GitHub é "${cockpit.mergeableState}".`);
   }
   return Array.from(new Set(blockers));
 });
@@ -307,7 +302,10 @@ function cancelEditConfirmation() {
 }
 
 function startEdit(): void {
-  if (!existingPullRequest.value || existingPullRequest.value.provider !== 'github')
+  if (
+    !existingPullRequest.value ||
+    existingPullRequest.value.provider !== 'github'
+  )
     return;
   editTitle.value = existingPullRequest.value.title;
   editDescription.value = existingPullRequest.value.description ?? '';
@@ -733,7 +731,9 @@ async function mergePullRequest(): Promise<void> {
             <button type="button" :disabled="mutationBusy" @click="cancelEdit">
               Cancelar
             </button>
-            <button type="submit" :disabled="!canEdit">Salvar alterações</button>
+            <button type="submit" :disabled="!canEdit">
+              Salvar alterações
+            </button>
           </div>
         </form>
 

@@ -111,7 +111,10 @@ function onDescriptionInput(event: Event) {
           >
             {{ branch }}
           </option>
-          <option v-if="props.baseBranches.length === 0" :value="props.baseBranch">
+          <option
+            v-if="props.baseBranches.length === 0"
+            :value="props.baseBranch"
+          >
             {{ props.baseBranch }}
           </option>
         </select>

@@ -61,8 +61,8 @@ function onCloseTextInput(event: Event) {
     class="git-pr-confirm"
   >
     <p>
-      Isto executará <code>{{ props.mergeCommandPreview }}</code>. O repositório
-      alvo está fixado explicitamente no comando.
+      Isto executará <code>{{ props.mergeCommandPreview }}</code
+      >. O repositório alvo está fixado explicitamente no comando.
     </p>
     <ul v-if="props.mergeBlockers.length > 0" class="git-pr-confirm-blockers">
       <li v-for="blocker in props.mergeBlockers" :key="blocker">
