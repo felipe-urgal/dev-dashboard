@@ -3,9 +3,7 @@ import { expect, test } from '@playwright/test';
 import { gotoBootstrapped } from '../fixtures/navigate';
 
 test.describe('Sidekiq e Webpack do projeto Rails', () => {
-  test('gerencia Sidekiq e Webpack detectados', async ({
-    page,
-  }) => {
+  test('gerencia Sidekiq e Webpack detectados', async ({ page }) => {
     await gotoBootstrapped(page, '/');
     await expect(
       page.getByRole('heading', { level: 3, name: 'sample-rails-app' }),
