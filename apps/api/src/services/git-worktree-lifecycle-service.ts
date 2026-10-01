@@ -110,10 +110,13 @@ export interface GitWorktreeRemovalResourceGuard {
   cleanupRemoved(environmentInstanceId: string): Promise<void>;
 }
 
+type WorktreePathAbsence = 'absent' | 'present' | 'unknown';
+
 export interface GitWorktreeLifecycleServiceOptions {
   removalResourceGuard?: GitWorktreeRemovalResourceGuard;
   now?: () => number;
   createConfirmationToken?: () => string;
+  inspectPathAbsence?: (targetPath: string) => Promise<WorktreePathAbsence>;
 }
 
 interface RemovalConfirmationRecord {
@@ -189,9 +192,9 @@ function targetPathFor(project: Project, directoryName: string): string {
   return path.join(path.dirname(path.resolve(project.path)), directoryName);
 }
 
-async function pathAbsence(
+async function inspectPathAbsence(
   targetPath: string,
-): Promise<'absent' | 'present' | 'unknown'> {
+): Promise<WorktreePathAbsence> {
   try {
     await lstat(targetPath);
     return 'present';
@@ -228,6 +231,9 @@ export class GitWorktreeLifecycleService {
   private readonly removalResourceGuard: GitWorktreeRemovalResourceGuard;
   private readonly now: () => number;
   private readonly createConfirmationToken: () => string;
+  private readonly inspectPathAbsence: (
+    targetPath: string,
+  ) => Promise<WorktreePathAbsence>;
   private readonly removalConfirmations = new Map<
     string,
     RemovalConfirmationRecord
@@ -245,6 +251,8 @@ export class GitWorktreeLifecycleService {
     this.createConfirmationToken =
       options.createConfirmationToken ??
       (() => randomBytes(32).toString('hex'));
+    this.inspectPathAbsence =
+      options.inspectPathAbsence ?? inspectPathAbsence;
   }
 
   public async create(
@@ -562,7 +570,7 @@ export class GitWorktreeLifecycleService {
       };
     }
 
-    const initialPathAbsence = await pathAbsence(worktree.path);
+    const initialPathAbsence = await this.inspectPathAbsence(worktree.path);
     if (initialPathAbsence !== 'absent') {
       return {
         state: 'blocked',
@@ -640,7 +648,8 @@ export class GitWorktreeLifecycleService {
       };
     }
 
-    const revalidatedPathAbsence = await pathAbsence(current.path);
+    const revalidatedPathAbsence =
+      await this.inspectPathAbsence(current.path);
     if (revalidatedPathAbsence !== 'absent') {
       return {
         state: 'blocked',
