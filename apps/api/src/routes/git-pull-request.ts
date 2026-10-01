@@ -115,6 +115,7 @@ const openPullRequestSchema = {
     provider: { type: 'string', enum: ['github', 'gitlab'] },
     number: { type: 'integer', minimum: 1 },
     title: { type: 'string' },
+    description: { type: 'string' },
     url: { type: 'string' },
     sourceBranch: { type: 'string' },
     baseBranch: { type: 'string' },
