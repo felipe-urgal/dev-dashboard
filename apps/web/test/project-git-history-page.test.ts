@@ -255,6 +255,16 @@ test('mantém HEAD destacado selecionável mesmo com branches conhecidas', async
   assert.ok(reference.text().includes('HEAD destacado'));
 });
 
+test('abre commit com Enter pela linha focável', async () => {
+  const { wrapper } = await mountPage();
+
+  const row = wrapper.findAll('.git-history-row')[0]!;
+  await row.trigger('keydown', { key: 'Enter' });
+  await settle('Carregando detalhes');
+
+  assert.ok(modalElement(), 'esperava o modal após Enter');
+});
+
 test('abre o commit em modal com os arquivos alterados', async () => {
   const { wrapper, requests } = await mountPage();
 
