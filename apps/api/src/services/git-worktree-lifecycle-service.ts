@@ -251,8 +251,7 @@ export class GitWorktreeLifecycleService {
     this.createConfirmationToken =
       options.createConfirmationToken ??
       (() => randomBytes(32).toString('hex'));
-    this.inspectPathAbsence =
-      options.inspectPathAbsence ?? inspectPathAbsence;
+    this.inspectPathAbsence = options.inspectPathAbsence ?? inspectPathAbsence;
   }
 
   public async create(
@@ -648,8 +647,7 @@ export class GitWorktreeLifecycleService {
       };
     }
 
-    const revalidatedPathAbsence =
-      await this.inspectPathAbsence(current.path);
+    const revalidatedPathAbsence = await this.inspectPathAbsence(current.path);
     if (revalidatedPathAbsence !== 'absent') {
       return {
         state: 'blocked',
