@@ -16,6 +16,37 @@
       </span>
     </div>
 
+    <div
+      v-if="snapshot"
+      class="git-diff-scope-switch"
+      aria-label="Escopo do diff"
+    >
+      <button
+        type="button"
+        :class="{ active: scope === 'combined' }"
+        :aria-pressed="scope === 'combined'"
+        @click="selectScope('combined')"
+      >
+        Todas
+      </button>
+      <button
+        type="button"
+        :class="{ active: scope === 'index' }"
+        :aria-pressed="scope === 'index'"
+        @click="selectScope('index')"
+      >
+        Staged
+      </button>
+      <button
+        type="button"
+        :class="{ active: scope === 'worktree' }"
+        :aria-pressed="scope === 'worktree'"
+        @click="selectScope('worktree')"
+      >
+        Não staged
+      </button>
+    </div>
+
     <label
       v-if="entries.length > 0 && !hasSingleChangedFile"
       class="git-diff-status-filter"
@@ -58,6 +89,22 @@
     </div>
 
     <button
+      v-if="snapshot"
+      class="git-diff-refresh-button"
+      type="button"
+      :disabled="loadingSnapshot"
+      aria-label="Atualizar diff"
+      title="Atualizar diff"
+      @click="refresh"
+    >
+      <ArrowPathIcon
+        :class="{ spinning: loadingSnapshot }"
+        aria-hidden="true"
+      />
+      {{ loadingSnapshot ? 'Atualizando…' : 'Atualizar' }}
+    </button>
+
+    <button
       v-if="entries.length > 0"
       class="git-diff-collapse-all"
       type="button"
@@ -93,7 +140,7 @@
   <div v-else-if="snapshot && entries.length === 0" class="git-diff-empty">
     <DocumentTextIcon aria-hidden="true" />
     <strong>Nenhuma alteração para revisar</strong>
-    <span>A árvore de trabalho está igual ao último commit.</span>
+    <span>{{ emptyMessage }}</span>
   </div>
 
   <div
@@ -102,7 +149,7 @@
   >
     <DocumentTextIcon aria-hidden="true" />
     <strong>Nenhum arquivo corresponde aos filtros</strong>
-    <span>Ajuste a busca ou o status selecionado.</span>
+    <span>Ajuste o status selecionado.</span>
   </div>
 
   <div v-else class="git-diff-file-stack">
@@ -133,6 +180,7 @@
         @copy="copyPath(entry)"
         @toggle-viewed="toggleViewed(entry, $event)"
         @expand-context="expandContext(entry, $event.state, $event.direction)"
+        @retry="retryFileDiff(entry)"
       />
     </article>
   </div>

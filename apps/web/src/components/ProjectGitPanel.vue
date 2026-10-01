@@ -8,7 +8,6 @@ import type {
   ProjectGitOverview,
 } from '@dev-dashboard/contracts';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
-import ProjectGitChangeImpactBanner from './ProjectGitChangeImpactBanner.vue';
 import ProjectGitCommitPage from './ProjectGitCommitPage.vue';
 import ProjectGitDiffPage from './ProjectGitDiffPage.vue';
 import ProjectGitHistoryPage from './ProjectGitHistoryPage.vue';
@@ -52,7 +51,6 @@ const {
   amendedBranch,
   pendingPushBranch,
   squashCommitCount,
-  changeImpact,
   generation,
   formatDate,
   openTab,

@@ -312,3 +312,41 @@ test('getFileLines recusa arquivo removido', async (context) => {
       error.code === 'GIT_DIFF_LINES_UNAVAILABLE',
   );
 });
+
+test('separa alterações combined, staged e não staged por scope', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  await writeFile(path.join(root, 'README.md'), 'staged\n');
+  await git(root, ['add', 'README.md']);
+  await writeFile(path.join(root, 'README.md'), 'unstaged\n');
+  await writeFile(path.join(root, 'untracked.txt'), 'novo\n');
+
+  const service = new GitService();
+  const [combined, index, worktree] = await Promise.all([
+    service.getDiffSnapshot(root, 'combined'),
+    service.getDiffSnapshot(root, 'index'),
+    service.getDiffSnapshot(root, 'worktree'),
+  ]);
+
+  assert.deepEqual(combined.files.map((file) => file.path).sort(), [
+    'README.md',
+    'untracked.txt',
+  ]);
+  assert.deepEqual(
+    index.files.map((file) => file.path),
+    ['README.md'],
+  );
+  assert.deepEqual(worktree.files.map((file) => file.path).sort(), [
+    'README.md',
+    'untracked.txt',
+  ]);
+
+  const staged = await service.getFileDiff(root, 'README.md', 'index');
+  const unstaged = await service.getFileDiff(root, 'README.md', 'worktree');
+  assert.match(staged.content, /\+staged/);
+  assert.match(unstaged.content, /-staged/);
+  assert.match(unstaged.content, /\+unstaged/);
+});

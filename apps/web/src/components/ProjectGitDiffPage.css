@@ -130,6 +130,7 @@
   outline: none;
 }
 
+.git-diff-scope-switch,
 .git-diff-view-switch {
   display: inline-flex;
   gap: 2px;
@@ -138,6 +139,7 @@
   background: var(--surface-2);
 }
 
+.git-diff-scope-switch button,
 .git-diff-view-switch button {
   display: inline-flex;
   align-items: center;
@@ -157,10 +159,12 @@
   height: 14px;
 }
 
+.git-diff-scope-switch button:hover,
 .git-diff-view-switch button:hover {
   color: var(--text);
 }
 
+.git-diff-scope-switch button.active,
 .git-diff-view-switch button.active {
   background: var(--surface-1);
   color: var(--text);
@@ -400,8 +404,41 @@
   margin: 0;
 }
 
+.git-diff-file-error-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
 .git-diff-file-error {
-  margin: var(--space-3);
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.git-diff-retry-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.git-diff-retry-button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.git-diff-retry-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .git-diff-raw-meta {

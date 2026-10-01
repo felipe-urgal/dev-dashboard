@@ -69,6 +69,7 @@ const emit = defineEmits<{
   'toggle-collapsed': [];
   copy: [];
   'toggle-viewed': [viewed: boolean];
+  retry: [];
   'expand-context': [
     payload: { state: GitDiffHunkState; direction: 'up' | 'down' },
   ];
@@ -149,13 +150,23 @@ const emit = defineEmits<{
   </header>
 
   <div v-if="!entry.collapsed" class="git-diff-file-body">
-    <p
-      v-if="entry.error"
-      class="project-error git-diff-file-error"
-      role="alert"
-    >
-      {{ entry.error }}
-    </p>
+    <div v-if="entry.error" class="git-diff-file-error-wrap">
+      <p class="project-error git-diff-file-error" role="alert">
+        {{ entry.error }}
+      </p>
+      <button
+        type="button"
+        class="git-diff-retry-button"
+        :disabled="entry.loading"
+        @click="emit('retry')"
+      >
+        <ArrowPathIcon
+          :class="{ spinning: entry.loading }"
+          aria-hidden="true"
+        />
+        Tentar novamente
+      </button>
+    </div>
 
     <div
       v-else-if="entry.loading || !entry.loaded"

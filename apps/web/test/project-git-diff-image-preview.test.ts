@@ -109,3 +109,20 @@ test('permite alternar SVG entre visual e código', async () => {
   assert.ok(wrapper.find('.git-diff-raw-meta').exists());
   assert.ok(wrapper.text().includes('<circle />'));
 });
+
+test('oferece retry quando o diff do arquivo falha', async () => {
+  const entry = entryFor('src/falha.ts', 'image/png', false);
+  entry.loading = false;
+  entry.loaded = false;
+  entry.error = 'Não foi possível carregar o diff.';
+  entry.diff = null;
+
+  const wrapper = mountCard(entry);
+  const retry = wrapper.get('.git-diff-retry-button');
+
+  assert.ok(wrapper.text().includes('Não foi possível carregar o diff.'));
+  assert.equal(retry.text(), 'Tentar novamente');
+
+  await retry.trigger('click');
+  assert.equal(wrapper.emitted('retry')?.length, 1);
+});
