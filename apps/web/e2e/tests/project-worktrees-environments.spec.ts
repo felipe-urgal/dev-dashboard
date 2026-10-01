@@ -98,8 +98,10 @@ async function startEnvironmentServer(
     page,
     `/projects/${encodeURIComponent(projectId)}/server?environmentInstanceId=${encodeURIComponent(environmentInstanceId)}`,
   );
-  await expect(page.getByText('Pronto para iniciar')).toBeVisible();
-  await page.getByRole('button', { name: 'Iniciar servidor' }).click();
+  const startButton = page.getByRole('button', { name: 'Iniciar servidor' });
+  await expect(startButton).toBeVisible();
+  await expect(startButton).toBeEnabled();
+  await startButton.click();
 
   await expect
     .poll(
