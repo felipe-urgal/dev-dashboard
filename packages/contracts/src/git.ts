@@ -66,11 +66,7 @@ export type GitSyncStrategy = 'ff-only' | 'rebase' | 'merge';
 export type GitSyncOperation = 'main' | 'current-branch';
 
 export type GitSyncProgressStatus =
-  | 'running'
-  | 'success'
-  | 'info'
-  | 'warning'
-  | 'error';
+  'running' | 'success' | 'info' | 'warning' | 'error';
 
 export interface GitSyncProgressEvent {
   runId: string;

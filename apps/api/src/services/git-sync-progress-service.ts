@@ -10,17 +10,12 @@ export type GitSyncProgressInput = Omit<
   'runId' | 'operation' | 'occurredAt'
 >;
 
-export type GitSyncProgressReporter = (
-  event: GitSyncProgressInput,
-) => void;
+export type GitSyncProgressReporter = (event: GitSyncProgressInput) => void;
 
 type GitSyncProgressListener = (event: GitSyncProgressEvent) => void;
 
 export class GitSyncProgressService {
-  private readonly listeners = new Map<
-    string,
-    Set<GitSyncProgressListener>
-  >();
+  private readonly listeners = new Map<string, Set<GitSyncProgressListener>>();
 
   public createReporter(
     projectId: string,
