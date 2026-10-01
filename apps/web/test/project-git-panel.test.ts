@@ -269,6 +269,14 @@ async function mountPanel(args: MountArgs = {}) {
     if (url.pathname.endsWith('/git/workspace')) {
       return jsonResponse({ workspace });
     }
+    const remoteFetchMatch = url.pathname.match(
+      /\/git\/remotes\/([^/]+)\/fetch$/,
+    );
+    if (remoteFetchMatch) {
+      return jsonResponse({
+        remote: decodeURIComponent(remoteFetchMatch[1] ?? ''),
+      });
+    }
     if (url.pathname.endsWith('/git/diff/file')) {
       const filePath = url.searchParams.get('path') ?? '';
       const file =

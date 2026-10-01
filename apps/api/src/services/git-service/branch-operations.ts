@@ -13,6 +13,7 @@ import { runGit, commandFailureText } from './run.js';
 import { parseStatus } from './status-parsing.js';
 import type { GitMutationConfirmationService } from '../git-mutation-confirmation-service.js';
 import { computeProjectChangeImpact } from '../project-change-impact-service.js';
+import type { GitSyncProgressReporter } from '../git-sync-progress-service.js';
 
 /** Mutações de branch: criar, trocar, atualizar (pull) e publicar (push). */
 export function createBranchOperations(
@@ -115,6 +116,7 @@ export function createBranchOperations(
     projectPath: string,
     projectId: string,
     confirmationToken?: string,
+    reporter?: GitSyncProgressReporter,
   ): Promise<GitBranchMutationResult> {
     await requireRepository(projectPath);
     const status = parseStatus(
@@ -150,19 +152,82 @@ export function createBranchOperations(
     const previousSha = (
       await runGit(projectPath, ['rev-parse', 'HEAD'])
     ).trim();
+
+    const pullCommand = 'git pull --ff-only';
+    reporter?.({
+      stepId: 'pull-current',
+      status: 'running',
+      command: pullCommand,
+      message: `Atualizando ${branch} por fast-forward.`,
+    });
+
     try {
       await runGit(projectPath, ['pull', '--ff-only']);
+      reporter?.({
+        stepId: 'pull-current',
+        status: 'success',
+        command: pullCommand,
+        message: `${branch} atualizada.`,
+      });
     } catch (error) {
       const details = commandFailureText(error);
       const diverged = /not possible to fast-forward|divergent branches/i.test(
         details,
       );
       if (diverged && branch !== 'main' && branch !== 'master') {
+        reporter?.({
+          stepId: 'pull-current',
+          status: 'warning',
+          command: pullCommand,
+          message: 'Fast-forward indisponível; aplicando rebase.',
+        });
+
+        const rebaseCommand = `git rebase ${status.upstream}`;
+        reporter?.({
+          stepId: 'rebase-current',
+          status: 'running',
+          command: rebaseCommand,
+          message: `Reaplicando commits locais sobre ${status.upstream}.`,
+        });
+
         try {
           await runGit(projectPath, ['rebase', status.upstream]);
+          reporter?.({
+            stepId: 'rebase-current',
+            status: 'success',
+            command: rebaseCommand,
+            message: `${branch} atualizada por rebase.`,
+          });
         } catch (rebaseError) {
           const rebaseDetails = commandFailureText(rebaseError);
-          await runGit(projectPath, ['rebase', '--abort']).catch(() => '');
+          reporter?.({
+            stepId: 'rebase-current',
+            status: 'error',
+            command: rebaseCommand,
+            message: 'O rebase encontrou conflitos.',
+          });
+          reporter?.({
+            stepId: 'abort-rebase',
+            status: 'running',
+            command: 'git rebase --abort',
+            message: 'Abortando o rebase.',
+          });
+          try {
+            await runGit(projectPath, ['rebase', '--abort']);
+            reporter?.({
+              stepId: 'abort-rebase',
+              status: 'success',
+              command: 'git rebase --abort',
+              message: 'Rebase abortado; branch restaurada.',
+            });
+          } catch {
+            reporter?.({
+              stepId: 'abort-rebase',
+              status: 'warning',
+              command: 'git rebase --abort',
+              message: 'O Git não confirmou o abort do rebase.',
+            });
+          }
           throw new GitMutationError(
             'GIT_PULL_DIVERGED',
             'A branch local e a remota divergiram, e o rebase encontrou conflitos. A operação foi abortada sem concluir a atualização.' +
@@ -170,16 +235,34 @@ export function createBranchOperations(
           );
         }
       } else if (diverged) {
+        reporter?.({
+          stepId: 'pull-current',
+          status: 'error',
+          command: pullCommand,
+          message: 'A branch divergiu do remoto.',
+        });
         throw new GitMutationError(
           'GIT_PULL_DIVERGED',
           'O branch local divergiu do remoto; resolva manualmente antes de tentar novamente.',
         );
       } else if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
+        reporter?.({
+          stepId: 'pull-current',
+          status: 'error',
+          command: pullCommand,
+          message: 'O remoto configurado não está disponível.',
+        });
         throw new GitMutationError(
           'GIT_REMOTE_UNAVAILABLE',
           'Não foi possível acessar o remoto configurado.',
         );
       } else {
+        reporter?.({
+          stepId: 'pull-current',
+          status: 'error',
+          command: pullCommand,
+          message: 'Não foi possível atualizar a branch.',
+        });
         throw new GitMutationError('GIT_PULL_FAILED', details);
       }
     }

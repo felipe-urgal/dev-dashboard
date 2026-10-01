@@ -63,6 +63,21 @@ export interface ProjectGitWorkspace {
 
 export type GitSyncStrategy = 'ff-only' | 'rebase' | 'merge';
 
+export type GitSyncOperation = 'main' | 'current-branch';
+
+export type GitSyncProgressStatus =
+  'running' | 'success' | 'info' | 'warning' | 'error';
+
+export interface GitSyncProgressEvent {
+  runId: string;
+  operation: GitSyncOperation;
+  stepId: string;
+  status: GitSyncProgressStatus;
+  command?: string;
+  message: string;
+  occurredAt: string;
+}
+
 export interface GitSyncConfirmation {
   token: string;
   reference: string;

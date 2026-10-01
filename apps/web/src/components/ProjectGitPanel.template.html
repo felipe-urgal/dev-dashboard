@@ -10,10 +10,18 @@
     <div v-if="workspaceErrorMessage" class="project-error" role="alert">
       {{ workspaceErrorMessage }}
     </div>
-    <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">
+    <p
+      v-if="mutationMessage && activeTab !== 'sync'"
+      class="git-mutation-success"
+      aria-live="polite"
+    >
       {{ mutationMessage }}
     </p>
-    <p v-if="mutationErrorMessage" class="project-error" role="alert">
+    <p
+      v-if="mutationErrorMessage && activeTab !== 'sync'"
+      class="project-error"
+      role="alert"
+    >
       {{ mutationErrorMessage }}
     </p>
     <ProjectGitChangeImpactBanner
@@ -38,10 +46,13 @@
       :workspace="workspace"
       :busy="mutationRunning"
       :checking="remoteRefreshRunning"
+      :operation="syncOperation"
+      :progress-events="synchronizationProgress"
+      :verification-error="remoteRefreshErrorMessage"
       :last-synchronization-at="lastMainSynchronizationAt"
       :synchronization-message="lastMainSynchronizationMessage"
       :synchronization-error="lastMainSynchronizationError"
-      @update-current-branch="runUpdateCurrentBranch"
+      @update-current-branch="handleCurrentBranchUpdate"
       @synchronize="handleMainSynchronization"
       @clear-console="clearMainSynchronizationConsole"
     />

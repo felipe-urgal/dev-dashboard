@@ -82,6 +82,17 @@ vi.mock('../src/api/git-workspace', () => ({
     remotes: [],
   }),
   fetchProjectGitRemote: vi.fn().mockResolvedValue('origin'),
+  fetchProjectGitMutationHistory: vi.fn().mockResolvedValue({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    hasMore: false,
+    events: [],
+  }),
+  followProjectGitSyncProgress: vi.fn().mockReturnValue({
+    close: vi.fn(),
+    done: new Promise<void>(() => undefined),
+  }),
 }));
 
 const publishTerminalNotice = vi.fn();

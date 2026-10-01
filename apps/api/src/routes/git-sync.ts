@@ -9,12 +9,14 @@ import {
 } from '../http/response-schemas.js';
 import { GitSyncError, GitSyncService } from '../services/git-sync-service.js';
 import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
+import type { GitSyncProgressService } from '../services/git-sync-progress-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 interface GitSyncRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   gitMutationHistoryService: GitMutationHistoryService;
+  gitSyncProgressService: GitSyncProgressService;
 }
 
 interface ProjectParams {
@@ -183,6 +185,50 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
     return project;
   }
 
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/git/sync/events',
+    {
+      schema: {
+        params: projectParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const project = projectFor(request.params.projectId);
+
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      let unsubscribe = (): void => undefined;
+
+      const close = (): void => {
+        clearInterval(heartbeat);
+        unsubscribe();
+        if (!reply.raw.writableEnded) reply.raw.end();
+      };
+      const write = (frame: string): void => {
+        if (!reply.raw.write(frame)) close();
+      };
+
+      unsubscribe = options.gitSyncProgressService.subscribe(
+        project.id,
+        (event) => write(`data: ${JSON.stringify(event)}\n\n`),
+      );
+      const heartbeat = setInterval(
+        () => write(': acompanhamento ativo\n\n'),
+        15_000,
+      );
+      heartbeat.unref();
+      write(': conectado\n\n');
+
+      reply.raw.once('close', close);
+    },
+  );
+
   app.get<{
     Params: ProjectParams;
     Querystring: { reference: string };
@@ -309,21 +355,41 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
     },
     async (request) => {
       const project = projectFor(request.params.projectId);
+      const progress = options.gitSyncProgressService.createReporter(
+        project.id,
+        'main',
+      );
+      progress.report({
+        stepId: 'operation',
+        status: 'running',
+        message: 'Sincronização da main iniciada.',
+      });
+
       try {
-        return {
-          result: await withGitMutationHistory(
-            options.gitMutationHistoryService,
-            project,
-            'sync-main',
-            () =>
-              service.synchronizeMain(
-                project.path,
-                project.id,
-                request.body.confirmationToken,
-              ),
-          ),
-        };
+        const result = await withGitMutationHistory(
+          options.gitMutationHistoryService,
+          project,
+          'sync-main',
+          () =>
+            service.synchronizeMain(
+              project.path,
+              project.id,
+              request.body.confirmationToken,
+              progress.report,
+            ),
+        );
+        progress.report({
+          stepId: 'operation',
+          status: 'success',
+          message: 'Sincronização da main concluída.',
+        });
+        return { result };
       } catch (error) {
+        progress.report({
+          stepId: 'operation',
+          status: 'error',
+          message: 'A sincronização da main não foi concluída.',
+        });
         translateSyncError(error);
       }
     },

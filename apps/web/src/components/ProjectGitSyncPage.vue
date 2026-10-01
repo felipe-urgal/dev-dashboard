@@ -11,6 +11,9 @@ import {
 import { computed, ref } from 'vue';
 
 import type {
+  GitSyncOperation,
+  GitSyncProgressEvent,
+  GitSyncProgressStatus,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
@@ -20,6 +23,9 @@ const props = defineProps<{
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
   checking?: boolean;
+  operation?: GitSyncOperation | null;
+  progressEvents?: GitSyncProgressEvent[];
+  verificationError?: string;
   lastSynchronizationAt?: string | null;
   synchronizationMessage?: string;
   synchronizationError?: string;
@@ -96,15 +102,23 @@ const synchronized = computed(() => {
   const originHash = originMain.value?.latestCommit?.hash;
   if (!localHash || !originHash || localHash !== originHash) return false;
 
-  if (!hasPrimaryRemote.value) return true;
+  if (!hasPrimaryRemote.value || !upstreamMain.value) return true;
 
-  const primaryHash = upstreamMain.value?.latestCommit?.hash;
+  const primaryHash = upstreamMain.value.latestCommit?.hash;
   return Boolean(primaryHash && localHash === primaryHash);
 });
 
 const available = computed(
   () => Boolean(localMain.value) && hasOriginRemote.value,
 );
+
+const mainBusy = computed(() => props.busy && props.operation === 'main');
+
+const currentBranchBusy = computed(
+  () => props.busy && props.operation === 'current-branch',
+);
+
+const progressEvents = computed(() => props.progressEvents ?? []);
 
 const status = computed(() => {
   if (!props.workspace || props.checking) {
@@ -116,6 +130,18 @@ const status = computed(() => {
   if (!available.value) {
     return {
       label: 'Sincronização indisponível',
+      tone: 'warning',
+    };
+  }
+  if (mainBusy.value) {
+    return {
+      label: 'Sincronizando…',
+      tone: 'loading',
+    };
+  }
+  if (props.verificationError) {
+    return {
+      label: 'Verificação incompleta',
       tone: 'warning',
     };
   }
@@ -150,6 +176,12 @@ const currentBranchStatus = computed(() => {
       tone: 'warning',
     };
   }
+  if (currentBranchBusy.value) {
+    return {
+      label: 'Atualizando…',
+      tone: 'loading',
+    };
+  }
   if (!props.overview.clean) {
     return {
       label: 'Alterações locais pendentes',
@@ -181,14 +213,14 @@ const currentBranchStatus = computed(() => {
 });
 
 const buttonLabel = computed(() =>
-  props.busy ? 'Sincronizando…' : 'Iniciar sincronização',
+  mainBusy.value ? 'Sincronizando…' : 'Iniciar sincronização',
 );
 
 const buttonDisabled = computed(
   () =>
     props.busy ||
     props.checking ||
-    synchronized.value ||
+    (synchronized.value && !props.verificationError) ||
     !props.overview.clean ||
     !available.value,
 );
@@ -199,7 +231,7 @@ const currentBranchButtonDisabled = computed(
     props.checking ||
     !props.overview.clean ||
     !currentBranchRemote.value ||
-    currentBranchBehind.value <= 0,
+    (currentBranchBehind.value <= 0 && !props.verificationError),
 );
 
 const lastSynchronizationLabel = computed(() => {
@@ -209,29 +241,44 @@ const lastSynchronizationLabel = computed(() => {
   if (Number.isNaN(date.getTime())) return props.lastSynchronizationAt;
 
   return new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
+    dateStyle: 'short',
+    timeStyle: 'short',
   }).format(date);
 });
 
+const latestOperationEvent = computed(() =>
+  [...progressEvents.value]
+    .reverse()
+    .find((event) => event.stepId === 'operation'),
+);
+
 const consoleState = computed(() => {
   if (props.checking) return { label: 'Verificando', tone: 'loading' };
-  if (props.busy) return { label: 'Executando', tone: 'loading' };
+  if (props.operation) return { label: 'Executando', tone: 'loading' };
   if (props.synchronizationError) return { label: 'Falhou', tone: 'warning' };
-  if (props.lastSynchronizationAt)
+  if (latestOperationEvent.value?.status === 'error') {
+    return { label: 'Falhou', tone: 'warning' };
+  }
+  if (
+    props.synchronizationMessage ||
+    latestOperationEvent.value?.status === 'success'
+  ) {
     return { label: 'Concluída', tone: 'success' };
+  }
   return { label: 'Pronto', tone: 'idle' };
 });
 
 const consoleResult = computed(() => {
   if (props.checking) return 'Verificando referências remotas…';
-  if (props.busy) return 'Executando a sincronização da main…';
-  if (props.synchronizationError) return props.synchronizationError;
-  if (props.lastSynchronizationAt) {
-    return (
-      props.synchronizationMessage || 'Sincronização concluída com sucesso.'
-    );
+  if (props.operation === 'current-branch') {
+    return 'Atualizando a branch em uso…';
   }
+  if (props.operation === 'main') {
+    return 'Executando a sincronização da main…';
+  }
+  if (props.synchronizationError) return props.synchronizationError;
+  if (props.synchronizationMessage) return props.synchronizationMessage;
+  if (props.verificationError) return props.verificationError;
   if (synchronized.value) {
     return 'main e origin/main estão sincronizadas.';
   }
@@ -240,6 +287,32 @@ const consoleResult = computed(() => {
   }
   return 'Pronto para sincronizar main com origin/main.';
 });
+
+const consoleCanClear = computed(
+  () =>
+    progressEvents.value.length > 0 ||
+    Boolean(props.synchronizationMessage) ||
+    Boolean(props.synchronizationError),
+);
+
+function formatEventTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
+}
+
+function progressIcon(status: GitSyncProgressStatus) {
+  if (status === 'running') return ArrowPathIcon;
+  if (status === 'error' || status === 'warning') {
+    return ExclamationTriangleIcon;
+  }
+  if (status === 'info') return CommandLineIcon;
+  return CheckCircleIcon;
+}
 
 function statusIcon(tone: string) {
   if (tone === 'warning') return ExclamationTriangleIcon;
@@ -301,7 +374,7 @@ function statusIcon(tone: string) {
 
         <button
           class="primary-button git-sync-button git-sync-primary-button"
-          :class="{ 'is-busy': busy }"
+          :class="{ 'is-busy': mainBusy }"
           type="button"
           :disabled="buttonDisabled"
           @click="emit('synchronize')"
@@ -360,13 +433,13 @@ function statusIcon(tone: string) {
 
       <button
         class="secondary-button git-sync-button git-sync-current-button"
-        :class="{ 'is-busy': busy }"
+        :class="{ 'is-busy': currentBranchBusy }"
         type="button"
         :disabled="currentBranchButtonDisabled"
         @click="emit('update-current-branch')"
       >
         <ArrowPathIcon aria-hidden="true" />
-        {{ busy ? 'Atualizando…' : 'Atualizar local' }}
+        {{ currentBranchBusy ? 'Atualizando…' : 'Atualizar local' }}
       </button>
     </section>
 
@@ -393,11 +466,7 @@ function statusIcon(tone: string) {
           <button
             type="button"
             class="git-sync-console-clear"
-            :disabled="
-              busy ||
-              checking ||
-              (!lastSynchronizationAt && !synchronizationError)
-            "
+            :disabled="busy || checking || !consoleCanClear"
             @click="emit('clear-console')"
           >
             Limpar
@@ -411,19 +480,50 @@ function statusIcon(tone: string) {
         aria-live="polite"
         aria-label="Resultado da sincronização"
       >
-        <component
-          :is="
-            busy || checking
-              ? ArrowPathIcon
-              : synchronizationError
-                ? ExclamationTriangleIcon
-                : CheckCircleIcon
-          "
-          :class="{ 'is-spinning': busy || checking }"
-          aria-hidden="true"
-        />
-        <span>{{ consoleResult }}</span>
-        <time v-if="lastSynchronizationAt">{{ lastSynchronizationLabel }}</time>
+        <div v-if="progressEvents.length" class="git-sync-console-lines">
+          <div
+            v-for="event in progressEvents"
+            :key="`${event.runId}:${event.stepId}`"
+            class="git-sync-console-line"
+            :class="`is-${event.status}`"
+          >
+            <component
+              :is="progressIcon(event.status)"
+              :class="{ 'is-spinning': event.status === 'running' }"
+              aria-hidden="true"
+            />
+            <div>
+              <code v-if="event.command">$ {{ event.command }}</code>
+              <span>{{ event.message }}</span>
+            </div>
+            <time>{{ formatEventTime(event.occurredAt) }}</time>
+          </div>
+
+          <div
+            v-if="synchronizationError"
+            class="git-sync-console-line is-error"
+          >
+            <ExclamationTriangleIcon aria-hidden="true" />
+            <div>
+              <span>{{ synchronizationError }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="git-sync-console-placeholder">
+          <component
+            :is="
+              busy || checking
+                ? ArrowPathIcon
+                : synchronizationError || verificationError
+                  ? ExclamationTriangleIcon
+                  : CheckCircleIcon
+            "
+            :class="{ 'is-spinning': busy || checking }"
+            aria-hidden="true"
+          />
+          <span>{{ consoleResult }}</span>
+        </div>
       </div>
     </section>
   </section>
@@ -778,14 +878,10 @@ function statusIcon(tone: string) {
 }
 
 .git-sync-console-output {
-  display: grid;
   min-height: 0;
   flex: 1 1 auto;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-content: start;
-  align-items: center;
-  gap: 9px;
-  padding: 16px 14px;
+  padding: 12px 14px;
+  overflow: auto;
   color: var(--text-muted);
   background: var(--surface-0);
   font-family: var(--font-family-code);
@@ -793,15 +889,54 @@ function statusIcon(tone: string) {
   line-height: 1.5;
 }
 
-.git-sync-console-output > svg {
+.git-sync-console-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.git-sync-console-line,
+.git-sync-console-placeholder {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  padding: 5px 0;
+}
+
+.git-sync-console-line > svg,
+.git-sync-console-placeholder > svg {
   width: 15px;
   height: 15px;
+  margin-top: 1px;
   color: var(--success-text);
 }
 
-.git-sync-console-output > svg.is-spinning {
+.git-sync-console-line > svg.is-spinning,
+.git-sync-console-placeholder > svg.is-spinning {
   color: var(--accent);
   animation: git-sync-spin 0.8s linear infinite;
+}
+
+.git-sync-console-line.is-warning > svg,
+.git-sync-console-line.is-error > svg {
+  color: var(--warning-text);
+}
+
+.git-sync-console-line > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.git-sync-console-line code {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.git-sync-console-line span {
+  color: var(--text-muted);
 }
 
 .git-sync-console-output time {
@@ -836,7 +971,8 @@ function statusIcon(tone: string) {
   .git-sync-button.is-busy svg,
   .git-sync-main-icon.is-loading svg,
   .git-sync-status.is-loading svg,
-  .git-sync-console-output > svg.is-spinning,
+  .git-sync-console-line > svg.is-spinning,
+  .git-sync-console-placeholder > svg.is-spinning,
   .git-sync-console-state.is-loading i {
     animation: none;
   }
@@ -878,7 +1014,8 @@ function statusIcon(tone: string) {
     justify-content: flex-end;
   }
 
-  .git-sync-console-output {
+  .git-sync-console-line,
+  .git-sync-console-placeholder {
     grid-template-columns: auto minmax(0, 1fr);
   }
 

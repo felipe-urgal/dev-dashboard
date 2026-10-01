@@ -21,6 +21,7 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
 interface RepositoryFixture {
   root: string;
   local: string;
+  upstream: string;
   origin: string;
   source: string;
   cleanup: () => Promise<void>;
@@ -59,6 +60,7 @@ async function createFixture(): Promise<RepositoryFixture> {
   return {
     root,
     local,
+    upstream,
     origin,
     source,
     cleanup: () => rm(root, { recursive: true, force: true }),
@@ -141,10 +143,12 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
       fixture.local,
       'project-1',
     );
+    const progress: Array<{ command?: string; status: string }> = [];
     const result = await service.synchronizeMain(
       fixture.local,
       'project-1',
       confirmation.token,
+      (event) => progress.push(event),
     );
 
     assert.equal(confirmation.reference, 'upstream/main');
@@ -152,7 +156,10 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
     assert.equal(result.reference, 'upstream/main');
     assert.equal(result.strategy, 'merge');
     assert.equal(result.changed, true);
-    assert.equal(await git(fixture.local, 'branch', '--show-current'), 'main');
+    assert.equal(
+      await git(fixture.local, 'branch', '--show-current'),
+      'feature/sync',
+    );
     assert.equal(
       await git(fixture.local, 'rev-parse', 'main'),
       await git(fixture.local, 'rev-parse', 'upstream/main'),
@@ -163,6 +170,20 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
     );
     assert.equal(result.impact.previousSha, result.previousHead);
     assert.equal(result.impact.currentSha, result.currentHead);
+    assert.deepEqual(
+      [
+        ...new Set(
+          progress.flatMap((event) => (event.command ? [event.command] : [])),
+        ),
+      ],
+      [
+        'git fetch --prune upstream',
+        'git checkout main',
+        'git merge --no-edit upstream/main',
+        'git push origin main:main',
+        'git checkout feature/sync',
+      ],
+    );
   } finally {
     await fixture.cleanup();
   }
@@ -199,7 +220,10 @@ test('sincroniza a main usando origin/main quando upstream não está configurad
     assert.equal(confirmation.reference, 'origin/main');
     assert.equal(result.reference, 'origin/main');
     assert.equal(result.changed, true);
-    assert.equal(await git(fixture.local, 'branch', '--show-current'), 'main');
+    assert.equal(
+      await git(fixture.local, 'branch', '--show-current'),
+      'feature/sync',
+    );
     assert.equal(
       await git(fixture.local, 'rev-parse', 'main'),
       await git(fixture.origin, 'rev-parse', 'main'),
@@ -232,6 +256,40 @@ test('bloqueia integração quando o working tree está alterado', async () => {
       (error: unknown) =>
         error instanceof GitSyncError &&
         error.code === 'GIT_WORKING_TREE_DIRTY',
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test('usa origin/main quando upstream configurado não possui main', async () => {
+  const fixture = await createFixture();
+  const service = new GitSyncService();
+
+  try {
+    await git(
+      fixture.root,
+      '--git-dir',
+      fixture.upstream,
+      'update-ref',
+      '-d',
+      'refs/heads/main',
+    );
+
+    const confirmation = await service.prepareMainConfirmation(
+      fixture.local,
+      'project-upstream-without-main',
+    );
+    const result = await service.synchronizeMain(
+      fixture.local,
+      'project-upstream-without-main',
+      confirmation.token,
+    );
+
+    assert.equal(result.reference, 'origin/main');
+    assert.equal(
+      await git(fixture.local, 'branch', '--show-current'),
+      'feature/sync',
     );
   } finally {
     await fixture.cleanup();

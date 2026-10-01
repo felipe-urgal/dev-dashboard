@@ -285,3 +285,68 @@ test('branch divergente permite atualização segura por rebase', async () => {
   await update.trigger('click');
   assert.equal(wrapper.emitted('update-current-branch')?.length, 1);
 });
+
+test('separa loading da main e da branch atual', () => {
+  const branchName = 'feature/estado';
+  const branchOverview: ProjectGitOverview = {
+    ...overview,
+    branch: branchName,
+    upstream: `origin/${branchName}`,
+    behind: 1,
+  };
+  const branchWorkspace: ProjectGitWorkspace = {
+    ...workspace,
+    branches: [
+      ...workspace.branches.map((branch) =>
+        branch.name === 'main' ? { ...branch, current: false } : branch,
+      ),
+      {
+        name: branchName,
+        shortName: branchName,
+        kind: 'local',
+        current: true,
+        upstream: `origin/${branchName}`,
+        ahead: 0,
+        behind: 1,
+        latestCommit: commit,
+      },
+    ],
+  };
+
+  const wrapper = mount(ProjectGitSyncPage, {
+    props: {
+      overview: branchOverview,
+      workspace: branchWorkspace,
+      busy: true,
+      operation: 'current-branch',
+      checking: false,
+    },
+  });
+
+  const mainButton = wrapper.find('.git-sync-main-card .git-sync-button');
+  const currentButton = wrapper.find('.git-sync-current-card .git-sync-button');
+
+  assert.equal(mainButton.classes('is-busy'), false);
+  assert.doesNotMatch(mainButton.text(), /Sincronizando/);
+  assert.equal(currentButton.classes('is-busy'), true);
+  assert.match(currentButton.text(), /Atualizando/);
+});
+
+test('não afirma sincronização completa quando a verificação remota falha', () => {
+  const wrapper = mount(ProjectGitSyncPage, {
+    props: {
+      overview,
+      workspace,
+      busy: false,
+      checking: false,
+      verificationError: 'Falha ao verificar referências.',
+    },
+  });
+
+  assert.match(wrapper.text(), /Verificação incompleta/);
+  assert.doesNotMatch(wrapper.text(), /Tudo sincronizado/);
+  assert.equal(
+    wrapper.find('.git-sync-main-card .git-sync-button').attributes('disabled'),
+    undefined,
+  );
+});
