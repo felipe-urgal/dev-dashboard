@@ -368,12 +368,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(dependencyHealthRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     dependencyHealthService,
   });
 
   app.register(dependencyUpgradePlanRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     dependencyUpgradePlanService,
   });
 
