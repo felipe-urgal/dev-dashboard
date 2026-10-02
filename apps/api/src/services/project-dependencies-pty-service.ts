@@ -39,8 +39,7 @@ export class ProjectDependenciesPtyError extends Error {
   }
 }
 
-export interface ProjectDependenciesPtySnapshot
-  extends DetachableExecutionSnapshot {
+export interface ProjectDependenciesPtySnapshot extends DetachableExecutionSnapshot {
   actionId: string;
   actionName: string;
   environmentInstanceId: string;
@@ -203,7 +202,10 @@ function dependencyExecutionId(action: RunningDependencyAction): string {
 
 export class ProjectDependenciesPtyService {
   private readonly runningAction = new Map<string, RunningDependencyAction>();
-  private readonly confirmations = new Map<string, StoredDependencyConfirmation>();
+  private readonly confirmations = new Map<
+    string,
+    StoredDependencyConfirmation
+  >();
 
   public constructor(
     private readonly detachable: DetachableExecutionService,
@@ -232,7 +234,11 @@ export class ProjectDependenciesPtyService {
     executionContext: ExecutionContext,
   ): Promise<ProjectDependenciesPtyConfirmation> {
     this.pruneConfirmations();
-    const action = await this.resolveAction(project, actionId, executionContext);
+    const action = await this.resolveAction(
+      project,
+      actionId,
+      executionContext,
+    );
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
     this.confirmations.set(token, {
@@ -258,7 +264,11 @@ export class ProjectDependenciesPtyService {
     confirmationToken?: string,
   ): Promise<ProjectDependenciesPtySnapshot> {
     const scopedProject = projectForExecution(project, executionContext);
-    const action = await this.resolveAction(project, actionId, executionContext);
+    const action = await this.resolveAction(
+      project,
+      actionId,
+      executionContext,
+    );
     if (action.risk !== 'read-only') {
       this.consumeConfirmation(
         project.id,
@@ -363,7 +373,8 @@ export class ProjectDependenciesPtyService {
     if (!action) {
       sendJson(socket, {
         type: 'error',
-        message: 'A identidade da execução de dependências não está disponível.',
+        message:
+          'A identidade da execução de dependências não está disponível.',
       });
       handle.detach();
       socket.close(1011, 'Identidade da execução indisponível');

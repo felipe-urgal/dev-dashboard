@@ -3,17 +3,9 @@ import type { BundlerOverview } from '@dev-dashboard/contracts';
 import { requestJson } from './core';
 
 export type DependencyPackageManager =
-  | 'npm'
-  | 'pnpm'
-  | 'yarn'
-  | 'bun'
-  | 'unknown';
+  'npm' | 'pnpm' | 'yarn' | 'bun' | 'unknown';
 export type DependencyUpdateKind =
-  | 'none'
-  | 'patch'
-  | 'minor'
-  | 'major'
-  | 'unknown';
+  'none' | 'patch' | 'minor' | 'major' | 'unknown';
 
 export interface ProjectDependencyInventoryEntry {
   name: string;
@@ -39,11 +31,7 @@ export interface ProjectDependencyMetadata {
 export interface ProjectDependencyAdvisory {
   name: string;
   state:
-    | 'available'
-    | 'partial'
-    | 'unknown-version'
-    | 'unavailable'
-    | 'invalid';
+    'available' | 'partial' | 'unknown-version' | 'unavailable' | 'invalid';
   source: 'osv';
   observedAt: string;
   resolvedVersion?: string;
