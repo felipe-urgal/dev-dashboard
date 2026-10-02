@@ -15,7 +15,7 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 import { captureTestExecutionGitIdentity } from './test-execution-identity.js';
 
-const HISTORY_VERSION = 3;
+const HISTORY_VERSION = 4;
 const DEFAULT_HISTORY_LIMIT = 50;
 const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'starting',
@@ -23,6 +23,7 @@ const OPEN_STATUSES: readonly TestExecutionStatus[] = [
   'stopping',
 ];
 const FILE_SUFFIX = ':file';
+const RELATED_SUFFIX = ':related';
 const NAME_PATTERN_FLAGS = new Set(['-t', '--test-name-pattern']);
 
 const SUBSCRIBER_LIMIT_PER_PROJECT = 5;
@@ -56,7 +57,7 @@ type StoredTestExecutionRecord = Omit<ScopedTestExecutionRecord, 'scope'> & {
 };
 
 interface StoredHistory {
-  version: 1 | 2 | 3;
+  version: 1 | 2 | 3 | 4;
   items: StoredTestExecutionRecord[];
 }
 
@@ -81,6 +82,11 @@ function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
     isOptionalString(item.gitRevision) &&
     isOptionalString(item.gitDirtyFingerprint) &&
     isOptionalString(item.environmentInstanceId) &&
+    (item.engine === undefined || item.engine === 'process' || item.engine === 'pty') &&
+    (item.cancelled === undefined || typeof item.cancelled === 'boolean') &&
+    (item.targetFiles === undefined ||
+      (Array.isArray(item.targetFiles) &&
+        item.targetFiles.every((entry) => typeof entry === 'string'))) &&
     ['starting', 'running', 'stopping', 'stopped', 'failed'].includes(
       String(item.status),
     ) &&
@@ -122,6 +128,13 @@ function deriveTarget(managedProcess: ManagedProcess): {
   const rawId = managedProcess.id.startsWith(prefix)
     ? managedProcess.id.slice(prefix.length)
     : managedProcess.id;
+
+  if (rawId.endsWith(RELATED_SUFFIX)) {
+    return {
+      commandId: rawId.slice(0, -RELATED_SUFFIX.length),
+      scope: 'targeted',
+    };
+  }
 
   if (!rawId.endsWith(FILE_SUFFIX)) {
     return { commandId: rawId, scope: 'full-suite' };
@@ -340,6 +353,7 @@ export class TestExecutionHistoryService {
     const items = await this.load(projectId);
     const openIndex = items.findIndex(
       (item) =>
+        (item.engine ?? 'process') === 'process' &&
         OPEN_STATUSES.includes(item.status) &&
         (environmentInstanceId === undefined
           ? item.environmentInstanceId === undefined
@@ -395,6 +409,7 @@ export class TestExecutionHistoryService {
       projectId,
       commandId,
       scope,
+      engine: 'process',
       ...(targetFile ? { targetFile } : {}),
       ...(managedProcess.environmentInstanceId
         ? { environmentInstanceId: managedProcess.environmentInstanceId }
@@ -405,6 +420,115 @@ export class TestExecutionHistoryService {
     };
     items.unshift(record);
     await this.save(projectId, items.slice(0, this.historyLimit));
+  }
+
+  public async recordPtyStart(
+    projectId: string,
+    input: {
+      commandId: string;
+      environmentInstanceId: string;
+      cwd: string;
+      startedAt: string;
+      scope: TestExecutionScope;
+      targetFiles?: string[];
+    },
+  ): Promise<string> {
+    const items = await this.load(projectId);
+    const gitIdentity = await captureTestExecutionGitIdentity(input.cwd);
+    const record: ScopedTestExecutionRecord = {
+      id: randomUUID(),
+      projectId,
+      commandId: input.commandId,
+      scope: input.scope,
+      engine: 'pty',
+      environmentInstanceId: input.environmentInstanceId,
+      ...(input.targetFiles?.length
+        ? {
+            targetFiles: [...input.targetFiles],
+            ...(input.targetFiles.length === 1
+              ? { targetFile: input.targetFiles[0] }
+              : {}),
+          }
+        : {}),
+      ...gitIdentity,
+      status: 'running',
+      startedAt: input.startedAt,
+    };
+    items.unshift(record);
+    await this.save(projectId, items.slice(0, this.historyLimit));
+    return record.id;
+  }
+
+  public async recordPtyFinish(
+    projectId: string,
+    executionId: string,
+    result: {
+      exitCode: number | null;
+      finishedAt: string;
+      cancelled?: boolean;
+    },
+  ): Promise<void> {
+    const items = await this.load(projectId);
+    const index = items.findIndex((item) => item.id === executionId);
+    if (index === -1) return;
+    const current = items[index]!;
+    items[index] = {
+      ...current,
+      status:
+        result.cancelled || result.exitCode !== null ? 'stopped' : 'failed',
+      finishedAt: result.finishedAt,
+      ...(result.exitCode !== null ? { exitCode: result.exitCode } : {}),
+      ...(result.cancelled ? { cancelled: true } : {}),
+    };
+    await this.save(projectId, items);
+  }
+
+  public async reconcilePty(
+    projectId: string,
+    environmentInstanceId: string,
+    snapshot:
+      | {
+          status: 'running' | 'exited';
+          startedAt: string;
+          endedAt: string | null;
+          exitCode: number | null;
+          cancelled?: boolean;
+        }
+      | null,
+  ): Promise<void> {
+    const items = await this.load(projectId);
+    let changed = false;
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]!;
+      if (
+        item.engine !== 'pty' ||
+        item.environmentInstanceId !== environmentInstanceId ||
+        !OPEN_STATUSES.includes(item.status)
+      ) {
+        continue;
+      }
+      if (snapshot?.status === 'running' && item.startedAt === snapshot.startedAt) {
+        continue;
+      }
+      if (snapshot?.status === 'exited' && item.startedAt === snapshot.startedAt) {
+        items[index] = {
+          ...item,
+          status:
+            snapshot.cancelled || snapshot.exitCode !== null ? 'stopped' : 'failed',
+          finishedAt: snapshot.endedAt ?? new Date().toISOString(),
+          ...(snapshot.exitCode !== null ? { exitCode: snapshot.exitCode } : {}),
+          ...(snapshot.cancelled ? { cancelled: true } : {}),
+        };
+      } else {
+        items[index] = {
+          ...item,
+          status: 'failed',
+          finishedAt: new Date().toISOString(),
+        };
+      }
+      changed = true;
+    }
+    if (changed) await this.save(projectId, items);
   }
 
   public async history(
@@ -462,8 +586,8 @@ export class TestExecutionHistoryService {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
       if (
-        !([1, 2, HISTORY_VERSION] as const).includes(
-          parsed.version as 1 | 2 | 3,
+        !([1, 2, 3, HISTORY_VERSION] as const).includes(
+          parsed.version as 1 | 2 | 3 | 4,
         ) ||
         !Array.isArray(parsed.items)
       ) {
