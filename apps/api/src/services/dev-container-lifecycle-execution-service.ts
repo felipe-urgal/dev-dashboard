@@ -190,10 +190,10 @@ export class DevContainerLifecycleExecutionService {
         'Nenhuma operação Dev Container ativa foi encontrada neste ambiente.',
       );
     }
-    if (!record.abortController) {
+    if (!record.abortController || !record.snapshot.cancelSupported) {
       throw new DevContainerLifecycleExecutionError(
         'DEV_CONTAINER_EXECUTION_NOT_CANCELABLE',
-        'Esta etapa de cleanup não pode ser cancelada com segurança.',
+        'Esta etapa do lifecycle não pode ser cancelada com segurança.',
       );
     }
 
@@ -247,6 +247,10 @@ export class DevContainerLifecycleExecutionService {
       if (snapshot.operation === 'create' || snapshot.operation === 'rebuild') {
         const onStage = (stage: string): void => {
           snapshot.stage = stage;
+          snapshot.cancelSupported =
+            Boolean(record.abortController) &&
+            stage !== 'cleaning-current-runtime' &&
+            stage !== 'rolling-back';
         };
         const input = {
           environmentInstanceId: snapshot.environmentInstanceId,
@@ -286,7 +290,15 @@ export class DevContainerLifecycleExecutionService {
       snapshot.cancelSupported = false;
       await this.recordActivity(snapshot, 'succeeded');
     } catch (error) {
+      const errorCode =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code ?? '')
+          : '';
+      const rollbackFailed =
+        errorCode === 'DEV_CONTAINER_START_ROLLBACK_FAILED' ||
+        errorCode === 'DEV_CONTAINER_REBUILD_ROLLBACK_FAILED';
       const cancelled =
+        !rollbackFailed &&
         record.cancelRequested &&
         record.abortController?.signal.aborted === true;
       snapshot.status = cancelled ? 'cancelled' : 'failed';
