@@ -8,6 +8,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { devContainerRoutes } from '../src/routes/dev-container.js';
 import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
+import type { DevContainerLifecycleExecutionSnapshot } from '../src/services/dev-container-lifecycle-execution-service.js';
 import type { DevContainerLifecyclePreflight } from '../src/services/dev-container-lifecycle-planning-service.js';
 import {
   DevContainerRebuildError,
@@ -710,12 +711,12 @@ test('Dev Container start preserva erro sanitizado de confirmação como conflit
 
 test('Dev Container lifecycle execution expõe start assíncrono, status e cancel', async (context) => {
   const calls: string[] = [];
-  let current = {
+  let current: DevContainerLifecycleExecutionSnapshot = {
     id: 'execution-1',
     projectId: project.id,
     environmentInstanceId: 'environment:primary:project-1',
-    operation: 'create' as const,
-    status: 'queued' as const,
+    operation: 'create',
+    status: 'queued',
     stage: 'queued',
     cancelSupported: true,
     startedAt: '2026-10-02T10:00:00.000Z',
