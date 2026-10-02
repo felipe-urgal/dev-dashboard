@@ -138,18 +138,20 @@ export function createExecutionContextDomain(
   const scriptDetectionService = new ScriptDetectionService();
   const testDetectionService = new TestDetectionService();
   const detachableExecutionService = new DetachableExecutionService();
+  const testExecutionHistoryService = new TestExecutionHistoryService(
+    processManager,
+  );
 
   return {
     scriptDetectionService,
     scriptExecutionService: new ScriptExecutionService(scriptDetectionService),
     testDetectionService,
-    testExecutionHistoryService: new TestExecutionHistoryService(
-      processManager,
-    ),
+    testExecutionHistoryService,
     detachableExecutionService,
     projectTestPtyService: new ProjectTestPtyService(
       detachableExecutionService,
       testDetectionService,
+      testExecutionHistoryService,
     ),
     railsInspectionService: new RailsInspectionService(),
     railsMigrationPtyService: new RailsMigrationPtyService(
