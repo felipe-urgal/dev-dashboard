@@ -19,6 +19,10 @@ interface EnvironmentQuery {
 
 interface StartBody {
   commandId: string;
+  mode?: 'full-suite' | 'file' | 'related';
+  path?: string;
+  line?: number;
+  namePattern?: string;
 }
 
 export type TestPtyRouteOptions = TestRouteOptions & {
@@ -39,15 +43,35 @@ const startBodySchema = {
   required: ['commandId'],
   properties: {
     commandId: { type: 'string', minLength: 1, maxLength: 200 },
+    mode: { type: 'string', enum: ['full-suite', 'file', 'related'] },
+    path: { type: 'string', minLength: 1, maxLength: 2048 },
+    line: { type: 'integer', minimum: 1, maximum: 1_000_000 },
+    namePattern: { type: 'string', minLength: 1, maxLength: 200 },
   },
 } as const;
 
 const snapshotSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['status', 'exitCode', 'exitSignal', 'startedAt', 'endedAt'],
+  required: [
+    'status',
+    'exitCode',
+    'exitSignal',
+    'startedAt',
+    'endedAt',
+    'commandId',
+    'environmentInstanceId',
+    'scope',
+    'targetFiles',
+    'cancelled',
+  ],
   properties: {
     status: { type: 'string', enum: ['running', 'exited'] },
+    commandId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    scope: { type: 'string', enum: ['full-suite', 'targeted'] },
+    targetFiles: { type: 'array', items: { type: 'string' } },
+    cancelled: { type: 'boolean' },
     exitCode: { type: ['integer', 'null'] },
     exitSignal: { type: ['integer', 'null'] },
     startedAt: { type: 'string' },
@@ -72,6 +96,8 @@ const PTY_ERROR_RESPONSE: Record<
   TEST_COMMAND_NOT_FOUND: { statusCode: 404, code: 'TEST_COMMAND_NOT_FOUND' },
   ALREADY_RUNNING: { statusCode: 409, code: 'TEST_PTY_ALREADY_RUNNING' },
   RUNTIME_UNSUPPORTED: { statusCode: 409, code: 'TEST_PTY_START_FAILED' },
+  TARGET_INVALID: { statusCode: 400, code: 'TEST_PTY_START_FAILED' },
+  NO_RELATED_TESTS: { statusCode: 409, code: 'TEST_PTY_START_FAILED' },
   START_FAILED: { statusCode: 500, code: 'TEST_PTY_START_FAILED' },
 };
 
@@ -85,8 +111,6 @@ function resolveExecutionContext(
   projectId: string,
   environmentInstanceId?: string,
 ) {
-  if (environmentInstanceId === undefined) return undefined;
-
   const executionContext = store.resolveForProject(
     projectId,
     environmentInstanceId,
@@ -174,7 +198,7 @@ export function registerTestPtyRoutes(
       try {
         const snapshot = await projectTestPtyService.start(
           project,
-          request.body.commandId,
+          request.body,
           executionContext,
         );
         return reply.code(201).send({ snapshot });
