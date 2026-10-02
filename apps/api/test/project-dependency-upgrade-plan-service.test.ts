@@ -24,6 +24,7 @@ const health: ProjectDependencyHealthSnapshot = {
     packageManager: 'npm',
     observedAt: '2026-09-19T17:59:00.000Z',
     lockfile: 'present',
+    lockfileName: 'package-lock.json',
     lockfileVersion: 3,
     dependencies: [
       {
@@ -321,4 +322,37 @@ test('inventário indisponível não produz plano falso', async () => {
   assert.deepEqual(plan.items, []);
   assert.deepEqual(plan.groups, []);
   assert.deepEqual(plan.warnings, ['inventário indisponível']);
+});
+
+
+test('planner aponta o lockfile real do gerenciador detectado', async () => {
+  const pnpmHealth: ProjectDependencyHealthSnapshot = {
+    ...health,
+    inventory: {
+      ...health.inventory,
+      packageManager: 'pnpm',
+      lockfileName: 'pnpm-lock.yaml',
+      lockfileVersion: 9,
+      dependencies: health.inventory.dependencies.filter(
+        (item) => item.name === 'vue',
+      ),
+    },
+    metadata: health.metadata.filter((item) => item.name === 'vue'),
+    advisories: health.advisories.filter((item) => item.name === 'vue'),
+  };
+  const service = new ProjectDependencyUpgradePlanService({
+    dependencyHealthService: { inspect: async () => pnpmHealth },
+  });
+
+  const plan = await service.inspect(project);
+
+  assert.equal(plan.packageManager, 'pnpm');
+  assert.deepEqual(plan.items[0]?.affectedFiles, [
+    'package.json',
+    'pnpm-lock.yaml',
+  ]);
+  assert.deepEqual(plan.groups[0]?.affectedFiles, [
+    'package.json',
+    'pnpm-lock.yaml',
+  ]);
 });
