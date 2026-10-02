@@ -17,7 +17,13 @@ import type {
 export type DependencyUpgradePlanStatus = 'ready' | 'partial' | 'unavailable';
 export type DependencyUpgradeItemState = 'upgrade' | 'current' | 'unknown';
 export type DependencyUpgradeAffectedFile =
-  'package.json' | 'package-lock.json';
+  | 'package.json'
+  | 'package-lock.json'
+  | 'npm-shrinkwrap.json'
+  | 'pnpm-lock.yaml'
+  | 'yarn.lock'
+  | 'bun.lock'
+  | 'bun.lockb';
 export type DependencyUpgradeGate =
   | 'resolve-current-version'
   | 'refresh-metadata'
@@ -53,7 +59,7 @@ export interface DependencyUpgradePlanGroup {
 export interface ProjectDependencyUpgradePlan {
   generatedAt: string;
   projectId: string;
-  packageManager: 'npm';
+  packageManager: NodeDependencyInventory['packageManager'];
   status: DependencyUpgradePlanStatus;
   items: DependencyUpgradePlanItem[];
   groups: DependencyUpgradePlanGroup[];
@@ -79,9 +85,13 @@ function currentVersion(
 function affectedFiles(
   inventory: NodeDependencyInventory,
 ): DependencyUpgradeAffectedFile[] {
-  return inventory.lockfile === 'present'
-    ? ['package.json', 'package-lock.json']
-    : ['package.json'];
+  if (inventory.lockfile !== 'present' || !inventory.lockfileName) {
+    return ['package.json'];
+  }
+  return [
+    'package.json',
+    inventory.lockfileName as DependencyUpgradeAffectedFile,
+  ];
 }
 
 function findMetadata(
