@@ -59,6 +59,23 @@ export class DevContainerRecoveryService {
   ) {}
 
   public async reconcile(): Promise<DevContainerRecoverySummary> {
+    return this.reconcileMatching(() => true);
+  }
+
+  public async reconcileProject(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): Promise<DevContainerRecoverySummary> {
+    return this.reconcileMatching(
+      (instance) =>
+        instance.projectId === projectId &&
+        (!environmentInstanceId || instance.id === environmentInstanceId),
+    );
+  }
+
+  private async reconcileMatching(
+    matches: (instance: DevelopmentEnvironmentInstance) => boolean,
+  ): Promise<DevContainerRecoverySummary> {
     const summary: DevContainerRecoverySummary = {
       inspected: 0,
       normalized: 0,
@@ -68,6 +85,7 @@ export class DevContainerRecoveryService {
 
     for (const instance of this.environmentStore.list()) {
       if (
+        !matches(instance) ||
         instance.lifecycle === 'degraded' ||
         (instance.runtime.kind === 'host' && instance.lifecycle === 'ready')
       ) {
