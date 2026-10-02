@@ -3,10 +3,7 @@ import path from 'node:path';
 
 export type NodePackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 export type NodePackageManagerDetectionState =
-  | 'detected'
-  | 'missing'
-  | 'conflict'
-  | 'unsupported';
+  'detected' | 'missing' | 'conflict' | 'unsupported';
 
 export interface NodePackageManagerDetection {
   state: NodePackageManagerDetectionState;
@@ -56,9 +53,7 @@ async function declaredPackageManager(
     ) as { packageManager?: unknown };
     if (typeof manifest.packageManager !== 'string') return undefined;
     const value = manifest.packageManager.trim();
-    const match = /^([a-zA-Z0-9._-]+)(?:@([^+\s]+)(?:\+\S+)?)?$/u.exec(
-      value,
-    );
+    const match = /^([a-zA-Z0-9._-]+)(?:@([^+\s]+)(?:\+\S+)?)?$/u.exec(value);
     if (!match?.[1]) return undefined;
     return {
       manager: match[1].toLowerCase(),

@@ -40,8 +40,7 @@ export async function resolveNodeManager(
   }
   throw new ScriptExecutionError(
     'SCRIPT_MANAGER_NOT_FOUND',
-    detection.diagnostic ??
-      'Nenhum gerenciador Node suportado foi encontrado.',
+    detection.diagnostic ?? 'Nenhum gerenciador Node suportado foi encontrado.',
   );
 }
 
