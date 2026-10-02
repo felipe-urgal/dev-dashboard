@@ -128,18 +128,30 @@ function lines(value: string | null): string[] {
 async function resolveBaseRef(
   projectPath: string,
 ): Promise<{ ref: string; label: string }> {
-  const originHead = await runGit(
-    projectPath,
-    ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
-    { allowFailure: true },
-  );
+  const [originHead, upstreamHead] = await Promise.all([
+    runGit(
+      projectPath,
+      ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
+      { allowFailure: true },
+    ),
+    runGit(
+      projectPath,
+      ['symbolic-ref', '--quiet', '--short', 'refs/remotes/upstream/HEAD'],
+      { allowFailure: true },
+    ),
+  ]);
   const candidates = [
-    'main',
     originHead,
+    upstreamHead,
     'origin/main',
-    'master',
-    'origin/master',
+    'main',
     'upstream/main',
+    'origin/master',
+    'master',
+    'upstream/master',
+    'origin/develop',
+    'develop',
+    'upstream/develop',
   ].filter((value): value is string => Boolean(value));
 
   for (const candidate of Array.from(new Set(candidates))) {
