@@ -27,6 +27,7 @@ export interface ProjectDependencyHealthSnapshot {
 
 export interface ProjectDependencyHealthServiceOptions {
   now?: () => Date;
+  cacheTtlMs?: number;
   inventoryService?: Pick<NodeDependencyInventoryService, 'inspect'>;
   runtimeDiscoveryService?: Pick<NodeRuntimeDiscoveryService, 'inspect'>;
   metadataService?: Pick<NpmDependencyMetadataService, 'enrich'>;
@@ -40,7 +41,7 @@ function unavailableInventory(
   return {
     status: 'unavailable',
     projectId: project.id,
-    packageManager: 'npm',
+    packageManager: 'unknown',
     observedAt,
     lockfile: 'missing',
     dependencies: [],
@@ -112,8 +113,15 @@ function unavailableAdvisories(
   });
 }
 
+const DEFAULT_CACHE_TTL_MS = 30_000;
+
 export class ProjectDependencyHealthService {
   private readonly now: () => Date;
+  private readonly cacheTtlMs: number;
+  private readonly cache = new Map<
+    string,
+    { expiresAt: number; value: Promise<ProjectDependencyHealthSnapshot> }
+  >();
   private readonly inventoryService: Pick<
     NodeDependencyInventoryService,
     'inspect'
@@ -133,6 +141,7 @@ export class ProjectDependencyHealthService {
 
   public constructor(options: ProjectDependencyHealthServiceOptions = {}) {
     this.now = options.now ?? (() => new Date());
+    this.cacheTtlMs = Math.max(0, options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS);
     this.inventoryService =
       options.inventoryService ?? new NodeDependencyInventoryService(this.now);
     this.runtimeDiscoveryService =
@@ -146,7 +155,29 @@ export class ProjectDependencyHealthService {
       new OsvDependencyAdvisoryService({ now: this.now });
   }
 
-  public async inspect(
+  public inspect(
+    project: Project,
+    options: { refresh?: boolean } = {},
+  ): Promise<ProjectDependencyHealthSnapshot> {
+    const key = `${project.id}\0${project.path}`;
+    const now = this.now().getTime();
+    const cached = this.cache.get(key);
+    if (!options.refresh && cached && cached.expiresAt > now) {
+      return cached.value;
+    }
+
+    const value = this.inspectFresh(project);
+    this.cache.set(key, {
+      expiresAt: now + this.cacheTtlMs,
+      value,
+    });
+    void value.catch(() => {
+      if (this.cache.get(key)?.value === value) this.cache.delete(key);
+    });
+    return value;
+  }
+
+  private async inspectFresh(
     project: Project,
   ): Promise<ProjectDependencyHealthSnapshot> {
     const generatedAt = this.now().toISOString();
