@@ -84,7 +84,8 @@ async function nodeScripts(project: Project): Promise<ProjectScript[]> {
           : `npm run ${name}`,
         origin: 'package-script',
         risk,
-        enabled: risk !== 'destructive',
+        enabled:
+          risk !== 'destructive' && (name !== 'build' || manager !== undefined),
       };
     });
 }

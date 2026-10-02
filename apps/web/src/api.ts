@@ -9,6 +9,7 @@ export * from './api/git-worktrees';
 export * from './api/tests';
 export * from './api/test-pty';
 export * from './api/dependencies-pty';
+export * from './api/dependencies';
 export * from './api/rails';
 export * from './api/database-explorer';
 export * from './api/project-environment';

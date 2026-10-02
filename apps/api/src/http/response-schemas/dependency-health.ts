@@ -29,12 +29,16 @@ const dependencyInventoryResponseSchema = {
       enum: ['ready', 'unavailable', 'invalid'],
     },
     projectId: { type: 'string' },
-    packageManager: { type: 'string', enum: ['npm'] },
+    packageManager: {
+      type: 'string',
+      enum: ['npm', 'pnpm', 'yarn', 'bun', 'unknown'],
+    },
     observedAt: { type: 'string' },
     lockfile: {
       type: 'string',
       enum: ['present', 'missing', 'unsupported', 'invalid'],
     },
+    lockfileName: { type: 'string' },
     lockfileVersion: { type: 'integer' },
     dependencies: {
       type: 'array',

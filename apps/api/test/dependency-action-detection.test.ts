@@ -94,3 +94,66 @@ test('projeto Rails com frontend recebe ações Bundler e Node', async () => {
     await rm(project.path, { recursive: true, force: true });
   }
 });
+
+test('usa packageManager declarado como fonte canônica e suporta Bun', async () => {
+  const project = await fixture('node');
+  try {
+    await writeFile(
+      path.join(project.path, 'package.json'),
+      JSON.stringify({
+        packageManager: 'bun@1.3.0',
+        scripts: { build: 'vite build' },
+      }),
+    );
+    await writeFile(path.join(project.path, 'bun.lock'), '');
+
+    const catalog = await new ScriptDetectionService().getCatalog(project);
+    const install = catalog.items.find(
+      (item) => item.id === 'package-manager:install',
+    );
+    const build = catalog.items.find(
+      (item) => item.id === 'package-script:build',
+    );
+
+    assert.equal(install?.command, 'bun install');
+    assert.equal(build?.command, 'bun run build');
+    assert.deepEqual(await resolveCommand(project, install!), {
+      command: 'bun',
+      args: ['install'],
+    });
+    assert.deepEqual(await resolveCommand(project, build!), {
+      command: 'bun',
+      args: ['run', 'build'],
+    });
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('não anuncia build executável quando packageManager e lockfile conflitam', async () => {
+  const project = await fixture('node');
+  try {
+    await writeFile(
+      path.join(project.path, 'package.json'),
+      JSON.stringify({
+        packageManager: 'pnpm@10.0.0',
+        scripts: { build: 'vite build' },
+      }),
+    );
+    await writeFile(path.join(project.path, 'yarn.lock'), '# yarn');
+
+    const catalog = await new ScriptDetectionService().getCatalog(project);
+    const install = catalog.items.find(
+      (item) => item.id === 'package-manager:install',
+    );
+    const build = catalog.items.find(
+      (item) => item.id === 'package-script:build',
+    );
+
+    assert.equal(install, undefined);
+    assert.equal(build?.enabled, false);
+    await assert.rejects(() => resolveCommand(project, build!));
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});

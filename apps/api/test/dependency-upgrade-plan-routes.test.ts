@@ -21,6 +21,22 @@ const project: Project = {
   capabilities: [],
 };
 
+const developmentEnvironmentInstanceStore = {
+  resolveForProject: (projectId: string, environmentInstanceId?: string) =>
+    projectId === project.id
+      ? {
+          projectId,
+          environmentInstanceId:
+            environmentInstanceId ?? `environment:primary:${projectId}`,
+          cwd:
+            environmentInstanceId === 'environment:worktree:project-1:wt-1'
+              ? '/workspace/project-1-worktree'
+              : project.path,
+          runtime: 'host' as const,
+        }
+      : null,
+};
+
 const plan: ProjectDependencyUpgradePlan = {
   generatedAt: '2026-09-19T18:10:00.000Z',
   projectId: project.id,
@@ -69,9 +85,10 @@ test('Upgrade Planner HTTP seleciona projeto no backend e retorna 404 determiní
   app.register(dependencyUpgradePlanRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyUpgradePlanService: {
       inspect: async (selectedProject) => {
-        calls.push(selectedProject.id);
+        calls.push(`${selectedProject.id}:${selectedProject.path}`);
         return plan;
       },
     },
@@ -85,7 +102,14 @@ test('Upgrade Planner HTTP seleciona projeto no backend e retorna 404 determiní
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { plan });
-  assert.deepEqual(calls, ['project-1']);
+  assert.deepEqual(calls, ['project-1:/workspace/project-1']);
+
+  const worktree = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/dependency-upgrade-plan?environmentInstanceId=environment%3Aworktree%3Aproject-1%3Awt-1',
+  });
+  assert.equal(worktree.statusCode, 200);
+  assert.equal(calls.at(-1), 'project-1:/workspace/project-1-worktree');
 
   const missing = await app.inject({
     method: 'GET',
@@ -93,7 +117,10 @@ test('Upgrade Planner HTTP seleciona projeto no backend e retorna 404 determiní
   });
   assert.equal(missing.statusCode, 404);
   assert.equal(missing.json<{ error: string }>().error, 'PROJECT_NOT_FOUND');
-  assert.deepEqual(calls, ['project-1']);
+  assert.deepEqual(calls, [
+    'project-1:/workspace/project-1',
+    'project-1:/workspace/project-1-worktree',
+  ]);
 });
 
 test('Upgrade Planner response schema remove campos não públicos', async (context) => {
@@ -110,6 +137,7 @@ test('Upgrade Planner response schema remove campos não públicos', async (cont
   app.register(dependencyUpgradePlanRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyUpgradePlanService: {
       inspect: async () =>
         ({

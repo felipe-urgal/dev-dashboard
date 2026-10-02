@@ -113,6 +113,20 @@ function executionContext(
   };
 }
 
+async function startConfirmed(
+  service: ProjectDependenciesPtyService,
+  project: Project,
+  actionId: string,
+  context: ExecutionContext,
+) {
+  const confirmation = await service.prepareConfirmation(
+    project,
+    actionId,
+    context,
+  );
+  return service.start(project, actionId, context, confirmation.token);
+}
+
 test('start() usa o gerenciador Node detectado para package-manager:install', async () => {
   const fakePty = new FakePty();
   let spawnedFile: string | undefined;
@@ -130,7 +144,8 @@ test('start() usa o gerenciador Node detectado para package-manager:install', as
   );
   const project = await nodeFixture();
 
-  const snapshot = await service.start(
+  const snapshot = await startConfirmed(
+    service,
     project,
     'package-manager:install',
     executionContext(project),
@@ -157,7 +172,8 @@ test('start() roda o script build declarado no package.json', async () => {
   );
   const project = await nodeFixture();
 
-  const snapshot = await service.start(
+  const snapshot = await startConfirmed(
+    service,
     project,
     'package-script:build',
     executionContext(project),
@@ -194,7 +210,7 @@ test('start() encapsula dependências no Dev Container selecionado', async () =>
     runtimeId,
   };
 
-  await service.start(project, 'package-manager:install', context);
+  await startConfirmed(service, project, 'package-manager:install', context);
 
   assert.equal(spawnedFile, 'devcontainer');
   assert.deepEqual(spawnedArgs, [
@@ -224,7 +240,7 @@ test('start() rejeita Dev Container sem runtimeId executável', async () => {
   };
 
   await assert.rejects(
-    () => service.start(project, 'package-manager:install', context),
+    () => startConfirmed(service, project, 'package-manager:install', context),
     (error: unknown) =>
       error instanceof ProjectDependenciesPtyError &&
       error.code === 'RUNTIME_UNSUPPORTED',
@@ -264,10 +280,10 @@ test('start() lança ALREADY_RUNNING numa segunda chamada do mesmo ambiente', as
   const project = await railsFixture();
   const context = executionContext(project);
 
-  await service.start(project, 'bundler:install', context);
+  await startConfirmed(service, project, 'bundler:install', context);
 
   await assert.rejects(
-    () => service.start(project, 'bundler:update', context),
+    () => startConfirmed(service, project, 'bundler:update', context),
     (error: unknown) =>
       error instanceof ProjectDependenciesPtyError &&
       error.code === 'ALREADY_RUNNING',
@@ -298,8 +314,18 @@ test('execuções de ambientes diferentes não compartilham cwd, status ou cance
     new ScriptDetectionService(),
   );
 
-  await service.start(project, 'package-manager:install', primaryContext);
-  await service.start(project, 'package-manager:install', worktreeContext);
+  await startConfirmed(
+    service,
+    project,
+    'package-manager:install',
+    primaryContext,
+  );
+  await startConfirmed(
+    service,
+    project,
+    'package-manager:install',
+    worktreeContext,
+  );
 
   assert.deepEqual(spawnedCwds, [project.path, worktree.path]);
   assert.equal(service.snapshot(project, primaryContext)?.status, 'running');
@@ -323,7 +349,7 @@ test('attach() envia ready com a ação e o snapshot, e detach não mata o proce
   const project = await railsFixture();
   const context = executionContext(project);
 
-  await service.start(project, 'bundler:install', context);
+  await startConfirmed(service, project, 'bundler:install', context);
 
   const socket = new FakeSocket();
   service.attach(project, socket as never, context);
@@ -377,7 +403,7 @@ test('cancel() delega para DetachableExecutionService.cancel()', async () => {
   const project = await nodeFixture();
   const context = executionContext(project);
 
-  await service.start(project, 'package-manager:install', context);
+  await startConfirmed(service, project, 'package-manager:install', context);
   service.cancel(project, context);
 
   assert.deepEqual(fakePty.kills, ['SIGTERM']);
@@ -402,7 +428,7 @@ test('Activity/Jobs de dependências registra lifecycle sem persistir comando ou
   const project = await nodeFixture();
   const context = executionContext(project);
 
-  await service.start(project, 'package-manager:install', context);
+  await startConfirmed(service, project, 'package-manager:install', context);
 
   assert.equal(events.length, 1);
   assert.equal(events[0]?.status, 'started');
@@ -441,7 +467,7 @@ test('Activity de dependências registra cancelamento uma única vez', async () 
   const project = await nodeFixture();
   const context = executionContext(project);
 
-  await service.start(project, 'package-manager:install', context);
+  await startConfirmed(service, project, 'package-manager:install', context);
   service.cancel(project, context);
   fakePty.emitExit(143, 15);
   await new Promise((resolve) => setImmediate(resolve));
@@ -472,7 +498,8 @@ test('Activity de dependências registra START_FAILED sem expor argv', async () 
   const project = await nodeFixture();
 
   await assert.rejects(() =>
-    service.start(
+    startConfirmed(
+      service,
       project,
       'package-manager:install',
       executionContext(project),
@@ -483,4 +510,74 @@ test('Activity de dependências registra START_FAILED sem expor argv', async () 
   const serialized = JSON.stringify(events);
   assert.equal(serialized.includes('SECRET=abc'), false);
   assert.equal(serialized.includes('npm'), false);
+});
+
+test('ação mutável exige confirmação backend vinculada e de uso único', async () => {
+  const fakePty = new FakePty();
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => fakePty as never,
+  });
+  const service = new ProjectDependenciesPtyService(
+    detachable,
+    new ScriptDetectionService(),
+  );
+  const project = await nodeFixture();
+  const primary = executionContext(project);
+  const otherEnvironment = executionContext(
+    project,
+    'environment:worktree:projeto:wt-1',
+  );
+
+  await assert.rejects(
+    () => service.start(project, 'package-manager:install', primary),
+    (error: unknown) =>
+      error instanceof ProjectDependenciesPtyError &&
+      error.code === 'CONFIRMATION_REQUIRED',
+  );
+
+  const confirmation = await service.prepareConfirmation(
+    project,
+    'package-manager:install',
+    primary,
+  );
+  await assert.rejects(
+    () =>
+      service.start(
+        project,
+        'package-manager:install',
+        otherEnvironment,
+        confirmation.token,
+      ),
+    (error: unknown) =>
+      error instanceof ProjectDependenciesPtyError &&
+      error.code === 'CONFIRMATION_REQUIRED',
+  );
+
+  const valid = await service.prepareConfirmation(
+    project,
+    'package-manager:install',
+    primary,
+  );
+  const snapshot = await service.start(
+    project,
+    'package-manager:install',
+    primary,
+    valid.token,
+  );
+  assert.equal(snapshot.environmentInstanceId, primary.environmentInstanceId);
+  assert.equal(snapshot.risk, 'mutable');
+  assert.equal(snapshot.cancelled, false);
+  assert.equal(snapshot.truncated, false);
+
+  service.cancel(project, primary);
+  assert.equal(service.snapshot(project, primary)?.cancelled, true);
+
+  await assert.rejects(
+    () =>
+      service.start(project, 'package-manager:install', primary, valid.token),
+    (error: unknown) =>
+      error instanceof ProjectDependenciesPtyError &&
+      (error.code === 'CONFIRMATION_REQUIRED' ||
+        error.code === 'ALREADY_RUNNING'),
+  );
 });

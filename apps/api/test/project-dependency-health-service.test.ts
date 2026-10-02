@@ -277,3 +277,41 @@ test('falhas locais degradam para estados explícitos e evitam falso snapshot sa
   assert.deepEqual(snapshot.advisories, []);
   assert.equal(externalCalls, 2);
 });
+
+test('reutiliza snapshot por cwd e refresh invalida somente o ambiente selecionado', async () => {
+  let inventoryCalls = 0;
+  const service = new ProjectDependencyHealthService({
+    now: () => NOW,
+    cacheTtlMs: 30_000,
+    inventoryService: {
+      inspect: async () => {
+        inventoryCalls += 1;
+        return inventory;
+      },
+    },
+    runtimeDiscoveryService: { inspect: async () => runtime },
+    metadataService: {
+      enrich: async (receivedInventory) => ({
+        inventory: receivedInventory,
+        metadata,
+      }),
+    },
+    advisoryService: {
+      inspect: async (receivedInventory) => ({
+        inventory: receivedInventory,
+        advisories,
+      }),
+    },
+  });
+
+  const first = await service.inspect(project);
+  const second = await service.inspect(project);
+  assert.equal(first, second);
+  assert.equal(inventoryCalls, 1);
+
+  await service.inspect({ ...project, path: '/workspace/project-1-worktree' });
+  assert.equal(inventoryCalls, 2);
+
+  await service.inspect(project, { refresh: true });
+  assert.equal(inventoryCalls, 3);
+});

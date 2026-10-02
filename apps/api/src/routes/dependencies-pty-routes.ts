@@ -18,6 +18,7 @@ interface EnvironmentQuery {
 }
 interface StartBody {
   actionId: string;
+  confirmationToken?: string;
 }
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
@@ -46,11 +47,21 @@ const emptyBodySchema = {
   properties: {},
 } as const;
 
-const startBodySchema = {
+const confirmationBodySchema = {
   type: 'object',
   additionalProperties: false,
   required: ['actionId'],
   properties: { actionId: { type: 'string', minLength: 1, maxLength: 200 } },
+} as const;
+
+const startBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['actionId'],
+  properties: {
+    actionId: { type: 'string', minLength: 1, maxLength: 200 },
+    confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+  },
 } as const;
 
 const snapshotSchema = {
@@ -59,6 +70,10 @@ const snapshotSchema = {
   required: [
     'actionId',
     'actionName',
+    'environmentInstanceId',
+    'risk',
+    'cancelled',
+    'truncated',
     'status',
     'exitCode',
     'exitSignal',
@@ -68,6 +83,13 @@ const snapshotSchema = {
   properties: {
     actionId: { type: 'string' },
     actionName: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    risk: {
+      type: 'string',
+      enum: ['read-only', 'mutable', 'destructive'],
+    },
+    cancelled: { type: 'boolean' },
+    truncated: { type: 'boolean' },
     status: { type: 'string', enum: ['running', 'exited'] },
     exitCode: { type: ['integer', 'null'] },
     exitSignal: { type: ['integer', 'null'] },
@@ -96,6 +118,10 @@ const PTY_ERROR_RESPONSE: Record<
   RUNTIME_UNSUPPORTED: {
     statusCode: 409,
     code: 'DEPENDENCIES_PTY_RUNTIME_UNSUPPORTED',
+  },
+  CONFIRMATION_REQUIRED: {
+    statusCode: 409,
+    code: 'SCRIPT_CONFIRMATION_REQUIRED',
   },
   START_FAILED: { statusCode: 500, code: 'DEPENDENCIES_PTY_START_FAILED' },
 };
@@ -186,6 +212,69 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
   app.post<{
     Params: Params;
     Querystring: EnvironmentQuery;
+    Body: { actionId: string };
+  }>(
+    '/projects/:projectId/dependencies/pty/confirmation',
+    {
+      schema: {
+        params: paramsSchema,
+        querystring: environmentQuerySchema,
+        body: confirmationBodySchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: {
+              confirmation: {
+                type: 'object',
+                additionalProperties: false,
+                required: [
+                  'token',
+                  'actionId',
+                  'environmentInstanceId',
+                  'expiresAt',
+                ],
+                properties: {
+                  token: { type: 'string' },
+                  actionId: { type: 'string' },
+                  environmentInstanceId: { type: 'string' },
+                  expiresAt: { type: 'string' },
+                },
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const executionContext = requireExecutionContext(
+        developmentEnvironmentInstanceStore,
+        project.id,
+        request.query.environmentInstanceId,
+      );
+      try {
+        const confirmation =
+          await projectDependenciesPtyService.prepareConfirmation(
+            project,
+            request.body.actionId,
+            executionContext,
+          );
+        return reply.code(201).send({ confirmation });
+      } catch (error) {
+        if (error instanceof ProjectDependenciesPtyError) {
+          throw ptyApiError(error);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: Params;
+    Querystring: EnvironmentQuery;
     Body: StartBody;
   }>(
     '/projects/:projectId/dependencies/pty/start',
@@ -217,6 +306,7 @@ export const dependenciesPtyRoutes: FastifyPluginAsync<Options> = async (
           project,
           request.body.actionId,
           executionContext,
+          request.body.confirmationToken,
         );
         return reply.code(201).send({ snapshot });
       } catch (error) {

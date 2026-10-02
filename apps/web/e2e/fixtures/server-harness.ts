@@ -86,6 +86,7 @@ async function writeSampleProject(
         scripts: {
           dev: `node -e "require('node:http').createServer((_, res) => res.end('ok')).listen(Number(process.env.PORT), process.env.HOST || '127.0.0.1')"`,
           test: 'node -e "process.exit(0)"',
+          build: 'node -e "setTimeout(() => process.exit(0), 700)"',
           // Duração observável (~500ms) para o e2e do catálogo de scripts
           // exercitar o estado "Em execução" antes do desfecho; nomes
           // escolhidos para não colidir com "dev"/"test" (reservados pelo

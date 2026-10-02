@@ -21,6 +21,22 @@ const project: Project = {
   capabilities: [],
 };
 
+const developmentEnvironmentInstanceStore = {
+  resolveForProject: (projectId: string, environmentInstanceId?: string) =>
+    projectId === project.id
+      ? {
+          projectId,
+          environmentInstanceId:
+            environmentInstanceId ?? `environment:primary:${projectId}`,
+          cwd:
+            environmentInstanceId === 'environment:worktree:project-1:wt-1'
+              ? '/workspace/project-1-worktree'
+              : project.path,
+          runtime: 'host' as const,
+        }
+      : null,
+};
+
 const health: ProjectDependencyHealthSnapshot = {
   generatedAt: '2026-09-19T17:45:00.000Z',
   inventory: {
@@ -95,7 +111,7 @@ test('Dependency Health HTTP expõe snapshot read-only por projeto e 404 determi
   const calls: string[] = [];
   const service = {
     inspect: async (selectedProject: Project) => {
-      calls.push(selectedProject.id);
+      calls.push(`${selectedProject.id}:${selectedProject.path}`);
       return health;
     },
   };
@@ -105,6 +121,7 @@ test('Dependency Health HTTP expõe snapshot read-only por projeto e 404 determi
   app.register(dependencyHealthRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyHealthService: service,
   });
   context.after(() => app.close());
@@ -116,7 +133,14 @@ test('Dependency Health HTTP expõe snapshot read-only por projeto e 404 determi
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { health });
-  assert.deepEqual(calls, ['project-1']);
+  assert.deepEqual(calls, ['project-1:/workspace/project-1']);
+
+  const worktree = await app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/dependency-health?environmentInstanceId=environment%3Aworktree%3Aproject-1%3Awt-1',
+  });
+  assert.equal(worktree.statusCode, 200);
+  assert.equal(calls.at(-1), 'project-1:/workspace/project-1-worktree');
 
   const missing = await app.inject({
     method: 'GET',
@@ -124,7 +148,10 @@ test('Dependency Health HTTP expõe snapshot read-only por projeto e 404 determi
   });
   assert.equal(missing.statusCode, 404);
   assert.equal(missing.json<{ error: string }>().error, 'PROJECT_NOT_FOUND');
-  assert.deepEqual(calls, ['project-1']);
+  assert.deepEqual(calls, [
+    'project-1:/workspace/project-1',
+    'project-1:/workspace/project-1-worktree',
+  ]);
 });
 
 test('Dependency Health response schema remove campos não públicos', async (context) => {
@@ -141,6 +168,7 @@ test('Dependency Health response schema remove campos não públicos', async (co
   app.register(dependencyHealthRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyHealthService: {
       inspect: async () =>
         ({
