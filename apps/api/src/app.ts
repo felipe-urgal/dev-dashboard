@@ -149,6 +149,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     devContainerCleanupService,
     devContainerStopConfirmationService,
     devContainerLifecycleExecutionService,
+    devContainerRecoveryService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -365,6 +366,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     devContainerCleanupService,
     devContainerStopConfirmationService,
     devContainerLifecycleExecutionService,
+    devContainerRecoveryService,
   });
 
   app.register(releaseReadinessRoutes, {
