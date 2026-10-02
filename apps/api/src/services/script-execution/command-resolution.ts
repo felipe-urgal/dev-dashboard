@@ -7,9 +7,13 @@ import type {
   ScriptExecutionVariables,
 } from '@dev-dashboard/contracts';
 
+import {
+  detectNodePackageManager,
+  type NodePackageManager,
+} from '../node-package-manager-service.js';
 import { ScriptExecutionError } from './errors.js';
 
-export type NodeManager = 'npm' | 'pnpm' | 'yarn';
+export type NodeManager = NodePackageManager;
 
 async function exists(target: string): Promise<boolean> {
   try {
@@ -23,32 +27,22 @@ async function exists(target: string): Promise<boolean> {
 export async function resolveNodeManager(
   projectPath: string,
 ): Promise<NodeManager> {
-  const lockfiles: ReadonlyArray<[NodeManager, string]> = [
-    ['npm', 'package-lock.json'],
-    ['pnpm', 'pnpm-lock.yaml'],
-    ['yarn', 'yarn.lock'],
-  ];
-  const candidates = (
-    await Promise.all(
-      lockfiles.map(async ([manager, lockfile]) =>
-        (await exists(path.join(projectPath, lockfile))) ? manager : undefined,
-      ),
-    )
-  ).filter((manager): manager is NodeManager => manager !== undefined);
-
-  if (candidates.length > 1) {
+  const detection = await detectNodePackageManager(projectPath);
+  if (detection.state === 'detected' && detection.manager) {
+    return detection.manager;
+  }
+  if (detection.state === 'conflict') {
     throw new ScriptExecutionError(
       'SCRIPT_MANAGER_AMBIGUOUS',
-      'Mais de um lockfile foi encontrado; remova a ambiguidade antes de executar.',
+      detection.diagnostic ??
+        'As fontes do gerenciador Node são ambíguas; alinhe packageManager e lockfile.',
     );
   }
-  if (candidates.length === 0) {
-    throw new ScriptExecutionError(
-      'SCRIPT_MANAGER_NOT_FOUND',
-      'Nenhum lockfile npm, pnpm ou Yarn foi encontrado.',
-    );
-  }
-  return candidates[0]!;
+  throw new ScriptExecutionError(
+    'SCRIPT_MANAGER_NOT_FOUND',
+    detection.diagnostic ??
+      'Nenhum gerenciador Node suportado foi encontrado.',
+  );
 }
 
 export function formatNodeScriptCommand(
