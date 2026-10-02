@@ -148,6 +148,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     devContainerStartService,
     devContainerCleanupService,
     devContainerStopConfirmationService,
+    devContainerLifecycleExecutionService,
+    devContainerRecoveryService,
     portInspectorService,
     projectFileMutationService,
     projectWorkspaceEditService,
@@ -263,6 +265,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       projectTerminalService,
       projectStore: context.projectStore,
       dockerComposeOwnershipStore,
+      devContainerCleanupService,
       ...(context.detachableExecutionService
         ? {
             detachableExecutionService: context.detachableExecutionService,
@@ -351,12 +354,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(devContainerRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     devContainerDiscoveryService,
     devContainerLifecyclePlanningService,
     devContainerLifecycleConfirmationService,
     devContainerStartService,
     devContainerCleanupService,
     devContainerStopConfirmationService,
+    devContainerLifecycleExecutionService,
   });
 
   app.register(releaseReadinessRoutes, {
