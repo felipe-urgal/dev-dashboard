@@ -195,6 +195,9 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
           environmentInstanceId:
             input.environmentInstanceId ?? 'environment:primary:project-1',
           runtime: 'host',
+          environmentLifecycle: 'ready',
+          stopAvailable: false,
+          recoveryAvailable: false,
           executionEnabled: false,
           requiresConfirmation: true,
           discoveryState: 'available',
@@ -279,6 +282,9 @@ test('Dev Container rebuild expõe operação sem vazar runtimeId ou ownershipTo
         environmentInstanceId:
           input.environmentInstanceId ?? environmentInstanceId,
         runtime: 'devcontainer',
+        environmentLifecycle: 'ready',
+        stopAvailable: true,
+        recoveryAvailable: false,
         runtimeId,
         ownershipToken,
         executionEnabled: false,
@@ -411,6 +417,9 @@ test('Dev Container lifecycle confirmation revalida preflight e não expõe fing
         environmentInstanceId:
           input.environmentInstanceId ?? 'environment:primary:project-1',
         runtime: 'host',
+        environmentLifecycle: 'ready',
+        stopAvailable: false,
+        recoveryAvailable: false,
         executionEnabled: false,
         requiresConfirmation: true,
         discoveryState: 'available',
