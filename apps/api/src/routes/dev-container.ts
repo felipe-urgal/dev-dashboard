@@ -34,7 +34,7 @@ import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
-  developmentEnvironmentInstanceStore: Pick<
+  developmentEnvironmentInstanceStore?: Pick<
     DevelopmentEnvironmentInstanceStore,
     'findForProject'
   >;
@@ -509,8 +509,26 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
-      const instance = options.developmentEnvironmentInstanceStore.findForProject(
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const environmentStore = options.developmentEnvironmentInstanceStore;
+      if (!environmentStore) {
+        if (request.query.environmentInstanceId) {
+          throw new ApiError({
+            statusCode: 404,
+            code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+            message:
+              'Ambiente de desenvolvimento não encontrado para este projeto.',
+          });
+        }
+        return {
+          inspection: await options.devContainerDiscoveryService.inspect(project),
+        };
+      }
+
+      const instance = environmentStore.findForProject(
         project.id,
         request.query.environmentInstanceId,
       );
