@@ -93,7 +93,8 @@ export const dependencyHealthRoutes: FastifyPluginAsync<Options> = async (
         throw new ApiError({
           statusCode: 404,
           code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-          message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+          message:
+            'Ambiente de desenvolvimento não encontrado para este projeto.',
         });
       }
       return {
