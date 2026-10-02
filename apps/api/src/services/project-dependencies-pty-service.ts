@@ -124,13 +124,10 @@ function isDependenciesAction(action: ProjectScript): boolean {
 }
 
 /**
- * Item 3 da task 234: mesmo padrão de ProjectTestPtyService/
- * RailsMigrationPtyService, aplicado às ações de dependências/build. O
- * ExecutionContext selecionado define cwd e runtime sem aceitar identidade
- * paralela do cliente. Substitui por completo o fluxo antigo
- * (ScriptExecutionService via SSE, com
- * confirmação por token e histórico persistido) — mesma decisão tomada para
- * Migration: sem preservar o código antigo como referência.
+ * Engine canônico da UI de Dependências/Build em PTY destacável. O
+ * ExecutionContext selecionado define cwd/runtime sem aceitar path ou
+ * identidade paralela do cliente. Ações mutáveis exigem confirmação backend
+ * curta e de uso único, vinculada à ação redetectada e à Environment Instance.
  */
 type ActivityEventWriter = {
   append(input: AppendActivityEventInput): Promise<unknown>;
