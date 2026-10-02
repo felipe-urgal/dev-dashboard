@@ -3,6 +3,7 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { DevContainerDiscoveryService } from '../services/dev-container-discovery-service.js';
+import type { DevContainerRecoveryService } from '../services/dev-container-recovery-service.js';
 import {
   DevContainerCleanupError,
   type DevContainerCleanupService,
@@ -59,6 +60,10 @@ interface Options extends FastifyPluginOptions {
   devContainerLifecycleExecutionService?: Pick<
     DevContainerLifecycleExecutionService,
     'start' | 'latest' | 'cancel'
+  >;
+  devContainerRecoveryService?: Pick<
+    DevContainerRecoveryService,
+    'reconcileProject'
   >;
 }
 
@@ -372,6 +377,10 @@ async function planLifecycle(
   environmentInstanceId?: string,
 ) {
   try {
+    await options.devContainerRecoveryService?.reconcileProject(
+      project.id,
+      environmentInstanceId,
+    );
     return await options.devContainerLifecyclePlanningService.plan(project, {
       ...(environmentInstanceId ? { environmentInstanceId } : {}),
     });
@@ -760,6 +769,10 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       try {
+        await options.devContainerRecoveryService?.reconcileProject(
+          project.id,
+          request.body.environmentInstanceId,
+        );
         const result = await options.devContainerStartService.start(project, {
           ...(request.body.environmentInstanceId
             ? { environmentInstanceId: request.body.environmentInstanceId }
@@ -908,6 +921,10 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       try {
+        await options.devContainerRecoveryService?.reconcileProject(
+          project.id,
+          request.body.environmentInstanceId,
+        );
         const result = await options.devContainerStartService.rebuild(project, {
           ...(request.body.environmentInstanceId
             ? { environmentInstanceId: request.body.environmentInstanceId }
