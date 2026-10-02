@@ -46,7 +46,9 @@ export type DevContainerLifecyclePreflightReason =
   | 'discovery-not-ready'
   | 'initialize-command-declared'
   | 'compose-ownership-required'
-  | 'configuration-kind-unknown';
+  | 'configuration-kind-unknown'
+  | 'lifecycle-in-progress'
+  | 'recovery-required';
 
 export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
 
@@ -58,6 +60,15 @@ export interface DevContainerLifecyclePreflight {
   observedAt: string;
   environmentInstanceId: string;
   runtime: 'host' | 'devcontainer';
+  environmentLifecycle:
+    | 'stopped'
+    | 'starting'
+    | 'ready'
+    | 'degraded'
+    | 'stopping'
+    | 'failed';
+  stopAvailable: boolean;
+  recoveryAvailable: boolean;
   /** Evidência interna; o schema HTTP não expõe este campo. */
   runtimeId?: string;
   /** Evidência interna; o schema HTTP não expõe este campo. */
@@ -98,7 +109,7 @@ export class DevContainerLifecyclePlanningError extends Error {
 type DiscoveryReader = Pick<DevContainerDiscoveryService, 'inspect'>;
 type EnvironmentResolver = Pick<
   DevelopmentEnvironmentInstanceStore,
-  'resolveForProject'
+  'findForProject'
 >;
 type OwnershipReader = Pick<DevContainerOwnershipStore, 'get'>;
 export interface DevContainerComposeIntegrationReaders {
@@ -217,56 +228,130 @@ export class DevContainerLifecyclePlanningService {
     project: Project,
     input: DevContainerLifecyclePreflightInput = {},
   ): Promise<DevContainerLifecyclePreflight> {
-    const executionContext = this.environmentInstanceStore.resolveForProject(
+    const instance = this.environmentInstanceStore.findForProject(
       project.id,
       input.environmentInstanceId,
     );
-    if (!executionContext) {
+    if (!instance || instance.lifecycle === 'degraded') {
       throw new DevContainerLifecyclePlanningError(
         'DEV_CONTAINER_ENVIRONMENT_NOT_FOUND',
         'Ambiente de desenvolvimento não encontrado ou indisponível para este projeto.',
       );
     }
 
+    const executionContext: ExecutionContext = {
+      projectId: project.id,
+      environmentInstanceId: instance.id,
+      cwd: instance.source.path,
+      runtime: instance.runtime.kind,
+      ...(instance.runtime.runtimeId
+        ? { runtimeId: instance.runtime.runtimeId }
+        : {}),
+    };
     const operation: DevContainerLifecyclePreflight['operation'] =
       executionContext.runtime === 'devcontainer' ? 'rebuild' : 'create';
+
     let ownedRuntime: DevContainerOwnershipRecord | undefined;
+    try {
+      ownedRuntime = await this.ownershipStore?.get({
+        projectId: project.id,
+        environmentInstanceId: executionContext.environmentInstanceId,
+        projectPath: executionContext.cwd,
+      });
+    } catch {
+      ownedRuntime = undefined;
+    }
 
-    if (operation === 'rebuild') {
-      try {
-        ownedRuntime = await this.ownershipStore?.get({
-          projectId: project.id,
-          environmentInstanceId: executionContext.environmentInstanceId,
-          projectPath: executionContext.cwd,
-        });
-      } catch {
-        ownedRuntime = undefined;
-      }
+    const ownershipMatchesRuntime =
+      ownedRuntime?.phase === 'owned' &&
+      Boolean(ownedRuntime.containerId) &&
+      ownedRuntime.containerId === executionContext.runtimeId;
+    const stopAvailable =
+      executionContext.runtime === 'devcontainer' && ownershipMatchesRuntime;
+    const recoveryAvailable =
+      executionContext.runtime === 'host' && ownedRuntime !== undefined;
 
-      if (
-        !ownedRuntime ||
-        ownedRuntime.phase !== 'owned' ||
-        !ownedRuntime.containerId ||
-        ownedRuntime.containerId !== executionContext.runtimeId
-      ) {
-        return {
-          projectId: project.id,
-          operation,
-          state: 'blocked',
-          reason: 'rebuild-ownership-required',
-          observedAt: this.now().toISOString(),
-          environmentInstanceId: executionContext.environmentInstanceId,
-          runtime: executionContext.runtime,
-          ...(executionContext.runtimeId
-            ? { runtimeId: executionContext.runtimeId }
-            : {}),
-          executionEnabled: false,
-          requiresConfirmation: false,
-          limitations: [],
-          diagnostic:
-            'Rebuild exige um Dev Container atual com ownership comprovado para esta Environment Instance.',
-        };
-      }
+    if (instance.lifecycle === 'starting' || instance.lifecycle === 'stopping') {
+      return {
+        projectId: project.id,
+        operation,
+        state: 'blocked',
+        reason: 'lifecycle-in-progress',
+        observedAt: this.now().toISOString(),
+        environmentInstanceId: executionContext.environmentInstanceId,
+        runtime: executionContext.runtime,
+        environmentLifecycle: instance.lifecycle,
+        stopAvailable: false,
+        recoveryAvailable:
+          instance.lifecycle === 'starting' && recoveryAvailable,
+        ...(executionContext.runtimeId
+          ? { runtimeId: executionContext.runtimeId }
+          : {}),
+        ...(ownedRuntime
+          ? { ownershipToken: ownedRuntime.ownershipToken }
+          : {}),
+        executionEnabled: false,
+        requiresConfirmation: false,
+        limitations: [],
+        diagnostic:
+          instance.lifecycle === 'starting'
+            ? 'A criação do Dev Container ainda está em andamento. Aguarde a conclusão ou use a recuperação se a operação tiver sido interrompida.'
+            : 'O Dev Container está sendo parado. Aguarde a reconciliação do lifecycle.',
+      };
+    }
+
+    if (
+      instance.lifecycle === 'failed' ||
+      (executionContext.runtime === 'host' && ownedRuntime !== undefined) ||
+      instance.lifecycle === 'stopped'
+    ) {
+      return {
+        projectId: project.id,
+        operation,
+        state: 'blocked',
+        reason: 'recovery-required',
+        observedAt: this.now().toISOString(),
+        environmentInstanceId: executionContext.environmentInstanceId,
+        runtime: executionContext.runtime,
+        environmentLifecycle: instance.lifecycle,
+        stopAvailable: false,
+        recoveryAvailable,
+        ...(executionContext.runtimeId
+          ? { runtimeId: executionContext.runtimeId }
+          : {}),
+        ...(ownedRuntime
+          ? { ownershipToken: ownedRuntime.ownershipToken }
+          : {}),
+        executionEnabled: false,
+        requiresConfirmation: false,
+        limitations: [],
+        diagnostic: recoveryAvailable
+          ? 'O lifecycle anterior não terminou de forma comprovada. Limpe o runtime parcial owned antes de iniciar uma nova operação.'
+          : 'O lifecycle anterior falhou e não há ownership suficiente para recuperação automática. Revalide o ambiente antes de continuar.',
+      };
+    }
+
+    if (operation === 'rebuild' && !ownershipMatchesRuntime) {
+      return {
+        projectId: project.id,
+        operation,
+        state: 'blocked',
+        reason: 'rebuild-ownership-required',
+        observedAt: this.now().toISOString(),
+        environmentInstanceId: executionContext.environmentInstanceId,
+        runtime: executionContext.runtime,
+        environmentLifecycle: instance.lifecycle,
+        stopAvailable: false,
+        recoveryAvailable: false,
+        ...(executionContext.runtimeId
+          ? { runtimeId: executionContext.runtimeId }
+          : {}),
+        executionEnabled: false,
+        requiresConfirmation: false,
+        limitations: [],
+        diagnostic:
+          'Rebuild e parada exigem um Dev Container atual com ownership comprovado para esta Environment Instance.',
+      };
     }
 
     let inspection: DevContainerInspection;
@@ -303,6 +388,9 @@ export class DevContainerLifecyclePlanningService {
       observedAt: inspection.observedAt,
       environmentInstanceId: executionContext.environmentInstanceId,
       runtime: executionContext.runtime,
+      environmentLifecycle: instance.lifecycle,
+      stopAvailable,
+      recoveryAvailable: false,
       ...(executionContext.runtimeId
         ? { runtimeId: executionContext.runtimeId }
         : {}),
