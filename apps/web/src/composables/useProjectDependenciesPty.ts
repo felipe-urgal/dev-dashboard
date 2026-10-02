@@ -5,6 +5,7 @@ import type { Project, ProjectScript } from '@dev-dashboard/contracts';
 import {
   cancelProjectDependenciesPty,
   fetchProjectDependenciesPtyStatus,
+  prepareProjectDependenciesPtyConfirmation,
   projectDependenciesPtyWebSocketUrl,
   startProjectDependenciesPty,
   type ProjectDependenciesPtyStatusSnapshot,
@@ -12,14 +13,6 @@ import {
 import { confirmDialog } from '../stores/app-dialog';
 import { usePtyTerminalSocket } from './usePtyTerminalSocket';
 
-/**
- * Item 3 da task 234: mesmo padrão de `useRailsMigrations` (execução
- * destacável via `usePtyTerminalSocket`), aplicado às ações de
- * dependências/build do painel `ProjectDependenciesPanel.vue`. Substitui por
- * completo o fluxo antigo baseado em `useScriptExecution` (SSE, com
- * confirmação por token e histórico persistido) — mesma decisão tomada para
- * Migration: sem manter o código antigo como referência.
- */
 export function useProjectDependenciesPty(
   getProject: () => Project,
   isSupportedProject: Ref<boolean> | ComputedRef<boolean>,
@@ -29,6 +22,7 @@ export function useProjectDependenciesPty(
   const errorMessage = ref('');
   const starting = ref<string | null>(null);
   const cancelling = ref(false);
+  const connectionLost = ref(false);
 
   const {
     terminalContainer,
@@ -41,20 +35,30 @@ export function useProjectDependenciesPty(
   >({
     onReady: (ready) => {
       snapshot.value = ready;
+      connectionLost.value = false;
     },
-    onExit: (exitCode, exitSignal) => {
-      if (snapshot.value) {
-        snapshot.value = {
-          ...snapshot.value,
-          status: 'exited',
-          exitCode,
-          exitSignal,
-          endedAt: new Date().toISOString(),
-        };
-      }
+    onExit: (exitCode, exitSignal, exitSnapshot) => {
+      snapshot.value =
+        exitSnapshot ??
+        (snapshot.value
+          ? {
+              ...snapshot.value,
+              status: 'exited',
+              exitCode,
+              exitSignal,
+              endedAt: new Date().toISOString(),
+            }
+          : null);
+      connectionLost.value = false;
     },
     onError: (message) => {
       errorMessage.value = message;
+    },
+    onOpen: () => {
+      connectionLost.value = false;
+    },
+    onClose: () => {
+      if (isRunning.value) connectionLost.value = true;
     },
   });
 
@@ -70,18 +74,20 @@ export function useProjectDependenciesPty(
         environmentInstanceId,
       );
       snapshot.value = result;
+      connectionLost.value = false;
       if (result) {
         connect(
           projectDependenciesPtyWebSocketUrl(project.id, environmentInstanceId),
         );
       }
     } catch {
-      // best-effort: se a consulta inicial falhar, os botões de ação ainda funcionam.
+      // Best-effort: o catálogo continua utilizável mesmo se o status falhar.
     }
   }
 
   async function run(action: ProjectScript): Promise<void> {
     if (starting.value || isRunning.value) return;
+
     if (action.risk !== 'read-only') {
       const riskLabel =
         action.risk === 'destructive' ? 'destrutiva' : 'mutável';
@@ -96,19 +102,30 @@ export function useProjectDependenciesPty(
 
     starting.value = action.id;
     errorMessage.value = '';
-    // Uma execução concluída pode manter o WebSocket anterior aberto. Ao
-    // iniciar de novo, desconecta primeiro para que o terminal novo se anexe
-    // ao novo registro do backend em vez de continuar ouvindo o PTY antigo.
     disconnect();
     disposeTerminal();
+
     const project = getProject();
     const environmentInstanceId = getEnvironmentInstanceId?.();
     try {
+      const confirmationToken =
+        action.risk === 'read-only'
+          ? undefined
+          : (
+              await prepareProjectDependenciesPtyConfirmation(
+                project.id,
+                action.id,
+                environmentInstanceId,
+              )
+            ).token;
+
       snapshot.value = await startProjectDependenciesPty(
         project.id,
         action.id,
         environmentInstanceId,
+        confirmationToken,
       );
+      connectionLost.value = false;
       connect(
         projectDependenciesPtyWebSocketUrl(project.id, environmentInstanceId),
       );
@@ -140,10 +157,23 @@ export function useProjectDependenciesPty(
     }
   }
 
+  function reconnect(): void {
+    errorMessage.value = '';
+    connectionLost.value = false;
+    disconnect();
+    connect(
+      projectDependenciesPtyWebSocketUrl(
+        getProject().id,
+        getEnvironmentInstanceId?.(),
+      ),
+    );
+  }
+
   function clear(): void {
     if (isRunning.value) return;
     snapshot.value = null;
     errorMessage.value = '';
+    connectionLost.value = false;
     disconnect();
     disposeTerminal();
   }
@@ -154,6 +184,7 @@ export function useProjectDependenciesPty(
       snapshot.value = null;
       errorMessage.value = '';
       starting.value = null;
+      connectionLost.value = false;
       disconnect();
       disposeTerminal();
       void loadStatusAndReconnect();
@@ -167,10 +198,12 @@ export function useProjectDependenciesPty(
     starting,
     cancelling,
     connecting,
+    connectionLost,
     isRunning,
     terminalContainer,
     run,
     cancel,
+    reconnect,
     clear,
   };
 }
