@@ -501,6 +501,9 @@ test('Atualizar saúde solicita refresh explícito sem bloquear o runner', async
   assert.equal(calls.length, 2);
   assert.equal(calls[0]?.searchParams.get('refresh'), null);
   assert.equal(calls[1]?.searchParams.get('refresh'), 'true');
-  assert.equal(wrapper.find('.dependencies-run-command').attributes('disabled'), undefined);
+  assert.equal(
+    wrapper.find('.dependencies-run-command').attributes('disabled'),
+    undefined,
+  );
   wrapper.unmount();
 });

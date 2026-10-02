@@ -141,7 +141,6 @@ test('mascara segredos na mensagem de bundle check', async () => {
   assert.doesNotMatch(overview.check?.message ?? '', /senha/);
 });
 
-
 test('executa check/outdated dentro do Dev Container selecionado', async () => {
   const project = await fixture({ Gemfile: 'gem "rails"\n' });
   const runtimeId = 'a'.repeat(64);
