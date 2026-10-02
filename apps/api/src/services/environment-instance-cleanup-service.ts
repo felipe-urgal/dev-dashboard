@@ -4,7 +4,9 @@ import type {
 } from '@dev-dashboard/contracts';
 import type { ProcessManager } from '@dev-dashboard/process-manager';
 
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
+import type { DevContainerCleanupService } from './dev-container-cleanup-service.js';
 import type { DetachableExecutionService } from './detachable-execution-service.js';
 import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type { ProjectTerminalService } from './project-terminal-service.js';
@@ -27,6 +29,14 @@ export interface EnvironmentInstanceCleanupDependencies {
   >;
   projectStore?: Pick<ProjectStore, 'findProject'>;
   dockerComposeOwnershipStore?: Pick<DockerComposeOwnershipStore, 'get'>;
+  devContainerCleanupService?: Pick<
+    DevContainerCleanupService,
+    'inspect' | 'cleanup'
+  >;
+  developmentEnvironmentInstanceStore?: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'upsert'
+  >;
 }
 
 export interface EnvironmentInstanceCleanupResult {
@@ -49,12 +59,36 @@ export class EnvironmentInstanceCleanupService {
       return { state: 'skipped' };
     }
 
-    if (instance.runtime.kind !== 'host') {
-      return {
-        state: 'cleanup-required',
-        diagnostic:
-          'O runtime do ambiente removido ainda não possui cleanup automático suportado.',
-      };
+    let devContainerCleanupState:
+      | 'none'
+      | 'cleaned'
+      | 'cleanup-required' = 'none';
+
+    if (instance.runtime.kind === 'devcontainer') {
+      const project = this.dependencies.projectStore?.findProject(
+        instance.projectId,
+      );
+      const cleanupService = this.dependencies.devContainerCleanupService;
+      if (!project || !cleanupService) {
+        devContainerCleanupState = 'cleanup-required';
+      } else {
+        try {
+          const inspection = await cleanupService.inspect(project, instance.id);
+          if (inspection.state === 'unowned') {
+            devContainerCleanupState = 'cleanup-required';
+          } else {
+            await cleanupService.cleanup(project, instance.id);
+            devContainerCleanupState = 'cleaned';
+            this.dependencies.developmentEnvironmentInstanceStore?.upsert({
+              ...instance,
+              runtime: { kind: 'host' },
+              lifecycle: 'degraded',
+            });
+          }
+        } catch {
+          devContainerCleanupState = 'cleanup-required';
+        }
+      }
     }
 
     let composeState: 'none' | 'owned' | 'unavailable' = 'none';
@@ -121,15 +155,21 @@ export class EnvironmentInstanceCleanupService {
       cleanupFailed = true;
     }
 
-    if (cleanupFailed || composeState !== 'none') {
+    if (
+      cleanupFailed ||
+      composeState !== 'none' ||
+      devContainerCleanupState === 'cleanup-required'
+    ) {
       return {
         state: 'cleanup-required',
         diagnostic:
-          composeState === 'owned'
-            ? 'O worktree desapareceu e os recursos locais foram reconciliados, mas ainda existe Docker Compose owned pelo Dashboard. O cleanup do Compose exige intervenção explícita.'
-            : composeState === 'unavailable'
-              ? 'O worktree desapareceu, mas o ownership do Docker Compose não pôde ser confirmado com segurança.'
-              : 'O worktree desapareceu, mas nem todos os recursos pertencentes ao ambiente puderam ser encerrados.',
+          devContainerCleanupState === 'cleanup-required'
+            ? 'O worktree desapareceu, mas o Dev Container associado não pôde ser limpo com ownership comprovado.'
+            : composeState === 'owned'
+              ? 'O worktree desapareceu e os recursos locais foram reconciliados, mas ainda existe Docker Compose owned pelo Dashboard. O cleanup do Compose exige intervenção explícita.'
+              : composeState === 'unavailable'
+                ? 'O worktree desapareceu, mas o ownership do Docker Compose não pôde ser confirmado com segurança.'
+                : 'O worktree desapareceu, mas nem todos os recursos pertencentes ao ambiente puderam ser encerrados.',
       };
     }
 
