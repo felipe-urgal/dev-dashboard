@@ -122,6 +122,10 @@ test('start() resolve o comando via testDetectionService e spawna via Detachable
   assert.equal(spawnedFile, 'npm');
   assert.deepEqual(spawnedArgs, ['test']);
   assert.equal(snapshot.status, 'running');
+  assert.equal(snapshot.commandId, 'full-suite');
+  assert.equal(snapshot.environmentInstanceId, 'environment:primary:projeto-1');
+  assert.equal(snapshot.scope, 'full-suite');
+  assert.deepEqual(snapshot.targetFiles, []);
 });
 
 test('start() injeta .env.check.local e promove CHECK_DATABASE_URL apenas no processo de teste', async (t) => {
@@ -605,4 +609,32 @@ test('cancel() delega para DetachableExecutionService.cancel()', async () => {
   service.cancel(project());
 
   assert.deepEqual(kills, ['SIGTERM']);
+});
+
+test('start() executa arquivo específico no mesmo PTY e registra escopo direcionado', async () => {
+  const fakePty = new FakePty();
+  let spawnedArgs: readonly string[] | undefined;
+  const detachable = new DetachableExecutionService({
+    spawnPty: (_file, args) => {
+      spawnedArgs = args;
+      return fakePty as never;
+    },
+  });
+  const detection = {
+    resolveFileCommand: async () => ({
+      command: 'npm',
+      args: ['run', 'test', '--', 'src/app.test.ts'],
+    }),
+  } as never;
+  const service = new ProjectTestPtyService(detachable, detection);
+
+  const snapshot = await service.start(project(), {
+    commandId: 'full-suite',
+    mode: 'file',
+    path: 'src/app.test.ts',
+  });
+
+  assert.equal(snapshot.scope, 'targeted');
+  assert.deepEqual(snapshot.targetFiles, ['src/app.test.ts']);
+  assert.deepEqual(spawnedArgs, ['run', 'test', '--', 'src/app.test.ts']);
 });

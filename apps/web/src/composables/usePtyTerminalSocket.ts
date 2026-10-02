@@ -22,8 +22,14 @@ import { MAX_TERMINAL_SCROLLBACK_LINES } from '../utils/terminal-limits';
 export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
   handlers: {
     onReady: (snapshot: TSnapshot) => void;
-    onExit: (exitCode: number | null, exitSignal: number | null) => void;
+    onExit: (
+      exitCode: number | null,
+      exitSignal: number | null,
+      snapshot?: TSnapshot,
+    ) => void;
     onError: (message: string) => void;
+    onOpen?: () => void;
+    onClose?: () => void;
   },
   options: { enableClipboard?: boolean } = {},
 ) {
@@ -34,6 +40,7 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
   let fitAddon: FitAddon | undefined;
   let resizeObserver: ResizeObserver | undefined;
   let socket: WebSocket | undefined;
+  const manuallyClosedSockets = new WeakSet<WebSocket>();
 
   const macOS =
     typeof navigator !== 'undefined' &&
@@ -122,8 +129,11 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
   }
 
   function disconnect(): void {
-    socket?.close(1000, 'Painel fechado');
-    socket = undefined;
+    const current = socket;
+    if (!current) return;
+    manuallyClosedSockets.add(current);
+    current.close(1000, 'Painel fechado');
+    if (socket === current) socket = undefined;
   }
 
   function connect(url: string): void {
@@ -135,6 +145,7 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
     newSocket.addEventListener('open', () => {
       if (socket !== newSocket) return;
       connecting.value = false;
+      handlers.onOpen?.();
     });
 
     newSocket.addEventListener('message', (event) => {
@@ -167,7 +178,11 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
         mountTerminal();
         terminal?.write(message.data);
       } else if (message.type === 'exit') {
-        handlers.onExit(message.exitCode ?? null, message.exitSignal ?? null);
+        handlers.onExit(
+          message.exitCode ?? null,
+          message.exitSignal ?? null,
+          message.snapshot,
+        );
         terminal?.write(
           `\r\n\x1b[90m[execução encerrada, código ${message.exitCode ?? '—'}]\x1b[0m\r\n`,
         );
@@ -180,9 +195,12 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
     });
 
     newSocket.addEventListener('close', () => {
+      const manual = manuallyClosedSockets.has(newSocket);
+      manuallyClosedSockets.delete(newSocket);
       if (socket !== newSocket) return;
       socket = undefined;
       connecting.value = false;
+      if (!manual) handlers.onClose?.();
     });
 
     newSocket.addEventListener('error', () => {

@@ -75,6 +75,12 @@ export interface TestExecutionRecord {
    */
   scope?: TestExecutionScope;
   targetFile?: string;
+  /** Arquivos efetivamente selecionados em execuções direcionadas/relacionadas. */
+  targetFiles?: string[];
+  /** Engine responsável pela execução; ausente em registros legados equivale a process. */
+  engine?: 'process' | 'pty';
+  /** Verdadeiro quando a finalização veio de cancelamento explícito do usuário. */
+  cancelled?: boolean;
   /** Commit HEAD capturado no início da execução, quando o projeto é Git. */
   gitRevision?: string;
   /**

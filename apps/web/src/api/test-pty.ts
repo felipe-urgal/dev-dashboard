@@ -2,10 +2,23 @@ import { requestJson } from './core';
 
 export interface ProjectTestPtyStatusSnapshot {
   status: 'running' | 'exited';
+  commandId: string;
+  environmentInstanceId: string;
+  scope: 'full-suite' | 'targeted';
+  targetFiles: string[];
+  cancelled: boolean;
+  truncated: boolean;
   exitCode: number | null;
   exitSignal: number | null;
   startedAt: string;
   endedAt: string | null;
+}
+
+export interface ProjectTestPtyStartOptions {
+  mode?: 'full-suite' | 'file' | 'related';
+  path?: string;
+  line?: number;
+  namePattern?: string;
 }
 
 interface StatusResponse {
@@ -32,6 +45,7 @@ export async function startProjectTestPty(
   projectId: string,
   commandId: string,
   environmentInstanceId?: string,
+  options: ProjectTestPtyStartOptions = {},
 ): Promise<ProjectTestPtyStatusSnapshot> {
   const response = await requestJson<{
     snapshot: ProjectTestPtyStatusSnapshot;
@@ -40,7 +54,7 @@ export async function startProjectTestPty(
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commandId }),
+      body: JSON.stringify({ commandId, ...options }),
     },
   );
   return response.snapshot;

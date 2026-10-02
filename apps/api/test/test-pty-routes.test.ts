@@ -54,6 +54,27 @@ test('rotas de PTY de testes respeitam a instância de ambiente', async (context
   appContext.developmentEnvironmentInstanceStore.reconcileWorktrees('p1', [
     { id: 'wt-1', path: worktreePath, kind: 'linked' },
   ]);
+  const primary =
+    appContext.developmentEnvironmentInstanceStore.findPrimaryByProjectId('p1');
+  assert.ok(primary);
+  appContext.developmentEnvironmentInstanceStore.upsert({
+    ...primary,
+    runtime: { kind: 'devcontainer', runtimeId: 'a'.repeat(64) },
+    lifecycle: 'ready',
+  });
+  let observedPrimaryRuntime: string | undefined;
+  const originalSnapshot = appContext.projectTestPtyService.snapshot.bind(
+    appContext.projectTestPtyService,
+  );
+  appContext.projectTestPtyService.snapshot = (
+    targetProject,
+    executionContext,
+  ) => {
+    if (executionContext?.environmentInstanceId === 'environment:primary:p1') {
+      observedPrimaryRuntime = executionContext.runtime;
+    }
+    return originalSnapshot(targetProject, executionContext);
+  };
 
   const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => {
@@ -77,6 +98,7 @@ test('rotas de PTY de testes respeitam a instância de ambiente', async (context
     });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json<StatusResponse>(), { snapshot: null });
+    assert.equal(observedPrimaryRuntime, 'devcontainer');
   });
 
   await context.test(
