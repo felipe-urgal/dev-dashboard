@@ -368,6 +368,9 @@ export class DevContainerLifecyclePlanningService {
         observedAt: this.now().toISOString(),
         environmentInstanceId: executionContext.environmentInstanceId,
         runtime: executionContext.runtime,
+        environmentLifecycle: instance.lifecycle,
+        stopAvailable,
+        recoveryAvailable: false,
         ...(executionContext.runtimeId
           ? { runtimeId: executionContext.runtimeId }
           : {}),
