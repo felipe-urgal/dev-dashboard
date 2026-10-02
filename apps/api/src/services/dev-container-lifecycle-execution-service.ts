@@ -4,24 +4,15 @@ import type { ActivityJob, Project } from '@dev-dashboard/contracts';
 import type { AppendActivityEventInput } from '@dev-dashboard/core';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
-import type {
-  DevContainerCleanupService,
-} from './dev-container-cleanup-service.js';
+import type { DevContainerCleanupService } from './dev-container-cleanup-service.js';
 import type { DevContainerStartService } from './dev-container-start-service.js';
 import type { DevContainerStopConfirmationService } from './dev-container-stop-confirmation-service.js';
 
 export type DevContainerLifecycleExecutionOperation =
-  | 'create'
-  | 'rebuild'
-  | 'stop'
-  | 'recover';
+  'create' | 'rebuild' | 'stop' | 'recover';
 
 export type DevContainerLifecycleExecutionStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled';
+  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface DevContainerLifecycleExecutionSnapshot {
   id: string;
@@ -70,18 +61,25 @@ type ActivityEventWriter = {
   append(input: AppendActivityEventInput): Promise<unknown>;
 };
 
-function executionKey(projectId: string, environmentInstanceId: string): string {
+function executionKey(
+  projectId: string,
+  environmentInstanceId: string,
+): string {
   return `${projectId}:${environmentInstanceId}:dev-container-lifecycle`;
 }
 
-function actionLabel(operation: DevContainerLifecycleExecutionOperation): string {
+function actionLabel(
+  operation: DevContainerLifecycleExecutionOperation,
+): string {
   if (operation === 'create') return 'Criar Dev Container';
   if (operation === 'rebuild') return 'Rebuild Dev Container';
   if (operation === 'stop') return 'Parar Dev Container';
   return 'Recuperar Dev Container';
 }
 
-function summaryLabel(operation: DevContainerLifecycleExecutionOperation): string {
+function summaryLabel(
+  operation: DevContainerLifecycleExecutionOperation,
+): string {
   if (operation === 'create') return 'Dev Container: criação';
   if (operation === 'rebuild') return 'Dev Container: rebuild';
   if (operation === 'stop') return 'Dev Container: parada';
@@ -289,7 +287,8 @@ export class DevContainerLifecycleExecutionService {
       await this.recordActivity(snapshot, 'succeeded');
     } catch (error) {
       const cancelled =
-        record.cancelRequested && record.abortController?.signal.aborted === true;
+        record.cancelRequested &&
+        record.abortController?.signal.aborted === true;
       snapshot.status = cancelled ? 'cancelled' : 'failed';
       snapshot.stage = cancelled ? 'cancelled' : 'failed';
       snapshot.finishedAt = this.now().toISOString();
