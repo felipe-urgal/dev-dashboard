@@ -263,8 +263,7 @@ export class DevContainerLifecyclePlanningService {
       ownedRuntime.containerId === executionContext.runtimeId;
     const stopAvailable =
       executionContext.runtime === 'devcontainer' && ownershipMatchesRuntime;
-    const recoveryAvailable =
-      executionContext.runtime === 'host' && ownedRuntime !== undefined;
+    const recoveryAvailable = ownedRuntime !== undefined;
 
     if (
       instance.lifecycle === 'starting' ||
