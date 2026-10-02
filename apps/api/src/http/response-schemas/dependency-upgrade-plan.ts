@@ -29,7 +29,15 @@ const dependencyUpgradePlanItemResponseSchema = {
       type: 'array',
       items: {
         type: 'string',
-        enum: ['package.json', 'package-lock.json'],
+        enum: [
+          'package.json',
+          'package-lock.json',
+          'npm-shrinkwrap.json',
+          'pnpm-lock.yaml',
+          'yarn.lock',
+          'bun.lock',
+          'bun.lockb',
+        ],
       },
     },
     warnings: {
@@ -71,7 +79,15 @@ const dependencyUpgradePlanGroupResponseSchema = {
       type: 'array',
       items: {
         type: 'string',
-        enum: ['package.json', 'package-lock.json'],
+        enum: [
+          'package.json',
+          'package-lock.json',
+          'npm-shrinkwrap.json',
+          'pnpm-lock.yaml',
+          'yarn.lock',
+          'bun.lock',
+          'bun.lockb',
+        ],
       },
     },
     lockstep: { type: 'string', enum: ['unknown'] },
@@ -93,7 +109,10 @@ export const projectDependencyUpgradePlanResponseSchema = {
   properties: {
     generatedAt: { type: 'string' },
     projectId: { type: 'string' },
-    packageManager: { type: 'string', enum: ['npm'] },
+    packageManager: {
+      type: 'string',
+      enum: ['npm', 'pnpm', 'yarn', 'bun', 'unknown'],
+    },
     status: {
       type: 'string',
       enum: ['ready', 'partial', 'unavailable'],
