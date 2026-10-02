@@ -13,7 +13,17 @@ interface StatusResponse {
   snapshot: { actionId: string; status: string } | null;
 }
 interface StartResponse {
-  snapshot: { actionId: string; actionName: string; status: string };
+  snapshot: {
+    actionId: string;
+    actionName: string;
+    environmentInstanceId: string;
+    cancelled: boolean;
+    truncated: boolean;
+    status: string;
+  };
+}
+interface ConfirmationResponse {
+  confirmation: { token: string; actionId: string; environmentInstanceId: string };
 }
 interface ErrorResponse {
   error?: string;
@@ -175,17 +185,55 @@ test('rotas de execução destacável de dependências/build', async (context) =
   );
 
   await context.test(
-    'inicia build, reporta running via status e aceita cancelamento',
+    'mutações exigem confirmação backend',
     async () => {
-      const startResponse = await app.inject({
+      const response = await app.inject({
         method: 'POST',
         url: '/api/projects/p1/dependencies/pty/start',
         headers: jsonHeaders,
         payload: JSON.stringify({ actionId: 'package-script:build' }),
       });
+      assert.equal(response.statusCode, 409);
+      assert.equal(
+        response.json<ErrorResponse>().error,
+        'SCRIPT_CONFIRMATION_REQUIRED',
+      );
+    },
+  );
+
+  await context.test(
+    'inicia build confirmado, reporta identidade e aceita cancelamento',
+    async () => {
+      const confirmationResponse = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/dependencies/pty/confirmation',
+        headers: jsonHeaders,
+        payload: JSON.stringify({ actionId: 'package-script:build' }),
+      });
+      assert.equal(confirmationResponse.statusCode, 201);
+      const { confirmation } =
+        confirmationResponse.json<ConfirmationResponse>();
+      assert.equal(confirmation.actionId, 'package-script:build');
+      assert.equal(
+        confirmation.environmentInstanceId,
+        'environment:primary:p1',
+      );
+
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/dependencies/pty/start',
+        headers: jsonHeaders,
+        payload: JSON.stringify({
+          actionId: 'package-script:build',
+          confirmationToken: confirmation.token,
+        }),
+      });
       assert.equal(startResponse.statusCode, 201);
       const { snapshot } = startResponse.json<StartResponse>();
       assert.equal(snapshot.actionId, 'package-script:build');
+      assert.equal(snapshot.environmentInstanceId, 'environment:primary:p1');
+      assert.equal(snapshot.cancelled, false);
+      assert.equal(snapshot.truncated, false);
       assert.equal(snapshot.status, 'running');
 
       const statusResponse = await app.inject({
