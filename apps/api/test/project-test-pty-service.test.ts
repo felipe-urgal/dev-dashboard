@@ -611,7 +611,6 @@ test('cancel() delega para DetachableExecutionService.cancel()', async () => {
   assert.deepEqual(kills, ['SIGTERM']);
 });
 
-
 test('start() executa arquivo específico no mesmo PTY e registra escopo direcionado', async () => {
   const fakePty = new FakePty();
   let spawnedArgs: readonly string[] | undefined;

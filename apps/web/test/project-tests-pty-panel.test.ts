@@ -440,7 +440,6 @@ test('permite executar testes relacionados pelo mesmo PTY canônico', async () =
   ]);
 });
 
-
 test('oferece reconexão quando o WebSocket cai sem encerrar a execução', async () => {
   mocks.startProjectTestPty.mockResolvedValue({
     status: 'running',
