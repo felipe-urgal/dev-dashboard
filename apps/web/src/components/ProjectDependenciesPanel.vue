@@ -103,10 +103,12 @@ const nodeManager = computed(() => {
 });
 
 const upgradeItems = computed(
-  () => upgradePlan.value?.items.filter((item) => item.state === 'upgrade') ?? [],
+  () =>
+    upgradePlan.value?.items.filter((item) => item.state === 'upgrade') ?? [],
 );
 const unknownItems = computed(
-  () => upgradePlan.value?.items.filter((item) => item.state === 'unknown') ?? [],
+  () =>
+    upgradePlan.value?.items.filter((item) => item.state === 'unknown') ?? [],
 );
 const advisoryCount = computed(
   () =>
@@ -165,7 +167,9 @@ function copyCommand(command: string): void {
   void navigator.clipboard?.writeText(command).catch(() => undefined);
 }
 
-function updateLabel(update: ProjectDependencyUpgradePlan['items'][number]['update']): string {
+function updateLabel(
+  update: ProjectDependencyUpgradePlan['items'][number]['update'],
+): string {
   if (update === 'major') return 'major';
   if (update === 'minor') return 'minor';
   if (update === 'patch') return 'patch';
@@ -271,19 +275,22 @@ watch(
     </div>
 
     <template v-else>
-      <section class="dependencies-health-strip" aria-label="Saúde das dependências">
+      <section
+        class="dependencies-health-strip"
+        aria-label="Saúde das dependências"
+      >
         <div class="dependencies-health-summary">
           <span>
-            {{
-              environmentInstanceId ? 'Environment Instance' : 'Principal'
-            }}
+            {{ environmentInstanceId ? 'Environment Instance' : 'Principal' }}
           </span>
           <template v-if="hasNodeHealth">
             <strong>{{ nodeManager }}</strong>
             <span>{{ nodeDependencyCount }} deps</span>
             <span>{{ upgradeItems.length }} updates</span>
             <span>{{ advisoryCount }} advisories</span>
-            <span v-if="health?.runtime.version">Node {{ health.runtime.version }}</span>
+            <span v-if="health?.runtime.version"
+              >Node {{ health.runtime.version }}</span
+            >
           </template>
           <template v-if="bundler?.supported">
             <strong>Bundler</strong>
@@ -324,7 +331,9 @@ watch(
           <section v-if="hasNodeHealth" aria-label="Dependency Health Node">
             <header>
               <strong>Node / {{ nodeManager }}</strong>
-              <span>{{ health?.inventory.lockfileName ?? 'sem lockfile' }}</span>
+              <span>{{
+                health?.inventory.lockfileName ?? 'sem lockfile'
+              }}</span>
             </header>
             <p
               v-for="warning in health?.inventory.warnings ?? []"
@@ -336,7 +345,10 @@ watch(
             <ul v-if="upgradeItems.length" class="dependencies-upgrade-list">
               <li v-for="item in upgradeItems" :key="item.name">
                 <strong>{{ item.name }}</strong>
-                <code>{{ item.currentVersion ?? '?' }} → {{ item.targetVersion ?? '?' }}</code>
+                <code
+                  >{{ item.currentVersion ?? '?' }} →
+                  {{ item.targetVersion ?? '?' }}</code
+                >
                 <span>{{ updateLabel(item.update) }}</span>
               </li>
             </ul>
@@ -344,10 +356,12 @@ watch(
               Nenhum upgrade comparável foi encontrado.
             </p>
             <p v-if="advisoryCount > 0" class="dependencies-health-danger">
-              {{ advisoryCount }} advisory(s) conhecido(s) na versão resolvida atual.
+              {{ advisoryCount }} advisory(s) conhecido(s) na versão resolvida
+              atual.
             </p>
             <p v-if="unknownItems.length">
-              {{ unknownItems.length }} dependência(s) permanecem inconclusivas por falta de evidência.
+              {{ unknownItems.length }} dependência(s) permanecem inconclusivas
+              por falta de evidência.
             </p>
           </section>
 
@@ -356,10 +370,18 @@ watch(
               <strong>Ruby / Bundler</strong>
               <span>{{ bundler.outdated.length }} desatualizada(s)</span>
             </header>
-            <p :class="{ 'dependencies-health-danger': bundler.check && !bundler.check.satisfied }">
+            <p
+              :class="{
+                'dependencies-health-danger':
+                  bundler.check && !bundler.check.satisfied,
+              }"
+            >
               {{ bundler.check?.message || 'Bundle inspecionado.' }}
             </p>
-            <ul v-if="bundler.outdated.length" class="dependencies-upgrade-list">
+            <ul
+              v-if="bundler.outdated.length"
+              class="dependencies-upgrade-list"
+            >
               <li v-for="gem in bundler.outdated" :key="gem.name">
                 <strong>{{ gem.name }}</strong>
                 <code>{{ gem.installed }} → {{ gem.newest }}</code>
@@ -554,7 +576,8 @@ watch(
             class="dependencies-connection-lost"
           >
             <span>
-              A execução continua ativa, mas a conexão com a saída foi interrompida.
+              A execução continua ativa, mas a conexão com a saída foi
+              interrompida.
             </span>
             <button type="button" @click="reconnect">Reconectar</button>
           </div>
