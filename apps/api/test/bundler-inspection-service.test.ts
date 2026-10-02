@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
 import { BundlerInspectionService } from '../src/services/bundler-inspection-service.js';
 
 async function fixture(
@@ -139,4 +139,43 @@ test('mascara segredos na mensagem de bundle check', async () => {
   const overview = await service.getOverview(project);
   assert.equal(overview.check?.satisfied, false);
   assert.doesNotMatch(overview.check?.message ?? '', /senha/);
+});
+
+
+test('executa check/outdated dentro do Dev Container selecionado', async () => {
+  const project = await fixture({ Gemfile: 'gem "rails"\n' });
+  const runtimeId = 'a'.repeat(64);
+  const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+  const service = new BundlerInspectionService(
+    async (command, args, options) => {
+      calls.push({ command, args, cwd: options.cwd });
+      if (args.at(-1) === 'check') {
+        return { stdout: "The Gemfile's dependencies are satisfied\n" };
+      }
+      return { stdout: OUTDATED_OUTPUT };
+    },
+  );
+  const executionContext: ExecutionContext = {
+    projectId: project.id,
+    environmentInstanceId: `environment:primary:${project.id}`,
+    cwd: project.path,
+    runtime: 'devcontainer',
+    runtimeId,
+  };
+
+  const overview = await service.getOverview(project, executionContext);
+
+  assert.equal(overview.supported, true);
+  assert.equal(overview.check?.satisfied, true);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]?.command, 'devcontainer');
+  assert.deepEqual(calls[0]?.args.slice(0, 6), [
+    'exec',
+    '--container-id',
+    runtimeId,
+    '--workspace-folder',
+    project.path,
+  ]);
+  assert.equal(calls[0]?.args.at(-2), 'bundle');
+  assert.equal(calls[0]?.args.at(-1), 'check');
 });
