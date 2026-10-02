@@ -6,15 +6,24 @@ import {
   projectDependencyHealthResponseSchema,
 } from '../http/response-schemas.js';
 import type { ProjectDependencyHealthService } from '../services/project-dependency-health-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'resolveForProject'
+  >;
   dependencyHealthService: Pick<ProjectDependencyHealthService, 'inspect'>;
 }
 
 interface Params {
   projectId: string;
+}
+interface Query {
+  environmentInstanceId?: string;
+  refresh?: boolean;
 }
 
 const paramsSchema = {
@@ -23,6 +32,15 @@ const paramsSchema = {
   required: ['projectId'],
   properties: {
     projectId: { type: 'string', minLength: 1 },
+  },
+} as const;
+
+const querySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
+    refresh: { type: 'boolean' },
   },
 } as const;
 
@@ -42,11 +60,12 @@ export const dependencyHealthRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  app.get<{ Params: Params }>(
+  app.get<{ Params: Params; Querystring: Query }>(
     '/projects/:projectId/dependency-health',
     {
       schema: {
         params: paramsSchema,
+        querystring: querySchema,
         response: {
           200: {
             type: 'object',
@@ -60,10 +79,29 @@ export const dependencyHealthRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async (request) => ({
-      health: await options.dependencyHealthService.inspect(
-        requireProject(options.projectStore, request.params.projectId),
-      ),
-    }),
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const executionContext =
+        options.developmentEnvironmentInstanceStore.resolveForProject(
+          project.id,
+          request.query.environmentInstanceId,
+        );
+      if (!executionContext) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+          message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+        });
+      }
+      return {
+        health: await options.dependencyHealthService.inspect(
+          { ...project, path: executionContext.cwd },
+          { refresh: request.query.refresh === true },
+        ),
+      };
+    },
   );
 };
