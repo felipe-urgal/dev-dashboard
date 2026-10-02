@@ -21,6 +21,25 @@ const project: Project = {
   capabilities: [],
 };
 
+const developmentEnvironmentInstanceStore = {
+  resolveForProject: (
+    projectId: string,
+    environmentInstanceId?: string,
+  ) =>
+    projectId === project.id
+      ? {
+          projectId,
+          environmentInstanceId:
+            environmentInstanceId ?? `environment:primary:${projectId}`,
+          cwd:
+            environmentInstanceId === 'environment:worktree:project-1:wt-1'
+              ? '/workspace/project-1-worktree'
+              : project.path,
+          runtime: 'host' as const,
+        }
+      : null,
+};
+
 const plan: ProjectDependencyUpgradePlan = {
   generatedAt: '2026-09-19T18:10:00.000Z',
   projectId: project.id,
@@ -69,6 +88,7 @@ test('Upgrade Planner HTTP seleciona projeto no backend e retorna 404 determiní
   app.register(dependencyUpgradePlanRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyUpgradePlanService: {
       inspect: async (selectedProject) => {
         calls.push(selectedProject.id);
@@ -110,6 +130,7 @@ test('Upgrade Planner response schema remove campos não públicos', async (cont
   app.register(dependencyUpgradePlanRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyUpgradePlanService: {
       inspect: async () =>
         ({
