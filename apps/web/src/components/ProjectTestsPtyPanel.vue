@@ -421,7 +421,7 @@ watch(selectedCommandId, () => {
             class="tests-local-environment"
             aria-label="Ambiente de execução"
           >
-            {{ environmentInstanceId ? 'Environment Instance' : 'Local' }}
+            {{ environmentInstanceId ? 'Environment Instance' : 'Principal' }}
           </div>
         </div>
 
