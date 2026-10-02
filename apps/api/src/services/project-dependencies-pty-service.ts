@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import type {
   ActivityJob,
@@ -26,6 +26,7 @@ export type ProjectDependenciesPtyErrorCode =
   | 'ACTION_NOT_FOUND'
   | 'ALREADY_RUNNING'
   | 'RUNTIME_UNSUPPORTED'
+  | 'CONFIRMATION_REQUIRED'
   | 'START_FAILED';
 
 export class ProjectDependenciesPtyError extends Error {
@@ -38,9 +39,20 @@ export class ProjectDependenciesPtyError extends Error {
   }
 }
 
-export interface ProjectDependenciesPtySnapshot extends DetachableExecutionSnapshot {
+export interface ProjectDependenciesPtySnapshot
+  extends DetachableExecutionSnapshot {
   actionId: string;
   actionName: string;
+  environmentInstanceId: string;
+  risk: ProjectScript['risk'];
+  cancelled: boolean;
+}
+
+export interface ProjectDependenciesPtyConfirmation {
+  token: string;
+  actionId: string;
+  environmentInstanceId: string;
+  expiresAt: string;
 }
 
 function errorMessage(error: unknown): string {
@@ -128,9 +140,56 @@ type ActivityEventWriter = {
 interface RunningDependencyAction {
   id: string;
   name: string;
+  risk: ProjectScript['risk'];
   projectId: string;
   environmentInstanceId: string;
   cancelled: boolean;
+}
+
+interface StoredDependencyConfirmation {
+  token: string;
+  projectId: string;
+  environmentInstanceId: string;
+  actionId: string;
+  signature: string;
+  expiresAt: number;
+}
+
+const CONFIRMATION_TTL_MS = 60_000;
+
+function actionSignature(
+  action: ProjectScript,
+  executionContext: ExecutionContext,
+): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        id: action.id,
+        name: action.name,
+        command: action.command,
+        risk: action.risk,
+        enabled: action.enabled,
+        environmentInstanceId: executionContext.environmentInstanceId,
+        cwd: executionContext.cwd,
+        runtime: executionContext.runtime,
+        runtimeId: executionContext.runtimeId ?? null,
+      }),
+    )
+    .digest('hex');
+}
+
+function decorateSnapshot(
+  snapshot: DetachableExecutionSnapshot,
+  action: RunningDependencyAction,
+): ProjectDependenciesPtySnapshot {
+  return {
+    ...snapshot,
+    actionId: action.id,
+    actionName: action.name,
+    environmentInstanceId: action.environmentInstanceId,
+    risk: action.risk,
+    cancelled: action.cancelled,
+  };
 }
 
 function dependencyExecutionId(action: RunningDependencyAction): string {
@@ -144,6 +203,7 @@ function dependencyExecutionId(action: RunningDependencyAction): string {
 
 export class ProjectDependenciesPtyService {
   private readonly runningAction = new Map<string, RunningDependencyAction>();
+  private readonly confirmations = new Map<string, StoredDependencyConfirmation>();
 
   public constructor(
     private readonly detachable: DetachableExecutionService,
@@ -163,29 +223,48 @@ export class ProjectDependenciesPtyService {
     if (!snapshot) return undefined;
     const action = this.runningAction.get(key);
     if (!action) return undefined;
-    return { ...snapshot, actionId: action.id, actionName: action.name };
+    return decorateSnapshot(snapshot, action);
+  }
+
+  public async prepareConfirmation(
+    project: Project,
+    actionId: string,
+    executionContext: ExecutionContext,
+  ): Promise<ProjectDependenciesPtyConfirmation> {
+    this.pruneConfirmations();
+    const action = await this.resolveAction(project, actionId, executionContext);
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
+    this.confirmations.set(token, {
+      token,
+      projectId: project.id,
+      environmentInstanceId: executionContext.environmentInstanceId,
+      actionId: action.id,
+      signature: actionSignature(action, executionContext),
+      expiresAt,
+    });
+    return {
+      token,
+      actionId: action.id,
+      environmentInstanceId: executionContext.environmentInstanceId,
+      expiresAt: new Date(expiresAt).toISOString(),
+    };
   }
 
   public async start(
     project: Project,
     actionId: string,
     executionContext: ExecutionContext,
+    confirmationToken?: string,
   ): Promise<ProjectDependenciesPtySnapshot> {
     const scopedProject = projectForExecution(project, executionContext);
-    const action = await this.scriptDetectionService.findAction(
-      scopedProject,
-      actionId,
-    );
-    if (!action || !isDependenciesAction(action)) {
-      throw new ProjectDependenciesPtyError(
-        'ACTION_NOT_FOUND',
-        'A ação não existe no catálogo de dependências/build deste projeto.',
-      );
-    }
-    if (!action.enabled) {
-      throw new ProjectDependenciesPtyError(
-        'ACTION_NOT_FOUND',
-        'Ações destrutivas permanecem bloqueadas.',
+    const action = await this.resolveAction(project, actionId, executionContext);
+    if (action.risk !== 'read-only') {
+      this.consumeConfirmation(
+        project.id,
+        action,
+        executionContext,
+        confirmationToken,
       );
     }
 
@@ -203,6 +282,7 @@ export class ProjectDependenciesPtyService {
     const running: RunningDependencyAction = {
       id: action.id,
       name: action.name,
+      risk: action.risk,
       projectId: project.id,
       environmentInstanceId: executionContext.environmentInstanceId,
       cancelled: false,
@@ -224,7 +304,7 @@ export class ProjectDependenciesPtyService {
       this.runningAction.set(key, running);
       await this.recordActivity(running, 'started');
       this.observeCompletion(key, running);
-      return { ...snapshot, actionId: action.id, actionName: action.name };
+      return decorateSnapshot(snapshot, running);
     } catch (error) {
       if (
         error instanceof DetachableExecutionError &&
@@ -254,12 +334,15 @@ export class ProjectDependenciesPtyService {
       handle = this.detachable.attach(
         key,
         (chunk) => sendJson(socket, { type: 'output', data: chunk }),
-        (snapshot) =>
+        (snapshot) => {
+          const action = this.runningAction.get(key);
           sendJson(socket, {
             type: 'exit',
             exitCode: snapshot.exitCode,
             exitSignal: snapshot.exitSignal,
-          }),
+            ...(action ? { snapshot: decorateSnapshot(snapshot, action) } : {}),
+          });
+        },
       );
     } catch (error) {
       if (
@@ -277,11 +360,18 @@ export class ProjectDependenciesPtyService {
     }
 
     const action = this.runningAction.get(key);
+    if (!action) {
+      sendJson(socket, {
+        type: 'error',
+        message: 'A identidade da execução de dependências não está disponível.',
+      });
+      handle.detach();
+      socket.close(1011, 'Identidade da execução indisponível');
+      return;
+    }
     sendJson(socket, {
       type: 'ready',
-      snapshot: action
-        ? { ...handle.snapshot, actionId: action.id, actionName: action.name }
-        : handle.snapshot,
+      snapshot: decorateSnapshot(handle.snapshot, action),
     });
 
     // Desconectar não mata a execução — é o ponto da sessão destacável.
@@ -324,6 +414,62 @@ export class ProjectDependenciesPtyService {
       });
     }
     return jobs;
+  }
+
+  private async resolveAction(
+    project: Project,
+    actionId: string,
+    executionContext: ExecutionContext,
+  ): Promise<ProjectScript> {
+    const scopedProject = projectForExecution(project, executionContext);
+    const action = await this.scriptDetectionService.findAction(
+      scopedProject,
+      actionId,
+    );
+    if (!action || !isDependenciesAction(action)) {
+      throw new ProjectDependenciesPtyError(
+        'ACTION_NOT_FOUND',
+        'A ação não existe no catálogo de dependências/build deste projeto.',
+      );
+    }
+    if (!action.enabled) {
+      throw new ProjectDependenciesPtyError(
+        'ACTION_NOT_FOUND',
+        'A ação não pode ser executada no estado atual do projeto.',
+      );
+    }
+    return action;
+  }
+
+  private consumeConfirmation(
+    projectId: string,
+    action: ProjectScript,
+    executionContext: ExecutionContext,
+    token: string | undefined,
+  ): void {
+    this.pruneConfirmations();
+    const confirmation = token ? this.confirmations.get(token) : undefined;
+    if (token) this.confirmations.delete(token);
+    if (
+      !confirmation ||
+      confirmation.projectId !== projectId ||
+      confirmation.environmentInstanceId !==
+        executionContext.environmentInstanceId ||
+      confirmation.actionId !== action.id ||
+      confirmation.signature !== actionSignature(action, executionContext)
+    ) {
+      throw new ProjectDependenciesPtyError(
+        'CONFIRMATION_REQUIRED',
+        'Solicite e confirme uma autorização nova para esta ação de dependências.',
+      );
+    }
+  }
+
+  private pruneConfirmations(): void {
+    const now = Date.now();
+    for (const [token, confirmation] of this.confirmations) {
+      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
+    }
   }
 
   private observeCompletion(
