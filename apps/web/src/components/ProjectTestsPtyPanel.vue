@@ -94,7 +94,8 @@ const selectedCommand = computed(() =>
 );
 const executionStateLabel = computed(() => {
   if (!snapshot.value) return '';
-  if (isRunning.value) return connectionLost.value ? 'Conexão perdida' : 'Executando';
+  if (isRunning.value)
+    return connectionLost.value ? 'Conexão perdida' : 'Executando';
   if (snapshot.value.cancelled) return 'Cancelado';
   return snapshot.value.exitCode === 0 ? 'Sucesso' : 'Falhou';
 });
@@ -206,7 +207,9 @@ async function loadStatusAndReconnect(): Promise<void> {
   }
 }
 
-async function start(mode: 'full-suite' | 'related' = 'full-suite'): Promise<void> {
+async function start(
+  mode: 'full-suite' | 'related' = 'full-suite',
+): Promise<void> {
   if (!selectedCommandId.value || isRunning.value || starting.value) return;
   errorMessage.value = '';
   starting.value = true;
@@ -265,7 +268,11 @@ function formatDuration(record: TestExecutionRecord): string {
   if (!record.finishedAt) return '—';
   const started = new Date(record.startedAt).getTime();
   const finished = new Date(record.finishedAt).getTime();
-  if (!Number.isFinite(started) || !Number.isFinite(finished) || finished < started)
+  if (
+    !Number.isFinite(started) ||
+    !Number.isFinite(finished) ||
+    finished < started
+  )
     return '—';
   const seconds = Math.round((finished - started) / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -274,8 +281,10 @@ function formatDuration(record: TestExecutionRecord): string {
 
 function historyStatus(record: TestExecutionRecord): string {
   if (record.cancelled) return 'Cancelado';
-  if (record.status === 'running' || record.status === 'starting') return 'Executando';
-  if (record.status === 'failed' || (record.exitCode ?? 0) !== 0) return 'Falhou';
+  if (record.status === 'running' || record.status === 'starting')
+    return 'Executando';
+  if (record.status === 'failed' || (record.exitCode ?? 0) !== 0)
+    return 'Falhou';
   return 'Sucesso';
 }
 
@@ -393,10 +402,7 @@ watch(selectedCommandId, () => {
             aria-label="Comando de teste"
           >
             <option v-if="loadingOverview" value="">Carregando…</option>
-            <option
-              v-else-if="overview && !overview.supported"
-              value=""
-            >
+            <option v-else-if="overview && !overview.supported" value="">
               Nenhuma suíte detectada
             </option>
             <option
@@ -447,7 +453,11 @@ watch(selectedCommandId, () => {
         class="tests-empty-state"
       >
         <span>Nenhuma suíte de testes foi detectada neste ambiente.</span>
-        <button type="button" class="secondary-button" @click="loadOverview(true)">
+        <button
+          type="button"
+          class="secondary-button"
+          @click="loadOverview(true)"
+        >
           Detectar novamente
         </button>
       </div>
@@ -457,7 +467,10 @@ watch(selectedCommandId, () => {
         {{ errorMessage }}
       </p>
       <div v-if="connectionLost && isRunning" class="tests-connection-lost">
-        <span>A execução continua ativa, mas a conexão com a saída foi interrompida.</span>
+        <span
+          >A execução continua ativa, mas a conexão com a saída foi
+          interrompida.</span
+        >
         <button type="button" class="secondary-button" @click="reconnect">
           Reconectar
         </button>
@@ -486,7 +499,8 @@ watch(selectedCommandId, () => {
             </p>
             <template v-else-if="intelligence">
               <p>
-                {{ intelligence.baseBranch }} → {{ intelligence.currentBranch }} ·
+                {{ intelligence.baseBranch }} →
+                {{ intelligence.currentBranch }} ·
                 {{ intelligence.changedFiles.length }} arquivo(s) alterado(s)
               </p>
               <button
@@ -515,7 +529,8 @@ watch(selectedCommandId, () => {
                 <span>{{ historyStatus(record) }}</span>
                 <strong>{{ record.commandId }}</strong>
                 <small>
-                  {{ formatDateTime(record.startedAt) }} · {{ formatDuration(record) }}
+                  {{ formatDateTime(record.startedAt) }} ·
+                  {{ formatDuration(record) }}
                 </small>
               </li>
             </ul>
