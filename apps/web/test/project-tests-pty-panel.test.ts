@@ -474,7 +474,17 @@ test('oferece reconexão quando o WebSocket cai sem encerrar a execução', asyn
   socket.emitMessage({
     type: 'ready',
     snapshot: {
-      ...mocks.startProjectTestPty.mock.results[0]!.value,
+      status: 'running',
+      commandId: 'full-suite',
+      environmentInstanceId: 'environment:primary:projeto-1',
+      scope: 'full-suite',
+      targetFiles: [],
+      cancelled: false,
+      truncated: false,
+      exitCode: null,
+      exitSignal: null,
+      startedAt: '2026-10-02T10:00:00.000Z',
+      endedAt: null,
       buffer: '',
     },
   });
