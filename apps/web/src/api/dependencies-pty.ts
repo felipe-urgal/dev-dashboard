@@ -3,11 +3,22 @@ import { requestJson } from './core';
 export interface ProjectDependenciesPtyStatusSnapshot {
   actionId: string;
   actionName: string;
+  environmentInstanceId: string;
+  risk: 'read-only' | 'mutable' | 'destructive';
+  cancelled: boolean;
+  truncated: boolean;
   status: 'running' | 'exited';
   exitCode: number | null;
   exitSignal: number | null;
   startedAt: string;
   endedAt: string | null;
+}
+
+export interface ProjectDependenciesPtyConfirmation {
+  token: string;
+  actionId: string;
+  environmentInstanceId: string;
+  expiresAt: string;
 }
 
 interface StatusResponse {
@@ -30,10 +41,29 @@ export async function fetchProjectDependenciesPtyStatus(
   return response.snapshot;
 }
 
+export async function prepareProjectDependenciesPtyConfirmation(
+  projectId: string,
+  actionId: string,
+  environmentInstanceId?: string,
+): Promise<ProjectDependenciesPtyConfirmation> {
+  const response = await requestJson<{
+    confirmation: ProjectDependenciesPtyConfirmation;
+  }>(
+    `/api/projects/${encodeURIComponent(projectId)}/dependencies/pty/confirmation${environmentQuery(environmentInstanceId)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actionId }),
+    },
+  );
+  return response.confirmation;
+}
+
 export async function startProjectDependenciesPty(
   projectId: string,
   actionId: string,
   environmentInstanceId?: string,
+  confirmationToken?: string,
 ): Promise<ProjectDependenciesPtyStatusSnapshot> {
   const response = await requestJson<{
     snapshot: ProjectDependenciesPtyStatusSnapshot;
@@ -42,7 +72,10 @@ export async function startProjectDependenciesPty(
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actionId }),
+      body: JSON.stringify({
+        actionId,
+        ...(confirmationToken ? { confirmationToken } : {}),
+      }),
     },
   );
   return response.snapshot;
