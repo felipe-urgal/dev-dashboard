@@ -149,6 +149,18 @@ async function writeSampleProject(
       2,
     ),
   );
+  await mkdir(path.join(projectDirectory, '.devcontainer'), { recursive: true });
+  await writeFile(
+    path.join(projectDirectory, '.devcontainer', 'devcontainer.json'),
+    JSON.stringify(
+      {
+        name: 'E2E Container',
+        image: 'node:24',
+      },
+      null,
+      2,
+    ),
+  );
   await writeFile(path.join(projectDirectory, '.gitignore'), '.env\n');
   await initSampleGitRepository(projectDirectory);
 
@@ -256,6 +268,142 @@ async function writeFakeDatabaseBinaries(runtimeRoot: string): Promise<string> {
   return binDirectory;
 }
 
+
+async function writeFakeDevContainerBinaries(
+  runtimeRoot: string,
+): Promise<string> {
+  const binDirectory = path.join(runtimeRoot, 'devcontainer-bin');
+  const stateFile = path.join(runtimeRoot, 'devcontainer-runtime.state');
+  await mkdir(binDirectory, { recursive: true });
+
+  const containerId = 'a'.repeat(64);
+  const devcontainerPath = path.join(binDirectory, 'devcontainer');
+  await writeFile(
+    devcontainerPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+STATE_FILE="${stateFile}"
+CONTAINER_ID="${containerId}"
+command="${1:-}"
+if [[ "$command" == "--version" ]]; then
+  echo "0.80.1"
+  exit 0
+fi
+if [[ "$command" == "read-configuration" ]]; then
+  echo '{"configuration":{"name":"E2E Container","image":"node:24"}}'
+  exit 0
+fi
+if [[ "$command" == "up" ]]; then
+  shift
+  token=""
+  workspace=""
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --id-label)
+        label="${2:-}"
+        token="${label#devdashboard.environment=}"
+        shift 2
+        ;;
+      --workspace-folder)
+        workspace="${2:-}"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+  if [[ -z "$token" ]]; then
+    exit 2
+  fi
+  printf '%s|%s|true\\n' "$token" "$CONTAINER_ID" > "$STATE_FILE"
+  printf '{"outcome":"success","containerId":"%s","remoteUser":"node","remoteWorkspaceFolder":"%s"}\\n' "$CONTAINER_ID" "$workspace"
+  exit 0
+fi
+if [[ "$command" == "exec" ]]; then
+  shift
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --container-id|--workspace-folder)
+        shift 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+  exec "$@"
+fi
+exit 2
+`,
+  );
+  await chmod(devcontainerPath, 0o755);
+
+  const dockerPath = path.join(binDirectory, 'docker');
+  await writeFile(
+    dockerPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+STATE_FILE="${stateFile}"
+read_state() {
+  if [[ -f "$STATE_FILE" ]]; then
+    IFS='|' read -r TOKEN CONTAINER_ID RUNNING < "$STATE_FILE"
+  else
+    TOKEN=""
+    CONTAINER_ID=""
+    RUNNING=""
+  fi
+}
+write_state() {
+  printf '%s|%s|%s\\n' "$TOKEN" "$CONTAINER_ID" "$RUNNING" > "$STATE_FILE"
+}
+read_state
+if [[ "${1:-}" == "container" && "${2:-}" == "ls" ]]; then
+  filter=""
+  while [[ "$#" -gt 0 ]]; do
+    if [[ "$1" == "--filter" ]]; then
+      filter="${2:-}"
+      break
+    fi
+    shift
+  done
+  expected="${filter#label=devdashboard.environment=}"
+  if [[ -n "$TOKEN" && "$TOKEN" == "$expected" ]]; then
+    echo "$CONTAINER_ID"
+  fi
+  exit 0
+fi
+if [[ "${1:-}" == "inspect" ]]; then
+  requested="${@: -1}"
+  if [[ -n "$CONTAINER_ID" && "$requested" == "$CONTAINER_ID" ]]; then
+    printf '%s|%s|%s\\n' "$CONTAINER_ID" "$TOKEN" "$RUNNING"
+    exit 0
+  fi
+  exit 1
+fi
+if [[ "${1:-}" == "container" && "${2:-}" == "stop" ]]; then
+  requested="${3:-}"
+  [[ "$requested" == "$CONTAINER_ID" ]] || exit 1
+  RUNNING=false
+  write_state
+  echo "$CONTAINER_ID"
+  exit 0
+fi
+if [[ "${1:-}" == "container" && "${2:-}" == "rm" ]]; then
+  requested="${3:-}"
+  [[ "$requested" == "$CONTAINER_ID" ]] || exit 1
+  rm -f "$STATE_FILE"
+  echo "$requested"
+  exit 0
+fi
+exit 2
+`,
+  );
+  await chmod(dockerPath, 0o755);
+
+  return binDirectory;
+}
+
 async function seedConfig(
   configDirectory: string,
   workspaceDirectory: string,
@@ -303,6 +451,8 @@ export async function startFixtureServer(): Promise<RunningServer> {
   await writeSampleRailsProject(workspaceDirectory);
   await seedConfig(configDirectory, workspaceDirectory);
   const databaseBinDirectory = await writeFakeDatabaseBinaries(runtimeRoot);
+  const devContainerBinDirectory =
+    await writeFakeDevContainerBinaries(runtimeRoot);
 
   const bootstrapToken = randomBytes(32).toString('hex');
   const webDist = path.join(ROOT_DIRECTORY, 'apps/web/dist');
@@ -313,7 +463,7 @@ export async function startFixtureServer(): Promise<RunningServer> {
       cwd: ROOT_DIRECTORY,
       env: {
         ...process.env,
-        PATH: `${databaseBinDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
+        PATH: `${devContainerBinDirectory}${path.delimiter}${databaseBinDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
         DEV_DASHBOARD_CONFIG_DIR: configDirectory,
         DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1',
         DEV_DASHBOARD_WEB_DIST: webDist,
