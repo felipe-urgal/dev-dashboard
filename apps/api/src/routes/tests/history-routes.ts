@@ -24,6 +24,7 @@ export function registerTestHistoryRoutes(
     projectStore,
     developmentEnvironmentInstanceStore,
     testExecutionHistoryService,
+    projectTestPtyService,
   } = options;
 
   app.get<{ Params: ProjectParams; Querystring: TestHistoryQuery }>(
@@ -62,6 +63,23 @@ export function registerTestHistoryRoutes(
         project.id,
         request.query.environmentInstanceId,
       );
+      const ptySnapshot = projectTestPtyService.snapshot(
+        project,
+        executionContext,
+      );
+      await testExecutionHistoryService.reconcilePty(
+        project.id,
+        executionContext.environmentInstanceId,
+        ptySnapshot
+          ? {
+              status: ptySnapshot.status,
+              startedAt: ptySnapshot.startedAt,
+              endedAt: ptySnapshot.endedAt,
+              exitCode: ptySnapshot.exitCode,
+              cancelled: ptySnapshot.cancelled,
+            }
+          : null,
+      );
       const history = await testExecutionHistoryService.history(
         project.id,
         request.query.page,
@@ -98,6 +116,23 @@ export function registerTestHistoryRoutes(
         developmentEnvironmentInstanceStore,
         project.id,
         request.query.environmentInstanceId,
+      );
+      const ptySnapshot = projectTestPtyService.snapshot(
+        project,
+        executionContext,
+      );
+      await testExecutionHistoryService.reconcilePty(
+        project.id,
+        executionContext.environmentInstanceId,
+        ptySnapshot
+          ? {
+              status: ptySnapshot.status,
+              startedAt: ptySnapshot.startedAt,
+              endedAt: ptySnapshot.endedAt,
+              exitCode: ptySnapshot.exitCode,
+              cancelled: ptySnapshot.cancelled,
+            }
+          : null,
       );
       const history = await testExecutionHistoryService.clear(
         project.id,
