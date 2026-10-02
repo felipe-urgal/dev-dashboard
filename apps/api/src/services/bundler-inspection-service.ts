@@ -7,8 +7,14 @@ import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
   BundlerOutdatedGem,
   BundlerOverview,
+  ExecutionContext,
   Project,
 } from '@dev-dashboard/contracts';
+
+import {
+  buildDevContainerWorkspaceCommand,
+  isValidDevContainerRuntimeId,
+} from './dev-container-exec-adapter.js';
 
 type CommandRunner = (
   command: string,
@@ -72,11 +78,12 @@ function maskAndTrim(raw: string): string {
 
 async function runCapture(
   runner: CommandRunner,
+  command: string,
   args: string[],
   cwd: string,
 ): Promise<{ stdout: string; stderr: string; failed: boolean }> {
   try {
-    const { stdout, stderr } = await runner('bundle', args, { cwd });
+    const { stdout, stderr } = await runner(command, args, { cwd });
     return { stdout, stderr: stderr ?? '', failed: false };
   } catch (error) {
     const failure = error as {
@@ -102,14 +109,56 @@ export class BundlerInspectionService {
     private readonly runCommand: CommandRunner = defaultCommandRunner,
   ) {}
 
-  public async getOverview(project: Project): Promise<BundlerOverview> {
-    if (!(await hasGemfile(project))) return { supported: false, outdated: [] };
+  public async getOverview(
+    project: Project,
+    executionContext?: ExecutionContext,
+  ): Promise<BundlerOverview> {
+    const scopedProject = executionContext
+      ? { ...project, path: executionContext.cwd }
+      : project;
+    if (!(await hasGemfile(scopedProject))) {
+      return { supported: false, outdated: [] };
+    }
 
-    const check = await runCapture(this.runCommand, ['check'], project.path);
+    let command = 'bundle';
+    const commandArgs = (args: string[]): string[] => args;
+    let wrapArgs = commandArgs;
+
+    if (executionContext?.runtime === 'devcontainer') {
+      if (!isValidDevContainerRuntimeId(executionContext.runtimeId)) {
+        return {
+          supported: true,
+          check: {
+            satisfied: false,
+            message:
+              'O Dev Container selecionado não possui identidade executável válida.',
+          },
+          outdated: [],
+        };
+      }
+      const runtimeId = executionContext.runtimeId;
+      command = 'devcontainer';
+      wrapArgs = (args) => [
+        ...buildDevContainerWorkspaceCommand({
+          runtimeId,
+          workspaceFolder: executionContext.cwd,
+          command: 'bundle',
+          args,
+        }).args,
+      ];
+    }
+
+    const check = await runCapture(
+      this.runCommand,
+      command,
+      wrapArgs(['check']),
+      scopedProject.path,
+    );
     const outdated = await runCapture(
       this.runCommand,
-      ['outdated'],
-      project.path,
+      command,
+      wrapArgs(['outdated']),
+      scopedProject.path,
     );
 
     return {
