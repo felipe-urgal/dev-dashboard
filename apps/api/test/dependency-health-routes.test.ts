@@ -21,6 +21,25 @@ const project: Project = {
   capabilities: [],
 };
 
+const developmentEnvironmentInstanceStore = {
+  resolveForProject: (
+    projectId: string,
+    environmentInstanceId?: string,
+  ) =>
+    projectId === project.id
+      ? {
+          projectId,
+          environmentInstanceId:
+            environmentInstanceId ?? `environment:primary:${projectId}`,
+          cwd:
+            environmentInstanceId === 'environment:worktree:project-1:wt-1'
+              ? '/workspace/project-1-worktree'
+              : project.path,
+          runtime: 'host' as const,
+        }
+      : null,
+};
+
 const health: ProjectDependencyHealthSnapshot = {
   generatedAt: '2026-09-19T17:45:00.000Z',
   inventory: {
@@ -105,6 +124,7 @@ test('Dependency Health HTTP expõe snapshot read-only por projeto e 404 determi
   app.register(dependencyHealthRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyHealthService: service,
   });
   context.after(() => app.close());
@@ -141,6 +161,7 @@ test('Dependency Health response schema remove campos não públicos', async (co
   app.register(dependencyHealthRoutes, {
     prefix: '/api',
     projectStore,
+    developmentEnvironmentInstanceStore,
     dependencyHealthService: {
       inspect: async () =>
         ({
