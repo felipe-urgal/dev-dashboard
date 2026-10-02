@@ -7,18 +7,20 @@ import {
   PlayIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
+  cancelDevContainerLifecycleExecution,
+  fetchDevContainerLifecycleExecution,
   fetchDevContainerLifecyclePreflight,
   prepareDevContainerLifecycleConfirmation,
   prepareDevContainerStopConfirmation,
-  rebuildDevContainer,
-  startDevContainer,
-  stopDevContainer,
+  startDevContainerLifecycleExecution,
   type DevContainerConfigurationKind,
+  type DevContainerLifecycleExecution,
+  type DevContainerLifecycleExecutionOperation,
   type DevContainerLifecycleLimitation,
   type DevContainerLifecyclePreflight,
 } from '../api/dev-container';
@@ -31,32 +33,62 @@ const props = defineProps<{
 }>();
 
 const preflight = ref<DevContainerLifecyclePreflight | null>(null);
+const execution = ref<DevContainerLifecycleExecution | null>(null);
 const loading = ref(false);
-const creating = ref(false);
-const rebuilding = ref(false);
-const stopping = ref(false);
-const createConfirmationVisible = ref(false);
-const rebuildConfirmationVisible = ref(false);
-const stopConfirmationVisible = ref(false);
+const submitting = ref(false);
+const cancellingExecution = ref(false);
+const confirmationOperation =
+  ref<DevContainerLifecycleExecutionOperation | null>(null);
 const errorMessage = ref('');
 const mutationErrorMessage = ref('');
 let generation = 0;
+let pollTimer: ReturnType<typeof setTimeout> | undefined;
+
+const executionActive = computed(
+  () =>
+    execution.value?.status === 'queued' ||
+    execution.value?.status === 'running',
+);
 
 const stateCopy = computed(() => {
   const value = preflight.value;
   if (!value) return null;
 
-  if (value.state === 'review') {
+  if (executionActive.value) {
     return {
-      label: 'Revisão necessária',
+      label:
+        execution.value?.operation === 'create'
+          ? 'Criando'
+          : execution.value?.operation === 'rebuild'
+            ? 'Reconstruindo'
+            : execution.value?.operation === 'stop'
+              ? 'Parando'
+              : 'Recuperando',
+      tone: 'info' as StatusBadgeTone,
+    };
+  }
+
+  if (value.reason === 'recovery-required' || value.environmentLifecycle === 'failed') {
+    return {
+      label: 'Recuperação necessária',
+      tone: 'danger' as StatusBadgeTone,
+    };
+  }
+
+  if (
+    value.environmentLifecycle === 'starting' ||
+    value.environmentLifecycle === 'stopping'
+  ) {
+    return {
+      label: 'Em transição',
       tone: 'warning' as StatusBadgeTone,
     };
   }
 
-  if (value.state === 'blocked') {
+  if (value.runtime === 'devcontainer' && value.environmentLifecycle === 'ready') {
     return {
-      label: 'Bloqueado',
-      tone: 'danger' as StatusBadgeTone,
+      label: 'Ativo',
+      tone: 'success' as StatusBadgeTone,
     };
   }
 
@@ -78,10 +110,22 @@ const stateCopy = computed(() => {
       tone: 'danger' as StatusBadgeTone,
     };
   }
+  if (value.state === 'blocked') {
+    return {
+      label: 'Bloqueado',
+      tone: 'warning' as StatusBadgeTone,
+    };
+  }
+  if (value.state === 'unavailable') {
+    return {
+      label: 'Indisponível',
+      tone: 'warning' as StatusBadgeTone,
+    };
+  }
 
   return {
-    label: 'Indisponível',
-    tone: 'warning' as StatusBadgeTone,
+    label: 'Pronto',
+    tone: 'neutral' as StatusBadgeTone,
   };
 });
 
@@ -101,6 +145,17 @@ const runtimeLabel = computed(() =>
   preflight.value?.runtime === 'devcontainer' ? 'Dev Container' : 'Host',
 );
 
+const lifecycleLabel = computed(() => {
+  const lifecycle = preflight.value?.environmentLifecycle;
+  if (lifecycle === 'ready') return 'Ready';
+  if (lifecycle === 'starting') return 'Starting';
+  if (lifecycle === 'stopping') return 'Stopping';
+  if (lifecycle === 'failed') return 'Failed';
+  if (lifecycle === 'degraded') return 'Degraded';
+  if (lifecycle === 'stopped') return 'Stopped';
+  return '—';
+});
+
 const hooks = computed(
   () => preflight.value?.configuration?.lifecycleHooks ?? [],
 );
@@ -108,9 +163,11 @@ const hooks = computed(
 const canCreate = computed(() => {
   const value = preflight.value;
   return (
+    !executionActive.value &&
     value?.operation === 'create' &&
     value.state === 'review' &&
     value.runtime === 'host' &&
+    value.environmentLifecycle === 'ready' &&
     value.requiresConfirmation === true &&
     (value.configuration?.kind === 'image' ||
       value.configuration?.kind === 'dockerfile')
@@ -120,25 +177,92 @@ const canCreate = computed(() => {
 const canRebuild = computed(() => {
   const value = preflight.value;
   return (
+    !executionActive.value &&
     value?.operation === 'rebuild' &&
     value.state === 'review' &&
     value.runtime === 'devcontainer' &&
+    value.environmentLifecycle === 'ready' &&
     value.requiresConfirmation === true &&
     (value.configuration?.kind === 'image' ||
       value.configuration?.kind === 'dockerfile')
   );
 });
 
-const canStop = computed(() => preflight.value?.runtime === 'devcontainer');
+const canStop = computed(
+  () => !executionActive.value && preflight.value?.stopAvailable === true,
+);
+const canRecover = computed(
+  () => !executionActive.value && preflight.value?.recoveryAvailable === true,
+);
 
 const busy = computed(
-  () => loading.value || creating.value || rebuilding.value || stopping.value,
+  () => loading.value || submitting.value || cancellingExecution.value,
 );
 
 const limitationLabels: Record<DevContainerLifecycleLimitation, string> = {
   'post-create-hooks-deferred':
     'Hooks pós-criação permanecem diferidos neste lifecycle.',
 };
+
+const operationLabel = computed(() => {
+  const operation = execution.value?.operation;
+  if (operation === 'create') return 'Criação';
+  if (operation === 'rebuild') return 'Rebuild';
+  if (operation === 'stop') return 'Parada';
+  if (operation === 'recover') return 'Recuperação';
+  return '';
+});
+
+const executionTone = computed<StatusBadgeTone>(() => {
+  if (!execution.value) return 'neutral';
+  if (execution.value.status === 'failed') return 'danger';
+  if (execution.value.status === 'cancelled') return 'neutral';
+  if (execution.value.status === 'succeeded') return 'success';
+  if (execution.value.status === 'queued') return 'warning';
+  return 'info';
+});
+
+const executionStatusLabel = computed(() => {
+  if (execution.value?.status === 'queued') return 'Aguardando';
+  if (execution.value?.status === 'running') return 'Em execução';
+  if (execution.value?.status === 'succeeded') return 'Concluído';
+  if (execution.value?.status === 'failed') return 'Falhou';
+  if (execution.value?.status === 'cancelled') return 'Cancelado';
+  return '';
+});
+
+const confirmationCopy = computed(() => {
+  if (confirmationOperation.value === 'create') {
+    return {
+      title: 'Criar este Dev Container?',
+      description:
+        'O Dashboard revalidará o preflight, emitirá uma confirmação de uso único e iniciará um job owned para esta Environment Instance.',
+      confirm: 'Confirmar criação',
+    };
+  }
+  if (confirmationOperation.value === 'rebuild') {
+    return {
+      title: 'Reconstruir este Dev Container?',
+      description:
+        'O runtime owned atual será removido somente após revalidar ownership e configuração; a recriação continuará como job observável.',
+      confirm: 'Confirmar rebuild',
+    };
+  }
+  if (confirmationOperation.value === 'stop') {
+    return {
+      title: 'Parar este Dev Container?',
+      description:
+        'O Dashboard revalidará o ownership e removerá somente o container owned desta Environment Instance, sem remover volumes.',
+      confirm: 'Confirmar parada',
+    };
+  }
+  return {
+    title: 'Limpar runtime parcial?',
+    description:
+      'O Dashboard revalidará o ownership persistido e limpará somente o runtime parcial owned antes de devolver o ambiente ao Host.',
+    confirm: 'Confirmar recuperação',
+  };
+});
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -149,192 +273,189 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function openCreateConfirmation(): void {
-  if (!canCreate.value || busy.value) return;
-  mutationErrorMessage.value = '';
-  createConfirmationVisible.value = true;
+function clearPoll(): void {
+  if (pollTimer) clearTimeout(pollTimer);
+  pollTimer = undefined;
 }
 
-function cancelCreateConfirmation(): void {
-  if (creating.value) return;
-  mutationErrorMessage.value = '';
-  createConfirmationVisible.value = false;
+function schedulePoll(currentGeneration: number): void {
+  clearPoll();
+  if (!executionActive.value || currentGeneration !== generation) return;
+  pollTimer = setTimeout(() => {
+    void pollExecution(currentGeneration);
+  }, 750);
 }
 
-async function createDevContainer(): Promise<void> {
-  const currentPreflight = preflight.value;
-  if (!currentPreflight || !canCreate.value || creating.value) return;
-
-  const currentGeneration = generation;
-  const environmentInstanceId = currentPreflight.environmentInstanceId;
-  creating.value = true;
-  mutationErrorMessage.value = '';
-
-  try {
-    const confirmation = await prepareDevContainerLifecycleConfirmation(
-      props.project.id,
-      environmentInstanceId,
-    );
-    if (confirmation.environmentInstanceId !== environmentInstanceId) {
-      throw new Error(
-        'A confirmação retornada não corresponde ao ambiente selecionado.',
-      );
-    }
-
-    await startDevContainer(
-      props.project.id,
-      confirmation.token,
-      environmentInstanceId,
-    );
-
-    if (currentGeneration === generation) {
-      createConfirmationVisible.value = false;
-      await load();
-    }
-  } catch (error) {
-    if (currentGeneration === generation) {
-      mutationErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível criar o Dev Container.';
-    }
-  } finally {
-    creating.value = false;
-  }
-}
-
-function openRebuildConfirmation(): void {
-  if (!canRebuild.value || busy.value) return;
-  mutationErrorMessage.value = '';
-  rebuildConfirmationVisible.value = true;
-}
-
-function cancelRebuildConfirmation(): void {
-  if (rebuilding.value) return;
-  mutationErrorMessage.value = '';
-  rebuildConfirmationVisible.value = false;
-}
-
-async function rebuildCurrentDevContainer(): Promise<void> {
-  const currentPreflight = preflight.value;
-  if (!currentPreflight || !canRebuild.value || rebuilding.value) return;
-
-  const currentGeneration = generation;
-  const environmentInstanceId = currentPreflight.environmentInstanceId;
-  rebuilding.value = true;
-  mutationErrorMessage.value = '';
-
-  try {
-    const confirmation = await prepareDevContainerLifecycleConfirmation(
-      props.project.id,
-      environmentInstanceId,
-    );
-    if (
-      confirmation.environmentInstanceId !== environmentInstanceId ||
-      confirmation.operation !== 'rebuild'
-    ) {
-      throw new Error(
-        'A confirmação retornada não corresponde ao rebuild do ambiente selecionado.',
-      );
-    }
-
-    await rebuildDevContainer(
-      props.project.id,
-      confirmation.token,
-      environmentInstanceId,
-    );
-
-    if (currentGeneration === generation) {
-      rebuildConfirmationVisible.value = false;
-      await load();
-    }
-  } catch (error) {
-    if (currentGeneration === generation) {
-      mutationErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível reconstruir o Dev Container.';
-    }
-  } finally {
-    rebuilding.value = false;
-  }
-}
-
-function openStopConfirmation(): void {
-  if (!canStop.value || busy.value) return;
-  mutationErrorMessage.value = '';
-  stopConfirmationVisible.value = true;
-}
-
-function cancelStopConfirmation(): void {
-  if (stopping.value) return;
-  mutationErrorMessage.value = '';
-  stopConfirmationVisible.value = false;
-}
-
-async function stopCurrentDevContainer(): Promise<void> {
-  const currentPreflight = preflight.value;
-  if (!currentPreflight || !canStop.value || stopping.value) return;
-
-  const currentGeneration = generation;
-  const environmentInstanceId = currentPreflight.environmentInstanceId;
-  stopping.value = true;
-  mutationErrorMessage.value = '';
-
-  try {
-    const confirmation = await prepareDevContainerStopConfirmation(
-      props.project.id,
-      environmentInstanceId,
-    );
-    if (confirmation.environmentInstanceId !== environmentInstanceId) {
-      throw new Error(
-        'A confirmação retornada não corresponde ao ambiente selecionado.',
-      );
-    }
-
-    await stopDevContainer(
-      props.project.id,
-      confirmation.token,
-      environmentInstanceId,
-    );
-
-    if (currentGeneration === generation) {
-      stopConfirmationVisible.value = false;
-      await load();
-    }
-  } catch (error) {
-    if (currentGeneration === generation) {
-      mutationErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível parar o Dev Container.';
-    }
-  } finally {
-    stopping.value = false;
-  }
-}
-
-async function load(): Promise<void> {
-  const current = ++generation;
-  loading.value = true;
-  errorMessage.value = '';
-
+async function refreshPreflight(currentGeneration = generation): Promise<void> {
   try {
     const result = await fetchDevContainerLifecyclePreflight(
       props.project.id,
       props.environmentInstanceId,
     );
-    if (current === generation) preflight.value = result;
+    if (currentGeneration === generation) preflight.value = result;
   } catch (error) {
-    if (current === generation) {
+    if (currentGeneration === generation) {
       preflight.value = null;
       errorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível carregar o preflight do Dev Container.';
     }
+  }
+}
+
+async function pollExecution(currentGeneration: number): Promise<void> {
+  try {
+    const result = await fetchDevContainerLifecycleExecution(
+      props.project.id,
+      props.environmentInstanceId,
+    );
+    if (currentGeneration !== generation) return;
+    execution.value = result;
+    if (executionActive.value) {
+      schedulePoll(currentGeneration);
+      return;
+    }
+    await refreshPreflight(currentGeneration);
+  } catch (error) {
+    if (currentGeneration === generation) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível acompanhar o lifecycle do Dev Container.';
+    }
+  }
+}
+
+async function load(): Promise<void> {
+  const current = ++generation;
+  clearPoll();
+  loading.value = true;
+  errorMessage.value = '';
+
+  const [preflightResult, executionResult] = await Promise.allSettled([
+    fetchDevContainerLifecyclePreflight(
+      props.project.id,
+      props.environmentInstanceId,
+    ),
+    fetchDevContainerLifecycleExecution(
+      props.project.id,
+      props.environmentInstanceId,
+    ),
+  ]);
+
+  if (current === generation) {
+    if (preflightResult.status === 'fulfilled') {
+      preflight.value = preflightResult.value;
+    } else {
+      preflight.value = null;
+      errorMessage.value =
+        preflightResult.reason instanceof Error
+          ? preflightResult.reason.message
+          : 'Não foi possível carregar o preflight do Dev Container.';
+    }
+
+    execution.value =
+      executionResult.status === 'fulfilled' ? executionResult.value : null;
+    loading.value = false;
+    schedulePoll(current);
+  }
+}
+
+function openConfirmation(
+  operation: DevContainerLifecycleExecutionOperation,
+): void {
+  if (busy.value || executionActive.value) return;
+  mutationErrorMessage.value = '';
+  confirmationOperation.value = operation;
+}
+
+function closeConfirmation(): void {
+  if (submitting.value) return;
+  mutationErrorMessage.value = '';
+  confirmationOperation.value = null;
+}
+
+async function submitLifecycleOperation(): Promise<void> {
+  const operation = confirmationOperation.value;
+  const currentPreflight = preflight.value;
+  if (!operation || !currentPreflight || submitting.value) return;
+
+  const currentGeneration = generation;
+  const environmentInstanceId = currentPreflight.environmentInstanceId;
+  submitting.value = true;
+  mutationErrorMessage.value = '';
+
+  try {
+    let confirmationToken: string;
+    if (operation === 'create' || operation === 'rebuild') {
+      const confirmation = await prepareDevContainerLifecycleConfirmation(
+        props.project.id,
+        environmentInstanceId,
+      );
+      if (
+        confirmation.environmentInstanceId !== environmentInstanceId ||
+        confirmation.operation !== operation
+      ) {
+        throw new Error(
+          'A confirmação retornada não corresponde à operação e ao ambiente selecionados.',
+        );
+      }
+      confirmationToken = confirmation.token;
+    } else {
+      const confirmation = await prepareDevContainerStopConfirmation(
+        props.project.id,
+        environmentInstanceId,
+      );
+      if (confirmation.environmentInstanceId !== environmentInstanceId) {
+        throw new Error(
+          'A confirmação retornada não corresponde ao ambiente selecionado.',
+        );
+      }
+      confirmationToken = confirmation.token;
+    }
+
+    const nextExecution = await startDevContainerLifecycleExecution(
+      props.project.id,
+      operation,
+      confirmationToken,
+      environmentInstanceId,
+    );
+
+    if (currentGeneration === generation) {
+      execution.value = nextExecution;
+      confirmationOperation.value = null;
+      schedulePoll(currentGeneration);
+    }
+  } catch (error) {
+    if (currentGeneration === generation) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível iniciar a operação do Dev Container.';
+    }
   } finally {
-    if (current === generation) loading.value = false;
+    submitting.value = false;
+  }
+}
+
+async function cancelCurrentExecution(): Promise<void> {
+  if (!execution.value?.cancelSupported || !executionActive.value) return;
+  cancellingExecution.value = true;
+  mutationErrorMessage.value = '';
+  try {
+    await cancelDevContainerLifecycleExecution(
+      props.project.id,
+      execution.value.environmentInstanceId,
+    );
+    await pollExecution(generation);
+  } catch (error) {
+    mutationErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível cancelar a operação Dev Container.';
+  } finally {
+    cancellingExecution.value = false;
   }
 }
 
@@ -342,14 +463,15 @@ watch(
   [() => props.project.id, () => props.environmentInstanceId],
   () => {
     preflight.value = null;
-    createConfirmationVisible.value = false;
-    rebuildConfirmationVisible.value = false;
-    stopConfirmationVisible.value = false;
+    execution.value = null;
+    confirmationOperation.value = null;
     mutationErrorMessage.value = '';
     void load();
   },
   { immediate: true },
 );
+
+onBeforeUnmount(clearPoll);
 </script>
 
 <template>
@@ -382,6 +504,10 @@ watch(
             <strong>{{ runtimeLabel }}</strong>
           </div>
           <div>
+            <span>Lifecycle</span>
+            <strong>{{ lifecycleLabel }}</strong>
+          </div>
+          <div>
             <span>Tipo</span>
             <strong>{{ kindLabel }}</strong>
           </div>
@@ -393,57 +519,53 @@ watch(
 
         <div class="devcontainer-actions">
           <button
-            v-if="
-              canCreate &&
-              !createConfirmationVisible &&
-              !rebuildConfirmationVisible &&
-              !stopConfirmationVisible
-            "
+            v-if="canCreate && !confirmationOperation"
             class="primary-button devcontainer-create"
             type="button"
             :disabled="busy"
-            @click="openCreateConfirmation"
+            @click="openConfirmation('create')"
           >
             <PlayIcon aria-hidden="true" />
             Criar
           </button>
 
           <button
-            v-if="
-              canRebuild &&
-              !rebuildConfirmationVisible &&
-              !createConfirmationVisible &&
-              !stopConfirmationVisible
-            "
+            v-if="canRebuild && !confirmationOperation"
             class="primary-button devcontainer-rebuild"
             type="button"
             :disabled="busy"
-            @click="openRebuildConfirmation"
+            @click="openConfirmation('rebuild')"
           >
             <ArrowPathIcon aria-hidden="true" />
             Rebuild
           </button>
 
           <button
-            v-if="
-              canStop &&
-              !stopConfirmationVisible &&
-              !createConfirmationVisible &&
-              !rebuildConfirmationVisible
-            "
+            v-if="canStop && !confirmationOperation"
             class="secondary-button devcontainer-stop"
             type="button"
             :disabled="busy"
-            @click="openStopConfirmation"
+            @click="openConfirmation('stop')"
           >
             <StopIcon aria-hidden="true" />
             Parar
           </button>
 
           <button
-            class="secondary-button devcontainer-refresh"
+            v-if="canRecover && !confirmationOperation"
+            class="secondary-button devcontainer-recover"
             type="button"
             :disabled="busy"
+            @click="openConfirmation('recover')"
+          >
+            <ArrowPathIcon aria-hidden="true" />
+            Limpar runtime parcial
+          </button>
+
+          <button
+            class="secondary-button devcontainer-refresh"
+            type="button"
+            :disabled="submitting"
             aria-label="Atualizar preflight"
             title="Atualizar preflight"
             @click="load"
@@ -466,6 +588,44 @@ watch(
         }"
       >
         <section
+          v-if="execution"
+          class="devcontainer-execution"
+          :class="{ 'is-active': executionActive }"
+          aria-label="Lifecycle em execução"
+        >
+          <ArrowPathIcon
+            aria-hidden="true"
+            :class="{ 'is-spinning': executionActive }"
+          />
+          <div>
+            <div class="devcontainer-execution-heading">
+              <strong>{{ operationLabel }}</strong>
+              <StatusBadge :tone="executionTone">
+                {{ executionStatusLabel }}
+              </StatusBadge>
+            </div>
+            <span>Etapa: {{ execution.stage }}</span>
+            <span>
+              Início {{ formatDate(execution.startedAt) }}
+              <template v-if="execution.finishedAt">
+                · fim {{ formatDate(execution.finishedAt) }}
+              </template>
+            </span>
+            <span v-if="execution.diagnostic">{{ execution.diagnostic }}</span>
+          </div>
+          <button
+            v-if="executionActive && execution.cancelSupported"
+            class="secondary-button"
+            type="button"
+            :disabled="cancellingExecution"
+            @click="cancelCurrentExecution"
+          >
+            <StopIcon aria-hidden="true" />
+            {{ cancellingExecution ? 'Cancelando…' : 'Cancelar operação' }}
+          </button>
+        </section>
+
+        <section
           class="devcontainer-diagnostic"
           :class="{ 'is-blocked': preflight.state === 'blocked' }"
         >
@@ -486,27 +646,25 @@ watch(
             <span v-if="preflight.requiresConfirmation">
               {{
                 preflight.operation === 'rebuild'
-                  ? 'O rebuild exige confirmação explícita e nova revalidação no backend.'
-                  : 'A criação exige confirmação explícita e nova revalidação no backend.'
+                  ? 'Rebuild disponível mediante confirmação explícita.'
+                  : 'Criação disponível mediante confirmação explícita.'
               }}
             </span>
           </div>
         </section>
 
         <div
-          v-if="createConfirmationVisible && canCreate"
+          v-if="confirmationOperation"
           class="devcontainer-confirmation"
         >
           <ExclamationTriangleIcon aria-hidden="true" />
           <div>
-            <strong>Criar este Dev Container?</strong>
-            <span>
-              O Dashboard revalidará o preflight, emitirá uma confirmação de uso
-              único e executará somente o lifecycle já aprovado para esta
-              Environment Instance.
-            </span>
+            <strong>{{ confirmationCopy.title }}</strong>
+            <span>{{ confirmationCopy.description }}</span>
             <span
               v-if="
+                (confirmationOperation === 'create' ||
+                  confirmationOperation === 'rebuild') &&
                 preflight.limitations.includes('post-create-hooks-deferred')
               "
             >
@@ -523,124 +681,36 @@ watch(
               <button
                 class="secondary-button"
                 type="button"
-                :disabled="creating"
-                @click="cancelCreateConfirmation"
+                :disabled="submitting"
+                @click="closeConfirmation"
               >
                 Cancelar
               </button>
               <button
                 class="primary-button devcontainer-confirm-action"
                 type="button"
-                :disabled="creating"
-                @click="createDevContainer"
+                :disabled="submitting"
+                @click="submitLifecycleOperation"
               >
                 <ArrowPathIcon
-                  v-if="creating"
+                  v-if="submitting"
                   class="is-spinning"
                   aria-hidden="true"
                 />
-                <PlayIcon v-else aria-hidden="true" />
-                {{ creating ? 'Criando…' : 'Confirmar criação' }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="rebuildConfirmationVisible && canRebuild"
-          class="devcontainer-confirmation"
-        >
-          <ExclamationTriangleIcon aria-hidden="true" />
-          <div>
-            <strong>Reconstruir este Dev Container?</strong>
-            <span>
-              O runtime owned atual será removido somente após a revalidação do
-              ownership e da configuração. Em seguida, o Dashboard recriará o
-              ambiente usando o snapshot confirmado.
-            </span>
-            <span>
-              Volumes não são removidos implicitamente e uma falha na nova
-              criação aciona o rollback scoped já protegido pelo backend.
-            </span>
-            <div
-              v-if="mutationErrorMessage"
-              class="devcontainer-confirmation-error"
-              role="alert"
-            >
-              {{ mutationErrorMessage }}
-            </div>
-            <div class="devcontainer-confirmation-actions">
-              <button
-                class="secondary-button"
-                type="button"
-                :disabled="rebuilding"
-                @click="cancelRebuildConfirmation"
-              >
-                Cancelar
-              </button>
-              <button
-                class="primary-button devcontainer-confirm-action"
-                type="button"
-                :disabled="rebuilding"
-                @click="rebuildCurrentDevContainer"
-              >
-                <ArrowPathIcon
-                  :class="{ 'is-spinning': rebuilding }"
-                  aria-hidden="true"
-                />
-                {{ rebuilding ? 'Reconstruindo…' : 'Confirmar rebuild' }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="stopConfirmationVisible && canStop"
-          class="devcontainer-confirmation"
-        >
-          <ExclamationTriangleIcon aria-hidden="true" />
-          <div>
-            <strong>Parar este Dev Container?</strong>
-            <span>
-              O Dashboard revalidará o ownership atual antes do stop e removerá
-              somente o container owned desta Environment Instance.
-            </span>
-            <span>
-              Volumes não são removidos. Se o ownership mudar após esta
-              confirmação, a operação falha fechado.
-            </span>
-            <div
-              v-if="mutationErrorMessage"
-              class="devcontainer-confirmation-error"
-              role="alert"
-            >
-              {{ mutationErrorMessage }}
-            </div>
-            <div class="devcontainer-confirmation-actions">
-              <button
-                class="secondary-button"
-                type="button"
-                :disabled="stopping"
-                @click="cancelStopConfirmation"
-              >
-                Cancelar
-              </button>
-              <button
-                class="primary-button devcontainer-confirm-action"
-                type="button"
-                :disabled="stopping"
-                @click="stopCurrentDevContainer"
-              >
-                <ArrowPathIcon
-                  v-if="stopping"
-                  class="is-spinning"
-                  aria-hidden="true"
-                />
+                <PlayIcon v-else-if="confirmationOperation === 'create'" aria-hidden="true" />
                 <StopIcon v-else aria-hidden="true" />
-                {{ stopping ? 'Parando…' : 'Confirmar parada' }}
+                {{ submitting ? 'Iniciando…' : confirmationCopy.confirm }}
               </button>
             </div>
           </div>
+        </div>
+
+        <div
+          v-if="mutationErrorMessage && !confirmationOperation"
+          class="devcontainer-message-inline is-error"
+          role="alert"
+        >
+          {{ mutationErrorMessage }}
         </div>
 
         <dl
@@ -721,7 +791,7 @@ watch(
   display: grid;
   min-width: 0;
   flex: 1 1 auto;
-  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  grid-template-columns: repeat(5, minmax(95px, 1fr));
   gap: 1px;
 }
 
@@ -762,8 +832,14 @@ watch(
   gap: 7px;
 }
 
+.devcontainer-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .devcontainer-actions button,
-.devcontainer-confirmation-actions button {
+.devcontainer-confirmation-actions button,
+.devcontainer-execution button {
   min-height: 34px;
   gap: 7px;
   padding-inline: 11px;
@@ -781,7 +857,9 @@ watch(
 .devcontainer-loading svg,
 .devcontainer-diagnostic svg,
 .devcontainer-secondary-note svg,
-.devcontainer-confirmation > svg {
+.devcontainer-confirmation > svg,
+.devcontainer-execution > svg,
+.devcontainer-execution button svg {
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
@@ -816,7 +894,8 @@ watch(
 
 .devcontainer-diagnostic,
 .devcontainer-secondary-note,
-.devcontainer-confirmation {
+.devcontainer-confirmation,
+.devcontainer-execution {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -824,6 +903,36 @@ watch(
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
+}
+
+.devcontainer-execution {
+  align-items: center;
+}
+
+.devcontainer-execution.is-active {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.devcontainer-execution > div {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 3px;
+}
+
+.devcontainer-execution-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.devcontainer-execution strong {
+  font-size: 11px;
+}
+
+.devcontainer-execution span {
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
 .devcontainer-diagnostic.is-blocked {
@@ -877,10 +986,16 @@ watch(
   margin-top: 6px;
 }
 
-.devcontainer-confirmation-error {
-  margin-top: 4px;
+.devcontainer-confirmation-error,
+.devcontainer-message-inline.is-error {
   color: var(--danger-text);
   font-size: 10px;
+}
+
+.devcontainer-message-inline {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .devcontainer-details {
@@ -947,20 +1062,15 @@ watch(
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1050px) {
   .devcontainer-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
   .devcontainer-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     row-gap: 10px;
-  }
-
-  .devcontainer-summary > div:nth-child(3) {
-    padding-left: 0;
-    border-left: 0;
   }
 
   .devcontainer-actions {
@@ -986,6 +1096,11 @@ watch(
 
   .devcontainer-details {
     gap: 0;
+  }
+
+  .devcontainer-execution {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>
