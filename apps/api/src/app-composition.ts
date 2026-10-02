@@ -129,7 +129,10 @@ export interface AppCompositionOptions {
     DevContainerLifecycleExecutionService,
     'start' | 'latest' | 'cancel' | 'activityJobs'
   >;
-  devContainerRecoveryService?: Pick<DevContainerRecoveryService, 'reconcile'>;
+  devContainerRecoveryService?: Pick<
+    DevContainerRecoveryService,
+    'reconcile' | 'reconcileProject'
+  >;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
