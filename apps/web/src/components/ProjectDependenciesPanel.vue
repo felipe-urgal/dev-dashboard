@@ -85,11 +85,11 @@ const nodeActions = computed(() =>
   ),
 );
 const nodeManager = computed(() => {
-  if (health.value?.inventory.packageManager !== 'unknown') {
-    const manager = health.value?.inventory.packageManager;
+  const manager = health.value?.inventory.packageManager;
+  if (manager && manager !== 'unknown') {
     if (manager === 'yarn') return 'Yarn';
     if (manager === 'bun') return 'Bun';
-    return manager ?? 'Node';
+    return manager;
   }
   const command = nodeActions.value[0]?.command
     .trim()
@@ -205,44 +205,63 @@ async function loadDependencyContext(
 ): Promise<void> {
   loadingHealth.value = true;
   healthErrorMessage.value = '';
-  try {
-    const healthResult = await fetchProjectDependencyHealth(
+
+  const healthResult = await fetchProjectDependencyHealth(
+    props.project.id,
+    props.environmentInstanceId,
+    refresh,
+  ).then(
+    (value) => ({ status: 'fulfilled' as const, value }),
+    (reason: unknown) => ({ status: 'rejected' as const, reason }),
+  );
+  if (current !== generation) return;
+
+  if (healthResult.status === 'fulfilled') {
+    health.value = healthResult.value;
+  } else {
+    health.value = null;
+    healthErrorMessage.value =
+      healthResult.reason instanceof Error
+        ? healthResult.reason.message
+        : 'Não foi possível atualizar a saúde das dependências.';
+  }
+
+  const [planResult, bundlerResult] = await Promise.allSettled([
+    fetchProjectDependencyUpgradePlan(
       props.project.id,
       props.environmentInstanceId,
-      refresh,
-    );
-    if (current !== generation) return;
-    health.value = healthResult;
+    ),
+    props.project.type === 'rails'
+      ? fetchProjectBundlerOverview(
+          props.project.id,
+          props.environmentInstanceId,
+        )
+      : Promise.resolve(null),
+  ]);
+  if (current !== generation) return;
 
-    const [planResult, bundlerResult] = await Promise.all([
-      fetchProjectDependencyUpgradePlan(
-        props.project.id,
-        props.environmentInstanceId,
-      ),
-      props.project.type === 'rails'
-        ? fetchProjectBundlerOverview(
-            props.project.id,
-            props.environmentInstanceId,
-          )
-        : Promise.resolve(null),
-    ]);
-    if (current !== generation) return;
-    upgradePlan.value = planResult;
-    bundler.value = bundlerResult;
-  } catch (error) {
-    if (current === generation) {
-      healthErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível atualizar a saúde das dependências.';
-    }
-  } finally {
-    if (current === generation) loadingHealth.value = false;
+  upgradePlan.value =
+    planResult.status === 'fulfilled' ? planResult.value : null;
+  bundler.value =
+    bundlerResult.status === 'fulfilled' ? bundlerResult.value : null;
+
+  if (
+    !healthErrorMessage.value &&
+    planResult.status === 'rejected' &&
+    bundlerResult.status === 'rejected'
+  ) {
+    healthErrorMessage.value =
+      'Não foi possível carregar o plano de atualização nem o diagnóstico Bundler.';
   }
+  if (current === generation) loadingHealth.value = false;
 }
 
 function refreshHealth(): void {
   void loadDependencyContext(generation, true);
+}
+
+function refreshCatalog(): void {
+  void loadCatalog(generation);
 }
 
 watch(
@@ -523,6 +542,14 @@ watch(
               O projeto precisa declarar um gerenciador Node/lockfile, um
               Gemfile ou o script build no package.json.
             </span>
+            <button
+              type="button"
+              class="dependencies-health-refresh"
+              :disabled="loading"
+              @click="refreshCatalog"
+            >
+              Detectar novamente
+            </button>
           </div>
         </aside>
 
