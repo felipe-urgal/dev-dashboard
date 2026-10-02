@@ -255,7 +255,9 @@ export class DevContainerLifecycleExecutionService {
         const input = {
           environmentInstanceId: snapshot.environmentInstanceId,
           confirmationToken: record.confirmationToken,
-          signal: record.abortController?.signal,
+          ...(record.abortController
+            ? { signal: record.abortController.signal }
+            : {}),
           onStage,
         };
         if (snapshot.operation === 'create') {
