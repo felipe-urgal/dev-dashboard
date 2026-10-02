@@ -69,7 +69,6 @@ test('does not include unrelated tests when no path or stem matches', () => {
   assert.deepEqual(related, []);
 });
 
-
 test('prioriza a default branch declarada por origin/HEAD mesmo quando main existe localmente', async (context) => {
   const directory = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-related-default-'),
