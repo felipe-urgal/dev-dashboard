@@ -75,6 +75,13 @@ const stateCopy = computed(() => {
     };
   }
 
+  if (value.reason === 'rebuild-ownership-required') {
+    return {
+      label: 'Ownership não comprovado',
+      tone: 'danger' as StatusBadgeTone,
+    };
+  }
+
   if (
     value.environmentLifecycle === 'starting' ||
     value.environmentLifecycle === 'stopping'
