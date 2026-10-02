@@ -33,6 +33,8 @@ const OUTPUT_TAIL_BYTES = 512 * 1024;
 export interface DevContainerStartInput {
   environmentInstanceId?: string;
   confirmationToken?: string;
+  signal?: AbortSignal;
+  onStage?: (stage: string) => void;
 }
 
 export interface DevContainerStartResult {
@@ -88,6 +90,7 @@ interface StartCommandOptions {
   cwd: string;
   timeoutMs: number;
   outputTailBytes: number;
+  signal?: AbortSignal;
 }
 
 export type DevContainerStartCommandRunner = (
@@ -136,15 +139,28 @@ function defaultCommandRunner(
     let tail: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let settled = false;
     let timedOut = false;
+    let aborted = false;
     let forceKillTimer: NodeJS.Timeout | undefined;
 
-    const timer = setTimeout(() => {
+    const terminate = (): void => {
       if (settled) return;
-      timedOut = true;
       child.kill('SIGTERM');
       forceKillTimer = setTimeout(() => {
         if (!settled) child.kill('SIGKILL');
       }, COMMAND_KILL_GRACE_MS);
+    };
+    const onAbort = (): void => {
+      aborted = true;
+      terminate();
+    };
+
+    if (options.signal?.aborted) onAbort();
+    else options.signal?.addEventListener('abort', onAbort, { once: true });
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      timedOut = true;
+      terminate();
     }, options.timeoutMs);
 
     child.stdout.on('data', (chunk: Buffer<ArrayBufferLike> | string) => {
@@ -157,6 +173,7 @@ function defaultCommandRunner(
       settled = true;
       clearTimeout(timer);
       if (forceKillTimer) clearTimeout(forceKillTimer);
+      options.signal?.removeEventListener('abort', onAbort);
       reject(error);
     });
 
@@ -165,6 +182,11 @@ function defaultCommandRunner(
       settled = true;
       clearTimeout(timer);
       if (forceKillTimer) clearTimeout(forceKillTimer);
+      options.signal?.removeEventListener('abort', onAbort);
+      if (aborted) {
+        reject(new Error('Dev Container command cancelled.'));
+        return;
+      }
       if (timedOut) {
         reject(new Error('Dev Container command timed out.'));
         return;
@@ -264,6 +286,7 @@ export class DevContainerStartService {
     project: Project,
     input: DevContainerStartInput = {},
   ): Promise<DevContainerStartResult> {
+    input.onStage?.('validating');
     const preflight = await this.planningService.plan(project, {
       ...(input.environmentInstanceId
         ? { environmentInstanceId: input.environmentInstanceId }
@@ -316,13 +339,14 @@ export class DevContainerStartService {
       );
     }
 
-    return this.createOwnedRuntime(project, instance, authority);
+    return this.createOwnedRuntime(project, instance, authority, undefined, input);
   }
 
   public async rebuild(
     project: Project,
     input: DevContainerRebuildInput = {},
   ): Promise<DevContainerRebuildResult> {
+    input.onStage?.('validating');
     const preflight = await this.planningService.plan(project, {
       ...(input.environmentInstanceId
         ? { environmentInstanceId: input.environmentInstanceId }
@@ -401,6 +425,7 @@ export class DevContainerStartService {
     }
 
     let snapshot: DevContainerConfigSnapshot;
+    input.onStage?.('snapshotting');
     try {
       snapshot = await this.createSnapshot(instance, authority);
     } catch (error) {
@@ -416,6 +441,7 @@ export class DevContainerStartService {
       throw error;
     }
 
+    input.onStage?.('cleaning-current-runtime');
     try {
       await this.cleanupService.cleanup(project, instance.id);
     } catch {
@@ -449,6 +475,7 @@ export class DevContainerStartService {
         hostInstance,
         authority,
         snapshot,
+        input,
       );
     } catch (error) {
       if (error instanceof DevContainerStartError) {
@@ -495,9 +522,21 @@ export class DevContainerStartService {
     instance: DevelopmentEnvironmentInstance,
     authority: DevContainerCreationAuthority,
     preparedSnapshot?: DevContainerConfigSnapshot,
+    input: DevContainerStartInput = {},
   ): Promise<DevContainerStartResult> {
+    input.onStage?.('snapshotting');
     const snapshot =
       preparedSnapshot ?? (await this.createSnapshot(instance, authority));
+
+    if (input.signal?.aborted) {
+      await snapshot.dispose().catch(() => undefined);
+      throw new DevContainerStartError(
+        'DEV_CONTAINER_START_COMMAND_FAILED',
+        'A criação do Dev Container foi cancelada antes de iniciar.',
+      );
+    }
+
+    input.onStage?.('reserving-ownership');
 
     let ownership: DevContainerOwnershipRecord;
     try {
@@ -516,6 +555,7 @@ export class DevContainerStartService {
 
     try {
       try {
+        input.onStage?.('marking-starting');
         this.environmentStore.upsert({
           ...instance,
           lifecycle: 'starting',
@@ -529,6 +569,7 @@ export class DevContainerStartService {
 
       let output: string;
       try {
+        input.onStage?.('creating-runtime');
         output = await this.runCommand(
           buildDevContainerUpCommand({
             workspaceFolder: instance.source.path,
@@ -540,6 +581,7 @@ export class DevContainerStartService {
             cwd: instance.source.path,
             timeoutMs: COMMAND_TIMEOUT_MS,
             outputTailBytes: OUTPUT_TAIL_BYTES,
+            ...(input.signal ? { signal: input.signal } : {}),
           },
         );
       } catch {
@@ -574,6 +616,7 @@ export class DevContainerStartService {
       }
 
       try {
+        input.onStage?.('attaching-ownership');
         ownership = await this.ownershipStore.attach({
           environmentInstanceId: instance.id,
           ownershipToken: ownership.ownershipToken,
@@ -596,6 +639,7 @@ export class DevContainerStartService {
       }
 
       try {
+        input.onStage?.('persisting-runtime');
         this.environmentStore.upsert({
           ...instance,
           runtime: {
@@ -626,6 +670,7 @@ export class DevContainerStartService {
           );
     } finally {
       if (rollbackRequired) {
+        input.onStage?.('rolling-back');
         await snapshot.dispose().catch(() => undefined);
 
         try {
