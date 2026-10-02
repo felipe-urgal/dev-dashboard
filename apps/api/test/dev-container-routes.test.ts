@@ -807,6 +807,7 @@ test('Dev Container lifecycle execution expõe start assíncrono, status e cance
   assert.equal(cancel.statusCode, 200);
   assert.deepEqual(cancel.json(), { ok: true });
   assert.deepEqual(calls, [
+    'latest:environment:primary:project-1',
     `start:create:${'a'.repeat(64)}:environment:primary:project-1`,
     'latest:environment:primary:project-1',
     'cancel:environment:primary:project-1',
