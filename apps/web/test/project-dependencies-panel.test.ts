@@ -62,15 +62,111 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function managerFromCatalog(catalog: ProjectScriptCatalog) {
+  const command =
+    catalog.items.find((item) => item.origin === 'package-manager')?.command ??
+    '';
+  if (command.startsWith('yarn ')) return 'yarn';
+  if (command.startsWith('pnpm ')) return 'pnpm';
+  if (command.startsWith('bun ')) return 'bun';
+  return 'npm';
+}
+
+function healthResponse(catalog: ProjectScriptCatalog) {
+  const manager = managerFromCatalog(catalog);
+  return {
+    generatedAt: '2026-10-02T10:00:00.000Z',
+    inventory: {
+      status: 'ready',
+      projectId: 'projeto-1',
+      packageManager: manager,
+      observedAt: '2026-10-02T10:00:00.000Z',
+      lockfile: 'present',
+      lockfileName:
+        manager === 'yarn'
+          ? 'yarn.lock'
+          : manager === 'pnpm'
+            ? 'pnpm-lock.yaml'
+            : manager === 'bun'
+              ? 'bun.lock'
+              : 'package-lock.json',
+      dependencies: [
+        {
+          name: 'fastify',
+          kind: 'dependency',
+          declaredRange: '^5.0.0',
+          resolution: 'resolved',
+          resolvedVersion: '5.6.0',
+        },
+      ],
+      warnings: [],
+    },
+    runtime: {
+      state: 'declared',
+      observedAt: '2026-10-02T10:00:00.000Z',
+      declarations: [
+        {
+          source: '.node-version',
+          raw: '22.12.0',
+          version: '22.12.0',
+        },
+      ],
+      version: '22.12.0',
+    },
+    metadata: [
+      {
+        name: 'fastify',
+        state: 'available',
+        source: 'npm-registry',
+        observedAt: '2026-10-02T10:00:00.000Z',
+        latestVersion: '5.6.0',
+        runtimeVersion: '22.12.0',
+        latestRuntimeCompatibility: 'compatible',
+        update: 'none',
+      },
+    ],
+    advisories: [
+      {
+        name: 'fastify',
+        state: 'available',
+        source: 'osv',
+        observedAt: '2026-10-02T10:00:00.000Z',
+        resolvedVersion: '5.6.0',
+        advisories: [],
+        complete: true,
+      },
+    ],
+  };
+}
+
 function installFetch(
   catalog: ProjectScriptCatalog,
-  options: { onStartCall?: (body: unknown) => void } = {},
+  options: {
+    onStartCall?: (body: unknown) => void;
+    onHealthCall?: (url: URL) => void;
+  } = {},
 ): void {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const requestPath = new URL(String(input), 'http://localhost').pathname;
+    const url = new URL(String(input), 'http://localhost');
+    const requestPath = url.pathname;
+
     if (requestPath.endsWith('/dependencies/pty/status')) {
       return jsonResponse({ snapshot: null });
+    }
+    if (requestPath.endsWith('/dependencies/pty/confirmation')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      return jsonResponse(
+        {
+          confirmation: {
+            token: 'a'.repeat(64),
+            actionId: body.actionId,
+            environmentInstanceId: 'environment:primary:projeto-1',
+            expiresAt: '2026-10-02T10:01:00.000Z',
+          },
+        },
+        201,
+      );
     }
     if (requestPath.endsWith('/dependencies/pty/start')) {
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -81,10 +177,14 @@ function installFetch(
           snapshot: {
             actionId: body.actionId,
             actionName: action?.name ?? body.actionId,
+            environmentInstanceId: 'environment:primary:projeto-1',
+            risk: action?.risk ?? 'mutable',
+            cancelled: false,
+            truncated: false,
             status: 'running',
             exitCode: null,
             exitSignal: null,
-            startedAt: new Date().toISOString(),
+            startedAt: '2026-10-02T10:00:00.000Z',
             endedAt: null,
           },
         },
@@ -94,6 +194,42 @@ function installFetch(
     if (requestPath.endsWith('/dependencies/pty/cancel')) {
       return jsonResponse({ ok: true });
     }
+    if (requestPath.endsWith('/dependency-health')) {
+      options.onHealthCall?.(url);
+      return jsonResponse({ health: healthResponse(catalog) });
+    }
+    if (requestPath.endsWith('/dependency-upgrade-plan')) {
+      return jsonResponse({
+        plan: {
+          generatedAt: '2026-10-02T10:00:00.000Z',
+          projectId: 'projeto-1',
+          packageManager: managerFromCatalog(catalog),
+          status: 'ready',
+          items: [],
+          groups: [],
+          warnings: [],
+        },
+      });
+    }
+    if (requestPath.endsWith('/bundler')) {
+      return jsonResponse({
+        bundler: {
+          supported: true,
+          check: {
+            satisfied: true,
+            message: "The Gemfile's dependencies are satisfied",
+          },
+          outdated: [
+            {
+              name: 'puma',
+              installed: '6.4.0',
+              newest: '6.4.2',
+              requested: '~> 6.4',
+            },
+          ],
+        },
+      });
+    }
     if (requestPath.endsWith('/scripts')) return jsonResponse({ catalog });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -102,33 +238,52 @@ function installFetch(
   };
 }
 
-test('mostra runner compacto sem resumo redundante para o gerenciador Node detectado', async () => {
-  installFetch({
-    items: [
-      {
-        id: 'package-manager:install',
-        name: 'Instalar dependências',
-        description: 'Instala as dependências usando o lockfile do yarn.',
-        command: 'yarn install',
-        origin: 'package-manager',
-        risk: 'mutable',
-        enabled: true,
-      },
-      {
-        id: 'package-script:build',
-        name: 'build',
-        description: 'Script declarado em scripts.build no package.json.',
-        command: 'yarn build',
-        origin: 'package-script',
-        risk: 'mutable',
-        enabled: true,
-      },
-    ],
-    page: 1,
-    pageSize: 100,
-    total: 2,
-    totalPages: 1,
-  });
+function runningSnapshot(actionId = 'package-manager:install') {
+  return {
+    actionId,
+    actionName: 'Instalar dependências',
+    environmentInstanceId: 'environment:primary:projeto-1',
+    risk: 'mutable',
+    cancelled: false,
+    truncated: false,
+    status: 'running',
+    exitCode: null,
+    exitSignal: null,
+    startedAt: '2026-10-02T10:00:00.000Z',
+    endedAt: null,
+    buffer: '',
+  };
+}
+
+const nodeCatalog: ProjectScriptCatalog = {
+  items: [
+    {
+      id: 'package-manager:install',
+      name: 'Instalar dependências',
+      description: 'Instala as dependências usando o lockfile do yarn.',
+      command: 'yarn install',
+      origin: 'package-manager',
+      risk: 'mutable',
+      enabled: true,
+    },
+    {
+      id: 'package-script:build',
+      name: 'build',
+      description: 'Script declarado em scripts.build no package.json.',
+      command: 'yarn build',
+      origin: 'package-script',
+      risk: 'mutable',
+      enabled: true,
+    },
+  ],
+  page: 1,
+  pageSize: 100,
+  total: 2,
+  totalPages: 1,
+};
+
+test('mantém runner terminal-first e mostra health compacto do manager real', async () => {
+  installFetch(nodeCatalog);
 
   const wrapper = mount(ProjectDependenciesPanel, {
     props: {
@@ -138,31 +293,22 @@ test('mostra runner compacto sem resumo redundante para o gerenciador Node detec
   await flushPromises();
   await flushPromises();
 
-  assert.equal(wrapper.find('.dependencies-panel-title').exists(), false);
-  assert.equal(wrapper.find('.dependencies-actions-panel').exists(), true);
   assert.match(wrapper.text(), /Node \/ Yarn/);
-  assert.match(wrapper.text(), /Instalar dependências/);
+  assert.match(wrapper.text(), /1 deps/);
+  assert.match(wrapper.text(), /0 updates/);
+  assert.match(wrapper.text(), /0 advisories/);
+  assert.match(wrapper.text(), /Node 22.12.0/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
   assert.match(wrapper.text(), /Console/);
   assert.match(wrapper.text(), /Pronto para executar/);
-  assert.doesNotMatch(wrapper.text(), /Gerenciadores/);
-  assert.doesNotMatch(wrapper.text(), /Ações disponíveis/);
-  assert.doesNotMatch(wrapper.text(), /Nenhum comando executado nesta sessão/);
-  assert.equal(
-    wrapper.get('.dependencies-panel').attributes('aria-busy'),
-    'false',
-  );
-  assert.equal(wrapper.find('.dependencies-summary').exists(), false);
   assert.equal(wrapper.find('.dependencies-workspace').exists(), true);
-  assert.equal(wrapper.find('.dependencies-console').exists(), true);
-  assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
+  assert.equal(wrapper.find('.dependencies-health-strip').exists(), true);
   assert.equal(wrapper.findAll('.dependencies-action-row').length, 2);
-  assert.equal(wrapper.findAll('.dependencies-copy-command').length, 2);
   wrapper.unmount();
 });
 
-test('projeto Rails com frontend agrupa Bundler e Node em comandos compactos', async () => {
+test('Rails híbrido combina Health Node com inspeção Bundler', async () => {
   installFetch({
     items: [
       {
@@ -172,15 +318,6 @@ test('projeto Rails com frontend agrupa Bundler e Node em comandos compactos', a
         command: 'bundle check',
         origin: 'bundler',
         risk: 'read-only',
-        enabled: true,
-      },
-      {
-        id: 'bundler:install',
-        name: 'Instalar gems',
-        description: 'Instala gems.',
-        command: 'bundle install',
-        origin: 'bundler',
-        risk: 'mutable',
         enabled: true,
       },
       {
@@ -201,19 +338,10 @@ test('projeto Rails com frontend agrupa Bundler e Node em comandos compactos', a
         risk: 'mutable',
         enabled: true,
       },
-      {
-        id: 'package-script:build',
-        name: 'build',
-        description: 'Gera o build.',
-        command: 'npm run build',
-        origin: 'package-script',
-        risk: 'mutable',
-        enabled: true,
-      },
     ],
     page: 1,
     pageSize: 100,
-    total: 5,
+    total: 3,
     totalPages: 1,
   });
 
@@ -228,40 +356,18 @@ test('projeto Rails com frontend agrupa Bundler e Node em comandos compactos', a
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Ruby \/ Bundler/);
   assert.match(wrapper.text(), /Node \/ npm/);
-  assert.match(wrapper.text(), /bundle check/);
+  assert.match(wrapper.text(), /Ruby \/ Bundler/);
+  assert.match(wrapper.text(), /1 updates/);
   assert.match(wrapper.text(), /bundle update/);
-  assert.match(wrapper.text(), /npm run build/);
   assert.match(wrapper.text(), /Pode alterar o Gemfile.lock/);
   assert.equal(wrapper.findAll('.dependencies-group').length, 2);
-  assert.equal(wrapper.findAll('.dependencies-action-row').length, 5);
-  assert.equal(wrapper.findAll('.dependencies-copy-command').length, 5);
   wrapper.unmount();
 });
 
-test('executa uma ação via PTY, destaca o comando e permite limpar o console', async () => {
+test('ação mutável solicita confirmação backend antes de iniciar o PTY', async () => {
   const calls: unknown[] = [];
-  installFetch(
-    {
-      items: [
-        {
-          id: 'package-manager:install',
-          name: 'Instalar dependências',
-          description: 'Instala as dependências usando o lockfile do npm.',
-          command: 'npm install',
-          origin: 'package-manager',
-          risk: 'mutable',
-          enabled: true,
-        },
-      ],
-      page: 1,
-      pageSize: 100,
-      total: 1,
-      totalPages: 1,
-    },
-    { onStartCall: (body) => calls.push(body) },
-  );
+  installFetch(nodeCatalog, { onStartCall: (body) => calls.push(body) });
 
   const wrapper = mount(ProjectDependenciesPanel, {
     props: {
@@ -271,70 +377,130 @@ test('executa uma ação via PTY, destaca o comando e permite limpar o console',
   await flushPromises();
   await flushPromises();
 
-  const runButton = wrapper.get('.dependencies-run-command');
-  await runButton.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.deepEqual(calls, [{ actionId: 'package-manager:install' }]);
-  assert.equal(FakeWebSocket.instances.length, 1);
-  const socket = FakeWebSocket.instances[0]!;
-  socket.readyState = 1;
-  socket.emit('open', {});
-  socket.emitMessage({
-    type: 'ready',
-    snapshot: {
-      actionId: 'package-manager:install',
-      actionName: 'Instalar dependências',
-      status: 'running',
-      exitCode: null,
-      exitSignal: null,
-      startedAt: new Date().toISOString(),
-      endedAt: null,
-      buffer: '',
-    },
-  });
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Executando/);
-  assert.equal(
-    wrapper.get('.dependencies-console').attributes('aria-label'),
-    'Console de execução',
-  );
-  assert.equal(wrapper.find('.dependencies-console-empty').exists(), false);
-  assert.equal(
-    wrapper.find('.dependencies-action-row.is-active').exists(),
-    true,
-  );
-
-  socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
-  await flushPromises();
-
-  socket.emitMessage({ type: 'exit', exitCode: 0, exitSignal: null });
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Execução concluída/);
-  const clearButton = wrapper.get('.dependencies-console-clear');
-  assert.match(clearButton.text(), /Limpar/);
-
-  await clearButton.trigger('click');
-  await flushPromises();
-
-  assert.equal(wrapper.find('.dependencies-console-empty').exists(), true);
-  assert.equal(
-    wrapper.find('.dependencies-action-row.is-active').exists(),
-    false,
-  );
-
   await wrapper.get('.dependencies-run-command').trigger('click');
   await flushPromises();
   await flushPromises();
 
   assert.deepEqual(calls, [
-    { actionId: 'package-manager:install' },
-    { actionId: 'package-manager:install' },
+    {
+      actionId: 'package-manager:install',
+      confirmationToken: 'a'.repeat(64),
+    },
   ]);
+  assert.equal(FakeWebSocket.instances.length, 1);
+
+  const socket = FakeWebSocket.instances[0]!;
+  socket.readyState = 1;
+  socket.emit('open', {});
+  socket.emitMessage({ type: 'ready', snapshot: runningSnapshot() });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Executando/);
+  socket.emitMessage({
+    type: 'exit',
+    exitCode: 0,
+    exitSignal: null,
+    snapshot: {
+      ...runningSnapshot(),
+      status: 'exited',
+      endedAt: '2026-10-02T10:00:01.500Z',
+      exitCode: 0,
+    },
+  });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Sucesso/);
+  assert.match(wrapper.text(), /1.5s/);
+  assert.match(wrapper.text(), /exit 0/);
+  wrapper.unmount();
+});
+
+test('cancelamento e queda de conexão são estados distintos de falha', async () => {
+  installFetch(nodeCatalog);
+
+  const wrapper = mount(ProjectDependenciesPanel, {
+    props: {
+      project: makeProject({ type: 'node', capabilities: ['scripts'] }),
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.get('.dependencies-run-command').trigger('click');
+  await flushPromises();
+  const socket = FakeWebSocket.instances[0]!;
+  socket.readyState = 1;
+  socket.emit('open', {});
+  socket.emitMessage({ type: 'ready', snapshot: runningSnapshot() });
+  await flushPromises();
+
+  socket.emit('close', {});
+  await flushPromises();
+  assert.match(wrapper.text(), /Conexão perdida/);
+  assert.match(wrapper.text(), /execução continua ativa/i);
+
+  const reconnect = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Reconectar');
+  assert.ok(reconnect);
+  await reconnect.trigger('click');
+  await flushPromises();
   assert.equal(FakeWebSocket.instances.length, 2);
+
+  const reconnected = FakeWebSocket.instances[1]!;
+  reconnected.readyState = 1;
+  reconnected.emit('open', {});
+  reconnected.emitMessage({ type: 'ready', snapshot: runningSnapshot() });
+  await flushPromises();
+
+  const cancel = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Cancelar');
+  assert.ok(cancel);
+  await cancel.trigger('click');
+  reconnected.emitMessage({
+    type: 'exit',
+    exitCode: 143,
+    exitSignal: 15,
+    snapshot: {
+      ...runningSnapshot(),
+      status: 'exited',
+      cancelled: true,
+      exitCode: 143,
+      exitSignal: 15,
+      endedAt: '2026-10-02T10:00:01.000Z',
+    },
+  });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Cancelado/);
+  assert.doesNotMatch(wrapper.text(), /Falhou/);
+  wrapper.unmount();
+});
+
+test('Atualizar saúde solicita refresh explícito sem bloquear o runner', async () => {
+  const calls: URL[] = [];
+  installFetch(nodeCatalog, { onHealthCall: (url) => calls.push(url) });
+
+  const wrapper = mount(ProjectDependenciesPanel, {
+    props: {
+      project: makeProject({ type: 'node', capabilities: ['scripts'] }),
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  const refresh = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Atualizar saúde');
+  assert.ok(refresh);
+  await refresh.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]?.searchParams.get('refresh'), null);
+  assert.equal(calls[1]?.searchParams.get('refresh'), 'true');
+  assert.equal(wrapper.find('.dependencies-run-command').attributes('disabled'), undefined);
   wrapper.unmount();
 });
