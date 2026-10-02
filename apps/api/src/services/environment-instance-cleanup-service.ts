@@ -59,10 +59,8 @@ export class EnvironmentInstanceCleanupService {
       return { state: 'skipped' };
     }
 
-    let devContainerCleanupState:
-      | 'none'
-      | 'cleaned'
-      | 'cleanup-required' = 'none';
+    let devContainerCleanupState: 'none' | 'cleaned' | 'cleanup-required' =
+      'none';
 
     if (instance.runtime.kind === 'devcontainer') {
       const project = this.dependencies.projectStore?.findProject(

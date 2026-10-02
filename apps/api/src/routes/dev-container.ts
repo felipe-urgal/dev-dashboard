@@ -385,10 +385,7 @@ async function reconcileLifecycleWhenIdle(
     projectId,
     environmentInstanceId,
   );
-  if (
-    execution?.status === 'queued' ||
-    execution?.status === 'running'
-  ) {
+  if (execution?.status === 'queued' || execution?.status === 'running') {
     return;
   }
   await options.devContainerRecoveryService?.reconcileProject(
@@ -442,7 +439,9 @@ function executionApiError(
 ): ApiError {
   return new ApiError({
     statusCode:
-      error.code === 'DEV_CONTAINER_EXECUTION_ENVIRONMENT_NOT_FOUND' ? 404 : 409,
+      error.code === 'DEV_CONTAINER_EXECUTION_ENVIRONMENT_NOT_FOUND'
+        ? 404
+        : 409,
     code: error.code,
     message: error.message,
   });
@@ -450,7 +449,9 @@ function executionApiError(
 
 function requireExecutionService(options: Options) {
   if (!options.devContainerLifecycleExecutionService) {
-    throw new Error('Dev Container lifecycle execution service is not configured.');
+    throw new Error(
+      'Dev Container lifecycle execution service is not configured.',
+    );
   }
   return options.devContainerLifecycleExecutionService;
 }
@@ -560,7 +561,8 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
           });
         }
         return {
-          inspection: await options.devContainerDiscoveryService.inspect(project),
+          inspection:
+            await options.devContainerDiscoveryService.inspect(project),
         };
       }
 
@@ -572,7 +574,8 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         throw new ApiError({
           statusCode: 404,
           code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-          message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+          message:
+            'Ambiente de desenvolvimento não encontrado para este projeto.',
         });
       }
       return {

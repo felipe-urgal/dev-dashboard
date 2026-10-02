@@ -708,7 +708,6 @@ test('Dev Container start preserva erro sanitizado de confirmação como conflit
   });
 });
 
-
 test('Dev Container lifecycle execution expõe start assíncrono, status e cancel', async (context) => {
   const calls: string[] = [];
   let current: DevContainerLifecycleExecutionSnapshot = {
@@ -742,7 +741,12 @@ test('Dev Container lifecycle execution expõe start assíncrono, status e cance
       }),
     },
     devContainerLifecycleExecutionService: {
-      start: (_project, operation, confirmationToken, environmentInstanceId) => {
+      start: (
+        _project,
+        operation,
+        confirmationToken,
+        environmentInstanceId,
+      ) => {
         calls.push(
           `start:${operation}:${confirmationToken}:${environmentInstanceId}`,
         );

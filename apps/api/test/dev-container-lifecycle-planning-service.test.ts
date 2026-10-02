@@ -74,9 +74,7 @@ function planner(
               },
               runtime: {
                 kind: context.runtime,
-                ...(context.runtimeId
-                  ? { runtimeId: context.runtimeId }
-                  : {}),
+                ...(context.runtimeId ? { runtimeId: context.runtimeId } : {}),
               },
               lifecycle,
             }
@@ -599,7 +597,6 @@ test('preflight de rebuild falha fechado sem ownership exato', async () => {
   assert.equal(plan.requiresConfirmation, false);
   assert.deepEqual(inspectedPaths, []);
 });
-
 
 test('preflight bloqueia mutation durante lifecycle starting e oferece recovery quando há ownership', async () => {
   const { service, inspectedPaths } = planner(

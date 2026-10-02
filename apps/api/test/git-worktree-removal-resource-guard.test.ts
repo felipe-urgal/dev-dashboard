@@ -240,7 +240,6 @@ test('guard falha fechado quando ownership Compose não pode ser lido', async ()
   assert.match(result.diagnostic ?? '', /ownership do Docker Compose/i);
 });
 
-
 test('guard orienta parar Dev Container owned antes de remover o worktree', async () => {
   const fixture = setup({ devContainerOwned: true });
   const instance = fixture.environmentStore.findById(

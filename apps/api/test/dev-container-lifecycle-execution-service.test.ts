@@ -246,12 +246,7 @@ test('não permite dois lifecycle jobs ativos para a mesma Environment Instance'
   service.start(project, 'create', 'a'.repeat(64), environmentInstance.id);
   assert.throws(
     () =>
-      service.start(
-        project,
-        'create',
-        'c'.repeat(64),
-        environmentInstance.id,
-      ),
+      service.start(project, 'create', 'c'.repeat(64), environmentInstance.id),
     (error: unknown) =>
       error instanceof DevContainerLifecycleExecutionError &&
       error.code === 'DEV_CONTAINER_EXECUTION_ALREADY_RUNNING',

@@ -8,10 +8,7 @@ export type DevContainerInspectionState =
   | 'invalid-output';
 
 export type DevContainerConfigurationKind =
-  | 'image'
-  | 'dockerfile'
-  | 'compose'
-  | 'unknown';
+  'image' | 'dockerfile' | 'compose' | 'unknown';
 
 export type DevContainerLifecycleHook =
   | 'initializeCommand'
@@ -36,9 +33,7 @@ export interface DevContainerInspection {
 }
 
 export type DevContainerLifecyclePreflightState =
-  | 'review'
-  | 'blocked'
-  | 'unavailable';
+  'review' | 'blocked' | 'unavailable';
 
 export type DevContainerLifecyclePreflightReason =
   | 'review-required'
@@ -53,12 +48,7 @@ export type DevContainerLifecyclePreflightReason =
 export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
 
 export type DevContainerEnvironmentLifecycle =
-  | 'stopped'
-  | 'starting'
-  | 'ready'
-  | 'degraded'
-  | 'stopping'
-  | 'failed';
+  'stopped' | 'starting' | 'ready' | 'degraded' | 'stopping' | 'failed';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
@@ -120,17 +110,10 @@ export interface DevContainerStopResult {
 }
 
 export type DevContainerLifecycleExecutionOperation =
-  | 'create'
-  | 'rebuild'
-  | 'stop'
-  | 'recover';
+  'create' | 'rebuild' | 'stop' | 'recover';
 
 export type DevContainerLifecycleExecutionStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled';
+  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface DevContainerLifecycleExecution {
   id: string;

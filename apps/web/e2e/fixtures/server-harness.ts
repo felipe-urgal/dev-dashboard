@@ -149,7 +149,9 @@ async function writeSampleProject(
       2,
     ),
   );
-  await mkdir(path.join(projectDirectory, '.devcontainer'), { recursive: true });
+  await mkdir(path.join(projectDirectory, '.devcontainer'), {
+    recursive: true,
+  });
   await writeFile(
     path.join(projectDirectory, '.devcontainer', 'devcontainer.json'),
     JSON.stringify(
@@ -267,7 +269,6 @@ async function writeFakeDatabaseBinaries(runtimeRoot: string): Promise<string> {
 
   return binDirectory;
 }
-
 
 async function writeFakeDevContainerBinaries(
   runtimeRoot: string,

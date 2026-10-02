@@ -68,7 +68,10 @@ const stateCopy = computed(() => {
     };
   }
 
-  if (value.reason === 'recovery-required' || value.environmentLifecycle === 'failed') {
+  if (
+    value.reason === 'recovery-required' ||
+    value.environmentLifecycle === 'failed'
+  ) {
     return {
       label: 'Recuperação necessária',
       tone: 'danger' as StatusBadgeTone,
@@ -92,7 +95,10 @@ const stateCopy = computed(() => {
     };
   }
 
-  if (value.runtime === 'devcontainer' && value.environmentLifecycle === 'ready') {
+  if (
+    value.runtime === 'devcontainer' &&
+    value.environmentLifecycle === 'ready'
+  ) {
     return {
       label: 'Ativo',
       tone: 'success' as StatusBadgeTone,
@@ -660,10 +666,7 @@ onBeforeUnmount(clearPoll);
           </div>
         </section>
 
-        <div
-          v-if="confirmationOperation"
-          class="devcontainer-confirmation"
-        >
+        <div v-if="confirmationOperation" class="devcontainer-confirmation">
           <ExclamationTriangleIcon aria-hidden="true" />
           <div>
             <strong>{{ confirmationCopy.title }}</strong>
@@ -704,7 +707,10 @@ onBeforeUnmount(clearPoll);
                   class="is-spinning"
                   aria-hidden="true"
                 />
-                <PlayIcon v-else-if="confirmationOperation === 'create'" aria-hidden="true" />
+                <PlayIcon
+                  v-else-if="confirmationOperation === 'create'"
+                  aria-hidden="true"
+                />
                 <StopIcon v-else aria-hidden="true" />
                 {{ submitting ? 'Iniciando…' : confirmationCopy.confirm }}
               </button>

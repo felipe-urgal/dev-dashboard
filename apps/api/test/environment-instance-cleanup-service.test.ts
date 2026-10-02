@@ -272,7 +272,6 @@ test('cleanup de worktree ausente falha fechado se ownership Compose não puder 
   assert.match(result.diagnostic ?? '', /ownership do Docker Compose/i);
 });
 
-
 test('cleanup de worktree órfão remove Dev Container owned e preserva origem degradada', async () => {
   const runtimeId = 'a'.repeat(64);
   const baseProject: Project = {
