@@ -205,6 +205,16 @@ export class DevelopmentEnvironmentInstanceStore {
     return this.instances.get(environmentInstanceId) ?? null;
   }
 
+  public findForProject(
+    projectId: string,
+    environmentInstanceId?: string,
+  ): DevelopmentEnvironmentInstance | null {
+    const instance = environmentInstanceId
+      ? this.findById(environmentInstanceId)
+      : this.findPrimaryByProjectId(projectId);
+    return instance?.projectId === projectId ? instance : null;
+  }
+
   /**
    * Persiste uma transição operacional produzida pelo backend. A identidade
    * precisa continuar derivada da origem (`primary` ou `worktree.id`), evitando

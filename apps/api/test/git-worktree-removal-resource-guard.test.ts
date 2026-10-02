@@ -29,7 +29,11 @@ function project(): Project {
 }
 
 function setup(
-  options: { composeOwned?: boolean; composeReadFails?: boolean } = {},
+  options: {
+    composeOwned?: boolean;
+    composeReadFails?: boolean;
+    devContainerOwned?: boolean;
+  } = {},
 ) {
   const projectStore = new ProjectStore();
   projectStore.saveWorkspaceScan({
@@ -73,6 +77,31 @@ function setup(
         activeSessions: terminalSessions,
         message: 'ok',
       }),
+    },
+    devContainerCleanupService: {
+      inspect: async () =>
+        options.devContainerOwned
+          ? {
+              state: 'present' as const,
+              environmentInstanceId,
+              ownership: {
+                projectId: PROJECT_ID,
+                environmentInstanceId,
+                projectPath: WORKTREE_PATH,
+                configSource: '.devcontainer/devcontainer.json' as const,
+                ownershipToken: '11111111-1111-4111-8111-111111111111',
+                phase: 'owned' as const,
+                containerId: 'a'.repeat(64),
+                claimedAt: '2026-10-02T10:00:00.000Z',
+                updatedAt: '2026-10-02T10:00:00.000Z',
+              },
+              containerId: 'a'.repeat(64),
+              running: true,
+            }
+          : {
+              state: 'unowned' as const,
+              environmentInstanceId,
+            },
     },
     dockerComposeOwnershipStore: {
       get: async (target) => {
@@ -184,7 +213,7 @@ test('guard bloqueia terminal ativo e runtime cujo cleanup ainda não é suporta
     fixture.environmentInstanceId,
   );
   assert.equal(devcontainer.safe, false);
-  assert.match(devcontainer.diagnostic ?? '', /runtime associado/i);
+  assert.match(devcontainer.diagnostic ?? '', /sem ownership comprovado/i);
 });
 
 test('guard bloqueia remoção quando Compose ainda está owned pela Environment Instance', async () => {
@@ -209,4 +238,22 @@ test('guard falha fechado quando ownership Compose não pode ser lido', async ()
 
   assert.equal(result.safe, false);
   assert.match(result.diagnostic ?? '', /ownership do Docker Compose/i);
+});
+
+test('guard orienta parar Dev Container owned antes de remover o worktree', async () => {
+  const fixture = setup({ devContainerOwned: true });
+  const instance = fixture.environmentStore.findById(
+    fixture.environmentInstanceId,
+  );
+  assert.ok(instance);
+  fixture.environmentStore.upsert({
+    ...instance,
+    runtime: { kind: 'devcontainer', runtimeId: 'a'.repeat(64) },
+  });
+
+  const result = await fixture.guard.inspect(fixture.environmentInstanceId);
+
+  assert.equal(result.safe, false);
+  assert.match(result.diagnostic ?? '', /Dev Container owned/i);
+  assert.match(result.diagnostic ?? '', /Pare o Dev Container/i);
 });

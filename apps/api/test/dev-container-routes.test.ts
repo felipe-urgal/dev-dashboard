@@ -8,6 +8,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import { registerApiErrorHandling } from '../src/http/api-error.js';
 import { devContainerRoutes } from '../src/routes/dev-container.js';
 import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
+import type { DevContainerLifecycleExecutionSnapshot } from '../src/services/dev-container-lifecycle-execution-service.js';
 import type { DevContainerLifecyclePreflight } from '../src/services/dev-container-lifecycle-planning-service.js';
 import {
   DevContainerRebuildError,
@@ -195,6 +196,9 @@ test('Dev Container lifecycle preflight expõe apenas plano read-only e encaminh
           environmentInstanceId:
             input.environmentInstanceId ?? 'environment:primary:project-1',
           runtime: 'host',
+          environmentLifecycle: 'ready',
+          stopAvailable: false,
+          recoveryAvailable: false,
           executionEnabled: false,
           requiresConfirmation: true,
           discoveryState: 'available',
@@ -279,6 +283,9 @@ test('Dev Container rebuild expõe operação sem vazar runtimeId ou ownershipTo
         environmentInstanceId:
           input.environmentInstanceId ?? environmentInstanceId,
         runtime: 'devcontainer',
+        environmentLifecycle: 'ready',
+        stopAvailable: true,
+        recoveryAvailable: false,
         runtimeId,
         ownershipToken,
         executionEnabled: false,
@@ -411,6 +418,9 @@ test('Dev Container lifecycle confirmation revalida preflight e não expõe fing
         environmentInstanceId:
           input.environmentInstanceId ?? 'environment:primary:project-1',
         runtime: 'host',
+        environmentLifecycle: 'ready',
+        stopAvailable: false,
+        recoveryAvailable: false,
         executionEnabled: false,
         requiresConfirmation: true,
         discoveryState: 'available',
@@ -696,4 +706,110 @@ test('Dev Container start preserva erro sanitizado de confirmação como conflit
     message:
       'Uma confirmação válida e atual é obrigatória para criar o Dev Container.',
   });
+});
+
+test('Dev Container lifecycle execution expõe start assíncrono, status e cancel', async (context) => {
+  const calls: string[] = [];
+  let current: DevContainerLifecycleExecutionSnapshot = {
+    id: 'execution-1',
+    projectId: project.id,
+    environmentInstanceId: 'environment:primary:project-1',
+    operation: 'create',
+    status: 'queued',
+    stage: 'queued',
+    cancelSupported: true,
+    startedAt: '2026-10-02T10:00:00.000Z',
+  };
+
+  const app = Fastify();
+  registerApiErrorHandling(app);
+  app.register(devContainerRoutes, {
+    prefix: '/api',
+    projectStore: projectStore(),
+    devContainerLifecycleConfirmationService:
+      unusedLifecycleConfirmationService,
+    devContainerStartService: unusedStartService,
+    devContainerLifecyclePlanningService: {
+      plan: async () => {
+        throw new Error('não usado');
+      },
+    },
+    devContainerDiscoveryService: {
+      inspect: async () => ({
+        state: 'not-configured',
+        observedAt: '2026-10-02T10:00:00.000Z',
+      }),
+    },
+    devContainerLifecycleExecutionService: {
+      start: (
+        _project,
+        operation,
+        confirmationToken,
+        environmentInstanceId,
+      ) => {
+        calls.push(
+          `start:${operation}:${confirmationToken}:${environmentInstanceId}`,
+        );
+        current = {
+          ...current,
+          operation,
+          environmentInstanceId:
+            environmentInstanceId ?? current.environmentInstanceId,
+        };
+        return current;
+      },
+      latest: (_projectId, environmentInstanceId) => {
+        calls.push(`latest:${environmentInstanceId}`);
+        return current;
+      },
+      cancel: (_projectId, environmentInstanceId) => {
+        calls.push(`cancel:${environmentInstanceId}`);
+        current = {
+          ...current,
+          status: 'running',
+          stage: 'cancelling',
+        };
+      },
+    },
+  });
+  context.after(() => app.close());
+
+  const start = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/lifecycle-executions',
+    payload: {
+      operation: 'create',
+      environmentInstanceId: 'environment:primary:project-1',
+      confirmationToken: 'a'.repeat(64),
+    },
+  });
+  assert.equal(start.statusCode, 202);
+  assert.equal(start.json().execution.status, 'queued');
+
+  const status = await app.inject({
+    method: 'GET',
+    url:
+      '/api/projects/project-1/dev-container/lifecycle-execution?' +
+      new URLSearchParams({
+        environmentInstanceId: 'environment:primary:project-1',
+      }).toString(),
+  });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.json().execution.id, 'execution-1');
+
+  const cancel = await app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/dev-container/lifecycle-execution/cancel',
+    payload: {
+      environmentInstanceId: 'environment:primary:project-1',
+    },
+  });
+  assert.equal(cancel.statusCode, 200);
+  assert.deepEqual(cancel.json(), { ok: true });
+  assert.deepEqual(calls, [
+    'latest:environment:primary:project-1',
+    `start:create:${'a'.repeat(64)}:environment:primary:project-1`,
+    'latest:environment:primary:project-1',
+    'cancel:environment:primary:project-1',
+  ]);
 });

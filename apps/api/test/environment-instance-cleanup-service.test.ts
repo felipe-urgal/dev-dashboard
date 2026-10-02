@@ -11,6 +11,7 @@ import { EnvironmentInstanceCleanupService } from '../src/services/environment-i
 
 const TARGET_ENVIRONMENT = 'environment:worktree:project-1:worktree-a';
 const OTHER_ENVIRONMENT = 'environment:worktree:project-1:worktree-b';
+const WORKTREE_PATH_FIXTURE = '/workspace/project-1-feature';
 
 function instance(
   overrides: Partial<DevelopmentEnvironmentInstance> = {},
@@ -140,12 +141,12 @@ test('cleanup continua nos demais recursos e sinaliza falha quando um processo n
   assert.equal(ptyCleanupCalled, true);
 });
 
-test('cleanup não tenta adivinhar runtime não suportado', async () => {
-  let inspected = false;
+test('runtime Dev Container sem adapter owned permanece fail-closed mas limpa recursos locais', async () => {
+  let localCleanupObserved = false;
   const service = new EnvironmentInstanceCleanupService({
     processManager: {
       listProcesses: async () => {
-        inspected = true;
+        localCleanupObserved = true;
         return [];
       },
       stopServer: async () =>
@@ -156,7 +157,7 @@ test('cleanup não tenta adivinhar runtime não suportado', async () => {
     },
     projectTerminalService: {
       closeEnvironment: () => {
-        inspected = true;
+        localCleanupObserved = true;
       },
     },
   });
@@ -165,7 +166,8 @@ test('cleanup não tenta adivinhar runtime não suportado', async () => {
     instance({ runtime: { kind: 'devcontainer', runtimeId: 'runtime-1' } }),
   );
   assert.equal(result.state, 'cleanup-required');
-  assert.equal(inspected, false);
+  assert.match(result.diagnostic ?? '', /Dev Container associado/i);
+  assert.equal(localCleanupObserved, true);
 });
 
 test('cleanup de worktree ausente preserva Compose owned e sinaliza intervenção explícita', async () => {
@@ -268,4 +270,84 @@ test('cleanup de worktree ausente falha fechado se ownership Compose não puder 
 
   assert.equal(result.state, 'cleanup-required');
   assert.match(result.diagnostic ?? '', /ownership do Docker Compose/i);
+});
+
+test('cleanup de worktree órfão remove Dev Container owned e preserva origem degradada', async () => {
+  const runtimeId = 'a'.repeat(64);
+  const baseProject: Project = {
+    id: 'project-1',
+    name: 'Projeto',
+    path: '/workspace/project-1',
+    type: 'node',
+    source: 'workspace',
+    enabled: true,
+    capabilities: ['git'],
+  };
+  const updates: DevelopmentEnvironmentInstance[] = [];
+  const devContainerCalls: string[] = [];
+
+  const service = new EnvironmentInstanceCleanupService({
+    processManager: {
+      listProcesses: async () => [],
+      stopServer: async () =>
+        managedProcess('server-a', 'server', TARGET_ENVIRONMENT),
+      stopTest: async () =>
+        managedProcess('test-a', 'test', TARGET_ENVIRONMENT),
+      stopWorker: async (_projectId, kind) =>
+        managedProcess(kind, kind, TARGET_ENVIRONMENT),
+    },
+    projectTerminalService: {
+      closeEnvironment: () => undefined,
+    },
+    projectStore: {
+      findProject: () => baseProject,
+    },
+    developmentEnvironmentInstanceStore: {
+      upsert: (value) => updates.push(value),
+    },
+    devContainerCleanupService: {
+      inspect: async (_project, environmentInstanceId) => {
+        devContainerCalls.push(`inspect:${environmentInstanceId}`);
+        return {
+          state: 'present' as const,
+          environmentInstanceId: TARGET_ENVIRONMENT,
+          ownership: {
+            projectId: baseProject.id,
+            environmentInstanceId: TARGET_ENVIRONMENT,
+            projectPath: WORKTREE_PATH_FIXTURE,
+            configSource: '.devcontainer/devcontainer.json' as const,
+            ownershipToken: '11111111-1111-4111-8111-111111111111',
+            phase: 'owned' as const,
+            containerId: runtimeId,
+            claimedAt: '2026-10-02T10:00:00.000Z',
+            updatedAt: '2026-10-02T10:00:00.000Z',
+          },
+          containerId: runtimeId,
+          running: true,
+        };
+      },
+      cleanup: async (_project, environmentInstanceId) => {
+        devContainerCalls.push(`cleanup:${environmentInstanceId}`);
+        return {
+          state: 'cleaned' as const,
+          environmentInstanceId: TARGET_ENVIRONMENT,
+          containerId: runtimeId,
+        };
+      },
+    },
+  });
+
+  const result = await service.cleanupMissingWorktree(
+    instance({
+      runtime: { kind: 'devcontainer', runtimeId },
+    }),
+  );
+
+  assert.equal(result.state, 'cleaned');
+  assert.deepEqual(devContainerCalls, [
+    `inspect:${TARGET_ENVIRONMENT}`,
+    `cleanup:${TARGET_ENVIRONMENT}`,
+  ]);
+  assert.equal(updates.at(-1)?.runtime.kind, 'host');
+  assert.equal(updates.at(-1)?.lifecycle, 'degraded');
 });

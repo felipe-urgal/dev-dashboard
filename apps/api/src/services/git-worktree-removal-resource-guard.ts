@@ -3,6 +3,7 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
+import type { DevContainerCleanupService } from './dev-container-cleanup-service.js';
 import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type {
   GitWorktreeRemovalResourceGuard,
@@ -25,6 +26,7 @@ export interface GitWorktreeRemovalResourceGuardDependencies {
   >;
   projectTerminalService: Pick<ProjectTerminalService, 'status'>;
   dockerComposeOwnershipStore?: Pick<DockerComposeOwnershipStore, 'get'>;
+  devContainerCleanupService?: Pick<DevContainerCleanupService, 'inspect'>;
 }
 
 /**
@@ -52,12 +54,37 @@ export class GitWorktreeRemovalResourceGuardService implements GitWorktreeRemova
       };
     }
 
-    if (instance.runtime.kind !== 'host') {
-      return {
-        safe: false,
-        diagnostic:
-          'O runtime associado ao worktree ainda não possui cleanup seguro suportado por este lifecycle.',
-      };
+    if (instance.runtime.kind === 'devcontainer') {
+      const project = this.dependencies.projectStore.findProject(
+        instance.projectId,
+      );
+      if (!project || !this.dependencies.devContainerCleanupService) {
+        return {
+          safe: false,
+          diagnostic:
+            'O worktree possui runtime Dev Container e o ownership não pôde ser inspecionado para remoção segura.',
+        };
+      }
+      try {
+        const inspection =
+          await this.dependencies.devContainerCleanupService.inspect(
+            project,
+            instance.id,
+          );
+        return {
+          safe: false,
+          diagnostic:
+            inspection.state === 'unowned'
+              ? 'O worktree possui um Dev Container sem ownership comprovado; a remoção permanece bloqueada.'
+              : 'O worktree possui um Dev Container owned pelo Dashboard. Pare o Dev Container antes de remover o worktree.',
+        };
+      } catch {
+        return {
+          safe: false,
+          diagnostic:
+            'O ownership do Dev Container não pôde ser comprovado para remoção do worktree.',
+        };
+      }
     }
 
     if (

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { ExecutionContext, Project } from '@dev-dashboard/contracts';
+import type {
+  DevelopmentEnvironmentInstance,
+  ExecutionContext,
+  Project,
+} from '@dev-dashboard/contracts';
 
 import type { DevContainerInspection } from '../src/services/dev-container-discovery-service.js';
 import {
@@ -43,6 +47,7 @@ function planner(
       }
     | undefined = undefined,
   composeIntegration?: DevContainerComposeIntegrationReaders,
+  lifecycle: DevelopmentEnvironmentInstance['lifecycle'] = 'ready',
 ) {
   const inspectedPaths: string[] = [];
   const service = new DevContainerLifecyclePlanningService(
@@ -53,7 +58,27 @@ function planner(
       },
     },
     {
-      resolveForProject: () => context,
+      findForProject: () =>
+        context
+          ? {
+              id: context.environmentInstanceId,
+              projectId: context.projectId,
+              source: {
+                kind: context.environmentInstanceId.includes(':worktree:')
+                  ? ('worktree' as const)
+                  : ('primary' as const),
+                path: context.cwd,
+                ...(context.environmentInstanceId.includes(':worktree:')
+                  ? { worktreeId: 'fixture-worktree' }
+                  : {}),
+              },
+              runtime: {
+                kind: context.runtime,
+                ...(context.runtimeId ? { runtimeId: context.runtimeId } : {}),
+              },
+              lifecycle,
+            }
+          : null,
     },
     undefined,
     {
@@ -488,7 +513,13 @@ test('preflight falha fechado quando o discovery lança erro inesperado', async 
       },
     },
     {
-      resolveForProject: () => hostContext,
+      findForProject: () => ({
+        id: hostContext.environmentInstanceId,
+        projectId: project.id,
+        source: { kind: 'primary', path: hostContext.cwd },
+        runtime: { kind: 'host' },
+        lifecycle: 'ready',
+      }),
     },
     () => new Date('2026-09-24T22:05:30.000Z'),
   );
@@ -565,4 +596,92 @@ test('preflight de rebuild falha fechado sem ownership exato', async () => {
   assert.equal(plan.reason, 'rebuild-ownership-required');
   assert.equal(plan.requiresConfirmation, false);
   assert.deepEqual(inspectedPaths, []);
+});
+
+test('preflight bloqueia mutation durante lifecycle starting e oferece recovery quando há ownership', async () => {
+  const { service, inspectedPaths } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-10-02T10:00:00.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      configurationHash: CONFIG_HASH,
+      configuration: { kind: 'image', lifecycleHooks: [] },
+    },
+    hostContext,
+    {
+      phase: 'owned',
+      containerId: RUNTIME_ID,
+      ownershipToken: OWNERSHIP_TOKEN,
+    },
+    undefined,
+    'starting',
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'blocked');
+  assert.equal(plan.reason, 'lifecycle-in-progress');
+  assert.equal(plan.environmentLifecycle, 'starting');
+  assert.equal(plan.recoveryAvailable, true);
+  assert.equal(plan.stopAvailable, false);
+  assert.deepEqual(inspectedPaths, []);
+});
+
+test('preflight expõe recovery-required para lifecycle failed sem promover create', async () => {
+  const { service, inspectedPaths } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-10-02T10:01:00.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      configurationHash: CONFIG_HASH,
+      configuration: { kind: 'image', lifecycleHooks: [] },
+    },
+    hostContext,
+    {
+      phase: 'owned',
+      containerId: RUNTIME_ID,
+      ownershipToken: OWNERSHIP_TOKEN,
+    },
+    undefined,
+    'failed',
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'blocked');
+  assert.equal(plan.reason, 'recovery-required');
+  assert.equal(plan.environmentLifecycle, 'failed');
+  assert.equal(plan.recoveryAvailable, true);
+  assert.equal(plan.requiresConfirmation, false);
+  assert.deepEqual(inspectedPaths, []);
+});
+
+test('runtime Dev Container owned expõe stop capability separada do rebuild', async () => {
+  const devContainerContext: ExecutionContext = {
+    ...hostContext,
+    runtime: 'devcontainer',
+    runtimeId: RUNTIME_ID,
+  };
+  const { service } = planner(
+    {
+      state: 'available',
+      observedAt: '2026-10-02T10:02:00.000Z',
+      configSource: '.devcontainer/devcontainer.json',
+      configurationHash: CONFIG_HASH,
+      configuration: { kind: 'image', lifecycleHooks: [] },
+    },
+    devContainerContext,
+    {
+      phase: 'owned',
+      containerId: RUNTIME_ID,
+      ownershipToken: OWNERSHIP_TOKEN,
+    },
+  );
+
+  const plan = await service.plan(project);
+
+  assert.equal(plan.state, 'review');
+  assert.equal(plan.stopAvailable, true);
+  assert.equal(plan.recoveryAvailable, false);
+  assert.equal(plan.environmentLifecycle, 'ready');
 });

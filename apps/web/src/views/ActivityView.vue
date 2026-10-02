@@ -15,6 +15,7 @@ import type {
 
 import { cancelAgentTask } from '../api/agent-runtime';
 import { fetchActivity } from '../api/activity';
+import { cancelDevContainerLifecycleExecution } from '../api/dev-container';
 import EmptyState from '../components/EmptyState.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import type { StatusBadgeTone } from '../components/status-badge-types';
@@ -89,6 +90,10 @@ function agentTaskId(job: ActivityJob): string | undefined {
     : undefined;
 }
 
+function isDevContainerJob(job: ActivityJob): boolean {
+  return job.resourceRef?.kind === 'dev-container-lifecycle';
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
@@ -118,6 +123,34 @@ async function cancelAgentJob(job: ActivityJob): Promise<void> {
       error instanceof Error
         ? error.message
         : 'Não foi possível cancelar a execução do Agente.';
+  } finally {
+    cancellingJobId.value = '';
+  }
+}
+
+async function cancelDevContainerJob(job: ActivityJob): Promise<void> {
+  if (
+    !isDevContainerJob(job) ||
+    !job.cancelSupported ||
+    !job.environmentInstanceId ||
+    cancellingJobId.value
+  ) {
+    return;
+  }
+
+  cancellingJobId.value = job.id;
+  errorMessage.value = '';
+  try {
+    await cancelDevContainerLifecycleExecution(
+      job.projectId,
+      job.environmentInstanceId,
+    );
+    await load();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível cancelar a operação do Dev Container.';
   } finally {
     cancellingJobId.value = '';
   }
@@ -229,6 +262,19 @@ onMounted(() => {
                 Abrir Agente
               </RouterLink>
               <RouterLink
+                v-else-if="isDevContainerJob(job)"
+                class="secondary-button link-button"
+                :to="{
+                  name: 'project-dev-container',
+                  params: { projectId: job.projectId },
+                  query: job.environmentInstanceId
+                    ? { environmentInstanceId: job.environmentInstanceId }
+                    : {},
+                }"
+              >
+                Abrir Dev Container
+              </RouterLink>
+              <RouterLink
                 v-else
                 class="secondary-button link-button"
                 :to="{
@@ -244,6 +290,15 @@ onMounted(() => {
                 type="button"
                 :disabled="Boolean(cancellingJobId)"
                 @click="cancelAgentJob(job)"
+              >
+                {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
+              </button>
+              <button
+                v-if="isDevContainerJob(job) && job.cancelSupported"
+                class="secondary-button"
+                type="button"
+                :disabled="Boolean(cancellingJobId)"
+                @click="cancelDevContainerJob(job)"
               >
                 {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
               </button>

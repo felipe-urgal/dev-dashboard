@@ -297,3 +297,77 @@ Os cortes entregues até aqui não:
 - concedem qualquer autoridade mutável ao browser.
 
 Lifecycle entra em recortes posteriores, com ownership comprovado, confirmação explícita e reuso dos domínios existentes.
+
+
+## Hardening de lifecycle, recovery e jobs
+
+O lifecycle mutável da UI usa uma camada assíncrona sobre os executores já
+qualificados. Os endpoints síncronos de create/rebuild/stop permanecem por
+compatibilidade, mas a superfície principal dispara e acompanha
+`DevContainerLifecycleExecution`:
+
+- `POST /api/projects/:projectId/dev-container/lifecycle-executions`;
+- `GET /api/projects/:projectId/dev-container/lifecycle-execution`;
+- `POST /api/projects/:projectId/dev-container/lifecycle-execution/cancel`.
+
+Cada execução é vinculada a `projectId + environmentInstanceId`, possui uma
+única operação ativa por ambiente e aparece em Activity/Jobs. Create e rebuild
+podem ser cancelados enquanto o executor ainda controla a Dev Container CLI; o
+cancelamento usa `AbortSignal` interno, encerra a CLI com TERM → KILL e mantém
+o rollback owned existente. Stop/recovery não anunciam cancelamento porque
+interromper cleanup depois de iniciar mutation não é considerado seguro.
+
+O preflight separa três dimensões que antes ficavam misturadas:
+
+- runtime atual: `host | devcontainer`;
+- lifecycle da Environment Instance:
+  `stopped | starting | ready | degraded | stopping | failed`;
+- estado do plano: `review | blocked | unavailable`.
+
+Além disso, publica apenas as capabilities derivadas pelo backend
+`stopAvailable` e `recoveryAvailable`. Um runtime Dev Container só anuncia
+stop/rebuild quando o ownership `owned` corresponde exatamente ao
+`runtimeId`. Estados `starting/stopping` não voltam a oferecer create ou
+rebuild; ownership residual em host ou lifecycle `failed` produz
+`recovery-required`.
+
+### Reconciliação após restart
+
+No startup da API, o `DevContainerRecoveryService` reconcilia somente
+evidências owned persistidas pelo Dashboard:
+
+- reserva `starting` sem container: libera ownership e normaliza para
+  `host/ready`;
+- runtime `devcontainer` cujo `runtimeId` corresponde exatamente ao
+  container owned presente: normaliza lifecycle para `ready`;
+- stop interrompido: retoma o cleanup owned;
+- container parcial presente em host: não remove silenciosamente; marca
+  `failed` e exige recovery explícito;
+- ownership ausente, divergente ou ambíguo nunca é inferido a partir de nome,
+  path ou containers externos.
+
+A UI expõe recovery como **Limpar runtime parcial**. Essa ação reutiliza o
+mesmo preflight de ownership, confirmação curta/single-use e
+`DevContainerCleanupService` usados pelo stop. Após reload do browser, a
+execução ativa é reanexada pelo snapshot do lifecycle job e o estágio atual
+permanece visível.
+
+### Worktrees
+
+Worktrees removidos externamente também reutilizam o cleanup owned de Dev
+Container. Se o runtime possuir ownership comprovado, o cleanup automático
+remove apenas o container correspondente ao label opaco, preserva volumes e
+devolve a Environment Instance para runtime host mantendo a origem degradada.
+Se ownership não puder ser provado, o ambiente permanece
+`cleanup-required`.
+
+Na remoção explícita de um worktree, runtime Dev Container ativo continua
+bloqueando a operação. O guard orienta parar o Dev Container primeiro; ele não
+faz stop implícito durante uma mutation Git.
+
+### Escopo preservado
+
+Este hardening não executa lifecycle mutável de Dev Containers baseados em
+Compose e não executa hooks pós-criação. Compose permanece reconciliado com o
+domínio Docker Compose de forma read-only/fail-closed, e hooks pós-criação
+continuam diferidos por `--skip-post-create`.
