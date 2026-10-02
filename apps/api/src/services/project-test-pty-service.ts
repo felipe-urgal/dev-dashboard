@@ -174,11 +174,11 @@ function devContainerTestCommand(
 }
 
 /**
- * PoC da unificação em terminal (task 234, item 1): roda a suíte completa de
- * testes num PTY destacável em vez do modelo antigo (processManager kind
- * `'test'` + SSE). Escopo deliberadamente restrito a "suíte completa" — sem
- * targeting por arquivo/caso/nome nem testes relacionados à branch, que
- * continuam no fluxo antigo por ora.
+ * Engine canônico de execução de testes em PTY destacável. A mesma sessão
+ * suporta suíte completa, alvo por arquivo/caso/nome e testes relacionados,
+ * mantendo identidade, Environment Instance e histórico consistentes durante
+ * reconexões. As rotas legadas do ProcessManager permanecem compatíveis para
+ * consumidores existentes, mas a UI principal executa por este serviço.
  */
 export class ProjectTestPtyService {
   private readonly metadata = new Map<string, ExecutionMetadata>();
