@@ -371,13 +371,35 @@ function requireProject(store: ProjectStore, projectId: string) {
   return project;
 }
 
+async function reconcileLifecycleWhenIdle(
+  options: Options,
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<void> {
+  const execution = options.devContainerLifecycleExecutionService?.latest(
+    projectId,
+    environmentInstanceId,
+  );
+  if (
+    execution?.status === 'queued' ||
+    execution?.status === 'running'
+  ) {
+    return;
+  }
+  await options.devContainerRecoveryService?.reconcileProject(
+    projectId,
+    environmentInstanceId,
+  );
+}
+
 async function planLifecycle(
   options: Options,
   project: ReturnType<typeof requireProject>,
   environmentInstanceId?: string,
 ) {
   try {
-    await options.devContainerRecoveryService?.reconcileProject(
+    await reconcileLifecycleWhenIdle(
+      options,
       project.id,
       environmentInstanceId,
     );
@@ -659,8 +681,16 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request, reply) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       try {
+        await reconcileLifecycleWhenIdle(
+          options,
+          project.id,
+          request.body.environmentInstanceId,
+        );
         const execution = requireExecutionService(options).start(
           project,
           request.body.operation,
@@ -769,7 +799,8 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       try {
-        await options.devContainerRecoveryService?.reconcileProject(
+        await reconcileLifecycleWhenIdle(
+          options,
           project.id,
           request.body.environmentInstanceId,
         );
@@ -921,7 +952,8 @@ export const devContainerRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       try {
-        await options.devContainerRecoveryService?.reconcileProject(
+        await reconcileLifecycleWhenIdle(
+          options,
           project.id,
           request.body.environmentInstanceId,
         );
