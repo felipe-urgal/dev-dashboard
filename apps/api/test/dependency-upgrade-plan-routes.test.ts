@@ -22,10 +22,7 @@ const project: Project = {
 };
 
 const developmentEnvironmentInstanceStore = {
-  resolveForProject: (
-    projectId: string,
-    environmentInstanceId?: string,
-  ) =>
+  resolveForProject: (projectId: string, environmentInstanceId?: string) =>
     projectId === project.id
       ? {
           projectId,

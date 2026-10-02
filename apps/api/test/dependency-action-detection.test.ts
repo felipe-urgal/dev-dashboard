@@ -95,7 +95,6 @@ test('projeto Rails com frontend recebe ações Bundler e Node', async () => {
   }
 });
 
-
 test('usa packageManager declarado como fonte canônica e suporta Bun', async () => {
   const project = await fixture('node');
   try {

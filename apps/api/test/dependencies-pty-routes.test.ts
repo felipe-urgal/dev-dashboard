@@ -23,7 +23,11 @@ interface StartResponse {
   };
 }
 interface ConfirmationResponse {
-  confirmation: { token: string; actionId: string; environmentInstanceId: string };
+  confirmation: {
+    token: string;
+    actionId: string;
+    environmentInstanceId: string;
+  };
 }
 interface ErrorResponse {
   error?: string;
@@ -184,22 +188,19 @@ test('rotas de execução destacável de dependências/build', async (context) =
     },
   );
 
-  await context.test(
-    'mutações exigem confirmação backend',
-    async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/api/projects/p1/dependencies/pty/start',
-        headers: jsonHeaders,
-        payload: JSON.stringify({ actionId: 'package-script:build' }),
-      });
-      assert.equal(response.statusCode, 409);
-      assert.equal(
-        response.json<ErrorResponse>().error,
-        'SCRIPT_CONFIRMATION_REQUIRED',
-      );
-    },
-  );
+  await context.test('mutações exigem confirmação backend', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects/p1/dependencies/pty/start',
+      headers: jsonHeaders,
+      payload: JSON.stringify({ actionId: 'package-script:build' }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(
+      response.json<ErrorResponse>().error,
+      'SCRIPT_CONFIRMATION_REQUIRED',
+    );
+  });
 
   await context.test(
     'inicia build confirmado, reporta identidade e aceita cancelamento',

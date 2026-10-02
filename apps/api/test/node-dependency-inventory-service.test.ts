@@ -166,7 +166,6 @@ test('package-lock v1 usa somente resolução direta comprovada', async (context
   assert.equal(result.dependencies[0]?.resolvedVersion, '4.29.1');
 });
 
-
 test('resolve dependências diretas de pnpm-lock e preserva o manager real', async (context) => {
   const fixture = await createProjectFixture({
     'package.json': JSON.stringify({
@@ -180,12 +179,12 @@ test('resolve dependências diretas de pnpm-lock e preserva o manager real', asy
       '  .:',
       '    dependencies:',
       '      fastify:',
-      "        specifier: ^5.0.0",
-      "        version: 5.6.0",
+      '        specifier: ^5.0.0',
+      '        version: 5.6.0',
       '    devDependencies:',
       '      typescript:',
-      "        specifier: ~5.9.0",
-      "        version: 5.9.3",
+      '        specifier: ~5.9.0',
+      '        version: 5.9.3',
       '',
     ].join('\n'),
   });

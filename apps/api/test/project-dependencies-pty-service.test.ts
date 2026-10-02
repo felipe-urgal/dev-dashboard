@@ -314,8 +314,18 @@ test('execuções de ambientes diferentes não compartilham cwd, status ou cance
     new ScriptDetectionService(),
   );
 
-  await startConfirmed(service, project, 'package-manager:install', primaryContext);
-  await startConfirmed(service, project, 'package-manager:install', worktreeContext);
+  await startConfirmed(
+    service,
+    project,
+    'package-manager:install',
+    primaryContext,
+  );
+  await startConfirmed(
+    service,
+    project,
+    'package-manager:install',
+    worktreeContext,
+  );
 
   assert.deepEqual(spawnedCwds, [project.path, worktree.path]);
   assert.equal(service.snapshot(project, primaryContext)?.status, 'running');
@@ -502,7 +512,6 @@ test('Activity de dependências registra START_FAILED sem expor argv', async () 
   assert.equal(serialized.includes('npm'), false);
 });
 
-
 test('ação mutável exige confirmação backend vinculada e de uso único', async () => {
   const fakePty = new FakePty();
   const detachable = new DetachableExecutionService({
@@ -565,12 +574,7 @@ test('ação mutável exige confirmação backend vinculada e de uso único', as
 
   await assert.rejects(
     () =>
-      service.start(
-        project,
-        'package-manager:install',
-        primary,
-        valid.token,
-      ),
+      service.start(project, 'package-manager:install', primary, valid.token),
     (error: unknown) =>
       error instanceof ProjectDependenciesPtyError &&
       (error.code === 'CONFIRMATION_REQUIRED' ||
