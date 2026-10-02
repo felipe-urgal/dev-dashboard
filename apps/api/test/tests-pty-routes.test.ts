@@ -10,6 +10,18 @@ function baseOptions(overrides: Partial<Record<string, unknown>> = {}) {
     processManager: {} as never,
     testDetectionService: {} as never,
     testExecutionHistoryService: {} as never,
+    developmentEnvironmentInstanceStore: {
+      resolveForProject: (
+        projectId: string,
+        environmentInstanceId?: string,
+      ) => ({
+        projectId,
+        environmentInstanceId:
+          environmentInstanceId ?? `environment:primary:${projectId}`,
+        cwd: '/tmp/projeto-1',
+        runtime: 'host',
+      }),
+    } as never,
     projectStore: {
       findProject: () => ({ id: 'projeto-1' }),
     } as never,
@@ -17,6 +29,12 @@ function baseOptions(overrides: Partial<Record<string, unknown>> = {}) {
       snapshot: () => undefined,
       start: async () => ({
         status: 'running',
+        commandId: 'full-suite',
+        environmentInstanceId: 'environment:primary:projeto-1',
+        scope: 'full-suite',
+        targetFiles: [],
+        cancelled: false,
+        truncated: false,
         exitCode: null,
         exitSignal: null,
         startedAt: '2026-08-11T10:00:00.000Z',
