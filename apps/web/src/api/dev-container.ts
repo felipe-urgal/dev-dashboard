@@ -8,7 +8,10 @@ export type DevContainerInspectionState =
   | 'invalid-output';
 
 export type DevContainerConfigurationKind =
-  'image' | 'dockerfile' | 'compose' | 'unknown';
+  | 'image'
+  | 'dockerfile'
+  | 'compose'
+  | 'unknown';
 
 export type DevContainerLifecycleHook =
   | 'initializeCommand'
@@ -33,7 +36,9 @@ export interface DevContainerInspection {
 }
 
 export type DevContainerLifecyclePreflightState =
-  'review' | 'blocked' | 'unavailable';
+  | 'review'
+  | 'blocked'
+  | 'unavailable';
 
 export type DevContainerLifecyclePreflightReason =
   | 'review-required'
@@ -41,9 +46,19 @@ export type DevContainerLifecyclePreflightReason =
   | 'discovery-not-ready'
   | 'initialize-command-declared'
   | 'compose-ownership-required'
-  | 'configuration-kind-unknown';
+  | 'configuration-kind-unknown'
+  | 'lifecycle-in-progress'
+  | 'recovery-required';
 
 export type DevContainerLifecycleLimitation = 'post-create-hooks-deferred';
+
+export type DevContainerEnvironmentLifecycle =
+  | 'stopped'
+  | 'starting'
+  | 'ready'
+  | 'degraded'
+  | 'stopping'
+  | 'failed';
 
 export interface DevContainerLifecyclePreflight {
   projectId: string;
@@ -53,6 +68,9 @@ export interface DevContainerLifecyclePreflight {
   observedAt: string;
   environmentInstanceId: string;
   runtime: 'host' | 'devcontainer';
+  environmentLifecycle: DevContainerEnvironmentLifecycle;
+  stopAvailable: boolean;
+  recoveryAvailable: boolean;
   executionEnabled: false;
   requiresConfirmation: boolean;
   discoveryState?: DevContainerInspectionState;
@@ -101,6 +119,32 @@ export interface DevContainerStopResult {
   containerId?: string;
 }
 
+export type DevContainerLifecycleExecutionOperation =
+  | 'create'
+  | 'rebuild'
+  | 'stop'
+  | 'recover';
+
+export type DevContainerLifecycleExecutionStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled';
+
+export interface DevContainerLifecycleExecution {
+  id: string;
+  projectId: string;
+  environmentInstanceId: string;
+  operation: DevContainerLifecycleExecutionOperation;
+  status: DevContainerLifecycleExecutionStatus;
+  stage: string;
+  cancelSupported: boolean;
+  startedAt: string;
+  finishedAt?: string;
+  diagnostic?: string;
+}
+
 interface DevContainerLifecycleConfirmationResponse {
   confirmation: DevContainerLifecycleConfirmation;
 }
@@ -117,11 +161,24 @@ interface DevContainerStopResponse {
   result: DevContainerStopResult;
 }
 
+function environmentQuery(environmentInstanceId?: string): string {
+  const query = new URLSearchParams();
+  if (environmentInstanceId) {
+    query.set('environmentInstanceId', environmentInstanceId);
+  }
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+}
+
 export async function fetchDevContainerInspection(
   projectId: string,
+  environmentInstanceId?: string,
 ): Promise<DevContainerInspection> {
   const response = await requestJson<DevContainerResponse>(
-    '/api/projects/' + encodeURIComponent(projectId) + '/dev-container',
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container' +
+      environmentQuery(environmentInstanceId),
   );
   return response.inspection;
 }
@@ -130,18 +187,11 @@ export async function fetchDevContainerLifecyclePreflight(
   projectId: string,
   environmentInstanceId?: string,
 ): Promise<DevContainerLifecyclePreflight> {
-  const base =
-    '/api/projects/' +
-    encodeURIComponent(projectId) +
-    '/dev-container/lifecycle-preflight';
-  const query = environmentInstanceId
-    ? '?' +
-      new URLSearchParams({
-        environmentInstanceId,
-      }).toString()
-    : '';
   const response = await requestJson<DevContainerLifecyclePreflightResponse>(
-    base + query,
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/lifecycle-preflight' +
+      environmentQuery(environmentInstanceId),
   );
   return response.preflight;
 }
@@ -165,6 +215,62 @@ export async function prepareDevContainerLifecycleConfirmation(
     },
   );
   return response.confirmation;
+}
+
+export async function startDevContainerLifecycleExecution(
+  projectId: string,
+  operation: DevContainerLifecycleExecutionOperation,
+  confirmationToken: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerLifecycleExecution> {
+  const response = await requestJson<{
+    execution: DevContainerLifecycleExecution;
+  }>(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/lifecycle-executions',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        operation,
+        ...(environmentInstanceId ? { environmentInstanceId } : {}),
+        confirmationToken,
+      }),
+    },
+  );
+  return response.execution;
+}
+
+export async function fetchDevContainerLifecycleExecution(
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<DevContainerLifecycleExecution | null> {
+  const response = await requestJson<{
+    execution: DevContainerLifecycleExecution | null;
+  }>(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/lifecycle-execution' +
+      environmentQuery(environmentInstanceId),
+  );
+  return response.execution;
+}
+
+export async function cancelDevContainerLifecycleExecution(
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<void> {
+  await requestJson(
+    '/api/projects/' +
+      encodeURIComponent(projectId) +
+      '/dev-container/lifecycle-execution/cancel',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: environmentBody(environmentInstanceId),
+    },
+  );
 }
 
 export async function startDevContainer(
