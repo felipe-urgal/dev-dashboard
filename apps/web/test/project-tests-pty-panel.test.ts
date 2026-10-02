@@ -439,3 +439,89 @@ test('permite executar testes relacionados pelo mesmo PTY canônico', async () =
     { mode: 'related' },
   ]);
 });
+
+
+test('oferece reconexão quando o WebSocket cai sem encerrar a execução', async () => {
+  mocks.startProjectTestPty.mockResolvedValue({
+    status: 'running',
+    commandId: 'full-suite',
+    environmentInstanceId: 'environment:primary:projeto-1',
+    scope: 'full-suite',
+    targetFiles: [],
+    cancelled: false,
+    truncated: false,
+    exitCode: null,
+    exitSignal: null,
+    startedAt: '2026-10-02T10:00:00.000Z',
+    endedAt: null,
+  });
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  const startButton = wrapper
+    .findAll('button')
+    .find((candidate) => candidate.text().includes('Executar testes'));
+  assert.ok(startButton);
+  await startButton.trigger('click');
+  await flushPromises();
+
+  const socket = FakeWebSocket.instances[0]!;
+  socket.readyState = 1;
+  socket.emit('open', {});
+  socket.emitMessage({
+    type: 'ready',
+    snapshot: {
+      ...mocks.startProjectTestPty.mock.results[0]!.value,
+      buffer: '',
+    },
+  });
+  await flushPromises();
+
+  socket.emit('close', {});
+  await flushPromises();
+
+  assert.match(wrapper.text(), /a conexão com a saída foi interrompida/i);
+  const reconnectButton = wrapper
+    .findAll('button')
+    .find((candidate) => candidate.text() === 'Reconectar');
+  assert.ok(reconnectButton);
+  await reconnectButton.trigger('click');
+  await flushPromises();
+
+  assert.equal(FakeWebSocket.instances.length, 2);
+  wrapper.unmount();
+});
+
+test('expõe estado vazio e permite refazer a detecção de suítes', async () => {
+  mocks.fetchProjectTests.mockResolvedValueOnce({
+    supported: false,
+    commands: [],
+  });
+  mocks.fetchProjectTests.mockResolvedValueOnce(overview());
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Nenhuma suíte de testes foi detectada/i);
+  const refreshButton = wrapper
+    .findAll('button')
+    .find((candidate) => candidate.text() === 'Detectar novamente');
+  assert.ok(refreshButton);
+  await refreshButton.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.fetchProjectTests.mock.calls.at(-1), [
+    'projeto-1',
+    { refresh: true },
+  ]);
+  assert.equal(
+    wrapper.get('[aria-label="Comando de teste"]').text(),
+    'npm run test',
+  );
+  wrapper.unmount();
+});
