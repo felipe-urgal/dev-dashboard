@@ -380,8 +380,10 @@ test('reconecta preservando a suíte identificada pelo snapshot PTY', async () =
   await flushPromises();
 
   assert.equal(
-    (wrapper.get('[aria-label="Comando de teste"]').element as HTMLSelectElement)
-      .value,
+    (
+      wrapper.get('[aria-label="Comando de teste"]')
+        .element as HTMLSelectElement
+    ).value,
     'secondary-suite',
   );
   wrapper.unmount();
