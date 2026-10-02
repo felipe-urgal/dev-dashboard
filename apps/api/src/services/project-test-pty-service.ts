@@ -67,7 +67,7 @@ interface ExecutionMetadata {
   scope: 'full-suite' | 'targeted';
   targetFiles: string[];
   cancelled: boolean;
-  historyId: string;
+  historyId?: string;
 }
 
 function errorMessage(error: unknown): string {
@@ -187,7 +187,7 @@ export class ProjectTestPtyService {
   public constructor(
     private readonly detachable: DetachableExecutionService,
     private readonly testDetectionService: TestDetectionService,
-    private readonly historyService: TestExecutionHistoryService,
+    private readonly historyService?: TestExecutionHistoryService,
   ) {
     this.relatedTestService = new RelatedTestService(testDetectionService);
   }
@@ -306,22 +306,24 @@ export class ProjectTestPtyService {
       );
     }
 
-    let historyId: string;
-    try {
-      historyId = await this.historyService.recordPtyStart(project.id, {
-        commandId: input.commandId,
-        environmentInstanceId: executionContext.environmentInstanceId,
-        cwd: executionContext.cwd,
-        startedAt: snapshot.startedAt,
-        scope,
-        ...(targetFiles.length > 0 ? { targetFiles } : {}),
-      });
-    } catch (error) {
-      this.detachable.cancel(key);
-      throw new ProjectTestPtyError(
-        'START_FAILED',
-        `A execução foi interrompida porque o histórico não pôde ser registrado: ${errorMessage(error)}`,
-      );
+    let historyId: string | undefined;
+    if (this.historyService) {
+      try {
+        historyId = await this.historyService.recordPtyStart(project.id, {
+          commandId: input.commandId,
+          environmentInstanceId: executionContext.environmentInstanceId,
+          cwd: executionContext.cwd,
+          startedAt: snapshot.startedAt,
+          scope,
+          ...(targetFiles.length > 0 ? { targetFiles } : {}),
+        });
+      } catch (error) {
+        this.detachable.cancel(key);
+        throw new ProjectTestPtyError(
+          'START_FAILED',
+          `A execução foi interrompida porque o histórico não pôde ser registrado: ${errorMessage(error)}`,
+        );
+      }
     }
 
     this.metadata.set(key, {
@@ -330,7 +332,7 @@ export class ProjectTestPtyService {
       scope,
       targetFiles,
       cancelled: false,
-      historyId,
+      ...(historyId ? { historyId } : {}),
     });
 
     const handle = this.detachable.attach(
@@ -434,7 +436,7 @@ export class ProjectTestPtyService {
     snapshot: DetachableExecutionSnapshot,
   ): Promise<void> {
     const metadata = this.metadata.get(key);
-    if (!metadata) return;
+    if (!metadata?.historyId || !this.historyService) return;
     await this.historyService.recordPtyFinish(projectId, metadata.historyId, {
       exitCode: snapshot.exitCode,
       finishedAt: snapshot.endedAt ?? new Date().toISOString(),
