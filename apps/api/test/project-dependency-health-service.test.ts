@@ -278,7 +278,6 @@ test('falhas locais degradam para estados explícitos e evitam falso snapshot sa
   assert.equal(externalCalls, 2);
 });
 
-
 test('reutiliza snapshot por cwd e refresh invalida somente o ambiente selecionado', async () => {
   let inventoryCalls = 0;
   const service = new ProjectDependencyHealthService({

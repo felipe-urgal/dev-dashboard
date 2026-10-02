@@ -140,10 +140,7 @@ test('Dependency Health HTTP expõe snapshot read-only por projeto e 404 determi
     url: '/api/projects/project-1/dependency-health?environmentInstanceId=environment%3Aworktree%3Aproject-1%3Awt-1',
   });
   assert.equal(worktree.statusCode, 200);
-  assert.equal(
-    calls.at(-1),
-    'project-1:/workspace/project-1-worktree',
-  );
+  assert.equal(calls.at(-1), 'project-1:/workspace/project-1-worktree');
 
   const missing = await app.inject({
     method: 'GET',

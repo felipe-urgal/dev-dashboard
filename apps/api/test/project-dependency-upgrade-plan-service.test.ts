@@ -324,7 +324,6 @@ test('inventário indisponível não produz plano falso', async () => {
   assert.deepEqual(plan.warnings, ['inventário indisponível']);
 });
 
-
 test('planner aponta o lockfile real do gerenciador detectado', async () => {
   const pnpmHealth: ProjectDependencyHealthSnapshot = {
     ...health,
