@@ -64,6 +64,7 @@ const snapshotSchema = {
     'scope',
     'targetFiles',
     'cancelled',
+    'truncated',
   ],
   properties: {
     status: { type: 'string', enum: ['running', 'exited'] },
@@ -72,6 +73,7 @@ const snapshotSchema = {
     scope: { type: 'string', enum: ['full-suite', 'targeted'] },
     targetFiles: { type: 'array', items: { type: 'string' } },
     cancelled: { type: 'boolean' },
+    truncated: { type: 'boolean' },
     exitCode: { type: ['integer', 'null'] },
     exitSignal: { type: ['integer', 'null'] },
     startedAt: { type: 'string' },
