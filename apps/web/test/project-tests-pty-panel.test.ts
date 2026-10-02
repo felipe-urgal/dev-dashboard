@@ -148,7 +148,7 @@ test('carrega os comandos com a interface mínima de execução', async () => {
   );
   assert.equal(
     wrapper.get('[aria-label="Ambiente de execução"]').text(),
-    'Local',
+    'Principal',
   );
 
   const button = wrapper
