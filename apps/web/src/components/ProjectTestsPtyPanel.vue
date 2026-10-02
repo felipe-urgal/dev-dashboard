@@ -926,8 +926,8 @@ watch(selectedCommandId, () => {
 }
 
 .tests-execution-state.is-warning {
-  color: var(--warning-text);
-  background: var(--warning-surface);
+  color: var(--text-muted);
+  background: var(--surface-2);
 }
 
 .tests-execution-state.is-neutral {
