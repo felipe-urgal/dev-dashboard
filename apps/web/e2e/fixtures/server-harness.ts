@@ -284,7 +284,7 @@ async function writeFakeDevContainerBinaries(
 set -euo pipefail
 STATE_FILE="${stateFile}"
 CONTAINER_ID="${containerId}"
-command="${1:-}"
+command="\${1:-}"
 if [[ "$command" == "--version" ]]; then
   echo "0.80.1"
   exit 0
@@ -300,12 +300,12 @@ if [[ "$command" == "up" ]]; then
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       --id-label)
-        label="${2:-}"
-        token="${label#devdashboard.environment=}"
+        label="\${2:-}"
+        token="\${label#devdashboard.environment=}"
         shift 2
         ;;
       --workspace-folder)
-        workspace="${2:-}"
+        workspace="\${2:-}"
         shift 2
         ;;
       *)
@@ -358,39 +358,39 @@ write_state() {
   printf '%s|%s|%s\\n' "$TOKEN" "$CONTAINER_ID" "$RUNNING" > "$STATE_FILE"
 }
 read_state
-if [[ "${1:-}" == "container" && "${2:-}" == "ls" ]]; then
+if [[ "\${1:-}" == "container" && "\${2:-}" == "ls" ]]; then
   filter=""
   while [[ "$#" -gt 0 ]]; do
     if [[ "$1" == "--filter" ]]; then
-      filter="${2:-}"
+      filter="\${2:-}"
       break
     fi
     shift
   done
-  expected="${filter#label=devdashboard.environment=}"
+  expected="\${filter#label=devdashboard.environment=}"
   if [[ -n "$TOKEN" && "$TOKEN" == "$expected" ]]; then
     echo "$CONTAINER_ID"
   fi
   exit 0
 fi
-if [[ "${1:-}" == "inspect" ]]; then
-  requested="${@: -1}"
+if [[ "\${1:-}" == "inspect" ]]; then
+  requested="\${@: -1}"
   if [[ -n "$CONTAINER_ID" && "$requested" == "$CONTAINER_ID" ]]; then
     printf '%s|%s|%s\\n' "$CONTAINER_ID" "$TOKEN" "$RUNNING"
     exit 0
   fi
   exit 1
 fi
-if [[ "${1:-}" == "container" && "${2:-}" == "stop" ]]; then
-  requested="${3:-}"
+if [[ "\${1:-}" == "container" && "\${2:-}" == "stop" ]]; then
+  requested="\${3:-}"
   [[ "$requested" == "$CONTAINER_ID" ]] || exit 1
   RUNNING=false
   write_state
   echo "$CONTAINER_ID"
   exit 0
 fi
-if [[ "${1:-}" == "container" && "${2:-}" == "rm" ]]; then
-  requested="${3:-}"
+if [[ "\${1:-}" == "container" && "\${2:-}" == "rm" ]]; then
+  requested="\${3:-}"
   [[ "$requested" == "$CONTAINER_ID" ]] || exit 1
   rm -f "$STATE_FILE"
   echo "$requested"
