@@ -169,6 +169,12 @@ test('carrega os comandos com a interface mínima de execução', async () => {
 test('executar conecta via WebSocket, escreve a saída e mantém o resultado disponível ao encerrar', async () => {
   mocks.startProjectTestPty.mockResolvedValue({
     status: 'running',
+    commandId: 'full-suite',
+    environmentInstanceId: 'environment:primary:projeto-1',
+    scope: 'full-suite',
+    targetFiles: [],
+    cancelled: false,
+    truncated: false,
     exitCode: null,
     exitSignal: null,
     startedAt: '2026-08-11T10:00:00.000Z',
@@ -197,6 +203,11 @@ test('executar conecta via WebSocket, escreve a saída e mantém o resultado dis
     type: 'ready',
     snapshot: {
       status: 'running',
+      commandId: 'full-suite',
+      environmentInstanceId: 'environment:primary:projeto-1',
+      scope: 'full-suite',
+      targetFiles: [],
+      cancelled: false,
       exitCode: null,
       exitSignal: null,
       startedAt: '2026-08-11T10:00:00.000Z',
@@ -225,6 +236,12 @@ test('executar conecta via WebSocket, escreve a saída e mantém o resultado dis
 test('cancelar chama cancelProjectTestPty enquanto a execução está em andamento', async () => {
   mocks.startProjectTestPty.mockResolvedValue({
     status: 'running',
+    commandId: 'full-suite',
+    environmentInstanceId: 'environment:primary:projeto-1',
+    scope: 'full-suite',
+    targetFiles: [],
+    cancelled: false,
+    truncated: false,
     exitCode: null,
     exitSignal: null,
     startedAt: '2026-08-11T10:00:00.000Z',
@@ -258,6 +275,12 @@ test('propaga Environment Instance para overview, PTY e WebSocket', async () => 
   const environmentInstanceId = 'environment:worktree:projeto-1:wt-1';
   mocks.startProjectTestPty.mockResolvedValue({
     status: 'running',
+    commandId: 'full-suite',
+    environmentInstanceId,
+    scope: 'full-suite',
+    targetFiles: [],
+    cancelled: false,
+    truncated: false,
     exitCode: null,
     exitSignal: null,
     startedAt: '2026-09-18T14:00:00.000Z',
@@ -305,7 +328,7 @@ test('propaga Environment Instance para overview, PTY e WebSocket', async () => 
   wrapper.unmount();
 });
 
-test('não carrega histórico nem Test Intelligence na tela de execução', async () => {
+test('carrega histórico e Test Intelligence somente ao abrir o contexto', async () => {
   const wrapper = mount(ProjectTestsPtyPanel, {
     props: { project: project() },
   });
@@ -313,7 +336,104 @@ test('não carrega histórico nem Test Intelligence na tela de execução', asyn
 
   assert.equal(mocks.fetchProjectTestHistory.mock.calls.length, 0);
   assert.equal(mocks.fetchProjectTestIntelligence.mock.calls.length, 0);
-  assert.doesNotMatch(wrapper.text(), /Histórico/);
-  assert.doesNotMatch(wrapper.text(), /Test Intelligence/);
-  assert.doesNotMatch(wrapper.text(), /dados suficientes para recomendar/i);
+
+  const details = wrapper.get('.tests-context');
+  (details.element as HTMLDetailsElement).open = true;
+  await details.trigger('toggle');
+  await flushPromises();
+
+  assert.equal(mocks.fetchProjectTestHistory.mock.calls.length, 1);
+  assert.equal(mocks.fetchProjectTestIntelligence.mock.calls.length, 1);
+  assert.match(wrapper.text(), /Test Intelligence/);
+  assert.match(wrapper.text(), /Últimas execuções/);
+});
+
+test('reconecta preservando a suíte identificada pelo snapshot PTY', async () => {
+  mocks.fetchProjectTests.mockResolvedValue({
+    ...overview(),
+    commands: [
+      overview().commands[0]!,
+      {
+        ...overview().commands[0]!,
+        id: 'secondary-suite',
+        label: 'npm run test:secondary',
+      },
+    ],
+  });
+  mocks.fetchProjectTestPtyStatus.mockResolvedValue({
+    status: 'running',
+    commandId: 'secondary-suite',
+    environmentInstanceId: 'environment:primary:projeto-1',
+    scope: 'full-suite',
+    targetFiles: [],
+    cancelled: false,
+    truncated: false,
+    exitCode: null,
+    exitSignal: null,
+    startedAt: '2026-10-02T10:00:00.000Z',
+    endedAt: null,
+  });
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  assert.equal(
+    (wrapper.get('[aria-label="Comando de teste"]').element as HTMLSelectElement)
+      .value,
+    'secondary-suite',
+  );
+  wrapper.unmount();
+});
+
+test('permite executar testes relacionados pelo mesmo PTY canônico', async () => {
+  mocks.fetchProjectTestIntelligence.mockResolvedValue({
+    commandId: 'full-suite',
+    state: 'direct',
+    recommendation: 'targeted',
+    baseBranch: 'main',
+    currentBranch: 'feature/testes',
+    changedFiles: ['src/app.ts'],
+    testFiles: ['src/app.test.ts'],
+    unmappedFiles: [],
+    evidence: [],
+  });
+  mocks.startProjectTestPty.mockResolvedValue({
+    status: 'running',
+    commandId: 'full-suite',
+    environmentInstanceId: 'environment:primary:projeto-1',
+    scope: 'targeted',
+    targetFiles: ['src/app.test.ts'],
+    cancelled: false,
+    truncated: false,
+    exitCode: null,
+    exitSignal: null,
+    startedAt: '2026-10-02T10:00:00.000Z',
+    endedAt: null,
+  });
+
+  const wrapper = mount(ProjectTestsPtyPanel, {
+    props: { project: project() },
+  });
+  await flushPromises();
+
+  const details = wrapper.get('.tests-context');
+  (details.element as HTMLDetailsElement).open = true;
+  await details.trigger('toggle');
+  await flushPromises();
+
+  const relatedButton = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('Executar 1 relacionados'));
+  assert.ok(relatedButton);
+  await relatedButton.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(mocks.startProjectTestPty.mock.calls.at(-1), [
+    'projeto-1',
+    'full-suite',
+    undefined,
+    { mode: 'related' },
+  ]);
 });
