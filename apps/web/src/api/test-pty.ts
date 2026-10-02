@@ -7,6 +7,7 @@ export interface ProjectTestPtyStatusSnapshot {
   scope: 'full-suite' | 'targeted';
   targetFiles: string[];
   cancelled: boolean;
+  truncated: boolean;
   exitCode: number | null;
   exitSignal: number | null;
   startedAt: string;
