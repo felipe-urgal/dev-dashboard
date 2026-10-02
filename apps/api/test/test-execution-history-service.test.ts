@@ -631,3 +631,69 @@ test('limita assinantes simultâneos por projeto', async (context) => {
   );
   for (const unsubscribe of subscriptions) unsubscribe();
 });
+
+
+test('registra e finaliza execução PTY sem reconciliar pelo ProcessManager', async (context) => {
+  const stateDirectory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-test-history-pty-'),
+  );
+  context.after(async () => {
+    await rm(stateDirectory, { recursive: true, force: true });
+  });
+  const service = new TestExecutionHistoryService(
+    fakeProcessManager(),
+    stateDirectory,
+  );
+  const environmentInstanceId = 'environment:primary:p1';
+  const startedAt = new Date().toISOString();
+
+  const id = await service.recordPtyStart('p1', {
+    commandId: 'node-script-test',
+    environmentInstanceId,
+    cwd: stateDirectory,
+    startedAt,
+    scope: 'targeted',
+    targetFiles: ['src/app.test.ts'],
+  });
+
+  const running = await service.history('p1', 1, 10, environmentInstanceId);
+  assert.equal(running.items[0]?.id, id);
+  assert.equal(running.items[0]?.engine, 'pty');
+  assert.deepEqual(running.items[0]?.targetFiles, ['src/app.test.ts']);
+  assert.equal(running.items[0]?.status, 'running');
+
+  await service.recordPtyFinish('p1', id, {
+    exitCode: 0,
+    finishedAt: new Date().toISOString(),
+  });
+  const finished = await service.history('p1', 1, 10, environmentInstanceId);
+  assert.equal(finished.items[0]?.status, 'stopped');
+  assert.equal(finished.items[0]?.exitCode, 0);
+});
+
+test('reconcilePty marca execução perdida após reinício como failed', async (context) => {
+  const stateDirectory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-test-history-pty-restart-'),
+  );
+  context.after(async () => {
+    await rm(stateDirectory, { recursive: true, force: true });
+  });
+  const service = new TestExecutionHistoryService(
+    fakeProcessManager(),
+    stateDirectory,
+  );
+  const environmentInstanceId = 'environment:primary:p1';
+
+  await service.recordPtyStart('p1', {
+    commandId: 'node-script-test',
+    environmentInstanceId,
+    cwd: stateDirectory,
+    startedAt: new Date().toISOString(),
+    scope: 'full-suite',
+  });
+  await service.reconcilePty('p1', environmentInstanceId, null);
+
+  const history = await service.history('p1', 1, 10, environmentInstanceId);
+  assert.equal(history.items[0]?.status, 'failed');
+  assert.ok(history.items[0]?.finishedAt);
+});
