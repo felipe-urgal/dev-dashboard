@@ -20,10 +20,7 @@ export type NodeDependencyKind = 'dependency' | 'devDependency';
 export type NodeDependencyResolution = 'resolved' | 'unknown';
 export type NodeDependencyInventoryStatus = 'ready' | 'unavailable' | 'invalid';
 export type NodeDependencyLockfileState =
-  | 'present'
-  | 'missing'
-  | 'unsupported'
-  | 'invalid';
+  'present' | 'missing' | 'unsupported' | 'invalid';
 export type NodeDependencyPackageManager = NodePackageManager | 'unknown';
 
 export interface NodeDependencyInventoryEntry {
