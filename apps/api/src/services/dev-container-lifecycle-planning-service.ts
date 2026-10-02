@@ -61,12 +61,7 @@ export interface DevContainerLifecyclePreflight {
   environmentInstanceId: string;
   runtime: 'host' | 'devcontainer';
   environmentLifecycle:
-    | 'stopped'
-    | 'starting'
-    | 'ready'
-    | 'degraded'
-    | 'stopping'
-    | 'failed';
+    'stopped' | 'starting' | 'ready' | 'degraded' | 'stopping' | 'failed';
   stopAvailable: boolean;
   recoveryAvailable: boolean;
   /** Evidência interna; o schema HTTP não expõe este campo. */
@@ -271,7 +266,10 @@ export class DevContainerLifecyclePlanningService {
     const recoveryAvailable =
       executionContext.runtime === 'host' && ownedRuntime !== undefined;
 
-    if (instance.lifecycle === 'starting' || instance.lifecycle === 'stopping') {
+    if (
+      instance.lifecycle === 'starting' ||
+      instance.lifecycle === 'stopping'
+    ) {
       return {
         projectId: project.id,
         operation,
