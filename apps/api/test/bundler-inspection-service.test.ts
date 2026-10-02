@@ -168,7 +168,7 @@ test('executa check/outdated dentro do Dev Container selecionado', async () => {
   assert.equal(overview.check?.satisfied, true);
   assert.equal(calls.length, 2);
   assert.equal(calls[0]?.command, 'devcontainer');
-  assert.deepEqual(calls[0]?.args.slice(0, 6), [
+  assert.deepEqual(calls[0]?.args.slice(0, 5), [
     'exec',
     '--container-id',
     runtimeId,
