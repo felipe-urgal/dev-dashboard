@@ -122,6 +122,10 @@ test('start() resolve o comando via testDetectionService e spawna via Detachable
   assert.equal(spawnedFile, 'npm');
   assert.deepEqual(spawnedArgs, ['test']);
   assert.equal(snapshot.status, 'running');
+  assert.equal(snapshot.commandId, 'full-suite');
+  assert.equal(snapshot.environmentInstanceId, 'environment:primary:projeto-1');
+  assert.equal(snapshot.scope, 'full-suite');
+  assert.deepEqual(snapshot.targetFiles, []);
 });
 
 test('start() injeta .env.check.local e promove CHECK_DATABASE_URL apenas no processo de teste', async (t) => {
