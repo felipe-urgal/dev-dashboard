@@ -82,7 +82,9 @@ function isValidRecord(value: unknown): value is StoredTestExecutionRecord {
     isOptionalString(item.gitRevision) &&
     isOptionalString(item.gitDirtyFingerprint) &&
     isOptionalString(item.environmentInstanceId) &&
-    (item.engine === undefined || item.engine === 'process' || item.engine === 'pty') &&
+    (item.engine === undefined ||
+      item.engine === 'process' ||
+      item.engine === 'pty') &&
     (item.cancelled === undefined || typeof item.cancelled === 'boolean') &&
     (item.targetFiles === undefined ||
       (Array.isArray(item.targetFiles) &&
@@ -486,15 +488,13 @@ export class TestExecutionHistoryService {
   public async reconcilePty(
     projectId: string,
     environmentInstanceId: string,
-    snapshot:
-      | {
-          status: 'running' | 'exited';
-          startedAt: string;
-          endedAt: string | null;
-          exitCode: number | null;
-          cancelled?: boolean;
-        }
-      | null,
+    snapshot: {
+      status: 'running' | 'exited';
+      startedAt: string;
+      endedAt: string | null;
+      exitCode: number | null;
+      cancelled?: boolean;
+    } | null,
   ): Promise<void> {
     const items = await this.load(projectId);
     let changed = false;
@@ -507,16 +507,26 @@ export class TestExecutionHistoryService {
       ) {
         continue;
       }
-      if (snapshot?.status === 'running' && item.startedAt === snapshot.startedAt) {
+      if (
+        snapshot?.status === 'running' &&
+        item.startedAt === snapshot.startedAt
+      ) {
         continue;
       }
-      if (snapshot?.status === 'exited' && item.startedAt === snapshot.startedAt) {
+      if (
+        snapshot?.status === 'exited' &&
+        item.startedAt === snapshot.startedAt
+      ) {
         items[index] = {
           ...item,
           status:
-            snapshot.cancelled || snapshot.exitCode !== null ? 'stopped' : 'failed',
+            snapshot.cancelled || snapshot.exitCode !== null
+              ? 'stopped'
+              : 'failed',
           finishedAt: snapshot.endedAt ?? new Date().toISOString(),
-          ...(snapshot.exitCode !== null ? { exitCode: snapshot.exitCode } : {}),
+          ...(snapshot.exitCode !== null
+            ? { exitCode: snapshot.exitCode }
+            : {}),
           ...(snapshot.cancelled ? { cancelled: true } : {}),
         };
       } else {

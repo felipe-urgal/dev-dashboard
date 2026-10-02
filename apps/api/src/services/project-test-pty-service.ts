@@ -196,7 +196,10 @@ export class ProjectTestPtyService {
     project: Project,
     executionContext: ExecutionContext = primaryExecutionContext(project),
   ): ProjectTestPtySnapshot | undefined {
-    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     const snapshot = this.detachable.snapshotOf(key);
     if (!snapshot) {
       this.metadata.delete(key);
@@ -213,7 +216,10 @@ export class ProjectTestPtyService {
     const input: ProjectTestPtyStartRequest =
       typeof request === 'string' ? { commandId: request } : request;
     const scopedProject = projectForExecution(project, executionContext);
-    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     if (this.detachable.isRunning(key)) {
       throw new ProjectTestPtyError(
         'ALREADY_RUNNING',
@@ -403,7 +409,10 @@ export class ProjectTestPtyService {
     project: Project,
     executionContext: ExecutionContext = primaryExecutionContext(project),
   ): void {
-    const key = executionKey(project.id, executionContext.environmentInstanceId);
+    const key = executionKey(
+      project.id,
+      executionContext.environmentInstanceId,
+    );
     const metadata = this.metadata.get(key);
     if (metadata) metadata.cancelled = true;
     this.detachable.cancel(key);
