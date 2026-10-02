@@ -38,7 +38,9 @@ import { DevContainerCleanupService } from './services/dev-container-cleanup-ser
 import { DevContainerConfigSnapshotService } from './services/dev-container-config-snapshot-service.js';
 import { DevContainerDiscoveryService } from './services/dev-container-discovery-service.js';
 import { DevContainerLifecycleConfirmationService } from './services/dev-container-lifecycle-confirmation-service.js';
+import { DevContainerLifecycleExecutionService } from './services/dev-container-lifecycle-execution-service.js';
 import { DevContainerLifecyclePlanningService } from './services/dev-container-lifecycle-planning-service.js';
+import { DevContainerRecoveryService } from './services/dev-container-recovery-service.js';
 import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
 import { DevContainerStartService } from './services/dev-container-start-service.js';
 import { DevContainerStopConfirmationService } from './services/dev-container-stop-confirmation-service.js';
@@ -123,6 +125,11 @@ export interface AppCompositionOptions {
     DevContainerStopConfirmationService,
     'prepare' | 'consume'
   >;
+  devContainerLifecycleExecutionService?: Pick<
+    DevContainerLifecycleExecutionService,
+    'start' | 'latest' | 'cancel' | 'activityJobs'
+  >;
+  devContainerRecoveryService?: Pick<DevContainerRecoveryService, 'reconcile'>;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
   projectTerminalService?: ProjectTerminalService;
@@ -237,6 +244,23 @@ export function createAppComposition(
       devContainerOwnershipStore,
       devContainerCleanupService,
       context.developmentEnvironmentInstanceStore,
+    );
+  const devContainerLifecycleExecutionService =
+    options.devContainerLifecycleExecutionService ??
+    new DevContainerLifecycleExecutionService(
+      context.developmentEnvironmentInstanceStore,
+      devContainerStartService,
+      devContainerCleanupService,
+      devContainerStopConfirmationService,
+      context.activityEventRepository,
+      options.now ? () => new Date(options.now!()) : undefined,
+    );
+  const devContainerRecoveryService =
+    options.devContainerRecoveryService ??
+    new DevContainerRecoveryService(
+      context.projectStore,
+      context.developmentEnvironmentInstanceStore,
+      devContainerCleanupService,
     );
   const dockerComposeLifecycleService =
     options.dockerComposeLifecycleService ??
@@ -391,6 +415,7 @@ export function createAppComposition(
     agentRuntime: agentRuntimeApiService,
     activityJobReaders: [
       context.projectDependenciesPtyService,
+      devContainerLifecycleExecutionService,
       ...(migrationMutationExecutionService
         ? [migrationMutationExecutionService]
         : []),
@@ -408,6 +433,8 @@ export function createAppComposition(
     devContainerCleanupService,
     devContainerStartService,
     devContainerStopConfirmationService,
+    devContainerLifecycleExecutionService,
+    devContainerRecoveryService,
     portInspectorService,
     dockerComposeProvider,
     dockerComposePreflightService,
@@ -626,6 +653,11 @@ export function registerAppLifecycle(
   composition: AppComposition,
 ): void {
   app.addHook('onListen', async () => {
+    try {
+      await composition.devContainerRecoveryService?.reconcile();
+    } catch (error) {
+      app.log.warn({ err: error }, 'dev container recovery unavailable');
+    }
     try {
       await composition.agentBrowserRuntime?.start();
     } catch (error) {
