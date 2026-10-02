@@ -58,7 +58,7 @@ describe('Dev Container no shell do projeto', () => {
       ':environment-instance-id="environmentInstanceId"',
     );
     expect(panelSource).toContain('Preflight somente leitura');
-    expect(panelSource).toContain('openCreateConfirmation');
+    expect(panelSource).toContain("openConfirmation('create')");
     expect(panelSource).toContain('Confirmar criação');
     expect(panelSource).toContain('Rebuild');
     expect(panelSource).toContain('Confirmar rebuild');
@@ -68,6 +68,10 @@ describe('Dev Container no shell do projeto', () => {
     expect(apiSource).toContain('/dev-container/lifecycle-confirmation');
     expect(apiSource).toContain('/dev-container/start');
     expect(apiSource).toContain('/dev-container/rebuild');
+    expect(apiSource).toContain('/dev-container/lifecycle-executions');
+    expect(apiSource).toContain('/dev-container/lifecycle-execution/cancel');
+    expect(panelSource).toContain('fetchDevContainerLifecycleExecution');
+    expect(panelSource).toContain('Limpar runtime parcial');
     expect(apiSource).toContain("method: 'POST'");
     expect(apiSource).not.toContain('workspaceFolder');
     expect(apiSource).not.toContain('overrideConfigPath');
