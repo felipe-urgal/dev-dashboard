@@ -197,7 +197,8 @@ export function usePtyTerminalSocket<TSnapshot extends { buffer: string }>(
     newSocket.addEventListener('close', () => {
       const manual = manuallyClosedSockets.has(newSocket);
       manuallyClosedSockets.delete(newSocket);
-      if (socket === newSocket) socket = undefined;
+      if (socket !== newSocket) return;
+      socket = undefined;
       connecting.value = false;
       if (!manual) handlers.onClose?.();
     });
