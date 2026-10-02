@@ -632,7 +632,6 @@ test('limita assinantes simultâneos por projeto', async (context) => {
   for (const unsubscribe of subscriptions) unsubscribe();
 });
 
-
 test('registra e finaliza execução PTY sem reconciliar pelo ProcessManager', async (context) => {
   const stateDirectory = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-test-history-pty-'),

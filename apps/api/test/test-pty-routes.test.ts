@@ -66,7 +66,10 @@ test('rotas de PTY de testes respeitam a instância de ambiente', async (context
   const originalSnapshot = appContext.projectTestPtyService.snapshot.bind(
     appContext.projectTestPtyService,
   );
-  appContext.projectTestPtyService.snapshot = (targetProject, executionContext) => {
+  appContext.projectTestPtyService.snapshot = (
+    targetProject,
+    executionContext,
+  ) => {
     if (executionContext?.environmentInstanceId === 'environment:primary:p1') {
       observedPrimaryRuntime = executionContext.runtime;
     }
