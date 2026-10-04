@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
+import { parseEnv } from 'node:util';
 
 import type {
   Project,
@@ -9,24 +10,52 @@ import type {
   ProjectEnvironmentContractSection,
   ProjectEnvironmentContractVariable,
   ProjectEnvironmentFile,
+  ProjectEnvironmentFileSource,
+  ProjectEnvironmentFileStatus,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
   ProjectEnvironmentVariableValue,
 } from '@dev-dashboard/contracts';
 import { isSensitiveEnvironmentProfileVariableName } from '@dev-dashboard/core';
 
-export const PROJECT_ENVIRONMENT_FILES = [
-  '.env',
-  '.env.local',
-  '.env.development',
-  '.env.test',
-  '.env.production',
-  '.env.example',
-  '.env.sample',
-  '.env.production.example',
-  '.env.docker.example',
-  '.env.docker.sample',
+export const PROJECT_ENVIRONMENT_MAX_BYTES = 64 * 1024;
+
+interface EnvironmentFileDescriptor {
+  file: string;
+  source: ProjectEnvironmentFileSource;
+  forceSensitive: boolean;
+}
+
+const ENVIRONMENT_FILE_DESCRIPTORS: readonly EnvironmentFileDescriptor[] = [
+  { file: '.env', source: 'project', forceSensitive: false },
+  { file: '.env.local', source: 'project', forceSensitive: false },
+  { file: '.env.development', source: 'project', forceSensitive: false },
+  { file: '.env.test', source: 'project', forceSensitive: false },
+  { file: '.env.test.example', source: 'project', forceSensitive: false },
+  { file: '.env.test.sample', source: 'project', forceSensitive: false },
+  { file: '.env.production', source: 'project', forceSensitive: false },
+  { file: '.env.production.example', source: 'project', forceSensitive: false },
+  { file: '.env.production.sample', source: 'project', forceSensitive: false },
+  { file: '.env.docker', source: 'project', forceSensitive: false },
+  { file: '.env.example', source: 'project', forceSensitive: false },
+  { file: '.env.sample', source: 'project', forceSensitive: false },
+  { file: '.env.docker.example', source: 'project', forceSensitive: false },
+  { file: '.env.docker.sample', source: 'project', forceSensitive: false },
+  {
+    file: '.dev-dashboard/.env.check.local',
+    source: 'dashboard-check',
+    forceSensitive: true,
+  },
+  {
+    file: '.dev-dashboard/.env.production.local',
+    source: 'dashboard-production',
+    forceSensitive: true,
+  },
 ];
+
+export const PROJECT_ENVIRONMENT_FILES = ENVIRONMENT_FILE_DESCRIPTORS.map(
+  ({ file }) => file,
+);
 
 interface ParsedEnvironmentVariable {
   name: string;
@@ -34,10 +63,22 @@ interface ParsedEnvironmentVariable {
   sensitive: boolean;
 }
 
+interface ReadEnvironmentFile {
+  descriptor: EnvironmentFileDescriptor;
+  status: ProjectEnvironmentFileStatus;
+  variables: ParsedEnvironmentVariable[];
+}
+
 interface EnvironmentContractScopeConfig {
   scope: ProjectEnvironmentContractScope;
   baselineFiles: string[];
   sourceFiles: string[];
+}
+
+interface VariableIndexEntry {
+  sensitive: boolean;
+  files: string[];
+  values: Set<string>;
 }
 
 const CONTRACT_SCOPES: EnvironmentContractScopeConfig[] = [
@@ -48,62 +89,177 @@ const CONTRACT_SCOPES: EnvironmentContractScopeConfig[] = [
   },
   {
     scope: 'test',
-    baselineFiles: [],
-    sourceFiles: ['.env.test'],
+    baselineFiles: ['.env.test.example', '.env.test.sample'],
+    sourceFiles: ['.dev-dashboard/.env.check.local', '.env.test'],
   },
   {
     scope: 'production',
-    baselineFiles: ['.env.production.example'],
-    sourceFiles: ['.env.production'],
+    baselineFiles: ['.env.production.example', '.env.production.sample'],
+    sourceFiles: ['.dev-dashboard/.env.production.local', '.env.production'],
   },
   {
     scope: 'docker',
     baselineFiles: ['.env.docker.example', '.env.docker.sample'],
-    sourceFiles: [],
+    sourceFiles: ['.env.docker'],
   },
 ];
 
-async function readDotenvFile(
-  projectPath: string,
-  file: string,
-): Promise<string | null> {
-  const target = path.resolve(projectPath, file);
-  const root = path.resolve(projectPath);
-  if (target !== root && !target.startsWith(`${root}${path.sep}`)) return null;
-  try {
-    return await readFile(target, 'utf8');
-  } catch {
-    return null;
-  }
+const SENSITIVE_CONNECTION_NAME_PATTERN =
+  /^(?:DATABASE|REDIS|SMTP|AMQP|BROKER|QUEUE|SENTRY)_URL$/iu;
+const SENSITIVE_VALUE_KEY_PATTERN =
+  /(?:^|[?&;\s])(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|credential|signature|auth)=/iu;
+const SENSITIVE_QUERY_KEY_PATTERN =
+  /password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|credential|signature|auth/iu;
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as Error & { code?: unknown }).code === code
+  );
 }
 
-function parseDotenv(contents: string): ParsedEnvironmentVariable[] {
-  const variables: ParsedEnvironmentVariable[] = [];
-  const seen = new Set<string>();
-  for (const line of contents.split(/\r?\n/)) {
-    const match = line.match(
-      /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/,
-    );
-    if (!match) continue;
-    const name = match[1] ?? '';
-    if (seen.has(name)) continue;
-    seen.add(name);
+function isPathWithin(root: string, target: string): boolean {
+  return target === root || target.startsWith(`${root}${path.sep}`);
+}
 
-    let rawValue = match[2] ?? '';
-    if (
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"))
-    ) {
-      rawValue = rawValue.slice(1, -1);
+function isSensitiveEnvironmentValue(value: string): boolean {
+  if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/u.test(value)) return true;
+  if (SENSITIVE_VALUE_KEY_PATTERN.test(value)) return true;
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.username || parsed.password) return true;
+    for (const key of parsed.searchParams.keys()) {
+      if (SENSITIVE_QUERY_KEY_PATTERN.test(key)) return true;
     }
-
-    variables.push({
-      name,
-      value: rawValue,
-      sensitive: isSensitiveEnvironmentProfileVariableName(name),
-    });
+  } catch {
+    // Nem todo valor de ambiente é uma URL.
   }
-  return variables;
+
+  return false;
+}
+
+function isSensitiveEnvironmentVariable(
+  name: string,
+  value: string,
+  forceSensitive: boolean,
+): boolean {
+  return (
+    forceSensitive ||
+    isSensitiveEnvironmentProfileVariableName(name) ||
+    SENSITIVE_CONNECTION_NAME_PATTERN.test(name) ||
+    isSensitiveEnvironmentValue(value)
+  );
+}
+
+function parseDotenv(
+  contents: string,
+  forceSensitive: boolean,
+): ParsedEnvironmentVariable[] {
+  const parsed = parseEnv(contents);
+  return Object.entries(parsed)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => ({
+      name,
+      value,
+      sensitive: isSensitiveEnvironmentVariable(name, value, forceSensitive),
+    }));
+}
+
+async function readEnvironmentFile(
+  projectPath: string,
+  descriptor: EnvironmentFileDescriptor,
+): Promise<ReadEnvironmentFile | null> {
+  let root: string;
+  try {
+    root = await realpath(projectPath);
+  } catch {
+    return {
+      descriptor,
+      status: 'unreadable',
+      variables: [],
+    };
+  }
+
+  const target = path.resolve(root, descriptor.file);
+  if (!isPathWithin(root, target)) {
+    return {
+      descriptor,
+      status: 'invalid',
+      variables: [],
+    };
+  }
+
+  let stats;
+  try {
+    stats = await lstat(target);
+  } catch (error) {
+    if (hasErrorCode(error, 'ENOENT')) return null;
+    return {
+      descriptor,
+      status: 'unreadable',
+      variables: [],
+    };
+  }
+
+  if (stats.isSymbolicLink() || !stats.isFile()) {
+    return {
+      descriptor,
+      status: 'invalid',
+      variables: [],
+    };
+  }
+  if (stats.size > PROJECT_ENVIRONMENT_MAX_BYTES) {
+    return {
+      descriptor,
+      status: 'too-large',
+      variables: [],
+    };
+  }
+
+  let canonical: string;
+  try {
+    canonical = await realpath(target);
+  } catch {
+    return {
+      descriptor,
+      status: 'unreadable',
+      variables: [],
+    };
+  }
+  if (canonical !== target || !isPathWithin(root, canonical)) {
+    return {
+      descriptor,
+      status: 'invalid',
+      variables: [],
+    };
+  }
+
+  let contents: string;
+  try {
+    contents = await readFile(canonical, 'utf8');
+  } catch {
+    return {
+      descriptor,
+      status: 'unreadable',
+      variables: [],
+    };
+  }
+
+  try {
+    return {
+      descriptor,
+      status: 'available',
+      variables: parseDotenv(contents, descriptor.forceSensitive),
+    };
+  } catch {
+    return {
+      descriptor,
+      status: 'invalid',
+      variables: [],
+    };
+  }
 }
 
 function maskSensitiveValue(
@@ -113,11 +269,21 @@ function maskSensitiveValue(
   return variable;
 }
 
+function availableVariables(
+  files: Map<string, ReadEnvironmentFile>,
+): Map<string, ParsedEnvironmentVariable[]> {
+  const available = new Map<string, ParsedEnvironmentVariable[]>();
+  for (const [file, entry] of files) {
+    if (entry.status === 'available') available.set(file, entry.variables);
+  }
+  return available;
+}
+
 function buildVariableIndex(
   files: Map<string, ParsedEnvironmentVariable[]>,
   selectedFiles: string[],
-) {
-  const index = new Map<string, { sensitive: boolean; files: string[] }>();
+): Map<string, VariableIndexEntry> {
+  const index = new Map<string, VariableIndexEntry>();
 
   for (const file of selectedFiles) {
     for (const variable of files.get(file) ?? []) {
@@ -125,10 +291,12 @@ function buildVariableIndex(
       if (current) {
         current.sensitive ||= variable.sensitive;
         current.files.push(file);
+        current.values.add(variable.value);
       } else {
         index.set(variable.name, {
           sensitive: variable.sensitive,
           files: [file],
+          values: new Set([variable.value]),
         });
       }
     }
@@ -162,7 +330,7 @@ function buildContractSection(
   const candidateVariables = buildVariableIndex(files, baselineCandidates);
   const baselineVariables = baseline
     ? buildVariableIndex(files, [baseline])
-    : new Map<string, { sensitive: boolean; files: string[] }>();
+    : new Map<string, VariableIndexEntry>();
   const sourceVariables = buildVariableIndex(files, sourceFiles);
   const names = new Set<string>([
     ...candidateVariables.keys(),
@@ -179,7 +347,8 @@ function buildContractSection(
     const sensitive = Boolean(
       candidate?.sensitive ||
       actual?.sensitive ||
-      isSensitiveEnvironmentProfileVariableName(name),
+      isSensitiveEnvironmentProfileVariableName(name) ||
+      SENSITIVE_CONNECTION_NAME_PATTERN.test(name),
     );
 
     if (baselineStatus !== 'resolved') {
@@ -223,10 +392,15 @@ function buildContractSection(
     }
 
     const sources = actual?.files ?? [];
+    const conflict = sources.length > 1 && (actual?.values.size ?? 0) > 1;
     variables.push({
       name,
       sensitive,
-      status: sources.length > 1 ? 'duplicate' : 'present',
+      status: conflict
+        ? 'conflicting-source'
+        : sources.length > 1
+          ? 'duplicate'
+          : 'present',
       baseline,
       sources,
       required: true,
@@ -244,21 +418,20 @@ function buildContractSection(
   };
 }
 
-/**
- * Lista, somente leitura, as variáveis declaradas nos arquivos .env
- * reconhecidos de um projeto. O resumo nunca inclui o valor de uma variável
- * cujo nome pareça um segredo; esse valor só pode ser consultado separadamente
- * e de forma explícita pelo usuário.
- */
 export class ProjectEnvironmentService {
   private async readRecognizedFiles(
     project: Project,
-  ): Promise<Map<string, ParsedEnvironmentVariable[]>> {
-    const files = new Map<string, ParsedEnvironmentVariable[]>();
-    for (const file of PROJECT_ENVIRONMENT_FILES) {
-      const contents = await readDotenvFile(project.path, file);
-      if (contents === null) continue;
-      files.set(file, parseDotenv(contents));
+  ): Promise<Map<string, ReadEnvironmentFile>> {
+    const entries = await Promise.all(
+      ENVIRONMENT_FILE_DESCRIPTORS.map(async (descriptor) => ({
+        descriptor,
+        result: await readEnvironmentFile(project.path, descriptor),
+      })),
+    );
+
+    const files = new Map<string, ReadEnvironmentFile>();
+    for (const { descriptor, result } of entries) {
+      if (result) files.set(descriptor.file, result);
     }
     return files;
   }
@@ -266,13 +439,21 @@ export class ProjectEnvironmentService {
   public async getOverview(
     project: Project,
   ): Promise<ProjectEnvironmentOverview> {
-    const parsedFiles = await this.readRecognizedFiles(project);
+    const inspectedFiles = await this.readRecognizedFiles(project);
     const files: ProjectEnvironmentFile[] = [];
 
-    for (const file of PROJECT_ENVIRONMENT_FILES) {
-      const parsed = parsedFiles.get(file);
-      if (!parsed || parsed.length === 0) continue;
-      files.push({ file, variables: parsed.map(maskSensitiveValue) });
+    for (const descriptor of ENVIRONMENT_FILE_DESCRIPTORS) {
+      const inspected = inspectedFiles.get(descriptor.file);
+      if (!inspected) continue;
+      files.push({
+        file: descriptor.file,
+        status: inspected.status,
+        source: descriptor.source,
+        variables:
+          inspected.status === 'available'
+            ? inspected.variables.map(maskSensitiveValue)
+            : [],
+      });
     }
 
     return { files };
@@ -281,7 +462,8 @@ export class ProjectEnvironmentService {
   public async getContract(
     project: Project,
   ): Promise<ProjectEnvironmentContract> {
-    const files = await this.readRecognizedFiles(project);
+    const inspectedFiles = await this.readRecognizedFiles(project);
+    const files = availableVariables(inspectedFiles);
     const sections = CONTRACT_SCOPES.map((config) =>
       buildContractSection(files, config),
     ).filter(
@@ -297,12 +479,15 @@ export class ProjectEnvironmentService {
     file: string,
     name: string,
   ): Promise<ProjectEnvironmentVariableValue | null> {
-    if (!PROJECT_ENVIRONMENT_FILES.includes(file)) return null;
+    const descriptor = ENVIRONMENT_FILE_DESCRIPTORS.find(
+      (entry) => entry.file === file,
+    );
+    if (!descriptor) return null;
 
-    const contents = await readDotenvFile(project.path, file);
-    if (contents === null) return null;
+    const inspected = await readEnvironmentFile(project.path, descriptor);
+    if (!inspected || inspected.status !== 'available') return null;
 
-    const variable = parseDotenv(contents).find((entry) => entry.name === name);
+    const variable = inspected.variables.find((entry) => entry.name === name);
     if (!variable) return null;
 
     return {
