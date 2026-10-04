@@ -31,9 +31,7 @@ class MutableRevisionResolver implements DeploymentRevisionResolver {
   }
 }
 
-class MutableExecutionFingerprintResolver
-  implements DeploymentExecutionFingerprintResolver
-{
+class MutableExecutionFingerprintResolver implements DeploymentExecutionFingerprintResolver {
   public current = 'environment-a';
 
   public async resolve(): Promise<string> {
@@ -148,7 +146,6 @@ test('mudança de revision depois do check impede a próxima etapa', async (t) =
   assert.equal(finished.timeline[0]?.status, 'succeeded');
   assert.equal(finished.timeline[1]?.status, 'pending');
 });
-
 
 test('mudança no ambiente local depois da confirmação invalida o deployment', async (t) => {
   const directory = await mkdtemp(
