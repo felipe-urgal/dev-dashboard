@@ -86,24 +86,6 @@ const serviceSchema = {
   pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$',
 } as const;
 
-const emptyBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  maxProperties: 0,
-} as const;
-
-const targetBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['service'],
-  maxProperties: 1,
-  properties: {
-    service: {
-      anyOf: [serviceSchema, { type: 'null' }],
-    },
-  },
-} as const;
-
 const lifecycleOperationSchema = {
   type: 'string',
   enum: ['start', 'stop', 'restart'],
@@ -318,37 +300,6 @@ const snapshotSchema = {
   },
 } as const;
 
-const startResultSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['state', 'preflight'],
-  properties: {
-    state: { type: 'string', enum: ['started', 'started-unverified'] },
-    preflight: preflightSchema,
-    inspection: inspectionSchema,
-    diagnostic: { type: 'string' },
-  },
-} as const;
-
-const mutationResultSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['state'],
-  properties: {
-    state: {
-      type: 'string',
-      enum: [
-        'stopped',
-        'stopped-unverified',
-        'restarted',
-        'restarted-unverified',
-      ],
-    },
-    inspection: inspectionSchema,
-    diagnostic: { type: 'string' },
-  },
-} as const;
-
 const lifecycleConfirmationSchema = {
   type: 'object',
   additionalProperties: false,
@@ -403,17 +354,6 @@ const lifecycleExecutionSchema = {
     diagnostic: { type: 'string' },
   },
 } as const;
-
-const operationResponseSchema = (resultSchema: object) =>
-  ({
-    type: 'object',
-    additionalProperties: false,
-    required: ['result', 'snapshot'],
-    properties: {
-      result: resultSchema,
-      snapshot: snapshotSchema,
-    },
-  }) as const;
 
 const logSchema = {
   type: 'object',
@@ -730,101 +670,6 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
             target.environmentInstanceId,
           ) ?? null,
       };
-    },
-  );
-
-  app.post<{
-    Params: Params;
-    Querystring: EnvironmentQuery;
-    Body: Record<string, never>;
-  }>(
-    '/projects/:projectId/docker-compose/start',
-    {
-      schema: {
-        params: paramsSchema,
-        querystring: environmentQuerySchema,
-        body: emptyBodySchema,
-        response: {
-          200: operationResponseSchema(startResultSchema),
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = requireComposeProject(
-        options,
-        request.params.projectId,
-        request.query.environmentInstanceId,
-      );
-      try {
-        const result =
-          await options.dockerComposeLifecycleService.start(project);
-        return { result, snapshot: await readSnapshot(options, project) };
-      } catch (error) {
-        throwLifecycleApiError(error);
-      }
-    },
-  );
-
-  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: TargetBody }>(
-    '/projects/:projectId/docker-compose/stop',
-    {
-      schema: {
-        params: paramsSchema,
-        querystring: environmentQuerySchema,
-        body: targetBodySchema,
-        response: {
-          200: operationResponseSchema(mutationResultSchema),
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = requireComposeProject(
-        options,
-        request.params.projectId,
-        request.query.environmentInstanceId,
-      );
-      try {
-        const result = await options.dockerComposeLifecycleService.stop(
-          project,
-          request.body.service ?? undefined,
-        );
-        return { result, snapshot: await readSnapshot(options, project) };
-      } catch (error) {
-        throwLifecycleApiError(error);
-      }
-    },
-  );
-
-  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: TargetBody }>(
-    '/projects/:projectId/docker-compose/restart',
-    {
-      schema: {
-        params: paramsSchema,
-        querystring: environmentQuerySchema,
-        body: targetBodySchema,
-        response: {
-          200: operationResponseSchema(mutationResultSchema),
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = requireComposeProject(
-        options,
-        request.params.projectId,
-        request.query.environmentInstanceId,
-      );
-      try {
-        const result = await options.dockerComposeLifecycleService.restart(
-          project,
-          request.body.service ?? undefined,
-        );
-        return { result, snapshot: await readSnapshot(options, project) };
-      } catch (error) {
-        throwLifecycleApiError(error);
-      }
     },
   );
 
