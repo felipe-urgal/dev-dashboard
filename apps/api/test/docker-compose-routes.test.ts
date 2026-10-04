@@ -180,6 +180,36 @@ async function createFixture() {
   };
 }
 
+async function waitForComposeExecution(
+  app: Awaited<ReturnType<typeof buildApp>>,
+  environmentInstanceId?: string,
+) {
+  const query = environmentInstanceId
+    ? '?' +
+      new URLSearchParams({ environmentInstanceId }).toString()
+    : '';
+
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const response = await app.inject({
+      method: 'GET',
+      url:
+        '/api/projects/project-1/docker-compose/lifecycle-execution' + query,
+      headers: { 'x-dev-dashboard-token': TOKEN },
+    });
+    assert.equal(response.statusCode, 200);
+    const execution = response.json().execution;
+    if (
+      !execution ||
+      (execution.status !== 'queued' && execution.status !== 'running')
+    ) {
+      return execution;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  }
+
+  assert.fail('Lifecycle Docker Compose não terminou dentro do limite do teste.');
+}
+
 test('Compose snapshot é autenticado e remove IDs de container do contrato público', async (context) => {
   const fixture = await createFixture();
   context.after(() => fixture.app.close());
@@ -252,7 +282,8 @@ test('Compose usa a mesma Environment Instance para cwd e ownership isolado', as
   });
 
   assert.equal(restart.statusCode, 202);
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  const completed = await waitForComposeExecution(fixture.app, fixture.worktree.id);
+  assert.equal(completed?.status, 'succeeded');
   assert.equal(fixture.calls[0]?.project.id, fixture.worktree.id);
   assert.equal(fixture.calls[0]?.project.path, fixture.worktreePath);
 });
@@ -308,7 +339,8 @@ test('Compose mutações resolvem Project no backend e aceitam somente serviço 
   });
 
   assert.equal(response.statusCode, 202);
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  const completed = await waitForComposeExecution(fixture.app);
+  assert.equal(completed?.status, 'succeeded');
   assert.equal(fixture.calls.length, 1);
   assert.equal(fixture.calls[0]?.action, 'restart');
   assert.equal(fixture.calls[0]?.service, 'web');
@@ -437,16 +469,9 @@ test('Compose lifecycle confirmado roda como job reconsultável', async (context
   assert.equal(startResponse.statusCode, 202);
   assert.equal(startResponse.json().execution.operation, 'restart');
 
-  await new Promise<void>((resolve) => setImmediate(resolve));
-
-  const statusResponse = await fixture.app.inject({
-    method: 'GET',
-    url: '/api/projects/project-1/docker-compose/lifecycle-execution',
-    headers: { 'x-dev-dashboard-token': TOKEN },
-  });
-  assert.equal(statusResponse.statusCode, 200);
-  assert.equal(statusResponse.json().execution.status, 'succeeded');
-  assert.equal(statusResponse.json().execution.resultState, 'restarted');
+  const completed = await waitForComposeExecution(fixture.app);
+  assert.equal(completed?.status, 'succeeded');
+  assert.equal(completed?.resultState, 'restarted');
   assert.equal(fixture.calls.at(-1)?.action, 'restart');
   assert.equal(fixture.calls.at(-1)?.service, 'web');
 });
@@ -476,8 +501,8 @@ test('Compose lifecycle rejeita confirmação reutilizada', async (context) => {
     payload: { operation: 'stop', service: 'web', confirmationToken: token },
   });
   assert.equal(first.statusCode, 202);
-
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  const completed = await waitForComposeExecution(fixture.app);
+  assert.equal(completed?.status, 'succeeded');
 
   const second = await fixture.app.inject({
     method: 'POST',
