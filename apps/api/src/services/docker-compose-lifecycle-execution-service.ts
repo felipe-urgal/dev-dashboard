@@ -208,7 +208,8 @@ export class DockerComposeLifecycleExecutionService {
       snapshot.stage = 'completed';
       snapshot.finishedAt = this.now().toISOString();
       snapshot.resultState = result.state;
-      snapshot.diagnostic = result.diagnostic;
+      if (result.diagnostic) snapshot.diagnostic = result.diagnostic;
+      else delete snapshot.diagnostic;
 
       const warning = result.state.endsWith('-unverified');
       await this.recordActivity(snapshot, warning ? 'warning' : 'succeeded');
