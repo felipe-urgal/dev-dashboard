@@ -91,6 +91,32 @@ export interface DockerComposeLogSnapshot {
   readAt: string;
 }
 
+export type DockerComposeLifecycleOperation = 'start' | 'stop' | 'restart';
+
+export interface DockerComposeLifecycleConfirmation {
+  token: string;
+  projectId: string;
+  environmentInstanceId: string;
+  operation: DockerComposeLifecycleOperation;
+  service?: string;
+  expiresAt: string;
+}
+
+export interface DockerComposeLifecycleExecution {
+  id: string;
+  projectId: string;
+  environmentInstanceId: string;
+  operation: DockerComposeLifecycleOperation;
+  service?: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  stage: 'queued' | 'mutating' | 'completed' | 'failed';
+  cancelSupported: false;
+  startedAt: string;
+  finishedAt?: string;
+  resultState?: string;
+  diagnostic?: string;
+}
+
 interface DockerComposeOperationResponse {
   result: {
     state: string;
@@ -101,6 +127,18 @@ interface DockerComposeOperationResponse {
 
 interface DockerComposeLogsResponse {
   logs: DockerComposeLogSnapshot;
+}
+
+interface DockerComposeLifecycleConfirmationResponse {
+  confirmation: DockerComposeLifecycleConfirmation;
+}
+
+interface DockerComposeLifecycleExecutionResponse {
+  execution: DockerComposeLifecycleExecution;
+}
+
+interface DockerComposeLatestLifecycleExecutionResponse {
+  execution: DockerComposeLifecycleExecution | null;
 }
 
 function projectUrl(projectId: string, environmentInstanceId?: string): string {
@@ -199,4 +237,79 @@ export async function fetchDockerComposeLogs(
       query.toString(),
   );
   return response.logs;
+}
+
+
+export async function prepareDockerComposeLifecycleConfirmation(
+  projectId: string,
+  operation: DockerComposeLifecycleOperation,
+  service?: string,
+  environmentInstanceId?: string,
+): Promise<DockerComposeLifecycleConfirmation> {
+  const response = await requestJson<DockerComposeLifecycleConfirmationResponse>(
+    projectUrl(projectId, environmentInstanceId).replace(
+      /\?.*$/u,
+      '',
+    ) +
+      '/lifecycle-confirmations' +
+      (environmentInstanceId
+        ? '?' +
+          new URLSearchParams({ environmentInstanceId }).toString()
+        : ''),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation, service: service ?? null }),
+    },
+  );
+  return response.confirmation;
+}
+
+export async function startDockerComposeLifecycleExecution(
+  projectId: string,
+  operation: DockerComposeLifecycleOperation,
+  confirmationToken: string,
+  service?: string,
+  environmentInstanceId?: string,
+): Promise<DockerComposeLifecycleExecution> {
+  const response = await requestJson<DockerComposeLifecycleExecutionResponse>(
+    projectUrl(projectId, environmentInstanceId).replace(
+      /\?.*$/u,
+      '',
+    ) +
+      '/lifecycle-executions' +
+      (environmentInstanceId
+        ? '?' +
+          new URLSearchParams({ environmentInstanceId }).toString()
+        : ''),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        operation,
+        service: service ?? null,
+        confirmationToken,
+      }),
+    },
+  );
+  return response.execution;
+}
+
+export async function fetchDockerComposeLifecycleExecution(
+  projectId: string,
+  environmentInstanceId?: string,
+): Promise<DockerComposeLifecycleExecution | null> {
+  const response =
+    await requestJson<DockerComposeLatestLifecycleExecutionResponse>(
+      projectUrl(projectId, environmentInstanceId).replace(
+        /\?.*$/u,
+        '',
+      ) +
+        '/lifecycle-execution' +
+        (environmentInstanceId
+          ? '?' +
+            new URLSearchParams({ environmentInstanceId }).toString()
+          : ''),
+    );
+  return response.execution;
 }
