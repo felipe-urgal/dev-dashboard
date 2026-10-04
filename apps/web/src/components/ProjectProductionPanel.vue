@@ -740,7 +740,6 @@ async function pollDeployment(current: number): Promise<void> {
     ]);
     if (current !== generation) return;
     resetPollFailures();
-    activeDeployment.value = deployment;
     if (nextLog) deploymentLog.value = nextLog;
 
     if (TERMINAL_STATUSES.has(deployment.status)) {
@@ -754,14 +753,17 @@ async function pollDeployment(current: number): Promise<void> {
       });
       if (current !== generation) return;
       history.value = refreshed.items;
-      activeDeployment.value = deployment;
       if (canExecuteDeployment.value) {
         await loadProviderState(current).catch((error: unknown) => {
           if (isAbortError(error)) throw error;
         });
       }
+      if (current !== generation) return;
+      activeDeployment.value = deployment;
       return;
     }
+
+    activeDeployment.value = deployment;
     schedulePoll(() => void pollDeployment(current), 700);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
