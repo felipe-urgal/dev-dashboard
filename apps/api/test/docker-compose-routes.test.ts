@@ -185,15 +185,13 @@ async function waitForComposeExecution(
   environmentInstanceId?: string,
 ) {
   const query = environmentInstanceId
-    ? '?' +
-      new URLSearchParams({ environmentInstanceId }).toString()
+    ? '?' + new URLSearchParams({ environmentInstanceId }).toString()
     : '';
 
   for (let attempt = 0; attempt < 200; attempt += 1) {
     const response = await app.inject({
       method: 'GET',
-      url:
-        '/api/projects/project-1/docker-compose/lifecycle-execution' + query,
+      url: '/api/projects/project-1/docker-compose/lifecycle-execution' + query,
       headers: { 'x-dev-dashboard-token': TOKEN },
     });
     assert.equal(response.statusCode, 200);
@@ -207,7 +205,9 @@ async function waitForComposeExecution(
     await new Promise<void>((resolve) => setTimeout(resolve, 10));
   }
 
-  assert.fail('Lifecycle Docker Compose não terminou dentro do limite do teste.');
+  assert.fail(
+    'Lifecycle Docker Compose não terminou dentro do limite do teste.',
+  );
 }
 
 test('Compose snapshot é autenticado e remove IDs de container do contrato público', async (context) => {
@@ -282,7 +282,10 @@ test('Compose usa a mesma Environment Instance para cwd e ownership isolado', as
   });
 
   assert.equal(restart.statusCode, 202);
-  const completed = await waitForComposeExecution(fixture.app, fixture.worktree.id);
+  const completed = await waitForComposeExecution(
+    fixture.app,
+    fixture.worktree.id,
+  );
   assert.equal(completed?.status, 'succeeded');
   assert.equal(fixture.calls[0]?.project.id, fixture.worktree.id);
   assert.equal(fixture.calls[0]?.project.path, fixture.worktreePath);
