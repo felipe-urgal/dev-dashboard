@@ -74,37 +74,38 @@ test.describe('produção por projeto', () => {
     ).toBeVisible();
   });
 
-  test('reanexa deployment após reload e bloqueia cancelamento durante mutação', async ({
-    page,
-  }) => {
-    await gotoBootstrapped(page, '/');
-    await page
-      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
-      .click();
-    await page
-      .getByRole('navigation', { name: 'Áreas do projeto' })
-      .getByRole('link', { name: 'Produção', exact: true })
-      .click();
+  test(
+    'reanexa deployment após reload e bloqueia cancelamento durante mutação',
+    async ({ page }) => {
+      await gotoBootstrapped(page, '/');
+      await page
+        .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
+        .click();
+      await page
+        .getByRole('navigation', { name: 'Áreas do projeto' })
+        .getByRole('link', { name: 'Produção', exact: true })
+        .click();
 
-    await page.getByRole('button', { name: 'Preparar deployment' }).click();
-    await page.getByRole('button', { name: 'Iniciar deployment' }).click();
+      await page.getByRole('button', { name: 'Preparar deployment' }).click();
+      await page.getByRole('button', { name: 'Iniciar deployment' }).click();
 
-    await expect(
-      page.getByRole('heading', { name: 'Deployment em execução' }),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByRole('button', { name: 'Cancelar deployment' }),
-    ).toBeDisabled();
+      await expect(
+        page.getByRole('heading', { name: 'Deployment em execução' }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole('button', { name: 'Cancelar deployment' }),
+      ).toBeDisabled();
 
-    await page.reload();
+      await page.reload();
 
-    await expect(
-      page.getByText('Detalhes da última execução', { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByRole('heading', {
-        name: 'Último deployment registrado está alinhado',
-      }),
-    ).toBeVisible({ timeout: 15_000 });
-  });
+      await expect(
+        page.getByText('Detalhes da última execução', { exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole('heading', {
+          name: 'Último deployment registrado está alinhado',
+        }),
+      ).toBeVisible({ timeout: 15_000 });
+    },
+  );
 });
