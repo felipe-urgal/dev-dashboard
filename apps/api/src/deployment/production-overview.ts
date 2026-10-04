@@ -492,6 +492,18 @@ export class ProductionOverviewService {
       };
     }
 
+    if (status.strategy !== 'git-managed') {
+      return {
+        ...base,
+        ...deploymentFields,
+        state: latestExecutionState ?? 'unknown',
+        health: project.production?.health ? 'unknown' : 'not-configured',
+        errorCode: 'PRODUCTION_OVERVIEW_PROVIDER_UNAVAILABLE',
+        errorMessage:
+          'O status de produção retornado não corresponde à estratégia git-managed.',
+      };
+    }
+
     const targetRevision = status.originRevision;
     const productionRevision = status.productionRevision;
     const health = healthEvidence(project, history, productionRevision);
