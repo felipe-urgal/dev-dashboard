@@ -96,7 +96,8 @@ async function writeSampleProject(
           format: 'node -e "setTimeout(() => process.exit(1), 500)"',
           'prod:status': 'node -e "process.exit(0)"',
           'prod:check': 'node -e "process.exit(0)"',
-          'prod:deploy': 'node -e "process.exit(0)"',
+          'prod:deploy':
+            'node -e "setTimeout(() => process.exit(0), 1200)"',
           'prod:verify': 'node -e "process.exit(0)"',
         },
       },
