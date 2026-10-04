@@ -242,7 +242,9 @@ describe('ProjectEnvironmentPanel', () => {
     expect(wrapper.text()).toContain('Inválido');
     expect(wrapper.text()).toContain('foi recusado');
 
-    await wrapper.findAll('.project-environment-file-button')[1]!.trigger('click');
+    await wrapper
+      .findAll('.project-environment-file-button')[1]!
+      .trigger('click');
     expect(wrapper.text()).toContain('runtime produção');
     expect(wrapper.text()).toContain('DATABASE_URL');
     expect(wrapper.text()).toContain('Segredo');
