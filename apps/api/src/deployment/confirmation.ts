@@ -12,6 +12,7 @@ interface StoredConfirmation {
   projectId: string;
   revision: string;
   planHash: string;
+  executionFingerprint: string;
   expiresAt: number;
 }
 
@@ -25,7 +26,10 @@ export class DeploymentConfirmationService {
     private readonly now: () => number = Date.now,
   ) {}
 
-  public prepare(plan: DeploymentPlan): DeploymentConfirmation {
+  public prepare(
+    plan: DeploymentPlan,
+    executionFingerprint = '',
+  ): DeploymentConfirmation {
     this.pruneExpired();
     const token = randomBytes(32).toString('hex');
     const expiresAt = this.now() + this.ttlMs;
@@ -34,6 +38,7 @@ export class DeploymentConfirmationService {
       projectId: plan.projectId,
       revision: plan.revision,
       planHash: plan.planHash,
+      executionFingerprint,
       expiresAt,
     });
     return {
@@ -45,14 +50,19 @@ export class DeploymentConfirmationService {
     };
   }
 
-  public consume(plan: DeploymentPlan, token: string | undefined): void {
+  public consume(
+    plan: DeploymentPlan,
+    token: string | undefined,
+    executionFingerprint = '',
+  ): void {
     this.pruneExpired();
     const confirmation = token ? this.confirmations.get(token) : undefined;
     if (
       !confirmation ||
       confirmation.projectId !== plan.projectId ||
       confirmation.revision !== plan.revision ||
-      confirmation.planHash !== plan.planHash
+      confirmation.planHash !== plan.planHash ||
+      confirmation.executionFingerprint !== executionFingerprint
     ) {
       throw new DeploymentError(
         'DEPLOYMENT_CONFIRMATION_REQUIRED',
