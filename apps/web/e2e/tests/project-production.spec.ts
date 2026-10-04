@@ -66,9 +66,7 @@ test.describe('produção por projeto', () => {
     await expect(
       page.getByText('Detalhes da última execução', { exact: true }),
     ).toBeVisible();
-    await page
-      .getByText('Detalhes da última execução', { exact: true })
-      .click();
+    await page.locator('.production-execution-details > summary').click();
     await expect(
       page.getByRole('heading', { name: 'Timeline do deployment' }),
     ).toBeVisible();
