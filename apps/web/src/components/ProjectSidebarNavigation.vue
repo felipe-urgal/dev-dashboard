@@ -230,7 +230,7 @@ const groups = computed<SidebarGroup[]>(() => [
         label: 'Variáveis de ambiente',
         icon: AdjustmentsHorizontalIcon,
         routeNames: ['project-environment'],
-        to: projectRoute('project-environment'),
+        to: projectRoute('project-environment', { environment: true }),
       },
       {
         id: 'migrations',
