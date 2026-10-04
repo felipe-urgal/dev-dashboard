@@ -53,6 +53,7 @@ export class DockerComposeRecoveryService {
 
       const target = scopedProject(project, instance.id, instance.source.path);
       try {
+        // Recovery só consulta Docker quando existe ownership persistido a reconciliar.
         const ownership = await this.ownershipStore.get(target);
         if (!ownership) continue;
 
