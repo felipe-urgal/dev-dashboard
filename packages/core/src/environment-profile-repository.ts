@@ -30,7 +30,7 @@ const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 // nome é guardado, para que o formulário lembre o que pedir sem armazenar o
 // segredo em si.
 const SENSITIVE_NAME_PATTERN =
-  /SECRET|TOKEN|PASSWORD|CREDENTIAL|PRIVATE|_KEY$|^KEY$|APIKEY|^(?:DATABASE|REDIS|SMTP|AMQP|BROKER|QUEUE|SENTRY)_URL$/i;
+  /SECRET|TOKEN|PASSWORD|CREDENTIAL|PRIVATE|_KEY$|^KEY$|APIKEY|(?:^|_)(?:DATABASE|REDIS|SMTP|AMQP|BROKER|QUEUE|SENTRY)_URL$/i;
 
 export function isSensitiveEnvironmentProfileVariableName(
   name: string,
