@@ -357,7 +357,7 @@ describe('ProjectProductionPanel', () => {
       expect.any(AbortSignal),
     );
     expect(wrapper.text()).toContain('Timeline do deployment');
-    expect(wrapper.text()).toContain('Produção atualizada');
+    expect(wrapper.text()).toContain('Estado de produção inconclusivo');
     expect(wrapper.text()).toContain('deploy ok');
     wrapper.unmount();
   });
