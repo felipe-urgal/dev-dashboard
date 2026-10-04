@@ -103,5 +103,4 @@ test.describe('produção por projeto', () => {
       page.getByRole('heading', { name: 'Estado de produção inconclusivo' }),
     ).toBeVisible({ timeout: 15_000 });
   });
-
 });
