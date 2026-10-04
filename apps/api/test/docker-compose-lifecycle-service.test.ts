@@ -1060,3 +1060,50 @@ test('serializa mutações concorrentes da mesma Environment Instance', async ()
   unblock?.();
   await first;
 });
+
+
+test('restart falho preserva leases quando runtime pós-falha permanece ativo', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  const inspections = [after, after];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? after },
+    { inspect: async () => ready },
+    async () => {
+      throw new Error('restart parcial');
+    },
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+      portLeaseRegistry: registry,
+    },
+  );
+
+  await assert.rejects(
+    service.restart(project),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_RECOVERY_REQUIRED',
+  );
+
+  const conflicting = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:other:web:3000',
+      projectId: 'other',
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  );
+  assert.equal(conflicting, null);
+});
