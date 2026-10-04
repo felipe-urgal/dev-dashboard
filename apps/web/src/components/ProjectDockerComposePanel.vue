@@ -227,9 +227,7 @@ const inspectionSummary = computed(() => {
     },
   };
 
-  return state && state !== 'available'
-    ? summary[state]
-    : summary['invalid-output'];
+  return state ? summary[state] : summary['invalid-output'];
 });
 
 const ownershipSummary = computed(() =>
