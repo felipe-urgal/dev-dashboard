@@ -1301,6 +1301,10 @@ onBeforeUnmount(() => {
             <span>Provider</span>
             <strong>{{ production.provider }}</strong>
           </div>
+          <div v-if="latestDeployment?.providerDeploymentId">
+            <span>Deployment provider</span>
+            <code>{{ latestDeployment.providerDeploymentId }}</code>
+          </div>
           <div v-if="production.health">
             <span>Health</span>
             <code>{{ production.health.url }}</code>
