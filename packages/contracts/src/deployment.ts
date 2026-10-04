@@ -95,7 +95,9 @@ export type DeploymentTimelineStep = DeploymentPlanStep & {
 };
 
 export type DeploymentFailurePoint =
-  'before-irreversible' | 'after-irreversible';
+  | 'before-irreversible'
+  | 'after-mutation'
+  | 'after-irreversible';
 
 export interface Deployment {
   id: string;
@@ -110,6 +112,7 @@ export interface Deployment {
   startedAt?: string;
   finishedAt?: string;
   currentStepId?: DeploymentPlanStepId;
+  providerDeploymentId?: string;
   failurePoint?: DeploymentFailurePoint;
   errorCode?: string;
   errorMessage?: string;
