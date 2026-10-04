@@ -703,14 +703,14 @@ export function registerAppLifecycle(
       app.log.warn({ err: error }, 'dev container recovery unavailable');
     }
     try {
-      await composition.dockerComposeRecoveryService?.reconcile();
-    } catch (error) {
-      app.log.warn({ err: error }, 'docker compose recovery unavailable');
-    }
-    try {
       await composition.agentBrowserRuntime?.start();
     } catch (error) {
       app.log.warn({ err: error }, 'agent browser bridge unavailable');
+    }
+    try {
+      await composition.dockerComposeRecoveryService?.reconcile();
+    } catch (error) {
+      app.log.warn({ err: error }, 'docker compose recovery unavailable');
     }
   });
 
