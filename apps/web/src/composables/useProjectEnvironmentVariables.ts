@@ -16,7 +16,10 @@ import { RequestGeneration } from '../utils/request-generation';
  * reconhecidos do projeto. Valores sensíveis permanecem ausentes do resumo e
  * só são buscados quando o usuário solicita explicitamente a exibição.
  */
-export function useProjectEnvironmentVariables(getProject: () => Project) {
+export function useProjectEnvironmentVariables(
+  getProject: () => Project,
+  getEnvironmentInstanceId: () => string | undefined = () => undefined,
+) {
   const overview = ref<ProjectEnvironmentOverview | null>(null);
   const loading = ref(false);
   const errorMessage = ref('');
@@ -30,17 +33,28 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
     return JSON.stringify([file, name]);
   }
 
-  function isCurrentProject(projectId: string, generation: number): boolean {
+  function isCurrentProject(
+    projectId: string,
+    environmentInstanceId: string | undefined,
+    generation: number,
+  ): boolean {
     return (
-      getProject().id === projectId && projectRequests.isCurrent(generation)
+      getProject().id === projectId &&
+      getEnvironmentInstanceId() === environmentInstanceId &&
+      projectRequests.isCurrent(generation)
     );
   }
 
   function isCurrentValueRequest(
     projectId: string,
+    environmentInstanceId: string | undefined,
     generation: number,
   ): boolean {
-    return getProject().id === projectId && valueRequests.isCurrent(generation);
+    return (
+      getProject().id === projectId &&
+      getEnvironmentInstanceId() === environmentInstanceId &&
+      valueRequests.isCurrent(generation)
+    );
   }
 
   function clearRevealedValues(): void {
@@ -69,6 +83,7 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
     if (revealingValues.value[key] || hasRevealedValue(file, name)) return;
 
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = valueRequests.capture();
     revealingValues.value[key] = true;
     errorMessage.value = '';
@@ -78,19 +93,26 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
         projectId,
         file,
         name,
+        environmentInstanceId,
       );
-      if (isCurrentValueRequest(projectId, generation)) {
+      if (
+        isCurrentValueRequest(projectId, environmentInstanceId, generation)
+      ) {
         revealedValues.value[key] = variable.value;
       }
     } catch (error) {
-      if (isCurrentValueRequest(projectId, generation)) {
+      if (
+        isCurrentValueRequest(projectId, environmentInstanceId, generation)
+      ) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível exibir o valor da variável.';
       }
     } finally {
-      if (isCurrentValueRequest(projectId, generation)) {
+      if (
+        isCurrentValueRequest(projectId, environmentInstanceId, generation)
+      ) {
         delete revealingValues.value[key];
       }
     }
@@ -102,25 +124,29 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
 
   async function refresh(): Promise<void> {
     const projectId = getProject().id;
+    const environmentInstanceId = getEnvironmentInstanceId();
     const generation = projectRequests.capture();
     clearRevealedValues();
     loading.value = true;
     errorMessage.value = '';
 
     try {
-      const result = await fetchProjectEnvironmentVariables(projectId);
-      if (isCurrentProject(projectId, generation)) {
+      const result = await fetchProjectEnvironmentVariables(
+        projectId,
+        environmentInstanceId,
+      );
+      if (isCurrentProject(projectId, environmentInstanceId, generation)) {
         overview.value = result;
       }
     } catch (error) {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentProject(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível consultar as variáveis de ambiente.';
       }
     } finally {
-      if (isCurrentProject(projectId, generation)) {
+      if (isCurrentProject(projectId, environmentInstanceId, generation)) {
         loading.value = false;
       }
     }
@@ -135,7 +161,7 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
   }
 
   watch(
-    () => getProject().id,
+    () => [getProject().id, getEnvironmentInstanceId()] as const,
     () => {
       void initialize();
     },
