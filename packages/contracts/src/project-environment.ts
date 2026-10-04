@@ -11,8 +11,21 @@ export interface ProjectEnvironmentVariableValue {
   sensitive: boolean;
 }
 
+export type ProjectEnvironmentFileStatus =
+  | 'available'
+  | 'unreadable'
+  | 'invalid'
+  | 'too-large';
+
+export type ProjectEnvironmentFileSource =
+  | 'project'
+  | 'dashboard-check'
+  | 'dashboard-production';
+
 export interface ProjectEnvironmentFile {
   file: string;
+  status: ProjectEnvironmentFileStatus;
+  source: ProjectEnvironmentFileSource;
   variables: ProjectEnvironmentVariable[];
 }
 
@@ -32,7 +45,6 @@ export type ProjectEnvironmentContractVariableStatus =
   | 'undocumented'
   | 'duplicate'
   | 'conflicting-source'
-  | 'optional'
   | 'unknown';
 
 export type ProjectEnvironmentContractAction =
