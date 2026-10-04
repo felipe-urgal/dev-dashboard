@@ -149,8 +149,7 @@ const inspectionSummary = computed(() => {
     }
     if (
       services.some(
-        (service) =>
-          service.state === 'dead' || service.health === 'unhealthy',
+        (service) => service.state === 'dead' || service.health === 'unhealthy',
       )
     ) {
       return {
@@ -591,7 +590,11 @@ onBeforeUnmount(clearPoll);
           @click="openConfirmation('start')"
         >
           <PlayIcon aria-hidden="true" />
-          {{ executionActive && execution?.operation === 'start' ? 'Iniciando…' : 'Iniciar stack' }}
+          {{
+            executionActive && execution?.operation === 'start'
+              ? 'Iniciando…'
+              : 'Iniciar stack'
+          }}
         </button>
         <button
           v-if="owned"
@@ -600,7 +603,11 @@ onBeforeUnmount(clearPoll);
           :disabled="busy || !hasActiveServices"
           @click="openConfirmation('restart')"
         >
-          {{ executionActive && execution?.operation === 'restart' ? 'Reiniciando…' : 'Reiniciar stack' }}
+          {{
+            executionActive && execution?.operation === 'restart'
+              ? 'Reiniciando…'
+              : 'Reiniciar stack'
+          }}
         </button>
         <button
           v-if="owned"
@@ -609,7 +616,11 @@ onBeforeUnmount(clearPoll);
           :disabled="busy || !hasActiveServices"
           @click="openConfirmation('stop')"
         >
-          {{ executionActive && execution?.operation === 'stop' ? 'Parando…' : 'Parar stack' }}
+          {{
+            executionActive && execution?.operation === 'stop'
+              ? 'Parando…'
+              : 'Parar stack'
+          }}
         </button>
       </div>
     </header>
@@ -682,8 +693,8 @@ onBeforeUnmount(clearPoll);
           <strong>{{ confirmationTitle }}</strong>
           <span>
             O backend revalidará ownership, catálogo e preflight antes da
-            mutação. A confirmação é de uso único e vinculada a esta
-            Environment Instance.
+            mutação. A confirmação é de uso único e vinculada a esta Environment
+            Instance.
           </span>
           <div class="compose-confirmation-actions">
             <button
