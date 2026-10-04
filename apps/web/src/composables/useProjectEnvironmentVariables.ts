@@ -95,24 +95,18 @@ export function useProjectEnvironmentVariables(
         name,
         environmentInstanceId,
       );
-      if (
-        isCurrentValueRequest(projectId, environmentInstanceId, generation)
-      ) {
+      if (isCurrentValueRequest(projectId, environmentInstanceId, generation)) {
         revealedValues.value[key] = variable.value;
       }
     } catch (error) {
-      if (
-        isCurrentValueRequest(projectId, environmentInstanceId, generation)
-      ) {
+      if (isCurrentValueRequest(projectId, environmentInstanceId, generation)) {
         errorMessage.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível exibir o valor da variável.';
       }
     } finally {
-      if (
-        isCurrentValueRequest(projectId, environmentInstanceId, generation)
-      ) {
+      if (isCurrentValueRequest(projectId, environmentInstanceId, generation)) {
         delete revealingValues.value[key];
       }
     }
