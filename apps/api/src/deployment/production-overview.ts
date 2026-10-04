@@ -370,12 +370,16 @@ export class ProductionOverviewService {
 
       let state = latestExecutionState;
       if (!state) {
-        state =
-          targetRevision && productionRevision
-            ? targetRevision === productionRevision
-              ? 'in-sync'
-              : 'drift'
-            : 'unknown';
+        if (targetRevision && productionRevision) {
+          state =
+            targetRevision !== productionRevision
+              ? 'drift'
+              : production.strategy === 'self-update'
+                ? 'in-sync'
+                : 'unknown';
+        } else {
+          state = 'unknown';
+        }
       }
 
       return {
