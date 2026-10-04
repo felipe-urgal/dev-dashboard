@@ -850,3 +850,214 @@ test('restart direcionado reserva portas somente do serviço alvo', async () => 
     'web',
   ]);
 });
+
+
+test('start não adota runtime Compose existente sem ownership comprovado', async () => {
+  const commands: unknown[] = [];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => after },
+    { inspect: async () => ready },
+    async (command) => {
+      commands.push(command);
+      return '';
+    },
+    {
+      ownershipStore: {
+        get: async () => undefined,
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+    },
+  );
+
+  await assert.rejects(
+    service.start(project),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_OWNERSHIP_REQUIRED',
+  );
+  assert.equal(commands.length, 0);
+});
+
+test('falha após mutação parcial preserva ownership e leases para recovery', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  let ownership:
+    | {
+        projectId: string;
+        projectPath: string;
+        composeProjectName: string;
+        startedAt: string;
+      }
+    | undefined;
+  let releaseCalls = 0;
+  const inspections = [before, after];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? after },
+    { inspect: async () => ready },
+    async () => {
+      throw new Error('docker falhou após criar container');
+    },
+    {
+      ownershipStore: {
+        get: async () => ownership,
+        claim: async () => {
+          ownership = {
+            projectId: project.id,
+            projectPath: project.path,
+            composeProjectName: 'project',
+            startedAt: '2026-09-06T17:00:00.000Z',
+          };
+          return ownership;
+        },
+        release: async () => {
+          releaseCalls += 1;
+          ownership = undefined;
+          return true;
+        },
+      },
+      portLeaseRegistry: registry,
+    },
+  );
+
+  await assert.rejects(
+    service.start(project),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_RECOVERY_REQUIRED',
+  );
+
+  assert.ok(ownership);
+  assert.equal(releaseCalls, 0);
+  const conflicting = registry.reserve(
+    {},
+    {
+      leaseId: 'compose:other:web:3000',
+      projectId: 'other',
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  );
+  assert.equal(conflicting, null);
+});
+
+test('start exige todos os serviços default esperados no runtime pós-operação', async () => {
+  const multiBefore: DockerComposeInspection = {
+    ...before,
+    config: {
+      ...before.config!,
+      services: [
+        ...before.config!.services,
+        {
+          name: 'worker',
+          profiles: [],
+          dependsOn: [],
+          ports: [],
+        },
+      ],
+    },
+  };
+  const partialAfter: DockerComposeInspection = {
+    ...multiBefore,
+    observedAt: after.observedAt,
+    runtime: after.runtime,
+  };
+  const inspections = [multiBefore, partialAfter];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? partialAfter },
+    { inspect: async () => ready },
+    async () => '',
+  );
+
+  const result = await service.start(project);
+
+  assert.equal(result.state, 'started-unverified');
+  assert.match(result.diagnostic ?? '', /todos os serviços esperados/i);
+});
+
+test('stop não libera lease quando o estado parado permanece não verificado', async () => {
+  const registry = new PortAllocationLeaseRegistry();
+  registry.reserveBatch({}, [
+    {
+      leaseId: 'compose:project-1:web:3000',
+      projectId: project.id,
+      role: 'web',
+      preferredPort: 3000,
+      maxPort: 3000,
+    },
+  ]);
+  const inspections = [after, after];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? after },
+    { inspect: async () => ready },
+    async () => '',
+    {
+      ownershipStore: {
+        get: async () => ({
+          projectId: project.id,
+          projectPath: project.path,
+          composeProjectName: 'project',
+          startedAt: '2026-09-06T17:00:00.000Z',
+        }),
+        claim: async () => {
+          throw new Error('não deveria claim');
+        },
+        release: async () => false,
+      },
+      portLeaseRegistry: registry,
+    },
+  );
+
+  const result = await service.stop(project);
+
+  assert.equal(result.state, 'stopped-unverified');
+  assert.equal(
+    registry.reserve(
+      {},
+      {
+        leaseId: 'compose:other:web:3000',
+        projectId: 'other',
+        role: 'web',
+        preferredPort: 3000,
+        maxPort: 3000,
+      },
+    ),
+    null,
+  );
+});
+
+test('serializa mutações concorrentes da mesma Environment Instance', async () => {
+  let releaseCommand: (() => void) | undefined;
+  const commandStarted = new Promise<void>((resolve) => {
+    releaseCommand = resolve;
+  });
+  let unblock: (() => void) | undefined;
+  const commandBlocked = new Promise<void>((resolve) => {
+    unblock = resolve;
+  });
+  const inspections = [before, after];
+  const service = new DockerComposeLifecycleService(
+    { inspect: async () => inspections.shift() ?? after },
+    { inspect: async () => ready },
+    async () => {
+      releaseCommand?.();
+      await commandBlocked;
+      return '';
+    },
+  );
+
+  const first = service.start(project);
+  await commandStarted;
+
+  await assert.rejects(
+    service.start(project),
+    (error: unknown) =>
+      error instanceof DockerComposeLifecycleError &&
+      error.code === 'COMPOSE_MUTATION_IN_PROGRESS',
+  );
+
+  unblock?.();
+  await first;
+});
