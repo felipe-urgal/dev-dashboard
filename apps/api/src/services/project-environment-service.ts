@@ -105,7 +105,7 @@ const CONTRACT_SCOPES: EnvironmentContractScopeConfig[] = [
 ];
 
 const SENSITIVE_CONNECTION_NAME_PATTERN =
-  /^(?:DATABASE|REDIS|SMTP|AMQP|BROKER|QUEUE|SENTRY)_URL$/iu;
+  /(?:^|_)(?:DATABASE|REDIS|SMTP|AMQP|BROKER|QUEUE|SENTRY)_URL$/iu;
 const SENSITIVE_VALUE_KEY_PATTERN =
   /(?:^|[?&;\s])(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|credential|signature|auth)=/iu;
 const SENSITIVE_QUERY_KEY_PATTERN =
