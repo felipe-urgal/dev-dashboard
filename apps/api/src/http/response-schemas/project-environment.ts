@@ -12,9 +12,17 @@ const projectEnvironmentVariableResponseSchema = {
 const projectEnvironmentFileResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['file', 'variables'],
+  required: ['file', 'status', 'source', 'variables'],
   properties: {
     file: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['available', 'unreadable', 'invalid', 'too-large'],
+    },
+    source: {
+      type: 'string',
+      enum: ['project', 'dashboard-check', 'dashboard-production'],
+    },
     variables: {
       type: 'array',
       items: projectEnvironmentVariableResponseSchema,
@@ -66,7 +74,6 @@ const projectEnvironmentContractVariableResponseSchema = {
         'undocumented',
         'duplicate',
         'conflicting-source',
-        'optional',
         'unknown',
       ],
     },
