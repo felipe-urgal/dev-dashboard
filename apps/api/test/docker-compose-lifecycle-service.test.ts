@@ -181,7 +181,7 @@ test('não inventa sucesso observado quando a reinspeção pós-start falha', as
   const result = await service.start(project);
 
   assert.equal(result.state, 'started-unverified');
-  assert.match(result.diagnostic ?? '', /não pôde ser comprovado/i);
+  assert.match(result.diagnostic ?? '', /não puderam ser comprovados/i);
 });
 
 test('runtime vazio após start permanece não verificado', async () => {
