@@ -164,7 +164,7 @@ function service(options: {
   });
 }
 
-test('classifica projeto command atualizado e preserva verify como evidência separada', async () => {
+test('mantém command inconclusivo quando só há evidência histórica de alinhamento', async () => {
   const project = commandProject();
   const deploymentRecord = deployment({ project, revision: REVISION_A });
   const overview = await service({
@@ -173,7 +173,7 @@ test('classifica projeto command atualizado e preserva verify como evidência se
   }).read([project]);
 
   assert.equal(overview.generatedAt, '2026-09-01T15:00:00.000Z');
-  assert.equal(overview.items[0]?.state, 'in-sync');
+  assert.equal(overview.items[0]?.state, 'unknown');
   assert.equal(overview.items[0]?.health, 'verified');
   assert.equal(overview.items[0]?.targetRevision, REVISION_A);
   assert.equal(overview.items[0]?.productionRevision, REVISION_A);
@@ -308,5 +308,5 @@ test('falha ao ler um projeto fica isolada e não derruba o overview inteiro', a
     byId.get(broken.id)?.errorCode,
     'PRODUCTION_OVERVIEW_HISTORY_UNAVAILABLE',
   );
-  assert.equal(byId.get(healthy.id)?.state, 'in-sync');
+  assert.equal(byId.get(healthy.id)?.state, 'unknown');
 });
