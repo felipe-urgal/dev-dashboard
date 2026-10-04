@@ -21,7 +21,9 @@ test('executa lifecycle Compose como job confirmado e reanexa após reload', asy
     page.getByRole('button', { name: 'Iniciar stack', exact: true }),
   ).toBeEnabled();
 
-  await page.getByRole('button', { name: 'Iniciar stack', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Iniciar stack', exact: true })
+    .click();
   await expect(
     page.getByLabel('Confirmar operação Docker Compose'),
   ).toContainText('Iniciar a stack?');
@@ -40,7 +42,9 @@ test('executa lifecycle Compose como job confirmado e reanexa após reload', asy
   await page.getByRole('button', { name: 'Ver logs', exact: true }).click();
   await expect(panel).toContainText('compose fixture ready');
 
-  await page.getByRole('button', { name: 'Reiniciar stack', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Reiniciar stack', exact: true })
+    .click();
   await expect(
     page.getByLabel('Confirmar operação Docker Compose'),
   ).toContainText('Reiniciar a stack?');

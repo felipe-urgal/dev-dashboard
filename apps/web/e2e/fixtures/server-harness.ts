@@ -165,12 +165,7 @@ async function writeSampleProject(
   );
   await writeFile(
     path.join(projectDirectory, 'compose.yml'),
-    [
-      'services:',
-      '  web:',
-      '    image: node:24',
-      '',
-    ].join('\n'),
+    ['services:', '  web:', '    image: node:24', ''].join('\n'),
   );
   await mkdir(path.join(projectDirectory, '.devcontainer'), {
     recursive: true,
