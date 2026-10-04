@@ -264,6 +264,7 @@ test('provider-deploy usa somente o alvo confirmado e o preflight imediatamente 
     revision: REVISION_A,
   } as const;
   const signal = new AbortController().signal;
+  const providerDeploymentIds: string[] = [];
 
   await stepAdapter.preflight(project(), target, signal);
   const result = await stepAdapter.run(
@@ -277,9 +278,13 @@ test('provider-deploy usa somente o alvo confirmado e o preflight imediatamente 
     },
     signal,
     () => undefined,
+    async (deploymentId) => {
+      providerDeploymentIds.push(deploymentId);
+    },
   );
 
   assert.equal(result.cancelled, false);
+  assert.deepEqual(providerDeploymentIds, ['dpl_novo']);
   assert.equal(detailReads, 1);
   const create = requests.find(
     (request) =>

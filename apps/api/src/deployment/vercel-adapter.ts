@@ -68,6 +68,7 @@ export interface VercelProductionDeployRequest {
   signal: AbortSignal;
   providerProject?: VercelResolvedProject;
   onStatus?: (message: string) => void;
+  onDeploymentId?: (deploymentId: string) => Promise<void>;
 }
 
 export interface VercelProductionDeployResult {
@@ -344,6 +345,7 @@ export class VercelDeploymentAdapter {
       );
     }
 
+    await request.onDeploymentId?.(deploymentId);
     request.onStatus?.(`Deployment Vercel iniciado: ${deploymentId}\n`);
     const deadline = Date.now() + this.deployTimeoutMs;
     let lastState: DeploymentProviderState | undefined;

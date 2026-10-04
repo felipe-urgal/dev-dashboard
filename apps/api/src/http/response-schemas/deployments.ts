@@ -246,9 +246,10 @@ export const deploymentResponseSchema = {
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
     currentStepId: stepIdSchema,
+    providerDeploymentId: { type: 'string', minLength: 1 },
     failurePoint: {
       type: 'string',
-      enum: ['before-irreversible', 'after-irreversible'],
+      enum: ['before-irreversible', 'after-mutation', 'after-irreversible'],
     },
     errorCode: { type: 'string' },
     errorMessage: { type: 'string' },

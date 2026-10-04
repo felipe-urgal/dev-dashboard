@@ -357,7 +357,7 @@ describe('ProjectProductionPanel', () => {
       expect.any(AbortSignal),
     );
     expect(wrapper.text()).toContain('Timeline do deployment');
-    expect(wrapper.text()).toContain('Produção atualizada');
+    expect(wrapper.text()).toContain('Estado de produção inconclusivo');
     expect(wrapper.text()).toContain('deploy ok');
     wrapper.unmount();
   });
@@ -602,6 +602,47 @@ describe('ProjectProductionPanel', () => {
     expect(wrapper.text()).toContain(REVISION_B.slice(0, 8));
     expect(wrapper.text()).toContain(REVISION_A.slice(0, 8));
     expect(wrapper.text()).not.toContain('Produção atualizada');
+    wrapper.unmount();
+  });
+
+  it('retoma polling depois de falha transitória durante deployment ativo', async () => {
+    vi.useFakeTimers();
+    resetApi();
+    const active = successfulDeployment();
+    active.status = 'deploying';
+    active.currentStepId = 'deploy';
+    delete active.finishedAt;
+    active.timeline = active.timeline.map((step) =>
+      step.id === 'deploy'
+        ? { ...step, status: 'running' as const }
+        : step.id === 'verify'
+          ? { ...step, status: 'pending' as const }
+          : step,
+    );
+    api.fetchDeploymentHistory.mockResolvedValue({
+      items: [active],
+      page: 1,
+      pageSize: 8,
+      total: 1,
+    });
+    api.fetchDeployment
+      .mockRejectedValueOnce(new Error('falha transitória'))
+      .mockResolvedValue(successfulDeployment());
+
+    const wrapper = mount(ProjectProductionPanel, {
+      props: { project: commandProject(), gitOverview: gitOverview() },
+    });
+    await flushPromises();
+
+    await vi.advanceTimersByTimeAsync(700);
+    await flushPromises();
+    expect(wrapper.text()).toContain('Reconectando ao deployment');
+
+    await vi.advanceTimersByTimeAsync(1_400);
+    await flushPromises();
+    expect(api.fetchDeployment).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).not.toContain('Reconectando ao deployment');
+    expect(wrapper.text()).toContain('Estado de produção inconclusivo');
     wrapper.unmount();
   });
 

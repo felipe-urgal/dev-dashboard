@@ -218,6 +218,7 @@ export class VercelProviderStepAdapter {
     step: DeploymentProviderPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
+    onProviderDeploymentId?: (providerDeploymentId: string) => Promise<void>,
   ): Promise<ProductionCommandResult> {
     if (step.id !== 'provider-deploy') {
       throw new DeploymentError(
@@ -238,6 +239,7 @@ export class VercelProviderStepAdapter {
     }
 
     if (preflight.existingDeployment?.state === 'ready') {
+      await onProviderDeploymentId?.(preflight.existingDeployment.id);
       onOutput(
         this.maskLog(
           `Vercel: a revisão confirmada já está READY em ${preflight.existingDeployment.url}; reutilizando o deployment ${preflight.existingDeployment.id}.\n`,
@@ -247,6 +249,7 @@ export class VercelProviderStepAdapter {
     }
 
     if (isActiveDeployment(preflight.existingDeployment)) {
+      await onProviderDeploymentId?.(preflight.existingDeployment.id);
       return this.waitForExistingDeployment(
         step.target,
         preflight.existingDeployment,
@@ -264,6 +267,9 @@ export class VercelProviderStepAdapter {
         revision: step.target.revision,
         signal,
         onStatus: (message) => onOutput(this.maskLog(message)),
+        ...(onProviderDeploymentId
+          ? { onDeploymentId: onProviderDeploymentId }
+          : {}),
       },
     );
 

@@ -99,10 +99,13 @@ const gitWorkspace = ref<ProjectGitWorkspace | null>(null);
 const planHeading = ref<HTMLElement | null>(null);
 const sudoModalOpen = ref(false);
 const sudoAuthorized = ref(false);
+const connectionMessage = ref('');
 
+const MAX_POLL_FAILURES = 5;
 let generation = 0;
 let requestController: AbortController | undefined;
 let pollTimer: number | undefined;
+let pollFailureCount = 0;
 
 const hasProductionCapability = computed(() =>
   props.project.capabilities.includes('production'),
@@ -139,6 +142,15 @@ const lastSuccessfulDeployment = computed(() => {
 const hasActiveDeployment = computed(() => {
   const current = latestDeployment.value;
   return current ? !TERMINAL_STATUSES.has(current.status) : false;
+});
+const canCancelActiveDeployment = computed(() => {
+  const deployment = activeDeployment.value;
+  if (!deployment || TERMINAL_STATUSES.has(deployment.status)) return false;
+  if (!deployment.currentStepId) return true;
+  const currentStep = deployment.timeline.find(
+    (step) => step.id === deployment.currentStepId,
+  );
+  return currentStep ? !currentStep.mutating : true;
 });
 
 function mutationStepSucceeded(deployment: Deployment): boolean {
@@ -389,14 +401,24 @@ const statusView = computed(
           icon: ExclamationTriangleIcon,
         };
       }
+      if (isCommand.value && commandDrift.value === 'in-sync') {
+        return {
+          title: 'Último deployment registrado está alinhado',
+          description:
+            'O SHA registrado coincide com origin, mas o estado vivo da produção não é observado por esta estratégia.',
+          label: 'Histórico alinhado',
+          tone: 'info',
+          icon: InformationCircleIcon,
+        };
+      }
       if (isCommand.value) {
         return {
-          title: 'Produção atualizada',
+          title: 'Estado de produção inconclusivo',
           description:
-            'A aplicação está em produção e o último deployment terminou com sucesso.',
-          label: 'Concluído',
-          tone: 'success',
-          icon: CheckCircleIcon,
+            'O último deployment terminou com sucesso, mas não há evidência suficiente para afirmar qual revision está ativa agora.',
+          label: 'Não verificado',
+          tone: 'neutral',
+          icon: InformationCircleIcon,
         };
       }
     }
@@ -571,6 +593,27 @@ function schedulePoll(callback: () => void, delay: number): void {
   clearPoll();
   pollTimer = window.setTimeout(callback, delay);
 }
+function resetPollFailures(): void {
+  pollFailureCount = 0;
+  connectionMessage.value = '';
+}
+function schedulePollRetry(
+  current: number,
+  callback: () => void,
+  baseDelay: number,
+  finalMessage: string,
+): void {
+  if (current !== generation) return;
+  pollFailureCount += 1;
+  if (pollFailureCount > MAX_POLL_FAILURES) {
+    connectionMessage.value = '';
+    errorMessage.value = finalMessage;
+    return;
+  }
+  const delay = Math.min(baseDelay * 2 ** pollFailureCount, 5_000);
+  connectionMessage.value = `Conexão temporariamente indisponível. Reconectando (${pollFailureCount}/${MAX_POLL_FAILURES})…`;
+  schedulePoll(callback, delay);
+}
 
 async function loadDeploymentLog(
   deploymentId: string,
@@ -658,6 +701,7 @@ async function pollDeployment(current: number): Promise<void> {
       }),
     ]);
     if (current !== generation) return;
+    resetPollFailures();
     activeDeployment.value = deployment;
     if (nextLog) deploymentLog.value = nextLog;
 
@@ -683,10 +727,14 @@ async function pollDeployment(current: number): Promise<void> {
     schedulePoll(() => void pollDeployment(current), 700);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
-    errorMessage.value =
+    schedulePollRetry(
+      current,
+      () => void pollDeployment(current),
+      700,
       error instanceof Error
         ? error.message
-        : 'Não foi possível acompanhar o deployment.';
+        : 'Não foi possível acompanhar o deployment.',
+    );
   }
 }
 
@@ -694,6 +742,7 @@ async function pollProviderStatus(current: number): Promise<void> {
   if (current !== generation) return;
   try {
     await loadProviderState(current);
+    resetPollFailures();
     if (
       current === generation &&
       ['queued', 'building'].includes(
@@ -704,21 +753,26 @@ async function pollProviderStatus(current: number): Promise<void> {
     }
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
-    errorMessage.value =
+    schedulePollRetry(
+      current,
+      () => void pollProviderStatus(current),
+      1_500,
       error instanceof Error
         ? error.message
-        : 'Não foi possível atualizar o status do provider.';
+        : 'Não foi possível atualizar o status do provider.',
+    );
   }
 }
 
-async function load(): Promise<void> {
+async function load(preserveOperation = false): Promise<void> {
   const current = ++generation;
   clearPoll();
   requestController?.abort();
   requestController = new AbortController();
   initialLoading.value = false;
-  operation.value = '';
+  if (!preserveOperation) operation.value = '';
   errorMessage.value = '';
+  resetPollFailures();
   plan.value = null;
   history.value = [];
   historyExpanded.value = false;
@@ -753,7 +807,11 @@ async function load(): Promise<void> {
 async function refresh(): Promise<void> {
   if (operation.value) return;
   operation.value = 'refreshing';
-  await load();
+  try {
+    await load(true);
+  } finally {
+    operation.value = '';
+  }
 }
 
 async function preparePlan(): Promise<void> {
@@ -880,7 +938,8 @@ async function cancelActiveDeployment(): Promise<void> {
   if (
     !deployment ||
     TERMINAL_STATUSES.has(deployment.status) ||
-    operation.value
+    operation.value ||
+    !canCancelActiveDeployment.value
   ) {
     return;
   }
@@ -1047,7 +1106,12 @@ onBeforeUnmount(() => {
           v-if="hasActiveDeployment"
           class="secondary-button production-danger-button"
           type="button"
-          :disabled="Boolean(operation)"
+          :disabled="Boolean(operation) || !canCancelActiveDeployment"
+          :title="
+            canCancelActiveDeployment
+              ? undefined
+              : 'A etapa atual altera produção e não pode ser cancelada com segurança.'
+          "
           @click="cancelActiveDeployment"
         >
           <StopIcon aria-hidden="true" />
@@ -1057,6 +1121,14 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </article>
+
+    <div v-if="connectionMessage" class="production-alert" role="status">
+      <ArrowPathIcon class="production-spin" aria-hidden="true" />
+      <div>
+        <strong>Reconectando ao deployment</strong>
+        <span>{{ connectionMessage }}</span>
+      </div>
+    </div>
 
     <div v-if="errorMessage" class="production-alert" role="alert">
       <ExclamationTriangleIcon aria-hidden="true" />
@@ -1228,6 +1300,10 @@ onBeforeUnmount(() => {
           <div>
             <span>Provider</span>
             <strong>{{ production.provider }}</strong>
+          </div>
+          <div v-if="latestDeployment?.providerDeploymentId">
+            <span>Deployment provider</span>
+            <code>{{ latestDeployment.providerDeploymentId }}</code>
           </div>
           <div v-if="production.health">
             <span>Health</span>

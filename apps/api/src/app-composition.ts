@@ -419,6 +419,7 @@ export function createAppComposition(
     activityJobReaders: [
       context.projectDependenciesPtyService,
       devContainerLifecycleExecutionService,
+      deploymentService,
       ...(migrationMutationExecutionService
         ? [migrationMutationExecutionService]
         : []),

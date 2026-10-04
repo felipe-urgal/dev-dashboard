@@ -56,6 +56,44 @@ test('queda durante etapa irreversível exige recuperação manual', async (t) =
   assert.equal(recovered?.timeline[0]?.status, 'failed');
 });
 
+test('queda durante etapa mutável não irreversível também exige recuperação', async (t) => {
+  const directory = await temporaryDirectory(t);
+  const store = new DeploymentStore(directory);
+  const deployment: Deployment = {
+    id: 'deployment-running-deploy',
+    projectId: 'project-1',
+    projectName: 'loto-lab',
+    provider: 'systemd',
+    branch: 'main',
+    revision: REVISION,
+    planHash: 'c'.repeat(64),
+    status: 'deploying',
+    createdAt: '2026-08-31T12:00:00.000Z',
+    startedAt: '2026-08-31T12:00:01.000Z',
+    currentStepId: 'deploy',
+    timeline: [
+      {
+        id: 'deploy',
+        script: 'prod:deploy',
+        phase: 'deploying',
+        mutating: true,
+        irreversible: false,
+        status: 'running',
+        startedAt: '2026-08-31T12:00:02.000Z',
+      },
+    ],
+  };
+
+  await store.save(deployment);
+  await store.recoverInterrupted(Date.parse('2026-08-31T12:05:00.000Z'));
+
+  const recovered = await store.get(deployment.id);
+  assert.equal(recovered?.status, 'recovery_required');
+  assert.equal(recovered?.failurePoint, 'after-mutation');
+  assert.equal(recovered?.errorCode, 'DEPLOYMENT_INTERRUPTED');
+  assert.equal(recovered?.timeline[0]?.status, 'failed');
+});
+
 test('restore falha fechado quando registro de deployment está corrompido', async (t) => {
   const directory = await temporaryDirectory(t);
   await writeFile(
