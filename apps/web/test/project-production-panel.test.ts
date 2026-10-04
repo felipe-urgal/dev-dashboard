@@ -642,7 +642,7 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
     expect(api.fetchDeployment).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).not.toContain('Reconectando ao deployment');
-    expect(wrapper.text()).toContain('Último deployment registrado está alinhado');
+    expect(wrapper.text()).toContain('Estado de produção inconclusivo');
     wrapper.unmount();
   });
 
