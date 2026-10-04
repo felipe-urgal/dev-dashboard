@@ -6,6 +6,7 @@ import type {
   Project,
   ProjectEnvironmentContractScope,
   ProjectEnvironmentContractVariable,
+  ProjectEnvironmentFileStatus,
 } from '@dev-dashboard/contracts';
 
 import { useProjectEnvironmentContract } from '../composables/useProjectEnvironmentContract';
@@ -14,10 +15,19 @@ import LoadingSkeleton from './LoadingSkeleton.vue';
 import ProjectEnvironmentContractSummary from './ProjectEnvironmentContractSummary.vue';
 import StatusBadge from './StatusBadge.vue';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string;
+}>();
 
-const environment = useProjectEnvironmentVariables(() => props.project);
-const contract = useProjectEnvironmentContract(() => props.project);
+const environment = useProjectEnvironmentVariables(
+  () => props.project,
+  () => props.environmentInstanceId,
+);
+const contract = useProjectEnvironmentContract(
+  () => props.project,
+  () => props.environmentInstanceId,
+);
 const selectedFileName = ref('');
 
 const actionableStatuses = new Set<
@@ -40,8 +50,26 @@ const statusLabels: Record<
   undocumented: 'Não documentada',
   duplicate: 'Duplicada',
   'conflicting-source': 'Fonte conflitante',
-  optional: 'Opcional',
   unknown: 'Revisar',
+};
+
+const fileStatusLabels: Record<ProjectEnvironmentFileStatus, string> = {
+  available: 'Disponível',
+  unreadable: 'Sem acesso',
+  invalid: 'Inválido',
+  'too-large': 'Muito grande',
+};
+
+const fileStatusMessages: Record<
+  Exclude<ProjectEnvironmentFileStatus, 'available'>,
+  string
+> = {
+  unreadable:
+    'O arquivo existe, mas não pôde ser lido com segurança pelo Dashboard.',
+  invalid:
+    'O arquivo foi recusado por não ser um arquivo regular seguro ou por possuir formato inválido.',
+  'too-large':
+    'O arquivo ultrapassa o limite de 64 KB e não será carregado pelo Dashboard.',
 };
 
 const actionCopy: Record<
@@ -92,8 +120,11 @@ function countLabel(count: number, singular: string, plural: string): string {
 }
 
 const selectedFileKind = computed(() => {
-  const file = selectedFile.value?.file;
-  if (!file) return '';
+  const selected = selectedFile.value;
+  const file = selected?.file;
+  if (!file || !selected) return '';
+  if (selected.source === 'dashboard-check') return 'runtime testes';
+  if (selected.source === 'dashboard-production') return 'runtime produção';
   if (
     (contract.contract.value?.sections ?? []).some(
       (section) => section.baseline === file,
@@ -233,11 +264,14 @@ const selectedFileIssues = computed(() => {
               @click="selectedFileName = file.file"
             >
               <code>{{ file.file }}</code>
-              <span>
+              <span v-if="file.status === 'available'">
                 {{ countLabel(file.variables.length, 'variável', 'variáveis') }}
                 <small>
                   {{ countLabel(secretCount(file), 'segredo', 'segredos') }}
                 </small>
+              </span>
+              <span v-else>
+                <small>{{ fileStatusLabels[file.status] }}</small>
               </span>
             </button>
           </nav>
@@ -291,7 +325,20 @@ const selectedFileIssues = computed(() => {
             <h3>Consistência deste arquivo</h3>
 
             <p
-              v-if="contract.loading.value && !contract.contract.value"
+              v-if="selectedFile.status !== 'available'"
+              class="project-environment-consistency-note is-warning"
+            >
+              {{
+                fileStatusMessages[
+                  selectedFile.status as Exclude<
+                    ProjectEnvironmentFileStatus,
+                    'available'
+                  >
+                ]
+              }}
+            </p>
+            <p
+              v-else-if="contract.loading.value && !contract.contract.value"
               class="project-environment-consistency-note"
             >
               Comparando este arquivo com o contrato…
@@ -322,7 +369,10 @@ const selectedFileIssues = computed(() => {
             </div>
           </section>
 
-          <table class="project-environment-table">
+          <table
+            v-if="selectedFile.status === 'available'"
+            class="project-environment-table"
+          >
             <thead class="project-environment-visually-hidden">
               <tr>
                 <th scope="col">Variável</th>
@@ -425,7 +475,9 @@ const selectedFileIssues = computed(() => {
 
           <p class="project-environment-footnote">
             Valores sensíveis são revelados individualmente e descartados ao
-            sair da tela.
+            sair da tela. Arquivos <code>.dev-dashboard/.env.*.local</code>
+            representam o ambiente efetivo usado pelos fluxos controlados do
+            Dashboard.
           </p>
         </section>
       </div>
