@@ -503,7 +503,10 @@ test('falha durante deploy mutável não irreversível exige recovery', async (t
     },
   });
   const plan = await service.plan(project);
-  const confirmation = await service.prepareConfirmation(project, plan.planHash);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
   const finished = await waitForTerminal(
     service,
     await service.start(project, plan.planHash, confirmation.token),
