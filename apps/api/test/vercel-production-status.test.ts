@@ -139,6 +139,8 @@ test('status compara origin/main com produção e preserva operações locais se
   });
 
   const status = await service.read(project());
+  assert.equal(status.strategy, 'git-managed');
+  if (status.strategy !== 'git-managed') throw new Error('status Vercel esperado');
   assert.equal(status.providerAvailability, 'available');
   assert.equal(status.originRevision, REVISION_A);
   assert.equal(status.productionRevision, REVISION_A);
@@ -169,6 +171,8 @@ test('status representa revision divergente e deployment Vercel com erro', async
   });
 
   const status = await service.read(project());
+  assert.equal(status.strategy, 'git-managed');
+  if (status.strategy !== 'git-managed') throw new Error('status Vercel esperado');
   assert.equal(status.drift, 'drift');
   assert.equal(status.deployment?.state, 'error');
   assert.equal(status.timeline[0]?.status, 'failed');
@@ -186,6 +190,8 @@ test('status mantém drift desconhecido quando a ref origin ainda não existe lo
   });
 
   const status = await service.read(project());
+  assert.equal(status.strategy, 'git-managed');
+  if (status.strategy !== 'git-managed') throw new Error('status Vercel esperado');
   assert.equal(status.originRevision, undefined);
   assert.equal(status.productionRevision, REVISION_A);
   assert.equal(status.drift, 'unknown');
@@ -209,6 +215,8 @@ test('status traduz ausência de integração sem expor segredo', async () => {
   });
 
   const status = await service.read(project());
+  assert.equal(status.strategy, 'git-managed');
+  if (status.strategy !== 'git-managed') throw new Error('status Vercel esperado');
   assert.equal(status.providerAvailability, 'not-configured');
   assert.equal(status.errorCode, 'DEPLOYMENT_PROVIDER_INTEGRATION_UNAVAILABLE');
   assert.equal(status.drift, 'unknown');

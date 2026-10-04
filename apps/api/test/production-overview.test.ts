@@ -30,6 +30,7 @@ function commandProject(id = 'command-project'): Project {
       provider: 'systemd',
       branch: 'main',
       commands: {
+        status: 'prod:status',
         check: 'prod:check',
         deploy: 'prod:deploy',
         verify: 'prod:verify',
@@ -164,28 +165,55 @@ function service(options: {
   });
 }
 
-test('mantém command inconclusivo quando só há evidência histórica de alinhamento', async () => {
+test('command só fica in-sync com revision observada pelo prod:status', async () => {
   const project = commandProject();
   const deploymentRecord = deployment({ project, revision: REVISION_A });
+  const providerStatus: ProductionDeploymentStatus = {
+    projectId: project.id,
+    projectName: project.name,
+    strategy: 'command',
+    provider: 'systemd',
+    branch: 'main',
+    statusAvailability: 'available',
+    checkedAt: '2026-09-01T15:00:00.000Z',
+    originRevision: REVISION_A,
+    productionRevision: REVISION_A,
+    runtimeState: 'ready',
+    drift: 'in-sync',
+  };
   const overview = await service({
     histories: new Map([[project.id, history([deploymentRecord])]]),
-    targetRevision: REVISION_A,
+    providerStatus,
   }).read([project]);
 
   assert.equal(overview.generatedAt, '2026-09-01T15:00:00.000Z');
-  assert.equal(overview.items[0]?.state, 'unknown');
+  assert.equal(overview.items[0]?.state, 'in-sync');
   assert.equal(overview.items[0]?.health, 'verified');
   assert.equal(overview.items[0]?.targetRevision, REVISION_A);
+  assert.equal(overview.items[0]?.originRevision, REVISION_A);
   assert.equal(overview.items[0]?.productionRevision, REVISION_A);
   assert.equal(overview.items[0]?.healthCheckedAt, '2026-09-01T14:05:00.000Z');
 });
 
-test('classifica drift sem transformar revision divergente em falha operacional', async () => {
+test('classifica drift usando origin e revision observada, sem inferir pelo histórico', async () => {
   const project = commandProject();
   const deploymentRecord = deployment({ project, revision: REVISION_A });
+  const providerStatus: ProductionDeploymentStatus = {
+    projectId: project.id,
+    projectName: project.name,
+    strategy: 'command',
+    provider: 'systemd',
+    branch: 'main',
+    statusAvailability: 'available',
+    checkedAt: '2026-09-01T15:00:00.000Z',
+    originRevision: REVISION_B,
+    productionRevision: REVISION_A,
+    runtimeState: 'ready',
+    drift: 'drift',
+  };
   const overview = await service({
     histories: new Map([[project.id, history([deploymentRecord])]]),
-    targetRevision: REVISION_B,
+    providerStatus,
   }).read([project]);
 
   assert.equal(overview.items[0]?.state, 'drift');

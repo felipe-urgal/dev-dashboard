@@ -172,7 +172,48 @@ export interface DeploymentProviderSnapshot {
   revision?: string;
 }
 
-export interface ProductionDeploymentStatus {
+export type ProductionCommandRuntimeState =
+  | 'ready'
+  | 'degraded'
+  | 'unavailable';
+
+export interface ProductionCommandStatusV1 {
+  version: 1;
+  revision: string;
+  state: ProductionCommandRuntimeState;
+}
+
+export type ProductionCommandStatusAvailability =
+  | 'available'
+  | 'timeout'
+  | 'command-failed'
+  | 'invalid-response'
+  | 'unavailable';
+
+export type ProductionCommandStatusIssueCode =
+  | 'DEPLOYMENT_COMMAND_STATUS_TIMEOUT'
+  | 'DEPLOYMENT_COMMAND_STATUS_FAILED'
+  | 'DEPLOYMENT_COMMAND_STATUS_INVALID'
+  | 'DEPLOYMENT_PACKAGE_MANAGER_UNSUPPORTED'
+  | 'DEPLOYMENT_PRODUCTION_UNAVAILABLE';
+
+export interface CommandProductionDeploymentStatus {
+  projectId: string;
+  projectName: string;
+  strategy: 'command';
+  provider: 'systemd' | 'docker-compose';
+  branch: string;
+  statusAvailability: ProductionCommandStatusAvailability;
+  checkedAt: string;
+  originRevision?: string;
+  productionRevision?: string;
+  drift: DeploymentDriftStatus;
+  runtimeState?: ProductionCommandRuntimeState;
+  errorCode?: ProductionCommandStatusIssueCode;
+  errorMessage?: string;
+}
+
+export interface GitManagedProductionDeploymentStatus {
   projectId: string;
   projectName: string;
   strategy: 'git-managed';
@@ -191,6 +232,10 @@ export interface ProductionDeploymentStatus {
   errorCode?: DeploymentProviderIssueCode;
   errorMessage?: string;
 }
+
+export type ProductionDeploymentStatus =
+  | CommandProductionDeploymentStatus
+  | GitManagedProductionDeploymentStatus;
 
 export type ProductionOverviewState =
   | 'in-sync'

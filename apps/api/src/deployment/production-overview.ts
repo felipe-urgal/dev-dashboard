@@ -346,22 +346,20 @@ export class ProductionOverviewService {
       );
     }
 
-    if (
-      production.strategy === 'command' ||
-      production.strategy === 'self-update'
-    ) {
+    if (production.strategy === 'command') {
+      let commandStatus: ProductionDeploymentStatus | undefined;
+      try {
+        commandStatus = await this.providerReader.read(project);
+      } catch {
+        commandStatus = undefined;
+      }
+
+      const observed =
+        commandStatus?.strategy === 'command' ? commandStatus : undefined;
       const targetRevision =
-        production.strategy === 'self-update'
-          ? await this.originRevisionResolver.resolve(
-              project,
-              production.branch,
-            )
-          : await this.targetRevisionResolver.resolve(
-              project,
-              production.branch,
-            );
-      const productionDeployment = currentHistory.find(mutationStepSucceeded);
-      const productionRevision = productionDeployment?.revision;
+        observed?.originRevision ??
+        (await this.targetRevisionResolver.resolve(project, production.branch));
+      const productionRevision = observed?.productionRevision;
       const health = healthEvidence(
         project,
         currentHistory,
@@ -370,13 +368,19 @@ export class ProductionOverviewService {
 
       let state = latestExecutionState;
       if (!state) {
-        if (targetRevision && productionRevision) {
-          state =
-            targetRevision !== productionRevision
-              ? 'drift'
-              : production.strategy === 'self-update'
-                ? 'in-sync'
-                : 'unknown';
+        if (
+          observed?.statusAvailability !== 'available' ||
+          !productionRevision
+        ) {
+          state = 'unknown';
+        } else if (observed.runtimeState === 'unavailable') {
+          state = 'failed';
+        } else if (observed.runtimeState === 'degraded') {
+          state = 'unknown';
+        } else if (observed.drift === 'in-sync') {
+          state = 'in-sync';
+        } else if (observed.drift === 'drift') {
+          state = 'drift';
         } else {
           state = 'unknown';
         }
@@ -387,7 +391,59 @@ export class ProductionOverviewService {
         ...deploymentFields,
         state,
         ...health,
-        ...(targetRevision ? { targetRevision } : {}),
+        ...(targetRevision
+          ? { targetRevision, originRevision: targetRevision }
+          : {}),
+        ...(productionRevision ? { productionRevision } : {}),
+        ...(observed?.errorCode
+          ? {
+              errorCode: observed.errorCode,
+              ...(observed.errorMessage
+                ? { errorMessage: observed.errorMessage }
+                : {}),
+            }
+          : latest?.errorCode
+            ? {
+                errorCode: latest.errorCode,
+                ...(latest.errorMessage
+                  ? { errorMessage: latest.errorMessage }
+                  : {}),
+              }
+            : {}),
+      };
+    }
+
+    if (production.strategy === 'self-update') {
+      const targetRevision = await this.originRevisionResolver.resolve(
+        project,
+        production.branch,
+      );
+      const productionDeployment = currentHistory.find(mutationStepSucceeded);
+      const productionRevision = productionDeployment?.revision;
+      const health = healthEvidence(
+        project,
+        currentHistory,
+        productionRevision,
+      );
+
+      let state = latestExecutionState;
+      if (!state) {
+        state =
+          targetRevision && productionRevision
+            ? targetRevision === productionRevision
+              ? 'in-sync'
+              : 'drift'
+            : 'unknown';
+      }
+
+      return {
+        ...base,
+        ...deploymentFields,
+        state,
+        ...health,
+        ...(targetRevision
+          ? { targetRevision, originRevision: targetRevision }
+          : {}),
         ...(productionRevision ? { productionRevision } : {}),
         ...(latest?.errorCode ? { errorCode: latest.errorCode } : {}),
         ...(latest?.errorMessage ? { errorMessage: latest.errorMessage } : {}),

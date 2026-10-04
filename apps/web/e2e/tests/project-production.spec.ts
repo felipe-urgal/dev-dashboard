@@ -60,7 +60,7 @@ test.describe('produção por projeto', () => {
 
     await expect(
       page.getByRole('heading', {
-        name: 'Último deployment registrado está alinhado',
+        name: 'Produção alinhada com origin',
       }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
@@ -103,7 +103,7 @@ test.describe('produção por projeto', () => {
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByRole('heading', {
-        name: 'Último deployment registrado está alinhado',
+        name: 'Produção alinhada com origin',
       }),
     ).toBeVisible({ timeout: 15_000 });
   });

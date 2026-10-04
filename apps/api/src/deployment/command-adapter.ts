@@ -45,7 +45,7 @@ const PRISMA_DATABASE_UNAVAILABLE_PATTERN = /\bP1001\b/;
 const CHECK_DATABASE_UNAVAILABLE_MESSAGE =
   'O check não conseguiu acessar o banco configurado para o ambiente de check. Verifique se essa dependência está pronta e tente novamente; o Dev Dashboard não inicia esse serviço automaticamente.';
 
-type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
+export type ProductionPackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
 type SpawnProcess = (
   file: string,
@@ -78,7 +78,7 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-async function projectEnvironment(
+export async function loadProductionCommandEnvironment(
   projectPath: string,
   kind: ProjectLocalEnvironmentKind,
 ): Promise<NodeJS.ProcessEnv> {
@@ -97,9 +97,9 @@ async function projectEnvironment(
   }
 }
 
-async function resolvePackageManager(
+export async function resolveProductionPackageManager(
   projectPath: string,
-): Promise<PackageManager> {
+): Promise<ProductionPackageManager> {
   try {
     const parsed = JSON.parse(
       await readFile(path.join(projectPath, 'package.json'), 'utf8'),
@@ -150,7 +150,7 @@ export class ProductionCommandAdapter {
 
   private runScript(
     project: Project,
-    packageManager: PackageManager,
+    packageManager: ProductionPackageManager,
     script: string,
     environment: NodeJS.ProcessEnv,
     signal: AbortSignal,
@@ -289,8 +289,8 @@ export class ProductionCommandAdapter {
       );
     }
 
-    const packageManager = await resolvePackageManager(project.path);
-    const environment = await projectEnvironment(
+    const packageManager = await resolveProductionPackageManager(project.path);
+    const environment = await loadProductionCommandEnvironment(
       project.path,
       step.id === 'check' ? 'check' : 'production',
     );
