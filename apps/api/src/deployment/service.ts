@@ -738,6 +738,12 @@ export class DeploymentService {
     let logQueue = Promise.resolve();
     let verifyExitCode: number | undefined;
     const verifyStep = deployment.timeline[verifyIndex]!;
+    const mutationStep = deployment.timeline.find(
+      (step) => step.id === 'deploy' || step.id === 'provider-deploy',
+    );
+    const recoveryFailurePoint = mutationStep?.irreversible
+      ? ('after-irreversible' as const)
+      : ('after-mutation' as const);
 
     try {
       await this.assertRevisionUnchanged(project, deployment);
@@ -764,7 +770,7 @@ export class DeploymentService {
           ...deployment,
           status: 'recovery_required',
           finishedAt,
-          failurePoint: 'after-irreversible',
+          failurePoint: recoveryFailurePoint,
           errorCode: 'DEPLOYMENT_VERIFY_RETRY_CANCELLED',
           errorMessage:
             'A nova verificação foi cancelada. O deploy já ocorreu; nenhuma etapa de mutação foi repetida.',
@@ -826,7 +832,7 @@ export class DeploymentService {
         ...deployment,
         status: 'recovery_required',
         finishedAt,
-        failurePoint: 'after-irreversible',
+        failurePoint: recoveryFailurePoint,
         errorCode: deploymentError.code,
         errorMessage: deploymentError.message,
         timeline: deployment.timeline.map((step, index) =>
