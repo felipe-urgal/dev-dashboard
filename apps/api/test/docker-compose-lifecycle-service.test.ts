@@ -851,7 +851,6 @@ test('restart direcionado reserva portas somente do serviço alvo', async () => 
   ]);
 });
 
-
 test('start não adota runtime Compose existente sem ownership comprovado', async () => {
   const commands: unknown[] = [];
   const service = new DockerComposeLifecycleService(

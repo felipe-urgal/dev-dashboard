@@ -408,7 +408,9 @@ export class DockerComposeLifecycleService {
     project: Project,
     service?: string,
   ): Promise<DockerComposeMutationResult> {
-    return this.withMutation(project, () => this.stopMutation(project, service));
+    return this.withMutation(project, () =>
+      this.stopMutation(project, service),
+    );
   }
 
   private async stopMutation(
