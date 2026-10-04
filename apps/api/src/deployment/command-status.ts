@@ -184,15 +184,11 @@ function defaultExecuteStatusCommand(request: {
   });
 }
 
-export class PackageScriptProductionStatusReader
-  implements CommandProductionStatusReader
-{
+export class PackageScriptProductionStatusReader implements CommandProductionStatusReader {
   private readonly execute: ExecuteStatusCommand;
   private readonly timeoutMs: number;
 
-  public constructor(
-    options: PackageScriptProductionStatusReaderOptions = {},
-  ) {
+  public constructor(options: PackageScriptProductionStatusReaderOptions = {}) {
     this.execute = options.execute ?? defaultExecuteStatusCommand;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }

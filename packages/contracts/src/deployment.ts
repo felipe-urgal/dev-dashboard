@@ -173,9 +173,7 @@ export interface DeploymentProviderSnapshot {
 }
 
 export type ProductionCommandRuntimeState =
-  | 'ready'
-  | 'degraded'
-  | 'unavailable';
+  'ready' | 'degraded' | 'unavailable';
 
 export interface ProductionCommandStatusV1 {
   version: 1;
@@ -234,8 +232,7 @@ export interface GitManagedProductionDeploymentStatus {
 }
 
 export type ProductionDeploymentStatus =
-  | CommandProductionDeploymentStatus
-  | GitManagedProductionDeploymentStatus;
+  CommandProductionDeploymentStatus | GitManagedProductionDeploymentStatus;
 
 export type ProductionOverviewState =
   | 'in-sync'

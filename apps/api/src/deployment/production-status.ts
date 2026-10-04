@@ -106,7 +106,11 @@ function commandIssue(error: unknown):
   if (!(error instanceof DeploymentError)) return undefined;
   switch (error.code) {
     case 'DEPLOYMENT_COMMAND_STATUS_TIMEOUT':
-      return { code: error.code, availability: 'timeout', message: error.message };
+      return {
+        code: error.code,
+        availability: 'timeout',
+        message: error.message,
+      };
     case 'DEPLOYMENT_COMMAND_STATUS_FAILED':
       return {
         code: error.code,

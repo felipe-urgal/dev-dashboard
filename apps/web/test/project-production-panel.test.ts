@@ -205,8 +205,7 @@ function commandProductionStatus(
     originRevision,
     productionRevision,
     runtimeState: 'ready',
-    drift:
-      originRevision === productionRevision ? 'in-sync' : 'drift',
+    drift: originRevision === productionRevision ? 'in-sync' : 'drift',
   };
 }
 

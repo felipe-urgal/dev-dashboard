@@ -127,7 +127,9 @@ const commandStatus = computed(() =>
   providerStatus.value?.strategy === 'command' ? providerStatus.value : null,
 );
 const gitManagedStatus = computed(() =>
-  providerStatus.value?.strategy === 'git-managed' ? providerStatus.value : null,
+  providerStatus.value?.strategy === 'git-managed'
+    ? providerStatus.value
+    : null,
 );
 const canExecuteDeployment = computed(
   () => isCommand.value || isGitManaged.value,
@@ -242,9 +244,7 @@ const productionRevision = computed(() => {
     lastSuccessfulDeployment.value?.revision
   );
 });
-const commandDrift = computed(
-  () => commandStatus.value?.drift ?? 'unknown',
-);
+const commandDrift = computed(() => commandStatus.value?.drift ?? 'unknown');
 
 function applicationUrlFromHealth(value: string | undefined): string {
   if (!value) return '';
@@ -416,7 +416,9 @@ const statusView = computed(
             'prod:status não forneceu uma evidência estruturada válida.',
           label: 'Não verificado',
           tone:
-            status.statusAvailability === 'command-failed' ? 'danger' : 'warning',
+            status.statusAvailability === 'command-failed'
+              ? 'danger'
+              : 'warning',
           icon: ExclamationTriangleIcon,
         };
       }
@@ -450,10 +452,7 @@ const statusView = computed(
           icon: ExclamationTriangleIcon,
         };
       }
-      if (
-        commandDrift.value === 'in-sync' &&
-        status.runtimeState === 'ready'
-      ) {
+      if (commandDrift.value === 'in-sync' && status.runtimeState === 'ready') {
         return {
           title: 'Produção alinhada com origin',
           description:
@@ -1384,7 +1383,10 @@ onBeforeUnmount(() => {
           >
             <span>Operações locais declaradas</span>
             <div>
-              <code v-for="item in gitManagedStatus.localOperations" :key="item">
+              <code
+                v-for="item in gitManagedStatus.localOperations"
+                :key="item"
+              >
                 {{ commandScript(item) }}
               </code>
             </div>

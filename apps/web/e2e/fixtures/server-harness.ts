@@ -95,7 +95,7 @@ async function writeSampleProject(
           lint: 'node -e "setTimeout(() => process.exit(0), 500)"',
           format: 'node -e "setTimeout(() => process.exit(1), 500)"',
           'prod:status':
-            'node -e "const { execSync } = require(\'node:child_process\'); const revision = execSync(\'git rev-parse HEAD\', { encoding: \'utf8\' }).trim(); console.log(\'DEV_DASHBOARD_PRODUCTION_STATUS_V1=\' + JSON.stringify({ version: 1, revision, state: \'ready\' }))"',
+            "node -e \"const { execSync } = require('node:child_process'); const revision = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim(); console.log('DEV_DASHBOARD_PRODUCTION_STATUS_V1=' + JSON.stringify({ version: 1, revision, state: 'ready' }))\"",
           'prod:check': 'node -e "process.exit(0)"',
           'prod:deploy': 'node -e "setTimeout(() => process.exit(0), 1200)"',
           'prod:verify': 'node -e "process.exit(0)"',
