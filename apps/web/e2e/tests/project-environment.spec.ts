@@ -11,12 +11,13 @@ test.describe('Variáveis de ambiente do projeto', () => {
       page.getByRole('heading', { level: 3, name: 'sample-node-app' }),
     ).toBeVisible();
 
-    await page
-      .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
-      .click();
-    await page
-      .getByRole('link', { name: 'Variáveis de ambiente', exact: true })
-      .click();
+    const projectLink = page.getByRole('link', {
+      name: 'Ver detalhes de sample-node-app',
+      exact: true,
+    });
+    const href = await projectLink.getAttribute('href');
+    if (!href) throw new Error('Projeto Node da fixture não foi encontrado.');
+    await gotoBootstrapped(page, `${href}/environment`);
 
     await expect(
       page.getByRole('heading', { level: 3 }).filter({ hasText: '.env' }),
