@@ -38,8 +38,10 @@ describe('Docker Compose no shell do projeto', () => {
 
   it('expõe Compose como ferramenta do projeto', () => {
     expect(sidebarSource).toContain("id: 'compose'");
-    expect(sidebarSource).toContain("name: 'project-compose'");
     expect(sidebarSource).toContain("label: 'Compose'");
+    expect(sidebarSource).toContain(
+      "to: projectRoute('project-compose', { environment: true })",
+    );
   });
 
   it('preserva a Environment Instance na navegação e no painel', () => {
