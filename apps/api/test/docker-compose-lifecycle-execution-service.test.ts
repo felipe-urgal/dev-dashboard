@@ -63,10 +63,7 @@ test('lifecycle Compose vira job observável e preserva resultado unverified', a
 
   await new Promise<void>((resolve) => setImmediate(resolve));
 
-  const completed = service.latest(
-    project.id,
-    'environment:primary:project-1',
-  );
+  const completed = service.latest(project.id, 'environment:primary:project-1');
   assert.equal(completed?.status, 'succeeded');
   assert.equal(completed?.resultState, 'started-unverified');
   assert.equal(completed?.diagnostic, 'Runtime parcial.');

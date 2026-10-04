@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { DevelopmentEnvironmentInstance, Project } from '@dev-dashboard/contracts';
+import type {
+  DevelopmentEnvironmentInstance,
+  Project,
+} from '@dev-dashboard/contracts';
 
 import { DockerComposeRecoveryService } from '../src/services/docker-compose-recovery-service.js';
 

@@ -349,7 +349,6 @@ test('Compose retorna 404 sem tocar lifecycle para projeto inexistente', async (
   assert.equal(fixture.calls.length, 0);
 });
 
-
 test('Compose lifecycle confirmado roda como job reconsultável', async (context) => {
   const fixture = await createFixture();
   context.after(() => fixture.app.close());
