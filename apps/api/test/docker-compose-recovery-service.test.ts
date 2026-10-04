@@ -106,7 +106,6 @@ test('recovery Compose reconcilia somente Environment Instances host', async () 
   ]);
 });
 
-
 test('recovery Compose ignora ambiente host sem ownership persistido', async () => {
   let inspected = false;
   const service = new DockerComposeRecoveryService(
