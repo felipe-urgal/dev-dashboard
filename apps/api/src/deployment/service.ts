@@ -26,6 +26,10 @@ import {
 import { DeploymentConfirmationService } from './confirmation.js';
 import { DeploymentError } from './errors.js';
 import {
+  ProjectLocalEnvironmentFingerprintResolver,
+  type DeploymentExecutionFingerprintResolver,
+} from './execution-fingerprint.js';
+import {
   GitDeploymentOriginRevisionResolver,
   type DeploymentOriginRevisionResolver,
 } from './origin-revision.js';
@@ -66,6 +70,7 @@ export interface DeploymentServiceOptions {
   planner?: DeploymentPlanner;
   revisionResolver?: DeploymentRevisionResolver;
   originRevisionResolver?: DeploymentOriginRevisionResolver;
+  executionFingerprintResolver?: DeploymentExecutionFingerprintResolver;
   confirmationService?: DeploymentConfirmationService;
   adapter?: DeploymentCommandRunner;
   selfUpdateHandoffService?: DeploymentSelfUpdateHandoff;
@@ -89,6 +94,7 @@ export class DeploymentService {
   private readonly planner: DeploymentPlanner;
   private readonly revisionResolver: DeploymentRevisionResolver;
   private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
+  private readonly executionFingerprintResolver: DeploymentExecutionFingerprintResolver;
   private readonly confirmationService: DeploymentConfirmationService;
   private readonly adapter: DeploymentCommandRunner;
   private readonly selfUpdateHandoffService: DeploymentSelfUpdateHandoff;
@@ -105,6 +111,9 @@ export class DeploymentService {
     this.originRevisionResolver =
       options.originRevisionResolver ??
       new GitDeploymentOriginRevisionResolver();
+    this.executionFingerprintResolver =
+      options.executionFingerprintResolver ??
+      new ProjectLocalEnvironmentFingerprintResolver();
     this.confirmationService =
       options.confirmationService ??
       new DeploymentConfirmationService(60_000, this.now);
@@ -144,7 +153,9 @@ export class DeploymentService {
   ): Promise<DeploymentConfirmation> {
     const plan = await this.plan(project);
     this.assertPlanHash(plan, expectedPlanHash);
-    return this.confirmationService.prepare(plan);
+    const executionFingerprint =
+      await this.executionFingerprintResolver.resolve(project);
+    return this.confirmationService.prepare(plan, executionFingerprint);
   }
 
   public async start(
@@ -157,8 +168,14 @@ export class DeploymentService {
 
     const plan = await this.plan(project);
     this.assertPlanHash(plan, expectedPlanHash);
+    const executionFingerprint =
+      await this.executionFingerprintResolver.resolve(project);
     this.assertNoActiveDeployment();
-    this.confirmationService.consume(plan, confirmationToken);
+    this.confirmationService.consume(
+      plan,
+      confirmationToken,
+      executionFingerprint,
+    );
 
     const deployment: Deployment = {
       id: randomUUID(),
@@ -190,7 +207,12 @@ export class DeploymentService {
       throw error;
     }
 
-    void this.execute(project, deployment, controller).catch(() => undefined);
+    void this.execute(
+      project,
+      deployment,
+      controller,
+      executionFingerprint,
+    ).catch(() => undefined);
     return structuredClone(deployment);
   }
 
@@ -241,6 +263,8 @@ export class DeploymentService {
     delete retrying.errorCode;
     delete retrying.errorMessage;
 
+    const executionFingerprint =
+      await this.executionFingerprintResolver.resolve(project);
     const controller = new AbortController();
     this.active = {
       deploymentId: retrying.id,
@@ -264,6 +288,7 @@ export class DeploymentService {
       retrying,
       verifyIndex,
       controller,
+      executionFingerprint,
     ).catch(() => undefined);
     return structuredClone(retrying);
   }
@@ -356,6 +381,7 @@ export class DeploymentService {
     project: Project,
     initial: Deployment,
     controller: AbortController,
+    executionFingerprint: string,
   ): Promise<void> {
     let deployment: Deployment = {
       ...initial,
@@ -384,6 +410,10 @@ export class DeploymentService {
         }
 
         await this.assertRevisionUnchanged(project, deployment);
+        await this.assertExecutionFingerprintUnchanged(
+          project,
+          executionFingerprint,
+        );
 
         currentMutating = planStep.mutating;
         currentIrreversible = planStep.irreversible;
@@ -702,6 +732,7 @@ export class DeploymentService {
     initial: Deployment,
     verifyIndex: number,
     controller: AbortController,
+    executionFingerprint: string,
   ): Promise<void> {
     let deployment = initial;
     let logQueue = Promise.resolve();
@@ -710,6 +741,10 @@ export class DeploymentService {
 
     try {
       await this.assertRevisionUnchanged(project, deployment);
+      await this.assertExecutionFingerprintUnchanged(
+        project,
+        executionFingerprint,
+      );
       const result = await this.adapter.run(
         project,
         verifyStep,
@@ -867,6 +902,19 @@ export class DeploymentService {
       throw new DeploymentError(
         'DEPLOYMENT_VERIFY_RETRY_NOT_AVAILABLE',
         'Somente o deployment mais recente do projeto pode repetir o verify.',
+      );
+    }
+  }
+
+  private async assertExecutionFingerprintUnchanged(
+    project: Project,
+    expectedFingerprint: string,
+  ): Promise<void> {
+    const current = await this.executionFingerprintResolver.resolve(project);
+    if (current !== expectedFingerprint) {
+      throw new DeploymentError(
+        'DEPLOYMENT_ENVIRONMENT_CHANGED',
+        'Os arquivos locais de ambiente mudaram desde a confirmação; gere e confirme um novo plano antes de continuar.',
       );
     }
   }
