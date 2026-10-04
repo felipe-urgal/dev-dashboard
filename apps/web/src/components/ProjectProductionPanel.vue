@@ -611,8 +611,7 @@ function schedulePollRetry(
     return;
   }
   const delay = Math.min(baseDelay * 2 ** pollFailureCount, 5_000);
-  connectionMessage.value =
-    `Conexão temporariamente indisponível. Reconectando (${pollFailureCount}/${MAX_POLL_FAILURES})…`;
+  connectionMessage.value = `Conexão temporariamente indisponível. Reconectando (${pollFailureCount}/${MAX_POLL_FAILURES})…`;
   schedulePoll(callback, delay);
 }
 
