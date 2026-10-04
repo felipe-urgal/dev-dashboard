@@ -1,11 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  mkdir,
-  mkdtemp,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -246,15 +240,12 @@ test('lista ambientes com masking conservador e reveal explícito sem cache', as
   assert.equal(reveal.statusCode, 200);
   assert.match(reveal.headers['cache-control'] ?? '', /no-store/u);
   assert.equal(reveal.headers.pragma, 'no-cache');
-  assert.deepEqual(
-    reveal.json<EnvironmentVariableValueResponse>().variable,
-    {
-      file: '.env',
-      name: 'DATABASE_URL',
-      value: 'postgres://admin:minha-senha@localhost/app',
-      sensitive: true,
-    },
-  );
+  assert.deepEqual(reveal.json<EnvironmentVariableValueResponse>().variable, {
+    file: '.env',
+    name: 'DATABASE_URL',
+    value: 'postgres://admin:minha-senha@localhost/app',
+    sensitive: true,
+  });
 
   const missingVariable = await app.inject({
     method: 'POST',
@@ -322,9 +313,7 @@ test('usa o cwd da Environment Instance selecionada em vez do checkout principal
       project.id,
       [{ id: 'wt-1', path: worktreePath, kind: 'linked' }],
     );
-  const worktree = instances.find(
-    (entry) => entry.source.kind === 'worktree',
-  );
+  const worktree = instances.find((entry) => entry.source.kind === 'worktree');
   assert.ok(worktree);
 
   const app = await buildApp({ localToken: TOKEN, context: appContext });
@@ -417,7 +406,10 @@ test('recusa symlink e arquivo acima do limite sem ler conteúdo externo', async
     },
   );
   assert.equal(JSON.stringify(overview).includes('nunca-vazar'), false);
-  assert.equal(await service.getVariableValue(project, '.env', 'OUTSIDE_SECRET'), null);
+  assert.equal(
+    await service.getVariableValue(project, '.env', 'OUTSIDE_SECRET'),
+    null,
+  );
 });
 
 test('classifica conflito real entre fontes e resolve baselines de test/docker suportados', async (context) => {

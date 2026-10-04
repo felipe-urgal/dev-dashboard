@@ -34,7 +34,9 @@ test.describe('Variáveis de ambiente do projeto', () => {
     await page
       .getByRole('button', { name: 'Exibir valor de DATABASE_URL' })
       .click();
-    await expect(page.getByText('postgres://admin:senha-e2e@localhost/app')).toBeVisible();
+    await expect(
+      page.getByText('postgres://admin:senha-e2e@localhost/app'),
+    ).toBeVisible();
 
     await page
       .getByRole('button', { name: 'Ocultar valor de DATABASE_URL' })
