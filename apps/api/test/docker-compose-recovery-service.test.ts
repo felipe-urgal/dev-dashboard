@@ -57,6 +57,16 @@ test('recovery Compose reconcilia somente Environment Instances host', async () 
     { findProject: () => project },
     { list: () => instances },
     {
+      get: async (target) => ({
+        projectId: target.id,
+        projectPath: target.path,
+        composeProjectName: target.id.startsWith('environment:worktree:')
+          ? 'devdash-worktree'
+          : 'project',
+        startedAt: '2026-10-04T14:00:00.000Z',
+      }),
+    },
+    {
       inspect: async (target) => {
         inspected.push(target);
         return {
@@ -94,4 +104,30 @@ test('recovery Compose reconcilia somente Environment Instances host', async () 
     project.id,
     'environment:worktree:project-1:wt-1',
   ]);
+});
+
+
+test('recovery Compose ignora ambiente host sem ownership persistido', async () => {
+  let inspected = false;
+  const service = new DockerComposeRecoveryService(
+    { findProject: () => project },
+    { list: () => [instances[0]!] },
+    { get: async () => undefined },
+    {
+      inspect: async () => {
+        inspected = true;
+        throw new Error('não deveria inspecionar');
+      },
+    },
+    {
+      reconcile: async () => {
+        throw new Error('não deveria reconciliar');
+      },
+    },
+  );
+
+  const result = await service.reconcile();
+
+  assert.deepEqual(result, { inspected: 0, reconciled: 0, unavailable: 0 });
+  assert.equal(inspected, false);
 });
