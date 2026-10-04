@@ -179,6 +179,11 @@ export class DeploymentStore {
     const finishedAt = new Date(now).toISOString();
     for (const deployment of this.deployments.values()) {
       if (!ACTIVE_STATUSES.has(deployment.status)) continue;
+      const mutationStarted = deployment.timeline.some(
+        (step) =>
+          step.mutating &&
+          (step.status === 'running' || step.status === 'succeeded'),
+      );
       const irreversibleStarted = deployment.timeline.some(
         (step) =>
           step.irreversible &&
@@ -191,11 +196,13 @@ export class DeploymentStore {
       );
       const recovered: Deployment = {
         ...deployment,
-        status: irreversibleStarted ? 'recovery_required' : 'failed',
+        status: mutationStarted ? 'recovery_required' : 'failed',
         finishedAt,
         failurePoint: irreversibleStarted
           ? 'after-irreversible'
-          : 'before-irreversible',
+          : mutationStarted
+            ? 'after-mutation'
+            : 'before-irreversible',
         errorCode: 'DEPLOYMENT_INTERRUPTED',
         errorMessage:
           'A execução foi interrompida pelo encerramento do Dev Dashboard.',
