@@ -742,7 +742,15 @@ export class DockerComposeLifecycleService {
     service?: string,
   ): string[] {
     if (service) return [service];
-    return inspection.runtime?.services.map((item) => item.service) ?? [];
+    const runtimeServices =
+      inspection.runtime?.services.map((item) => item.service) ?? [];
+    if (runtimeServices.length > 0) return runtimeServices;
+
+    return (
+      inspection.config?.services
+        .filter((item) => item.profiles.length === 0)
+        .map((item) => item.name) ?? []
+    );
   }
 
   private reservePublishedPortLeases(
