@@ -16,17 +16,19 @@ import {
   PlayIcon,
   QueueListIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type { Project } from '@dev-dashboard/contracts';
 
 import {
+  fetchDockerComposeLifecycleExecution,
   fetchDockerComposeLogs,
   fetchDockerComposeSnapshot,
-  restartDockerCompose,
-  startDockerCompose,
-  stopDockerCompose,
+  prepareDockerComposeLifecycleConfirmation,
+  startDockerComposeLifecycleExecution,
   type DockerComposeInspectionState,
+  type DockerComposeLifecycleExecution,
+  type DockerComposeLifecycleOperation,
   type DockerComposeLogSnapshot,
   type DockerComposePortBinding,
   type DockerComposePreflightConflict,
@@ -46,12 +48,17 @@ const props = defineProps<{
 
 const loading = ref(false);
 const action = ref('');
+const submitting = ref(false);
 const errorMessage = ref('');
 const snapshot = ref<DockerComposeSnapshot | null>(null);
+const execution = ref<DockerComposeLifecycleExecution | null>(null);
 const logs = ref<DockerComposeLogSnapshot | null>(null);
 const logsService = ref('');
 const serviceSearch = ref('');
+const confirmationOperation = ref<DockerComposeLifecycleOperation | null>(null);
+const confirmationService = ref<string | undefined>();
 let generation = 0;
+let pollTimer: ReturnType<typeof setTimeout> | undefined;
 
 const config = computed(() => snapshot.value?.inspection.config);
 const runtimeServices = computed(
@@ -69,12 +76,25 @@ const hasActiveServices = computed(() =>
   ),
 );
 const owned = computed(() => snapshot.value?.ownership.owned === true);
+const hasExternalRuntime = computed(
+  () => runtimeServices.value.length > 0 && !owned.value,
+);
+const executionActive = computed(
+  () =>
+    execution.value?.status === 'queued' ||
+    execution.value?.status === 'running',
+);
+const busy = computed(
+  () => Boolean(action.value) || submitting.value || executionActive.value,
+);
 const canStart = computed(
   () =>
     Boolean(config.value) &&
     snapshot.value?.inspection.state === 'available' &&
+    snapshot.value?.preflight?.state === 'ready' &&
     !hasActiveServices.value &&
-    !action.value,
+    !hasExternalRuntime.value &&
+    !busy.value,
 );
 const visibleServices = computed(() => {
   const services = config.value?.services ?? [];
@@ -101,6 +121,12 @@ const problemDiagnostics = computed(() => {
     snapshot.value.inspection.diagnostic,
     snapshot.value.preflight?.diagnostic,
     snapshot.value.ownership.reconciliation.diagnostic,
+    hasExternalRuntime.value
+      ? 'Existe runtime Docker Compose sem ownership comprovado do Dashboard; mutações permanecem bloqueadas.'
+      : undefined,
+    execution.value?.resultState?.endsWith('-unverified')
+      ? execution.value.diagnostic
+      : undefined,
   ].filter((message): message is string => Boolean(message));
 });
 const hasProblems = computed(
@@ -111,21 +137,71 @@ const hasProblems = computed(
 
 const inspectionSummary = computed(() => {
   const state = snapshot.value?.inspection.state;
+  if (state === 'available') {
+    const services = runtimeServices.value;
+    if (services.length === 0) {
+      return {
+        title: 'Stack parada',
+        detail: 'Nenhum container observado',
+        tone: 'neutral' as const,
+        icon: InformationCircleIcon,
+      };
+    }
+    if (
+      services.some(
+        (service) =>
+          service.state === 'dead' || service.health === 'unhealthy',
+      )
+    ) {
+      return {
+        title: 'Stack degradada',
+        detail: 'Há serviço com falha ou healthcheck unhealthy',
+        tone: 'danger' as const,
+        icon: ExclamationCircleIcon,
+      };
+    }
+    const active = services.filter((service) =>
+      ['running', 'restarting', 'paused'].includes(service.state),
+    );
+    if (active.length === services.length) {
+      const transitional = services.some(
+        (service) =>
+          service.state !== 'running' || service.health === 'starting',
+      );
+      return {
+        title: transitional ? 'Stack convergindo' : 'Stack rodando',
+        detail: transitional
+          ? 'Serviços ativos com estado transitório'
+          : 'Todos os serviços observados estão ativos',
+        tone: transitional ? ('warning' as const) : ('success' as const),
+        icon: transitional ? ArrowPathIcon : CheckCircleIcon,
+      };
+    }
+    if (active.length > 0) {
+      return {
+        title: 'Stack parcial',
+        detail: 'Apenas parte dos serviços está ativa',
+        tone: 'warning' as const,
+        icon: ExclamationTriangleIcon,
+      };
+    }
+    return {
+      title: 'Stack parada',
+      detail: 'Containers presentes, sem serviço ativo',
+      tone: 'neutral' as const,
+      icon: InformationCircleIcon,
+    };
+  }
+
   const summary: Record<
-    DockerComposeInspectionState,
+    Exclude<DockerComposeInspectionState, 'available'>,
     {
       title: string;
       detail: string;
-      tone: 'success' | 'warning' | 'danger' | 'neutral';
+      tone: 'warning' | 'danger';
       icon: typeof CheckCircleIcon;
     }
   > = {
-    available: {
-      title: 'Compose disponível',
-      detail: 'Configuração e runtime estruturados',
-      tone: 'success',
-      icon: CheckCircleIcon,
-    },
     'runtime-unavailable': {
       title: 'Runtime indisponível',
       detail: 'Configuração disponível, runtime indisponível',
@@ -152,7 +228,9 @@ const inspectionSummary = computed(() => {
     },
   };
 
-  return state ? summary[state] : summary['invalid-output'];
+  return state && state !== 'available'
+    ? summary[state]
+    : summary['invalid-output'];
 });
 
 const ownershipSummary = computed(() =>
@@ -163,12 +241,19 @@ const ownershipSummary = computed(() =>
         tone: 'success' as const,
         icon: CheckCircleIcon,
       }
-    : {
-        title: 'Somente leitura',
-        detail: 'Ações de serviço não estão disponíveis',
-        tone: 'warning' as const,
-        icon: LockClosedIcon,
-      },
+    : hasExternalRuntime.value
+      ? {
+          title: 'Stack externa',
+          detail: 'Runtime detectado sem ownership do Dashboard',
+          tone: 'warning' as const,
+          icon: LockClosedIcon,
+        }
+      : {
+          title: 'Sem ownership',
+          detail: 'O Dashboard ainda não iniciou esta stack',
+          tone: 'neutral' as const,
+          icon: LockClosedIcon,
+        },
 );
 
 const preflightSummary = computed(() => {
@@ -293,53 +378,156 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-async function load(): Promise<void> {
-  const requestGeneration = ++generation;
-  loading.value = true;
-  errorMessage.value = '';
+function clearPoll(): void {
+  if (pollTimer) clearTimeout(pollTimer);
+  pollTimer = undefined;
+}
 
+function schedulePoll(currentGeneration: number): void {
+  clearPoll();
+  if (!executionActive.value || currentGeneration !== generation) return;
+  pollTimer = setTimeout(() => {
+    void pollExecution(currentGeneration);
+  }, 750);
+}
+
+async function refreshSnapshot(currentGeneration = generation): Promise<void> {
+  const result = await fetchDockerComposeSnapshot(
+    props.project.id,
+    props.environmentInstanceId,
+  );
+  if (currentGeneration === generation) snapshot.value = result;
+}
+
+async function pollExecution(currentGeneration: number): Promise<void> {
   try {
-    const result = await fetchDockerComposeSnapshot(
+    const result = await fetchDockerComposeLifecycleExecution(
       props.project.id,
       props.environmentInstanceId,
     );
-    if (requestGeneration === generation) snapshot.value = result;
+    if (currentGeneration !== generation) return;
+    const wasActive = executionActive.value;
+    execution.value = result;
+    if (executionActive.value) {
+      schedulePoll(currentGeneration);
+      return;
+    }
+    if (wasActive || result) await refreshSnapshot(currentGeneration);
   } catch (error) {
-    if (requestGeneration === generation) {
-      snapshot.value = null;
+    if (currentGeneration === generation) {
       errorMessage.value =
         error instanceof Error
           ? error.message
-          : 'Não foi possível inspecionar o Docker Compose.';
+          : 'Não foi possível acompanhar o lifecycle do Docker Compose.';
     }
-  } finally {
-    if (requestGeneration === generation) loading.value = false;
   }
 }
 
-async function mutate(
-  name: string,
-  operation: () => Promise<{ snapshot: DockerComposeSnapshot }>,
-): Promise<void> {
-  if (action.value) return;
-  action.value = name;
+async function load(): Promise<void> {
+  const requestGeneration = ++generation;
+  clearPoll();
+  loading.value = true;
+  errorMessage.value = '';
+
+  const [snapshotResult, executionResult] = await Promise.allSettled([
+    fetchDockerComposeSnapshot(props.project.id, props.environmentInstanceId),
+    fetchDockerComposeLifecycleExecution(
+      props.project.id,
+      props.environmentInstanceId,
+    ),
+  ]);
+
+  if (requestGeneration !== generation) return;
+
+  if (snapshotResult.status === 'fulfilled') {
+    snapshot.value = snapshotResult.value;
+  } else {
+    snapshot.value = null;
+    errorMessage.value =
+      snapshotResult.reason instanceof Error
+        ? snapshotResult.reason.message
+        : 'Não foi possível inspecionar o Docker Compose.';
+  }
+  execution.value =
+    executionResult.status === 'fulfilled' ? executionResult.value : null;
+  loading.value = false;
+  schedulePoll(requestGeneration);
+}
+
+function openConfirmation(
+  operation: DockerComposeLifecycleOperation,
+  service?: string,
+): void {
+  if (busy.value) return;
+  errorMessage.value = '';
+  confirmationOperation.value = operation;
+  confirmationService.value = service;
+}
+
+function closeConfirmation(): void {
+  if (submitting.value) return;
+  confirmationOperation.value = null;
+  confirmationService.value = undefined;
+}
+
+async function submitLifecycleOperation(): Promise<void> {
+  const operation = confirmationOperation.value;
+  if (!operation || submitting.value) return;
+  const currentGeneration = generation;
+  submitting.value = true;
   errorMessage.value = '';
 
   try {
-    const response = await operation();
-    snapshot.value = response.snapshot;
+    const confirmation = await prepareDockerComposeLifecycleConfirmation(
+      props.project.id,
+      operation,
+      confirmationService.value,
+      props.environmentInstanceId,
+    );
+    const nextExecution = await startDockerComposeLifecycleExecution(
+      props.project.id,
+      operation,
+      confirmation.token,
+      confirmationService.value,
+      props.environmentInstanceId,
+    );
+    if (currentGeneration === generation) {
+      execution.value = nextExecution;
+      confirmationOperation.value = null;
+      confirmationService.value = undefined;
+      schedulePoll(currentGeneration);
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'A operação do Docker Compose não pôde ser concluída.';
+    if (currentGeneration === generation) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'A operação do Docker Compose não pôde ser iniciada.';
+    }
   } finally {
-    action.value = '';
+    submitting.value = false;
   }
 }
 
+const confirmationTitle = computed(() => {
+  const target = confirmationService.value
+    ? ` o serviço ${confirmationService.value}`
+    : ' a stack';
+  if (confirmationOperation.value === 'start') return `Iniciar${target}?`;
+  if (confirmationOperation.value === 'stop') return `Parar${target}?`;
+  return `Reiniciar${target}?`;
+});
+
+const executionLabel = computed(() => {
+  if (!execution.value) return '';
+  const target = execution.value.service ? ` · ${execution.value.service}` : '';
+  if (execution.value.operation === 'start') return `Iniciando stack${target}`;
+  if (execution.value.operation === 'stop') return `Parando stack${target}`;
+  return `Reiniciando stack${target}`;
+});
+
 async function openLogs(service: string): Promise<void> {
-  if (!owned.value || action.value) return;
+  if (!owned.value || busy.value) return;
   action.value = 'logs-' + service;
   errorMessage.value = '';
 
@@ -365,23 +553,28 @@ watch(
   [() => props.project.id, () => props.environmentInstanceId],
   () => {
     snapshot.value = null;
+    execution.value = null;
     logs.value = null;
     logsService.value = '';
     serviceSearch.value = '';
+    confirmationOperation.value = null;
+    confirmationService.value = undefined;
     void load();
   },
   { immediate: true },
 );
+
+onBeforeUnmount(clearPoll);
 </script>
 
 <template>
-  <section class="compose-panel" aria-labelledby="compose-title">
+  <section class="compose-panel" aria-label="Docker Compose">
     <header class="compose-header">
       <div class="compose-header-actions">
         <button
           class="compose-button compose-refresh-button"
           type="button"
-          :disabled="loading || Boolean(action)"
+          :disabled="loading || busy"
           aria-label="Atualizar Docker Compose"
           title="Atualizar Docker Compose"
           @click="load"
@@ -395,44 +588,28 @@ watch(
           class="compose-button compose-button--primary"
           type="button"
           :disabled="!canStart"
-          @click="
-            mutate('start', () =>
-              startDockerCompose(project.id, environmentInstanceId),
-            )
-          "
+          @click="openConfirmation('start')"
         >
           <PlayIcon aria-hidden="true" />
-          {{ action === 'start' ? 'Iniciando…' : 'Iniciar stack' }}
+          {{ executionActive && execution?.operation === 'start' ? 'Iniciando…' : 'Iniciar stack' }}
         </button>
         <button
           v-if="owned"
           class="compose-button"
           type="button"
-          :disabled="Boolean(action) || !hasActiveServices"
-          @click="
-            mutate('restart', () =>
-              restartDockerCompose(
-                project.id,
-                undefined,
-                environmentInstanceId,
-              ),
-            )
-          "
+          :disabled="busy || !hasActiveServices"
+          @click="openConfirmation('restart')"
         >
-          {{ action === 'restart' ? 'Reiniciando…' : 'Reiniciar stack' }}
+          {{ executionActive && execution?.operation === 'restart' ? 'Reiniciando…' : 'Reiniciar stack' }}
         </button>
         <button
           v-if="owned"
           class="compose-button compose-button--danger"
           type="button"
-          :disabled="Boolean(action) || !hasActiveServices"
-          @click="
-            mutate('stop', () =>
-              stopDockerCompose(project.id, undefined, environmentInstanceId),
-            )
-          "
+          :disabled="busy || !hasActiveServices"
+          @click="openConfirmation('stop')"
         >
-          {{ action === 'stop' ? 'Parando…' : 'Parar stack' }}
+          {{ executionActive && execution?.operation === 'stop' ? 'Parando…' : 'Parar stack' }}
         </button>
       </div>
     </header>
@@ -461,6 +638,78 @@ watch(
       <p v-if="errorMessage" class="compose-error" role="alert">
         {{ errorMessage }}
       </p>
+
+      <section
+        v-if="execution"
+        class="compose-lifecycle"
+        :class="{
+          'is-running': executionActive,
+          'is-warning': execution.resultState?.endsWith('-unverified'),
+          'is-failed': execution.status === 'failed',
+        }"
+        aria-label="Lifecycle Docker Compose"
+      >
+        <ArrowPathIcon
+          :class="{ 'is-spinning': executionActive }"
+          aria-hidden="true"
+        />
+        <div>
+          <strong>{{ executionLabel }}</strong>
+          <span>
+            {{
+              execution.status === 'queued'
+                ? 'Na fila'
+                : execution.status === 'running'
+                  ? 'Executando'
+                  : execution.status === 'failed'
+                    ? 'Falhou'
+                    : execution.resultState?.endsWith('-unverified')
+                      ? 'Concluído sem verificação completa'
+                      : 'Concluído'
+            }}
+          </span>
+          <span v-if="execution.diagnostic">{{ execution.diagnostic }}</span>
+        </div>
+      </section>
+
+      <section
+        v-if="confirmationOperation"
+        class="compose-confirmation"
+        aria-label="Confirmar operação Docker Compose"
+      >
+        <ExclamationTriangleIcon aria-hidden="true" />
+        <div>
+          <strong>{{ confirmationTitle }}</strong>
+          <span>
+            O backend revalidará ownership, catálogo e preflight antes da
+            mutação. A confirmação é de uso único e vinculada a esta
+            Environment Instance.
+          </span>
+          <div class="compose-confirmation-actions">
+            <button
+              class="compose-button"
+              type="button"
+              :disabled="submitting"
+              @click="closeConfirmation"
+            >
+              Cancelar
+            </button>
+            <button
+              class="compose-button compose-button--primary"
+              type="button"
+              :disabled="submitting"
+              @click="submitLifecycleOperation"
+            >
+              <ArrowPathIcon
+                v-if="submitting"
+                class="is-spinning"
+                aria-hidden="true"
+              />
+              {{ submitting ? 'Validando…' : 'Confirmar' }}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <div class="compose-status-strip" aria-label="Status do Docker Compose">
         <div
@@ -660,26 +909,14 @@ watch(
                     <div class="compose-row-menu-popover">
                       <button
                         type="button"
-                        :disabled="Boolean(action)"
-                        @click="
-                          mutate('restart-' + service.name, () =>
-                            restartDockerCompose(
-                              project.id,
-                              service.name,
-                              environmentInstanceId,
-                            ),
-                          )
-                        "
+                        :disabled="busy"
+                        @click="openConfirmation('restart', service.name)"
                       >
-                        {{
-                          action === 'restart-' + service.name
-                            ? 'Reiniciando…'
-                            : 'Reiniciar'
-                        }}
+                        Reiniciar
                       </button>
                       <button
                         type="button"
-                        :disabled="Boolean(action)"
+                        :disabled="busy"
                         @click="openLogs(service.name)"
                       >
                         {{
@@ -691,22 +928,10 @@ watch(
                       <button
                         class="compose-row-menu-danger"
                         type="button"
-                        :disabled="Boolean(action)"
-                        @click="
-                          mutate('stop-' + service.name, () =>
-                            stopDockerCompose(
-                              project.id,
-                              service.name,
-                              environmentInstanceId,
-                            ),
-                          )
-                        "
+                        :disabled="busy"
+                        @click="openConfirmation('stop', service.name)"
                       >
-                        {{
-                          action === 'stop-' + service.name
-                            ? 'Parando…'
-                            : 'Parar'
-                        }}
+                        Parar
                       </button>
                     </div>
                   </details>
@@ -1423,5 +1648,55 @@ watch(
   .compose-search {
     width: 100%;
   }
+}
+
+.compose-lifecycle,
+.compose-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 24px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.compose-lifecycle > svg,
+.compose-confirmation > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.compose-lifecycle > div,
+.compose-confirmation > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.compose-lifecycle span,
+.compose-confirmation span {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.compose-lifecycle.is-running {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.compose-lifecycle.is-warning {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+.compose-lifecycle.is-failed {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.compose-confirmation-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
 }
 </style>
