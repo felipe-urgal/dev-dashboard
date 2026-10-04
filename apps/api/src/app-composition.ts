@@ -106,7 +106,10 @@ export interface AppCompositionOptions {
     DockerComposeLifecycleExecutionService,
     'start' | 'latest' | 'activityJobs'
   >;
-  dockerComposeRecoveryService?: Pick<DockerComposeRecoveryService, 'reconcile'>;
+  dockerComposeRecoveryService?: Pick<
+    DockerComposeRecoveryService,
+    'reconcile'
+  >;
   dockerComposeOwnershipStore?: Pick<
     DockerComposeOwnershipStore,
     'get' | 'claim' | 'release'

@@ -12,8 +12,7 @@ export interface DockerComposeLifecycleConfirmation {
 }
 
 export type DockerComposeLifecycleConfirmationErrorCode =
-  | 'COMPOSE_CONFIRMATION_INVALID'
-  | 'COMPOSE_CONFIRMATION_EXPIRED';
+  'COMPOSE_CONFIRMATION_INVALID' | 'COMPOSE_CONFIRMATION_EXPIRED';
 
 export class DockerComposeLifecycleConfirmationError extends Error {
   public constructor(
@@ -109,8 +108,7 @@ export class DockerComposeLifecycleConfirmationService {
   private pruneOverflow(): void {
     while (this.confirmations.size > MAX_CONFIRMATIONS) {
       const oldest = this.confirmations.keys().next().value as
-        | string
-        | undefined;
+        string | undefined;
       if (!oldest) break;
       this.confirmations.delete(oldest);
     }

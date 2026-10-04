@@ -33,7 +33,10 @@ export class DockerComposeRecoveryService {
     private readonly projectStore: ProjectStoreView,
     private readonly environmentStore: EnvironmentStore,
     private readonly provider: Pick<DockerComposeProvider, 'inspect'>,
-    private readonly lifecycle: Pick<DockerComposeLifecycleService, 'reconcile'>,
+    private readonly lifecycle: Pick<
+      DockerComposeLifecycleService,
+      'reconcile'
+    >,
   ) {}
 
   public async reconcile(): Promise<DockerComposeRecoveryResult> {

@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ActivityEventStatus, ActivityJob, Project } from '@dev-dashboard/contracts';
+import type {
+  ActivityEventStatus,
+  ActivityJob,
+  Project,
+} from '@dev-dashboard/contracts';
 import type { AppendActivityEventInput } from '@dev-dashboard/core';
 
 import type {
@@ -13,10 +17,7 @@ import {
 } from './docker-compose-lifecycle-service.js';
 
 export type DockerComposeLifecycleExecutionStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed';
+  'queued' | 'running' | 'succeeded' | 'failed';
 
 export interface DockerComposeLifecycleExecutionSnapshot {
   id: string;
@@ -34,8 +35,7 @@ export interface DockerComposeLifecycleExecutionSnapshot {
 }
 
 export type DockerComposeLifecycleExecutionErrorCode =
-  | 'COMPOSE_EXECUTION_ALREADY_RUNNING'
-  | 'COMPOSE_EXECUTION_NOT_FOUND';
+  'COMPOSE_EXECUTION_ALREADY_RUNNING' | 'COMPOSE_EXECUTION_NOT_FOUND';
 
 export class DockerComposeLifecycleExecutionError extends Error {
   public constructor(
