@@ -52,12 +52,14 @@ test('nunca persiste valor para variáveis com nome sensível', async () => {
     name: 'Produção',
     variables: [
       { name: 'DATABASE_SECRET_TOKEN', value: 'valor-sensivel' },
+      { name: 'TEST_DATABASE_URL', value: 'postgres://user:pass@localhost/app' },
       { name: 'PORT', value: '3000' },
     ],
   });
 
   assert.deepEqual(profile.variables, [
     { name: 'DATABASE_SECRET_TOKEN' },
+    { name: 'TEST_DATABASE_URL' },
     { name: 'PORT', value: '3000' },
   ]);
 });
