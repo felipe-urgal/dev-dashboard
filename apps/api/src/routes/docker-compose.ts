@@ -553,6 +553,8 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       ),
   );
 
+  // Toda mutação HTTP do Compose passa por confirmação single-use + job.
+  // O lifecycle síncrono permanece interno para Stacks e outros domínios trusted.
   app.post<{
     Params: Params;
     Querystring: EnvironmentQuery;
