@@ -180,6 +180,8 @@ async function createFixture() {
   };
 }
 
+// A criação retorna 202 antes de Activity + lifecycle concluírem; os testes
+// observam a mesma rota de polling usada pela UI até o estado terminal.
 async function waitForComposeExecution(
   app: Awaited<ReturnType<typeof buildApp>>,
   environmentInstanceId?: string,
