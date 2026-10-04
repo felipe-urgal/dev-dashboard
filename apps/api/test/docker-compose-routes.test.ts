@@ -348,3 +348,92 @@ test('Compose retorna 404 sem tocar lifecycle para projeto inexistente', async (
   assert.equal(response.json().error, 'PROJECT_NOT_FOUND');
   assert.equal(fixture.calls.length, 0);
 });
+
+
+test('Compose lifecycle confirmado roda como job reconsultável', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  const confirmationResponse = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/lifecycle-confirmations',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { operation: 'restart', service: 'web' },
+  });
+  assert.equal(confirmationResponse.statusCode, 201);
+  const confirmation = confirmationResponse.json().confirmation;
+  assert.equal(confirmation.operation, 'restart');
+  assert.equal(confirmation.service, 'web');
+
+  const startResponse = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/lifecycle-executions',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: {
+      operation: 'restart',
+      service: 'web',
+      confirmationToken: confirmation.token,
+    },
+  });
+  assert.equal(startResponse.statusCode, 202);
+  assert.equal(startResponse.json().execution.operation, 'restart');
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  const statusResponse = await fixture.app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/docker-compose/lifecycle-execution',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+  assert.equal(statusResponse.statusCode, 200);
+  assert.equal(statusResponse.json().execution.status, 'succeeded');
+  assert.equal(statusResponse.json().execution.resultState, 'restarted');
+  assert.equal(fixture.calls.at(-1)?.action, 'restart');
+  assert.equal(fixture.calls.at(-1)?.service, 'web');
+});
+
+test('Compose lifecycle rejeita confirmação reutilizada', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  const confirmationResponse = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/lifecycle-confirmations',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { operation: 'stop', service: 'web' },
+  });
+  const token = confirmationResponse.json().confirmation.token;
+
+  const first = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/lifecycle-executions',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { operation: 'stop', service: 'web', confirmationToken: token },
+  });
+  assert.equal(first.statusCode, 202);
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  const second = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/lifecycle-executions',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { operation: 'stop', service: 'web', confirmationToken: token },
+  });
+  assert.equal(second.statusCode, 400);
+});
