@@ -13,15 +13,15 @@ export interface DeploymentExecutionFingerprintResolver {
   resolve(project: Project): Promise<string>;
 }
 
-function stableEnvironment(environment: NodeJS.ProcessEnv): Array<[string, string]> {
+function stableEnvironment(
+  environment: NodeJS.ProcessEnv,
+): Array<[string, string]> {
   return Object.entries(environment)
     .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
     .sort(([left], [right]) => left.localeCompare(right));
 }
 
-export class ProjectLocalEnvironmentFingerprintResolver
-  implements DeploymentExecutionFingerprintResolver
-{
+export class ProjectLocalEnvironmentFingerprintResolver implements DeploymentExecutionFingerprintResolver {
   public async resolve(project: Project): Promise<string> {
     const production = project.production;
     const kinds: ProjectLocalEnvironmentKind[] =
