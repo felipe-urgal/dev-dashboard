@@ -480,6 +480,40 @@ test('falha antes de etapa irreversível termina failed; falha durante etapa irr
   assert.equal(risky.errorCode, 'DEPLOYMENT_COMMAND_FAILED');
 });
 
+test('falha durante deploy mutável não irreversível exige recovery', async (t) => {
+  const directory = await temporaryDirectory(t);
+  const runner = new FakeRunner();
+  runner.failOn = 'deploy';
+  const service = new DeploymentService({
+    revisionResolver: new FixedRevisionResolver(),
+    adapter: runner,
+    store: new DeploymentStore(directory),
+  });
+  const project = makeProject({
+    commands: {
+      status: 'prod:status',
+      check: 'prod:check',
+      deploy: 'prod:deploy',
+      verify: 'prod:verify',
+    },
+    policies: {
+      backup: 'not-configured',
+      migrations: 'not-configured',
+      rollback: 'not-configured',
+    },
+  });
+  const plan = await service.plan(project);
+  const confirmation = await service.prepareConfirmation(project, plan.planHash);
+  const finished = await waitForTerminal(
+    service,
+    await service.start(project, plan.planHash, confirmation.token),
+  );
+
+  assert.equal(finished.status, 'recovery_required');
+  assert.equal(finished.failurePoint, 'after-mutation');
+  assert.equal(finished.errorCode, 'DEPLOYMENT_COMMAND_FAILED');
+});
+
 test('service rejeita plano stale e uma segunda execução concorrente global', async (t) => {
   const directory = await temporaryDirectory(t);
   const revisions = new FixedRevisionResolver();
