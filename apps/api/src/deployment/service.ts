@@ -407,6 +407,7 @@ export class DeploymentService {
 
         if (planStep.id === 'self-update') {
           if (project.production?.strategy !== 'self-update') {
+            currentMutating = false;
             currentIrreversible = false;
             throw new DeploymentError(
               'DEPLOYMENT_PLAN_STALE',
@@ -421,6 +422,7 @@ export class DeploymentService {
               planHash: deployment.planHash,
             });
           } catch (error) {
+            currentMutating = false;
             currentIrreversible = false;
             throw new DeploymentError(
               'DEPLOYMENT_SELF_UPDATE_FAILED',
