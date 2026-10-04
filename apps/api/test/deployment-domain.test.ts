@@ -532,7 +532,7 @@ test('service rejeita plano stale e uma segunda execução concorrente global', 
   runner.release();
 });
 
-test('cancelamento durante etapa irreversível não finge rollback e vira recovery_required', async (t) => {
+test('bloqueia cancelamento durante etapa mutável e recupera interrupção da API', async (t) => {
   const directory = await temporaryDirectory(t);
   class DeployBlockingRunner extends FakeRunner {
     public override async run(
@@ -576,7 +576,16 @@ test('cancelamento durante etapa irreversível não finge rollback e vira recove
     if (current.status === 'deploying') break;
     await new Promise((resolve) => setTimeout(resolve, 2));
   }
-  await service.cancel(project.id, started.id);
+
+  assert.equal(service.activityJobs(project.id)[0]?.cancelSupported, false);
+  await assert.rejects(
+    service.cancel(project.id, started.id),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_CANCEL_NOT_AVAILABLE',
+  );
+
+  service.close();
   const finished = await waitForTerminal(service, started);
   assert.equal(finished.status, 'recovery_required');
   assert.equal(finished.failurePoint, 'after-irreversible');
