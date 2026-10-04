@@ -61,12 +61,18 @@ export class DeploymentConfirmationService {
       !confirmation ||
       confirmation.projectId !== plan.projectId ||
       confirmation.revision !== plan.revision ||
-      confirmation.planHash !== plan.planHash ||
-      confirmation.executionFingerprint !== executionFingerprint
+      confirmation.planHash !== plan.planHash
     ) {
       throw new DeploymentError(
         'DEPLOYMENT_CONFIRMATION_REQUIRED',
         'Confirmação válida é obrigatória para executar este plano de produção.',
+      );
+    }
+    if (confirmation.executionFingerprint !== executionFingerprint) {
+      this.confirmations.delete(confirmation.token);
+      throw new DeploymentError(
+        'DEPLOYMENT_ENVIRONMENT_CHANGED',
+        'Os arquivos locais de ambiente mudaram desde a confirmação; gere e confirme um novo plano antes de executar.',
       );
     }
     this.confirmations.delete(confirmation.token);
