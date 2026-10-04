@@ -97,6 +97,7 @@ const deploymentLog = ref<DeploymentLog | null>(null);
 const providerStatus = ref<ProductionDeploymentStatus | null>(null);
 const gitWorkspace = ref<ProjectGitWorkspace | null>(null);
 const planHeading = ref<HTMLElement | null>(null);
+const executionDetailsOpen = ref(false);
 const sudoModalOpen = ref(false);
 const sudoAuthorized = ref(false);
 const connectionMessage = ref('');
@@ -621,6 +622,13 @@ function stepScript(step: {
 }): string {
   return step.script ?? 'Provider API';
 }
+function handleExecutionDetailsToggle(event: Event): void {
+  const target = event.currentTarget;
+  if (target instanceof HTMLDetailsElement) {
+    executionDetailsOpen.value = target.open;
+  }
+}
+
 function clearPoll(): void {
   if (pollTimer !== undefined) {
     window.clearTimeout(pollTimer);
@@ -693,6 +701,9 @@ async function loadExecutionState(current: number): Promise<void> {
   const latest = historyResult.items[0];
   activeDeployment.value =
     latest && !TERMINAL_STATUSES.has(latest.status) ? latest : null;
+  executionDetailsOpen.value = Boolean(
+    activeDeployment.value || (latest && latest.status !== 'succeeded'),
+  );
   if (latest) await loadDeploymentLog(latest.id, current);
 }
 
@@ -760,10 +771,12 @@ async function pollDeployment(current: number): Promise<void> {
       }
       if (current !== generation) return;
       activeDeployment.value = deployment;
+      executionDetailsOpen.value = deployment.status !== 'succeeded';
       return;
     }
 
     activeDeployment.value = deployment;
+    executionDetailsOpen.value = true;
     schedulePoll(() => void pollDeployment(current), 700);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
@@ -820,6 +833,7 @@ async function load(preserveOperation = false): Promise<void> {
   deploymentLog.value = null;
   providerStatus.value = null;
   gitWorkspace.value = null;
+  executionDetailsOpen.value = false;
   sudoModalOpen.value = false;
   sudoAuthorized.value = false;
 
@@ -922,6 +936,9 @@ async function confirmAndStart(): Promise<void> {
     if (current !== generation) return;
     plan.value = null;
     activeDeployment.value = deployment;
+    executionDetailsOpen.value = !TERMINAL_STATUSES.has(deployment.status)
+      ? true
+      : deployment.status !== 'succeeded';
     deploymentLog.value = null;
     history.value = [
       deployment,
@@ -957,6 +974,7 @@ async function retryLatestVerify(): Promise<void> {
     );
     if (current !== generation) return;
     activeDeployment.value = retrying;
+    executionDetailsOpen.value = true;
     history.value = [
       retrying,
       ...history.value.filter((item) => item.id !== retrying.id),
@@ -1237,10 +1255,8 @@ onBeforeUnmount(() => {
       <details
         v-if="latestDeployment || (isGitManaged && visibleTimeline.length)"
         class="production-card production-execution-details"
-        :open="
-          hasActiveDeployment ||
-          Boolean(latestDeployment && latestDeployment.status !== 'succeeded')
-        "
+        :open="executionDetailsOpen"
+        @toggle="handleExecutionDetailsToggle"
       >
         <summary>
           <div>
