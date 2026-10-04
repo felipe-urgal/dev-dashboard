@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import type {
   Deployment,
   DeploymentPlan,
+  ProductionDeploymentStatus,
   Project,
 } from '@dev-dashboard/contracts';
 
@@ -188,6 +189,26 @@ function gitOverview(revision = REVISION_A) {
   };
 }
 
+function commandProductionStatus(
+  projectId = 'project-1',
+  originRevision = REVISION_A,
+  productionRevision = originRevision,
+): ProductionDeploymentStatus {
+  return {
+    projectId,
+    projectName: projectId === 'project-1' ? 'Projeto A' : 'Projeto B',
+    strategy: 'command',
+    provider: 'systemd',
+    branch: 'main',
+    statusAvailability: 'available',
+    checkedAt: '2026-10-04T13:00:00.000Z',
+    originRevision,
+    productionRevision,
+    runtimeState: 'ready',
+    drift: originRevision === productionRevision ? 'in-sync' : 'drift',
+  };
+}
+
 function deploymentPlan(): DeploymentPlan {
   return {
     projectId: 'project-1',
@@ -235,6 +256,14 @@ function resetApi(): void {
     branches: [],
     remotes: [],
   });
+  api.fetchProductionDeploymentStatus.mockImplementation((projectId: string) =>
+    Promise.resolve(
+      commandProductionStatus(
+        projectId,
+        projectId === 'project-2' ? REVISION_B : REVISION_A,
+      ),
+    ),
+  );
   api.fetchDeploymentLog.mockResolvedValue({
     deploymentId: 'deployment-project-1',
     content: 'deploy ok',
@@ -357,7 +386,7 @@ describe('ProjectProductionPanel', () => {
       expect.any(AbortSignal),
     );
     expect(wrapper.text()).toContain('Timeline do deployment');
-    expect(wrapper.text()).toContain('Estado de produção inconclusivo');
+    expect(wrapper.text()).toContain('Produção alinhada com origin');
     expect(wrapper.text()).toContain('deploy ok');
     wrapper.unmount();
   });
@@ -564,8 +593,11 @@ describe('ProjectProductionPanel', () => {
     wrapper.unmount();
   });
 
-  it('marca produção command como desatualizada quando origin avançou', async () => {
+  it('marca produção command como desatualizada quando prod:status diverge de origin', async () => {
     resetApi();
+    api.fetchProductionDeploymentStatus.mockResolvedValue(
+      commandProductionStatus('project-1', REVISION_B, REVISION_A),
+    );
     api.fetchDeploymentHistory.mockResolvedValue({
       items: [successfulDeployment()],
       page: 1,
@@ -642,7 +674,7 @@ describe('ProjectProductionPanel', () => {
     await flushPromises();
     expect(api.fetchDeployment).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).not.toContain('Reconectando ao deployment');
-    expect(wrapper.text()).toContain('Estado de produção inconclusivo');
+    expect(wrapper.text()).toContain('Produção alinhada com origin');
     wrapper.unmount();
   });
 

@@ -1,6 +1,8 @@
 import type {
   DeploymentDriftStatus,
   DeploymentProviderAvailability,
+  ProductionCommandStatusAvailability,
+  ProductionCommandStatusIssueCode,
   DeploymentProviderIssueCode,
   DeploymentProviderState,
   DeploymentStepStatus,
@@ -9,6 +11,10 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
+import {
+  PackageScriptProductionStatusReader,
+  type CommandProductionStatusReader,
+} from './command-status.js';
 import { DeploymentError } from './errors.js';
 import {
   GitDeploymentOriginRevisionResolver,
@@ -43,7 +49,9 @@ export interface ProductionDeploymentProviderReader {
 
 export interface ProductionDeploymentStatusServiceOptions {
   provider?: ProductionDeploymentProviderReader;
+  commandReader?: CommandProductionStatusReader;
   originRevisionResolver?: DeploymentOriginRevisionResolver;
+  now?: () => number;
 }
 
 function stepStatus(state: DeploymentProviderState): DeploymentStepStatus {
@@ -88,15 +96,59 @@ function providerIssue(error: unknown):
   };
 }
 
+function commandIssue(error: unknown):
+  | {
+      code: ProductionCommandStatusIssueCode;
+      availability: ProductionCommandStatusAvailability;
+      message: string;
+    }
+  | undefined {
+  if (!(error instanceof DeploymentError)) return undefined;
+  switch (error.code) {
+    case 'DEPLOYMENT_COMMAND_STATUS_TIMEOUT':
+      return {
+        code: error.code,
+        availability: 'timeout',
+        message: error.message,
+      };
+    case 'DEPLOYMENT_COMMAND_STATUS_FAILED':
+      return {
+        code: error.code,
+        availability: 'command-failed',
+        message: error.message,
+      };
+    case 'DEPLOYMENT_COMMAND_STATUS_INVALID':
+      return {
+        code: error.code,
+        availability: 'invalid-response',
+        message: error.message,
+      };
+    case 'DEPLOYMENT_PACKAGE_MANAGER_UNSUPPORTED':
+    case 'DEPLOYMENT_PRODUCTION_UNAVAILABLE':
+      return {
+        code: error.code,
+        availability: 'unavailable',
+        message: error.message,
+      };
+    default:
+      return undefined;
+  }
+}
+
 export class ProductionDeploymentStatusService {
   private readonly provider: ProductionDeploymentProviderReader;
+  private readonly commandReader: CommandProductionStatusReader;
   private readonly originRevisionResolver: DeploymentOriginRevisionResolver;
+  private readonly now: () => number;
 
   public constructor(options: ProductionDeploymentStatusServiceOptions = {}) {
     this.provider = options.provider ?? new VercelDeploymentAdapter();
+    this.commandReader =
+      options.commandReader ?? new PackageScriptProductionStatusReader();
     this.originRevisionResolver =
       options.originRevisionResolver ??
       new GitDeploymentOriginRevisionResolver();
+    this.now = options.now ?? Date.now;
   }
 
   public async read(project: Project): Promise<ProductionDeploymentStatus> {
@@ -107,6 +159,54 @@ export class ProductionDeploymentStatusService {
         'O projeto não possui produção habilitada e válida.',
       );
     }
+    if (production.strategy === 'command') {
+      if (
+        production.provider !== 'systemd' &&
+        production.provider !== 'docker-compose'
+      ) {
+        throw new DeploymentError(
+          'DEPLOYMENT_STRATEGY_UNSUPPORTED',
+          'O status command exige provider systemd ou docker-compose.',
+        );
+      }
+
+      const originRevision = await this.originRevisionResolver.resolve(
+        project,
+        production.branch,
+      );
+      const checkedAt = new Date(this.now()).toISOString();
+      const base = {
+        projectId: project.id,
+        projectName: project.name,
+        strategy: 'command' as const,
+        provider: production.provider,
+        branch: production.branch,
+        checkedAt,
+        ...(originRevision ? { originRevision } : {}),
+      };
+
+      try {
+        const commandStatus = await this.commandReader.read(project);
+        return {
+          ...base,
+          statusAvailability: 'available' as const,
+          productionRevision: commandStatus.revision,
+          runtimeState: commandStatus.state,
+          drift: drift(originRevision, commandStatus.revision),
+        };
+      } catch (error) {
+        const issue = commandIssue(error);
+        if (!issue) throw error;
+        return {
+          ...base,
+          statusAvailability: issue.availability,
+          drift: 'unknown' as const,
+          errorCode: issue.code,
+          errorMessage: issue.message,
+        };
+      }
+    }
+
     if (
       production.strategy !== 'git-managed' ||
       production.provider !== 'vercel'

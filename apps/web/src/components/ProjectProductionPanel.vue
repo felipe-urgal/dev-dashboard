@@ -97,6 +97,7 @@ const deploymentLog = ref<DeploymentLog | null>(null);
 const providerStatus = ref<ProductionDeploymentStatus | null>(null);
 const gitWorkspace = ref<ProjectGitWorkspace | null>(null);
 const planHeading = ref<HTMLElement | null>(null);
+const executionDetailsOpen = ref(false);
 const sudoModalOpen = ref(false);
 const sudoAuthorized = ref(false);
 const connectionMessage = ref('');
@@ -122,6 +123,14 @@ const isGitManaged = computed(
     hasProductionCapability.value &&
     production.value?.enabled === true &&
     production.value.strategy === 'git-managed',
+);
+const commandStatus = computed(() =>
+  providerStatus.value?.strategy === 'command' ? providerStatus.value : null,
+);
+const gitManagedStatus = computed(() =>
+  providerStatus.value?.strategy === 'git-managed'
+    ? providerStatus.value
+    : null,
 );
 const canExecuteDeployment = computed(
   () => isCommand.value || isGitManaged.value,
@@ -229,19 +238,14 @@ const originRevision = computed(() => {
   );
   return remoteBranch?.latestCommit?.hash;
 });
-const productionRevision = computed(
-  () =>
-    providerStatus.value?.productionRevision ??
-    lastSuccessfulDeployment.value?.revision,
-);
-const commandDrift = computed(() => {
-  if (!isCommand.value || !originRevision.value || !productionRevision.value) {
-    return 'unknown';
-  }
-  return originRevision.value === productionRevision.value
-    ? 'in-sync'
-    : 'drift';
+const productionRevision = computed(() => {
+  if (isCommand.value) return commandStatus.value?.productionRevision;
+  return (
+    gitManagedStatus.value?.productionRevision ??
+    lastSuccessfulDeployment.value?.revision
+  );
 });
+const commandDrift = computed(() => commandStatus.value?.drift ?? 'unknown');
 
 function applicationUrlFromHealth(value: string | undefined): string {
   if (!value) return '';
@@ -259,18 +263,18 @@ function applicationUrlFromHealth(value: string | undefined): string {
 const productionUrl = computed(
   () =>
     applicationUrlFromHealth(production.value?.health?.url) ||
-    providerStatus.value?.deployment?.url ||
+    gitManagedStatus.value?.deployment?.url ||
     '',
 );
 const deploymentInspectorUrl = computed(
   () =>
-    providerStatus.value?.deployment?.inspectorUrl ??
-    providerStatus.value?.deployment?.url ??
+    gitManagedStatus.value?.deployment?.inspectorUrl ??
+    gitManagedStatus.value?.deployment?.url ??
     '',
 );
 const visibleTimeline = computed(
   () =>
-    latestDeployment.value?.timeline ?? providerStatus.value?.timeline ?? [],
+    latestDeployment.value?.timeline ?? gitManagedStatus.value?.timeline ?? [],
 );
 function providerAvailabilityLabel(
   availability: DeploymentProviderAvailability,
@@ -391,51 +395,86 @@ const statusView = computed(
           icon: StopIcon,
         };
       }
-      if (isCommand.value && commandDrift.value === 'drift') {
+    }
+
+    if (isCommand.value) {
+      const status = commandStatus.value;
+      if (!status) {
+        return {
+          title: 'Status de produção ainda não consultado',
+          description:
+            'Atualize o status para observar a revision realmente ativa antes de decidir por um deployment.',
+          label: 'Desconhecido',
+          tone: 'neutral',
+          icon: InformationCircleIcon,
+        };
+      }
+      if (status.statusAvailability !== 'available') {
+        return {
+          title: 'Status vivo de produção indisponível',
+          description:
+            status.errorMessage ??
+            'prod:status não forneceu uma evidência estruturada válida.',
+          label: 'Não verificado',
+          tone:
+            status.statusAvailability === 'command-failed'
+              ? 'danger'
+              : 'warning',
+          icon: ExclamationTriangleIcon,
+        };
+      }
+      if (status.runtimeState === 'unavailable') {
+        return {
+          title: 'Produção indisponível',
+          description:
+            'prod:status confirmou a revision ativa, mas informou que o runtime de produção está indisponível.',
+          label: 'Indisponível',
+          tone: 'danger',
+          icon: XCircleIcon,
+        };
+      }
+      if (status.runtimeState === 'degraded') {
+        return {
+          title: 'Produção degradada',
+          description:
+            'prod:status confirmou a revision ativa, mas o runtime informou estado degradado.',
+          label: 'Degradada',
+          tone: 'warning',
+          icon: ExclamationTriangleIcon,
+        };
+      }
+      if (commandDrift.value === 'drift') {
         return {
           title: 'Produção está em revision diferente',
           description:
-            'origin e produção apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
+            'prod:status e origin apontam para SHAs diferentes. Prepare um deployment para revisar e promover a revision atual.',
           label: 'Desatualizada',
           tone: 'warning',
           icon: ExclamationTriangleIcon,
         };
       }
-      if (isCommand.value && commandDrift.value === 'in-sync') {
+      if (commandDrift.value === 'in-sync' && status.runtimeState === 'ready') {
         return {
-          title: 'Último deployment registrado está alinhado',
+          title: 'Produção alinhada com origin',
           description:
-            'O SHA registrado coincide com origin, mas o estado vivo da produção não é observado por esta estratégia.',
-          label: 'Histórico alinhado',
-          tone: 'info',
-          icon: InformationCircleIcon,
+            'prod:status confirmou que a revision realmente ativa coincide com origin.',
+          label: 'Atualizada',
+          tone: 'success',
+          icon: CheckCircleIcon,
         };
       }
-      if (isCommand.value) {
-        return {
-          title: 'Estado de produção inconclusivo',
-          description:
-            'O último deployment terminou com sucesso, mas não há evidência suficiente para afirmar qual revision está ativa agora.',
-          label: 'Não verificado',
-          tone: 'neutral',
-          icon: InformationCircleIcon,
-        };
-      }
-    }
-
-    if (isCommand.value) {
       return {
-        title: 'Produção pronta para planejar',
+        title: 'Estado de produção inconclusivo',
         description:
-          'Prepare um deployment para revisar revision e etapas antes de confirmar qualquer mutação.',
-        label: 'Pronta',
-        tone: 'info',
+          'prod:status respondeu, mas ainda não há evidência suficiente para classificar a revision ativa.',
+        label: 'Não verificado',
+        tone: 'neutral',
         icon: InformationCircleIcon,
       };
     }
 
     if (isGitManaged.value) {
-      const status = providerStatus.value;
+      const status = gitManagedStatus.value;
       if (!status) {
         return {
           title: 'Status externo ainda não disponível',
@@ -583,6 +622,13 @@ function stepScript(step: {
 }): string {
   return step.script ?? 'Provider API';
 }
+function handleExecutionDetailsToggle(event: Event): void {
+  const target = event.currentTarget;
+  if (target instanceof HTMLDetailsElement) {
+    executionDetailsOpen.value = target.open;
+  }
+}
+
 function clearPoll(): void {
   if (pollTimer !== undefined) {
     window.clearTimeout(pollTimer);
@@ -655,6 +701,9 @@ async function loadExecutionState(current: number): Promise<void> {
   const latest = historyResult.items[0];
   activeDeployment.value =
     latest && !TERMINAL_STATUSES.has(latest.status) ? latest : null;
+  executionDetailsOpen.value = Boolean(
+    activeDeployment.value || (latest && latest.status !== 'succeeded'),
+  );
   if (latest) await loadDeploymentLog(latest.id, current);
 }
 
@@ -674,7 +723,7 @@ function scheduleRelevantPoll(current: number): void {
   if (
     isGitManaged.value &&
     ['queued', 'building'].includes(
-      providerStatus.value?.deployment?.state ?? '',
+      gitManagedStatus.value?.deployment?.state ?? '',
     )
   ) {
     schedulePoll(() => void pollProviderStatus(current), 3_000);
@@ -702,7 +751,6 @@ async function pollDeployment(current: number): Promise<void> {
     ]);
     if (current !== generation) return;
     resetPollFailures();
-    activeDeployment.value = deployment;
     if (nextLog) deploymentLog.value = nextLog;
 
     if (TERMINAL_STATUSES.has(deployment.status)) {
@@ -716,14 +764,19 @@ async function pollDeployment(current: number): Promise<void> {
       });
       if (current !== generation) return;
       history.value = refreshed.items;
-      activeDeployment.value = deployment;
-      if (isGitManaged.value) {
+      if (canExecuteDeployment.value) {
         await loadProviderState(current).catch((error: unknown) => {
           if (isAbortError(error)) throw error;
         });
       }
+      if (current !== generation) return;
+      activeDeployment.value = deployment;
+      executionDetailsOpen.value = deployment.status !== 'succeeded';
       return;
     }
+
+    activeDeployment.value = deployment;
+    executionDetailsOpen.value = true;
     schedulePoll(() => void pollDeployment(current), 700);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
@@ -746,7 +799,7 @@ async function pollProviderStatus(current: number): Promise<void> {
     if (
       current === generation &&
       ['queued', 'building'].includes(
-        providerStatus.value?.deployment?.state ?? '',
+        gitManagedStatus.value?.deployment?.state ?? '',
       )
     ) {
       schedulePoll(() => void pollProviderStatus(current), 3_000);
@@ -780,6 +833,7 @@ async function load(preserveOperation = false): Promise<void> {
   deploymentLog.value = null;
   providerStatus.value = null;
   gitWorkspace.value = null;
+  executionDetailsOpen.value = false;
   sudoModalOpen.value = false;
   sudoAuthorized.value = false;
 
@@ -791,7 +845,7 @@ async function load(preserveOperation = false): Promise<void> {
   initialLoading.value = true;
   try {
     await loadExecutionState(current);
-    if (isGitManaged.value) await loadProviderState(current);
+    if (canExecuteDeployment.value) await loadProviderState(current);
     if (current === generation) scheduleRelevantPoll(current);
   } catch (error) {
     if (current !== generation || isAbortError(error)) return;
@@ -818,10 +872,10 @@ async function preparePlan(): Promise<void> {
   if (!canExecuteDeployment.value || operation.value) return;
   if (
     isGitManaged.value &&
-    providerStatus.value?.providerAvailability !== 'available'
+    gitManagedStatus.value?.providerAvailability !== 'available'
   ) {
     errorMessage.value =
-      providerStatus.value?.errorMessage ??
+      gitManagedStatus.value?.errorMessage ??
       'Configure a integração Vercel antes de preparar o deployment.';
     return;
   }
@@ -882,6 +936,9 @@ async function confirmAndStart(): Promise<void> {
     if (current !== generation) return;
     plan.value = null;
     activeDeployment.value = deployment;
+    executionDetailsOpen.value = !TERMINAL_STATUSES.has(deployment.status)
+      ? true
+      : deployment.status !== 'succeeded';
     deploymentLog.value = null;
     history.value = [
       deployment,
@@ -917,6 +974,7 @@ async function retryLatestVerify(): Promise<void> {
     );
     if (current !== generation) return;
     activeDeployment.value = retrying;
+    executionDetailsOpen.value = true;
     history.value = [
       retrying,
       ...history.value.filter((item) => item.id !== retrying.id),
@@ -1038,7 +1096,7 @@ onBeforeUnmount(() => {
           <ArrowTopRightOnSquareIcon aria-hidden="true" />
         </a>
         <button
-          v-if="isGitManaged"
+          v-if="canExecuteDeployment"
           class="secondary-button"
           type="button"
           :disabled="Boolean(operation)"
@@ -1084,7 +1142,7 @@ onBeforeUnmount(() => {
           :disabled="
             Boolean(operation) ||
             (isGitManaged &&
-              providerStatus?.providerAvailability !== 'available')
+              gitManagedStatus?.providerAvailability !== 'available')
           "
           @click="preparePlan"
         >
@@ -1197,10 +1255,8 @@ onBeforeUnmount(() => {
       <details
         v-if="latestDeployment || (isGitManaged && visibleTimeline.length)"
         class="production-card production-execution-details"
-        :open="
-          hasActiveDeployment ||
-          Boolean(latestDeployment && latestDeployment.status !== 'succeeded')
-        "
+        :open="executionDetailsOpen"
+        @toggle="handleExecutionDetailsToggle"
       >
         <summary>
           <div>
@@ -1311,23 +1367,23 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div
-          v-if="isGitManaged && providerStatus"
+          v-if="isGitManaged && gitManagedStatus"
           class="production-provider-detail"
         >
           <div>
             <strong>{{
-              providerStatus.providerProjectName ??
-              providerStatus.externalProject
+              gitManagedStatus.providerProjectName ??
+              gitManagedStatus.externalProject
             }}</strong>
             <StatusBadge
               :tone="
-                providerStatus.providerAvailability === 'available'
+                gitManagedStatus.providerAvailability === 'available'
                   ? 'success'
                   : 'warning'
               "
             >
               {{
-                providerAvailabilityLabel(providerStatus.providerAvailability)
+                providerAvailabilityLabel(gitManagedStatus.providerAvailability)
               }}
             </StatusBadge>
           </div>
@@ -1340,12 +1396,15 @@ onBeforeUnmount(() => {
             Abrir deployment <ArrowTopRightOnSquareIcon aria-hidden="true" />
           </a>
           <div
-            v-if="providerStatus.localOperations.length"
+            v-if="gitManagedStatus.localOperations.length"
             class="production-local-operations"
           >
             <span>Operações locais declaradas</span>
             <div>
-              <code v-for="item in providerStatus.localOperations" :key="item">
+              <code
+                v-for="item in gitManagedStatus.localOperations"
+                :key="item"
+              >
                 {{ commandScript(item) }}
               </code>
             </div>

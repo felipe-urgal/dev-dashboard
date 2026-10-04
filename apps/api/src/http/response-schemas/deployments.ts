@@ -319,7 +319,58 @@ const providerSnapshotResponseSchema = {
   },
 } as const;
 
-export const productionDeploymentStatusResponseSchema = {
+const commandProductionStatusResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'projectId',
+    'projectName',
+    'strategy',
+    'provider',
+    'branch',
+    'statusAvailability',
+    'checkedAt',
+    'drift',
+  ],
+  properties: {
+    projectId: { type: 'string' },
+    projectName: { type: 'string' },
+    strategy: { type: 'string', enum: ['command'] },
+    provider: { type: 'string', enum: ['systemd', 'docker-compose'] },
+    branch: { type: 'string' },
+    statusAvailability: {
+      type: 'string',
+      enum: [
+        'available',
+        'timeout',
+        'command-failed',
+        'invalid-response',
+        'unavailable',
+      ],
+    },
+    checkedAt: { type: 'string' },
+    originRevision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+    productionRevision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+    drift: { type: 'string', enum: ['in-sync', 'drift', 'unknown'] },
+    runtimeState: {
+      type: 'string',
+      enum: ['ready', 'degraded', 'unavailable'],
+    },
+    errorCode: {
+      type: 'string',
+      enum: [
+        'DEPLOYMENT_COMMAND_STATUS_TIMEOUT',
+        'DEPLOYMENT_COMMAND_STATUS_FAILED',
+        'DEPLOYMENT_COMMAND_STATUS_INVALID',
+        'DEPLOYMENT_PACKAGE_MANAGER_UNSUPPORTED',
+        'DEPLOYMENT_PRODUCTION_UNAVAILABLE',
+      ],
+    },
+    errorMessage: { type: 'string' },
+  },
+} as const;
+
+const gitManagedProductionStatusResponseSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -374,4 +425,11 @@ export const productionDeploymentStatusResponseSchema = {
     },
     errorMessage: { type: 'string' },
   },
+} as const;
+
+export const productionDeploymentStatusResponseSchema = {
+  oneOf: [
+    commandProductionStatusResponseSchema,
+    gitManagedProductionStatusResponseSchema,
+  ],
 } as const;

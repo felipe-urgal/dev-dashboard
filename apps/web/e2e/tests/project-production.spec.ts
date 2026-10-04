@@ -43,7 +43,7 @@ test.describe('produção por projeto', () => {
       .click();
 
     await expect(
-      page.getByRole('heading', { name: 'Produção pronta para planejar' }),
+      page.getByRole('heading', { name: 'Produção alinhada com origin' }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Preparar deployment' }),
@@ -60,15 +60,13 @@ test.describe('produção por projeto', () => {
 
     await expect(
       page.getByRole('heading', {
-        name: 'Último deployment registrado está alinhado',
+        name: 'Produção alinhada com origin',
       }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText('Detalhes da última execução', { exact: true }),
     ).toBeVisible();
-    await page
-      .getByText('Detalhes da última execução', { exact: true })
-      .click();
+    await page.locator('.production-execution-details > summary').click();
     await expect(
       page.getByRole('heading', { name: 'Timeline do deployment' }),
     ).toBeVisible();
@@ -103,7 +101,7 @@ test.describe('produção por projeto', () => {
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByRole('heading', {
-        name: 'Último deployment registrado está alinhado',
+        name: 'Produção alinhada com origin',
       }),
     ).toBeVisible({ timeout: 15_000 });
   });
