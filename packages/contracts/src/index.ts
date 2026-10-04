@@ -119,6 +119,7 @@ export type {
 } from './production.js';
 
 export type {
+  CommandProductionDeploymentStatus,
   Deployment,
   DeploymentCommandPlanStep,
   DeploymentConfirmation,
@@ -140,6 +141,11 @@ export type {
   DeploymentStepId,
   DeploymentStepStatus,
   DeploymentTimelineStep,
+  GitManagedProductionDeploymentStatus,
+  ProductionCommandRuntimeState,
+  ProductionCommandStatusAvailability,
+  ProductionCommandStatusIssueCode,
+  ProductionCommandStatusV1,
   ProductionDeploymentStatus,
   ProductionOverview,
   ProductionOverviewHealth,
