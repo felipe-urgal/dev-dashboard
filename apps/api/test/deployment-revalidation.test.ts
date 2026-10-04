@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import type { DeploymentPlanStep, Project } from '@dev-dashboard/contracts';
 
+import type { DeploymentExecutionFingerprintResolver } from '../src/deployment/execution-fingerprint.js';
 import type { DeploymentCommandRunner } from '../src/deployment/service.js';
 import { DeploymentService } from '../src/deployment/service.js';
 import type {
@@ -27,6 +28,16 @@ class MutableRevisionResolver implements DeploymentRevisionResolver {
 
   public async resolve(): Promise<DeploymentRevision> {
     return { ...this.current };
+  }
+}
+
+class MutableExecutionFingerprintResolver
+  implements DeploymentExecutionFingerprintResolver
+{
+  public current = 'environment-a';
+
+  public async resolve(): Promise<string> {
+    return this.current;
   }
 }
 
@@ -136,4 +147,37 @@ test('mudança de revision depois do check impede a próxima etapa', async (t) =
   assert.equal(finished.errorCode, 'DEPLOYMENT_PLAN_STALE');
   assert.equal(finished.timeline[0]?.status, 'succeeded');
   assert.equal(finished.timeline[1]?.status, 'pending');
+});
+
+
+test('mudança no ambiente local depois da confirmação invalida o deployment', async (t) => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-revalidate-env-'),
+  );
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  const revision = new MutableRevisionResolver();
+  const environment = new MutableExecutionFingerprintResolver();
+  const runner = new RevisionChangingRunner(revision);
+  const service = new DeploymentService({
+    revisionResolver: revision,
+    executionFingerprintResolver: environment,
+    adapter: runner,
+    store: new DeploymentStore(directory),
+  });
+  t.after(() => service.close());
+
+  const target = project(directory);
+  const plan = await service.plan(target);
+  const confirmation = await service.prepareConfirmation(target, plan.planHash);
+  environment.current = 'environment-b';
+
+  await assert.rejects(
+    service.start(target, plan.planHash, confirmation.token),
+    (error: unknown) =>
+      error instanceof Error &&
+      'code' in error &&
+      error.code === 'DEPLOYMENT_ENVIRONMENT_CHANGED',
+  );
+  assert.deepEqual(runner.calls, []);
 });
