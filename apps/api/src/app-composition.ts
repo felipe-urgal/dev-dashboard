@@ -308,6 +308,7 @@ export function createAppComposition(
     new DockerComposeRecoveryService(
       context.projectStore,
       context.developmentEnvironmentInstanceStore,
+      dockerComposeOwnershipStore,
       dockerComposeProvider,
       dockerComposeLifecycleService,
     );
