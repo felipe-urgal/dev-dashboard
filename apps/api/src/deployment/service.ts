@@ -329,7 +329,8 @@ export class DeploymentService {
 
   public activityJobs(projectId: string): ActivityJob[] {
     const active = this.active;
-    if (!active || active.projectId !== projectId || active.handedOff) return [];
+    if (!active || active.projectId !== projectId || active.handedOff)
+      return [];
     return [
       {
         id: `deployment:${active.deploymentId}`,
@@ -444,7 +445,8 @@ export class DeploymentService {
               .catch(() => undefined);
           },
           async (providerDeploymentId) => {
-            if (deployment.providerDeploymentId === providerDeploymentId) return;
+            if (deployment.providerDeploymentId === providerDeploymentId)
+              return;
             deployment = { ...deployment, providerDeploymentId };
             await this.store.save(deployment);
           },
