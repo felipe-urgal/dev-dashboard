@@ -44,8 +44,11 @@ import { DevContainerRecoveryService } from './services/dev-container-recovery-s
 import { DevContainerOwnershipStore } from './services/dev-container-ownership-store.js';
 import { DevContainerStartService } from './services/dev-container-start-service.js';
 import { DevContainerStopConfirmationService } from './services/dev-container-stop-confirmation-service.js';
+import { DockerComposeLifecycleConfirmationService } from './services/docker-compose-lifecycle-confirmation-service.js';
+import { DockerComposeLifecycleExecutionService } from './services/docker-compose-lifecycle-execution-service.js';
 import { DockerComposeLifecycleService } from './services/docker-compose-lifecycle-service.js';
 import { DockerComposeOwnershipStore } from './services/docker-compose-ownership-store.js';
+import { DockerComposeRecoveryService } from './services/docker-compose-recovery-service.js';
 import { DockerComposePreflightService } from './services/docker-compose-preflight-service.js';
 import { DockerComposeProvider } from './services/docker-compose-provider.js';
 import { AttentionCenterService } from './services/attention-center-service.js';
@@ -95,6 +98,15 @@ export interface AppCompositionOptions {
     DockerComposeLifecycleService,
     'start' | 'stop' | 'restart' | 'logs' | 'reconcile'
   >;
+  dockerComposeLifecycleConfirmationService?: Pick<
+    DockerComposeLifecycleConfirmationService,
+    'prepare' | 'consume'
+  >;
+  dockerComposeLifecycleExecutionService?: Pick<
+    DockerComposeLifecycleExecutionService,
+    'start' | 'latest' | 'activityJobs'
+  >;
+  dockerComposeRecoveryService?: Pick<DockerComposeRecoveryService, 'reconcile'>;
   dockerComposeOwnershipStore?: Pick<
     DockerComposeOwnershipStore,
     'get' | 'claim' | 'release'
@@ -277,6 +289,26 @@ export function createAppComposition(
         ...(options.now ? { now: () => new Date(options.now!()) } : {}),
       },
     );
+  const dockerComposeLifecycleConfirmationService =
+    options.dockerComposeLifecycleConfirmationService ??
+    new DockerComposeLifecycleConfirmationService(options.now ?? Date.now);
+  const dockerComposeLifecycleExecutionService =
+    options.dockerComposeLifecycleExecutionService ??
+    new DockerComposeLifecycleExecutionService(
+      dockerComposeLifecycleService,
+      dockerComposeLifecycleConfirmationService,
+      context.activityEventRepository,
+      options.now ? () => new Date(options.now!()) : undefined,
+    );
+  const dockerComposeRecoveryService =
+    options.dockerComposeRecoveryService ??
+    new DockerComposeRecoveryService(
+      context.projectStore,
+      context.developmentEnvironmentInstanceStore,
+      dockerComposeProvider,
+      dockerComposeLifecycleService,
+    );
+
   const projectFileMutationService = new ProjectFileMutationService(
     options.now ?? Date.now,
   );
@@ -419,6 +451,7 @@ export function createAppComposition(
     activityJobReaders: [
       context.projectDependenciesPtyService,
       devContainerLifecycleExecutionService,
+      dockerComposeLifecycleExecutionService,
       deploymentService,
       ...(migrationMutationExecutionService
         ? [migrationMutationExecutionService]
@@ -443,6 +476,9 @@ export function createAppComposition(
     dockerComposeProvider,
     dockerComposePreflightService,
     dockerComposeLifecycleService,
+    dockerComposeLifecycleConfirmationService,
+    dockerComposeLifecycleExecutionService,
+    dockerComposeRecoveryService,
     dockerComposeOwnershipStore,
     dockerComposePortLeaseRegistry,
     projectFileMutationService,
@@ -661,6 +697,11 @@ export function registerAppLifecycle(
       await composition.devContainerRecoveryService?.reconcile();
     } catch (error) {
       app.log.warn({ err: error }, 'dev container recovery unavailable');
+    }
+    try {
+      await composition.dockerComposeRecoveryService?.reconcile();
+    } catch (error) {
+      app.log.warn({ err: error }, 'docker compose recovery unavailable');
     }
     try {
       await composition.agentBrowserRuntime?.start();
