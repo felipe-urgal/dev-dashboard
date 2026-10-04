@@ -160,11 +160,18 @@ function parseDotenv(
   const parsed = parseEnv(contents);
   return Object.entries(parsed)
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([name, value]) => ({
-      name,
-      value,
-      sensitive: isSensitiveEnvironmentVariable(name, value, forceSensitive),
-    }));
+    .map(([name, value]) => {
+      const normalizedValue = value ?? '';
+      return {
+        name,
+        value: normalizedValue,
+        sensitive: isSensitiveEnvironmentVariable(
+          name,
+          normalizedValue,
+          forceSensitive,
+        ),
+      };
+    });
 }
 
 async function readEnvironmentFile(
