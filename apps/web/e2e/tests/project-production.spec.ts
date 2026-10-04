@@ -43,7 +43,7 @@ test.describe('produção por projeto', () => {
       .click();
 
     await expect(
-      page.getByRole('heading', { name: 'Produção pronta para planejar' }),
+      page.getByRole('heading', { name: 'Produção alinhada com origin' }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Preparar deployment' }),
