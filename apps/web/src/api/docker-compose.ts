@@ -239,29 +239,25 @@ export async function fetchDockerComposeLogs(
   return response.logs;
 }
 
-
 export async function prepareDockerComposeLifecycleConfirmation(
   projectId: string,
   operation: DockerComposeLifecycleOperation,
   service?: string,
   environmentInstanceId?: string,
 ): Promise<DockerComposeLifecycleConfirmation> {
-  const response = await requestJson<DockerComposeLifecycleConfirmationResponse>(
-    projectUrl(projectId, environmentInstanceId).replace(
-      /\?.*$/u,
-      '',
-    ) +
-      '/lifecycle-confirmations' +
-      (environmentInstanceId
-        ? '?' +
-          new URLSearchParams({ environmentInstanceId }).toString()
-        : ''),
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operation, service: service ?? null }),
-    },
-  );
+  const response =
+    await requestJson<DockerComposeLifecycleConfirmationResponse>(
+      projectUrl(projectId, environmentInstanceId).replace(/\?.*$/u, '') +
+        '/lifecycle-confirmations' +
+        (environmentInstanceId
+          ? '?' + new URLSearchParams({ environmentInstanceId }).toString()
+          : ''),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operation, service: service ?? null }),
+      },
+    );
   return response.confirmation;
 }
 
@@ -273,14 +269,10 @@ export async function startDockerComposeLifecycleExecution(
   environmentInstanceId?: string,
 ): Promise<DockerComposeLifecycleExecution> {
   const response = await requestJson<DockerComposeLifecycleExecutionResponse>(
-    projectUrl(projectId, environmentInstanceId).replace(
-      /\?.*$/u,
-      '',
-    ) +
+    projectUrl(projectId, environmentInstanceId).replace(/\?.*$/u, '') +
       '/lifecycle-executions' +
       (environmentInstanceId
-        ? '?' +
-          new URLSearchParams({ environmentInstanceId }).toString()
+        ? '?' + new URLSearchParams({ environmentInstanceId }).toString()
         : ''),
     {
       method: 'POST',
@@ -301,14 +293,10 @@ export async function fetchDockerComposeLifecycleExecution(
 ): Promise<DockerComposeLifecycleExecution | null> {
   const response =
     await requestJson<DockerComposeLatestLifecycleExecutionResponse>(
-      projectUrl(projectId, environmentInstanceId).replace(
-        /\?.*$/u,
-        '',
-      ) +
+      projectUrl(projectId, environmentInstanceId).replace(/\?.*$/u, '') +
         '/lifecycle-execution' +
         (environmentInstanceId
-          ? '?' +
-            new URLSearchParams({ environmentInstanceId }).toString()
+          ? '?' + new URLSearchParams({ environmentInstanceId }).toString()
           : ''),
     );
   return response.execution;

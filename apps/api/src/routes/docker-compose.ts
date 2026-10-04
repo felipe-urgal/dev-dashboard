@@ -490,7 +490,8 @@ function requireComposeProject(
   projectId: string,
   environmentInstanceId?: string,
 ): Project {
-  return requireComposeTarget(options, projectId, environmentInstanceId).project;
+  return requireComposeTarget(options, projectId, environmentInstanceId)
+    .project;
 }
 
 function throwLifecycleApiError(error: unknown): never {
@@ -532,8 +533,7 @@ function throwLifecycleApiError(error: unknown): never {
 function throwExecutionApiError(error: unknown): never {
   if (error instanceof DockerComposeLifecycleConfirmationError) {
     throw new ApiError({
-      statusCode:
-        error.code === 'COMPOSE_CONFIRMATION_EXPIRED' ? 409 : 400,
+      statusCode: error.code === 'COMPOSE_CONFIRMATION_EXPIRED' ? 409 : 400,
       code:
         error.code === 'COMPOSE_CONFIRMATION_EXPIRED'
           ? 'CONFLICT'
