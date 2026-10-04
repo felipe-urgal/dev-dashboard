@@ -59,7 +59,9 @@ test.describe('produção por projeto', () => {
     await page.getByRole('button', { name: 'Iniciar deployment' }).click();
 
     await expect(
-      page.getByRole('heading', { name: 'Último deployment registrado está alinhado' }),
+      page.getByRole('heading', {
+        name: 'Último deployment registrado está alinhado',
+      }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText('Detalhes da última execução', { exact: true }),
@@ -100,7 +102,9 @@ test.describe('produção por projeto', () => {
       page.getByText('Detalhes da última execução', { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByRole('heading', { name: 'Último deployment registrado está alinhado' }),
+      page.getByRole('heading', {
+        name: 'Último deployment registrado está alinhado',
+      }),
     ).toBeVisible({ timeout: 15_000 });
   });
 });
