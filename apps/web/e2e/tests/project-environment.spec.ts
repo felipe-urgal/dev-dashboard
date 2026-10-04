@@ -23,10 +23,16 @@ test.describe('Variáveis de ambiente do projeto', () => {
       page.getByRole('region', { name: 'Arquivo .env' }),
     ).toBeVisible();
 
-    await expect(page.getByText('PUBLIC_API_URL')).toBeVisible();
+    await expect(
+      page.getByRole('rowheader', { name: 'PUBLIC_API_URL' }),
+    ).toBeVisible();
     await expect(page.getByText('https://example.com')).toBeVisible();
-    await expect(page.getByText('API_SECRET_TOKEN')).toBeVisible();
-    await expect(page.getByText('DATABASE_URL')).toBeVisible();
+    await expect(
+      page.getByRole('rowheader', { name: 'API_SECRET_TOKEN' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('rowheader', { name: 'DATABASE_URL' }),
+    ).toBeVisible();
     await expect(page.getByText('Segredo').first()).toBeVisible();
 
     await expect(page.locator('body')).not.toContainText('segredo-de-teste');
@@ -50,7 +56,9 @@ test.describe('Variáveis de ambiente do projeto', () => {
       })
       .click();
     await expect(page.getByText('runtime produção')).toBeVisible();
-    await expect(page.getByText('DATABASE_URL')).toBeVisible();
+    await expect(
+      page.getByRole('rowheader', { name: 'DATABASE_URL' }),
+    ).toBeVisible();
     await expect(page.locator('body')).not.toContainText('prod-secret');
   });
 });
