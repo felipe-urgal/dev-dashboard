@@ -6,6 +6,7 @@ import {
 } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 import type { DockerComposeLifecycleService } from './docker-compose-lifecycle-service.js';
+import type { DockerComposeOwnershipStore } from './docker-compose-ownership-store.js';
 import type { DockerComposeProvider } from './docker-compose-provider.js';
 
 type ProjectStoreView = Pick<ProjectStore, 'findProject'>;
@@ -32,6 +33,7 @@ export class DockerComposeRecoveryService {
   public constructor(
     private readonly projectStore: ProjectStoreView,
     private readonly environmentStore: EnvironmentStore,
+    private readonly ownershipStore: Pick<DockerComposeOwnershipStore, 'get'>,
     private readonly provider: Pick<DockerComposeProvider, 'inspect'>,
     private readonly lifecycle: Pick<
       DockerComposeLifecycleService,
@@ -49,9 +51,12 @@ export class DockerComposeRecoveryService {
       const project = this.projectStore.findProject(instance.projectId);
       if (!project) continue;
 
-      inspected += 1;
       const target = scopedProject(project, instance.id, instance.source.path);
       try {
+        const ownership = await this.ownershipStore.get(target);
+        if (!ownership) continue;
+
+        inspected += 1;
         const inspection = await this.provider.inspect(target);
         const result = await this.lifecycle.reconcile(target, inspection);
         if (result.state === 'unavailable') unavailable += 1;
