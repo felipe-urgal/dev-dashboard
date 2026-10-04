@@ -222,19 +222,37 @@ test('Compose usa a mesma Environment Instance para cwd e ownership isolado', as
   assert.equal(fixture.inspectedProjects.at(-1)?.id, fixture.worktree.id);
   assert.equal(fixture.inspectedProjects.at(-1)?.path, fixture.worktreePath);
 
-  const restart = await fixture.app.inject({
+  const confirmation = await fixture.app.inject({
     method: 'POST',
     url:
-      '/api/projects/project-1/docker-compose/restart?environmentInstanceId=' +
+      '/api/projects/project-1/docker-compose/lifecycle-confirmations?environmentInstanceId=' +
       environmentQuery,
     headers: {
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: { service: 'web' },
+    payload: { operation: 'restart', service: 'web' },
+  });
+  assert.equal(confirmation.statusCode, 201);
+
+  const restart = await fixture.app.inject({
+    method: 'POST',
+    url:
+      '/api/projects/project-1/docker-compose/lifecycle-executions?environmentInstanceId=' +
+      environmentQuery,
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: {
+      operation: 'restart',
+      service: 'web',
+      confirmationToken: confirmation.json().confirmation.token,
+    },
   });
 
-  assert.equal(restart.statusCode, 200);
+  assert.equal(restart.statusCode, 202);
+  await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(fixture.calls[0]?.project.id, fixture.worktree.id);
   assert.equal(fixture.calls[0]?.project.path, fixture.worktreePath);
 });
@@ -246,13 +264,13 @@ test('Compose rejeita Environment Instance desconhecida antes do lifecycle', asy
   const response = await fixture.app.inject({
     method: 'POST',
     url:
-      '/api/projects/project-1/docker-compose/start?environmentInstanceId=' +
+      '/api/projects/project-1/docker-compose/lifecycle-confirmations?environmentInstanceId=' +
       encodeURIComponent('environment:worktree:project-1:missing'),
     headers: {
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: {},
+    payload: { operation: 'start', service: null },
   });
 
   assert.equal(response.statusCode, 404);
@@ -264,17 +282,33 @@ test('Compose mutações resolvem Project no backend e aceitam somente serviço 
   const fixture = await createFixture();
   context.after(() => fixture.app.close());
 
-  const response = await fixture.app.inject({
+  const confirmation = await fixture.app.inject({
     method: 'POST',
-    url: '/api/projects/project-1/docker-compose/restart',
+    url: '/api/projects/project-1/docker-compose/lifecycle-confirmations',
     headers: {
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: { service: 'web' },
+    payload: { operation: 'restart', service: 'web' },
+  });
+  assert.equal(confirmation.statusCode, 201);
+
+  const response = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/docker-compose/lifecycle-executions',
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: {
+      operation: 'restart',
+      service: 'web',
+      confirmationToken: confirmation.json().confirmation.token,
+    },
   });
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 202);
+  await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(fixture.calls.length, 1);
   assert.equal(fixture.calls[0]?.action, 'restart');
   assert.equal(fixture.calls[0]?.service, 'web');
@@ -287,12 +321,13 @@ test('Compose rejeita path, argv e executable enviados pelo browser', async (con
 
   const withService = await fixture.app.inject({
     method: 'POST',
-    url: '/api/projects/project-1/docker-compose/stop',
+    url: '/api/projects/project-1/docker-compose/lifecycle-confirmations',
     headers: {
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
     payload: {
+      operation: 'stop',
       service: 'web',
       path: '/etc',
       executable: '/bin/sh',
@@ -301,16 +336,35 @@ test('Compose rejeita path, argv e executable enviados pelo browser', async (con
   });
   const withoutService = await fixture.app.inject({
     method: 'POST',
-    url: '/api/projects/project-1/docker-compose/stop',
+    url: '/api/projects/project-1/docker-compose/lifecycle-confirmations',
     headers: {
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: { path: '/etc' },
+    payload: { operation: 'stop', service: null, path: '/etc' },
   });
 
   assert.equal(withService.statusCode, 400);
   assert.equal(withoutService.statusCode, 400);
+  assert.equal(fixture.calls.length, 0);
+});
+
+test('Compose não expõe mais mutações síncronas sem confirmação', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  for (const action of ['start', 'stop', 'restart']) {
+    const response = await fixture.app.inject({
+      method: 'POST',
+      url: `/api/projects/project-1/docker-compose/${action}`,
+      headers: {
+        'x-dev-dashboard-token': TOKEN,
+        'content-type': 'application/json',
+      },
+      payload: action === 'start' ? {} : { service: null },
+    });
+    assert.equal(response.statusCode, 404);
+  }
   assert.equal(fixture.calls.length, 0);
 });
 
@@ -336,12 +390,12 @@ test('Compose retorna 404 sem tocar lifecycle para projeto inexistente', async (
 
   const response = await fixture.app.inject({
     method: 'POST',
-    url: '/api/projects/missing/docker-compose/start',
+    url: '/api/projects/missing/docker-compose/lifecycle-confirmations',
     headers: {
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: {},
+    payload: { operation: 'start', service: null },
   });
 
   assert.equal(response.statusCode, 404);
