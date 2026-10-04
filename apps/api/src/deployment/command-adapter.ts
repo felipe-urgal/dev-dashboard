@@ -248,9 +248,16 @@ export class ProductionCommandAdapter {
     step: DeploymentPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
+    onProviderDeploymentId?: (providerDeploymentId: string) => Promise<void>,
   ): Promise<ProductionCommandResult> {
     if (step.id === 'provider-deploy') {
-      return this.providerAdapter.run(project, step, signal, onOutput);
+      return this.providerAdapter.run(
+        project,
+        step,
+        signal,
+        onOutput,
+        onProviderDeploymentId,
+      );
     }
     if (step.id === 'self-update') {
       throw new DeploymentError(
