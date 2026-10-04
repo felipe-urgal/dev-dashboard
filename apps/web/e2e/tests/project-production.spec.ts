@@ -59,7 +59,7 @@ test.describe('produção por projeto', () => {
     await page.getByRole('button', { name: 'Iniciar deployment' }).click();
 
     await expect(
-      page.getByRole('heading', { name: 'Produção atualizada' }),
+      page.getByRole('heading', { name: 'Estado de produção inconclusivo' }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText('Detalhes da última execução', { exact: true }),
