@@ -53,7 +53,9 @@ export type DockerComposeLifecycleErrorCode =
   | 'COMPOSE_OWNERSHIP_REQUIRED'
   | 'COMPOSE_OWNERSHIP_MISMATCH'
   | 'COMPOSE_OWNERSHIP_PERSIST_FAILED'
-  | 'COMPOSE_SERVICE_INVALID';
+  | 'COMPOSE_SERVICE_INVALID'
+  | 'COMPOSE_RECOVERY_REQUIRED'
+  | 'COMPOSE_MUTATION_IN_PROGRESS';
 
 export class DockerComposeLifecycleError extends Error {
   public constructor(
@@ -209,6 +211,7 @@ export class DockerComposeLifecycleService {
   private readonly ownershipStore: DockerComposeLifecycleServiceOptions['ownershipStore'];
   private readonly portLeaseRegistry: DockerComposeLifecycleServiceOptions['portLeaseRegistry'];
   private readonly now: () => Date;
+  private readonly activeMutations = new Set<string>();
 
   public constructor(
     private readonly provider: Pick<DockerComposeProvider, 'inspect'>,
@@ -222,9 +225,19 @@ export class DockerComposeLifecycleService {
     this.now = options.now ?? (() => new Date());
   }
 
-  public async start(
+  public start(
     project: Project,
     preflightInput: DockerComposePortPreflightInput = {},
+    service?: string,
+  ): Promise<DockerComposeStartResult> {
+    return this.withMutation(project, () =>
+      this.startMutation(project, preflightInput, service),
+    );
+  }
+
+  private async startMutation(
+    project: Project,
+    preflightInput: DockerComposePortPreflightInput,
     service?: string,
   ): Promise<DockerComposeStartResult> {
     const before = await this.provider.inspect(project);
@@ -291,6 +304,12 @@ export class DockerComposeLifecycleService {
           'O ownership persistido pertence a outro projeto Compose.',
         );
       }
+      if (!existing && (before.runtime?.services.length ?? 0) > 0) {
+        throw new DockerComposeLifecycleError(
+          'COMPOSE_OWNERSHIP_REQUIRED',
+          'Existe uma stack Docker Compose observada sem ownership comprovado do Dashboard.',
+        );
+      }
       if (!existing) {
         try {
           await this.ownershipStore.claim(project, composeProjectName);
@@ -332,6 +351,21 @@ export class DockerComposeLifecycleService {
         },
       );
     } catch {
+      const afterFailure = await this.provider
+        .inspect(project)
+        .catch(() => undefined);
+      const absenceProven =
+        afterFailure?.state === 'available' &&
+        Boolean(afterFailure.runtime) &&
+        afterFailure.runtime!.services.length === 0;
+
+      if (!absenceProven) {
+        throw new DockerComposeLifecycleError(
+          'COMPOSE_RECOVERY_REQUIRED',
+          'O start falhou após iniciar uma etapa mutável e o estado final da stack não pôde ser provado; ownership e leases foram preservados para recuperação.',
+        );
+      }
+
       this.releaseCreatedPortLeases(portLeases);
       if (claimedOwnership) {
         await this.ownershipStore?.release(project).catch(() => false);
@@ -343,26 +377,41 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
-    const observedServices = after ? this.targetServices(after, service) : [];
-    if (
-      !after ||
-      after.state !== 'available' ||
-      !after.runtime ||
-      observedServices.length === 0
-    ) {
+    const expectedServices = this.expectedStartServices(before, service);
+    const verified =
+      after?.state === 'available' &&
+      Boolean(after.runtime) &&
+      expectedServices.length > 0 &&
+      expectedServices.every((name) => {
+        const observed = after.runtime!.services.find(
+          (item) => item.service === name,
+        );
+        return (
+          observed?.state === 'running' || observed?.state === 'restarting'
+        );
+      });
+
+    if (!verified) {
       return {
         state: 'started-unverified',
         preflight: checked,
         ...(after ? { inspection: after } : {}),
         diagnostic:
-          'A operação de start terminou, mas o runtime não pôde ser comprovado na inspeção seguinte.',
+          'A operação de start terminou, mas todos os serviços esperados não puderam ser comprovados como ativos.',
       };
     }
 
     return { state: 'started', preflight: checked, inspection: after };
   }
 
-  public async stop(
+  public stop(
+    project: Project,
+    service?: string,
+  ): Promise<DockerComposeMutationResult> {
+    return this.withMutation(project, () => this.stopMutation(project, service));
+  }
+
+  private async stopMutation(
     project: Project,
     service?: string,
   ): Promise<DockerComposeMutationResult> {
@@ -376,7 +425,6 @@ export class DockerComposeLifecycleService {
           maxBufferBytes: MUTATION_MAX_BUFFER_BYTES,
         },
       );
-      if (!service) this.portLeaseRegistry?.releaseProject(project.id);
     } catch {
       throw new DockerComposeLifecycleError(
         'COMPOSE_STOP_FAILED',
@@ -385,16 +433,30 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
-    const observedServices = after ? this.targetServices(after, service) : [];
+    const expectedServices = this.expectedRuntimeServices(
+      target.inspection,
+      service,
+    );
     const verified =
-      Boolean(after?.runtime) &&
-      observedServices.length > 0 &&
-      observedServices.every(
-        (item) =>
-          item.state !== 'running' &&
-          item.state !== 'restarting' &&
-          item.state !== 'paused',
-      );
+      after?.state === 'available' &&
+      Boolean(after.runtime) &&
+      expectedServices.length > 0 &&
+      expectedServices.every((name) => {
+        const observed = after.runtime!.services.find(
+          (item) => item.service === name,
+        );
+        return (
+          observed !== undefined &&
+          observed.state !== 'running' &&
+          observed.state !== 'restarting' &&
+          observed.state !== 'paused'
+        );
+      });
+
+    if (verified && !service) {
+      this.portLeaseRegistry?.releaseProject(project.id);
+    }
+
     return verified
       ? {
           state: 'stopped',
@@ -408,10 +470,20 @@ export class DockerComposeLifecycleService {
         };
   }
 
-  public async restart(
+  public restart(
     project: Project,
     service?: string,
     preflightInput: DockerComposePortPreflightInput = {},
+  ): Promise<DockerComposeMutationResult> {
+    return this.withMutation(project, () =>
+      this.restartMutation(project, service, preflightInput),
+    );
+  }
+
+  private async restartMutation(
+    project: Project,
+    service: string | undefined,
+    preflightInput: DockerComposePortPreflightInput,
   ): Promise<DockerComposeMutationResult> {
     const target = await this.requireOwnedTarget(project, service);
     const checked = await this.preflight.inspect(
@@ -459,13 +531,22 @@ export class DockerComposeLifecycleService {
     }
 
     const after = await this.provider.inspect(project).catch(() => undefined);
-    const observedServices = after ? this.targetServices(after, service) : [];
+    const expectedServices = this.expectedRuntimeServices(
+      target.inspection,
+      service,
+    );
     const verified =
-      Boolean(after?.runtime) &&
-      observedServices.length > 0 &&
-      observedServices.every(
-        (item) => item.state === 'running' || item.state === 'restarting',
-      );
+      after?.state === 'available' &&
+      Boolean(after.runtime) &&
+      expectedServices.length > 0 &&
+      expectedServices.every((name) => {
+        const observed = after.runtime!.services.find(
+          (item) => item.service === name,
+        );
+        return (
+          observed?.state === 'running' || observed?.state === 'restarting'
+        );
+      });
     return verified
       ? {
           state: 'restarted',
@@ -591,6 +672,45 @@ export class DockerComposeLifecycleService {
       redactionCount: masked.redactionCount,
       readAt: this.now().toISOString(),
     };
+  }
+
+  private async withMutation<T>(
+    project: Project,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    if (this.activeMutations.has(project.id)) {
+      throw new DockerComposeLifecycleError(
+        'COMPOSE_MUTATION_IN_PROGRESS',
+        'Já existe uma mutação Docker Compose em andamento para esta Environment Instance.',
+      );
+    }
+
+    this.activeMutations.add(project.id);
+    try {
+      return await operation();
+    } finally {
+      this.activeMutations.delete(project.id);
+    }
+  }
+
+  private expectedStartServices(
+    inspection: DockerComposeInspection,
+    service?: string,
+  ): string[] {
+    if (service) return [service];
+    return (
+      inspection.config?.services
+        .filter((item) => item.profiles.length === 0)
+        .map((item) => item.name) ?? []
+    );
+  }
+
+  private expectedRuntimeServices(
+    inspection: DockerComposeInspection,
+    service?: string,
+  ): string[] {
+    if (service) return [service];
+    return inspection.runtime?.services.map((item) => item.service) ?? [];
   }
 
   private reservePublishedPortLeases(
