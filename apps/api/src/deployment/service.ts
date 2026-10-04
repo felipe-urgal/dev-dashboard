@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  ActivityJob,
   Deployment,
   DeploymentConfirmation,
   DeploymentHistory,
@@ -39,6 +40,10 @@ interface ActiveDeployment {
   deploymentId: string;
   projectId: string;
   controller: AbortController;
+  startedAt: string;
+  stage: string;
+  stageStartedAt: string;
+  cancelSupported: boolean;
   handedOff?: boolean;
 }
 
@@ -48,6 +53,7 @@ export interface DeploymentCommandRunner {
     step: DeploymentPlanStep,
     signal: AbortSignal,
     onOutput: (output: MaskedLogContent) => void,
+    onProviderDeploymentId?: (providerDeploymentId: string) => Promise<void>,
   ): Promise<ProductionCommandResult>;
 }
 
@@ -171,6 +177,10 @@ export class DeploymentService {
       deploymentId: deployment.id,
       projectId: deployment.projectId,
       controller,
+      startedAt: deployment.createdAt,
+      stage: 'planned',
+      stageStartedAt: deployment.createdAt,
+      cancelSupported: true,
     };
 
     try {
@@ -236,6 +246,10 @@ export class DeploymentService {
       deploymentId: retrying.id,
       projectId: retrying.projectId,
       controller,
+      startedAt: retrying.startedAt ?? startedAt,
+      stage: 'verify',
+      stageStartedAt: startedAt,
+      cancelSupported: true,
     };
 
     try {
@@ -301,15 +315,36 @@ export class DeploymentService {
       !this.active ||
       this.active.deploymentId !== deploymentId ||
       this.active.projectId !== projectId ||
-      this.active.handedOff
+      this.active.handedOff ||
+      !this.active.cancelSupported
     ) {
       throw new DeploymentError(
         'DEPLOYMENT_CANCEL_NOT_AVAILABLE',
-        'Este deployment não está sob controle da API atual e não pode ser cancelado.',
+        'Este deployment não está sob controle da API atual ou está em uma etapa mutável que não pode ser cancelada com segurança.',
       );
     }
     this.active.controller.abort();
     return deployment;
+  }
+
+  public activityJobs(projectId: string): ActivityJob[] {
+    const active = this.active;
+    if (!active || active.projectId !== projectId || active.handedOff) return [];
+    return [
+      {
+        id: `deployment:${active.deploymentId}`,
+        projectId,
+        domain: 'deployment',
+        action: 'Deployment de produção',
+        status: active.stage === 'planned' ? 'queued' : 'running',
+        startedAt: active.startedAt,
+        resourceRef: { kind: 'deployment', id: active.deploymentId },
+        stage: active.stage,
+        stageStartedAt: active.stageStartedAt,
+        timingIncomplete: false,
+        cancelSupported: active.cancelSupported,
+      },
+    ];
   }
 
   public close(): void {
@@ -325,7 +360,9 @@ export class DeploymentService {
       ...initial,
       startedAt: new Date(this.now()).toISOString(),
     };
+    let mutationCompleted = false;
     let irreversibleCompleted = false;
+    let currentMutating = false;
     let currentIrreversible = false;
     let logQueue = Promise.resolve();
     let handedOff = false;
@@ -334,15 +371,27 @@ export class DeploymentService {
       for (let index = 0; index < deployment.timeline.length; index += 1) {
         const planStep = deployment.timeline[index]!;
         if (controller.signal.aborted) {
-          deployment = this.cancelled(deployment, irreversibleCompleted, false);
+          deployment = this.cancelled(
+            deployment,
+            mutationCompleted,
+            irreversibleCompleted,
+            false,
+            false,
+          );
           await this.store.save(deployment);
           return;
         }
 
         await this.assertRevisionUnchanged(project, deployment);
 
+        currentMutating = planStep.mutating;
         currentIrreversible = planStep.irreversible;
         const startedAt = new Date(this.now()).toISOString();
+        if (this.active?.deploymentId === deployment.id) {
+          this.active.stage = planStep.id;
+          this.active.stageStartedAt = startedAt;
+          this.active.cancelSupported = !planStep.mutating;
+        }
         deployment = {
           ...deployment,
           status: planStep.phase,
@@ -394,13 +443,20 @@ export class DeploymentService {
               .then(() => this.store.appendLog(deployment.id, output))
               .catch(() => undefined);
           },
+          async (providerDeploymentId) => {
+            if (deployment.providerDeploymentId === providerDeploymentId) return;
+            deployment = { ...deployment, providerDeploymentId };
+            await this.store.save(deployment);
+          },
         );
         await logQueue;
 
         if (result.cancelled || controller.signal.aborted) {
           deployment = this.cancelled(
             deployment,
+            mutationCompleted,
             irreversibleCompleted,
+            currentMutating,
             currentIrreversible,
             index,
           );
@@ -429,7 +485,9 @@ export class DeploymentService {
           ),
         };
         await this.store.save(deployment);
+        mutationCompleted ||= planStep.mutating;
         irreversibleCompleted ||= planStep.irreversible;
+        currentMutating = false;
         currentIrreversible = false;
       }
 
@@ -453,16 +511,21 @@ export class DeploymentService {
       const privilegeBlockedBeforeMutation =
         deploymentError.code === 'DEPLOYMENT_PRIVILEGE_REQUIRED' &&
         !irreversibleCompleted;
+      const mutationMayHaveOccurred =
+        mutationCompleted ||
+        (currentMutating && !privilegeBlockedBeforeMutation);
       const afterIrreversible =
         irreversibleCompleted ||
         (currentIrreversible && !privilegeBlockedBeforeMutation);
       deployment = {
         ...deployment,
-        status: afterIrreversible ? 'recovery_required' : 'failed',
+        status: mutationMayHaveOccurred ? 'recovery_required' : 'failed',
         finishedAt,
         failurePoint: afterIrreversible
           ? 'after-irreversible'
-          : 'before-irreversible',
+          : mutationMayHaveOccurred
+            ? 'after-mutation'
+            : 'before-irreversible',
         errorCode: deploymentError.code,
         errorMessage: deploymentError.message,
         timeline: deployment.timeline.map((step) =>
@@ -839,11 +902,14 @@ export class DeploymentService {
 
   private cancelled(
     deployment: Deployment,
+    mutationCompleted: boolean,
     irreversibleCompleted: boolean,
+    currentMutating: boolean,
     currentIrreversible: boolean,
     currentIndex?: number,
   ): Deployment {
-    const risky = irreversibleCompleted || currentIrreversible;
+    const risky = mutationCompleted || currentMutating;
+    const irreversibleRisk = irreversibleCompleted || currentIrreversible;
     const finishedAt = new Date(this.now()).toISOString();
     return {
       ...deployment,
@@ -851,10 +917,15 @@ export class DeploymentService {
       finishedAt,
       ...(risky
         ? {
-            failurePoint: 'after-irreversible' as const,
-            errorCode: 'DEPLOYMENT_CANCELLED_AFTER_IRREVERSIBLE',
-            errorMessage:
-              'A execução foi cancelada após iniciar uma etapa irreversível; recuperação manual pode ser necessária.',
+            failurePoint: irreversibleRisk
+              ? ('after-irreversible' as const)
+              : ('after-mutation' as const),
+            errorCode: irreversibleRisk
+              ? 'DEPLOYMENT_CANCELLED_AFTER_IRREVERSIBLE'
+              : 'DEPLOYMENT_CANCELLED_AFTER_MUTATION',
+            errorMessage: irreversibleRisk
+              ? 'A execução foi interrompida após iniciar uma etapa irreversível; recuperação manual pode ser necessária.'
+              : 'A execução foi interrompida depois de uma etapa mutável; confirme o estado real da produção antes de repetir o deployment.',
           }
         : {}),
       timeline: deployment.timeline.map((step, index) =>
