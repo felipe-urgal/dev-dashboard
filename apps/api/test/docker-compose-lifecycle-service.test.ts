@@ -1061,7 +1061,6 @@ test('serializa mutações concorrentes da mesma Environment Instance', async ()
   await first;
 });
 
-
 test('restart falho preserva leases quando runtime pós-falha permanece ativo', async () => {
   const registry = new PortAllocationLeaseRegistry();
   const inspections = [after, after];
