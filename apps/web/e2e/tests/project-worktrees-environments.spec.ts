@@ -189,6 +189,19 @@ test.describe('Worktrees como Environment Instances', () => {
       path.resolve(runtimeInfo.workspaceDirectory),
     );
 
+    await writeFile(
+      path.join(worktreeB.path, '.env'),
+      'WORKTREE_ENV_MARKER=from-worktree\n',
+      'utf8',
+    );
+    await gotoBootstrapped(
+      page,
+      `/projects/${encodeURIComponent(projectId)}/environment?environmentInstanceId=${encodeURIComponent(worktreeB.environmentInstanceId)}`,
+    );
+    await expect(page.getByText('WORKTREE_ENV_MARKER')).toBeVisible();
+    await expect(page.getByText('from-worktree')).toBeVisible();
+    await expect(page.getByText('PUBLIC_API_URL')).toHaveCount(0);
+
     try {
       await startEnvironmentServer(
         page,
