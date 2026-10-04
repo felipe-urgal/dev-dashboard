@@ -15,7 +15,10 @@ test('executa lifecycle Compose como job confirmado e reanexa após reload', asy
     .click();
   await page.getByRole('link', { name: 'Compose', exact: true }).click();
 
-  const panel = page.getByRole('region', { name: 'Docker Compose' });
+  const panel = page.getByRole('region', {
+    name: 'Docker Compose',
+    exact: true,
+  });
   await expect(panel).toContainText('Stack parada');
   await expect(
     page.getByRole('button', { name: 'Iniciar stack', exact: true }),
