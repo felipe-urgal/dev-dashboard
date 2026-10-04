@@ -69,4 +69,4 @@ jobs:
         run: npm run build
 
       - name: Qualify terminal and critical Git flows
-        run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts project-git-pull-request.spec.ts project-worktrees-environments.spec.ts project-git-history.spec.ts project-tests.spec.ts project-dependencies.spec.ts project-dev-container.spec.ts project-production.spec.ts project-environment.spec.ts
+        run: npm run test:e2e --workspace=@dev-dashboard/web -- dashboard-terminal-qualification.spec.ts project-git-pull-request.spec.ts project-worktrees-environments.spec.ts project-git-history.spec.ts project-tests.spec.ts project-dependencies.spec.ts project-dev-container.spec.ts project-compose.spec.ts project-production.spec.ts project-environment.spec.ts

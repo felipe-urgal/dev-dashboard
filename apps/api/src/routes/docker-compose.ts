@@ -4,6 +4,15 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import {
+  DockerComposeLifecycleConfirmationError,
+  type DockerComposeLifecycleConfirmationService,
+  type DockerComposeLifecycleOperation,
+} from '../services/docker-compose-lifecycle-confirmation-service.js';
+import {
+  DockerComposeLifecycleExecutionError,
+  type DockerComposeLifecycleExecutionService,
+} from '../services/docker-compose-lifecycle-execution-service.js';
+import {
   DockerComposeLifecycleError,
   type DockerComposeLifecycleService,
 } from '../services/docker-compose-lifecycle-service.js';
@@ -25,6 +34,14 @@ interface Options extends FastifyPluginOptions {
     DockerComposeLifecycleService,
     'start' | 'stop' | 'restart' | 'logs' | 'reconcile'
   >;
+  dockerComposeLifecycleConfirmationService: Pick<
+    DockerComposeLifecycleConfirmationService,
+    'prepare'
+  >;
+  dockerComposeLifecycleExecutionService: Pick<
+    DockerComposeLifecycleExecutionService,
+    'start' | 'latest'
+  >;
   dockerComposeOwnershipStore: Pick<DockerComposeOwnershipStore, 'get'>;
 }
 
@@ -34,6 +51,14 @@ interface Params {
 
 interface TargetBody {
   service: string | null;
+}
+
+interface LifecycleConfirmationBody extends TargetBody {
+  operation: DockerComposeLifecycleOperation;
+}
+
+interface LifecycleExecutionBody extends LifecycleConfirmationBody {
+  confirmationToken: string;
 }
 
 interface EnvironmentQuery {
@@ -61,20 +86,38 @@ const serviceSchema = {
   pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$',
 } as const;
 
-const emptyBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  maxProperties: 0,
+const lifecycleOperationSchema = {
+  type: 'string',
+  enum: ['start', 'stop', 'restart'],
 } as const;
 
-const targetBodySchema = {
+const lifecycleConfirmationBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['service'],
-  maxProperties: 1,
+  required: ['operation', 'service'],
+  maxProperties: 2,
   properties: {
+    operation: lifecycleOperationSchema,
     service: {
       anyOf: [serviceSchema, { type: 'null' }],
+    },
+  },
+} as const;
+
+const lifecycleExecutionBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['operation', 'service', 'confirmationToken'],
+  maxProperties: 3,
+  properties: {
+    operation: lifecycleOperationSchema,
+    service: {
+      anyOf: [serviceSchema, { type: 'null' }],
+    },
+    confirmationToken: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 256,
     },
   },
 } as const;
@@ -257,47 +300,60 @@ const snapshotSchema = {
   },
 } as const;
 
-const startResultSchema = {
+const lifecycleConfirmationSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['state', 'preflight'],
+  required: [
+    'token',
+    'projectId',
+    'environmentInstanceId',
+    'operation',
+    'expiresAt',
+  ],
   properties: {
-    state: { type: 'string', enum: ['started', 'started-unverified'] },
-    preflight: preflightSchema,
-    inspection: inspectionSchema,
-    diagnostic: { type: 'string' },
+    token: { type: 'string' },
+    projectId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    operation: lifecycleOperationSchema,
+    service: { type: 'string' },
+    expiresAt: { type: 'string' },
   },
 } as const;
 
-const mutationResultSchema = {
+const lifecycleExecutionSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['state'],
+  required: [
+    'id',
+    'projectId',
+    'environmentInstanceId',
+    'operation',
+    'status',
+    'stage',
+    'cancelSupported',
+    'startedAt',
+  ],
   properties: {
-    state: {
+    id: { type: 'string' },
+    projectId: { type: 'string' },
+    environmentInstanceId: { type: 'string' },
+    operation: lifecycleOperationSchema,
+    service: { type: 'string' },
+    status: {
       type: 'string',
-      enum: [
-        'stopped',
-        'stopped-unverified',
-        'restarted',
-        'restarted-unverified',
-      ],
+      enum: ['queued', 'running', 'succeeded', 'failed'],
     },
-    inspection: inspectionSchema,
+    stage: {
+      type: 'string',
+      enum: ['queued', 'mutating', 'completed', 'failed'],
+    },
+    cancelSupported: { type: 'boolean', enum: [false] },
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    resultState: { type: 'string' },
     diagnostic: { type: 'string' },
   },
 } as const;
-
-const operationResponseSchema = (resultSchema: object) =>
-  ({
-    type: 'object',
-    additionalProperties: false,
-    required: ['result', 'snapshot'],
-    properties: {
-      result: resultSchema,
-      snapshot: snapshotSchema,
-    },
-  }) as const;
 
 const logSchema = {
   type: 'object',
@@ -324,11 +380,11 @@ function requireProject(store: ProjectStore, projectId: string): Project {
   return project;
 }
 
-function requireComposeProject(
+function requireComposeTarget(
   options: Options,
   projectId: string,
   environmentInstanceId?: string,
-): Project {
+): { project: Project; environmentInstanceId: string } {
   const project = requireProject(options.projectStore, projectId);
   const executionContext =
     options.developmentEnvironmentInstanceStore.resolveForProject(
@@ -353,18 +409,29 @@ function requireComposeProject(
     });
   }
 
-  if (
+  const scopedProject =
     executionContext.environmentInstanceId ===
     primaryEnvironmentInstanceId(project.id)
-  ) {
-    return project;
-  }
+      ? project
+      : {
+          ...project,
+          id: executionContext.environmentInstanceId,
+          path: executionContext.cwd,
+        };
 
   return {
-    ...project,
-    id: executionContext.environmentInstanceId,
-    path: executionContext.cwd,
+    project: scopedProject,
+    environmentInstanceId: executionContext.environmentInstanceId,
   };
+}
+
+function requireComposeProject(
+  options: Options,
+  projectId: string,
+  environmentInstanceId?: string,
+): Project {
+  return requireComposeTarget(options, projectId, environmentInstanceId)
+    .project;
 }
 
 function throwLifecycleApiError(error: unknown): never {
@@ -380,6 +447,8 @@ function throwLifecycleApiError(error: unknown): never {
       break;
     case 'COMPOSE_OWNERSHIP_REQUIRED':
     case 'COMPOSE_OWNERSHIP_MISMATCH':
+    case 'COMPOSE_RECOVERY_REQUIRED':
+    case 'COMPOSE_MUTATION_IN_PROGRESS':
       statusCode = 409;
       code = 'CONFLICT';
       break;
@@ -399,6 +468,31 @@ function throwLifecycleApiError(error: unknown): never {
     code,
     message: error.message,
   });
+}
+
+function throwExecutionApiError(error: unknown): never {
+  if (error instanceof DockerComposeLifecycleConfirmationError) {
+    throw new ApiError({
+      statusCode: error.code === 'COMPOSE_CONFIRMATION_EXPIRED' ? 409 : 400,
+      code:
+        error.code === 'COMPOSE_CONFIRMATION_EXPIRED'
+          ? 'CONFLICT'
+          : 'VALIDATION_ERROR',
+      message: error.message,
+    });
+  }
+  if (error instanceof DockerComposeLifecycleExecutionError) {
+    throw new ApiError({
+      statusCode:
+        error.code === 'COMPOSE_EXECUTION_ALREADY_RUNNING' ? 409 : 404,
+      code:
+        error.code === 'COMPOSE_EXECUTION_ALREADY_RUNNING'
+          ? 'CONFLICT'
+          : 'NOT_FOUND',
+      message: error.message,
+    });
+  }
+  throw error;
 }
 
 async function readSnapshot(options: Options, project: Project) {
@@ -459,98 +553,125 @@ export const dockerComposeRoutes: FastifyPluginAsync<Options> = async (
       ),
   );
 
+  // Toda mutação HTTP do Compose passa por confirmação single-use + job.
+  // O lifecycle síncrono permanece interno para Stacks e outros domínios trusted.
   app.post<{
     Params: Params;
     Querystring: EnvironmentQuery;
-    Body: Record<string, never>;
+    Body: LifecycleConfirmationBody;
   }>(
-    '/projects/:projectId/docker-compose/start',
+    '/projects/:projectId/docker-compose/lifecycle-confirmations',
     {
       schema: {
         params: paramsSchema,
         querystring: environmentQuerySchema,
-        body: emptyBodySchema,
+        body: lifecycleConfirmationBodySchema,
         response: {
-          200: operationResponseSchema(startResultSchema),
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: { confirmation: lifecycleConfirmationSchema },
+          },
           ...commonErrorResponseSchemas,
         },
       },
     },
-    async (request) => {
-      const project = requireComposeProject(
+    async (request, reply) => {
+      const target = requireComposeTarget(
+        options,
+        request.params.projectId,
+        request.query.environmentInstanceId,
+      );
+      const confirmation =
+        options.dockerComposeLifecycleConfirmationService.prepare(
+          request.params.projectId,
+          target.environmentInstanceId,
+          request.body.operation,
+          request.body.service ?? undefined,
+        );
+      return reply.code(201).send({ confirmation });
+    },
+  );
+
+  app.post<{
+    Params: Params;
+    Querystring: EnvironmentQuery;
+    Body: LifecycleExecutionBody;
+  }>(
+    '/projects/:projectId/docker-compose/lifecycle-executions',
+    {
+      schema: {
+        params: paramsSchema,
+        querystring: environmentQuerySchema,
+        body: lifecycleExecutionBodySchema,
+        response: {
+          202: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['execution'],
+            properties: { execution: lifecycleExecutionSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const target = requireComposeTarget(
         options,
         request.params.projectId,
         request.query.environmentInstanceId,
       );
       try {
-        const result =
-          await options.dockerComposeLifecycleService.start(project);
-        return { result, snapshot: await readSnapshot(options, project) };
+        const execution = options.dockerComposeLifecycleExecutionService.start(
+          request.params.projectId,
+          target.environmentInstanceId,
+          target.project,
+          request.body.operation,
+          request.body.confirmationToken,
+          request.body.service ?? undefined,
+        );
+        return reply.code(202).send({ execution });
       } catch (error) {
-        throwLifecycleApiError(error);
+        throwExecutionApiError(error);
       }
     },
   );
 
-  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: TargetBody }>(
-    '/projects/:projectId/docker-compose/stop',
+  app.get<{ Params: Params; Querystring: EnvironmentQuery }>(
+    '/projects/:projectId/docker-compose/lifecycle-execution',
     {
       schema: {
         params: paramsSchema,
         querystring: environmentQuerySchema,
-        body: targetBodySchema,
         response: {
-          200: operationResponseSchema(mutationResultSchema),
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['execution'],
+            properties: {
+              execution: {
+                anyOf: [lifecycleExecutionSchema, { type: 'null' }],
+              },
+            },
+          },
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request) => {
-      const project = requireComposeProject(
+      const target = requireComposeTarget(
         options,
         request.params.projectId,
         request.query.environmentInstanceId,
       );
-      try {
-        const result = await options.dockerComposeLifecycleService.stop(
-          project,
-          request.body.service ?? undefined,
-        );
-        return { result, snapshot: await readSnapshot(options, project) };
-      } catch (error) {
-        throwLifecycleApiError(error);
-      }
-    },
-  );
-
-  app.post<{ Params: Params; Querystring: EnvironmentQuery; Body: TargetBody }>(
-    '/projects/:projectId/docker-compose/restart',
-    {
-      schema: {
-        params: paramsSchema,
-        querystring: environmentQuerySchema,
-        body: targetBodySchema,
-        response: {
-          200: operationResponseSchema(mutationResultSchema),
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = requireComposeProject(
-        options,
-        request.params.projectId,
-        request.query.environmentInstanceId,
-      );
-      try {
-        const result = await options.dockerComposeLifecycleService.restart(
-          project,
-          request.body.service ?? undefined,
-        );
-        return { result, snapshot: await readSnapshot(options, project) };
-      } catch (error) {
-        throwLifecycleApiError(error);
-      }
+      return {
+        execution:
+          options.dockerComposeLifecycleExecutionService.latest(
+            request.params.projectId,
+            target.environmentInstanceId,
+          ) ?? null,
+      };
     },
   );
 

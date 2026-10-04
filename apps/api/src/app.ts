@@ -172,6 +172,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     dockerComposeProvider,
     dockerComposePreflightService,
     dockerComposeLifecycleService,
+    dockerComposeLifecycleConfirmationService,
+    dockerComposeLifecycleExecutionService,
     dockerComposeOwnershipStore,
     securityScannerProvider,
     securityScanSnapshotStore,
@@ -417,6 +419,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     dockerComposeProvider,
     dockerComposePreflightService,
     dockerComposeLifecycleService,
+    dockerComposeLifecycleConfirmationService,
+    dockerComposeLifecycleExecutionService,
     dockerComposeOwnershipStore,
   });
 
