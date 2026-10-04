@@ -525,6 +525,36 @@ export class DockerComposeLifecycleService {
         },
       );
     } catch {
+      const afterFailure = await this.provider
+        .inspect(project)
+        .catch(() => undefined);
+      const expectedServices = this.expectedRuntimeServices(
+        target.inspection,
+        service,
+      );
+      const inactiveProven =
+        afterFailure?.state === 'available' &&
+        Boolean(afterFailure.runtime) &&
+        expectedServices.length > 0 &&
+        expectedServices.every((name) => {
+          const observed = afterFailure.runtime!.services.find(
+            (item) => item.service === name,
+          );
+          return (
+            observed !== undefined &&
+            observed.state !== 'running' &&
+            observed.state !== 'restarting' &&
+            observed.state !== 'paused'
+          );
+        });
+
+      if (!inactiveProven) {
+        throw new DockerComposeLifecycleError(
+          'COMPOSE_RECOVERY_REQUIRED',
+          'O restart falhou após iniciar uma etapa mutável e o estado final dos serviços não pôde ser provado; ownership e leases foram preservados para recuperação.',
+        );
+      }
+
       this.releaseCreatedPortLeases(portLeases);
       throw new DockerComposeLifecycleError(
         'COMPOSE_RESTART_FAILED',
