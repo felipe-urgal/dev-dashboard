@@ -163,6 +163,15 @@ async function writeSampleProject(
       2,
     ),
   );
+  await writeFile(
+    path.join(projectDirectory, 'compose.yml'),
+    [
+      'services:',
+      '  web:',
+      '    image: node:24',
+      '',
+    ].join('\n'),
+  );
   await mkdir(path.join(projectDirectory, '.devcontainer'), {
     recursive: true,
   });
@@ -292,6 +301,7 @@ async function writeFakeDevContainerBinaries(
 ): Promise<string> {
   const binDirectory = path.join(runtimeRoot, 'devcontainer-bin');
   const stateFile = path.join(runtimeRoot, 'devcontainer-runtime.state');
+  const composeStateFile = path.join(runtimeRoot, 'compose-runtime.state');
   await mkdir(binDirectory, { recursive: true });
 
   const containerId = 'a'.repeat(64);
@@ -363,6 +373,56 @@ exit 2
     `#!/usr/bin/env bash
 set -euo pipefail
 STATE_FILE="${stateFile}"
+COMPOSE_STATE_FILE="${composeStateFile}"
+
+if [[ "${1:-}" == "compose" ]]; then
+  shift
+  project_name="$(basename "$PWD")"
+  if [[ "${1:-}" == "--project-name" ]]; then
+    project_name="${2:-}"
+    shift 2
+  fi
+  compose_command="${1:-}"
+  shift || true
+
+  case "$compose_command" in
+    config)
+      printf '{"name":"%s","services":{"web":{"image":"node:24","ports":[]}}}\n' "$project_name"
+      exit 0
+      ;;
+    ps)
+      if [[ -f "$COMPOSE_STATE_FILE" ]]; then
+        compose_state="$(cat "$COMPOSE_STATE_FILE")"
+        if [[ "$compose_state" == "running" ]]; then
+          printf '[{"Service":"web","ID":"compose-web","Name":"%s-web-1","State":"running","Health":"healthy","ExitCode":0,"Publishers":[]}]\n' "$project_name"
+        else
+          printf '[{"Service":"web","ID":"compose-web","Name":"%s-web-1","State":"exited","Health":"","ExitCode":0,"Publishers":[]}]\n' "$project_name"
+        fi
+      else
+        echo '[]'
+      fi
+      exit 0
+      ;;
+    up)
+      printf 'running\n' > "$COMPOSE_STATE_FILE"
+      exit 0
+      ;;
+    stop)
+      printf 'exited\n' > "$COMPOSE_STATE_FILE"
+      exit 0
+      ;;
+    restart)
+      printf 'running\n' > "$COMPOSE_STATE_FILE"
+      exit 0
+      ;;
+    logs)
+      echo 'web | compose fixture ready'
+      exit 0
+      ;;
+  esac
+  exit 2
+fi
+
 read_state() {
   if [[ -f "$STATE_FILE" ]]; then
     IFS='|' read -r TOKEN CONTAINER_ID RUNNING < "$STATE_FILE"
