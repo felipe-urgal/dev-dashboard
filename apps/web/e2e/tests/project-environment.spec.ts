@@ -20,7 +20,7 @@ test.describe('Variáveis de ambiente do projeto', () => {
     await gotoBootstrapped(page, `${href}/environment`);
 
     await expect(
-      page.getByRole('heading', { level: 3 }).filter({ hasText: '.env' }),
+      page.getByRole('region', { name: 'Arquivo .env' }),
     ).toBeVisible();
 
     await expect(page.getByText('PUBLIC_API_URL')).toBeVisible();
