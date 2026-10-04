@@ -12,6 +12,8 @@ const overview: ProjectEnvironmentOverview = {
   files: [
     {
       file: '.env',
+      status: 'available',
+      source: 'project',
       variables: [
         { name: 'API_URL', value: 'https://example.com', sensitive: false },
         { name: 'API_SECRET_TOKEN', sensitive: true },
@@ -20,17 +22,21 @@ const overview: ProjectEnvironmentOverview = {
     },
     {
       file: '.env.test',
+      status: 'available',
+      source: 'project',
       variables: [
         {
           name: 'TEST_DATABASE_URL',
           value: 'postgresql://localhost/app_test',
-          sensitive: false,
+          sensitive: true,
         },
         { name: 'API_SECRET_TOKEN', sensitive: true },
       ],
     },
     {
       file: '.env.example',
+      status: 'available',
+      source: 'project',
       variables: [
         { name: 'API_URL', value: 'http://localhost:3000', sensitive: false },
         { name: 'API_SECRET_TOKEN', sensitive: true },
@@ -193,6 +199,7 @@ describe('ProjectEnvironmentPanel', () => {
       'p1',
       '.env',
       'API_SECRET_TOKEN',
+      undefined,
     );
     expect(wrapper.text()).toContain('super-secreto');
 
@@ -201,6 +208,43 @@ describe('ProjectEnvironmentPanel', () => {
       .trigger('click');
 
     expect(wrapper.html()).not.toContain('super-secreto');
+    expect(wrapper.text()).toContain('Segredo');
+  });
+
+  it('mostra diagnóstico para arquivo recusado e identifica fonte runtime do Dashboard', async () => {
+    fetchProjectEnvironmentVariables.mockResolvedValueOnce({
+      files: [
+        {
+          file: '.env',
+          status: 'invalid',
+          source: 'project',
+          variables: [],
+        },
+        {
+          file: '.dev-dashboard/.env.production.local',
+          status: 'available',
+          source: 'dashboard-production',
+          variables: [{ name: 'DATABASE_URL', sensitive: true }],
+        },
+      ],
+    });
+
+    const wrapper = mount(ProjectEnvironmentPanel, {
+      props: { project, environmentInstanceId: 'environment:worktree:p1:wt-1' },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    expect(fetchProjectEnvironmentVariables).toHaveBeenCalledWith(
+      'p1',
+      'environment:worktree:p1:wt-1',
+    );
+    expect(wrapper.text()).toContain('Inválido');
+    expect(wrapper.text()).toContain('foi recusado');
+
+    await wrapper.findAll('.project-environment-file-button')[1]!.trigger('click');
+    expect(wrapper.text()).toContain('runtime produção');
+    expect(wrapper.text()).toContain('DATABASE_URL');
     expect(wrapper.text()).toContain('Segredo');
   });
 
