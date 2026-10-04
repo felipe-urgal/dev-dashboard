@@ -375,14 +375,14 @@ set -euo pipefail
 STATE_FILE="${stateFile}"
 COMPOSE_STATE_FILE="${composeStateFile}"
 
-if [[ "${1:-}" == "compose" ]]; then
+if [[ "\${1:-}" == "compose" ]]; then
   shift
   project_name="$(basename "$PWD")"
-  if [[ "${1:-}" == "--project-name" ]]; then
-    project_name="${2:-}"
+  if [[ "\${1:-}" == "--project-name" ]]; then
+    project_name="\${2:-}"
     shift 2
   fi
-  compose_command="${1:-}"
+  compose_command="\${1:-}"
   shift || true
 
   case "$compose_command" in
