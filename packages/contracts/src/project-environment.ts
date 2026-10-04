@@ -12,15 +12,10 @@ export interface ProjectEnvironmentVariableValue {
 }
 
 export type ProjectEnvironmentFileStatus =
-  | 'available'
-  | 'unreadable'
-  | 'invalid'
-  | 'too-large';
+  'available' | 'unreadable' | 'invalid' | 'too-large';
 
 export type ProjectEnvironmentFileSource =
-  | 'project'
-  | 'dashboard-check'
-  | 'dashboard-production';
+  'project' | 'dashboard-check' | 'dashboard-production';
 
 export interface ProjectEnvironmentFile {
   file: string;
