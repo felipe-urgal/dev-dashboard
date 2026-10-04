@@ -12,8 +12,8 @@ const projectDetailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
 );
-const moreToolsSource = readFileSync(
-  resolve(webRoot, 'src/components/ProjectDetailsMoreTools.vue'),
+const sidebarSource = readFileSync(
+  resolve(webRoot, 'src/components/ProjectSidebarNavigation.vue'),
   'utf8',
 );
 const panelSource = readFileSync(
@@ -37,13 +37,14 @@ describe('Docker Compose no shell do projeto', () => {
   });
 
   it('expõe Compose como ferramenta do projeto', () => {
-    expect(moreToolsSource).toContain("route.name === 'project-compose'");
-    expect(moreToolsSource).toContain('<span>Compose</span>');
+    expect(sidebarSource).toContain("id: 'compose'");
+    expect(sidebarSource).toContain("name: 'project-compose'");
+    expect(sidebarSource).toContain("label: 'Compose'");
   });
 
   it('preserva a Environment Instance na navegação e no painel', () => {
-    expect(moreToolsSource).toContain(
-      'environmentInstanceId ? { query: { environmentInstanceId } } : {}',
+    expect(sidebarSource).toContain(
+      "to: projectRoute('project-compose', { environment: true })",
     );
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',
@@ -67,9 +68,12 @@ describe('Docker Compose no shell do projeto', () => {
     expect(apiSource).toContain('/docker-compose');
     expect(apiSource).not.toContain('executable');
     expect(apiSource).not.toContain('argv');
-    expect(panelSource).toContain('Ações de serviço não estão disponíveis');
+    expect(panelSource).toContain('runtime Docker Compose sem ownership');
     expect(panelSource).toContain('compose-header-actions');
     expect(panelSource).toContain('Ver logs');
+    expect(apiSource).toContain('/lifecycle-confirmations');
+    expect(apiSource).toContain('/lifecycle-executions');
+    expect(apiSource).toContain('/lifecycle-execution');
   });
 
   it('segue o protótipo compacto com status, problemas e tabela de serviços', () => {
@@ -80,6 +84,11 @@ describe('Docker Compose no shell do projeto', () => {
     expect(panelSource).toContain('placeholder="Buscar serviço..."');
     expect(panelSource).toContain('class="compose-service-table"');
     expect(panelSource).toContain('class="compose-row-menu"');
+    expect(panelSource).toContain('aria-label="Lifecycle Docker Compose"');
+    expect(panelSource).toContain('Concluído sem verificação completa');
+    expect(panelSource).toContain(
+      "snapshot.value?.preflight?.state === 'ready'",
+    );
     expect(panelSource).not.toContain('compose-summary-card');
     expect(panelSource).not.toContain('compose-service-meta');
   });
