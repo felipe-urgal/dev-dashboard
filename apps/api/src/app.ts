@@ -628,6 +628,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectEnvironmentRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    developmentEnvironmentInstanceStore:
+      context.developmentEnvironmentInstanceStore,
     projectEnvironmentService: context.projectEnvironmentService,
   });
   app.register(scriptRoutes, {
