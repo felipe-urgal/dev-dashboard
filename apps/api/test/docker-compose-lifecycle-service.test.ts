@@ -192,7 +192,7 @@ test('runtime vazio após start permanece não verificado', async () => {
   const result = await service.start(project);
 
   assert.equal(result.state, 'started-unverified');
-  assert.match(result.diagnostic ?? '', /não pôde ser comprovado/i);
+  assert.match(result.diagnostic ?? '', /não puderam ser comprovados/i);
 });
 
 test('reconciliation libera ownership e leases somente quando ps --all confirma zero containers', async () => {
