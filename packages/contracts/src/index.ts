@@ -451,6 +451,8 @@ export type {
   ProjectEnvironmentContractVariable,
   ProjectEnvironmentContractVariableStatus,
   ProjectEnvironmentFile,
+  ProjectEnvironmentFileSource,
+  ProjectEnvironmentFileStatus,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
   ProjectEnvironmentVariableValue,

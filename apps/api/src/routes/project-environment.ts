@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
+import type { Project } from '@dev-dashboard/contracts';
+
 import { ApiError } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
@@ -11,10 +13,12 @@ import {
   PROJECT_ENVIRONMENT_FILES,
   type ProjectEnvironmentService,
 } from '../services/project-environment-service.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  developmentEnvironmentInstanceStore: DevelopmentEnvironmentInstanceStore;
   projectEnvironmentService: ProjectEnvironmentService;
 }
 
@@ -22,7 +26,11 @@ interface Params {
   projectId: string;
 }
 
-interface ValueQuerystring {
+interface EnvironmentQuerystring {
+  environmentInstanceId?: string;
+}
+
+interface RevealBody {
   file: string;
   name: string;
 }
@@ -34,7 +42,19 @@ const paramsSchema = {
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
 
-const valueQuerystringSchema = {
+const environmentQuerystringSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    environmentInstanceId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 512,
+    },
+  },
+} as const;
+
+const revealBodySchema = {
   type: 'object',
   additionalProperties: false,
   required: ['file', 'name'],
@@ -52,7 +72,7 @@ const valueQuerystringSchema = {
   },
 } as const;
 
-function requireProject(store: ProjectStore, id: string) {
+function requireProject(store: ProjectStore, id: string): Project {
   const project = store.findProject(id);
   if (!project)
     throw new ApiError({
@@ -63,15 +83,37 @@ function requireProject(store: ProjectStore, id: string) {
   return project;
 }
 
+function requireScopedProject(
+  options: Options,
+  projectId: string,
+  environmentInstanceId?: string,
+): Project {
+  const project = requireProject(options.projectStore, projectId);
+  const executionContext =
+    options.developmentEnvironmentInstanceStore.resolveForProject(
+      project.id,
+      environmentInstanceId,
+    );
+  if (!executionContext) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+    });
+  }
+  return { ...project, path: executionContext.cwd };
+}
+
 export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
-  app.get<{ Params: Params }>(
+  app.get<{ Params: Params; Querystring: EnvironmentQuerystring }>(
     '/projects/:projectId/environment-variables',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerystringSchema,
         response: {
           200: {
             type: 'object',
@@ -87,16 +129,21 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => ({
       environment: await options.projectEnvironmentService.getOverview(
-        requireProject(options.projectStore, request.params.projectId),
+        requireScopedProject(
+          options,
+          request.params.projectId,
+          request.query.environmentInstanceId,
+        ),
       ),
     }),
   );
 
-  app.get<{ Params: Params }>(
+  app.get<{ Params: Params; Querystring: EnvironmentQuerystring }>(
     '/projects/:projectId/environment-contract',
     {
       schema: {
         params: paramsSchema,
+        querystring: environmentQuerystringSchema,
         response: {
           200: {
             type: 'object',
@@ -112,17 +159,26 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => ({
       contract: await options.projectEnvironmentService.getContract(
-        requireProject(options.projectStore, request.params.projectId),
+        requireScopedProject(
+          options,
+          request.params.projectId,
+          request.query.environmentInstanceId,
+        ),
       ),
     }),
   );
 
-  app.get<{ Params: Params; Querystring: ValueQuerystring }>(
-    '/projects/:projectId/environment-variables/value',
+  app.post<{
+    Params: Params;
+    Querystring: EnvironmentQuerystring;
+    Body: RevealBody;
+  }>(
+    '/projects/:projectId/environment-variables/reveal',
     {
       schema: {
         params: paramsSchema,
-        querystring: valueQuerystringSchema,
+        querystring: environmentQuerystringSchema,
+        body: revealBodySchema,
         response: {
           200: {
             type: 'object',
@@ -136,15 +192,16 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async (request) => {
-      const project = requireProject(
-        options.projectStore,
+    async (request, reply) => {
+      const project = requireScopedProject(
+        options,
         request.params.projectId,
+        request.query.environmentInstanceId,
       );
       const variable = await options.projectEnvironmentService.getVariableValue(
         project,
-        request.query.file,
-        request.query.name,
+        request.body.file,
+        request.body.name,
       );
 
       if (!variable) {
@@ -155,6 +212,8 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
         });
       }
 
+      reply.header('Cache-Control', 'private, no-store, max-age=0');
+      reply.header('Pragma', 'no-cache');
       return { variable };
     },
   );

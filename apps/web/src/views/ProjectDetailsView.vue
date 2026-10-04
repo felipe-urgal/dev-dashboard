@@ -543,8 +543,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectEnvironmentPanel
         v-else-if="isEnvironmentRoute"
-        :key="`environment-${project.id}`"
+        :key="`environment-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
     </template>
   </section>

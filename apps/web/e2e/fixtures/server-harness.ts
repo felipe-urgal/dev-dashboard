@@ -138,7 +138,20 @@ async function writeSampleProject(
   );
   await writeFile(
     path.join(projectDirectory, '.env'),
-    'PUBLIC_API_URL=https://example.com\nAPI_SECRET_TOKEN=segredo-de-teste\n',
+    [
+      'PUBLIC_API_URL=https://example.com',
+      'API_SECRET_TOKEN=segredo-de-teste',
+      'DATABASE_URL=postgres://admin:senha-e2e@localhost/app',
+      '',
+    ].join('\n'),
+  );
+  await writeFile(
+    path.join(projectDirectory, '.dev-dashboard', '.env.check.local'),
+    'TEST_DATABASE_URL=postgres://test:check-secret@localhost/app_test\n',
+  );
+  await writeFile(
+    path.join(projectDirectory, '.dev-dashboard', '.env.production.local'),
+    'DATABASE_URL=postgres://prod:prod-secret@localhost/app\n',
   );
   // Lockfile mínimo: a execução de scripts (diferente do início do servidor)
   // resolve o gerenciador de pacotes a partir dele antes de rodar o comando.
@@ -164,7 +177,10 @@ async function writeSampleProject(
       2,
     ),
   );
-  await writeFile(path.join(projectDirectory, '.gitignore'), '.env\n');
+  await writeFile(
+    path.join(projectDirectory, '.gitignore'),
+    '.env\n.dev-dashboard/.env.*.local\n',
+  );
   await initSampleGitRepository(projectDirectory);
 
   const remotesDirectory = path.join(runtimeRoot, 'git-remotes');

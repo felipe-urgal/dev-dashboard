@@ -28,6 +28,7 @@ async function projectIdFromDashboard(page: Page): Promise<string> {
   await gotoBootstrapped(page, '/');
   const projectLink = page.getByRole('link', {
     name: 'Ver detalhes de sample-node-app',
+    exact: true,
   });
   const href = await projectLink.getAttribute('href');
   if (!href) throw new Error('Projeto Node da fixture não foi encontrado.');
@@ -190,6 +191,21 @@ test.describe('Worktrees como Environment Instances', () => {
     );
 
     try {
+      await writeFile(
+        path.join(worktreeB.path, '.env'),
+        'WORKTREE_ENV_MARKER=from-worktree\n',
+        'utf8',
+      );
+      await gotoBootstrapped(
+        page,
+        `/projects/${encodeURIComponent(projectId)}/environment?environmentInstanceId=${encodeURIComponent(worktreeB.environmentInstanceId)}`,
+      );
+      await expect(
+        page.getByRole('rowheader', { name: 'WORKTREE_ENV_MARKER' }),
+      ).toBeVisible();
+      await expect(page.getByText('from-worktree')).toBeVisible();
+      await expect(page.getByText('PUBLIC_API_URL')).toHaveCount(0);
+
       await startEnvironmentServer(
         page,
         projectId,
