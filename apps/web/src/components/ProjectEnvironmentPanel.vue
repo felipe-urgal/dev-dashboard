@@ -136,6 +136,12 @@ const selectedFileKind = computed(() => {
   return 'arquivo local';
 });
 
+const selectedFileStatusMessage = computed(() => {
+  const status = selectedFile.value?.status;
+  if (!status || status === 'available') return '';
+  return fileStatusMessages[status];
+});
+
 const selectedBaselineLabel = computed(() => {
   const file = selectedFile.value?.file;
   if (!file) return '';
@@ -184,7 +190,10 @@ const selectedFileIssues = computed(() => {
         key,
         name: scopeLabels[section.scope],
         status,
-        action: 'Escolher um baseline confiável.',
+        action:
+          section.baselineStatus === 'ambiguous'
+            ? 'Escolher um baseline confiável.'
+            : 'Criar um baseline suportado para este escopo.',
         sensitive: false,
       });
     }
@@ -328,14 +337,7 @@ const selectedFileIssues = computed(() => {
               v-if="selectedFile.status !== 'available'"
               class="project-environment-consistency-note is-warning"
             >
-              {{
-                fileStatusMessages[
-                  selectedFile.status as Exclude<
-                    ProjectEnvironmentFileStatus,
-                    'available'
-                  >
-                ]
-              }}
+              {{ selectedFileStatusMessage }}
             </p>
             <p
               v-else-if="contract.loading.value && !contract.contract.value"
