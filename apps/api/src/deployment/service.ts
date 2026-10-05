@@ -48,6 +48,7 @@ interface ActiveDeployment {
   stage: string;
   stageStartedAt: string;
   cancelSupported: boolean;
+  exclusive: boolean;
   handedOff?: boolean;
 }
 
@@ -101,7 +102,7 @@ export class DeploymentService {
   private readonly store: DeploymentStore;
   private readonly now: () => number;
   private readonly readyPromise: Promise<void>;
-  private active: ActiveDeployment | undefined;
+  private readonly active = new Map<string, ActiveDeployment>();
 
   public constructor(options: DeploymentServiceOptions = {}) {
     this.now = options.now ?? Date.now;
@@ -164,13 +165,13 @@ export class DeploymentService {
     confirmationToken: string | undefined,
   ): Promise<Deployment> {
     await this.readyPromise;
-    this.assertNoActiveDeployment();
+    this.assertCanStart(project);
 
     const plan = await this.plan(project);
     this.assertPlanHash(plan, expectedPlanHash);
     const executionFingerprint =
       await this.executionFingerprintResolver.resolve(project);
-    this.assertNoActiveDeployment();
+    this.assertCanStart(project);
     this.confirmationService.consume(
       plan,
       confirmationToken,
@@ -190,7 +191,7 @@ export class DeploymentService {
       timeline: plan.steps.map((step) => ({ ...step, status: 'pending' })),
     };
     const controller = new AbortController();
-    this.active = {
+    this.active.set(deployment.projectId, {
       deploymentId: deployment.id,
       projectId: deployment.projectId,
       controller,
@@ -198,12 +199,13 @@ export class DeploymentService {
       stage: 'planned',
       stageStartedAt: deployment.createdAt,
       cancelSupported: true,
-    };
+      exclusive: project.production?.strategy === 'self-update',
+    });
 
     try {
       await this.store.save(deployment);
     } catch (error) {
-      this.active = undefined;
+      this.active.delete(deployment.projectId);
       throw error;
     }
 
@@ -236,9 +238,9 @@ export class DeploymentService {
       );
     }
 
-    this.assertNoActiveDeployment();
+    this.assertCanStart(project);
     await this.assertLatestDeployment(project.id, deployment.id);
-    this.assertNoActiveDeployment();
+    this.assertCanStart(project);
 
     const startedAt = new Date(this.now()).toISOString();
     const retryingTimeline = deployment.timeline.map((step, index) => {
@@ -266,7 +268,7 @@ export class DeploymentService {
     const executionFingerprint =
       await this.executionFingerprintResolver.resolve(project);
     const controller = new AbortController();
-    this.active = {
+    this.active.set(retrying.projectId, {
       deploymentId: retrying.id,
       projectId: retrying.projectId,
       controller,
@@ -274,12 +276,13 @@ export class DeploymentService {
       stage: 'verify',
       stageStartedAt: startedAt,
       cancelSupported: true,
-    };
+      exclusive: project.production?.strategy === 'self-update',
+    });
 
     try {
       await this.store.save(retrying);
     } catch (error) {
-      this.active = undefined;
+      this.active.delete(retrying.projectId);
       throw error;
     }
 
@@ -336,26 +339,25 @@ export class DeploymentService {
     deploymentId: string,
   ): Promise<Deployment> {
     const deployment = await this.get(projectId, deploymentId);
+    const active = this.active.get(projectId);
     if (
-      !this.active ||
-      this.active.deploymentId !== deploymentId ||
-      this.active.projectId !== projectId ||
-      this.active.handedOff ||
-      !this.active.cancelSupported
+      !active ||
+      active.deploymentId !== deploymentId ||
+      active.handedOff ||
+      !active.cancelSupported
     ) {
       throw new DeploymentError(
         'DEPLOYMENT_CANCEL_NOT_AVAILABLE',
         'Este deployment não está sob controle da API atual ou está em uma etapa mutável que não pode ser cancelada com segurança.',
       );
     }
-    this.active.controller.abort();
+    active.controller.abort();
     return deployment;
   }
 
   public activityJobs(projectId: string): ActivityJob[] {
-    const active = this.active;
-    if (!active || active.projectId !== projectId || active.handedOff)
-      return [];
+    const active = this.active.get(projectId);
+    if (!active || active.handedOff) return [];
     return [
       {
         id: `deployment:${active.deploymentId}`,
@@ -374,7 +376,9 @@ export class DeploymentService {
   }
 
   public close(): void {
-    if (!this.active?.handedOff) this.active?.controller.abort();
+    for (const active of this.active.values()) {
+      if (!active.handedOff) active.controller.abort();
+    }
   }
 
   private async execute(
@@ -418,10 +422,11 @@ export class DeploymentService {
         currentMutating = planStep.mutating;
         currentIrreversible = planStep.irreversible;
         const startedAt = new Date(this.now()).toISOString();
-        if (this.active?.deploymentId === deployment.id) {
-          this.active.stage = planStep.id;
-          this.active.stageStartedAt = startedAt;
-          this.active.cancelSupported = !planStep.mutating;
+        const active = this.active.get(deployment.projectId);
+        if (active?.deploymentId === deployment.id) {
+          active.stage = planStep.id;
+          active.stageStartedAt = startedAt;
+          active.cancelSupported = !planStep.mutating;
         }
         deployment = {
           ...deployment,
@@ -461,8 +466,9 @@ export class DeploymentService {
           }
 
           handedOff = true;
-          if (this.active?.deploymentId === deployment.id) {
-            this.active.handedOff = true;
+          const active = this.active.get(deployment.projectId);
+          if (active?.deploymentId === deployment.id) {
+            active.handedOff = true;
           }
           return;
         }
@@ -570,8 +576,9 @@ export class DeploymentService {
       };
       await this.store.save(deployment);
     } finally {
-      if (!handedOff && this.active?.deploymentId === deployment.id) {
-        this.active = undefined;
+      const active = this.active.get(deployment.projectId);
+      if (!handedOff && active?.deploymentId === deployment.id) {
+        this.active.delete(deployment.projectId);
       }
     }
   }
@@ -850,7 +857,10 @@ export class DeploymentService {
       };
       await this.store.save(deployment);
     } finally {
-      if (this.active?.deploymentId === deployment.id) this.active = undefined;
+      const active = this.active.get(deployment.projectId);
+      if (active?.deploymentId === deployment.id) {
+        this.active.delete(deployment.projectId);
+      }
     }
   }
 
@@ -1004,11 +1014,31 @@ export class DeploymentService {
     }
   }
 
-  private assertNoActiveDeployment(): void {
-    if (this.active) {
+  private assertCanStart(project: Project): void {
+    if (this.active.has(project.id)) {
       throw new DeploymentError(
         'DEPLOYMENT_ALREADY_RUNNING',
-        'Já existe um deployment em execução. A política atual permite somente um deployment por vez.',
+        'Já existe um deployment em execução para este projeto.',
+      );
+    }
+
+    const selfUpdateRunning = [...this.active.values()].some(
+      (deployment) => deployment.exclusive,
+    );
+    if (selfUpdateRunning) {
+      throw new DeploymentError(
+        'DEPLOYMENT_ALREADY_RUNNING',
+        'Há um self-update em execução. Aguarde a reinicialização do Dev Dashboard antes de iniciar outro deployment.',
+      );
+    }
+
+    if (
+      project.production?.strategy === 'self-update' &&
+      this.active.size > 0
+    ) {
+      throw new DeploymentError(
+        'DEPLOYMENT_ALREADY_RUNNING',
+        'O self-update exige execução exclusiva. Aguarde os deployments atuais terminarem.',
       );
     }
   }
