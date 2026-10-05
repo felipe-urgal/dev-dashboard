@@ -517,7 +517,7 @@ test('falha durante deploy mutável não irreversível exige recovery', async (t
   assert.equal(finished.errorCode, 'DEPLOYMENT_COMMAND_FAILED');
 });
 
-test('service rejeita plano stale e uma segunda execução concorrente global', async (t) => {
+test('service rejeita plano stale, serializa o mesmo projeto e permite projetos distintos em paralelo', async (t) => {
   const directory = await temporaryDirectory(t);
   const revisions = new FixedRevisionResolver();
   const runner = new FakeRunner();
@@ -528,6 +528,12 @@ test('service rejeita plano stale e uma segunda execução concorrente global', 
     store: new DeploymentStore(directory),
   });
   const project = makeProject();
+  const otherProject: Project = {
+    ...project,
+    id: 'project-2',
+    name: 'outro-projeto',
+    path: '/tmp/outro-projeto',
+  };
   const oldPlan = await service.plan(project);
   const oldConfirmation = await service.prepareConfirmation(
     project,
@@ -552,6 +558,20 @@ test('service rejeita plano stale e uma segunda execução concorrente global', 
     currentConfirmation.token,
   );
 
+  const otherPlan = await service.plan(otherProject);
+  const otherConfirmation = await service.prepareConfirmation(
+    otherProject,
+    otherPlan.planHash,
+  );
+  const otherActive = await service.start(
+    otherProject,
+    otherPlan.planHash,
+    otherConfirmation.token,
+  );
+
+  assert.equal(service.activityJobs(project.id).length, 1);
+  assert.equal(service.activityJobs(otherProject.id).length, 1);
+
   const secondConfirmation = await service.prepareConfirmation(
     project,
     currentPlan.planHash,
@@ -563,9 +583,16 @@ test('service rejeita plano stale e uma segunda execução concorrente global', 
       error.code === 'DEPLOYMENT_ALREADY_RUNNING',
   );
 
-  await service.cancel(project.id, active.id);
-  const cancelled = await waitForTerminal(service, active);
+  await Promise.all([
+    service.cancel(project.id, active.id),
+    service.cancel(otherProject.id, otherActive.id),
+  ]);
+  const [cancelled, otherCancelled] = await Promise.all([
+    waitForTerminal(service, active),
+    waitForTerminal(service, otherActive),
+  ]);
   assert.equal(cancelled.status, 'cancelled');
+  assert.equal(otherCancelled.status, 'cancelled');
   runner.release();
 });
 
