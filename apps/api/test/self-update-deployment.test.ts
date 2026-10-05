@@ -7,6 +7,7 @@ import test from 'node:test';
 import type { DeploymentPlanStep, Project } from '@dev-dashboard/contracts';
 import type { MaskedLogContent } from '@dev-dashboard/process-manager';
 
+import { DeploymentError } from '../src/deployment/errors.js';
 import { DeploymentPlanner } from '../src/deployment/planner.js';
 import {
   DeploymentService,
@@ -172,6 +173,69 @@ test('planner self-update usa somente check e handoff irreversível', () => {
     mutating: true,
     irreversible: true,
   });
+});
+
+test('self-update permanece exclusivo enquanto o handoff está em execução', async (t) => {
+  const store = await temporaryStore(t);
+  const handoff = new FakeSelfUpdateHandoff();
+  const { service } = makeService(store, handoff);
+  const project = makeProject();
+
+  const plan = await service.plan(project);
+  const confirmation = await service.prepareConfirmation(
+    project,
+    plan.planHash,
+  );
+  const started = await service.start(
+    project,
+    plan.planHash,
+    confirmation.token,
+  );
+
+  await waitUntil(
+    async () =>
+      (await store.get(started.id))?.currentStepId === 'self-update' &&
+      handoff.prepareCalls.length === 1,
+  );
+
+  const otherProject: Project = {
+    id: 'project-2',
+    name: 'outro-projeto',
+    path: '/tmp/outro-projeto',
+    type: 'node',
+    source: 'standalone',
+    enabled: true,
+    capabilities: ['production'],
+    production: {
+      version: 1,
+      enabled: true,
+      strategy: 'command',
+      provider: 'systemd',
+      branch: 'main',
+      commands: {
+        check: 'prod:check',
+        deploy: 'prod:deploy',
+        verify: 'prod:verify',
+      },
+      policies: {
+        backup: 'not-configured',
+        migrations: 'not-configured',
+        rollback: 'not-configured',
+      },
+    },
+  };
+  const otherPlan = await service.plan(otherProject);
+  const otherConfirmation = await service.prepareConfirmation(
+    otherProject,
+    otherPlan.planHash,
+  );
+
+  await assert.rejects(
+    service.start(otherProject, otherPlan.planHash, otherConfirmation.token),
+    (error: unknown) =>
+      error instanceof DeploymentError &&
+      error.code === 'DEPLOYMENT_ALREADY_RUNNING',
+  );
 });
 
 test('deployment entrega revision de origin/main ao handoff e reconcilia sucesso após restart', async (t) => {
