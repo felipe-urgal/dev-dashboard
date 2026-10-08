@@ -14,6 +14,7 @@ import type {
 const STATE_VERSION = 1;
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const MAX_FINDINGS = 1_000;
+const MAX_OBSERVED_COUNT = 1_000_000;
 const FRESHNESS_MS = 24 * 60 * 60 * 1_000;
 const HEX_FINGERPRINT = /^[a-f0-9]{64}$/u;
 
@@ -89,9 +90,11 @@ function safeReference(value: unknown): string | undefined {
   if (!text) return undefined;
   try {
     const url = new URL(text);
-    return url.protocol === 'https:' || url.protocol === 'http:'
-      ? url.toString()
-      : undefined;
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
+    if (url.username || url.password) return undefined;
+    url.search = '';
+    url.hash = '';
+    return url.toString();
   } catch {
     return undefined;
   }
@@ -174,10 +177,35 @@ function parseResult(value: unknown): SecurityScanResult | undefined {
 
   const findings = value.findings.map(parseFinding);
   if (findings.some((finding) => finding === undefined)) return undefined;
+
+  const hasMetadata =
+    value.truncated !== undefined ||
+    value.limit !== undefined ||
+    value.observedCount !== undefined;
+  // Legacy snapshots had no completeness contract: never treat them as proof.
+  const truncated = hasMetadata ? value.truncated : true;
+  const limit = hasMetadata ? value.limit : MAX_FINDINGS;
+  const observedCount = hasMetadata
+    ? value.observedCount
+    : findings.length;
+  if (
+    typeof truncated !== 'boolean' ||
+    limit !== MAX_FINDINGS ||
+    typeof observedCount !== 'number' ||
+    !Number.isSafeInteger(observedCount) ||
+    observedCount < findings.length ||
+    observedCount > MAX_OBSERVED_COUNT ||
+    (!truncated && observedCount !== findings.length)
+  ) {
+    return undefined;
+  }
   return {
     provider: 'trivy',
     observedAt,
     findings: findings as SecurityFinding[],
+    truncated,
+    limit,
+    observedCount,
   };
 }
 
