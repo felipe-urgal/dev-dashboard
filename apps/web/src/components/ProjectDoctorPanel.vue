@@ -301,7 +301,7 @@ watch(
         <section class="project-doctor-summary" aria-label="Resumo operacional">
           <InformationCircleIcon aria-hidden="true" />
           <p>
-            <strong>{{ pendingChecks }} problemas</strong> encontrados
+            <strong>{{ pendingChecks }} {{ pendingChecks === 1 ? 'problema' : 'problemas' }}</strong> encontrado(s)
             <span aria-hidden="true">·</span>
             <strong>
               {{ report.summary.passed }} de {{ verifiedChecks }} verificações
