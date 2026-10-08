@@ -10,6 +10,7 @@ import {
   CheckCircleIcon,
   ChevronDownIcon,
   ClockIcon,
+  ClipboardDocumentListIcon,
   CircleStackIcon,
   CodeBracketIcon,
   CommandLineIcon,
@@ -69,6 +70,7 @@ const gitTabs = [
   { id: 'diff', label: 'Diff', icon: DocumentDuplicateIcon },
   { id: 'commit', label: 'Commit', icon: CheckCircleIcon },
   { id: 'undo', label: 'Desfazer', icon: ArrowUturnLeftIcon },
+  { id: 'issues', label: 'Issues', icon: ClipboardDocumentListIcon },
   { id: 'pull-request', label: 'Pull Request', icon: ArrowUpTrayIcon },
   { id: 'history', label: 'Histórico', icon: ClockIcon },
 ] as const;

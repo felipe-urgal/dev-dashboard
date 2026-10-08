@@ -89,7 +89,8 @@ describe('ProjectSidebarNavigation', () => {
     );
 
     const gitItems = wrapper.find('#project-sidebar-git-menu').findAll('a');
-    expect(gitItems).toHaveLength(8);
+    expect(gitItems).toHaveLength(9);
+    expect(gitItems.some((item) => item.text().includes('Issues'))).toBe(true);
     expect(gitItems.every((item) => item.find('svg').exists())).toBe(true);
   });
 

@@ -94,6 +94,11 @@
       @changed="reloadGitData"
     />
 
+    <ProjectGitIssuesPage
+      v-else-if="activeTab === 'issues'"
+      :project-id="project.id"
+    />
+
     <ProjectGitPullRequestPage
       v-else-if="activeTab === 'pull-request'"
       :project-id="project.id"
