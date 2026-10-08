@@ -1,22 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 
 import type { Project } from '@dev-dashboard/contracts';
 
-import {
-  cancelMigrationMutation,
-  fetchMigrationMutationStatus,
-  fetchMigrationOverview,
-  migrationMutationWebSocketUrl,
-  planMigrationMutation,
-  prepareMigrationMutation,
-  startMigrationMutation,
-  type MigrationMutationExecutionSnapshot,
-  type MigrationMutationPlan,
-  type MigrationOverview,
-  type MigrationOverviewStatus,
-} from '../api/migrations';
-import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
+import type { MigrationOverviewStatus } from '../api/migrations';
+import { useProjectMigrationsLifecycle } from '../composables/useProjectMigrationsLifecycle';
 import EmptyState from './EmptyState.vue';
 
 const props = defineProps<{
@@ -24,38 +12,18 @@ const props = defineProps<{
   environmentInstanceId?: string | undefined;
 }>();
 
-const loading = ref(false);
-const errorMessage = ref('');
-const overview = ref<MigrationOverview | null>(null);
-const mutationPlan = ref<MigrationMutationPlan | null>(null);
-const mutationSnapshot = ref<MigrationMutationExecutionSnapshot | null>(null);
-const mutationBusy = ref(false);
-const mutationError = ref('');
-let generation = 0;
+const {
+  loading, refreshing, errorMessage, mutationError, overview,
+  mutationPlan, mutationSnapshot, reviewedPlan, mutationBusy, cancelling,
+  mutationRunning, mutationReady, canApply, executionState,
+  terminalContainer, connecting, refresh, requestReview, cancelReview,
+  confirmAndStart, cancelMutation,
+} = useProjectMigrationsLifecycle(
+  () => props.project.id,
+  () => props.environmentInstanceId,
+);
 
 const APPLIED_PREVIEW_LIMIT = 20;
-
-const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
-  usePtyTerminalSocket<MigrationMutationExecutionSnapshot>({
-    onReady: (snapshot) => {
-      mutationSnapshot.value = snapshot;
-    },
-    onExit: (exitCode, exitSignal) => {
-      if (mutationSnapshot.value) {
-        mutationSnapshot.value = {
-          ...mutationSnapshot.value,
-          status: 'exited',
-          exitCode,
-          exitSignal,
-          endedAt: new Date().toISOString(),
-        };
-      }
-      void refreshReadModel();
-    },
-    onError: (message) => {
-      mutationError.value = message;
-    },
-  });
 
 const statusLabel: Record<MigrationOverviewStatus, string> = {
   'up-to-date': 'Atualizado',
@@ -81,16 +49,20 @@ const hasMigrationItems = computed(
     (overview.value?.applied.length ?? 0) > 0,
 );
 
-const mutationRunning = computed(
-  () => mutationSnapshot.value?.status === 'running',
-);
-
-const mutationReady = computed(
-  () => mutationPlan.value?.preflight.state === 'ready',
-);
-
 const mutationMode = computed(() =>
-  mutationReady.value ? 'Aplicação disponível' : 'Somente leitura',
+  mutationReady.value && !mutationRunning.value
+    ? 'Aplicação disponível'
+    : executionState.value,
+);
+
+const inspectionTime = computed(
+  () =>
+    mutationPlan.value?.preflight.observedAt ??
+    mutationPlan.value?.overviewObservedAt ??
+    overview.value?.observedAt,
+);
+const inspectionEvidence = computed(
+  () => mutationPlan.value?.preflight.evidence ?? overview.value?.evidence ?? '',
 );
 
 const mutationHint = computed(() => {
@@ -152,10 +124,11 @@ const showMutationAction = computed(() => {
 });
 
 const executionLabel = computed(() => {
-  const snapshot = mutationSnapshot.value;
-  if (!snapshot) return '';
-  if (snapshot.status === 'running') return 'Executando';
-  return snapshot.exitCode === 0 ? 'Concluída' : 'Falhou';
+  if (!mutationSnapshot.value) return '';
+  if (mutationSnapshot.value.status === 'running') {
+    return cancelling.value ? 'Cancelando' : 'Executando';
+  }
+  return mutationSnapshot.value.exitCode === 0 ? 'Concluído' : 'Falhou';
 });
 
 function formatDate(value: string): string {
@@ -167,177 +140,6 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-async function loadMutationState(
-  projectId: string,
-  database: string,
-  environmentInstanceId: string | undefined,
-  requestGeneration: number,
-): Promise<void> {
-  mutationPlan.value = null;
-  mutationSnapshot.value = null;
-  mutationError.value = '';
-  disconnect();
-  disposeTerminal();
-
-  try {
-    const plan = await planMigrationMutation(
-      projectId,
-      database,
-      environmentInstanceId,
-    );
-    if (requestGeneration !== generation) return;
-    mutationPlan.value = plan;
-
-    const snapshot = await fetchMigrationMutationStatus(
-      projectId,
-      plan.environmentInstanceId,
-    );
-    if (requestGeneration !== generation) return;
-    mutationSnapshot.value = snapshot;
-    if (snapshot) {
-      connect(
-        migrationMutationWebSocketUrl(projectId, plan.environmentInstanceId),
-      );
-    }
-  } catch (error) {
-    if (requestGeneration === generation) {
-      mutationError.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível avaliar a execução de migrations.';
-    }
-  }
-}
-
-async function load(): Promise<void> {
-  const requestGeneration = ++generation;
-  const projectId = props.project.id;
-  const environmentInstanceId = props.environmentInstanceId;
-  loading.value = true;
-  errorMessage.value = '';
-  overview.value = null;
-
-  try {
-    const result = await fetchMigrationOverview(
-      projectId,
-      undefined,
-      environmentInstanceId,
-    );
-    if (requestGeneration !== generation) return;
-    overview.value = result;
-    await loadMutationState(
-      projectId,
-      result.database,
-      environmentInstanceId,
-      requestGeneration,
-    );
-  } catch (error) {
-    if (requestGeneration === generation) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar o estado das migrations.';
-    }
-  } finally {
-    if (requestGeneration === generation) loading.value = false;
-  }
-}
-
-async function refreshReadModel(): Promise<void> {
-  const projectId = props.project.id;
-  const environmentInstanceId = props.environmentInstanceId;
-  try {
-    const result = await fetchMigrationOverview(
-      projectId,
-      undefined,
-      environmentInstanceId,
-    );
-    if (
-      props.project.id !== projectId ||
-      props.environmentInstanceId !== environmentInstanceId
-    ) {
-      return;
-    }
-    overview.value = result;
-    mutationPlan.value = await planMigrationMutation(
-      projectId,
-      result.database,
-      environmentInstanceId,
-    );
-  } catch (error) {
-    if (
-      props.project.id === projectId &&
-      props.environmentInstanceId === environmentInstanceId
-    ) {
-      mutationError.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível atualizar o estado após a execução.';
-    }
-  }
-}
-
-async function runMigration(): Promise<void> {
-  const plan = mutationPlan.value;
-  if (!plan || plan.preflight.state !== 'ready' || mutationRunning.value) {
-    return;
-  }
-
-  mutationBusy.value = true;
-  mutationError.value = '';
-  try {
-    const confirmation = await prepareMigrationMutation(props.project.id, plan);
-    const snapshot = await startMigrationMutation(
-      props.project.id,
-      plan,
-      confirmation.token,
-    );
-    mutationSnapshot.value = snapshot;
-    disconnect();
-    disposeTerminal();
-    connect(
-      migrationMutationWebSocketUrl(
-        props.project.id,
-        snapshot.environmentInstanceId,
-      ),
-    );
-  } catch (error) {
-    mutationError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível iniciar a execução das migrations.';
-    await refreshReadModel();
-  } finally {
-    mutationBusy.value = false;
-  }
-}
-
-async function cancelMutation(): Promise<void> {
-  const snapshot = mutationSnapshot.value;
-  if (!snapshot || snapshot.status !== 'running') return;
-
-  mutationBusy.value = true;
-  mutationError.value = '';
-  try {
-    await cancelMigrationMutation(
-      props.project.id,
-      snapshot.environmentInstanceId,
-    );
-  } catch (error) {
-    mutationError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível cancelar a execução das migrations.';
-  } finally {
-    mutationBusy.value = false;
-  }
-}
-
-watch(
-  () => [props.project.id, props.environmentInstanceId] as const,
-  () => void load(),
-  { immediate: true },
-);
 </script>
 
 <template>
@@ -356,7 +158,7 @@ watch(
       :description="errorMessage"
     >
       <template #actions>
-        <button class="primary-button" type="button" @click="load">
+        <button class="primary-button" type="button" @click="refresh(true)">
           Tentar novamente
         </button>
       </template>
@@ -395,7 +197,7 @@ watch(
           </svg>
           <div>
             <span>Provider</span>
-            <strong>{{ overview.provider }}</strong>
+            <strong>{{ mutationPlan?.provider ?? overview.provider }}</strong>
           </div>
         </div>
 
@@ -407,9 +209,40 @@ watch(
           </svg>
           <div>
             <span>Banco</span>
-            <strong>{{ overview.database }}</strong>
+            <strong>{{ mutationPlan?.database ?? overview.database }}</strong>
           </div>
         </div>
+        <div class="migrations-meta-item">
+          <div>
+            <span>Environment Instance</span>
+            <strong :title="mutationPlan?.environmentInstanceId ?? props.environmentInstanceId ?? '—'">
+              {{ mutationPlan?.environmentInstanceId ?? props.environmentInstanceId ?? '—' }}
+            </strong>
+          </div>
+        </div>
+        <div class="migrations-meta-item">
+          <div>
+            <span>Runtime</span>
+            <strong>{{ mutationPlan?.runtime ?? '—' }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="migrations-inspection-bar" aria-label="Evidência da inspeção">
+        <span>
+          Inspeção: <strong>{{ inspectionTime ? formatDate(inspectionTime) : '—' }}</strong>
+        </span>
+        <span>
+          Evidência: <strong>{{ inspectionEvidence || '—' }}</strong>
+        </span>
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="refreshing || mutationBusy"
+          @click="refresh()"
+        >
+          {{ refreshing ? 'Atualizando…' : 'Atualizar inspeção' }}
+        </button>
       </div>
 
       <div class="migrations-counts" aria-label="Contagem de migrations">
@@ -508,7 +341,7 @@ watch(
           aria-label="Aplicar migrations"
         >
           <div>
-            <strong>{{ mutationMode }}</strong>
+            <strong>{{ executionState }}</strong>
             <p>{{ mutationHint }}</p>
           </div>
 
@@ -516,28 +349,52 @@ watch(
             {{ mutationError }}
           </p>
 
+          <div
+            v-if="reviewedPlan && mutationReady && !mutationRunning"
+            class="migrations-confirmation"
+            role="group"
+            aria-label="Revisar aplicação de migrations"
+          >
+            <strong>Confirme o alvo antes de aplicar</strong>
+            <p>
+              {{ overview.pending.length }} migration{{ overview.pending.length === 1 ? '' : 's' }}
+              pendente{{ overview.pending.length === 1 ? '' : 's' }}
+              · Banco: {{ reviewedPlan.database }}
+              · Environment Instance: {{ reviewedPlan.environmentInstanceId }}
+              · Runtime: {{ reviewedPlan.runtime }}
+            </p>
+            <div class="migrations-confirmation-actions">
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="mutationBusy"
+                @click="cancelReview"
+              >Voltar</button>
+              <button
+                class="primary-button"
+                type="button"
+                :disabled="!canApply"
+                @click="confirmAndStart"
+              >{{ mutationBusy ? 'Validando…' : 'Aplicar migrations' }}</button>
+            </div>
+          </div>
           <button
-            v-if="mutationReady && !mutationRunning"
+            v-else-if="mutationReady && !mutationRunning"
             class="primary-button"
             type="button"
-            :disabled="mutationBusy"
-            @click="runMigration"
+            :disabled="!canApply"
+            @click="requestReview"
           >
-            {{
-              mutationBusy
-                ? 'Preparando…'
-                : `Aplicar ${overview.pending.length} migration${overview.pending.length === 1 ? '' : 's'}`
-            }}
+            Revisar aplicação de {{ overview.pending.length }} migration{{ overview.pending.length === 1 ? '' : 's' }}
           </button>
-
           <button
             v-else-if="mutationRunning"
             class="secondary-button"
             type="button"
-            :disabled="mutationBusy"
+            :disabled="mutationBusy || cancelling"
             @click="cancelMutation"
           >
-            {{ mutationBusy ? 'Cancelando…' : 'Cancelar execução' }}
+            {{ cancelling ? 'Cancelando…' : 'Cancelar execução' }}
           </button>
         </section>
       </section>
@@ -982,6 +839,45 @@ watch(
   border-top: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 9px;
+}
+
+.migrations-inspection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.migrations-inspection-bar strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.migrations-inspection-bar button {
+  margin-left: auto;
+  min-height: 30px;
+  font-size: 10px;
+}
+
+.migrations-confirmation {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.migrations-confirmation p {
+  overflow-wrap: anywhere;
+}
+
+.migrations-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 @media (max-width: 900px) {
