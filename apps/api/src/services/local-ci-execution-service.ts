@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ActivityJob, ActivityEventStatus, Project } from '@dev-dashboard/contracts';
+import type { ActivityEventRepository } from '@dev-dashboard/core';
 
 import type {
   DetachableExecutionService,
@@ -54,6 +55,7 @@ export interface LocalCiExecutionSnapshot {
   exitCode: number | null;
   exitSignal: number | null;
   timedOut: boolean;
+  outcome: 'success' | 'failure' | 'cancelled' | 'timeout' | null;
   startedAt: string;
   endedAt: string | null;
 }
@@ -69,6 +71,8 @@ interface RunRecord {
   key: string;
   request: LocalCiJobRequest;
   timedOut: boolean;
+  cancelRequested: boolean;
+  activityFinished: boolean;
   timeout: ReturnType<typeof setTimeout> | null;
   detach: (() => void) | null;
 }
@@ -78,6 +82,7 @@ export interface LocalCiExecutionServiceOptions {
   maxConcurrent?: number;
   createId?: () => string;
   environment?: NodeJS.ProcessEnv;
+  activityEvents?: Pick<ActivityEventRepository, 'append'>;
 }
 
 function isolatedEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -95,6 +100,8 @@ function isolatedEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 export class LocalCiExecutionService {
   private readonly runs = new Map<string, RunRecord>();
+  private pendingStarts = 0;
+  private readonly activityEvents?: Pick<ActivityEventRepository, 'append'>;
   private readonly timeoutMs: number;
   private readonly maxConcurrent: number;
   private readonly createId: () => string;
@@ -115,78 +122,113 @@ export class LocalCiExecutionService {
     );
     this.createId = options.createId ?? randomUUID;
     this.environment = isolatedEnvironment(options.environment ?? process.env);
+    this.activityEvents = options.activityEvents;
+  }
+
+  public capacity(): { running: number; limit: number; busy: boolean } {
+    const running = this.runningCount() + this.pendingStarts;
+    return { running, limit: this.maxConcurrent, busy: running >= this.maxConcurrent };
+  }
+
+  public activityJobs(projectId: string): ActivityJob[] {
+    const jobs: ActivityJob[] = [];
+    for (const record of this.runs.values()) {
+      if (record.projectId !== projectId) continue;
+      const snapshot = this.executions.snapshotOf(record.key);
+      if (snapshot?.status !== 'running') continue;
+      jobs.push({
+        id: record.key,
+        projectId,
+        domain: 'ci',
+        action: 'Local CI (act)',
+        status: 'running',
+        startedAt: snapshot.startedAt,
+        resourceRef: { kind: 'local-ci-run', id: record.id },
+        cancelSupported: true,
+      });
+    }
+    return jobs;
   }
 
   public async start(
     project: Project,
     request: LocalCiJobRequest,
   ): Promise<LocalCiExecutionSnapshot> {
-    if (this.runningCount() >= this.maxConcurrent) {
+    if (this.capacity().busy) {
       throw new LocalCiExecutionError(
         'LOCAL_CI_BUSY',
-        'Limite de execuções locais simultâneas atingido.',
+        'Capacidade Local CI ocupada. Aguarde a conclusão de outro run e atualize o catálogo.',
       );
     }
 
-    const catalog = await this.discovery.discover(project);
-    let command;
+    // Reserva antes do primeiro await: starts concorrentes não furam o limite.
+    this.pendingStarts += 1;
     try {
-      command = buildActJobCommand(catalog, request);
-    } catch {
-      if (catalog.availability.state !== 'available') {
+      const catalog = await this.discovery.discover(project);
+      let command;
+      try {
+        command = buildActJobCommand(catalog, request);
+      } catch {
+        if (catalog.availability.state !== 'available') {
+          throw new LocalCiExecutionError(
+            'LOCAL_CI_UNAVAILABLE',
+            'Local CI não está disponível neste ambiente.',
+          );
+        }
         throw new LocalCiExecutionError(
-          'LOCAL_CI_UNAVAILABLE',
-          'Local CI não está disponível neste ambiente.',
+          'LOCAL_CI_INVALID_REQUEST',
+          'Workflow, job ou evento não pertence ao catálogo Local CI atual.',
         );
       }
-      throw new LocalCiExecutionError(
-        'LOCAL_CI_INVALID_REQUEST',
-        'Workflow, job ou evento não pertence ao catálogo Local CI atual.',
+      const id = this.createId();
+      const key = `local-ci:${project.id}:${id}`;
+      const record: RunRecord = {
+        id,
+        projectId: project.id,
+        key,
+        request: { ...request },
+        timedOut: false,
+        cancelRequested: false,
+        activityFinished: false,
+        timeout: null,
+        detach: null,
+      };
+
+      let started: DetachableExecutionSnapshot;
+      try {
+        started = this.executions.start(key, {
+          file: command.program,
+          args: command.args,
+          cwd: project.path,
+          env: this.environment,
+        });
+      } catch {
+        throw new LocalCiExecutionError(
+          'LOCAL_CI_START_FAILED',
+          'Não foi possível iniciar a execução Local CI.',
+        );
+      }
+      this.runs.set(id, record);
+      this.recordActivity(record, 'started', started.startedAt);
+
+      const handle = this.executions.attach(
+        key,
+        () => undefined,
+        (snapshot) => this.finish(record, snapshot),
       );
+      record.detach = handle.detach;
+      record.timeout = setTimeout(() => {
+        if (!this.isRunning(record)) return;
+        record.timedOut = true;
+        this.executions.cancel(record.key);
+      }, this.timeoutMs);
+      record.timeout.unref();
+
+      this.pruneRuns();
+      return this.toSnapshot(record, started);
+    } finally {
+      this.pendingStarts -= 1;
     }
-    const id = this.createId();
-    const key = `local-ci:${project.id}:${id}`;
-    const record: RunRecord = {
-      id,
-      projectId: project.id,
-      key,
-      request: { ...request },
-      timedOut: false,
-      timeout: null,
-      detach: null,
-    };
-
-    let started: DetachableExecutionSnapshot;
-    try {
-      started = this.executions.start(key, {
-        file: command.program,
-        args: command.args,
-        cwd: project.path,
-        env: this.environment,
-      });
-    } catch {
-      throw new LocalCiExecutionError(
-        'LOCAL_CI_START_FAILED',
-        'Não foi possível iniciar a execução Local CI.',
-      );
-    }
-    this.runs.set(id, record);
-
-    const handle = this.executions.attach(
-      key,
-      () => undefined,
-      () => this.finish(record),
-    );
-    record.detach = handle.detach;
-    record.timeout = setTimeout(() => {
-      if (!this.isRunning(record)) return;
-      record.timedOut = true;
-      this.executions.cancel(record.key);
-    }, this.timeoutMs);
-    record.timeout.unref();
-
-    this.pruneRuns();
-    return this.toSnapshot(record, started);
   }
 
   public get(projectId: string, id: string): LocalCiExecutionSnapshot {
@@ -247,13 +289,17 @@ export class LocalCiExecutionService {
         'Execução local já terminou.',
       );
     }
+    record.cancelRequested = true;
     this.executions.cancel(record.key);
     return this.toSnapshot(record, snapshot);
   }
 
   public shutdown(): void {
     for (const record of this.runs.values()) {
-      if (this.isRunning(record)) this.executions.cancel(record.key);
+      if (this.isRunning(record)) {
+        record.cancelRequested = true;
+        this.executions.cancel(record.key);
+      }
       this.clearLifecycle(record);
     }
   }
@@ -281,9 +327,60 @@ export class LocalCiExecutionService {
     return this.executions.snapshotOf(record.key)?.status === 'running';
   }
 
-  private finish(record: RunRecord): void {
+  private finish(record: RunRecord, snapshot: DetachableExecutionSnapshot): void {
+    if (!record.activityFinished) {
+      record.activityFinished = true;
+      const outcome = this.outcome(record, snapshot);
+      this.recordActivity(
+        record,
+        outcome === 'success'
+          ? 'succeeded'
+          : outcome === 'cancelled'
+            ? 'cancelled'
+            : 'failed',
+        snapshot.endedAt ?? new Date().toISOString(),
+        outcome,
+      );
+    }
     this.clearLifecycle(record);
     this.pruneRuns();
+  }
+
+  private outcome(
+    record: RunRecord,
+    snapshot: DetachableExecutionSnapshot,
+  ): LocalCiExecutionSnapshot['outcome'] {
+    if (snapshot.status === 'running') return null;
+    if (record.timedOut) return 'timeout';
+    if (record.cancelRequested) return 'cancelled';
+    return snapshot.exitCode === 0 && snapshot.exitSignal === null
+      ? 'success'
+      : 'failure';
+  }
+
+  private recordActivity(
+    record: RunRecord,
+    status: ActivityEventStatus,
+    occurredAt: string,
+    outcome?: Exclude<LocalCiExecutionSnapshot['outcome'], null>,
+  ): void {
+    if (!this.activityEvents) return;
+    const labels = {
+      success: 'concluído',
+      failure: 'falhou',
+      cancelled: 'cancelado',
+      timeout: 'tempo esgotado',
+    };
+    void this.activityEvents.append({
+      projectId: record.projectId,
+      domain: 'ci',
+      type: 'ci.local-run',
+      status,
+      summary: `Local CI: ${outcome ? labels[outcome] : 'iniciado'}`,
+      occurredAt,
+      resourceRef: { kind: 'local-ci-run', id: record.id },
+      jobId: record.key,
+    }).catch(() => undefined);
   }
 
   private clearLifecycle(record: RunRecord): void {
@@ -322,6 +419,7 @@ export class LocalCiExecutionService {
       exitCode: snapshot.exitCode,
       exitSignal: snapshot.exitSignal,
       timedOut: record.timedOut,
+      outcome: this.outcome(record, snapshot),
       startedAt: snapshot.startedAt,
       endedAt: snapshot.endedAt,
     };
