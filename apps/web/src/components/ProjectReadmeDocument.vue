@@ -15,6 +15,7 @@ defineProps<{
 
 const emit = defineEmits<{
   'copy-code': [block: CodeBlock];
+  navigate: [target: string];
 }>();
 
 function tableAlignmentClass(
@@ -22,10 +23,19 @@ function tableAlignmentClass(
 ): string | undefined {
   return alignment ? `readme-table-align-${alignment}` : undefined;
 }
+function handleClick(event: MouseEvent): void {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const link = target.closest('a[data-readme-target]');
+  if (!link || !event.currentTarget || !(event.currentTarget as Element).contains(link)) return;
+  event.preventDefault();
+  const href = link.getAttribute('data-readme-target');
+  if (href) emit('navigate', href);
+}
 </script>
 
 <template>
-  <article class="readme-document">
+  <article class="readme-document" @click="handleClick">
     <template v-for="block in blocks" :key="block.id">
       <component
         :is="`h${Math.min(block.level, 4)}`"
