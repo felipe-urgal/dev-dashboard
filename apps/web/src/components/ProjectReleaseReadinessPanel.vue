@@ -123,9 +123,11 @@ function evidenceStateLabel(check: ReleaseReadinessCheck): string {
   if (/desatualizad|freshness/i.test(check.summary)) {
     return 'Evidência desatualizada';
   }
-  if (/indisponível|não pôde ser consultad/i.test(
-    `${check.summary} ${check.evidence}`,
-  )) {
+  if (
+    /indisponível|não pôde ser consultad/i.test(
+      `${check.summary} ${check.evidence}`,
+    )
+  ) {
     return 'Fonte indisponível';
   }
   return 'Evidência inconclusiva';
@@ -139,7 +141,6 @@ function formatDate(value: string): string {
     timeStyle: 'short',
   }).format(date);
 }
-
 
 async function load(): Promise<void> {
   const requestGeneration = ++generation;
@@ -174,7 +175,11 @@ watch(
 </script>
 
 <template>
-  <section class="readiness-panel" aria-label="Release Readiness" :aria-busy="loading">
+  <section
+    class="readiness-panel"
+    aria-label="Release Readiness"
+    :aria-busy="loading"
+  >
     <EmptyState
       v-if="loading && !snapshot"
       icon="•••"
@@ -218,7 +223,9 @@ watch(
             class="readiness-refresh-button"
             type="button"
             :disabled="loading"
-            :aria-label="loading ? 'Atualizando readiness' : 'Atualizar readiness'"
+            :aria-label="
+              loading ? 'Atualizando readiness' : 'Atualizar readiness'
+            "
             @click="load"
           >
             <ArrowPathIcon aria-hidden="true" />
@@ -228,7 +235,8 @@ watch(
       </header>
 
       <p v-if="errorMessage" class="readiness-refresh-error" role="alert">
-        Falha ao atualizar: {{ errorMessage }}. O snapshot anterior permanece visível.
+        Falha ao atualizar: {{ errorMessage }}. O snapshot anterior permanece
+        visível.
       </p>
 
       <ol class="readiness-checklist" aria-label="Checks de Release Readiness">
@@ -272,7 +280,9 @@ watch(
               <p class="readiness-evidence-text">{{ check.evidence }}</p>
               <span>
                 Observado em
-                <time :datetime="check.observedAt">{{ formatDate(check.observedAt) }}</time>
+                <time :datetime="check.observedAt">{{
+                  formatDate(check.observedAt)
+                }}</time>
               </span>
             </div>
           </details>
