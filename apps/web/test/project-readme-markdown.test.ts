@@ -51,7 +51,9 @@ test('lista, tabela, código e links com HTML no label mantêm escaping', () => 
 });
 
 test('links escapados não criam navegação', () => {
-  const markup = renderInlineMarkdown(String.raw`\\[sem link](docs/a.md) e [válido](#intro)`);
+  const markup = renderInlineMarkdown(
+    String.raw`\\[sem link](docs/a.md) e [válido](#intro)`,
+  );
   assert.equal((markup.match(/data-readme-target=/g) ?? []).length, 1);
   assert.ok(markup.includes('[sem link](docs/a.md)'));
 });

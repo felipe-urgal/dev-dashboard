@@ -315,7 +315,10 @@ export function renderInlineMarkdown(value: string): string {
   for (const match of value.matchAll(pattern)) {
     const index = match.index ?? 0;
     let backslashes = 0;
-    while (index - backslashes - 1 >= cursor && value[index - backslashes - 1] === '\\') {
+    while (
+      index - backslashes - 1 >= cursor &&
+      value[index - backslashes - 1] === '\\'
+    ) {
       backslashes += 1;
     }
     if (backslashes % 2 === 1) {
