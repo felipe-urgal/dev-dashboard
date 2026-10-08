@@ -355,6 +355,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectDoctorService,
+    developmentEnvironmentInstanceStore: context.developmentEnvironmentInstanceStore,
   });
 
   app.register(devContainerRoutes, {
