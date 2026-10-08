@@ -212,6 +212,7 @@ describe('cards dos painéis de detalhe', () => {
       'Diff',
       'Commit',
       'Desfazer',
+      'Issues',
       'Pull Request',
       'Histórico',
     ]);
