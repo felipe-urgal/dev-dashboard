@@ -13,11 +13,27 @@ const props = defineProps<{
 }>();
 
 const {
-  loading, refreshing, errorMessage, mutationError, overview,
-  mutationPlan, mutationSnapshot, reviewedPlan, mutationBusy, cancelling,
-  mutationRunning, mutationReady, canApply, executionState,
-  terminalContainer, connecting, refresh, requestReview, cancelReview,
-  confirmAndStart, cancelMutation,
+  loading,
+  refreshing,
+  errorMessage,
+  mutationError,
+  overview,
+  mutationPlan,
+  mutationSnapshot,
+  reviewedPlan,
+  mutationBusy,
+  cancelling,
+  mutationRunning,
+  mutationReady,
+  canApply,
+  executionState,
+  terminalContainer,
+  connecting,
+  refresh,
+  requestReview,
+  cancelReview,
+  confirmAndStart,
+  cancelMutation,
 } = useProjectMigrationsLifecycle(
   () => props.project.id,
   () => props.environmentInstanceId,
@@ -62,7 +78,8 @@ const inspectionTime = computed(
     overview.value?.observedAt,
 );
 const inspectionEvidence = computed(
-  () => mutationPlan.value?.preflight.evidence ?? overview.value?.evidence ?? '',
+  () =>
+    mutationPlan.value?.preflight.evidence ?? overview.value?.evidence ?? '',
 );
 
 const mutationHint = computed(() => {
@@ -139,7 +156,6 @@ function formatDate(value: string): string {
     timeStyle: 'short',
   }).format(date);
 }
-
 </script>
 
 <template>
@@ -215,8 +231,18 @@ function formatDate(value: string): string {
         <div class="migrations-meta-item">
           <div>
             <span>Environment Instance</span>
-            <strong :title="mutationPlan?.environmentInstanceId ?? props.environmentInstanceId ?? '—'">
-              {{ mutationPlan?.environmentInstanceId ?? props.environmentInstanceId ?? '—' }}
+            <strong
+              :title="
+                mutationPlan?.environmentInstanceId ??
+                props.environmentInstanceId ??
+                '—'
+              "
+            >
+              {{
+                mutationPlan?.environmentInstanceId ??
+                props.environmentInstanceId ??
+                '—'
+              }}
             </strong>
           </div>
         </div>
@@ -230,7 +256,10 @@ function formatDate(value: string): string {
 
       <div class="migrations-inspection-bar" aria-label="Evidência da inspeção">
         <span>
-          Inspeção: <strong>{{ inspectionTime ? formatDate(inspectionTime) : '—' }}</strong>
+          Inspeção:
+          <strong>{{
+            inspectionTime ? formatDate(inspectionTime) : '—'
+          }}</strong>
         </span>
         <span>
           Evidência: <strong>{{ inspectionEvidence || '—' }}</strong>
@@ -357,11 +386,13 @@ function formatDate(value: string): string {
           >
             <strong>Confirme o alvo antes de aplicar</strong>
             <p>
-              {{ overview.pending.length }} migration{{ overview.pending.length === 1 ? '' : 's' }}
-              pendente{{ overview.pending.length === 1 ? '' : 's' }}
-              · Banco: {{ reviewedPlan.database }}
-              · Environment Instance: {{ reviewedPlan.environmentInstanceId }}
-              · Runtime: {{ reviewedPlan.runtime }}
+              {{ overview.pending.length }} migration{{
+                overview.pending.length === 1 ? '' : 's'
+              }}
+              pendente{{ overview.pending.length === 1 ? '' : 's' }} · Banco:
+              {{ reviewedPlan.database }} · Environment Instance:
+              {{ reviewedPlan.environmentInstanceId }} · Runtime:
+              {{ reviewedPlan.runtime }}
             </p>
             <div class="migrations-confirmation-actions">
               <button
@@ -369,13 +400,17 @@ function formatDate(value: string): string {
                 type="button"
                 :disabled="mutationBusy"
                 @click="cancelReview"
-              >Voltar</button>
+              >
+                Voltar
+              </button>
               <button
                 class="primary-button"
                 type="button"
                 :disabled="!canApply"
                 @click="confirmAndStart"
-              >{{ mutationBusy ? 'Validando…' : 'Aplicar migrations' }}</button>
+              >
+                {{ mutationBusy ? 'Validando…' : 'Aplicar migrations' }}
+              </button>
             </div>
           </div>
           <button
@@ -385,7 +420,9 @@ function formatDate(value: string): string {
             :disabled="!canApply"
             @click="requestReview"
           >
-            Revisar aplicação de {{ overview.pending.length }} migration{{ overview.pending.length === 1 ? '' : 's' }}
+            Revisar aplicação de {{ overview.pending.length }} migration{{
+              overview.pending.length === 1 ? '' : 's'
+            }}
           </button>
           <button
             v-else-if="mutationRunning"

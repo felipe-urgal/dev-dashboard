@@ -28,15 +28,17 @@ vi.mock('../src/api/migrations', async () => {
 vi.mock('../src/composables/usePtyTerminalSocket', async () => {
   const { ref } = await import('vue');
   return {
-    usePtyTerminalSocket: (handlers: { onExit: (exitCode: number | null, exitSignal: number | null) => void }) => {
+    usePtyTerminalSocket: (handlers: {
+      onExit: (exitCode: number | null, exitSignal: number | null) => void;
+    }) => {
       terminal.onExit.mockImplementation(handlers.onExit);
       return {
-      terminalContainer: ref(null),
-      connecting: ref(false),
-      connect: terminal.connect,
-      disconnect: terminal.disconnect,
-      disposeTerminal: terminal.disposeTerminal,
-    };
+        terminalContainer: ref(null),
+        connecting: ref(false),
+        connect: terminal.connect,
+        disconnect: terminal.disconnect,
+        disposeTerminal: terminal.disposeTerminal,
+      };
     },
   };
 });
@@ -152,7 +154,9 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain('Confirme o alvo antes de aplicar');
     expect(api.prepareMigrationMutation).not.toHaveBeenCalled();
     expect(api.startMigrationMutation).not.toHaveBeenCalled();
-    await wrapper.get('.migrations-confirmation .primary-button').trigger('click');
+    await wrapper
+      .get('.migrations-confirmation .primary-button')
+      .trigger('click');
     await flushPromises();
 
     expect(api.prepareMigrationMutation).toHaveBeenCalledWith(
@@ -197,7 +201,9 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain(
       'Este provider ainda não possui execução comum habilitada.',
     );
-    expect(wrapper.find('.migrations-action .primary-button').exists()).toBe(false);
+    expect(wrapper.find('.migrations-action .primary-button').exists()).toBe(
+      false,
+    );
   });
 
   it('renderiza o estado indisponível no layout minimalista sem timeline ou contexto lateral', async () => {
