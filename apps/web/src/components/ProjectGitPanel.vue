@@ -11,6 +11,7 @@ import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import ProjectGitCommitPage from './ProjectGitCommitPage.vue';
 import ProjectGitDiffPage from './ProjectGitDiffPage.vue';
 import ProjectGitHistoryPage from './ProjectGitHistoryPage.vue';
+import ProjectGitIssuesPage from './ProjectGitIssuesPage.vue';
 import ProjectGitPullRequestPage from './ProjectGitPullRequestPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
 import ProjectGitSubtabs from './ProjectGitSubtabs.vue';
