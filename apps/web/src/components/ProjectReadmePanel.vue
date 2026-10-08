@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 import { DocumentTextIcon } from '@heroicons/vue/24/outline';
 
@@ -41,6 +41,52 @@ const selectedFile = computed(
 const selectedPathParts = computed(() =>
   selectedPath.value.split('/').filter(Boolean),
 );
+
+function resolveMarkdownLink(target: string): { path: string; anchor: string } | null {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('/') || target.startsWith('\\\\')) return null;
+  const hash = target.indexOf('#');
+  const rawPath = hash < 0 ? target : target.slice(0, hash);
+  const rawAnchor = hash < 0 ? '' : target.slice(hash + 1);
+  let decodedPath: string;
+  let anchor: string;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+    anchor = decodeURIComponent(rawAnchor);
+  } catch {
+    return null;
+  }
+  if (decodedPath.includes('\\\\') || decodedPath.includes('?') || /[\u0000-\u001f\u007f]/.test(decodedPath)) return null;
+  const parts = decodedPath
+    ? [...selectedPath.value.split('/').slice(0, -1), ...decodedPath.split('/')]
+    : selectedPath.value.split('/');
+  const normalized: string[] = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (!normalized.length) return null;
+      normalized.pop();
+    } else {
+      normalized.push(part);
+    }
+  }
+  const path = normalized.join('/');
+  if (!files.value.some((file) => file.path === path)) return null;
+  return { path, anchor };
+}
+
+async function navigateMarkdown(target: string): Promise<void> {
+  const destination = resolveMarkdownLink(target);
+  if (!destination) return;
+  if (destination.path !== selectedPath.value || errorMessage.value) {
+    await selectFile(destination.path);
+  }
+  if (selectedPath.value !== destination.path || errorMessage.value) return;
+  await nextTick();
+  if (destination.anchor) {
+    const heading = headings.value.find((item) => item.id === destination.anchor);
+    if (heading) scrollToHeading(heading.id);
+  }
+}
 
 async function selectFile(path: string): Promise<void> {
   const projectId = props.project.id;
@@ -169,7 +215,7 @@ watch(
           <span class="readme-loading-icon">!</span>
           <strong>Não foi possível abrir a documentação</strong>
           <p>{{ errorMessage }}</p>
-          <button type="button" class="secondary-button" @click="loadFiles">
+          <button type="button" class="secondary-button" @click="selectedFile ? selectFile(selectedPath) : loadFiles()">
             Tentar novamente
           </button>
         </div>
@@ -210,6 +256,7 @@ watch(
             :blocks="blocks"
             :copied-block-id="copiedBlockId"
             @copy-code="copyCode"
+            @navigate="navigateMarkdown"
           />
         </template>
       </main>
