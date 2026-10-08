@@ -66,7 +66,7 @@ const hasMigrationItems = computed(
 );
 
 const mutationMode = computed(() =>
-  mutationReady.value && !mutationRunning.value
+  !mutationSnapshot.value && mutationReady.value
     ? 'Aplicação disponível'
     : executionState.value,
 );
@@ -79,7 +79,7 @@ const inspectionTime = computed(
 );
 const inspectionEvidence = computed(
   () =>
-    mutationPlan.value?.preflight.evidence ?? overview.value?.evidence ?? '',
+    overview.value?.evidence ?? mutationPlan.value?.preflight.evidence ?? '',
 );
 
 const mutationHint = computed(() => {
@@ -263,6 +263,11 @@ function formatDate(value: string): string {
         </span>
         <span>
           Evidência: <strong>{{ inspectionEvidence || '—' }}</strong>
+        </span>
+        <span
+          v-if="mutationPlan?.preflight.evidence && mutationPlan.preflight.evidence !== inspectionEvidence"
+        >
+          Preflight: <strong>{{ mutationPlan.preflight.evidence }}</strong>
         </span>
         <button
           class="secondary-button"
