@@ -195,7 +195,7 @@ describe('ProjectDoctorPanel', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('Saudável');
     expect(wrapper.text()).toContain('0 problemas encontrados');
-    expect(wrapper.text()).toContain('1 não verificada(s)');
+    expect(wrapper.text()).toContain('1 não verificada');
     expect(wrapper.text()).not.toContain('Requer ação');
     expect(
       wrapper.findAll(
