@@ -60,6 +60,9 @@ class StubSecurityScannerProvider implements SecurityScannerProvider<SecuritySca
       provider: 'trivy',
       observedAt: OBSERVED_AT,
       findings: [],
+      truncated: false,
+      limit: 1_000,
+      observedCount: 0,
     },
   };
   public scannedProjects: Project[] = [];
@@ -228,6 +231,7 @@ test('snapshot retorna null antes de existir evidência persistida', async (cont
   assert.deepEqual(response.json(), {
     provider: 'trivy',
     snapshot: null,
+    inProgress: false,
   });
 });
 
@@ -259,6 +263,9 @@ test('scan concluído persiste o resultado normalizado para reload', async (cont
     provider: 'trivy',
     observedAt: OBSERVED_AT,
     findings: [],
+      truncated: false,
+      limit: 1_000,
+      observedCount: 0,
   });
 });
 
@@ -270,6 +277,9 @@ test('scan inconclusivo não apaga a última evidência persistida', async (cont
     provider: 'trivy',
     observedAt: OBSERVED_AT,
     findings: [],
+      truncated: false,
+      limit: 1_000,
+      observedCount: 0,
   });
   fixture.provider.scanResult = {
     state: 'failed',
@@ -291,4 +301,75 @@ test('scan inconclusivo não apaga a última evidência persistida', async (cont
   assert.equal(response.json().execution.state, 'failed');
   assert.equal(fixture.snapshotStore.savedProjects.length, 1);
   assert.ok(fixture.snapshotStore.snapshots.get('project-1'));
+});
+
+test('duas requisições concorrentes não iniciam dois scans Trivy', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+
+  let signalStarted!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  fixture.provider.scan = async (selected) => {
+    fixture.provider.scannedProjects.push(selected);
+    signalStarted();
+    await pending;
+    return fixture.provider.scanResult;
+  };
+
+  const request = {
+    method: 'POST' as const,
+    url: '/api/projects/project-1/security-center/scan',
+    headers: { 'x-dev-dashboard-token': TOKEN, 'content-type': 'application/json' },
+    payload: {},
+  };
+  const first = fixture.app.inject(request);
+  await started;
+  const status = await fixture.app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/security-center/snapshot',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+  assert.equal(status.json().inProgress, true);
+  const duplicate = await fixture.app.inject(request);
+  assert.equal(duplicate.statusCode, 200);
+  assert.equal(duplicate.json().execution.state, 'busy');
+  assert.equal(fixture.provider.scannedProjects.length, 1);
+
+  release();
+  const completed = await first;
+  assert.equal(completed.json().execution.state, 'completed');
+  const ready = await fixture.app.inject({
+    method: 'GET',
+    url: '/api/projects/project-1/security-center/snapshot',
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+  assert.equal(ready.json().inProgress, false);
+});
+
+test('output inválido mantém último snapshot válido', async (context) => {
+  const fixture = await createFixture();
+  context.after(() => fixture.app.close());
+  await fixture.snapshotStore.save(fixture.knownProject, {
+    provider: 'trivy',
+    observedAt: OBSERVED_AT,
+    findings: [],
+    truncated: false,
+    limit: 1_000,
+    observedCount: 0,
+  });
+  fixture.provider.scanResult = {
+    state: 'invalid-output',
+    observedAt: OBSERVED_AT,
+    diagnostic: 'Resultado inválido.',
+  };
+  const result = await fixture.app.inject({
+    method: 'POST',
+    url: '/api/projects/project-1/security-center/scan',
+    headers: { 'x-dev-dashboard-token': TOKEN, 'content-type': 'application/json' },
+    payload: {},
+  });
+  assert.equal(result.json().execution.state, 'invalid-output');
+  assert.equal(fixture.snapshotStore.savedProjects.length, 1);
 });
