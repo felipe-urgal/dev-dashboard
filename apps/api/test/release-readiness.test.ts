@@ -100,6 +100,9 @@ function securitySnapshot(
     result: {
       provider: 'trivy',
       observedAt,
+      truncated: false,
+      limit: 1_000,
+      observedCount: severities.length,
       findings: severities.map((severity, index) => ({
         provider: 'trivy',
         category: 'misconfiguration',
@@ -308,4 +311,20 @@ test('snapshot usa o estado mais conservador sem score opaco', () => {
     snapshot.checks.map((check) => check.id),
     ['git', 'doctor', 'tests'],
   );
+});
+
+test('readiness não aprova evidência truncada ou legada', () => {
+  const observedAt = '2026-09-05T18:00:00.000Z';
+  const partial = securitySnapshot();
+  partial.result.truncated = true;
+  partial.result.observedCount = 1_100;
+  assert.equal(evaluateSecurityReadiness(partial, observedAt).state, 'unknown');
+  assert.match(evaluateSecurityReadiness(partial, observedAt).summary, /incompleto/);
+  const blocking = securitySnapshot(['high']);
+  blocking.result.truncated = true;
+  blocking.result.observedCount = 1_100;
+  assert.equal(evaluateSecurityReadiness(blocking, observedAt).state, 'block');
+  const legacy = securitySnapshot();
+  delete (legacy.result as Partial<typeof legacy.result>).truncated;
+  assert.equal(evaluateSecurityReadiness(legacy, observedAt).state, 'unknown');
 });
