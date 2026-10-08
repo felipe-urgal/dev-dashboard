@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-
 import {
   ArrowPathIcon,
-  ChevronRightIcon,
   DocumentTextIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -20,20 +17,6 @@ const emit = defineEmits<{
   refresh: [];
 }>();
 
-const dependenciesOpen = ref(false);
-
-function isDependencyPath(path: string): boolean {
-  return /(^|\/)node_modules(\/|$)/.test(path);
-}
-
-const projectFiles = computed(() =>
-  props.files.filter((file) => !isDependencyPath(file.path)),
-);
-
-const dependencyFiles = computed(() =>
-  props.files.filter((file) => isDependencyPath(file.path)),
-);
-
 function fileDirectory(file: ProjectFileEntry): string {
   const lastSeparator = file.path.lastIndexOf('/');
   return lastSeparator >= 0
@@ -41,17 +24,6 @@ function fileDirectory(file: ProjectFileEntry): string {
     : 'Raiz do projeto';
 }
 
-function handleDependenciesToggle(event: Event): void {
-  dependenciesOpen.value = (event.currentTarget as HTMLDetailsElement).open;
-}
-
-watch(
-  () => props.selectedPath,
-  (path) => {
-    if (isDependencyPath(path)) dependenciesOpen.value = true;
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
@@ -80,11 +52,11 @@ watch(
       <section class="readme-file-group readme-project-files">
         <div class="readme-file-group-label">
           <span>Projeto</span>
-          <strong>{{ projectFiles.length }}</strong>
+          <strong>{{ props.files.length }}</strong>
         </div>
 
         <button
-          v-for="file in projectFiles"
+          v-for="file in props.files"
           :key="file.path"
           type="button"
           class="readme-file-item"
@@ -102,50 +74,12 @@ watch(
           </span>
         </button>
 
-        <p v-if="!projectFiles.length" class="readme-file-group-empty">
+        <p v-if="!props.files.length" class="readme-file-group-empty">
           Nenhum Markdown do projeto nesta leitura.
         </p>
       </section>
 
-      <details
-        v-if="dependencyFiles.length"
-        class="readme-dependency-group"
-        :open="dependenciesOpen"
-        @toggle="handleDependenciesToggle"
-      >
-        <summary class="readme-file-group-label">
-          <span class="readme-dependency-label">
-            <ChevronRightIcon aria-hidden="true" />
-            Dependências
-          </span>
-          <strong class="readme-dependency-summary-count">
-            {{ dependencyFiles.length }}
-          </strong>
-        </summary>
-
-        <div class="readme-dependency-files">
-          <button
-            v-for="file in dependencyFiles"
-            :key="file.path"
-            type="button"
-            class="readme-file-item"
-            :class="{
-              'readme-file-item-active': file.path === props.selectedPath,
-            }"
-            :aria-current="
-              file.path === props.selectedPath ? 'true' : undefined
-            "
-            :disabled="props.loading && file.path === props.selectedPath"
-            @click="emit('select', file.path)"
-          >
-            <DocumentTextIcon aria-hidden="true" />
-            <span class="readme-file-item-copy">
-              <strong>{{ file.name }}</strong>
-              <span>{{ fileDirectory(file) }}</span>
-            </span>
-          </button>
-        </div>
-      </details>
+      
     </div>
   </aside>
 </template>
