@@ -314,6 +314,15 @@ export function renderInlineMarkdown(value: string): string {
 
   for (const match of value.matchAll(pattern)) {
     const index = match.index ?? 0;
+    let backslashes = 0;
+    while (index - backslashes - 1 >= cursor && value[index - backslashes - 1] === '\\') {
+      backslashes += 1;
+    }
+    if (backslashes % 2 === 1) {
+      result += escapeHtml(value.slice(cursor, index - 1) + match[0]);
+      cursor = index + match[0].length;
+      continue;
+    }
     result += escapeHtml(value.slice(cursor, index));
 
     if (match[1] !== undefined) {
