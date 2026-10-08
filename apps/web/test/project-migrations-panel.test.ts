@@ -626,7 +626,7 @@ describe('Migrations - confirmação e recuperação', () => {
     await flushPromises();
     expect(wrapper.text()).toContain(state);
     expect(wrapper.text()).toContain('Nenhuma migration pendente');
-    expect(wrapper.text()).toContain('Preflight bloqueado');
+    expect(wrapper.text()).toContain('Não há migrations pendentes para aplicar.');
     expect(api.fetchMigrationOverview).toHaveBeenCalledTimes(2);
     expect(api.planMigrationMutation).toHaveBeenCalledTimes(2);
     wrapper.unmount();
