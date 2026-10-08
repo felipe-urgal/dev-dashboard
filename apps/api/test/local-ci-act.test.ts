@@ -32,6 +32,13 @@ test('marca Local CI permanentemente como aproximação', () => {
   const result = catalog();
   assert.equal(result.provider, 'act');
   assert.equal(result.approximation, true);
+  assert.deepEqual(result.discovery, {
+    workflowsExamined: 0,
+    workflowsAccepted: 0,
+    workflowsSkipped: 0,
+    truncated: false,
+    reasons: [],
+  });
 });
 
 test('constrói argv somente para job e evento presentes no catálogo', () => {
@@ -152,6 +159,9 @@ test('catálogo limita jobs, eventos, labels, versions e paths', () => {
 
   assert.equal(result.jobs.length, 512);
   assert.equal(result.jobs[0]?.events.length, 64);
+  assert.equal(result.discovery.truncated, true);
+  assert.equal(result.discovery.reasons.includes('Limite de jobs do catálogo atingido.'), true);
+  assert.equal(result.discovery.reasons.includes('Limite de eventos por job atingido.'), true);
   assert.equal(result.availability.actVersion, undefined);
   assert.equal(result.availability.dockerVersion, '28.0.0');
   assert.equal(
