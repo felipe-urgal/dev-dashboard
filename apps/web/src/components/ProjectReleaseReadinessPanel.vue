@@ -93,6 +93,15 @@ const checkCounts = computed(() => {
   return counts;
 });
 
+const countsSummary = computed(() => {
+  const { block, warning, unknown } = checkCounts.value;
+  return [
+    `${block} ${block === 1 ? 'bloqueio' : 'bloqueios'}`,
+    `${warning} ${warning === 1 ? 'alerta' : 'alertas'}`,
+    `${unknown} ${unknown === 1 ? 'inconclusivo' : 'inconclusivos'}`,
+  ].join(' · ');
+});
+
 const readinessSummary = computed(() => {
   const current = snapshot.value;
   if (!current) return '';
@@ -105,11 +114,13 @@ const readinessSummary = computed(() => {
     case 'unknown':
       return checkCounts.value.unknown === 1
         ? '1 check inconclusivo; entrega ainda não comprovada.'
-        : `${checkCounts.value.unknown} checks inconclusivos; entrega ainda não comprovada.`;
+        : `${checkCounts.value.unknown} checks inconclusivos; ` +
+            'entrega ainda não comprovada.';
     case 'warning':
       return checkCounts.value.warning === 1
         ? '1 alerta requer atenção antes da entrega.'
-        : `${checkCounts.value.warning} alertas requerem atenção antes da entrega.`;
+        : `${checkCounts.value.warning} alertas requerem atenção ` +
+            'antes da entrega.';
     case 'pass':
       return 'Todos os checks aplicáveis estão comprovados.';
   }
@@ -206,11 +217,7 @@ watch(
           <RocketLaunchIcon aria-hidden="true" />
           <div>
             <strong>{{ readinessSummary }}</strong>
-            <span class="readiness-counts">
-              {{ checkCounts.block }} bloqueio(s) ·
-              {{ checkCounts.warning }} alerta(s) ·
-              {{ checkCounts.unknown }} inconclusivo(s)
-            </span>
+            <span class="readiness-counts">{{ countsSummary }}</span>
             <span>Atualizado em {{ formatDate(snapshot.generatedAt) }}</span>
           </div>
         </div>
