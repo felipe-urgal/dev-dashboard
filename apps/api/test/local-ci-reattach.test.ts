@@ -189,14 +189,24 @@ test('desconexão do WebSocket não encerra o processo; novo attach observa o me
   const executions = new FakeExecutions();
   const service = createService(executions);
   const run = await service.start(project, request);
-  const first = service.reattach(project.id, run.id, () => undefined, () => undefined);
+  const first = service.reattach(
+    project.id,
+    run.id,
+    () => undefined,
+    () => undefined,
+  );
   first.detach();
 
   assert.equal(service.get(project.id, run.id).status, 'running');
   assert.equal(executions.starts, 1);
 
   const chunks: string[] = [];
-  const second = service.reattach(project.id, run.id, (chunk) => chunks.push(chunk), () => undefined);
+  const second = service.reattach(
+    project.id,
+    run.id,
+    (chunk) => chunks.push(chunk),
+    () => undefined,
+  );
   executions.emitData(`local-ci:${project.id}:${run.id}`, 'continua ativo');
   assert.deepEqual(chunks, ['continua ativo']);
   assert.equal(executions.starts, 1);
