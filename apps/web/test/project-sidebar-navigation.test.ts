@@ -15,7 +15,8 @@ vi.mock('vue-router', () => ({
   RouterLink: {
     name: 'RouterLink',
     props: ['to'],
-    template: '<a class="router-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
+    template:
+      '<a class="router-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
   },
 }));
 
@@ -123,10 +124,7 @@ describe('ProjectSidebarNavigation', () => {
     expect(wrapper.emitted('expand-sidebar')).toHaveLength(1);
   });
   it('preserva Environment Instance ao abrir o Doctor pela navegação', () => {
-    const wrapper = mountNavigation(
-      false,
-      'environment:worktree:p1:one',
-    );
+    const wrapper = mountNavigation(false, 'environment:worktree:p1:one');
     const doctorLink = wrapper
       .find('#project-sidebar-quality-menu')
       .findAll('a')
@@ -139,5 +137,4 @@ describe('ProjectSidebarNavigation', () => {
       query: { environmentInstanceId: 'environment:worktree:p1:one' },
     });
   });
-
 });
