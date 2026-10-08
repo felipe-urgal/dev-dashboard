@@ -114,6 +114,15 @@ describe('Migrations API', () => {
     const confirmation = await prepareMigrationMutation('project-1', planned);
     await startMigrationMutation('project-1', planned, confirmation.token);
 
+    for (const [, init] of requestJson.mock.calls) {
+      if (typeof init?.body !== 'string') continue;
+      const body = JSON.parse(init.body) as Record<string, unknown>;
+      expect(body).not.toHaveProperty('command');
+      expect(body).not.toHaveProperty('cwd');
+      expect(body).not.toHaveProperty('argv');
+      expect(body).not.toHaveProperty('args');
+    }
+
     expect(requestJson).toHaveBeenNthCalledWith(
       1,
       '/api/projects/project-1/migrations/mutations/plan',
