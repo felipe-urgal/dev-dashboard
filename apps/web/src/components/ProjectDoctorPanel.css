@@ -259,6 +259,10 @@
   color: var(--success-text);
 }
 
+.project-doctor-section-icon.is-skipped {
+  color: var(--text-muted);
+}
+
 .project-doctor-category-list {
   display: grid;
   gap: 6px;
