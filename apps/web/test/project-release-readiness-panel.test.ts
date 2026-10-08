@@ -29,7 +29,10 @@ const project: Project = {
   capabilities: ['git', 'server'],
 };
 
-const targets: Record<ReleaseReadinessCheckId, ReleaseReadinessCheck['action']> = {
+const targets: Record<
+  ReleaseReadinessCheckId,
+  ReleaseReadinessCheck['action']
+> = {
   git: { label: 'Abrir Sincronização', target: 'synchronization' },
   tests: { label: 'Abrir Testes', target: 'tests' },
   'pull-request': { label: 'Abrir Pull Request', target: 'pull-request' },
@@ -130,7 +133,9 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(links[0]?.attributes('data-tab')).toBe('sync');
     expect(links[2]?.attributes('data-tab')).toBe('pull-request');
     expect(links[5]?.attributes('aria-label')).toBe('Abrir Segurança');
-    expect(wrapper.get('.readiness-refresh-button').text()).toContain('Atualizar');
+    expect(wrapper.get('.readiness-refresh-button').text()).toContain(
+      'Atualizar',
+    );
   });
 
   it.each([
@@ -149,20 +154,19 @@ describe('ProjectReleaseReadinessPanel', () => {
       checks: [check('git', 'pass')],
       expected: 'Todos os checks aplicáveis estão comprovados.',
     },
-  ])('usa um resumo coerente quando o estado é $state', async ({
-    state,
-    checks,
-    expected,
-  }) => {
-    fetchReleaseReadiness.mockResolvedValue(snapshot(state, checks));
+  ])(
+    'usa um resumo coerente quando o estado é $state',
+    async ({ state, checks, expected }) => {
+      fetchReleaseReadiness.mockResolvedValue(snapshot(state, checks));
 
-    const wrapper = mountPanel();
-    await flushPromises();
+      const wrapper = mountPanel();
+      await flushPromises();
 
-    expect(wrapper.text()).toContain(expected);
-    expect(wrapper.text()).not.toContain('Nenhum bloqueio impede a entrega');
-    expect(wrapper.text()).toContain('0 bloqueio(s)');
-  });
+      expect(wrapper.text()).toContain(expected);
+      expect(wrapper.text()).not.toContain('Nenhum bloqueio impede a entrega');
+      expect(wrapper.text()).toContain('0 bloqueio(s)');
+    },
+  );
 
   it('exibe evidence e observedAt como texto seguro em detalhes nativos acessíveis', async () => {
     const untrusted = '<img src=x onerror=alert(1)><script>alert(2)</script>';
@@ -205,14 +209,12 @@ describe('ProjectReleaseReadinessPanel', () => {
     const initial = snapshot('warning', [check('security', 'warning')]);
     const updated = snapshot('pass', [check('security', 'pass')]);
     let resolveRefresh!: (result: ReleaseReadinessSnapshot) => void;
-    fetchReleaseReadiness
-      .mockResolvedValueOnce(initial)
-      .mockImplementationOnce(
-        () =>
-          new Promise<ReleaseReadinessSnapshot>((resolve) => {
-            resolveRefresh = resolve;
-          }),
-      );
+    fetchReleaseReadiness.mockResolvedValueOnce(initial).mockImplementationOnce(
+      () =>
+        new Promise<ReleaseReadinessSnapshot>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
 
     const wrapper = mountPanel();
     await flushPromises();
@@ -221,15 +223,21 @@ describe('ProjectReleaseReadinessPanel', () => {
     expect(wrapper.find('.readiness-card').exists()).toBe(true);
     expect(wrapper.text()).toContain('1 alerta requer atenção');
     expect(wrapper.text()).toContain('Atualizando…');
-    expect(wrapper.get('.readiness-refresh-button').attributes('disabled')).toBeDefined();
+    expect(
+      wrapper.get('.readiness-refresh-button').attributes('disabled'),
+    ).toBeDefined();
     expect(wrapper.find('.empty-state').exists()).toBe(false);
 
     resolveRefresh(updated);
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Todos os checks aplicáveis estão comprovados.');
+    expect(wrapper.text()).toContain(
+      'Todos os checks aplicáveis estão comprovados.',
+    );
     expect(wrapper.text()).not.toContain('1 alerta requer atenção');
-    expect(wrapper.get('.readiness-refresh-button').attributes('disabled')).toBeUndefined();
+    expect(
+      wrapper.get('.readiness-refresh-button').attributes('disabled'),
+    ).toBeUndefined();
   });
 
   it('mantém evidência saudável e sinaliza erro em refresh sem apagar o snapshot', async () => {
@@ -264,11 +272,9 @@ describe('ProjectReleaseReadinessPanel', () => {
     await flushPromises();
     expect(wrapper.findAll('.readiness-check')).toHaveLength(3);
     expect(wrapper.text()).toContain('1 check inconclusivo');
-    expect(wrapper.findAll('.readiness-check-status').map((s) => s.text())).toEqual([
-      'Pronto',
-      'Inconclusivo',
-      'Pronto',
-    ]);
+    expect(
+      wrapper.findAll('.readiness-check-status').map((s) => s.text()),
+    ).toEqual(['Pronto', 'Inconclusivo', 'Pronto']);
   });
 
   it('não inventa check de produção para projeto sem contrato aplicável', async () => {
@@ -284,14 +290,12 @@ describe('ProjectReleaseReadinessPanel', () => {
   it('não mantém evidências do projeto anterior quando o projeto muda', async () => {
     const first = snapshot('pass', [check('git', 'pass')]);
     let resolveSecond!: (result: ReleaseReadinessSnapshot) => void;
-    fetchReleaseReadiness
-      .mockResolvedValueOnce(first)
-      .mockImplementationOnce(
-        () =>
-          new Promise<ReleaseReadinessSnapshot>((resolve) => {
-            resolveSecond = resolve;
-          }),
-      );
+    fetchReleaseReadiness.mockResolvedValueOnce(first).mockImplementationOnce(
+      () =>
+        new Promise<ReleaseReadinessSnapshot>((resolve) => {
+          resolveSecond = resolve;
+        }),
+    );
     const wrapper = mountPanel();
     await flushPromises();
     await wrapper.setProps({ project: { ...project, id: 'project-2' } });
@@ -315,6 +319,8 @@ describe('ProjectReleaseReadinessPanel', () => {
     await wrapper.get('button').trigger('click');
     await flushPromises();
     expect(fetchReleaseReadiness).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).toContain('Todos os checks aplicáveis estão comprovados.');
+    expect(wrapper.text()).toContain(
+      'Todos os checks aplicáveis estão comprovados.',
+    );
   });
 });

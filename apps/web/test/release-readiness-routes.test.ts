@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { router } from '../src/router';
-import { releaseReadinessActionRoutes, releaseReadinessActionRoute } from '../src/api/release-readiness-routes';
+import {
+  releaseReadinessActionRoutes,
+  releaseReadinessActionRoute,
+} from '../src/api/release-readiness-routes';
 import type { ReleaseReadinessActionTarget } from '../src/api/release-readiness';
 
 describe('Release Readiness action navigation', () => {
@@ -29,8 +32,9 @@ describe('Release Readiness action navigation', () => {
 
   it('preserva as abas específicas de Sincronização e Pull Request', () => {
     expect(
-      router.resolve(releaseReadinessActionRoute('synchronization', 'project-1'))
-        .query.tab,
+      router.resolve(
+        releaseReadinessActionRoute('synchronization', 'project-1'),
+      ).query.tab,
     ).toBe('sync');
     expect(
       router.resolve(releaseReadinessActionRoute('pull-request', 'project-1'))
