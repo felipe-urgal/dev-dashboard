@@ -305,9 +305,7 @@ describe('ProjectSecurityCenterPanel', () => {
 
     wrapper.unmount();
   });
-});
-
-it('filtra sem alterar métricas e exibe apenas detalhes permitidos', async () => {
+  it('filtra sem alterar métricas e exibe apenas detalhes permitidos', async () => {
   fetchSecurityCenterAvailability.mockResolvedValueOnce(availability('available'));
   const observedAt = '2026-09-11T14:40:00.000Z';
   scanProjectSecurityCenter.mockResolvedValueOnce({
@@ -381,4 +379,6 @@ it('resultado parcial sem findings não indica varredura limpa', async () => {
   expect(wrapper.text()).not.toContain('Nenhum finding encontrado');
   expect(wrapper.text()).toContain('Evidência incompleta');
   wrapper.unmount();
+});
+
 });
