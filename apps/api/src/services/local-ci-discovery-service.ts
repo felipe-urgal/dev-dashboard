@@ -154,7 +154,7 @@ async function discoverWorkflows(
   }
 
   const files = entries
-    .filter((entry) => /\\.(?:yml|yaml)$/u.test(entry.name))
+    .filter((entry) => /\.(?:yml|yaml)$/u.test(entry.name))
     .map((entry) => entry.name)
     .sort();
   const selectedFiles = files.slice(0, MAX_WORKFLOW_FILES);
