@@ -50,6 +50,7 @@ import { gitWorktreeRoutes } from './routes/git-worktrees.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
 import { gitPullRequestMutationRoutes } from './routes/git-pull-request-mutations.js';
+import { githubIssuesRoutes } from './routes/github-issues.js';
 import { gitUndoRoutes } from './routes/git-undo.js';
 import { gitCommitDetailsRoutes } from './routes/git-commit-details.js';
 import { gitCurrentBranchHistoryRoutes } from './routes/git-current-branch-history.js';
@@ -490,6 +491,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+  app.register(githubIssuesRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
   });
   app.register(gitUndoRoutes, {
     prefix: '/api',
