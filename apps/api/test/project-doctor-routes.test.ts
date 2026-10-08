@@ -158,53 +158,65 @@ test('rota do Project Doctor', async (context) => {
     },
   );
 
-  await context.test('isola instâncias e recusa Environment Instance alheia ou desconhecida', async () => {
-    const instanceId = 'environment:worktree:p1:one';
-    appContext.developmentEnvironmentInstanceStore.upsert({
-      id: instanceId,
-      projectId: project.id,
-      source: { kind: 'worktree', path: projectPath, worktreeId: 'one' },
-      runtime: { kind: 'devcontainer', runtimeId: 'a'.repeat(64) },
-      lifecycle: 'ready',
-    });
-    const selected = await app.inject({
-      method: 'GET',
-      url: `/api/projects/p1/doctor?environmentInstanceId=${encodeURIComponent(instanceId)}`,
-      headers,
-    });
-    assert.equal(selected.statusCode, 200);
-    assert.equal(selected.json<DoctorResponse>().report.projectId, 'p1');
-    assert.equal(
-      selected.json<DoctorResponse>().report.checks.find((check) => check.id === 'node-dependencies')?.status,
-      'skipped',
-    );
+  await context.test(
+    'isola instâncias e recusa Environment Instance alheia ou desconhecida',
+    async () => {
+      const instanceId = 'environment:worktree:p1:one';
+      appContext.developmentEnvironmentInstanceStore.upsert({
+        id: instanceId,
+        projectId: project.id,
+        source: { kind: 'worktree', path: projectPath, worktreeId: 'one' },
+        runtime: { kind: 'devcontainer', runtimeId: 'a'.repeat(64) },
+        lifecycle: 'ready',
+      });
+      const selected = await app.inject({
+        method: 'GET',
+        url: `/api/projects/p1/doctor?environmentInstanceId=${encodeURIComponent(instanceId)}`,
+        headers,
+      });
+      assert.equal(selected.statusCode, 200);
+      assert.equal(selected.json<DoctorResponse>().report.projectId, 'p1');
+      assert.equal(
+        selected
+          .json<DoctorResponse>()
+          .report.checks.find((check) => check.id === 'node-dependencies')
+          ?.status,
+        'skipped',
+      );
 
-    const explicitPrimary = await app.inject({
-      method: 'GET',
-      url: '/api/projects/p1/doctor?environmentInstanceId=environment%3Aprimary%3Ap1',
-      headers,
-    });
-    assert.equal(explicitPrimary.statusCode, 200);
-    assert.equal(
-      explicitPrimary.json<DoctorResponse>().report.checks.find((check) => check.id === 'node-dependencies')?.status,
-      'passed',
-    );
+      const explicitPrimary = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/doctor?environmentInstanceId=environment%3Aprimary%3Ap1',
+        headers,
+      });
+      assert.equal(explicitPrimary.statusCode, 200);
+      assert.equal(
+        explicitPrimary
+          .json<DoctorResponse>()
+          .report.checks.find((check) => check.id === 'node-dependencies')
+          ?.status,
+        'passed',
+      );
 
-    const unknown = await app.inject({
-      method: 'GET',
-      url: '/api/projects/p1/doctor?environmentInstanceId=unknown',
-      headers,
-    });
-    assert.equal(unknown.statusCode, 404);
-    assert.equal(unknown.json<ErrorResponse>().error, 'ENVIRONMENT_INSTANCE_NOT_FOUND');
+      const unknown = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/doctor?environmentInstanceId=unknown',
+        headers,
+      });
+      assert.equal(unknown.statusCode, 404);
+      assert.equal(
+        unknown.json<ErrorResponse>().error,
+        'ENVIRONMENT_INSTANCE_NOT_FOUND',
+      );
 
-    const foreign = await app.inject({
-      method: 'GET',
-      url: '/api/projects/p1/doctor?environmentInstanceId=environment%3Aprimary%3Ap2',
-      headers,
-    });
-    assert.equal(foreign.statusCode, 404);
-  });
+      const foreign = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/doctor?environmentInstanceId=environment%3Aprimary%3Ap2',
+        headers,
+      });
+      assert.equal(foreign.statusCode, 404);
+    },
+  );
 
   await context.test('retorna 404 para projeto inexistente', async () => {
     const response = await app.inject({
