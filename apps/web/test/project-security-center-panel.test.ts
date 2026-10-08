@@ -411,4 +411,25 @@ describe('ProjectSecurityCenterPanel', () => {
     expect(wrapper.text()).toContain('Evidência incompleta');
     wrapper.unmount();
   });
+  it('estado ocupado do backend impede segundo scan de outro cliente', async () => {
+    fetchSecurityCenterAvailability.mockResolvedValueOnce(
+      availability('available'),
+    );
+    fetchSecurityCenterSnapshot.mockResolvedValueOnce({
+      provider: 'trivy',
+      snapshot: null,
+      inProgress: true,
+    });
+
+    const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Scan em andamento');
+    expect(
+      wrapper.get('.security-center-scan-button').attributes('disabled'),
+    ).toBeDefined();
+    expect(scanProjectSecurityCenter).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
 });
