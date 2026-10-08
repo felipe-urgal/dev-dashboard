@@ -550,8 +550,8 @@ onBeforeUnmount(closeSocket);
       <div class="local-ci-boundary" aria-label="Limite do Local CI">
         <InformationCircleIcon aria-hidden="true" />
         <span>
-          Execução local via act/Docker no host da API, não na Environment Instance do
-          projeto. Não substitui os checks oficiais do GitHub.
+          Execução local via act/Docker no host da API, não na Environment
+          Instance do projeto. Não substitui os checks oficiais do GitHub.
         </span>
       </div>
 
