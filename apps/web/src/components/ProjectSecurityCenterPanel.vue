@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import {
-  ChevronRightIcon,
-  PlayIcon,
-  ShieldCheckIcon,
-} from '@heroicons/vue/24/outline';
-import { computed, ref, watch } from 'vue';
+import { PlayIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -24,6 +20,10 @@ const props = defineProps<{ project: Project }>();
 
 const loadingAvailability = ref(false);
 const scanning = ref(false);
+const remoteBusy = ref(false);
+const severityFilter = ref<SecurityFinding['severity'] | 'all'>('all');
+const categoryFilter = ref<SecurityFinding['category'] | 'all'>('all');
+let busyRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 const errorMessage = ref('');
 const availability = ref<SecurityCenterAvailabilityResponse | null>(null);
 const snapshot = ref<SecurityCenterSnapshotResponse['snapshot']>(null);
@@ -46,7 +46,9 @@ const availabilityLabel = computed(() => {
 
 const canScan = computed(
   () =>
-    availability.value?.availability.state === 'available' && !scanning.value,
+    availability.value?.availability.state === 'available' &&
+    !scanning.value &&
+    !remoteBusy.value,
 );
 
 const completedResult = computed(
@@ -62,6 +64,18 @@ const findings = computed<SecurityFinding[]>(
 );
 
 const hasCompletedScan = computed(() => completedResult.value !== undefined);
+const incomplete = computed(() => completedResult.value?.truncated !== false);
+const freshnessLabel = computed(() => {
+  if (!hasCompletedScan.value) return 'Nunca executado';
+  return snapshot.value?.freshness.state === 'stale' ? 'Stale' : 'Fresh';
+});
+const freshnessTone = computed<StatusBadgeTone>(() =>
+  !hasCompletedScan.value
+    ? 'neutral'
+    : snapshot.value?.freshness.state === 'stale' || incomplete.value
+      ? 'warning'
+      : 'success',
+);
 
 const evidenceObservedAt = computed(
   () =>
@@ -74,8 +88,7 @@ const evidenceObservedAt = computed(
 const lastScanLabel = computed(() => {
   if (scanning.value) return 'Em execução';
 
-  const observedAt =
-    scan.value?.execution.observedAt ?? snapshot.value?.result.observedAt;
+  const observedAt = evidenceObservedAt.value;
   return observedAt ? formatDate(observedAt) : 'Nunca executado';
 });
 
@@ -93,6 +106,7 @@ const versionLabel = computed(() => {
 
 const scanButtonLabel = computed(() => {
   if (scanning.value) return 'Escaneando…';
+  if (remoteBusy.value) return 'Scan em andamento';
   return hasCompletedScan.value ? 'Executar novamente' : 'Executar scan';
 });
 
@@ -147,12 +161,22 @@ const severityCounts = computed(() =>
 );
 
 const sortedFindings = computed(() =>
-  [...findings.value].sort(
-    (left, right) =>
-      severityOrder[left.severity] - severityOrder[right.severity] ||
-      left.file.localeCompare(right.file) ||
-      (left.line ?? 0) - (right.line ?? 0),
-  ),
+  findings.value
+    .filter(
+      (finding) =>
+        (severityFilter.value === 'all' ||
+          finding.severity === severityFilter.value) &&
+        (categoryFilter.value === 'all' ||
+          finding.category === categoryFilter.value),
+    )
+    .sort(
+      (left, right) =>
+        severityOrder[left.severity] - severityOrder[right.severity] ||
+        left.file.localeCompare(right.file) ||
+        (left.line ?? 0) - (right.line ?? 0) ||
+        left.ruleId.localeCompare(right.ruleId) ||
+        left.fingerprint.localeCompare(right.fingerprint),
+    ),
 );
 
 function severityTone(severity: SecurityFinding['severity']): StatusBadgeTone {
@@ -181,6 +205,39 @@ function findingDescription(finding: SecurityFinding): string {
   );
 }
 
+function safeReference(reference: string | undefined): string | undefined {
+  if (!reference) return undefined;
+  try {
+    const url = new URL(reference);
+    return ['http:', 'https:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function scheduleBusyRefresh(requestGeneration: number, projectId: string): void {
+  if (busyRefreshTimer) clearTimeout(busyRefreshTimer);
+  busyRefreshTimer = undefined;
+  if (!remoteBusy.value) return;
+
+  busyRefreshTimer = setTimeout(async () => {
+    try {
+      const response = await fetchSecurityCenterSnapshot(projectId);
+      if (requestGeneration !== generation) return;
+      snapshot.value = response.snapshot;
+      remoteBusy.value = response.inProgress ?? false;
+    } catch {
+      // Keep the busy lock visible until the backend can be queried again.
+    }
+    if (requestGeneration === generation)
+      scheduleBusyRefresh(requestGeneration, projectId);
+  }, 2_000);
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -192,6 +249,11 @@ function formatDate(value: string): string {
 
 async function loadAvailability(): Promise<void> {
   const requestGeneration = ++generation;
+  if (busyRefreshTimer) clearTimeout(busyRefreshTimer);
+  busyRefreshTimer = undefined;
+  remoteBusy.value = false;
+  severityFilter.value = 'all';
+  categoryFilter.value = 'all';
   loadingAvailability.value = true;
   errorMessage.value = '';
   scan.value = null;
@@ -215,6 +277,8 @@ async function loadAvailability(): Promise<void> {
 
   if (snapshotResult.status === 'fulfilled') {
     snapshot.value = snapshotResult.value.snapshot;
+    remoteBusy.value = snapshotResult.value.inProgress ?? false;
+    scheduleBusyRefresh(requestGeneration, props.project.id);
   } else if (availabilityResult.status === 'fulfilled') {
     errorMessage.value =
       snapshotResult.reason instanceof Error
@@ -227,24 +291,34 @@ async function loadAvailability(): Promise<void> {
 
 async function runScan(): Promise<void> {
   if (!canScan.value) return;
+  const projectId = props.project.id;
+  const requestGeneration = generation;
   scanning.value = true;
   errorMessage.value = '';
 
   try {
-    scan.value = await scanProjectSecurityCenter(props.project.id);
-    if (scan.value.execution.state === 'completed') {
-      const persisted = await fetchSecurityCenterSnapshot(props.project.id);
-      snapshot.value = persisted.snapshot;
-    } else {
+    const response = await scanProjectSecurityCenter(projectId);
+    if (requestGeneration !== generation) return;
+    scan.value = response;
+    if (response.execution.state === 'busy') {
+      remoteBusy.value = true;
+    } else if (response.execution.state !== 'completed') {
       errorMessage.value =
-        scan.value.execution.diagnostic ??
+        response.execution.diagnostic ??
         'O provider não conseguiu produzir um resultado confiável.';
     }
+    const persisted = await fetchSecurityCenterSnapshot(projectId);
+    if (requestGeneration !== generation) return;
+    snapshot.value = persisted.snapshot;
+    remoteBusy.value = persisted.inProgress ?? false;
+    scheduleBusyRefresh(requestGeneration, projectId);
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível executar o scan de segurança.';
+    if (requestGeneration === generation) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível executar o scan de segurança.';
+    }
   } finally {
     scanning.value = false;
   }
@@ -255,6 +329,11 @@ watch(
   () => void loadAvailability(),
   { immediate: true },
 );
+
+onUnmounted(() => {
+  generation += 1;
+  if (busyRefreshTimer) clearTimeout(busyRefreshTimer);
+});
 </script>
 
 <template>
@@ -272,6 +351,9 @@ watch(
         <span class="security-center-last-scan">
           Último scan: {{ lastScanLabel }}
         </span>
+        <StatusBadge :tone="freshnessTone" size="md">
+          {{ freshnessLabel }}
+        </StatusBadge>
       </div>
 
       <button
@@ -315,6 +397,21 @@ watch(
       </p>
 
       <section class="security-center-results" aria-label="Resultados">
+        <p v-if="remoteBusy || scanning" class="security-center-notice" role="status">
+          Scan em andamento. Outras execuções deste projeto estão bloqueadas.
+        </p>
+        <p
+          v-if="snapshot?.freshness.state === 'stale'"
+          class="security-center-notice"
+          role="status"
+        >
+          Snapshot stale: permanece disponível para consulta, mas não comprova o Release Readiness atual.
+        </p>
+        <p v-if="hasCompletedScan && incomplete" class="security-center-notice" role="status">
+          Evidência incompleta: {{ findings.length }} de
+          {{ completedResult?.observedCount ?? 'quantidade desconhecida' }} findings preservados
+          (limite {{ completedResult?.limit ?? 1000 }}). Não comprova o Release Readiness.
+        </p>
         <template v-if="hasCompletedScan">
           <div
             class="security-center-severity-grid"
@@ -347,13 +444,34 @@ watch(
           </div>
 
           <div class="security-center-findings">
-            <h5>
-              {{ findings.length }}
-              {{ findings.length === 1 ? 'resultado' : 'resultados' }}
-            </h5>
+            <div class="security-center-findings-toolbar">
+              <h5>
+                {{ findings.length }}
+                {{ findings.length === 1 ? 'resultado' : 'resultados' }}
+              </h5>
+              <label>
+                Severidade
+                <select v-model="severityFilter" aria-label="Filtrar por severidade">
+                  <option value="all">Todas</option>
+                  <option value="critical">Crítica</option>
+                  <option value="high">Alta</option>
+                  <option value="medium">Média</option>
+                  <option value="low">Baixa</option>
+                  <option value="unknown">Desconhecida</option>
+                </select>
+              </label>
+              <label>
+                Categoria
+                <select v-model="categoryFilter" aria-label="Filtrar por categoria">
+                  <option value="all">Todas</option>
+                  <option value="secret">Secret</option>
+                  <option value="misconfiguration">Misconfiguration</option>
+                </select>
+              </label>
+            </div>
 
             <div
-              v-if="findings.length === 0"
+              v-if="findings.length === 0 && !incomplete"
               class="security-center-placeholder security-center-placeholder--compact"
             >
               <ShieldCheckIcon aria-hidden="true" />
@@ -361,6 +479,16 @@ watch(
               <span>
                 Scan concluído em {{ formatDate(evidenceObservedAt ?? '') }}.
               </span>
+            </div>
+
+            <div
+              v-else-if="sortedFindings.length === 0"
+              class="security-center-placeholder security-center-placeholder--compact"
+            >
+              <ShieldCheckIcon aria-hidden="true" />
+              <strong>
+                {{ findings.length === 0 ? 'Resultado parcial sem findings exibíveis' : 'Nenhum finding para os filtros selecionados' }}
+              </strong>
             </div>
 
             <div v-else class="security-center-table-wrap">
@@ -372,7 +500,7 @@ watch(
                     <th>Arquivo</th>
                     <th>Linha</th>
                     <th>Descrição</th>
-                    <th aria-label="Detalhes"></th>
+                    <th>Detalhes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -395,8 +523,27 @@ watch(
                     <td class="security-center-finding-description">
                       {{ findingDescription(finding) }}
                     </td>
-                    <td class="security-center-finding-chevron">
-                      <ChevronRightIcon aria-hidden="true" />
+                    <td class="security-center-finding-detail">
+                      <details>
+                        <summary>Ver detalhes</summary>
+                        <dl>
+                          <dt>Regra</dt><dd>{{ finding.ruleId }}</dd>
+                          <dt>Categoria</dt><dd>{{ categoryLabel(finding.category) }}</dd>
+                          <dt>Severidade</dt><dd>{{ severityLabel(finding.severity) }}</dd>
+                          <dt>Arquivo / linha</dt><dd>{{ finding.file }}:{{ finding.line ?? '—' }}</dd>
+                          <dt>Remediação</dt><dd>{{ finding.remediation ?? 'Não informada' }}</dd>
+                          <template v-if="safeReference(finding.reference)">
+                            <dt>Referência</dt>
+                            <dd>
+                              <a
+                                :href="safeReference(finding.reference)"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >Abrir documentação</a>
+                            </dd>
+                          </template>
+                        </dl>
+                      </details>
                     </td>
                   </tr>
                 </tbody>
@@ -629,15 +776,67 @@ watch(
   min-width: 220px;
 }
 
-.security-center-finding-chevron {
-  width: 32px;
-  text-align: right;
+.security-center-finding-detail {
+  min-width: 148px;
 }
 
-.security-center-finding-chevron svg {
-  width: 14px;
-  height: 14px;
+.security-center-finding-detail summary {
+  cursor: pointer;
+  color: var(--text);
+}
+
+.security-center-finding-detail dl {
+  margin: 10px 0 0;
+  min-width: 200px;
+}
+
+.security-center-finding-detail dt {
+  margin-top: 6px;
+  font-weight: var(--font-weight-strong);
+}
+
+.security-center-finding-detail dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.security-center-notice {
+  margin: 0;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--warning-text);
+  font-size: 10px;
+}
+
+.security-center-findings-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.security-center-findings-toolbar h5 {
+  flex: 1 1 auto;
+  border-bottom: 0;
+}
+
+.security-center-findings-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-muted);
+  font-size: 10px;
+}
+
+.security-center-findings-toolbar select {
+  max-width: 140px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
 }
 
 .security-center-placeholder {
