@@ -60,7 +60,7 @@ test('Project Doctor isola cache, runtime, refresh e informações de ambiente',
       if (command === 'npm') return { stdout: '11.4.2\n', stderr: '' };
       if (command === 'devcontainer') {
         const binary = args[args.length - 2];
-        if (binary === 'node') return { stdout: 'v999.0.0\n', stderr: '' };
+        if (binary === 'node') return { stdout: args.includes('c'.repeat(64)) ? 'invalid-version\n' : 'v999.0.0\n', stderr: '' };
         if (binary === 'npm') return { stdout: '11.4.2\n', stderr: '' };
       }
       throw new Error('Comando não esperado');
@@ -134,6 +134,14 @@ test('Project Doctor isola cache, runtime, refresh e informações de ambiente',
     contextRevision: 'stopped',
   });
   assert.notEqual(newLifecycle, refreshed);
+
+  const malformedVersion = await service.getReport(project, {
+    executionContext: { ...container, runtimeId: 'c'.repeat(64) },
+  });
+  assert.equal(
+    malformedVersion.checks.find((check) => check.id === 'node-runtime')?.status,
+    'warning',
+  );
 
   const invalid = await service.getReport(project, {
     executionContext: { ...container, runtimeId: 'invalid' },
