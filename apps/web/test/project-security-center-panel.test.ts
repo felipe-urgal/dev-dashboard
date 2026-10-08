@@ -431,5 +431,4 @@ describe('ProjectSecurityCenterPanel', () => {
     expect(scanProjectSecurityCenter).not.toHaveBeenCalled();
     wrapper.unmount();
   });
-
 });
