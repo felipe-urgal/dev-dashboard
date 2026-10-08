@@ -78,6 +78,18 @@ onBeforeUnmount(() => {
   generation += 1;
 });
 
+watch(
+  () => props.projectId,
+  () => {
+    modal.value = null;
+    selectedIssue.value = null;
+    actionError.value = '';
+    actionMessage.value = '';
+    state.value = 'open';
+    page.value = 1;
+  },
+);
+
 function selectState(next: 'open' | 'closed'): void {
   if (busy.value || state.value === next) return;
   state.value = next;
@@ -115,6 +127,7 @@ async function saveIssue(): Promise<void> {
   const operation = modal.value;
   if (!operation) return;
   const number = selectedIssue.value?.number;
+  const projectId = props.projectId;
   if (operation === 'edit' && number === undefined) return;
 
   busy.value = true;
@@ -123,26 +136,29 @@ async function saveIssue(): Promise<void> {
   try {
     if (operation === 'create') {
       const issue = await createProjectGithubIssue(
-        props.projectId,
+        projectId,
         title.value.trim(),
         body.value,
       );
+      if (projectId !== props.projectId) return;
       actionMessage.value = 'Issue #' + issue.number + ' criada.';
       state.value = 'open';
       page.value = 1;
     } else {
       const issue = await updateProjectGithubIssue(
-        props.projectId,
+        projectId,
         number!,
         title.value.trim(),
         body.value,
       );
+      if (projectId !== props.projectId) return;
       actionMessage.value = 'Issue #' + issue.number + ' atualizada.';
     }
     modal.value = null;
     selectedIssue.value = null;
     await loadIssues();
   } catch (error) {
+    if (projectId !== props.projectId) return;
     actionError.value =
       error instanceof Error
         ? error.message
@@ -154,6 +170,7 @@ async function saveIssue(): Promise<void> {
 
 async function closeIssue(issue: GithubIssue): Promise<void> {
   if (busy.value || issue.state !== 'open') return;
+  const projectId = props.projectId;
   const confirmed = await confirmDialog({
     title: 'Fechar issue #' + issue.number + '?',
     message:
@@ -161,16 +178,18 @@ async function closeIssue(issue: GithubIssue): Promise<void> {
     confirmLabel: 'Fechar issue',
     tone: 'warning',
   });
-  if (!confirmed || busy.value) return;
+  if (!confirmed || busy.value || projectId !== props.projectId) return;
 
   busy.value = true;
   actionError.value = '';
   actionMessage.value = '';
   try {
-    await closeProjectGithubIssue(props.projectId, issue.number);
+    await closeProjectGithubIssue(projectId, issue.number);
+    if (projectId !== props.projectId) return;
     actionMessage.value = 'Issue #' + issue.number + ' fechada.';
     await loadIssues();
   } catch (error) {
+    if (projectId !== props.projectId) return;
     actionError.value =
       error instanceof Error
         ? error.message
