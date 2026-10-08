@@ -265,7 +265,10 @@ function formatDate(value: string): string {
           Evidência: <strong>{{ inspectionEvidence || '—' }}</strong>
         </span>
         <span
-          v-if="mutationPlan?.preflight.evidence && mutationPlan.preflight.evidence !== inspectionEvidence"
+          v-if="
+            mutationPlan?.preflight.evidence &&
+            mutationPlan.preflight.evidence !== inspectionEvidence
+          "
         >
           Preflight: <strong>{{ mutationPlan.preflight.evidence }}</strong>
         </span>

@@ -362,17 +362,26 @@ async function mountReadyPanel() {
 describe('Migrations - confirmação e recuperação', () => {
   it('mantém a inspeção somente leitura se o preflight falhar', async () => {
     api.fetchMigrationOverview.mockResolvedValue(pendingOverview);
-    api.planMigrationMutation.mockRejectedValue(new Error('Preflight indisponível'));
+    api.planMigrationMutation.mockRejectedValue(
+      new Error('Preflight indisponível'),
+    );
     const wrapper = mount(ProjectMigrationsPanel, {
-      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
     });
     await flushPromises();
 
     expect(wrapper.text()).toContain('Add audit index');
     expect(wrapper.text()).toContain('Preflight indisponível');
     expect(wrapper.text()).toContain('Rails db:migrate:status');
-    expect(wrapper.find('.migrations-action .primary-button').exists()).toBe(false);
-    expect(wrapper.find('.migrations-inspection-bar button').exists()).toBe(true);
+    expect(wrapper.find('.migrations-action .primary-button').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('.migrations-inspection-bar button').exists()).toBe(
+      true,
+    );
     wrapper.unmount();
   });
 
@@ -626,7 +635,9 @@ describe('Migrations - confirmação e recuperação', () => {
     await flushPromises();
     expect(wrapper.text()).toContain(state);
     expect(wrapper.text()).toContain('Nenhuma migration pendente');
-    expect(wrapper.text()).toContain('Não há migrations pendentes para aplicar.');
+    expect(wrapper.text()).toContain(
+      'Não há migrations pendentes para aplicar.',
+    );
     expect(api.fetchMigrationOverview).toHaveBeenCalledTimes(2);
     expect(api.planMigrationMutation).toHaveBeenCalledTimes(2);
     wrapper.unmount();
