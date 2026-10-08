@@ -15,7 +15,7 @@ vi.mock('vue-router', () => ({
   RouterLink: {
     name: 'RouterLink',
     props: ['to'],
-    template: '<a class="router-link-stub"><slot /></a>',
+    template: '<a class="router-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
   },
 }));
 
@@ -32,13 +32,17 @@ const project: Project = {
   capabilities: ['server', 'git', 'production'],
 };
 
-function mountNavigation(sidebarCollapsed = false) {
+function mountNavigation(
+  sidebarCollapsed = false,
+  environmentInstanceId?: string,
+) {
   return mount(ProjectSidebarNavigation, {
     props: {
       project,
       sidebarCollapsed,
       sidekiqDetected: true,
       webpackDetected: true,
+      ...(environmentInstanceId ? { environmentInstanceId } : {}),
     },
   });
 }
@@ -118,4 +122,22 @@ describe('ProjectSidebarNavigation', () => {
 
     expect(wrapper.emitted('expand-sidebar')).toHaveLength(1);
   });
+  it('preserva Environment Instance ao abrir o Doctor pela navegação', () => {
+    const wrapper = mountNavigation(
+      false,
+      'environment:worktree:p1:one',
+    );
+    const doctorLink = wrapper
+      .find('#project-sidebar-quality-menu')
+      .findAll('a')
+      .find((entry) => entry.text() === 'Diagnóstico');
+
+    expect(doctorLink).toBeDefined();
+    expect(JSON.parse(doctorLink?.attributes('data-to') ?? '{}')).toEqual({
+      name: 'project-doctor',
+      params: { projectId: 'p1' },
+      query: { environmentInstanceId: 'environment:worktree:p1:one' },
+    });
+  });
+
 });
