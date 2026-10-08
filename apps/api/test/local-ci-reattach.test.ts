@@ -184,3 +184,24 @@ test('reattach mantém ownership por projectId e não revela run de outro projet
   assert.equal(executions.starts, 1);
   service.shutdown();
 });
+
+test('desconexão do WebSocket não encerra o processo; novo attach observa o mesmo run', async () => {
+  const executions = new FakeExecutions();
+  const service = createService(executions);
+  const run = await service.start(project, request);
+  const first = service.reattach(project.id, run.id, () => undefined, () => undefined);
+  first.detach();
+
+  assert.equal(service.get(project.id, run.id).status, 'running');
+  assert.equal(executions.starts, 1);
+
+  const chunks: string[] = [];
+  const second = service.reattach(project.id, run.id, (chunk) => chunks.push(chunk), () => undefined);
+  executions.emitData(`local-ci:${project.id}:${run.id}`, 'continua ativo');
+  assert.deepEqual(chunks, ['continua ativo']);
+  assert.equal(executions.starts, 1);
+
+  executions.exit(`local-ci:${project.id}:${run.id}`);
+  assert.equal(service.get(project.id, run.id).outcome, 'success');
+  second.detach();
+});
