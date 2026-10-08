@@ -16,7 +16,8 @@ interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   localCiDiscoveryService: Pick<LocalCiDiscoveryService, 'discover'>;
   localCiExecutionService:
-    | Pick<LocalCiExecutionService, 'start' | 'get' | 'reattach' | 'cancel'>
+    | (Pick<LocalCiExecutionService, 'start' | 'get' | 'reattach' | 'cancel'> &
+        Partial<Pick<LocalCiExecutionService, 'capacity'>>)
     | undefined;
 }
 
@@ -87,14 +88,48 @@ const jobSchema = {
   },
 } as const;
 
+const discoverySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'workflowsExamined',
+    'workflowsAccepted',
+    'workflowsSkipped',
+    'truncated',
+    'reasons',
+  ],
+  properties: {
+    workflowsExamined: { type: 'integer', minimum: 0 },
+    workflowsAccepted: { type: 'integer', minimum: 0 },
+    workflowsSkipped: { type: 'integer', minimum: 0 },
+    truncated: { type: 'boolean' },
+    reasons: {
+      type: 'array',
+      maxItems: 8,
+      items: { type: 'string', maxLength: 160 },
+    },
+  },
+} as const;
+
 const catalogSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['provider', 'approximation', 'availability', 'jobs'],
+  required: ['provider', 'approximation', 'availability', 'discovery', 'jobs'],
   properties: {
     provider: { type: 'string', enum: ['act'] },
     approximation: { type: 'boolean', enum: [true] },
     availability: availabilitySchema,
+    discovery: discoverySchema,
+    capacity: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['running', 'limit', 'busy'],
+      properties: {
+        running: { type: 'integer', minimum: 0 },
+        limit: { type: 'integer', minimum: 1 },
+        busy: { type: 'boolean' },
+      },
+    },
     jobs: { type: 'array', items: jobSchema },
   },
 } as const;
@@ -125,6 +160,7 @@ const executionSnapshotSchema = {
     'exitCode',
     'exitSignal',
     'timedOut',
+    'outcome',
     'startedAt',
     'endedAt',
   ],
@@ -140,6 +176,10 @@ const executionSnapshotSchema = {
     exitCode: { type: ['integer', 'null'] },
     exitSignal: { type: ['integer', 'null'] },
     timedOut: { type: 'boolean' },
+    outcome: {
+      type: ['string', 'null'],
+      enum: ['success', 'failure', 'cancelled', 'timeout', null],
+    },
     startedAt: { type: 'string' },
     endedAt: { type: ['string', 'null'] },
   },
@@ -238,11 +278,13 @@ export const localCiRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async (request) => ({
-      catalog: await options.localCiDiscoveryService.discover(
+    async (request) => {
+      const catalog = await options.localCiDiscoveryService.discover(
         requireProject(options.projectStore, request.params.projectId),
-      ),
-    }),
+      );
+      const capacity = options.localCiExecutionService?.capacity?.();
+      return { catalog: { ...catalog, ...(capacity ? { capacity } : {}) } };
+    },
   );
 
   app.post<{ Params: ProjectParams; Body: LocalCiJobRequest }>(

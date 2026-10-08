@@ -164,7 +164,8 @@ export interface AppCompositionOptions {
   localCiExecutionService?: Pick<
     LocalCiExecutionService,
     'start' | 'get' | 'reattach' | 'cancel' | 'shutdown'
-  >;
+  > &
+    Partial<Pick<LocalCiExecutionService, 'capacity' | 'activityJobs'>>;
   securityScannerProvider?: SecurityScannerProvider<SecurityScanResult>;
   securityScanSnapshotStore?: Pick<SecurityScanSnapshotStore, 'get' | 'save'>;
   agentBrowserRuntime?: AgentBrowserRuntimePort;
@@ -421,6 +422,7 @@ export function createAppComposition(
       ? new LocalCiExecutionService(
           localCiDiscoveryService,
           context.detachableExecutionService,
+          { activityEvents: context.activityEventRepository },
         )
       : undefined);
   const securityScannerProvider =
@@ -453,6 +455,14 @@ export function createAppComposition(
     projectStore: context.projectStore,
     agentRuntime: agentRuntimeApiService,
     activityJobReaders: [
+      ...(localCiExecutionService?.activityJobs
+        ? [
+            {
+              activityJobs: (projectId: string) =>
+                localCiExecutionService.activityJobs?.(projectId) ?? [],
+            },
+          ]
+        : []),
       context.projectDependenciesPtyService,
       devContainerLifecycleExecutionService,
       dockerComposeLifecycleExecutionService,

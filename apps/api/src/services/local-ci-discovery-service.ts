@@ -11,6 +11,7 @@ import {
   type LocalCiAvailability,
   type LocalCiCatalog,
   type LocalCiJobDescriptor,
+  type LocalCiDiscoveryDiagnostics,
 } from './local-ci-act.js';
 
 const MAX_WORKFLOW_FILES = 64;
@@ -108,46 +109,107 @@ function workflowJobs(
   return jobs;
 }
 
+interface WorkflowDiscovery {
+  jobs: LocalCiJobDescriptor[];
+  diagnostics: LocalCiDiscoveryDiagnostics;
+}
+
+function emptyDiscovery(): WorkflowDiscovery {
+  return {
+    jobs: [],
+    diagnostics: {
+      workflowsExamined: 0,
+      workflowsAccepted: 0,
+      workflowsSkipped: 0,
+      truncated: false,
+      reasons: [],
+    },
+  };
+}
+
 async function discoverWorkflows(
   projectPath: string,
-): Promise<LocalCiJobDescriptor[]> {
-  const root = await realpath(projectPath);
+): Promise<WorkflowDiscovery> {
+  const result = emptyDiscovery();
+  let root: string;
+  try {
+    root = await realpath(projectPath);
+  } catch {
+    result.diagnostics.truncated = true;
+    result.diagnostics.reasons.push('Não foi possível acessar o projeto.');
+    return result;
+  }
   const directory = path.join(root, '.github', 'workflows');
   let entries: Dirent[];
   try {
     entries = await readdir(directory, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      result.diagnostics.truncated = true;
+      result.diagnostics.reasons.push(
+        'Não foi possível examinar os workflows.',
+      );
+    }
+    return result;
   }
 
   const files = entries
-    .filter((entry) => entry.isFile() && /\.(?:yml|yaml)$/u.test(entry.name))
+    .filter((entry) => /\.(?:yml|yaml)$/u.test(entry.name))
     .map((entry) => entry.name)
-    .sort()
-    .slice(0, MAX_WORKFLOW_FILES);
-  const jobs: LocalCiJobDescriptor[] = [];
+    .sort();
+  const selectedFiles = files.slice(0, MAX_WORKFLOW_FILES);
+  result.diagnostics.workflowsSkipped = files.length - selectedFiles.length;
+  if (result.diagnostics.workflowsSkipped > 0) {
+    result.diagnostics.truncated = true;
+    result.diagnostics.reasons.push('Limite de arquivos de workflow atingido.');
+  }
 
-  for (const file of files) {
+  for (const file of selectedFiles) {
+    result.diagnostics.workflowsExamined += 1;
     const absolute = path.join(directory, file);
     try {
       const stat = await lstat(absolute);
-      if (
-        !stat.isFile() ||
-        stat.isSymbolicLink() ||
-        stat.size > MAX_WORKFLOW_BYTES
-      )
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        result.diagnostics.workflowsSkipped += 1;
+        result.diagnostics.reasons.push(
+          'Workflow não regular ou link simbólico ignorado.',
+        );
         continue;
+      }
+      if (stat.size > MAX_WORKFLOW_BYTES) {
+        result.diagnostics.workflowsSkipped += 1;
+        result.diagnostics.reasons.push('Workflow acima do tamanho permitido.');
+        continue;
+      }
       const resolved = await realpath(absolute);
-      if (!resolved.startsWith(`${root}${path.sep}`)) continue;
-      const contents = await readFile(resolved, 'utf8');
-      const payload = parse(contents) as unknown;
-      jobs.push(...workflowJobs(payload, `.github/workflows/${file}`));
+      if (!resolved.startsWith(`${root}${path.sep}`)) {
+        result.diagnostics.workflowsSkipped += 1;
+        result.diagnostics.reasons.push(
+          'Workflow fora da raiz do projeto ignorado.',
+        );
+        continue;
+      }
+      const payload = parse(await readFile(resolved, 'utf8')) as unknown;
+      const jobs = workflowJobs(payload, `.github/workflows/${file}`);
+      if (jobs.length === 0) {
+        result.diagnostics.workflowsSkipped += 1;
+        result.diagnostics.reasons.push('Workflow sem jobs válidos ignorado.');
+        continue;
+      }
+      result.jobs.push(...jobs);
+      result.diagnostics.workflowsAccepted += 1;
     } catch {
-      // Workflow inválido/ilegível fica fora do catálogo; não derruba os demais.
+      result.diagnostics.workflowsSkipped += 1;
+      result.diagnostics.reasons.push(
+        'Workflow inválido ou ilegível ignorado.',
+      );
     }
   }
-
-  return jobs;
+  result.diagnostics.reasons = [...new Set(result.diagnostics.reasons)].slice(
+    0,
+    8,
+  );
+  return result;
 }
 
 export class LocalCiDiscoveryService {
@@ -195,10 +257,14 @@ export class LocalCiDiscoveryService {
   }
 
   public async discover(project: Project): Promise<LocalCiCatalog> {
-    const [availability, jobs] = await Promise.all([
+    const [availability, discovery] = await Promise.all([
       this.availability(),
-      discoverWorkflows(project.path).catch(() => []),
+      discoverWorkflows(project.path),
     ]);
-    return createLocalCiCatalog({ availability, jobs });
+    return createLocalCiCatalog({
+      availability,
+      jobs: discovery.jobs,
+      diagnostics: discovery.diagnostics,
+    });
   }
 }

@@ -42,6 +42,13 @@ function catalog(state: 'available' | 'act-missing' | 'docker-unavailable') {
       ...(state !== 'act-missing' ? { actVersion: '0.2.81' } : {}),
       ...(state === 'available' ? { dockerVersion: '28.0.0' } : {}),
     },
+    discovery: {
+      workflowsExamined: 1,
+      workflowsAccepted: 1,
+      workflowsSkipped: 0,
+      truncated: false,
+      reasons: [],
+    },
     jobs: [
       {
         workflowFile: '.github/workflows/ci.yml',
@@ -67,8 +74,8 @@ describe('ProjectLocalCiPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Execução local');
-    expect(wrapper.text()).toContain(
-      'não substitui os checks oficiais do GitHub',
+    expect(wrapper.text()).toMatch(
+      /não substitui os checks oficiais do GitHub/i,
     );
     expect(wrapper.text()).toContain('act não instalado');
     expect(wrapper.get('.local-ci-start').attributes('disabled')).toBeDefined();
@@ -118,6 +125,7 @@ describe('ProjectLocalCiPanel', () => {
       exitCode: 0,
       exitSignal: null,
       timedOut: false,
+      outcome: 'success',
       startedAt: '2026-09-21T12:00:00.000Z',
       endedAt: '2026-09-21T12:01:00.000Z',
     });
@@ -167,6 +175,7 @@ describe('ProjectLocalCiPanel', () => {
       exitCode: 0,
       exitSignal: null,
       timedOut: false,
+      outcome: 'success',
       startedAt: '2026-09-21T11:00:00.000Z',
       endedAt: '2026-09-21T11:01:00.000Z',
     });
@@ -178,6 +187,59 @@ describe('ProjectLocalCiPanel', () => {
     expect(startLocalCiRun).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('restored output');
 
+    wrapper.unmount();
+  });
+  it('identifica catálogo parcial e bloqueia start quando capacidade está ocupada', async () => {
+    fetchLocalCiCatalog.mockResolvedValueOnce({
+      ...catalog('available'),
+      discovery: {
+        workflowsExamined: 64,
+        workflowsAccepted: 63,
+        workflowsSkipped: 2,
+        truncated: true,
+        reasons: ['Limite de arquivos de workflow atingido.'],
+      },
+      capacity: { running: 2, limit: 2, busy: true },
+    });
+    const wrapper = mount(ProjectLocalCiPanel, { props: { project } });
+    await flushPromises();
+    expect(wrapper.text()).toContain('Catálogo parcial');
+    expect(wrapper.text()).toContain('64 examinados');
+    expect(wrapper.text()).toContain('2 ignorados');
+    expect(wrapper.text()).toContain('Capacidade no host: 2 / 2');
+    expect(wrapper.get('.local-ci-start').attributes('disabled')).toBeDefined();
+    expect(startLocalCiRun).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('exibe cancelamento como resultado e preserva exit code', async () => {
+    fetchLocalCiCatalog.mockResolvedValueOnce(catalog('available'));
+    startLocalCiRun.mockResolvedValueOnce({
+      id: 'run-cancelled',
+      projectId: project.id,
+      provider: 'act',
+      approximation: true,
+      request: {
+        workflowFile: '.github/workflows/ci.yml',
+        jobId: 'test',
+        event: 'push',
+      },
+      status: 'exited',
+      logs: '',
+      truncated: false,
+      exitCode: 143,
+      exitSignal: null,
+      timedOut: false,
+      outcome: 'cancelled',
+      startedAt: '2026-09-21T11:00:00.000Z',
+      endedAt: '2026-09-21T11:01:00.000Z',
+    });
+    const wrapper = mount(ProjectLocalCiPanel, { props: { project } });
+    await flushPromises();
+    await wrapper.get('.local-ci-start').trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).toContain('Cancelado');
+    expect(wrapper.text()).toContain('Exit code 143');
     wrapper.unmount();
   });
 });

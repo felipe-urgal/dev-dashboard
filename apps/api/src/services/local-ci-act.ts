@@ -17,10 +17,20 @@ export interface LocalCiJobDescriptor {
   events: string[];
 }
 
+export interface LocalCiDiscoveryDiagnostics {
+  workflowsExamined: number;
+  workflowsAccepted: number;
+  workflowsSkipped: number;
+  truncated: boolean;
+  /** Resumos fixos, sem paths, YAML, argv ou variáveis de ambiente. */
+  reasons: string[];
+}
+
 export interface LocalCiCatalog {
   provider: 'act';
   approximation: true;
   availability: LocalCiAvailability;
+  discovery: LocalCiDiscoveryDiagnostics;
   jobs: LocalCiJobDescriptor[];
 }
 
@@ -94,27 +104,48 @@ function sameJob(
 export function createLocalCiCatalog(input: {
   availability: LocalCiAvailability;
   jobs: LocalCiJobDescriptor[];
+  diagnostics?: LocalCiDiscoveryDiagnostics;
 }): LocalCiCatalog {
   const jobs: LocalCiJobDescriptor[] = [];
+  const reasons = new Set(input.diagnostics?.reasons ?? []);
+  let truncated = input.diagnostics?.truncated ?? false;
 
   for (const candidate of input.jobs) {
-    if (jobs.length >= MAX_JOBS) break;
+    if (jobs.length >= MAX_JOBS) {
+      truncated = true;
+      reasons.add('Limite de jobs do catálogo atingido.');
+      break;
+    }
     const workflowFile = normalizeWorkflowPath(candidate.workflowFile);
     const jobId = safeCatalogToken(candidate.jobId);
     const workflow = boundedLabel(candidate.workflow);
     const job = boundedLabel(candidate.job);
-    if (!workflowFile || !jobId || !workflow || !job) continue;
+    if (!workflowFile || !jobId || !workflow || !job) {
+      reasons.add('Alguns jobs possuem identificadores ou nomes inválidos.');
+      continue;
+    }
 
     const events: string[] = [];
     const seenEvents = new Set<string>();
     for (const event of candidate.events) {
-      if (events.length >= MAX_EVENTS_PER_JOB) break;
       const safeEvent = safeCatalogToken(event);
-      if (!safeEvent || seenEvents.has(safeEvent)) continue;
+      if (!safeEvent) {
+        reasons.add('Alguns eventos possuem identificadores inválidos.');
+        continue;
+      }
+      if (seenEvents.has(safeEvent)) continue;
+      if (events.length >= MAX_EVENTS_PER_JOB) {
+        truncated = true;
+        reasons.add('Limite de eventos por job atingido.');
+        break;
+      }
       seenEvents.add(safeEvent);
       events.push(safeEvent);
     }
-    if (!events.length) continue;
+    if (!events.length) {
+      reasons.add('Alguns jobs não possuem eventos válidos.');
+      continue;
+    }
 
     jobs.push({ workflowFile, workflow, jobId, job, events });
   }
@@ -123,6 +154,13 @@ export function createLocalCiCatalog(input: {
     provider: 'act',
     approximation: true,
     availability: boundedAvailability(input.availability),
+    discovery: {
+      workflowsExamined: input.diagnostics?.workflowsExamined ?? 0,
+      workflowsAccepted: input.diagnostics?.workflowsAccepted ?? 0,
+      workflowsSkipped: input.diagnostics?.workflowsSkipped ?? 0,
+      truncated,
+      reasons: [...reasons].slice(0, 8),
+    },
     jobs,
   };
 }
