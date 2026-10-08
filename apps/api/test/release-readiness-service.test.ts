@@ -86,6 +86,9 @@ const securitySnapshot: SecurityScanSnapshot = {
   result: {
     provider: 'trivy',
     observedAt: '2026-09-05T19:59:00.000Z',
+    truncated: false,
+    limit: 1_000,
+    observedCount: 1,
     findings: [
       {
         provider: 'trivy',

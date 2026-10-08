@@ -538,6 +538,13 @@ export function evaluateSecurityReadiness(
     };
   }
 
+  // A truncated or legacy snapshot cannot prove the absence of findings.
+  // Known high/critical findings still block a release.
+  const incomplete =
+    snapshot.result.truncated !== false ||
+    snapshot.result.limit !== 1_000 ||
+    snapshot.result.observedCount !== snapshot.result.findings.length;
+
   const counts = snapshot.result.findings.reduce(
     (accumulator, finding) => {
       accumulator[finding.severity] += 1;
@@ -553,6 +560,17 @@ export function evaluateSecurityReadiness(
       state: 'block',
       summary: 'Security Center encontrou findings de alta severidade',
       evidence: `${counts.critical} critical e ${counts.high} high finding(s) em evidência fresh.`,
+      observedAt: snapshot.result.observedAt,
+      action,
+    };
+  }
+
+  if (incomplete) {
+    return {
+      id: 'security',
+      state: 'unknown',
+      summary: 'Scan de segurança incompleto',
+      evidence: `O snapshot observou ${snapshot.result.observedCount ?? 'quantidade desconhecida'} finding(s), mas só ${snapshot.result.findings.length} foram preservados. Execute um novo scan completo.`,
       observedAt: snapshot.result.observedAt,
       action,
     };

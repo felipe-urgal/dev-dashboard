@@ -95,6 +95,9 @@ describe('ProjectSecurityCenterPanel', () => {
         result: {
           provider: 'trivy',
           observedAt: '2026-09-10T10:00:00.000Z',
+          truncated: false,
+          limit: 1_000,
+          observedCount: 1,
           findings: [
             {
               provider: 'trivy',
@@ -117,6 +120,8 @@ describe('ProjectSecurityCenterPanel', () => {
     expect(wrapper.find('.security-center-results').exists()).toBe(true);
     expect(wrapper.text()).toContain('1 resultado');
     expect(wrapper.text()).toContain('Configuração antiga');
+    expect(wrapper.text()).toContain('Stale');
+    expect(wrapper.text()).toContain('não comprova o Release Readiness atual');
     expect(wrapper.text()).toContain('Misconfiguration · CFG-1');
     expect(
       wrapper
@@ -139,6 +144,9 @@ describe('ProjectSecurityCenterPanel', () => {
         result: {
           provider: 'trivy',
           observedAt: '2026-09-11T14:40:00.000Z',
+          truncated: false,
+          limit: 1_000,
+          observedCount: 5,
           findings: [
             {
               provider: 'trivy',
@@ -249,6 +257,9 @@ describe('ProjectSecurityCenterPanel', () => {
         result: {
           provider: 'trivy',
           observedAt: '2026-09-11T14:42:00.000Z',
+          truncated: false,
+          limit: 1_000,
+          observedCount: 0,
           findings: [],
         },
       },
@@ -292,6 +303,132 @@ describe('ProjectSecurityCenterPanel', () => {
     expect(wrapper.text()).toContain('Trivy encerrou com erro.');
     expect(wrapper.findAll('.security-center-severity')).toHaveLength(0);
 
+    wrapper.unmount();
+  });
+  it('filtra sem alterar métricas e exibe apenas detalhes permitidos', async () => {
+    fetchSecurityCenterAvailability.mockResolvedValueOnce(
+      availability('available'),
+    );
+    const observedAt = '2026-09-11T14:40:00.000Z';
+    scanProjectSecurityCenter.mockResolvedValueOnce({
+      provider: 'trivy',
+      execution: {
+        state: 'completed',
+        observedAt,
+        result: {
+          provider: 'trivy',
+          observedAt,
+          truncated: false,
+          limit: 1_000,
+          observedCount: 2,
+          findings: [
+            {
+              provider: 'trivy',
+              category: 'secret',
+              ruleId: 'SECRET-1',
+              severity: 'high',
+              title: 'Secret detectado (SECRET-1)',
+              file: 'src/a.env',
+              fingerprint: 'first',
+              observedAt,
+              Match: 'not-rendered-private-value',
+            },
+            {
+              provider: 'trivy',
+              category: 'misconfiguration',
+              ruleId: 'CFG-1',
+              severity: 'medium',
+              title: 'Config insegura',
+              file: 'config.yml',
+              remediation: 'Corrigir permissão',
+              reference: 'https://example.test/rule',
+              fingerprint: 'second',
+              observedAt,
+            },
+          ],
+        },
+      },
+    });
+    const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
+    await flushPromises();
+    await wrapper.get('.security-center-scan-button').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('not-rendered-private-value');
+    expect(wrapper.findAll('.security-center-finding-title')).toHaveLength(2);
+    await wrapper
+      .get('select[aria-label="Filtrar por severidade"]')
+      .setValue('medium');
+    expect(wrapper.findAll('.security-center-finding-title')).toHaveLength(1);
+    expect(wrapper.text()).toContain('2 resultados');
+    expect(
+      wrapper
+        .findAll('.security-center-severity strong')
+        .map((element) => element.text()),
+    ).toEqual(['0', '1', '1', '0']);
+
+    await wrapper
+      .get('select[aria-label="Filtrar por categoria"]')
+      .setValue('secret');
+    expect(wrapper.text()).toContain(
+      'Nenhum finding para os filtros selecionados',
+    );
+    await wrapper
+      .get('select[aria-label="Filtrar por categoria"]')
+      .setValue('misconfiguration');
+    const detail = wrapper.get('.security-center-finding-detail details');
+    expect(detail.text()).toContain('CFG-1');
+    const link = detail.get('a');
+    expect(link.attributes('href')).toBe('https://example.test/rule');
+    expect(link.attributes('rel')).toContain('noopener');
+    wrapper.unmount();
+  });
+
+  it('resultado parcial sem findings não indica varredura limpa', async () => {
+    fetchSecurityCenterAvailability.mockResolvedValueOnce(
+      availability('available'),
+    );
+    scanProjectSecurityCenter.mockResolvedValueOnce({
+      provider: 'trivy',
+      execution: {
+        state: 'completed',
+        observedAt: '2026-09-11T14:42:00.000Z',
+        result: {
+          provider: 'trivy',
+          observedAt: '2026-09-11T14:42:00.000Z',
+          truncated: true,
+          limit: 1_000,
+          observedCount: 2,
+          findings: [],
+        },
+      },
+    });
+    const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
+    await flushPromises();
+    await wrapper.get('.security-center-scan-button').trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).not.toContain('Nenhum finding encontrado');
+    expect(wrapper.text()).toContain('Evidência incompleta');
+    wrapper.unmount();
+  });
+  it('estado ocupado do backend impede segundo scan de outro cliente', async () => {
+    fetchSecurityCenterAvailability.mockResolvedValueOnce(
+      availability('available'),
+    );
+    fetchSecurityCenterSnapshot.mockResolvedValueOnce({
+      provider: 'trivy',
+      snapshot: null,
+      inProgress: true,
+    });
+
+    const wrapper = mount(ProjectSecurityCenterPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Scan em andamento');
+    expect(
+      wrapper.get('.security-center-scan-button').attributes('disabled'),
+    ).toBeDefined();
+    expect(scanProjectSecurityCenter).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });

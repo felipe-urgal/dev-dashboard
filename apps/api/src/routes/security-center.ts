@@ -81,11 +81,21 @@ const findingSchema = {
 const scanResultSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['provider', 'observedAt', 'findings'],
+  required: [
+    'provider',
+    'observedAt',
+    'findings',
+    'truncated',
+    'limit',
+    'observedCount',
+  ],
   properties: {
     provider: { type: 'string', enum: ['trivy'] },
     observedAt: { type: 'string' },
-    findings: { type: 'array', items: findingSchema },
+    findings: { type: 'array', maxItems: 1000, items: findingSchema },
+    truncated: { type: 'boolean' },
+    limit: { type: 'integer', const: 1000 },
+    observedCount: { type: 'integer', minimum: 0, maximum: 1000000 },
   },
 } as const;
 
@@ -119,7 +129,7 @@ const scanExecutionSchema = {
   properties: {
     state: {
       type: 'string',
-      enum: ['completed', 'failed', 'invalid-output'],
+      enum: ['completed', 'failed', 'invalid-output', 'busy'],
     },
     observedAt: { type: 'string' },
     result: scanResultSchema,
@@ -143,6 +153,10 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
   app,
   options,
 ) => {
+  // Owned by this API instance, shared by all clients hitting the same project.
+  const inProgress = new Set<string>();
+  const keyFor = (projectId: string, projectPath: string) =>
+    JSON.stringify([projectId, projectPath]);
   app.get(
     '/security-center/availability',
     {
@@ -176,10 +190,11 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['provider', 'snapshot'],
+            required: ['provider', 'snapshot', 'inProgress'],
             properties: {
               provider: { type: 'string' },
               snapshot: { anyOf: [snapshotSchema, { type: 'null' }] },
+              inProgress: { type: 'boolean' },
             },
           },
           ...commonErrorResponseSchemas,
@@ -195,6 +210,7 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
         provider: options.securityScannerProvider.id,
         snapshot:
           (await options.securityScanSnapshotStore.get(project)) ?? null,
+        inProgress: inProgress.has(keyFor(project.id, project.path)),
       };
     },
   );
@@ -227,14 +243,65 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
         options.projectStore,
         request.params.projectId,
       );
-      const execution = await options.securityScannerProvider.scan(project);
-      if (execution.state === 'completed' && execution.result) {
-        await options.securityScanSnapshotStore.save(project, execution.result);
+      const key = keyFor(project.id, project.path);
+      if (inProgress.has(key)) {
+        return {
+          provider: options.securityScannerProvider.id,
+          execution: {
+            state: 'busy' as const,
+            observedAt: new Date().toISOString(),
+            diagnostic: 'Já existe um scan em andamento para este projeto.',
+          },
+        };
       }
-      return {
-        provider: options.securityScannerProvider.id,
-        execution,
-      };
+
+      inProgress.add(key);
+      app.log.info({ event: 'security.scan.started', projectId: project.id });
+      try {
+        const execution = await options.securityScannerProvider.scan(project);
+        if (execution.state === 'completed' && execution.result) {
+          await options.securityScanSnapshotStore.save(
+            project,
+            execution.result,
+          );
+          app.log.info({
+            event: 'security.scan.succeeded',
+            projectId: project.id,
+            truncated: execution.result.truncated,
+            observedCount: execution.result.observedCount,
+          });
+        } else {
+          app.log.warn({
+            event: 'security.scan.failed',
+            projectId: project.id,
+            state: execution.state,
+          });
+        }
+        return {
+          provider: options.securityScannerProvider.id,
+          execution:
+            execution.state === 'completed' && !execution.result
+              ? {
+                  state: 'invalid-output' as const,
+                  observedAt: execution.observedAt,
+                  diagnostic: 'Scanner não retornou evidência válida.',
+                }
+              : execution,
+        };
+      } catch {
+        // A failed scan never invalidates the last persisted snapshot.
+        app.log.warn({ event: 'security.scan.failed', projectId: project.id });
+        return {
+          provider: options.securityScannerProvider.id,
+          execution: {
+            state: 'failed' as const,
+            observedAt: new Date().toISOString(),
+            diagnostic: 'O scan de segurança não pôde ser concluído.',
+          },
+        };
+      } finally {
+        inProgress.delete(key);
+      }
     },
   );
 };

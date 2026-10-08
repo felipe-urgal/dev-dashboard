@@ -26,6 +26,9 @@ function result(observedAt = '2026-09-21T10:00:00.000Z'): SecurityScanResult {
   return {
     provider: 'trivy',
     observedAt,
+    truncated: false,
+    limit: 1_000,
+    observedCount: 1,
     findings: [
       {
         provider: 'trivy',
@@ -124,4 +127,27 @@ test('timestamp futuro nunca é promovido a fresh', async (context) => {
 
   assert.equal(saved.freshness.state, 'stale');
   assert.equal(saved.freshness.ageMs, 0);
+});
+
+test('valida limites de completude e preserva último snapshot válido', async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'security-snapshot-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const knownProject = project('/tmp/security-project');
+  const store = new SecurityScanSnapshotStore(directory);
+  await store.save(knownProject, result());
+  await assert.rejects(
+    store.save(knownProject, { ...result(), observedCount: 1_000_001 }),
+    /inválido/,
+  );
+  await assert.rejects(
+    store.save(knownProject, {
+      ...result(),
+      truncated: false,
+      observedCount: 2,
+    }),
+    /inválido/,
+  );
+  const restored = await store.get(knownProject);
+  assert.equal(restored?.result.truncated, false);
+  assert.equal(restored?.result.observedCount, 1);
 });

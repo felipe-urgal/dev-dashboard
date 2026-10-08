@@ -28,10 +28,13 @@ export interface SecurityScanResult {
   provider: 'trivy';
   observedAt: string;
   findings: SecurityFinding[];
+  truncated: boolean;
+  limit: number;
+  observedCount: number;
 }
 
 export interface SecurityScanExecution {
-  state: 'completed' | 'failed' | 'invalid-output';
+  state: 'completed' | 'failed' | 'invalid-output' | 'busy';
   observedAt: string;
   result?: SecurityScanResult;
   diagnostic?: string;
@@ -58,6 +61,7 @@ export interface SecurityCenterAvailabilityResponse {
 export interface SecurityCenterSnapshotResponse {
   provider: string;
   snapshot: SecurityScanSnapshot | null;
+  inProgress: boolean;
 }
 
 export interface SecurityCenterScanResponse {
