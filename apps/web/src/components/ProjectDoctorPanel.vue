@@ -313,7 +313,12 @@ watch(
             </strong>
             <template v-if="report.summary.skipped > 0">
               <span aria-hidden="true">·</span>
-              {{ report.summary.skipped }} {{ report.summary.skipped === 1 ? 'não verificada' : 'não verificadas' }}
+              {{ report.summary.skipped }}
+              {{
+                report.summary.skipped === 1
+                  ? 'não verificada'
+                  : 'não verificadas'
+              }}
             </template>
           </p>
         </section>
