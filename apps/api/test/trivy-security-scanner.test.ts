@@ -150,32 +150,47 @@ test('limita quantidade de findings vindos do provider', () => {
   assert.equal(result.limit, 1_000);
   assert.equal(result.observedCount, 1_100);
 });
- 
+
 test('referências rejeitam esquemas e credenciais, removem parâmetros de URL', () => {
   const report = parseTrivySecurityReport(
-    { Results: [{ Target: 'main.tf', Misconfigurations: [
-      { ID: 'HTTP', PrimaryURL: 'http://example.test/rule?token=secret#part' },
-      { ID: 'HTTPS', PrimaryURL: 'https://example.test/rule' },
-      { ID: 'JS', PrimaryURL: 'javascript:alert(1)' },
-      { ID: 'USER', PrimaryURL: 'https://user:pass@example.test/rule' },
-    ] }] },
+    {
+      Results: [
+        {
+          Target: 'main.tf',
+          Misconfigurations: [
+            {
+              ID: 'HTTP',
+              PrimaryURL: 'http://example.test/rule?token=secret#part',
+            },
+            { ID: 'HTTPS', PrimaryURL: 'https://example.test/rule' },
+            { ID: 'JS', PrimaryURL: 'javascript:alert(1)' },
+            { ID: 'USER', PrimaryURL: 'https://user:pass@example.test/rule' },
+          ],
+        },
+      ],
+    },
     OBSERVED_AT,
   );
-  assert.deepEqual(report.findings.map((item) => item.reference), [
-    'http://example.test/rule',
-    'https://example.test/rule',
-    undefined,
-    undefined,
-  ]);
+  assert.deepEqual(
+    report.findings.map((item) => item.reference),
+    [
+      'http://example.test/rule',
+      'https://example.test/rule',
+      undefined,
+      undefined,
+    ],
+  );
   assert.equal(JSON.stringify(report).includes('token=secret'), false);
 });
 
 test('findings inválidos ou targets inseguros não são declarados completos', () => {
   const report = parseTrivySecurityReport(
-    { Results: [
-      { Target: '../out', Secrets: [{ RuleID: 'outside' }] },
-      { Target: 'ok', Secrets: [{ RuleID: 'invalid rule' }] },
-    ] },
+    {
+      Results: [
+        { Target: '../out', Secrets: [{ RuleID: 'outside' }] },
+        { Target: 'ok', Secrets: [{ RuleID: 'invalid rule' }] },
+      ],
+    },
     OBSERVED_AT,
   );
   assert.equal(report.truncated, true);

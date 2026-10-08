@@ -319,7 +319,10 @@ test('readiness não aprova evidência truncada ou legada', () => {
   partial.result.truncated = true;
   partial.result.observedCount = 1_100;
   assert.equal(evaluateSecurityReadiness(partial, observedAt).state, 'unknown');
-  assert.match(evaluateSecurityReadiness(partial, observedAt).summary, /incompleto/);
+  assert.match(
+    evaluateSecurityReadiness(partial, observedAt).summary,
+    /incompleto/,
+  );
   const blocking = securitySnapshot(['high']);
   blocking.result.truncated = true;
   blocking.result.observedCount = 1_100;

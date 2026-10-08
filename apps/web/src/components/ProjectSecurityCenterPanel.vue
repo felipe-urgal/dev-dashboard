@@ -421,9 +421,7 @@ onUnmounted(() => {
           role="status"
         >
           Evidência incompleta: {{ findings.length }} de
-          {{
-            completedResult?.observedCount ?? 'quantidade desconhecida'
-          }}
+          {{ completedResult?.observedCount ?? 'quantidade desconhecida' }}
           findings preservados (limite {{ completedResult?.limit ?? 1000 }}).
           Não comprova o Release Readiness.
         </p>

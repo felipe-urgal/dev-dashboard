@@ -140,7 +140,11 @@ test('valida limites de completude e preserva último snapshot válido', async (
     /inválido/,
   );
   await assert.rejects(
-    store.save(knownProject, { ...result(), truncated: false, observedCount: 2 }),
+    store.save(knownProject, {
+      ...result(),
+      truncated: false,
+      observedCount: 2,
+    }),
     /inválido/,
   );
   const restored = await store.get(knownProject);
