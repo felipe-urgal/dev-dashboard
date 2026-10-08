@@ -108,7 +108,11 @@ describe('ProjectDoctorPanel', () => {
         '.project-doctor-action-section .project-doctor-category',
       ),
     ).toHaveLength(1);
-    expect(wrapper.findAll('.project-doctor-skipped-section .project-doctor-category')).toHaveLength(1);
+    expect(
+      wrapper.findAll(
+        '.project-doctor-skipped-section .project-doctor-category',
+      ),
+    ).toHaveLength(1);
     expect(wrapper.html()).not.toContain('super-secret');
   });
 
@@ -193,14 +197,20 @@ describe('ProjectDoctorPanel', () => {
     expect(wrapper.text()).toContain('0 problemas encontrados');
     expect(wrapper.text()).toContain('1 não verificada(s)');
     expect(wrapper.text()).not.toContain('Requer ação');
-    expect(wrapper.findAll('.project-doctor-skipped-section .project-doctor-category')).toHaveLength(1);
+    expect(
+      wrapper.findAll(
+        '.project-doctor-skipped-section .project-doctor-category',
+      ),
+    ).toHaveLength(1);
   });
 
   it('propaga a Environment Instance e usa rotas explícitas para todos os targets', async () => {
     fetchProjectDoctor.mockResolvedValueOnce({
       ...report,
       summary: { passed: 0, warnings: 4, failed: 0, skipped: 0 },
-      checks: (['dependencies', 'server', 'database', 'environment'] as const).map((target) => ({
+      checks: (
+        ['dependencies', 'server', 'database', 'environment'] as const
+      ).map((target) => ({
         id: target,
         category: 'configuration' as const,
         label: target,
@@ -210,25 +220,48 @@ describe('ProjectDoctorPanel', () => {
       })),
     });
     const wrapper = mount(ProjectDoctorPanel, {
-      props: { project, environmentInstanceId: 'environment:worktree:p1:feature' },
+      props: {
+        project,
+        environmentInstanceId: 'environment:worktree:p1:feature',
+      },
       global: { stubs: { RouterLink: routerLinkStub } },
     });
     await flushPromises();
-    expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false, 'environment:worktree:p1:feature');
-    const locations = wrapper.findAll('.project-doctor-action')
-      .map((element) => JSON.parse(element.attributes('data-to') ?? '{}') as {
-        name: string; query?: { environmentInstanceId: string };
-      });
+    expect(fetchProjectDoctor).toHaveBeenCalledWith(
+      'p1',
+      false,
+      'environment:worktree:p1:feature',
+    );
+    const locations = wrapper.findAll('.project-doctor-action').map(
+      (element) =>
+        JSON.parse(element.attributes('data-to') ?? '{}') as {
+          name: string;
+          query?: { environmentInstanceId: string };
+        },
+    );
     expect(locations.map((location) => location.name)).toEqual([
-      'project-dependencies', 'project-server', 'database', 'project-environment',
+      'project-dependencies',
+      'project-server',
+      'database',
+      'project-environment',
     ]);
-    expect(locations[0]?.query?.environmentInstanceId).toBe('environment:worktree:p1:feature');
-    expect(locations[1]?.query?.environmentInstanceId).toBe('environment:worktree:p1:feature');
+    expect(locations[0]?.query?.environmentInstanceId).toBe(
+      'environment:worktree:p1:feature',
+    );
+    expect(locations[1]?.query?.environmentInstanceId).toBe(
+      'environment:worktree:p1:feature',
+    );
     expect(locations[2]?.query).toBeUndefined();
-    expect(locations[3]?.query?.environmentInstanceId).toBe('environment:worktree:p1:feature');
+    expect(locations[3]?.query?.environmentInstanceId).toBe(
+      'environment:worktree:p1:feature',
+    );
 
     await wrapper.setProps({ environmentInstanceId: 'environment:primary:p1' });
     await flushPromises();
-    expect(fetchProjectDoctor).toHaveBeenLastCalledWith('p1', false, 'environment:primary:p1');
+    expect(fetchProjectDoctor).toHaveBeenLastCalledWith(
+      'p1',
+      false,
+      'environment:primary:p1',
+    );
   });
 });
