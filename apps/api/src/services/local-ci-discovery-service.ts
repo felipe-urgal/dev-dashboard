@@ -127,7 +127,9 @@ function emptyDiscovery(): WorkflowDiscovery {
   };
 }
 
-async function discoverWorkflows(projectPath: string): Promise<WorkflowDiscovery> {
+async function discoverWorkflows(
+  projectPath: string,
+): Promise<WorkflowDiscovery> {
   const result = emptyDiscovery();
   let root: string;
   try {
@@ -144,7 +146,9 @@ async function discoverWorkflows(projectPath: string): Promise<WorkflowDiscovery
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       result.diagnostics.truncated = true;
-      result.diagnostics.reasons.push('Não foi possível examinar os workflows.');
+      result.diagnostics.reasons.push(
+        'Não foi possível examinar os workflows.',
+      );
     }
     return result;
   }
@@ -167,7 +171,9 @@ async function discoverWorkflows(projectPath: string): Promise<WorkflowDiscovery
       const stat = await lstat(absolute);
       if (!stat.isFile() || stat.isSymbolicLink()) {
         result.diagnostics.workflowsSkipped += 1;
-        result.diagnostics.reasons.push('Workflow não regular ou link simbólico ignorado.');
+        result.diagnostics.reasons.push(
+          'Workflow não regular ou link simbólico ignorado.',
+        );
         continue;
       }
       if (stat.size > MAX_WORKFLOW_BYTES) {
@@ -178,7 +184,9 @@ async function discoverWorkflows(projectPath: string): Promise<WorkflowDiscovery
       const resolved = await realpath(absolute);
       if (!resolved.startsWith(`${root}${path.sep}`)) {
         result.diagnostics.workflowsSkipped += 1;
-        result.diagnostics.reasons.push('Workflow fora da raiz do projeto ignorado.');
+        result.diagnostics.reasons.push(
+          'Workflow fora da raiz do projeto ignorado.',
+        );
         continue;
       }
       const payload = parse(await readFile(resolved, 'utf8')) as unknown;
@@ -192,10 +200,15 @@ async function discoverWorkflows(projectPath: string): Promise<WorkflowDiscovery
       result.diagnostics.workflowsAccepted += 1;
     } catch {
       result.diagnostics.workflowsSkipped += 1;
-      result.diagnostics.reasons.push('Workflow inválido ou ilegível ignorado.');
+      result.diagnostics.reasons.push(
+        'Workflow inválido ou ilegível ignorado.',
+      );
     }
   }
-  result.diagnostics.reasons = [...new Set(result.diagnostics.reasons)].slice(0, 8);
+  result.diagnostics.reasons = [...new Set(result.diagnostics.reasons)].slice(
+    0,
+    8,
+  );
   return result;
 }
 

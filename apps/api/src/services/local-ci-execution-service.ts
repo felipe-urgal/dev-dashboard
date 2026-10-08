@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ActivityJob, ActivityEventStatus, Project } from '@dev-dashboard/contracts';
+import type {
+  ActivityJob,
+  ActivityEventStatus,
+  Project,
+} from '@dev-dashboard/contracts';
 import type { ActivityEventRepository } from '@dev-dashboard/core';
 
 import type {
@@ -127,7 +131,11 @@ export class LocalCiExecutionService {
 
   public capacity(): { running: number; limit: number; busy: boolean } {
     const running = this.runningCount() + this.pendingStarts;
-    return { running, limit: this.maxConcurrent, busy: running >= this.maxConcurrent };
+    return {
+      running,
+      limit: this.maxConcurrent,
+      busy: running >= this.maxConcurrent,
+    };
   }
 
   public activityJobs(projectId: string): ActivityJob[] {
@@ -327,7 +335,10 @@ export class LocalCiExecutionService {
     return this.executions.snapshotOf(record.key)?.status === 'running';
   }
 
-  private finish(record: RunRecord, snapshot: DetachableExecutionSnapshot): void {
+  private finish(
+    record: RunRecord,
+    snapshot: DetachableExecutionSnapshot,
+  ): void {
     if (!record.activityFinished) {
       record.activityFinished = true;
       const outcome = this.outcome(record, snapshot);
@@ -371,16 +382,18 @@ export class LocalCiExecutionService {
       cancelled: 'cancelado',
       timeout: 'tempo esgotado',
     };
-    void this.activityEvents.append({
-      projectId: record.projectId,
-      domain: 'ci',
-      type: 'ci.local-run',
-      status,
-      summary: `Local CI: ${outcome ? labels[outcome] : 'iniciado'}`,
-      occurredAt,
-      resourceRef: { kind: 'local-ci-run', id: record.id },
-      jobId: record.key,
-    }).catch(() => undefined);
+    void this.activityEvents
+      .append({
+        projectId: record.projectId,
+        domain: 'ci',
+        type: 'ci.local-run',
+        status,
+        summary: `Local CI: ${outcome ? labels[outcome] : 'iniciado'}`,
+        occurredAt,
+        resourceRef: { kind: 'local-ci-run', id: record.id },
+        jobId: record.key,
+      })
+      .catch(() => undefined);
   }
 
   private clearLifecycle(record: RunRecord): void {
