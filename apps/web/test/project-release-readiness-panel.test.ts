@@ -103,9 +103,9 @@ describe('ProjectReleaseReadinessPanel', () => {
 
     expect(fetchReleaseReadiness).toHaveBeenCalledWith(project.id);
     expect(wrapper.text()).toContain('2 bloqueios impedem a entrega.');
-    expect(wrapper.text()).toContain('2 bloqueio(s)');
-    expect(wrapper.text()).toContain('2 alerta(s)');
-    expect(wrapper.text()).toContain('1 inconclusivo(s)');
+    expect(wrapper.text()).toContain('2 bloqueios');
+    expect(wrapper.text()).toContain('2 alertas');
+    expect(wrapper.text()).toContain('1 inconclusivo');
     expect(wrapper.findAll('.readiness-check')).toHaveLength(7);
     expect(
       wrapper.findAll('.readiness-check-domain').map((node) => node.text()),
@@ -164,7 +164,7 @@ describe('ProjectReleaseReadinessPanel', () => {
 
       expect(wrapper.text()).toContain(expected);
       expect(wrapper.text()).not.toContain('Nenhum bloqueio impede a entrega');
-      expect(wrapper.text()).toContain('0 bloqueio(s)');
+      expect(wrapper.text()).toContain('0 bloqueios');
     },
   );
 
