@@ -110,6 +110,13 @@ function createService(executions: FakeExecutions) {
       discover: async () => ({
         provider: 'act' as const,
         approximation: true as const,
+    discovery: {
+      workflowsExamined: 1,
+      workflowsAccepted: 1,
+      workflowsSkipped: 0,
+      truncated: false,
+      reasons: [],
+    },
         availability: { state: 'available' as const },
         jobs: [
           {
