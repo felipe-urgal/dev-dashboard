@@ -456,7 +456,12 @@ export function createAppComposition(
     agentRuntime: agentRuntimeApiService,
     activityJobReaders: [
       ...(localCiExecutionService?.activityJobs
-        ? [localCiExecutionService]
+        ? [
+            {
+              activityJobs: (projectId: string) =>
+                localCiExecutionService.activityJobs?.(projectId) ?? [],
+            },
+          ]
         : []),
       context.projectDependenciesPtyService,
       devContainerLifecycleExecutionService,
