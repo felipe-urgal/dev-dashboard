@@ -360,6 +360,22 @@ async function mountReadyPanel() {
 }
 
 describe('Migrations - confirmação e recuperação', () => {
+  it('mantém a inspeção somente leitura se o preflight falhar', async () => {
+    api.fetchMigrationOverview.mockResolvedValue(pendingOverview);
+    api.planMigrationMutation.mockRejectedValue(new Error('Preflight indisponível'));
+    const wrapper = mount(ProjectMigrationsPanel, {
+      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Add audit index');
+    expect(wrapper.text()).toContain('Preflight indisponível');
+    expect(wrapper.text()).toContain('Rails db:migrate:status');
+    expect(wrapper.find('.migrations-action .primary-button').exists()).toBe(false);
+    expect(wrapper.find('.migrations-inspection-bar button').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
   it('não confirma nem executa antes da ação final; voltar cancela a revisão', async () => {
     const wrapper = await mountReadyPanel();
     await wrapper.get('.migrations-action .primary-button').trigger('click');
