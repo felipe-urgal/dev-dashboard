@@ -160,3 +160,16 @@ test('erro de autenticação ou rede não é tratado como lista vazia', async ()
       error instanceof GithubIssuesError && error.code === 'REMOTE_UNAVAILABLE',
   );
 });
+
+test('sinaliza paginação quando o GitHub retorna a página completa', async () => {
+  const service = new GithubIssuesService(async (command) => {
+    if (command === 'git') return 'git@github.com:example/project.git';
+    return JSON.stringify(
+      Array.from({ length: 50 }, (_, index) => rawIssue(index + 1)),
+    );
+  });
+
+  const result = await service.list(PROJECT, 'open', 1);
+  assert.equal(result.issues.length, 50);
+  assert.equal(result.hasMore, true);
+});
