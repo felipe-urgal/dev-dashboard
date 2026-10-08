@@ -219,7 +219,10 @@ function safeReference(reference: string | undefined): string | undefined {
   }
 }
 
-function scheduleBusyRefresh(requestGeneration: number, projectId: string): void {
+function scheduleBusyRefresh(
+  requestGeneration: number,
+  projectId: string,
+): void {
   if (busyRefreshTimer) clearTimeout(busyRefreshTimer);
   busyRefreshTimer = undefined;
   if (!remoteBusy.value) return;
@@ -397,7 +400,11 @@ onUnmounted(() => {
       </p>
 
       <section class="security-center-results" aria-label="Resultados">
-        <p v-if="remoteBusy || scanning" class="security-center-notice" role="status">
+        <p
+          v-if="remoteBusy || scanning"
+          class="security-center-notice"
+          role="status"
+        >
           Scan em andamento. Outras execuções deste projeto estão bloqueadas.
         </p>
         <p
@@ -405,12 +412,20 @@ onUnmounted(() => {
           class="security-center-notice"
           role="status"
         >
-          Snapshot stale: permanece disponível para consulta, mas não comprova o Release Readiness atual.
+          Snapshot stale: permanece disponível para consulta, mas não comprova o
+          Release Readiness atual.
         </p>
-        <p v-if="hasCompletedScan && incomplete" class="security-center-notice" role="status">
+        <p
+          v-if="hasCompletedScan && incomplete"
+          class="security-center-notice"
+          role="status"
+        >
           Evidência incompleta: {{ findings.length }} de
-          {{ completedResult?.observedCount ?? 'quantidade desconhecida' }} findings preservados
-          (limite {{ completedResult?.limit ?? 1000 }}). Não comprova o Release Readiness.
+          {{
+            completedResult?.observedCount ?? 'quantidade desconhecida'
+          }}
+          findings preservados (limite {{ completedResult?.limit ?? 1000 }}).
+          Não comprova o Release Readiness.
         </p>
         <template v-if="hasCompletedScan">
           <div
@@ -451,7 +466,10 @@ onUnmounted(() => {
               </h5>
               <label>
                 Severidade
-                <select v-model="severityFilter" aria-label="Filtrar por severidade">
+                <select
+                  v-model="severityFilter"
+                  aria-label="Filtrar por severidade"
+                >
                   <option value="all">Todas</option>
                   <option value="critical">Crítica</option>
                   <option value="high">Alta</option>
@@ -462,7 +480,10 @@ onUnmounted(() => {
               </label>
               <label>
                 Categoria
-                <select v-model="categoryFilter" aria-label="Filtrar por categoria">
+                <select
+                  v-model="categoryFilter"
+                  aria-label="Filtrar por categoria"
+                >
                   <option value="all">Todas</option>
                   <option value="secret">Secret</option>
                   <option value="misconfiguration">Misconfiguration</option>
@@ -487,7 +508,11 @@ onUnmounted(() => {
             >
               <ShieldCheckIcon aria-hidden="true" />
               <strong>
-                {{ findings.length === 0 ? 'Resultado parcial sem findings exibíveis' : 'Nenhum finding para os filtros selecionados' }}
+                {{
+                  findings.length === 0
+                    ? 'Resultado parcial sem findings exibíveis'
+                    : 'Nenhum finding para os filtros selecionados'
+                }}
               </strong>
             </div>
 
@@ -527,11 +552,16 @@ onUnmounted(() => {
                       <details>
                         <summary>Ver detalhes</summary>
                         <dl>
-                          <dt>Regra</dt><dd>{{ finding.ruleId }}</dd>
-                          <dt>Categoria</dt><dd>{{ categoryLabel(finding.category) }}</dd>
-                          <dt>Severidade</dt><dd>{{ severityLabel(finding.severity) }}</dd>
-                          <dt>Arquivo / linha</dt><dd>{{ finding.file }}:{{ finding.line ?? '—' }}</dd>
-                          <dt>Remediação</dt><dd>{{ finding.remediation ?? 'Não informada' }}</dd>
+                          <dt>Regra</dt>
+                          <dd>{{ finding.ruleId }}</dd>
+                          <dt>Categoria</dt>
+                          <dd>{{ categoryLabel(finding.category) }}</dd>
+                          <dt>Severidade</dt>
+                          <dd>{{ severityLabel(finding.severity) }}</dd>
+                          <dt>Arquivo / linha</dt>
+                          <dd>{{ finding.file }}:{{ finding.line ?? '—' }}</dd>
+                          <dt>Remediação</dt>
+                          <dd>{{ finding.remediation ?? 'Não informada' }}</dd>
                           <template v-if="safeReference(finding.reference)">
                             <dt>Referência</dt>
                             <dd>
@@ -539,7 +569,8 @@ onUnmounted(() => {
                                 :href="safeReference(finding.reference)"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                              >Abrir documentação</a>
+                                >Abrir documentação</a
+                              >
                             </dd>
                           </template>
                         </dl>
