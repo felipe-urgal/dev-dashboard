@@ -1,3 +1,4 @@
+/** Supported subset: ATX headings, paragraphs, fenced code, simple lists, quotes, horizontal rules, GFM-style tables, inline code/emphasis and safe links. Raw HTML and images are never rendered. */
 export type TableAlignment = 'left' | 'center' | 'right' | null;
 
 export interface HeadingBlock {
@@ -108,6 +109,12 @@ function normalizeTableRow(cells: string[], width: number): string[] {
   return Array.from({ length: width }, (_, index) => cells[index] ?? '');
 }
 
+export function headingSlug(value: string): string {
+  return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/<[^>]*>/g, '').replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .trim().replace(/\s+/g, '-').replace(/-+/g, '-') || 'heading';
+}
+
 export function parseMarkdown(source: string): MarkdownBlock[] {
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
   const blocks: MarkdownBlock[] = [];
@@ -118,6 +125,7 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
   let codeLanguage = '';
   let insideCode = false;
   let sequence = 0;
+  const headingCounts = new Map<string, number>();
 
   const nextId = (prefix: string) => `${prefix}-${sequence++}`;
 
@@ -202,7 +210,12 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
       flushParagraph();
       flushList();
       blocks.push({
-        id: nextId('heading'),
+        id: (() => {
+          const base = headingSlug(heading[2] ?? '');
+          const count = headingCounts.get(base) ?? 0;
+          headingCounts.set(base, count + 1);
+          return count ? `${base}-${count}` : base;
+        })(),
         type: 'heading',
         level: heading[1]?.length ?? 1,
         text: heading[2] ?? '',
@@ -280,6 +293,7 @@ function safeLinkTarget(value: string): string | null {
 
   const scheme = target.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
   if (scheme && !['http', 'https', 'mailto'].includes(scheme)) return null;
+  if (target.startsWith('//') || target.startsWith('\\\\')) return null;
 
   return target;
 }
@@ -305,7 +319,7 @@ export function renderInlineMarkdown(value: string): string {
         const external = /^(?:https?:\/\/|mailto:)/i.test(target);
         result += external
           ? `<a class="readme-inline-link" href="${escapeHtml(target)}" target="_blank" rel="noreferrer noopener">${label}</a>`
-          : label;
+          : `<a class="readme-inline-link" href="#" data-readme-target="${escapeHtml(target)}">${label}</a>`;
       }
     } else if (match[4] !== undefined) {
       result += `<code class="readme-inline-code">${escapeHtml(match[4])}</code>`;
