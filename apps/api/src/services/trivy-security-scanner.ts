@@ -23,9 +23,13 @@ export interface SecurityScanResult {
   provider: 'trivy';
   observedAt: string;
   findings: SecurityFinding[];
+  truncated: boolean;
+  limit: number;
+  observedCount: number;
 }
 
 const MAX_FINDINGS = 1_000;
+const MAX_OBSERVED_COUNT = 1_000_000;
 const MAX_RULE_ID_LENGTH = 128;
 const MAX_FILE_LENGTH = 1_024;
 const MAX_TITLE_LENGTH = 240;
@@ -93,9 +97,11 @@ function safeReference(value: unknown): string | undefined {
 
   try {
     const url = new URL(reference);
-    return url.protocol === 'https:' || url.protocol === 'http:'
-      ? url.toString()
-      : undefined;
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
+    if (url.username || url.password) return undefined;
+    url.search = '';
+    url.hash = '';
+    return url.toString();
   } catch {
     return undefined;
   }
@@ -217,27 +223,64 @@ export function parseTrivySecurityReport(
     throw new Error('Relatório Trivy inválido: objeto raiz ausente.');
   }
 
-  const results = Array.isArray(payload.Results) ? payload.Results : [];
-  const findings: SecurityFinding[] = [];
+  if (!Array.isArray(payload.Results)) {
+    throw new Error('Relatório Trivy inválido: Results ausente.');
+  }
 
-  for (const result of results) {
-    if (findings.length >= MAX_FINDINGS) break;
-    if (!isRecord(result)) continue;
+  const findings: SecurityFinding[] = [];
+  let observedCount = 0;
+  let truncated = false;
+
+  for (const result of payload.Results) {
+    if (!isRecord(result)) {
+      truncated = true;
+      continue;
+    }
+    const secrets = Array.isArray(result.Secrets) ? result.Secrets.length : 0;
+    const misconfigurations = Array.isArray(result.Misconfigurations)
+      ? result.Misconfigurations.length
+      : 0;
+    observedCount = Math.min(
+      MAX_OBSERVED_COUNT,
+      observedCount + secrets + misconfigurations,
+    );
+    if (result.Secrets !== undefined && !Array.isArray(result.Secrets))
+      truncated = true;
+    if (
+      result.Misconfigurations !== undefined &&
+      !Array.isArray(result.Misconfigurations)
+    )
+      truncated = true;
+
     const file = safeRelativeFile(result.Target);
-    if (!file) continue;
+    if (!file) {
+      truncated = true;
+      continue;
+    }
+    if (findings.length >= MAX_FINDINGS) continue;
 
     const remaining = MAX_FINDINGS - findings.length;
     findings.push(...parseSecrets(result, file, observedAt, remaining));
-    if (findings.length >= MAX_FINDINGS) break;
-    findings.push(
-      ...parseMisconfigurations(
-        result,
-        file,
-        observedAt,
-        MAX_FINDINGS - findings.length,
-      ),
-    );
+    if (findings.length < MAX_FINDINGS) {
+      findings.push(
+        ...parseMisconfigurations(
+          result,
+          file,
+          observedAt,
+          MAX_FINDINGS - findings.length,
+        ),
+      );
+    }
   }
 
-  return { provider: 'trivy', observedAt, findings };
+  // Missing/unsafe findings also mean the sanitized evidence is incomplete.
+  truncated ||= observedCount !== findings.length;
+  return {
+    provider: 'trivy',
+    observedAt,
+    findings,
+    truncated,
+    limit: MAX_FINDINGS,
+    observedCount,
+  };
 }
