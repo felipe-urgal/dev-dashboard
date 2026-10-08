@@ -74,8 +74,8 @@ describe('ProjectLocalCiPanel', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Execução local');
-    expect(wrapper.text()).toContain(
-      'não substitui os checks oficiais do GitHub',
+    expect(wrapper.text()).toMatch(
+      /não substitui os checks oficiais do GitHub/i,
     );
     expect(wrapper.text()).toContain('act não instalado');
     expect(wrapper.get('.local-ci-start').attributes('disabled')).toBeDefined();
