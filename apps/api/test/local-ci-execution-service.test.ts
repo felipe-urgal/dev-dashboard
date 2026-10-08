@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { ActivityEvent, Project } from '@dev-dashboard/contracts';
+import type { AppendActivityEventInput } from '@dev-dashboard/core';
 
 import type {
   AttachHandle,
@@ -64,7 +65,7 @@ class FakeExecutions {
   private readonly snapshots = new Map<string, DetachableExecutionSnapshot>();
   private readonly exits = new Map<
     string,
-    (snapshot: DetachableExecutionSnapshot) => void
+    Set<(snapshot: DetachableExecutionSnapshot) => void>
   >();
 
   public start(
@@ -90,10 +91,12 @@ class FakeExecutions {
     _onData: (chunk: string) => void,
     onExit: (snapshot: DetachableExecutionSnapshot) => void,
   ): AttachHandle {
-    this.exits.set(key, onExit);
+    const listeners = this.exits.get(key) ?? new Set();
+    listeners.add(onExit);
+    this.exits.set(key, listeners);
     return {
       snapshot: this.snapshots.get(key)!,
-      detach: () => this.exits.delete(key),
+      detach: () => listeners.delete(onExit),
     };
   }
 
@@ -115,7 +118,7 @@ class FakeExecutions {
       endedAt: '2026-09-06T17:01:00.000Z',
     };
     this.snapshots.set(key, snapshot);
-    this.exits.get(key)?.(snapshot);
+    for (const listener of [...(this.exits.get(key) ?? [])]) listener(snapshot);
   }
 }
 
@@ -148,6 +151,7 @@ test('executa somente o job validado pelo catálogo com ambiente isolado', async
   assert.equal(result.provider, 'act');
   assert.equal(result.approximation, true);
   assert.equal(result.status, 'running');
+  assert.equal(result.outcome, null);
   assert.equal(executions.starts.length, 1);
   const start = executions.starts[0]!;
   assert.equal(start.options.file, 'act');
@@ -196,6 +200,8 @@ test('timeout cancela somente a execução possuída e marca o snapshot', async 
 
   assert.deepEqual(executions.cancels, [`local-ci:${project.id}:${run.id}`]);
   assert.equal(service.get(project.id, run.id).timedOut, true);
+  executions.exit(`local-ci:${project.id}:${run.id}`, 143);
+  assert.equal(service.get(project.id, run.id).outcome, 'timeout');
 });
 
 test('ownership impede consultar ou cancelar run de outro projeto', async () => {
@@ -295,4 +301,80 @@ test('normaliza falha do executor sem transportar erro bruto', async () => {
       !error.message.includes('secret') &&
       !error.message.includes('/private/path'),
   );
+});
+
+test('outcomes distinguem sucesso, falha e cancelamento mantendo exit code', async () => {
+  const executions = new FakeExecutions();
+  let sequence = 0;
+  const service = createService(executions, { createId: () => `run-${++sequence}` });
+  const success = await service.start(project, request);
+  executions.exit(`local-ci:${project.id}:${success.id}`, 0);
+  assert.equal(service.get(project.id, success.id).outcome, 'success');
+
+  const failure = await service.start(project, request);
+  executions.exit(`local-ci:${project.id}:${failure.id}`, 2);
+  assert.equal(service.get(project.id, failure.id).outcome, 'failure');
+
+  const cancelled = await service.start(project, request);
+  service.cancel(project.id, cancelled.id);
+  executions.exit(`local-ci:${project.id}:${cancelled.id}`, 143);
+  const snapshot = service.get(project.id, cancelled.id);
+  assert.equal(snapshot.outcome, 'cancelled');
+  assert.equal(snapshot.exitCode, 143);
+  assert.equal(snapshot.status, 'exited');
+});
+
+test('reserva capacidade mesmo durante o discovery assíncrono', async () => {
+  const executions = new FakeExecutions();
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  const service = new LocalCiExecutionService(
+    { discover: async () => { await barrier; return catalog(); } },
+    executions,
+    { maxConcurrent: 1, createId: () => 'run-reserved' },
+  );
+  const pending = service.start(project, request);
+  assert.deepEqual(service.capacity(), { running: 1, limit: 1, busy: true });
+  await assert.rejects(service.start(project, request), (error: unknown) =>
+    error instanceof LocalCiExecutionError && error.code === 'LOCAL_CI_BUSY',
+  );
+  assert.equal(executions.starts.length, 0);
+  release();
+  const started = await pending;
+  assert.equal(executions.starts.length, 1);
+  assert.equal(started.id, 'run-reserved');
+});
+
+test('Activity registra apenas start/terminal por run; Jobs some no exit mesmo após reattach', async () => {
+  const executions = new FakeExecutions();
+  const events: AppendActivityEventInput[] = [];
+  const service = createService(executions, {
+    activityEvents: {
+      append: async (input: AppendActivityEventInput): Promise<ActivityEvent> => {
+        events.push(input);
+        return {} as ActivityEvent;
+      },
+    },
+  });
+  const run = await service.start(project, request);
+  const key = `local-ci:${project.id}:${run.id}`;
+  assert.equal(service.activityJobs(project.id).length, 1);
+  assert.equal(service.activityJobs(project.id)[0]?.id, key);
+  const attached = service.reattach(project.id, run.id, () => undefined, () => undefined);
+  assert.equal(executions.starts.length, 1);
+  assert.equal(events.length, 1);
+
+  executions.exit(key, 0);
+  attached.detach();
+  assert.equal(events.length, 2);
+  assert.deepEqual(events.map((event) => event.status), ['started', 'succeeded']);
+  assert.equal(service.activityJobs(project.id).length, 0);
+  assert.ok(events.every((event) => event.jobId === key));
+  assert.ok(events.every((event) => event.resourceRef?.id === run.id));
+  const serialized = JSON.stringify(events);
+  assert.equal(serialized.includes('secret-token'), false);
+  assert.equal(serialized.includes('DATABASE_URL'), false);
+  assert.equal(serialized.includes('GITHUB_TOKEN'), false);
+  assert.equal(serialized.includes('--workflows'), false);
+  assert.equal(serialized.includes('buffer'), false);
 });
