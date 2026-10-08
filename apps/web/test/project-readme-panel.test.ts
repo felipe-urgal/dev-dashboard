@@ -163,7 +163,7 @@ test('renderiza tabelas GFM, links seguros e código inline do README', async ()
   assert.equal(externalLink.attributes('rel'), 'noreferrer noopener');
 
   assert.ok(wrapper.text().includes('.tool-versions'));
-  assert.equal(wrapper.findAll('a').length, 1);
+  assert.equal(wrapper.findAll('a').length, 2);
   assert.equal(wrapper.find('a[href^="javascript:"]').exists(), false);
 
   wrapper.unmount();
