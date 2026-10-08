@@ -50,8 +50,8 @@ function readmePriority(filename: string): number {
   const normalized = filename.toLowerCase();
 
   if (normalized === 'readme.md') return 0;
-  if (normalized === 'readme.mdown') return 2;
-  if (normalized === 'readme.markdown') return 3;
+  if (normalized === 'readme.mdown') return 1;
+  if (normalized === 'readme.markdown') return 2;
 
   return 10;
 }
