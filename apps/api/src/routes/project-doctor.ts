@@ -110,7 +110,7 @@ export const projectDoctorRoutes: FastifyPluginAsync<Options> = async (
         report: await options.projectDoctorService.getReport(project, {
           refresh: request.query.refresh === 'true',
           executionContext,
-          contextRevision: instance?.lifecycle,
+          ...(instance ? { contextRevision: instance.lifecycle } : {}),
         }),
       };
     },
