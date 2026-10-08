@@ -36,7 +36,14 @@ import { confirmDialog } from '../stores/app-dialog';
 import { useAutoDismiss } from './useAutoDismiss';
 
 export type GitTab =
-  'branches' | 'sync' | 'diff' | 'commit' | 'undo' | 'issues' | 'pull-request' | 'history';
+  | 'branches'
+  | 'sync'
+  | 'diff'
+  | 'commit'
+  | 'undo'
+  | 'issues'
+  | 'pull-request'
+  | 'history';
 
 export interface GitTabOption {
   id: GitTab;

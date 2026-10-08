@@ -2,7 +2,10 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
-import { GithubIssuesError, GithubIssuesService } from '../services/github-issues-service.js';
+import {
+  GithubIssuesError,
+  GithubIssuesService,
+} from '../services/github-issues-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface GithubIssuesRouteOptions extends FastifyPluginOptions {
@@ -67,7 +70,16 @@ const issueBodySchema = {
 const issueResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['number', 'title', 'body', 'state', 'url', 'author', 'labels', 'updatedAt'],
+  required: [
+    'number',
+    'title',
+    'body',
+    'state',
+    'url',
+    'author',
+    'labels',
+    'updatedAt',
+  ],
   properties: {
     number: { type: 'integer', minimum: 1 },
     title: { type: 'string' },
@@ -121,10 +133,9 @@ function translateError(error: unknown): never {
   throw error;
 }
 
-export const githubIssuesRoutes: FastifyPluginAsync<GithubIssuesRouteOptions> = async (
-  app,
-  options,
-) => {
+export const githubIssuesRoutes: FastifyPluginAsync<
+  GithubIssuesRouteOptions
+> = async (app, options) => {
   const service = new GithubIssuesService();
 
   function projectPath(projectId: string): string {
@@ -145,7 +156,10 @@ export const githubIssuesRoutes: FastifyPluginAsync<GithubIssuesRouteOptions> = 
       schema: {
         params: projectParamsSchema,
         querystring: issueQuerySchema,
-        response: { 200: listIssuesResponseSchema, ...commonErrorResponseSchemas },
+        response: {
+          200: listIssuesResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
       },
     },
     async (request) => {
@@ -167,7 +181,10 @@ export const githubIssuesRoutes: FastifyPluginAsync<GithubIssuesRouteOptions> = 
       schema: {
         params: projectParamsSchema,
         body: issueBodySchema,
-        response: { 201: singleIssueResponseSchema, ...commonErrorResponseSchemas },
+        response: {
+          201: singleIssueResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
       },
     },
     async (request, reply) => {
@@ -190,7 +207,10 @@ export const githubIssuesRoutes: FastifyPluginAsync<GithubIssuesRouteOptions> = 
       schema: {
         params: issueParamsSchema,
         body: issueBodySchema,
-        response: { 200: singleIssueResponseSchema, ...commonErrorResponseSchemas },
+        response: {
+          200: singleIssueResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
       },
     },
     async (request) => {
@@ -214,7 +234,10 @@ export const githubIssuesRoutes: FastifyPluginAsync<GithubIssuesRouteOptions> = 
     {
       schema: {
         params: issueParamsSchema,
-        response: { 200: singleIssueResponseSchema, ...commonErrorResponseSchemas },
+        response: {
+          200: singleIssueResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
       },
     },
     async (request) => {

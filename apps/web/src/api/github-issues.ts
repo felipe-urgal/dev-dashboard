@@ -37,11 +37,14 @@ export async function createProjectGithubIssue(
   title: string,
   body: string,
 ): Promise<GithubIssue> {
-  const response = await requestJson<{ issue: GithubIssue }>(endpoint(projectId), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body }),
-  });
+  const response = await requestJson<{ issue: GithubIssue }>(
+    endpoint(projectId),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body }),
+    },
+  );
   return response.issue;
 }
 
