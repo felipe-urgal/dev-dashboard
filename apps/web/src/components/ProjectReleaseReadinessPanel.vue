@@ -124,6 +124,7 @@ const readinessSummary = computed(() => {
     case 'pass':
       return 'Todos os checks aplicáveis estão comprovados.';
   }
+  return '';
 });
 
 /** The backend owns readiness decisions; labels only clarify its evidence. */
