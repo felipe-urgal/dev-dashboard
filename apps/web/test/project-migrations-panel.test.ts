@@ -369,7 +369,9 @@ describe('Migrations - confirmação e recuperação', () => {
     expect(wrapper.text()).toContain('Banco: primary');
     expect(wrapper.text()).toContain('Runtime: host');
 
-    await wrapper.get('.migrations-confirmation .secondary-button').trigger('click');
+    await wrapper
+      .get('.migrations-confirmation .secondary-button')
+      .trigger('click');
     expect(wrapper.find('.migrations-confirmation').exists()).toBe(false);
     expect(api.startMigrationMutation).not.toHaveBeenCalled();
     wrapper.unmount();
@@ -383,7 +385,9 @@ describe('Migrations - confirmação e recuperação', () => {
       }),
     );
     await wrapper.get('.migrations-action .primary-button').trigger('click');
-    await wrapper.get('.migrations-confirmation .primary-button').trigger('click');
+    await wrapper
+      .get('.migrations-confirmation .primary-button')
+      .trigger('click');
     await flushPromises();
 
     expect(api.startMigrationMutation).not.toHaveBeenCalled();
@@ -401,7 +405,9 @@ describe('Migrations - confirmação e recuperação', () => {
       expiresAt: '2026-09-20T10:01:00.000Z',
     });
     await wrapper.get('.migrations-action .primary-button').trigger('click');
-    await wrapper.get('.migrations-confirmation .primary-button').trigger('click');
+    await wrapper
+      .get('.migrations-confirmation .primary-button')
+      .trigger('click');
     await flushPromises();
 
     expect(api.startMigrationMutation).not.toHaveBeenCalled();
@@ -411,9 +417,16 @@ describe('Migrations - confirmação e recuperação', () => {
 
   it('troca de Environment Instance invalida a revisão e impede start atrasado', async () => {
     const wrapper = await mountReadyPanel();
-    let release!: (value: { token: string; planHash: string; expiresAt: string }) => void;
+    let release!: (value: {
+      token: string;
+      planHash: string;
+      expiresAt: string;
+    }) => void;
     api.prepareMigrationMutation.mockImplementationOnce(
-      () => new Promise((resolve) => { release = resolve; }),
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
     );
     api.planMigrationMutation.mockImplementation(
       (_id: string, _database: string, environment: string) =>
@@ -421,8 +434,12 @@ describe('Migrations - confirmação e recuperação', () => {
     );
 
     await wrapper.get('.migrations-action .primary-button').trigger('click');
-    await wrapper.get('.migrations-confirmation .primary-button').trigger('click');
-    await wrapper.setProps({ environmentInstanceId: 'environment:worktree:new' });
+    await wrapper
+      .get('.migrations-confirmation .primary-button')
+      .trigger('click');
+    await wrapper.setProps({
+      environmentInstanceId: 'environment:worktree:new',
+    });
     await flushPromises();
     expect(wrapper.find('.migrations-confirmation').exists()).toBe(false);
     expect(wrapper.text()).toContain('environment:worktree:new');
@@ -442,9 +459,16 @@ describe('Migrations - confirmação e recuperação', () => {
 
   it('double-click não inicia duas mutations', async () => {
     const wrapper = await mountReadyPanel();
-    let release!: (value: { token: string; planHash: string; expiresAt: string }) => void;
+    let release!: (value: {
+      token: string;
+      planHash: string;
+      expiresAt: string;
+    }) => void;
     api.prepareMigrationMutation.mockImplementationOnce(
-      () => new Promise((resolve) => { release = resolve; }),
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
     );
     await wrapper.get('.migrations-action .primary-button').trigger('click');
     const button = wrapper.get('.migrations-confirmation .primary-button');
@@ -476,7 +500,10 @@ describe('Migrations - confirmação e recuperação', () => {
 
     api.fetchMigrationMutationStatus.mockResolvedValue(runningSnapshot);
     const running = mount(ProjectMigrationsPanel, {
-      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
     });
     await flushPromises();
     expect(running.find('.migrations-output-note').exists()).toBe(true);
@@ -499,12 +526,18 @@ describe('Migrations - confirmação e recuperação', () => {
     api.fetchMigrationMutationStatus.mockResolvedValue(runningSnapshot);
 
     const first = mount(ProjectMigrationsPanel, {
-      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
     });
     await flushPromises();
     first.unmount();
     const second = mount(ProjectMigrationsPanel, {
-      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
     });
     await flushPromises();
 
@@ -521,14 +554,18 @@ describe('Migrations - confirmação e recuperação', () => {
     api.fetchMigrationMutationStatus.mockResolvedValue(runningSnapshot);
     api.cancelMigrationMutation.mockResolvedValue(undefined);
     const wrapper = mount(ProjectMigrationsPanel, {
-      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
     });
     await flushPromises();
     await wrapper.get('.migrations-action .secondary-button').trigger('click');
     await flushPromises();
 
     expect(api.cancelMigrationMutation).toHaveBeenCalledWith(
-      project.id, readyPlan.environmentInstanceId,
+      project.id,
+      readyPlan.environmentInstanceId,
     );
     expect(wrapper.text()).toContain('Cancelando');
     terminal.onExit(130, 2);
@@ -549,15 +586,23 @@ describe('Migrations - confirmação e recuperação', () => {
     api.planMigrationMutation.mockResolvedValue(readyPlan);
     api.fetchMigrationMutationStatus.mockResolvedValue(runningSnapshot);
     const wrapper = mount(ProjectMigrationsPanel, {
-      props: { project, environmentInstanceId: readyPlan.environmentInstanceId },
+      props: {
+        project,
+        environmentInstanceId: readyPlan.environmentInstanceId,
+      },
     });
     await flushPromises();
     api.fetchMigrationOverview.mockResolvedValue({
-      ...pendingOverview, status: 'up-to-date', pending: [],
+      ...pendingOverview,
+      status: 'up-to-date',
+      pending: [],
     });
     api.planMigrationMutation.mockResolvedValue({
-      ...readyPlan, preflight: {
-        ...readyPlan.preflight, state: 'blocked', reason: 'nothing-pending',
+      ...readyPlan,
+      preflight: {
+        ...readyPlan.preflight,
+        state: 'blocked',
+        reason: 'nothing-pending',
       },
     });
 
