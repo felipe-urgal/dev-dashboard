@@ -186,7 +186,7 @@ describe('ProjectDoctorPanel', () => {
       ...report,
       overallStatus: 'healthy',
       summary: { passed: 1, warnings: 0, failed: 0, skipped: 1 },
-      checks: [report.checks[0], report.checks[3]],
+      checks: [report.checks[0]!, report.checks[3]!],
     });
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },
