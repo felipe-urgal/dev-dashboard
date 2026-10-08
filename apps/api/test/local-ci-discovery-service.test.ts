@@ -56,6 +56,13 @@ test('descobre workflow/jobs/eventos via YAML sem editar o arquivo', async () =>
       actVersion: '0.2.82',
       dockerVersion: '27.5.1',
     });
+    assert.deepEqual(catalog.discovery, {
+      workflowsExamined: 1,
+      workflowsAccepted: 1,
+      workflowsSkipped: 0,
+      truncated: false,
+      reasons: [],
+    });
     assert.deepEqual(catalog.jobs, [
       {
         workflowFile: '.github/workflows/ci.yml',
@@ -75,6 +82,8 @@ test('projeto sem workflows produz catálogo vazio sem erro genérico', async ()
     );
     assert.equal(catalog.availability.state, 'available');
     assert.deepEqual(catalog.jobs, []);
+    assert.equal(catalog.discovery.workflowsExamined, 0);
+    assert.equal(catalog.discovery.truncated, false);
   });
 });
 
@@ -127,5 +136,50 @@ test('workflow inválido fica fora do catálogo sem derrubar os demais domínios
     );
     assert.equal(catalog.availability.state, 'available');
     assert.deepEqual(catalog.jobs, []);
+  });
+});
+
+test('sinaliza workflow inválido e oversized sem expor seu conteúdo', async () => {
+  await withProject('name: [secret-token-in-yaml', async (project) => {
+    const directory = path.join(project.path, '.github', 'workflows');
+    await writeFile(path.join(directory, 'large.yml'), 'x'.repeat(256 * 1024 + 1));
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    assert.equal(catalog.discovery.workflowsExamined, 2);
+    assert.equal(catalog.discovery.workflowsAccepted, 0);
+    assert.equal(catalog.discovery.workflowsSkipped, 2);
+    assert.equal(catalog.discovery.truncated, false);
+    assert.equal(catalog.discovery.reasons.length, 2);
+    assert.equal(JSON.stringify(catalog).includes('secret-token-in-yaml'), false);
+    assert.equal(JSON.stringify(catalog).includes(project.path), false);
+  });
+});
+
+test('sinaliza truncation quando mais de 64 workflows são encontrados', async () => {
+  const workflow = 'on: push\\njobs:\\n  test:\\n    runs-on: ubuntu-latest\\n';
+  await withProject(workflow, async (project) => {
+    const directory = path.join(project.path, '.github', 'workflows');
+    for (let index = 0; index < 65; index += 1) {
+      await writeFile(path.join(directory, `workflow-${index}.yml`), workflow);
+    }
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    assert.equal(catalog.discovery.workflowsExamined, 64);
+    assert.equal(catalog.discovery.workflowsAccepted, 64);
+    assert.equal(catalog.discovery.workflowsSkipped, 2);
+    assert.equal(catalog.discovery.truncated, true);
+    assert.equal(catalog.jobs.length, 64);
+  });
+});
+
+test('sinaliza truncation de jobs e eventos mesmo com um único workflow válido', async () => {
+  const events = Array.from({ length: 65 }, (_, i) => `  event-${i}:\\n`).join('');
+  const jobs = Array.from({ length: 513 }, (_, i) => `  job-${i}:\\n    runs-on: ubuntu-latest\\n`).join('');
+  await withProject(`on:\\n${events}jobs:\\n${jobs}`, async (project) => {
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    assert.equal(catalog.discovery.workflowsAccepted, 1);
+    assert.equal(catalog.jobs.length, 512);
+    assert.equal(catalog.jobs[0]?.events.length, 64);
+    assert.equal(catalog.discovery.truncated, true);
+    assert.ok(catalog.discovery.reasons.some((reason) => reason.includes('jobs')));
+    assert.ok(catalog.discovery.reasons.some((reason) => reason.includes('eventos')));
   });
 });
