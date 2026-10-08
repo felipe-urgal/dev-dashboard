@@ -54,13 +54,6 @@ const markdownFilesResult = {
       language: 'markdown',
       size: markdown.length,
     },
-    {
-      path: 'node_modules/example/README.md',
-      name: 'README.md',
-      kind: 'file',
-      language: 'markdown',
-      size: markdown.length,
-    },
   ],
   truncated: false,
 };
@@ -102,12 +95,12 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
     wrapper.get('.readme-file-browser-header strong').text(),
     'Arquivos',
   );
-  assert.equal(wrapper.get('.readme-file-browser-header span').text(), '3');
+  assert.equal(wrapper.get('.readme-file-browser-header span').text(), '2');
   assert.equal(
     wrapper.get('.readme-project-files').findAll('.readme-file-item').length,
     2,
   );
-  assert.equal(wrapper.get('.readme-dependency-summary-count').text(), '1');
+  assert.equal(wrapper.find('.readme-dependency-group').exists(), false);
   assert.ok(
     wrapper.get('.readme-breadcrumb').text().includes('README.docker.md'),
   );
@@ -122,9 +115,7 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
   assert.ok(
     wrapper
       .findAll('.readme-heading')
-      .every((heading) =>
-        heading.attributes('id')?.startsWith('readme-heading-'),
-      ),
+      .every((heading) => heading.attributes('id')?.startsWith('readme-')),
   );
 
   await outlineButtons[1]?.trigger('click');
@@ -132,22 +123,6 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
   assert.ok(
     outlineButtons[1]?.classes().includes('readme-outline-button-active'),
   );
-
-  const dependencyDetails = wrapper.get('.readme-dependency-group');
-  (dependencyDetails.element as HTMLDetailsElement).open = true;
-  await dependencyDetails.trigger('toggle');
-
-  const dependencyButton = wrapper
-    .get('.readme-dependency-files')
-    .get('.readme-file-item');
-  await dependencyButton.trigger('click');
-  await flushPromises();
-
-  assert.deepEqual(api.file.mock.calls.at(-1)?.slice(0, 2), [
-    'project-1',
-    'node_modules/example/README.md',
-  ]);
-  assert.ok(dependencyButton.classes().includes('readme-file-item-active'));
 
   wrapper.unmount();
 });
@@ -188,7 +163,7 @@ test('renderiza tabelas GFM, links seguros e código inline do README', async ()
   assert.equal(externalLink.attributes('rel'), 'noreferrer noopener');
 
   assert.ok(wrapper.text().includes('.tool-versions'));
-  assert.equal(wrapper.findAll('a').length, 1);
+  assert.equal(wrapper.findAll('a').length, 2);
   assert.equal(wrapper.find('a[href^="javascript:"]').exists(), false);
 
   wrapper.unmount();
@@ -331,5 +306,79 @@ test('expõe erro ao trocar para um arquivo que não pode ser lido', async () =>
   );
   assert.equal(wrapper.find('.readme-document').exists(), false);
 
+  wrapper.unmount();
+});
+
+test('navega entre Markdown autorizado e headings duplicados sem aceitar traversal', async () => {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoView,
+  });
+  api.file.mockImplementation(async (_id: string, path: string) => ({
+    path,
+    name: path.split('/').at(-1) ?? path,
+    language: 'markdown',
+    content:
+      path === 'README.docker.md'
+        ? '# Intro\n\n[Ver setup](docs/setup.md#instalacao)\n\n[Escapar](../outside.md)\n\n[Script](javascript:alert(1))'
+        : '# Instalação\n\n# Instalação\n\n[Segundo](#instalacao-1)',
+    version: 'a'.repeat(64),
+    size: 40,
+    modifiedAt: '',
+    writable: true,
+  }));
+  const wrapper = mount(ProjectReadmePanel, {
+    props: { project: makeProject({ id: 'project-1' }) },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  const link = wrapper.get('a[data-readme-target="docs/setup.md#instalacao"]');
+  await link.trigger('click');
+  await flushPromises();
+  assert.deepEqual(api.file.mock.calls.at(-1)?.slice(0, 2), [
+    'project-1',
+    'docs/setup.md',
+  ]);
+  assert.equal(wrapper.findAll('.readme-heading').length, 2);
+  assert.deepEqual(
+    wrapper.findAll('.readme-heading').map((h) => h.attributes('id')),
+    ['readme-instalacao', 'readme-instalacao-1'],
+  );
+  assert.ok(scrollIntoView.mock.calls.length > 0);
+  await wrapper.get('a[data-readme-target="#instalacao-1"]').trigger('click');
+  await flushPromises();
+  assert.equal(
+    wrapper
+      .find('.readme-outline-button-active')
+      ?.attributes('data-heading-id'),
+    'instalacao-1',
+  );
+  assert.equal(api.file.mock.calls.length, 2);
+  wrapper.unmount();
+});
+
+test('falha ao trocar arquivo preserva catálogo e retry tenta somente o documento', async () => {
+  api.file
+    .mockRejectedValueOnce(new Error('temporário'))
+    .mockImplementation(async (_id: string, path: string) => ({
+      path,
+      name: path,
+      language: 'markdown',
+      content: '# Recuperado',
+      version: '',
+      size: 11,
+      modifiedAt: '',
+      writable: true,
+    }));
+  const wrapper = mount(ProjectReadmePanel, {
+    props: { project: makeProject({ id: 'p' }) },
+  });
+  await flushPromises();
+  assert.equal(wrapper.findAll('.readme-file-item').length, 2);
+  await wrapper.get('.secondary-button').trigger('click');
+  await flushPromises();
+  assert.equal(api.markdownFiles.mock.calls.length, 1);
+  assert.equal(wrapper.find('.readme-document').exists(), true);
   wrapper.unmount();
 });

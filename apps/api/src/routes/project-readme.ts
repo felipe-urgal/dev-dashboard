@@ -27,6 +27,13 @@ interface ProjectReadmeRouteOptions extends FastifyPluginOptions {
 
 const MARKDOWN_EXTENSION_PATTERN = /\.(?:md|markdown|mdown)$/i;
 
+export const README_DISCOVERY_LIMITS = {
+  directories: 200,
+  files: 500,
+  depth: 8,
+  entries: 5_000,
+} as const;
+
 const projectParamsSchema = {
   type: 'object',
   additionalProperties: false,
@@ -43,11 +50,8 @@ function readmePriority(filename: string): number {
   const normalized = filename.toLowerCase();
 
   if (normalized === 'readme.md') return 0;
-  if (normalized === 'readme') return 1;
-  if (normalized === 'readme.mdown') return 2;
-  if (normalized === 'readme.markdown') return 3;
-  if (normalized === 'readme.rdoc') return 4;
-  if (normalized === 'readme.adoc') return 5;
+  if (normalized === 'readme.mdown') return 1;
+  if (normalized === 'readme.markdown') return 2;
 
   return 10;
 }
@@ -63,32 +67,36 @@ function shouldHide(relativePath: string): boolean {
 }
 
 /**
- * Catálogo de todos os arquivos Markdown visíveis do projeto, sem limite de
- * quantidade, profundidade ou tamanho de diretório. A varredura continua
- * respeitando os mesmos caminhos ignorados/sensíveis do editor, impede saída
- * da raiz do projeto e evita ciclos de links simbólicos pelo caminho canônico.
+ * Discovery bounded em ordem estável. A ordenação de cada diretório precede
+ * qualquer limite; o catálogo final mantém a prioridade dos READMEs.
+ * Não lê conteúdo: apenas realpath/stat e entradas de diretório.
  */
-async function listMarkdownFiles(
+export async function listMarkdownFiles(
   projectPath: string,
-): Promise<{ files: ProjectFileEntry[]; truncated: false }> {
+): Promise<{ files: ProjectFileEntry[]; truncated: boolean }> {
   const root = await realpath(projectPath);
-  const queue: Array<{ relativePath: string; absolutePath: string }> = [
-    { relativePath: '', absolutePath: root },
-  ];
+  const queue: Array<{
+    relativePath: string;
+    absolutePath: string;
+    depth: number;
+  }> = [{ relativePath: '', absolutePath: root, depth: 0 }];
   const visitedDirectories = new Set<string>();
   const files: ProjectFileEntry[] = [];
+  let entriesExamined = 0;
+  let truncated = false;
 
   while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) break;
-
+    if (visitedDirectories.size >= README_DISCOVERY_LIMITS.directories) {
+      truncated = true;
+      break;
+    }
+    const current = queue.shift()!;
     let canonicalDirectory: string;
     try {
       canonicalDirectory = await realpath(current.absolutePath);
     } catch {
       continue;
     }
-
     if (
       !isPathWithinRoot(root, canonicalDirectory) ||
       visitedDirectories.has(canonicalDirectory)
@@ -103,11 +111,22 @@ async function listMarkdownFiles(
     } catch {
       continue;
     }
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
     for (const entry of entries) {
       const relativePath = publicPath(current.relativePath, entry.name);
       if (shouldHide(relativePath)) continue;
+      if (entriesExamined >= README_DISCOVERY_LIMITS.entries) {
+        truncated = true;
+        break;
+      }
+      entriesExamined += 1;
 
+      // Um arquivo Markdown extra confirma truncamento sem perder o limite.
+      if (files.length >= README_DISCOVERY_LIMITS.files) {
+        truncated = true;
+        break;
+      }
       let canonicalEntry: string;
       try {
         canonicalEntry = await realpath(
@@ -117,25 +136,26 @@ async function listMarkdownFiles(
         continue;
       }
       if (!isPathWithinRoot(root, canonicalEntry)) continue;
-
       let stats;
       try {
         stats = await stat(canonicalEntry);
       } catch {
         continue;
       }
-
       if (stats.isDirectory()) {
-        queue.push({
-          relativePath,
-          absolutePath: canonicalEntry,
-        });
+        if (current.depth >= README_DISCOVERY_LIMITS.depth) {
+          truncated = true;
+        } else if (!visitedDirectories.has(canonicalEntry)) {
+          queue.push({
+            relativePath,
+            absolutePath: canonicalEntry,
+            depth: current.depth + 1,
+          });
+        }
         continue;
       }
-      if (!stats.isFile() || !MARKDOWN_EXTENSION_PATTERN.test(entry.name)) {
+      if (!stats.isFile() || !MARKDOWN_EXTENSION_PATTERN.test(entry.name))
         continue;
-      }
-
       files.push({
         path: relativePath,
         name: entry.name,
@@ -144,15 +164,20 @@ async function listMarkdownFiles(
         size: stats.size,
       });
     }
+    if (
+      truncated &&
+      (entriesExamined >= README_DISCOVERY_LIMITS.entries ||
+        files.length >= README_DISCOVERY_LIMITS.files)
+    )
+      break;
   }
 
   files.sort((left, right) => {
     const priorityDiff = readmePriority(left.name) - readmePriority(right.name);
     if (priorityDiff !== 0) return priorityDiff;
-    return left.path.localeCompare(right.path, 'pt-BR');
+    return left.path < right.path ? -1 : left.path > right.path ? 1 : 0;
   });
-
-  return { files, truncated: false };
+  return { files, truncated };
 }
 
 export const projectReadmeRoutes: FastifyPluginAsync<
