@@ -242,5 +242,4 @@ describe('ProjectLocalCiPanel', () => {
     expect(wrapper.text()).toContain('Exit code 143');
     wrapper.unmount();
   });
-
 });
