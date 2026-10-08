@@ -21,6 +21,14 @@ export interface LocalCiCatalog {
   provider: 'act';
   approximation: true;
   availability: LocalCiAvailability;
+  discovery: {
+    workflowsExamined: number;
+    workflowsAccepted: number;
+    workflowsSkipped: number;
+    truncated: boolean;
+    reasons: string[];
+  };
+  capacity?: { running: number; limit: number; busy: boolean };
   jobs: LocalCiCatalogJob[];
 }
 
@@ -42,6 +50,7 @@ export interface LocalCiExecutionSnapshot {
   exitCode: number | null;
   exitSignal: number | null;
   timedOut: boolean;
+  outcome: 'success' | 'failure' | 'cancelled' | 'timeout' | null;
   startedAt: string;
   endedAt: string | null;
 }
