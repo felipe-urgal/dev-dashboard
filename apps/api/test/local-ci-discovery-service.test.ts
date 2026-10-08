@@ -155,7 +155,7 @@ test('sinaliza workflow inválido e oversized sem expor seu conteúdo', async ()
 });
 
 test('sinaliza truncation quando mais de 64 workflows são encontrados', async () => {
-  const workflow = 'on: push\\njobs:\\n  test:\\n    runs-on: ubuntu-latest\\n';
+  const workflow = 'on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n';
   await withProject(workflow, async (project) => {
     const directory = path.join(project.path, '.github', 'workflows');
     for (let index = 0; index < 65; index += 1) {
@@ -171,9 +171,9 @@ test('sinaliza truncation quando mais de 64 workflows são encontrados', async (
 });
 
 test('sinaliza truncation de jobs e eventos mesmo com um único workflow válido', async () => {
-  const events = Array.from({ length: 65 }, (_, i) => `  event-${i}:\\n`).join('');
-  const jobs = Array.from({ length: 513 }, (_, i) => `  job-${i}:\\n    runs-on: ubuntu-latest\\n`).join('');
-  await withProject(`on:\\n${events}jobs:\\n${jobs}`, async (project) => {
+  const events = Array.from({ length: 65 }, (_, i) => `  event-${i}:\n`).join('');
+  const jobs = Array.from({ length: 513 }, (_, i) => `  job-${i}:\n    runs-on: ubuntu-latest\n`).join('');
+  await withProject(`on:\n${events}jobs:\n${jobs}`, async (project) => {
     const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
     assert.equal(catalog.discovery.workflowsAccepted, 1);
     assert.equal(catalog.jobs.length, 512);
