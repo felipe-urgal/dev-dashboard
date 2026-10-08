@@ -39,6 +39,13 @@ const request: LocalCiJobRequest = {
 const catalog: LocalCiCatalog = {
   provider: 'act',
   approximation: true,
+  discovery: {
+    workflowsExamined: 1,
+    workflowsAccepted: 1,
+    workflowsSkipped: 0,
+    truncated: false,
+    reasons: [],
+  },
   availability: {
     state: 'available',
     actVersion: '0.2.80',
@@ -70,6 +77,7 @@ function snapshot(
     exitCode: null,
     exitSignal: null,
     timedOut: false,
+    outcome: null,
     startedAt: '2026-09-20T12:30:00.000Z',
     endedAt: null,
     ...overrides,
@@ -150,6 +158,7 @@ function services() {
         snapshot({
           status: 'exited',
           exitCode: 0,
+          outcome: 'success',
           endedAt: '2026-09-20T12:31:00.000Z',
         }),
       ),
