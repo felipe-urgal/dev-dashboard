@@ -76,7 +76,7 @@ const report: ProjectDiagnosticReport = {
 
 const routerLinkStub = {
   props: ['to'],
-  template: '<a><slot /></a>',
+  template: '<a :data-to="JSON.stringify(to)"><slot /></a>',
 };
 
 describe('ProjectDoctorPanel', () => {
@@ -95,11 +95,11 @@ describe('ProjectDoctorPanel', () => {
 
     await flushPromises();
 
-    expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false);
+    expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false, undefined);
     expect(wrapper.find('#project-doctor-title').exists()).toBe(false);
     expect(wrapper.find('.project-doctor-intro').exists()).toBe(true);
-    expect(wrapper.text()).toContain('2 problemas encontrados');
-    expect(wrapper.text()).toContain('2 de 4 verificações aprovadas');
+    expect(wrapper.text()).toContain('1 problema encontrado');
+    expect(wrapper.text()).toContain('2 de 3 verificações aprovadas');
     expect(wrapper.text()).toContain('Requer ação');
     expect(wrapper.text()).toContain('PUBLIC_URL');
     expect(wrapper.text()).toContain('Abrir variáveis de ambiente');
@@ -107,7 +107,12 @@ describe('ProjectDoctorPanel', () => {
       wrapper.findAll(
         '.project-doctor-action-section .project-doctor-category',
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
+    expect(
+      wrapper.findAll(
+        '.project-doctor-skipped-section .project-doctor-category',
+      ),
+    ).toHaveLength(1);
     expect(wrapper.html()).not.toContain('super-secret');
   });
 
@@ -170,9 +175,93 @@ describe('ProjectDoctorPanel', () => {
     });
     await flushPromises();
 
-    expect(fetchProjectDoctor).toHaveBeenLastCalledWith('p2', false);
+    expect(fetchProjectDoctor).toHaveBeenLastCalledWith('p2', false, undefined);
     expect(wrapper.text()).toContain('Saudável');
     expect(wrapper.text()).toContain('0 problemas encontrados');
     expect(wrapper.text()).not.toContain('Requer ação');
+  });
+
+  it('mantém relatório healthy com skipped fora de Requer ação', async () => {
+    fetchProjectDoctor.mockResolvedValueOnce({
+      ...report,
+      overallStatus: 'healthy',
+      summary: { passed: 1, warnings: 0, failed: 0, skipped: 1 },
+      checks: [report.checks[0]!, report.checks[3]!],
+    });
+    const wrapper = mount(ProjectDoctorPanel, {
+      props: { project },
+      global: { stubs: { RouterLink: routerLinkStub } },
+    });
+    await flushPromises();
+    expect(wrapper.text()).toContain('Saudável');
+    expect(wrapper.text()).toContain('0 problemas encontrados');
+    expect(wrapper.text()).toContain('1 não verificada');
+    expect(wrapper.text()).not.toContain('Requer ação');
+    expect(
+      wrapper.findAll(
+        '.project-doctor-skipped-section .project-doctor-category',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('propaga a Environment Instance e usa rotas explícitas para todos os targets', async () => {
+    fetchProjectDoctor.mockResolvedValueOnce({
+      ...report,
+      summary: { passed: 0, warnings: 4, failed: 0, skipped: 0 },
+      checks: (
+        ['dependencies', 'server', 'database', 'environment'] as const
+      ).map((target) => ({
+        id: target,
+        category: 'configuration' as const,
+        label: target,
+        status: 'warning' as const,
+        summary: 'Ação orientativa',
+        action: { label: target, target },
+      })),
+    });
+    const wrapper = mount(ProjectDoctorPanel, {
+      props: {
+        project,
+        environmentInstanceId: 'environment:worktree:p1:feature',
+      },
+      global: { stubs: { RouterLink: routerLinkStub } },
+    });
+    await flushPromises();
+    expect(fetchProjectDoctor).toHaveBeenCalledWith(
+      'p1',
+      false,
+      'environment:worktree:p1:feature',
+    );
+    const locations = wrapper.findAll('.project-doctor-action').map(
+      (element) =>
+        JSON.parse(element.attributes('data-to') ?? '{}') as {
+          name: string;
+          query?: { environmentInstanceId: string };
+        },
+    );
+    expect(locations.map((location) => location.name)).toEqual([
+      'project-dependencies',
+      'project-server',
+      'database',
+      'project-environment',
+    ]);
+    expect(locations[0]?.query?.environmentInstanceId).toBe(
+      'environment:worktree:p1:feature',
+    );
+    expect(locations[1]?.query?.environmentInstanceId).toBe(
+      'environment:worktree:p1:feature',
+    );
+    expect(locations[2]?.query).toBeUndefined();
+    expect(locations[3]?.query?.environmentInstanceId).toBe(
+      'environment:worktree:p1:feature',
+    );
+
+    await wrapper.setProps({ environmentInstanceId: 'environment:primary:p1' });
+    await flushPromises();
+    expect(fetchProjectDoctor).toHaveBeenLastCalledWith(
+      'p1',
+      false,
+      'environment:primary:p1',
+    );
   });
 });

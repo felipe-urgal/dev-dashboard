@@ -185,7 +185,10 @@ export function createAppComposition(
   );
   const projectDoctorService =
     options.projectDoctorService ??
-    new ProjectDoctorService(options.now ? { now: options.now } : {});
+    new ProjectDoctorService({
+      ...(options.now ? { now: options.now } : {}),
+      environmentInstanceStore: context.developmentEnvironmentInstanceStore,
+    });
   const devContainerDiscoveryService =
     options.devContainerDiscoveryService ??
     new DevContainerDiscoveryService(

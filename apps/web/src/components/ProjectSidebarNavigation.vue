@@ -209,7 +209,7 @@ const groups = computed<SidebarGroup[]>(() => [
               label: 'Dependências',
               icon: CubeIcon,
               routeNames: ['project-dependencies'],
-              to: projectRoute('project-dependencies'),
+              to: projectRoute('project-dependencies', { environment: true }),
             },
           ]
         : []),
@@ -274,7 +274,7 @@ const groups = computed<SidebarGroup[]>(() => [
         label: 'Diagnóstico',
         icon: ShieldCheckIcon,
         routeNames: ['project-doctor'],
-        to: projectRoute('project-doctor'),
+        to: projectRoute('project-doctor', { environment: true }),
       },
     ],
   },

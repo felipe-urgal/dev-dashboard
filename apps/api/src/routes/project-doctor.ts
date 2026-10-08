@@ -7,10 +7,15 @@ import {
 import { ApiError } from '../http/api-error.js';
 import type { ProjectDoctorService } from '../services/project-doctor-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   projectDoctorService: ProjectDoctorService;
+  developmentEnvironmentInstanceStore: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'resolveForProject' | 'findForProject'
+  >;
 }
 
 interface Params {
@@ -19,6 +24,7 @@ interface Params {
 
 interface Querystring {
   refresh?: 'true';
+  environmentInstanceId?: string;
 }
 
 const paramsSchema = {
@@ -35,6 +41,7 @@ const querystringSchema = {
   additionalProperties: false,
   properties: {
     refresh: { type: 'string', enum: ['true'] },
+    environmentInstanceId: { type: 'string', minLength: 1, maxLength: 512 },
   },
 } as const;
 
@@ -76,11 +83,36 @@ export const projectDoctorRoutes: FastifyPluginAsync<Options> = async (
         },
       },
     },
-    async (request) => ({
-      report: await options.projectDoctorService.getReport(
-        requireProject(options.projectStore, request.params.projectId),
-        { refresh: request.query.refresh === 'true' },
-      ),
-    }),
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const executionContext =
+        options.developmentEnvironmentInstanceStore.resolveForProject(
+          project.id,
+          request.query.environmentInstanceId,
+        );
+      if (!executionContext) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
+          message:
+            'Ambiente de desenvolvimento não encontrado para este projeto.',
+        });
+      }
+      const instance =
+        options.developmentEnvironmentInstanceStore.findForProject(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
+      return {
+        report: await options.projectDoctorService.getReport(project, {
+          refresh: request.query.refresh === 'true',
+          executionContext,
+          ...(instance ? { contextRevision: instance.lifecycle } : {}),
+        }),
+      };
+    },
   );
 };

@@ -402,8 +402,9 @@ onBeforeUnmount(stopGitOverviewRefresh);
 
       <ProjectDoctorPanel
         v-else-if="isDoctorRoute"
-        :key="`doctor-${project.id}`"
+        :key="`doctor-${project.id}-${environmentInstanceId ?? 'primary'}`"
         :project="project"
+        :environment-instance-id="environmentInstanceId"
       />
 
       <ProjectReadinessPanel

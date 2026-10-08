@@ -22,7 +22,10 @@ import type {
 import { fetchProjectDoctor } from '../api';
 import StatusBadge from './StatusBadge.vue';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string;
+}>();
 
 const report = ref<ProjectDiagnosticReport | null>(null);
 const loading = ref(false);
@@ -63,16 +66,35 @@ const totalChecks = computed(() => {
 
 const pendingChecks = computed(() => {
   if (!report.value) return 0;
-  const { warnings, failed, skipped } = report.value.summary;
-  return warnings + failed + skipped;
+  const { warnings, failed } = report.value.summary;
+  return warnings + failed;
 });
 
+const verifiedChecks = computed(
+  () => totalChecks.value - (report.value?.summary.skipped ?? 0),
+);
+
 const actionGroups = computed(() =>
-  groupedChecks.value.filter((group) => groupStatus(group.checks) !== 'passed'),
+  groupedChecks.value.filter((group) =>
+    group.checks.some(
+      (check) => check.status === 'warning' || check.status === 'failed',
+    ),
+  ),
 );
 
 const approvedGroups = computed(() =>
-  groupedChecks.value.filter((group) => groupStatus(group.checks) === 'passed'),
+  groupedChecks.value.filter((group) =>
+    group.checks.every((check) => check.status === 'passed'),
+  ),
+);
+
+const skippedGroups = computed(() =>
+  groupedChecks.value.filter(
+    (group) =>
+      !group.checks.some(
+        (check) => check.status === 'warning' || check.status === 'failed',
+      ) && group.checks.some((check) => check.status === 'skipped'),
+  ),
 );
 
 const overallCopy = computed(() => {
@@ -132,11 +154,16 @@ function completedChecks(checks: ProjectDiagnosticCheck[]): number {
 }
 
 function pendingGroupChecks(checks: ProjectDiagnosticCheck[]): number {
-  return checks.filter((check) => check.status !== 'passed').length;
+  return checks.filter(
+    (check) => check.status === 'warning' || check.status === 'failed',
+  ).length;
 }
 
 function groupDetail(checks: ProjectDiagnosticCheck[]): string {
-  const pendingCheck = checks.find((check) => check.status !== 'passed');
+  const pendingCheck =
+    checks.find(
+      (check) => check.status === 'failed' || check.status === 'warning',
+    ) ?? checks.find((check) => check.status === 'skipped');
   if (pendingCheck) return pendingCheck.summary;
   return `${completedChecks(checks)}/${checks.length} ${
     checks.length === 1 ? 'verificação' : 'verificações'
@@ -151,30 +178,28 @@ function groupPendingLabel(checks: ProjectDiagnosticCheck[]): string {
     return `${count} ${count === 1 ? 'problema' : 'problemas'}`;
   if (status === 'warning')
     return `${count} ${count === 1 ? 'alerta' : 'alertas'}`;
-  return `${count} ${count === 1 ? 'pendência' : 'pendências'}`;
+  return `${count} ${count === 1 ? 'problema' : 'problemas'}`;
 }
+
+const actionRoutes: Record<ProjectDiagnosticActionTarget, string> = {
+  dependencies: 'project-dependencies',
+  server: 'project-server',
+  database: 'database',
+  environment: 'project-environment',
+};
 
 function actionDestination(
   target: ProjectDiagnosticActionTarget,
 ): RouteLocationRaw {
-  if (target === 'environment') {
-    return {
-      name: 'project-environment',
-      params: { projectId: props.project.id },
-    };
-  }
-  if (target === 'server') {
-    return {
-      name: 'project-server',
-      params: { projectId: props.project.id },
-    };
-  }
-  if (target === 'database') {
-    return { name: 'database' };
-  }
+  const name = actionRoutes[target];
+  if (!name) throw new Error(`Ação do Doctor sem destino: ${target}`);
+  if (target === 'database') return { name };
   return {
-    name: 'project-dependencies',
+    name,
     params: { projectId: props.project.id },
+    ...(props.environmentInstanceId
+      ? { query: { environmentInstanceId: props.environmentInstanceId } }
+      : {}),
   };
 }
 
@@ -193,7 +218,11 @@ async function load(refresh = false): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const result = await fetchProjectDoctor(props.project.id, refresh);
+    const result = await fetchProjectDoctor(
+      props.project.id,
+      refresh,
+      props.environmentInstanceId,
+    );
     if (current !== generation) return;
     report.value = result;
   } catch (error) {
@@ -209,7 +238,7 @@ async function load(refresh = false): Promise<void> {
 }
 
 watch(
-  () => props.project.id,
+  () => [props.project.id, props.environmentInstanceId],
   () => {
     report.value = null;
     void load();
@@ -272,12 +301,25 @@ watch(
         <section class="project-doctor-summary" aria-label="Resumo operacional">
           <InformationCircleIcon aria-hidden="true" />
           <p>
-            <strong>{{ pendingChecks }} problemas</strong> encontrados
+            <strong
+              >{{ pendingChecks }}
+              {{ pendingChecks === 1 ? 'problema' : 'problemas' }}</strong
+            >
+            {{ pendingChecks === 1 ? 'encontrado' : 'encontrados' }}
             <span aria-hidden="true">·</span>
             <strong>
-              {{ report.summary.passed }} de {{ totalChecks }} verificações
+              {{ report.summary.passed }} de {{ verifiedChecks }} verificações
               aprovadas
             </strong>
+            <template v-if="report.summary.skipped > 0">
+              <span aria-hidden="true">·</span>
+              {{ report.summary.skipped }}
+              {{
+                report.summary.skipped === 1
+                  ? 'não verificada'
+                  : 'não verificadas'
+              }}
+            </template>
           </p>
         </section>
 
@@ -412,6 +454,81 @@ watch(
 
                 <div class="project-doctor-category-status">
                   <StatusBadge tone="success">Boa</StatusBadge>
+                  <ChevronDownIcon aria-hidden="true" />
+                </div>
+              </summary>
+
+              <div class="project-doctor-check-list">
+                <article
+                  v-for="check in group.checks"
+                  :key="check.id"
+                  class="project-doctor-check"
+                  :class="`is-${check.status}`"
+                >
+                  <component
+                    :is="statusIcon(check.status)"
+                    aria-hidden="true"
+                  />
+                  <div class="project-doctor-check-copy">
+                    <div>
+                      <strong>{{ check.label }}</strong>
+                      <StatusBadge :tone="statusTone(check.status)">
+                        {{ statusLabel(check.status) }}
+                      </StatusBadge>
+                    </div>
+                    <p>{{ check.summary }}</p>
+                    <small v-if="check.recommendation">
+                      {{ check.recommendation }}
+                    </small>
+                  </div>
+                  <RouterLink
+                    v-if="check.action"
+                    class="project-doctor-action"
+                    :to="actionDestination(check.action.target)"
+                  >
+                    {{ check.action.label }}
+                  </RouterLink>
+                </article>
+              </div>
+            </details>
+          </div>
+        </section>
+        <section
+          v-if="skippedGroups.length > 0"
+          class="project-doctor-section project-doctor-skipped-section"
+          aria-labelledby="doctor-skipped-title"
+        >
+          <header class="project-doctor-section-header">
+            <span class="project-doctor-section-icon is-skipped">
+              <InformationCircleIcon aria-hidden="true" />
+            </span>
+            <div>
+              <h4 id="doctor-skipped-title">Não verificados</h4>
+              <p>
+                Sem ação obrigatória: checks não aplicáveis ou não avaliados.
+              </p>
+            </div>
+          </header>
+
+          <div class="project-doctor-category-list">
+            <details
+              v-for="group in skippedGroups"
+              :key="group.category"
+              class="project-doctor-category"
+            >
+              <summary>
+                <div class="project-doctor-category-main">
+                  <span class="project-doctor-category-icon is-skipped">
+                    <InformationCircleIcon aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{{ group.label }}</strong>
+                    <span>{{ groupDetail(group.checks) }}</span>
+                  </div>
+                </div>
+
+                <div class="project-doctor-category-status">
+                  <StatusBadge tone="neutral">Não verificado</StatusBadge>
                   <ChevronDownIcon aria-hidden="true" />
                 </div>
               </summary>

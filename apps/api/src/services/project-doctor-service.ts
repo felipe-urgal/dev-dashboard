@@ -1,11 +1,17 @@
 import { execFile } from 'node:child_process';
 
 import type {
+  ExecutionContext,
   Project,
   ProjectDiagnosticCheck,
   ProjectDiagnosticReport,
 } from '@dev-dashboard/contracts';
 
+import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
+import {
+  buildDevContainerWorkspaceCommand,
+  isValidDevContainerRuntimeId,
+} from './dev-container-exec-adapter.js';
 import type {
   DoctorCheckDefinition,
   DoctorCommandOptions,
@@ -40,9 +46,14 @@ interface ProjectDoctorServiceOptions {
   now?: () => number;
   cacheTtlMs?: number;
   commandRunner?: DoctorCommandRunner;
+  environmentInstanceStore?: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'resolveForProject' | 'findForProject'
+  >;
 }
 
 interface CachedReport {
+  projectId: string;
   expiresAt: number;
   report: ProjectDiagnosticReport;
 }
@@ -80,11 +91,13 @@ export class ProjectDoctorService {
   private readonly now: () => number;
   private readonly cacheTtlMs: number;
   private readonly commandRunner: DoctorCommandRunner;
+  private readonly environmentInstanceStore?: ProjectDoctorServiceOptions['environmentInstanceStore'];
 
   public constructor(options: ProjectDoctorServiceOptions = {}) {
     this.now = options.now ?? Date.now;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.commandRunner = options.commandRunner ?? defaultCommandRunner;
+    this.environmentInstanceStore = options.environmentInstanceStore;
   }
 
   public invalidate(projectId?: string): void {
@@ -93,21 +106,60 @@ export class ProjectDoctorService {
       return;
     }
 
-    this.cache.delete(projectId);
+    for (const [key, entry] of this.cache) {
+      if (entry.projectId === projectId) this.cache.delete(key);
+    }
   }
 
   public async getReport(
     project: Project,
-    options: { refresh?: boolean } = {},
+    options: {
+      refresh?: boolean;
+      executionContext?: ExecutionContext;
+      contextRevision?: string;
+    } = {},
   ): Promise<ProjectDiagnosticReport> {
+    const context =
+      options.executionContext ??
+      this.environmentInstanceStore?.resolveForProject(project.id) ??
+      (this.environmentInstanceStore
+        ? null
+        : {
+            projectId: project.id,
+            environmentInstanceId: `environment:primary:${project.id}`,
+            cwd: project.path,
+            runtime: 'host' as const,
+          });
+    if (!context || context.projectId !== project.id) {
+      throw new Error(
+        'Environment Instance indisponível para o Project Doctor.',
+      );
+    }
+    const scopedProject = { ...project, path: context.cwd };
+    const instance = this.environmentInstanceStore?.findForProject(
+      project.id,
+      context.environmentInstanceId,
+    );
+    const cacheKey = JSON.stringify({
+      projectId: project.id,
+      type: project.type,
+      capabilities: project.capabilities,
+      profile: project.profile,
+      sourcePath: project.path,
+      environmentInstanceId: context.environmentInstanceId,
+      cwd: context.cwd,
+      runtime: context.runtime,
+      runtimeId: context.runtimeId ?? null,
+      lifecycle: options.contextRevision ?? instance?.lifecycle ?? null,
+    });
     const now = this.now();
-    const cached = this.cache.get(project.id);
+    const cached = this.cache.get(cacheKey);
     if (!options.refresh && cached && cached.expiresAt > now) {
       return cached.report;
     }
 
     const checks = await Promise.all(
-      this.createCheckDefinitions(project).map((definition) =>
+      this.createCheckDefinitions(scopedProject, context).map((definition) =>
         this.runCheckSafely(definition),
       ),
     );
@@ -130,14 +182,61 @@ export class ProjectDoctorService {
       checks,
     };
 
-    this.cache.set(project.id, {
+    this.cache.set(cacheKey, {
+      projectId: project.id,
       expiresAt: now + this.cacheTtlMs,
       report,
     });
     return report;
   }
 
-  private createCheckDefinitions(project: Project): DoctorCheckDefinition[] {
+  private createCheckDefinitions(
+    project: Project,
+    context: ExecutionContext,
+  ): DoctorCheckDefinition[] {
+    const isHost = context.runtime === 'host';
+    const containerReady =
+      context.runtime === 'devcontainer' &&
+      isValidDevContainerRuntimeId(context.runtimeId);
+    const runtimeSupported = isHost || containerReady;
+    const skipped = (
+      id: string,
+      category: ProjectDiagnosticCheck['category'],
+      label: string,
+      reason: string,
+    ) =>
+      createDiagnosticCheck({
+        id,
+        category,
+        label,
+        status: 'skipped',
+        summary: reason,
+      });
+    const unsupported =
+      'O runtime selecionado não possui identidade executável válida; a toolchain do host não foi consultada.';
+    const commandRunner: DoctorCommandRunner = isHost
+      ? this.commandRunner
+      : async (command, args, options) => {
+          if (
+            !containerReady ||
+            !['node', 'npm', 'pnpm', 'yarn', 'bun', 'ruby', 'bundle'].includes(
+              command,
+            )
+          ) {
+            throw new Error(
+              'Comando não suportado no Doctor para o runtime selecionado.',
+            );
+          }
+          const built = buildDevContainerWorkspaceCommand({
+            runtimeId: context.runtimeId!,
+            workspaceFolder: context.cwd,
+            command,
+            args,
+          });
+          return this.commandRunner(built.file, built.args, {
+            cwd: options?.cwd ?? context.cwd,
+          });
+        };
     const definitions: DoctorCheckDefinition[] = [
       {
         id: 'project-directory',
@@ -165,19 +264,78 @@ export class ProjectDoctorService {
           id: 'node-runtime',
           category: 'runtime',
           label: 'Runtime Node',
-          run: () => checkNodeRuntime(project),
+          run: () =>
+            !runtimeSupported
+              ? Promise.resolve(
+                  skipped(
+                    'node-runtime',
+                    'runtime',
+                    'Runtime Node',
+                    unsupported,
+                  ),
+                )
+              : isHost
+                ? checkNodeRuntime(project)
+                : commandRunner('node', ['--version']).then(
+                    ({ stdout }) => {
+                      const version = stdout.trim();
+                      return /^v?\d+(?:\.\d+){1,3}$/.test(version)
+                        ? checkNodeRuntime(project, version)
+                        : createDiagnosticCheck({
+                            id: 'node-runtime',
+                            category: 'runtime',
+                            label: 'Runtime Node',
+                            status: 'warning',
+                            summary:
+                              'Versão Node inválida ou ausente no Dev Container selecionado.',
+                          });
+                    },
+                    () =>
+                      Promise.resolve(
+                        createDiagnosticCheck({
+                          id: 'node-runtime',
+                          category: 'runtime',
+                          label: 'Runtime Node',
+                          status: 'warning',
+                          summary:
+                            'Node não está disponível no Dev Container selecionado.',
+                        }),
+                      ),
+                  ),
         },
         {
           id: 'node-package-manager',
           category: 'dependencies',
           label: 'Gerenciador Node',
-          run: () => checkNodePackageManager(project, this.commandRunner),
+          run: () =>
+            runtimeSupported
+              ? checkNodePackageManager(project, commandRunner)
+              : Promise.resolve(
+                  skipped(
+                    'node-package-manager',
+                    'dependencies',
+                    'Gerenciador Node',
+                    unsupported,
+                  ),
+                ),
         },
         {
           id: 'node-dependencies',
           category: 'dependencies',
           label: 'Dependências Node',
-          run: () => checkNodeDependencies(project),
+          run: () =>
+            isHost
+              ? checkNodeDependencies(project)
+              : Promise.resolve(
+                  skipped(
+                    'node-dependencies',
+                    'dependencies',
+                    'Dependências Node',
+                    containerReady
+                      ? 'Dependências instaladas dentro do Dev Container não são verificadas pelo filesystem do host.'
+                      : unsupported,
+                  ),
+                ),
         },
       );
     }
@@ -188,13 +346,33 @@ export class ProjectDoctorService {
           id: 'ruby-runtime',
           category: 'runtime',
           label: 'Runtime Ruby',
-          run: () => checkRubyRuntime(project, this.commandRunner),
+          run: () =>
+            runtimeSupported
+              ? checkRubyRuntime(project, commandRunner)
+              : Promise.resolve(
+                  skipped(
+                    'ruby-runtime',
+                    'runtime',
+                    'Runtime Ruby',
+                    unsupported,
+                  ),
+                ),
         },
         {
           id: 'bundler-dependencies',
           category: 'dependencies',
           label: 'Dependências Bundler',
-          run: () => checkBundlerDependencies(project, this.commandRunner),
+          run: () =>
+            runtimeSupported
+              ? checkBundlerDependencies(project, commandRunner)
+              : Promise.resolve(
+                  skipped(
+                    'bundler-dependencies',
+                    'dependencies',
+                    'Dependências Bundler',
+                    unsupported,
+                  ),
+                ),
         },
       );
     }
@@ -204,7 +382,17 @@ export class ProjectDoctorService {
         id: 'container-toolchain',
         category: 'runtime',
         label: 'Docker / Compose',
-        run: () => checkContainerToolchain(project, this.commandRunner),
+        run: () =>
+          isHost
+            ? checkContainerToolchain(project, commandRunner)
+            : Promise.resolve(
+                skipped(
+                  'container-toolchain',
+                  'runtime',
+                  'Docker / Compose',
+                  'Docker / Compose é uma integração do host e não é avaliada como ferramenta interna do Dev Container.',
+                ),
+              ),
       });
     }
 
