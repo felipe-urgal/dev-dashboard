@@ -105,7 +105,7 @@ function isolatedEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 export class LocalCiExecutionService {
   private readonly runs = new Map<string, RunRecord>();
   private pendingStarts = 0;
-  private readonly activityEvents?: Pick<ActivityEventRepository, 'append'>;
+  private readonly activityEvents: Pick<ActivityEventRepository, 'append'> | undefined;
   private readonly timeoutMs: number;
   private readonly maxConcurrent: number;
   private readonly createId: () => string;
@@ -341,7 +341,7 @@ export class LocalCiExecutionService {
   ): void {
     if (!record.activityFinished) {
       record.activityFinished = true;
-      const outcome = this.outcome(record, snapshot);
+      const outcome = this.outcome(record, snapshot) ?? 'failure';
       this.recordActivity(
         record,
         outcome === 'success'
