@@ -55,33 +55,38 @@ export function useProjectMigrationsLifecycle(
     );
   }
 
-  const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
-    usePtyTerminalSocket<MigrationMutationExecutionSnapshot>({
-      onReady: (snapshot) => {
-        if (
-          mutationSnapshot.value?.environmentInstanceId ===
-          snapshot.environmentInstanceId
-        ) {
-          mutationSnapshot.value = snapshot;
-        }
-      },
-      onExit: (exitCode, exitSignal, snapshot) => {
-        const current = mutationSnapshot.value;
-        if (!current) return;
-        mutationSnapshot.value = snapshot ?? {
-          ...current,
-          status: 'exited',
-          exitCode,
-          exitSignal,
-          endedAt: new Date().toISOString(),
-        };
-        cancelling.value = false;
-        void refreshReadModel();
-      },
-      onError: (message) => {
-        mutationError.value = message;
-      },
-    });
+  const {
+    terminalContainer,
+    connecting,
+    connect,
+    disconnect,
+    disposeTerminal,
+  } = usePtyTerminalSocket<MigrationMutationExecutionSnapshot>({
+    onReady: (snapshot) => {
+      if (
+        mutationSnapshot.value?.environmentInstanceId ===
+        snapshot.environmentInstanceId
+      ) {
+        mutationSnapshot.value = snapshot;
+      }
+    },
+    onExit: (exitCode, exitSignal, snapshot) => {
+      const current = mutationSnapshot.value;
+      if (!current) return;
+      mutationSnapshot.value = snapshot ?? {
+        ...current,
+        status: 'exited',
+        exitCode,
+        exitSignal,
+        endedAt: new Date().toISOString(),
+      };
+      cancelling.value = false;
+      void refreshReadModel();
+    },
+    onError: (message) => {
+      mutationError.value = message;
+    },
+  });
 
   const mutationRunning = computed(
     () => mutationSnapshot.value?.status === 'running',
@@ -139,7 +144,11 @@ export function useProjectMigrationsLifecycle(
     if (!reset) mutationError.value = '';
 
     try {
-      const readModel = await fetchMigrationOverview(id, undefined, environment);
+      const readModel = await fetchMigrationOverview(
+        id,
+        undefined,
+        environment,
+      );
       if (!isCurrent(requestGeneration, id, environment)) return;
       overview.value = readModel;
 
@@ -161,7 +170,9 @@ export function useProjectMigrationsLifecycle(
         if (!isCurrent(requestGeneration, id, environment)) return;
         mutationSnapshot.value = snapshot;
         if (snapshot) {
-          connect(migrationMutationWebSocketUrl(id, plan.environmentInstanceId));
+          connect(
+            migrationMutationWebSocketUrl(id, plan.environmentInstanceId),
+          );
         }
       }
     } catch (error) {
@@ -195,7 +206,11 @@ export function useProjectMigrationsLifecycle(
     mutationPlan.value = null;
     refreshing.value = true;
     try {
-      const readModel = await fetchMigrationOverview(id, undefined, environment);
+      const readModel = await fetchMigrationOverview(
+        id,
+        undefined,
+        environment,
+      );
       if (!isCurrent(requestGeneration, id, environment)) return;
       overview.value = readModel;
       const plan = await planMigrationMutation(
@@ -210,10 +225,14 @@ export function useProjectMigrationsLifecycle(
       if (isCurrent(requestGeneration, id, environment)) {
         mutationError.value =
           mutationError.value ||
-          messageFrom(error, 'Não foi possível atualizar o estado das migrations.');
+          messageFrom(
+            error,
+            'Não foi possível atualizar o estado das migrations.',
+          );
       }
     } finally {
-      if (isCurrent(requestGeneration, id, environment)) refreshing.value = false;
+      if (isCurrent(requestGeneration, id, environment))
+        refreshing.value = false;
     }
   }
 
@@ -257,14 +276,20 @@ export function useProjectMigrationsLifecycle(
         throw new Error(STALE_PLAN_MESSAGE);
       }
 
-      const snapshot = await startMigrationMutation(id, plan, confirmation.token);
+      const snapshot = await startMigrationMutation(
+        id,
+        plan,
+        confirmation.token,
+      );
       if (!isCurrent(requestGeneration, id, environment)) return;
       mutationSnapshot.value = snapshot;
       reviewedPlan.value = null;
       cancelling.value = false;
       disconnect();
       disposeTerminal();
-      connect(migrationMutationWebSocketUrl(id, snapshot.environmentInstanceId));
+      connect(
+        migrationMutationWebSocketUrl(id, snapshot.environmentInstanceId),
+      );
     } catch (error) {
       if (!isCurrent(requestGeneration, id, environment)) return;
       const code =
