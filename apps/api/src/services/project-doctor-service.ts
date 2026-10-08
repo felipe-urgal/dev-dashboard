@@ -278,14 +278,18 @@ export class ProjectDoctorService {
                 ? checkNodeRuntime(project)
                 : commandRunner('node', ['--version']).then(
                     ({ stdout }) => {
-                    const version = stdout.trim();
-                    return /^v?\d+(?:\.\d+){1,3}$/.test(version)
-                      ? checkNodeRuntime(project, version)
-                      : createDiagnosticCheck({
-                          id: 'node-runtime', category: 'runtime', label: 'Runtime Node',
-                          status: 'warning', summary: 'Versão Node inválida ou ausente no Dev Container selecionado.',
-                        });
-                  },
+                      const version = stdout.trim();
+                      return /^v?\d+(?:\.\d+){1,3}$/.test(version)
+                        ? checkNodeRuntime(project, version)
+                        : createDiagnosticCheck({
+                            id: 'node-runtime',
+                            category: 'runtime',
+                            label: 'Runtime Node',
+                            status: 'warning',
+                            summary:
+                              'Versão Node inválida ou ausente no Dev Container selecionado.',
+                          });
+                    },
                     () =>
                       Promise.resolve(
                         createDiagnosticCheck({
