@@ -63,7 +63,7 @@ function resolveMarkdownLink(
     return null;
   }
   if (
-    decodedPath.includes('\\\\') ||
+    decodedPath.includes('\\') ||
     decodedPath.includes('?') ||
     /[\u0000-\u001f\u007f]/.test(decodedPath)
   )
