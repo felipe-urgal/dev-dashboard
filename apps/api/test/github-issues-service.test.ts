@@ -22,7 +22,11 @@ function rawIssue(number: number, state: 'open' | 'closed' = 'open') {
 }
 
 test('lista issues por origin, exclui pull requests e retorna metadados', async () => {
-  const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+  const calls: Array<{
+    command: string;
+    args: readonly string[];
+    cwd: string;
+  }> = [];
   const service = new GithubIssuesService(async (command, args, cwd) => {
     calls.push({ command, args, cwd });
     if (command === 'git') return 'git@github.com:example/project.git';
@@ -52,7 +56,11 @@ test('lista issues por origin, exclui pull requests e retorna metadados', async 
     args: ['remote', 'get-url', 'origin'],
     cwd: PROJECT,
   });
-  assert.ok(calls[1]?.args.includes('repos/example/project/issues?state=open&per_page=50&page=1'));
+  assert.ok(
+    calls[1]?.args.includes(
+      'repos/example/project/issues?state=open&per_page=50&page=1',
+    ),
+  );
 });
 
 test('cria e edita título e descrição como argumentos estruturados', async () => {
@@ -66,7 +74,11 @@ test('cria e edita título e descrição como argumentos estruturados', async ()
     return JSON.stringify(rawIssue(7));
   });
 
-  await service.create(PROJECT, ' Corrigir login ', 'Texto com "aspas" e \nquebra');
+  await service.create(
+    PROJECT,
+    ' Corrigir login ',
+    'Texto com "aspas" e \nquebra',
+  );
   await service.edit(PROJECT, 7, 'Novo título', '');
   assert.ok(commands[0]?.includes('title=Corrigir login'));
   assert.ok(commands[0]?.includes('body=Texto com "aspas" e \nquebra'));
@@ -101,11 +113,13 @@ test('não permite modificar Pull Requests pelo endpoint de issues', async () =>
 
   await assert.rejects(
     () => service.close(PROJECT, 11),
-    (error: unknown) => error instanceof GithubIssuesError && error.code === 'ISSUE_NOT_FOUND',
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'ISSUE_NOT_FOUND',
   );
   await assert.rejects(
     () => service.edit(PROJECT, 11, 'Teste', ''),
-    (error: unknown) => error instanceof GithubIssuesError && error.code === 'ISSUE_NOT_FOUND',
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'ISSUE_NOT_FOUND',
   );
   assert.equal(patches, 0);
 });
@@ -116,7 +130,8 @@ test('bloqueia origin fora do GitHub e entradas inválidas', async () => {
   );
   await assert.rejects(
     () => service.list(PROJECT, 'open', 1),
-    (error: unknown) => error instanceof GithubIssuesError && error.code === 'UNSUPPORTED_REMOTE',
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'UNSUPPORTED_REMOTE',
   );
 
   const github = new GithubIssuesService(async (command) =>
@@ -124,11 +139,13 @@ test('bloqueia origin fora do GitHub e entradas inválidas', async () => {
   );
   await assert.rejects(
     () => github.create(PROJECT, ' ', 'body'),
-    (error: unknown) => error instanceof GithubIssuesError && error.code === 'INVALID_INPUT',
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'INVALID_INPUT',
   );
   await assert.rejects(
     () => github.list(PROJECT, 'open', 0),
-    (error: unknown) => error instanceof GithubIssuesError && error.code === 'INVALID_INPUT',
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'INVALID_INPUT',
   );
 });
 
@@ -139,6 +156,7 @@ test('erro de autenticação ou rede não é tratado como lista vazia', async ()
   });
   await assert.rejects(
     () => service.list(PROJECT, 'open', 1),
-    (error: unknown) => error instanceof GithubIssuesError && error.code === 'REMOTE_UNAVAILABLE',
+    (error: unknown) =>
+      error instanceof GithubIssuesError && error.code === 'REMOTE_UNAVAILABLE',
   );
 });

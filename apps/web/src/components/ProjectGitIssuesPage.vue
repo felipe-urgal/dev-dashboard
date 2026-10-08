@@ -44,7 +44,11 @@ async function loadIssues(): Promise<void> {
   loadError.value = '';
 
   try {
-    const result = await fetchProjectGithubIssues(projectId, state.value, page.value);
+    const result = await fetchProjectGithubIssues(
+      projectId,
+      state.value,
+      page.value,
+    );
     if (current !== generation || projectId !== props.projectId) return;
     issues.value = result.issues;
     repository.value = result.repository;
@@ -54,7 +58,9 @@ async function loadIssues(): Promise<void> {
     issues.value = [];
     hasMore.value = false;
     loadError.value =
-      error instanceof Error ? error.message : 'Não foi possível listar issues.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível listar issues.';
   } finally {
     if (current === generation) loading.value = false;
   }
@@ -116,7 +122,11 @@ async function saveIssue(): Promise<void> {
   actionMessage.value = '';
   try {
     if (operation === 'create') {
-      const issue = await createProjectGithubIssue(props.projectId, title.value.trim(), body.value);
+      const issue = await createProjectGithubIssue(
+        props.projectId,
+        title.value.trim(),
+        body.value,
+      );
       actionMessage.value = 'Issue #' + issue.number + ' criada.';
       state.value = 'open';
       page.value = 1;
@@ -134,7 +144,9 @@ async function saveIssue(): Promise<void> {
     await loadIssues();
   } catch (error) {
     actionError.value =
-      error instanceof Error ? error.message : 'Não foi possível salvar a issue.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível salvar a issue.';
   } finally {
     busy.value = false;
   }
@@ -144,7 +156,8 @@ async function closeIssue(issue: GithubIssue): Promise<void> {
   if (busy.value || issue.state !== 'open') return;
   const confirmed = await confirmDialog({
     title: 'Fechar issue #' + issue.number + '?',
-    message: 'A issue será marcada como fechada no GitHub. Seu histórico será preservado.',
+    message:
+      'A issue será marcada como fechada no GitHub. Seu histórico será preservado.',
     confirmLabel: 'Fechar issue',
     tone: 'warning',
   });
@@ -159,7 +172,9 @@ async function closeIssue(issue: GithubIssue): Promise<void> {
     await loadIssues();
   } catch (error) {
     actionError.value =
-      error instanceof Error ? error.message : 'Não foi possível fechar a issue.';
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível fechar a issue.';
   } finally {
     busy.value = false;
   }
@@ -176,7 +191,11 @@ function formatDate(value: string): string {
 <template>
   <section class="git-issues-page">
     <header class="git-issues-toolbar">
-      <div class="git-issues-filters" role="group" aria-label="Estado das issues">
+      <div
+        class="git-issues-filters"
+        role="group"
+        aria-label="Estado das issues"
+      >
         <button
           type="button"
           :class="{ active: state === 'open' }"
@@ -206,7 +225,12 @@ function formatDate(value: string): string {
         >
           <ArrowPathIcon aria-hidden="true" />
         </button>
-        <button type="button" class="primary-button" :disabled="busy" @click="openCreate">
+        <button
+          type="button"
+          class="primary-button"
+          :disabled="busy"
+          @click="openCreate"
+        >
           <PlusIcon aria-hidden="true" /> Nova issue
         </button>
       </div>
@@ -223,26 +247,50 @@ function formatDate(value: string): string {
 
     <div class="git-issues-list" :aria-busy="loading">
       <div v-if="loading" class="git-issues-empty">Consultando issues…</div>
-      <div v-else-if="!loadError && issues.length === 0" class="git-issues-empty">
-        Nenhuma issue {{ state === 'open' ? 'aberta' : 'fechada' }} nesta página.
+      <div
+        v-else-if="!loadError && issues.length === 0"
+        class="git-issues-empty"
+      >
+        Nenhuma issue {{ state === 'open' ? 'aberta' : 'fechada' }} nesta
+        página.
       </div>
 
-      <article v-for="issue in loading ? [] : issues" :key="issue.number" class="git-issue-row">
+      <article
+        v-for="issue in loading ? [] : issues"
+        :key="issue.number"
+        class="git-issue-row"
+      >
         <div class="git-issue-details">
-          <a :href="issue.url" target="_blank" rel="noopener noreferrer" class="git-issue-title">
+          <a
+            :href="issue.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="git-issue-title"
+          >
             #{{ issue.number }} · {{ issue.title }}
             <ArrowTopRightOnSquareIcon aria-hidden="true" />
           </a>
           <div class="git-issue-meta">
             <span v-if="issue.author">por {{ issue.author }}</span>
-            <span v-if="issue.updatedAt">atualizada em {{ formatDate(issue.updatedAt) }}</span>
-            <span v-for="label in issue.labels" :key="label" class="git-issue-label">
+            <span v-if="issue.updatedAt"
+              >atualizada em {{ formatDate(issue.updatedAt) }}</span
+            >
+            <span
+              v-for="label in issue.labels"
+              :key="label"
+              class="git-issue-label"
+            >
               {{ label }}
             </span>
           </div>
         </div>
         <div class="git-issue-row-actions">
-          <button type="button" class="secondary-button" :disabled="busy" @click="openEdit(issue)">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="busy"
+            @click="openEdit(issue)"
+          >
             <PencilSquareIcon aria-hidden="true" /> Editar
           </button>
           <button
@@ -258,12 +306,25 @@ function formatDate(value: string): string {
       </article>
     </div>
 
-    <footer v-if="!loadError && !loading && (page > 1 || hasMore)" class="git-issues-pagination">
-      <button type="button" class="secondary-button" :disabled="busy || page === 1" @click="page -= 1">
+    <footer
+      v-if="!loadError && !loading && (page > 1 || hasMore)"
+      class="git-issues-pagination"
+    >
+      <button
+        type="button"
+        class="secondary-button"
+        :disabled="busy || page === 1"
+        @click="page -= 1"
+      >
         Anterior
       </button>
       <span>Página {{ page }}</span>
-      <button type="button" class="secondary-button" :disabled="busy || !hasMore" @click="page += 1">
+      <button
+        type="button"
+        class="secondary-button"
+        :disabled="busy || !hasMore"
+        @click="page += 1"
+      >
         Próxima
       </button>
     </footer>
@@ -274,12 +335,26 @@ function formatDate(value: string): string {
       :close-on-esc="!busy"
       @update:show="handleModalVisibility"
     >
-      <section class="git-issue-modal" role="dialog" aria-modal="true" aria-labelledby="git-issue-modal-title">
+      <section
+        class="git-issue-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="git-issue-modal-title"
+      >
         <header>
           <h2 id="git-issue-modal-title">
-            {{ modal === 'create' ? 'Nova issue' : 'Editar issue #' + selectedIssue?.number }}
+            {{
+              modal === 'create'
+                ? 'Nova issue'
+                : 'Editar issue #' + selectedIssue?.number
+            }}
           </h2>
-          <button type="button" aria-label="Fechar" :disabled="busy" @click="closeModal">
+          <button
+            type="button"
+            aria-label="Fechar"
+            :disabled="busy"
+            @click="closeModal"
+          >
             <XMarkIcon aria-hidden="true" />
           </button>
         </header>
@@ -287,19 +362,48 @@ function formatDate(value: string): string {
         <form @submit.prevent="saveIssue">
           <label>
             <span>Título</span>
-            <input v-model="title" type="text" maxlength="256" required autofocus :disabled="busy" />
+            <input
+              v-model="title"
+              type="text"
+              maxlength="256"
+              required
+              autofocus
+              :disabled="busy"
+            />
           </label>
           <label>
             <span>Descrição (Markdown)</span>
-            <textarea v-model="body" rows="8" maxlength="20000" :disabled="busy" />
+            <textarea
+              v-model="body"
+              rows="8"
+              maxlength="20000"
+              :disabled="busy"
+            />
           </label>
-          <p v-if="actionError" class="project-error" role="alert">{{ actionError }}</p>
+          <p v-if="actionError" class="project-error" role="alert">
+            {{ actionError }}
+          </p>
           <footer>
-            <button type="button" class="secondary-button" :disabled="busy" @click="closeModal">
+            <button
+              type="button"
+              class="secondary-button"
+              :disabled="busy"
+              @click="closeModal"
+            >
               Cancelar
             </button>
-            <button type="submit" class="primary-button" :disabled="busy || !title.trim()">
-              {{ busy ? 'Salvando…' : modal === 'create' ? 'Criar issue' : 'Salvar alterações' }}
+            <button
+              type="submit"
+              class="primary-button"
+              :disabled="busy || !title.trim()"
+            >
+              {{
+                busy
+                  ? 'Salvando…'
+                  : modal === 'create'
+                    ? 'Criar issue'
+                    : 'Salvar alterações'
+              }}
             </button>
           </footer>
         </form>
