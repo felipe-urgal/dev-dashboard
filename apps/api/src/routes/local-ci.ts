@@ -91,13 +91,23 @@ const jobSchema = {
 const discoverySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['workflowsExamined', 'workflowsAccepted', 'workflowsSkipped', 'truncated', 'reasons'],
+  required: [
+    'workflowsExamined',
+    'workflowsAccepted',
+    'workflowsSkipped',
+    'truncated',
+    'reasons',
+  ],
   properties: {
     workflowsExamined: { type: 'integer', minimum: 0 },
     workflowsAccepted: { type: 'integer', minimum: 0 },
     workflowsSkipped: { type: 'integer', minimum: 0 },
     truncated: { type: 'boolean' },
-    reasons: { type: 'array', maxItems: 8, items: { type: 'string', maxLength: 160 } },
+    reasons: {
+      type: 'array',
+      maxItems: 8,
+      items: { type: 'string', maxLength: 160 },
+    },
   },
 } as const;
 
@@ -111,9 +121,14 @@ const catalogSchema = {
     availability: availabilitySchema,
     discovery: discoverySchema,
     capacity: {
-      type: 'object', additionalProperties: false,
+      type: 'object',
+      additionalProperties: false,
       required: ['running', 'limit', 'busy'],
-      properties: { running: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1 }, busy: { type: 'boolean' } },
+      properties: {
+        running: { type: 'integer', minimum: 0 },
+        limit: { type: 'integer', minimum: 1 },
+        busy: { type: 'boolean' },
+      },
     },
     jobs: { type: 'array', items: jobSchema },
   },
@@ -161,7 +176,10 @@ const executionSnapshotSchema = {
     exitCode: { type: ['integer', 'null'] },
     exitSignal: { type: ['integer', 'null'] },
     timedOut: { type: 'boolean' },
-    outcome: { type: ['string', 'null'], enum: ['success', 'failure', 'cancelled', 'timeout', null] },
+    outcome: {
+      type: ['string', 'null'],
+      enum: ['success', 'failure', 'cancelled', 'timeout', null],
+    },
     startedAt: { type: 'string' },
     endedAt: { type: ['string', 'null'] },
   },

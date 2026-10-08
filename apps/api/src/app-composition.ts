@@ -455,7 +455,9 @@ export function createAppComposition(
     projectStore: context.projectStore,
     agentRuntime: agentRuntimeApiService,
     activityJobReaders: [
-      ...(localCiExecutionService?.activityJobs ? [localCiExecutionService] : []),
+      ...(localCiExecutionService?.activityJobs
+        ? [localCiExecutionService]
+        : []),
       context.projectDependenciesPtyService,
       devContainerLifecycleExecutionService,
       dockerComposeLifecycleExecutionService,

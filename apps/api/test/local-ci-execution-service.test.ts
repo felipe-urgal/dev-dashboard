@@ -306,7 +306,9 @@ test('normaliza falha do executor sem transportar erro bruto', async () => {
 test('outcomes distinguem sucesso, falha e cancelamento mantendo exit code', async () => {
   const executions = new FakeExecutions();
   let sequence = 0;
-  const service = createService(executions, { createId: () => `run-${++sequence}` });
+  const service = createService(executions, {
+    createId: () => `run-${++sequence}`,
+  });
   const success = await service.start(project, request);
   executions.exit(`local-ci:${project.id}:${success.id}`, 0);
   assert.equal(service.get(project.id, success.id).outcome, 'success');
@@ -327,16 +329,25 @@ test('outcomes distinguem sucesso, falha e cancelamento mantendo exit code', asy
 test('reserva capacidade mesmo durante o discovery assíncrono', async () => {
   const executions = new FakeExecutions();
   let release!: () => void;
-  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const service = new LocalCiExecutionService(
-    { discover: async () => { await barrier; return catalog(); } },
+    {
+      discover: async () => {
+        await barrier;
+        return catalog();
+      },
+    },
     executions,
     { maxConcurrent: 1, createId: () => 'run-reserved' },
   );
   const pending = service.start(project, request);
   assert.deepEqual(service.capacity(), { running: 1, limit: 1, busy: true });
-  await assert.rejects(service.start(project, request), (error: unknown) =>
-    error instanceof LocalCiExecutionError && error.code === 'LOCAL_CI_BUSY',
+  await assert.rejects(
+    service.start(project, request),
+    (error: unknown) =>
+      error instanceof LocalCiExecutionError && error.code === 'LOCAL_CI_BUSY',
   );
   assert.equal(executions.starts.length, 0);
   release();
@@ -350,7 +361,9 @@ test('Activity registra apenas start/terminal por run; Jobs some no exit mesmo a
   const events: AppendActivityEventInput[] = [];
   const service = createService(executions, {
     activityEvents: {
-      append: async (input: AppendActivityEventInput): Promise<ActivityEvent> => {
+      append: async (
+        input: AppendActivityEventInput,
+      ): Promise<ActivityEvent> => {
         events.push(input);
         return {} as ActivityEvent;
       },
@@ -360,14 +373,22 @@ test('Activity registra apenas start/terminal por run; Jobs some no exit mesmo a
   const key = `local-ci:${project.id}:${run.id}`;
   assert.equal(service.activityJobs(project.id).length, 1);
   assert.equal(service.activityJobs(project.id)[0]?.id, key);
-  const attached = service.reattach(project.id, run.id, () => undefined, () => undefined);
+  const attached = service.reattach(
+    project.id,
+    run.id,
+    () => undefined,
+    () => undefined,
+  );
   assert.equal(executions.starts.length, 1);
   assert.equal(events.length, 1);
 
   executions.exit(key, 0);
   attached.detach();
   assert.equal(events.length, 2);
-  assert.deepEqual(events.map((event) => event.status), ['started', 'succeeded']);
+  assert.deepEqual(
+    events.map((event) => event.status),
+    ['started', 'succeeded'],
+  );
   assert.equal(service.activityJobs(project.id).length, 0);
   assert.ok(events.every((event) => event.jobId === key));
   assert.ok(events.every((event) => event.resourceRef?.id === run.id));

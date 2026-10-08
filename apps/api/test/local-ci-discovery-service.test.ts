@@ -142,14 +142,22 @@ test('workflow inválido fica fora do catálogo sem derrubar os demais domínios
 test('sinaliza workflow inválido e oversized sem expor seu conteúdo', async () => {
   await withProject('name: [secret-token-in-yaml', async (project) => {
     const directory = path.join(project.path, '.github', 'workflows');
-    await writeFile(path.join(directory, 'large.yml'), 'x'.repeat(256 * 1024 + 1));
-    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    await writeFile(
+      path.join(directory, 'large.yml'),
+      'x'.repeat(256 * 1024 + 1),
+    );
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(
+      project,
+    );
     assert.equal(catalog.discovery.workflowsExamined, 2);
     assert.equal(catalog.discovery.workflowsAccepted, 0);
     assert.equal(catalog.discovery.workflowsSkipped, 2);
     assert.equal(catalog.discovery.truncated, false);
     assert.equal(catalog.discovery.reasons.length, 2);
-    assert.equal(JSON.stringify(catalog).includes('secret-token-in-yaml'), false);
+    assert.equal(
+      JSON.stringify(catalog).includes('secret-token-in-yaml'),
+      false,
+    );
     assert.equal(JSON.stringify(catalog).includes(project.path), false);
   });
 });
@@ -161,7 +169,9 @@ test('sinaliza truncation quando mais de 64 workflows são encontrados', async (
     for (let index = 0; index < 65; index += 1) {
       await writeFile(path.join(directory, `workflow-${index}.yml`), workflow);
     }
-    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(
+      project,
+    );
     assert.equal(catalog.discovery.workflowsExamined, 64);
     assert.equal(catalog.discovery.workflowsAccepted, 64);
     assert.equal(catalog.discovery.workflowsSkipped, 2);
@@ -171,15 +181,26 @@ test('sinaliza truncation quando mais de 64 workflows são encontrados', async (
 });
 
 test('sinaliza truncation de jobs e eventos mesmo com um único workflow válido', async () => {
-  const events = Array.from({ length: 65 }, (_, i) => `  event-${i}:\n`).join('');
-  const jobs = Array.from({ length: 513 }, (_, i) => `  job-${i}:\n    runs-on: ubuntu-latest\n`).join('');
+  const events = Array.from({ length: 65 }, (_, i) => `  event-${i}:\n`).join(
+    '',
+  );
+  const jobs = Array.from(
+    { length: 513 },
+    (_, i) => `  job-${i}:\n    runs-on: ubuntu-latest\n`,
+  ).join('');
   await withProject(`on:\n${events}jobs:\n${jobs}`, async (project) => {
-    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(project);
+    const catalog = await new LocalCiDiscoveryService(availableRunner).discover(
+      project,
+    );
     assert.equal(catalog.discovery.workflowsAccepted, 1);
     assert.equal(catalog.jobs.length, 512);
     assert.equal(catalog.jobs[0]?.events.length, 64);
     assert.equal(catalog.discovery.truncated, true);
-    assert.ok(catalog.discovery.reasons.some((reason) => reason.includes('jobs')));
-    assert.ok(catalog.discovery.reasons.some((reason) => reason.includes('eventos')));
+    assert.ok(
+      catalog.discovery.reasons.some((reason) => reason.includes('jobs')),
+    );
+    assert.ok(
+      catalog.discovery.reasons.some((reason) => reason.includes('eventos')),
+    );
   });
 });
