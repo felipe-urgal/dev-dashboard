@@ -140,6 +140,7 @@ async function detectPackageManager(
 
 export async function checkNodeRuntime(
   project: Project,
+  availableNodeVersion = process.version,
 ): Promise<ProjectDiagnosticCheck> {
   const manifest = await readNodeManifest(project);
   if (manifest.exists && !manifest.valid) {
@@ -182,13 +183,13 @@ export async function checkNodeRuntime(
       category: 'runtime',
       label: 'Runtime Node',
       status: 'passed',
-      summary: `Node ${process.version} está disponível; o projeto não declara uma versão obrigatória.`,
+      summary: `Node ${availableNodeVersion} está disponível; o projeto não declara uma versão obrigatória.`,
     });
   }
 
   const results = declarations.map((declaration) => ({
     declaration,
-    result: evaluateVersionConstraint(process.version, declaration.value),
+    result: evaluateVersionConstraint(availableNodeVersion, declaration.value),
   }));
   const incompatible = results.filter((item) => item.result === 'incompatible');
   if (incompatible.length > 0) {
@@ -197,7 +198,7 @@ export async function checkNodeRuntime(
       category: 'runtime',
       label: 'Runtime Node',
       status: 'failed',
-      summary: `Node ${process.version} não atende ${incompatible
+      summary: `Node ${availableNodeVersion} não atende ${incompatible
         .map(({ declaration }) => `${declaration.source}=${declaration.value}`)
         .join(', ')}.`,
       recommendation:
@@ -213,7 +214,7 @@ export async function checkNodeRuntime(
       category: 'runtime',
       label: 'Runtime Node',
       status: 'warning',
-      summary: `Node ${process.version} está disponível, mas não foi possível avaliar com segurança ${unknown
+      summary: `Node ${availableNodeVersion} está disponível, mas não foi possível avaliar com segurança ${unknown
         .map(({ declaration }) => `${declaration.source}=${declaration.value}`)
         .join(', ')}.`,
       recommendation:
@@ -227,7 +228,7 @@ export async function checkNodeRuntime(
     category: 'runtime',
     label: 'Runtime Node',
     status: 'passed',
-    summary: `Node ${process.version} atende ${declarations
+    summary: `Node ${availableNodeVersion} atende ${declarations
       .map((declaration) => `${declaration.source}=${declaration.value}`)
       .join(', ')}.`,
   });
