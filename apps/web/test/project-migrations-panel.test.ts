@@ -17,6 +17,7 @@ const terminal = vi.hoisted(() => ({
   connect: vi.fn(),
   disconnect: vi.fn(),
   disposeTerminal: vi.fn(),
+  onExit: vi.fn(),
 }));
 
 vi.mock('../src/api/migrations', async () => {
@@ -27,13 +28,16 @@ vi.mock('../src/api/migrations', async () => {
 vi.mock('../src/composables/usePtyTerminalSocket', async () => {
   const { ref } = await import('vue');
   return {
-    usePtyTerminalSocket: () => ({
+    usePtyTerminalSocket: (handlers: { onExit: (exitCode: number | null, exitSignal: number | null) => void }) => {
+      terminal.onExit.mockImplementation(handlers.onExit);
+      return {
       terminalContainer: ref(null),
       connecting: ref(false),
       connect: terminal.connect,
       disconnect: terminal.disconnect,
       disposeTerminal: terminal.disposeTerminal,
-    }),
+    };
+    },
   };
 });
 
@@ -137,9 +141,18 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain('Add audit index');
     expect(wrapper.text()).toContain('20 mais recentes de 22');
     expect(wrapper.text()).toContain('Aplicação disponível');
-    expect(wrapper.text()).toContain('Aplicar 1 migration');
+    expect(wrapper.text()).toContain('Revisar aplicação de 1 migration');
+    expect(wrapper.text()).toContain(readyPlan.environmentInstanceId);
+    expect(wrapper.text()).toContain('host');
+    expect(wrapper.text()).toContain('Rails db:migrate:status');
+    expect(wrapper.text()).toContain('Atualizar inspeção');
 
     await wrapper.get('.migrations-action .primary-button').trigger('click');
+    await flushPromises();
+    expect(wrapper.text()).toContain('Confirme o alvo antes de aplicar');
+    expect(api.prepareMigrationMutation).not.toHaveBeenCalled();
+    expect(api.startMigrationMutation).not.toHaveBeenCalled();
+    await wrapper.get('.migrations-confirmation .primary-button').trigger('click');
     await flushPromises();
 
     expect(api.prepareMigrationMutation).toHaveBeenCalledWith(
@@ -184,7 +197,7 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain(
       'Este provider ainda não possui execução comum habilitada.',
     );
-    expect(wrapper.text()).not.toContain('Aplicar 1 migration');
+    expect(wrapper.find('.migrations-action .primary-button').exists()).toBe(false);
   });
 
   it('renderiza o estado indisponível no layout minimalista sem timeline ou contexto lateral', async () => {
@@ -258,7 +271,7 @@ describe('ProjectMigrationsPanel', () => {
     expect(wrapper.text()).toContain(
       'Não há migrations pendentes para aplicar.',
     );
-    expect(wrapper.text()).toContain('Somente leitura');
+    expect(wrapper.text()).toContain('Preflight bloqueado');
   });
 
   it('mantém falha de inspeção explícita e permite retry', async () => {
