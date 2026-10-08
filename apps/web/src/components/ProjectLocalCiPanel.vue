@@ -72,6 +72,7 @@ const canStart = computed(
     catalog.value?.availability.state === 'available' &&
     selectedJob.value !== null &&
     selectedEvent.value.length > 0 &&
+    !catalog.value?.capacity?.busy &&
     !starting.value &&
     run.value?.status !== 'running',
 );
@@ -79,15 +80,16 @@ const canStart = computed(
 const runTone = computed<StatusBadgeTone>(() => {
   if (run.value?.status === 'running') return 'warning';
   if (!run.value) return 'neutral';
-  if (run.value.timedOut || run.value.exitCode !== 0) return 'danger';
+  if (run.value.outcome !== 'success') return 'danger';
   return 'success';
 });
 
 const runLabel = computed(() => {
   if (run.value?.status === 'running') return 'Em execução';
   if (!run.value) return 'Sem execução';
-  if (run.value.timedOut) return 'Timeout';
-  if (run.value.exitCode === 0) return 'Concluído';
+  if (run.value.outcome === 'timeout') return 'Timeout';
+  if (run.value.outcome === 'cancelled') return 'Cancelado';
+  if (run.value.outcome === 'success') return 'Concluído';
   return 'Falhou';
 });
 
@@ -323,10 +325,22 @@ async function startRun(): Promise<void> {
     storeRunId(props.project.id, snapshot.id);
     if (snapshot.status === 'running') connect(snapshot.id);
   } catch (error) {
+    if (
+      error instanceof ApiRequestError &&
+      (error.code === 'LOCAL_CI_INVALID_REQUEST' ||
+        error.code === 'LOCAL_CI_BUSY')
+    ) {
+      await loadCatalog();
+    }
     errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível iniciar o run Local CI.';
+      error instanceof ApiRequestError && error.code === 'LOCAL_CI_BUSY'
+        ? 'Capacidade Local CI ocupada. Aguarde outro run finalizar e atualize o catálogo.'
+        : error instanceof ApiRequestError &&
+            error.code === 'LOCAL_CI_INVALID_REQUEST'
+          ? 'A seleção foi alterada ou removida. Revise o catálogo atualizado.'
+          : error instanceof Error
+            ? error.message
+            : 'Não foi possível iniciar o run Local CI.';
   } finally {
     starting.value = false;
   }
@@ -453,6 +467,35 @@ onBeforeUnmount(closeSocket);
         </div>
       </header>
 
+      <div
+        v-if="
+          catalog.discovery &&
+          (catalog.discovery.truncated ||
+            catalog.discovery.workflowsSkipped > 0 ||
+            catalog.discovery.reasons.length > 0)
+        "
+        class="local-ci-discovery-warning"
+        role="status"
+      >
+        <strong>Catálogo parcial</strong>
+        <span>
+          {{ catalog.discovery.workflowsExamined }} examinados ·
+          {{ catalog.discovery.workflowsAccepted }} aceitos ·
+          {{ catalog.discovery.workflowsSkipped }} ignorados
+        </span>
+        <span v-for="reason in catalog.discovery.reasons" :key="reason">
+          {{ reason }}
+        </span>
+      </div>
+
+      <p v-if="catalog.capacity" class="local-ci-capacity">
+        Capacidade no host: {{ catalog.capacity.running }} /
+        {{ catalog.capacity.limit }} execuções simultâneas.
+        <strong v-if="catalog.capacity.busy">
+          Ocupada — aguarde uma execução finalizar e atualize.
+        </strong>
+      </p>
+
       <p v-if="errorMessage" class="local-ci-error" role="alert">
         {{ errorMessage }}
       </p>
@@ -507,7 +550,8 @@ onBeforeUnmount(closeSocket);
       <div class="local-ci-boundary" aria-label="Limite do Local CI">
         <InformationCircleIcon aria-hidden="true" />
         <span>
-          Execução local — não substitui os checks oficiais do GitHub.
+          Execução via act/Docker no host da API, não na Environment
+          Instance do projeto. Não substitui os checks oficiais do GitHub.
         </span>
       </div>
 
@@ -577,14 +621,10 @@ onBeforeUnmount(closeSocket);
         </div>
 
         <p v-if="run.status === 'exited'" class="local-ci-result">
-          <template v-if="run.timedOut"
-            >Execução encerrada por timeout.</template
-          >
-          <template v-else>
-            Exit code {{ run.exitCode ?? '—' }}
-            <template v-if="run.exitSignal !== null">
-              · sinal {{ run.exitSignal }}
-            </template>
+          <strong>{{ runLabel }}.</strong>
+          Exit code {{ run.exitCode ?? '—' }}
+          <template v-if="run.exitSignal !== null">
+            · sinal {{ run.exitSignal }}
           </template>
         </p>
       </section>
@@ -698,6 +738,23 @@ onBeforeUnmount(closeSocket);
   min-height: 34px;
   justify-content: center;
   padding: 0;
+}
+
+.local-ci-discovery-warning,
+.local-ci-capacity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--warning-text);
+  font-size: 10px;
+}
+
+.local-ci-capacity {
+  color: var(--text-muted);
 }
 
 .local-ci-error {
