@@ -1,5 +1,3 @@
-import type { RouteLocationRaw } from 'vue-router';
-
 import type { ReleaseReadinessActionTarget } from './release-readiness';
 
 /**
@@ -22,7 +20,7 @@ export const releaseReadinessActionRoutes = {
 export function releaseReadinessActionRoute(
   target: ReleaseReadinessActionTarget,
   projectId: string,
-): RouteLocationRaw {
+) {
   const route = releaseReadinessActionRoutes[target];
   return {
     name: route.name,
