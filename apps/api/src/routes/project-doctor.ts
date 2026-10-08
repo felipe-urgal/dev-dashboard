@@ -12,7 +12,10 @@ import type { DevelopmentEnvironmentInstanceStore } from '../store/development-e
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   projectDoctorService: ProjectDoctorService;
-  developmentEnvironmentInstanceStore: Pick<DevelopmentEnvironmentInstanceStore, 'resolveForProject' | 'findForProject'>;
+  developmentEnvironmentInstanceStore: Pick<
+    DevelopmentEnvironmentInstanceStore,
+    'resolveForProject' | 'findForProject'
+  >;
 }
 
 interface Params {
@@ -81,21 +84,28 @@ export const projectDoctorRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
-      const executionContext = options.developmentEnvironmentInstanceStore.resolveForProject(
-        project.id,
-        request.query.environmentInstanceId,
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
       );
+      const executionContext =
+        options.developmentEnvironmentInstanceStore.resolveForProject(
+          project.id,
+          request.query.environmentInstanceId,
+        );
       if (!executionContext) {
         throw new ApiError({
           statusCode: 404,
           code: 'ENVIRONMENT_INSTANCE_NOT_FOUND',
-          message: 'Ambiente de desenvolvimento não encontrado para este projeto.',
+          message:
+            'Ambiente de desenvolvimento não encontrado para este projeto.',
         });
       }
-      const instance = options.developmentEnvironmentInstanceStore.findForProject(
-        project.id, executionContext.environmentInstanceId,
-      );
+      const instance =
+        options.developmentEnvironmentInstanceStore.findForProject(
+          project.id,
+          executionContext.environmentInstanceId,
+        );
       return {
         report: await options.projectDoctorService.getReport(project, {
           refresh: request.query.refresh === 'true',

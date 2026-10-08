@@ -13,7 +13,8 @@ export async function fetchProjectDoctor(
 ): Promise<ProjectDiagnosticReport> {
   const params = new URLSearchParams();
   if (refresh) params.set('refresh', 'true');
-  if (environmentInstanceId) params.set('environmentInstanceId', environmentInstanceId);
+  if (environmentInstanceId)
+    params.set('environmentInstanceId', environmentInstanceId);
   const query = params.size ? `?${params.toString()}` : '';
   const response = await requestJson<ProjectDoctorResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/doctor${query}`,

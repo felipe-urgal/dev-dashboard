@@ -22,7 +22,10 @@ import type {
 import { fetchProjectDoctor } from '../api';
 import StatusBadge from './StatusBadge.vue';
 
-const props = defineProps<{ project: Project; environmentInstanceId?: string }>();
+const props = defineProps<{
+  project: Project;
+  environmentInstanceId?: string;
+}>();
 
 const report = ref<ProjectDiagnosticReport | null>(null);
 const loading = ref(false);
@@ -67,22 +70,30 @@ const pendingChecks = computed(() => {
   return warnings + failed;
 });
 
-const verifiedChecks = computed(() =>
-  totalChecks.value - (report.value?.summary.skipped ?? 0),
+const verifiedChecks = computed(
+  () => totalChecks.value - (report.value?.summary.skipped ?? 0),
 );
 
 const actionGroups = computed(() =>
-  groupedChecks.value.filter((group) => group.checks.some((check) => check.status === 'warning' || check.status === 'failed')),
+  groupedChecks.value.filter((group) =>
+    group.checks.some(
+      (check) => check.status === 'warning' || check.status === 'failed',
+    ),
+  ),
 );
 
 const approvedGroups = computed(() =>
-  groupedChecks.value.filter((group) => group.checks.every((check) => check.status === 'passed')),
+  groupedChecks.value.filter((group) =>
+    group.checks.every((check) => check.status === 'passed'),
+  ),
 );
 
 const skippedGroups = computed(() =>
-  groupedChecks.value.filter((group) =>
-    !group.checks.some((check) => check.status === 'warning' || check.status === 'failed') &&
-    group.checks.some((check) => check.status === 'skipped'),
+  groupedChecks.value.filter(
+    (group) =>
+      !group.checks.some(
+        (check) => check.status === 'warning' || check.status === 'failed',
+      ) && group.checks.some((check) => check.status === 'skipped'),
   ),
 );
 
@@ -143,12 +154,16 @@ function completedChecks(checks: ProjectDiagnosticCheck[]): number {
 }
 
 function pendingGroupChecks(checks: ProjectDiagnosticCheck[]): number {
-  return checks.filter((check) => check.status === 'warning' || check.status === 'failed').length;
+  return checks.filter(
+    (check) => check.status === 'warning' || check.status === 'failed',
+  ).length;
 }
 
 function groupDetail(checks: ProjectDiagnosticCheck[]): string {
-  const pendingCheck = checks.find((check) => check.status === 'failed' || check.status === 'warning') ??
-    checks.find((check) => check.status === 'skipped');
+  const pendingCheck =
+    checks.find(
+      (check) => check.status === 'failed' || check.status === 'warning',
+    ) ?? checks.find((check) => check.status === 'skipped');
   if (pendingCheck) return pendingCheck.summary;
   return `${completedChecks(checks)}/${checks.length} ${
     checks.length === 1 ? 'verificação' : 'verificações'
@@ -173,7 +188,9 @@ const actionRoutes: Record<ProjectDiagnosticActionTarget, string> = {
   environment: 'project-environment',
 };
 
-function actionDestination(target: ProjectDiagnosticActionTarget): RouteLocationRaw {
+function actionDestination(
+  target: ProjectDiagnosticActionTarget,
+): RouteLocationRaw {
   const name = actionRoutes[target];
   if (!name) throw new Error(`Ação do Doctor sem destino: ${target}`);
   if (target === 'database') return { name };
@@ -201,7 +218,11 @@ async function load(refresh = false): Promise<void> {
   errorMessage.value = '';
 
   try {
-    const result = await fetchProjectDoctor(props.project.id, refresh, props.environmentInstanceId);
+    const result = await fetchProjectDoctor(
+      props.project.id,
+      refresh,
+      props.environmentInstanceId,
+    );
     if (current !== generation) return;
     report.value = result;
   } catch (error) {
@@ -474,7 +495,9 @@ watch(
             </span>
             <div>
               <h4 id="doctor-skipped-title">Não verificados</h4>
-              <p>Sem ação obrigatória: checks não aplicáveis ou não avaliados.</p>
+              <p>
+                Sem ação obrigatória: checks não aplicáveis ou não avaliados.
+              </p>
             </div>
           </header>
 
