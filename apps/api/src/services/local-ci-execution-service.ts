@@ -105,7 +105,8 @@ function isolatedEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 export class LocalCiExecutionService {
   private readonly runs = new Map<string, RunRecord>();
   private pendingStarts = 0;
-  private readonly activityEvents: Pick<ActivityEventRepository, 'append'> | undefined;
+  private readonly activityEvents:
+    Pick<ActivityEventRepository, 'append'> | undefined;
   private readonly timeoutMs: number;
   private readonly maxConcurrent: number;
   private readonly createId: () => string;
