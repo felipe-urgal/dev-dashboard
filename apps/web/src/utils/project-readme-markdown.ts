@@ -110,9 +110,17 @@ function normalizeTableRow(cells: string[], width: number): string[] {
 }
 
 export function headingSlug(value: string): string {
-  return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/<[^>]*>/g, '').replace(/[^\p{L}\p{N}\s-]/gu, '')
-    .trim().replace(/\s+/g, '-').replace(/-+/g, '-') || 'heading';
+  return (
+    value
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-') || 'heading'
+  );
 }
 
 export function parseMarkdown(source: string): MarkdownBlock[] {

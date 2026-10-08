@@ -42,8 +42,15 @@ const selectedPathParts = computed(() =>
   selectedPath.value.split('/').filter(Boolean),
 );
 
-function resolveMarkdownLink(target: string): { path: string; anchor: string } | null {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('/') || target.startsWith('\\\\')) return null;
+function resolveMarkdownLink(
+  target: string,
+): { path: string; anchor: string } | null {
+  if (
+    /^[a-z][a-z0-9+.-]*:/i.test(target) ||
+    target.startsWith('/') ||
+    target.startsWith('\\\\')
+  )
+    return null;
   const hash = target.indexOf('#');
   const rawPath = hash < 0 ? target : target.slice(0, hash);
   const rawAnchor = hash < 0 ? '' : target.slice(hash + 1);
@@ -55,7 +62,12 @@ function resolveMarkdownLink(target: string): { path: string; anchor: string } |
   } catch {
     return null;
   }
-  if (decodedPath.includes('\\\\') || decodedPath.includes('?') || /[\u0000-\u001f\u007f]/.test(decodedPath)) return null;
+  if (
+    decodedPath.includes('\\\\') ||
+    decodedPath.includes('?') ||
+    /[\u0000-\u001f\u007f]/.test(decodedPath)
+  )
+    return null;
   const parts = decodedPath
     ? [...selectedPath.value.split('/').slice(0, -1), ...decodedPath.split('/')]
     : selectedPath.value.split('/');
@@ -83,7 +95,9 @@ async function navigateMarkdown(target: string): Promise<void> {
   if (selectedPath.value !== destination.path || errorMessage.value) return;
   await nextTick();
   if (destination.anchor) {
-    const heading = headings.value.find((item) => item.id === destination.anchor);
+    const heading = headings.value.find(
+      (item) => item.id === destination.anchor,
+    );
     if (heading) scrollToHeading(heading.id);
   }
 }
@@ -215,7 +229,11 @@ watch(
           <span class="readme-loading-icon">!</span>
           <strong>Não foi possível abrir a documentação</strong>
           <p>{{ errorMessage }}</p>
-          <button type="button" class="secondary-button" @click="selectedFile ? selectFile(selectedPath) : loadFiles()">
+          <button
+            type="button"
+            class="secondary-button"
+            @click="selectedFile ? selectFile(selectedPath) : loadFiles()"
+          >
             Tentar novamente
           </button>
         </div>

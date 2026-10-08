@@ -115,9 +115,7 @@ test('organiza arquivos, documento e índice no workspace de README', async () =
   assert.ok(
     wrapper
       .findAll('.readme-heading')
-      .every((heading) =>
-        heading.attributes('id')?.startsWith('readme-'),
-      ),
+      .every((heading) => heading.attributes('id')?.startsWith('readme-')),
   );
 
   await outlineButtons[1]?.trigger('click');
@@ -318,11 +316,17 @@ test('navega entre Markdown autorizado e headings duplicados sem aceitar travers
     value: scrollIntoView,
   });
   api.file.mockImplementation(async (_id: string, path: string) => ({
-    path, name: path.split('/').at(-1) ?? path, language: 'markdown',
-    content: path === 'README.docker.md'
-      ? '# Intro\n\n[Ver setup](docs/setup.md#instalacao)\n\n[Escapar](../outside.md)\n\n[Script](javascript:alert(1))'
-      : '# Instalação\n\n# Instalação\n\n[Segundo](#instalacao-1)',
-    version: 'a'.repeat(64), size: 40, modifiedAt: '', writable: true,
+    path,
+    name: path.split('/').at(-1) ?? path,
+    language: 'markdown',
+    content:
+      path === 'README.docker.md'
+        ? '# Intro\n\n[Ver setup](docs/setup.md#instalacao)\n\n[Escapar](../outside.md)\n\n[Script](javascript:alert(1))'
+        : '# Instalação\n\n# Instalação\n\n[Segundo](#instalacao-1)',
+    version: 'a'.repeat(64),
+    size: 40,
+    modifiedAt: '',
+    writable: true,
   }));
   const wrapper = mount(ProjectReadmePanel, {
     props: { project: makeProject({ id: 'project-1' }) },
@@ -332,24 +336,44 @@ test('navega entre Markdown autorizado e headings duplicados sem aceitar travers
   const link = wrapper.get('a[data-readme-target="docs/setup.md#instalacao"]');
   await link.trigger('click');
   await flushPromises();
-  assert.deepEqual(api.file.mock.calls.at(-1)?.slice(0, 2), ['project-1', 'docs/setup.md']);
+  assert.deepEqual(api.file.mock.calls.at(-1)?.slice(0, 2), [
+    'project-1',
+    'docs/setup.md',
+  ]);
   assert.equal(wrapper.findAll('.readme-heading').length, 2);
-  assert.deepEqual(wrapper.findAll('.readme-heading').map(h => h.attributes('id')),
-    ['readme-instalacao', 'readme-instalacao-1']);
+  assert.deepEqual(
+    wrapper.findAll('.readme-heading').map((h) => h.attributes('id')),
+    ['readme-instalacao', 'readme-instalacao-1'],
+  );
   assert.ok(scrollIntoView.mock.calls.length > 0);
   await wrapper.get('a[data-readme-target="#instalacao-1"]').trigger('click');
   await flushPromises();
-  assert.equal(wrapper.find('.readme-outline-button-active')?.attributes('data-heading-id'), 'instalacao-1');
+  assert.equal(
+    wrapper
+      .find('.readme-outline-button-active')
+      ?.attributes('data-heading-id'),
+    'instalacao-1',
+  );
   assert.equal(api.file.mock.calls.length, 2);
   wrapper.unmount();
 });
 
 test('falha ao trocar arquivo preserva catálogo e retry tenta somente o documento', async () => {
-  api.file.mockRejectedValueOnce(new Error('temporário')).mockImplementation(async (_id: string, path: string) => ({
-    path, name: path, language: 'markdown', content: '# Recuperado',
-    version: '', size: 11, modifiedAt: '', writable: true,
-  }));
-  const wrapper = mount(ProjectReadmePanel, { props: { project: makeProject({ id: 'p' }) } });
+  api.file
+    .mockRejectedValueOnce(new Error('temporário'))
+    .mockImplementation(async (_id: string, path: string) => ({
+      path,
+      name: path,
+      language: 'markdown',
+      content: '# Recuperado',
+      version: '',
+      size: 11,
+      modifiedAt: '',
+      writable: true,
+    }));
+  const wrapper = mount(ProjectReadmePanel, {
+    props: { project: makeProject({ id: 'p' }) },
+  });
   await flushPromises();
   assert.equal(wrapper.findAll('.readme-file-item').length, 2);
   await wrapper.get('.secondary-button').trigger('click');

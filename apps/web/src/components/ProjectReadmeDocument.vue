@@ -27,7 +27,12 @@ function handleClick(event: MouseEvent): void {
   const target = event.target;
   if (!(target instanceof Element)) return;
   const link = target.closest('a[data-readme-target]');
-  if (!link || !event.currentTarget || !(event.currentTarget as Element).contains(link)) return;
+  if (
+    !link ||
+    !event.currentTarget ||
+    !(event.currentTarget as Element).contains(link)
+  )
+    return;
   event.preventDefault();
   const href = link.getAttribute('data-readme-target');
   if (href) emit('navigate', href);

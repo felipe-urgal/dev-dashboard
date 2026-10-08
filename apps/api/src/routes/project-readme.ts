@@ -75,9 +75,11 @@ export async function listMarkdownFiles(
   projectPath: string,
 ): Promise<{ files: ProjectFileEntry[]; truncated: boolean }> {
   const root = await realpath(projectPath);
-  const queue: Array<{ relativePath: string; absolutePath: string; depth: number }> = [
-    { relativePath: '', absolutePath: root, depth: 0 },
-  ];
+  const queue: Array<{
+    relativePath: string;
+    absolutePath: string;
+    depth: number;
+  }> = [{ relativePath: '', absolutePath: root, depth: 0 }];
   const visitedDirectories = new Set<string>();
   const files: ProjectFileEntry[] = [];
   let entriesExamined = 0;
@@ -95,7 +97,10 @@ export async function listMarkdownFiles(
     } catch {
       continue;
     }
-    if (!isPathWithinRoot(root, canonicalDirectory) || visitedDirectories.has(canonicalDirectory)) {
+    if (
+      !isPathWithinRoot(root, canonicalDirectory) ||
+      visitedDirectories.has(canonicalDirectory)
+    ) {
       continue;
     }
     visitedDirectories.add(canonicalDirectory);
@@ -106,7 +111,7 @@ export async function listMarkdownFiles(
     } catch {
       continue;
     }
-    entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
     for (const entry of entries) {
       const relativePath = publicPath(current.relativePath, entry.name);
@@ -124,7 +129,9 @@ export async function listMarkdownFiles(
       }
       let canonicalEntry: string;
       try {
-        canonicalEntry = await realpath(path.join(canonicalDirectory, entry.name));
+        canonicalEntry = await realpath(
+          path.join(canonicalDirectory, entry.name),
+        );
       } catch {
         continue;
       }
@@ -139,11 +146,16 @@ export async function listMarkdownFiles(
         if (current.depth >= README_DISCOVERY_LIMITS.depth) {
           truncated = true;
         } else if (!visitedDirectories.has(canonicalEntry)) {
-          queue.push({ relativePath, absolutePath: canonicalEntry, depth: current.depth + 1 });
+          queue.push({
+            relativePath,
+            absolutePath: canonicalEntry,
+            depth: current.depth + 1,
+          });
         }
         continue;
       }
-      if (!stats.isFile() || !MARKDOWN_EXTENSION_PATTERN.test(entry.name)) continue;
+      if (!stats.isFile() || !MARKDOWN_EXTENSION_PATTERN.test(entry.name))
+        continue;
       files.push({
         path: relativePath,
         name: entry.name,
@@ -152,7 +164,12 @@ export async function listMarkdownFiles(
         size: stats.size,
       });
     }
-    if (truncated && (entriesExamined >= README_DISCOVERY_LIMITS.entries || files.length >= README_DISCOVERY_LIMITS.files)) break;
+    if (
+      truncated &&
+      (entriesExamined >= README_DISCOVERY_LIMITS.entries ||
+        files.length >= README_DISCOVERY_LIMITS.files)
+    )
+      break;
   }
 
   files.sort((left, right) => {

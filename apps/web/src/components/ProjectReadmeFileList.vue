@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  ArrowPathIcon,
-  DocumentTextIcon,
-} from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
 
 import type { ProjectFileEntry } from '@dev-dashboard/contracts';
 
@@ -23,7 +20,6 @@ function fileDirectory(file: ProjectFileEntry): string {
     ? file.path.slice(0, lastSeparator)
     : 'Raiz do projeto';
 }
-
 </script>
 
 <template>
@@ -78,8 +74,6 @@ function fileDirectory(file: ProjectFileEntry): string {
           Nenhum Markdown do projeto nesta leitura.
         </p>
       </section>
-
-      
     </div>
   </aside>
 </template>
