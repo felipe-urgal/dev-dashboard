@@ -81,7 +81,14 @@ const findingSchema = {
 const scanResultSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['provider', 'observedAt', 'findings', 'truncated', 'limit', 'observedCount'],
+  required: [
+    'provider',
+    'observedAt',
+    'findings',
+    'truncated',
+    'limit',
+    'observedCount',
+  ],
   properties: {
     provider: { type: 'string', enum: ['trivy'] },
     observedAt: { type: 'string' },
@@ -253,7 +260,10 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
       try {
         const execution = await options.securityScannerProvider.scan(project);
         if (execution.state === 'completed' && execution.result) {
-          await options.securityScanSnapshotStore.save(project, execution.result);
+          await options.securityScanSnapshotStore.save(
+            project,
+            execution.result,
+          );
           app.log.info({
             event: 'security.scan.succeeded',
             projectId: project.id,
@@ -269,13 +279,14 @@ export const securityCenterRoutes: FastifyPluginAsync<Options> = async (
         }
         return {
           provider: options.securityScannerProvider.id,
-          execution: execution.state === 'completed' && !execution.result
-            ? {
-                state: 'invalid-output' as const,
-                observedAt: execution.observedAt,
-                diagnostic: 'Scanner não retornou evidência válida.',
-              }
-            : execution,
+          execution:
+            execution.state === 'completed' && !execution.result
+              ? {
+                  state: 'invalid-output' as const,
+                  observedAt: execution.observedAt,
+                  diagnostic: 'Scanner não retornou evidência válida.',
+                }
+              : execution,
         };
       } catch {
         // A failed scan never invalidates the last persisted snapshot.

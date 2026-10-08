@@ -185,9 +185,7 @@ function parseResult(value: unknown): SecurityScanResult | undefined {
   // Legacy snapshots had no completeness contract: never treat them as proof.
   const truncated = hasMetadata ? value.truncated : true;
   const limit = hasMetadata ? value.limit : MAX_FINDINGS;
-  const observedCount = hasMetadata
-    ? value.observedCount
-    : findings.length;
+  const observedCount = hasMetadata ? value.observedCount : findings.length;
   if (
     typeof truncated !== 'boolean' ||
     limit !== MAX_FINDINGS ||
