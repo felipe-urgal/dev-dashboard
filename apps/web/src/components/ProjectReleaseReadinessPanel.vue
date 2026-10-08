@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue';
 import {
+  ArrowPathIcon,
   ArrowsRightLeftIcon,
   BeakerIcon,
   ChevronRightIcon,
@@ -17,11 +18,12 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import {
   fetchReleaseReadiness,
-  type ReleaseReadinessActionTarget,
+  type ReleaseReadinessCheck,
   type ReleaseReadinessCheckId,
   type ReleaseReadinessSnapshot,
   type ReleaseReadinessState,
 } from '../api/release-readiness';
+import { releaseReadinessActionRoute } from '../api/release-readiness-routes';
 import EmptyState from './EmptyState.vue';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
@@ -83,17 +85,51 @@ const orderedChecks = computed(() =>
   ),
 );
 
-const blockerCount = computed(
-  () =>
-    snapshot.value?.checks.filter((check) => check.state === 'block').length ??
-    0,
-);
-
-const blockerSummary = computed(() => {
-  if (blockerCount.value === 0) return 'Nenhum bloqueio impede a entrega.';
-  if (blockerCount.value === 1) return '1 bloqueio impede a entrega.';
-  return blockerCount.value + ' bloqueios impedem a entrega.';
+const checkCounts = computed(() => {
+  const counts = { block: 0, warning: 0, unknown: 0 };
+  for (const check of snapshot.value?.checks ?? []) {
+    if (check.state !== 'pass') counts[check.state] += 1;
+  }
+  return counts;
 });
+
+const readinessSummary = computed(() => {
+  const current = snapshot.value;
+  if (!current) return '';
+
+  switch (current.state) {
+    case 'block':
+      return checkCounts.value.block === 1
+        ? '1 bloqueio impede a entrega.'
+        : `${checkCounts.value.block} bloqueios impedem a entrega.`;
+    case 'unknown':
+      return checkCounts.value.unknown === 1
+        ? '1 check inconclusivo; entrega ainda não comprovada.'
+        : `${checkCounts.value.unknown} checks inconclusivos; entrega ainda não comprovada.`;
+    case 'warning':
+      return checkCounts.value.warning === 1
+        ? '1 alerta requer atenção antes da entrega.'
+        : `${checkCounts.value.warning} alertas requerem atenção antes da entrega.`;
+    case 'pass':
+      return 'Todos os checks aplicáveis estão comprovados.';
+  }
+});
+
+/** The backend owns readiness decisions; labels only clarify its evidence. */
+function evidenceStateLabel(check: ReleaseReadinessCheck): string {
+  if (check.state === 'block') return 'Bloqueio confirmado';
+  if (check.state === 'warning') return 'Alerta pendente';
+  if (check.state === 'pass') return 'Evidência comprovada';
+  if (/desatualizad|freshness/i.test(check.summary)) {
+    return 'Evidência desatualizada';
+  }
+  if (/indisponível|não pôde ser consultad/i.test(
+    `${check.summary} ${check.evidence}`,
+  )) {
+    return 'Fonte indisponível';
+  }
+  return 'Evidência inconclusiva';
+}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -104,50 +140,11 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function actionRoute(target: ReleaseReadinessActionTarget) {
-  if (target === 'synchronization') {
-    return {
-      name: 'project-git',
-      params: { projectId: props.project.id },
-      query: { tab: 'sync' },
-    };
-  }
-  if (target === 'tests') {
-    return { name: 'project-tests', params: { projectId: props.project.id } };
-  }
-  if (target === 'pull-request') {
-    return {
-      name: 'project-git',
-      params: { projectId: props.project.id },
-      query: { tab: 'pull-request' },
-    };
-  }
-  if (target === 'doctor') {
-    return { name: 'project-doctor', params: { projectId: props.project.id } };
-  }
-  if (target === 'migrations') {
-    return {
-      name: 'project-migrations',
-      params: { projectId: props.project.id },
-    };
-  }
-  if (target === 'security') {
-    return {
-      name: 'project-security',
-      params: { projectId: props.project.id },
-    };
-  }
-  return {
-    name: 'project-production',
-    params: { projectId: props.project.id },
-  };
-}
 
 async function load(): Promise<void> {
   const requestGeneration = ++generation;
   loading.value = true;
   errorMessage.value = '';
-  snapshot.value = null;
 
   try {
     const result = await fetchReleaseReadiness(props.project.id);
@@ -166,22 +163,27 @@ async function load(): Promise<void> {
 
 watch(
   () => props.project.id,
-  () => void load(),
+  () => {
+    // Never display the previous project's evidence under a new project.
+    snapshot.value = null;
+    errorMessage.value = '';
+    void load();
+  },
   { immediate: true },
 );
 </script>
 
 <template>
-  <section class="readiness-panel" aria-label="Release Readiness">
+  <section class="readiness-panel" aria-label="Release Readiness" :aria-busy="loading">
     <EmptyState
-      v-if="loading"
+      v-if="loading && !snapshot"
       icon="•••"
       title="Verificando readiness"
       description="Consultando Git, suíte completa comparável, Pull Request, Project Doctor, Migrations, Segurança e Produção."
     />
 
     <EmptyState
-      v-else-if="errorMessage"
+      v-else-if="errorMessage && !snapshot"
       icon="!"
       title="Readiness indisponível"
       :description="errorMessage"
@@ -198,15 +200,36 @@ watch(
         <div class="readiness-summary">
           <RocketLaunchIcon aria-hidden="true" />
           <div>
-            <strong>{{ blockerSummary }}</strong>
+            <strong>{{ readinessSummary }}</strong>
+            <span class="readiness-counts">
+              {{ checkCounts.block }} bloqueio(s) ·
+              {{ checkCounts.warning }} alerta(s) ·
+              {{ checkCounts.unknown }} inconclusivo(s)
+            </span>
             <span>Atualizado em {{ formatDate(snapshot.generatedAt) }}</span>
           </div>
         </div>
 
-        <StatusBadge :tone="stateTone[snapshot.state]" size="md">
-          {{ stateLabel[snapshot.state] }}
-        </StatusBadge>
+        <div class="readiness-header-actions">
+          <StatusBadge :tone="stateTone[snapshot.state]" size="md">
+            {{ stateLabel[snapshot.state] }}
+          </StatusBadge>
+          <button
+            class="readiness-refresh-button"
+            type="button"
+            :disabled="loading"
+            :aria-label="loading ? 'Atualizando readiness' : 'Atualizar readiness'"
+            @click="load"
+          >
+            <ArrowPathIcon aria-hidden="true" />
+            {{ loading ? 'Atualizando…' : 'Atualizar' }}
+          </button>
+        </div>
       </header>
+
+      <p v-if="errorMessage" class="readiness-refresh-error" role="alert">
+        Falha ao atualizar: {{ errorMessage }}. O snapshot anterior permanece visível.
+      </p>
 
       <ol class="readiness-checklist" aria-label="Checks de Release Readiness">
         <li
@@ -235,12 +258,24 @@ watch(
 
           <RouterLink
             class="readiness-check-action"
-            :to="actionRoute(check.action.target)"
-            :aria-label="'Abrir ' + checkLabel[check.id]"
+            :to="releaseReadinessActionRoute(check.action.target, project.id)"
+            :aria-label="check.action.label"
           >
             <span class="readiness-open-button">Abrir</span>
             <ChevronRightIcon aria-hidden="true" />
           </RouterLink>
+
+          <details class="readiness-check-details">
+            <summary>Detalhes e evidência</summary>
+            <div class="readiness-evidence-content">
+              <strong>{{ evidenceStateLabel(check) }}</strong>
+              <p class="readiness-evidence-text">{{ check.evidence }}</p>
+              <span>
+                Observado em
+                <time :datetime="check.observedAt">{{ formatDate(check.observedAt) }}</time>
+              </span>
+            </div>
+          </details>
         </li>
       </ol>
     </div>
@@ -278,6 +313,7 @@ watch(
 
 .readiness-header,
 .readiness-summary,
+.readiness-header-actions,
 .readiness-check-action {
   display: flex;
   align-items: center;
@@ -298,6 +334,48 @@ watch(
   gap: 8px;
 }
 
+.readiness-header-actions {
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.readiness-refresh-button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.readiness-refresh-button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.readiness-refresh-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.readiness-refresh-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.readiness-refresh-error {
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 10px;
+}
+
 .readiness-summary > svg {
   width: 16px;
   height: 16px;
@@ -309,6 +387,10 @@ watch(
   display: grid;
   min-width: 0;
   gap: 2px;
+}
+
+.readiness-summary .readiness-counts {
+  color: var(--text-muted);
 }
 
 .readiness-summary strong {
@@ -394,6 +476,45 @@ watch(
   font-weight: var(--font-weight-strong);
 }
 
+.readiness-check-details {
+  grid-column: 2 / -1;
+  min-width: 0;
+  font-size: 10px;
+}
+
+.readiness-check-details summary {
+  width: fit-content;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.readiness-check-details summary:hover {
+  color: var(--text);
+}
+
+.readiness-evidence-content {
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.readiness-evidence-content strong {
+  color: var(--text);
+}
+
+.readiness-evidence-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .readiness-check-action:hover .readiness-open-button {
   border-color: var(--border-strong);
   background: var(--surface-2);
@@ -416,7 +537,8 @@ watch(
     grid-template-areas:
       'icon domain action'
       'icon status action'
-      'icon summary summary';
+      'icon summary summary'
+      'details details details';
     align-items: start;
   }
 
@@ -435,6 +557,9 @@ watch(
   }
   .readiness-check-action {
     grid-area: action;
+  }
+  .readiness-check-details {
+    grid-area: details;
   }
 }
 </style>
