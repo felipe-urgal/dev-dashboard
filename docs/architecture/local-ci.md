@@ -20,7 +20,16 @@ O catálogo expõe somente:
 - workflow e arquivo;
 - job/id;
 - eventos declarados;
-- disponibilidade do provider.
+- disponibilidade do provider;
+- contagem bounded de workflows examinados, aceitos e ignorados;
+- `truncated` e razões pré-definidas (sem YAML, paths absolutos ou erros brutos);
+- capacidade global do executor (`running`, `limit`, `busy`).
+
+O catálogo é parcial sempre que existem omissões ou truncamento: 64 arquivos,
+512 jobs e 64 eventos por job são limites explícitos. Workflows inválidos,
+ilegíveis ou maiores que 256 KiB não interrompem o discovery. O catálogo deve
+ser atualizado após editar workflows; **o start sempre faz nova validação
+backend**, recusando combinações obsoletas.
 
 O preflight executa comandos fechados para `act --version` e `docker info`. Os estados públicos são:
 
@@ -36,9 +45,15 @@ Cada run possui ownership por `projectId + runId` e reutiliza `DetachableExecuti
 
 - execução sem shell;
 - buffer bounded e masking compartilhado;
-- cancelamento;
+- cancelamento explícito, distinguível de falha e timeout;
 - timeout;
+- reserva de capacidade antes de operações assíncronas (sem corrida de starts);
 - reattach/follow sem iniciar outro processo.
+
+O campo `outcome` só é definido no término (`success`, `failure`,
+`cancelled` ou `timeout`); `exitCode` e `exitSignal` permanecem evidências
+técnicas. A capacidade ocupada retorna `LOCAL_CI_BUSY` sem iniciar outro
+processo.
 
 O ambiente do processo é reconstruído por allowlist operacional. Tokens GitHub, `DATABASE_URL`, `.env` e variáveis arbitrárias do processo da API não são propagados.
 
@@ -82,6 +97,17 @@ A superfície web por projeto consome somente o contrato HTTP/streaming acima:
 - estados explícitos para `act` ausente e Docker indisponível;
 - start, acompanhamento de logs, reattach do `runId` durante a sessão do navegador e cancelamento;
 - buffer do cliente também permanece bounded para não transformar streaming em crescimento de memória sem limite.
+
+Cada run gera exatamente um evento `started` e um evento terminal na
+**Activity** persistida, usando o mesmo `resourceRef` e `jobId` da
+identidade canônica do run. O painel **Jobs** lista somente runs ativos,
+removendo-os ao terminar. Nem Activity nem Jobs armazenam logs, argv,
+secrets, env ou output; não existe histórico Local CI paralelo. O reattach
+WebSocket é apenas observação e não grava eventos adicionais.
+
+A execução ocorre via **act e Docker no host que executa a API**, com suas
+permissões e recursos, e **não representa automaticamente a Environment
+Instance** do projeto.
 
 O `runId` pode ser preservado em `sessionStorage` apenas como conveniência de reattach. A API continua validando ownership por `projectId + runId`; a UI não recebe autoridade adicional por persistir esse identificador.
 
