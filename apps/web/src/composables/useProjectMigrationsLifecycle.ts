@@ -177,7 +177,7 @@ export function useProjectMigrationsLifecycle(
       }
     } catch (error) {
       if (!isCurrent(requestGeneration, id, environment)) return;
-      if (reset || !overview.value) {
+      if (!overview.value) {
         errorMessage.value = messageFrom(
           error,
           'Não foi possível carregar o estado das migrations.',
