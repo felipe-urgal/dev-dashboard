@@ -40,6 +40,8 @@ import { dashboardStore } from '../stores/dashboard';
 const stacks = ref<Stack[]>([]);
 const checks = ref(new Map<string, StackCheck>());
 const discoveries = ref(new Map<string, StackDependencyDiscovery>());
+const checkErrors = ref(new Map<string, string>());
+const discoveryErrors = ref(new Map<string, string>());
 const logs = ref(new Map<string, StackLogsSnapshot>());
 const loading = ref(false);
 const loadingLogsStackId = ref('');
@@ -72,6 +74,10 @@ function projectName(projectId: string): string {
 
 function checkFor(stackId: string): StackCheck | undefined {
   return checks.value.get(stackId);
+}
+
+function diagnostic(error: unknown): string {
+  return error instanceof Error ? error.message : 'Falha ao carregar os dados.';
 }
 
 function discoveryFor(stackId: string): StackDependencyDiscovery | undefined {
@@ -221,19 +227,33 @@ async function load(): Promise<void> {
     ]);
     const nextChecks = new Map<string, StackCheck>();
     const nextDiscoveries = new Map<string, StackDependencyDiscovery>();
+    const nextCheckErrors = new Map<string, string>();
+    const nextDiscoveryErrors = new Map<string, string>();
     for (let index = 0; index < definitions.length; index += 1) {
       const checkResult = checkResults[index];
       if (checkResult?.status === 'fulfilled') {
         nextChecks.set(definitions[index]!.id, checkResult.value);
+      } else {
+        nextCheckErrors.set(
+          definitions[index]!.id,
+          diagnostic(checkResult?.reason),
+        );
       }
 
       const discoveryResult = discoveryResults[index];
       if (discoveryResult?.status === 'fulfilled') {
         nextDiscoveries.set(definitions[index]!.id, discoveryResult.value);
+      } else {
+        nextDiscoveryErrors.set(
+          definitions[index]!.id,
+          diagnostic(discoveryResult?.reason),
+        );
       }
     }
     checks.value = nextChecks;
     discoveries.value = nextDiscoveries;
+    checkErrors.value = nextCheckErrors;
+    discoveryErrors.value = nextDiscoveryErrors;
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -250,12 +270,32 @@ async function refreshStack(stackId: string): Promise<void> {
   refreshingStackId.value = stackId;
   errorMessage.value = '';
   try {
-    const [check, discovery] = await Promise.all([
+    const [check, discovery] = await Promise.allSettled([
       fetchStackCheck(stackId),
       fetchStackDependencySuggestions(stackId),
     ]);
-    setCheck(check);
-    setDiscovery(discovery);
+    const nextChecks = new Map(checks.value);
+    const nextDiscoveries = new Map(discoveries.value);
+    const nextCheckErrors = new Map(checkErrors.value);
+    const nextDiscoveryErrors = new Map(discoveryErrors.value);
+    if (check.status === 'fulfilled') {
+      nextChecks.set(stackId, check.value);
+      nextCheckErrors.delete(stackId);
+    } else {
+      nextChecks.delete(stackId);
+      nextCheckErrors.set(stackId, diagnostic(check.reason));
+    }
+    if (discovery.status === 'fulfilled') {
+      nextDiscoveries.set(stackId, discovery.value);
+      nextDiscoveryErrors.delete(stackId);
+    } else {
+      nextDiscoveries.delete(stackId);
+      nextDiscoveryErrors.set(stackId, diagnostic(discovery.reason));
+    }
+    checks.value = nextChecks;
+    discoveries.value = nextDiscoveries;
+    checkErrors.value = nextCheckErrors;
+    discoveryErrors.value = nextDiscoveryErrors;
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -482,6 +522,18 @@ onMounted(() => {
             </button>
           </div>
         </header>
+
+        <p v-if="checkErrors.get(stack.id)" class="stacks-error" role="alert">
+          Check indisponível: {{ checkErrors.get(stack.id) }}
+        </p>
+        <p
+          v-if="discoveryErrors.get(stack.id)"
+          class="stacks-error"
+          role="alert"
+        >
+          Descoberta de dependências indisponível:
+          {{ discoveryErrors.get(stack.id) }}
+        </p>
 
         <div
           v-if="checkFor(stack.id)"
