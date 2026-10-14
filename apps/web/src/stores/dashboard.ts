@@ -1,12 +1,13 @@
 import { computed, ref } from 'vue';
 
 import type {
+  ManagedProcess,
   ManagedProcessStatus,
   Project,
   Workspace,
 } from '@dev-dashboard/contracts';
 
-import { ApiRequestError, type WorkspaceScanResponse } from '../api';
+import { ApiRequestError, type WorkspaceScanResponse, type WorkspaceScanWarning } from '../api';
 
 import * as dashboardApi from '../api';
 import { confirmDialog } from './app-dialog';
@@ -60,6 +61,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
   const errorMessage = ref('');
   const lastScannedPath = ref('');
+  const managedProcesses = ref<ManagedProcess[]>([]);
+  const processReadComplete = ref(false);
+  const scanWarnings = ref<WorkspaceScanWarning[]>([]);
+  const scannedAt = ref('');
+  const scanStatus = ref<'idle' | 'complete' | 'warnings' | 'failed'>('idle');
   const processSummary = ref({
     total: 0,
     active: 0,
@@ -70,6 +76,9 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const processSummaryError = ref('');
 
   const scannedWorkspaceIds = new Set<string>();
+  let workspaceGeneration = 0;
+  let scanGeneration = 0;
+  let processGeneration = 0;
   let initialLoadPromise: Promise<void> | undefined;
   const activeWorkspaceStorageKey = 'dev-dashboard:active-workspace';
   const activeProcessStatuses = new Set<ManagedProcessStatus>([
@@ -259,6 +268,17 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     workspaceId: string,
     workspaceProjects?: Project[],
   ): void {
+    if (selectedWorkspaceId.value !== workspaceId) {
+      workspaceGeneration += 1;
+      processGeneration += 1;
+      managedProcesses.value = [];
+      processReadComplete.value = false;
+      scanWarnings.value = [];
+      scannedAt.value = '';
+      scanStatus.value = 'idle';
+      lastScannedPath.value = '';
+      errorMessage.value = '';
+    }
     selectedWorkspaceId.value = workspaceId;
     persistWorkspaceId(workspaceId);
 
@@ -266,12 +286,34 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       workspaceProjects ?? projectsByWorkspace.value[workspaceId] ?? [];
   }
 
+  const managedProcessesByContext = computed(() => {
+    const index: Record<string, ManagedProcess[]> = {};
+    for (const process of managedProcesses.value) {
+      const key = JSON.stringify([process.projectId, process.environmentInstanceId ?? null]);
+      (index[key] ??= []).push(process);
+    }
+    return index;
+  });
+
+  // Cards globais representam somente o contexto padrão (sem environmentInstanceId).
+  function getCardProcess(projectId: string): ManagedProcess | null {
+    const processes = managedProcessesByContext.value[JSON.stringify([projectId, null])] ?? [];
+    return processes.find((process) => process.kind === 'server' && activeProcessStatuses.has(process.status))
+      ?? processes.find((process) => process.kind === 'server')
+      ?? null;
+  }
+
   async function loadProcessSummary(): Promise<void> {
+    const generation = ++processGeneration;
+    const workspaceId = selectedWorkspaceId.value;
     loadingProcessSummary.value = true;
     processSummaryError.value = '';
 
     try {
       const processes = await fetchManagedProcesses();
+      if (generation !== processGeneration || workspaceId !== selectedWorkspaceId.value) return;
+      managedProcesses.value = processes.filter((process) => !workspaceId || process.workspaceId === workspaceId || (!process.workspaceId && projects.value.some((project) => project.id === process.projectId)));
+      processReadComplete.value = true;
       const counts = processes.reduce(
         (summary, process) => {
           if (activeProcessStatuses.has(process.status)) summary.active += 1;
@@ -284,12 +326,14 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
       processSummary.value = { total: processes.length, ...counts };
     } catch (error) {
+      if (generation !== processGeneration || workspaceId !== selectedWorkspaceId.value) return;
+      processReadComplete.value = false;
       processSummaryError.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível carregar o resumo dos processos.';
     } finally {
-      loadingProcessSummary.value = false;
+      if (generation === processGeneration) loadingProcessSummary.value = false;
     }
   }
 
@@ -300,6 +344,8 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     } = {},
   ): Promise<WorkspaceScanResponse> {
     const shouldActivate = options.activate ?? false;
+    const generation = ++scanGeneration;
+    const workspaceAtStart = workspaceGeneration;
 
     if (shouldActivate) {
       scanningWorkspace.value = true;
@@ -310,19 +356,23 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     try {
       const result = await scanWorkspace(workspaceId);
 
+      if (shouldActivate && (generation !== scanGeneration || workspaceAtStart !== workspaceGeneration || selectedWorkspaceId.value !== workspaceId)) return result;
       replaceWorkspaceProjects(workspaceId, result.projects);
       scannedWorkspaceIds.add(workspaceId);
 
       if (shouldActivate) {
         activateWorkspace(workspaceId, result.projects);
         lastScannedPath.value = result.workspacePath;
+        scanWarnings.value = result.warnings;
+        scannedAt.value = result.scannedAt;
+        scanStatus.value = result.warnings.length ? 'warnings' : 'complete';
       }
 
       apiConnected.value = true;
 
       return result;
     } finally {
-      if (shouldActivate) {
+      if (shouldActivate && generation === scanGeneration && workspaceAtStart === workspaceGeneration) {
         scanningWorkspace.value = false;
         loadingProjects.value = false;
       }
@@ -344,6 +394,10 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       });
       await loadProcessSummary();
     } catch (error) {
+      if (workspace.id !== selectedWorkspaceId.value) return;
+      scanStatus.value = 'failed';
+      if (workspace.id !== selectedWorkspaceId.value) return;
+      scanStatus.value = 'failed';
       errorMessage.value =
         error instanceof Error
           ? error.message
@@ -650,6 +704,13 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     recursiveScanUpdatingIds,
     errorMessage,
     lastScannedPath,
+    managedProcesses,
+    managedProcessesByContext,
+    processReadComplete,
+    getCardProcess,
+    scanWarnings,
+    scannedAt,
+    scanStatus,
     processSummary,
     loadingProcessSummary,
     processSummaryError,
