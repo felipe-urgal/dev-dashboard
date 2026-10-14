@@ -503,6 +503,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       return true;
     } catch (error) {
       apiConnected.value = false;
+      if (selectedWorkspaceId.value) scanStatus.value = 'failed';
       errorMessage.value =
         error instanceof Error
           ? error.message
