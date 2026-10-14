@@ -66,9 +66,8 @@ function handleVisibility(): void {
 }
 
 watch(selectedWorkspaceId, () => {
-  stopScheduler();
-  if (visible() && selectedWorkspaceId.value)
-    void loadProcessSummary().then(scheduleProcesses);
+  // A troca já faz a leitura no store; apenas reinicia o scheduler.
+  scheduleProcesses();
 });
 
 onMounted(() => {
