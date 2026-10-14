@@ -217,4 +217,23 @@ describe('useDatabaseExplorerSession', () => {
 
     wrapper.unmount();
   });
+  it('disconnect durante connect invalida resposta tardia e não reutiliza senha', async () => {
+    const catalog = deferred<{ name: string }[]>();
+    api.createDatabaseExplorerSession.mockResolvedValue({
+      sessionId: 'pending-session',
+      expiresAt: futureExpiry(),
+    });
+    api.fetchDatabaseExplorerCatalog.mockReturnValue(catalog.promise);
+    const { wrapper, state } = mountHarness();
+    const connecting = state.connect(connection);
+    await flushPromises();
+    await state.disconnect();
+    catalog.resolve([{ name: 'stale' }]);
+    await expect(connecting).rejects.toMatchObject({ name: 'AbortError' });
+    expect(state.sessionId.value).toBeNull();
+    expect(state.connection.value).toBeNull();
+    expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledWith('pending-session');
+    wrapper.unmount();
+  });
+
 });
