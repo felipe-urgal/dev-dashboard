@@ -413,7 +413,8 @@ onMounted(() => {
         <div>
           <h2 id="database-explorer-title">Explorador de dados</h2>
           <p>
-            Acesso local somente leitura. Senhas ficam apenas na sessão do servidor; consultas recentes não são salvas permanentemente.
+            Acesso local somente leitura. Senhas ficam apenas na sessão do
+            servidor; consultas recentes não são salvas permanentemente.
           </p>
         </div>
       </div>
@@ -427,7 +428,16 @@ onMounted(() => {
               : 'Nenhuma conexão ativa'
           }}</span>
         </div>
-        <span v-if="explorerExpiresAt" class="database-session-expiry">Sessão válida até {{ new Date(explorerExpiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }} (15 min absolutos, sem renovação)</span>
+        <span v-if="explorerExpiresAt" class="database-session-expiry"
+          >Sessão válida até
+          {{
+            new Date(explorerExpiresAt).toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          }}
+          (15 min absolutos, sem renovação)</span
+        >
         <button
           type="button"
           class="database-primary-button database-connection-button"

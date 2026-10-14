@@ -33,7 +33,8 @@ function validItem(value: unknown): DatabaseQueryHistoryItem | null {
     typeof item.database !== 'string' ||
     typeof item.table !== 'string' ||
     typeof item.createdAt !== 'string'
-  ) return null;
+  )
+    return null;
   // Ignore unknown fields, including any legacy credentials.
   return {
     id: item.id,
@@ -50,13 +51,20 @@ function readItems(storage: Storage, key: string): DatabaseQueryHistoryItem[] {
   try {
     const parsed: unknown = JSON.parse(storage.getItem(key) ?? '[]');
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(validItem).filter((item): item is DatabaseQueryHistoryItem => item !== null).slice(0, QUERY_LIMIT);
+    return parsed
+      .map(validItem)
+      .filter((item): item is DatabaseQueryHistoryItem => item !== null)
+      .slice(0, QUERY_LIMIT);
   } catch {
     return [];
   }
 }
 
-function writeItems(storage: Storage, key: string, items: DatabaseQueryHistoryItem[]): void {
+function writeItems(
+  storage: Storage,
+  key: string,
+  items: DatabaseQueryHistoryItem[],
+): void {
   try {
     storage.setItem(key, JSON.stringify(items.slice(0, QUERY_LIMIT)));
   } catch {
@@ -73,9 +81,16 @@ export function useDatabaseQueryHistory() {
   function load(): void {
     // Legacy SQL was persisted without informed consent. Never import it automatically.
     // Removing the key also removes any unexpected secrets inside its payload.
-    try { localStorage.removeItem(LEGACY_KEY); } catch { /* storage disabled */ }
+    try {
+      localStorage.removeItem(LEGACY_KEY);
+    } catch {
+      /* storage disabled */
+    }
     history.value = readItems(sessionStorage, RECENT_KEY);
-    saved.value = readItems(localStorage, SAVED_KEY).map(item => ({ ...item, favorite: true }));
+    saved.value = readItems(localStorage, SAVED_KEY).map((item) => ({
+      ...item,
+      favorite: true,
+    }));
   }
 
   function persistRecent(): void {
@@ -97,33 +112,52 @@ export function useDatabaseQueryHistory() {
     };
     history.value = [
       item,
-      ...history.value.filter(existing =>
-        !(existing.query === item.query && existing.driver === item.driver && existing.database === item.database)),
+      ...history.value.filter(
+        (existing) =>
+          !(
+            existing.query === item.query &&
+            existing.driver === item.driver &&
+            existing.database === item.database
+          ),
+      ),
     ].slice(0, QUERY_LIMIT);
     persistRecent();
   }
 
   function toggleFavorite(id: string): void {
-    const recentItem = history.value.find(item => item.id === id);
-    const existingSaved = saved.value.find(item => item.id === id || (recentItem && item.query === recentItem.query && item.driver === recentItem.driver && item.database === recentItem.database));
+    const recentItem = history.value.find((item) => item.id === id);
+    const existingSaved = saved.value.find(
+      (item) =>
+        item.id === id ||
+        (recentItem &&
+          item.query === recentItem.query &&
+          item.driver === recentItem.driver &&
+          item.database === recentItem.database),
+    );
     if (existingSaved) {
-      saved.value = saved.value.filter(item => item.id !== existingSaved.id);
+      saved.value = saved.value.filter((item) => item.id !== existingSaved.id);
       persistSaved();
       return;
     }
-    const item = history.value.find(item => item.id === id);
+    const item = history.value.find((item) => item.id === id);
     if (!item) return;
     saved.value = [
       { ...item, favorite: true },
-      ...saved.value.filter(existing =>
-        !(existing.query === item.query && existing.driver === item.driver && existing.database === item.database)),
+      ...saved.value.filter(
+        (existing) =>
+          !(
+            existing.query === item.query &&
+            existing.driver === item.driver &&
+            existing.database === item.database
+          ),
+      ),
     ].slice(0, QUERY_LIMIT);
     persistSaved();
   }
 
   function remove(id: string): void {
-    history.value = history.value.filter(item => item.id !== id);
-    saved.value = saved.value.filter(item => item.id !== id);
+    history.value = history.value.filter((item) => item.id !== id);
+    saved.value = saved.value.filter((item) => item.id !== id);
     persistRecent();
     persistSaved();
   }

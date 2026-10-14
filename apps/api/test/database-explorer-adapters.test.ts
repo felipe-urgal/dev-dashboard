@@ -250,10 +250,15 @@ test('AbortSignal encerra a conexão PostgreSQL e retorna aborted', async () => 
 
 test('PostgreSQL executa SQL somente depois de BEGIN READ ONLY', async () => {
   const order: string[] = [];
-  const adapter = new PostgresExplorerAdapter(postgresFactory({
-    onControlQuery: sql => order.push(sql),
-    onQuery: sql => { order.push(sql); return { columns: ['id'], rows: [[1]] }; },
-  }));
+  const adapter = new PostgresExplorerAdapter(
+    postgresFactory({
+      onControlQuery: (sql) => order.push(sql),
+      onQuery: (sql) => {
+        order.push(sql);
+        return { columns: ['id'], rows: [[1]] };
+      },
+    }),
+  );
   await adapter.query({ driver: 'postgresql' }, 'SELECT 1 AS id');
   assert.deepEqual(order, ['BEGIN READ ONLY', 'SELECT 1 AS id', 'ROLLBACK']);
 });
@@ -261,11 +266,20 @@ test('PostgreSQL executa SQL somente depois de BEGIN READ ONLY', async () => {
 for (const driver of ['mysql', 'mariadb'] as const) {
   test(`${driver} executa SQL somente depois de START TRANSACTION READ ONLY`, async () => {
     const order: string[] = [];
-    const adapter = new MysqlExplorerAdapter(mysqlFactory({
-      onControlQuery: sql => order.push(sql),
-      onQuery: sql => { order.push(sql); return { columns: ['id'], rows: [[1]] }; },
-    }));
+    const adapter = new MysqlExplorerAdapter(
+      mysqlFactory({
+        onControlQuery: (sql) => order.push(sql),
+        onQuery: (sql) => {
+          order.push(sql);
+          return { columns: ['id'], rows: [[1]] };
+        },
+      }),
+    );
     await adapter.query({ driver }, 'SELECT 1 AS id');
-    assert.deepEqual(order, ['START TRANSACTION READ ONLY', 'SELECT 1 AS id', 'ROLLBACK']);
+    assert.deepEqual(order, [
+      'START TRANSACTION READ ONLY',
+      'SELECT 1 AS id',
+      'ROLLBACK',
+    ]);
   });
 }

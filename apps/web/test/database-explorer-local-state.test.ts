@@ -101,7 +101,7 @@ describe('useDatabaseSavedConnections', () => {
 
 describe('useDatabaseQueryHistory', () => {
   const input = {
-    query: 'SELECT * FROM users WHERE email = \'private@example.com\'',
+    query: "SELECT * FROM users WHERE email = 'private@example.com'",
     driver: 'postgresql' as const,
     database: 'app_development',
     table: 'users',
@@ -114,9 +114,17 @@ describe('useDatabaseQueryHistory', () => {
     }
     expect(queries.history.value).toHaveLength(50);
     expect(queries.recent.value).toHaveLength(8);
-    expect(localStorage.getItem('dev-dashboard.database-query-history')).toBeNull();
-    expect(localStorage.getItem('dev-dashboard.database-saved-queries')).toBeNull();
-    expect(JSON.parse(sessionStorage.getItem('dev-dashboard.database-recent-queries') ?? '[]')).toHaveLength(50);
+    expect(
+      localStorage.getItem('dev-dashboard.database-query-history'),
+    ).toBeNull();
+    expect(
+      localStorage.getItem('dev-dashboard.database-saved-queries'),
+    ).toBeNull();
+    expect(
+      JSON.parse(
+        sessionStorage.getItem('dev-dashboard.database-recent-queries') ?? '[]',
+      ),
+    ).toHaveLength(50);
     sessionStorage.clear(); // a new browser session
     const nextSession = useDatabaseQueryHistory();
     nextSession.load();
@@ -130,7 +138,9 @@ describe('useDatabaseQueryHistory', () => {
     expect(localStorage.length).toBe(0);
     queries.toggleFavorite(id);
     expect(queries.savedQueries.value).toHaveLength(1);
-    expect(localStorage.getItem('dev-dashboard.database-saved-queries')).toContain(input.query);
+    expect(
+      localStorage.getItem('dev-dashboard.database-saved-queries'),
+    ).toContain(input.query);
     sessionStorage.clear();
     const nextSession = useDatabaseQueryHistory();
     nextSession.load();
@@ -150,16 +160,23 @@ describe('useDatabaseQueryHistory', () => {
   });
 
   it('descarta legado automaticamente, sem reapresentar SQL ou copiar segredos', () => {
-    localStorage.setItem('dev-dashboard.database-query-history', JSON.stringify({
-      version: 1,
-      value: [{ ...input, password: 'legacy-secret', favorite: true }],
-    }));
+    localStorage.setItem(
+      'dev-dashboard.database-query-history',
+      JSON.stringify({
+        version: 1,
+        value: [{ ...input, password: 'legacy-secret', favorite: true }],
+      }),
+    );
     const queries = useDatabaseQueryHistory();
     queries.load();
     expect(queries.history.value).toEqual([]);
     expect(queries.savedQueries.value).toEqual([]);
-    expect(localStorage.getItem('dev-dashboard.database-query-history')).toBeNull();
-    expect(localStorage.getItem('dev-dashboard.database-saved-queries')).toBeNull();
+    expect(
+      localStorage.getItem('dev-dashboard.database-query-history'),
+    ).toBeNull();
+    expect(
+      localStorage.getItem('dev-dashboard.database-saved-queries'),
+    ).toBeNull();
   });
 
   it('ignora storage inválido', () => {
