@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
 import EmptyState from '../components/EmptyState.vue';
@@ -16,12 +16,69 @@ const {
   selectedWorkspace,
   enabledUpdatingIds,
   errorMessage,
+  scanWarnings,
+  scanStatus,
+  managedProcesses,
+  loadProcessSummary,
   ensureDashboardLoaded,
   rescanSelectedWorkspace,
   toggleProjectEnabled,
 } = dashboardStore;
 
 const manualRefreshing = ref(false);
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+let disposed = false;
+let schedulerVersion = 0;
+
+function stopScheduler(): void {
+  schedulerVersion += 1;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = undefined;
+}
+
+function visible(): boolean {
+  return (
+    typeof document === 'undefined' || document.visibilityState === 'visible'
+  );
+}
+
+function scheduleProcesses(): void {
+  stopScheduler();
+  if (disposed || !visible() || !selectedWorkspaceId.value) return;
+  const version = schedulerVersion;
+  const transitioning = managedProcesses.value.some(
+    (process) => process.status === 'starting' || process.status === 'stopping',
+  );
+  refreshTimer = setTimeout(
+    async () => {
+      if (version !== schedulerVersion || disposed || !visible()) return;
+      await loadProcessSummary();
+      if (version === schedulerVersion) scheduleProcesses();
+    },
+    transitioning ? 2_000 : 15_000,
+  );
+}
+
+function handleVisibility(): void {
+  if (visible()) {
+    void loadProcessSummary().then(scheduleProcesses);
+  } else stopScheduler();
+}
+
+watch(selectedWorkspaceId, () => {
+  // A troca já faz a leitura no store; apenas reinicia o scheduler.
+  scheduleProcesses();
+});
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibility);
+  scheduleProcesses();
+});
+onBeforeUnmount(() => {
+  disposed = true;
+  stopScheduler();
+  document.removeEventListener('visibilitychange', handleVisibility);
+});
 
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
@@ -39,9 +96,11 @@ async function refreshWorkspace(): Promise<void> {
 
   manualRefreshing.value = true;
   try {
+    stopScheduler();
     await rescanSelectedWorkspace();
   } finally {
     manualRefreshing.value = false;
+    scheduleProcesses();
   }
 }
 </script>
@@ -71,6 +130,22 @@ async function refreshWorkspace(): Promise<void> {
     <main class="dashboard-primary" aria-label="Navegação dos projetos">
       <h2 id="projects-title" class="sr-only">Projetos</h2>
 
+      <div
+        v-if="scanStatus === 'warnings' && scanWarnings.length"
+        class="dashboard-scan-warning"
+        role="status"
+      >
+        Descoberta parcial: {{ scanWarnings.length }} aviso(s) no scan do
+        workspace.
+        <details>
+          <summary>Ver avisos</summary>
+          <ul>
+            <li v-for="(warning, index) in scanWarnings" :key="index">
+              {{ warning.path }}: {{ warning.message }}
+            </li>
+          </ul>
+        </details>
+      </div>
       <div class="dashboard-project-columns" aria-hidden="true">
         <span>Projeto</span>
         <span>Status</span>
@@ -192,6 +267,19 @@ async function refreshWorkspace(): Promise<void> {
 
 .dashboard-refresh-button.is-busy svg {
   animation: dashboard-spin 800ms linear infinite;
+}
+
+.dashboard-scan-warning {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+.dashboard-scan-warning summary {
+  cursor: pointer;
 }
 
 .dashboard-primary {

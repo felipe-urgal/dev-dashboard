@@ -256,3 +256,98 @@ test('dashboard store preserva o dashboard quando o resumo de processos falha', 
   assert.equal(store.errorMessage.value, '');
   assert.equal(store.processSummaryError.value, 'Processos indisponíveis');
 });
+
+test('dashboard mantém warnings e limpa aviso após scan saudável', async () => {
+  let scans = 0;
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace],
+      scanWorkspace: async () => ({
+        ...scanResult([project]),
+        warnings:
+          ++scans === 1
+            ? [
+                {
+                  path: '/tmp/broken',
+                  code: 'READ_ERROR',
+                  message: 'Sem acesso',
+                },
+              ]
+            : [],
+      }),
+    }),
+  );
+  await store.ensureDashboardLoaded();
+  assert.equal(store.scanStatus.value, 'warnings');
+  assert.equal(store.scanWarnings.value.length, 1);
+  assert.equal(store.projects.value.length, 1);
+  await store.rescanSelectedWorkspace();
+  assert.equal(store.scanStatus.value, 'complete');
+  assert.deepEqual(store.scanWarnings.value, []);
+});
+
+test('dashboard ignora scan antigo após trocar de workspace', async () => {
+  const other = { ...workspace, id: 'workspace-2', name: 'Outro' };
+  let resolveOld!: (value: ReturnType<typeof scanResult>) => void;
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace, other],
+      scanWorkspace: async (id) =>
+        id === workspace.id
+          ? new Promise((resolve) => {
+              resolveOld = resolve;
+            })
+          : { ...scanResult([]), workspaceId: id, workspacePath: other.path },
+    }),
+  );
+  const initial = store.ensureDashboardLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const switching = store.switchWorkspace(other.id);
+  resolveOld(scanResult([project]));
+  await Promise.all([initial, switching]);
+  assert.equal(store.selectedWorkspaceId.value, other.id);
+  assert.deepEqual(store.projects.value, []);
+  assert.equal(store.scanStatus.value, 'complete');
+});
+
+test('dashboard usa apenas servidor do contexto global e estado compartilhado', async () => {
+  const processes: ManagedProcess[] = [
+    {
+      id: 'environment',
+      projectId: project.id,
+      workspaceId: workspace.id,
+      environmentInstanceId: 'deploy-1',
+      kind: 'server',
+      status: 'running',
+      port: 4000,
+    },
+    {
+      id: 'global',
+      projectId: project.id,
+      workspaceId: workspace.id,
+      kind: 'server',
+      status: 'running',
+      port: 3000,
+    },
+  ];
+  let calls = 0;
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace],
+      scanWorkspace: async () => scanResult([project]),
+      fetchManagedProcesses: async () => {
+        calls++;
+        return processes;
+      },
+    }),
+  );
+  await store.ensureDashboardLoaded();
+  assert.equal(calls, 1);
+  assert.equal(store.getCardProcess(project.id)?.port, 3000);
+  assert.equal(
+    store.managedProcessesByContext.value[
+      JSON.stringify([project.id, 'deploy-1'])
+    ]?.length,
+    1,
+  );
+});

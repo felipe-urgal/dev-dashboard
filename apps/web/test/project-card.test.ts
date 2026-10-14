@@ -3,6 +3,25 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+vi.mock('../src/stores/dashboard', async () => {
+  const { ref } = await import('vue');
+  return {
+    dashboardStore: {
+      processReadComplete: ref(true),
+      getCardProcess: (projectId: string) =>
+        projectId === 'p1'
+          ? {
+              id: 'process-p1',
+              projectId,
+              kind: 'server',
+              status: 'running',
+              port: 3003,
+            }
+          : null,
+    },
+  };
+});
+
 vi.mock('../src/api', () => ({
   fetchProjectProcess: vi.fn().mockResolvedValue({
     id: 'process-p1',
