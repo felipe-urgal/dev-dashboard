@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowPathIcon,
@@ -13,19 +13,74 @@ import type {
   ActivitySnapshot,
 } from '@dev-dashboard/contracts';
 
-import { cancelAgentTask } from '../api/agent-runtime';
 import { fetchActivity } from '../api/activity';
-import { cancelDevContainerLifecycleExecution } from '../api/dev-container';
-import { cancelDeployment } from '../api/deployments';
 import EmptyState from '../components/EmptyState.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import type { StatusBadgeTone } from '../components/status-badge-types';
 import { dashboardStore } from '../stores/dashboard';
+import {
+  resolveActivityResource,
+  canCancelActivityJob,
+  cancelActivityJob,
+} from '../utils/activity-resources';
 
 const snapshot = ref<ActivitySnapshot | null>(null);
 const loading = ref(false);
 const cancellingJobId = ref('');
 const errorMessage = ref('');
+const projectFilter = ref('');
+const domainFilter = ref('');
+const statusFilter = ref('');
+const jobsProjectFilter = ref('');
+const jobsDomainFilter = ref('');
+let timer: ReturnType<typeof setTimeout> | undefined;
+let disposed = false;
+let generation = 0;
+let controller: AbortController | undefined;
+const active = computed(() =>
+  (snapshot.value?.jobs ?? []).some(
+    (job) => job.status === 'running' || job.status === 'queued',
+  ),
+);
+const projectChoices = computed(() =>
+  [
+    ...new Set([
+      ...(snapshot.value?.jobs ?? []).map((x) => x.projectId),
+      ...(snapshot.value?.events ?? []).map((x) => x.projectId),
+    ]),
+  ].sort(),
+);
+const domainChoices = computed(() =>
+  [
+    ...new Set([
+      ...(snapshot.value?.jobs ?? []).map((x) => x.domain),
+      ...(snapshot.value?.events ?? []).map((x) => x.domain),
+    ]),
+  ].sort(),
+);
+function visible(): boolean {
+  return document.visibilityState === 'visible';
+}
+function stopTimer(): void {
+  if (timer) clearTimeout(timer);
+  timer = undefined;
+}
+function schedule(): void {
+  stopTimer();
+  if (disposed || !visible()) return;
+  timer = setTimeout(
+    () => {
+      void load();
+    },
+    active.value ? 3000 : 30000,
+  );
+}
+function visibilityChanged(): void {
+  if (!visible()) {
+    stopTimer();
+    controller?.abort();
+  } else void load();
+}
 
 const projectNameById = computed(
   () =>
@@ -37,8 +92,21 @@ const projectNameById = computed(
     ),
 );
 
-const jobs = computed(() => snapshot.value?.jobs ?? []);
-const events = computed(() => snapshot.value?.events ?? []);
+const jobs = computed(() =>
+  (snapshot.value?.jobs ?? []).filter(
+    (x) =>
+      (!jobsProjectFilter.value || x.projectId === jobsProjectFilter.value) &&
+      (!jobsDomainFilter.value || x.domain === jobsDomainFilter.value),
+  ),
+);
+const events = computed(() =>
+  (snapshot.value?.events ?? []).filter(
+    (x) =>
+      (!projectFilter.value || x.projectId === projectFilter.value) &&
+      (!domainFilter.value || x.domain === domainFilter.value) &&
+      (!statusFilter.value || x.status === statusFilter.value),
+  ),
+);
 
 function projectName(projectId: string): string {
   return projectNameById.value.get(projectId) ?? projectId;
@@ -85,109 +153,66 @@ function formatTime(value?: string): string {
   }).format(new Date(value));
 }
 
-function agentTaskId(job: ActivityJob): string | undefined {
-  return job.domain === 'agent' && job.resourceRef?.kind === 'agent-task'
-    ? job.resourceRef.id
-    : undefined;
-}
-
-function isDevContainerJob(job: ActivityJob): boolean {
-  return job.resourceRef?.kind === 'dev-container-lifecycle';
-}
-
-function isDeploymentJob(job: ActivityJob): boolean {
-  return job.domain === 'deployment' && job.resourceRef?.kind === 'deployment';
-}
-
 async function load(): Promise<void> {
+  if (loading.value) return;
+  const request = ++generation;
+  const pending = new AbortController();
+  controller = pending;
   loading.value = true;
   errorMessage.value = '';
   try {
-    snapshot.value = await fetchActivity(100);
+    const next = await fetchActivity(100, pending.signal);
+    if (request === generation && !disposed && !pending.signal.aborted) {
+      snapshot.value = {
+        ...next,
+        jobs: [...new Map(next.jobs.map((job) => [job.id, job])).values()],
+        events: [
+          ...new Map(next.events.map((event) => [event.id, event])).values(),
+        ],
+      };
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar a atividade.';
+    if (request === generation && !disposed && !pending.signal.aborted)
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar a atividade.';
   } finally {
-    loading.value = false;
+    if (request === generation) {
+      loading.value = false;
+      controller = undefined;
+      schedule();
+    }
   }
 }
 
-async function cancelAgentJob(job: ActivityJob): Promise<void> {
-  const taskId = agentTaskId(job);
-  if (!taskId || !job.cancelSupported || cancellingJobId.value) return;
-
+async function cancelJob(job: ActivityJob): Promise<void> {
+  if (!canCancelActivityJob(job) || cancellingJobId.value) return;
   cancellingJobId.value = job.id;
   errorMessage.value = '';
   try {
-    await cancelAgentTask(job.projectId, taskId);
+    await cancelActivityJob(job);
     await load();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível cancelar a execução do Agente.';
-  } finally {
-    cancellingJobId.value = '';
-  }
-}
-
-async function cancelDeploymentJob(job: ActivityJob): Promise<void> {
-  if (
-    !isDeploymentJob(job) ||
-    !job.cancelSupported ||
-    !job.resourceRef?.id ||
-    cancellingJobId.value
-  ) {
-    return;
-  }
-
-  cancellingJobId.value = job.id;
-  errorMessage.value = '';
-  try {
-    await cancelDeployment(job.projectId, job.resourceRef.id);
-    await load();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível cancelar o deployment.';
-  } finally {
-    cancellingJobId.value = '';
-  }
-}
-
-async function cancelDevContainerJob(job: ActivityJob): Promise<void> {
-  if (
-    !isDevContainerJob(job) ||
-    !job.cancelSupported ||
-    !job.environmentInstanceId ||
-    cancellingJobId.value
-  ) {
-    return;
-  }
-
-  cancellingJobId.value = job.id;
-  errorMessage.value = '';
-  try {
-    await cancelDevContainerLifecycleExecution(
-      job.projectId,
-      job.environmentInstanceId,
-    );
-    await load();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível cancelar a operação do Dev Container.';
+        : 'Não foi possível cancelar o job.';
   } finally {
     cancellingJobId.value = '';
   }
 }
 
 onMounted(() => {
+  document.addEventListener('visibilitychange', visibilityChanged);
   void load();
+});
+onBeforeUnmount(() => {
+  disposed = true;
+  generation++;
+  stopTimer();
+  controller?.abort();
+  document.removeEventListener('visibilitychange', visibilityChanged);
 });
 </script>
 
@@ -198,6 +223,9 @@ onMounted(() => {
         <span>Operações locais</span>
         <h1>Atividade</h1>
         <p>O que está rodando agora e o que aconteceu recentemente.</p>
+        <small v-if="snapshot"
+          >Atualizado em {{ formatTime(snapshot.generatedAt) }}</small
+        >
       </div>
       <button
         class="secondary-button activity-center-refresh"
@@ -236,6 +264,30 @@ onMounted(() => {
           <strong>{{ jobs.length }}</strong>
         </div>
 
+        <div v-if="(snapshot?.jobs.length ?? 0) > 5" class="activity-filters">
+          <label
+            >Projeto
+            <select v-model="jobsProjectFilter">
+              <option value="">Todos</option>
+              <option v-for="id in projectChoices" :key="id" :value="id">
+                {{ projectName(id) }}
+              </option>
+            </select></label
+          >
+          <label
+            >Domínio
+            <select v-model="jobsDomainFilter">
+              <option value="">Todos</option>
+              <option
+                v-for="domain in domainChoices"
+                :key="domain"
+                :value="domain"
+              >
+                {{ domain }}
+              </option>
+            </select></label
+          >
+        </div>
         <EmptyState
           v-if="jobs.length === 0"
           class="activity-center-empty"
@@ -281,73 +333,20 @@ onMounted(() => {
 
             <div class="activity-job-actions">
               <RouterLink
-                v-if="agentTaskId(job)"
+                v-if="resolveActivityResource(job).to"
                 class="secondary-button link-button"
-                :to="{
-                  name: 'project-agent',
-                  params: { projectId: job.projectId },
-                  query: { taskId: agentTaskId(job) },
-                }"
+                :to="resolveActivityResource(job).to!"
+                >{{ resolveActivityResource(job).label }}</RouterLink
               >
-                Abrir Agente
-              </RouterLink>
-              <RouterLink
-                v-else-if="isDevContainerJob(job)"
-                class="secondary-button link-button"
-                :to="{
-                  name: 'project-dev-container',
-                  params: { projectId: job.projectId },
-                  query: job.environmentInstanceId
-                    ? { environmentInstanceId: job.environmentInstanceId }
-                    : {},
-                }"
-              >
-                Abrir Dev Container
-              </RouterLink>
-              <RouterLink
-                v-else-if="isDeploymentJob(job)"
-                class="secondary-button link-button"
-                :to="{
-                  name: 'project-production',
-                  params: { projectId: job.projectId },
-                }"
-              >
-                Abrir Produção
-              </RouterLink>
-              <RouterLink
-                v-else
-                class="secondary-button link-button"
-                :to="{
-                  name: 'project-details',
-                  params: { projectId: job.projectId },
-                }"
-              >
-                Abrir projeto
-              </RouterLink>
+              <span v-else class="activity-resource-unavailable">{{
+                resolveActivityResource(job).label
+              }}</span>
               <button
-                v-if="job.domain === 'agent' && job.cancelSupported"
+                v-if="canCancelActivityJob(job)"
                 class="secondary-button"
                 type="button"
                 :disabled="Boolean(cancellingJobId)"
-                @click="cancelAgentJob(job)"
-              >
-                {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
-              </button>
-              <button
-                v-if="isDevContainerJob(job) && job.cancelSupported"
-                class="secondary-button"
-                type="button"
-                :disabled="Boolean(cancellingJobId)"
-                @click="cancelDevContainerJob(job)"
-              >
-                {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
-              </button>
-              <button
-                v-if="isDeploymentJob(job) && job.cancelSupported"
-                class="secondary-button"
-                type="button"
-                :disabled="Boolean(cancellingJobId)"
-                @click="cancelDeploymentJob(job)"
+                @click="cancelJob(job)"
               >
                 {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
               </button>
@@ -355,7 +354,6 @@ onMounted(() => {
           </article>
         </div>
       </section>
-
       <section class="activity-center-section" aria-labelledby="timeline-title">
         <div class="activity-center-section-heading">
           <div>
@@ -364,7 +362,49 @@ onMounted(() => {
           </div>
           <strong>{{ events.length }}</strong>
         </div>
-
+        <div class="activity-filters">
+          <label
+            >Projeto
+            <select v-model="projectFilter">
+              <option value="">Todos</option>
+              <option v-for="id in projectChoices" :key="id" :value="id">
+                {{ projectName(id) }}
+              </option>
+            </select></label
+          >
+          <label
+            >Domínio
+            <select v-model="domainFilter">
+              <option value="">Todos</option>
+              <option
+                v-for="domain in domainChoices"
+                :key="domain"
+                :value="domain"
+              >
+                {{ domain }}
+              </option>
+            </select></label
+          >
+          <label
+            >Status
+            <select v-model="statusFilter">
+              <option value="">Todos</option>
+              <option
+                v-for="status in [
+                  'started',
+                  'succeeded',
+                  'failed',
+                  'cancelled',
+                  'warning',
+                ]"
+                :key="status"
+                :value="status"
+              >
+                {{ status }}
+              </option>
+            </select></label
+          >
+        </div>
         <EmptyState
           v-if="events.length === 0"
           class="activity-center-empty"
@@ -372,41 +412,23 @@ onMounted(() => {
           title="Sem atividade recente"
           description="Eventos normalizados aparecerão aqui."
         />
-
         <ol v-else class="activity-event-list">
           <li v-for="event in events" :key="event.id">
             <div>
               <strong>{{ projectName(event.projectId) }}</strong>
-              <StatusBadge :tone="eventTone(event)">
-                {{ eventStatus(event) }}
-              </StatusBadge>
+              <StatusBadge :tone="eventTone(event)">{{
+                eventStatus(event)
+              }}</StatusBadge>
             </div>
             <p>{{ event.summary }}</p>
             <small
               >{{ event.domain }} · {{ formatTime(event.occurredAt) }}</small
             >
             <RouterLink
-              v-if="
-                event.domain === 'agent' &&
-                event.resourceRef?.kind === 'agent-task'
-              "
-              :to="{
-                name: 'project-agent',
-                params: { projectId: event.projectId },
-                query: { taskId: event.resourceRef.id },
-              }"
+              v-if="resolveActivityResource(event).to"
+              :to="resolveActivityResource(event).to!"
+              >{{ resolveActivityResource(event).label }}</RouterLink
             >
-              Abrir task
-            </RouterLink>
-            <RouterLink
-              v-if="
-                event.domain === 'stack' &&
-                event.resourceRef?.kind === 'stack-node'
-              "
-              :to="{ name: 'stacks' }"
-            >
-              Abrir Stacks
-            </RouterLink>
           </li>
         </ol>
       </section>
@@ -415,6 +437,30 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.activity-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.activity-filters select {
+  max-width: 210px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-1);
+}
+.activity-resource-unavailable {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 .activity-center-page {
   display: grid;
   gap: 18px;

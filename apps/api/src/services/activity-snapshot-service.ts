@@ -85,6 +85,27 @@ async function capture<T>(operation: () => Promise<T>): Promise<Captured<T>> {
   }
 }
 
+// Canonical operational identity wins over reader-specific event IDs.
+function uniqueEvents(events: ActivityEvent[]): ActivityEvent[] {
+  const seen = new Set<string>();
+  return events.filter((event) => {
+    const key = event.resourceRef?.id
+      ? JSON.stringify([
+          event.projectId,
+          event.environmentInstanceId ?? '',
+          event.domain,
+          event.type,
+          event.resourceRef.kind,
+          event.resourceRef.id,
+          event.status ?? '',
+        ])
+      : event.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function compactSummary(value: string): string {
   return value.split(/\s+/u).filter(Boolean).join(' ').slice(0, 240);
 }
@@ -299,15 +320,28 @@ export class ActivitySnapshotService {
         pushUnavailable(unavailableDomains, domain, true);
     }
 
-    const events = snapshots
-      .flatMap((snapshot) => snapshot.events)
+    const events = uniqueEvents(
+      snapshots.flatMap((snapshot) => snapshot.events),
+    )
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
       .slice(0, limit);
-    const jobs = snapshots
-      .flatMap((snapshot) => snapshot.jobs)
-      .sort((left, right) =>
-        (right.startedAt ?? '').localeCompare(left.startedAt ?? ''),
-      );
+    const jobs = [
+      ...new Map(
+        snapshots
+          .flatMap((snapshot) => snapshot.jobs)
+          .map((job) => [
+            JSON.stringify([
+              job.projectId,
+              job.environmentInstanceId ?? '',
+              job.resourceRef?.kind ?? '',
+              job.resourceRef?.id ?? job.id,
+            ]),
+            job,
+          ]),
+      ).values(),
+    ].sort((left, right) =>
+      (right.startedAt ?? '').localeCompare(left.startedAt ?? ''),
+    );
 
     return {
       generatedAt: this.now().toISOString(),
@@ -375,12 +409,12 @@ export class ActivitySnapshotService {
     pushUnavailable(unavailableDomains, 'process', processes.failed);
     pushUnavailable(unavailableDomains, 'agent', agentJobs.failed);
 
-    const events: ActivityEvent[] = [
+    const events: ActivityEvent[] = uniqueEvents([
       ...this.dependencies.eventStore.list({ projectId, limit }),
       ...(git.value?.events.map(gitEvent) ?? []),
       ...(tests.value?.items.map(testEvent) ?? []),
       ...(scripts.value?.items.map(scriptEvent) ?? []),
-    ]
+    ])
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
       .slice(0, limit);
 
