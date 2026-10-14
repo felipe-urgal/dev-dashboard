@@ -253,7 +253,35 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="activity-job-actions">
-              <RouterLink v-if="resolveActivityResource(event).to" :to="resolveActivityResource(event).to!">{{ resolveActivityResource(event).label }}</RouterLink>
+              <RouterLink v-if="resolveActivityResource(job).to" class="secondary-button link-button" :to="resolveActivityResource(job).to!">{{ resolveActivityResource(job).label }}</RouterLink>
+              <span v-else class="activity-resource-unavailable">{{ resolveActivityResource(job).label }}</span>
+              <button v-if="canCancelActivityJob(job)" class="secondary-button" type="button" :disabled="Boolean(cancellingJobId)" @click="cancelJob(job)">
+                {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+      <section class="activity-center-section" aria-labelledby="timeline-title">
+        <div class="activity-center-section-heading">
+          <div><span>Timeline</span><h2 id="timeline-title">Atividade recente</h2></div>
+          <strong>{{ events.length }}</strong>
+        </div>
+        <div class="activity-filters">
+          <label>Projeto <select v-model="projectFilter"><option value="">Todos</option><option v-for="id in projectChoices" :key="id" :value="id">{{ projectName(id) }}</option></select></label>
+          <label>Domínio <select v-model="domainFilter"><option value="">Todos</option><option v-for="domain in domainChoices" :key="domain" :value="domain">{{ domain }}</option></select></label>
+          <label>Status <select v-model="statusFilter"><option value="">Todos</option><option v-for="status in ['started', 'succeeded', 'failed', 'cancelled', 'warning']" :key="status" :value="status">{{ status }}</option></select></label>
+        </div>
+        <EmptyState v-if="events.length === 0" class="activity-center-empty" icon="◇" title="Sem atividade recente" description="Eventos normalizados aparecerão aqui." />
+        <ol v-else class="activity-event-list">
+          <li v-for="event in events" :key="event.id">
+            <div>
+              <strong>{{ projectName(event.projectId) }}</strong>
+              <StatusBadge :tone="eventTone(event)">{{ eventStatus(event) }}</StatusBadge>
+            </div>
+            <p>{{ event.summary }}</p>
+            <small>{{ event.domain }} · {{ formatTime(event.occurredAt) }}</small>
+            <RouterLink v-if="resolveActivityResource(event).to" :to="resolveActivityResource(event).to!">{{ resolveActivityResource(event).label }}</RouterLink>
           </li>
         </ol>
       </section>
