@@ -6,13 +6,24 @@ const cancelDeployment = vi.hoisted(() => vi.fn());
 const cancelDevContainerLifecycleExecution = vi.hoisted(() => vi.fn());
 vi.mock('../src/api/agent-runtime', () => ({ cancelAgentTask }));
 vi.mock('../src/api/deployments', () => ({ cancelDeployment }));
-vi.mock('../src/api/dev-container', () => ({ cancelDevContainerLifecycleExecution }));
-import { canCancelActivityJob, cancelActivityJob, resolveActivityResource } from '../src/utils/activity-resources';
+vi.mock('../src/api/dev-container', () => ({
+  cancelDevContainerLifecycleExecution,
+}));
+import {
+  canCancelActivityJob,
+  cancelActivityJob,
+  resolveActivityResource,
+} from '../src/utils/activity-resources';
 
 const makeJob = (kind: string, cancelSupported = true): ActivityJob => ({
-  id: 'job-1', projectId: 'project-1', domain: 'agent', action: 'run',
-  status: 'running', resourceRef: { kind, id: 'resource-1' },
-  environmentInstanceId: 'environment-1', cancelSupported,
+  id: 'job-1',
+  projectId: 'project-1',
+  domain: 'agent',
+  action: 'run',
+  status: 'running',
+  resourceRef: { kind, id: 'resource-1' },
+  environmentInstanceId: 'environment-1',
+  cancelSupported,
 });
 
 describe('Activity resource registry', () => {
@@ -32,7 +43,9 @@ describe('Activity resource registry', () => {
   });
   it('does not silently navigate an unknown kind', () => {
     expect(resolveActivityResource(makeJob('future-kind'))).toEqual({
-      known: false, label: 'Recurso desconhecido', to: null,
+      known: false,
+      label: 'Recurso desconhecido',
+      to: null,
     });
   });
   it('never allows cancellation when cancelSupported is false', () => {
@@ -48,6 +61,9 @@ describe('Activity resource registry', () => {
     await cancelActivityJob(makeJob('dev-container-lifecycle'));
     expect(cancelAgentTask).toHaveBeenCalledWith('project-1', 'resource-1');
     expect(cancelDeployment).toHaveBeenCalledWith('project-1', 'resource-1');
-    expect(cancelDevContainerLifecycleExecution).toHaveBeenCalledWith('project-1', 'environment-1');
+    expect(cancelDevContainerLifecycleExecution).toHaveBeenCalledWith(
+      'project-1',
+      'environment-1',
+    );
   });
 });

@@ -18,7 +18,11 @@ import EmptyState from '../components/EmptyState.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import type { StatusBadgeTone } from '../components/status-badge-types';
 import { dashboardStore } from '../stores/dashboard';
-import { resolveActivityResource, canCancelActivityJob, cancelActivityJob } from '../utils/activity-resources';
+import {
+  resolveActivityResource,
+  canCancelActivityJob,
+  cancelActivityJob,
+} from '../utils/activity-resources';
 
 const snapshot = ref<ActivitySnapshot | null>(null);
 const loading = ref(false);
@@ -33,19 +37,49 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let generation = 0;
 let controller: AbortController | undefined;
-const active = computed(() => (snapshot.value?.jobs ?? []).some(job => job.status === 'running' || job.status === 'queued'));
-const projectChoices = computed(() => [...new Set([...(snapshot.value?.jobs ?? []).map(x => x.projectId), ...(snapshot.value?.events ?? []).map(x => x.projectId)])].sort());
-const domainChoices = computed(() => [...new Set([...(snapshot.value?.jobs ?? []).map(x => x.domain), ...(snapshot.value?.events ?? []).map(x => x.domain)])].sort());
-function visible(): boolean { return document.visibilityState === 'visible'; }
-function stopTimer(): void { if (timer) clearTimeout(timer); timer = undefined; }
+const active = computed(() =>
+  (snapshot.value?.jobs ?? []).some(
+    (job) => job.status === 'running' || job.status === 'queued',
+  ),
+);
+const projectChoices = computed(() =>
+  [
+    ...new Set([
+      ...(snapshot.value?.jobs ?? []).map((x) => x.projectId),
+      ...(snapshot.value?.events ?? []).map((x) => x.projectId),
+    ]),
+  ].sort(),
+);
+const domainChoices = computed(() =>
+  [
+    ...new Set([
+      ...(snapshot.value?.jobs ?? []).map((x) => x.domain),
+      ...(snapshot.value?.events ?? []).map((x) => x.domain),
+    ]),
+  ].sort(),
+);
+function visible(): boolean {
+  return document.visibilityState === 'visible';
+}
+function stopTimer(): void {
+  if (timer) clearTimeout(timer);
+  timer = undefined;
+}
 function schedule(): void {
   stopTimer();
   if (disposed || !visible()) return;
-  timer = setTimeout(() => { void load(); }, active.value ? 3000 : 30000);
+  timer = setTimeout(
+    () => {
+      void load();
+    },
+    active.value ? 3000 : 30000,
+  );
 }
 function visibilityChanged(): void {
-  if (!visible()) { stopTimer(); controller?.abort(); }
-  else void load();
+  if (!visible()) {
+    stopTimer();
+    controller?.abort();
+  } else void load();
 }
 
 const projectNameById = computed(
@@ -58,8 +92,21 @@ const projectNameById = computed(
     ),
 );
 
-const jobs = computed(() => (snapshot.value?.jobs ?? []).filter(x => (!jobsProjectFilter.value || x.projectId === jobsProjectFilter.value) && (!jobsDomainFilter.value || x.domain === jobsDomainFilter.value)));
-const events = computed(() => (snapshot.value?.events ?? []).filter(x => (!projectFilter.value || x.projectId === projectFilter.value) && (!domainFilter.value || x.domain === domainFilter.value) && (!statusFilter.value || x.status === statusFilter.value)));
+const jobs = computed(() =>
+  (snapshot.value?.jobs ?? []).filter(
+    (x) =>
+      (!jobsProjectFilter.value || x.projectId === jobsProjectFilter.value) &&
+      (!jobsDomainFilter.value || x.domain === jobsDomainFilter.value),
+  ),
+);
+const events = computed(() =>
+  (snapshot.value?.events ?? []).filter(
+    (x) =>
+      (!projectFilter.value || x.projectId === projectFilter.value) &&
+      (!domainFilter.value || x.domain === domainFilter.value) &&
+      (!statusFilter.value || x.status === statusFilter.value),
+  ),
+);
 
 function projectName(projectId: string): string {
   return projectNameById.value.get(projectId) ?? projectId;
@@ -118,13 +165,18 @@ async function load(): Promise<void> {
     if (request === generation && !disposed && !pending.signal.aborted) {
       snapshot.value = {
         ...next,
-        jobs: [...new Map(next.jobs.map(job => [job.id, job])).values()],
-        events: [...new Map(next.events.map(event => [event.id, event])).values()],
+        jobs: [...new Map(next.jobs.map((job) => [job.id, job])).values()],
+        events: [
+          ...new Map(next.events.map((event) => [event.id, event])).values(),
+        ],
       };
     }
   } catch (error) {
     if (request === generation && !disposed && !pending.signal.aborted)
-      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar a atividade.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar a atividade.';
   } finally {
     if (request === generation) {
       loading.value = false;
@@ -142,8 +194,13 @@ async function cancelJob(job: ActivityJob): Promise<void> {
     await cancelActivityJob(job);
     await load();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível cancelar o job.';
-  } finally { cancellingJobId.value = ''; }
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível cancelar o job.';
+  } finally {
+    cancellingJobId.value = '';
+  }
 }
 
 onMounted(() => {
@@ -166,7 +223,9 @@ onBeforeUnmount(() => {
         <span>Operações locais</span>
         <h1>Atividade</h1>
         <p>O que está rodando agora e o que aconteceu recentemente.</p>
-        <small v-if="snapshot">Atualizado em {{ formatTime(snapshot.generatedAt) }}</small>
+        <small v-if="snapshot"
+          >Atualizado em {{ formatTime(snapshot.generatedAt) }}</small
+        >
       </div>
       <button
         class="secondary-button activity-center-refresh"
@@ -206,8 +265,28 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="(snapshot?.jobs.length ?? 0) > 5" class="activity-filters">
-          <label>Projeto <select v-model="jobsProjectFilter"><option value="">Todos</option><option v-for="id in projectChoices" :key="id" :value="id">{{ projectName(id) }}</option></select></label>
-          <label>Domínio <select v-model="jobsDomainFilter"><option value="">Todos</option><option v-for="domain in domainChoices" :key="domain" :value="domain">{{ domain }}</option></select></label>
+          <label
+            >Projeto
+            <select v-model="jobsProjectFilter">
+              <option value="">Todos</option>
+              <option v-for="id in projectChoices" :key="id" :value="id">
+                {{ projectName(id) }}
+              </option>
+            </select></label
+          >
+          <label
+            >Domínio
+            <select v-model="jobsDomainFilter">
+              <option value="">Todos</option>
+              <option
+                v-for="domain in domainChoices"
+                :key="domain"
+                :value="domain"
+              >
+                {{ domain }}
+              </option>
+            </select></label
+          >
         </div>
         <EmptyState
           v-if="jobs.length === 0"
@@ -253,9 +332,22 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="activity-job-actions">
-              <RouterLink v-if="resolveActivityResource(job).to" class="secondary-button link-button" :to="resolveActivityResource(job).to!">{{ resolveActivityResource(job).label }}</RouterLink>
-              <span v-else class="activity-resource-unavailable">{{ resolveActivityResource(job).label }}</span>
-              <button v-if="canCancelActivityJob(job)" class="secondary-button" type="button" :disabled="Boolean(cancellingJobId)" @click="cancelJob(job)">
+              <RouterLink
+                v-if="resolveActivityResource(job).to"
+                class="secondary-button link-button"
+                :to="resolveActivityResource(job).to!"
+                >{{ resolveActivityResource(job).label }}</RouterLink
+              >
+              <span v-else class="activity-resource-unavailable">{{
+                resolveActivityResource(job).label
+              }}</span>
+              <button
+                v-if="canCancelActivityJob(job)"
+                class="secondary-button"
+                type="button"
+                :disabled="Boolean(cancellingJobId)"
+                @click="cancelJob(job)"
+              >
                 {{ cancellingJobId === job.id ? 'Cancelando…' : 'Cancelar' }}
               </button>
             </div>
@@ -264,24 +356,79 @@ onBeforeUnmount(() => {
       </section>
       <section class="activity-center-section" aria-labelledby="timeline-title">
         <div class="activity-center-section-heading">
-          <div><span>Timeline</span><h2 id="timeline-title">Atividade recente</h2></div>
+          <div>
+            <span>Timeline</span>
+            <h2 id="timeline-title">Atividade recente</h2>
+          </div>
           <strong>{{ events.length }}</strong>
         </div>
         <div class="activity-filters">
-          <label>Projeto <select v-model="projectFilter"><option value="">Todos</option><option v-for="id in projectChoices" :key="id" :value="id">{{ projectName(id) }}</option></select></label>
-          <label>Domínio <select v-model="domainFilter"><option value="">Todos</option><option v-for="domain in domainChoices" :key="domain" :value="domain">{{ domain }}</option></select></label>
-          <label>Status <select v-model="statusFilter"><option value="">Todos</option><option v-for="status in ['started', 'succeeded', 'failed', 'cancelled', 'warning']" :key="status" :value="status">{{ status }}</option></select></label>
+          <label
+            >Projeto
+            <select v-model="projectFilter">
+              <option value="">Todos</option>
+              <option v-for="id in projectChoices" :key="id" :value="id">
+                {{ projectName(id) }}
+              </option>
+            </select></label
+          >
+          <label
+            >Domínio
+            <select v-model="domainFilter">
+              <option value="">Todos</option>
+              <option
+                v-for="domain in domainChoices"
+                :key="domain"
+                :value="domain"
+              >
+                {{ domain }}
+              </option>
+            </select></label
+          >
+          <label
+            >Status
+            <select v-model="statusFilter">
+              <option value="">Todos</option>
+              <option
+                v-for="status in [
+                  'started',
+                  'succeeded',
+                  'failed',
+                  'cancelled',
+                  'warning',
+                ]"
+                :key="status"
+                :value="status"
+              >
+                {{ status }}
+              </option>
+            </select></label
+          >
         </div>
-        <EmptyState v-if="events.length === 0" class="activity-center-empty" icon="◇" title="Sem atividade recente" description="Eventos normalizados aparecerão aqui." />
+        <EmptyState
+          v-if="events.length === 0"
+          class="activity-center-empty"
+          icon="◇"
+          title="Sem atividade recente"
+          description="Eventos normalizados aparecerão aqui."
+        />
         <ol v-else class="activity-event-list">
           <li v-for="event in events" :key="event.id">
             <div>
               <strong>{{ projectName(event.projectId) }}</strong>
-              <StatusBadge :tone="eventTone(event)">{{ eventStatus(event) }}</StatusBadge>
+              <StatusBadge :tone="eventTone(event)">{{
+                eventStatus(event)
+              }}</StatusBadge>
             </div>
             <p>{{ event.summary }}</p>
-            <small>{{ event.domain }} · {{ formatTime(event.occurredAt) }}</small>
-            <RouterLink v-if="resolveActivityResource(event).to" :to="resolveActivityResource(event).to!">{{ resolveActivityResource(event).label }}</RouterLink>
+            <small
+              >{{ event.domain }} · {{ formatTime(event.occurredAt) }}</small
+            >
+            <RouterLink
+              v-if="resolveActivityResource(event).to"
+              :to="resolveActivityResource(event).to!"
+              >{{ resolveActivityResource(event).label }}</RouterLink
+            >
           </li>
         </ol>
       </section>
@@ -290,10 +437,30 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.activity-filters { display: flex; flex-wrap: wrap; gap: 10px; }
-.activity-filters label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
-.activity-filters select { max-width: 210px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface-1); }
-.activity-resource-unavailable { font-size: 12px; color: var(--text-muted); }
+.activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.activity-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.activity-filters select {
+  max-width: 210px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-1);
+}
+.activity-resource-unavailable {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 .activity-center-page {
   display: grid;
   gap: 18px;
