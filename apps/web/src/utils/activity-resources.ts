@@ -1,7 +1,6 @@
 import type {
   ActivityEvent,
   ActivityJob,
-  ActivityResourceRef,
 } from '@dev-dashboard/contracts';
 import { cancelAgentTask } from '../api/agent-runtime';
 import { cancelDevContainerLifecycleExecution } from '../api/dev-container';
@@ -53,6 +52,7 @@ const registry: Record<string, ResourceHandler> = {
   'managed-process': {
     label: 'Abrir processos',
     route: (item) => projectRoute('project-server', item),
+    cancel: (job) => stopProjectProcess(job.projectId, job.environmentInstanceId),
   },
   'dev-container-lifecycle': {
     label: 'Abrir Dev Container',
@@ -88,6 +88,7 @@ const registry: Record<string, ResourceHandler> = {
   'local-ci-run': {
     label: 'Abrir CI local',
     route: (item) => projectRoute('project-local-ci', item),
+    cancel: (job) => cancelLocalCiRun(job.projectId, job.resourceRef!.id),
   },
   'git-mutation': {
     label: 'Abrir Git',
@@ -100,6 +101,7 @@ const registry: Record<string, ResourceHandler> = {
   'script-execution': {
     label: 'Abrir projeto',
     route: (item) => projectRoute('project-details', item),
+    cancel: (job) => cancelScriptExecution(job.projectId, job.resourceRef!.id),
   },
 };
 
