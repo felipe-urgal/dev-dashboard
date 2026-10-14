@@ -7,6 +7,7 @@ defineProps<{
   historyOpen: boolean;
   historyCount: number;
   recentQueries: DatabaseQueryHistoryItem[];
+  savedQueries: DatabaseQueryHistoryItem[];
 }>();
 
 const emit = defineEmits<{
@@ -58,13 +59,13 @@ function onQueryInput(event: Event): void {
           class="database-explorer-history-query"
           @click="emit('restore-query', item)"
         >
-          <strong>{{ item.favorite ? '★' : '☆' }}</strong>
+          <strong>{{ savedQueries.some(saved => saved.id === item.id) ? '★' : '☆' }}</strong>
           <code>{{ item.query }}</code>
         </button>
         <button
           type="button"
           :aria-label="
-            item.favorite ? 'Remover favorito' : 'Favoritar consulta'
+            savedQueries.some(saved => saved.id === item.id) ? 'Remover consulta salva' : 'Salvar consulta permanentemente'
           "
           @click="emit('toggle-favorite', item.id)"
         >
@@ -77,6 +78,12 @@ function onQueryInput(event: Event): void {
         >
           ×
         </button>
+      </div>
+      <div class="database-explorer-history-heading"><span>Consultas salvas explicitamente</span></div>
+      <p>Consultas salvas permanecem neste navegador e podem conter dados sensíveis. Salve somente se desejar essa persistência.</p>
+      <div v-for="item in savedQueries" :key="item.id" class="database-explorer-history-item">
+        <button type="button" class="database-explorer-history-query" @click="emit('restore-query', item)"><code>{{ item.query }}</code></button>
+        <button type="button" aria-label="Remover consulta salva" @click="emit('toggle-favorite', item.id)">★</button>
       </div>
     </div>
     <textarea
