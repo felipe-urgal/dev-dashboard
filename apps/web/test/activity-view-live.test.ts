@@ -105,7 +105,8 @@ describe('Activity live snapshot', () => {
   it('pauses polling while the page is hidden and resumes once visible', async () => {
     let isVisible = true;
     Object.defineProperty(document, 'visibilityState', {
-      configurable: true, get: () => isVisible ? 'visible' : 'hidden',
+      configurable: true,
+      get: () => (isVisible ? 'visible' : 'hidden'),
     });
     fetchActivity.mockResolvedValue(snapshot(true));
     const wrapper = mountView();
@@ -139,5 +140,4 @@ describe('Activity live snapshot', () => {
     expect(wrapper.findAll('.activity-event-list li')).toHaveLength(1);
     wrapper.unmount();
   });
-
 });
