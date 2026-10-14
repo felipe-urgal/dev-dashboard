@@ -55,6 +55,7 @@ export function useDatabaseExplorerSession(
   }
 
   function clearLocalSession(expired = false): void {
+    generation += 1;
     clearExpiryTimer();
     sessionId.value = null;
     expiresAt.value = null;
@@ -71,6 +72,7 @@ export function useDatabaseExplorerSession(
       () => {
         if (sessionId.value !== expectedSessionId) return;
         clearLocalSession(true);
+        void deleteBestEffort(expectedSessionId);
       },
       Math.max(0, timestamp - Date.now()),
     );
@@ -139,15 +141,9 @@ export function useDatabaseExplorerSession(
 
   async function disconnect(): Promise<void> {
     const currentSessionId = sessionId.value;
-    if (!currentSessionId) {
-      generation += 1;
-      clearLocalSession();
-      return;
-    }
-
-    await deleteDatabaseExplorerSession(currentSessionId);
     generation += 1;
     clearLocalSession();
+    if (currentSessionId) await deleteBestEffort(currentSessionId);
   }
 
   function handleSessionError(error: unknown): boolean {
@@ -158,7 +154,9 @@ export function useDatabaseExplorerSession(
       return false;
     }
 
+    const currentSessionId = sessionId.value;
     clearLocalSession(true);
+    if (currentSessionId) void deleteBestEffort(currentSessionId);
     return true;
   }
 
