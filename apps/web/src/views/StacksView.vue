@@ -421,7 +421,9 @@ onMounted(() => {
               type="button"
               :aria-label="`Atualizar ${stack.name}`"
               :title="`Atualizar ${stack.name}`"
-              :disabled="isStackBusy(stack.id) || refreshingStackId === stack.id"
+              :disabled="
+                isStackBusy(stack.id) || refreshingStackId === stack.id
+              "
               @click="refreshStack(stack.id)"
             >
               <ArrowPathIcon
@@ -432,7 +434,9 @@ onMounted(() => {
             <button
               class="stack-button"
               type="button"
-              :disabled="isStackBusy(stack.id) || loadingLogsStackId === stack.id"
+              :disabled="
+                isStackBusy(stack.id) || loadingLogsStackId === stack.id
+              "
               @click="loadStackLogs(stack.id)"
             >
               <DocumentTextIcon aria-hidden="true" />
@@ -448,19 +452,33 @@ onMounted(() => {
               class="stack-button stack-button-primary"
               type="button"
               :disabled="isStackBusy(stack.id)"
-              @click="mutate(stack.id, `start-${stack.id}`, () => startStack(stack.id))"
+              @click="
+                mutate(stack.id, `start-${stack.id}`, () =>
+                  startStack(stack.id),
+                )
+              "
             >
               <PlayIcon aria-hidden="true" />
-              {{ actionFor(stack.id) === `start-${stack.id}` ? 'Iniciando…' : 'Iniciar' }}
+              {{
+                actionFor(stack.id) === `start-${stack.id}`
+                  ? 'Iniciando…'
+                  : 'Iniciar'
+              }}
             </button>
             <button
               class="stack-button stack-button-danger"
               type="button"
               :disabled="isStackBusy(stack.id)"
-              @click="mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id))"
+              @click="
+                mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id))
+              "
             >
               <PauseIcon aria-hidden="true" />
-              {{ actionFor(stack.id) === `stop-${stack.id}` ? 'Parando…' : 'Parar' }}
+              {{
+                actionFor(stack.id) === `stop-${stack.id}`
+                  ? 'Parando…'
+                  : 'Parar'
+              }}
             </button>
           </div>
         </header>

@@ -64,7 +64,9 @@ describe('Stacks multi-projeto', () => {
   });
 
   it('isola o estado de mutação por Stack sem bloquear Stacks independentes', () => {
-    expect(viewSource).toContain('const actions = ref<Record<string, string>>({})');
+    expect(viewSource).toContain(
+      'const actions = ref<Record<string, string>>({})',
+    );
     expect(viewSource).toContain('return actions.value[stackId] ??');
     expect(viewSource).toContain('if (isStackBusy(stackId)) return;');
     expect(viewSource).toContain('delete next[stackId]');
