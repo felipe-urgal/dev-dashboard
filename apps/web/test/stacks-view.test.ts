@@ -75,6 +75,16 @@ describe('Stacks multi-projeto', () => {
     );
   });
 
+  it('permite remover dependência explicitamente sem auto-save', () => {
+    expect(viewSource).toContain('async function removeDependency(');
+    expect(viewSource).toContain('dependencies: stack.dependencies.filter');
+    expect(viewSource).toMatch(
+      /@click="\s*removeDependency\(\s*stack,\s*dependency\.nodeId,\s*dependency\.dependsOnNodeId,\s*\)\s*"/,
+    );
+    expect(viewSource).toContain('Dependências confirmadas:');
+    expect(viewSource).toContain('Remover dependência de');
+  });
+
   it('integra eventos de Stack à Timeline global', () => {
     expect(activityViewSource).toContain('resolveActivityResource(event)');
     expect(resourceRegistrySource).toContain("'stack-node'");
