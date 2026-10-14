@@ -60,6 +60,7 @@ describe('Activity live snapshot', () => {
     fetchActivity.mockReset();
   });
   afterEach(() => {
+    delete (document as unknown as Record<string, unknown>).visibilityState;
     vi.useRealTimers();
   });
   it('keeps one adaptive scheduler and cleans it on unmount', async () => {
@@ -101,4 +102,42 @@ describe('Activity live snapshot', () => {
     expect(wrapper.text()).toContain('Mudança registrada');
     wrapper.unmount();
   });
+  it('pauses polling while the page is hidden and resumes once visible', async () => {
+    let isVisible = true;
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true, get: () => isVisible ? 'visible' : 'hidden',
+    });
+    fetchActivity.mockResolvedValue(snapshot(true));
+    const wrapper = mountView();
+    await flushPromises();
+    expect(vi.getTimerCount()).toBe(1);
+    isVisible = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(9000);
+    expect(fetchActivity).toHaveBeenCalledTimes(1);
+    isVisible = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flushPromises();
+    expect(fetchActivity).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(1);
+    wrapper.unmount();
+  });
+
+  it('deduplicates jobs and events on every refresh', async () => {
+    const duplicated = snapshot(true);
+    duplicated.jobs.push({ ...duplicated.jobs[0]! });
+    duplicated.events.push({ ...duplicated.events[0]! });
+    fetchActivity.mockResolvedValue(duplicated);
+    const wrapper = mountView();
+    await flushPromises();
+    expect(wrapper.findAll('.activity-job-card')).toHaveLength(1);
+    expect(wrapper.findAll('.activity-event-list li')).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(3000);
+    await flushPromises();
+    expect(wrapper.findAll('.activity-job-card')).toHaveLength(1);
+    expect(wrapper.findAll('.activity-event-list li')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
 });
