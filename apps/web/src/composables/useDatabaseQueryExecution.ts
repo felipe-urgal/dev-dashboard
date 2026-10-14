@@ -71,6 +71,8 @@ export function useDatabaseQueryExecution(
     operationGeneration += 1;
     options.loading.value = true;
     options.error.value = '';
+    options.setResult(null);
+    options.setDuration(null);
     return operationGeneration;
   }
 
@@ -114,6 +116,9 @@ export function useDatabaseQueryExecution(
   }
 
   function selectTable(table: MachineDatabaseTable): void {
+    invalidate();
+    options.setResult(null);
+    options.setDuration(null);
     options.table.value = table.name;
     options.query.value = buildTableQuery(table);
     void previewTable();
