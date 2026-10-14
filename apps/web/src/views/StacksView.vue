@@ -36,6 +36,7 @@ import EmptyState from '../components/EmptyState.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import type { StatusBadgeTone } from '../components/status-badge-types';
 import { dashboardStore } from '../stores/dashboard';
+import { confirmDialog } from '../stores/app-dialog';
 
 const stacks = ref<Stack[]>([]);
 const checks = ref(new Map<string, StackCheck>());
@@ -359,6 +360,44 @@ async function acceptSuggestion(
   }
 }
 
+async function confirmStop(stack: Stack): Promise<void> {
+  const check = checkFor(stack.id);
+  if (!check) {
+    errorMessage.value =
+      'Atualize a Stack antes de confirmar a parada; o Check está indisponível.';
+    return;
+  }
+
+  const nodes = new Map(check.stack.nodes.map((node) => [node.id, node]));
+  const affected = check.topology.stopOrder
+    .map((id) => nodes.get(id))
+    .filter((node): node is StackNode => Boolean(node));
+  if (affected.length !== check.topology.stopOrder.length) {
+    errorMessage.value =
+      'Topologia incompleta. Atualize a Stack antes de parar.';
+    return;
+  }
+
+  const description = affected
+    .map((node) => {
+      const retained =
+        node.target.kind === 'environment' ||
+        node.target.kind === 'health-check';
+      return `• ${node.name} — ${retained ? 'mantido (sem parada)' : 'pode ser parado'}`;
+    })
+    .join('\n');
+
+  const confirmed = await confirmDialog({
+    title: `Parar Stack "${stack.name}"?`,
+    message: `Ordem prevista:\n${description}\n\nO estado pode mudar desde o último Check. Deseja continuar?`,
+    confirmLabel: 'Parar Stack',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
+
+  void mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id));
+}
+
 async function mutate(
   stackId: string,
   operation: string,
@@ -510,7 +549,7 @@ onMounted(() => {
               type="button"
               :disabled="isStackBusy(stack.id)"
               @click="
-                mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id))
+                confirmStop(stack)
               "
             >
               <PauseIcon aria-hidden="true" />
