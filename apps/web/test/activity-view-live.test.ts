@@ -1,13 +1,13 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { computed } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivitySnapshot } from '@dev-dashboard/contracts';
 
 const fetchActivity = vi.hoisted(() => vi.fn());
 vi.mock('../src/api/activity', () => ({ fetchActivity }));
-vi.mock('../src/stores/dashboard', () => ({
-  dashboardStore: { knownProjects: computed(() => []) },
-}));
+vi.mock('../src/stores/dashboard', async () => {
+  const { computed } = await import('vue');
+  return { dashboardStore: { knownProjects: computed(() => []) } };
+});
 vi.mock('../src/utils/activity-resources', () => ({
   resolveActivityResource: () => ({ label: 'Recurso', known: false, to: null }),
   canCancelActivityJob: () => false,
