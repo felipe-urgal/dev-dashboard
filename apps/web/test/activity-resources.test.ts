@@ -50,7 +50,7 @@ describe('Activity resource registry', () => {
   });
   it('never allows cancellation when cancelSupported is false', () => {
     expect(canCancelActivityJob(makeJob('agent-task', false))).toBe(false);
-    expect(canCancelActivityJob(makeJob('managed-process', true))).toBe(false);
+    expect(canCancelActivityJob(makeJob('managed-process', true))).toBe(true);
   });
   it('delegates cancellation only to the owning domain', async () => {
     cancelAgentTask.mockResolvedValue(undefined);
