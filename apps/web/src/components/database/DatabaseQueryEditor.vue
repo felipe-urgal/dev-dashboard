@@ -85,7 +85,7 @@ function onQueryInput(event: Event): void {
           "
           @click="emit('toggle-favorite', item.id)"
         >
-          {{ item.favorite ? '★' : '☆' }}
+          {{ savedQueries.some((saved) => saved.query === item.query && saved.driver === item.driver && saved.database === item.database) ? '★' : '☆' }}
         </button>
         <button
           type="button"
