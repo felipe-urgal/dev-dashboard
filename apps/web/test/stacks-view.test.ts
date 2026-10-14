@@ -63,18 +63,16 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).not.toContain('processId.startsWith');
   });
 
-  it('exibe erros independentes de Check e discovery por Stack', () => {
+  it('exige confirmação explícita antes de parar e mostra impacto por node', () => {
+    expect(viewSource).toContain('@click="confirmStop(stack)"');
+    expect(viewSource).toContain('function confirmStop(stack: Stack)');
+    expect(viewSource).toContain('check.topology.stopOrder');
+    expect(viewSource).toContain("node.target.kind === 'environment'");
+    expect(viewSource).toContain("node.target.kind === 'health-check'");
+    expect(viewSource).toContain('await confirmDialog({');
     expect(viewSource).toContain(
-      'const checkErrors = ref(new Map<string, string>())',
+      'Atualize a Stack antes de confirmar a parada',
     );
-    expect(viewSource).toContain(
-      'const discoveryErrors = ref(new Map<string, string>())',
-    );
-    expect(viewSource).toContain('Promise.allSettled([');
-    expect(viewSource).toContain('nextChecks.delete(stackId)');
-    expect(viewSource).toContain('nextDiscoveries.delete(stackId)');
-    expect(viewSource).toContain('Check indisponível:');
-    expect(viewSource).toContain('Descoberta de dependências indisponível:');
   });
 
   it('integra eventos de Stack à Timeline global', () => {
