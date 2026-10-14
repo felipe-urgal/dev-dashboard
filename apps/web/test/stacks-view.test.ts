@@ -22,6 +22,7 @@ const activityViewSource = readFileSync(
   resolve(webRoot, 'src/views/ActivityView.vue'),
   'utf8',
 );
+const resourceRegistrySource = readFileSync(resolve(webRoot, 'src/utils/activity-resources.ts'), 'utf8');
 
 describe('Stacks multi-projeto', () => {
   it('expõe Stacks como página global', () => {
@@ -60,12 +61,10 @@ describe('Stacks multi-projeto', () => {
   });
 
   it('integra eventos de Stack à Timeline global', () => {
-    expect(activityViewSource).toContain("event.domain === 'stack'");
-    expect(activityViewSource).toContain(
-      "event.resourceRef?.kind === 'stack-node'",
-    );
-    expect(activityViewSource).toContain("name: 'stacks'");
-    expect(activityViewSource).toContain('Abrir Stacks');
+    expect(activityViewSource).toContain('resolveActivityResource(event)');
+    expect(resourceRegistrySource).toContain("'stack-node'");
+    expect(resourceRegistrySource).toContain("name: 'stacks'");
+    expect(resourceRegistrySource).toContain('Abrir Stacks');
   });
 
   it('mostra topologia, estado e lifecycle suportado sem inventar mutações', () => {
