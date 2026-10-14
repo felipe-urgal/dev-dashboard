@@ -69,7 +69,6 @@ export function useDatabaseQueryHistory() {
   const saved = ref<DatabaseQueryHistoryItem[]>([]);
   const recent = computed(() => history.value.slice(0, RECENT_DISPLAY_LIMIT));
   const savedQueries = computed(() => saved.value);
-  const count = computed(() => history.value.length + saved.value.length);
 
   function load(): void {
     // Legacy SQL was persisted without informed consent. Never import it automatically.
@@ -79,8 +78,11 @@ export function useDatabaseQueryHistory() {
     saved.value = readItems(localStorage, SAVED_KEY).map(item => ({ ...item, favorite: true }));
   }
 
-  function persist(): void {
+  function persistRecent(): void {
     writeItems(sessionStorage, RECENT_KEY, history.value);
+  }
+
+  function persistSaved(): void {
     writeItems(localStorage, SAVED_KEY, saved.value);
   }
 
@@ -98,14 +100,15 @@ export function useDatabaseQueryHistory() {
       ...history.value.filter(existing =>
         !(existing.query === item.query && existing.driver === item.driver && existing.database === item.database)),
     ].slice(0, QUERY_LIMIT);
-    persist();
+    persistRecent();
   }
 
   function toggleFavorite(id: string): void {
-    const existingSaved = saved.value.find(item => item.id === id);
+    const recentItem = history.value.find(item => item.id === id);
+    const existingSaved = saved.value.find(item => item.id === id || (recentItem && item.query === recentItem.query && item.driver === recentItem.driver && item.database === recentItem.database));
     if (existingSaved) {
       saved.value = saved.value.filter(item => item.id !== id);
-      persist();
+      persistSaved();
       return;
     }
     const item = history.value.find(item => item.id === id);
@@ -115,25 +118,25 @@ export function useDatabaseQueryHistory() {
       ...saved.value.filter(existing =>
         !(existing.query === item.query && existing.driver === item.driver && existing.database === item.database)),
     ].slice(0, QUERY_LIMIT);
-    persist();
+    persistSaved();
   }
 
   function remove(id: string): void {
     history.value = history.value.filter(item => item.id !== id);
     saved.value = saved.value.filter(item => item.id !== id);
-    persist();
+    persistRecent();
+    persistSaved();
   }
 
   function clear(): void {
     history.value = [];
-    persist();
+    persistRecent();
   }
 
   return {
     history,
     recent,
     savedQueries,
-    count,
     load,
     remember,
     toggleFavorite,
