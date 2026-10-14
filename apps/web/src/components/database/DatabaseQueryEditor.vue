@@ -74,7 +74,7 @@ function onQueryInput(event: Event): void {
         <button
           type="button"
           :aria-label="
-            savedQueries.some((saved) => saved.id === item.id)
+            savedQueries.some((saved) => saved.query === item.query && saved.driver === item.driver && saved.database === item.database)
               ? 'Remover consulta salva'
               : 'Salvar consulta permanentemente'
           "
