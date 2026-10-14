@@ -1,7 +1,4 @@
-import type {
-  ActivityEvent,
-  ActivityJob,
-} from '@dev-dashboard/contracts';
+import type { ActivityEvent, ActivityJob } from '@dev-dashboard/contracts';
 import { cancelAgentTask } from '../api/agent-runtime';
 import { cancelDevContainerLifecycleExecution } from '../api/dev-container';
 import { cancelDeployment } from '../api/deployments';
@@ -52,7 +49,8 @@ const registry: Record<string, ResourceHandler> = {
   'managed-process': {
     label: 'Abrir processos',
     route: (item) => projectRoute('project-server', item),
-    cancel: (job) => stopProjectProcess(job.projectId, job.environmentInstanceId),
+    cancel: (job) =>
+      stopProjectProcess(job.projectId, job.environmentInstanceId),
   },
   'dev-container-lifecycle': {
     label: 'Abrir Dev Container',
