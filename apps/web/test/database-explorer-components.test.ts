@@ -118,6 +118,7 @@ describe('DatabaseQueryEditor', () => {
         historyOpen: true,
         historyCount: 1,
         recentQueries: [queryHistoryItem],
+        savedQueries: [],
       },
     });
 
@@ -135,7 +136,7 @@ describe('DatabaseQueryEditor', () => {
     await nextTick();
     await wrapper.get('.database-explorer-history-query').trigger('click');
     await wrapper
-      .get('button[aria-label="Favoritar consulta"]')
+      .get('button[aria-label="Salvar consulta permanentemente"]')
       .trigger('click');
     await wrapper
       .get('button[aria-label="Remover consulta do histórico"]')
