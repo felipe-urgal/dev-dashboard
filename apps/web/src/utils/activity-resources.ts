@@ -6,6 +6,9 @@ import type {
 import { cancelAgentTask } from '../api/agent-runtime';
 import { cancelDevContainerLifecycleExecution } from '../api/dev-container';
 import { cancelDeployment } from '../api/deployments';
+import { stopProjectProcess } from '../api/processes';
+import { cancelScriptExecution } from '../api/scripts';
+import { cancelLocalCiRun } from '../api/local-ci';
 
 type ActivityItem = Pick<
   ActivityEvent,
