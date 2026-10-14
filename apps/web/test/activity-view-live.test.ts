@@ -95,9 +95,9 @@ describe('Activity live snapshot', () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(fetchActivity).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain('Mudança registrada');
-    await wrapper.findAll('select')[0]!.setValue('other');
+    await wrapper.findAll('select')[2]!.setValue('failed');
     expect(wrapper.text()).not.toContain('Mudança registrada');
-    await wrapper.findAll('select')[0]!.setValue('');
+    await wrapper.findAll('select')[2]!.setValue('');
     expect(wrapper.text()).toContain('Mudança registrada');
     wrapper.unmount();
   });
