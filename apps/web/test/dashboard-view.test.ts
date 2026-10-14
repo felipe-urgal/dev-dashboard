@@ -193,14 +193,20 @@ describe('warnings do workspace', () => {
   it('preserva os projetos mesmo com avisos parciais', () => {
     dashboardStore.projects.value = [project];
     dashboardStore.scanStatus.value = 'warnings';
-    dashboardStore.scanWarnings.value = [{ path: '/tmp/subfolder', code: 'READ_ERROR', message: 'Sem permissão' }];
+    dashboardStore.scanWarnings.value = [
+      { path: '/tmp/subfolder', code: 'READ_ERROR', message: 'Sem permissão' },
+    ];
     const wrapper = mountView();
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
-    expect(wrapper.get('.dashboard-scan-warning').text()).toContain('Descoberta parcial');
+    expect(wrapper.get('.dashboard-scan-warning').text()).toContain(
+      'Descoberta parcial',
+    );
   });
   it('não mostra aviso após novo scan saudável', async () => {
     dashboardStore.scanStatus.value = 'warnings';
-    dashboardStore.scanWarnings.value = [{ path: '.', code: 'ERROR', message: 'Erro' }];
+    dashboardStore.scanWarnings.value = [
+      { path: '.', code: 'ERROR', message: 'Erro' },
+    ];
     const wrapper = mountView();
     dashboardStore.scanStatus.value = 'complete';
     dashboardStore.scanWarnings.value = [];

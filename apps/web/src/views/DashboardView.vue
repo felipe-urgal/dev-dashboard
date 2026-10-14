@@ -37,19 +37,26 @@ function stopScheduler(): void {
 }
 
 function visible(): boolean {
-  return typeof document === 'undefined' || document.visibilityState === 'visible';
+  return (
+    typeof document === 'undefined' || document.visibilityState === 'visible'
+  );
 }
 
 function scheduleProcesses(): void {
   stopScheduler();
   if (disposed || !visible() || !selectedWorkspaceId.value) return;
   const version = schedulerVersion;
-  const transitioning = managedProcesses.value.some((process) => process.status === 'starting' || process.status === 'stopping');
-  refreshTimer = setTimeout(async () => {
-    if (version !== schedulerVersion || disposed || !visible()) return;
-    await loadProcessSummary();
-    if (version === schedulerVersion) scheduleProcesses();
-  }, transitioning ? 2_000 : 15_000);
+  const transitioning = managedProcesses.value.some(
+    (process) => process.status === 'starting' || process.status === 'stopping',
+  );
+  refreshTimer = setTimeout(
+    async () => {
+      if (version !== schedulerVersion || disposed || !visible()) return;
+      await loadProcessSummary();
+      if (version === schedulerVersion) scheduleProcesses();
+    },
+    transitioning ? 2_000 : 15_000,
+  );
 }
 
 function handleVisibility(): void {
@@ -60,7 +67,8 @@ function handleVisibility(): void {
 
 watch(selectedWorkspaceId, () => {
   stopScheduler();
-  if (visible() && selectedWorkspaceId.value) void loadProcessSummary().then(scheduleProcesses);
+  if (visible() && selectedWorkspaceId.value)
+    void loadProcessSummary().then(scheduleProcesses);
 });
 
 onMounted(() => {
@@ -123,9 +131,21 @@ async function refreshWorkspace(): Promise<void> {
     <main class="dashboard-primary" aria-label="Navegação dos projetos">
       <h2 id="projects-title" class="sr-only">Projetos</h2>
 
-      <div v-if="scanStatus === 'warnings' && scanWarnings.length" class="dashboard-scan-warning" role="status">
-        Descoberta parcial: {{ scanWarnings.length }} aviso(s) no scan do workspace.
-        <details><summary>Ver avisos</summary><ul><li v-for="(warning, index) in scanWarnings" :key="index">{{ warning.path }}: {{ warning.message }}</li></ul></details>
+      <div
+        v-if="scanStatus === 'warnings' && scanWarnings.length"
+        class="dashboard-scan-warning"
+        role="status"
+      >
+        Descoberta parcial: {{ scanWarnings.length }} aviso(s) no scan do
+        workspace.
+        <details>
+          <summary>Ver avisos</summary>
+          <ul>
+            <li v-for="(warning, index) in scanWarnings" :key="index">
+              {{ warning.path }}: {{ warning.message }}
+            </li>
+          </ul>
+        </details>
       </div>
       <div class="dashboard-project-columns" aria-hidden="true">
         <span>Projeto</span>
@@ -250,8 +270,18 @@ async function refreshWorkspace(): Promise<void> {
   animation: dashboard-spin 800ms linear infinite;
 }
 
-.dashboard-scan-warning { margin-bottom: 14px; padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: 8px; color: var(--text-muted); background: var(--surface-2); font-size: 13px; }
-.dashboard-scan-warning summary { cursor: pointer; }
+.dashboard-scan-warning {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+.dashboard-scan-warning summary {
+  cursor: pointer;
+}
 
 .dashboard-primary {
   min-width: 0;

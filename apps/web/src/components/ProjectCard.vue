@@ -19,11 +19,35 @@ const emit = defineEmits<{
   'toggle-enabled': [project: Project];
 }>();
 
-const supportsServer = computed(() => props.project.capabilities.includes('server'));
-const managedProcess = computed(() => props.project.enabled ? dashboardStore.getCardProcess(props.project.id) : null);
-const processStatus = computed(() => !props.project.enabled ? 'stopped' : !dashboardStore.processReadComplete.value ? 'unknown' : managedProcess.value?.status ?? 'stopped');
-const isRunning = computed(() => processStatus.value === 'running' || processStatus.value === 'starting');
-const statusLabel = computed(() => ({ starting: 'Iniciando', running: 'Executando', stopping: 'Encerrando', stopped: 'Parado', failed: 'Falhou', unknown: 'Desconhecido' })[processStatus.value]);
+const supportsServer = computed(() =>
+  props.project.capabilities.includes('server'),
+);
+const managedProcess = computed(() =>
+  props.project.enabled
+    ? dashboardStore.getCardProcess(props.project.id)
+    : null,
+);
+const processStatus = computed(() =>
+  !props.project.enabled
+    ? 'stopped'
+    : !dashboardStore.processReadComplete.value
+      ? 'unknown'
+      : (managedProcess.value?.status ?? 'stopped'),
+);
+const isRunning = computed(
+  () => processStatus.value === 'running' || processStatus.value === 'starting',
+);
+const statusLabel = computed(
+  () =>
+    ({
+      starting: 'Iniciando',
+      running: 'Executando',
+      stopping: 'Encerrando',
+      stopped: 'Parado',
+      failed: 'Falhou',
+      unknown: 'Desconhecido',
+    })[processStatus.value],
+);
 const gitState = ref<CardGitState>({ kind: 'unknown' });
 let branchRequest = 0;
 
@@ -64,7 +88,9 @@ const typeLabel = computed(() => projectTypeLabels[props.project.type]);
 const typeCode = computed(() => stackCode[props.project.type]);
 
 const localUrl = computed(() =>
-  props.project.enabled && processStatus.value === 'running' && managedProcess.value?.port
+  props.project.enabled &&
+  processStatus.value === 'running' &&
+  managedProcess.value?.port
     ? `http://localhost:${managedProcess.value.port}`
     : '',
 );
@@ -114,7 +140,13 @@ const statusClass = computed(() => {
           <span class="project-card-branch-icon" aria-hidden="true">⑂</span>
           <span>{{ gitState.kind === 'branch' ? gitState.branch : '' }}</span>
         </span>
-        <span v-else class="project-card-muted-pill">{{ gitState.kind === 'none' ? 'Sem Git' : gitState.kind === 'detached' ? 'HEAD detached' : 'Git indisponível' }}</span>
+        <span v-else class="project-card-muted-pill">{{
+          gitState.kind === 'none'
+            ? 'Sem Git'
+            : gitState.kind === 'detached'
+              ? 'HEAD detached'
+              : 'Git indisponível'
+        }}</span>
 
         <span
           v-if="supportsServer"

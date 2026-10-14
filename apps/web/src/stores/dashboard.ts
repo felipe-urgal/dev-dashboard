@@ -7,7 +7,11 @@ import type {
   Workspace,
 } from '@dev-dashboard/contracts';
 
-import { ApiRequestError, type WorkspaceScanResponse, type WorkspaceScanWarning } from '../api';
+import {
+  ApiRequestError,
+  type WorkspaceScanResponse,
+  type WorkspaceScanWarning,
+} from '../api';
 
 import * as dashboardApi from '../api';
 import { confirmDialog } from './app-dialog';
@@ -289,7 +293,10 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const managedProcessesByContext = computed(() => {
     const index: Record<string, ManagedProcess[]> = {};
     for (const process of managedProcesses.value) {
-      const key = JSON.stringify([process.projectId, process.environmentInstanceId ?? null]);
+      const key = JSON.stringify([
+        process.projectId,
+        process.environmentInstanceId ?? null,
+      ]);
       (index[key] ??= []).push(process);
     }
     return index;
@@ -297,10 +304,17 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
   // Cards globais representam somente o contexto padrão (sem environmentInstanceId).
   function getCardProcess(projectId: string): ManagedProcess | null {
-    const processes = managedProcessesByContext.value[JSON.stringify([projectId, null])] ?? [];
-    return processes.find((process) => process.kind === 'server' && activeProcessStatuses.has(process.status))
-      ?? processes.find((process) => process.kind === 'server')
-      ?? null;
+    const processes =
+      managedProcessesByContext.value[JSON.stringify([projectId, null])] ?? [];
+    return (
+      processes.find(
+        (process) =>
+          process.kind === 'server' &&
+          activeProcessStatuses.has(process.status),
+      ) ??
+      processes.find((process) => process.kind === 'server') ??
+      null
+    );
   }
 
   async function loadProcessSummary(): Promise<void> {
@@ -311,8 +325,18 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
     try {
       const processes = await fetchManagedProcesses();
-      if (generation !== processGeneration || workspaceId !== selectedWorkspaceId.value) return;
-      managedProcesses.value = processes.filter((process) => !workspaceId || process.workspaceId === workspaceId || (!process.workspaceId && projects.value.some((project) => project.id === process.projectId)));
+      if (
+        generation !== processGeneration ||
+        workspaceId !== selectedWorkspaceId.value
+      )
+        return;
+      managedProcesses.value = processes.filter(
+        (process) =>
+          !workspaceId ||
+          process.workspaceId === workspaceId ||
+          (!process.workspaceId &&
+            projects.value.some((project) => project.id === process.projectId)),
+      );
       processReadComplete.value = true;
       const counts = processes.reduce(
         (summary, process) => {
@@ -326,7 +350,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
       processSummary.value = { total: processes.length, ...counts };
     } catch (error) {
-      if (generation !== processGeneration || workspaceId !== selectedWorkspaceId.value) return;
+      if (
+        generation !== processGeneration ||
+        workspaceId !== selectedWorkspaceId.value
+      )
+        return;
       processReadComplete.value = false;
       processSummaryError.value =
         error instanceof Error
@@ -356,7 +384,13 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     try {
       const result = await scanWorkspace(workspaceId);
 
-      if (shouldActivate && (generation !== scanGeneration || workspaceAtStart !== workspaceGeneration || selectedWorkspaceId.value !== workspaceId)) return result;
+      if (
+        shouldActivate &&
+        (generation !== scanGeneration ||
+          workspaceAtStart !== workspaceGeneration ||
+          selectedWorkspaceId.value !== workspaceId)
+      )
+        return result;
       replaceWorkspaceProjects(workspaceId, result.projects);
       scannedWorkspaceIds.add(workspaceId);
 
@@ -372,7 +406,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
       return result;
     } finally {
-      if (shouldActivate && generation === scanGeneration && workspaceAtStart === workspaceGeneration) {
+      if (
+        shouldActivate &&
+        generation === scanGeneration &&
+        workspaceAtStart === workspaceGeneration
+      ) {
         scanningWorkspace.value = false;
         loadingProjects.value = false;
       }
