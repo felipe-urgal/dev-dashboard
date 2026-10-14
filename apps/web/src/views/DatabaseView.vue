@@ -103,6 +103,8 @@ const explorerTestMessage = ref('');
 const {
   history: explorerQueryHistory,
   recent: recentExplorerQueries,
+  savedQueries: savedExplorerQueries,
+  count: explorerQueryCount,
   load: loadExplorerQueryHistory,
   remember: rememberDatabaseQuery,
   toggleFavorite: toggleExplorerQueryFavorite,
@@ -112,6 +114,7 @@ const {
 const explorerHistoryOpen = ref(false);
 const {
   sessionId: explorerSessionId,
+  expiresAt: explorerExpiresAt,
   connection: explorerConnection,
   connect: connectExplorerSession,
   testConnection: testExplorerSessionConnection,
@@ -157,6 +160,7 @@ const {
 function restoreExplorerQuery(item: DatabaseQueryHistoryItem): void {
   explorerQuery.value = item.query;
   explorerTable.value = item.table;
+  clearExplorerResult();
   if (
     item.database &&
     explorerDatabases.value.some((database) => database.name === item.database)
@@ -276,7 +280,7 @@ async function connectExplorer(): Promise<void> {
   explorerLoading.value = true;
   explorerError.value = '';
   explorerTestMessage.value = '';
-  setExplorerResult(null);
+  clearExplorerResult();
   try {
     const connection = { ...explorerDraft.value };
     explorerDatabases.value = await connectExplorerSession(connection);
@@ -410,7 +414,7 @@ onMounted(() => {
         <div>
           <h2 id="database-explorer-title">Explorador de dados</h2>
           <p>
-            Acesso local somente leitura. Credenciais ficam apenas nesta sessão.
+            Acesso local somente leitura. Senhas ficam apenas na sessão do servidor; consultas recentes não são salvas permanentemente.
           </p>
         </div>
       </div>
@@ -424,6 +428,7 @@ onMounted(() => {
               : 'Nenhuma conexão ativa'
           }}</span>
         </div>
+        <span v-if="explorerExpiresAt" class="database-session-expiry">Sessão válida até {{ new Date(explorerExpiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }} (15 min absolutos, sem renovação)</span>
         <button
           type="button"
           class="database-primary-button database-connection-button"
@@ -515,6 +520,7 @@ onMounted(() => {
               :loading="explorerLoading"
               :history-open="explorerHistoryOpen"
               :history-count="explorerQueryHistory.length"
+              :saved-queries="savedExplorerQueries"
               :recent-queries="recentExplorerQueries"
               @update:query="explorerQuery = $event"
               @toggle-history="explorerHistoryOpen = !explorerHistoryOpen"
