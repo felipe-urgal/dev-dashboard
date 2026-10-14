@@ -107,7 +107,7 @@ export function useDatabaseQueryHistory() {
     const recentItem = history.value.find(item => item.id === id);
     const existingSaved = saved.value.find(item => item.id === id || (recentItem && item.query === recentItem.query && item.driver === recentItem.driver && item.database === recentItem.database));
     if (existingSaved) {
-      saved.value = saved.value.filter(item => item.id !== id);
+      saved.value = saved.value.filter(item => item.id !== existingSaved.id);
       persistSaved();
       return;
     }
