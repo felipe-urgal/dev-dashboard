@@ -232,8 +232,9 @@ describe('useDatabaseExplorerSession', () => {
     await expect(connecting).rejects.toMatchObject({ name: 'AbortError' });
     expect(state.sessionId.value).toBeNull();
     expect(state.connection.value).toBeNull();
-    expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledWith('pending-session');
+    expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledWith(
+      'pending-session',
+    );
     wrapper.unmount();
   });
-
 });

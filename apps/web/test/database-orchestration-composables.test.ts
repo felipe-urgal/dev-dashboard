@@ -270,11 +270,15 @@ describe('useDatabaseQueryExecution', () => {
     const harness = createQueryExecutionHarness({
       fetchTables: async () => await pending.promise,
     });
-    harness.result.value = { columns: ['private'], rows: [['old']], rowCount: 1, truncated: false };
+    harness.result.value = {
+      columns: ['private'],
+      rows: [['old']],
+      rowCount: 1,
+      truncated: false,
+    };
     const selection = harness.execution.selectDatabase('other');
     assert.equal(harness.result.value, null);
     pending.resolve([]);
     await selection;
   });
-
 });
