@@ -59,7 +59,7 @@ function onQueryInput(event: Event): void {
           class="database-explorer-history-query"
           @click="emit('restore-query', item)"
         >
-          <strong>{{ savedQueries.some(saved => saved.id === item.id) ? '★' : '☆' }}</strong>
+          <strong>{{ savedQueries.some(saved => saved.query === item.query && saved.driver === item.driver && saved.database === item.database) ? '★' : '☆' }}</strong>
           <code>{{ item.query }}</code>
         </button>
         <button
