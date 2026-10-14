@@ -239,4 +239,42 @@ describe('useDatabaseQueryExecution', () => {
     assert.equal(harness.result.value, null);
     assert.equal(harness.remembered(), 0);
   });
+  test('consulta antiga não sobrescreve resultado de uma sessão nova', async () => {
+    const old = deferred<MachineDatabaseQueryResult>();
+    const fresh = deferred<MachineDatabaseQueryResult>();
+    let call = 0;
+    const harness = createQueryExecutionHarness({
+      runQuery: async () => await (++call === 1 ? old.promise : fresh.promise),
+    });
+    const first = harness.execution.runQuery();
+    harness.sessionId.value = 'session-2';
+    harness.execution.invalidate();
+    const second = harness.execution.runQuery();
+    const nextResult = {
+      columns: ['id'],
+      rows: [[2]],
+      rowCount: 1,
+      truncated: false,
+    };
+    fresh.resolve(nextResult);
+    await second;
+    old.resolve({ ...nextResult, rows: [[1]] });
+    await first;
+    assert.deepEqual(harness.result.value, nextResult);
+    assert.equal(harness.remembered(), 1);
+    assert.equal(harness.loading.value, false);
+  });
+
+  test('trocar database limpa o resultado anterior antes de listar tabelas', async () => {
+    const pending = deferred<MachineDatabaseTable[]>();
+    const harness = createQueryExecutionHarness({
+      fetchTables: async () => await pending.promise,
+    });
+    harness.result.value = { columns: ['private'], rows: [['old']], rowCount: 1, truncated: false };
+    const selection = harness.execution.selectDatabase('other');
+    assert.equal(harness.result.value, null);
+    pending.resolve([]);
+    await selection;
+  });
+
 });
