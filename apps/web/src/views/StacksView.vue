@@ -44,7 +44,15 @@ const logs = ref(new Map<string, StackLogsSnapshot>());
 const loading = ref(false);
 const loadingLogsStackId = ref('');
 const refreshingStackId = ref('');
-const action = ref('');
+const actions = ref<Record<string, string>>({});
+
+function actionFor(stackId: string): string {
+  return actions.value[stackId] ?? '';
+}
+
+function isStackBusy(stackId: string): boolean {
+  return Boolean(actionFor(stackId));
+}
 const errorMessage = ref('');
 
 const projectNameById = computed(
@@ -236,7 +244,7 @@ async function load(): Promise<void> {
 }
 
 async function refreshStack(stackId: string): Promise<void> {
-  if (refreshingStackId.value || action.value) return;
+  if (refreshingStackId.value === stackId || isStackBusy(stackId)) return;
 
   refreshingStackId.value = stackId;
   errorMessage.value = '';
@@ -278,9 +286,9 @@ async function acceptSuggestion(
   stack: Stack,
   suggestion: StackDependencySuggestion,
 ): Promise<void> {
-  if (action.value) return;
+  if (isStackBusy(stack.id)) return;
 
-  action.value = `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}`;
+  actions.value = { ...actions.value, [stack.id]: `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}` };
   errorMessage.value = '';
   try {
     const saved = await saveStack({
@@ -301,17 +309,20 @@ async function acceptSuggestion(
         ? error.message
         : 'A dependência sugerida não pôde ser adicionada.';
   } finally {
-    action.value = '';
+    const next = { ...actions.value };
+    delete next[stack.id];
+    actions.value = next;
   }
 }
 
 async function mutate(
+  stackId: string,
   operation: string,
   callback: () => Promise<{ check: StackCheck }>,
 ): Promise<void> {
-  if (action.value) return;
+  if (isStackBusy(stackId)) return;
 
-  action.value = operation;
+  actions.value = { ...actions.value, [stackId]: operation };
   errorMessage.value = '';
   try {
     const result = await callback();
@@ -322,7 +333,9 @@ async function mutate(
         ? error.message
         : 'A operação da Stack não pôde ser concluída.';
   } finally {
-    action.value = '';
+    const next = { ...actions.value };
+    delete next[stackId];
+    actions.value = next;
   }
 }
 
@@ -344,7 +357,7 @@ onMounted(() => {
       <button
         class="stack-button"
         type="button"
-        :disabled="loading || Boolean(action)"
+        :disabled="loading"
         @click="load"
       >
         <ArrowPathIcon :class="{ 'is-spinning': loading }" aria-hidden="true" />
@@ -404,7 +417,7 @@ onMounted(() => {
               type="button"
               :aria-label="`Atualizar ${stack.name}`"
               :title="`Atualizar ${stack.name}`"
-              :disabled="Boolean(action) || Boolean(refreshingStackId)"
+              :disabled="isStackBusy(stack.id) || refreshingStackId === stack.id"
               @click="refreshStack(stack.id)"
             >
               <ArrowPathIcon
@@ -415,7 +428,7 @@ onMounted(() => {
             <button
               class="stack-button"
               type="button"
-              :disabled="Boolean(action) || Boolean(loadingLogsStackId)"
+              :disabled="isStackBusy(stack.id) || loadingLogsStackId === stack.id"
               @click="loadStackLogs(stack.id)"
             >
               <DocumentTextIcon aria-hidden="true" />
@@ -430,20 +443,20 @@ onMounted(() => {
             <button
               class="stack-button stack-button-primary"
               type="button"
-              :disabled="Boolean(action)"
-              @click="mutate(`start-${stack.id}`, () => startStack(stack.id))"
+              :disabled="isStackBusy(stack.id)"
+              @click="mutate(stack.id, `start-${stack.id}`, () => startStack(stack.id))"
             >
               <PlayIcon aria-hidden="true" />
-              {{ action === `start-${stack.id}` ? 'Iniciando…' : 'Iniciar' }}
+              {{ actionFor(stack.id) === `start-${stack.id}` ? 'Iniciando…' : 'Iniciar' }}
             </button>
             <button
               class="stack-button stack-button-danger"
               type="button"
-              :disabled="Boolean(action)"
-              @click="mutate(`stop-${stack.id}`, () => stopStack(stack.id))"
+              :disabled="isStackBusy(stack.id)"
+              @click="mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id))"
             >
               <PauseIcon aria-hidden="true" />
-              {{ action === `stop-${stack.id}` ? 'Parando…' : 'Parar' }}
+              {{ actionFor(stack.id) === `stop-${stack.id}` ? 'Parando…' : 'Parar' }}
             </button>
           </div>
         </header>
@@ -552,11 +565,11 @@ onMounted(() => {
             <button
               class="stack-node-action"
               type="button"
-              :disabled="Boolean(action)"
+              :disabled="isStackBusy(stack.id)"
               @click="acceptSuggestion(stack, suggestion)"
             >
               {{
-                action ===
+                actionFor(stack.id) ===
                 `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}`
                   ? 'Adicionando…'
                   : 'Adicionar'
@@ -603,16 +616,16 @@ onMounted(() => {
                 v-if="canRestart(node)"
                 class="stack-node-action"
                 type="button"
-                :disabled="Boolean(action)"
+                :disabled="isStackBusy(stack.id)"
                 @click="
-                  mutate(`restart-${stack.id}-${node.id}`, () =>
+                  mutate(stack.id, `restart-${stack.id}-${node.id}`, () =>
                     restartStackNode(stack.id, node.id),
                   )
                 "
               >
                 <ArrowUturnRightIcon aria-hidden="true" />
                 {{
-                  action === `restart-${stack.id}-${node.id}`
+                  actionFor(stack.id) === `restart-${stack.id}-${node.id}`
                     ? 'Reiniciando…'
                     : 'Reiniciar'
                 }}
