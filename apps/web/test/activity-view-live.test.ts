@@ -19,25 +19,49 @@ const snapshot = (active = false): ActivitySnapshot => ({
   generatedAt: '2026-10-14T12:00:00Z',
   partial: true,
   unavailableDomains: ['git'],
-  jobs: active ? [{
-    id: 'job-1', projectId: 'p1', domain: 'agent', action: 'run',
-    status: 'running', cancelSupported: false,
-  }] : [],
-  events: [{
-    id: 'event-1', projectId: 'p1', domain: 'git', type: 'change',
-    summary: 'Mudança registrada', status: 'succeeded',
-    occurredAt: '2026-10-14T12:00:00Z',
-  }],
+  jobs: active
+    ? [
+        {
+          id: 'job-1',
+          projectId: 'p1',
+          domain: 'agent',
+          action: 'run',
+          status: 'running',
+          cancelSupported: false,
+        },
+      ]
+    : [],
+  events: [
+    {
+      id: 'event-1',
+      projectId: 'p1',
+      domain: 'git',
+      type: 'change',
+      summary: 'Mudança registrada',
+      status: 'succeeded',
+      occurredAt: '2026-10-14T12:00:00Z',
+    },
+  ],
 });
-const mountView = () => mount(ActivityView, { global: { stubs: {
-  RouterLink: { template: '<a><slot /></a>' },
-  EmptyState: { template: '<div class="empty-stub" />' },
-  StatusBadge: { template: '<span><slot /></span>' },
-} } });
+const mountView = () =>
+  mount(ActivityView, {
+    global: {
+      stubs: {
+        RouterLink: { template: '<a><slot /></a>' },
+        EmptyState: { template: '<div class="empty-stub" />' },
+        StatusBadge: { template: '<span><slot /></span>' },
+      },
+    },
+  });
 
 describe('Activity live snapshot', () => {
-  beforeEach(() => { vi.useFakeTimers(); fetchActivity.mockReset(); });
-  afterEach(() => { vi.useRealTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchActivity.mockReset();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it('keeps one adaptive scheduler and cleans it on unmount', async () => {
     fetchActivity.mockResolvedValue(snapshot(true));
     const wrapper = mountView();
@@ -51,7 +75,9 @@ describe('Activity live snapshot', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
   it('keeps prior evidence and partial status when refresh fails', async () => {
-    fetchActivity.mockResolvedValueOnce(snapshot(true)).mockRejectedValueOnce(new Error('Offline'));
+    fetchActivity
+      .mockResolvedValueOnce(snapshot(true))
+      .mockRejectedValueOnce(new Error('Offline'));
     const wrapper = mountView();
     await flushPromises();
     expect(wrapper.text()).toContain('Snapshot parcial');
