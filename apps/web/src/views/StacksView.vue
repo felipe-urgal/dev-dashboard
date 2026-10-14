@@ -398,6 +398,47 @@ async function confirmStop(stack: Stack): Promise<void> {
   void mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id));
 }
 
+async function removeDependency(
+  stack: Stack,
+  nodeId: string,
+  dependsOnNodeId: string,
+): Promise<void> {
+  if (isStackBusy(stack.id)) return;
+  const dependency = stack.dependencies.find(
+    (item) =>
+      item.nodeId === nodeId && item.dependsOnNodeId === dependsOnNodeId,
+  );
+  if (!dependency) return;
+
+  actions.value = {
+    ...actions.value,
+    [stack.id]: `remove-dependency-${stack.id}`,
+  };
+  errorMessage.value = '';
+  try {
+    const saved = await saveStack({
+      ...stack,
+      dependencies: stack.dependencies.filter((item) => item !== dependency),
+    });
+    replaceStack(saved);
+    const [check, discovery] = await Promise.all([
+      fetchStackCheck(stack.id),
+      fetchStackDependencySuggestions(stack.id),
+    ]);
+    setCheck(check);
+    setDiscovery(discovery);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover a dependência.';
+  } finally {
+    const next = { ...actions.value };
+    delete next[stack.id];
+    actions.value = next;
+  }
+}
+
 async function mutate(
   stackId: string,
   operation: string,
@@ -705,10 +746,42 @@ onMounted(() => {
                 </StatusBadge>
               </div>
               <p>{{ targetLabel(node) }}</p>
-              <small v-if="dependenciesFor(stack, node.id).length">
-                Depende de:
-                {{ dependenciesFor(stack, node.id).join(', ') }}
-              </small>
+              <div
+                v-if="
+                  stack.dependencies.some(
+                    (dependency) => dependency.nodeId === node.id,
+                  )
+                "
+                class="stack-node-dependencies"
+              >
+                <small>Dependências confirmadas:</small>
+                <div
+                  v-for="dependency in stack.dependencies.filter(
+                    (item) => item.nodeId === node.id,
+                  )"
+                  :key="dependency.dependsOnNodeId"
+                  class="stack-node-actions"
+                >
+                  <small>{{
+                    nodeName(stack, dependency.dependsOnNodeId)
+                  }}</small>
+                  <button
+                    class="stack-node-action"
+                    type="button"
+                    :disabled="isStackBusy(stack.id)"
+                    :aria-label="`Remover dependência de ${node.name} com ${nodeName(stack, dependency.dependsOnNodeId)}`"
+                    @click="
+                      removeDependency(
+                        stack,
+                        dependency.nodeId,
+                        dependency.dependsOnNodeId,
+                      )
+                    "
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
               <small
                 v-if="healthFor(stack.id, node.id)?.diagnostic"
                 class="stack-node-diagnostic"
