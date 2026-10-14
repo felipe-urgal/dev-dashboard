@@ -548,9 +548,7 @@ onMounted(() => {
               class="stack-button stack-button-danger"
               type="button"
               :disabled="isStackBusy(stack.id)"
-              @click="
-                confirmStop(stack)
-              "
+              @click="confirmStop(stack)"
             >
               <PauseIcon aria-hidden="true" />
               {{
