@@ -22,7 +22,10 @@ const activityViewSource = readFileSync(
   resolve(webRoot, 'src/views/ActivityView.vue'),
   'utf8',
 );
-const resourceRegistrySource = readFileSync(resolve(webRoot, 'src/utils/activity-resources.ts'), 'utf8');
+const resourceRegistrySource = readFileSync(
+  resolve(webRoot, 'src/utils/activity-resources.ts'),
+  'utf8',
+);
 
 describe('Stacks multi-projeto', () => {
   it('expõe Stacks como página global', () => {
