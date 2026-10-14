@@ -30,10 +30,13 @@ vi.mock('../src/stores/dashboard', async () => {
       scanningWorkspace: ref(false),
       enabledUpdatingIds: ref<string[]>([]),
       errorMessage: ref(''),
+      scanWarnings: ref([]),
+      scanStatus: ref('idle'),
+      managedProcesses: ref([]),
       processSummary: ref({ total: 0, active: 0, stopped: 0, failed: 0 }),
       loadingProcessSummary: ref(false),
       processSummaryError: ref(''),
-      loadProcessSummary: vi.fn(),
+      loadProcessSummary: vi.fn().mockResolvedValue(undefined),
       lastScannedPath: ref(''),
       ensureDashboardLoaded: vi.fn(),
       rescanSelectedWorkspace: actions.escanear,
@@ -90,6 +93,9 @@ beforeEach(() => {
   dashboardStore.scanningWorkspace.value = false;
   dashboardStore.enabledUpdatingIds.value = [];
   dashboardStore.errorMessage.value = '';
+  dashboardStore.scanWarnings.value = [];
+  dashboardStore.scanStatus.value = 'idle';
+  dashboardStore.managedProcesses.value = [];
   dashboardStore.processSummary.value = {
     total: 0,
     active: 0,
@@ -180,5 +186,25 @@ describe('dashboard principal', () => {
     await wrapper.get('.toggle-enabled-stub').trigger('click');
 
     expect(actions.desativar).toHaveBeenCalledWith(project);
+  });
+});
+
+describe('warnings do workspace', () => {
+  it('preserva os projetos mesmo com avisos parciais', () => {
+    dashboardStore.projects.value = [project];
+    dashboardStore.scanStatus.value = 'warnings';
+    dashboardStore.scanWarnings.value = [{ path: '/tmp/subfolder', code: 'READ_ERROR', message: 'Sem permissão' }];
+    const wrapper = mountView();
+    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
+    expect(wrapper.get('.dashboard-scan-warning').text()).toContain('Descoberta parcial');
+  });
+  it('não mostra aviso após novo scan saudável', async () => {
+    dashboardStore.scanStatus.value = 'warnings';
+    dashboardStore.scanWarnings.value = [{ path: '.', code: 'ERROR', message: 'Erro' }];
+    const wrapper = mountView();
+    dashboardStore.scanStatus.value = 'complete';
+    dashboardStore.scanWarnings.value = [];
+    await nextTick();
+    expect(wrapper.find('.dashboard-scan-warning').exists()).toBe(false);
   });
 });
