@@ -24,6 +24,7 @@ import {
 import type { StackStartService } from '../services/stack-start-service.js';
 import type { StackStopService } from '../services/stack-stop-service.js';
 import { StackTopologyServiceError } from '../services/stack-topology-service.js';
+import { stackRevision } from '../services/stack-revision.js';
 
 interface Options extends FastifyPluginOptions {
   stackDefinitionService: Pick<
@@ -408,13 +409,25 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             required: ['stacks'],
             properties: {
               stacks: { type: 'array', items: stackSchema },
+              revisions: {
+                type: 'object',
+                additionalProperties: { type: 'string' },
+              },
             },
           },
           ...commonErrorResponseSchemas,
         },
       },
     },
-    async () => ({ stacks: options.stackDefinitionService.list() }),
+    async () => {
+      const stacks = options.stackDefinitionService.list();
+      return {
+        stacks,
+        revisions: Object.fromEntries(
+          stacks.map((stack) => [stack.id, stackRevision(stack)]),
+        ),
+      };
+    },
   );
 
   app.get<{ Params: StackParams }>(
@@ -427,7 +440,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             type: 'object',
             additionalProperties: false,
             required: ['stack'],
-            properties: { stack: stackSchema },
+            properties: {
+              stack: stackSchema,
+              revision: { type: 'string' },
+            },
           },
           ...commonErrorResponseSchemas,
         },
@@ -444,7 +460,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
           message: 'Stack not found.',
         });
       }
-      return { stack };
+      return { stack, revision: stackRevision(stack) };
     },
   );
 
@@ -487,7 +503,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             type: 'object',
             additionalProperties: false,
             required: ['check'],
-            properties: { check: stackCheckSchema },
+            properties: {
+              check: stackCheckSchema,
+              revision: { type: 'string' },
+            },
           },
           ...commonErrorResponseSchemas,
         },
@@ -495,9 +514,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     },
     async (request) => {
       try {
-        return {
-          check: await options.stackCheckService.check(request.params.stackId),
-        };
+        const check = await options.stackCheckService.check(
+          request.params.stackId,
+        );
+        return { check, revision: stackRevision(check.stack) };
       } catch (error) {
         throw mapStackError(error);
       }
@@ -644,7 +664,7 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
             type: 'object',
             additionalProperties: false,
             required: ['stack'],
-            properties: { stack: stackSchema },
+            properties: { stack: stackSchema, revision: { type: 'string' } },
           },
           ...commonErrorResponseSchemas,
         },
@@ -660,7 +680,8 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       }
 
       try {
-        return { stack: options.stackDefinitionService.save(request.body) };
+        const stack = options.stackDefinitionService.save(request.body);
+        return { stack, revision: stackRevision(stack) };
       } catch (error) {
         throw mapStackError(error);
       }

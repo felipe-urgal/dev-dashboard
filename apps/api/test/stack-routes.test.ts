@@ -99,6 +99,8 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   });
   assert.equal(created.statusCode, 200);
   assert.deepEqual(created.json<{ stack: Stack }>().stack, stack());
+  const revision = created.json<{ revision: string }>().revision;
+  assert.match(revision, /^[a-f0-9]{64}$/);
 
   const listed = await app.inject({
     method: 'GET',
@@ -107,6 +109,12 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   });
   assert.equal(listed.statusCode, 200);
   assert.deepEqual(listed.json<{ stacks: Stack[] }>().stacks, [stack()]);
+  assert.equal(
+    listed.json<{ revisions: Record<string, string> }>().revisions[
+      'local-stack'
+    ],
+    revision,
+  );
 
   const fetched = await app.inject({
     method: 'GET',
@@ -115,6 +123,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   });
   assert.equal(fetched.statusCode, 200);
   assert.equal(fetched.json<{ stack: Stack }>().stack.name, 'Local stack');
+  assert.equal(fetched.json<{ revision: string }>().revision, revision);
 
   const checked = await app.inject({
     method: 'GET',
@@ -131,6 +140,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
       };
     };
   }>().check;
+  assert.equal(checked.json<{ revision: string }>().revision, revision);
   assert.deepEqual(check.topology.startOrder, ['postgres', 'api']);
   assert.deepEqual(check.topology.stopOrder, ['api', 'postgres']);
   assert.equal(check.health.state, 'unknown');
