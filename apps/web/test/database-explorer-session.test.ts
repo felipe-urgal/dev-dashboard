@@ -107,6 +107,7 @@ describe('useDatabaseExplorerSession', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(state.sessionId.value).toBeNull();
     expect(state.connection.value).toBeNull();
+    expect(state.expiresAt.value).toBeNull();
     expect(onExpired).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
@@ -186,6 +187,8 @@ describe('useDatabaseExplorerSession', () => {
     expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledWith('session-1');
     expect(state.sessionId.value).toBeNull();
     expect(state.connection.value).toBeNull();
+    await state.disconnect();
+    expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
   });
