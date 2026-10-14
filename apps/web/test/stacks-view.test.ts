@@ -63,19 +63,18 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).not.toContain('processId.startsWith');
   });
 
-  it('isola o estado de mutação por Stack sem bloquear Stacks independentes', () => {
+  it('exibe erros independentes de Check e discovery por Stack', () => {
     expect(viewSource).toContain(
-      'const actions = ref<Record<string, string>>({})',
+      'const checkErrors = ref(new Map<string, string>())',
     );
-    expect(viewSource).toContain('return actions.value[stackId] ??');
-    expect(viewSource).toContain('if (isStackBusy(stackId)) return;');
-    expect(viewSource).toContain('delete next[stackId]');
-    expect(viewSource).toContain(':disabled="isStackBusy(stack.id)"');
-    expect(viewSource).toContain('mutate(stack.id, `start-');
-    expect(viewSource).toContain('mutate(stack.id, `stop-');
-    expect(viewSource).toContain('mutate(stack.id, `restart-');
-    expect(viewSource).not.toContain("const action = ref('')");
-    expect(viewSource).not.toContain('Boolean(action)');
+    expect(viewSource).toContain(
+      'const discoveryErrors = ref(new Map<string, string>())',
+    );
+    expect(viewSource).toContain('Promise.allSettled([');
+    expect(viewSource).toContain('nextChecks.delete(stackId)');
+    expect(viewSource).toContain('nextDiscoveries.delete(stackId)');
+    expect(viewSource).toContain('Check indisponível:');
+    expect(viewSource).toContain('Descoberta de dependências indisponível:');
   });
 
   it('integra eventos de Stack à Timeline global', () => {
