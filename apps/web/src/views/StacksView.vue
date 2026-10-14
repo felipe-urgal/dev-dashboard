@@ -53,6 +53,7 @@ function actionFor(stackId: string): string {
 function isStackBusy(stackId: string): boolean {
   return Boolean(actionFor(stackId));
 }
+
 const errorMessage = ref('');
 
 const projectNameById = computed(
@@ -244,7 +245,7 @@ async function load(): Promise<void> {
 }
 
 async function refreshStack(stackId: string): Promise<void> {
-  if (refreshingStackId.value === stackId || isStackBusy(stackId)) return;
+  if (refreshingStackId.value || isStackBusy(stackId)) return;
 
   refreshingStackId.value = stackId;
   errorMessage.value = '';
@@ -288,7 +289,10 @@ async function acceptSuggestion(
 ): Promise<void> {
   if (isStackBusy(stack.id)) return;
 
-  actions.value = { ...actions.value, [stack.id]: `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}` };
+  actions.value = {
+    ...actions.value,
+    [stack.id]: `dependency-${stack.id}-${suggestion.dependency.nodeId}-${suggestion.dependency.dependsOnNodeId}`,
+  };
   errorMessage.value = '';
   try {
     const saved = await saveStack({
