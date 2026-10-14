@@ -104,7 +104,6 @@ const {
   history: explorerQueryHistory,
   recent: recentExplorerQueries,
   savedQueries: savedExplorerQueries,
-  count: explorerQueryCount,
   load: loadExplorerQueryHistory,
   remember: rememberDatabaseQuery,
   toggleFavorite: toggleExplorerQueryFavorite,
