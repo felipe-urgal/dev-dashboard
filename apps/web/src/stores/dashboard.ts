@@ -344,7 +344,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     } = {},
   ): Promise<WorkspaceScanResponse> {
     const shouldActivate = options.activate ?? false;
-    const generation = ++scanGeneration;
+    const generation = shouldActivate ? ++scanGeneration : scanGeneration;
     const workspaceAtStart = workspaceGeneration;
 
     if (shouldActivate) {
@@ -396,8 +396,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     } catch (error) {
       if (workspace.id !== selectedWorkspaceId.value) return;
       scanStatus.value = 'failed';
-      if (workspace.id !== selectedWorkspaceId.value) return;
-      scanStatus.value = 'failed';
       errorMessage.value =
         error instanceof Error
           ? error.message
@@ -420,6 +418,8 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       });
       await loadProcessSummary();
     } catch (error) {
+      if (workspace.id !== selectedWorkspaceId.value) return;
+      scanStatus.value = 'failed';
       errorMessage.value =
         error instanceof Error
           ? error.message
