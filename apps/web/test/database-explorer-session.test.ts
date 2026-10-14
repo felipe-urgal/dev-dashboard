@@ -107,6 +107,7 @@ describe('useDatabaseExplorerSession', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(state.sessionId.value).toBeNull();
     expect(state.connection.value).toBeNull();
+    expect(state.expiresAt.value).toBeNull();
     expect(onExpired).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
@@ -186,6 +187,8 @@ describe('useDatabaseExplorerSession', () => {
     expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledWith('session-1');
     expect(state.sessionId.value).toBeNull();
     expect(state.connection.value).toBeNull();
+    await state.disconnect();
+    expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
   });
@@ -212,6 +215,26 @@ describe('useDatabaseExplorerSession', () => {
     expect(state.sessionId.value).toBeNull();
     expect(onExpired).toHaveBeenCalledTimes(1);
 
+    wrapper.unmount();
+  });
+  it('disconnect durante connect invalida resposta tardia e não reutiliza senha', async () => {
+    const catalog = deferred<{ name: string }[]>();
+    api.createDatabaseExplorerSession.mockResolvedValue({
+      sessionId: 'pending-session',
+      expiresAt: futureExpiry(),
+    });
+    api.fetchDatabaseExplorerCatalog.mockReturnValue(catalog.promise);
+    const { wrapper, state } = mountHarness();
+    const connecting = state.connect(connection);
+    await flushPromises();
+    await state.disconnect();
+    catalog.resolve([{ name: 'stale' }]);
+    await expect(connecting).rejects.toMatchObject({ name: 'AbortError' });
+    expect(state.sessionId.value).toBeNull();
+    expect(state.connection.value).toBeNull();
+    expect(api.deleteDatabaseExplorerSession).toHaveBeenCalledWith(
+      'pending-session',
+    );
     wrapper.unmount();
   });
 });

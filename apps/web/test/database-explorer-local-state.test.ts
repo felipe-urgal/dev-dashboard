@@ -5,6 +5,7 @@ import { useDatabaseSavedConnections } from '../src/composables/useDatabaseSaved
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -99,95 +100,91 @@ describe('useDatabaseSavedConnections', () => {
 });
 
 describe('useDatabaseQueryHistory', () => {
-  it('deduplica consultas e preserva favorito', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(1_000);
-    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+  const input = {
+    query: "SELECT * FROM users WHERE email = 'private@example.com'",
+    driver: 'postgresql' as const,
+    database: 'app_development',
+    table: 'users',
+  };
+
+  it('não persiste SQL recente em localStorage e limita recentes a 50', () => {
     const queries = useDatabaseQueryHistory();
-    const input = {
-      query: ' SELECT * FROM users ',
-      driver: 'postgresql' as const,
-      database: 'app_development',
-      table: 'users',
-    };
-
-    queries.remember(input);
-    const firstId = queries.history.value[0]!.id;
-    queries.toggleFavorite(firstId);
-    queries.remember(input);
-
-    expect(queries.history.value).toHaveLength(1);
-    expect(queries.history.value[0]).toMatchObject({
-      query: 'SELECT * FROM users',
-      favorite: true,
-      database: 'app_development',
-    });
-    expect(queries.recent.value).toHaveLength(1);
-  });
-
-  it('persiste no máximo 50 consultas em envelope versionado e permite remover/limpar', () => {
-    const queries = useDatabaseQueryHistory();
-
     for (let index = 0; index < 55; index += 1) {
-      queries.remember({
-        query: `SELECT ${index}`,
-        driver: 'postgresql',
-        database: 'app_development',
-        table: '',
-      });
+      queries.remember({ ...input, query: `SELECT ${index}` });
     }
-
-    const persisted = JSON.parse(
-      localStorage.getItem('dev-dashboard.database-query-history') ?? '{}',
-    ) as { version?: number; value?: unknown[] };
-    expect(persisted.version).toBe(1);
-    expect(persisted.value).toHaveLength(50);
+    expect(queries.history.value).toHaveLength(50);
     expect(queries.recent.value).toHaveLength(8);
-
-    const firstId = queries.history.value[0]!.id;
-    queries.remove(firstId);
-    expect(queries.history.value.some((item) => item.id === firstId)).toBe(
-      false,
-    );
-
-    queries.clear();
-    expect(queries.history.value).toEqual([]);
-  });
-
-  it('migra histórico legado preservando favorito', () => {
-    localStorage.setItem(
-      'dev-dashboard.database-query-history',
-      JSON.stringify([
-        {
-          id: 'legacy-query',
-          query: 'SELECT * FROM users',
-          driver: 'postgresql',
-          database: 'app_development',
-          table: 'users',
-          createdAt: '2026-08-30T12:00:00.000Z',
-          favorite: true,
-        },
-      ]),
-    );
-    const queries = useDatabaseQueryHistory();
-
-    queries.load();
-
-    expect(queries.history.value).toEqual([
-      expect.objectContaining({ id: 'legacy-query', favorite: true }),
-    ]);
+    expect(
+      localStorage.getItem('dev-dashboard.database-query-history'),
+    ).toBeNull();
+    expect(
+      localStorage.getItem('dev-dashboard.database-saved-queries'),
+    ).toBeNull();
     expect(
       JSON.parse(
-        localStorage.getItem('dev-dashboard.database-query-history') ?? '{}',
+        sessionStorage.getItem('dev-dashboard.database-recent-queries') ?? '[]',
       ),
-    ).toMatchObject({ version: 1, value: [{ id: 'legacy-query' }] });
+    ).toHaveLength(50);
+    sessionStorage.clear(); // a new browser session
+    const nextSession = useDatabaseQueryHistory();
+    nextSession.load();
+    expect(nextSession.history.value).toEqual([]);
   });
 
-  it('ignora storage inválido ao carregar', () => {
-    localStorage.setItem('dev-dashboard.database-query-history', '{invalid');
+  it('salva SQL somente após ação explícita, deduplica e permite removê-lo', () => {
     const queries = useDatabaseQueryHistory();
+    queries.remember(input);
+    const id = queries.history.value[0]!.id;
+    expect(localStorage.length).toBe(0);
+    queries.toggleFavorite(id);
+    expect(queries.savedQueries.value).toHaveLength(1);
+    expect(
+      localStorage.getItem('dev-dashboard.database-saved-queries'),
+    ).toContain(input.query);
+    sessionStorage.clear();
+    const nextSession = useDatabaseQueryHistory();
+    nextSession.load();
+    expect(nextSession.recent.value).toEqual([]);
+    expect(nextSession.savedQueries.value).toHaveLength(1);
+    nextSession.toggleFavorite(id);
+    expect(nextSession.savedQueries.value).toEqual([]);
+  });
 
+  it('limita consultas explicitamente salvas a 50', () => {
+    const queries = useDatabaseQueryHistory();
+    for (let index = 0; index < 55; index += 1) {
+      queries.remember({ ...input, query: `SELECT ${index}` });
+      queries.toggleFavorite(queries.history.value[0]!.id);
+    }
+    expect(queries.savedQueries.value).toHaveLength(50);
+  });
+
+  it('descarta legado automaticamente, sem reapresentar SQL ou copiar segredos', () => {
+    localStorage.setItem(
+      'dev-dashboard.database-query-history',
+      JSON.stringify({
+        version: 1,
+        value: [{ ...input, password: 'legacy-secret', favorite: true }],
+      }),
+    );
+    const queries = useDatabaseQueryHistory();
     queries.load();
-
     expect(queries.history.value).toEqual([]);
+    expect(queries.savedQueries.value).toEqual([]);
+    expect(
+      localStorage.getItem('dev-dashboard.database-query-history'),
+    ).toBeNull();
+    expect(
+      localStorage.getItem('dev-dashboard.database-saved-queries'),
+    ).toBeNull();
+  });
+
+  it('ignora storage inválido', () => {
+    sessionStorage.setItem('dev-dashboard.database-recent-queries', '{invalid');
+    localStorage.setItem('dev-dashboard.database-saved-queries', '{invalid');
+    const queries = useDatabaseQueryHistory();
+    queries.load();
+    expect(queries.history.value).toEqual([]);
+    expect(queries.savedQueries.value).toEqual([]);
   });
 });
