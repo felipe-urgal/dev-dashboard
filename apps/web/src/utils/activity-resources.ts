@@ -5,6 +5,7 @@ import { cancelDeployment } from '../api/deployments';
 import { stopProjectProcess } from '../api/processes';
 import { cancelScriptExecution } from '../api/scripts';
 import { cancelLocalCiRun } from '../api/local-ci';
+import { projectToolRoute } from '../project-tools';
 
 type ActivityItem = Pick<
   ActivityEvent,
@@ -21,17 +22,20 @@ interface ResourceHandler {
   cancel?: (job: ActivityJob) => Promise<unknown>;
 }
 
-const projectRoute = (name: string, item: ActivityItem): Route => ({
-  name,
-  params: { projectId: item.projectId },
-});
-const environmentRoute = (name: string, item: ActivityItem): Route | null =>
-  item.environmentInstanceId
-    ? {
-        ...projectRoute(name, item),
-        query: { environmentInstanceId: item.environmentInstanceId },
-      }
-    : null;
+const toolRoute = (
+  toolId: string,
+  item: ActivityItem,
+  query?: Record<string, string>,
+): Route =>
+  projectToolRoute(toolId, item.projectId, {
+    environmentInstanceId: item.environmentInstanceId,
+    ...(query ? { query } : {}),
+  });
+const environmentToolRoute = (
+  toolId: string,
+  item: ActivityItem,
+): Route | null =>
+  item.environmentInstanceId ? toolRoute(toolId, item) : null;
 
 // Only identifiers provided by the domain are forwarded. No execution authority is reconstructed.
 const registry: Record<string, ResourceHandler> = {
@@ -39,22 +43,19 @@ const registry: Record<string, ResourceHandler> = {
     label: 'Abrir Agente',
     route: (item) =>
       item.resourceRef?.id
-        ? {
-            ...projectRoute('project-agent', item),
-            query: { taskId: item.resourceRef.id },
-          }
+        ? toolRoute('agent', item, { taskId: item.resourceRef.id })
         : null,
     cancel: (job) => cancelAgentTask(job.projectId, job.resourceRef!.id),
   },
   'managed-process': {
     label: 'Abrir processos',
-    route: (item) => projectRoute('project-server', item),
+    route: (item) => toolRoute('server', item),
     cancel: (job) =>
       stopProjectProcess(job.projectId, job.environmentInstanceId),
   },
   'dev-container-lifecycle': {
     label: 'Abrir Dev Container',
-    route: (item) => environmentRoute('project-dev-container', item),
+    route: (item) => environmentToolRoute('dev-container', item),
     cancel: (job) =>
       cancelDevContainerLifecycleExecution(
         job.projectId,
@@ -63,42 +64,45 @@ const registry: Record<string, ResourceHandler> = {
   },
   deployment: {
     label: 'Abrir Produção',
-    route: (item) => projectRoute('project-production', item),
+    route: (item) => toolRoute('production', item),
     cancel: (job) => cancelDeployment(job.projectId, job.resourceRef!.id),
   },
   'compose-execution': {
     label: 'Abrir Compose',
-    route: (item) => projectRoute('project-compose', item),
+    route: (item) => toolRoute('compose', item),
   },
   compose: {
     label: 'Abrir Compose',
-    route: (item) => projectRoute('project-compose', item),
+    route: (item) => toolRoute('compose', item),
   },
   'stack-node': { label: 'Abrir Stacks', route: () => ({ name: 'stacks' }) },
   'migration-mutation': {
     label: 'Abrir migrações',
-    route: (item) => projectRoute('project-migrations', item),
+    route: (item) => toolRoute('migrations', item),
   },
   'local-ci': {
     label: 'Abrir CI local',
-    route: (item) => projectRoute('project-local-ci', item),
+    route: (item) => toolRoute('local-ci', item),
   },
   'local-ci-run': {
     label: 'Abrir CI local',
-    route: (item) => projectRoute('project-local-ci', item),
+    route: (item) => toolRoute('local-ci', item),
     cancel: (job) => cancelLocalCiRun(job.projectId, job.resourceRef!.id),
   },
   'git-mutation': {
     label: 'Abrir Git',
-    route: (item) => projectRoute('project-git', item),
+    route: (item) => toolRoute('git', item),
   },
   'test-execution': {
     label: 'Abrir testes',
-    route: (item) => projectRoute('project-tests', item),
+    route: (item) => toolRoute('tests', item),
   },
   'script-execution': {
     label: 'Abrir projeto',
-    route: (item) => projectRoute('project-details', item),
+    route: (item) => ({
+      name: 'project-details',
+      params: { projectId: item.projectId },
+    }),
     cancel: (job) => cancelScriptExecution(job.projectId, job.resourceRef!.id),
   },
 };
