@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 
 import { DatabaseExplorerAdapterError } from '../src/services/database-explorer-adapter.js';
 import {
@@ -48,7 +48,7 @@ function postgresFactory(options: {
 }
 
 function mysqlFactory(options: {
-  onQuery: (sql: string) => { columns: string[]; rows: unknown[][] };
+  onQuery: (sql: string) => { columns: string[]; rows: unknown[][] } | Promise<never>;
   onControlQuery?: (sql: string) => void;
   onDestroy?: () => void;
   onConfig?: (config: Parameters<MysqlExplorerClientFactory>[0]) => void;
@@ -61,7 +61,7 @@ function mysqlFactory(options: {
           options.onControlQuery?.(input);
           return [[], []];
         }
-        const result = options.onQuery(input.sql);
+        const result = await options.onQuery(input.sql);
         return [result.rows, result.columns.map((name) => ({ name }))];
       },
       async end() {},
@@ -283,3 +283,51 @@ for (const driver of ['mysql', 'mariadb'] as const) {
     ]);
   });
 }
+
+test('MySQL e MariaDB destroem a conexão ao cancelar a consulta', async () => {
+  for (const driver of ['mysql', 'mariadb'] as const) {
+    let destroyed = 0;
+    let resolveStarted!: () => void;
+    const started = new Promise<void>((resolve) => { resolveStarted = resolve; });
+    const adapter = new MysqlExplorerAdapter(
+      mysqlFactory({
+        onQuery: () => {
+          resolveStarted();
+          return new Promise<never>(() => undefined);
+        },
+        onDestroy: () => { destroyed += 1; },
+      }),
+    );
+    const controller = new AbortController();
+    const pending = adapter.query({ driver }, 'SELECT 1', controller.signal);
+    await started;
+    controller.abort();
+    await assert.rejects(pending, (error: unknown) =>
+      error instanceof DatabaseExplorerAdapterError && error.reason === 'aborted',
+    );
+    assert.equal(destroyed, 1);
+  }
+});
+
+test('timeout do driver interrompe operação pendente e encerra conexão', async () => {
+  const { runAbortableDatabaseOperation, DATABASE_QUERY_TIMEOUT_MS } =
+    await import('../src/services/database-explorer-driver.js');
+  const clock = mock.timers;
+  clock.enable({ apis: ['setTimeout'] });
+  try {
+    let terminated = 0;
+    const pending = runAbortableDatabaseOperation({
+      operation: new Promise<never>(() => undefined),
+      terminate: () => { terminated += 1; },
+    });
+    clock.tick(DATABASE_QUERY_TIMEOUT_MS);
+    await assert.rejects(pending, (error: unknown) =>
+      error instanceof DatabaseExplorerAdapterError &&
+      error.reason === 'command-failed' &&
+      error.message.includes('15 segundos'),
+    );
+    assert.equal(terminated, 1);
+  } finally {
+    clock.reset();
+  }
+});
