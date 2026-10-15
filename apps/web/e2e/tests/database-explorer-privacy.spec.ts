@@ -60,6 +60,7 @@ test.describe('Privacidade e sessão do Query Explorer', () => {
     });
 
     await gotoBootstrapped(page, '/database');
+    await page.getByRole('tab', { name: 'Explorador de dados' }).click();
     await page.getByRole('button', { name: 'Conectar a um serviço' }).click();
     const dialog = page.getByRole('dialog', { name: 'Conectar a um serviço' });
     await dialog.getByLabel('Usuário').fill('dev');
