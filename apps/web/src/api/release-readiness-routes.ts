@@ -1,30 +1,31 @@
+import { projectToolRoute } from '../project-tools';
 import type { ReleaseReadinessActionTarget } from './release-readiness';
 
 /**
- * Exhaustive mapping between backend action targets and registered project routes.
+ * Exhaustive mapping between backend action targets and Project Tools.
  * Adding a new target requires an explicit destination (no silent fallback).
  */
 export const releaseReadinessActionRoutes = {
-  synchronization: { name: 'project-git', query: { tab: 'sync' } },
-  tests: { name: 'project-tests' },
-  'pull-request': { name: 'project-git', query: { tab: 'pull-request' } },
-  doctor: { name: 'project-doctor' },
-  migrations: { name: 'project-migrations' },
-  security: { name: 'project-security-center' },
-  production: { name: 'project-production' },
+  synchronization: { toolId: 'git', query: { tab: 'sync' } },
+  tests: { toolId: 'tests' },
+  'pull-request': { toolId: 'git', query: { tab: 'pull-request' } },
+  doctor: { toolId: 'doctor' },
+  migrations: { toolId: 'migrations' },
+  security: { toolId: 'security' },
+  production: { toolId: 'production' },
 } as const satisfies Record<
   ReleaseReadinessActionTarget,
-  { name: string; query?: Record<string, string> }
+  { toolId: string; query?: Record<string, string> }
 >;
 
 export function releaseReadinessActionRoute(
   target: ReleaseReadinessActionTarget,
   projectId: string,
+  environmentInstanceId?: string,
 ) {
   const route = releaseReadinessActionRoutes[target];
-  return {
-    name: route.name,
-    params: { projectId },
+  return projectToolRoute(route.toolId, projectId, {
+    environmentInstanceId,
     ...('query' in route ? { query: route.query } : {}),
-  };
+  });
 }

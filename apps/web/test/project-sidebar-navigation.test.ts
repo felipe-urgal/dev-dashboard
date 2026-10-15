@@ -118,4 +118,43 @@ describe('ProjectSidebarNavigation', () => {
 
     expect(wrapper.emitted('expand-sidebar')).toHaveLength(1);
   });
+
+  it('marca a mesma rota ativa no desktop e no mobile com aria-current', () => {
+    route.name = 'project-readiness';
+    const wrapper = mountNavigation();
+
+    const activeLabels = (selector: string) =>
+      wrapper
+        .find(selector)
+        .findAll('a[aria-current="page"]')
+        .map((link) => link.text());
+
+    expect(activeLabels('.project-sidebar-desktop-groups')).toEqual([
+      'Readiness',
+    ]);
+    expect(activeLabels('.project-sidebar-mobile-links')).toEqual([
+      'Readiness',
+    ]);
+  });
+
+  it('expõe os mesmos labels no desktop e no mobile, em links focáveis', () => {
+    const wrapper = mountNavigation();
+    const labels = (selector: string) =>
+      wrapper
+        .find(selector)
+        .findAll('a')
+        .map((link) => link.text())
+        .sort();
+
+    expect(labels('.project-sidebar-mobile-links')).toEqual(
+      labels('.project-sidebar-desktop-groups'),
+    );
+    expect(wrapper.findAll('.project-details-menu-trigger')).not.toHaveLength(
+      0,
+    );
+    for (const trigger of wrapper.findAll('.project-details-menu-trigger')) {
+      expect(trigger.element.tagName).toBe('BUTTON');
+      expect(trigger.attributes('aria-controls')).toBeTruthy();
+    }
+  });
 });

@@ -1,6 +1,4 @@
 import type { Project } from '@dev-dashboard/contracts';
-import type { RouteLocationRaw } from 'vue-router';
-
 export type ProjectToolIcon =
   | 'server'
   | 'terminal'
@@ -317,12 +315,18 @@ export function listProjectTools(
   });
 }
 
+export interface ProjectToolRoute {
+  name: string;
+  params: { projectId: string };
+  query?: Record<string, string>;
+}
+
 export function buildProjectToolRoute(
   tool: ProjectTool,
   projectId: string,
   environmentInstanceId?: string,
   query?: Record<string, string>,
-): RouteLocationRaw {
+): ProjectToolRoute {
   const finalQuery = {
     ...(tool.environmentAware && environmentInstanceId
       ? { environmentInstanceId }
@@ -338,4 +342,27 @@ export function buildProjectToolRoute(
 
 export function findProjectTool(id: string): ProjectTool | undefined {
   return PROJECT_TOOLS.find((tool) => tool.id === id);
+}
+
+/**
+ * Rota de uma Project Tool pelo id. Id desconhecido falha explicitamente,
+ * sem cair em rota genérica. Só ferramentas environment-aware recebem
+ * `environmentInstanceId`; `query` extra pertence ao destino (ex.: `taskId`).
+ */
+export function projectToolRoute(
+  toolId: string,
+  projectId: string,
+  options: {
+    environmentInstanceId?: string | undefined;
+    query?: Record<string, string>;
+  } = {},
+): ProjectToolRoute {
+  const tool = findProjectTool(toolId);
+  if (!tool) throw new Error(`Project Tool desconhecida: ${toolId}`);
+  return buildProjectToolRoute(
+    tool,
+    projectId,
+    options.environmentInstanceId,
+    options.query,
+  );
 }

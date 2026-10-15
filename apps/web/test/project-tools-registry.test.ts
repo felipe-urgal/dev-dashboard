@@ -4,6 +4,7 @@ import { buildCommandPaletteNavigationItems } from '../src/command-palette-navig
 import {
   PROJECT_TOOLS,
   buildProjectToolRoute,
+  projectToolRoute,
   findProjectTool,
   listProjectTools,
 } from '../src/project-tools';
@@ -82,5 +83,25 @@ describe('registry de Project Tools', () => {
       name: 'dashboard',
       hash: '#overview',
     });
+  });
+
+  it('troca entre ferramentas environment-aware mantém o mesmo ambiente', () => {
+    const ids = ['server', 'terminal', 'dependencies', 'compose', 'doctor'];
+    for (const id of ids) {
+      const to = projectToolRoute(id, 'p1', { environmentInstanceId: 'env-9' });
+      expect(to.query, id).toEqual({ environmentInstanceId: 'env-9' });
+    }
+  });
+
+  it('não propaga taskId ao navegar para outra ferramenta', () => {
+    const to = projectToolRoute('agent', 'p1', {
+      environmentInstanceId: 'env-1',
+    });
+    expect(to.query).toEqual({ environmentInstanceId: 'env-1' });
+    expect(to.query).not.toHaveProperty('taskId');
+  });
+
+  it('falha explicitamente para ferramenta desconhecida', () => {
+    expect(() => projectToolRoute('inexistente', 'p1')).toThrow(/desconhecida/);
   });
 });

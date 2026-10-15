@@ -15,7 +15,7 @@ import {
   ServerStackIcon,
   ShareIcon,
 } from '@heroicons/vue/24/outline';
-import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -28,6 +28,7 @@ import {
   listProjectTools,
   type ProjectGitTabId,
   type ProjectTool,
+  type ProjectToolRoute,
   type ProjectToolGroup,
 } from '../project-tools';
 
@@ -52,7 +53,7 @@ type SidebarItem = {
   label: string;
   icon?: Component;
   routeNames: string[];
-  to: RouteLocationRaw;
+  to: ProjectToolRoute;
   gitTab?: ProjectGitTabId;
 };
 
