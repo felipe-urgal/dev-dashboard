@@ -225,8 +225,6 @@ describe('paleta global de navegação', () => {
     expect(document.body.textContent).not.toContain('Iniciar servidor');
     expect(document.body.textContent).not.toContain('Executar todos os testes');
     expect(document.body.textContent).not.toContain('Popular banco');
-    expect(document.body.textContent).not.toContain('Terminal');
-    expect(document.body.textContent).not.toContain('Console');
     expect(document.body.textContent).toContain('somente navegação');
   });
 });

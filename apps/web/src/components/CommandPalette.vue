@@ -9,25 +9,18 @@ import {
   type Component,
 } from 'vue';
 import { NModal } from 'naive-ui';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { Project, Workspace } from '@dev-dashboard/contracts';
 import {
-  AdjustmentsHorizontalIcon,
-  BeakerIcon,
   CircleStackIcon,
-  CodeBracketIcon,
-  CpuChipIcon,
-  CubeIcon,
-  DocumentTextIcon,
   FolderIcon,
   HomeIcon,
   MagnifyingGlassIcon,
   QueueListIcon,
   RectangleGroupIcon,
-  RocketLaunchIcon,
-  ServerStackIcon,
-  ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
+
+import { projectToolIcons } from '../project-tool-icons';
 
 import {
   buildCommandPaletteNavigationItems,
@@ -46,6 +39,7 @@ const props = defineProps<{
 
 const RECENTS_KEY = 'dev-dashboard:command-palette:recent-navigation';
 const router = useRouter();
+const route = useRoute();
 const open = ref(false);
 const query = ref('');
 const activeIndex = ref(0);
@@ -55,26 +49,33 @@ const recentIds = ref<string[]>(readRecents());
 let previousFocus: HTMLElement | null = null;
 
 const iconByName: Record<CommandPaletteNavigationIcon, Component> = {
+  ...projectToolIcons,
   home: HomeIcon,
   activity: QueueListIcon,
   stacks: RectangleGroupIcon,
-  production: RocketLaunchIcon,
   database: CircleStackIcon,
   workspace: FolderIcon,
   project: FolderIcon,
-  server: ServerStackIcon,
-  git: CodeBracketIcon,
-  tests: BeakerIcon,
-  agent: CpuChipIcon,
-  dependencies: CubeIcon,
-  environment: AdjustmentsHorizontalIcon,
-  doctor: ShieldCheckIcon,
-  readme: DocumentTextIcon,
 };
 
 const parsedQuery = computed(() => parsePaletteQuery(query.value));
+const projectContext = computed(() => {
+  const projectId = route.params.projectId;
+  if (typeof projectId !== 'string') return undefined;
+  const environmentInstanceId = route.query.environmentInstanceId;
+  return {
+    projectId,
+    ...(typeof environmentInstanceId === 'string' && environmentInstanceId
+      ? { environmentInstanceId }
+      : {}),
+  };
+});
 const catalog = computed(() =>
-  buildCommandPaletteNavigationItems(props.projects, props.workspaces),
+  buildCommandPaletteNavigationItems(
+    props.projects,
+    props.workspaces,
+    projectContext.value,
+  ),
 );
 const filteredItems = computed(() =>
   filterCommandPaletteNavigationItems(catalog.value, parsedQuery.value),

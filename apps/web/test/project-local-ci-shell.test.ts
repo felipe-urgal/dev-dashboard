@@ -12,8 +12,8 @@ const projectDetailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
 );
-const moreToolsSource = readFileSync(
-  resolve(webRoot, 'src/components/ProjectDetailsMoreTools.vue'),
+const projectToolsSource = readFileSync(
+  resolve(webRoot, 'src/project-tools.ts'),
   'utf8',
 );
 const dedicatedLocalCiView = resolve(
@@ -43,7 +43,7 @@ describe('shell do Local CI', () => {
   });
 
   it('mantém Local CI como ferramenta do projeto', () => {
-    expect(moreToolsSource).toContain("route.name === 'project-local-ci'");
-    expect(moreToolsSource).toContain('<span>Local CI</span>');
+    expect(projectToolsSource).toContain("routeName: 'project-local-ci'");
+    expect(projectToolsSource).toContain("label: 'Local CI'");
   });
 });

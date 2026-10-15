@@ -2,6 +2,11 @@ import type { Project, Workspace } from '@dev-dashboard/contracts';
 import type { RouteLocationRaw } from 'vue-router';
 
 import {
+  buildProjectToolRoute,
+  listProjectTools,
+  type ProjectToolIcon,
+} from './project-tools';
+import {
   normalizePaletteText,
   paletteFuzzyScore,
   type ParsedPaletteQuery,
@@ -11,21 +16,18 @@ export type CommandPaletteNavigationGroup =
   'Páginas' | 'Workspaces' | 'Projetos' | 'Ferramentas';
 
 export type CommandPaletteNavigationIcon =
+  | ProjectToolIcon
   | 'home'
   | 'activity'
   | 'stacks'
-  | 'production'
   | 'database'
   | 'workspace'
-  | 'project'
-  | 'server'
-  | 'git'
-  | 'tests'
-  | 'agent'
-  | 'dependencies'
-  | 'environment'
-  | 'doctor'
-  | 'readme';
+  | 'project';
+
+export interface CommandPaletteProjectContext {
+  projectId: string;
+  environmentInstanceId?: string | undefined;
+}
 
 export interface CommandPaletteNavigationItem {
   id: string;
@@ -54,134 +56,37 @@ function item(
   };
 }
 
-function projectTool(
+function buildProjectTools(
   project: Project,
-  value: {
-    id: string;
-    label: string;
-    description: string;
-    icon: CommandPaletteNavigationIcon;
-    to: RouteLocationRaw;
-    aliases?: string;
-  },
-): CommandPaletteNavigationItem {
-  return item({
-    id: `project-${project.id}-${value.id}`,
-    group: 'Ferramentas',
-    label: value.label,
-    description: `${project.name} · ${value.description}`,
-    icon: value.icon,
-    mode: 'page',
-    to: value.to,
-    projectId: project.id,
-    ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
-    aliases: `${project.id} ${project.name} ${project.path} ${value.aliases ?? ''} ${project.name} ${value.label}`,
-  });
-}
-
-function buildProjectTools(project: Project): CommandPaletteNavigationItem[] {
+  context?: CommandPaletteProjectContext,
+): CommandPaletteNavigationItem[] {
   if (!project.enabled) return [];
 
-  const params = { projectId: project.id };
-  return [
-    ...(project.capabilities.includes('server')
-      ? [
-          projectTool(project, {
-            id: 'server',
-            label: 'Servidor',
-            description: 'Configuração, status e logs',
-            icon: 'server',
-            to: { name: 'project-server', params },
-            aliases: 'server logs',
-          }),
-        ]
-      : []),
-    ...(project.capabilities.includes('git')
-      ? [
-          projectTool(project, {
-            id: 'git',
-            label: 'Git',
-            description: 'Sincronização, branches, commit e histórico',
-            icon: 'git',
-            to: { name: 'project-git', params },
-            aliases: 'branch branches commit diff histórico sincronização sync',
-          }),
-        ]
-      : []),
-    ...(project.capabilities.includes('tests')
-      ? [
-          projectTool(project, {
-            id: 'tests',
-            label: 'Testes',
-            description: 'Suítes e histórico de execução',
-            icon: 'tests',
-            to: { name: 'project-tests', params },
-            aliases: 'test tests testes suíte suite',
-          }),
-        ]
-      : []),
-    projectTool(project, {
-      id: 'agent',
-      label: 'Agente',
-      description: 'Tasks, providers, checkpoints e autorizações',
-      icon: 'agent',
-      to: { name: 'project-agent', params },
-      aliases: 'agent agente codex claude chatgpt automation automação',
+  const environmentInstanceId =
+    context?.projectId === project.id
+      ? context.environmentInstanceId
+      : undefined;
+
+  return listProjectTools(project).map((tool) =>
+    item({
+      id: `project-${project.id}-${tool.id}`,
+      group: 'Ferramentas',
+      label: tool.label,
+      description: `${project.name} · ${tool.description}`,
+      icon: tool.icon,
+      mode: 'page',
+      to: buildProjectToolRoute(tool, project.id, environmentInstanceId),
+      projectId: project.id,
+      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
+      aliases: `${project.id} ${project.name} ${project.path} ${tool.aliases} ${project.name} ${tool.label}`,
     }),
-    ...(project.capabilities.includes('production')
-      ? [
-          projectTool(project, {
-            id: 'production',
-            label: 'Produção',
-            description: 'Status e fluxo de deployment',
-            icon: 'production',
-            to: { name: 'project-production', params },
-            aliases: 'produção deploy deployment',
-          }),
-        ]
-      : []),
-    ...(project.type === 'rails' || project.type === 'node'
-      ? [
-          projectTool(project, {
-            id: 'dependencies',
-            label: 'Dependências',
-            description: 'Dependências do projeto',
-            icon: 'dependencies',
-            to: { name: 'project-dependencies', params },
-            aliases: 'dependencies packages gems npm bundle',
-          }),
-        ]
-      : []),
-    projectTool(project, {
-      id: 'environment',
-      label: 'Variáveis de ambiente',
-      description: 'Configuração de ambiente do projeto',
-      icon: 'environment',
-      to: { name: 'project-environment', params },
-      aliases: 'environment env variáveis ambiente',
-    }),
-    projectTool(project, {
-      id: 'doctor',
-      label: 'Diagnóstico',
-      description: 'Diagnóstico e saúde do projeto',
-      icon: 'doctor',
-      to: { name: 'project-doctor', params },
-      aliases: 'doctor diagnóstico saúde health',
-    }),
-    projectTool(project, {
-      id: 'readme',
-      label: 'README',
-      description: 'Documentação do projeto',
-      icon: 'readme',
-      to: { name: 'project-readme', params },
-      aliases: 'readme docs documentação',
-    }),
-  ];
+  );
 }
 
 export function buildCommandPaletteNavigationItems(
   projects: Project[],
   workspaces: Workspace[],
+  context?: CommandPaletteProjectContext,
 ): CommandPaletteNavigationItem[] {
   const globalItems: CommandPaletteNavigationItem[] = [
     item({
@@ -236,7 +141,7 @@ export function buildCommandPaletteNavigationItems(
         description: workspace.path,
         icon: 'workspace',
         mode: 'project',
-        to: { name: 'dashboard', hash: '#repositories' },
+        to: { name: 'dashboard', hash: '#overview' },
         workspaceId: workspace.id,
         aliases: `workspace ${workspace.id}`,
       }),
@@ -261,7 +166,9 @@ export function buildCommandPaletteNavigationItems(
       aliases: `${project.id} projeto ${project.type}`,
     }),
   );
-  const toolItems = sortedProjects.flatMap(buildProjectTools);
+  const toolItems = sortedProjects.flatMap((project) =>
+    buildProjectTools(project, context),
+  );
 
   return [...globalItems, ...workspaceItems, ...projectItems, ...toolItems];
 }

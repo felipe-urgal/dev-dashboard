@@ -12,8 +12,8 @@ const projectDetailsSource = readFileSync(
   resolve(webRoot, 'src/views/ProjectDetailsView.vue'),
   'utf8',
 );
-const moreToolsSource = readFileSync(
-  resolve(webRoot, 'src/components/ProjectDetailsMoreTools.vue'),
+const projectToolsSource = readFileSync(
+  resolve(webRoot, 'src/project-tools.ts'),
   'utf8',
 );
 const dedicatedSecurityView = resolve(
@@ -45,9 +45,9 @@ describe('shell do Security Center', () => {
   });
 
   it('mantém Segurança como aba do projeto', () => {
-    expect(moreToolsSource).toContain(
-      "route.name === 'project-security-center'",
+    expect(projectToolsSource).toContain(
+      "routeName: 'project-security-center'",
     );
-    expect(moreToolsSource).toContain('<span>Segurança</span>');
+    expect(projectToolsSource).toContain("label: 'Segurança'");
   });
 });
