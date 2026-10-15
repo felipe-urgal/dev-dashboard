@@ -13,7 +13,7 @@ const projectDetailsSource = readFileSync(
   'utf8',
 );
 const sidebarNavigationSource = readFileSync(
-  resolve(webRoot, 'src/components/ProjectSidebarNavigation.vue'),
+  resolve(webRoot, 'src/project-tools.ts'),
   'utf8',
 );
 const panelSource = readFileSync(
@@ -49,11 +49,10 @@ describe('Dev Container no shell do projeto', () => {
   });
 
   it('expõe criação e rebuild confirmados sem autoridade de execução arbitrária', () => {
-    expect(sidebarNavigationSource).toContain("'project-dev-container'");
-    expect(sidebarNavigationSource).toContain("label: 'Dev Container'");
-    expect(sidebarNavigationSource).toContain(
-      "projectRoute('project-dev-container', { environment: true })",
+    expect(sidebarNavigationSource).toMatch(
+      /routeName: 'project-dev-container'[\s\S]*?environmentAware: true/,
     );
+    expect(sidebarNavigationSource).toContain("label: 'Dev Container'");
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',
     );
@@ -79,8 +78,8 @@ describe('Dev Container no shell do projeto', () => {
   });
 
   it('leva a Environment Instance até o Terminal sem expor containerId no browser', () => {
-    expect(sidebarNavigationSource).toContain(
-      "projectRoute('project-terminal', { environment: true })",
+    expect(sidebarNavigationSource).toMatch(
+      /routeName: 'project-terminal'[\s\S]*?environmentAware: true/,
     );
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',

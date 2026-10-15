@@ -13,7 +13,7 @@ const projectDetailsSource = readFileSync(
   'utf8',
 );
 const sidebarSource = readFileSync(
-  resolve(webRoot, 'src/components/ProjectSidebarNavigation.vue'),
+  resolve(webRoot, 'src/project-tools.ts'),
   'utf8',
 );
 const panelSource = readFileSync(
@@ -39,14 +39,14 @@ describe('Docker Compose no shell do projeto', () => {
   it('expõe Compose como ferramenta do projeto', () => {
     expect(sidebarSource).toContain("id: 'compose'");
     expect(sidebarSource).toContain("label: 'Compose'");
-    expect(sidebarSource).toContain(
-      "to: projectRoute('project-compose', { environment: true })",
+    expect(sidebarSource).toMatch(
+      /routeName: 'project-compose'[\s\S]*?environmentAware: true/,
     );
   });
 
   it('preserva a Environment Instance na navegação e no painel', () => {
-    expect(sidebarSource).toContain(
-      "to: projectRoute('project-compose', { environment: true })",
+    expect(sidebarSource).toMatch(
+      /routeName: 'project-compose'[\s\S]*?environmentAware: true/,
     );
     expect(projectDetailsSource).toContain(
       ':environment-instance-id="environmentInstanceId"',

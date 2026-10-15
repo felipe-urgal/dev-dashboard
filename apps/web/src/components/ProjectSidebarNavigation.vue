@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue';
 import {
-  AdjustmentsHorizontalIcon,
   ArrowPathIcon,
   ArrowUpTrayIcon,
   ArrowUturnLeftIcon,
@@ -11,26 +10,26 @@ import {
   ChevronDownIcon,
   ClockIcon,
   ClipboardDocumentListIcon,
-  CircleStackIcon,
   CodeBracketIcon,
-  CommandLineIcon,
-  CpuChipIcon,
-  CubeIcon,
-  CubeTransparentIcon,
   DocumentDuplicateIcon,
-  DocumentTextIcon,
-  FolderIcon,
-  LockClosedIcon,
-  PlayCircleIcon,
-  QueueListIcon,
-  RocketLaunchIcon,
   ServerStackIcon,
   ShareIcon,
-  ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
 import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
+
+import { projectToolIcons } from '../project-tool-icons';
+import {
+  PROJECT_GIT_TABS,
+  PROJECT_TOOLS,
+  buildProjectToolRoute,
+  isProjectGitTabId,
+  listProjectTools,
+  type ProjectGitTabId,
+  type ProjectTool,
+  type ProjectToolGroup,
+} from '../project-tools';
 
 const props = defineProps<{
   project: Project;
@@ -46,7 +45,7 @@ const emit = defineEmits<{
 
 const route = useRoute();
 
-type SidebarGroupId = 'server' | 'git' | 'development' | 'quality';
+type SidebarGroupId = Exclude<ProjectToolGroup, 'direct'>;
 
 type SidebarItem = {
   id: string;
@@ -54,7 +53,7 @@ type SidebarItem = {
   icon?: Component;
   routeNames: string[];
   to: RouteLocationRaw;
-  gitTab?: string;
+  gitTab?: ProjectGitTabId;
 };
 
 type SidebarGroup = {
@@ -64,16 +63,23 @@ type SidebarGroup = {
   items: SidebarItem[];
 };
 
-const gitTabs = [
-  { id: 'sync', label: 'Sincronização', icon: ArrowPathIcon },
-  { id: 'branches', label: 'Branches', icon: ShareIcon },
-  { id: 'diff', label: 'Diff', icon: DocumentDuplicateIcon },
-  { id: 'commit', label: 'Commit', icon: CheckCircleIcon },
-  { id: 'undo', label: 'Desfazer', icon: ArrowUturnLeftIcon },
-  { id: 'issues', label: 'Issues', icon: ClipboardDocumentListIcon },
-  { id: 'pull-request', label: 'Pull Request', icon: ArrowUpTrayIcon },
-  { id: 'history', label: 'Histórico', icon: ClockIcon },
-] as const;
+const gitTabIcons: Record<ProjectGitTabId, Component> = {
+  sync: ArrowPathIcon,
+  branches: ShareIcon,
+  diff: DocumentDuplicateIcon,
+  commit: CheckCircleIcon,
+  undo: ArrowUturnLeftIcon,
+  issues: ClipboardDocumentListIcon,
+  'pull-request': ArrowUpTrayIcon,
+  history: ClockIcon,
+};
+
+const groupMeta: Record<SidebarGroupId, { label: string; icon: Component }> = {
+  server: { label: 'Servidor', icon: ServerStackIcon },
+  git: { label: 'Git', icon: CodeBracketIcon },
+  development: { label: 'Desenvolvimento', icon: BeakerIcon },
+  quality: { label: 'Qualidade', icon: CheckBadgeIcon },
+};
 
 const expandedGroups = ref<Record<SidebarGroupId, boolean>>({
   server: false,
@@ -82,244 +88,70 @@ const expandedGroups = ref<Record<SidebarGroupId, boolean>>({
   quality: false,
 });
 
-const environmentQuery = computed(() =>
-  props.environmentInstanceId
-    ? { environmentInstanceId: props.environmentInstanceId }
-    : undefined,
-);
-
-function projectRoute(
-  name: string,
-  options: {
-    environment?: boolean;
-    query?: Record<string, string>;
-  } = {},
-): RouteLocationRaw {
-  const query =
-    options.query ?? (options.environment ? environmentQuery.value : undefined);
-
+function toolItem(tool: ProjectTool): SidebarItem {
   return {
-    name,
-    params: { projectId: props.project.id },
-    ...(query ? { query } : {}),
+    id: tool.id,
+    label: tool.label,
+    icon: projectToolIcons[tool.icon],
+    routeNames: [tool.routeName, ...(tool.activeRouteNames ?? [])],
+    to: buildProjectToolRoute(
+      tool,
+      props.project.id,
+      props.environmentInstanceId,
+    ),
   };
 }
 
-const groups = computed<SidebarGroup[]>(() => [
-  {
-    id: 'server',
-    label: 'Servidor',
-    icon: ServerStackIcon,
-    items: [
-      ...(props.project.capabilities.includes('server')
-        ? [
-            {
-              id: 'server',
-              label: 'Servidor',
-              icon: ServerStackIcon,
-              routeNames: ['project-server', 'project-details'],
-              to: projectRoute('project-server', { environment: true }),
-            },
-          ]
-        : []),
-      {
-        id: 'terminal',
-        label: 'Terminal',
-        icon: CommandLineIcon,
-        routeNames: ['project-terminal'],
-        to: projectRoute('project-terminal', { environment: true }),
-      },
-      ...(props.project.type === 'rails'
-        ? [
-            {
-              id: 'console',
-              label: 'Console Rails',
-              icon: CommandLineIcon,
-              routeNames: ['project-console'],
-              to: projectRoute('project-console', { environment: true }),
-            },
-          ]
-        : []),
-      ...(props.project.type === 'rails' && props.sidekiqDetected
-        ? [
-            {
-              id: 'sidekiq',
-              label: 'Sidekiq',
-              icon: QueueListIcon,
-              routeNames: ['project-rails-sidekiq'],
-              to: projectRoute('project-rails-sidekiq', { environment: true }),
-            },
-          ]
-        : []),
-      ...(props.project.type === 'rails' && props.webpackDetected
-        ? [
-            {
-              id: 'webpack',
-              label: 'Webpack',
-              icon: CodeBracketIcon,
-              routeNames: ['project-rails-webpack'],
-              to: projectRoute('project-rails-webpack', { environment: true }),
-            },
-          ]
-        : []),
-    ],
-  },
-  {
-    id: 'git',
-    label: 'Git',
-    icon: CodeBracketIcon,
-    items: [
-      ...gitTabs.map((tab) => ({
-        id: `git-${tab.id}`,
-        label: tab.label,
-        icon: tab.icon,
-        routeNames: ['project-git'],
-        gitTab: tab.id,
-        to: projectRoute('project-git', { query: { tab: tab.id } }),
-      })),
-      ...(props.project.capabilities.includes('git')
-        ? [
-            {
-              id: 'worktrees',
-              label: 'Worktrees',
-              icon: FolderIcon,
-              routeNames: ['project-worktrees'],
-              to: projectRoute('project-worktrees'),
-            },
-          ]
-        : []),
-    ],
-  },
-  {
-    id: 'development',
-    label: 'Desenvolvimento',
-    icon: BeakerIcon,
-    items: [
-      {
-        id: 'tests',
-        label: 'Testes',
-        icon: BeakerIcon,
-        routeNames: ['project-tests'],
-        to: projectRoute('project-tests', { environment: true }),
-      },
-      ...(props.project.type === 'rails' || props.project.type === 'node'
-        ? [
-            {
-              id: 'dependencies',
-              label: 'Dependências',
-              icon: CubeIcon,
-              routeNames: ['project-dependencies'],
-              to: projectRoute('project-dependencies', { environment: true }),
-            },
-          ]
-        : []),
-      {
-        id: 'dev-container',
-        label: 'Dev Container',
-        icon: CubeTransparentIcon,
-        routeNames: ['project-dev-container'],
-        to: projectRoute('project-dev-container', { environment: true }),
-      },
-      {
-        id: 'compose',
-        label: 'Compose',
-        icon: ServerStackIcon,
-        routeNames: ['project-compose'],
-        to: projectRoute('project-compose', { environment: true }),
-      },
-      {
-        id: 'environment',
-        label: 'Variáveis de ambiente',
-        icon: AdjustmentsHorizontalIcon,
-        routeNames: ['project-environment'],
-        to: projectRoute('project-environment', { environment: true }),
-      },
-      {
-        id: 'migrations',
-        label: 'Migrations',
-        icon: CircleStackIcon,
-        routeNames: ['project-migrations'],
-        to: projectRoute('project-migrations', { environment: true }),
-      },
-    ],
-  },
-  {
-    id: 'quality',
-    label: 'Qualidade',
-    icon: CheckBadgeIcon,
-    items: [
-      {
-        id: 'local-ci',
-        label: 'Local CI',
-        icon: PlayCircleIcon,
-        routeNames: ['project-local-ci'],
-        to: projectRoute('project-local-ci'),
-      },
-      {
-        id: 'readiness',
-        label: 'Readiness',
-        icon: CheckBadgeIcon,
-        routeNames: ['project-readiness'],
-        to: projectRoute('project-readiness'),
-      },
-      {
-        id: 'security',
-        label: 'Segurança',
-        icon: LockClosedIcon,
-        routeNames: ['project-security-center'],
-        to: projectRoute('project-security-center'),
-      },
-      {
-        id: 'doctor',
-        label: 'Diagnóstico',
-        icon: ShieldCheckIcon,
-        routeNames: ['project-doctor'],
-        to: projectRoute('project-doctor', { environment: true }),
-      },
-    ],
-  },
-]);
+const visibleTools = computed(() =>
+  listProjectTools(props.project, {
+    sidekiqDetected: props.sidekiqDetected,
+    webpackDetected: props.webpackDetected,
+  }).filter((tool) => tool.sidebar !== false),
+);
 
-const directItems = computed<SidebarItem[]>(() => [
-  {
-    id: 'agent',
-    label: 'Agente',
-    icon: CpuChipIcon,
-    routeNames: ['project-agent'],
-    to: projectRoute('project-agent', { environment: true }),
-  },
-  ...(props.project.capabilities.includes('production')
-    ? [
-        {
-          id: 'production',
-          label: 'Produção',
-          icon: RocketLaunchIcon,
-          routeNames: ['project-production'],
-          to: projectRoute('project-production'),
-        },
-      ]
-    : []),
-  {
-    id: 'readme',
-    label: 'README',
-    icon: DocumentTextIcon,
-    routeNames: ['project-readme'],
-    to: projectRoute('project-readme'),
-  },
-]);
+const gitTool = PROJECT_TOOLS.find((tool) => tool.id === 'git');
+
+const groups = computed<SidebarGroup[]>(() =>
+  (Object.keys(groupMeta) as SidebarGroupId[]).map((id) => {
+    const tools = visibleTools.value.filter((tool) => tool.group === id);
+    const gitTabItems: SidebarItem[] =
+      id === 'git' && gitTool
+        ? PROJECT_GIT_TABS.map((tab) => ({
+            id: `git-${tab.id}`,
+            label: tab.label,
+            icon: gitTabIcons[tab.id],
+            routeNames: [gitTool.routeName],
+            gitTab: tab.id,
+            to: buildProjectToolRoute(
+              gitTool,
+              props.project.id,
+              props.environmentInstanceId,
+              { tab: tab.id },
+            ),
+          }))
+        : [];
+    return {
+      id,
+      ...groupMeta[id],
+      items: [...gitTabItems, ...tools.map(toolItem)],
+    };
+  }),
+);
+
+const directItems = computed<SidebarItem[]>(() =>
+  visibleTools.value.filter((tool) => tool.group === 'direct').map(toolItem),
+);
 
 const mobileItems = computed(() => [
   ...groups.value.flatMap((group) => group.items),
   ...directItems.value,
 ]);
 
-function currentGitTab(): string {
+function currentGitTab(): ProjectGitTabId {
   const value = Array.isArray(route.query.tab)
     ? route.query.tab[0]
     : route.query.tab;
-  return typeof value === 'string' && gitTabs.some((tab) => tab.id === value)
-    ? value
-    : 'sync';
+  return isProjectGitTabId(value) ? value : 'sync';
 }
 
 function isItemActive(item: SidebarItem): boolean {
