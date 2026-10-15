@@ -48,7 +48,9 @@ function postgresFactory(options: {
 }
 
 function mysqlFactory(options: {
-  onQuery: (sql: string) => { columns: string[]; rows: unknown[][] } | Promise<never>;
+  onQuery: (
+    sql: string,
+  ) => { columns: string[]; rows: unknown[][] } | Promise<never>;
   onControlQuery?: (sql: string) => void;
   onDestroy?: () => void;
   onConfig?: (config: Parameters<MysqlExplorerClientFactory>[0]) => void;
@@ -288,22 +290,29 @@ test('MySQL e MariaDB destroem a conexão ao cancelar a consulta', async () => {
   for (const driver of ['mysql', 'mariadb'] as const) {
     let destroyed = 0;
     let resolveStarted!: () => void;
-    const started = new Promise<void>((resolve) => { resolveStarted = resolve; });
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve;
+    });
     const adapter = new MysqlExplorerAdapter(
       mysqlFactory({
         onQuery: () => {
           resolveStarted();
           return new Promise<never>(() => undefined);
         },
-        onDestroy: () => { destroyed += 1; },
+        onDestroy: () => {
+          destroyed += 1;
+        },
       }),
     );
     const controller = new AbortController();
     const pending = adapter.query({ driver }, 'SELECT 1', controller.signal);
     await started;
     controller.abort();
-    await assert.rejects(pending, (error: unknown) =>
-      error instanceof DatabaseExplorerAdapterError && error.reason === 'aborted',
+    await assert.rejects(
+      pending,
+      (error: unknown) =>
+        error instanceof DatabaseExplorerAdapterError &&
+        error.reason === 'aborted',
     );
     assert.equal(destroyed, 1);
   }
@@ -318,13 +327,17 @@ test('timeout do driver interrompe operação pendente e encerra conexão', asyn
     let terminated = 0;
     const pending = runAbortableDatabaseOperation({
       operation: new Promise<never>(() => undefined),
-      terminate: () => { terminated += 1; },
+      terminate: () => {
+        terminated += 1;
+      },
     });
     clock.tick(DATABASE_QUERY_TIMEOUT_MS);
-    await assert.rejects(pending, (error: unknown) =>
-      error instanceof DatabaseExplorerAdapterError &&
-      error.reason === 'command-failed' &&
-      error.message.includes('15 segundos'),
+    await assert.rejects(
+      pending,
+      (error: unknown) =>
+        error instanceof DatabaseExplorerAdapterError &&
+        error.reason === 'command-failed' &&
+        error.message.includes('15 segundos'),
     );
     assert.equal(terminated, 1);
   } finally {
