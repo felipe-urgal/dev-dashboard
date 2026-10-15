@@ -20,6 +20,7 @@ test.describe('Banco de dados da máquina', () => {
     page,
   }) => {
     await gotoBootstrapped(page, '/database');
+    await page.getByRole('tab', { name: 'Explorador de dados' }).click();
 
     const trigger = page.getByRole('button', { name: 'Conectar a um serviço' });
     await trigger.focus();
@@ -162,6 +163,7 @@ test.describe('Banco de dados da máquina', () => {
     });
 
     await gotoBootstrapped(page, '/database');
+    await page.getByRole('tab', { name: 'Explorador de dados' }).click();
     await page.getByRole('button', { name: 'Conectar a um serviço' }).click();
     const connectionDialog = page.getByRole('dialog');
     await connectionDialog.locator('select').selectOption('mysql');
