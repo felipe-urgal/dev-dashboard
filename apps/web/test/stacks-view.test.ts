@@ -112,7 +112,11 @@ describe('Stacks multi-projeto', () => {
       '@click="acceptSuggestion(stack, suggestion)"',
     );
     expect(viewSource).not.toContain('Criar Stack');
-    expect(viewSource).not.toContain('Editar Stack');
-    expect(viewSource).not.toContain('Excluir Stack');
+    expect(viewSource).toContain('Editar Stack');
+    expect(viewSource).toContain('Excluir Stack');
+    expect(viewSource).toContain('await confirmDialog({');
+    expect(viewSource).toContain('await deleteStack(stack.id, revision)');
+    expect(viewSource).toContain('expectedRevision(stack.id)');
+    expect(apiSource).toContain("method: 'DELETE'");
   });
 });
