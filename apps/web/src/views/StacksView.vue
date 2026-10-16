@@ -23,6 +23,7 @@ import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import {
+  deleteStack,
   fetchStackCheck,
   fetchStackDependencySuggestions,
   fetchStackLogs,
@@ -68,6 +69,62 @@ function isStackBusy(stackId: string): boolean {
 }
 
 const errorMessage = ref('');
+const editingStackId = ref('');
+const editingName = ref('');
+
+function beginEdit(stack: Stack): void {
+  if (isStackBusy(stack.id)) return;
+  editingStackId.value = stack.id;
+  editingName.value = stack.name;
+}
+
+async function submitEdit(stack: Stack): Promise<void> {
+  if (isStackBusy(stack.id) || editingStackId.value !== stack.id) return;
+  const name = editingName.value.trim();
+  if (!name || name.length > 240) {
+    errorMessage.value = 'Informe um nome entre 1 e 240 caracteres.';
+    return;
+  }
+  actions.value = { ...actions.value, [stack.id]: 'edit' };
+  errorMessage.value = '';
+  try {
+    await saveStack({ ...stack, name }, expectedRevision(stack.id));
+    editingStackId.value = '';
+    await load();
+  } catch (error) {
+    errorMessage.value = diagnostic(error);
+  } finally {
+    const next = { ...actions.value };
+    delete next[stack.id];
+    actions.value = next;
+  }
+}
+
+async function confirmDelete(stack: Stack): Promise<void> {
+  if (isStackBusy(stack.id)) return;
+  const revision = expectedRevision(stack.id);
+  const confirmed = await confirmDialog({
+    title: `Excluir Stack "${stack.name}"?`,
+    message: `Esta ação exclui somente a definição da Stack e não remove os recursos gerenciados.\n\nConfirme a exclusão de ${stack.nodes.length} node(s).`,
+    confirmLabel: 'Excluir Stack',
+    tone: 'danger',
+  });
+  if (!confirmed || isStackBusy(stack.id)) return;
+  actions.value = { ...actions.value, [stack.id]: 'delete' };
+  errorMessage.value = '';
+  try {
+    await deleteStack(stack.id, revision);
+    if (editingStackId.value === stack.id) editingStackId.value = '';
+    await load();
+  } catch (error) {
+    errorMessage.value = diagnostic(error);
+  } finally {
+    const next = { ...actions.value };
+    delete next[stack.id];
+    actions.value = next;
+  }
+}
+
 
 const projectNameById = computed(
   () =>
@@ -560,6 +617,8 @@ onMounted(() => {
           </div>
 
           <div class="stack-actions">
+            <button class="stack-button" type="button" :disabled="isStackBusy(stack.id)" @click="beginEdit(stack)">Editar Stack</button>
+            <button class="stack-button stack-button-danger" type="button" :disabled="isStackBusy(stack.id)" @click="confirmDelete(stack)">Excluir Stack</button>
             <button
               class="stack-icon-button"
               type="button"
@@ -754,6 +813,12 @@ onMounted(() => {
           </article>
         </section>
 
+        <form v-if="editingStackId === stack.id" class="stack-edit-form" @submit.prevent="submitEdit(stack)">
+          <label :for="`stack-name-${stack.id}`">Nome da Stack</label>
+          <input :id="`stack-name-${stack.id}`" v-model="editingName" required maxlength="240" :disabled="isStackBusy(stack.id)" />
+          <button class="stack-button stack-button-primary" type="submit" :disabled="isStackBusy(stack.id)">Salvar</button>
+          <button class="stack-button" type="button" @click="editingStackId = ''">Cancelar</button>
+        </form>
         <div class="stack-node-list">
           <article
             v-for="node in stack.nodes"
@@ -927,6 +992,20 @@ onMounted(() => {
   background: var(--warning-surface);
 }
 
+.stack-edit-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.stack-edit-form input {
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text);
+}
 .stack-list {
   display: grid;
   gap: 12px;
