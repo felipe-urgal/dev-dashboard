@@ -179,7 +179,10 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   const removed = await app.inject({
     method: 'DELETE',
     url: '/api/stacks/local-stack',
-    headers: { 'x-dev-dashboard-token': TOKEN, 'content-type': 'application/json' },
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
     payload: { expectedRevision: revision },
   });
   assert.equal(removed.statusCode, 204);
@@ -654,7 +657,9 @@ test('Stack HTTP expõe snapshot parcial de logs sem inventar stream para Enviro
 });
 
 test('Stack mutation preconditions reject stale definitions without replacing or deleting the current Stack', async (context) => {
-  const stateDirectory = mkdtempSync(path.join(os.tmpdir(), 'dev-dashboard-stack-revision-'));
+  const stateDirectory = mkdtempSync(
+    path.join(os.tmpdir(), 'dev-dashboard-stack-revision-'),
+  );
   const appContext = createAppContext();
   registerApiProject(appContext);
   appContext.stackStore = new StackStore({ stateDirectory });
@@ -663,14 +668,24 @@ test('Stack mutation preconditions reject stale definitions without replacing or
     await app.close();
     rmSync(stateDirectory, { recursive: true, force: true });
   });
-  const headers = { 'x-dev-dashboard-token': TOKEN, 'content-type': 'application/json' };
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
   const original = stack();
-  const created = await app.inject({ method: 'PUT', url: '/api/stacks/local-stack', headers, payload: original });
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/local-stack',
+    headers,
+    payload: original,
+  });
   assert.equal(created.statusCode, 200);
   const stale = created.json<{ revision: string }>().revision;
   const updated = { ...original, name: 'Updated stack' };
   const edited = await app.inject({
-    method: 'PUT', url: '/api/stacks/local-stack', headers,
+    method: 'PUT',
+    url: '/api/stacks/local-stack',
+    headers,
     payload: { ...updated, expectedRevision: stale },
   });
   assert.equal(edited.statusCode, 200);
@@ -679,14 +694,23 @@ test('Stack mutation preconditions reject stale definitions without replacing or
 
   for (const method of ['PUT', 'DELETE'] as const) {
     const response = await app.inject({
-      method, url: '/api/stacks/local-stack', headers,
-      payload: method === 'PUT' ? { ...original, expectedRevision: stale } : { expectedRevision: stale },
+      method,
+      url: '/api/stacks/local-stack',
+      headers,
+      payload:
+        method === 'PUT'
+          ? { ...original, expectedRevision: stale }
+          : { expectedRevision: stale },
     });
     assert.equal(response.statusCode, 409);
     assert.equal(response.json<{ error: string }>().error, 'CONFLICT');
   }
 
-  const fetched = await app.inject({ method: 'GET', url: '/api/stacks/local-stack', headers });
+  const fetched = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/local-stack',
+    headers,
+  });
   assert.equal(fetched.json<{ stack: Stack }>().stack.name, 'Updated stack');
 
   for (const url of [
@@ -694,14 +718,26 @@ test('Stack mutation preconditions reject stale definitions without replacing or
     '/api/stacks/local-stack/stop',
     '/api/stacks/local-stack/nodes/postgres/restart',
   ]) {
-    const staleResponse = await app.inject({ method: 'POST', url, headers, payload: { expectedRevision: stale } });
+    const staleResponse = await app.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: { expectedRevision: stale },
+    });
     assert.equal(staleResponse.statusCode, 409, url);
-    const missingRevision = await app.inject({ method: 'POST', url, headers, payload: {} });
+    const missingRevision = await app.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: {},
+    });
     assert.equal(missingRevision.statusCode, 400, url);
   }
 
   const removed = await app.inject({
-    method: 'DELETE', url: '/api/stacks/local-stack', headers,
+    method: 'DELETE',
+    url: '/api/stacks/local-stack',
+    headers,
     payload: { expectedRevision: current },
   });
   assert.equal(removed.statusCode, 204);

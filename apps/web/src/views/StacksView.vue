@@ -42,7 +42,10 @@ const stacks = ref<Stack[]>([]);
 const revisions = ref<Record<string, string>>({});
 function expectedRevision(stackId: string): string {
   const revision = revisions.value[stackId];
-  if (!revision) throw new Error('Revisão indisponível. Atualize a Stack antes de executar uma ação.');
+  if (!revision)
+    throw new Error(
+      'Revisão indisponível. Atualize a Stack antes de executar uma ação.',
+    );
   return revision;
 }
 
@@ -346,10 +349,13 @@ async function acceptSuggestion(
   };
   errorMessage.value = '';
   try {
-    const saved = await saveStack({
-      ...stack,
-      dependencies: [...stack.dependencies, suggestion.dependency],
-    }, expectedRevision(stack.id));
+    const saved = await saveStack(
+      {
+        ...stack,
+        dependencies: [...stack.dependencies, suggestion.dependency],
+      },
+      expectedRevision(stack.id),
+    );
     replaceStack(saved);
     await load();
 
@@ -406,7 +412,9 @@ async function confirmStop(stack: Stack): Promise<void> {
   });
   if (!confirmed) return;
 
-  void mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id, expectedRevision(stack.id)));
+  void mutate(stack.id, `stop-${stack.id}`, () =>
+    stopStack(stack.id, expectedRevision(stack.id)),
+  );
 }
 
 async function removeDependency(
@@ -427,10 +435,13 @@ async function removeDependency(
   };
   errorMessage.value = '';
   try {
-    const saved = await saveStack({
-      ...stack,
-      dependencies: stack.dependencies.filter((item) => item !== dependency),
-    }, expectedRevision(stack.id));
+    const saved = await saveStack(
+      {
+        ...stack,
+        dependencies: stack.dependencies.filter((item) => item !== dependency),
+      },
+      expectedRevision(stack.id),
+    );
     replaceStack(saved);
     await load();
     const [check, discovery] = await Promise.all([
@@ -816,7 +827,11 @@ onMounted(() => {
                 :disabled="isStackBusy(stack.id)"
                 @click="
                   mutate(stack.id, `restart-${stack.id}-${node.id}`, () =>
-                    restartStackNode(stack.id, node.id, expectedRevision(stack.id)),
+                    restartStackNode(
+                      stack.id,
+                      node.id,
+                      expectedRevision(stack.id),
+                    ),
                   )
                 "
               >

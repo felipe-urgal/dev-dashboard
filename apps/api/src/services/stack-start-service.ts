@@ -34,10 +34,17 @@ export class StackStartService {
     },
   ) {}
 
-  public async start(stackId: string, expectedRevision?: string): Promise<StackStartResult> {
+  public async start(
+    stackId: string,
+    expectedRevision?: string,
+  ): Promise<StackStartResult> {
     let check = await this.dependencies.stackCheckService.check(stackId);
     if (expectedRevision && stackRevision(check.stack) !== expectedRevision) {
-      throw new ApiError({ statusCode: 409, code: 'CONFLICT', message: 'Stack definition changed. Refresh the Stack before retrying.' });
+      throw new ApiError({
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'Stack definition changed. Refresh the Stack before retrying.',
+      });
     }
     const steps: StackStartStep[] = [];
 

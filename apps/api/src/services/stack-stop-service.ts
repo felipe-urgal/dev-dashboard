@@ -40,10 +40,17 @@ export class StackStopService {
     },
   ) {}
 
-  public async stop(stackId: string, expectedRevision?: string): Promise<StackStopResult> {
+  public async stop(
+    stackId: string,
+    expectedRevision?: string,
+  ): Promise<StackStopResult> {
     let check = await this.dependencies.stackCheckService.check(stackId);
     if (expectedRevision && stackRevision(check.stack) !== expectedRevision) {
-      throw new ApiError({ statusCode: 409, code: 'CONFLICT', message: 'Stack definition changed. Refresh the Stack before retrying.' });
+      throw new ApiError({
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'Stack definition changed. Refresh the Stack before retrying.',
+      });
     }
     const steps: StackStopStep[] = [];
 

@@ -47,7 +47,9 @@ function stackUrl(stackId: string, suffix = ''): string {
   return `/api/stacks/${encodeURIComponent(stackId)}${suffix}`;
 }
 
-export async function fetchStacks(signal?: AbortSignal): Promise<StackListResponse> {
+export async function fetchStacks(
+  signal?: AbortSignal,
+): Promise<StackListResponse> {
   const response = await requestJson<StackListResponse>(
     '/api/stacks',
     signal ? { signal } : {},
@@ -55,11 +57,17 @@ export async function fetchStacks(signal?: AbortSignal): Promise<StackListRespon
   return response;
 }
 
-export async function saveStack(stack: Stack, expectedRevision?: string): Promise<Stack> {
+export async function saveStack(
+  stack: Stack,
+  expectedRevision?: string,
+): Promise<Stack> {
   const response = await requestJson<StackResponse>(stackUrl(stack.id), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...stack, ...(expectedRevision ? { expectedRevision } : {}) }),
+    body: JSON.stringify({
+      ...stack,
+      ...(expectedRevision ? { expectedRevision } : {}),
+    }),
   });
   return response.stack;
 }
@@ -86,7 +94,10 @@ export async function fetchStackCheck(
   return response.check;
 }
 
-export async function startStack(stackId: string, expectedRevision: string): Promise<StackStartResult> {
+export async function startStack(
+  stackId: string,
+  expectedRevision: string,
+): Promise<StackStartResult> {
   const response = await requestJson<StackStartResponse>(
     stackUrl(stackId, '/start'),
     {
@@ -98,7 +109,10 @@ export async function startStack(stackId: string, expectedRevision: string): Pro
   return response.result;
 }
 
-export async function stopStack(stackId: string, expectedRevision: string): Promise<StackStopResult> {
+export async function stopStack(
+  stackId: string,
+  expectedRevision: string,
+): Promise<StackStopResult> {
   const response = await requestJson<StackStopResponse>(
     stackUrl(stackId, '/stop'),
     {

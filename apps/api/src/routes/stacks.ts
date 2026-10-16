@@ -42,9 +42,18 @@ interface Options extends FastifyPluginOptions {
   stackStopService: Pick<StackStopService, 'stop'>;
 }
 
-interface RevisionBody { expectedRevision: string }
+interface RevisionBody {
+  expectedRevision: string;
+}
 
-const revisionBodySchema = { type: 'object', additionalProperties: false, required: ['expectedRevision'], properties: { expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' } } } as const;
+const revisionBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['expectedRevision'],
+  properties: {
+    expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  },
+} as const;
 
 interface StackParams {
   stackId: string;
@@ -354,7 +363,12 @@ const stackRestartResultSchema = {
 
 function requireRevision(actual: Stack | null, expected: string): void {
   if (!actual || stackRevision(actual) !== expected) {
-    throw new ApiError({ statusCode: 409, code: 'CONFLICT', message: 'Stack definition changed or was deleted. Refresh the Stack and review its topology before retrying.' });
+    throw new ApiError({
+      statusCode: 409,
+      code: 'CONFLICT',
+      message:
+        'Stack definition changed or was deleted. Refresh the Stack and review its topology before retrying.',
+    });
   }
 }
 
@@ -581,7 +595,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     async (request) => {
       try {
         return {
-          result: await options.stackStartService.start(request.params.stackId, request.body.expectedRevision),
+          result: await options.stackStartService.start(
+            request.params.stackId,
+            request.body.expectedRevision,
+          ),
         };
       } catch (error) {
         throw mapStackError(error);
@@ -609,7 +626,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     async (request) => {
       try {
         return {
-          result: await options.stackStopService.stop(request.params.stackId, request.body.expectedRevision),
+          result: await options.stackStopService.stop(
+            request.params.stackId,
+            request.body.expectedRevision,
+          ),
         };
       } catch (error) {
         throw mapStackError(error);
@@ -657,7 +677,13 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
     {
       schema: {
         params: stackParamsSchema,
-        body: { ...stackSchema, properties: { ...stackSchema.properties, expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' } } },
+        body: {
+          ...stackSchema,
+          properties: {
+            ...stackSchema.properties,
+            expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          },
+        },
         response: {
           200: {
             type: 'object',
@@ -679,13 +705,16 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       }
 
       try {
-        const existing = options.stackDefinitionService.findById(request.params.stackId);
+        const existing = options.stackDefinitionService.findById(
+          request.params.stackId,
+        );
         if (existing) {
           requireRevision(existing, request.body.expectedRevision ?? '');
         } else if (request.body.expectedRevision !== undefined) {
           requireRevision(null, request.body.expectedRevision);
         }
-        const { expectedRevision: _expectedRevision, ...definition } = request.body;
+        const { expectedRevision: _expectedRevision, ...definition } =
+          request.body;
         const stack = options.stackDefinitionService.save(definition);
         return { stack, revision: stackRevision(stack) };
       } catch (error) {
@@ -707,7 +736,10 @@ export const stackRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request, reply) => {
-      requireRevision(options.stackDefinitionService.findById(request.params.stackId), request.body.expectedRevision);
+      requireRevision(
+        options.stackDefinitionService.findById(request.params.stackId),
+        request.body.expectedRevision,
+      );
       if (!options.stackDefinitionService.delete(request.params.stackId)) {
         throw new ApiError({
           statusCode: 404,
