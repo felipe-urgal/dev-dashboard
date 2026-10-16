@@ -306,6 +306,7 @@ async function refreshStack(stackId: string): Promise<void> {
     discoveries.value = nextDiscoveries;
     checkErrors.value = nextCheckErrors;
     discoveryErrors.value = nextDiscoveryErrors;
+    await load();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
