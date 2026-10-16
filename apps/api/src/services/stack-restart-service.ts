@@ -1,3 +1,6 @@
+import { ApiError } from '../http/api-error.js';
+import { stackRevision } from './stack-revision.js';
+
 import type { StackCheck, StackRestartResult } from '@dev-dashboard/contracts';
 
 import type { DevelopmentEnvironmentInstanceStore } from '../store/development-environment-instance-store.js';
@@ -30,8 +33,16 @@ export class StackRestartService {
   public async restart(
     stackId: string,
     nodeId: string,
+    expectedRevision?: string,
   ): Promise<StackRestartResult> {
     let check = await this.dependencies.stackCheckService.check(stackId);
+    if (expectedRevision && stackRevision(check.stack) !== expectedRevision) {
+      throw new ApiError({
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'Stack definition changed. Refresh the Stack before retrying.',
+      });
+    }
     const node = check.stack.nodes.find((candidate) => candidate.id === nodeId);
 
     if (!node) {

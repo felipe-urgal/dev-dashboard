@@ -12,6 +12,7 @@ import { requestJson } from './core';
 
 interface StackListResponse {
   stacks: Stack[];
+  revisions: Record<string, string>;
 }
 
 interface StackCheckResponse {
@@ -46,19 +47,27 @@ function stackUrl(stackId: string, suffix = ''): string {
   return `/api/stacks/${encodeURIComponent(stackId)}${suffix}`;
 }
 
-export async function fetchStacks(signal?: AbortSignal): Promise<Stack[]> {
+export async function fetchStacks(
+  signal?: AbortSignal,
+): Promise<StackListResponse> {
   const response = await requestJson<StackListResponse>(
     '/api/stacks',
     signal ? { signal } : {},
   );
-  return response.stacks;
+  return response;
 }
 
-export async function saveStack(stack: Stack): Promise<Stack> {
+export async function saveStack(
+  stack: Stack,
+  expectedRevision?: string,
+): Promise<Stack> {
   const response = await requestJson<StackResponse>(stackUrl(stack.id), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(stack),
+    body: JSON.stringify({
+      ...stack,
+      ...(expectedRevision ? { expectedRevision } : {}),
+    }),
   });
   return response.stack;
 }
@@ -85,25 +94,31 @@ export async function fetchStackCheck(
   return response.check;
 }
 
-export async function startStack(stackId: string): Promise<StackStartResult> {
+export async function startStack(
+  stackId: string,
+  expectedRevision: string,
+): Promise<StackStartResult> {
   const response = await requestJson<StackStartResponse>(
     stackUrl(stackId, '/start'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ expectedRevision }),
     },
   );
   return response.result;
 }
 
-export async function stopStack(stackId: string): Promise<StackStopResult> {
+export async function stopStack(
+  stackId: string,
+  expectedRevision: string,
+): Promise<StackStopResult> {
   const response = await requestJson<StackStopResponse>(
     stackUrl(stackId, '/stop'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ expectedRevision }),
     },
   );
   return response.result;
@@ -112,13 +127,14 @@ export async function stopStack(stackId: string): Promise<StackStopResult> {
 export async function restartStackNode(
   stackId: string,
   nodeId: string,
+  expectedRevision: string,
 ): Promise<StackRestartResult> {
   const response = await requestJson<StackRestartResponse>(
     stackUrl(stackId, `/nodes/${encodeURIComponent(nodeId)}/restart`),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ expectedRevision }),
     },
   );
   return response.result;

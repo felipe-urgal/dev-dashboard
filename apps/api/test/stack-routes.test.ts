@@ -13,6 +13,7 @@ import type {
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
 import { StackStore } from '../src/store/stack-store.js';
+import { stackRevision } from '../src/services/stack-revision.js';
 
 const TOKEN = 's'.repeat(64);
 
@@ -170,7 +171,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     method: 'PUT',
     url: '/api/stacks/local-stack',
     headers,
-    payload: cyclic,
+    payload: { ...cyclic, expectedRevision: revision },
   });
   assert.equal(rejected.statusCode, 409);
   assert.equal(rejected.json<{ error: string }>().error, 'CONFLICT');
@@ -178,7 +179,11 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   const removed = await app.inject({
     method: 'DELETE',
     url: '/api/stacks/local-stack',
-    headers: { 'x-dev-dashboard-token': TOKEN },
+    headers: {
+      'x-dev-dashboard-token': TOKEN,
+      'content-type': 'application/json',
+    },
+    payload: { expectedRevision: revision },
   });
   assert.equal(removed.statusCode, 204);
 
@@ -241,7 +246,16 @@ test('Stack HTTP recusa referências de projeto que o backend não conhece', asy
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: invalid,
+    payload: {
+      ...invalid,
+      ...(appContext.stackStore.findById('local-stack')
+        ? {
+            expectedRevision: stackRevision(
+              appContext.stackStore.findById('local-stack')!,
+            ),
+          }
+        : {}),
+    },
   });
 
   assert.equal(response.statusCode, 404);
@@ -287,7 +301,7 @@ test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (
     method: 'POST',
     url: '/api/stacks/environment-stack/stop',
     headers,
-    payload: {},
+    payload: { expectedRevision: stackRevision(environmentOnly) },
   });
   assert.equal(stopped.statusCode, 200);
   const result = stopped.json<{
@@ -343,7 +357,7 @@ test('Stack HTTP bloqueia restart de node sem adapter mutável seguro', async (c
     method: 'POST',
     url: '/api/stacks/process-stack/nodes/api-process/restart',
     headers,
-    payload: {},
+    payload: { expectedRevision: stackRevision(processStack) },
   });
   assert.equal(restarted.statusCode, 200);
   const result = restarted.json<{
@@ -474,7 +488,10 @@ test('Stack HTTP sugere depends_on Compose sem persistir antes da confirmação 
     method: 'PUT',
     url: '/api/stacks/compose-stack',
     headers,
-    payload: confirmedStack,
+    payload: {
+      ...confirmedStack,
+      expectedRevision: stackRevision(composeStack),
+    },
   });
   assert.equal(confirmed.statusCode, 200);
   assert.deepEqual(
@@ -649,4 +666,91 @@ test('Stack HTTP expõe snapshot parcial de logs sem inventar stream para Enviro
     [['api-environment', 'unsupported', 'none']],
   );
   assert.match(logs.nodes[0]?.diagnostic ?? '', /Environment/);
+});
+
+test('Stack mutation preconditions reject stale definitions without replacing or deleting the current Stack', async (context) => {
+  const stateDirectory = mkdtempSync(
+    path.join(os.tmpdir(), 'dev-dashboard-stack-revision-'),
+  );
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  appContext.stackStore = new StackStore({ stateDirectory });
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => {
+    await app.close();
+    rmSync(stateDirectory, { recursive: true, force: true });
+  });
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+  const original = stack();
+  const created = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/local-stack',
+    headers,
+    payload: original,
+  });
+  assert.equal(created.statusCode, 200);
+  const stale = created.json<{ revision: string }>().revision;
+  const updated = { ...original, name: 'Updated stack' };
+  const edited = await app.inject({
+    method: 'PUT',
+    url: '/api/stacks/local-stack',
+    headers,
+    payload: { ...updated, expectedRevision: stale },
+  });
+  assert.equal(edited.statusCode, 200);
+  const current = edited.json<{ revision: string }>().revision;
+  assert.notEqual(current, stale);
+
+  for (const method of ['PUT', 'DELETE'] as const) {
+    const response = await app.inject({
+      method,
+      url: '/api/stacks/local-stack',
+      headers,
+      payload:
+        method === 'PUT'
+          ? { ...original, expectedRevision: stale }
+          : { expectedRevision: stale },
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<{ error: string }>().error, 'CONFLICT');
+  }
+
+  const fetched = await app.inject({
+    method: 'GET',
+    url: '/api/stacks/local-stack',
+    headers,
+  });
+  assert.equal(fetched.json<{ stack: Stack }>().stack.name, 'Updated stack');
+
+  for (const url of [
+    '/api/stacks/local-stack/start',
+    '/api/stacks/local-stack/stop',
+    '/api/stacks/local-stack/nodes/postgres/restart',
+  ]) {
+    const staleResponse = await app.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: { expectedRevision: stale },
+    });
+    assert.equal(staleResponse.statusCode, 409, url);
+    const missingRevision = await app.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: {},
+    });
+    assert.equal(missingRevision.statusCode, 400, url);
+  }
+
+  const removed = await app.inject({
+    method: 'DELETE',
+    url: '/api/stacks/local-stack',
+    headers,
+    payload: { expectedRevision: current },
+  });
+  assert.equal(removed.statusCode, 204);
 });

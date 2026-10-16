@@ -1,3 +1,6 @@
+import { ApiError } from '../http/api-error.js';
+import { stackRevision } from './stack-revision.js';
+
 import type {
   ManagedProcess,
   StackCheck,
@@ -37,8 +40,18 @@ export class StackStopService {
     },
   ) {}
 
-  public async stop(stackId: string): Promise<StackStopResult> {
+  public async stop(
+    stackId: string,
+    expectedRevision?: string,
+  ): Promise<StackStopResult> {
     let check = await this.dependencies.stackCheckService.check(stackId);
+    if (expectedRevision && stackRevision(check.stack) !== expectedRevision) {
+      throw new ApiError({
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'Stack definition changed. Refresh the Stack before retrying.',
+      });
+    }
     const steps: StackStopStep[] = [];
 
     for (const nodeId of check.topology.stopOrder) {

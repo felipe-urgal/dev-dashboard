@@ -39,6 +39,16 @@ import { dashboardStore } from '../stores/dashboard';
 import { confirmDialog } from '../stores/app-dialog';
 
 const stacks = ref<Stack[]>([]);
+const revisions = ref<Record<string, string>>({});
+function expectedRevision(stackId: string): string {
+  const revision = revisions.value[stackId];
+  if (!revision)
+    throw new Error(
+      'Revisão indisponível. Atualize a Stack antes de executar uma ação.',
+    );
+  return revision;
+}
+
 const checks = ref(new Map<string, StackCheck>());
 const discoveries = ref(new Map<string, StackDependencyDiscovery>());
 const checkErrors = ref(new Map<string, string>());
@@ -217,8 +227,10 @@ async function load(): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
   try {
-    const definitions = await fetchStacks();
+    const response = await fetchStacks();
+    const definitions = response.stacks;
     stacks.value = definitions;
+    revisions.value = response.revisions;
 
     const [checkResults, discoveryResults] = await Promise.all([
       Promise.allSettled(definitions.map((stack) => fetchStackCheck(stack.id))),
@@ -297,6 +309,7 @@ async function refreshStack(stackId: string): Promise<void> {
     discoveries.value = nextDiscoveries;
     checkErrors.value = nextCheckErrors;
     discoveryErrors.value = nextDiscoveryErrors;
+    await load();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -336,11 +349,15 @@ async function acceptSuggestion(
   };
   errorMessage.value = '';
   try {
-    const saved = await saveStack({
-      ...stack,
-      dependencies: [...stack.dependencies, suggestion.dependency],
-    });
+    const saved = await saveStack(
+      {
+        ...stack,
+        dependencies: [...stack.dependencies, suggestion.dependency],
+      },
+      expectedRevision(stack.id),
+    );
     replaceStack(saved);
+    await load();
 
     const [check, discovery] = await Promise.all([
       fetchStackCheck(saved.id),
@@ -395,7 +412,9 @@ async function confirmStop(stack: Stack): Promise<void> {
   });
   if (!confirmed) return;
 
-  void mutate(stack.id, `stop-${stack.id}`, () => stopStack(stack.id));
+  void mutate(stack.id, `stop-${stack.id}`, () =>
+    stopStack(stack.id, expectedRevision(stack.id)),
+  );
 }
 
 async function removeDependency(
@@ -416,11 +435,15 @@ async function removeDependency(
   };
   errorMessage.value = '';
   try {
-    const saved = await saveStack({
-      ...stack,
-      dependencies: stack.dependencies.filter((item) => item !== dependency),
-    });
+    const saved = await saveStack(
+      {
+        ...stack,
+        dependencies: stack.dependencies.filter((item) => item !== dependency),
+      },
+      expectedRevision(stack.id),
+    );
     replaceStack(saved);
+    await load();
     const [check, discovery] = await Promise.all([
       fetchStackCheck(stack.id),
       fetchStackDependencySuggestions(stack.id),
@@ -451,6 +474,7 @@ async function mutate(
   try {
     const result = await callback();
     setCheck(result.check);
+    await load();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -574,7 +598,7 @@ onMounted(() => {
               :disabled="isStackBusy(stack.id)"
               @click="
                 mutate(stack.id, `start-${stack.id}`, () =>
-                  startStack(stack.id),
+                  startStack(stack.id, expectedRevision(stack.id)),
                 )
               "
             >
@@ -803,7 +827,11 @@ onMounted(() => {
                 :disabled="isStackBusy(stack.id)"
                 @click="
                   mutate(stack.id, `restart-${stack.id}-${node.id}`, () =>
-                    restartStackNode(stack.id, node.id),
+                    restartStackNode(
+                      stack.id,
+                      node.id,
+                      expectedRevision(stack.id),
+                    ),
                   )
                 "
               >
