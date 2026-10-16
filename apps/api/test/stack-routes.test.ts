@@ -171,7 +171,7 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
     method: 'PUT',
     url: '/api/stacks/local-stack',
     headers,
-    payload: cyclic,
+    payload: { ...cyclic, expectedRevision: revision },
   });
   assert.equal(rejected.statusCode, 409);
   assert.equal(rejected.json<{ error: string }>().error, 'CONFLICT');
