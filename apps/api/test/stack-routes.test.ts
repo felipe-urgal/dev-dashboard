@@ -246,7 +246,7 @@ test('Stack HTTP recusa referências de projeto que o backend não conhece', asy
       'x-dev-dashboard-token': TOKEN,
       'content-type': 'application/json',
     },
-    payload: invalid,
+    payload: { ...invalid, ...(appContext.stackStore.findById('local-stack') ? { expectedRevision: stackRevision(appContext.stackStore.findById('local-stack')!) } : {}) },
   });
 
   assert.equal(response.statusCode, 404);
@@ -479,7 +479,7 @@ test('Stack HTTP sugere depends_on Compose sem persistir antes da confirmação 
     method: 'PUT',
     url: '/api/stacks/compose-stack',
     headers,
-    payload: confirmedStack,
+    payload: { ...confirmedStack, expectedRevision: stackRevision(composeStack) },
   });
   assert.equal(confirmed.statusCode, 200);
   assert.deepEqual(
