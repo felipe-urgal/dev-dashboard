@@ -69,6 +69,44 @@ function isStackBusy(stackId: string): boolean {
 }
 
 const errorMessage = ref('');
+const cloningStackId = ref('');
+const cloneName = ref('');
+
+function beginClone(stack: Stack): void {
+  if (isStackBusy(stack.id)) return;
+  cloningStackId.value = stack.id;
+  cloneName.value = `${stack.name} (cópia)`;
+}
+
+async function submitClone(stack: Stack): Promise<void> {
+  if (isStackBusy(stack.id) || cloningStackId.value !== stack.id) return;
+  const name = cloneName.value.trim();
+  if (!name || name.length > 240) {
+    errorMessage.value = 'Informe um nome entre 1 e 240 caracteres.';
+    return;
+  }
+  actions.value = { ...actions.value, [stack.id]: 'clone' };
+  errorMessage.value = '';
+  try {
+    // Reuse only previously resolved resources; never accept browser-supplied commands or paths.
+    const copy: Stack = {
+      id: crypto.randomUUID(),
+      name,
+      nodes: stack.nodes.map((node) => ({ ...node, target: { ...node.target } })),
+      dependencies: stack.dependencies.map((dependency) => ({ ...dependency })),
+    };
+    await saveStack(copy);
+    cloningStackId.value = '';
+    await load();
+  } catch (error) {
+    errorMessage.value = diagnostic(error);
+  } finally {
+    const next = { ...actions.value };
+    delete next[stack.id];
+    actions.value = next;
+  }
+}
+
 const editingStackId = ref('');
 const editingName = ref('');
 
@@ -616,6 +654,7 @@ onMounted(() => {
           </div>
 
           <div class="stack-actions">
+            <button class="stack-button" type="button" :disabled="isStackBusy(stack.id)" @click="beginClone(stack)">Criar Stack a partir desta</button>
             <button
               class="stack-button"
               type="button"
