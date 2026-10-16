@@ -652,3 +652,57 @@ test('Stack HTTP expõe snapshot parcial de logs sem inventar stream para Enviro
   );
   assert.match(logs.nodes[0]?.diagnostic ?? '', /Environment/);
 });
+
+test('Stack mutation preconditions reject stale definitions without replacing or deleting the current Stack', async (context) => {
+  const stateDirectory = mkdtempSync(path.join(os.tmpdir(), 'dev-dashboard-stack-revision-'));
+  const appContext = createAppContext();
+  registerApiProject(appContext);
+  appContext.stackStore = new StackStore({ stateDirectory });
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => {
+    await app.close();
+    rmSync(stateDirectory, { recursive: true, force: true });
+  });
+  const headers = { 'x-dev-dashboard-token': TOKEN, 'content-type': 'application/json' };
+  const original = stack();
+  const created = await app.inject({ method: 'PUT', url: '/api/stacks/local-stack', headers, payload: original });
+  assert.equal(created.statusCode, 200);
+  const stale = created.json<{ revision: string }>().revision;
+  const updated = { ...original, name: 'Updated stack' };
+  const edited = await app.inject({
+    method: 'PUT', url: '/api/stacks/local-stack', headers,
+    payload: { ...updated, expectedRevision: stale },
+  });
+  assert.equal(edited.statusCode, 200);
+  const current = edited.json<{ revision: string }>().revision;
+  assert.notEqual(current, stale);
+
+  for (const method of ['PUT', 'DELETE'] as const) {
+    const response = await app.inject({
+      method, url: '/api/stacks/local-stack', headers,
+      payload: method === 'PUT' ? { ...original, expectedRevision: stale } : { expectedRevision: stale },
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<{ error: string }>().error, 'CONFLICT');
+  }
+
+  const fetched = await app.inject({ method: 'GET', url: '/api/stacks/local-stack', headers });
+  assert.equal(fetched.json<{ stack: Stack }>().stack.name, 'Updated stack');
+
+  for (const url of [
+    '/api/stacks/local-stack/start',
+    '/api/stacks/local-stack/stop',
+    '/api/stacks/local-stack/nodes/postgres/restart',
+  ]) {
+    const staleResponse = await app.inject({ method: 'POST', url, headers, payload: { expectedRevision: stale } });
+    assert.equal(staleResponse.statusCode, 409, url);
+    const missingRevision = await app.inject({ method: 'POST', url, headers, payload: {} });
+    assert.equal(missingRevision.statusCode, 400, url);
+  }
+
+  const removed = await app.inject({
+    method: 'DELETE', url: '/api/stacks/local-stack', headers,
+    payload: { expectedRevision: current },
+  });
+  assert.equal(removed.statusCode, 204);
+});
