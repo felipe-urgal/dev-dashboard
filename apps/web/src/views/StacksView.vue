@@ -125,7 +125,6 @@ async function confirmDelete(stack: Stack): Promise<void> {
   }
 }
 
-
 const projectNameById = computed(
   () =>
     new Map(
@@ -617,8 +616,22 @@ onMounted(() => {
           </div>
 
           <div class="stack-actions">
-            <button class="stack-button" type="button" :disabled="isStackBusy(stack.id)" @click="beginEdit(stack)">Editar Stack</button>
-            <button class="stack-button stack-button-danger" type="button" :disabled="isStackBusy(stack.id)" @click="confirmDelete(stack)">Excluir Stack</button>
+            <button
+              class="stack-button"
+              type="button"
+              :disabled="isStackBusy(stack.id)"
+              @click="beginEdit(stack)"
+            >
+              Editar Stack
+            </button>
+            <button
+              class="stack-button stack-button-danger"
+              type="button"
+              :disabled="isStackBusy(stack.id)"
+              @click="confirmDelete(stack)"
+            >
+              Excluir Stack
+            </button>
             <button
               class="stack-icon-button"
               type="button"
@@ -813,11 +826,33 @@ onMounted(() => {
           </article>
         </section>
 
-        <form v-if="editingStackId === stack.id" class="stack-edit-form" @submit.prevent="submitEdit(stack)">
+        <form
+          v-if="editingStackId === stack.id"
+          class="stack-edit-form"
+          @submit.prevent="submitEdit(stack)"
+        >
           <label :for="`stack-name-${stack.id}`">Nome da Stack</label>
-          <input :id="`stack-name-${stack.id}`" v-model="editingName" required maxlength="240" :disabled="isStackBusy(stack.id)" />
-          <button class="stack-button stack-button-primary" type="submit" :disabled="isStackBusy(stack.id)">Salvar</button>
-          <button class="stack-button" type="button" @click="editingStackId = ''">Cancelar</button>
+          <input
+            :id="`stack-name-${stack.id}`"
+            v-model="editingName"
+            required
+            maxlength="240"
+            :disabled="isStackBusy(stack.id)"
+          />
+          <button
+            class="stack-button stack-button-primary"
+            type="submit"
+            :disabled="isStackBusy(stack.id)"
+          >
+            Salvar
+          </button>
+          <button
+            class="stack-button"
+            type="button"
+            @click="editingStackId = ''"
+          >
+            Cancelar
+          </button>
         </form>
         <div class="stack-node-list">
           <article

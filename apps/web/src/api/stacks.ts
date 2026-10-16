@@ -151,7 +151,10 @@ export async function fetchStackLogs(
   return response.logs;
 }
 
-export async function deleteStack(stackId: string, expectedRevision: string): Promise<void> {
+export async function deleteStack(
+  stackId: string,
+  expectedRevision: string,
+): Promise<void> {
   await requestJson<void>(stackUrl(stackId), {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
