@@ -92,7 +92,10 @@ async function submitClone(stack: Stack): Promise<void> {
     const copy: Stack = {
       id: crypto.randomUUID(),
       name,
-      nodes: stack.nodes.map((node) => ({ ...node, target: { ...node.target } })),
+      nodes: stack.nodes.map((node) => ({
+        ...node,
+        target: { ...node.target },
+      })),
       dependencies: stack.dependencies.map((dependency) => ({ ...dependency })),
     };
     await saveStack(copy);
@@ -654,7 +657,14 @@ onMounted(() => {
           </div>
 
           <div class="stack-actions">
-            <button class="stack-button" type="button" :disabled="isStackBusy(stack.id)" @click="beginClone(stack)">Criar Stack a partir desta</button>
+            <button
+              class="stack-button"
+              type="button"
+              :disabled="isStackBusy(stack.id)"
+              @click="beginClone(stack)"
+            >
+              Criar Stack a partir desta
+            </button>
             <button
               class="stack-button"
               type="button"
