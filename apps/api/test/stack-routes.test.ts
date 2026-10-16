@@ -13,6 +13,7 @@ import type {
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
 import { StackStore } from '../src/store/stack-store.js';
+import { stackRevision } from '../src/services/stack-revision.js';
 
 const TOKEN = 's'.repeat(64);
 
@@ -178,7 +179,8 @@ test('Stack HTTP expõe CRUD autenticado e valida a topologia antes de persistir
   const removed = await app.inject({
     method: 'DELETE',
     url: '/api/stacks/local-stack',
-    headers: { 'x-dev-dashboard-token': TOKEN },
+    headers: { 'x-dev-dashboard-token': TOKEN, 'content-type': 'application/json' },
+    payload: { expectedRevision: revision },
   });
   assert.equal(removed.statusCode, 204);
 
@@ -287,7 +289,7 @@ test('Stack HTTP expõe stop coordenado sem mutar Environment Instance', async (
     method: 'POST',
     url: '/api/stacks/environment-stack/stop',
     headers,
-    payload: {},
+    payload: { expectedRevision: stackRevision(environmentOnly) },
   });
   assert.equal(stopped.statusCode, 200);
   const result = stopped.json<{
@@ -343,7 +345,7 @@ test('Stack HTTP bloqueia restart de node sem adapter mutável seguro', async (c
     method: 'POST',
     url: '/api/stacks/process-stack/nodes/api-process/restart',
     headers,
-    payload: {},
+    payload: { expectedRevision: stackRevision(processStack) },
   });
   assert.equal(restarted.statusCode, 200);
   const result = restarted.json<{
