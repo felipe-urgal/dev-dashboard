@@ -111,7 +111,9 @@ describe('Stacks multi-projeto', () => {
     expect(viewSource).toContain(
       '@click="acceptSuggestion(stack, suggestion)"',
     );
-    expect(viewSource).not.toContain('Criar Stack');
+    expect(viewSource).toContain('Criar Stack a partir desta');
+    expect(viewSource).toContain('await saveStack(copy)');
+    expect(viewSource).toContain('crypto.randomUUID()');
     expect(viewSource).toContain('Editar Stack');
     expect(viewSource).toContain('Excluir Stack');
     expect(viewSource).toContain('await confirmDialog({');
