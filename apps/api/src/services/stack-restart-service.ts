@@ -33,6 +33,7 @@ export class StackRestartService {
   public async restart(
     stackId: string,
     nodeId: string,
+    expectedRevision?: string,
   ): Promise<StackRestartResult> {
     let check = await this.dependencies.stackCheckService.check(stackId);
     if (expectedRevision && stackRevision(check.stack) !== expectedRevision) {
